@@ -221,6 +221,8 @@ class ThreeRenderer {
 }
 
 function start() {
+    const hot = module.hot && module.hot.data && module.hot.data.hotState || {};
+
     const room = new Room();
     const observer = new Observer(window.innerWidth, window.innerHeight);
     const box = new Box();
@@ -230,15 +232,30 @@ function start() {
     observer.actMoveTo(new THREE.Vector3(0, 2, -5));
     observer.actRotateTo(new THREE.Vector3(0, 1, 0), Math.PI);
 
-    const renderer = new ThreeRenderer();
+    const renderer = hot.renderer || new ThreeRenderer();
 
-    function frame() {
-        room.renderTree(renderer);
-        renderer.threeRenderer.render(room.scene, observer.camera);
-        window.requestAnimationFrame(frame);
+    let angle = hot.angle || 0;
+    function animate() {
+        box.actRotateTo(new THREE.Vector3(0, 1, 0), angle += 0.01);
     }
 
-    window.requestAnimationFrame(frame);
+    let loop = window.requestAnimationFrame(frame);
+    function frame() {
+        animate();
+        room.renderTree(renderer);
+        renderer.threeRenderer.render(room.scene, observer.camera);
+        loop = window.requestAnimationFrame(frame);
+    }
+
+    //if (module.hot) module.hot.dispose(() => location.reload());
+    if (module.hot) {
+        module.hot.dispose(hotData => {
+            window.cancelAnimationFrame(loop);
+            room.dispose();
+            observer.dispose();
+            hotData.hotState = { renderer, angle };
+        });
+    }
 }
 
 start();
