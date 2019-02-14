@@ -17,7 +17,7 @@ class CObject {
         Subscribers.set(this, {});
     }
 
-    // ACTIONS 
+    // ACTIONS
     //   The only place where state shall be modified.
     //   Prefixed with 'act' to distinguish them from normal methods
 
@@ -84,6 +84,7 @@ class SpatialObject extends CObject {
     actRotateTo(axis, angle) {
         this.state.quaternion.setFromAxisAngle(axis, angle);
     }
+
 
     // RENDERING
 
