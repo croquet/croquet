@@ -17,7 +17,7 @@ class CObject {
         Subscribers.set(this, {});
     }
 
-    // ACTIONS 
+    // ACTIONS
     //   The only place where state shall be modified.
     //   Prefixed with 'act' to distinguish them from normal methods
 
@@ -98,6 +98,7 @@ class SpatialObject extends CObject {
         this.state.quaternion.copy(quaternion);
         this.publish("rotated", this.state.quaternion.clone());
     }
+
 
     // RENDERING
 
@@ -227,7 +228,7 @@ class Avatar extends SpatialObject {
 
 class Pointer extends VisualObject {
     constructor() {
-        
+
     }
 }
 
@@ -246,15 +247,15 @@ class PointerEventManager {
     }
 
     doRaycast(scene) {
-        if (this.grabbedObject) { 
+        if (this.grabbedObject) {
 
         } else {
             for (let intersection of this.raycaster.intersectObject(scene, true)) {
                 const {point, object: threeObj} = intersection;
                 const object = threeObj.userData.croquetObject;
-    
+
                 if (object) {
-    
+
                 }
             }
         }
@@ -294,6 +295,8 @@ class ThreeRenderer {
 }
 
 function start() {
+    const hot = module.hot && module.hot.data && module.hot.data.hotState || {};
+
     const room = new Room();
 
     const observer = new Observer(window.innerWidth, window.innerHeight);
@@ -312,15 +315,22 @@ function start() {
     initialRotation.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
     avatar.actRotateTo(initialRotation);
 
-    const renderer = new ThreeRenderer();
+    const renderer = hot.renderer || new ThreeRenderer();
 
-    function frame() {
-        room.renderTree(renderer);
-        renderer.threeRenderer.render(room.scene, observer.camera);
-        window.requestAnimationFrame(frame);
+    let angle = hot.angle || 0;
+    function animate() {
+        const boxRotation = new THREE.Quaternion();
+        boxRotation.setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle += 0.01);
+        box.actRotateTo(boxRotation);
     }
 
-    window.requestAnimationFrame(frame);
+    let loop = window.requestAnimationFrame(frame);
+    function frame() {
+        animate();
+        room.renderTree(renderer);
+        renderer.threeRenderer.render(room.scene, observer.camera);
+        loop = window.requestAnimationFrame(frame);
+    }
 
     document.addEventListener("keydown", keyEvent => {
         if (keyEvent.keyCode == '38') { // up arrow
@@ -345,6 +355,16 @@ function start() {
             avatar.actSetXVelocity(0);
         }
     });
+
+    //if (module.hot) module.hot.dispose(() => location.reload());
+    if (module.hot) {
+        module.hot.dispose(hotData => {
+            window.cancelAnimationFrame(loop);
+            room.dispose();
+            observer.dispose();
+            hotData.hotState = { renderer, angle };
+        });
+    }
 }
 
 start();
