@@ -33,6 +33,12 @@ class CObject {
         child.publish(HierarchyEvents.removedAsChild, this);
     }
 
+    // FUTURE
+    //   Allows sending actions to a future self
+    future(ms, callback) {
+        window.setTimeout(callback, ms);
+    }
+
     // PUBLISH / SUBSCRIBE SYSTEM
     //   CObjects act as a scope for publish/subscribe message passing
     //   Ideally, all inter-object communication should use this mechanism
@@ -55,6 +61,11 @@ class CObject {
     }
 }
 
+const SpatialEvents = {
+    moved: "moved",
+    rotated: "rotated"
+}
+
 class SpatialObject extends CObject {
     constructor(position=new THREE.Vector3(0, 0, 0), quaternion=new THREE.Quaternion(), scale=new THREE.Vector3(1, 1, 1)) {
         super();
@@ -72,17 +83,20 @@ class SpatialObject extends CObject {
     /** @arg {THREE.Vector3} position */
     actMoveTo(position) {
         this.state.position.copy(position);
+        this.publish("moved", this.state.position.clone());
     }
 
     /** @arg {THREE.Vector3} delta */
     actMoveBy(delta) {
         this.state.position.add(delta);
+        this.publish("moved", this.state.position.clone());
     }
 
     /** @arg {THREE.Vector3} axis */
     /** @arg {number} angle */
-    actRotateTo(axis, angle) {
-        this.state.quaternion.setFromAxisAngle(axis, angle);
+    actRotateTo(quaternion) {
+        this.state.quaternion.copy(quaternion);
+        this.publish("rotated", this.state.quaternion.clone());
     }
 
     // RENDERING
@@ -111,19 +125,18 @@ class SpatialObject extends CObject {
 /** @typedef {{type: "Up", from: THREE.Vector3, to: THREE.Vector3, pointer: THREE.Vector3}} PointerUpEvent */
 /** @typedef {PointerEnterEvent | PointerMoveEvent | PointerDownEvent | PointerDragEvent | PointerUpEvent} PointerEvent */
 
-class Object3D extends SpatialObject {
+class VisualObject extends SpatialObject {
     /** @arg {THREE.Object3D} threeObj */
     constructor(threeObj, position=new THREE.Vector3(0, 0, 0), quaternion=new THREE.Quaternion(), scale=new THREE.Vector3(1, 1, 1)) {
         super(position, quaternion, scale);
         this.threeObj = threeObj;
         this.visible = true;
-        threeObj.userData = this;
+        threeObj.userData.croquetObject = this;
         this.subscribe(HierarchyEvents.addedAsChild, parent => {
             if (parent.getThreeObj) parent.getThreeObj().add(threeObj);
         });
         this.subscribe(HierarchyEvents.removedAsChild, parent => {
             if (parent.getThreeObj) parent.getThreeObj().remove(threeObj);
-            this.dispose();
         });
     }
 
@@ -138,7 +151,6 @@ class Object3D extends SpatialObject {
     }
 
     /** Override this to dispose any THREE resources that need it.
-     *  Gets called when an object is removed from its parent
      *  @abstract */
     dispose() {}
 
@@ -152,7 +164,7 @@ class Object3D extends SpatialObject {
     }
 }
 
-class Room extends Object3D {
+class Room extends VisualObject {
     constructor(size=new THREE.Vector3(20, 20, 20), color=new THREE.Color("#dddddd")) {
         const scene = new THREE.Scene();
         super(scene);
@@ -167,7 +179,7 @@ class Room extends Object3D {
     }
 }
 
-class Floor extends Object3D {
+class Floor extends VisualObject {
     constructor(size) {
         const grid = new THREE.GridHelper(size.x, size.x, new THREE.Color("#aaaaaa"));
         const plane = new THREE.Mesh(
@@ -188,7 +200,68 @@ class Floor extends Object3D {
     }
 }
 
-class Box extends Object3D {
+class Avatar extends SpatialObject {
+    constructor() {
+        super();
+        this.state = {velocity: new THREE.Vector3(0, 0, 0), ...this.state};
+    }
+
+    // ACTIONS
+    actSetXVelocity(newXVelocity) {
+        if (this.state.velocity.length() == 0) this.future(1000/60, () => this.actMoveTick());
+        this.state.velocity.x = newXVelocity;
+    }
+
+    actSetZVelocity(newZVelocity) {
+        if (this.state.velocity.length() == 0) this.future(1000/60, () => this.actMoveTick());
+        this.state.velocity.z = newZVelocity;
+    }
+
+    actMoveTick() {
+        if (this.state.velocity.length() > 0) {
+            this.actMoveBy(this.state.velocity.clone().multiplyScalar(1/60));
+            this.future(1000/60, () => this.actMoveTick());
+        }
+    }
+}
+
+class Pointer extends VisualObject {
+    constructor() {
+        
+    }
+}
+
+class PointerEventManager {
+    constructor() {
+        this.raycaster = new THREE.Raycaster(
+            new THREE.Vector3(0, 0, 0),
+            new THREE.Vector3(0, 0, 1),
+            0.1,
+            1000
+        );
+        this.hoveredObject = null;
+        this.grabbedObject = null;
+        this.grabStart = null;
+        this.grabProjectionPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+    }
+
+    doRaycast(scene) {
+        if (this.grabbedObject) { 
+
+        } else {
+            for (let intersection of this.raycaster.intersectObject(scene, true)) {
+                const {point, object: threeObj} = intersection;
+                const object = threeObj.userData.croquetObject;
+    
+                if (object) {
+    
+                }
+            }
+        }
+    }
+}
+
+class Box extends VisualObject {
     constructor() {
         const box = new THREE.Mesh(
             new THREE.BoxBufferGeometry(1, 1, 1),
@@ -204,7 +277,7 @@ class Box extends Object3D {
     }
 }
 
-class Observer extends Object3D {
+class Observer extends VisualObject {
     constructor(viewportWidth, viewportHeight) {
         const camera = new THREE.PerspectiveCamera(75, viewportWidth/viewportHeight, 0.1, 1000);
         super(camera);
@@ -222,13 +295,22 @@ class ThreeRenderer {
 
 function start() {
     const room = new Room();
+
     const observer = new Observer(window.innerWidth, window.innerHeight);
-    const box = new Box();
+    const avatar = new Avatar();
+    avatar.subscribe(SpatialEvents.moved, newPosition => observer.actMoveTo(newPosition.clone().add(new THREE.Vector3(0, 2, 0))));
+    avatar.subscribe(SpatialEvents.rotated, newQuaternion => observer.actRotateTo(newQuaternion));
+
     room.actAddChild(observer);
+    room.actAddChild(avatar);
+
+    const box = new Box();
     room.actAddChild(box);
 
-    observer.actMoveTo(new THREE.Vector3(0, 2, -5));
-    observer.actRotateTo(new THREE.Vector3(0, 1, 0), Math.PI);
+    avatar.actMoveTo(new THREE.Vector3(0, 0, -5));
+    const initialRotation = new THREE.Quaternion();
+    initialRotation.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
+    avatar.actRotateTo(initialRotation);
 
     const renderer = new ThreeRenderer();
 
@@ -239,6 +321,30 @@ function start() {
     }
 
     window.requestAnimationFrame(frame);
+
+    document.addEventListener("keydown", keyEvent => {
+        if (keyEvent.keyCode == '38') { // up arrow
+            avatar.actSetZVelocity(0.8);
+        } else if (keyEvent.keyCode == '40') { // down arrow
+            avatar.actSetZVelocity(-0.8);
+        } else if (keyEvent.keyCode == '37') { // left arrow
+            avatar.actSetXVelocity(0.8);
+        } else if (keyEvent.keyCode == '39') { // right arrow
+            avatar.actSetXVelocity(-0.8);
+        }
+    });
+
+    document.addEventListener("keyup", keyEvent => {
+        if (keyEvent.keyCode == '38') { // up arrow
+            avatar.actSetZVelocity(0);
+        } else if (keyEvent.keyCode == '40') { // down arrow
+            avatar.actSetZVelocity(0);
+        } else if (keyEvent.keyCode == '37') { // left arrow
+            avatar.actSetXVelocity(0);
+        } else if (keyEvent.keyCode == '39') { // right arrow
+            avatar.actSetXVelocity(0);
+        }
+    });
 }
 
 start();
