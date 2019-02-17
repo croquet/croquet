@@ -1,370 +1,453 @@
 import * as THREE from 'three';
 
-// Store subscriptions to per-object events in a WeakMap
-// so we don't accidentally leak memory by referencing objects in callbacks only
-// that are otherwise already completely removed
-const Subscribers = new WeakMap();
+function uuidv4() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
 
-const HierarchyEvents = {
-    addedAsChild: "addedAsChild",
-    removedAsChild: "removedAsChild"
-};
-
-class CObject {
+// This is kind of a rough mock of what I expect TeaTime to provide
+// plus additional bookeeping "around" an island replica to make uniform
+// pub/sub between models and views possible.
+class IslandReplica {
     constructor() {
-        /** Holds all "model" state that will be persisted/distributed in the future */
-        this.state = {children: new Set()};
-        Subscribers.set(this, {});
+        this.modelsById = {};
+        this.viewsById = {};
+        // Models can only subscribe to other model events
+        // Views can subscribe to model or other view events
+        this.modelSubscriptions = {};
+        this.viewSubscriptions = {};
     }
 
-    // ACTIONS
-    //   The only place where state shall be modified.
-    //   Prefixed with 'act' to distinguish them from normal methods
-
-    /** @arg {CObject} child */
-    actAddChild(child) {
-        this.state.children.add(child);
-        child.publish(HierarchyEvents.addedAsChild, this);
+    registerModel(model) {
+        const id = uuidv4();
+        this.modelsById[id] = model;
+        return id;
     }
 
-    /** @arg {CObject} child */
-    actRemoveChild(child) {
-        this.state.children.delete(child);
-        child.publish(HierarchyEvents.removedAsChild, this);
+    deregisterModel(id) {
+        delete this.modelsById[id];
     }
 
-    // FUTURE
-    //   Allows sending actions to a future self
-    future(ms, callback) {
-        window.setTimeout(callback, ms);
+    registerView(view) {
+        const id = uuidv4();
+        this.viewsById[id] = view;
+        return id;
     }
 
-    // PUBLISH / SUBSCRIBE SYSTEM
-    //   CObjects act as a scope for publish/subscribe message passing
-    //   Ideally, all inter-object communication should use this mechanism
-    //   Subscription callbacks can
-    //     - call actions on the *subscribing* object to modify its state
-    //     - change view state on the *subscribing* object
-    //     - publish new events within the scope of the subscribing object,
-    //       or any other scope it knows about
-
-    subscribe(event, listener) {
-        if (Subscribers.get(this)[event] === undefined) Subscribers.get(this)[event] = [];
-        Subscribers.get(this)[event].push(listener);
+    deregisterView(id) {
+        delete this.viewsById[id];
     }
 
-    publish(event, data) {
-        const callbacks = Subscribers.get(this)[event] || [];
-        for (let callback of callbacks) {
-            callback(data);
-        }
-    }
-}
-
-const SpatialEvents = {
-    moved: "moved",
-    rotated: "rotated"
-}
-
-class SpatialObject extends CObject {
-    constructor(position=new THREE.Vector3(0, 0, 0), quaternion=new THREE.Quaternion(), scale=new THREE.Vector3(1, 1, 1)) {
-        super();
-        this.state = {position, quaternion, scale, ...this.state};
-    }
-
-    // METHODS
-
-    getExtent() {
-        return new THREE.Vector3(1, 1, 1);
-    }
-
-    // ACTIONS
-
-    /** @arg {THREE.Vector3} position */
-    actMoveTo(position) {
-        this.state.position.copy(position);
-        this.publish("moved", this.state.position.clone());
-    }
-
-    /** @arg {THREE.Vector3} delta */
-    actMoveBy(delta) {
-        this.state.position.add(delta);
-        this.publish("moved", this.state.position.clone());
-    }
-
-    /** @arg {THREE.Vector3} axis */
-    /** @arg {number} angle */
-    actRotateTo(quaternion) {
-        this.state.quaternion.copy(quaternion);
-        this.publish("rotated", this.state.quaternion.clone());
-    }
-
-
-    // RENDERING
-
-    /** Should *read only* from `this.state`,
-     *  can modify any other instance variables that represent view state.
-     *  @abstract
-     *  @arg {ThreeRenderer} renderer
-     */
-    render(renderer) {}
-
-    /** This only gets called on the top-level object,
-     *  override {@link VisualObject#render} to implement */
-    renderTree(renderer) {
-        this.render(renderer);
-        for (let child of this.state.children) {
-            child.renderTree(renderer);
-        }
-    }
-}
-
-/** @typedef {{type: "Enter", at: THREE.Vector3, pointer: THREE.Vector3}} PointerEnterEvent */
-/** @typedef {{type: "Move", at: THREE.Vector3, pointer: THREE.Vector3}} PointerMoveEvent */
-/** @typedef {{type: "Down", from: THREE.Vector3, pointer: THREE.Vector3}} PointerDownEvent */
-/** @typedef {{type: "Drag", from: THREE.Vector3, to: THREE.Vector3, pointer: THREE.Vector3}} PointerDragEvent */
-/** @typedef {{type: "Up", from: THREE.Vector3, to: THREE.Vector3, pointer: THREE.Vector3}} PointerUpEvent */
-/** @typedef {PointerEnterEvent | PointerMoveEvent | PointerDownEvent | PointerDragEvent | PointerUpEvent} PointerEvent */
-
-class VisualObject extends SpatialObject {
-    /** @arg {THREE.Object3D} threeObj */
-    constructor(threeObj, position=new THREE.Vector3(0, 0, 0), quaternion=new THREE.Quaternion(), scale=new THREE.Vector3(1, 1, 1)) {
-        super(position, quaternion, scale);
-        this.threeObj = threeObj;
-        this.visible = true;
-        threeObj.userData.croquetObject = this;
-        this.subscribe(HierarchyEvents.addedAsChild, parent => {
-            if (parent.getThreeObj) parent.getThreeObj().add(threeObj);
-        });
-        this.subscribe(HierarchyEvents.removedAsChild, parent => {
-            if (parent.getThreeObj) parent.getThreeObj().remove(threeObj);
-        });
-    }
-
-    // METHODS
-
-    setVisible(visible) {
-        this.visible = visible;
-    }
-
-    getThreeObj() {
-        return this.threeObj;
-    }
-
-    /** Override this to dispose any THREE resources that need it.
-     *  @abstract */
-    dispose() {}
-
-    // RENDERING
-
-    render(_renderer) {
-        this.threeObj.visible = this.visible;
-        this.threeObj.position.copy(this.state.position);
-        this.threeObj.quaternion.copy(this.state.quaternion);
-        this.threeObj.scale.copy(this.state.scale);
-    }
-}
-
-class Room extends VisualObject {
-    constructor(size=new THREE.Vector3(20, 20, 20), color=new THREE.Color("#dddddd")) {
-        const scene = new THREE.Scene();
-        super(scene);
-        this.state = {size, color, ...this.state};
-        this.scene = scene;
-        this.actAddChild(new Floor(size));
-    }
-
-
-    render(renderer) {
-        renderer.threeRenderer.setClearColor(this.state.color);
-    }
-}
-
-class Floor extends VisualObject {
-    constructor(size) {
-        const grid = new THREE.GridHelper(size.x, size.x, new THREE.Color("#aaaaaa"));
-        const plane = new THREE.Mesh(
-            new THREE.PlaneBufferGeometry(size.x, size.y, 10, 10),
-            new THREE.MeshBasicMaterial({color: new THREE.Color("#cccccc")})
-        );
-        const gridAndPlane = new THREE.Group();
-        gridAndPlane.add(grid);
-        gridAndPlane.add(plane);
-        super(gridAndPlane);
-        this.grid = grid;
-        this.plane = plane;
-    }
-
-    dispose() {
-        this.plane.material.dispose();
-        this.plane.geometry.dispose();
-    }
-}
-
-class Avatar extends SpatialObject {
-    constructor() {
-        super();
-        this.state = {velocity: new THREE.Vector3(0, 0, 0), ...this.state};
-    }
-
-    // ACTIONS
-    actSetXVelocity(newXVelocity) {
-        if (this.state.velocity.length() == 0) this.future(1000/60, () => this.actMoveTick());
-        this.state.velocity.x = newXVelocity;
-    }
-
-    actSetZVelocity(newZVelocity) {
-        if (this.state.velocity.length() == 0) this.future(1000/60, () => this.actMoveTick());
-        this.state.velocity.z = newZVelocity;
-    }
-
-    actMoveTick() {
-        if (this.state.velocity.length() > 0) {
-            this.actMoveBy(this.state.velocity.clone().multiplyScalar(1/60));
-            this.future(1000/60, () => this.actMoveTick());
-        }
-    }
-}
-
-class Pointer extends VisualObject {
-    constructor() {
-
-    }
-}
-
-class PointerEventManager {
-    constructor() {
-        this.raycaster = new THREE.Raycaster(
-            new THREE.Vector3(0, 0, 0),
-            new THREE.Vector3(0, 0, 1),
-            0.1,
-            1000
-        );
-        this.hoveredObject = null;
-        this.grabbedObject = null;
-        this.grabStart = null;
-        this.grabProjectionPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
-    }
-
-    doRaycast(scene) {
-        if (this.grabbedObject) {
-
+    // This will become in-directed via the Reflector
+    callModelMethod(modelId, method, tOffset, ...args) {
+        if (tOffset) {
+            window.setTimeout(() => this.callModelMethod(modelId, method, ...args), tOffset)
         } else {
-            for (let intersection of this.raycaster.intersectObject(scene, true)) {
-                const {point, object: threeObj} = intersection;
-                const object = threeObj.userData.croquetObject;
+            const model = this.modelsById[modelId];
+            model[method].apply(model, args);
+        }
+    }
 
-                if (object) {
+    addModelSubscription(scope, event, subscriberId, methodName) {
+        const topic = scope + ":" + event;
+        const handler = subscriberId + "#" + methodName;
+        if (!this.modelSubscriptions[topic]) this.modelSubscriptions[topic] = new Set();
+        this.modelSubscriptions[topic].add(handler);
+    }
 
-                }
+    removeModelSubscription(scope, event, subscriberId, methodName) {
+        const topic = scope + ":" + event;
+        const handler = subscriberId + "#" + methodName;
+        this.modelSubscriptions[topic] && this.modelSubscriptions[topic].remove(handler);
+    }
+
+    addViewSubscription(scope, event, subscriberId, methodName) {
+        const topic = scope + ":" + event;
+        const handler = subscriberId + "#" + methodName;
+        if (!this.viewSubscriptions[topic]) this.viewSubscriptions[topic] = new Set();
+        this.viewSubscriptions[topic].add(handler);
+    }
+
+    removeViewSubscription(scope, event, subscriberId, methodName) {
+        const topic = scope + ":" + event;
+        const handler = subscriberId + "#" + methodName;
+        this.viewSubscriptions[topic] && this.viewSubscriptions[topic].remove(handler);
+    }
+
+    publishFromModel(scope, event, data, tOffset) {
+        const topic = scope + ":" + event;
+        if (this.modelSubscriptions[topic]) {
+            for (let handler of this.modelSubscriptions[topic]) {
+                const [subscriberId, method] = handler.split("#");
+                DummyReflector.call(subscriberId, method, tOffset, data);
+            }
+        }
+        // This is essentially the only part of code inside a model that is not executed bit-identically
+        // everywhere, since different view might be subscribed in different island replicas
+        if (this.viewSubscriptions[topic]) {
+            for (let handler of this.viewSubscriptions[topic]) {
+                const [subscriberId, method] = handler.split("#");
+                const view = this.viewsById[subscriberId];
+                view[method].call(view, data);
+            }
+        }
+    }
+
+    publishFromView(scope, event, data) {
+        const topic = scope + ":" + event;
+        // Events published by views can only reach other views
+        if (this.viewSubscriptions[topic]) {
+            for (let handler of modelSubscriptions[topic]) {
+                const [subscriberId, method] = handler.split("#");
+                const view = this.viewsById[subscriberId];
+                view[method].call(view, data);
             }
         }
     }
 }
 
-class Box extends VisualObject {
-    constructor() {
-        const box = new THREE.Mesh(
+const ModelEvents = {
+    destroyed: "model-destroyed"
+}
+
+class Model {
+    // LIFECYCLE
+    /** @arg {IslandReplica} island */
+    constructor(island) {
+        this.island = island;
+        this.id = island.registerModel(this);
+    }
+
+    destroy() {
+        this.publish(ModelEvents.destroyed);
+        this.island.deregisterModel(this.id);
+    }
+
+    // FUTURE
+    future(tOffset=0) {
+        return new Proxy(this, {
+            get(target, property) {
+                if (typeof target[property] === "function") {
+                    const methodProxy = new Proxy(target[property], {
+                        apply(targetMethod, _, args) {
+                            window.setTimeout(() => {
+                                targetMethod.apply(target, args);
+                            }, tOffset);
+                        }
+                    });
+                    return methodProxy;
+                } else {
+                    throw "Tried to call " + property + "() on future of " + Object.getPrototypeOf(target).constructor.name + " which is not a function";
+                }
+            }
+        })
+    }
+
+    // PUB/SUB
+    subscribe(scope, event, methodName) {
+        this.island.addModelSubscription(scope, event, this.id, methodName);
+    }
+
+    unsubscribe(scope, event, methodName) {
+        this.island.removeModelSubscription(scope, event, this.id, methodName);
+    }
+
+    publish(event, data, tOffset=0, scope=this.id) {
+        this.island.publishFromModel(scope, event, data, tOffset);
+    }
+
+    // NATURAL VIEW
+    /** @abstract */
+    naturalViewClass(viewContext) {}
+}
+
+class View {
+    // LIFECYCLE
+    /** @arg {IslandReplica} island */
+    constructor(island) {
+        this.island = island;
+        this.id = island.registerView(this);
+    }
+
+    /** @abstract */
+    attach(modelState) {}
+    /** @abstract */
+    detach() {}
+
+    // PUB/SUB
+    subscribe(scope, event, methodName) {
+        this.island.addViewSubscription(scope, event, this.id, methodName);
+    }
+
+    unsubscribe(scope, event, methodName) {
+        this.island.removeViewSubscription(scope, event, this.id, methodName);
+    }
+
+    publish(event, data, scope=this.id) {
+        this.island.publishFromView(scope, event, data);
+    }
+}
+
+const SpatialEvents = {
+    moved: "spatial-moved",
+    rotated: "spatial-rotated"
+};
+
+class SpatialModel extends Model {
+    constructor(island, position=new THREE.Vector3(0, 0, 0), quaternion=new THREE.Quaternion(), scale=new THREE.Vector3(1, 1, 1)) {
+        super(island);
+        this.position = position;
+        this.quaternion = quaternion;
+        this.scale = scale;
+    }
+
+    /** @arg {THREE.Vector3} position */
+    moveTo(position) {
+        this.position.copy(position);
+        this.publish(SpatialEvents.moved, this.position.clone());
+    }
+
+    /** @arg {THREE.Vector3} delta */
+    moveBy(delta) {
+        this.position.add(delta);
+        this.publish(SpatialEvents.moved, this.position.clone());
+    }
+
+    rotateTo(quaternion) {
+        this.quaternion.copy(quaternion);
+        this.publish(SpatialEvents.rotated, this.quaternion.clone());
+    }
+
+    rotateBy(deltaQuaternion) {
+        this.quaternion.multiply(deltaQuaternion);
+        this.publish(SpatialEvents.rotated, this.quaternion.clone());
+    }
+}
+
+class Object3DView extends View {
+    /** @abstract */
+    createThreeObject(_modelState) {
+        return new THREE.Mesh(
             new THREE.BoxBufferGeometry(1, 1, 1),
             new THREE.MeshBasicMaterial({color: new THREE.Color("#ff0000")})
         );
-        super(box);
-        this.box = box;
     }
 
-    dispose() {
-        this.box.material.dispose();
-        this.box.geometry.dispose();
+    attach(modelState) {
+        this.threeObj = this.createThreeObject(modelState);
+        this.threeObj.position.copy(modelState.position);
+        this.threeObj.quaternion.copy(modelState.quaternion);
+        this.threeObj.scale.copy(modelState.scale);
+
+        this.subscribe(modelState.id, SpatialEvents.moved, "onMoved");
+        this.subscribe(modelState.id, SpatialEvents.rotated, "onRotated");
+    }
+
+    detach() {
+        this.unsubscribe(modelState.id. SpatialEvents.moved, "onMoved");
+        this.unsubscribe(modelState.id. SpatialEvents.rotated, "onRotated");
+        this.dispose();
+    }
+
+    /** @abstract */
+    dispose() {}
+
+    onMoved(newPosition) {
+        this.threeObj.position.copy(newPosition);
+    }
+
+    onRotated(newQuaternion) {
+        this.threeObj.quaternion.copy(newQuaternion);
     }
 }
 
-class Observer extends VisualObject {
-    constructor(viewportWidth, viewportHeight) {
-        const camera = new THREE.PerspectiveCamera(75, viewportWidth/viewportHeight, 0.1, 1000);
-        super(camera);
-        this.camera = camera;
+const RoomEvents = {
+    objectAdded: "room-objectAdded",
+    objectRemoved: "room-objectRemoved",
+    observerJoined: "room-observerJoined",
+    observerLeft: "room-observerLeft",
+    colorChanged: "room-colorChanged"
+};
+
+class Room extends Model {
+    constructor(island, size=new THREE.Vector3(20, 20, 20), color=new THREE.Color("#dddddd")) {
+        super(island);
+        this.size = size;
+        this.color = color;
+        /** @type {Set<SpatialModel>} */
+        this.objects = new Set();
+        this.observers = new Set();
+    }
+
+    addObject(object) {
+        this.objects.add(object);
+        this.publish(RoomEvents.objectAdded, object);
+    }
+
+    removeObject(object) {
+        this.objects.add(object);
+        this.publish(RoomEvents.objectRemoved, object);
+    }
+
+    addObserver(observer) {
+        this.observers.add(observer);
+        this.publish(RoomEvents.observerJoined, observer);
+    }
+
+    removeObserver(observer) {
+        this.observers.remove(observer);
+        this.publish(RoomEvents.observerLeft, observer);
+    }
+
+    changeColor(newColor) {
+        this.color.copy(newColor);
+        this.publish(RoomEvents.colorChanged, newColor);
     }
 }
 
-class ThreeRenderer {
-    constructor() {
-        this.threeRenderer = new THREE.WebGLRenderer();
-        this.threeRenderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(this.threeRenderer.domElement);
+class RoomView extends View {
+    constructor(island, localObserver) {
+        super(island);
+        this.viewsForObjects = {};
+        this.viewsForObservers = {};
+        this.scene = new THREE.Scene();
+        this.localObserver = localObserver;
+    }
+
+    /** @arg {Room} room */
+    attach(room) {
+        this.scene.background = room.color;
+        this.grid = new THREE.GridHelper(room.size.x, 10);
+        this.scene.add(this.grid);
+
+        for (let object of room.objects) {
+            this.onObjectAdded(object);
+        }
+
+        this.subscribe(room.id, RoomEvents.objectAdded, "onObjectAdded");
+        this.subscribe(room.id, RoomEvents.objectRemoved, "onObjectRemoved");
+
+        for (let observer of room.observers) {
+            this.onObserverJoined(observer);
+        }
+
+        this.subscribe(room.id, RoomEvents.observerJoined, "onObserverJoined");
+        this.subscribe(room.id, RoomEvents.observerLeft, "onObserverLeft");
+    }
+
+    detach() {
+        for (let view of Object.values(this.viewsForObjects)) view.onDetach();
+        for (let view of Object.values(this.viewsForObservers)) view.onDetach();
+    }
+
+    onObjectAdded(object) {
+        const NaturalView = object.naturalViewClass("in-room");
+        /** @type {View} */
+        const view = new NaturalView(this.island);
+        this.viewsForObjects[object.id] = view;
+        view.attach(object);
+        if (view.threeObj) this.scene.add(view.threeObj);
+    }
+
+    onObjectRemoved(object) {
+        const view = this.viewsForObjects[object.id];
+        if (view.threeObj) this.scene.remove(view.threeObj);
+        view.onDetach();
+        delete this.viewsForObjects[object.id];
+    }
+
+    onObserverJoined(observer) {
+        if (observer === this.localObserver) return;
+        const view = new ObserverAvatarView(observer.id, island);
+        view.attach(observer);
+        this.viewsForObservers[observer.id] = view;
+        this.scene.add(view.threeObj);
+    }
+
+    onObserverLeft(observer) {
+        if (observer === this.localObserver) return;
+        const view = this.viewsForObservers[observer.id];
+        this.scene.remove(view.threeObj);
+        view.onDetach();
+        delete this.viewsForObjects[object.id];
+    }
+}
+
+class Observer extends SpatialModel {
+    constructor(island, position, quaternion, name) {
+        super(island, position, quaternion);
+        this.name = name;
+    }
+};
+
+class ObserverCameraView extends Object3DView {
+    constructor(island, width, height) {
+        super(island);
+        this.width = width;
+        this.height = height;
+    }
+
+    createThreeObject(_modelState) {
+        return new THREE.PerspectiveCamera(75, this.width/this.height, 0.1, 1000);
+    }
+}
+
+class ObserverAvatarView extends Object3DView {
+    // TODO
+}
+
+class Box extends SpatialModel {
+    doRotation() {
+        this.rotateBy((new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), 0.1));
+        this.future(1000/60).doRotation();
+    }
+
+    naturalViewClass() { return BoxView; }
+};
+
+class BoxView extends Object3DView {
+    createThreeObject(_modelState) {
+        return new THREE.Mesh(
+            new THREE.BoxBufferGeometry(1, 1, 1),
+            new THREE.MeshBasicMaterial({color: new THREE.Color("#888888")})
+        );
     }
 }
 
 function start() {
-    const hot = module.hot && module.hot.data && module.hot.data.hotState || {};
+    const island = new IslandReplica();
 
-    const room = new Room();
+    const room = new Room(island);
+    const box = new Box(island);
+    box.doRotation();
+    room.addObject(box);
 
-    const observer = new Observer(window.innerWidth, window.innerHeight);
-    const avatar = new Avatar();
-    avatar.subscribe(SpatialEvents.moved, newPosition => observer.actMoveTo(newPosition.clone().add(new THREE.Vector3(0, 2, 0))));
-    avatar.subscribe(SpatialEvents.rotated, newQuaternion => observer.actRotateTo(newQuaternion));
+    const observer = new Observer(
+        island,
+        new THREE.Vector3(0, 2, -5),
+        (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI),
+        "Guest1"
+    );
+    room.addObserver(observer);
 
-    room.actAddChild(observer);
-    room.actAddChild(avatar);
+    const renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
 
-    const box = new Box();
-    room.actAddChild(box);
+    const roomView = new RoomView(island, observer, window.innerWidth, window.innerHeight);
+    roomView.attach(room);
 
-    avatar.actMoveTo(new THREE.Vector3(0, 0, -5));
-    const initialRotation = new THREE.Quaternion();
-    initialRotation.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
-    avatar.actRotateTo(initialRotation);
+    const observerCameraView = new ObserverCameraView(island, window.innerWidth, window.innerHeight);
+    observerCameraView.attach(observer);
 
-    const renderer = hot.renderer || new ThreeRenderer();
-
-    let angle = hot.angle || 0;
-    function animate() {
-        const boxRotation = new THREE.Quaternion();
-        boxRotation.setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle += 0.01);
-        box.actRotateTo(boxRotation);
-    }
-
-    let loop = window.requestAnimationFrame(frame);
     function frame() {
-        animate();
-        room.renderTree(renderer);
-        renderer.threeRenderer.render(room.scene, observer.camera);
-        loop = window.requestAnimationFrame(frame);
+        renderer.render(roomView.scene, observerCameraView.threeObj);
+        window.requestAnimationFrame(frame);
     }
 
-    document.addEventListener("keydown", keyEvent => {
-        if (keyEvent.keyCode == '38') { // up arrow
-            avatar.actSetZVelocity(0.8);
-        } else if (keyEvent.keyCode == '40') { // down arrow
-            avatar.actSetZVelocity(-0.8);
-        } else if (keyEvent.keyCode == '37') { // left arrow
-            avatar.actSetXVelocity(0.8);
-        } else if (keyEvent.keyCode == '39') { // right arrow
-            avatar.actSetXVelocity(-0.8);
-        }
-    });
-
-    document.addEventListener("keyup", keyEvent => {
-        if (keyEvent.keyCode == '38') { // up arrow
-            avatar.actSetZVelocity(0);
-        } else if (keyEvent.keyCode == '40') { // down arrow
-            avatar.actSetZVelocity(0);
-        } else if (keyEvent.keyCode == '37') { // left arrow
-            avatar.actSetXVelocity(0);
-        } else if (keyEvent.keyCode == '39') { // right arrow
-            avatar.actSetXVelocity(0);
-        }
-    });
-
-    //if (module.hot) module.hot.dispose(() => location.reload());
-    if (module.hot) {
-        module.hot.dispose(hotData => {
-            window.cancelAnimationFrame(loop);
-            room.dispose();
-            observer.dispose();
-            hotData.hotState = { renderer, angle };
-        });
-    }
+    window.requestAnimationFrame(frame);
 }
 
 start();
