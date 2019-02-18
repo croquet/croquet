@@ -1,8 +1,8 @@
-import SpatialModel from './spatialModel';
 import Object3DView from './object3DView';
 import * as THREE from 'three';
+import InertialModel from './inertialModel';
 
-export class Observer extends SpatialModel {
+export class Observer extends InertialModel {
     constructor(island, position, quaternion, name) {
         super(island, position, quaternion);
         this.name = name;

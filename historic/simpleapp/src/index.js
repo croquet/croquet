@@ -4,8 +4,9 @@ import SpatialModel from './spatialModel';
 import Object3DView from './object3DView';
 import {Room, RoomView} from './room';
 import {Observer, PointingObserverCameraView, PointerEvents} from './observer';
+import InertialModel from './inertialModel';
 
-class Box extends SpatialModel {
+class Box extends InertialModel {
     naturalViewClass() { return BoxView; }
 }
 
@@ -64,7 +65,7 @@ function start() {
 
     const room = new Room(island);
     const box = new Box(island);
-    box.moveTo(new THREE.Vector3(0, 0.5, 0));
+    box.moveTo(new THREE.Vector3(0, 0.5, 0), false);
     room.addObject(box);
 
     const rotatingBox = new RotatingBox(island);
