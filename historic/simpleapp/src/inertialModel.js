@@ -4,9 +4,7 @@ import * as THREE from 'three'
 export default class InertialModel extends SpatialModel {
     constructor(island, position = new THREE.Vector3(0, 0, 0), quaternion = new THREE.Quaternion(), scale = new THREE.Vector3(1, 1, 1)) {
         super(island, position, quaternion, scale);
-        this.velocity = new THREE.Vector3(0, 0, 0);
         this.estimatedVelocity = new THREE.Vector3(0, 0, 0);
-        this.rotationalVelocity = new THREE.Quaternion();
         this.estimatedRotationalVelocity = new THREE.Quaternion();
         this.dampening = 0.1;
         this.inInertiaPhase = false;
@@ -45,21 +43,15 @@ export default class InertialModel extends SpatialModel {
     }
 
     startInertiaPhase() {
-        if (!this.inInertiaPhase) {
-            this.inInertiaPhase = true;
-            this.velocity.copy(this.estimatedVelocity);
-            this.rotationalVelocity.copy(this.estimatedRotationalVelocity);
-            this.estimatedVelocity = new THREE.Vector3();
-            this.estimatedRotationalVelocity = new THREE.Quaternion();
-        }
+        this.inInertiaPhase = true;
     }
 
     applyVelocity() {
         if (this.inInertiaPhase) {
-            super.moveBy(this.velocity.clone());
-            super.rotateBy(this.rotationalVelocity.clone());
-            this.velocity.multiplyScalar(1 - this.dampening);
-            this.rotationalVelocity.slerp(new THREE.Quaternion(), this.dampening);
+            super.moveBy(this.estimatedVelocity.clone());
+            super.rotateBy(this.estimatedRotationalVelocity.clone());
+            this.estimatedVelocity.multiplyScalar(1 - this.dampening);
+            this.estimatedRotationalVelocity.slerp(new THREE.Quaternion(), this.dampening);
         }
         this.future(1000/60).applyVelocity();
     }
