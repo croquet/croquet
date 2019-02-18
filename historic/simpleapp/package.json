@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "parcel ./assets/index.html -p 9000"
+    "start": "parcel ./assets/index.html -p 9000 --host 0.0.0.0"
   },
   "author": "",
   "license": "ISC",

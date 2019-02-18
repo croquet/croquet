@@ -25,11 +25,13 @@ class BoxView extends Object3DView {
         this.subscribe(this.id, PointerEvents.pointerDrag, "onPointerDrag");
         this.subscribe(this.id, PointerEvents.pointerUp, "onPointerUp");
         this.subscribe(this.id, PointerEvents.pointerLeave, "onPointerLeave");
+        this.cursor = "grab";
 
         return new THREE.Mesh(
             new THREE.BoxBufferGeometry(1, 1, 1),
             new THREE.MeshStandardMaterial({color: new THREE.Color("#aaaaaa")})
         );
+
     }
 
     onPointerEnter() {
@@ -39,6 +41,7 @@ class BoxView extends Object3DView {
     onPointerDown() {
         this.positionAtDragStart = this.threeObj.position.clone();
         this.threeObj.material.color.set("#0000ff");
+        this.cursor = "grabbing";
     }
 
     onPointerDrag({dragStart, dragStartNormal, dragEndOnHorizontalPlane, dragEndOnVerticalPlane}) {
@@ -48,6 +51,7 @@ class BoxView extends Object3DView {
 
     onPointerUp() {
         this.threeObj.material.color.set("#00ff00");
+        this.cursor = "grab";
     }
 
     onPointerLeave() {
@@ -71,7 +75,7 @@ function start() {
     const observer = new Observer(
         island,
         new THREE.Vector3(0, 2, -5),
-        (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI).multiply((new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(1, 0, 0), -0.1 * Math.PI)),
+        (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI),
         "Guest1"
     );
     room.addObserver(observer);
@@ -85,6 +89,7 @@ function start() {
 
     const observerView = new PointingObserverCameraView(island, window.innerWidth, window.innerHeight);
     observerView.attach(observer);
+    observerView.addToThreeParent(roomView.scene);
 
     function frame() {
         renderer.render(roomView.scene, observerView.camera);
@@ -94,9 +99,26 @@ function start() {
 
     window.requestAnimationFrame(frame);
 
-    window.addEventListener("mousemove", (event) => observerView.onMouseMove(event));
+    window.addEventListener("mousemove", (event) => observerView.onMouseMove(event.clientX, event.clientY));
     window.addEventListener("mousedown", (event) => observerView.onMouseDown(event));
     window.addEventListener("mouseup", (event) => observerView.onMouseUp(event));
+    document.body.addEventListener("touchstart", (event) => {
+        observerView.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
+        observerView.updatePointer(roomView.scene);
+        observerView.onMouseDown();
+        event.stopPropagation();
+        event.preventDefault();
+    }, {passive: false});
+
+    document.body.addEventListener("touchmove", (event) => {
+        observerView.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
+    }, {passive: false});
+
+    document.body.addEventListener("touchend", (event) => {
+        observerView.onMouseUp();
+        event.stopPropagation();
+        event.preventDefault();
+    }, {passive: false});
 }
 
 start();

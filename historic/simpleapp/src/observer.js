@@ -28,6 +28,7 @@ export class ObserverCameraView extends Object3DView {
 
 export const PointerEvents = {
     pointerEnter: "pointer-enter",
+    pointerMove: "pointer-move",
     pointerLeave: "pointer-leave",
     pointerDown: "pointer-down",
     pointerDrag: "pointer-drag",
@@ -46,16 +47,68 @@ export class PointingObserverCameraView extends ObserverCameraView {
         this.draggedView = null;
         this.dragStartPoint = new THREE.Vector3();
         this.dragStartNormal = new THREE.Vector3();
+        this.dragStartThreeObj = null;
         this.draggingVerticalPlane = new THREE.Plane();
         this.draggingHorizontalPlane = new THREE.Plane();
     }
 
-    onMouseMove(event) {
+    attachWithObject3D(modelState) {
+        const camera = super.attachWithObject3D(modelState);
+        this.treadmill = new THREE.Group();
+        this.treadmillForwardStrip = new THREE.Mesh(new THREE.PlaneBufferGeometry(4, 100), new THREE.MeshBasicMaterial({color: "#eeeeee", visible: false}));
+        this.treadmillForwardStrip.userData.croquetView = this;
+        this.treadmillRotateArea = new THREE.Mesh(new THREE.CircleBufferGeometry(100, 30), new THREE.MeshBasicMaterial({color: "#cccccc", visible: false}));
+        this.treadmillRotateArea.position.z -= 0.1;
+        this.treadmillRotateArea.userData.croquetView = this;
+        this.treadmill.add(this.treadmillForwardStrip);
+        this.treadmill.add(this.treadmillSidewaysStrip);
+        this.treadmill.add(this.treadmillRotateArea);
+        this.treadmill.quaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2)
+        this.treadmill.position.y -= 2;
+        this.treadmill.userData.croquetView = this;
+
+        const group = new THREE.Group();
+        group.add(camera);
+        group.add(this.treadmill);
+
+        this.subscribe(this.id, PointerEvents.pointerMove, "onDragTreadmillMove");
+        this.subscribe(this.id, PointerEvents.pointerDown, "onDragTreadmillStart");
+        this.subscribe(this.id, PointerEvents.pointerDrag, "onDragTreadmill");
+
+        return group;
+    }
+
+    onDragTreadmillMove({hoverThreeObj}) {
+        if (hoverThreeObj == this.treadmillForwardStrip) {
+            this.cursor = "all-scroll";
+        } else {
+            this.cursor = "ew-resize";
+        }
+    }
+
+    onDragTreadmillStart() {
+        this.positionBeforeObserverMove = this.threeObj.position.clone();
+        this.quaternionBeforeObserverMove = this.threeObj.quaternion.clone();
+    }
+
+    onDragTreadmill({dragStart, dragEndOnHorizontalPlane, dragStartThreeObj}) {
+        if (dragStartThreeObj == this.treadmillForwardStrip) {
+            this.model().moveTo(this.threeObj.position.clone().sub(dragEndOnHorizontalPlane.clone().sub(dragStart)));
+        } else {
+            const delta = (new THREE.Quaternion).setFromUnitVectors(
+                dragEndOnHorizontalPlane.clone().sub(this.threeObj.position.clone().setY(dragStart.y)).normalize(),
+                dragStart.clone().sub(this.threeObj.position.clone().setY(dragStart.y)).normalize()
+            );
+            this.model().rotateTo(this.threeObj.quaternion.clone().multiply(delta));
+        }
+    }
+
+    onMouseMove(clientX, clientY) {
         // calculate mouse position in normalized device coordinates
         // (-1 to +1) for both components
 
-        this.mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
-        this.mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+        this.mouse.x = ( clientX / window.innerWidth ) * 2 - 1;
+        this.mouse.y = - ( clientY / window.innerHeight ) * 2 + 1;
     }
 
     onMouseDown() {
@@ -63,6 +116,7 @@ export class PointingObserverCameraView extends ObserverCameraView {
             this.draggedView = this.hoveredView;
             this.dragStartPoint = this.hoverPoint.clone();
             this.dragStartNormal = this.hoverNormal.clone();
+            this.dragStartThreeObj = this.hoverThreeObj;
             this.publish(PointerEvents.pointerDown, {at: this.dragStartPoint}, this.draggedView.id);
             this.draggingVerticalPlane.setFromNormalAndCoplanarPoint(this.camera.getWorldDirection(), this.hoverPoint);
             this.draggingHorizontalPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), this.hoverPoint);
@@ -85,15 +139,22 @@ export class PointingObserverCameraView extends ObserverCameraView {
             this.publish(PointerEvents.pointerDrag, {
                 dragStart: this.dragStartPoint,
                 dragStartNormal: this.dragStartNormal,
+                dragStartThreeObj: this.dragStartThreeObj,
                 dragEndOnVerticalPlane: newVerticalDragPoint,
                 dragEndOnHorizontalPlane: newHorizontalDragPoint,
             }, this.draggedView.id);
+            if (this.draggedView.cursor) {
+                document.body.style.cursor = this.draggedView.cursor;
+            } else {
+                document.body.style.cursor = "default";
+            }
         } else {
             const intersects = this.raycaster.intersectObject(scene, true);
 
             let newlyHoveredView = null;
-            let hoverPoint = null
-            let hoverNormal = null
+            let hoverPoint = null;
+            let hoverNormal = null;
+            let hoverThreeObj = null;
 
             for (let intersect of intersects) {
                 const {point, object: threeObj, face} = intersect;
@@ -102,22 +163,32 @@ export class PointingObserverCameraView extends ObserverCameraView {
                     newlyHoveredView = threeObj.userData.croquetView;
                     hoverPoint = point;
                     hoverNormal = face.normal;
+                    hoverThreeObj = threeObj;
                     break;
                 }
             }
 
             this.hoverPoint = hoverPoint;
             this.hoverNormal = hoverNormal;
+            this.hoverThreeObj = hoverThreeObj;
 
             if (this.hoveredView !== newlyHoveredView) {
                 this.hoveredView && this.publish(PointerEvents.pointerLeave, {}, this.hoveredView.id);
                 this.hoveredView = newlyHoveredView;
 
                 if (newlyHoveredView) {
-                    this.publish(PointerEvents.pointerEnter, {}, newlyHoveredView.id);
+                    this.publish(PointerEvents.pointerEnter, {hoverPoint, hoverNormal, hoverThreeObj}, newlyHoveredView.id);
                 } else {
                     this.hoverPoint = null;
                 }
+            } else if (this.hoveredView && this.hoveredView === newlyHoveredView) {
+                this.publish(PointerEvents.pointerMove, {hoverPoint, hoverNormal, hoverThreeObj}, newlyHoveredView.id)
+            }
+
+            if (newlyHoveredView && newlyHoveredView.cursor) {
+                document.body.style.cursor = newlyHoveredView.cursor;
+            } else {
+                document.body.style.cursor = "default";
             }
         }
     }
