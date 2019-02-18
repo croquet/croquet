@@ -4,6 +4,7 @@ import SVGLoader from 'three-svg-loader';
 import arrowsAlt from '../assets/arrows-alt.svg';
 import arrowsAltRot from '../assets/arrows-alt-rot.svg';
 import InertialModel from './inertialModel';
+import SVGIcon from './util/svgIcon';
 
 export class Observer extends InertialModel {
     constructor(island, position, quaternion, name) {
@@ -69,31 +70,8 @@ export class PointingObserverCameraView extends ObserverCameraView {
         this.treadmill.quaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2)
         this.treadmill.position.y -= 2;
         this.treadmill.userData.croquetView = this;
-        this.moveCursor = new THREE.Mesh(new THREE.BoxBufferGeometry(0.2, 0.2, 0.2), new THREE.MeshBasicMaterial({color: "#888888"}));
-        const svgLoader = new SVGLoader();
-        svgLoader.load(arrowsAlt, shapePaths => {
-            this.threeObj.remove(this.moveCursor);
-            this.moveCursor = new THREE.Group();
-            const icon = new THREE.Mesh(new THREE.ShapeBufferGeometry(shapePaths[0].toShapes(true)[0]), new THREE.MeshBasicMaterial({color: "#888888"}));
-            this.moveCursor.add(icon);
-            icon.scale.set(0.002, 0.002, 0.002);
-            icon.position.set(-0.5, -0.3, 0);
-            icon.quaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
-            this.threeObj.add(this.moveCursor);
-            this.moveCursor.visible = false;
-        });
-        this.rotateCursor = new THREE.Mesh(new THREE.BoxBufferGeometry(0.2, 0.2, 0.2), new THREE.MeshBasicMaterial({color: "#aaaaaa"}));
-        svgLoader.load(arrowsAltRot, shapePaths => {
-            this.threeObj.remove(this.rotateCursor);
-            this.rotateCursor = new THREE.Group();
-            const rotateIcon = new THREE.Mesh(new THREE.ShapeBufferGeometry(shapePaths[0].toShapes(true)[0]), new THREE.MeshBasicMaterial({color: "#aaaaaa"}));
-            this.rotateCursor.add(rotateIcon);
-            rotateIcon.scale.set(0.0015, 0.0015, 0.0015);
-            rotateIcon.position.set(-0.4, 0.1, 0);
-            rotateIcon.quaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
-            this.threeObj.add(this.rotateCursor);
-            this.rotateCursor.visible = false;
-        });
+        this.moveCursor = new SVGIcon(arrowsAlt, new THREE.MeshBasicMaterial({color: "#888888"}));
+        this.rotateCursor = new SVGIcon(arrowsAltRot, new THREE.MeshBasicMaterial({color: "#aaaaaa"}));
 
         const group = new THREE.Group();
         group.add(camera);
