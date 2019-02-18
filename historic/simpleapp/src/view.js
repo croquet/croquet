@@ -7,9 +7,24 @@ export default class View {
     }
 
     /** @abstract */
-    attach(modelState) {}
+    attach(modelState) {
+        this.modelId = modelState.id;
+    }
     /** @abstract */
     detach() {}
+
+    model(tOffset=0) {
+        return new Proxy({}, {
+            get: (target, methodName) => {
+                const methodProxy = new Proxy(() => {}, {
+                    apply: (_a, _b, args) => {
+                        this.island.callModelMethod(this.modelId, methodName, tOffset, args);
+                    }
+                });
+                return methodProxy;
+            }
+        })
+    }
 
     // PUB/SUB
     subscribe(scope, event, methodName) {

@@ -58,8 +58,13 @@ export class RoomView extends View {
     /** @arg {Room} room */
     attach(room) {
         this.scene.background = room.color;
-        this.grid = new THREE.GridHelper(room.size.x, 10);
+        this.grid = new THREE.GridHelper(room.size.x, 10, "#888888", "#aaaaaa");
         this.scene.add(this.grid);
+        this.light = new THREE.DirectionalLight("#ffffdd");
+        this.light.position.set(1, 2, -1);
+        this.scene.add(this.light);
+        this.ambientLight = new THREE.AmbientLight("#ddddff");
+        this.scene.add(this.ambientLight);
 
         for (let object of room.objects) {
             this.onObjectAdded(object);
@@ -87,12 +92,12 @@ export class RoomView extends View {
         const view = new NaturalView(this.island);
         this.viewsForObjects[object.id] = view;
         view.attach(object);
-        if (view.threeObj) this.scene.add(view.threeObj);
+        if (view.addToThreeParent) view.addToThreeParent(this.scene);
     }
 
     onObjectRemoved(object) {
         const view = this.viewsForObjects[object.id];
-        if (view.threeObj) this.scene.remove(view.threeObj);
+        if (view.removeFromThreeParent) view.removeFromThreeParent(this.scene);
         view.onDetach();
         delete this.viewsForObjects[object.id];
     }

@@ -32,9 +32,9 @@ export default class IslandReplica {
     }
 
     // This will become in-directed via the Reflector
-    callModelMethod(modelId, method, tOffset, ...args) {
+    callModelMethod(modelId, method, tOffset, args) {
         if (tOffset) {
-            window.setTimeout(() => this.callModelMethod(modelId, method, ...args), tOffset)
+            window.setTimeout(() => this.callModelMethod(modelId, method, args), tOffset)
         } else {
             const model = this.modelsById[modelId];
             model[method].apply(model, args);
@@ -90,7 +90,7 @@ export default class IslandReplica {
         const topic = scope + ":" + event;
         // Events published by views can only reach other views
         if (this.viewSubscriptions[topic]) {
-            for (let handler of modelSubscriptions[topic]) {
+            for (let handler of this.viewSubscriptions[topic]) {
                 const [subscriberId, method] = handler.split("#");
                 const view = this.viewsById[subscriberId];
                 view[method].call(view, data);
