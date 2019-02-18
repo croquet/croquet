@@ -10,6 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "parcel": "^1.11.0",
-    "three": "^0.101.1"
+    "three": "^0.101.1",
+    "three-svg-loader": "^0.1.0"
   }
 }
