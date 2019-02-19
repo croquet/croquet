@@ -1,3 +1,5 @@
+/** @module spatialModel */
+
 import * as THREE from 'three';
 import Model from './model';
 
@@ -6,6 +8,10 @@ export const SpatialEvents = {
     rotated: "spatial-rotated"
 };
 
+/**
+ * @class SpatialModel
+ * @extends Model
+ */
 export default class SpatialModel extends Model {
     constructor(island, position = new THREE.Vector3(0, 0, 0), quaternion = new THREE.Quaternion(), scale = new THREE.Vector3(1, 1, 1)) {
         super(island);

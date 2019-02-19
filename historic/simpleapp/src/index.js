@@ -6,11 +6,15 @@ import {Room, RoomView} from './room';
 import {Observer, PointingObserverCameraView, PointerEvents} from './observer';
 import InertialModel from './inertialModel';
 
+/** Model for a Box */
 class Box extends InertialModel {
     naturalViewClass() { return BoxView; }
 }
 
+/** Model for a rotating Box */
 class RotatingBox extends SpatialModel {
+
+    /** rotate by 0.01 rad 60 times per second via future send */
     doRotation() {
         this.rotateBy((new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), 0.01));
         this.future(1000/60).doRotation();
@@ -19,6 +23,7 @@ class RotatingBox extends SpatialModel {
     naturalViewClass() { return BoxView; }
 };
 
+/** View for a Box */
 class BoxView extends Object3DView {
     attachWithObject3D(_modelState) {
         this.subscribe(this.id, PointerEvents.pointerEnter, "onPointerEnter");
@@ -60,6 +65,8 @@ class BoxView extends Object3DView {
     }
 }
 
+
+/** The main function. */
 function start() {
     const island = new IslandReplica();
 
