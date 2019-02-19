@@ -28,7 +28,7 @@ export default class InertialModel extends SpatialModel {
     }
 
     rotateBy(deltaQuaternion, addInertia=true) {
-        super.rotateBy(delta);
+        super.rotateBy(deltaQuaternion);
         if (addInertia) this.estimatedRotationalVelocity.copy(this.estimatedRotationalVelocity.clone().slerp(deltaQuaternion, 0.3));
         this.inInertiaPhase = false;
         this.future(1000/10).startInertiaPhase();
