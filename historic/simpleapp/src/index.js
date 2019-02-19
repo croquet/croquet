@@ -122,4 +122,6 @@ function start() {
     }, {passive: false});
 }
 
+if (module.hot) module.hot.dispose(() => location.reload());
+
 start();
