@@ -96,7 +96,7 @@ export class PointingObserverCameraView extends ObserverCameraView {
             this.rotateCursor.visible = true;
             this.rotateCursor.position.copy(this.threeObj.worldToLocal(hoverPoint.clone()));
             const delta = (new THREE.Quaternion).setFromUnitVectors(
-                this.threeObj.getWorldDirection(),
+                this.threeObj.getWorldDirection(new THREE.Vector3()),
                 hoverPoint.clone().sub(this.threeObj.position.clone().setY(hoverPoint.y)).normalize(),
             );
             this.rotateCursor.quaternion.copy(delta);
@@ -126,7 +126,7 @@ export class PointingObserverCameraView extends ObserverCameraView {
             this.model().rotateTo(this.threeObj.quaternion.clone().multiply(delta));
             this.rotateCursor.position.copy(this.threeObj.worldToLocal(dragEndOnHorizontalPlane.clone()));
             const deltaCursor = (new THREE.Quaternion).setFromUnitVectors(
-                this.threeObj.getWorldDirection(),
+                this.threeObj.getWorldDirection(new THREE.Vector3()),
                 dragEndOnHorizontalPlane.clone().sub(this.threeObj.position.clone().setY(dragEndOnHorizontalPlane.y)).normalize(),
             );
             this.rotateCursor.quaternion.copy(deltaCursor);
@@ -148,7 +148,7 @@ export class PointingObserverCameraView extends ObserverCameraView {
             this.dragStartNormal = this.hoverNormal.clone();
             this.dragStartThreeObj = this.hoverThreeObj;
             this.publish(PointerEvents.pointerDown, {at: this.dragStartPoint}, this.draggedView.id);
-            this.draggingVerticalPlane.setFromNormalAndCoplanarPoint(this.camera.getWorldDirection(), this.hoverPoint);
+            this.draggingVerticalPlane.setFromNormalAndCoplanarPoint(this.camera.getWorldDirection(new THREE.Vector3()), this.hoverPoint);
             this.draggingHorizontalPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), this.hoverPoint);
         }
     }
