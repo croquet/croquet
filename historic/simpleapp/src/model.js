@@ -2,7 +2,7 @@ import IslandReplica from './islandReplica';
 
 export const ModelEvents = {
     destroyed: "model-destroyed"
-}
+};
 
 export default class Model {
     // LIFECYCLE
@@ -30,11 +30,10 @@ export default class Model {
                         }
                     });
                     return methodProxy;
-                } else {
-                    throw "Tried to call " + property + "() on future of " + Object.getPrototypeOf(target).constructor.name + " which is not a function";
                 }
+                throw Error("Tried to call " + property + "() on future of " + Object.getPrototypeOf(target).constructor.name + " which is not a function");
             }
-        })
+        });
     }
 
     // PUB/SUB

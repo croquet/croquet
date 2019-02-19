@@ -1,6 +1,5 @@
-import Object3DView from './object3DView';
 import * as THREE from 'three';
-import SVGLoader from 'three-svg-loader';
+import Object3DView from './object3DView';
 import arrowsAlt from '../assets/arrows-alt.svg';
 import arrowsAltRot from '../assets/arrows-alt-rot.svg';
 import InertialModel from './inertialModel';
@@ -11,7 +10,7 @@ export class Observer extends InertialModel {
         super(island, position, quaternion);
         this.name = name;
     }
-};
+}
 
 export class ObserverAvatarView extends Object3DView {
     // TODO
@@ -37,7 +36,7 @@ export const PointerEvents = {
     pointerDown: "pointer-down",
     pointerDrag: "pointer-drag",
     pointerUp: "pointer-up"
-}
+};
 
 export class PointingObserverCameraView extends ObserverCameraView {
     constructor(island, width, height) {
@@ -67,7 +66,7 @@ export class PointingObserverCameraView extends ObserverCameraView {
         this.treadmill.add(this.treadmillForwardStrip);
         this.treadmill.add(this.treadmillSidewaysStrip);
         this.treadmill.add(this.treadmillRotateArea);
-        this.treadmill.quaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2)
+        this.treadmill.quaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
         this.treadmill.position.y -= 2;
         this.treadmill.userData.croquetView = this;
         this.moveCursor = new SVGIcon(arrowsAlt, new THREE.MeshBasicMaterial({color: "#888888"}));
@@ -88,14 +87,14 @@ export class PointingObserverCameraView extends ObserverCameraView {
     }
 
     onHoverTreadmillMove({hoverThreeObj, hoverPoint}) {
-        if (hoverThreeObj == this.treadmillForwardStrip) {
+        if (hoverThreeObj === this.treadmillForwardStrip) {
             this.moveCursor.visible = true;
             this.moveCursor.position.copy(this.threeObj.worldToLocal(hoverPoint.clone()));
             this.rotateCursor.visible = false;
         } else {
             this.rotateCursor.visible = true;
             this.rotateCursor.position.copy(this.threeObj.worldToLocal(hoverPoint.clone()));
-            const delta = (new THREE.Quaternion).setFromUnitVectors(
+            const delta = (new THREE.Quaternion()).setFromUnitVectors(
                 this.threeObj.getWorldDirection(new THREE.Vector3()),
                 hoverPoint.clone().sub(this.threeObj.position.clone().setY(hoverPoint.y)).normalize(),
             );
@@ -115,17 +114,17 @@ export class PointingObserverCameraView extends ObserverCameraView {
     }
 
     onDragTreadmill({dragStart, dragEndOnHorizontalPlane, dragStartThreeObj}) {
-        if (dragStartThreeObj == this.treadmillForwardStrip) {
+        if (dragStartThreeObj === this.treadmillForwardStrip) {
             this.model().moveTo(this.threeObj.position.clone().sub(dragEndOnHorizontalPlane.clone().sub(dragStart)));
             this.moveCursor.position.copy(this.threeObj.worldToLocal(dragEndOnHorizontalPlane.clone()));
         } else {
-            const delta = (new THREE.Quaternion).setFromUnitVectors(
+            const delta = (new THREE.Quaternion()).setFromUnitVectors(
                 dragEndOnHorizontalPlane.clone().sub(this.threeObj.position.clone().setY(dragStart.y)).normalize(),
                 dragStart.clone().sub(this.threeObj.position.clone().setY(dragStart.y)).normalize()
             );
             this.model().rotateTo(this.threeObj.quaternion.clone().multiply(delta));
             this.rotateCursor.position.copy(this.threeObj.worldToLocal(dragEndOnHorizontalPlane.clone()));
-            const deltaCursor = (new THREE.Quaternion).setFromUnitVectors(
+            const deltaCursor = (new THREE.Quaternion()).setFromUnitVectors(
                 this.threeObj.getWorldDirection(new THREE.Vector3()),
                 dragEndOnHorizontalPlane.clone().sub(this.threeObj.position.clone().setY(dragEndOnHorizontalPlane.y)).normalize(),
             );
@@ -138,7 +137,7 @@ export class PointingObserverCameraView extends ObserverCameraView {
         // (-1 to +1) for both components
 
         this.mouse.x = ( clientX / window.innerWidth ) * 2 - 1;
-        this.mouse.y = - ( clientY / window.innerHeight ) * 2 + 1;
+        this.mouse.y = -( clientY / window.innerHeight ) * 2 + 1;
     }
 
     onMouseDown() {
@@ -164,8 +163,8 @@ export class PointingObserverCameraView extends ObserverCameraView {
         this.raycaster.setFromCamera(this.mouse, this.camera);
 
         if (this.draggedView) {
-            const newVerticalDragPoint = this.raycaster.ray.intersectPlane(this.draggingVerticalPlane, new THREE.Vector3) || this.dragStartPoint;
-            const newHorizontalDragPoint = this.raycaster.ray.intersectPlane(this.draggingHorizontalPlane, new THREE.Vector3) || this.dragStartPoint;
+            const newVerticalDragPoint = this.raycaster.ray.intersectPlane(this.draggingVerticalPlane, new THREE.Vector3()) || this.dragStartPoint;
+            const newHorizontalDragPoint = this.raycaster.ray.intersectPlane(this.draggingHorizontalPlane, new THREE.Vector3()) || this.dragStartPoint;
             this.publish(PointerEvents.pointerDrag, {
                 dragStart: this.dragStartPoint,
                 dragStartNormal: this.dragStartNormal,
@@ -203,7 +202,7 @@ export class PointingObserverCameraView extends ObserverCameraView {
             this.hoverThreeObj = hoverThreeObj;
 
             if (this.hoveredView !== newlyHoveredView) {
-                this.hoveredView && this.publish(PointerEvents.pointerLeave, {}, this.hoveredView.id);
+                if (this.hoveredView) this.publish(PointerEvents.pointerLeave, {}, this.hoveredView.id);
                 this.hoveredView = newlyHoveredView;
 
                 if (newlyHoveredView) {
@@ -212,7 +211,7 @@ export class PointingObserverCameraView extends ObserverCameraView {
                     this.hoverPoint = null;
                 }
             } else if (this.hoveredView && this.hoveredView === newlyHoveredView) {
-                this.publish(PointerEvents.pointerMove, {hoverPoint, hoverNormal, hoverThreeObj}, newlyHoveredView.id)
+                this.publish(PointerEvents.pointerMove, {hoverPoint, hoverNormal, hoverThreeObj}, newlyHoveredView.id);
             }
 
             if (newlyHoveredView && newlyHoveredView.cursor) {

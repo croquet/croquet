@@ -1,5 +1,5 @@
+import * as THREE from 'three';
 import SpatialModel from './spatialModel';
-import * as THREE from 'three'
 
 export default class InertialModel extends SpatialModel {
     constructor(island, position = new THREE.Vector3(0, 0, 0), quaternion = new THREE.Quaternion(), scale = new THREE.Vector3(1, 1, 1)) {

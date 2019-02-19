@@ -1,5 +1,5 @@
-import Model from './model';
 import * as THREE from 'three';
+import Model from './model';
 
 export const SpatialEvents = {
     moved: "spatial-moved",
