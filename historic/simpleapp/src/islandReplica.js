@@ -37,7 +37,7 @@ export default class IslandReplica {
             window.setTimeout(() => this.callModelMethod(modelId, method, args), tOffset);
         } else {
             const model = this.modelsById[modelId];
-            model[method].apply(model, args);
+            model[method](...args);
         }
     }
 

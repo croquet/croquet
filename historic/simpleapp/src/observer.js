@@ -64,7 +64,7 @@ export class PointingObserverCameraView extends ObserverCameraView {
         this.treadmillRotateArea.position.z -= 0.1;
         this.treadmillRotateArea.userData.croquetView = this;
         this.treadmill.add(this.treadmillForwardStrip);
-        this.treadmill.add(this.treadmillSidewaysStrip);
+        //this.treadmill.add(this.treadmillSidewaysStrip);
         this.treadmill.add(this.treadmillRotateArea);
         this.treadmill.quaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
         this.treadmill.position.y -= 2;

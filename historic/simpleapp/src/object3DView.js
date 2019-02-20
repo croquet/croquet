@@ -17,8 +17,8 @@ export default class Object3DView extends View {
         this.threeObj.quaternion.copy(modelState.quaternion);
         this.threeObj.scale.copy(modelState.scale);
 
-        this.subscribe(modelState.id, SpatialEvents.moved, "onMoved");
-        this.subscribe(modelState.id, SpatialEvents.rotated, "onRotated");
+        this.subscribe(this.modelId, SpatialEvents.moved, "onMoved");
+        this.subscribe(this.modelId, SpatialEvents.rotated, "onRotated");
     }
 
     addToThreeParent(parent) {
@@ -26,8 +26,8 @@ export default class Object3DView extends View {
     }
 
     detach() {
-        this.unsubscribe(modelState.id.SpatialEvents.moved, "onMoved");
-        this.unsubscribe(modelState.id.SpatialEvents.rotated, "onRotated");
+        this.unsubscribe(this.modelId, SpatialEvents.moved, "onMoved");
+        this.unsubscribe(this.modelId, SpatialEvents.rotated, "onRotated");
         this.dispose();
     }
 

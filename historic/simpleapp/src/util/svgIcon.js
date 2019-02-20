@@ -34,7 +34,9 @@ export default class SVGIcon extends LazyObject3D {
 
                 }
                 resolve(group);
-            });
+            },
+            /* onProgress */ null,
+            /* onError    */ reject);
         });
 
         super(placeholder, promise);

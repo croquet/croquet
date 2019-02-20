@@ -104,7 +104,7 @@ export class RoomView extends View {
 
     onObserverJoined(observer) {
         if (observer === this.localObserver) return;
-        const view = new ObserverAvatarView(observer.id, island);
+        const view = new ObserverAvatarView(observer.id, this.island);
         view.attach(observer);
         this.viewsForObservers[observer.id] = view;
         this.scene.add(view.threeObj);
@@ -115,6 +115,6 @@ export class RoomView extends View {
         const view = this.viewsForObservers[observer.id];
         this.scene.remove(view.threeObj);
         view.onDetach();
-        delete this.viewsForObjects[object.id];
+        delete this.viewsForObjects[observer.id];
     }
 }
