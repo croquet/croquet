@@ -1,6 +1,6 @@
-import Model from './model';
-import View from './view';
 import * as THREE from 'three';
+import Model from './model.js';
+import View from './view.js';
 
 export const RoomEvents = {
     objectAdded: "room-objectAdded",

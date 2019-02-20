@@ -1,6 +1,6 @@
-import View from './view';
 import * as THREE from 'three';
-import {SpatialEvents} from './spatialModel';
+import View from './view.js';
+import {SpatialEvents} from './spatialModel.js';
 
 export default class Object3DView extends View {
     /** @abstract */

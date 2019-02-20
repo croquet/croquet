@@ -34,7 +34,7 @@ export default class IslandReplica {
     // This will become in-directed via the Reflector
     callModelMethod(modelId, method, tOffset, args) {
         if (tOffset) {
-            window.setTimeout(() => this.callModelMethod(modelId, method, args), tOffset)
+            window.setTimeout(() => this.callModelMethod(modelId, method, args), tOffset);
         } else {
             const model = this.modelsById[modelId];
             model[method].apply(model, args);
@@ -51,7 +51,7 @@ export default class IslandReplica {
     removeModelSubscription(scope, event, subscriberId, methodName) {
         const topic = scope + ":" + event;
         const handler = subscriberId + "#" + methodName;
-        this.modelSubscriptions[topic] && this.modelSubscriptions[topic].remove(handler);
+        if (this.modelSubscriptions[topic]) this.modelSubscriptions[topic].remove(handler);
     }
 
     addViewSubscription(scope, event, subscriberId, methodName) {
@@ -64,7 +64,7 @@ export default class IslandReplica {
     removeViewSubscription(scope, event, subscriberId, methodName) {
         const topic = scope + ":" + event;
         const handler = subscriberId + "#" + methodName;
-        this.viewSubscriptions[topic] && this.viewSubscriptions[topic].remove(handler);
+        if (this.viewSubscriptions[topic]) this.viewSubscriptions[topic].remove(handler);
     }
 
     publishFromModel(scope, event, data, tOffset) {
@@ -100,8 +100,8 @@ export default class IslandReplica {
 }
 
 function uuidv4() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
         return v.toString(16);
     });
 }

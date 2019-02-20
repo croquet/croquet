@@ -1,10 +1,10 @@
 import * as THREE from 'three';
-import IslandReplica from './islandReplica';
-import SpatialModel from './spatialModel';
-import Object3DView from './object3DView';
-import {Room, RoomView} from './room';
-import {Observer, PointingObserverCameraView, PointerEvents} from './observer';
-import InertialModel from './inertialModel';
+import IslandReplica from './islandReplica.js';
+import SpatialModel from './spatialModel.js';
+import Object3DView from './object3DView.js';
+import { Room, RoomView } from './room.js';
+import { Observer, PointingObserverCameraView, PointerEvents } from './observer.js';
+import InertialModel from './inertialModel.js';
 
 /** Model for a Box */
 class Box extends InertialModel {
@@ -21,7 +21,7 @@ class RotatingBox extends SpatialModel {
     }
 
     naturalViewClass() { return BoxView; }
-};
+}
 
 /** View for a Box */
 class BoxView extends Object3DView {
@@ -107,10 +107,10 @@ function start() {
 
     window.requestAnimationFrame(frame);
 
-    window.addEventListener("mousemove", (event) => observerView.onMouseMove(event.clientX, event.clientY));
-    window.addEventListener("mousedown", (event) => observerView.onMouseDown(event));
-    window.addEventListener("mouseup", (event) => observerView.onMouseUp(event));
-    document.body.addEventListener("touchstart", (event) => {
+    window.addEventListener("mousemove", event => observerView.onMouseMove(event.clientX, event.clientY));
+    window.addEventListener("mousedown", event => observerView.onMouseDown(event));
+    window.addEventListener("mouseup", event => observerView.onMouseUp(event));
+    document.body.addEventListener("touchstart", event => {
         observerView.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
         observerView.updatePointer(roomView.scene);
         observerView.onMouseDown();
@@ -118,17 +118,17 @@ function start() {
         event.preventDefault();
     }, {passive: false});
 
-    document.body.addEventListener("touchmove", (event) => {
+    document.body.addEventListener("touchmove", event => {
         observerView.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
     }, {passive: false});
 
-    document.body.addEventListener("touchend", (event) => {
+    document.body.addEventListener("touchend", event => {
         observerView.onMouseUp();
         event.stopPropagation();
         event.preventDefault();
     }, {passive: false});
 }
 
-if (module.hot) module.hot.dispose(() => location.reload());
+if (module.hot) module.hot.dispose(() => window.location.reload());
 
 start();

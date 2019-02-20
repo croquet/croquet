@@ -1,7 +1,7 @@
 /** @module spatialModel */
 
 import * as THREE from 'three';
-import Model from './model';
+import Model from './model.js';
 
 export const SpatialEvents = {
     moved: "spatial-moved",

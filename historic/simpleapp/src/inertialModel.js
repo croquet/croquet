@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import SpatialModel from './spatialModel';
+import SpatialModel from './spatialModel.js';
 
 /** A spatial model with inertia */
 export default class InertialModel extends SpatialModel {

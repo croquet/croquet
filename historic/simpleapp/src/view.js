@@ -23,7 +23,7 @@ export default class View {
                 });
                 return methodProxy;
             }
-        })
+        });
     }
 
     // PUB/SUB

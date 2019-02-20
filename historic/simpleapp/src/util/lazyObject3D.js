@@ -5,12 +5,12 @@ export default class LazyObject3D extends THREE.Group {
         super();
 
         if (placeholder) {
-            this.placeholder = placeholder
+            this.placeholder = placeholder;
             this.add(placeholder);
         }
 
         object3DPromise.then(object3D => {
-            this.placeholder && this.remove(this.placeholder);
+            if (this.placeholder) this.remove(this.placeholder);
             this.add(object3D);
         });
     }

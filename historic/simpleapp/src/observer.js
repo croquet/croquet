@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import Object3DView from './object3DView';
+import Object3DView from './object3DView.js';
 import arrowsAlt from '../assets/arrows-alt.svg';
 import arrowsAltRot from '../assets/arrows-alt-rot.svg';
-import InertialModel from './inertialModel';
-import SVGIcon from './util/svgIcon';
+import InertialModel from './inertialModel.js';
+import SVGIcon from './util/svgIcon.js';
 
 export class Observer extends InertialModel {
     constructor(island, position, quaternion, name) {

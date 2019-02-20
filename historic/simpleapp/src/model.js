@@ -1,5 +1,3 @@
-import IslandReplica from './islandReplica';
-
 export const ModelEvents = {
     destroyed: "model-destroyed"
 };
@@ -51,5 +49,5 @@ export default class Model {
 
     // NATURAL VIEW
     /** @abstract */
-    naturalViewClass(viewContext) {}
+    naturalViewClass(_viewContext) {}
 }

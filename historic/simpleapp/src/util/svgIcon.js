@@ -1,6 +1,6 @@
-import LazyObject3D from "./lazyObject3D";
-import SVGLoader from 'three-svg-loader';
 import * as THREE from 'three';
+import SVGLoader from 'three-svg-loader';
+import LazyObject3D from "./lazyObject3D.js";
 
 const svgLoader = new SVGLoader();
 
