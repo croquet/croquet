@@ -21,11 +21,10 @@ class RotatingBox extends SpatialModel {
 
 class BoxView extends Object3DView {
     attachWithObject3D(_modelState) {
-        this.subscribe(this.id, PointerEvents.pointerEnter, "onPointerEnter");
         this.subscribe(this.id, PointerEvents.pointerDown, "onPointerDown");
         this.subscribe(this.id, PointerEvents.pointerDrag, "onPointerDrag");
         this.subscribe(this.id, PointerEvents.pointerUp, "onPointerUp");
-        this.subscribe(this.id, PointerEvents.pointerLeave, "onPointerLeave");
+
         this.cursor = "grab";
 
         return new THREE.Mesh(
@@ -35,28 +34,19 @@ class BoxView extends Object3DView {
 
     }
 
-    onPointerEnter() {
-        this.threeObj.material.color.set("#00ff00");
-    }
-
     onPointerDown() {
         this.positionAtDragStart = this.threeObj.position.clone();
-        this.threeObj.material.color.set("#0000ff");
         this.cursor = "grabbing";
     }
 
     onPointerDrag({dragStart, dragStartNormal, dragEndOnHorizontalPlane, dragEndOnVerticalPlane}) {
-        const dragEnd = Math.abs(dragStartNormal.y) > 0.5 ? dragEndOnVerticalPlane : dragEndOnHorizontalPlane;
+        // const dragEnd = Math.abs(dragStartNormal.y) > 0.5 ? dragEndOnVerticalPlane : dragEndOnHorizontalPlane;
+        const dragEnd = dragEndOnVerticalPlane;
         this.model().moveTo(this.positionAtDragStart.clone().add(dragEnd.clone().sub(dragStart)));
     }
 
     onPointerUp() {
-        this.threeObj.material.color.set("#00ff00");
         this.cursor = "grab";
-    }
-
-    onPointerLeave() {
-        this.threeObj.material.color.set("#aaaaaa");
     }
 }
 
@@ -65,11 +55,11 @@ function start() {
 
     const room = new Room(island);
     const box = new Box(island);
-    box.moveTo(new THREE.Vector3(0, 0.5, 0), false);
+    box.moveTo(new THREE.Vector3(0, 1.0, 0), false);
     room.addObject(box);
 
     const rotatingBox = new RotatingBox(island);
-    rotatingBox.moveTo(new THREE.Vector3(-3, 0.5, 0));
+    rotatingBox.moveTo(new THREE.Vector3(-3, 1.0, 0));
     rotatingBox.doRotation();
     room.addObject(rotatingBox);
 

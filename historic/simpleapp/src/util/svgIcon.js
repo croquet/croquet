@@ -1,42 +1,59 @@
 import LazyObject3D from "./lazyObject3D";
 import SVGLoader from 'three-svg-loader';
 import * as THREE from 'three';
+import 'array-flat-polyfill';
 
 const svgLoader = new SVGLoader();
 
 export default class SVGIcon extends LazyObject3D {
-    constructor(path, material, targetSize=1, horizontal=true, curveSegments=12) {
+    constructor(path, material, altMaterial=material, targetSize=1, horizontal=true, curveSegments=12, altColor=new THREE.Color(0, 0, 1)) {
         const placeholder = new THREE.Mesh(new THREE.PlaneGeometry(targetSize, targetSize), material);
+        if (horizontal) {
+            placeholder.quaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI/2);
+        }
 
         const promise = new Promise((resolve, reject) => {
             svgLoader.load(path, shapePaths => {
-                const geometries = [];
+                const geometry = new THREE.ExtrudeBufferGeometry(
+                    shapePaths.filter(sP => !sP.color.equals(altColor)).flatMap(shapePath => shapePath.toShapes(true).map(shapes => shapes)),
+                    {curveSegments, depth: 0.1, bevelEnabled: false}
+                );
 
-                for (let shapePath of shapePaths) {
-                    for (let shape of shapePath.toShapes(true)) {
-                        geometries.push(new THREE.ShapeBufferGeometry(shape, curveSegments));
-                    }
-                }
+                const altGeometry = new THREE.ExtrudeBufferGeometry(
+                    shapePaths.filter(sP => sP.color.equals(altColor)).flatMap(shapePath => shapePath.toShapes(true).map(shapes => shapes)),
+                    {curveSegments, depth: 0.1, bevelEnabled: false}
+                );
 
-                const meshes = geometries.map(geo => new THREE.Mesh(geo, this.placeholder.material));
+                geometry.center();
+                altGeometry.center();
+
                 const group = new THREE.Group();
-                group.add(...meshes);
-                const bbox = (new THREE.Box3()).setFromObject(group);
+
+                const mesh = new THREE.Mesh(geometry, this.placeholder.material);
+                const altMesh = new THREE.Mesh(altGeometry, altMaterial);
+                const bbox = (new THREE.Box3()).setFromObject(mesh);
                 const width = bbox.max.x - bbox.min.x;
                 const height = bbox.max.y - bbox.min.y;
                 const factorTooBig = Math.max(width, height) / targetSize;
+                group.add(mesh);
+                group.add(altMesh);
+
                 group.scale.set(1/factorTooBig, 1/factorTooBig, 1/factorTooBig);
                 if (horizontal) {
                     group.quaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI/2);
-                    group.position.set(-(width/factorTooBig)/2, 0, (height/factorTooBig)/2);
-                } else {
-                    group.position.set(-(width/factorTooBig)/2, -(height/factorTooBig)/2, 0);
-
                 }
                 resolve(group);
             });
         });
 
         super(placeholder, promise);
+    }
+
+    get material() {
+        return this.children[0].children[0].material;
+    }
+
+    get altMaterial() {
+        return this.children[0].children[1].material;
     }
 }
