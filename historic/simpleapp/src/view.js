@@ -18,7 +18,7 @@ export default class View {
             get: (target, methodName) => {
                 const methodProxy = new Proxy(() => {}, {
                     apply: (_a, _b, args) => {
-                        this.island.callModelMethod(this.modelId, methodName, tOffset, args);
+                        this.island.callModelMethod(this.modelId, methodName, args, tOffset);
                     }
                 });
                 return methodProxy;

@@ -32,7 +32,7 @@ export default class IslandReplica {
     }
 
     // This will become in-directed via the Reflector
-    callModelMethod(modelId, method, tOffset, args) {
+    callModelMethod(modelId, method, args, tOffset = 0) {
         if (tOffset) {
             window.setTimeout(() => this.callModelMethod(modelId, method, args), tOffset);
         } else {
