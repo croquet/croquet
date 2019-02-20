@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import Model from './model.js';
 import View from './view.js';
+import ManipulatorView from './manipulatorView.js';
 
 export const RoomEvents = {
     objectAdded: "room-objectAdded",
@@ -89,7 +90,8 @@ export class RoomView extends View {
     onObjectAdded(object) {
         const NaturalView = object.naturalViewClass("in-room");
         /** @type {View} */
-        const view = new NaturalView(this.island);
+        const innerView = new NaturalView(this.island);
+        const view = new ManipulatorView(this.island, innerView);
         this.viewsForObjects[object.id] = view;
         view.attach(object);
         if (view.addToThreeParent) view.addToThreeParent(this.scene);

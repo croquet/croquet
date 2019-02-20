@@ -70,7 +70,11 @@ export class PointingObserverCameraView extends ObserverCameraView {
         this.treadmill.position.y -= 2;
         this.treadmill.userData.croquetView = this;
         this.moveCursor = new SVGIcon(arrowsAlt, new THREE.MeshBasicMaterial({color: "#888888"}));
+        this.moveCursor.userData.noInteraction = true;
+        this.moveCursor.visible = false;
         this.rotateCursor = new SVGIcon(arrowsAltRot, new THREE.MeshBasicMaterial({color: "#aaaaaa"}));
+        this.rotateCursor.userData.noInteraction = true;
+        this.rotateCursor.visible = false;
 
         const group = new THREE.Group();
         group.add(camera);
@@ -188,11 +192,24 @@ export class PointingObserverCameraView extends ObserverCameraView {
             for (let intersect of intersects) {
                 const {point, object: threeObj, face} = intersect;
 
-                if (threeObj.userData.croquetView) {
-                    newlyHoveredView = threeObj.userData.croquetView;
+                let associatedCroquetView;
+                let currentObjInTree = threeObj;
+
+                while (currentObjInTree) {
+                    if (currentObjInTree.userData.croquetView) {
+                        associatedCroquetView = currentObjInTree.userData.croquetView;
+                        break;
+                    } else if (currentObjInTree.userData.noInteraction) {
+                        break;
+                    }
+                    currentObjInTree = currentObjInTree.parent;
+                }
+
+                if (associatedCroquetView) {
+                    newlyHoveredView = associatedCroquetView;
                     hoverPoint = point;
                     hoverNormal = face.normal;
-                    hoverThreeObj = threeObj;
+                    hoverThreeObj = currentObjInTree;
                     break;
                 }
             }
