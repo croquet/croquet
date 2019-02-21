@@ -5,6 +5,7 @@ import Object3DView from './object3DView';
 import {Room, RoomView} from './room';
 import {Observer, PointingObserverCameraView, PointerEvents} from './observer';
 import InertialModel from './inertialModel';
+import { TextMesh } from './text/text';
 
 class Box extends InertialModel {
     naturalViewClass() { return BoxView; }
@@ -18,6 +19,16 @@ class RotatingBox extends SpatialModel {
 
     naturalViewClass() { return BoxView; }
 };
+
+class Text extends InertialModel {
+    constructor(island, text, font) {
+        super(island);
+        this.text = text;
+        this.font = font;
+    }
+
+    naturalViewClass() { return TextView; }
+}
 
 class BoxView extends Object3DView {
     attachWithObject3D(_modelState) {
@@ -50,6 +61,12 @@ class BoxView extends Object3DView {
     }
 }
 
+class TextView extends Object3DView {
+    attachWithObject3D(modelState) {
+        return new TextMesh(modelState.text, modelState.font, {width: 500});
+    }
+}
+
 function start() {
     const island = new IslandReplica();
 
@@ -62,6 +79,14 @@ function start() {
     rotatingBox.moveTo(new THREE.Vector3(-3, 1.0, 0));
     rotatingBox.doRotation();
     room.addObject(rotatingBox);
+
+    const text1 = new Text(island, "man is much more than a tool builder... he is an inventor of universes.", "Barlow");
+    text1.moveTo(new THREE.Vector3(3, 1.0, 0), false);
+    room.addObject(text1);
+
+    const text2 = new Text(island, "Chapter Eight - The Queen's Croquet Ground", "Lora");
+    text2.moveTo(new THREE.Vector3(-5, 1.0, 0), false);
+    room.addObject(text2);
 
     const observer = new Observer(
         island,
