@@ -163,6 +163,11 @@ export class PointingObserverCameraView extends ObserverCameraView {
         }
     }
 
+    onWheel(event) {
+        const multiplier = -0.01;
+        this.model().moveBy(new THREE.Vector3(event.deltaX * multiplier, 0, event.deltaY * multiplier), false);
+    }
+
     updatePointer(scene) {
         this.raycaster.setFromCamera(this.mouse, this.camera);
 

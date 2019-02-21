@@ -143,6 +143,12 @@ function start() {
         event.stopPropagation();
         event.preventDefault();
     }, {passive: false});
+
+    document.body.addEventListener("wheel", event => {
+        observerView.onWheel(event);
+        event.stopPropagation();
+        event.preventDefault();
+    }, {passive: false});
 }
 
 if (module.hot) module.hot.dispose(() => window.location.reload());
