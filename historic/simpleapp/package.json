@@ -12,6 +12,7 @@
   "dependencies": {
     "array-flat-polyfill": "^1.0.0",
     "three": "^0.101.1",
+    "three-bmfont-text": "git+https://github.com/aeickhoff/three-bmfont-text.git",
     "three-svg-loader": "^0.1.0"
   },
   "devDependencies": {
