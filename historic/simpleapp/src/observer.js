@@ -5,6 +5,9 @@ import arrowsAltRot from '../assets/arrows-alt-rot.svg';
 import InertialModel from './inertialModel.js';
 import SVGIcon from './util/svgIcon.js';
 
+/** Represents an observer of a Room. This can be an active participant,
+ *  a passive viewer, or internal camera views, such as for portals
+ */
 export class Observer extends InertialModel {
     constructor(island, position, quaternion, name) {
         super(island, position, quaternion);
@@ -12,10 +15,16 @@ export class Observer extends InertialModel {
     }
 }
 
+/** Used to render a physical manifestation / Avatar of another participant
+ *  in the Room.
+ */
 export class ObserverAvatarView extends Object3DView {
     // TODO
 }
 
+/** A Camera attached to an observer model. Used for the main render process
+ *  as well as all other views into Rooms, such as portals
+ */
 export class ObserverCameraView extends Object3DView {
     constructor(island, width, height) {
         super(island);
@@ -38,6 +47,9 @@ export const PointerEvents = {
     pointerUp: "pointer-up"
 };
 
+/** For participants in a Room, allowing navigation of space (i.e. moving one's observer model).
+ *  Also manages object picking and object interaction by maintaining a pointer, hover and drag states.
+*/
 export class PointingObserverCameraView extends ObserverCameraView {
     constructor(island, width, height) {
         super(island, width, height);
@@ -64,7 +76,6 @@ export class PointingObserverCameraView extends ObserverCameraView {
         this.treadmillRotateArea.position.z -= 0.1;
         this.treadmillRotateArea.userData.croquetView = this;
         this.treadmill.add(this.treadmillForwardStrip);
-        //this.treadmill.add(this.treadmillSidewaysStrip);
         this.treadmill.add(this.treadmillRotateArea);
         this.treadmill.quaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
         this.treadmill.position.y -= 2;
