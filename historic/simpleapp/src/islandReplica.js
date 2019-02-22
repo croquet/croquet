@@ -1,3 +1,5 @@
+import SeedRandom from "seedrandom";
+
 /** This is kind of a rough mock of what I expect TeaTime to provide
  * plus additional bookeeping "around" an island replica to make
  * uniform pub/sub between models and views possible.*/
@@ -9,10 +11,12 @@ export default class IslandReplica {
         // Views can subscribe to model or other view events
         this.modelSubscriptions = {};
         this.viewSubscriptions = {};
+        // our synced random stream
+        this._random = new SeedRandom(null, {state: true});
     }
 
     registerModel(model) {
-        const id = uuidv4();
+        const id = this.randomID();
         this.modelsById[id] = model;
         return id;
     }
@@ -22,7 +26,7 @@ export default class IslandReplica {
     }
 
     registerView(view) {
-        const id = uuidv4();
+        const id = this.randomID();
         this.viewsById[id] = view;
         return id;
     }
@@ -97,11 +101,16 @@ export default class IslandReplica {
             }
         }
     }
-}
 
-function uuidv4() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-        const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-    });
+    random() {
+        return this._random();
+    }
+
+    randomID() {
+        let id = '';
+        for (let i = 0; i < 4; i++) {
+            id += (this._random.int32() >>> 0).toString(16).padStart(8, '0');
+        }
+        return id;
+    }
 }
