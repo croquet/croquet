@@ -39,6 +39,9 @@ export default class SpatialModel extends Model {
 
     rotateBy(deltaQuaternion) {
         this.quaternion.multiply(deltaQuaternion);
+        // quaternions apparently need to be normalized after
+        // accrued multiplications or they get out of hand.
+        this.quaternion.normalize();
         this.publish(SpatialEvents.rotated, this.quaternion.clone());
     }
 }
