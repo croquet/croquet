@@ -42,11 +42,11 @@ class Trait {
     */
     implementFor(aClass, impl) {
         const missingImplementedTraits = this[traitPrerequisiteTraitsProp].filter(requiredTrait => {
-            return !aClass.prototype[implementedTraitsProp] || !aClass.prototype[implementedTraitsProp].includes(requiredTrait[traitNameProp])
+            return !aClass.prototype[implementedTraitsProp] || !aClass.prototype[implementedTraitsProp].includes(requiredTrait[traitNameProp]);
         });
 
         if (missingImplementedTraits.length > 0) {
-            throw this[traitNameProp].toString().slice(7, -1) + " requires traits " + missingImplementedTraits.map(tr => tr[traitNameProp].toString().slice(7, -1)).join(", ") + " to be implemented.";
+            throw Error(this[traitNameProp].toString().slice(7, -1) + " requires traits " + missingImplementedTraits.map(tr => tr[traitNameProp].toString().slice(7, -1)).join(", ") + " to be implemented.");
         }
 
         const applied = {};
@@ -57,7 +57,7 @@ class Trait {
             .filter(propName => Object.getOwnPropertyDescriptor(applied, propName).value === requiredMarker);
 
         if (missingRequiredFields.length > 0) {
-            throw this[traitNameProp].toString().slice(7, -1) + " requires fields " + missingRequiredFields.join(", ") + " which were not implemented."
+            throw Error(this[traitNameProp].toString().slice(7, -1) + " requires fields " + missingRequiredFields.join(", ") + " which were not implemented.");
         }
 
         transferProperties(aClass.prototype, applied, propName => this[propName]);
@@ -107,7 +107,7 @@ Duck.implementFor(Child, {
     },
 
     talk() {
-        this.shout("Quack!!")
+        this.shout("Quack!!");
     }
 });
 

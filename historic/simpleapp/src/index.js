@@ -5,7 +5,7 @@ import Object3DView from './object3DView.js';
 import { Room, RoomView } from './room.js';
 import { Observer, PointingObserverCameraView, PointerEvents } from './observer.js';
 import InertialModel from './inertialModel.js';
-import { TextMesh } from './text/text';
+import { TextMesh } from './text/text.js';
 
 /** Model for a Box */
 class Box extends InertialModel {
@@ -56,7 +56,7 @@ class BoxView extends Object3DView {
         this.cursor = "grabbing";
     }
 
-    onPointerDrag({dragStart, dragStartNormal, dragEndOnHorizontalPlane, dragEndOnVerticalPlane}) {
+    onPointerDrag({dragStart, _dragStartNormal, _dragEndOnHorizontalPlane, dragEndOnVerticalPlane}) {
         // const dragEnd = Math.abs(dragStartNormal.y) > 0.5 ? dragEndOnVerticalPlane : dragEndOnHorizontalPlane;
         const dragEnd = dragEndOnVerticalPlane;
         this.model().moveTo(this.positionAtDragStart.clone().add(dragEnd.clone().sub(dragStart)));

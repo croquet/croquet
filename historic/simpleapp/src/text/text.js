@@ -1,9 +1,10 @@
-import createGeometry from 'three-bmfont-text';
-import Shader from 'three-bmfont-text/shaders/msdf';
-import LazyObject3D from '../util/lazyObject3D';
 import * as THREE from 'three';
+import createGeometry from 'three-bmfont-text';
+import Shader from 'three-bmfont-text/shaders/msdf.js';
+import LazyObject3D from '../util/lazyObject3D.js';
 
 const fontPaths = {
+    /* eslint-disable global-require */
     Barlow: {
         json: require('../../assets/fonts/Barlow-Medium-msdf.json'),
         atlas: require('../../assets/fonts/Barlow-Medium.png')
@@ -16,7 +17,7 @@ const fontPaths = {
 
 export class TextMesh extends LazyObject3D {
     constructor(text, fontName, options) {
-        const promise = new Promise((resolve, reject) => {
+        const promise = new Promise((resolve, _reject) => {
             // loadFont(fontPaths[fontName].json, (err, font) => {
                 // if (err) reject(err);
                 const geometry = createGeometry({ font: fontPaths[fontName].json, ...options, flipY: true });

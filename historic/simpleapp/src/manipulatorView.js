@@ -1,9 +1,9 @@
-import Object3DView from "./object3DView";
-import SVGIcon from "./util/svgIcon";
+import * as THREE from "three";
+import Object3DView from "./object3DView.js";
+import SVGIcon from "./util/svgIcon.js";
 import lineHandle from "../assets/line-handle.svg";
 import rotateHandle from "../assets/rotate-handle.svg";
-import * as THREE from "three";
-import { PointerEvents } from "./observer";
+import { PointerEvents } from "./observer.js";
 
 export default class ManipulatorView extends Object3DView {
     constructor(island, innerView) {
@@ -85,9 +85,9 @@ export default class ManipulatorView extends Object3DView {
 
     onPointerDrag({dragStart, dragEndOnHorizontalPlane, dragStartThreeObj}) {
         if (dragStartThreeObj === this.moveHandle) {
-            this.model().moveTo(this.positionAtDragStart.clone().add(dragEndOnHorizontalPlane.clone().sub(dragStart)))
+            this.model().moveTo(this.positionAtDragStart.clone().add(dragEndOnHorizontalPlane.clone().sub(dragStart)));
         } else if (dragStartThreeObj === this.rotateHandle) {
-            const delta = (new THREE.Quaternion).setFromUnitVectors(
+            const delta = (new THREE.Quaternion()).setFromUnitVectors(
                 dragStart.clone().sub(this.positionAtDragStart).setY(0).normalize(),
                 dragEndOnHorizontalPlane.clone().sub(this.positionAtDragStart).setY(0).normalize(),
             );
