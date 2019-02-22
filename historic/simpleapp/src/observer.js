@@ -69,6 +69,8 @@ export class PointingObserverCameraView extends ObserverCameraView {
 
     attachWithObject3D(modelState) {
         const camera = super.attachWithObject3D(modelState);
+        camera.position.setZ(1);
+
         this.treadmill = new THREE.Group();
         this.treadmillForwardStrip = new THREE.Mesh(new THREE.PlaneBufferGeometry(4, 100), new THREE.MeshBasicMaterial({color: "#eeeeee", visible: false}));
         this.treadmillForwardStrip.userData.croquetView = this;
