@@ -68,7 +68,7 @@ export default class IslandReplica {
     removeViewSubscription(scope, event, subscriberId, methodName) {
         const topic = scope + ":" + event;
         const handler = subscriberId + "#" + methodName;
-        if (this.viewSubscriptions[topic]) this.viewSubscriptions[topic].remove(handler);
+        if (this.viewSubscriptions[topic]) this.viewSubscriptions[topic].delete(handler);
     }
 
     publishFromModel(scope, event, data, tOffset) {
