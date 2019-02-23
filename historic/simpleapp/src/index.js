@@ -6,6 +6,7 @@ import { Room, RoomView } from './room.js';
 import { Observer, PointingObserverCameraView, PointerEvents } from './observer.js';
 import InertialModel from './inertialModel.js';
 import { TextMesh } from './text/text.js';
+import hotreload from "./hotreload.js";
 
 /** Model for a Box */
 class Box extends InertialModel {
@@ -104,7 +105,8 @@ function start() {
     );
     room.addObserver(observer);
 
-    const renderer = new THREE.WebGLRenderer();
+
+    const renderer = state.renderer || new THREE.WebGLRenderer();
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
@@ -118,15 +120,15 @@ function start() {
     function frame() {
         renderer.render(roomView.scene, observerView.camera);
         observerView.updatePointer(roomView.scene);
-        window.requestAnimationFrame(frame);
+        hotreload.requestAnimationFrame(frame);
     }
 
-    window.requestAnimationFrame(frame);
+    hotreload.requestAnimationFrame(frame);
 
-    window.addEventListener("mousemove", event => observerView.onMouseMove(event.clientX, event.clientY));
-    window.addEventListener("mousedown", event => observerView.onMouseDown(event));
-    window.addEventListener("mouseup", event => observerView.onMouseUp(event));
-    document.body.addEventListener("touchstart", event => {
+    hotreload.addEventListener(window, "mousemove", event => observerView.onMouseMove(event.clientX, event.clientY));
+    hotreload.addEventListener(window, "mousedown", event => observerView.onMouseDown(event));
+    hotreload.addEventListener(window, "mouseup", event => observerView.onMouseUp(event));
+    hotreload.addEventListener(document.body, "touchstart", event => {
         observerView.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
         observerView.updatePointer(roomView.scene);
         observerView.onMouseDown();
@@ -134,23 +136,36 @@ function start() {
         event.preventDefault();
     }, {passive: false});
 
-    document.body.addEventListener("touchmove", event => {
+    hotreload.addEventListener(document.body, "touchmove", event => {
         observerView.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
     }, {passive: false});
 
-    document.body.addEventListener("touchend", event => {
+    hotreload.addEventListener(document.body, "touchend", event => {
         observerView.onMouseUp();
         event.stopPropagation();
         event.preventDefault();
     }, {passive: false});
 
-    document.body.addEventListener("wheel", event => {
+    hotreload.addEventListener(document.body, "wheel", event => {
         observerView.onWheel(event);
         event.stopPropagation();
         event.preventDefault();
     }, {passive: false});
 }
 
-if (module.hot) module.hot.dispose(() => window.location.reload());
+    if (module.hot) {
+        module.hot.dispose(hotData => {
+            // disable hot reload unless url has #hot
+            if (window.location.hash !== '#hot') return window.location.reload();
+
+            // unregister all callbacks, they refer to old functions
+            hotreload.dispose();
+            // preserve state, will be available as module.hot.data after reload
+            hotData.hotState = {
+                renderer,
+            };
+        });
+    }
+}
 
 start();
