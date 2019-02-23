@@ -9,12 +9,12 @@ import { TextMesh } from './text/text.js';
 import hotreload from "./hotreload.js";
 
 /** Model for a Box */
-class Box extends InertialModel {
+export class Box extends InertialModel {
     naturalViewClass() { return BoxView; }
 }
 
 /** Model for a rotating Box */
-class RotatingBox extends SpatialModel {
+export class RotatingBox extends SpatialModel {
 
     /** rotate by 0.01 rad 60 times per second via future send */
     doRotation() {
@@ -26,7 +26,7 @@ class RotatingBox extends SpatialModel {
 }
 
 /** Model for a simple text display */
-class Text extends InertialModel {
+export class Text extends InertialModel {
     constructor(island, state) {
         super(island, state);
         this.text = state.text;

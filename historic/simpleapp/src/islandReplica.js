@@ -14,6 +14,9 @@ export default class IslandReplica {
         this.viewSubscriptions = {};
         // our synced random stream
         this._random = new SeedRandom(null, {state: state.random || true});
+        for (let modelState of state.models || []) {
+            Model.fromState(this, modelState);
+        }
     }
 
     registerModel(model, id) {

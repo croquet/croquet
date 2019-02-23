@@ -55,6 +55,25 @@ export default class Model {
         state.id = this.id;
     }
 
+    static fromState(island, state) {
+        const Constructor = ModelConstructors[state.constructorName];
+        if (Constructor) return new Constructor(island, state);
+
+        // HACK: go through all exports and find model subclasses
+        for (let m of Object.values(module.bundle.cache)) {
+            for (let [key, value] of Object.entries(m.exports)) {
+                if (value.prototype instanceof this) {
+                    const name = key === "default" ? value.name : key;
+                    ModelConstructors[name] = value;
+                }
+            }
+        }
+        if (ModelConstructors[state.constructorName]) {
+            return this.fromState(island, state);
+        }
+        throw new Error(`Class "${state.constructorName}" not found, is it exported?`);
+    }
+
     // NATURAL VIEW
     /** @abstract */
     naturalViewClass(_viewContext) {}
