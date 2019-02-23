@@ -13,11 +13,11 @@ export const SpatialEvents = {
  * @extends Model
  */
 export default class SpatialModel extends Model {
-    constructor(island, position = new THREE.Vector3(0, 0, 0), quaternion = new THREE.Quaternion(), scale = new THREE.Vector3(1, 1, 1)) {
-        super(island);
-        this.position = position;
-        this.quaternion = quaternion;
-        this.scale = scale;
+    constructor(island, state={}) {
+        super(island, state);
+        this.position = state.position || new THREE.Vector3(0, 0, 0);
+        this.quaternion = state.quaternion || new THREE.Quaternion();
+        this.scale = state.scale || new THREE.Vector3(1, 1, 1);
     }
 
     /** @arg {THREE.Vector3} position */
@@ -43,5 +43,12 @@ export default class SpatialModel extends Model {
         // accrued multiplications or they get out of hand.
         this.quaternion.normalize();
         this.publish(SpatialEvents.rotated, this.quaternion.clone());
+    }
+
+    state(state) {
+        super.state(state);
+        state.position = this.position;
+        state.quaternion = this.quaternion;
+        state.scale = this.scale;
     }
 }

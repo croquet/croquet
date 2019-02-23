@@ -9,9 +9,14 @@ import SVGIcon from './util/svgIcon.js';
  *  a passive viewer, or internal camera views, such as for portals
  */
 export class Observer extends InertialModel {
-    constructor(island, position, quaternion, name) {
-        super(island, position, quaternion);
-        this.name = name;
+    constructor(island, state={}) {
+        super(island, state);
+        this.name = state.name;
+    }
+
+    state(state) {
+        super.state(state);
+        state.name = this.name;
     }
 }
 

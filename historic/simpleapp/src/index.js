@@ -27,10 +27,10 @@ class RotatingBox extends SpatialModel {
 
 /** Model for a simple text display */
 class Text extends InertialModel {
-    constructor(island, text, font) {
-        super(island);
-        this.text = text;
-        this.font = font;
+    constructor(island, state) {
+        super(island, state);
+        this.text = state.text;
+        this.font = state.font;
     }
 
     naturalViewClass() { return TextView; }
@@ -77,32 +77,47 @@ class TextView extends Object3DView {
 
 /** The main function. */
 function start() {
-    const island = new IslandReplica();
+    const state = module.hot && module.hot.data && module.hot.data.hotState || {};
 
-    const room = new Room(island);
-    const box = new Box(island);
-    box.moveTo(new THREE.Vector3(0, 1.0, 0), false);
-    room.addObject(box);
+    const island = new IslandReplica(state.island);
 
-    const rotatingBox = new RotatingBox(island);
-    rotatingBox.moveTo(new THREE.Vector3(-3, 1.0, 0));
-    rotatingBox.doRotation();
-    room.addObject(rotatingBox);
+    let room;
+    let observer;
 
-    const text1 = new Text(island, "man is much more than a tool builder... he is an inventor of universes.", "Barlow");
-    text1.moveTo(new THREE.Vector3(3, 1.0, 0), false);
-    room.addObject(text1);
+    if (state.room) {
+        debugger;
+        room = island.modelsById[state.room];
+        observer = island.modelsById[state.observer];
+    } else {
+        room = new Room(island);
 
-    const text2 = new Text(island, "Chapter Eight - The Queen's Croquet Ground", "Lora");
-    text2.moveTo(new THREE.Vector3(-5, 1.0, 0), false);
-    room.addObject(text2);
+        const box = new Box(island, {position: new THREE.Vector3(0, 1.0, 0)});
+        room.addObject(box);
 
-    const observer = new Observer(
-        island,
-        new THREE.Vector3(0, 2, -5),
-        (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI),
-        "Guest1"
-    );
+        const rotatingBox = new RotatingBox(island, {position: new THREE.Vector3(-3, 1.0, 0)});
+        rotatingBox.doRotation();
+        room.addObject(rotatingBox);
+
+        const text1 = new Text(island, {
+            position: new THREE.Vector3(3, 1.0, 0),
+            text: "man is much more than a tool builder... he is an inventor of universes.",
+            font: "Barlow"
+        });
+        room.addObject(text1);
+
+        const text2 = new Text(island, {
+            position: new THREE.Vector3(-5, 1.0, 0),
+            text: "Chapter Eight - The Queen's Croquet Ground",
+            font: "Lora",
+        });
+        room.addObject(text2);
+
+        observer = new Observer(island, {
+            position: new THREE.Vector3(0, 2, -5),
+            quaternion: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI),
+            name: "Guest1"
+        });
+    }
     room.addObserver(observer);
 
 
@@ -151,7 +166,6 @@ function start() {
         event.stopPropagation();
         event.preventDefault();
     }, {passive: false});
-}
 
     if (module.hot) {
         module.hot.dispose(hotData => {
@@ -160,9 +174,15 @@ function start() {
 
             // unregister all callbacks, they refer to old functions
             hotreload.dispose();
+            // release WebGL resources
+            roomView.detach();
+            observerView.detach();
             // preserve state, will be available as module.hot.data after reload
             hotData.hotState = {
                 renderer,
+                island: island.state(),
+                room: room.id,
+                observer: room.id,
             };
         });
     }

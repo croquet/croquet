@@ -3,13 +3,21 @@ import SpatialModel from './spatialModel.js';
 
 /** A spatial model with inertia */
 export default class InertialModel extends SpatialModel {
-    constructor(island, position = new THREE.Vector3(0, 0, 0), quaternion = new THREE.Quaternion(), scale = new THREE.Vector3(1, 1, 1)) {
-        super(island, position, quaternion, scale);
-        this.estimatedVelocity = new THREE.Vector3(0, 0, 0);
-        this.estimatedRotationalVelocity = new THREE.Quaternion();
-        this.dampening = 0.1;
-        this.inInertiaPhase = false;
+    constructor(island, state={}) {
+        super(island, state);
+        this.estimatedVelocity = state.estimatedVelocity || new THREE.Vector3(0, 0, 0);
+        this.estimatedRotationalVelocity = state.estimatedRotationalVelocity || new THREE.Quaternion();
+        this.dampening = state.dampening || 0.1;
+        this.inInertiaPhase = state.inInertiaPhase || false;
         this.applyVelocity();
+    }
+
+    state(state) {
+        super.state(state);
+        state.estimatedVelocity = this.estimatedVelocity;
+        state.estimatedRotationalVelocity = this.estimatedRotationalVelocity;
+        state.dampening = this.dampening;
+        state.inInertiaPhase = this.inInertiaPhase;
     }
 
     moveBy(delta, addInertia=true) {

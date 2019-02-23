@@ -2,12 +2,14 @@ export const ModelEvents = {
     destroyed: "model-destroyed"
 };
 
+const ModelConstructors = {};
+
 export default class Model {
     // LIFECYCLE
     /** @arg {IslandReplica} island */
-    constructor(island) {
+    constructor(island, state={}) {
         this.island = island;
-        this.id = island.registerModel(this);
+        this.id = island.registerModel(this, state.id);
     }
 
     destroy() {
@@ -45,6 +47,12 @@ export default class Model {
 
     publish(event, data, tOffset=0, scope=this.id) {
         this.island.publishFromModel(scope, event, data, tOffset);
+    }
+
+    // STATE
+    state(state) {
+        state.constructorName = this.constructor.name;
+        state.id = this.id;
     }
 
     // NATURAL VIEW

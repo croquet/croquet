@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import Model from './model.js';
+import SpatialModel from './spatialModel.js';
 import View from './view.js';
 import ManipulatorView from './manipulatorView.js';
 
@@ -11,14 +11,20 @@ export const RoomEvents = {
     colorChanged: "room-colorChanged"
 };
 
-export class Room extends Model {
-    constructor(island, size=new THREE.Vector3(20, 20, 20), color=new THREE.Color("#dddddd")) {
-        super(island);
-        this.size = size;
-        this.color = color;
+export class Room extends SpatialModel {
+    constructor(island, state={}) {
+        super(island, state);
+        this.size = state.size || new THREE.Vector3(20, 20, 20);
+        this.color = state.color || new THREE.Color("#dddddd");
         /** @type {Set<SpatialModel>} */
         this.objects = new Set();
         this.observers = new Set();
+    }
+
+    state(state) {
+        super.state(state);
+        state.size = this.size;
+        state.color = this.color;
     }
 
     addObject(object) {
