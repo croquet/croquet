@@ -83,8 +83,8 @@ export class RoomView extends View {
     }
 
     detach() {
-        for (let view of Object.values(this.viewsForObjects)) view.onDetach();
-        for (let view of Object.values(this.viewsForObservers)) view.onDetach();
+        for (let view of Object.values(this.viewsForObjects)) view.detach();
+        for (let view of Object.values(this.viewsForObservers)) view.detach();
     }
 
     onObjectAdded(object) {
