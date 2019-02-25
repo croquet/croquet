@@ -18,27 +18,23 @@ const fontPaths = {
 export class TextMesh extends LazyObject3D {
     constructor(text, fontName, options) {
         const promise = new Promise((resolve, _reject) => {
-            // loadFont(fontPaths[fontName].json, (err, font) => {
-                // if (err) reject(err);
-                const geometry = createGeometry({ font: fontPaths[fontName].json, ...options, flipY: true });
-                geometry.update(text);
-                // geometry.center();
+            const geometry = createGeometry({ font: fontPaths[fontName].json, ...options, flipY: true });
+            geometry.update(text);
 
-                const textureLoader = new THREE.TextureLoader();
-                textureLoader.load(fontPaths[fontName].atlas, atlasTexture => {
-                    const material = new THREE.RawShaderMaterial(Shader({
-                        map: atlasTexture,
-                        side: THREE.DoubleSide,
-                        transparent: true,
-                        color: 'rgb(0, 0, 0)',
-                        negate: false
-                    }));
+            const textureLoader = new THREE.TextureLoader();
+            textureLoader.load(fontPaths[fontName].atlas, atlasTexture => {
+                const material = new THREE.RawShaderMaterial(Shader({
+                    map: atlasTexture,
+                    side: THREE.DoubleSide,
+                    transparent: true,
+                    color: 'rgb(0, 0, 0)',
+                    negate: false
+                }));
 
-                    const mesh = new THREE.Mesh(geometry, material);
-                    mesh.scale.set(-0.01, -0.01, 0.01);
-                    resolve(mesh);
-                });
-            // })
+                const mesh = new THREE.Mesh(geometry, material);
+                mesh.scale.set(-0.01, -0.01, 0.01);
+                resolve(mesh);
+            });
         });
 
         const placeholder = new THREE.Mesh(new THREE.PlaneBufferGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0xff0000 }));

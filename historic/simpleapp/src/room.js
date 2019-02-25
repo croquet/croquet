@@ -70,7 +70,7 @@ export class RoomView extends View {
         this.light = new THREE.DirectionalLight("#ffffdd");
         this.light.position.set(1, 2, -1);
         this.scene.add(this.light);
-        this.ambientLight = new THREE.AmbientLight("#ddddff");
+        this.ambientLight = new THREE.HemisphereLight("#ddddff", "#ffdddd");
         this.scene.add(this.ambientLight);
 
         for (let object of room.objects) {
