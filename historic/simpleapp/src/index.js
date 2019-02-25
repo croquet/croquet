@@ -16,6 +16,8 @@ export class Box extends InertialModel {
 
 /** Model for a rotating Box */
 export class RotatingBox extends SpatialModel {
+        this.doRotation();
+    }
 
     /** rotate by 0.01 rad 60 times per second via future send */
     doRotation() {
@@ -101,7 +103,6 @@ function start() {
         room.addObject(box);
 
         const rotatingBox = new RotatingBox(island, {position: new THREE.Vector3(-3, 1.0, 0)});
-        rotatingBox.doRotation();
         room.addObject(rotatingBox);
 
         const text1 = new Text(island, {
