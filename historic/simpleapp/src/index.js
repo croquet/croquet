@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import IslandReplica from './islandReplica.js';
+import Model from './model.js';
 import SpatialModel from './spatialModel.js';
 import Object3DView from './object3DView.js';
 import { Room, RoomView } from './room.js';
@@ -174,11 +175,10 @@ function start() {
 
     if (module.hot) {
         module.hot.dispose(hotData => {
-            // disable hot reload unless url has #hot
-            if (window.location.hash !== '#hot') return window.location.reload();
-
             // unregister all callbacks, they refer to old functions
             hotreload.dispose();
+            // clean old references
+            Model.dispose();
             // release WebGL resources
             roomView.detach();
             observerView.detach();

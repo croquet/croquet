@@ -2,9 +2,11 @@ export const ModelEvents = {
     destroyed: "model-destroyed"
 };
 
-const ModelConstructors = {};
+let ModelConstructors = {};
 
 export default class Model {
+    static isTeaTimeModel() { return true; }
+
     // LIFECYCLE
     /** @arg {IslandReplica} island */
     /** @arg {Object} state */
@@ -69,7 +71,7 @@ export default class Model {
         // HACK: go through all exports and find model subclasses
         for (let m of Object.values(module.bundle.cache)) {
             for (let [key, value] of Object.entries(m.exports)) {
-                if (value.prototype instanceof this) {
+                if (value.isTeaTimeModel) {
                     const name = key === "default" ? value.name : key;
                     ModelConstructors[name] = value;
                 }
@@ -79,6 +81,10 @@ export default class Model {
             return this.fromState(island, state);
         }
         throw new Error(`Class "${state.constructorName}" not found, is it exported?`);
+    }
+
+    static dispose() {
+        ModelConstructors = {};
     }
 
     // NATURAL VIEW
