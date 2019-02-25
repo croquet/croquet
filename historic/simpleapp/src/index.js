@@ -33,6 +33,12 @@ export class Text extends InertialModel {
         this.font = state.font;
     }
 
+    state(state) {
+        super.state(state);
+        state.text = this.text;
+        state.font = this.font;
+    }
+
     naturalViewClass() { return TextView; }
 }
 
@@ -85,7 +91,6 @@ function start() {
     let observer;
 
     if (state.room) {
-        debugger;
         room = island.modelsById[state.room];
         observer = island.modelsById[state.observer];
     } else {
@@ -182,7 +187,7 @@ function start() {
                 renderer,
                 island: island.state(),
                 room: room.id,
-                observer: room.id,
+                observer: observer.id,
             };
         });
     }

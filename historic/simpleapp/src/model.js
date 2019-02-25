@@ -7,9 +7,16 @@ const ModelConstructors = {};
 export default class Model {
     // LIFECYCLE
     /** @arg {IslandReplica} island */
+    /** @arg {Object} state */
     constructor(island, state={}) {
         this.island = island;
         this.id = island.registerModel(this, state.id);
+    }
+
+    /** second init pass: wire up objects */
+    /** @arg {Object} _state */
+    /** @arg {Object} _objectsByID */
+    init(_state, _objectsByID) {
     }
 
     destroy() {

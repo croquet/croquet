@@ -21,10 +21,19 @@ export class Room extends SpatialModel {
         this.observers = new Set();
     }
 
+    init(state, objectsByID, ) {
+        // second pass: now we have all objects
+        super.init(state, objectsByID);
+        for (let id of state.objects || []) this.addObject(objectsByID[id]);
+        for (let id of state.observers || []) this.addObserver(objectsByID[id]);
+    }
+
     state(state) {
         super.state(state);
         state.size = this.size;
         state.color = this.color;
+        state.objects = Array.from(this.objects).map(o => o.id);
+        state.observers = Array.from(this.observers).map(o => o.id);
     }
 
     addObject(object) {
