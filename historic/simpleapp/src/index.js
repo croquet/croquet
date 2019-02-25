@@ -16,6 +16,8 @@ export class Box extends InertialModel {
 
 /** Model for a rotating Box */
 export class RotatingBox extends SpatialModel {
+    constructor(island, state) {
+        super(island, state);
         this.doRotation();
     }
 
