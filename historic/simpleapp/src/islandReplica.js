@@ -1,5 +1,5 @@
 import SeedRandom from "seedrandom";
-import Model from "./model.js"
+import Model from "./model.js";
 
 /** This is kind of a rough mock of what I expect TeaTime to provide
  * plus additional bookeeping "around" an island replica to make
@@ -21,7 +21,7 @@ export default class IslandReplica {
         // wire up models in second pass
         for (let modelState of state.models || []) {
             const model = this.modelsById[modelState.id];
-            model.init(modelState, this.modelsById);
+            model.restoreObjectReferences(modelState, this.modelsById);
         }
     }
 

@@ -18,7 +18,7 @@ export default class Model {
     /** second init pass: wire up objects */
     /** @arg {Object} _state */
     /** @arg {Object} _objectsByID */
-    init(_state, _objectsByID) {
+    restoreObjectReferences(_state, _objectsByID) {
     }
 
     destroy() {
