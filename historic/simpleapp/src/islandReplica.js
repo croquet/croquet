@@ -1,5 +1,6 @@
 import SeedRandom from "seedrandom";
 import Model from "./model.js";
+import hotreload from "./hotreload.js";
 
 /** This is kind of a rough mock of what I expect TeaTime to provide
  * plus additional bookeeping "around" an island replica to make
@@ -48,7 +49,7 @@ export default class IslandReplica {
     // This will become in-directed via the Reflector
     callModelMethod(modelId, method, args, tOffset = 0) {
         if (tOffset) {
-            window.setTimeout(() => this.callModelMethod(modelId, method, args), tOffset);
+            hotreload.setTimeout(() => this.callModelMethod(modelId, method, args), tOffset);
         } else {
             const model = this.modelsById[modelId];
             model[method](...args);

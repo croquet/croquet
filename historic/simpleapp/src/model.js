@@ -1,3 +1,5 @@
+import hotreload from "./hotreload.js";
+
 export const ModelEvents = {
     destroyed: "model-destroyed"
 };
@@ -33,7 +35,7 @@ export default class Model {
                 if (typeof target[property] === "function") {
                     const methodProxy = new Proxy(target[property], {
                         apply(targetMethod, _, args) {
-                            window.setTimeout(() => {
+                            hotreload.setTimeout(() => {
                                 targetMethod.apply(target, args);
                             }, tOffset);
                         }
