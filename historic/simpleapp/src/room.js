@@ -1,32 +1,18 @@
 import * as THREE from 'three';
-import SpatialComponent from './spatialComponent.js';
 import View from './view.js';
 import ManipulatorView from './manipulatorView.js';
 import Model from './model';
-import ModelChildrenComponent, { ChildEvents } from './modelChildrenComponent.js';
-
-export const RoomEvents = {
-    colorChanged: "room-colorChanged"
-};
+import ModelChildrenComponent, { ChildEvents } from './modelComponents/modelChildren.js';
+import ColorComponent from './modelComponents/color.js';
+import SizeComponent from './modelComponents/size.js';
 
 export class Room extends Model {
     constructor(island, state={}) {
         super(island, state);
-        this.size = state.size || new THREE.Vector3(20, 20, 20);
-        this.color = state.color || new THREE.Color("#dddddd");
+        this.size = new SizeComponent(this, state.size)
+        this.color = new ColorComponent(this, state.color);
         this.objects = new ModelChildrenComponent(this, "objects");
         this.observers = new ModelChildrenComponent(this, "observers");
-    }
-
-    toState(state) {
-        super.toState(state);
-        state.size = this.size;
-        state.color = this.color;
-    }
-
-    changeColor(newColor) {
-        this.color.copy(newColor);
-        this.publish(RoomEvents.colorChanged, newColor);
     }
 }
 
@@ -41,7 +27,7 @@ export class RoomView extends View {
 
     /** @arg {Room} room */
     attach(room) {
-        this.scene.background = room.color;
+        this.scene.background = room.color.value;
         this.grid = new THREE.GridHelper(room.size.x, 10, "#888888", "#aaaaaa");
         this.scene.add(this.grid);
         this.light = new THREE.DirectionalLight("#ffffdd");

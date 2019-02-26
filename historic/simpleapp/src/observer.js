@@ -3,8 +3,7 @@ import Object3DView from './object3DView.js';
 import arrowsAlt from '../assets/arrows-alt.svg';
 import arrowsAltRot from '../assets/arrows-alt-rot.svg';
 import Model from './model';
-import SpatialComponent from './spatialComponent';
-import InertialSpatialComponent from './inertialComponent.js';
+import InertialSpatialComponent from './modelComponents/inertialSpatial.js';
 import SVGIcon from './util/svgIcon.js';
 
 /** Represents an observer of a Room. This can be an active participant,

@@ -1,4 +1,4 @@
-import { ModelComponent } from "./model";
+import { ModelComponent } from "../model";
 
 export const ChildEvents = {
     childAdded: "child-added",

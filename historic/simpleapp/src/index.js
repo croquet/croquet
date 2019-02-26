@@ -1,13 +1,14 @@
 import * as THREE from 'three';
 import IslandReplica from './islandReplica.js';
 import Model, {ModelComponent} from './model.js';
-import SpatialComponent from './spatialComponent.js';
+import SpatialComponent from './modelComponents/spatial.js';
 import Object3DView from './object3DView.js';
 import { Room, RoomView } from './room.js';
 import { Observer, PointingObserverCameraView, PointerEvents } from './observer.js';
-import InertialSpatialComponent from './inertialComponent.js';
+import InertialSpatialComponent from './modelComponents/inertialSpatial.js';
 import { TextMesh } from './text/text.js';
 import hotreload from "./hotreload.js";
+import TextComponent from './modelComponents/text.js';
 
 /** Model for a Box */
 export class Box extends Model {
@@ -48,15 +49,8 @@ export class RotatingBox extends Model {
 export class Text extends Model {
     constructor(island, state) {
         super(island, state);
-        this.text = state.text;
-        this.font = state.font;
+        this.text = new TextComponent(this, state.text);
         this.spatial = new SpatialComponent(this, state.spatial);
-    }
-
-    toState(state) {
-        super.toState(state);
-        state.text = this.text;
-        state.font = this.font;
     }
 
     naturalViewClass() { return TextView; }
@@ -97,7 +91,7 @@ class BoxView extends Object3DView {
 /** View for rendering a Text */
 class TextView extends Object3DView {
     attachWithObject3D(modelState) {
-        return new TextMesh(modelState.text, modelState.font, {width: 500});
+        return new TextMesh(modelState.text.content, modelState.text.font, {width: 500});
     }
 }
 
@@ -124,15 +118,13 @@ function start() {
 
         const text1 = new Text(island, {
             spatial: {position: new THREE.Vector3(3, 1.0, 0)},
-            text: "man is much more than a tool builder... he is an inventor of universes.",
-            font: "Barlow"
+            text: {content: "man is much more than a tool builder... he is an inventor of universes."}
         });
         room.objects.add(text1);
 
         const text2 = new Text(island, {
             spatial: {position: new THREE.Vector3(-5, 1.0, 0)},
-            text: "Chapter Eight - The Queen's Croquet Ground",
-            font: "Lora",
+            text: {content: "Chapter Eight - The Queen's Croquet Ground", font: "Lora"},
         });
         room.objects.add(text2);
 

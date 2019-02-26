@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import SpatialComponent from './spatialComponent';
+import SpatialComponent from './spatial';
 
 /** A spatial model with inertia */
 export default class InertialSpatialComponent extends SpatialComponent {
