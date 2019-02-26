@@ -29,6 +29,9 @@ function dispose() {
     for (let handle of timeoutHandles) window.clearTimeout(handle);
     for (let handle of frameHandles) window.cancelAnimationFrame(handle);
     for (let {obj, args} of eventListeners) obj.removeEventListener(...args);
+    console.log(`Clearing callbacks: ${timeoutHandles.size} timeouts, ${frameHandles.size} animationFrames, ${eventListeners.length} eventListeners`);
+    timeoutHandles = new Set();
+    frameHandles = new Set();
     eventListeners = [];
 }
 
