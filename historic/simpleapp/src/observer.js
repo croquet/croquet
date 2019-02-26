@@ -81,9 +81,9 @@ export class PointingObserverCameraView extends ObserverCameraView {
 
         this.treadmill = new THREE.Group();
         this.treadmillForwardStrip = new THREE.Mesh(new THREE.PlaneBufferGeometry(4, 100), new THREE.MeshBasicMaterial({color: "#eeeeee", visible: false}));
+        this.treadmillForwardStrip.position.z -= 0.1;
         this.treadmillForwardStrip.userData.croquetView = this;
         this.treadmillRotateArea = new THREE.Mesh(new THREE.CircleBufferGeometry(100, 30), new THREE.MeshBasicMaterial({color: "#cccccc", visible: false}));
-        this.treadmillRotateArea.position.z -= 0.1;
         this.treadmillRotateArea.userData.croquetView = this;
         this.treadmill.add(this.treadmillForwardStrip);
         this.treadmill.add(this.treadmillRotateArea);
@@ -236,7 +236,9 @@ export class PointingObserverCameraView extends ObserverCameraView {
                     hoverPoint = point;
                     hoverNormal = face.normal;
                     hoverThreeObj = currentObjInTree;
-                    break;
+                    // if we hit our treadmill, keep looking to be
+                    // able to pick objects below
+                    if (newlyHoveredView !== this) break;
                 }
             }
 
