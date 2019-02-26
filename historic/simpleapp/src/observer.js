@@ -79,8 +79,13 @@ export class PointingObserverCameraView extends ObserverCameraView {
         const camera = super.attachWithObject3D(modelState);
         camera.position.setZ(1);
 
+        // make treadmillForwardStrip look like a rectangle in screenspace
+        const d = 100;
+        const w = Math.tan(camera.fov / 2 * (Math.PI / 180)) * camera.aspect * 0.5; // half width of frame
+        const stripShape = new THREE.Shape([{x: -w, y: 0}, {x: w, y: 0},  {x: w * d, y: d}, {x: -w * d, y: d}]);
+
         this.treadmill = new THREE.Group();
-        this.treadmillForwardStrip = new THREE.Mesh(new THREE.PlaneBufferGeometry(4, 100), new THREE.MeshBasicMaterial({color: "#eeeeee", visible: false}));
+        this.treadmillForwardStrip = new THREE.Mesh(new THREE.ShapeBufferGeometry(stripShape), new THREE.MeshBasicMaterial({ color: "#eeeeee", visible: false}));
         this.treadmillForwardStrip.position.z -= 0.1;
         this.treadmillForwardStrip.userData.croquetView = this;
         this.treadmillRotateArea = new THREE.Mesh(new THREE.CircleBufferGeometry(100, 30), new THREE.MeshBasicMaterial({color: "#cccccc", visible: false}));
