@@ -1,8 +1,23 @@
-let frameHandle = 0;
+let timeoutHandles = new Set();
+let frameHandles = new Set();
 let eventListeners = [];
 
-function requestAnimationFrame(...args) {
-    return frameHandle = window.requestAnimationFrame(...args);
+function setTimeout(fn, ms) {
+    const handle = window.setTimeout((...args) => {
+        timeoutHandles.delete(handle);
+        fn(...args);
+    }, ms);
+    timeoutHandles.add(handle);
+    return handle;
+}
+
+function requestAnimationFrame(fn) {
+    const handle = window.requestAnimationFrame((...args) => {
+        frameHandles.delete(handle);
+        fn(...args);
+    });
+    frameHandles.add(handle);
+    return handle;
 }
 
 function addEventListener(obj, ...args) {
@@ -11,13 +26,14 @@ function addEventListener(obj, ...args) {
 }
 
 function dispose() {
-    if (frameHandle) window.cancelAnimationFrame(frameHandle);
+    for (let handle of timeoutHandles) window.clearTimeout(handle);
+    for (let handle of frameHandles) window.cancelAnimationFrame(handle);
     for (let {obj, args} of eventListeners) obj.removeEventListener(...args);
-    frameHandle = 0;
     eventListeners = [];
 }
 
 export default {
+    setTimeout,
     requestAnimationFrame,
     addEventListener,
     dispose,

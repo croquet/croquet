@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import IslandReplica from './islandReplica.js';
+import Model from './model.js';
 import SpatialModel from './spatialModel.js';
 import Object3DView from './object3DView.js';
 import { Room, RoomView } from './room.js';
@@ -15,6 +16,10 @@ export class Box extends InertialModel {
 
 /** Model for a rotating Box */
 export class RotatingBox extends SpatialModel {
+    constructor(island, state) {
+        super(island, state);
+        this.doRotation();
+    }
 
     /** rotate by 0.01 rad 60 times per second via future send */
     doRotation() {
@@ -100,7 +105,6 @@ function start() {
         room.addObject(box);
 
         const rotatingBox = new RotatingBox(island, {position: new THREE.Vector3(-3, 1.0, 0)});
-        rotatingBox.doRotation();
         room.addObject(rotatingBox);
 
         const text1 = new Text(island, {
@@ -174,11 +178,10 @@ function start() {
 
     if (module.hot) {
         module.hot.dispose(hotData => {
-            // disable hot reload unless url has #hot
-            if (window.location.hash !== '#hot') return window.location.reload();
-
             // unregister all callbacks, they refer to old functions
             hotreload.dispose();
+            // clean old references
+            Model.dispose();
             // release WebGL resources
             roomView.detach();
             observerView.detach();

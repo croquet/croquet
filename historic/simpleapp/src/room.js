@@ -21,9 +21,9 @@ export class Room extends SpatialModel {
         this.observers = new Set();
     }
 
-    init(state, objectsByID, ) {
+    restoreObjectReferences(state, objectsByID, ) {
         // second pass: now we have all objects
-        super.init(state, objectsByID);
+        super.restoreObjectReferences(state, objectsByID);
         for (let id of state.objects || []) this.addObject(objectsByID[id]);
         for (let id of state.observers || []) this.addObserver(objectsByID[id]);
     }
