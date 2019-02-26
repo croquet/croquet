@@ -35,10 +35,10 @@ export default class ManipulatorView extends Object3DView {
         this.group.add(this.moveHandle);
         this.group.add(this.rotateHandle);
         this.cursor = "grab";
-        this.subscribe(this.id, PointerEvents.pointerMove, "onPointerMove");
-        this.subscribe(this.id, PointerEvents.pointerLeave, "onPointerLeave");
-        this.subscribe(this.id, PointerEvents.pointerDown, "onPointerDown");
-        this.subscribe(this.id, PointerEvents.pointerDrag, "onPointerDrag");
+        this.subscribe(PointerEvents.pointerMove, "onPointerMove");
+        this.subscribe(PointerEvents.pointerLeave, "onPointerLeave");
+        this.subscribe(PointerEvents.pointerDown, "onPointerDown");
+        this.subscribe(PointerEvents.pointerDrag, "onPointerDrag");
         return this.group;
     }
 
@@ -85,13 +85,13 @@ export default class ManipulatorView extends Object3DView {
 
     onPointerDrag({dragStart, dragEndOnHorizontalPlane, dragStartThreeObj}) {
         if (dragStartThreeObj === this.moveHandle) {
-            this.model().moveTo(this.positionAtDragStart.clone().add(dragEndOnHorizontalPlane.clone().sub(dragStart)));
+            this.model().spatial.moveTo(this.positionAtDragStart.clone().add(dragEndOnHorizontalPlane.clone().sub(dragStart)));
         } else if (dragStartThreeObj === this.rotateHandle) {
             const delta = (new THREE.Quaternion()).setFromUnitVectors(
                 dragStart.clone().sub(this.positionAtDragStart).setY(0).normalize(),
                 dragEndOnHorizontalPlane.clone().sub(this.positionAtDragStart).setY(0).normalize(),
             );
-            this.model().rotateTo(this.quaternionAtDragStart.clone().multiply(delta));
+            this.model().spatial.rotateTo(this.quaternionAtDragStart.clone().multiply(delta));
         }
     }
 }

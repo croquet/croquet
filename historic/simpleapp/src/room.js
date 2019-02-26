@@ -1,59 +1,27 @@
 import * as THREE from 'three';
-import SpatialModel from './spatialModel.js';
+import SpatialComponent from './spatialComponent.js';
 import View from './view.js';
 import ManipulatorView from './manipulatorView.js';
+import Model from './model';
+import ModelChildrenComponent, { ChildEvents } from './modelChildrenComponent.js';
 
 export const RoomEvents = {
-    objectAdded: "room-objectAdded",
-    objectRemoved: "room-objectRemoved",
-    observerJoined: "room-observerJoined",
-    observerLeft: "room-observerLeft",
     colorChanged: "room-colorChanged"
 };
 
-export class Room extends SpatialModel {
+export class Room extends Model {
     constructor(island, state={}) {
         super(island, state);
         this.size = state.size || new THREE.Vector3(20, 20, 20);
         this.color = state.color || new THREE.Color("#dddddd");
-        /** @type {Set<SpatialModel>} */
-        this.objects = new Set();
-        this.observers = new Set();
+        this.objects = new ModelChildrenComponent(this, "objects");
+        this.observers = new ModelChildrenComponent(this, "observers");
     }
 
-    restoreObjectReferences(state, objectsByID, ) {
-        // second pass: now we have all objects
-        super.restoreObjectReferences(state, objectsByID);
-        for (let id of state.objects || []) this.addObject(objectsByID[id]);
-        for (let id of state.observers || []) this.addObserver(objectsByID[id]);
-    }
-
-    state(state) {
-        super.state(state);
+    toState(state) {
+        super.toState(state);
         state.size = this.size;
         state.color = this.color;
-        state.objects = Array.from(this.objects).map(o => o.id);
-        state.observers = Array.from(this.observers).map(o => o.id);
-    }
-
-    addObject(object) {
-        this.objects.add(object);
-        this.publish(RoomEvents.objectAdded, object);
-    }
-
-    removeObject(object) {
-        this.objects.add(object);
-        this.publish(RoomEvents.objectRemoved, object);
-    }
-
-    addObserver(observer) {
-        this.observers.add(observer);
-        this.publish(RoomEvents.observerJoined, observer);
-    }
-
-    removeObserver(observer) {
-        this.observers.remove(observer);
-        this.publish(RoomEvents.observerLeft, observer);
     }
 
     changeColor(newColor) {
@@ -82,19 +50,19 @@ export class RoomView extends View {
         this.ambientLight = new THREE.HemisphereLight("#ddddff", "#ffdddd");
         this.scene.add(this.ambientLight);
 
-        for (let object of room.objects) {
+        for (let object of room.objects.children) {
             this.onObjectAdded(object);
         }
 
-        this.subscribe(room.id, RoomEvents.objectAdded, "onObjectAdded");
-        this.subscribe(room.id, RoomEvents.objectRemoved, "onObjectRemoved");
+        this.subscribe(ChildEvents.childAdded, "onObjectAdded", room.id + ".objects");
+        this.subscribe(ChildEvents.childRemoved, "onObjectRemoved", room.id + ".objects");
 
-        for (let observer of room.observers) {
+        for (let observer of room.observers.children) {
             this.onObserverJoined(observer);
         }
 
-        this.subscribe(room.id, RoomEvents.observerJoined, "onObserverJoined");
-        this.subscribe(room.id, RoomEvents.observerLeft, "onObserverLeft");
+        this.subscribe(ChildEvents.childAdded, "onObserverJoined", room.id + '.observers');
+        this.subscribe(ChildEvents.childRemoved, "onObserverLeft", room.id + '.observers');
     }
 
     detach() {

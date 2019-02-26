@@ -1,10 +1,11 @@
 import * as THREE from 'three';
-import SpatialModel from './spatialModel.js';
+import SpatialComponent from './spatialComponent';
 
 /** A spatial model with inertia */
-export default class InertialModel extends SpatialModel {
-    constructor(island, state={}) {
-        super(island, state);
+export default class InertialSpatialComponent extends SpatialComponent {
+    /** @param {SpatialComponent} spatialComponent */
+    constructor(owner, state={}, componentName="spatial") {
+        super(owner, state, componentName);
         this.estimatedVelocity = state.estimatedVelocity || new THREE.Vector3(0, 0, 0);
         this.estimatedRotationalVelocity = state.estimatedRotationalVelocity || new THREE.Quaternion();
         this.dampening = state.dampening || 0.1;
@@ -12,8 +13,8 @@ export default class InertialModel extends SpatialModel {
         this.applyVelocity();
     }
 
-    state(state) {
-        super.state(state);
+    toState(state) {
+        super.toState(state);
         state.estimatedVelocity = this.estimatedVelocity;
         state.estimatedRotationalVelocity = this.estimatedRotationalVelocity;
         state.dampening = this.dampening;

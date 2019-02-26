@@ -1,7 +1,7 @@
-/** @module spatialModel */
+/** @module spatialComponent */
 
 import * as THREE from 'three';
-import Model from './model.js';
+import {ModelComponent} from './model.js';
 
 export const SpatialEvents = {
     moved: "spatial-moved",
@@ -9,13 +9,15 @@ export const SpatialEvents = {
 };
 
 /**
- * @class SpatialModel
- * @extends Model
+ * @class SpatialComponent
+ * @extends ModelComponent
  */
-export default class SpatialModel extends Model {
-    constructor(island, state={}) {
-        super(island, state);
+export default class SpatialComponent extends ModelComponent {
+    constructor(owner, state={}, componentName="spatial") {
+        super(owner, componentName);
+        /** @type {THREE.Vector3} */
         this.position = state.position || new THREE.Vector3(0, 0, 0);
+        /** @type {THREE.Quaternion} */
         this.quaternion = state.quaternion || new THREE.Quaternion();
         this.scale = state.scale || new THREE.Vector3(1, 1, 1);
     }
@@ -45,8 +47,8 @@ export default class SpatialModel extends Model {
         this.publish(SpatialEvents.rotated, this.quaternion.clone());
     }
 
-    state(state) {
-        super.state(state);
+    toState(state) {
+        super.toState(state);
         state.position = this.position;
         state.quaternion = this.quaternion;
         state.scale = this.scale;

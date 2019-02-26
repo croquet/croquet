@@ -1,45 +1,60 @@
 import * as THREE from 'three';
 import IslandReplica from './islandReplica.js';
-import Model from './model.js';
-import SpatialModel from './spatialModel.js';
+import Model, {ModelComponent} from './model.js';
+import SpatialComponent from './spatialComponent.js';
 import Object3DView from './object3DView.js';
 import { Room, RoomView } from './room.js';
 import { Observer, PointingObserverCameraView, PointerEvents } from './observer.js';
-import InertialModel from './inertialModel.js';
+import InertialSpatialComponent from './inertialComponent.js';
 import { TextMesh } from './text/text.js';
 import hotreload from "./hotreload.js";
 
 /** Model for a Box */
-export class Box extends InertialModel {
+export class Box extends Model {
+    constructor(island, state) {
+        super(island, state);
+        this.spatial = new InertialSpatialComponent(this, state.spatial);
+    }
+
     naturalViewClass() { return BoxView; }
 }
 
-/** Model for a rotating Box */
-export class RotatingBox extends SpatialModel {
-    constructor(island, state) {
-        super(island, state);
-        this.doRotation();
+class AutoRotate extends ModelComponent {
+    constructor(owner, componentName="autoRotate", spatialComponentName="spatial") {
+        super(owner, componentName);
+        /** @type {SpatialComponent} */
+        this.spatialComponent = owner[spatialComponentName];
     }
 
-    /** rotate by 0.01 rad 60 times per second via future send */
     doRotation() {
-        this.rotateBy((new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), 0.01));
+        this.spatialComponent.rotateBy((new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), 0.01));
         this.future(1000/60).doRotation();
+    }
+}
+
+/** Model for a rotating Box */
+export class RotatingBox extends Model {
+    constructor(island, state) {
+        super(island, state);
+        this.spatial = new SpatialComponent(this, state.spatial);
+        this.autoRotate = new AutoRotate(this);
+        this.autoRotate.doRotation();
     }
 
     naturalViewClass() { return BoxView; }
 }
 
 /** Model for a simple text display */
-export class Text extends InertialModel {
+export class Text extends Model {
     constructor(island, state) {
         super(island, state);
         this.text = state.text;
         this.font = state.font;
+        this.spatial = new SpatialComponent(this, state.spatial);
     }
 
-    state(state) {
-        super.state(state);
+    toState(state) {
+        super.toState(state);
         state.text = this.text;
         state.font = this.font;
     }
@@ -50,9 +65,9 @@ export class Text extends InertialModel {
 /** View for a Box */
 class BoxView extends Object3DView {
     attachWithObject3D(_modelState) {
-        this.subscribe(this.id, PointerEvents.pointerDown, "onPointerDown");
-        this.subscribe(this.id, PointerEvents.pointerDrag, "onPointerDrag");
-        this.subscribe(this.id, PointerEvents.pointerUp, "onPointerUp");
+        this.subscribe(PointerEvents.pointerDown, "onPointerDown");
+        this.subscribe(PointerEvents.pointerDrag, "onPointerDrag");
+        this.subscribe(PointerEvents.pointerUp, "onPointerUp");
 
         this.cursor = "grab";
 
@@ -71,7 +86,7 @@ class BoxView extends Object3DView {
     onPointerDrag({dragStart, _dragStartNormal, _dragEndOnHorizontalPlane, dragEndOnVerticalPlane}) {
         // const dragEnd = Math.abs(dragStartNormal.y) > 0.5 ? dragEndOnVerticalPlane : dragEndOnHorizontalPlane;
         const dragEnd = dragEndOnVerticalPlane;
-        this.model().moveTo(this.positionAtDragStart.clone().add(dragEnd.clone().sub(dragStart)));
+        this.model().spatial.moveTo(this.positionAtDragStart.clone().add(dragEnd.clone().sub(dragStart)));
     }
 
     onPointerUp() {
@@ -101,34 +116,35 @@ function start() {
     } else {
         room = new Room(island);
 
-        const box = new Box(island, {position: new THREE.Vector3(0, 1.0, 0)});
-        room.addObject(box);
+        const box = new Box(island, {spatial: {position: new THREE.Vector3(0, 1.0, 0)}});
+        room.objects.add(box);
 
-        const rotatingBox = new RotatingBox(island, {position: new THREE.Vector3(-3, 1.0, 0)});
-        room.addObject(rotatingBox);
+        const rotatingBox = new RotatingBox(island, {spatial: {position: new THREE.Vector3(-3, 1.0, 0)}});
+        room.objects.add(rotatingBox);
 
         const text1 = new Text(island, {
-            position: new THREE.Vector3(3, 1.0, 0),
+            spatial: {position: new THREE.Vector3(3, 1.0, 0)},
             text: "man is much more than a tool builder... he is an inventor of universes.",
             font: "Barlow"
         });
-        room.addObject(text1);
+        room.objects.add(text1);
 
         const text2 = new Text(island, {
-            position: new THREE.Vector3(-5, 1.0, 0),
+            spatial: {position: new THREE.Vector3(-5, 1.0, 0)},
             text: "Chapter Eight - The Queen's Croquet Ground",
             font: "Lora",
         });
-        room.addObject(text2);
+        room.objects.add(text2);
 
         observer = new Observer(island, {
-            position: new THREE.Vector3(0, 2, -5),
-            quaternion: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI),
+            spatial: {
+                position: new THREE.Vector3(0, 2, -5),
+                quaternion: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI),
+            },
             name: "Guest1"
         });
+        room.observers.add(observer);
     }
-    room.addObserver(observer);
-
 
     const renderer = state.renderer || new THREE.WebGLRenderer();
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -188,7 +204,7 @@ function start() {
             // preserve state, will be available as module.hot.data after reload
             hotData.hotState = {
                 renderer,
-                island: island.state(),
+                island: island.toState(),
                 room: room.id,
                 observer: observer.id,
             };

@@ -1,69 +1,47 @@
 import hotreload from "./hotreload.js";
+import Component, { ComponentOwner } from "./component.js";
 
 export const ModelEvents = {
+    constructed: "model-constructed",
     destroyed: "model-destroyed"
 };
 
 let ModelConstructors = {};
 
-export default class Model {
+/** @extends {ComponentOwner<ModelComponent>} */
+export default class Model extends ComponentOwner {
     static isTeaTimeModel() { return true; }
 
     // LIFECYCLE
-    /** @arg {IslandReplica} island */
+    /** @arg {import('./islandReplica').default} island */
     /** @arg {Object} state */
     constructor(island, state={}) {
+        super();
         this.island = island;
         this.id = island.registerModel(this, state.id);
     }
 
     /** second init pass: wire up objects */
-    /** @arg {Object} _state */
-    /** @arg {Object} _objectsByID */
-    restoreObjectReferences(_state, _objectsByID) {
+    /** @arg {Object} state */
+    /** @arg {Object} objectsByID */
+    restoreObjectReferences(state, objectsByID) {
+        for (let componentName of Object.keys(this.components)) {
+            this.components[componentName].restoreObjectReferences(state[componentName], objectsByID);
+        }
     }
 
     destroy() {
-        this.publish(ModelEvents.destroyed);
         this.island.deregisterModel(this.id);
     }
 
-    // FUTURE
-    future(tOffset=0) {
-        return new Proxy(this, {
-            get(target, property) {
-                if (typeof target[property] === "function") {
-                    const methodProxy = new Proxy(target[property], {
-                        apply(targetMethod, _, args) {
-                            hotreload.setTimeout(() => {
-                                targetMethod.apply(target, args);
-                            }, tOffset);
-                        }
-                    });
-                    return methodProxy;
-                }
-                throw Error("Tried to call " + property + "() on future of " + Object.getPrototypeOf(target).constructor.name + " which is not a function");
-            }
-        });
-    }
-
-    // PUB/SUB
-    subscribe(scope, event, methodName) {
-        this.island.addModelSubscription(scope, event, this.id, methodName);
-    }
-
-    unsubscribe(scope, event, methodName) {
-        this.island.removeModelSubscription(scope, event, this.id, methodName);
-    }
-
-    publish(event, data, tOffset=0, scope=this.id) {
-        this.island.publishFromModel(scope, event, data, tOffset);
-    }
-
     // STATE
-    state(state) {
+    toState(state) {
         state.constructorName = this.constructor.name;
         state.id = this.id;
+        for (let componentName of Object.keys(this.components)) {
+            state[componentName] = {};
+            this.components[componentName].toState(state[componentName]);
+        }
     }
 
     static fromState(island, state) {
@@ -93,3 +71,49 @@ export default class Model {
     /** @abstract */
     naturalViewClass(_viewContext) {}
 }
+
+/** @extends {Component<Model>} */
+export class ModelComponent extends Component {
+    /** second init pass: wire up objects */
+    /** @arg {Object} _state */
+    /** @arg {Object} _objectsByID */
+    restoreObjectReferences(_state, _objectsByID) {}
+
+    // PUB/SUB
+    subscribe(event, methodName, scope=this.owner.id, component=this.componentName) {
+        const fullScope = scope + (component ? "." + component : "");
+        this.owner.island.addModelSubscription(fullScope, event, this.owner.id, this.componentName, methodName);
+    }
+
+    unsubscribe(event, methodName, scope=this.owner.id, component=this.componentName) {
+        const fullScope = scope + (component ? "." + component : "");
+        this.owner.island.removeModelSubscription(fullScope, event, this.owner.id, this.componentName, methodName);
+    }
+
+    publish(event, data, tOffset=0, scope=this.owner.id, component=this.componentName) {
+        const fullScope = scope + (component ? "." + component : "");
+        this.owner.island.publishFromModel(fullScope, event, data, tOffset);
+    }
+
+    // FUTURE
+    future(tOffset=0) {
+        return new Proxy(this, {
+            get(target, property) {
+                if (typeof target[property] === "function") {
+                    const methodProxy = new Proxy(target[property], {
+                        apply(targetMethod, _, args) {
+                            hotreload.setTimeout(() => {
+                                targetMethod.apply(target, args);
+                            }, tOffset);
+                        }
+                    });
+                    return methodProxy;
+                }
+                throw Error("Tried to call " + property + "() on future of " + Object.getPrototypeOf(target).constructor.name + " which is not a function");
+            }
+        });
+    }
+
+    // STATE
+    toState(state) {}
+};

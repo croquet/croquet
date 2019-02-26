@@ -2,15 +2,18 @@ import * as THREE from 'three';
 import Object3DView from './object3DView.js';
 import arrowsAlt from '../assets/arrows-alt.svg';
 import arrowsAltRot from '../assets/arrows-alt-rot.svg';
-import InertialModel from './inertialModel.js';
+import Model from './model';
+import SpatialComponent from './spatialComponent';
+import InertialSpatialComponent from './inertialComponent.js';
 import SVGIcon from './util/svgIcon.js';
 
 /** Represents an observer of a Room. This can be an active participant,
  *  a passive viewer, or internal camera views, such as for portals
  */
-export class Observer extends InertialModel {
+export class Observer extends Model {
     constructor(island, state={}) {
         super(island, state);
+        this.spatial = new InertialSpatialComponent(this, state.spatial);
         this.name = state.name;
     }
 
@@ -100,10 +103,10 @@ export class PointingObserverCameraView extends ObserverCameraView {
         group.add(this.moveCursor);
         group.add(this.rotateCursor);
 
-        this.subscribe(this.id, PointerEvents.pointerMove, "onHoverTreadmillMove");
-        this.subscribe(this.id, PointerEvents.pointerLeave, "onHoverTreadmillLeave");
-        this.subscribe(this.id, PointerEvents.pointerDown, "onDragTreadmillStart");
-        this.subscribe(this.id, PointerEvents.pointerDrag, "onDragTreadmill");
+        this.subscribe(PointerEvents.pointerMove, "onHoverTreadmillMove");
+        this.subscribe(PointerEvents.pointerLeave, "onHoverTreadmillLeave");
+        this.subscribe(PointerEvents.pointerDown, "onDragTreadmillStart");
+        this.subscribe(PointerEvents.pointerDrag, "onDragTreadmill");
 
         return group;
     }
@@ -137,14 +140,14 @@ export class PointingObserverCameraView extends ObserverCameraView {
 
     onDragTreadmill({dragStart, dragEndOnHorizontalPlane, dragStartThreeObj}) {
         if (dragStartThreeObj === this.treadmillForwardStrip) {
-            this.model().moveTo(this.threeObj.position.clone().sub(dragEndOnHorizontalPlane.clone().sub(dragStart)));
+            this.model().spatial.moveTo(this.threeObj.position.clone().sub(dragEndOnHorizontalPlane.clone().sub(dragStart)));
             this.moveCursor.position.copy(this.threeObj.worldToLocal(dragEndOnHorizontalPlane.clone()));
         } else {
             const delta = (new THREE.Quaternion()).setFromUnitVectors(
                 dragEndOnHorizontalPlane.clone().sub(this.threeObj.position.clone().setY(dragStart.y)).normalize(),
                 dragStart.clone().sub(this.threeObj.position.clone().setY(dragStart.y)).normalize()
             );
-            this.model().rotateTo(this.threeObj.quaternion.clone().multiply(delta));
+            this.model().spatial.rotateTo(this.threeObj.quaternion.clone().multiply(delta));
             this.rotateCursor.position.copy(this.threeObj.worldToLocal(dragEndOnHorizontalPlane.clone()));
             const deltaCursor = (new THREE.Quaternion()).setFromUnitVectors(
                 this.threeObj.getWorldDirection(new THREE.Vector3()),

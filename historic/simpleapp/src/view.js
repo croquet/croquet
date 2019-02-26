@@ -1,6 +1,6 @@
 export default class View {
     // LIFECYCLE
-    /** @arg {IslandReplica} island */
+    /** @arg {import('./islandReplica').default} island */
     constructor(island) {
         this.island = island;
         this.id = island.registerView(this);
@@ -15,23 +15,31 @@ export default class View {
 
     model(tOffset=0) {
         return new Proxy({}, {
-            get: (target, methodName) => {
-                const methodProxy = new Proxy(() => {}, {
+            get: (_, componentOrMethodName) => {
+                const componentOrMethodProxy = new Proxy(() => {}, {
+                    get: (_, methodName) => {
+                        const componentMethodProxy = new Proxy(() => {}, {
+                            apply: (_a, _b, args) => {
+                                this.island.callModelMethod(this.modelId, componentOrMethodName, methodName, args, tOffset);
+                            }
+                        });
+                        return componentMethodProxy;
+                    },
                     apply: (_a, _b, args) => {
-                        this.island.callModelMethod(this.modelId, methodName, args, tOffset);
+                        this.island.callModelMethod(this.modelId, null, methodName, args, tOffset);
                     }
                 });
-                return methodProxy;
+                return componentOrMethodProxy;
             }
         });
     }
 
     // PUB/SUB
-    subscribe(scope, event, methodName) {
+    subscribe(event, methodName, scope=this.id) {
         this.island.addViewSubscription(scope, event, this.id, methodName);
     }
 
-    unsubscribe(scope, event, methodName) {
+    unsubscribe(event, methodName, scope=this.id) {
         this.island.removeViewSubscription(scope, event, this.id, methodName);
     }
 

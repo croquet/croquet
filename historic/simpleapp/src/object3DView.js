@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import View from './view.js';
-import {SpatialEvents} from './spatialModel.js';
+import {SpatialEvents} from './spatialComponent';
 
 export default class Object3DView extends View {
     /** @abstract */
@@ -13,12 +13,12 @@ export default class Object3DView extends View {
         this.threeObj = this.attachWithObject3D(modelState);
         this.threeObj.userData.croquetView = this;
 
-        this.threeObj.position.copy(modelState.position);
-        this.threeObj.quaternion.copy(modelState.quaternion);
-        this.threeObj.scale.copy(modelState.scale);
+        this.threeObj.position.copy(modelState.spatial.position);
+        this.threeObj.quaternion.copy(modelState.spatial.quaternion);
+        this.threeObj.scale.copy(modelState.spatial.scale);
 
-        this.subscribe(this.modelId, SpatialEvents.moved, "onMoved");
-        this.subscribe(this.modelId, SpatialEvents.rotated, "onRotated");
+        this.subscribe(SpatialEvents.moved, "onMoved", this.modelId + ".spatial");
+        this.subscribe(SpatialEvents.rotated, "onRotated", this.modelId + ".spatial");
     }
 
     addToThreeParent(parent) {
@@ -26,8 +26,8 @@ export default class Object3DView extends View {
     }
 
     detach() {
-        this.unsubscribe(this.modelId, SpatialEvents.moved, "onMoved");
-        this.unsubscribe(this.modelId, SpatialEvents.rotated, "onRotated");
+        this.unsubscribe(SpatialEvents.moved, "onMoved", this.modelId + ".spatial");
+        this.unsubscribe(SpatialEvents.rotated, "onRotated", this.modelId + ".spatial");
         this.dispose();
     }
 

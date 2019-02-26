@@ -47,38 +47,42 @@ export default class IslandReplica {
     }
 
     // This will become in-directed via the Reflector
-    callModelMethod(modelId, method, args, tOffset = 0) {
+    callModelMethod(modelId, component, method, args, tOffset = 0) {
         if (tOffset) {
-            hotreload.setTimeout(() => this.callModelMethod(modelId, method, args), tOffset);
+            hotreload.setTimeout(() => this.callModelMethod(modelId, component, method, args), tOffset);
         } else {
             const model = this.modelsById[modelId];
-            model[method](...args);
+            if (component) {
+                model[component][method](...args);
+            } else {
+                model[method](...args);
+            }
         }
     }
 
-    addModelSubscription(scope, event, subscriberId, methodName) {
+    addModelSubscription(scope, event, subscriberId, component, methodName) {
         const topic = scope + ":" + event;
-        const handler = subscriberId + "#" + methodName;
+        const handler = subscriberId + "." + component + "." + methodName;
         if (!this.modelSubscriptions[topic]) this.modelSubscriptions[topic] = new Set();
         this.modelSubscriptions[topic].add(handler);
     }
 
-    removeModelSubscription(scope, event, subscriberId, methodName) {
+    removeModelSubscription(scope, event, subscriberId, component, methodName) {
         const topic = scope + ":" + event;
-        const handler = subscriberId + "#" + methodName;
+        const handler = subscriberId + "." + component + "." + methodName;
         if (this.modelSubscriptions[topic]) this.modelSubscriptions[topic].remove(handler);
     }
 
     addViewSubscription(scope, event, subscriberId, methodName) {
         const topic = scope + ":" + event;
-        const handler = subscriberId + "#" + methodName;
+        const handler = subscriberId + "." + methodName;
         if (!this.viewSubscriptions[topic]) this.viewSubscriptions[topic] = new Set();
         this.viewSubscriptions[topic].add(handler);
     }
 
     removeViewSubscription(scope, event, subscriberId, methodName) {
         const topic = scope + ":" + event;
-        const handler = subscriberId + "#" + methodName;
+        const handler = subscriberId + "." + methodName;
         if (this.viewSubscriptions[topic]) this.viewSubscriptions[topic].delete(handler);
     }
 
@@ -86,16 +90,16 @@ export default class IslandReplica {
         const topic = scope + ":" + event;
         if (this.modelSubscriptions[topic]) {
             for (let handler of this.modelSubscriptions[topic]) {
-                const [subscriberId, method] = handler.split("#");
-                DummyReflector.call(subscriberId, method, tOffset, data);
+                const [subscriberId, component, method] = handler.split(".");
+                this.callModelMethod(subscriberId, component, method, [data], tOffset);
             }
         }
         // This is essentially the only part of code inside a model that is not executed bit-identically
         // everywhere, since different view might be subscribed in different island replicas
         if (this.viewSubscriptions[topic]) {
             for (let handler of this.viewSubscriptions[topic]) {
-                const [subscriberId, method] = handler.split("#");
-                const view = this.viewsById[subscriberId];
+                const [subscriberId, method] = handler.split(".");
+                const view = this.viewsById[subscriberId]
                 view[method].call(view, data);
             }
         }
@@ -106,22 +110,22 @@ export default class IslandReplica {
         // Events published by views can only reach other views
         if (this.viewSubscriptions[topic]) {
             for (let handler of this.viewSubscriptions[topic]) {
-                const [subscriberId, method] = handler.split("#");
-                const view = this.viewsById[subscriberId];
+                const [subscriberId, method] = handler.split(".");
+                const view = this.viewsById[subscriberId]
                 view[method].call(view, data);
             }
         }
     }
 
-    state() {
+    toState() {
         return {
             id: this.id,
             time: this.time,
             random: this._random.state(),
             models: Object.values(this.modelsById).map(model => {
                 const state = {};
-                model.state(state);
-                if (!state.id) throw Error(`No ID in ${model} - did you call super.state()?`);
+                model.toState(state);
+                if (!state.id) throw Error(`No ID in ${model} - did you call super.toState()?`);
                 return state;
             }),
         };
