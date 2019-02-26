@@ -26,7 +26,7 @@ export default class View {
                         return componentMethodProxy;
                     },
                     apply: (_a, _b, args) => {
-                        this.island.callModelMethod(this.modelId, null, methodName, args, tOffset);
+                        this.island.callModelMethod(this.modelId, null, componentOrMethodName, args, tOffset);
                     }
                 });
                 return componentOrMethodProxy;
