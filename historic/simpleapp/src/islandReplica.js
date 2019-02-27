@@ -27,7 +27,7 @@ export default class IslandReplica {
     }
 
     registerModel(model, id) {
-        if (!id) id = this.randomID();
+        if (!id) id = "M" + this.randomID();
         this.modelsById[id] = model;
         return id;
     }
@@ -37,7 +37,7 @@ export default class IslandReplica {
     }
 
     registerView(view) {
-        const id = this.randomID();
+        const id = "V" + this.randomID();
         this.viewsById[id] = view;
         return id;
     }
@@ -73,16 +73,16 @@ export default class IslandReplica {
         if (this.modelSubscriptions[topic]) this.modelSubscriptions[topic].remove(handler);
     }
 
-    addViewSubscription(scope, event, subscriberId, methodName) {
+    addViewSubscription(scope, event, subscriberId, component, methodName) {
         const topic = scope + ":" + event;
-        const handler = subscriberId + "." + methodName;
+        const handler = subscriberId + "." + component + "." + methodName;
         if (!this.viewSubscriptions[topic]) this.viewSubscriptions[topic] = new Set();
         this.viewSubscriptions[topic].add(handler);
     }
 
-    removeViewSubscription(scope, event, subscriberId, methodName) {
+    removeViewSubscription(scope, event, subscriberId, component, methodName) {
         const topic = scope + ":" + event;
-        const handler = subscriberId + "." + methodName;
+        const handler = subscriberId + "." + component + "." + methodName;
         if (this.viewSubscriptions[topic]) this.viewSubscriptions[topic].delete(handler);
     }
 
@@ -98,9 +98,9 @@ export default class IslandReplica {
         // everywhere, since different view might be subscribed in different island replicas
         if (this.viewSubscriptions[topic]) {
             for (let handler of this.viewSubscriptions[topic]) {
-                const [subscriberId, method] = handler.split(".");
-                const view = this.viewsById[subscriberId]
-                view[method].call(view, data);
+                const [subscriberId, component, method] = handler.split(".");
+                const componentInstance = this.viewsById[subscriberId][component];
+                componentInstance[method].call(componentInstance, data);
             }
         }
     }
@@ -110,9 +110,9 @@ export default class IslandReplica {
         // Events published by views can only reach other views
         if (this.viewSubscriptions[topic]) {
             for (let handler of this.viewSubscriptions[topic]) {
-                const [subscriberId, method] = handler.split(".");
-                const view = this.viewsById[subscriberId]
-                view[method].call(view, data);
+                const [subscriberId, component, method] = handler.split(".");
+                const componentInstance = this.viewsById[subscriberId][component];
+                componentInstance[method].call(componentInstance, data);
             }
         }
     }

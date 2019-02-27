@@ -2,13 +2,16 @@ import * as THREE from 'three';
 import IslandReplica from './islandReplica.js';
 import Model, {ModelComponent} from './model.js';
 import SpatialComponent from './modelComponents/spatial.js';
-import Object3DView from './object3DView.js';
 import { Room, RoomView } from './room.js';
-import { Observer, PointingObserverCameraView, PointerEvents } from './observer.js';
+import { Observer, PointingObserverCameraView } from './observer.js';
 import InertialSpatialComponent from './modelComponents/inertialSpatial.js';
-import { TextMesh } from './text/text.js';
+import View from './view.js';
 import hotreload from "./hotreload.js";
 import TextComponent from './modelComponents/text.js';
+import TextViewComponent from './viewComponents/text.js';
+import Object3DViewComponent from './viewComponents/object3D.js';
+import DraggableViewComponent from './viewComponents/draggable.js';
+import TrackSpatial from './viewComponents/trackSpatial.js';
 
 /** Model for a Box */
 export class Box extends Model {
@@ -57,41 +60,30 @@ export class Text extends Model {
 }
 
 /** View for a Box */
-class BoxView extends Object3DView {
+class BoxComponent extends Object3DViewComponent {
     attachWithObject3D(_modelState) {
-        this.subscribe(PointerEvents.pointerDown, "onPointerDown");
-        this.subscribe(PointerEvents.pointerDrag, "onPointerDrag");
-        this.subscribe(PointerEvents.pointerUp, "onPointerUp");
-
-        this.cursor = "grab";
-
         return new THREE.Mesh(
             new THREE.BoxBufferGeometry(1, 1, 1),
             new THREE.MeshStandardMaterial({color: new THREE.Color("#aaaaaa")})
         );
-
     }
+}
 
-    onPointerDown() {
-        this.positionAtDragStart = this.threeObj.position.clone();
-        this.cursor = "grabbing";
-    }
-
-    onPointerDrag({dragStart, _dragStartNormal, _dragEndOnHorizontalPlane, dragEndOnVerticalPlane}) {
-        // const dragEnd = Math.abs(dragStartNormal.y) > 0.5 ? dragEndOnVerticalPlane : dragEndOnHorizontalPlane;
-        const dragEnd = dragEndOnVerticalPlane;
-        this.model().spatial.moveTo(this.positionAtDragStart.clone().add(dragEnd.clone().sub(dragStart)));
-    }
-
-    onPointerUp() {
-        this.cursor = "grab";
+class BoxView extends View {
+    constructor(island) {
+        super(island);
+        this.object3D = new BoxComponent(this);
+        this.track = new TrackSpatial(this);
+        this.draggable = new DraggableViewComponent(this);
     }
 }
 
 /** View for rendering a Text */
-class TextView extends Object3DView {
-    attachWithObject3D(modelState) {
-        return new TextMesh(modelState.text.content, modelState.text.font, {width: 500});
+class TextView extends View {
+    constructor(island) {
+        super(island);
+        this.text = new TextViewComponent(this);
+        this.track = new TrackSpatial(this, "track", "spatial", "text");
     }
 }
 
@@ -142,44 +134,44 @@ function start() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    const roomView = new RoomView(island, observer, window.innerWidth, window.innerHeight);
+    const roomView = new RoomView(island, observer);
     roomView.attach(room);
 
     const observerView = new PointingObserverCameraView(island, window.innerWidth, window.innerHeight);
     observerView.attach(observer);
-    observerView.addToThreeParent(roomView.scene);
+    observerView.addToThreeParent(roomView.scene.scene);
 
     function frame() {
-        renderer.render(roomView.scene, observerView.camera);
-        observerView.updatePointer(roomView.scene);
+        renderer.render(roomView.scene.scene, observerView.camera.threeObj);
+        observerView.pointer.updatePointer(roomView.scene.scene);
         hotreload.requestAnimationFrame(frame);
     }
 
     hotreload.requestAnimationFrame(frame);
 
-    hotreload.addEventListener(window, "mousemove", event => observerView.onMouseMove(event.clientX, event.clientY));
-    hotreload.addEventListener(window, "mousedown", event => observerView.onMouseDown(event));
-    hotreload.addEventListener(window, "mouseup", event => observerView.onMouseUp(event));
+    hotreload.addEventListener(window, "mousemove", event => observerView.pointer.onMouseMove(event.clientX, event.clientY));
+    hotreload.addEventListener(window, "mousedown", event => observerView.pointer.onMouseDown(event));
+    hotreload.addEventListener(window, "mouseup", event => observerView.pointer.onMouseUp(event));
     hotreload.addEventListener(document.body, "touchstart", event => {
-        observerView.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
-        observerView.updatePointer(roomView.scene);
-        observerView.onMouseDown();
+        observerView.pointer.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
+        observerView.pointer.updatePointer(roomView.scene);
+        observerView.pointer.onMouseDown();
         event.stopPropagation();
         event.preventDefault();
     }, {passive: false});
 
     hotreload.addEventListener(document.body, "touchmove", event => {
-        observerView.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
+        observerView.pointer.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
     }, {passive: false});
 
     hotreload.addEventListener(document.body, "touchend", event => {
-        observerView.onMouseUp();
+        observerView.pointer.onMouseUp();
         event.stopPropagation();
         event.preventDefault();
     }, {passive: false});
 
     hotreload.addEventListener(document.body, "wheel", event => {
-        observerView.onWheel(event);
+        observerView.treadmill.onWheel(event);
         event.stopPropagation();
         event.preventDefault();
     }, {passive: false});

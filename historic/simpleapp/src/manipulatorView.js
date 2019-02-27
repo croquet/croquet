@@ -1,18 +1,43 @@
 import * as THREE from "three";
-import Object3DView from "./object3DView.js";
 import SVGIcon from "./util/svgIcon.js";
 import lineHandle from "../assets/line-handle.svg";
 import rotateHandle from "../assets/rotate-handle.svg";
-import { PointerEvents } from "./observer.js";
+import { PointerEvents, makePointerSensitive } from "./viewComponents/pointer.js";
+import Object3DViewComponent from "./viewComponents/object3D.js";
+import View, { ViewComponent } from "./view.js";
+import TrackSpatial from "./viewComponents/trackSpatial.js";
 
-export default class ManipulatorView extends Object3DView {
-    constructor(island, innerView) {
-        super(island);
-        this.innerView = innerView;
+class WrappedViewViewComponent extends ViewComponent {
+    /** @param {import('./view').default} wrappedView */
+    constructor(owner, wrappedView, componentName="wrappedView") {
+        super(owner, componentName);
+        this.wrapped = wrappedView;
     }
 
-    attachWithObject3D(modelState) {
-        this.innerView.attach(modelState);
+    attach(modelState) {
+        this.wrapped.attach(modelState);
+    }
+
+    detach() {
+        this.wrapped.detach();
+    }
+
+    addToThreeParent(parent) {
+        if (this.wrapped.addToThreeParent) this.wrapped.addToThreeParent(parent);
+    }
+
+    removeFromThreeParent(parent) {
+        if (this.wrapped.removeFromThreeParent) this.wrapped.removeFromThreeParent(parent);
+    }
+}
+
+class ManipulatorViewComponent extends Object3DViewComponent {
+    constructor(owner, componentName="manipulator", targetComponentName="spatial") {
+        super(owner, componentName);
+        this.targetComponentName = targetComponentName;
+    }
+
+    attachWithObject3D(_modelState) {
         this.group = new THREE.Group();
         this.moveHandle = new SVGIcon(
             lineHandle,
@@ -29,32 +54,18 @@ export default class ManipulatorView extends Object3DView {
         );
         this.moveHandle.position.y -= 0.8;
         this.moveHandle.position.z -= 0.2;
-        this.moveHandle.userData.croquetView = this;
+        makePointerSensitive(this.moveHandle, this.asViewComponentRef());
         this.rotateHandle.position.y -= 0.7;
-        this.rotateHandle.userData.croquetView = this;
+        makePointerSensitive(this.rotateHandle, this.asViewComponentRef());
         this.group.add(this.moveHandle);
         this.group.add(this.rotateHandle);
-        this.cursor = "grab";
+
         this.subscribe(PointerEvents.pointerMove, "onPointerMove");
         this.subscribe(PointerEvents.pointerLeave, "onPointerLeave");
         this.subscribe(PointerEvents.pointerDown, "onPointerDown");
         this.subscribe(PointerEvents.pointerDrag, "onPointerDrag");
+
         return this.group;
-    }
-
-    detach() {
-        this.innerView.detach();
-        super.detach();
-    }
-
-    addToThreeParent(parent) {
-        this.innerView.addToThreeParent(parent);
-        super.addToThreeParent(parent);
-    }
-
-    removeFromThreeParent(parent) {
-        this.innerView.removeFromThreeParent(parent);
-        super.removeFromThreeParent(parent);
     }
 
     onPointerMove({hoverThreeObj}) {
@@ -85,13 +96,26 @@ export default class ManipulatorView extends Object3DView {
 
     onPointerDrag({dragStart, dragEndOnHorizontalPlane, dragStartThreeObj}) {
         if (dragStartThreeObj === this.moveHandle) {
-            this.model().spatial.moveTo(this.positionAtDragStart.clone().add(dragEndOnHorizontalPlane.clone().sub(dragStart)));
+            this.owner.model()[this.targetComponentName].moveTo(
+                this.positionAtDragStart.clone().add(dragEndOnHorizontalPlane.clone().sub(dragStart))
+            );
         } else if (dragStartThreeObj === this.rotateHandle) {
             const delta = (new THREE.Quaternion()).setFromUnitVectors(
                 dragStart.clone().sub(this.positionAtDragStart).setY(0).normalize(),
                 dragEndOnHorizontalPlane.clone().sub(this.positionAtDragStart).setY(0).normalize(),
             );
-            this.model().spatial.rotateTo(this.quaternionAtDragStart.clone().multiply(delta));
+            this.owner.model()[this.targetComponentName].rotateTo(
+                this.quaternionAtDragStart.clone().multiply(delta)
+            );
         }
+    }
+}
+
+export default class ManipulatorView extends View {
+    constructor(island, wrappedView) {
+        super(island);
+        this.wrappedView = new WrappedViewViewComponent(this, wrappedView);
+        this.manipulator = new ManipulatorViewComponent(this);
+        this.track = new TrackSpatial(this, "track", "spatial", "manipulator");
     }
 }

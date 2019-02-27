@@ -1,9 +1,9 @@
-import { ModelComponent } from "../model";
 import * as THREE from 'three';
+import { ModelComponent } from "../model.js";
 
 const ColorEvents = {
     changed: 'color-changed'
-}
+};
 
 export default class ColorComponent extends ModelComponent {
     constructor(owner, state={}, componentName="color") {

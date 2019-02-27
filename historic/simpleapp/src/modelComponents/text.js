@@ -3,7 +3,7 @@ import { ModelComponent } from "../model";
 const TextEvents = {
     contentChanged: 'text-contentChanged',
     fontChanged: 'text-fontChanged'
-}
+};
 
 export default class TextComponent extends ModelComponent {
     constructor(owner, state={}, componentName="text") {
@@ -14,7 +14,7 @@ export default class TextComponent extends ModelComponent {
 
     setContent(newContent) {
         this.content = newContent;
-        this.publish(TextEvents.contentChanged, content);
+        this.publish(TextEvents.contentChanged, newContent);
     }
 
     setFont(font) {

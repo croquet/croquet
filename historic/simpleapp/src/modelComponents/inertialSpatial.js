@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import SpatialComponent from './spatial';
+import SpatialComponent from './spatial.js';
 
 /** A spatial model with inertia */
 export default class InertialSpatialComponent extends SpatialComponent {
@@ -71,4 +71,4 @@ export default class InertialSpatialComponent extends SpatialComponent {
 
 if (!THREE.Quaternion.prototype.manhattanLength) THREE.Quaternion.prototype.manhattanLength = function() {
     return Math.abs(this._x) + Math.abs(this._y) + Math.abs(this._z) + Math.abs(this._w);
-}
+};
