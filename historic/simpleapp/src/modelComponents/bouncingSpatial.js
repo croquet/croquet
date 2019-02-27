@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import InertialSpatialComponent from './inertialSpatial';
+import InertialSpatialComponent from './inertialSpatial.js';
 
 /** A spatial model with inertia, gravity, and bouncing */
 export default class BouncingSpatialComponent extends InertialSpatialComponent {

@@ -12,6 +12,11 @@ export default class TextComponent extends ModelComponent {
         this.font = state.font || "Barlow";
     }
 
+    toState(state) {
+        state.content = this.content;
+        state.font = this.font;
+    }
+
     setContent(newContent) {
         this.content = newContent;
         this.publish(TextEvents.contentChanged, newContent);
