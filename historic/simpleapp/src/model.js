@@ -1,5 +1,5 @@
 import hotreload from "./hotreload.js";
-import Component, { ComponentOwner } from "./component.js";
+import Part, { PartOwner } from "./parts.js";
 
 export const ModelEvents = {
     constructed: "model-constructed",
@@ -9,8 +9,8 @@ export const ModelEvents = {
 // map model class names to model classes
 let ModelClasses = {};
 
-/** @extends {ComponentOwner<ModelComponent>} */
-export default class Model extends ComponentOwner {
+/** @extends {PartOwner<ModelPart>} */
+export default class Model extends PartOwner {
     // mark this and subclasses as model classes
     static __isTeatimeModelClass__() { return true; }
 
@@ -27,8 +27,8 @@ export default class Model extends ComponentOwner {
     /** @arg {Object} state */
     /** @arg {Object} objectsByID */
     restoreObjectReferences(state, objectsByID) {
-        for (let componentName of Object.keys(this.components)) {
-            this.components[componentName].restoreObjectReferences(state[componentName], objectsByID);
+        for (let partName of Object.keys(this.parts)) {
+            this.parts[partName].restoreObjectReferences(state[partName], objectsByID);
         }
     }
 
@@ -40,9 +40,9 @@ export default class Model extends ComponentOwner {
     toState(state) {
         state.className = this.constructor.name;
         state.id = this.id;
-        for (let componentName of Object.keys(this.components)) {
-            state[componentName] = {};
-            this.components[componentName].toState(state[componentName]);
+        for (let partName of Object.keys(this.parts)) {
+            state[partName] = {};
+            this.parts[partName].toState(state[partName]);
         }
     }
 
@@ -73,26 +73,26 @@ export default class Model extends ComponentOwner {
     naturalViewClass(_viewContext) { }
 }
 
-/** @extends {Component<Model>} */
-export class ModelComponent extends Component {
+/** @extends {Part<Model>} */
+export class ModelPart extends Part {
     /** second init pass: wire up objects */
     /** @arg {Object} _state */
     /** @arg {Object} _objectsByID */
     restoreObjectReferences(_state, _objectsByID) {}
 
     // PUB/SUB
-    subscribe(event, methodName, scope=this.owner.id, component=this.componentName) {
-        const fullScope = scope + (component ? "." + component : "");
-        this.owner.island.addModelSubscription(fullScope, event, this.owner.id, this.componentName, methodName);
+    subscribe(event, methodName, scope=this.owner.id, part=this.partName) {
+        const fullScope = scope + (part ? "." + part : "");
+        this.owner.island.addModelSubscription(fullScope, event, this.owner.id, this.partName, methodName);
     }
 
-    unsubscribe(event, methodName, scope=this.owner.id, component=this.componentName) {
-        const fullScope = scope + (component ? "." + component : "");
-        this.owner.island.removeModelSubscription(fullScope, event, this.owner.id, this.componentName, methodName);
+    unsubscribe(event, methodName, scope=this.owner.id, part=this.partName) {
+        const fullScope = scope + (part ? "." + part : "");
+        this.owner.island.removeModelSubscription(fullScope, event, this.owner.id, this.partName, methodName);
     }
 
-    publish(event, data, tOffset=0, scope=this.owner.id, component=this.componentName) {
-        const fullScope = scope + (component ? "." + component : "");
+    publish(event, data, tOffset=0, scope=this.owner.id, part=this.partName) {
+        const fullScope = scope + (part ? "." + part : "");
         this.owner.island.publishFromModel(fullScope, event, data, tOffset);
     }
 

@@ -1,24 +1,24 @@
 import * as THREE from 'three';
-import View, { ViewComponent } from './view.js';
+import View, { ViewPart } from './view.js';
 import ManipulatorView from './manipulatorView.js';
 import Model from './model.js';
-import ModelChildrenComponent, { ChildEvents } from './modelComponents/modelChildren.js';
-import ColorComponent from './modelComponents/color.js';
-import SizeComponent from './modelComponents/size.js';
-import Object3DViewComponent from './viewComponents/object3D.js';
+import ModelChildrenPart, { ChildEvents } from './modelParts/modelChildren.js';
+import ColorPart from './modelParts/color.js';
+import SizePart from './modelParts/size.js';
+import Object3DViewPart from './viewParts/object3D.js';
 import { ObserverAvatarView } from './observer.js';
 
 export class Room extends Model {
     constructor(island, state={}) {
         super(island, state);
-        this.size = new SizeComponent(this, state.size);
-        this.color = new ColorComponent(this, state.color);
-        this.objects = new ModelChildrenComponent(this, "objects");
-        this.observers = new ModelChildrenComponent(this, "observers");
+        this.size = new SizePart(this, state.size);
+        this.color = new ColorPart(this, state.color);
+        this.objects = new ModelChildrenPart(this, "objects");
+        this.observers = new ModelChildrenPart(this, "observers");
     }
 }
 
-class RoomSceneComponent extends Object3DViewComponent {
+class RoomScenePart extends Object3DViewPart {
     /** @arg {Room} room */
     attachWithObject3D(room) {
         this.scene = new THREE.Scene();
@@ -34,7 +34,7 @@ class RoomSceneComponent extends Object3DViewComponent {
     }
 }
 
-class RoomObjectManagerComponent extends ViewComponent {
+class RoomObjectManagerPart extends ViewPart {
     /** @arg {Room} room */
     attach(room) {
         this.viewsForObjects = {};
@@ -65,7 +65,7 @@ class RoomObjectManagerComponent extends ViewComponent {
     }
 }
 
-class RoomObserverManagerComponent extends ViewComponent {
+class RoomObserverManagerPart extends ViewPart {
     constructor(owner, localObserver) {
         super(owner, "observerManager");
         this.localObserver = localObserver;
@@ -103,8 +103,8 @@ class RoomObserverManagerComponent extends ViewComponent {
 export class RoomView extends View {
     constructor(island, localObserver) {
         super(island);
-        this.scene = new RoomSceneComponent(this, "scene");
-        this.objectManager = new RoomObjectManagerComponent(this, "objectManager");
-        this.observerManager = new RoomObserverManagerComponent(this, localObserver);
+        this.scene = new RoomScenePart(this, "scene");
+        this.objectManager = new RoomObjectManagerPart(this, "objectManager");
+        this.observerManager = new RoomObserverManagerPart(this, localObserver);
     }
 }

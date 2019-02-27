@@ -1,13 +1,13 @@
 import * as THREE from 'three';
-import { ModelComponent } from "../model.js";
+import { ModelPart } from "../model.js";
 
 const ColorEvents = {
     changed: 'color-changed'
 };
 
-export default class ColorComponent extends ModelComponent {
-    constructor(owner, state={}, componentName="color") {
-        super(owner, componentName);
+export default class ColorPart extends ModelPart {
+    constructor(owner, state={}, partName="color") {
+        super(owner, partName);
         this.value = state.value || new THREE.Color("#dddddd");
     }
 

@@ -1,13 +1,13 @@
-import { ModelComponent } from "../model";
+import { ModelPart } from "../model.js";
 
 export const ChildEvents = {
     childAdded: "child-added",
     childRemoved: "child-removed",
 };
 
-export default class ModelChildrenComponent extends ModelComponent {
-    constructor(owner, componentName="children") {
-        super(owner, componentName);
+export default class ModelChildrenPart extends ModelPart {
+    constructor(owner, partName="children") {
+        super(owner, partName);
         this.children = new Set();
     }
 

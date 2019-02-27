@@ -1,38 +1,38 @@
 import * as THREE from 'three';
 import IslandReplica from './islandReplica.js';
-import Model, {ModelComponent} from './model.js';
-import SpatialComponent from './modelComponents/spatial.js';
+import Model, {ModelPart} from './model.js';
+import SpatialPart from './modelParts/spatial.js';
 import { Room, RoomView } from './room.js';
 import { Observer, PointingObserverCameraView } from './observer.js';
-import InertialSpatialComponent from './modelComponents/inertialSpatial.js';
-import BouncingSpatialComponent from './modelComponents/bouncingSpatial.js';
+import InertialSpatialPart from './modelParts/inertialSpatial.js';
+import BouncingSpatialPart from './modelParts/bouncingSpatial.js';
 import View from './view.js';
 import hotreload from "./hotreload.js";
-import TextComponent from './modelComponents/text.js';
-import TextViewComponent from './viewComponents/text.js';
-import Object3DViewComponent from './viewComponents/object3D.js';
-import DraggableViewComponent from './viewComponents/draggable.js';
-import TrackSpatial from './viewComponents/trackSpatial.js';
+import TextPart from './modelParts/text.js';
+import TextViewPart from './viewParts/text.js';
+import Object3DViewPart from './viewParts/object3D.js';
+import DraggableViewPart from './viewParts/draggable.js';
+import TrackSpatial from './viewParts/trackSpatial.js';
 
 /** Model for a Box */
 export class Box extends Model {
     constructor(island, state) {
         super(island, state);
-        this.spatial = new BouncingSpatialComponent(this, state.spatial);
+        this.spatial = new BouncingSpatialPart(this, state.spatial);
     }
 
     naturalViewClass() { return BoxView; }
 }
 
-class AutoRotate extends ModelComponent {
-    constructor(owner, componentName="autoRotate", spatialComponentName="spatial") {
-        super(owner, componentName);
-        /** @type {SpatialComponent} */
-        this.spatialComponent = owner[spatialComponentName];
+class AutoRotate extends ModelPart {
+    constructor(owner, partName="autoRotate", spatialPartName="spatial") {
+        super(owner, partName);
+        /** @type {SpatialPart} */
+        this.spatialPart = owner[spatialPartName];
     }
 
     doRotation() {
-        this.spatialComponent.rotateBy((new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), 0.01));
+        this.spatialPart.rotateBy((new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), 0.01));
         this.future(1000/60).doRotation();
     }
 }
@@ -41,7 +41,7 @@ class AutoRotate extends ModelComponent {
 export class RotatingBox extends Model {
     constructor(island, state) {
         super(island, state);
-        this.spatial = new InertialSpatialComponent(this, state.spatial);
+        this.spatial = new InertialSpatialPart(this, state.spatial);
         this.autoRotate = new AutoRotate(this);
         this.autoRotate.doRotation();
     }
@@ -53,15 +53,15 @@ export class RotatingBox extends Model {
 export class Text extends Model {
     constructor(island, state) {
         super(island, state);
-        this.text = new TextComponent(this, state.text);
-        this.spatial = new SpatialComponent(this, state.spatial);
+        this.text = new TextPart(this, state.text);
+        this.spatial = new SpatialPart(this, state.spatial);
     }
 
     naturalViewClass() { return TextView; }
 }
 
 /** View for a Box */
-class BoxComponent extends Object3DViewComponent {
+class BoxPart extends Object3DViewPart {
     attachWithObject3D(_modelState) {
         return new THREE.Mesh(
             new THREE.BoxBufferGeometry(1, 1, 1),
@@ -73,9 +73,9 @@ class BoxComponent extends Object3DViewComponent {
 class BoxView extends View {
     constructor(island) {
         super(island);
-        this.object3D = new BoxComponent(this);
+        this.object3D = new BoxPart(this);
         this.track = new TrackSpatial(this);
-        this.draggable = new DraggableViewComponent(this);
+        this.draggable = new DraggableViewPart(this);
     }
 }
 
@@ -83,7 +83,7 @@ class BoxView extends View {
 class TextView extends View {
     constructor(island) {
         super(island);
-        this.text = new TextViewComponent(this);
+        this.text = new TextViewPart(this);
         this.track = new TrackSpatial(this, "track", "spatial", "text");
     }
 }

@@ -2,15 +2,15 @@ import * as THREE from "three";
 import SVGIcon from "./util/svgIcon.js";
 import lineHandle from "../assets/line-handle.svg";
 import rotateHandle from "../assets/rotate-handle.svg";
-import { PointerEvents, makePointerSensitive } from "./viewComponents/pointer.js";
-import Object3DViewComponent from "./viewComponents/object3D.js";
-import View, { ViewComponent } from "./view.js";
-import TrackSpatial from "./viewComponents/trackSpatial.js";
+import { PointerEvents, makePointerSensitive } from "./viewParts/pointer.js";
+import Object3DViewPart from "./viewParts/object3D.js";
+import View, { ViewPart } from "./view.js";
+import TrackSpatial from "./viewParts/trackSpatial.js";
 
-class WrappedViewViewComponent extends ViewComponent {
+class WrappedViewViewPart extends ViewPart {
     /** @param {import('./view').default} wrappedView */
-    constructor(owner, wrappedView, componentName="wrappedView") {
-        super(owner, componentName);
+    constructor(owner, wrappedView, partName="wrappedView") {
+        super(owner, partName);
         this.wrapped = wrappedView;
     }
 
@@ -31,10 +31,10 @@ class WrappedViewViewComponent extends ViewComponent {
     }
 }
 
-class ManipulatorViewComponent extends Object3DViewComponent {
-    constructor(owner, componentName="manipulator", targetComponentName="spatial") {
-        super(owner, componentName);
-        this.targetComponentName = targetComponentName;
+class ManipulatorViewPart extends Object3DViewPart {
+    constructor(owner, partName="manipulator", targetPartName="spatial") {
+        super(owner, partName);
+        this.targetPartName = targetPartName;
     }
 
     attachWithObject3D(_modelState) {
@@ -54,9 +54,9 @@ class ManipulatorViewComponent extends Object3DViewComponent {
         );
         this.moveHandle.position.y -= 0.8;
         this.moveHandle.position.z -= 0.2;
-        makePointerSensitive(this.moveHandle, this.asViewComponentRef());
+        makePointerSensitive(this.moveHandle, this.asViewPartRef());
         this.rotateHandle.position.y -= 0.7;
-        makePointerSensitive(this.rotateHandle, this.asViewComponentRef());
+        makePointerSensitive(this.rotateHandle, this.asViewPartRef());
         this.group.add(this.moveHandle);
         this.group.add(this.rotateHandle);
 
@@ -96,7 +96,7 @@ class ManipulatorViewComponent extends Object3DViewComponent {
 
     onPointerDrag({dragStart, dragEndOnHorizontalPlane, dragStartThreeObj}) {
         if (dragStartThreeObj === this.moveHandle) {
-            this.owner.model()[this.targetComponentName].moveTo(
+            this.owner.model()[this.targetPartName].moveTo(
                 this.positionAtDragStart.clone().add(dragEndOnHorizontalPlane.clone().sub(dragStart))
             );
         } else if (dragStartThreeObj === this.rotateHandle) {
@@ -104,7 +104,7 @@ class ManipulatorViewComponent extends Object3DViewComponent {
                 dragStart.clone().sub(this.positionAtDragStart).setY(0).normalize(),
                 dragEndOnHorizontalPlane.clone().sub(this.positionAtDragStart).setY(0).normalize(),
             );
-            this.owner.model()[this.targetComponentName].rotateTo(
+            this.owner.model()[this.targetPartName].rotateTo(
                 this.quaternionAtDragStart.clone().multiply(delta)
             );
         }
@@ -114,8 +114,8 @@ class ManipulatorViewComponent extends Object3DViewComponent {
 export default class ManipulatorView extends View {
     constructor(island, wrappedView) {
         super(island);
-        this.wrappedView = new WrappedViewViewComponent(this, wrappedView);
-        this.manipulator = new ManipulatorViewComponent(this);
+        this.wrappedView = new WrappedViewViewPart(this, wrappedView);
+        this.manipulator = new ManipulatorViewPart(this);
         this.track = new TrackSpatial(this, "track", "spatial", "manipulator");
     }
 }

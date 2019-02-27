@@ -47,42 +47,42 @@ export default class IslandReplica {
     }
 
     // This will become in-directed via the Reflector
-    callModelMethod(modelId, component, method, args, tOffset = 0) {
+    callModelMethod(modelId, part, method, args, tOffset = 0) {
         if (tOffset) {
-            hotreload.setTimeout(() => this.callModelMethod(modelId, component, method, args), tOffset);
+            hotreload.setTimeout(() => this.callModelMethod(modelId, part, method, args), tOffset);
         } else {
             const model = this.modelsById[modelId];
-            if (component) {
-                model[component][method](...args);
+            if (part) {
+                model[part][method](...args);
             } else {
                 model[method](...args);
             }
         }
     }
 
-    addModelSubscription(scope, event, subscriberId, component, methodName) {
+    addModelSubscription(scope, event, subscriberId, part, methodName) {
         const topic = scope + ":" + event;
-        const handler = subscriberId + "." + component + "." + methodName;
+        const handler = subscriberId + "." + part + "." + methodName;
         if (!this.modelSubscriptions[topic]) this.modelSubscriptions[topic] = new Set();
         this.modelSubscriptions[topic].add(handler);
     }
 
-    removeModelSubscription(scope, event, subscriberId, component, methodName) {
+    removeModelSubscription(scope, event, subscriberId, part, methodName) {
         const topic = scope + ":" + event;
-        const handler = subscriberId + "." + component + "." + methodName;
+        const handler = subscriberId + "." + part + "." + methodName;
         if (this.modelSubscriptions[topic]) this.modelSubscriptions[topic].remove(handler);
     }
 
-    addViewSubscription(scope, event, subscriberId, component, methodName) {
+    addViewSubscription(scope, event, subscriberId, part, methodName) {
         const topic = scope + ":" + event;
-        const handler = subscriberId + "." + component + "." + methodName;
+        const handler = subscriberId + "." + part + "." + methodName;
         if (!this.viewSubscriptions[topic]) this.viewSubscriptions[topic] = new Set();
         this.viewSubscriptions[topic].add(handler);
     }
 
-    removeViewSubscription(scope, event, subscriberId, component, methodName) {
+    removeViewSubscription(scope, event, subscriberId, part, methodName) {
         const topic = scope + ":" + event;
-        const handler = subscriberId + "." + component + "." + methodName;
+        const handler = subscriberId + "." + part + "." + methodName;
         if (this.viewSubscriptions[topic]) this.viewSubscriptions[topic].delete(handler);
     }
 
@@ -90,17 +90,17 @@ export default class IslandReplica {
         const topic = scope + ":" + event;
         if (this.modelSubscriptions[topic]) {
             for (let handler of this.modelSubscriptions[topic]) {
-                const [subscriberId, component, method] = handler.split(".");
-                this.callModelMethod(subscriberId, component, method, [data], tOffset);
+                const [subscriberId, part, method] = handler.split(".");
+                this.callModelMethod(subscriberId, part, method, [data], tOffset);
             }
         }
         // This is essentially the only part of code inside a model that is not executed bit-identically
         // everywhere, since different view might be subscribed in different island replicas
         if (this.viewSubscriptions[topic]) {
             for (let handler of this.viewSubscriptions[topic]) {
-                const [subscriberId, component, method] = handler.split(".");
-                const componentInstance = this.viewsById[subscriberId][component];
-                componentInstance[method].call(componentInstance, data);
+                const [subscriberId, part, method] = handler.split(".");
+                const partInstance = this.viewsById[subscriberId][part];
+                partInstance[method].call(partInstance, data);
             }
         }
     }
@@ -110,9 +110,9 @@ export default class IslandReplica {
         // Events published by views can only reach other views
         if (this.viewSubscriptions[topic]) {
             for (let handler of this.viewSubscriptions[topic]) {
-                const [subscriberId, component, method] = handler.split(".");
-                const componentInstance = this.viewsById[subscriberId][component];
-                componentInstance[method].call(componentInstance, data);
+                const [subscriberId, part, method] = handler.split(".");
+                const partInstance = this.viewsById[subscriberId][part];
+                partInstance[method].call(partInstance, data);
             }
         }
     }

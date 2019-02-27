@@ -1,11 +1,11 @@
 import * as THREE from 'three';
-import InertialSpatialComponent from './inertialSpatial.js';
+import InertialSpatialPart from './inertialSpatial.js';
 
 /** A spatial model with inertia, gravity, and bouncing */
-export default class BouncingSpatialComponent extends InertialSpatialComponent {
-    /** @param {SpatialComponent} spatialComponent */
-    constructor(owner, state = {}, componentName = "spatial") {
-        super(owner, state, componentName);
+export default class BouncingSpatialPart extends InertialSpatialPart {
+    /** @param {SpatialPart} spatialPart */
+    constructor(owner, state = {}, partName = "spatial") {
+        super(owner, state, partName);
         this.dampening = state.dampening || 0.01;
         this.gravity = state.gravity || new THREE.Vector3(0, -0.001, 0);
         this.bounce = state.bounce || 1;

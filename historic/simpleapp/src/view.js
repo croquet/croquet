@@ -1,7 +1,7 @@
-import Component, { ComponentOwner } from './component.js';
+import Part, { PartOwner } from './parts.js';
 
-/** @extends ComponentOwner<ViewvComponent> */
-export default class View extends ComponentOwner {
+/** @extends PartOwner<ViewvPart> */
+export default class View extends PartOwner {
     // LIFECYCLE
     /** @arg {import('./islandReplica').default} island */
     constructor(island) {
@@ -12,79 +12,79 @@ export default class View extends ComponentOwner {
 
     attach(modelState) {
         this.modelId = modelState.id;
-        for (let componentName of Object.keys(this.components)) {
-            this.components[componentName].attach(modelState);
+        for (let partName of Object.keys(this.parts)) {
+            this.parts[partName].attach(modelState);
         }
     }
 
     detach() {
-        for (let componentName of Object.keys(this.components)) {
-            this.components[componentName].detach();
+        for (let partName of Object.keys(this.parts)) {
+            this.parts[partName].detach();
         }
     }
 
     addToThreeParent(parent) {
-        for (let componentName of Object.keys(this.components)) {
-            const component = this.components[componentName];
-            if (component.addToThreeParent) component.addToThreeParent(parent);
+        for (let partName of Object.keys(this.parts)) {
+            const part = this.parts[partName];
+            if (part.addToThreeParent) part.addToThreeParent(parent);
         }
     }
 
     removeFromThreeParent(parent) {
-        for (let componentName of Object.keys(this.components)) {
-            const component = this.components[componentName];
-            if (component.removeFromThreeParent) component.removeFromThreeParent(parent);
+        for (let partName of Object.keys(this.parts)) {
+            const part = this.parts[partName];
+            if (part.removeFromThreeParent) part.removeFromThreeParent(parent);
         }
     }
 
     model(tOffset=0) {
         return new Proxy({}, {
-            get: (_t1, componentOrMethodName) => {
-                const componentOrMethodProxy = new Proxy(() => {}, {
+            get: (_t1, partOrMethodName) => {
+                const partOrMethodProxy = new Proxy(() => {}, {
                     get: (_t2, methodName) => {
-                        const componentMethodProxy = new Proxy(() => {}, {
+                        const partMethodProxy = new Proxy(() => {}, {
                             apply: (_a, _b, args) => {
-                                this.island.callModelMethod(this.modelId, componentOrMethodName, methodName, args, tOffset);
+                                this.island.callModelMethod(this.modelId, partOrMethodName, methodName, args, tOffset);
                             }
                         });
-                        return componentMethodProxy;
+                        return partMethodProxy;
                     },
                     apply: (_a, _b, args) => {
-                        this.island.callModelMethod(this.modelId, null, componentOrMethodName, args, tOffset);
+                        this.island.callModelMethod(this.modelId, null, partOrMethodName, args, tOffset);
                     }
                 });
-                return componentOrMethodProxy;
+                return partOrMethodProxy;
             }
         });
     }
 }
 
-/** @extends ViewComponent<View> */
-export class ViewComponent extends Component {
+/** @extends ViewPart<View> */
+export class ViewPart extends Part {
     // LIFECYCLE
     /** @abstract */
-    attach(modelState) {}
+    attach(_modelState) {}
 
     /** @abstract */
     detach() {}
 
     // PUB/SUB
-    subscribe(event, methodName, scope=this.owner.id, component=this.componentName) {
-        const fullScope = scope + (component ? "." + component : "");
-        this.owner.island.addViewSubscription(fullScope, event, this.owner.id, this.componentName, methodName);
+    subscribe(event, methodName, scope=this.owner.id, part=this.partName) {
+        const fullScope = scope + (part ? "." + part : "");
+        this.owner.island.addViewSubscription(fullScope, event, this.owner.id, this.partName, methodName);
     }
 
-    unsubscribe(event, methodName, scope=this.owner.id, component=this.componentName) {
-        const fullScope = scope + (component ? "." + component : "");
-        this.owner.island.removeViewSubscription(fullScope, event, this.owner.id, this.componentName, methodName);
+    unsubscribe(event, methodName, scope=this.owner.id, part=this.partName) {
+        const fullScope = scope + (part ? "." + part : "");
+        this.owner.island.removeViewSubscription(fullScope, event, this.owner.id, this.partName, methodName);
     }
 
-    publish(event, data, scope=this.owner.id, component=this.componentName) {
-        const fullScope = scope + (component ? "." + component : "");
+    publish(event, data, scope=this.owner.id, part=this.partName) {
+        const fullScope = scope + (part ? "." + part : "");
         this.owner.island.publishFromView(fullScope, event, data);
     }
 
-    asViewComponentRef() {
-        return this.owner.id + "." + this.componentName;
+    asViewPartRef() {
+        return this.owner.id + "." + this.partName;
     }
 }

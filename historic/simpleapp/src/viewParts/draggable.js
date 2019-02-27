@@ -1,12 +1,12 @@
-import { ViewComponent } from "../view.js";
+import { ViewPart } from "../view.js";
 import { PointerEvents, makePointerSensitive } from "./pointer.js";
 
-export default class DraggableViewComponent extends ViewComponent {
-    constructor(owner, componentName="draggable", grabbableComponentName="object3D", targetComponentName="spatial", dragVertically=true) {
-        super(owner, componentName);
+export default class DraggableViewPart extends ViewPart {
+    constructor(owner, partName="draggable", grabbablePartName="object3D", targetPartName="spatial", dragVertically=true) {
+        super(owner, partName);
         /** @type {import('./object3D').default} */
-        this.grabbableComponent = owner[grabbableComponentName];
-        this.targetComponentName = targetComponentName;
+        this.grabbablePart = owner[grabbablePartName];
+        this.targetPartName = targetPartName;
         this.dragVertically = dragVertically;
         this.subscribe(PointerEvents.pointerDown, "onPointerDown");
         this.subscribe(PointerEvents.pointerDrag, "onPointerDrag");
@@ -14,16 +14,16 @@ export default class DraggableViewComponent extends ViewComponent {
     }
 
     attach() {
-        makePointerSensitive(this.grabbableComponent.threeObj, this.asViewComponentRef());
+        makePointerSensitive(this.grabbablePart.threeObj, this.asViewPartRef());
     }
 
     onPointerDown() {
-        this.positionAtDragStart = this.grabbableComponent.threeObj.position.clone();
+        this.positionAtDragStart = this.grabbablePart.threeObj.position.clone();
     }
 
     onPointerDrag({dragStart, dragEndOnHorizontalPlane, dragEndOnVerticalPlane}) {
         const dragEnd = this.dragVertically ? dragEndOnVerticalPlane : dragEndOnHorizontalPlane;
-        this.owner.model()[this.targetComponentName].moveTo(
+        this.owner.model()[this.targetPartName].moveTo(
             this.positionAtDragStart.clone().add(dragEnd.clone().sub(dragStart))
         );
     }

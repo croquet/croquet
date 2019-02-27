@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { ViewComponent } from "../view.js";
+import { ViewPart } from "../view.js";
 
-export default class Object3DViewComponent extends ViewComponent {
-    constructor(owner, componentName="object3D") {
-        super(owner, componentName);
+export default class Object3DViewPart extends ViewPart {
+    constructor(owner, partName="object3D") {
+        super(owner, partName);
     }
 
     attach(modelState) {

@@ -1,13 +1,13 @@
-import { ModelComponent } from "../model";
+import { ModelPart } from "../model.js";
 
 const TextEvents = {
     contentChanged: 'text-contentChanged',
     fontChanged: 'text-fontChanged'
 };
 
-export default class TextComponent extends ModelComponent {
-    constructor(owner, state={}, componentName="text") {
-        super(owner, componentName);
+export default class TextPart extends ModelPart {
+    constructor(owner, state={}, partName="text") {
+        super(owner, partName);
         this.content = state.content || "";
         this.font = state.font || "Barlow";
     }

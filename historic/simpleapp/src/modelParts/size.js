@@ -1,13 +1,13 @@
-import { ModelComponent } from "../model";
 import * as THREE from 'three';
+import { ModelPart } from "../model.js";
 
 const SizeEvents = {
     changed: "size-changed"
-}
+};
 
-export default class SizeComponent extends ModelComponent {
-    constructor(owner, state={}, componentName="size") {
-        super(owner, componentName);
+export default class SizePart extends ModelPart {
+    constructor(owner, state={}, partName="size") {
+        super(owner, partName);
         this.value = state.value || new THREE.Vector3(1, 1, 1);
     }
 

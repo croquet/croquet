@@ -2,13 +2,13 @@ import * as THREE from 'three';
 import arrowsAlt from '../assets/arrows-alt.svg';
 import arrowsAltRot from '../assets/arrows-alt-rot.svg';
 import Model from './model.js';
-import InertialSpatialComponent from './modelComponents/inertialSpatial.js';
+import InertialSpatialPart from './modelParts/inertialSpatial.js';
 import SVGIcon from './util/svgIcon.js';
 import View from './view.js';
-import CameraViewComponent from './viewComponents/camera.js';
-import Object3DViewComponent from './viewComponents/object3D.js';
-import TrackSpatial from './viewComponents/trackSpatial.js';
-import PointerViewComponent, { PointerEvents, makePointerSensitive, ignorePointer } from './viewComponents/pointer.js';
+import CameraViewPart from './viewParts/camera.js';
+import Object3DViewPart from './viewParts/object3D.js';
+import TrackSpatial from './viewParts/trackSpatial.js';
+import PointerViewPart, { PointerEvents, makePointerSensitive, ignorePointer } from './viewParts/pointer.js';
 
 /** Represents an observer of a Room. This can be an active participant,
  *  a passive viewer, or internal camera views, such as for portals
@@ -16,7 +16,7 @@ import PointerViewComponent, { PointerEvents, makePointerSensitive, ignorePointe
 export class Observer extends Model {
     constructor(island, state={}) {
         super(island, state);
-        this.spatial = new InertialSpatialComponent(this, state.spatial);
+        this.spatial = new InertialSpatialPart(this, state.spatial);
         this.name = state.name;
     }
 
@@ -33,16 +33,16 @@ export class ObserverAvatarView extends View {
     // TODO
 }
 
-class TreadmillNavigationComponent extends Object3DViewComponent {
-    constructor(owner, componentName="treadmill", cameraComponentName="camera") {
-        super(owner, componentName);
-        /** @type {CameraViewComponent} */
-        this.cameraComponent = owner[cameraComponentName];
+class TreadmillNavigationPart extends Object3DViewPart {
+    constructor(owner, partName="treadmill", cameraPartName="camera") {
+        super(owner, partName);
+        /** @type {CameraViewPart} */
+        this.cameraPart = owner[cameraPartName];
     }
 
     attachWithObject3D(_modelState) {
         // make treadmillForwardStrip look like a rectangle in screenspace
-        const camera = this.cameraComponent.threeObj;
+        const camera = this.cameraPart.threeObj;
         const d = 100;
         const w = Math.tan(camera.fov / 2 * (Math.PI / 180)) * camera.aspect * 0.5; // half width of frame
         const stripShape = new THREE.Shape([{x: -w, y: 0}, {x: w, y: 0},  {x: w * d, y: d}, {x: -w * d, y: d}]);
@@ -50,9 +50,9 @@ class TreadmillNavigationComponent extends Object3DViewComponent {
         this.treadmill = new THREE.Group();
         this.treadmillForwardStrip = new THREE.Mesh(new THREE.ShapeBufferGeometry(stripShape), new THREE.MeshBasicMaterial({ color: "#eeeeee", visible: false}));
         this.treadmillForwardStrip.position.z += 0.1;
-        makePointerSensitive(this.treadmillForwardStrip, this.asViewComponentRef(), -1);
+        makePointerSensitive(this.treadmillForwardStrip, this.asViewPartRef(), -1);
         this.treadmillRotateArea = new THREE.Mesh(new THREE.CircleBufferGeometry(100, 30), new THREE.MeshBasicMaterial({color: "#cccccc", opacity: 0.2, transparent: true}));
-        makePointerSensitive(this.treadmillRotateArea, this.asViewComponentRef(), -1);
+        makePointerSensitive(this.treadmillRotateArea, this.asViewPartRef(), -1);
         this.treadmill.add(this.treadmillForwardStrip);
         this.treadmill.add(this.treadmillRotateArea);
         this.treadmill.quaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
@@ -138,10 +138,10 @@ class TreadmillNavigationComponent extends Object3DViewComponent {
 export class PointingObserverCameraView extends View {
     constructor(island, width, height) {
         super(island);
-        this.camera = new CameraViewComponent(this, width, height);
+        this.camera = new CameraViewPart(this, width, height);
         this.trackCamera = new TrackSpatial(this, "trackCamera", "spatial", "camera");
-        this.treadmill = new TreadmillNavigationComponent(this);
+        this.treadmill = new TreadmillNavigationPart(this);
         this.trackTreadmill = new TrackSpatial(this, "trackTreadmill", "spatial", "treadmill");
-        this.pointer = new PointerViewComponent(this);
+        this.pointer = new PointerViewPart(this);
     }
 }

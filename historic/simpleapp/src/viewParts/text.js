@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import createGeometry from 'three-bmfont-text';
 import Shader from 'three-bmfont-text/shaders/msdf.js';
-import Object3DViewComponent from "./object3D.js";
+import Object3DViewPart from "./object3D.js";
 import LazyObject3D from "../util/lazyObject3D.js";
 
 const fontPaths = {
@@ -18,24 +18,24 @@ const fontPaths = {
 
 const texCache = {};
 
-export default class TextViewComponent extends Object3DViewComponent {
-    constructor(owner, options={width: 500}, modelComponentName="text", componentName="text") {
-        super(owner, componentName);
-        this.modelComponentName = modelComponentName;
+export default class TextViewPart extends Object3DViewPart {
+    constructor(owner, options={width: 500}, modelPartName="text", partName="text") {
+        super(owner, partName);
+        this.modelPartName = modelPartName;
         this.options = options;
     }
 
     attachWithObject3D(modelState) {
-        /** @type {import('../modelComponents/text').default} */
-        const modelComponent = modelState[this.modelComponentName];
+        /** @type {import('../modelParts/text').default} */
+        const modelPart = modelState[this.modelPartName];
 
         const build = atlasTexture => {
             const geometry = createGeometry({
-                font: fontPaths[modelComponent.font].json,
+                font: fontPaths[modelPart.font].json,
                 ...this.options,
                 flipY: true
             });
-            geometry.update(modelComponent.content);
+            geometry.update(modelPart.content);
 
             const material = new THREE.RawShaderMaterial(Shader({
                 map: atlasTexture,
@@ -51,7 +51,7 @@ export default class TextViewComponent extends Object3DViewComponent {
         };
 
         const promise = new Promise((resolve, _reject) => {
-            const texPath = fontPaths[modelComponent.font].atlas;
+            const texPath = fontPaths[modelPart.font].atlas;
             if (texCache[texPath]) resolve(build(texCache[texPath]));
             else new THREE.TextureLoader().load(texPath, tex => resolve(build(texCache[texPath] = tex)));
         });

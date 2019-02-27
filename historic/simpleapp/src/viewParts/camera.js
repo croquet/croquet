@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import Object3DViewComponent from "./object3D.js";
+import Object3DViewPart from "./object3D.js";
 
-export default class CameraViewComponent extends Object3DViewComponent {
-    constructor(owner, width, height, componentName="camera") {
-        super(owner, componentName);
+export default class CameraViewPart extends Object3DViewPart {
+    constructor(owner, width, height, partName="camera") {
+        super(owner, partName);
         this.width = width;
         this.height = height;
     }

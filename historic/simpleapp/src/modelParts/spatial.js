@@ -1,7 +1,7 @@
-/** @module spatialComponent */
+/** @module spatialPart */
 
 import * as THREE from 'three';
-import {ModelComponent} from '../model.js';
+import {ModelPart} from '../model.js';
 
 export const SpatialEvents = {
     moved: "spatial-moved",
@@ -9,12 +9,12 @@ export const SpatialEvents = {
 };
 
 /**
- * @class SpatialComponent
- * @extends ModelComponent
+ * @class SpatialPart
+ * @extends ModelPart
  */
-export default class SpatialComponent extends ModelComponent {
-    constructor(owner, state={}, componentName="spatial") {
-        super(owner, componentName);
+export default class SpatialPart extends ModelPart {
+    constructor(owner, state={}, partName="spatial") {
+        super(owner, partName);
         /** @type {THREE.Vector3} */
         this.position = state.position || new THREE.Vector3(0, 0, 0);
         /** @type {THREE.Quaternion} */
