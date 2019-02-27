@@ -45,7 +45,7 @@ class TreadmillNavigationPart extends Object3DViewPart {
         const camera = this.cameraPart.threeObj;
         const d = 100;
         const w = Math.tan(camera.fov / 2 * (Math.PI / 180)) * camera.aspect * 0.5; // half width of frame
-        const stripShape = new THREE.Shape([{x: -w, y: 0}, {x: w, y: 0},  {x: w * d, y: d}, {x: -w * d, y: d}]);
+        const stripShape = new THREE.Shape([{x: 0, y: 0}, {x: w * d, y: d}, {x: -w * d, y: d}]);
 
         this.treadmill = new THREE.Group();
         this.treadmillForwardStrip = new THREE.Mesh(new THREE.ShapeBufferGeometry(stripShape), new THREE.MeshBasicMaterial({ color: "#eeeeee", visible: false}));
