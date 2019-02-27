@@ -1,5 +1,5 @@
-import hotreload from "./hotreload.js";
 import Part, { PartOwner } from "./parts.js";
+import IslandReplica from "./islandReplica.js";
 
 export const ModelEvents = {
     constructed: "model-constructed",
@@ -14,13 +14,13 @@ export default class Model extends PartOwner {
     // mark this and subclasses as model classes
     static __isTeatimeModelClass__() { return true; }
 
+    get island() { return IslandReplica.current(); }
+
     // LIFECYCLE
-    /** @arg {import('./islandReplica').default} island */
     /** @arg {Object} state */
-    constructor(island, state={}) {
+    constructor(state={}) {
         super();
-        this.island = island;
-        this.id = island.registerModel(this, state.id);
+        this.id = this.island.registerModel(this, state.id);
     }
 
     /** second init pass: wire up objects */
@@ -46,9 +46,9 @@ export default class Model extends PartOwner {
         }
     }
 
-    static fromState(island, state) {
+    static fromState(state) {
         const Class = ModelClasses[state.className];
-        if (Class) return new Class(island, state);
+        if (Class) return new Class(state);
 
         // HACK: go through all exports and find model subclasses
         for (let m of Object.values(module.bundle.cache)) {
@@ -59,7 +59,7 @@ export default class Model extends PartOwner {
             }
         }
         if (ModelClasses[state.className]) {
-            return this.fromState(island, state);
+            return this.fromState(state);
         }
         throw new Error(`Class "${state.className}" not found, is it exported?`);
     }
@@ -98,21 +98,7 @@ export class ModelPart extends Part {
 
     // FUTURE
     future(tOffset=0) {
-        return new Proxy(this, {
-            get(target, property) {
-                if (typeof target[property] === "function") {
-                    const methodProxy = new Proxy(target[property], {
-                        apply(targetMethod, _, args) {
-                            hotreload.setTimeout(() => {
-                                targetMethod.apply(target, args);
-                            }, tOffset);
-                        }
-                    });
-                    return methodProxy;
-                }
-                throw Error("Tried to call " + property + "() on future of " + Object.getPrototypeOf(target).constructor.name + " which is not a function");
-            }
-        });
+        return this.owner.island.futureProxy(this, tOffset);
     }
 
     // STATE

@@ -2,28 +2,54 @@ import SeedRandom from "seedrandom";
 import Model from "./model.js";
 import hotreload from "./hotreload.js";
 
+let viewID = 0;
+let CurrentIsland = null;
+
+const Math_random = Math.random.bind(Math);
+Math.random = () => CurrentIsland ? CurrentIsland.random() : Math_random();
+
+// this is the only place allowed to change CurrentIsland
+function execOnIsland(island, fn) {
+    if (CurrentIsland) throw Error("Island confusion");
+    if (!(island instanceof IslandReplica)) throw Error("not an island: " + island);
+    const previousIsland = CurrentIsland;
+    try {
+        CurrentIsland = island;
+        fn();
+    } finally {
+        CurrentIsland = previousIsland;
+    }
+}
+
 /** This is kind of a rough mock of what I expect TeaTime to provide
  * plus additional bookeeping "around" an island replica to make
  * uniform pub/sub between models and views possible.*/
 export default class IslandReplica {
-    constructor(state  = {}) {
+    static current() { return CurrentIsland; }
+
+    constructor(state = {}, initFn) {
         this.modelsById = {};
         this.viewsById = {};
         // Models can only subscribe to other model events
         // Views can subscribe to model or other view events
         this.modelSubscriptions = {};
         this.viewSubscriptions = {};
-        // our synced random stream
-        this._random = new SeedRandom(null, {state: state.random || true});
-        // create all models
-        for (let modelState of state.models || []) {
-            Model.fromState(this, modelState);  // registers the model
-        }
-        // wire up models in second pass
-        for (let modelState of state.models || []) {
-            const model = this.modelsById[modelState.id];
-            model.restoreObjectReferences(modelState, this.modelsById);
-        }
+        execOnIsland(this, () => {
+            // our synced random stream
+            this._random = new SeedRandom(null, { state: state.random || true });
+            this.id = state.id || this.randomID();
+            if (state.models) {
+                // create all models
+                for (let modelState of state.models || []) {
+                    Model.fromState(modelState);  // registers the model
+                }
+                // wire up models in second pass
+                for (let modelState of state.models || []) {
+                    const model = this.modelsById[modelState.id];
+                    model.restoreObjectReferences(modelState, this.modelsById);
+                }
+            } else initFn();
+        });
     }
 
     registerModel(model, id) {
@@ -37,7 +63,7 @@ export default class IslandReplica {
     }
 
     registerView(view) {
-        const id = "V" + this.randomID();
+        const id = "V" + ++viewID;
         this.viewsById[id] = view;
         return id;
     }
@@ -52,13 +78,37 @@ export default class IslandReplica {
             hotreload.setTimeout(() => this.callModelMethod(modelId, part, method, args), tOffset);
         } else {
             const model = this.modelsById[modelId];
-            if (part) {
-                model[part][method](...args);
-            } else {
-                model[method](...args);
-            }
+            execOnIsland(this, () => {
+                if (part) {
+                    model[part][method](...args);
+                } else {
+                    model[method](...args);
+                }
+            });
         }
     }
+
+
+    futureProxy(object, tOffset) {
+        const island = this;
+        return new Proxy(object, {
+            get(target, property) {
+                if (typeof target[property] === "function") {
+                    const methodProxy = new Proxy(target[property], {
+                        apply(_method, _this, args) {
+                            // TODO: schedule in island queue
+                            hotreload.setTimeout(() => {
+                                execOnIsland(island, () => target[property](...args));
+                            }, tOffset);
+                        }
+                    });
+                    return methodProxy;
+                }
+                throw Error("Tried to call " + property + "() on future of " + Object.getPrototypeOf(target).constructor.name + " which is not a function");
+            }
+        });
+    }
+
 
     addModelSubscription(scope, event, subscriberId, part, methodName) {
         const topic = scope + ":" + event;
@@ -132,10 +182,12 @@ export default class IslandReplica {
     }
 
     random() {
+        if (CurrentIsland !== this) throw Error("Island Error");
         return this._random();
     }
 
     randomID() {
+        if (CurrentIsland !== this) throw Error("Island Error");
         let id = '';
         for (let i = 0; i < 4; i++) {
             id += (this._random.int32() >>> 0).toString(16).padStart(8, '0');

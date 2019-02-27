@@ -9,8 +9,8 @@ import Object3DViewPart from './viewParts/object3D.js';
 import { ObserverAvatarView } from './observer.js';
 
 export class Room extends Model {
-    constructor(island, state={}) {
-        super(island, state);
+    constructor(state={}) {
+        super(state);
         this.size = new SizePart(this, state.size);
         this.color = new ColorPart(this, state.color);
         this.objects = new ModelChildrenPart(this, "objects");

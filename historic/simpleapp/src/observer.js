@@ -14,8 +14,8 @@ import PointerViewPart, { PointerEvents, makePointerSensitive, ignorePointer } f
  *  a passive viewer, or internal camera views, such as for portals
  */
 export class Observer extends Model {
-    constructor(island, state={}) {
-        super(island, state);
+    constructor(state={}) {
+        super(state);
         this.spatial = new InertialSpatialPart(this, state.spatial);
         this.name = state.name;
     }
