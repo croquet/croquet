@@ -193,7 +193,11 @@ function start() {
     }, {passive: false});
 
     if (module.hot) {
+        // our hot-reload strategy is to reload all the code (meaning no reload
+        // handlers in individual modules) but store the complete model state
+        // in this dispose handler and restore it in start()
         module.hot.dispose(hotData => {
+            console.log(`index.js: module.hot.dispose()`);
             // unregister all callbacks, they refer to old functions
             hotreload.dispose();
             // clean old references
