@@ -9,8 +9,8 @@ export default class InertialSpatialComponent extends SpatialComponent {
         this.estimatedVelocity = state.estimatedVelocity || new THREE.Vector3(0, 0, 0);
         this.estimatedRotationalVelocity = state.estimatedRotationalVelocity || new THREE.Quaternion();
         this.dampening = state.dampening || 0.1;
-        this.inInertiaPhase = state.inInertiaPhase || false;
-        this.applyVelocity();
+        this.inInertiaPhase = false;
+        if (state.inInertiaPhase) this.startInertiaPhase();
     }
 
     toState(state) {
@@ -24,7 +24,7 @@ export default class InertialSpatialComponent extends SpatialComponent {
     moveBy(delta, addInertia=true) {
         super.moveBy(delta);
         if (addInertia) this.estimatedVelocity.copy(this.estimatedVelocity.clone().multiplyScalar(0.7).addScaledVector(delta, 0.3));
-        this.future(1000/30).startInertiaPhase();
+        this.startInertiaPhase();
     }
 
     moveTo(newPosition, addInertia=true) {
@@ -32,20 +32,20 @@ export default class InertialSpatialComponent extends SpatialComponent {
         super.moveTo(newPosition);
         const delta = newPosition.sub(positionBefore);
         if (addInertia) this.estimatedVelocity.copy(this.estimatedVelocity.clone().multiplyScalar(0.7).addScaledVector(delta, 0.3));
-        this.future(1000/10).startInertiaPhase();
+        this.startInertiaPhase();
     }
 
     rotateBy(deltaQuaternion, addInertia=true) {
         super.rotateBy(deltaQuaternion);
         if (addInertia) this.estimatedRotationalVelocity.copy(this.estimatedRotationalVelocity.clone().slerp(deltaQuaternion, 0.3));
-        this.future(1000/10).startInertiaPhase();
+        this.startInertiaPhase();
     }
 
     rotateTo(quaternion, addInertia=true) {
         const deltaQuaternion = quaternion.clone().multiply(this.quaternion.clone().inverse());
         super.rotateTo(quaternion);
         if (addInertia) this.estimatedRotationalVelocity.copy(this.estimatedRotationalVelocity.clone().slerp(deltaQuaternion, 0.3));
-        this.future(1000/10).startInertiaPhase();
+        this.startInertiaPhase();
     }
 
     startInertiaPhase() {

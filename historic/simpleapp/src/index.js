@@ -5,6 +5,7 @@ import SpatialComponent from './modelComponents/spatial.js';
 import { Room, RoomView } from './room.js';
 import { Observer, PointingObserverCameraView } from './observer.js';
 import InertialSpatialComponent from './modelComponents/inertialSpatial.js';
+import BouncingSpatialComponent from './modelComponents/bouncingSpatial.js';
 import View from './view.js';
 import hotreload from "./hotreload.js";
 import TextComponent from './modelComponents/text.js';
@@ -17,7 +18,7 @@ import TrackSpatial from './viewComponents/trackSpatial.js';
 export class Box extends Model {
     constructor(island, state) {
         super(island, state);
-        this.spatial = new InertialSpatialComponent(this, state.spatial);
+        this.spatial = new BouncingSpatialComponent(this, state.spatial);
     }
 
     naturalViewClass() { return BoxView; }
@@ -40,7 +41,7 @@ class AutoRotate extends ModelComponent {
 export class RotatingBox extends Model {
     constructor(island, state) {
         super(island, state);
-        this.spatial = new SpatialComponent(this, state.spatial);
+        this.spatial = new InertialSpatialComponent(this, state.spatial);
         this.autoRotate = new AutoRotate(this);
         this.autoRotate.doRotation();
     }
@@ -177,7 +178,11 @@ function start() {
     }, {passive: false});
 
     if (module.hot) {
+        // our hot-reload strategy is to reload all the code (meaning no reload
+        // handlers in individual modules) but store the complete model state
+        // in this dispose handler and restore it in start()
         module.hot.dispose(hotData => {
+            console.log(`index.js: module.hot.dispose()`);
             // unregister all callbacks, they refer to old functions
             hotreload.dispose();
             // clean old references
@@ -192,6 +197,7 @@ function start() {
                 room: room.id,
                 observer: observer.id,
             };
+            console.log(hotData.hotState.island);
         });
     }
 }
