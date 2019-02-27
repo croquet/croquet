@@ -85,10 +85,12 @@ export class PointingObserverCameraView extends ObserverCameraView {
         const stripShape = new THREE.Shape([{x: -w, y: 0}, {x: w, y: 0},  {x: w * d, y: d}, {x: -w * d, y: d}]);
 
         this.treadmill = new THREE.Group();
-        this.treadmillForwardStrip = new THREE.Mesh(new THREE.ShapeBufferGeometry(stripShape), new THREE.MeshBasicMaterial({ color: "#eeeeee", visible: false}));
+        this.treadmillForwardStrip = new THREE.Mesh(new THREE.ShapeBufferGeometry(stripShape),
+            new THREE.MeshBasicMaterial({ color: "#eeeeee", visible: false }));
         this.treadmillForwardStrip.position.z -= 0.1;
         this.treadmillForwardStrip.userData.croquetView = this;
-        this.treadmillRotateArea = new THREE.Mesh(new THREE.CircleBufferGeometry(100, 30), new THREE.MeshBasicMaterial({color: "#cccccc", visible: false}));
+        this.treadmillRotateArea = new THREE.Mesh(new THREE.CircleBufferGeometry(100, 30),
+            new THREE.MeshBasicMaterial({color: "#dddddd", opacity: 0.2, transparent: true}));
         this.treadmillRotateArea.userData.croquetView = this;
         this.treadmill.add(this.treadmillForwardStrip);
         this.treadmill.add(this.treadmillRotateArea);
