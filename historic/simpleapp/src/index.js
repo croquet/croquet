@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import IslandReplica from './islandReplica.js';
 import Model, {ModelComponent} from './model.js';
-import SpatialComponent from './spatialComponent.js';
 import Object3DView from './object3DView.js';
 import { Room, RoomView } from './room.js';
 import { Observer, PointingObserverCameraView, PointerEvents } from './observer.js';
 import InertialSpatialComponent from './inertialComponent.js';
+import BouncingComponent from './bouncingComponent.js';
 import { TextMesh } from './text/text.js';
 import hotreload from "./hotreload.js";
 
@@ -13,7 +13,7 @@ import hotreload from "./hotreload.js";
 export class Box extends Model {
     constructor(island, state) {
         super(island, state);
-        this.spatial = new InertialSpatialComponent(this, state.spatial);
+        this.spatial = new BouncingComponent(this, state.spatial);
     }
 
     naturalViewClass() { return BoxView; }
@@ -36,7 +36,7 @@ class AutoRotate extends ModelComponent {
 export class RotatingBox extends Model {
     constructor(island, state) {
         super(island, state);
-        this.spatial = new SpatialComponent(this, state.spatial);
+        this.spatial = new InertialSpatialComponent(this, state.spatial);
         this.autoRotate = new AutoRotate(this);
         this.autoRotate.doRotation();
     }
@@ -50,7 +50,7 @@ export class Text extends Model {
         super(island, state);
         this.text = state.text;
         this.font = state.font;
-        this.spatial = new SpatialComponent(this, state.spatial);
+        this.spatial = new InertialSpatialComponent(this, state.spatial);
     }
 
     toState(state) {
@@ -212,6 +212,7 @@ function start() {
                 room: room.id,
                 observer: observer.id,
             };
+            console.log(hotData.hotState.island);
         });
     }
 }
