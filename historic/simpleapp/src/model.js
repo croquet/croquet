@@ -6,11 +6,13 @@ export const ModelEvents = {
     destroyed: "model-destroyed"
 };
 
-let ModelConstructors = {};
+// map model class names to model classes
+let ModelClasses = {};
 
 /** @extends {ComponentOwner<ModelComponent>} */
 export default class Model extends ComponentOwner {
-    static isTeaTimeModel() { return true; }
+    // mark this and subclasses as model classes
+    static __isTeatimeModelClass__() { return true; }
 
     // LIFECYCLE
     /** @arg {import('./islandReplica').default} island */
@@ -36,7 +38,7 @@ export default class Model extends ComponentOwner {
 
     // STATE
     toState(state) {
-        state.constructorName = this.constructor.name;
+        state.className = this.constructor.name;
         state.id = this.id;
         for (let componentName of Object.keys(this.components)) {
             state[componentName] = {};
@@ -45,31 +47,30 @@ export default class Model extends ComponentOwner {
     }
 
     static fromState(island, state) {
-        const Constructor = ModelConstructors[state.constructorName];
-        if (Constructor) return new Constructor(island, state);
+        const Class = ModelClasses[state.className];
+        if (Class) return new Class(island, state);
 
         // HACK: go through all exports and find model subclasses
         for (let m of Object.values(module.bundle.cache)) {
-            for (let [key, value] of Object.entries(m.exports)) {
-                if (value.isTeaTimeModel) {
-                    const name = key === "default" ? value.name : key;
-                    ModelConstructors[name] = value;
+            for (let cls of Object.values(m.exports)) {
+                if (cls.__isTeatimeModelClass__) {
+                    ModelClasses[cls.name] = cls;
                 }
             }
         }
-        if (ModelConstructors[state.constructorName]) {
+        if (ModelClasses[state.className]) {
             return this.fromState(island, state);
         }
-        throw new Error(`Class "${state.constructorName}" not found, is it exported?`);
+        throw new Error(`Class "${state.className}" not found, is it exported?`);
     }
 
     static dispose() {
-        ModelConstructors = {};
+        ModelClasses = {};
     }
 
     // NATURAL VIEW
     /** @abstract */
-    naturalViewClass(_viewContext) {}
+    naturalViewClass(_viewContext) { }
 }
 
 /** @extends {Component<Model>} */
@@ -115,5 +116,5 @@ export class ModelComponent extends Component {
     }
 
     // STATE
-    toState(state) {}
-};
+    toState(_state) { }
+}
