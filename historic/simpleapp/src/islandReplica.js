@@ -53,22 +53,26 @@ export default class IslandReplica {
     }
 
     registerModel(model, id) {
+        if (CurrentIsland !== this) throw Error("Island Error");
         if (!id) id = "M" + this.randomID();
         this.modelsById[id] = model;
         return id;
     }
 
     deregisterModel(id) {
+        if (CurrentIsland !== this) throw Error("Island Error");
         delete this.modelsById[id];
     }
 
     registerView(view) {
+        if (CurrentIsland) throw Error("Island Error");
         const id = "V" + ++viewID;
         this.viewsById[id] = view;
         return id;
     }
 
     deregisterView(id) {
+        if (CurrentIsland) throw Error("Island Error");
         delete this.viewsById[id];
     }
 
@@ -90,6 +94,7 @@ export default class IslandReplica {
 
 
     futureProxy(object, tOffset) {
+        if (CurrentIsland !== this) throw Error("Island Error");
         const island = this;
         return new Proxy(object, {
             get(target, property) {
@@ -111,6 +116,7 @@ export default class IslandReplica {
 
 
     addModelSubscription(scope, event, subscriberId, part, methodName) {
+        if (CurrentIsland !== this) throw Error("Island Error");
         const topic = scope + ":" + event;
         const handler = subscriberId + "." + part + "." + methodName;
         if (!this.modelSubscriptions[topic]) this.modelSubscriptions[topic] = new Set();
@@ -118,12 +124,14 @@ export default class IslandReplica {
     }
 
     removeModelSubscription(scope, event, subscriberId, part, methodName) {
+        if (CurrentIsland !== this) throw Error("Island Error");
         const topic = scope + ":" + event;
         const handler = subscriberId + "." + part + "." + methodName;
         if (this.modelSubscriptions[topic]) this.modelSubscriptions[topic].remove(handler);
     }
 
     addViewSubscription(scope, event, subscriberId, part, methodName) {
+        if (CurrentIsland) throw Error("Island Error");
         const topic = scope + ":" + event;
         const handler = subscriberId + "." + part + "." + methodName;
         if (!this.viewSubscriptions[topic]) this.viewSubscriptions[topic] = new Set();
@@ -131,12 +139,14 @@ export default class IslandReplica {
     }
 
     removeViewSubscription(scope, event, subscriberId, part, methodName) {
+        if (CurrentIsland) throw Error("Island Error");
         const topic = scope + ":" + event;
         const handler = subscriberId + "." + part + "." + methodName;
         if (this.viewSubscriptions[topic]) this.viewSubscriptions[topic].delete(handler);
     }
 
     publishFromModel(scope, event, data, tOffset) {
+        if (CurrentIsland !== this) throw Error("Island Error");
         const topic = scope + ":" + event;
         if (this.modelSubscriptions[topic]) {
             for (let handler of this.modelSubscriptions[topic]) {
@@ -156,6 +166,7 @@ export default class IslandReplica {
     }
 
     publishFromView(scope, event, data) {
+        if (CurrentIsland) throw Error("Island Error");
         const topic = scope + ":" + event;
         // Events published by views can only reach other views
         if (this.viewSubscriptions[topic]) {
