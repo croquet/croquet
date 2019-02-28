@@ -16,8 +16,7 @@ import TrackSpatialViewPart from './viewParts/trackSpatial.js';
 
 /** Model for a Box */
 export class Box extends Model {
-    constructor(state) {
-        super(state);
+    buildParts(state) {
         new BouncingSpatialPart(this, state);
     }
 
@@ -40,8 +39,7 @@ class AutoRotate extends ModelPart {
 
 /** Model for a rotating Box */
 export class RotatingBox extends Model {
-    constructor(state) {
-        super(state);
+    buildParts(state) {
         new InertialSpatialPart(this, state);
         new AutoRotate(this);
         this.parts.autoRotate.doRotation();
@@ -52,8 +50,7 @@ export class RotatingBox extends Model {
 
 /** Model for a simple text display */
 export class Text extends Model {
-    constructor(state) {
-        super(state);
+    buildParts(state) {
         new TextPart(this, state);
         new SpatialPart(this, state);
     }
@@ -72,8 +69,7 @@ class BoxViewPart extends Object3DViewPart {
 }
 
 class BoxView extends View {
-    constructor(island) {
-        super(island);
+    buildParts() {
         new BoxViewPart(this);
         new TrackSpatialViewPart(this, {affects: "box"});
         new DraggableViewPart(this, {dragHandle: "box"});
@@ -82,8 +78,7 @@ class BoxView extends View {
 
 /** View for rendering a Text */
 class TextView extends View {
-    constructor(island) {
-        super(island);
+    buildParts() {
         new TextViewPart(this);
         new TrackSpatialViewPart(this, {affects: "text"});
     }
@@ -136,10 +131,10 @@ function start() {
 
     state = null; // prevent accidental access below
 
-    const roomView = new RoomView(island, observer);
+    const roomView = new RoomView(island, {localObserver: observer});
     roomView.attach(room);
 
-    const observerView = new PointingObserverCameraView(island, window.innerWidth, window.innerHeight);
+    const observerView = new PointingObserverCameraView(island, {width: window.innerWidth, height: window.innerHeight});
     observerView.attach(observer);
     observerView.addToThreeParent(roomView.parts.scene.scene);
 

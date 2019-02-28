@@ -4,11 +4,15 @@ import Part, { PartOwner } from './parts.js';
 export default class View extends PartOwner {
     // LIFECYCLE
     /** @arg {import('./islandReplica').default} island */
-    constructor(island) {
+    constructor(island, viewOptions={}) {
         super();
         this.island = island;
         this.id = island.registerView(this);
+        this.buildParts(viewOptions);
     }
+
+    /** @abstract */
+    buildParts(_viewOptions) {}
 
     attach(modelState) {
         this.modelId = modelState.id;
@@ -100,16 +104,4 @@ export class ViewPart extends Part {
     asViewPartRef() {
         return this.owner.id + "." + this.partName;
     }
-}
-
-/**
- * @param {(view: View, viewOptions: {}) => {}} componentsFromViewOptions
- * @returns {typeof View} */
-export function makeViewClass(componentsFromViewOptions) {
-    return class extends View {
-        constructor(viewOptions={}) {
-            super();
-            componentsFromViewOptions(this, viewOptions);
-        }
-    };
 }

@@ -16,10 +16,14 @@ export default class Model extends PartOwner {
 
     // LIFECYCLE
     /** @arg {Object} state */
-    constructor(state={}) {
+    constructor(state={}, modelOptions={}) {
         super();
         this.id = this.island.registerModel(this, state.id);
+        this.buildParts(state, modelOptions);
     }
+
+    /** @abstract */
+    buildParts(_state, _modelOptions) {}
 
     /** second init pass: wire up objects */
     /** @arg {Object} state */
@@ -87,21 +91,4 @@ export class ModelPart extends Part {
 
     // STATE
     toState(_state) { }
-}
-
-/**
- * @param {(model: Model, state: {}, modelOptions: {}) => {}} componentsFromModelOptions
- * @param {typeof View} naturalViewClass
- * @returns {typeof Model} */
-export function makeModelClass(componentsFromModelOptions, naturalViewClass) {
-    return class extends Model {
-        constructor(state, modelOptions={}) {
-            super(state);
-            componentsFromModelOptions(this, state, modelOptions);
-        }
-
-        naturalViewClass() {
-            return naturalViewClass;
-        }
-    };
 }

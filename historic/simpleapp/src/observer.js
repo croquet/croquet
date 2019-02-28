@@ -14,15 +14,8 @@ import PointerViewPart, { PointerEvents, makePointerSensitive, ignorePointer } f
  *  a passive viewer, or internal camera views, such as for portals
  */
 export class Observer extends Model {
-    constructor(state={}) {
-        super(state);
-        this.spatial = new InertialSpatialPart(this, state);
-        this.name = state.name;
-    }
-
-    state(state) {
-        super.state(state);
-        state.name = this.name;
+    buildParts(state={}) {
+        new InertialSpatialPart(this, state);
     }
 }
 
@@ -137,8 +130,7 @@ class TreadmillNavigationViewPart extends Object3DViewPart {
  *  Also manages object picking and object interaction by maintaining a pointer, hover and drag states.
 */
 export class PointingObserverCameraView extends View {
-    constructor(island, width, height) {
-        super(island);
+    buildParts({width, height}) {
         new CameraViewPart(this, {width, height});
         new TrackSpatialViewPart(this, {partName: "trackCamera", affects: "camera"});
         new TreadmillNavigationViewPart(this);

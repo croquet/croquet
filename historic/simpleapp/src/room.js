@@ -9,8 +9,7 @@ import Object3DViewPart from './viewParts/object3D.js';
 import { ObserverAvatarView } from './observer.js';
 
 export class Room extends Model {
-    constructor(state={}) {
-        super(state);
+    buildParts(state={}) {
         new SizePart(this, state);
         new ColorPart(this, state);
         new ChildrenPart(this, state, {partName: "objects"});
@@ -51,7 +50,7 @@ class RoomObjectManagerPart extends ViewPart {
         const NaturalView = object.naturalViewClass("in-room");
         /** @type {View} */
         const innerView = new NaturalView(this.owner.island);
-        const view = new ManipulatorView(this.owner.island, innerView);
+        const view = new ManipulatorView(this.owner.island, {wrappedView: innerView});
         this.viewsForObjects[object.id] = view;
         view.attach(object);
         view.addToThreeParent(this.owner.parts.scene.scene);
@@ -101,8 +100,7 @@ class RoomObserverManagerPart extends ViewPart {
 }
 
 export class RoomView extends View {
-    constructor(island, localObserver) {
-        super(island);
+    buildParts({localObserver}) {
         new RoomScenePart(this, {partName: "scene"});
         new RoomObjectManagerPart(this, {partName: "objectManager"});
         new RoomObserverManagerPart(this, {localObserver, partName: "oberserverManager"});

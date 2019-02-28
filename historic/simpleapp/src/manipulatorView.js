@@ -113,8 +113,7 @@ class ManipulatorViewPart extends Object3DViewPart {
 }
 
 export default class ManipulatorView extends View {
-    constructor(island, wrappedView) {
-        super(island);
+    buildParts({wrappedView}) {
         new WrappedViewViewPart(this, {wrappedView});
         new ManipulatorViewPart(this);
         new TrackSpatialViewPart(this, {affects: "manipulator"});
