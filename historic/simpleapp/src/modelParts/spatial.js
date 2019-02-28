@@ -13,8 +13,7 @@ export const SpatialEvents = {
  * @extends ModelPart
  */
 export default class SpatialPart extends ModelPart {
-    constructor(owner, state={}, options) {
-        super(owner, {partName: "spatial", ...options});
+    fromState(state={}) {
         /** @type {THREE.Vector3} */
         this.position = state.position || new THREE.Vector3(0, 0, 0);
         /** @type {THREE.Quaternion} */

@@ -2,19 +2,17 @@ import { ViewPart } from "../view.js";
 import { PointerEvents, makePointerSensitive } from "./pointer.js";
 
 export default class DraggableViewPart extends ViewPart {
-    constructor(owner, options) {
+    fromOptions(options) {
         options = {
-            partName: "draggable",
-            grabbablePartName: "object3D",
-            targetPartName: "spatial",
+            dragHandle: "object3D",
+            target: "spatial",
             dragVertically: true,
             ...options
         };
 
-        super(owner, options);
         /** @type {import('./object3D').default} */
-        this.grabbablePart = owner.parts[options.grabbablePartName];
-        this.targetPartName = options.targetPartName;
+        this.dragHandlePart = this.owner.parts[options.dragHandle];
+        this.targetPartName = options.target;
         this.dragVertically = options.dragVertically;
         this.subscribe(PointerEvents.pointerDown, "onPointerDown");
         this.subscribe(PointerEvents.pointerDrag, "onPointerDrag");
@@ -22,11 +20,11 @@ export default class DraggableViewPart extends ViewPart {
     }
 
     attach() {
-        makePointerSensitive(this.grabbablePart.threeObj, this.asViewPartRef());
+        makePointerSensitive(this.dragHandlePart.threeObj, this.asViewPartRef());
     }
 
     onPointerDown() {
-        this.positionAtDragStart = this.grabbablePart.threeObj.position.clone();
+        this.positionAtDragStart = this.dragHandlePart.threeObj.position.clone();
     }
 
     onPointerDrag({dragStart, dragEndOnHorizontalPlane, dragEndOnVerticalPlane}) {

@@ -4,11 +4,15 @@ export default class Part {
      * @param {T} owner
      * @param {String} partName
     */
-    constructor(owner, options) {
+    constructor(owner, options={}) {
         this.owner = owner;
-        const {partName} = options;
-        this.partName = partName;
+        this.partName = options.partName || this.constructor.defaultPartName();
         owner.addPart(this);
+    }
+
+    static defaultPartName() {
+        const name = this.name.replace("Part", "");
+        return name.charAt(0).toLowerCase() + name.slice(1);
     }
 }
 

@@ -2,9 +2,7 @@ import * as THREE from 'three';
 import Object3DViewPart from "./object3D.js";
 
 export default class CameraViewPart extends Object3DViewPart {
-    constructor(owner, options) {
-        options = {partName: "camera", ...options};
-        super(owner, options);
+    fromOptions(options) {
         this.width = options.width;
         this.height = options.height;
     }

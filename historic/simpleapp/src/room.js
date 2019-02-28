@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import View, { ViewPart } from './view.js';
 import ManipulatorView from './manipulatorView.js';
 import Model from './model.js';
-import ModelChildrenPart, { ChildEvents } from './modelParts/modelChildren.js';
+import ChildrenPart, { ChildEvents } from './modelParts/children.js';
 import ColorPart from './modelParts/color.js';
 import SizePart from './modelParts/size.js';
 import Object3DViewPart from './viewParts/object3D.js';
@@ -11,10 +11,10 @@ import { ObserverAvatarView } from './observer.js';
 export class Room extends Model {
     constructor(state={}) {
         super(state);
-        this.size = new SizePart(this, state.size);
-        this.color = new ColorPart(this, state.color);
-        this.objects = new ModelChildrenPart(this, "objects");
-        this.observers = new ModelChildrenPart(this, "observers");
+        new SizePart(this, state);
+        new ColorPart(this, state);
+        new ChildrenPart(this, state, {partName: "objects"});
+        new ChildrenPart(this, state, {partName: "observers"});
     }
 }
 
@@ -22,8 +22,8 @@ class RoomScenePart extends Object3DViewPart {
     /** @arg {Room} room */
     attachWithObject3D(room) {
         this.scene = new THREE.Scene();
-        this.scene.background = room.color.value;
-        this.grid = new THREE.GridHelper(room.size.x, 10, "#888888", "#aaaaaa");
+        this.scene.background = room.parts.color.value;
+        this.grid = new THREE.GridHelper(room.parts.size.x, 10, "#888888", "#aaaaaa");
         this.scene.add(this.grid);
         this.light = new THREE.DirectionalLight("#ffffdd");
         this.light.position.set(1, 2, -1);
@@ -39,7 +39,7 @@ class RoomObjectManagerPart extends ViewPart {
     attach(room) {
         this.viewsForObjects = {};
 
-        for (let object of room.objects.children) {
+        for (let object of room.parts.objects.children) {
             this.onObjectAdded(object);
         }
 
@@ -75,7 +75,7 @@ class RoomObserverManagerPart extends ViewPart {
     attach(room) {
         this.viewsForObservers = {};
 
-        for (let observer of room.observers.children) {
+        for (let observer of room.parts.observers.children) {
             this.onObserverJoined(observer);
         }
 
@@ -105,6 +105,6 @@ export class RoomView extends View {
         super(island);
         new RoomScenePart(this, {partName: "scene"});
         new RoomObjectManagerPart(this, {partName: "objectManager"});
-        new RoomObserverManagerPart(this, {localObserver});
+        new RoomObserverManagerPart(this, {localObserver, partName: "oberserverManager"});
     }
 }

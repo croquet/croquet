@@ -75,6 +75,14 @@ export default class Model extends PartOwner {
 
 /** @extends {Part<Model>} */
 export class ModelPart extends Part {
+    constructor(owner, fullState, options) {
+        super(owner, options);
+        this.fromState(fullState[this.partName], options);
+    }
+
+    /** @abstract */
+    fromState(_state, _options) {}
+
     /** second init pass: wire up objects */
     /** @arg {Object} _state */
     /** @arg {Object} _objectsByID */
@@ -103,4 +111,21 @@ export class ModelPart extends Part {
 
     // STATE
     toState(_state) { }
+}
+
+/**
+ * @param {(model: Model, state: {}, modelOptions: {}) => {}} componentsFromModelOptions
+ * @param {typeof View} naturalViewClass
+ * @returns {typeof Model} */
+export function makeModelClass(componentsFromModelOptions, naturalViewClass) {
+    return class extends Model {
+        constructor(state, modelOptions={}) {
+            super(state);
+            componentsFromModelOptions(this, state, modelOptions);
+        }
+
+        naturalViewClass() {
+            return naturalViewClass;
+        }
+    };
 }

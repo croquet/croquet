@@ -18,7 +18,7 @@ import TrackSpatialViewPart from './viewParts/trackSpatial.js';
 export class Box extends Model {
     constructor(state) {
         super(state);
-        this.spatial = new BouncingSpatialPart(this, state.spatial);
+        new BouncingSpatialPart(this, state);
     }
 
     naturalViewClass() { return BoxView; }
@@ -26,10 +26,10 @@ export class Box extends Model {
 
 class AutoRotate extends ModelPart {
     constructor(owner, _state, options) {
-        options = {partName: "autoRotate", spatialPartName: "spatial", ...options};
+        options = {target: "spatial", ...options};
         super(owner, options);
         /** @type {SpatialPart} */
-        this.spatialPart = owner.parts[options.spatialPartName];
+        this.spatialPart = owner.parts[options.target];
     }
 
     doRotation() {
@@ -42,9 +42,9 @@ class AutoRotate extends ModelPart {
 export class RotatingBox extends Model {
     constructor(state) {
         super(state);
-        this.spatial = new InertialSpatialPart(this, state.spatial);
-        this.autoRotate = new AutoRotate(this);
-        this.autoRotate.doRotation();
+        new InertialSpatialPart(this, state);
+        new AutoRotate(this);
+        this.parts.autoRotate.doRotation();
     }
 
     naturalViewClass() { return BoxView; }
@@ -54,15 +54,15 @@ export class RotatingBox extends Model {
 export class Text extends Model {
     constructor(state) {
         super(state);
-        this.text = new TextPart(this, state.text);
-        this.spatial = new SpatialPart(this, state.spatial);
+        new TextPart(this, state);
+        new SpatialPart(this, state);
     }
 
     naturalViewClass() { return TextView; }
 }
 
 /** View for a Box */
-class BoxPart extends Object3DViewPart {
+class BoxViewPart extends Object3DViewPart {
     attachWithObject3D(_modelState) {
         return new THREE.Mesh(
             new THREE.BoxBufferGeometry(1, 1, 1),
@@ -74,9 +74,9 @@ class BoxPart extends Object3DViewPart {
 class BoxView extends View {
     constructor(island) {
         super(island);
-        new BoxPart(this);
-        new TrackSpatialViewPart(this);
-        new DraggableViewPart(this);
+        new BoxViewPart(this);
+        new TrackSpatialViewPart(this, {affects: "box"});
+        new DraggableViewPart(this, {dragHandle: "box"});
     }
 }
 
@@ -85,7 +85,7 @@ class TextView extends View {
     constructor(island) {
         super(island);
         new TextViewPart(this);
-        new TrackSpatialViewPart(this, {targetViewPart: "text"});
+        new TrackSpatialViewPart(this, {affects: "text"});
     }
 }
 
@@ -100,22 +100,22 @@ function start() {
         room = new Room();
 
         const box = new Box({ spatial: { position: new THREE.Vector3(0, 1.0, 0) } });
-        room.objects.add(box);
+        room.parts.objects.add(box);
 
         const rotatingBox = new RotatingBox({ spatial: { position: new THREE.Vector3(-3, 1.0, 0) } });
-        room.objects.add(rotatingBox);
+        room.parts.objects.add(rotatingBox);
 
         const text1 = new Text({
             spatial: { position: new THREE.Vector3(3, 1.0, 0) },
             text: { content: "man is much more than a tool builder... he is an inventor of universes." }
         });
-        room.objects.add(text1);
+        room.parts.objects.add(text1);
 
         const text2 = new Text({
             spatial: { position: new THREE.Vector3(-5, 1.0, 0) },
             text: { content: "Chapter Eight - The Queen's Croquet Ground", font: "Lora" },
         });
-        room.objects.add(text2);
+        room.parts.objects.add(text2);
 
         observer = new Observer({
             spatial: {
@@ -124,7 +124,7 @@ function start() {
             },
             name: "Guest1"
         });
-        room.observers.add(observer);
+        room.parts.observers.add(observer);
     });
 
     room = room || island.modelsById[state.room];
@@ -173,7 +173,7 @@ function start() {
     }, {passive: false});
 
     hotreload.addEventListener(document.body, "wheel", event => {
-        observerView.parts.treadmill.onWheel(event);
+        observerView.parts.treadmillNavigation.onWheel(event);
         event.stopPropagation();
         event.preventDefault();
     }, {passive: false});

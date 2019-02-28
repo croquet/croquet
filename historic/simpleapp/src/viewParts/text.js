@@ -19,16 +19,15 @@ const fontPaths = {
 const texCache = {};
 
 export default class TextViewPart extends Object3DViewPart {
-    constructor(owner, options) {
-        options = {partName: "text", modelPartName: "text", width: 500, ...options};
-        super(owner, options);
-        this.modelPartName = options.modelPartName;
+    fromOptions(options) {
+        options = {modelSource: "text", width: 500, ...options};
+        this.modelSource = options.modelSource;
         this.options = options;
     }
 
     attachWithObject3D(modelState) {
         /** @type {import('../modelParts/text').default} */
-        const modelPart = modelState[this.modelPartName];
+        const modelPart = modelState.parts[this.modelSource];
 
         const build = atlasTexture => {
             const geometry = createGeometry({

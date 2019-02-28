@@ -61,6 +61,19 @@ export default class View extends PartOwner {
 
 /** @extends ViewPart<View> */
 export class ViewPart extends Part {
+    static defaultPartName() {
+        const name = this.name.replace("ViewPart", "");
+        return name.charAt(0).toLowerCase() + name.slice(1);
+    }
+
+    constructor(owner, options) {
+        super(owner, options);
+        this.fromOptions(options);
+    }
+
+    /** @abstract */
+    fromOptions(_options) {}
+
     // LIFECYCLE
     /** @abstract */
     attach(_modelState) {}
@@ -87,4 +100,16 @@ export class ViewPart extends Part {
     asViewPartRef() {
         return this.owner.id + "." + this.partName;
     }
+}
+
+/**
+ * @param {(view: View, viewOptions: {}) => {}} componentsFromViewOptions
+ * @returns {typeof View} */
+export function makeViewClass(componentsFromViewOptions) {
+    return class extends View {
+        constructor(viewOptions={}) {
+            super();
+            componentsFromViewOptions(this, viewOptions);
+        }
+    };
 }

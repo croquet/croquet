@@ -5,9 +5,8 @@ export const ChildEvents = {
     childRemoved: "child-removed",
 };
 
-export default class ModelChildrenPart extends ModelPart {
-    constructor(owner, _state, options) {
-        super(owner, {partName: "children", ...options});
+export default class ChildrenPart extends ModelPart {
+    fromState(_state, _options) {
         this.children = new Set();
     }
 

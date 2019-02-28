@@ -21,10 +21,9 @@ export function ignorePointer(threeObj) {
 }
 
 export default class PointerViewPart extends ViewPart {
-    constructor(owner, options) {
-        options = {partName: "pointer", cameraPartName: "camera", ...options};
-        super(owner, options);
-        this.cameraPart = owner.parts[options.cameraPartName];
+    fromOptions(options) {
+        options = {cameraPartName: "camera", ...options};
+        this.cameraPart = this.owner.parts[options.cameraPartName];
         this.mouse = new THREE.Vector2();
         this.raycaster = new THREE.Raycaster();
         this.hoveredViewPart = null;

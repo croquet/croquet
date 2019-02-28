@@ -6,8 +6,7 @@ const ColorEvents = {
 };
 
 export default class ColorPart extends ModelPart {
-    constructor(owner, state={}, options) {
-        super(owner, {partName: "color", ...options});
+    fromState(state={}) {
         this.value = state.value || new THREE.Color("#dddddd");
     }
 

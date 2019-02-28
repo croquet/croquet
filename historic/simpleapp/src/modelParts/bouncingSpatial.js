@@ -3,9 +3,11 @@ import InertialSpatialPart from './inertialSpatial.js';
 
 /** A spatial model with inertia, gravity, and bouncing */
 export default class BouncingSpatialPart extends InertialSpatialPart {
+    static defaultPartName() { return "spatial"; }
+
     /** @param {SpatialPart} spatialPart */
-    constructor(owner, state={}, options) {
-        super(owner, state, options);
+    fromState(state={}, options) {
+        super.fromState(state, options);
         this.dampening = state.dampening || 0.01;
         this.gravity = state.gravity || new THREE.Vector3(0, -0.001, 0);
         this.bounce = state.bounce || 0.1;

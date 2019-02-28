@@ -10,7 +10,6 @@ import TrackSpatialViewPart from "./viewParts/trackSpatial.js";
 class WrappedViewViewPart extends ViewPart {
     /** @param {import('./view').default} wrappedView */
     constructor(owner, options) {
-        options = {partName: "wrappedView", ...options};
         super(owner, options);
         this.wrapped = options.wrappedView;
     }
@@ -34,9 +33,9 @@ class WrappedViewViewPart extends ViewPart {
 
 class ManipulatorViewPart extends Object3DViewPart {
     constructor(owner, options) {
-        options = {partName: "manipulator", targetPartName: "spatial", ...options};
+        options = {target: "spatial", ...options};
         super(owner, options);
-        this.targetPartName = options.targetPartName;
+        this.targetPartName = options.target;
     }
 
     attachWithObject3D(_modelState) {
@@ -118,6 +117,6 @@ export default class ManipulatorView extends View {
         super(island);
         new WrappedViewViewPart(this, {wrappedView});
         new ManipulatorViewPart(this);
-        new TrackSpatialViewPart(this, {targetViewPart: "manipulator"});
+        new TrackSpatialViewPart(this, {affects: "manipulator"});
     }
 }

@@ -16,7 +16,7 @@ import PointerViewPart, { PointerEvents, makePointerSensitive, ignorePointer } f
 export class Observer extends Model {
     constructor(state={}) {
         super(state);
-        this.spatial = new InertialSpatialPart(this, state.spatial);
+        this.spatial = new InertialSpatialPart(this, state);
         this.name = state.name;
     }
 
@@ -33,9 +33,9 @@ export class ObserverAvatarView extends View {
     // TODO
 }
 
-class TreadmillNavigationPart extends Object3DViewPart {
+class TreadmillNavigationViewPart extends Object3DViewPart {
     constructor(owner, options) {
-        options = {partName: "treadmill", cameraPartName: "camera", ...options};
+        options = {cameraPartName: "camera", ...options};
         super(owner, options);
         /** @type {CameraViewPart} */
         this.cameraPart = owner.parts[options.cameraPartName];
@@ -140,9 +140,9 @@ export class PointingObserverCameraView extends View {
     constructor(island, width, height) {
         super(island);
         new CameraViewPart(this, {width, height});
-        new TrackSpatialViewPart(this, {partName: "trackCamera", targetViewPart: "camera"});
-        new TreadmillNavigationPart(this);
-        new TrackSpatialViewPart(this, {partName: "trackTreadmill", targetViewPart: "treadmill"});
+        new TrackSpatialViewPart(this, {partName: "trackCamera", affects: "camera"});
+        new TreadmillNavigationViewPart(this);
+        new TrackSpatialViewPart(this, {partName: "trackTreadmill", affects: "treadmillNavigation"});
         new PointerViewPart(this);
     }
 }
