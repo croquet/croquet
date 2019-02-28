@@ -1,5 +1,4 @@
 import SeedRandom from "seedrandom";
-import Model from "./model.js";
 import hotreload from "./hotreload.js";
 
 let viewID = 0;
@@ -42,7 +41,8 @@ export default class IslandReplica {
             if (state.models) {
                 // create all models
                 for (let modelState of state.models || []) {
-                    Model.fromState(modelState);  // registers the model
+                    const ModelClass = modelClassNamed(modelState.className);
+                    new ModelClass(modelState);  // registers the model
                 }
                 // wire up models in second pass
                 for (let modelState of state.models || []) {
@@ -208,3 +208,22 @@ export default class IslandReplica {
         return id;
     }
 }
+
+
+// map model class names to model classes
+let ModelClasses = {};
+
+function modelClassNamed(className) {
+    if (ModelClasses[className]) return ModelClasses[className];
+    // HACK: go through all exports and find model subclasses
+    for (let m of Object.values(module.bundle.cache)) {
+        for (let cls of Object.values(m.exports)) {
+            if (cls.__isTeatimeModelClass__) ModelClasses[cls.name] = cls;
+        }
+    }
+    if (ModelClasses[className]) return ModelClasses[className];
+    throw new Error(`Class "${className}" not found, is it exported?`);
+}
+
+
+hotreload.addDisposeHandler(() => ModelClasses = {});

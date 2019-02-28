@@ -187,8 +187,6 @@ function start() {
             console.log(`index.js: module.hot.dispose()`);
             // unregister all callbacks, they refer to old functions
             hotreload.dispose();
-            // clean old references
-            Model.dispose();
             // release WebGL resources
             roomView.detach();
             observerView.detach();
