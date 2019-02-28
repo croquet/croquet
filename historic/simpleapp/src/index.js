@@ -16,8 +16,8 @@ import TrackSpatialViewPart from './viewParts/trackSpatial.js';
 
 /** Model for a Box */
 export class Box extends Model {
-    constructor(island, state) {
-        super(island, state);
+    constructor(state) {
+        super(state);
         this.spatial = new BouncingSpatialPart(this, state.spatial);
     }
 
@@ -40,8 +40,8 @@ class AutoRotate extends ModelPart {
 
 /** Model for a rotating Box */
 export class RotatingBox extends Model {
-    constructor(island, state) {
-        super(island, state);
+    constructor(state) {
+        super(state);
         this.spatial = new InertialSpatialPart(this, state.spatial);
         this.autoRotate = new AutoRotate(this);
         this.autoRotate.doRotation();
@@ -52,8 +52,8 @@ export class RotatingBox extends Model {
 
 /** Model for a simple text display */
 export class Text extends Model {
-    constructor(island, state) {
-        super(island, state);
+    constructor(state) {
+        super(state);
         this.text = new TextPart(this, state.text);
         this.spatial = new SpatialPart(this, state.spatial);
     }
@@ -91,38 +91,33 @@ class TextView extends View {
 
 /** The main function. */
 function start() {
-    const state = module.hot && module.hot.data && module.hot.data.hotState || {};
-
-    const island = new IslandReplica(state.island);
+    let state = module.hot && module.hot.data && module.hot.data.hotState || {};
 
     let room;
     let observer;
 
-    if (state.room) {
-        room = island.modelsById[state.room];
-        observer = island.modelsById[state.observer];
-    } else {
-        room = new Room(island);
+    const island = new IslandReplica(state.island, () => {
+        room = new Room();
 
-        const box = new Box(island, {spatial: {position: new THREE.Vector3(0, 1.0, 0)}});
+        const box = new Box({ spatial: { position: new THREE.Vector3(0, 1.0, 0) } });
         room.objects.add(box);
 
-        const rotatingBox = new RotatingBox(island, {spatial: {position: new THREE.Vector3(-3, 1.0, 0)}});
+        const rotatingBox = new RotatingBox({ spatial: { position: new THREE.Vector3(-3, 1.0, 0) } });
         room.objects.add(rotatingBox);
 
-        const text1 = new Text(island, {
-            spatial: {position: new THREE.Vector3(3, 1.0, 0)},
-            text: {content: "man is much more than a tool builder... he is an inventor of universes."}
+        const text1 = new Text({
+            spatial: { position: new THREE.Vector3(3, 1.0, 0) },
+            text: { content: "man is much more than a tool builder... he is an inventor of universes." }
         });
         room.objects.add(text1);
 
-        const text2 = new Text(island, {
-            spatial: {position: new THREE.Vector3(-5, 1.0, 0)},
-            text: {content: "Chapter Eight - The Queen's Croquet Ground", font: "Lora"},
+        const text2 = new Text({
+            spatial: { position: new THREE.Vector3(-5, 1.0, 0) },
+            text: { content: "Chapter Eight - The Queen's Croquet Ground", font: "Lora" },
         });
         room.objects.add(text2);
 
-        observer = new Observer(island, {
+        observer = new Observer({
             spatial: {
                 position: new THREE.Vector3(0, 2, -5),
                 quaternion: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI),
@@ -130,11 +125,16 @@ function start() {
             name: "Guest1"
         });
         room.observers.add(observer);
-    }
+    });
+
+    room = room || island.modelsById[state.room];
+    observer = observer || island.modelsById[state.observer];
 
     const renderer = state.renderer || new THREE.WebGLRenderer();
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
+
+    state = null; // prevent accidental access below
 
     const roomView = new RoomView(island, observer);
     roomView.attach(room);

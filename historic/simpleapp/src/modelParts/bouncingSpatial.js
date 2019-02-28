@@ -8,7 +8,7 @@ export default class BouncingSpatialPart extends InertialSpatialPart {
         super(owner, state, options);
         this.dampening = state.dampening || 0.01;
         this.gravity = state.gravity || new THREE.Vector3(0, -0.001, 0);
-        this.bounce = state.bounce || 1;
+        this.bounce = state.bounce || 0.1;
     }
 
     toState(state) {
@@ -27,9 +27,9 @@ export default class BouncingSpatialPart extends InertialSpatialPart {
             if (this.position.z < -10) { this.estimatedVelocity.z = Math.abs(this.estimatedVelocity.z); this.position.z = -10; bounce = true; }
             if (this.position.z > 10) { this.estimatedVelocity.z = -Math.abs(this.estimatedVelocity.z); this.position.z =  10; bounce = true; }
             if (bounce) {
-                this.estimatedVelocity.x *= 1 + this.bounce * Math.random();
-                this.estimatedVelocity.y *= 1 + this.bounce * Math.random();
-                this.estimatedVelocity.z *= 1 + this.bounce * Math.random();
+                this.estimatedVelocity.x += (Math.random() * this.bounce * Math.sign(this.estimatedVelocity.x));
+                this.estimatedVelocity.y += (Math.random() * this.bounce * Math.sign(this.estimatedVelocity.y));
+                this.estimatedVelocity.z += (Math.random() * this.bounce * Math.sign(this.estimatedVelocity.z));
             }
             const speed = this.estimatedVelocity.length();
             if (speed > 1) this.estimatedVelocity.multiplyScalar(0.5);
