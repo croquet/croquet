@@ -35,10 +35,10 @@ export class ObserverAvatarView extends View {
 
 class TreadmillNavigationPart extends Object3DViewPart {
     constructor(owner, options) {
-        const fullOptions = {partName: "treadmill", cameraPartName: "camera", ...options};
-        super(owner, fullOptions);
+        options = {partName: "treadmill", cameraPartName: "camera", ...options};
+        super(owner, options);
         /** @type {CameraViewPart} */
-        this.cameraPart = owner.parts[fullOptions.cameraPartName];
+        this.cameraPart = owner.parts[options.cameraPartName];
     }
 
     attachWithObject3D(_modelState) {

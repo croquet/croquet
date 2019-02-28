@@ -3,10 +3,10 @@ import Object3DViewPart from "./object3D.js";
 
 export default class CameraViewPart extends Object3DViewPart {
     constructor(owner, options) {
-        const fullOptions = {partName: "camera", ...options};
-        super(owner, fullOptions);
-        this.width = fullOptions.width;
-        this.height = fullOptions.height;
+        options = {partName: "camera", ...options};
+        super(owner, options);
+        this.width = options.width;
+        this.height = options.height;
     }
 
     attachWithObject3D(_modelState) {

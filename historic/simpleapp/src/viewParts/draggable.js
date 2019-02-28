@@ -3,7 +3,7 @@ import { PointerEvents, makePointerSensitive } from "./pointer.js";
 
 export default class DraggableViewPart extends ViewPart {
     constructor(owner, options) {
-        const fullOptions = {
+        options = {
             partName: "draggable",
             grabbablePartName: "object3D",
             targetPartName: "spatial",
@@ -11,11 +11,11 @@ export default class DraggableViewPart extends ViewPart {
             ...options
         };
 
-        super(owner, fullOptions);
+        super(owner, options);
         /** @type {import('./object3D').default} */
-        this.grabbablePart = owner.parts[fullOptions.grabbablePartName];
-        this.targetPartName = fullOptions.targetPartName;
-        this.dragVertically = fullOptions.dragVertically;
+        this.grabbablePart = owner.parts[options.grabbablePartName];
+        this.targetPartName = options.targetPartName;
+        this.dragVertically = options.dragVertically;
         this.subscribe(PointerEvents.pointerDown, "onPointerDown");
         this.subscribe(PointerEvents.pointerDrag, "onPointerDrag");
         this.subscribe(PointerEvents.pointerUp, "onPointerUp");

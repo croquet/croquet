@@ -20,10 +20,10 @@ const texCache = {};
 
 export default class TextViewPart extends Object3DViewPart {
     constructor(owner, options) {
-        const fullOptions = {partName: "text", modelPartName: "text", width: 500, ...options};
-        super(owner, fullOptions);
-        this.modelPartName = fullOptions.modelPartName;
-        this.options = fullOptions;
+        options = {partName: "text", modelPartName: "text", width: 500, ...options};
+        super(owner, options);
+        this.modelPartName = options.modelPartName;
+        this.options = options;
     }
 
     attachWithObject3D(modelState) {

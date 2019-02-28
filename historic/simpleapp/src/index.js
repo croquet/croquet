@@ -26,10 +26,10 @@ export class Box extends Model {
 
 class AutoRotate extends ModelPart {
     constructor(owner, _state, options) {
-        const fullOptions = {partName: "autoRotate", spatialPartName:"spatial", ...options};
-        super(owner, fullOptions);
+        options = {partName: "autoRotate", spatialPartName: "spatial", ...options};
+        super(owner, options);
         /** @type {SpatialPart} */
-        this.spatialPart = owner.parts[fullOptions.spatialPartName];
+        this.spatialPart = owner.parts[options.spatialPartName];
     }
 
     doRotation() {
