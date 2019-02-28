@@ -14,6 +14,9 @@ import Object3DViewPart from './viewParts/object3D.js';
 import DraggableViewPart from './viewParts/draggable.js';
 import TrackSpatialViewPart from './viewParts/trackSpatial.js';
 
+const moduleVersion = "index.js v" + (module.bundle.v = (module.bundle.v||0) + 1);
+console.log("Loading " + moduleVersion);
+
 /** Model for a Box */
 export class Box extends Model {
     buildParts(state) {
@@ -61,6 +64,7 @@ export class Text extends Model {
 /** View for a Box */
 class BoxViewPart extends Object3DViewPart {
     attachWithObject3D(_modelState) {
+        console.log("new BoxViewPart from " + moduleVersion);
         return new THREE.Mesh(
             new THREE.BoxBufferGeometry(1, 1, 1),
             new THREE.MeshStandardMaterial({color: new THREE.Color("#aaaaaa")})

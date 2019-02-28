@@ -1,6 +1,9 @@
 import SeedRandom from "seedrandom";
 import hotreload from "./hotreload.js";
 
+const moduleVersion = "index.js v" + (module.bundle.v = (module.bundle.v || 0) + 1);
+console.log("Loading " + moduleVersion);
+
 let viewID = 0;
 let CurrentIsland = null;
 

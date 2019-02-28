@@ -1,6 +1,9 @@
 import Part, { PartOwner } from "./parts.js";
 import IslandReplica from "./islandReplica.js";
 
+const moduleVersion = "model.js v" + (module.bundle.v = (module.bundle.v || 0) + 1);
+console.log("Loading " + moduleVersion);
+
 export const ModelEvents = {
     constructed: "model-constructed",
     destroyed: "model-destroyed"
