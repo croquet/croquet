@@ -1,6 +1,9 @@
 import { ViewPart } from "../view.js";
 import { PointerEvents, makePointerSensitive } from "./pointer.js";
 
+const moduleVersion = module.id + " #" + (module.bundle.v = (module.bundle.v || 0) + 1);
+console.log("Loading " + moduleVersion);
+
 export default class DraggableViewPart extends ViewPart {
     fromOptions(options) {
         options = {

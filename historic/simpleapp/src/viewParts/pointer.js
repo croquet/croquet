@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { ViewPart } from '../view.js';
 
+const moduleVersion = module.id + " #" + (module.bundle.v = (module.bundle.v || 0) + 1);
+console.log("Loading " + moduleVersion);
+
 export const PointerEvents = {
     pointerEnter: "pointer-enter",
     pointerMove: "pointer-move",

@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { ModelPart } from "../model.js";
 
+const moduleVersion = module.id + " #" + (module.bundle.v = (module.bundle.v || 0) + 1);
+console.log("Loading " + moduleVersion);
+
 const SizeEvents = {
     changed: "size-changed"
 };

@@ -1,5 +1,8 @@
 import { ModelPart } from "../model.js";
 
+const moduleVersion = module.id + " #" + (module.bundle.v = (module.bundle.v || 0) + 1);
+console.log("Loading " + moduleVersion);
+
 export const ChildEvents = {
     childAdded: "child-added",
     childRemoved: "child-removed",

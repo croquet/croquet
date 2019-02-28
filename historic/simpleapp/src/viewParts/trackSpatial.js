@@ -1,6 +1,9 @@
 import { ViewPart } from "../view.js";
 import { SpatialEvents } from '../modelParts/spatial.js';
 
+const moduleVersion = module.id + " #" + (module.bundle.v = (module.bundle.v || 0) + 1);
+console.log("Loading " + moduleVersion);
+
 export default class TrackSpatialViewPart extends ViewPart {
     fromOptions(options) {
         options = {modelSource: "spatial", affects: "object3D", ...options};

@@ -1,7 +1,7 @@
 import Part, { PartOwner } from "./parts.js";
 import IslandReplica from "./islandReplica.js";
 
-const moduleVersion = "model.js v" + (module.bundle.v = (module.bundle.v || 0) + 1);
+const moduleVersion = module.id + " #" + (module.bundle.v = (module.bundle.v || 0) + 1);
 console.log("Loading " + moduleVersion);
 
 export const ModelEvents = {

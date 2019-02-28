@@ -1,3 +1,6 @@
+const moduleVersion = module.id + " #" + (module.bundle.v = (module.bundle.v || 0) + 1);
+console.log("Loading " + moduleVersion);
+
 /** @template {PartOwner} T */
 export default class Part {
     /**

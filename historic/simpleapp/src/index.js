@@ -14,7 +14,7 @@ import Object3DViewPart from './viewParts/object3D.js';
 import DraggableViewPart from './viewParts/draggable.js';
 import TrackSpatialViewPart from './viewParts/trackSpatial.js';
 
-const moduleVersion = "index.js v" + (module.bundle.v = (module.bundle.v||0) + 1);
+const moduleVersion = module.id + " #" + (module.bundle.v = (module.bundle.v || 0) + 1);
 console.log("Loading " + moduleVersion);
 
 /** Model for a Box */

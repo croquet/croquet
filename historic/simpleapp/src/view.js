@@ -1,5 +1,8 @@
 import Part, { PartOwner } from './parts.js';
 
+const moduleVersion = module.id + " #" + (module.bundle.v = (module.bundle.v || 0) + 1);
+console.log("Loading " + moduleVersion);
+
 /** @extends PartOwner<ViewPart> */
 export default class View extends PartOwner {
     // LIFECYCLE
