@@ -54,12 +54,12 @@ class RoomObjectManagerPart extends ViewPart {
         const view = new ManipulatorView(this.owner.island, innerView);
         this.viewsForObjects[object.id] = view;
         view.attach(object);
-        view.addToThreeParent(this.owner.scene.scene);
+        view.addToThreeParent(this.owner.parts.scene.scene);
     }
 
     onObjectRemoved(object) {
         const view = this.viewsForObjects[object.id];
-        view.removeFromThreeParent(this.owner.scene.scene);
+        view.removeFromThreeParent(this.owner.parts.scene.scene);
         view.onDetach();
         delete this.viewsForObjects[object.id];
     }
@@ -103,8 +103,8 @@ class RoomObserverManagerPart extends ViewPart {
 export class RoomView extends View {
     constructor(island, localObserver) {
         super(island);
-        this.scene = new RoomScenePart(this, {partName: "scene"});
-        this.objectManager = new RoomObjectManagerPart(this, {partName: "objectManager"});
-        this.observerManager = new RoomObserverManagerPart(this, {localObserver});
+        new RoomScenePart(this, {partName: "scene"});
+        new RoomObjectManagerPart(this, {partName: "objectManager"});
+        new RoomObserverManagerPart(this, {localObserver});
     }
 }

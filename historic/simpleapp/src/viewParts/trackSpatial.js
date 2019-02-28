@@ -7,7 +7,7 @@ export default class TrackSpatialViewPart extends ViewPart {
         super(owner, fullOptions);
         this.modelPartName = fullOptions.modelPartName;
         /** @type {Object3DView} */
-        this.targetViewPart = this.owner[fullOptions.targetViewPart];
+        this.targetViewPart = this.owner.parts[fullOptions.targetViewPart];
     }
     attach(modelState) {
         const modelPart = modelState[this.modelPartName];

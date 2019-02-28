@@ -38,7 +38,7 @@ class TreadmillNavigationPart extends Object3DViewPart {
         const fullOptions = {partName: "treadmill", cameraPartName: "camera", ...options};
         super(owner, fullOptions);
         /** @type {CameraViewPart} */
-        this.cameraPart = owner[fullOptions.cameraPartName];
+        this.cameraPart = owner.parts[fullOptions.cameraPartName];
     }
 
     attachWithObject3D(_modelState) {
@@ -139,10 +139,10 @@ class TreadmillNavigationPart extends Object3DViewPart {
 export class PointingObserverCameraView extends View {
     constructor(island, width, height) {
         super(island);
-        this.camera = new CameraViewPart(this, {width, height});
-        this.trackCamera = new TrackSpatialViewPart(this, {partName: "trackCamera", targetViewPart: "camera"});
-        this.treadmill = new TreadmillNavigationPart(this);
-        this.trackTreadmill = new TrackSpatialViewPart(this, {partName: "trackTreadmill", targetViewPart: "treadmill"});
-        this.pointer = new PointerViewPart(this);
+        new CameraViewPart(this, {width, height});
+        new TrackSpatialViewPart(this, {partName: "trackCamera", targetViewPart: "camera"});
+        new TreadmillNavigationPart(this);
+        new TrackSpatialViewPart(this, {partName: "trackTreadmill", targetViewPart: "treadmill"});
+        new PointerViewPart(this);
     }
 }

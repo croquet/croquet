@@ -80,7 +80,7 @@ export default class IslandReplica {
             const model = this.modelsById[modelId];
             execOnIsland(this, () => {
                 if (part) {
-                    model[part][method](...args);
+                    model.parts[part][method](...args);
                 } else {
                     model[method](...args);
                 }
@@ -149,7 +149,7 @@ export default class IslandReplica {
         if (this.viewSubscriptions[topic]) {
             for (let handler of this.viewSubscriptions[topic]) {
                 const [subscriberId, part, method] = handler.split(".");
-                const partInstance = this.viewsById[subscriberId][part];
+                const partInstance = this.viewsById[subscriberId].parts[part];
                 partInstance[method].call(partInstance, data);
             }
         }
@@ -161,7 +161,7 @@ export default class IslandReplica {
         if (this.viewSubscriptions[topic]) {
             for (let handler of this.viewSubscriptions[topic]) {
                 const [subscriberId, part, method] = handler.split(".");
-                const partInstance = this.viewsById[subscriberId][part];
+                const partInstance = this.viewsById[subscriberId].parts[part];
                 partInstance[method].call(partInstance, data);
             }
         }

@@ -13,7 +13,7 @@ export default class DraggableViewPart extends ViewPart {
 
         super(owner, fullOptions);
         /** @type {import('./object3D').default} */
-        this.grabbablePart = owner[fullOptions.grabbablePartName];
+        this.grabbablePart = owner.parts[fullOptions.grabbablePartName];
         this.targetPartName = fullOptions.targetPartName;
         this.dragVertically = fullOptions.dragVertically;
         this.subscribe(PointerEvents.pointerDown, "onPointerDown");

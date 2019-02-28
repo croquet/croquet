@@ -29,7 +29,7 @@ class AutoRotate extends ModelPart {
         const fullOptions = {partName: "autoRotate", spatialPartName:"spatial", ...options};
         super(owner, fullOptions);
         /** @type {SpatialPart} */
-        this.spatialPart = owner[fullOptions.spatialPartName];
+        this.spatialPart = owner.parts[fullOptions.spatialPartName];
     }
 
     doRotation() {
@@ -74,9 +74,9 @@ class BoxPart extends Object3DViewPart {
 class BoxView extends View {
     constructor(island) {
         super(island);
-        this.object3D = new BoxPart(this);
-        this.track = new TrackSpatialViewPart(this);
-        this.draggable = new DraggableViewPart(this);
+        new BoxPart(this);
+        new TrackSpatialViewPart(this);
+        new DraggableViewPart(this);
     }
 }
 
@@ -84,8 +84,8 @@ class BoxView extends View {
 class TextView extends View {
     constructor(island) {
         super(island);
-        this.text = new TextViewPart(this);
-        this.track = new TrackSpatialViewPart(this, {targetViewPart: "text"});
+        new TextViewPart(this);
+        new TrackSpatialViewPart(this, {targetViewPart: "text"});
     }
 }
 
@@ -141,39 +141,39 @@ function start() {
 
     const observerView = new PointingObserverCameraView(island, window.innerWidth, window.innerHeight);
     observerView.attach(observer);
-    observerView.addToThreeParent(roomView.scene.scene);
+    observerView.addToThreeParent(roomView.parts.scene.scene);
 
     function frame() {
-        renderer.render(roomView.scene.scene, observerView.camera.threeObj);
-        observerView.pointer.updatePointer(roomView.scene.scene);
+        renderer.render(roomView.parts.scene.scene, observerView.parts.camera.threeObj);
+        observerView.parts.pointer.updatePointer(roomView.parts.scene.scene);
         hotreload.requestAnimationFrame(frame);
     }
 
     hotreload.requestAnimationFrame(frame);
 
-    hotreload.addEventListener(window, "mousemove", event => observerView.pointer.onMouseMove(event.clientX, event.clientY));
-    hotreload.addEventListener(window, "mousedown", event => observerView.pointer.onMouseDown(event));
-    hotreload.addEventListener(window, "mouseup", event => observerView.pointer.onMouseUp(event));
+    hotreload.addEventListener(window, "mousemove", event => observerView.parts.pointer.onMouseMove(event.clientX, event.clientY));
+    hotreload.addEventListener(window, "mousedown", event => observerView.parts.pointer.onMouseDown(event));
+    hotreload.addEventListener(window, "mouseup", event => observerView.parts.pointer.onMouseUp(event));
     hotreload.addEventListener(document.body, "touchstart", event => {
-        observerView.pointer.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
-        observerView.pointer.updatePointer(roomView.scene);
-        observerView.pointer.onMouseDown();
+        observerView.parts.pointer.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
+        observerView.pointer.updatePointer(roomView.parts.scene);
+        observerView.parts.pointer.onMouseDown();
         event.stopPropagation();
         event.preventDefault();
     }, {passive: false});
 
     hotreload.addEventListener(document.body, "touchmove", event => {
-        observerView.pointer.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
+        observerView.parts.pointer.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
     }, {passive: false});
 
     hotreload.addEventListener(document.body, "touchend", event => {
-        observerView.pointer.onMouseUp();
+        observerView.parts.pointer.onMouseUp();
         event.stopPropagation();
         event.preventDefault();
     }, {passive: false});
 
     hotreload.addEventListener(document.body, "wheel", event => {
-        observerView.treadmill.onWheel(event);
+        observerView.parts.treadmill.onWheel(event);
         event.stopPropagation();
         event.preventDefault();
     }, {passive: false});
