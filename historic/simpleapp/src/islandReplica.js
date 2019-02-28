@@ -1,5 +1,4 @@
 import SeedRandom from "seedrandom";
-import Model from "./model.js";
 import hotreload from "./hotreload.js";
 
 let viewID = 0;
@@ -34,6 +33,7 @@ export default class IslandReplica {
         // Views can subscribe to model or other view events
         this.modelSubscriptions = {};
         this.viewSubscriptions = {};
+        this.modelViewEvents = [];
         execOnIsland(this, () => {
             // our synced random stream
             this._random = new SeedRandom(null, { state: state.random || true });
@@ -41,7 +41,8 @@ export default class IslandReplica {
             if (state.models) {
                 // create all models
                 for (let modelState of state.models || []) {
-                    Model.fromState(modelState);  // registers the model
+                    const ModelClass = modelClassNamed(modelState.className);
+                    new ModelClass(modelState);  // registers the model
                 }
                 // wire up models in second pass
                 for (let modelState of state.models || []) {
@@ -53,22 +54,26 @@ export default class IslandReplica {
     }
 
     registerModel(model, id) {
+        if (CurrentIsland !== this) throw Error("Island Error");
         if (!id) id = "M" + this.randomID();
         this.modelsById[id] = model;
         return id;
     }
 
     deregisterModel(id) {
+        if (CurrentIsland !== this) throw Error("Island Error");
         delete this.modelsById[id];
     }
 
     registerView(view) {
+        if (CurrentIsland) throw Error("Island Error");
         const id = "V" + ++viewID;
         this.viewsById[id] = view;
         return id;
     }
 
     deregisterView(id) {
+        if (CurrentIsland) throw Error("Island Error");
         delete this.viewsById[id];
     }
 
@@ -90,6 +95,7 @@ export default class IslandReplica {
 
 
     futureProxy(object, tOffset) {
+        if (CurrentIsland !== this) throw Error("Island Error");
         const island = this;
         return new Proxy(object, {
             get(target, property) {
@@ -111,6 +117,7 @@ export default class IslandReplica {
 
 
     addModelSubscription(scope, event, subscriberId, part, methodName) {
+        if (CurrentIsland !== this) throw Error("Island Error");
         const topic = scope + ":" + event;
         const handler = subscriberId + "." + part + "." + methodName;
         if (!this.modelSubscriptions[topic]) this.modelSubscriptions[topic] = new Set();
@@ -118,12 +125,14 @@ export default class IslandReplica {
     }
 
     removeModelSubscription(scope, event, subscriberId, part, methodName) {
+        if (CurrentIsland !== this) throw Error("Island Error");
         const topic = scope + ":" + event;
         const handler = subscriberId + "." + part + "." + methodName;
         if (this.modelSubscriptions[topic]) this.modelSubscriptions[topic].remove(handler);
     }
 
     addViewSubscription(scope, event, subscriberId, part, methodName) {
+        if (CurrentIsland) throw Error("Island Error");
         const topic = scope + ":" + event;
         const handler = subscriberId + "." + part + "." + methodName;
         if (!this.viewSubscriptions[topic]) this.viewSubscriptions[topic] = new Set();
@@ -131,12 +140,14 @@ export default class IslandReplica {
     }
 
     removeViewSubscription(scope, event, subscriberId, part, methodName) {
+        if (CurrentIsland) throw Error("Island Error");
         const topic = scope + ":" + event;
         const handler = subscriberId + "." + part + "." + methodName;
         if (this.viewSubscriptions[topic]) this.viewSubscriptions[topic].delete(handler);
     }
 
     publishFromModel(scope, event, data, tOffset) {
+        if (CurrentIsland !== this) throw Error("Island Error");
         const topic = scope + ":" + event;
         if (this.modelSubscriptions[topic]) {
             for (let handler of this.modelSubscriptions[topic]) {
@@ -144,18 +155,20 @@ export default class IslandReplica {
                 this.callModelMethod(subscriberId, part, method, [data], tOffset);
             }
         }
-        // This is essentially the only part of code inside a model that is not executed bit-identically
-        // everywhere, since different view might be subscribed in different island replicas
-        if (this.viewSubscriptions[topic]) {
-            for (let handler of this.viewSubscriptions[topic]) {
-                const [subscriberId, part, method] = handler.split(".");
-                const partInstance = this.viewsById[subscriberId].parts[part];
-                partInstance[method].call(partInstance, data);
-            }
+        // To ensure model code is executed bit-identically everywhere, we have to notify views
+        // later, since different views might be subscribed in different island replicas
+        if (this.viewSubscriptions[topic]) this.modelViewEvents.push({scope, event, data});
+    }
+
+    processModelViewEvents() {
+        while (this.modelViewEvents.length > 0) {
+            let { scope, event, data } = this.modelViewEvents.pop();
+            this.publishFromView(scope, event, data);
         }
     }
 
     publishFromView(scope, event, data) {
+        if (CurrentIsland) throw Error("Island Error");
         const topic = scope + ":" + event;
         // Events published by views can only reach other views
         if (this.viewSubscriptions[topic]) {
@@ -195,3 +208,22 @@ export default class IslandReplica {
         return id;
     }
 }
+
+
+// map model class names to model classes
+let ModelClasses = {};
+
+function modelClassNamed(className) {
+    if (ModelClasses[className]) return ModelClasses[className];
+    // HACK: go through all exports and find model subclasses
+    for (let m of Object.values(module.bundle.cache)) {
+        for (let cls of Object.values(m.exports)) {
+            if (cls.__isTeatimeModelClass__) ModelClasses[cls.name] = cls;
+        }
+    }
+    if (ModelClasses[className]) return ModelClasses[className];
+    throw new Error(`Class "${className}" not found, is it exported?`);
+}
+
+
+hotreload.addDisposeHandler(() => ModelClasses = {});

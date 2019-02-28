@@ -6,12 +6,10 @@ export const ModelEvents = {
     destroyed: "model-destroyed"
 };
 
-// map model class names to model classes
-let ModelClasses = {};
-
 /** @extends {PartOwner<ModelPart>} */
 export default class Model extends PartOwner {
     // mark this and subclasses as model classes
+    // used in island.js:modelFromState
     static __isTeatimeModelClass__() { return true; }
 
     get island() { return IslandReplica.current(); }
@@ -44,28 +42,6 @@ export default class Model extends PartOwner {
             state[partName] = {};
             this.parts[partName].toState(state[partName]);
         }
-    }
-
-    static fromState(state) {
-        const Class = ModelClasses[state.className];
-        if (Class) return new Class(state);
-
-        // HACK: go through all exports and find model subclasses
-        for (let m of Object.values(module.bundle.cache)) {
-            for (let cls of Object.values(m.exports)) {
-                if (cls.__isTeatimeModelClass__) {
-                    ModelClasses[cls.name] = cls;
-                }
-            }
-        }
-        if (ModelClasses[state.className]) {
-            return this.fromState(state);
-        }
-        throw new Error(`Class "${state.className}" not found, is it exported?`);
-    }
-
-    static dispose() {
-        ModelClasses = {};
     }
 
     // NATURAL VIEW
