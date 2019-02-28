@@ -8,14 +8,17 @@ const Math_random = Math.random.bind(Math);
 Math.random = () => CurrentIsland ? CurrentIsland.random() : Math_random();
 
 // this is the only place allowed to change CurrentIsland
+const hotIsland = module.hot && module.hot.data && module.hot.data.setCurrent;
 function execOnIsland(island, fn) {
     if (CurrentIsland) throw Error("Island confusion");
     if (!(island instanceof IslandReplica)) throw Error("not an island: " + island);
     const previousIsland = CurrentIsland;
     try {
+        if (hotIsland) hotIsland(island);
         CurrentIsland = island;
         fn();
     } finally {
+        if (hotIsland) hotIsland(previousIsland);
         CurrentIsland = previousIsland;
     }
 }
@@ -227,3 +230,11 @@ function modelClassNamed(className) {
 
 
 hotreload.addDisposeHandler(() => ModelClasses = {});
+
+
+if (module.hot) {
+    // this is a workaround for our implicit dependency on model.js:
+    // Since model.js might refer to an old version of this module,
+    // we set CurrentIsland in both the current and previous module version
+    module.hot.dispose(hotData => hotData.setCurrent = island => CurrentIsland = island);
+}
