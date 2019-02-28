@@ -1,12 +1,13 @@
 import { ViewPart } from "../view.js";
 import { SpatialEvents } from '../modelParts/spatial.js';
 
-export default class TrackSpatial extends ViewPart {
-    constructor(owner, partName = "track", modelPartName = "spatial", targetViewPart = "object3D") {
-        super(owner, partName);
-        this.modelPartName = modelPartName;
+export default class TrackSpatialViewPart extends ViewPart {
+    constructor(owner, options) {
+        const fullOptions = {partName: "track", modelPartName: "spatial", targetViewPart: "object3D", ...options};
+        super(owner, fullOptions);
+        this.modelPartName = fullOptions.modelPartName;
         /** @type {Object3DView} */
-        this.targetViewPart = this.owner[targetViewPart];
+        this.targetViewPart = this.owner[fullOptions.targetViewPart];
     }
     attach(modelState) {
         const modelPart = modelState[this.modelPartName];

@@ -6,8 +6,8 @@ export const ChildEvents = {
 };
 
 export default class ModelChildrenPart extends ModelPart {
-    constructor(owner, partName="children") {
-        super(owner, partName);
+    constructor(owner, _state, options) {
+        super(owner, {partName: "children", ...options});
         this.children = new Set();
     }
 

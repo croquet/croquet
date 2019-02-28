@@ -4,8 +4,8 @@ import SpatialPart from './spatial.js';
 /** A spatial model with inertia */
 export default class InertialSpatialPart extends SpatialPart {
     /** @param {SpatialPart} spatialPart */
-    constructor(owner, state={}, partName="spatial") {
-        super(owner, state, partName);
+    constructor(owner, state={}, options) {
+        super(owner, state, options);
         this.estimatedVelocity = state.estimatedVelocity || new THREE.Vector3(0, 0, 0);
         this.estimatedRotationalVelocity = state.estimatedRotationalVelocity || new THREE.Quaternion();
         this.dampening = state.dampening || 0.1;

@@ -6,8 +6,8 @@ const TextEvents = {
 };
 
 export default class TextPart extends ModelPart {
-    constructor(owner, state={}, partName="text") {
-        super(owner, partName);
+    constructor(owner, state={}, options) {
+        super(owner, {partName: "text", ...options});
         this.content = state.content || "";
         this.font = state.font || "Barlow";
     }

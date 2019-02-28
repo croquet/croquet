@@ -12,7 +12,7 @@ import TextPart from './modelParts/text.js';
 import TextViewPart from './viewParts/text.js';
 import Object3DViewPart from './viewParts/object3D.js';
 import DraggableViewPart from './viewParts/draggable.js';
-import TrackSpatial from './viewParts/trackSpatial.js';
+import TrackSpatialViewPart from './viewParts/trackSpatial.js';
 
 /** Model for a Box */
 export class Box extends Model {
@@ -25,10 +25,11 @@ export class Box extends Model {
 }
 
 class AutoRotate extends ModelPart {
-    constructor(owner, partName="autoRotate", spatialPartName="spatial") {
-        super(owner, partName);
+    constructor(owner, _state, options) {
+        const fullOptions = {partName: "autoRotate", spatialPartName:"spatial", ...options};
+        super(owner, fullOptions);
         /** @type {SpatialPart} */
-        this.spatialPart = owner[spatialPartName];
+        this.spatialPart = owner[fullOptions.spatialPartName];
     }
 
     doRotation() {
@@ -74,7 +75,7 @@ class BoxView extends View {
     constructor(island) {
         super(island);
         this.object3D = new BoxPart(this);
-        this.track = new TrackSpatial(this);
+        this.track = new TrackSpatialViewPart(this);
         this.draggable = new DraggableViewPart(this);
     }
 }
@@ -84,7 +85,7 @@ class TextView extends View {
     constructor(island) {
         super(island);
         this.text = new TextViewPart(this);
-        this.track = new TrackSpatial(this, "track", "spatial", "text");
+        this.track = new TrackSpatialViewPart(this, {targetViewPart: "text"});
     }
 }
 

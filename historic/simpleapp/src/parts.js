@@ -4,8 +4,9 @@ export default class Part {
      * @param {T} owner
      * @param {String} partName
     */
-    constructor(owner, partName) {
+    constructor(owner, options) {
         this.owner = owner;
+        const {partName} = options;
         this.partName = partName;
         owner.addPart(this);
     }

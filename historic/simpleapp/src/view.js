@@ -1,6 +1,6 @@
 import Part, { PartOwner } from './parts.js';
 
-/** @extends PartOwner<ViewvPart> */
+/** @extends PartOwner<ViewPart> */
 export default class View extends PartOwner {
     // LIFECYCLE
     /** @arg {import('./islandReplica').default} island */

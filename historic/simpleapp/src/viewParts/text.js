@@ -19,10 +19,11 @@ const fontPaths = {
 const texCache = {};
 
 export default class TextViewPart extends Object3DViewPart {
-    constructor(owner, options={width: 500}, modelPartName="text", partName="text") {
-        super(owner, partName);
-        this.modelPartName = modelPartName;
-        this.options = options;
+    constructor(owner, options) {
+        const fullOptions = {partName: "text", modelPartName: "text", width: 500, ...options};
+        super(owner, fullOptions);
+        this.modelPartName = fullOptions.modelPartName;
+        this.options = fullOptions;
     }
 
     attachWithObject3D(modelState) {

@@ -66,9 +66,9 @@ class RoomObjectManagerPart extends ViewPart {
 }
 
 class RoomObserverManagerPart extends ViewPart {
-    constructor(owner, localObserver) {
-        super(owner, "observerManager");
-        this.localObserver = localObserver;
+    constructor(owner, options) {
+        super(owner, {partName: "observerManager", ...options});
+        this.localObserver = options.localObserver;
     }
 
     /** @arg {Room} room */
@@ -103,8 +103,8 @@ class RoomObserverManagerPart extends ViewPart {
 export class RoomView extends View {
     constructor(island, localObserver) {
         super(island);
-        this.scene = new RoomScenePart(this, "scene");
-        this.objectManager = new RoomObjectManagerPart(this, "objectManager");
-        this.observerManager = new RoomObserverManagerPart(this, localObserver);
+        this.scene = new RoomScenePart(this, {partName: "scene"});
+        this.objectManager = new RoomObjectManagerPart(this, {partName: "objectManager"});
+        this.observerManager = new RoomObserverManagerPart(this, {localObserver});
     }
 }

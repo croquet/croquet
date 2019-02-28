@@ -5,13 +5,14 @@ import rotateHandle from "../assets/rotate-handle.svg";
 import { PointerEvents, makePointerSensitive } from "./viewParts/pointer.js";
 import Object3DViewPart from "./viewParts/object3D.js";
 import View, { ViewPart } from "./view.js";
-import TrackSpatial from "./viewParts/trackSpatial.js";
+import TrackSpatialViewPart from "./viewParts/trackSpatial.js";
 
 class WrappedViewViewPart extends ViewPart {
     /** @param {import('./view').default} wrappedView */
-    constructor(owner, wrappedView, partName="wrappedView") {
-        super(owner, partName);
-        this.wrapped = wrappedView;
+    constructor(owner, options) {
+        const fullOptions = {partName: "wrappedView", ...options};
+        super(owner, fullOptions);
+        this.wrapped = fullOptions.wrappedView;
     }
 
     attach(modelState) {
@@ -32,9 +33,10 @@ class WrappedViewViewPart extends ViewPart {
 }
 
 class ManipulatorViewPart extends Object3DViewPart {
-    constructor(owner, partName="manipulator", targetPartName="spatial") {
-        super(owner, partName);
-        this.targetPartName = targetPartName;
+    constructor(owner, options) {
+        const fullOptions = {partName: "manipulator", targetPartName: "spatial", ...options};
+        super(owner, fullOptions);
+        this.targetPartName = fullOptions.targetPartName;
     }
 
     attachWithObject3D(_modelState) {
@@ -114,8 +116,8 @@ class ManipulatorViewPart extends Object3DViewPart {
 export default class ManipulatorView extends View {
     constructor(island, wrappedView) {
         super(island);
-        this.wrappedView = new WrappedViewViewPart(this, wrappedView);
+        this.wrappedView = new WrappedViewViewPart(this, {wrappedView});
         this.manipulator = new ManipulatorViewPart(this);
-        this.track = new TrackSpatial(this, "track", "spatial", "manipulator");
+        this.track = new TrackSpatialViewPart(this, {targetViewPart: "manipulator"});
     }
 }

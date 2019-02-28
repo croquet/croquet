@@ -7,7 +7,7 @@ import SVGIcon from './util/svgIcon.js';
 import View from './view.js';
 import CameraViewPart from './viewParts/camera.js';
 import Object3DViewPart from './viewParts/object3D.js';
-import TrackSpatial from './viewParts/trackSpatial.js';
+import TrackSpatialViewPart from './viewParts/trackSpatial.js';
 import PointerViewPart, { PointerEvents, makePointerSensitive, ignorePointer } from './viewParts/pointer.js';
 
 /** Represents an observer of a Room. This can be an active participant,
@@ -34,10 +34,11 @@ export class ObserverAvatarView extends View {
 }
 
 class TreadmillNavigationPart extends Object3DViewPart {
-    constructor(owner, partName="treadmill", cameraPartName="camera") {
-        super(owner, partName);
+    constructor(owner, options) {
+        const fullOptions = {partName: "treadmill", cameraPartName: "camera", ...options};
+        super(owner, fullOptions);
         /** @type {CameraViewPart} */
-        this.cameraPart = owner[cameraPartName];
+        this.cameraPart = owner[fullOptions.cameraPartName];
     }
 
     attachWithObject3D(_modelState) {
@@ -138,10 +139,10 @@ class TreadmillNavigationPart extends Object3DViewPart {
 export class PointingObserverCameraView extends View {
     constructor(island, width, height) {
         super(island);
-        this.camera = new CameraViewPart(this, width, height);
-        this.trackCamera = new TrackSpatial(this, "trackCamera", "spatial", "camera");
+        this.camera = new CameraViewPart(this, {width, height});
+        this.trackCamera = new TrackSpatialViewPart(this, {partName: "trackCamera", targetViewPart: "camera"});
         this.treadmill = new TreadmillNavigationPart(this);
-        this.trackTreadmill = new TrackSpatial(this, "trackTreadmill", "spatial", "treadmill");
+        this.trackTreadmill = new TrackSpatialViewPart(this, {partName: "trackTreadmill", targetViewPart: "treadmill"});
         this.pointer = new PointerViewPart(this);
     }
 }

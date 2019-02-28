@@ -6,8 +6,8 @@ const SizeEvents = {
 };
 
 export default class SizePart extends ModelPart {
-    constructor(owner, state={}, partName="size") {
-        super(owner, partName);
+    constructor(owner, state={}, options) {
+        super(owner, {partName: "size", ...options});
         this.value = state.value || new THREE.Vector3(1, 1, 1);
     }
 
