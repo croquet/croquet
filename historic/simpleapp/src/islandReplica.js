@@ -34,6 +34,7 @@ export default class IslandReplica {
         // Views can subscribe to model or other view events
         this.modelSubscriptions = {};
         this.viewSubscriptions = {};
+        this.modelViewEvents = [];
         execOnIsland(this, () => {
             // our synced random stream
             this._random = new SeedRandom(null, { state: state.random || true });
@@ -154,14 +155,15 @@ export default class IslandReplica {
                 this.callModelMethod(subscriberId, part, method, [data], tOffset);
             }
         }
-        // This is essentially the only part of code inside a model that is not executed bit-identically
-        // everywhere, since different view might be subscribed in different island replicas
-        if (this.viewSubscriptions[topic]) {
-            for (let handler of this.viewSubscriptions[topic]) {
-                const [subscriberId, part, method] = handler.split(".");
-                const partInstance = this.viewsById[subscriberId].parts[part];
-                partInstance[method].call(partInstance, data);
-            }
+        // To ensure model code is executed bit-identically everywhere, we have to notify views
+        // later, since different views might be subscribed in different island replicas
+        if (this.viewSubscriptions[topic]) this.modelViewEvents.push({scope, event, data});
+    }
+
+    processModelViewEvents() {
+        while (this.modelViewEvents.length > 0) {
+            let { scope, event, data } = this.modelViewEvents.pop();
+            this.publishFromView(scope, event, data);
         }
     }
 

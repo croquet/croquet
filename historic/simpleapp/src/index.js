@@ -146,6 +146,7 @@ function start() {
     function frame() {
         renderer.render(roomView.parts.scene.scene, observerView.parts.camera.threeObj);
         observerView.parts.pointer.updatePointer(roomView.parts.scene.scene);
+        island.processModelViewEvents();
         hotreload.requestAnimationFrame(frame);
     }
 
