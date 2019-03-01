@@ -214,6 +214,9 @@ export default class IslandReplica {
     }
 }
 
+// TODO: move this back to model.js and declare a dependency on model.js
+// once this pull request is in a Parcel release:
+// https://github.com/parcel-bundler/parcel/pull/2660/
 
 // map model class names to model classes
 let ModelClasses = {};
