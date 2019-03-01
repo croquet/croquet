@@ -223,7 +223,7 @@ function modelClassNamed(className) {
     // HACK: go through all exports and find model subclasses
     for (let m of Object.values(module.bundle.cache)) {
         for (let cls of Object.values(m.exports)) {
-            if (cls.__isTeatimeModelClass__) ModelClasses[cls.name] = cls;
+            if (cls && cls.__isTeatimeModelClass__) ModelClasses[cls.name] = cls;
         }
     }
     if (ModelClasses[className]) return ModelClasses[className];

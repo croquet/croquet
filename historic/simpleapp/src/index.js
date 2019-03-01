@@ -93,7 +93,7 @@ class TextView extends View {
     }
 }
 
-class LayoutTestModel extends Model {
+export class LayoutTestModel extends Model {
     buildParts(state) {
         new SpatialPart(this, state);
     }
