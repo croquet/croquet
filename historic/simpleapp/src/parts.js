@@ -28,7 +28,7 @@ export class PartOwner {
     /** @param {T} part */
     addPart(part) {
         if (this.parts[part.partId]) {
-            throw new Error(`A part of name ${part.partId} already exists in the parent ${this.constructor.name}. Please use the "partId" option to give this part a unique name`);
+            throw new Error(`A part with id ${part.partId} already exists in the parent ${this.constructor.name}. Please use the "id" option to give this part a unique name`);
         }
         this.parts[part.partId] = part;
     }
