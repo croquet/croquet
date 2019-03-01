@@ -19,12 +19,15 @@ export default class Part {
 /** @template {Part} T */
 export class PartOwner {
     constructor() {
-        /** @type {{[string]: T}} */
+        /** @type {Object<string, T>} */
         this.parts = {};
     }
 
     /** @param {T} part */
     addPart(part) {
+        if (this.parts[part.partName]) {
+            throw new Error(`A part of name ${part.partName} already exists in the parent ${this.constructor.name}. Please use the "partName" option to give this part a unique name`);
+        }
         this.parts[part.partName] = part;
     }
 }

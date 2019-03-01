@@ -15,10 +15,20 @@ export default class Object3DViewPart extends ViewPart {
     }
 
     addToThreeParent(parent) {
-        parent.add(this.threeObj);
+        if (!this.threeObj.parent) parent.add(this.threeObj);
     }
 
     removeFromThreeParent(parent) {
-        parent.remove(this.threeObj);
+        if (this.threeObj.parent === parent) parent.remove(this.threeObj);
+    }
+}
+
+export class Object3DGroupViewPart extends Object3DViewPart {
+    static defaultPartName() {
+        return "object3D";
+    }
+
+    attachWithObject3D(_modelState) {
+        return new THREE.Group();
     }
 }

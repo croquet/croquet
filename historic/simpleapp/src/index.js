@@ -10,9 +10,10 @@ import View from './view.js';
 import hotreload from "./hotreload.js";
 import TextPart from './modelParts/text.js';
 import TextViewPart from './viewParts/text.js';
-import Object3DViewPart from './viewParts/object3D.js';
+import Object3DViewPart, { Object3DGroupViewPart } from './viewParts/object3D.js';
 import DraggableViewPart from './viewParts/draggable.js';
 import TrackSpatialViewPart from './viewParts/trackSpatial.js';
+import { LayoutRootViewPart, LayoutContainerViewPart, CenteredObject3DLayoutViewPart } from './viewParts/layout.js';
 
 /** Model for a Box */
 export class Box extends Model {
@@ -60,10 +61,16 @@ export class Text extends Model {
 
 /** View for a Box */
 class BoxViewPart extends Object3DViewPart {
+    fromOptions(options) {
+        options = {color: "#aaaaaa", ...options};
+        super.fromOptions(options);
+        this.color = options.color;
+    }
+
     attachWithObject3D(_modelState) {
         return new THREE.Mesh(
             new THREE.BoxBufferGeometry(1, 1, 1),
-            new THREE.MeshStandardMaterial({color: new THREE.Color("#aaaaaa")})
+            new THREE.MeshStandardMaterial({color: new THREE.Color(this.color)})
         );
     }
 }
@@ -81,6 +88,41 @@ class TextView extends View {
     buildParts() {
         new TextViewPart(this);
         new TrackSpatialViewPart(this, {affects: "text"});
+    }
+}
+
+class LayoutTestModel extends Model {
+    buildParts(state) {
+        new SpatialPart(this, state);
+    }
+
+    naturalViewClass() {
+        return LayoutTestView;
+    }
+}
+
+class LayoutTestView extends View {
+    buildParts() {
+        new BoxViewPart(this, {partName: "box1", color: "#ff0000"});
+        new BoxViewPart(this, {partName: "box2", color: "#ffff00"});
+        new BoxViewPart(this, {partName: "box3", color: "#00ff00"});
+        new BoxViewPart(this, {partName: "box4", color: "#00ffff"});
+        new BoxViewPart(this, {partName: "box5", color: "#0000ff"});
+
+        new Object3DGroupViewPart(this);
+        new TrackSpatialViewPart(this);
+
+        new LayoutRootViewPart(this, {children: [
+            new LayoutContainerViewPart(this, {partName: "row", flexDirection: "row", padding: 0.3, children: [
+                new CenteredObject3DLayoutViewPart(this, {partName: "box1layout", affects: "box1", margin: 0.1}),
+                new CenteredObject3DLayoutViewPart(this, {partName: "box2layout", affects: "box2", margin: 0.1}),
+                new LayoutContainerViewPart(this, {partName: "columnInRow", flexDirection: "column", padding: 0.1, children: [
+                    new CenteredObject3DLayoutViewPart(this, {partName: "box3layout", affects: "box3", margin: 0.1}),
+                    new CenteredObject3DLayoutViewPart(this, {partName: "box4layout", affects: "box4", margin: 0.1}),
+                    new CenteredObject3DLayoutViewPart(this, {partName: "box5layout", affects: "box5", margin: 0.1}),
+                ]})
+            ]})
+        ]});
     }
 }
 
@@ -111,6 +153,11 @@ function start() {
             text: { content: "Chapter Eight - The Queen's Croquet Ground", font: "Lora" },
         });
         room.parts.objects.add(text2);
+
+        const layoutTest = new LayoutTestModel({
+            spatial: { position: new THREE.Vector3(0, 1.0, 1.0)}
+        });
+        room.parts.objects.add(layoutTest);
 
         observer = new Observer({
             spatial: {

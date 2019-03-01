@@ -63,7 +63,7 @@ export default class View extends PartOwner {
     }
 }
 
-/** @extends ViewPart<View> */
+/** @extends Part<View> */
 export class ViewPart extends Part {
     static defaultPartName() {
         const name = this.name.replace("ViewPart", "");
