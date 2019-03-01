@@ -18,26 +18,26 @@ export default class View extends PartOwner {
 
     attach(modelState) {
         this.modelId = modelState.id;
-        for (let partId of Object.keys(this.parts)) {
+        for (const partId of Object.keys(this.parts)) {
             this.parts[partId].attach(modelState);
         }
     }
 
     detach() {
-        for (let partId of Object.keys(this.parts)) {
+        for (const partId of Object.keys(this.parts)) {
             this.parts[partId].detach();
         }
     }
 
     addToThreeParent(parent) {
-        for (let partId of Object.keys(this.parts)) {
+        for (const partId of Object.keys(this.parts)) {
             const part = this.parts[partId];
             if (part.addToThreeParent) part.addToThreeParent(parent);
         }
     }
 
     removeFromThreeParent(parent) {
-        for (let partId of Object.keys(this.parts)) {
+        for (const partId of Object.keys(this.parts)) {
             const part = this.parts[partId];
             if (part.removeFromThreeParent) part.removeFromThreeParent(parent);
         }

@@ -41,7 +41,7 @@ class RoomObjectManagerPart extends ViewPart {
     attach(room) {
         this.viewsForObjects = {};
 
-        for (let object of room.parts.objects.children) {
+        for (const object of room.parts.objects.children) {
             this.onObjectAdded(object);
         }
 
@@ -77,7 +77,7 @@ class RoomObserverManagerPart extends ViewPart {
     attach(room) {
         this.viewsForObservers = {};
 
-        for (let observer of room.parts.observers.children) {
+        for (const observer of room.parts.observers.children) {
             this.onObserverJoined(observer);
         }
 

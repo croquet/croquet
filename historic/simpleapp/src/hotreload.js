@@ -1,9 +1,9 @@
 if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
 
-let timeoutHandles = new Set();
-let frameHandles = new Set();
-let eventListeners = [];
-let disposeHandlers = {};
+const timeoutHandles = new Set();
+const frameHandles = new Set();
+const eventListeners = [];
+const disposeHandlers = {};
 
 function setTimeout(fn, ms) {
     const handle = window.setTimeout((...args) => {
@@ -36,14 +36,14 @@ function addDisposeHandler(key, fn) {
 }
 
 function dispose() {
-    for (let handle of timeoutHandles) window.clearTimeout(handle);
-    for (let handle of frameHandles) window.cancelAnimationFrame(handle);
-    for (let {obj, args} of eventListeners) obj.removeEventListener(...args);
+    for (const handle of timeoutHandles) window.clearTimeout(handle);
+    for (const handle of frameHandles) window.cancelAnimationFrame(handle);
+    for (const {obj, args} of eventListeners) obj.removeEventListener(...args);
     console.log(`Clearing ${timeoutHandles.size} timeouts, ${frameHandles.size} animationFrames, ${eventListeners.length} eventListeners`);
-    timeoutHandles = new Set();
-    frameHandles = new Set();
-    eventListeners = [];
-    for (let fn of Object.values(disposeHandlers)) fn();
+    timeoutHandles.clear();
+    frameHandles.clear();
+    eventListeners.length = 0;
+    for (const fn of Object.values(disposeHandlers)) fn();
 }
 
 export default {

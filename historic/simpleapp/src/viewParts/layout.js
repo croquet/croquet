@@ -20,15 +20,15 @@ export class LayoutViewPart extends ViewPart {
     }
 
     attach(_modelState) {
-        if(this.options.flexDirection) this.node.setFlexDirection(
+        if (this.options.flexDirection) this.node.setFlexDirection(
             this.options.flexDirection === "row" ? FLEX_DIRECTION_ROW : FLEX_DIRECTION_COLUMN
         );
-        if(this.options.flexGrow) this.node.setFlexGrow(this.options.flexGrow);
-        if(this.options.margin) this.node.setMargin(EDGE_ALL, this.options.margin * MUL);
-        if(this.options.padding) this.node.setPadding(EDGE_ALL, this.options.padding * MUL);
-        if(this.options.minHeight) this.node.setMinHeight(this.options.minHeight * MUL);
-        if(this.options.minWidth) this.node.setMinWidth(this.options.minWidth * MUL);
-        if(this.options.alignItems) {
+        if (this.options.flexGrow) this.node.setFlexGrow(this.options.flexGrow);
+        if (this.options.margin) this.node.setMargin(EDGE_ALL, this.options.margin * MUL);
+        if (this.options.padding) this.node.setPadding(EDGE_ALL, this.options.padding * MUL);
+        if (this.options.minHeight) this.node.setMinHeight(this.options.minHeight * MUL);
+        if (this.options.minWidth) this.node.setMinWidth(this.options.minWidth * MUL);
+        if (this.options.alignItems) {
             switch (this.options.alignItems) {
                 case "center": this.node.setAlignItems(ALIGN_CENTER); break;
                 case "flexStart": this.node.setAlignItems(ALIGN_FLEX_START); break;
@@ -37,7 +37,7 @@ export class LayoutViewPart extends ViewPart {
                 default: break;
             }
         }
-        if(this.options.alignContent) {
+        if (this.options.alignContent) {
             switch (this.options.alignContent) {
                 case "center": this.node.setAlignContent(ALIGN_CENTER); break;
                 case "flexStart": this.node.setAlignContent(ALIGN_FLEX_START); break;
@@ -46,7 +46,7 @@ export class LayoutViewPart extends ViewPart {
                 default: break;
             }
         }
-        if(this.options.alignSelf) {
+        if (this.options.alignSelf) {
             switch (this.options.alignSelf) {
                 case "center": this.node.setAlignSelf(ALIGN_CENTER); break;
                 case "flexStart": this.node.setAlignSelf(ALIGN_FLEX_START); break;
@@ -55,7 +55,7 @@ export class LayoutViewPart extends ViewPart {
                 default: break;
             }
         }
-        if(this.options.justifyContent) this.node.setJustifyContent(this.options.justifyContent);
+        if (this.options.justifyContent) this.node.setJustifyContent(this.options.justifyContent);
     }
 
     detach() {
@@ -75,7 +75,7 @@ export class LayoutContainer extends LayoutViewPart {
 
     attach(modelState) {
         super.attach(modelState);
-        for (let child of this.futureChildren || []) this.addChild(child, false);
+        for (const child of this.futureChildren || []) this.addChild(child, false);
         this.publish(LayoutEvents.contentChanged, {});
     }
 
@@ -110,12 +110,12 @@ export class LayoutContainer extends LayoutViewPart {
     }
 
     onLayoutChanged() {
-        for (let child of this.children) {
+        for (const child of this.children) {
             this.publish(LayoutEvents.layoutChanged, {}, child.owner.id, child.partId);
         }
         this.group.position.setX(this.node.getComputedLeft() / MUL);
         this.group.position.setY(this.node.getComputedTop() / MUL);
-        console.log(this.partId, this.node.getComputedLeft(), this.node.getComputedTop(), this.node.getComputedWidth(), this.node.getComputedHeight());
+        //console.log(this.partId, this.node.getComputedLeft(), this.node.getComputedTop(), this.node.getComputedWidth(), this.node.getComputedHeight());
     }
 }
 
@@ -170,7 +170,7 @@ export class LayoutSlotCenter3D extends LayoutViewPart {
         );
 
         this.targetViewPart.threeObj.position.copy(targetPos);
-        console.log(this.partId, this.node.getComputedLeft(), this.node.getComputedTop(), this.node.getComputedWidth(), this.node.getComputedHeight());
+        //console.log(this.partId, this.node.getComputedLeft(), this.node.getComputedTop(), this.node.getComputedWidth(), this.node.getComputedHeight());
     }
 
     addToThreeParent(parent) {

@@ -45,12 +45,12 @@ export default class IslandReplica {
             this.id = state.id || this.randomID();
             if (state.models) {
                 // create all models
-                for (let modelState of state.models || []) {
+                for (const modelState of state.models || []) {
                     const ModelClass = modelClassNamed(modelState.className);
                     new ModelClass(modelState);  // registers the model
                 }
                 // wire up models in second pass
-                for (let modelState of state.models || []) {
+                for (const modelState of state.models || []) {
                     const model = this.modelsById[modelState.id];
                     model.restoreObjectReferences(modelState, this.modelsById);
                 }
@@ -155,7 +155,7 @@ export default class IslandReplica {
         if (CurrentIsland !== this) throw Error("Island Error");
         const topic = scope + ":" + event;
         if (this.modelSubscriptions[topic]) {
-            for (let handler of this.modelSubscriptions[topic]) {
+            for (const handler of this.modelSubscriptions[topic]) {
                 const [subscriberId, part, method] = handler.split(".");
                 this.callModelMethod(subscriberId, part, method, [data], tOffset);
             }
@@ -167,7 +167,7 @@ export default class IslandReplica {
 
     processModelViewEvents() {
         while (this.modelViewEvents.length > 0) {
-            let { scope, event, data } = this.modelViewEvents.pop();
+            const { scope, event, data } = this.modelViewEvents.pop();
             this.publishFromView(scope, event, data);
         }
     }
@@ -177,7 +177,7 @@ export default class IslandReplica {
         const topic = scope + ":" + event;
         // Events published by views can only reach other views
         if (this.viewSubscriptions[topic]) {
-            for (let handler of this.viewSubscriptions[topic]) {
+            for (const handler of this.viewSubscriptions[topic]) {
                 const [subscriberId, part, method] = handler.split(".");
                 const partInstance = this.viewsById[subscriberId].parts[part];
                 partInstance[method].call(partInstance, data);
@@ -224,8 +224,8 @@ let ModelClasses = {};
 function modelClassNamed(className) {
     if (ModelClasses[className]) return ModelClasses[className];
     // HACK: go through all exports and find model subclasses
-    for (let m of Object.values(module.bundle.cache)) {
-        for (let cls of Object.values(m.exports)) {
+    for (const m of Object.values(module.bundle.cache)) {
+        for (const cls of Object.values(m.exports)) {
             if (cls && cls.__isTeatimeModelClass__) ModelClasses[cls.name] = cls;
         }
     }
