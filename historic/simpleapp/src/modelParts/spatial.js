@@ -3,8 +3,7 @@
 import * as THREE from 'three';
 import {ModelPart} from '../model.js';
 
-const moduleVersion = module.id + " #" + (module.bundle.v = (module.bundle.v || 0) + 1);
-console.log("Loading " + moduleVersion);
+if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
 
 export const SpatialEvents = {
     moved: "spatial-moved",

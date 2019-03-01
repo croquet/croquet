@@ -1,8 +1,7 @@
 import * as THREE from 'three';
 import Object3DViewPart from "./object3D.js";
 
-const moduleVersion = module.id + " #" + (module.bundle.v = (module.bundle.v || 0) + 1);
-console.log("Loading " + moduleVersion);
+if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
 
 export default class CameraViewPart extends Object3DViewPart {
     fromOptions(options) {

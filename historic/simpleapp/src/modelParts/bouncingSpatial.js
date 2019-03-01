@@ -1,8 +1,7 @@
 import * as THREE from 'three';
 import InertialSpatialPart from './inertialSpatial.js';
 
-const moduleVersion = module.id + " #" + (module.bundle.v = (module.bundle.v || 0) + 1);
-console.log("Loading " + moduleVersion);
+if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
 
 /** A spatial model with inertia, gravity, and bouncing */
 export default class BouncingSpatialPart extends InertialSpatialPart {

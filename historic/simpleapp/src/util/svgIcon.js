@@ -3,8 +3,7 @@ import 'array-flat-polyfill';
 import SVGLoader from 'three-svg-loader';
 import LazyObject3D from "./lazyObject3D.js";
 
-const moduleVersion = module.id + " #" + (module.bundle.v = (module.bundle.v || 0) + 1);
-console.log("Loading " + moduleVersion);
+if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
 
 const svgLoader = new SVGLoader();
 const svgCache = {};

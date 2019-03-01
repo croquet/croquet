@@ -14,8 +14,7 @@ import Object3DViewPart from './viewParts/object3D.js';
 import DraggableViewPart from './viewParts/draggable.js';
 import TrackSpatialViewPart from './viewParts/trackSpatial.js';
 
-const moduleVersion = module.id + " #" + (module.bundle.v = (module.bundle.v || 0) + 1);
-console.log("Loading " + moduleVersion);
+if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
 
 /** Model for a Box */
 export class Box extends Model {
@@ -64,7 +63,6 @@ export class Text extends Model {
 /** View for a Box */
 class BoxViewPart extends Object3DViewPart {
     attachWithObject3D(_modelState) {
-        console.log("new BoxViewPart from " + moduleVersion);
         return new THREE.Mesh(
             new THREE.BoxBufferGeometry(1, 1, 1),
             new THREE.MeshStandardMaterial({color: new THREE.Color("#aaaaaa")})
@@ -183,7 +181,6 @@ function start() {
         // handlers in individual modules) but store the complete model state
         // in this dispose handler and restore it in start()
         module.hot.dispose(hotData => {
-            console.log(`index.js: module.hot.dispose()`);
             // unregister all callbacks, they refer to old functions
             hotreload.dispose();
             // release WebGL resources
@@ -196,8 +193,9 @@ function start() {
                 room: room.id,
                 observer: observer.id,
             };
-            console.log(hotData.hotState.island);
         });
+        // start logging module loads
+        if (!module.bundle.v) module.bundle.v = 1;
     }
 }
 

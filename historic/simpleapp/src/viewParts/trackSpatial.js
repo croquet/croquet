@@ -1,8 +1,7 @@
 import { ViewPart } from "../view.js";
 import { SpatialEvents } from '../modelParts/spatial.js';
 
-const moduleVersion = module.id + " #" + (module.bundle.v = (module.bundle.v || 0) + 1);
-console.log("Loading " + moduleVersion);
+if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
 
 export default class TrackSpatialViewPart extends ViewPart {
     fromOptions(options) {
