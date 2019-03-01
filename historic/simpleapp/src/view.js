@@ -5,7 +5,7 @@ if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`
 /** @extends PartOwner<ViewPart> */
 export default class View extends PartOwner {
     // LIFECYCLE
-    /** @arg {import('./islandReplica').default} island */
+    /** @arg {import('./island').default} island */
     constructor(island, viewOptions={}) {
         super();
         this.island = island;

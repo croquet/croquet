@@ -13,7 +13,7 @@ Math.random = () => CurrentIsland ? CurrentIsland.random() : Math_random();
 const hotIsland = module.hot && module.hot.data && module.hot.data.setCurrent;
 function execOnIsland(island, fn) {
     if (CurrentIsland) throw Error("Island confusion");
-    if (!(island instanceof IslandReplica)) throw Error("not an island: " + island);
+    if (!(island instanceof Island)) throw Error("not an island: " + island);
     const previousIsland = CurrentIsland;
     try {
         if (hotIsland) hotIsland(island);
@@ -25,10 +25,10 @@ function execOnIsland(island, fn) {
     }
 }
 
-/** This is kind of a rough mock of what I expect TeaTime to provide
- * plus additional bookeeping "around" an island replica to make
+/** An island holds the models which are replicated by teatime,
+ * a queue of messages, plus additional bookeeping to make
  * uniform pub/sub between models and views possible.*/
-export default class IslandReplica {
+export default class Island {
     static current() { return CurrentIsland; }
 
     constructor(state = {}, initFn) {

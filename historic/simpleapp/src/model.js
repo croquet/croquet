@@ -1,5 +1,5 @@
 import Part, { PartOwner } from "./parts.js";
-import IslandReplica from "./islandReplica.js";
+import Island from "./island.js";
 
 if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
 
@@ -14,7 +14,7 @@ export default class Model extends PartOwner {
     // used in island.js:modelFromState
     static __isTeatimeModelClass__() { return true; }
 
-    get island() { return IslandReplica.current(); }
+    get island() { return Island.current(); }
 
     // LIFECYCLE
     /** @arg {Object} state */

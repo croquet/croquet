@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import IslandReplica from './islandReplica.js';
+import Island from './island.js';
 import Model, {ModelPart} from './model.js';
 import SpatialPart from './modelParts/spatial.js';
 import { Room, RoomView } from './room.js';
@@ -146,7 +146,7 @@ function start() {
     let room;
     let observer;
 
-    const island = new IslandReplica(state.island, () => {
+    const island = new Island(state.island, () => {
         room = new Room();
 
         const box = new Box({ spatial: { position: new THREE.Vector3(0, 1.0, 0) } });
