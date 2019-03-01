@@ -232,8 +232,7 @@ function modelClassNamed(className) {
 }
 
 
-hotreload.addDisposeHandler(() => ModelClasses = {});
-
+hotreload.addDisposeHandler(module.id, () => ModelClasses = {});
 
 if (module.hot) {
     // this is a workaround for our implicit dependency on model.js:
