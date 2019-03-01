@@ -13,7 +13,7 @@ import TextViewPart from './viewParts/text.js';
 import Object3DViewPart, { Object3DGroupViewPart } from './viewParts/object3D.js';
 import DraggableViewPart from './viewParts/draggable.js';
 import TrackSpatialViewPart from './viewParts/trackSpatial.js';
-import { LayoutRootViewPart, LayoutContainerViewPart, CenteredObject3DLayoutViewPart } from './viewParts/layout.js';
+import { LayoutRootViewPart, LayoutContainerViewPart, StretchedObject3DLayoutViewPart } from './viewParts/layout.js';
 
 if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
 
@@ -115,15 +115,36 @@ class LayoutTestView extends View {
         new TrackSpatialViewPart(this);
 
         new LayoutRootViewPart(this, {children: [
-            new LayoutContainerViewPart(this, {partName: "row", flexDirection: "row", padding: 0.3, children: [
-                new CenteredObject3DLayoutViewPart(this, {partName: "box1layout", affects: "box1", margin: 0.1}),
-                new CenteredObject3DLayoutViewPart(this, {partName: "box2layout", affects: "box2", margin: 0.1}),
-                new LayoutContainerViewPart(this, {partName: "columnInRow", flexDirection: "column", padding: 0.1, children: [
-                    new CenteredObject3DLayoutViewPart(this, {partName: "box3layout", affects: "box3", margin: 0.1}),
-                    new CenteredObject3DLayoutViewPart(this, {partName: "box4layout", affects: "box4", margin: 0.1}),
-                    new CenteredObject3DLayoutViewPart(this, {partName: "box5layout", affects: "box5", margin: 0.1}),
-                ]})
-            ]})
+            new LayoutContainerViewPart(this, {
+                partName: "row",
+                flexDirection: "row",
+                alignItems: "stretch",
+                // padding: 0.3,
+                children: [
+                    new StretchedObject3DLayoutViewPart(this, {
+                        partName: "box1layout", affects: "box1", margin: 0.1
+                    }),
+                    new StretchedObject3DLayoutViewPart(this, {
+                        partName: "box2layout", affects: "box2", margin: 0.1,
+                    }),
+                    new LayoutContainerViewPart(this, {
+                        partName: "columnInRow",
+                        flexDirection: "column",
+                        // padding: 0.1,
+                        children: [
+                            new StretchedObject3DLayoutViewPart(this, {
+                                partName: "box3layout", affects: "box3", margin: 0.1
+                            }),
+                            new StretchedObject3DLayoutViewPart(this, {
+                                partName: "box4layout", affects: "box4", margin: 0.1
+                            }),
+                            new StretchedObject3DLayoutViewPart(this, {
+                                partName: "box5layout", affects: "box5", margin: 0.1
+                            }),
+                        ]
+                    })
+                ]
+            })
         ]});
     }
 }

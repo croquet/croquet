@@ -31,7 +31,7 @@ class RoomScenePart extends Object3DViewPart {
         this.scene.add(this.light);
         this.ambientLight = new THREE.HemisphereLight("#ddddff", "#ffdddd");
         this.scene.add(this.ambientLight);
-        this.scene.add(new THREE.AxesHelper(5));
+        // this.scene.add(new THREE.AxesHelper(5));
         return this.scene;
     }
 }

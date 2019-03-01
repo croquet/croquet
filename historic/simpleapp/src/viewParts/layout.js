@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Node, ALIGN_AUTO, FLEX_DIRECTION_ROW, FLEX_DIRECTION_COLUMN, EDGE_ALL, DIRECTION_LTR } from 'yoga-layout';
+import { Node, ALIGN_CENTER, ALIGN_FLEX_START, ALIGN_FLEX_END, ALIGN_STRETCH, FLEX_DIRECTION_ROW, FLEX_DIRECTION_COLUMN, EDGE_ALL, DIRECTION_LTR } from 'yoga-layout';
 import { ViewPart } from '../view.js';
 
 const MUL = 100;
@@ -21,14 +21,38 @@ export class LayoutViewPart extends ViewPart {
         if(this.options.flexDirection) this.node.setFlexDirection(
             this.options.flexDirection === "row" ? FLEX_DIRECTION_ROW : FLEX_DIRECTION_COLUMN
         );
-        if(this.options.flex) this.node.setFlex(this.options.flex);
+        if(this.options.flexGrow) this.node.setFlexGrow(this.options.flexGrow);
         if(this.options.margin) this.node.setMargin(EDGE_ALL, this.options.margin * MUL);
         if(this.options.padding) this.node.setPadding(EDGE_ALL, this.options.padding * MUL);
         if(this.options.minHeight) this.node.setMinHeight(this.options.minHeight * MUL);
         if(this.options.minWidth) this.node.setMinWidth(this.options.minWidth * MUL);
-        if(this.options.alignItems) this.node.setAlignItems(this.options.alignItems);
-        if(this.options.alignContent) this.node.setAlignContent(this.options.alignContent);
-        if(this.options.alignSelf) this.node.setAlignSelf(this.options.alignSelf);
+        if(this.options.alignItems) {
+            switch (this.options.alignItems) {
+                case "center": this.node.setAlignItems(ALIGN_CENTER); break;
+                case "flexStart": this.node.setAlignItems(ALIGN_FLEX_START); break;
+                case "flexEnd": this.node.setAlignItems(ALIGN_FLEX_END); break;
+                case "stretch": this.node.setAlignItems(ALIGN_STRETCH); break;
+                default: break;
+            }
+        }
+        if(this.options.alignContent) {
+            switch (this.options.alignContent) {
+                case "center": this.node.setAlignContent(ALIGN_CENTER); break;
+                case "flexStart": this.node.setAlignContent(ALIGN_FLEX_START); break;
+                case "flexEnd": this.node.setAlignContent(ALIGN_FLEX_END); break;
+                case "stretch": this.node.setAlignContent(ALIGN_STRETCH); break;
+                default: break;
+            }
+        }
+        if(this.options.alignSelf) {
+            switch (this.options.alignSelf) {
+                case "center": this.node.setAlignSelf(ALIGN_CENTER); break;
+                case "flexStart": this.node.setAlignSelf(ALIGN_FLEX_START); break;
+                case "flexEnd": this.node.setAlignSelf(ALIGN_FLEX_END); break;
+                case "stretch": this.node.setAlignSelf(ALIGN_STRETCH); break;
+                default: break;
+            }
+        }
         if(this.options.justifyContent) this.node.setJustifyContent(this.options.justifyContent);
     }
 
@@ -89,21 +113,16 @@ export class LayoutContainerViewPart extends LayoutViewPart {
         }
         this.group.position.setX(this.node.getComputedLeft() / MUL);
         this.group.position.setY(this.node.getComputedTop() / MUL);
-        console.log(this.partName, this.node.getComputedLeft(), this.node.getComputedTop());
+        console.log(this.partName, this.node.getComputedLeft(), this.node.getComputedTop(), this.node.getComputedWidth(), this.node.getComputedHeight());
     }
 }
 
 export class LayoutRootViewPart extends LayoutContainerViewPart {
     fromOptions(options) {
-        options = {
-            target: "object3D",
-            maxWidth: 10,
-            maxHeight: 10,
-            alignItems: ALIGN_AUTO,
-            ...options
-        };
+        options = {target: "object3D", ...options};
         super.fromOptions(options);
         this.targetViewPart = this.owner.parts[options.target];
+        this.group.scale.setY(-1);
     }
 
     attach(modelState) {
@@ -113,8 +132,14 @@ export class LayoutRootViewPart extends LayoutContainerViewPart {
     }
 
     onChildContentChanged() {
-        this.node.calculateLayout(null, null, DIRECTION_LTR);
+        this.node.calculateLayout(undefined, undefined, DIRECTION_LTR);
         this.onLayoutChanged();
+    }
+
+    onLayoutChanged() {
+        super.onLayoutChanged();
+        this.group.position.setX(-0.5 * this.node.getComputedWidth() / MUL);
+        this.group.position.setY(this.node.getComputedHeight() / MUL);
     }
 }
 
@@ -131,6 +156,8 @@ export class CenteredObject3DLayoutViewPart extends LayoutViewPart {
         const bbox = (new THREE.Box3()).setFromObject(this.targetViewPart.threeObj);
         this.node.setMinWidth((bbox.max.x - bbox.min.x) * MUL);
         this.node.setMinHeight((bbox.max.y - bbox.min.y) * MUL);
+        this.node.setWidthAuto();
+        this.node.setHeightAuto();
     }
 
     onLayoutChanged() {
@@ -141,6 +168,7 @@ export class CenteredObject3DLayoutViewPart extends LayoutViewPart {
         );
 
         this.targetViewPart.threeObj.position.copy(targetPos);
+        console.log(this.partName, this.node.getComputedLeft(), this.node.getComputedTop(), this.node.getComputedWidth(), this.node.getComputedHeight());
     }
 
     addToThreeParent(parent) {
@@ -149,5 +177,13 @@ export class CenteredObject3DLayoutViewPart extends LayoutViewPart {
 
     removeFromThreeParent(parent) {
         this.targetViewPart.removeFromThreeParent(parent);
+    }
+}
+
+export class StretchedObject3DLayoutViewPart extends CenteredObject3DLayoutViewPart {
+    onLayoutChanged() {
+        super.onLayoutChanged();
+        this.targetViewPart.threeObj.scale.setX(this.node.getComputedWidth() / MUL);
+        this.targetViewPart.threeObj.scale.setY(this.node.getComputedHeight() / MUL);
     }
 }
