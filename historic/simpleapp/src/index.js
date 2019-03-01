@@ -15,6 +15,8 @@ import DraggableViewPart from './viewParts/draggable.js';
 import TrackSpatialViewPart from './viewParts/trackSpatial.js';
 import { LayoutRootViewPart, LayoutContainerViewPart, CenteredObject3DLayoutViewPart } from './viewParts/layout.js';
 
+if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
+
 /** Model for a Box */
 export class Box extends Model {
     buildParts(state) {
@@ -226,7 +228,6 @@ function start() {
         // handlers in individual modules) but store the complete model state
         // in this dispose handler and restore it in start()
         module.hot.dispose(hotData => {
-            console.log(`index.js: module.hot.dispose()`);
             // unregister all callbacks, they refer to old functions
             hotreload.dispose();
             // release WebGL resources
@@ -239,8 +240,9 @@ function start() {
                 room: room.id,
                 observer: observer.id,
             };
-            console.log(hotData.hotState.island);
         });
+        // start logging module loads
+        if (!module.bundle.v) module.bundle.v = 1;
     }
 }
 

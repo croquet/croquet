@@ -1,6 +1,8 @@
 import Part, { PartOwner } from "./parts.js";
 import IslandReplica from "./islandReplica.js";
 
+if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
+
 export const ModelEvents = {
     constructed: "model-constructed",
     destroyed: "model-destroyed"

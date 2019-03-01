@@ -8,6 +8,8 @@ import SizePart from './modelParts/size.js';
 import Object3DViewPart from './viewParts/object3D.js';
 import { ObserverAvatarView } from './observer.js';
 
+if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
+
 export class Room extends Model {
     buildParts(state={}) {
         new SizePart(this, state);

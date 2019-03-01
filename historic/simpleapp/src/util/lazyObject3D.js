@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 
+if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
+
 export default class LazyObject3D extends THREE.Group {
     constructor(placeholder, object3DPromise) {
         super();

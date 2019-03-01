@@ -1,3 +1,5 @@
+if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
+
 /** @template {PartOwner} T */
 export default class Part {
     /**

@@ -4,6 +4,8 @@ import Shader from 'three-bmfont-text/shaders/msdf.js';
 import Object3DViewPart from "./object3D.js";
 import LazyObject3D from "../util/lazyObject3D.js";
 
+if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
+
 const fontPaths = {
     /* eslint-disable global-require */
     Barlow: {

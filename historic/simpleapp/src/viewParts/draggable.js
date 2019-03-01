@@ -1,6 +1,8 @@
 import { ViewPart } from "../view.js";
 import { PointerEvents, makePointerSensitive } from "./pointer.js";
 
+if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
+
 export default class DraggableViewPart extends ViewPart {
     fromOptions(options) {
         options = {

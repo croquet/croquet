@@ -3,6 +3,8 @@
 import * as THREE from 'three';
 import {ModelPart} from '../model.js';
 
+if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
+
 export const SpatialEvents = {
     moved: "spatial-moved",
     rotated: "spatial-rotated"

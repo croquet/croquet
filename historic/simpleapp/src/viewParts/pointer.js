@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { ViewPart } from '../view.js';
 
+if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
+
 export const PointerEvents = {
     pointerEnter: "pointer-enter",
     pointerMove: "pointer-move",

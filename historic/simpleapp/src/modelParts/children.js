@@ -1,5 +1,7 @@
 import { ModelPart } from "../model.js";
 
+if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
+
 export const ChildEvents = {
     childAdded: "child-added",
     childRemoved: "child-removed",
