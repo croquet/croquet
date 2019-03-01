@@ -27,7 +27,7 @@ class RoomScenePart extends Object3DViewPart {
         this.grid = new THREE.GridHelper(room.parts.size.x, 10, "#888888", "#aaaaaa");
         this.scene.add(this.grid);
         this.light = new THREE.DirectionalLight("#ffffdd");
-        this.light.position.set(1, 2, -1);
+        this.light.position.set(1, 2, 1);
         this.scene.add(this.light);
         this.ambientLight = new THREE.HemisphereLight("#ddddff", "#ffdddd");
         this.scene.add(this.ambientLight);

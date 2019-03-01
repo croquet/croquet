@@ -56,7 +56,7 @@ class ManipulatorViewPart extends Object3DViewPart {
             1.5
         );
         this.moveHandle.position.y -= 0.8;
-        this.moveHandle.position.z -= 0.2;
+        this.moveHandle.position.z = 0.2;
         makePointerSensitive(this.moveHandle, this.asViewPartRef());
         this.rotateHandle.position.y -= 0.7;
         makePointerSensitive(this.rotateHandle, this.asViewPartRef());

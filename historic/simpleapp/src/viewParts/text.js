@@ -48,7 +48,7 @@ export default class TextViewPart extends Object3DViewPart {
             }));
 
             const mesh = new THREE.Mesh(geometry, material);
-            mesh.scale.set(-0.01, -0.01, 0.01);
+            mesh.scale.set(0.01, -0.01, 0.01);
             return mesh;
         };
 

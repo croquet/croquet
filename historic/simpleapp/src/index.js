@@ -141,17 +141,17 @@ function start() {
         const box = new Box({ spatial: { position: new THREE.Vector3(0, 1.0, 0) } });
         room.parts.objects.add(box);
 
-        const rotatingBox = new RotatingBox({ spatial: { position: new THREE.Vector3(-3, 1.0, 0) } });
+        const rotatingBox = new RotatingBox({ spatial: { position: new THREE.Vector3(3, 1.0, 0) } });
         room.parts.objects.add(rotatingBox);
 
         const text1 = new Text({
-            spatial: { position: new THREE.Vector3(3, 1.0, 0) },
+            spatial: { position: new THREE.Vector3(-3, 1.0, 0) },
             text: { content: "man is much more than a tool builder... he is an inventor of universes." }
         });
         room.parts.objects.add(text1);
 
         const text2 = new Text({
-            spatial: { position: new THREE.Vector3(-5, 1.0, 0) },
+            spatial: { position: new THREE.Vector3(5, 1.0, 0) },
             text: { content: "Chapter Eight - The Queen's Croquet Ground", font: "Lora" },
         });
         room.parts.objects.add(text2);
@@ -163,8 +163,7 @@ function start() {
 
         observer = new Observer({
             spatial: {
-                position: new THREE.Vector3(0, 2, -5),
-                quaternion: (new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI),
+                position: new THREE.Vector3(0, 2, 5),
             },
             name: "Guest1"
         });
