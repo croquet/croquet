@@ -3,7 +3,7 @@ import { SpatialEvents } from '../modelParts/spatial.js';
 
 if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
 
-export default class TrackSpatialViewPart extends ViewPart {
+export default class TrackSpatial extends ViewPart {
     fromOptions(options) {
         options = {modelSource: "spatial", affects: "object3D", ...options};
         this.modelSource = options.modelSource;

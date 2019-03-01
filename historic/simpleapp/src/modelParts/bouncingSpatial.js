@@ -5,7 +5,7 @@ if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`
 
 /** A spatial model with inertia, gravity, and bouncing */
 export default class BouncingSpatialPart extends InertialSpatialPart {
-    static defaultPartName() { return "spatial"; }
+    static defaultPartId() { return "spatial"; }
 
     /** @param {SpatialPart} spatialPart */
     fromState(state={}, options) {

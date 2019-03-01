@@ -18,27 +18,27 @@ export default class View extends PartOwner {
 
     attach(modelState) {
         this.modelId = modelState.id;
-        for (let partName of Object.keys(this.parts)) {
-            this.parts[partName].attach(modelState);
+        for (let partId of Object.keys(this.parts)) {
+            this.parts[partId].attach(modelState);
         }
     }
 
     detach() {
-        for (let partName of Object.keys(this.parts)) {
-            this.parts[partName].detach();
+        for (let partId of Object.keys(this.parts)) {
+            this.parts[partId].detach();
         }
     }
 
     addToThreeParent(parent) {
-        for (let partName of Object.keys(this.parts)) {
-            const part = this.parts[partName];
+        for (let partId of Object.keys(this.parts)) {
+            const part = this.parts[partId];
             if (part.addToThreeParent) part.addToThreeParent(parent);
         }
     }
 
     removeFromThreeParent(parent) {
-        for (let partName of Object.keys(this.parts)) {
-            const part = this.parts[partName];
+        for (let partId of Object.keys(this.parts)) {
+            const part = this.parts[partId];
             if (part.removeFromThreeParent) part.removeFromThreeParent(parent);
         }
     }
@@ -67,7 +67,7 @@ export default class View extends PartOwner {
 
 /** @extends Part<View> */
 export class ViewPart extends Part {
-    static defaultPartName() {
+    static defaultPartId() {
         const name = this.name.replace("ViewPart", "");
         return name.charAt(0).toLowerCase() + name.slice(1);
     }
@@ -88,22 +88,22 @@ export class ViewPart extends Part {
     detach() {}
 
     // PUB/SUB
-    subscribe(event, methodName, scope=this.owner.id, part=this.partName) {
+    subscribe(event, methodName, scope=this.owner.id, part=this.partId) {
         const fullScope = scope + (part ? "." + part : "");
-        this.owner.island.addViewSubscription(fullScope, event, this.owner.id, this.partName, methodName);
+        this.owner.island.addViewSubscription(fullScope, event, this.owner.id, this.partId, methodName);
     }
 
-    unsubscribe(event, methodName, scope=this.owner.id, part=this.partName) {
+    unsubscribe(event, methodName, scope=this.owner.id, part=this.partId) {
         const fullScope = scope + (part ? "." + part : "");
-        this.owner.island.removeViewSubscription(fullScope, event, this.owner.id, this.partName, methodName);
+        this.owner.island.removeViewSubscription(fullScope, event, this.owner.id, this.partId, methodName);
     }
 
-    publish(event, data, scope=this.owner.id, part=this.partName) {
+    publish(event, data, scope=this.owner.id, part=this.partId) {
         const fullScope = scope + (part ? "." + part : "");
         this.owner.island.publishFromView(fullScope, event, data);
     }
 
     asViewPartRef() {
-        return this.owner.id + "." + this.partName;
+        return this.owner.id + "." + this.partId;
     }
 }

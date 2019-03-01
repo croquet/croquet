@@ -3,7 +3,7 @@ import { ViewPart } from "../view.js";
 
 if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
 
-export default class Object3DViewPart extends ViewPart {
+export default class Object3D extends ViewPart {
     attach(modelState) {
         /** @type {THREE.Object3D} */
         this.threeObj = this.attachWithObject3D(modelState);
@@ -25,8 +25,8 @@ export default class Object3DViewPart extends ViewPart {
     }
 }
 
-export class Object3DGroupViewPart extends Object3DViewPart {
-    static defaultPartName() {
+export class Object3DGroup extends Object3D {
+    static defaultPartId() {
         return "object3D";
     }
 

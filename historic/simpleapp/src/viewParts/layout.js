@@ -61,7 +61,7 @@ export class LayoutViewPart extends ViewPart {
     }
 }
 
-export class LayoutContainerViewPart extends LayoutViewPart {
+export class LayoutContainer extends LayoutViewPart {
     /** @arg {{children: (LayoutViewPart)[]}} options */
     fromOptions(options) {
         super.fromOptions(options);
@@ -89,7 +89,7 @@ export class LayoutContainerViewPart extends LayoutViewPart {
     addChild(child, publishContentChanged=true) {
         this.children.add(child);
         this.node.insertChild(child.node, this.node.getChildCount());
-        this.subscribe(LayoutEvents.contentChanged, "onChildContentChanged", child.owner.id, child.partName);
+        this.subscribe(LayoutEvents.contentChanged, "onChildContentChanged", child.owner.id, child.partId);
         if (publishContentChanged) this.publish(LayoutEvents.contentChanged, {});
         child.addToThreeParent(this.group);
     }
@@ -98,7 +98,7 @@ export class LayoutContainerViewPart extends LayoutViewPart {
     removeChild(child, publishContentChanged=true) {
         this.children.delete(child);
         this.node.removeChild(child.node);
-        this.unsubscribe(LayoutEvents.contentChanged, "onChildContentChanged", child.owner.id, child.partName);
+        this.unsubscribe(LayoutEvents.contentChanged, "onChildContentChanged", child.owner.id, child.partId);
         if (publishContentChanged) this.publish(LayoutEvents.contentChanged, {});
         child.removeFromThreeParent(this.group);
     }
@@ -109,15 +109,15 @@ export class LayoutContainerViewPart extends LayoutViewPart {
 
     onLayoutChanged() {
         for (let child of this.children) {
-            this.publish(LayoutEvents.layoutChanged, {}, child.owner.id, child.partName);
+            this.publish(LayoutEvents.layoutChanged, {}, child.owner.id, child.partId);
         }
         this.group.position.setX(this.node.getComputedLeft() / MUL);
         this.group.position.setY(this.node.getComputedTop() / MUL);
-        console.log(this.partName, this.node.getComputedLeft(), this.node.getComputedTop(), this.node.getComputedWidth(), this.node.getComputedHeight());
+        console.log(this.partId, this.node.getComputedLeft(), this.node.getComputedTop(), this.node.getComputedWidth(), this.node.getComputedHeight());
     }
 }
 
-export class LayoutRootViewPart extends LayoutContainerViewPart {
+export class LayoutRoot extends LayoutContainer {
     fromOptions(options) {
         options = {target: "object3D", ...options};
         super.fromOptions(options);
@@ -143,7 +143,7 @@ export class LayoutRootViewPart extends LayoutContainerViewPart {
     }
 }
 
-export class CenteredObject3DLayoutViewPart extends LayoutViewPart {
+export class LayoutSlotCenter3D extends LayoutViewPart {
     fromOptions(options) {
         options = {affects: "object3D", ...options};
         super.fromOptions(options);
@@ -168,7 +168,7 @@ export class CenteredObject3DLayoutViewPart extends LayoutViewPart {
         );
 
         this.targetViewPart.threeObj.position.copy(targetPos);
-        console.log(this.partName, this.node.getComputedLeft(), this.node.getComputedTop(), this.node.getComputedWidth(), this.node.getComputedHeight());
+        console.log(this.partId, this.node.getComputedLeft(), this.node.getComputedTop(), this.node.getComputedWidth(), this.node.getComputedHeight());
     }
 
     addToThreeParent(parent) {
@@ -180,7 +180,7 @@ export class CenteredObject3DLayoutViewPart extends LayoutViewPart {
     }
 }
 
-export class StretchedObject3DLayoutViewPart extends CenteredObject3DLayoutViewPart {
+export class LayoutSlotStretch3D extends LayoutSlotCenter3D {
     onLayoutChanged() {
         super.onLayoutChanged();
         this.targetViewPart.threeObj.scale.setX(this.node.getComputedWidth() / MUL);

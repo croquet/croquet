@@ -5,7 +5,7 @@ if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`
 
 /** A spatial model with inertia */
 export default class InertialSpatialPart extends SpatialPart {
-    static defaultPartName() { return "spatial"; }
+    static defaultPartId() { return "spatial"; }
 
     /** @param {SpatialPart} spatialPart */
     fromState(state={}, options) {

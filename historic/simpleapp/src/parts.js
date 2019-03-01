@@ -4,15 +4,15 @@ if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`
 export default class Part {
     /**
      * @param {T} owner
-     * @param {String} partName
+     * @param {String} partId
     */
     constructor(owner, options={}) {
         this.owner = owner;
-        this.partName = options.partName || this.constructor.defaultPartName();
+        this.partId = options.id || this.constructor.defaultPartId();
         owner.addPart(this);
     }
 
-    static defaultPartName() {
+    static defaultPartId() {
         const name = this.name.replace("Part", "");
         return name.charAt(0).toLowerCase() + name.slice(1);
     }
@@ -27,9 +27,9 @@ export class PartOwner {
 
     /** @param {T} part */
     addPart(part) {
-        if (this.parts[part.partName]) {
-            throw new Error(`A part of name ${part.partName} already exists in the parent ${this.constructor.name}. Please use the "partName" option to give this part a unique name`);
+        if (this.parts[part.partId]) {
+            throw new Error(`A part of name ${part.partId} already exists in the parent ${this.constructor.name}. Please use the "partId" option to give this part a unique name`);
         }
-        this.parts[part.partName] = part;
+        this.parts[part.partId] = part;
     }
 }

@@ -12,7 +12,7 @@ export default class DraggableViewPart extends ViewPart {
             ...options
         };
 
-        /** @type {import('./object3D').default} */
+        /** @type {import('./object3D').Object3D} */
         this.dragHandlePart = this.owner.parts[options.dragHandle];
         this.targetPartName = options.target;
         this.dragVertically = options.dragVertically;

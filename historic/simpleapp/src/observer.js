@@ -6,8 +6,8 @@ import InertialSpatialPart from './modelParts/inertialSpatial.js';
 import SVGIcon from './util/svgIcon.js';
 import View from './view.js';
 import CameraViewPart from './viewParts/camera.js';
-import Object3DViewPart from './viewParts/object3D.js';
-import TrackSpatialViewPart from './viewParts/trackSpatial.js';
+import Object3D from './viewParts/object3D.js';
+import TrackSpatial from './viewParts/trackSpatial.js';
 import PointerViewPart, { PointerEvents, makePointerSensitive, ignorePointer } from './viewParts/pointer.js';
 
 if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
@@ -28,7 +28,7 @@ export class ObserverAvatarView extends View {
     // TODO
 }
 
-class TreadmillNavigationViewPart extends Object3DViewPart {
+class TreadmillNavigationViewPart extends Object3D {
     constructor(owner, options) {
         options = {cameraPartName: "camera", ...options};
         super(owner, options);
@@ -134,9 +134,9 @@ class TreadmillNavigationViewPart extends Object3DViewPart {
 export class PointingObserverCameraView extends View {
     buildParts({width, height}) {
         new CameraViewPart(this, {width, height});
-        new TrackSpatialViewPart(this, {partName: "trackCamera", affects: "camera"});
+        new TrackSpatial(this, {id: "trackCamera", affects: "camera"});
         new TreadmillNavigationViewPart(this);
-        new TrackSpatialViewPart(this, {partName: "trackTreadmill", affects: "treadmillNavigation"});
+        new TrackSpatial(this, {id: "trackTreadmill", affects: "treadmillNavigation"});
         new PointerViewPart(this);
     }
 }

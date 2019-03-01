@@ -5,7 +5,7 @@ import Model from './model.js';
 import ChildrenPart, { ChildEvents } from './modelParts/children.js';
 import ColorPart from './modelParts/color.js';
 import SizePart from './modelParts/size.js';
-import Object3DViewPart from './viewParts/object3D.js';
+import Object3D from './viewParts/object3D.js';
 import { ObserverAvatarView } from './observer.js';
 
 if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
@@ -14,12 +14,12 @@ export class Room extends Model {
     buildParts(state={}) {
         new SizePart(this, state);
         new ColorPart(this, state);
-        new ChildrenPart(this, state, {partName: "objects"});
-        new ChildrenPart(this, state, {partName: "observers"});
+        new ChildrenPart(this, state, {id: "objects"});
+        new ChildrenPart(this, state, {id: "observers"});
     }
 }
 
-class RoomScenePart extends Object3DViewPart {
+class RoomScenePart extends Object3D {
     /** @arg {Room} room */
     attachWithObject3D(room) {
         this.scene = new THREE.Scene();
@@ -69,7 +69,7 @@ class RoomObjectManagerPart extends ViewPart {
 
 class RoomObserverManagerPart extends ViewPart {
     constructor(owner, options) {
-        super(owner, {partName: "observerManager", ...options});
+        super(owner, {id: "observerManager", ...options});
         this.localObserver = options.localObserver;
     }
 
@@ -104,8 +104,8 @@ class RoomObserverManagerPart extends ViewPart {
 
 export class RoomView extends View {
     buildParts({localObserver}) {
-        new RoomScenePart(this, {partName: "scene"});
-        new RoomObjectManagerPart(this, {partName: "objectManager"});
-        new RoomObserverManagerPart(this, {localObserver, partName: "oberserverManager"});
+        new RoomScenePart(this, {id: "scene"});
+        new RoomObjectManagerPart(this, {id: "objectManager"});
+        new RoomObserverManagerPart(this, {localObserver, id: "oberserverManager"});
     }
 }

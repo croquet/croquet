@@ -31,8 +31,8 @@ export default class Model extends PartOwner {
     /** @arg {Object} state */
     /** @arg {Object} objectsByID */
     restoreObjectReferences(state, objectsByID) {
-        for (let partName of Object.keys(this.parts)) {
-            this.parts[partName].restoreObjectReferences(state[partName], objectsByID);
+        for (let partId of Object.keys(this.parts)) {
+            this.parts[partId].restoreObjectReferences(state[partId], objectsByID);
         }
     }
 
@@ -44,9 +44,9 @@ export default class Model extends PartOwner {
     toState(state) {
         state.className = this.constructor.name;
         state.id = this.id;
-        for (let partName of Object.keys(this.parts)) {
-            state[partName] = {};
-            this.parts[partName].toState(state[partName]);
+        for (let partId of Object.keys(this.parts)) {
+            state[partId] = {};
+            this.parts[partId].toState(state[partId]);
         }
     }
 
@@ -59,7 +59,7 @@ export default class Model extends PartOwner {
 export class ModelPart extends Part {
     constructor(owner, fullState, options) {
         super(owner, options);
-        this.fromState(fullState[this.partName], options);
+        this.fromState(fullState[this.partId], options);
     }
 
     /** @abstract */
@@ -71,17 +71,17 @@ export class ModelPart extends Part {
     restoreObjectReferences(_state, _objectsByID) {}
 
     // PUB/SUB
-    subscribe(event, methodName, scope=this.owner.id, part=this.partName) {
+    subscribe(event, methodName, scope=this.owner.id, part=this.partId) {
         const fullScope = scope + (part ? "." + part : "");
-        this.owner.island.addModelSubscription(fullScope, event, this.owner.id, this.partName, methodName);
+        this.owner.island.addModelSubscription(fullScope, event, this.owner.id, this.partId, methodName);
     }
 
-    unsubscribe(event, methodName, scope=this.owner.id, part=this.partName) {
+    unsubscribe(event, methodName, scope=this.owner.id, part=this.partId) {
         const fullScope = scope + (part ? "." + part : "");
-        this.owner.island.removeModelSubscription(fullScope, event, this.owner.id, this.partName, methodName);
+        this.owner.island.removeModelSubscription(fullScope, event, this.owner.id, this.partId, methodName);
     }
 
-    publish(event, data, tOffset=0, scope=this.owner.id, part=this.partName) {
+    publish(event, data, tOffset=0, scope=this.owner.id, part=this.partId) {
         const fullScope = scope + (part ? "." + part : "");
         this.owner.island.publishFromModel(fullScope, event, data, tOffset);
     }

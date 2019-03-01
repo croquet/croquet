@@ -3,9 +3,9 @@ import SVGIcon from "./util/svgIcon.js";
 import lineHandle from "../assets/line-handle.svg";
 import rotateHandle from "../assets/rotate-handle.svg";
 import { PointerEvents, makePointerSensitive } from "./viewParts/pointer.js";
-import Object3DViewPart from "./viewParts/object3D.js";
+import Object3D from "./viewParts/object3D.js";
 import View, { ViewPart } from "./view.js";
-import TrackSpatialViewPart from "./viewParts/trackSpatial.js";
+import TrackSpatial from "./viewParts/trackSpatial.js";
 
 if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
 
@@ -33,7 +33,7 @@ class WrappedViewViewPart extends ViewPart {
     }
 }
 
-class ManipulatorViewPart extends Object3DViewPart {
+class ManipulatorViewPart extends Object3D {
     constructor(owner, options) {
         options = {target: "spatial", ...options};
         super(owner, options);
@@ -118,6 +118,6 @@ export default class ManipulatorView extends View {
     buildParts({wrappedView}) {
         new WrappedViewViewPart(this, {wrappedView});
         new ManipulatorViewPart(this);
-        new TrackSpatialViewPart(this, {affects: "manipulator"});
+        new TrackSpatial(this, {affects: "manipulator"});
     }
 }

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import createGeometry from 'three-bmfont-text';
 import Shader from 'three-bmfont-text/shaders/msdf.js';
-import Object3DViewPart from "./object3D.js";
+import Object3D from "./object3D.js";
 import LazyObject3D from "../util/lazyObject3D.js";
 
 if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
@@ -20,7 +20,7 @@ const fontPaths = {
 
 const texCache = {};
 
-export default class TextViewPart extends Object3DViewPart {
+export default class TextViewPart extends Object3D {
     fromOptions(options) {
         options = {modelSource: "text", width: 500, ...options};
         this.modelSource = options.modelSource;

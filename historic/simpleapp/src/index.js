@@ -10,10 +10,10 @@ import View from './view.js';
 import hotreload from "./hotreload.js";
 import TextPart from './modelParts/text.js';
 import TextViewPart from './viewParts/text.js';
-import Object3DViewPart, { Object3DGroupViewPart } from './viewParts/object3D.js';
+import Object3D, { Object3DGroup } from './viewParts/object3D.js';
 import DraggableViewPart from './viewParts/draggable.js';
-import TrackSpatialViewPart from './viewParts/trackSpatial.js';
-import { LayoutRootViewPart, LayoutContainerViewPart, StretchedObject3DLayoutViewPart } from './viewParts/layout.js';
+import TrackSpatial from './viewParts/trackSpatial.js';
+import { LayoutRoot, LayoutContainer, LayoutSlotStretch3D } from './viewParts/layout.js';
 
 if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
 
@@ -62,7 +62,7 @@ export class Text extends Model {
 }
 
 /** View for a Box */
-class BoxViewPart extends Object3DViewPart {
+class BoxViewPart extends Object3D {
     fromOptions(options) {
         options = {color: "#aaaaaa", ...options};
         super.fromOptions(options);
@@ -80,7 +80,7 @@ class BoxViewPart extends Object3DViewPart {
 class BoxView extends View {
     buildParts() {
         new BoxViewPart(this);
-        new TrackSpatialViewPart(this, {affects: "box"});
+        new TrackSpatial(this, {affects: "box"});
         new DraggableViewPart(this, {dragHandle: "box"});
     }
 }
@@ -89,7 +89,7 @@ class BoxView extends View {
 class TextView extends View {
     buildParts() {
         new TextViewPart(this);
-        new TrackSpatialViewPart(this, {affects: "text"});
+        new TrackSpatial(this, {affects: "text"});
     }
 }
 
@@ -105,42 +105,32 @@ export class LayoutTestModel extends Model {
 
 class LayoutTestView extends View {
     buildParts() {
-        new BoxViewPart(this, {partName: "box1", color: "#ff0000"});
-        new BoxViewPart(this, {partName: "box2", color: "#ffff00"});
-        new BoxViewPart(this, {partName: "box3", color: "#00ff00"});
-        new BoxViewPart(this, {partName: "box4", color: "#00ffff"});
-        new BoxViewPart(this, {partName: "box5", color: "#0000ff"});
+        new BoxViewPart(this, {id: "box1", color: "#ff0000"});
+        new BoxViewPart(this, {id: "box2", color: "#ffff00"});
+        new BoxViewPart(this, {id: "box3", color: "#00ff00"});
+        new BoxViewPart(this, {id: "box4", color: "#00ffff"});
+        new BoxViewPart(this, {id: "box5", color: "#0000ff"});
 
-        new Object3DGroupViewPart(this);
-        new TrackSpatialViewPart(this);
+        new Object3DGroup(this);
+        new TrackSpatial(this);
 
-        new LayoutRootViewPart(this, {children: [
-            new LayoutContainerViewPart(this, {
-                partName: "row",
+        new LayoutRoot(this, {children: [
+            new LayoutContainer(this, {
+                id: "row",
                 flexDirection: "row",
                 alignItems: "stretch",
                 // padding: 0.3,
                 children: [
-                    new StretchedObject3DLayoutViewPart(this, {
-                        partName: "box1layout", affects: "box1", margin: 0.1
-                    }),
-                    new StretchedObject3DLayoutViewPart(this, {
-                        partName: "box2layout", affects: "box2", margin: 0.1,
-                    }),
-                    new LayoutContainerViewPart(this, {
-                        partName: "columnInRow",
+                    new LayoutSlotStretch3D(this, {id: "box1layout", affects: "box1", margin: 0.1}),
+                    new LayoutSlotStretch3D(this, {id: "box2layout", affects: "box2", margin: 0.1}),
+                    new LayoutContainer(this, {
+                        id: "columnInRow",
                         flexDirection: "column",
                         // padding: 0.1,
                         children: [
-                            new StretchedObject3DLayoutViewPart(this, {
-                                partName: "box3layout", affects: "box3", margin: 0.1
-                            }),
-                            new StretchedObject3DLayoutViewPart(this, {
-                                partName: "box4layout", affects: "box4", margin: 0.1
-                            }),
-                            new StretchedObject3DLayoutViewPart(this, {
-                                partName: "box5layout", affects: "box5", margin: 0.1
-                            }),
+                            new LayoutSlotStretch3D(this, {id: "box3layout", affects: "box3", margin: 0.1}),
+                            new LayoutSlotStretch3D(this, {id: "box4layout", affects: "box4", margin: 0.1}),
+                            new LayoutSlotStretch3D(this, {id: "box5layout", affects: "box5", margin: 0.1}),
                         ]
                     })
                 ]
