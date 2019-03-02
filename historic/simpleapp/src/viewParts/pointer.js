@@ -95,7 +95,7 @@ export default class PointerViewPart extends ViewPart {
             const intersects = this.raycaster.intersectObject(scene, true);
             // look up effective THREE userData by traversing each intersected
             // object's parent chain until we find one
-            for (let intersect of intersects) {
+            for (const intersect of intersects) {
                 let currentObjInTree = intersect.object;
                 while (currentObjInTree) {
                     if (currentObjInTree.userData.pointerSensitiveFor) {
@@ -123,7 +123,7 @@ export default class PointerViewPart extends ViewPart {
             let hoverPoint = null;
             let hoverNormal = null;
             let hoverThreeObj = null;
-            for (let intersect of intersects) {
+            for (const intersect of intersects) {
                 const { point, effectiveUserData, effectiveObject, face } = intersect;
                 /** @type {ViewPartReference} */
                 const associatedViewPart = effectiveUserData && effectiveUserData.pointerSensitiveFor;

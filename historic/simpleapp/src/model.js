@@ -31,7 +31,7 @@ export default class Model extends PartOwner {
     /** @arg {Object} state */
     /** @arg {Object} objectsByID */
     restoreObjectReferences(state, objectsByID) {
-        for (let partId of Object.keys(this.parts)) {
+        for (const partId of Object.keys(this.parts)) {
             this.parts[partId].restoreObjectReferences(state[partId], objectsByID);
         }
     }
@@ -44,7 +44,7 @@ export default class Model extends PartOwner {
     toState(state) {
         state.className = this.constructor.name;
         state.id = this.id;
-        for (let partId of Object.keys(this.parts)) {
+        for (const partId of Object.keys(this.parts)) {
             state[partId] = {};
             this.parts[partId].toState(state[partId]);
         }
