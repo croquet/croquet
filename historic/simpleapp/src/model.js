@@ -57,6 +57,8 @@ export default class Model extends PartOwner {
 
 /** @extends {Part<Model>} */
 export class ModelPart extends Part {
+    get island() { return this.owner.island; }
+
     constructor(owner, fullState, options) {
         super(owner, options);
         this.fromState(fullState[this.partId], options);
@@ -73,22 +75,22 @@ export class ModelPart extends Part {
     // PUB/SUB
     subscribe(event, methodName, scope=this.owner.id, part=this.partId) {
         const fullScope = scope + (part ? "." + part : "");
-        this.owner.island.addModelSubscription(fullScope, event, this.owner.id, this.partId, methodName);
+        this.island.addModelSubscription(fullScope, event, this.owner.id, this.partId, methodName);
     }
 
     unsubscribe(event, methodName, scope=this.owner.id, part=this.partId) {
         const fullScope = scope + (part ? "." + part : "");
-        this.owner.island.removeModelSubscription(fullScope, event, this.owner.id, this.partId, methodName);
+        this.island.removeModelSubscription(fullScope, event, this.owner.id, this.partId, methodName);
     }
 
     publish(event, data, tOffset=0, scope=this.owner.id, part=this.partId) {
         const fullScope = scope + (part ? "." + part : "");
-        this.owner.island.publishFromModel(fullScope, event, data, tOffset);
+        this.island.publishFromModel(fullScope, event, data, tOffset);
     }
 
     // FUTURE
     future(tOffset=0) {
-        return this.owner.island.futureProxy(this, tOffset);
+        return this.island.futureProxy(this, tOffset);
     }
 
     // STATE

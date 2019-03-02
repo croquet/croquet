@@ -7,7 +7,10 @@ let viewID = 0;
 let CurrentIsland = null;
 
 const Math_random = Math.random.bind(Math);
-Math.random = () => CurrentIsland ? CurrentIsland.random() : Math_random();
+Math.random = () => {
+    if (CurrentIsland) throw Error("You must use this.island.random() in model code!");
+    return Math_random();
+};
 
 // this is the only place allowed to change CurrentIsland
 const hotIsland = module.hot && module.hot.data && module.hot.data.setCurrent;
