@@ -197,10 +197,14 @@ function start() {
     observerView.attach(observer);
     observerView.addToThreeParent(roomView.parts.scene.scene);
 
+    let before = Date.now();
     function frame() {
         renderer.render(roomView.parts.scene.scene, observerView.parts.camera.threeObj);
         observerView.parts.pointer.updatePointer(roomView.parts.scene.scene);
+        const now = Date.now();
+        island.advanceTo(island.time + (now - before));
         island.processModelViewEvents();
+        before = now;
         hotreload.requestAnimationFrame(frame);
     }
 

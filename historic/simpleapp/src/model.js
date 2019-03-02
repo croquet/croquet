@@ -90,7 +90,7 @@ export class ModelPart extends Part {
 
     // FUTURE
     future(tOffset=0) {
-        return this.island.futureProxy(this, tOffset);
+        return this.island.futureProxy(tOffset, this.owner, this.partId);
     }
 
     // STATE
