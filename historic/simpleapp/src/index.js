@@ -17,8 +17,8 @@ import { LayoutRoot, LayoutContainer, LayoutSlotStretch3D } from './viewParts/la
 
 if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
 
-/** Model for a Box */
-export class Box extends Model {
+/** Model for a Bouncing Box */
+export class BouncingBox extends Model {
     buildParts(state) {
         new BouncingSpatialPart(this, state);
     }
@@ -151,7 +151,7 @@ function start() {
     const island = new Island(state.island, () => {
         room = new Room();
 
-        const box = new Box({ spatial: { position: new THREE.Vector3(0, 1.0, 0) } });
+        const box = new BouncingBox({ spatial: { position: new THREE.Vector3(0, 1.0, 0) } });
         room.parts.objects.add(box);
 
         const rotatingBox = new RotatingBox({ spatial: { position: new THREE.Vector3(3, 1.0, 0) } });
