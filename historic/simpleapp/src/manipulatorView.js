@@ -99,7 +99,7 @@ class ManipulatorViewPart extends Object3D {
 
     onPointerDrag({dragStart, dragEndOnHorizontalPlane, dragStartThreeObj}) {
         if (dragStartThreeObj === this.moveHandle) {
-            this.owner.model()[this.targetPartName].moveTo(
+            this.owner.model[this.targetPartName].moveTo(
                 this.positionAtDragStart.clone().add(dragEndOnHorizontalPlane.clone().sub(dragStart))
             );
         } else if (dragStartThreeObj === this.rotateHandle) {
@@ -107,7 +107,7 @@ class ManipulatorViewPart extends Object3D {
                 dragStart.clone().sub(this.positionAtDragStart).setY(0).normalize(),
                 dragEndOnHorizontalPlane.clone().sub(this.positionAtDragStart).setY(0).normalize(),
             );
-            this.owner.model()[this.targetPartName].rotateTo(
+            this.owner.model[this.targetPartName].rotateTo(
                 this.quaternionAtDragStart.clone().multiply(delta)
             );
         }

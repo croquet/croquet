@@ -104,14 +104,14 @@ class TreadmillNavigationViewPart extends Object3D {
 
     onDragTreadmill({dragStart, dragEndOnHorizontalPlane, dragStartThreeObj}) {
         if (dragStartThreeObj === this.treadmillForwardStrip) {
-            this.owner.model().spatial.moveTo(this.threeObj.position.clone().sub(dragEndOnHorizontalPlane.clone().sub(dragStart)));
+            this.owner.model.spatial.moveTo(this.threeObj.position.clone().sub(dragEndOnHorizontalPlane.clone().sub(dragStart)));
             this.moveCursor.position.copy(this.threeObj.worldToLocal(dragEndOnHorizontalPlane.clone()));
         } else {
             const delta = (new THREE.Quaternion()).setFromUnitVectors(
                 dragEndOnHorizontalPlane.clone().sub(this.threeObj.position.clone().setY(dragStart.y)).normalize(),
                 dragStart.clone().sub(this.threeObj.position.clone().setY(dragStart.y)).normalize()
             );
-            this.owner.model().spatial.rotateTo(this.threeObj.quaternion.clone().multiply(delta));
+            this.owner.model.spatial.rotateTo(this.threeObj.quaternion.clone().multiply(delta));
             this.rotateCursor.position.copy(this.threeObj.worldToLocal(dragEndOnHorizontalPlane.clone()));
             const deltaCursor = (new THREE.Quaternion()).setFromUnitVectors(
                 this.threeObj.getWorldDirection(new THREE.Vector3()),
@@ -124,7 +124,7 @@ class TreadmillNavigationViewPart extends Object3D {
     // TODO: this and its callsite is very ad-hoc
     onWheel(event) {
         const multiplier = 0.01;
-        this.owner.model().spatial.moveBy(new THREE.Vector3(event.deltaX * multiplier, 0, event.deltaY * multiplier).applyQuaternion(this.threeObj.quaternion), false);
+        this.owner.model.spatial.moveBy(new THREE.Vector3(event.deltaX * multiplier, 0, event.deltaY * multiplier).applyQuaternion(this.threeObj.quaternion), false);
     }
 }
 

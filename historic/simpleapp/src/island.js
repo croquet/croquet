@@ -96,19 +96,15 @@ export default class Island {
     }
 
     // This will become in-directed via the Reflector
-    callModelMethod(modelId, part, method, args, tOffset = 0) {
-        if (tOffset) {
-            hotreload.setTimeout(() => this.callModelMethod(modelId, part, method, args), tOffset);
-        } else {
-            const model = this.modelsById[modelId];
-            execOnIsland(this, () => {
-                if (part) {
-                    model.parts[part][method](...args);
-                } else {
-                    model[method](...args);
-                }
-            });
-        }
+    callModelMethod(modelId, part, method, args) {
+        const model = this.modelsById[modelId];
+        execOnIsland(this, () => {
+            if (part) {
+                model.parts[part][method](...args);
+            } else {
+                model[method](...args);
+            }
+        });
     }
 
     futureSend(tOffset, receiver, partID, selector, args) {
@@ -187,13 +183,13 @@ export default class Island {
         if (this.viewSubscriptions[topic]) this.viewSubscriptions[topic].delete(handler);
     }
 
-    publishFromModel(scope, event, data, tOffset) {
+    publishFromModel(scope, event, data) {
         if (CurrentIsland !== this) throw Error("Island Error");
         const topic = scope + ":" + event;
         if (this.modelSubscriptions[topic]) {
             for (const handler of this.modelSubscriptions[topic]) {
                 const [subscriberId, part, method] = handler.split(".");
-                this.callModelMethod(subscriberId, part, method, [data], tOffset);
+                this.callModelMethod(subscriberId, part, method, [data]);
             }
         }
         // To ensure model code is executed bit-identically everywhere, we have to notify views

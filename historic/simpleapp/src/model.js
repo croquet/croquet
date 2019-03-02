@@ -90,9 +90,9 @@ export class ModelPart extends Part {
         this.island.removeModelSubscription(fullScope, event, this.owner.id, this.partId, methodName);
     }
 
-    publish(event, data, tOffset=0, scope=this.owner.id, part=this.partId) {
+    publish(event, data, scope=this.owner.id, part=this.partId) {
         const fullScope = scope + (part ? "." + part : "");
-        this.island.publishFromModel(fullScope, event, data, tOffset);
+        this.island.publishFromModel(fullScope, event, data);
     }
 
     // FUTURE

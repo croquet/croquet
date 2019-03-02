@@ -43,20 +43,20 @@ export default class View extends PartOwner {
         }
     }
 
-    model(tOffset=0) {
+    get model() {
         return new Proxy({}, {
             get: (_t1, partOrMethodName) => {
                 const partOrMethodProxy = new Proxy(() => {}, {
                     get: (_t2, methodName) => {
                         const partMethodProxy = new Proxy(() => {}, {
                             apply: (_a, _b, args) => {
-                                this.island.callModelMethod(this.modelId, partOrMethodName, methodName, args, tOffset);
+                                this.island.callModelMethod(this.modelId, partOrMethodName, methodName, args);
                             }
                         });
                         return partMethodProxy;
                     },
                     apply: (_a, _b, args) => {
-                        this.island.callModelMethod(this.modelId, null, partOrMethodName, args, tOffset);
+                        this.island.callModelMethod(this.modelId, null, partOrMethodName, args);
                     }
                 });
                 return partOrMethodProxy;
