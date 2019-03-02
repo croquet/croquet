@@ -116,6 +116,13 @@ export default class Island {
         if (this.modelsById[receiver.id] !== receiver) throw Error("future send to unregistered model");
         const message = new Message(this.time + tOffset, ++this.timeSeq, receiver.id, partID, selector, args);
         this.messages.add(message);
+        // make sure sequence counter does not roll over
+        // rethink this when router is stimestamping
+        if (this.timeSeq > 0xFFFF) {
+            this.timeSeq = 0;
+            this.messages.forEach(m => m.seq = ++this.timeSeq);
+            console.log("re-sequencing future messages");
+        }
     }
 
     // Convert model.parts[partID].future(tOffset).property(...args)
@@ -221,7 +228,7 @@ export default class Island {
             timeSeq: this.timeSeq,
             random: this._random.state(),
             models: Object.values(this.modelsById).map(model => model.asState()),
-            messages: this.messages.asArray().map(message => message.asState()),
+            messages: this.messages.asUnsortedArray().map(message => message.asState()),
         };
     }
 

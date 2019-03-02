@@ -7,7 +7,7 @@ export default class PriorityQueue extends FastPriorityQueue {
         return result;
     }
 
-    asArray() {
+    asUnsortedArray() {
         return this.array.slice(0, this.size);
     }
 }
