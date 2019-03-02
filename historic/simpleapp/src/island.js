@@ -50,7 +50,7 @@ export default class Island {
             this._random = new SeedRandom(null, { state: state.random || true });
             this.id = state.id || this.randomID();
             this.time = state.time || 0;
-            this.timeSeq = state.time || 0;
+            this.timeSeq = state.timeSeq || 0;
             if (state.models) {
                 // create all models
                 for (const modelState of state.models || []) {
@@ -114,7 +114,7 @@ export default class Island {
     futureSend(tOffset, receiver, partID, selector, args) {
         if (tOffset < 0) throw Error("attempt to send future message into the past");
         if (this.modelsById[receiver.id] !== receiver) throw Error("future send to unregistered model");
-        const message = new Message(this.time + tOffset, ++this.seq, receiver.id, partID, selector, args);
+        const message = new Message(this.time + tOffset, ++this.timeSeq, receiver.id, partID, selector, args);
         this.messages.add(message);
     }
 
@@ -218,13 +218,10 @@ export default class Island {
         return {
             id: this.id,
             time: this.time,
+            timeSeq: this.timeSeq,
             random: this._random.state(),
-            models: Object.values(this.modelsById).map(model => {
-                const state = {};
-                model.toState(state);
-                if (!state.id) throw Error(`No ID in ${model} - did you call super.toState()?`);
-                return state;
-            }),
+            models: Object.values(this.modelsById).map(model => model.asState()),
+            messages: this.messages.asArray().map(message => message.asState()),
         };
     }
 

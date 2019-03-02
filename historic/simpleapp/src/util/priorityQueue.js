@@ -6,4 +6,8 @@ export default class PriorityQueue extends FastPriorityQueue {
         this.array[this.size] = null; // release memory
         return result;
     }
+
+    asArray() {
+        return this.array.slice(0, this.size);
+    }
 }

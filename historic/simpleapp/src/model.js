@@ -50,6 +50,13 @@ export default class Model extends PartOwner {
         }
     }
 
+    asState() {
+        const state = {};
+        this.toState(state);
+        if (!state.id) throw Error(`No ID in ${this} - did you call super.toState()?`);
+        return state;
+    }
+
     // NATURAL VIEW
     /** @abstract */
     naturalViewClass(_viewContext) { }

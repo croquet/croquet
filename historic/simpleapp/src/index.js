@@ -27,11 +27,14 @@ export class Box extends Model {
 }
 
 class AutoRotate extends ModelPart {
-    constructor(owner, _state, options) {
+    constructor(owner, state, options) {
         options = {target: "spatial", ...options};
         super(owner, options);
         /** @type {SpatialPart} */
         this.spatialPart = owner.parts[options.target];
+        // kick off rotation only (!) if created from scratch
+        if (!state[this.partId]) this.doRotation();
+        // otherwise, future message is still scheduled
     }
 
     doRotation() {
@@ -44,8 +47,7 @@ class AutoRotate extends ModelPart {
 export class RotatingBox extends Model {
     buildParts(state) {
         new InertialSpatialPart(this, state);
-        new AutoRotate(this);
-        this.parts.autoRotate.doRotation();
+        new AutoRotate(this, state);
     }
 
     naturalViewClass() { return BoxView; }
