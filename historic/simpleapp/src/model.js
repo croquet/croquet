@@ -1,5 +1,5 @@
 import Part, { PartOwner } from "./parts.js";
-import IslandReplica from "./islandReplica.js";
+import Island from "./island.js";
 
 if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
 
@@ -14,7 +14,7 @@ export default class Model extends PartOwner {
     // used in island.js:modelFromState
     static __isTeatimeModelClass__() { return true; }
 
-    get island() { return IslandReplica.current(); }
+    get island() { return Island.current(); }
 
     // LIFECYCLE
     /** @arg {Object} state */
@@ -31,7 +31,7 @@ export default class Model extends PartOwner {
     /** @arg {Object} state */
     /** @arg {Object} objectsByID */
     restoreObjectReferences(state, objectsByID) {
-        for (let partId of Object.keys(this.parts)) {
+        for (const partId of Object.keys(this.parts)) {
             this.parts[partId].restoreObjectReferences(state[partId], objectsByID);
         }
     }
@@ -44,10 +44,17 @@ export default class Model extends PartOwner {
     toState(state) {
         state.className = this.constructor.name;
         state.id = this.id;
-        for (let partId of Object.keys(this.parts)) {
+        for (const partId of Object.keys(this.parts)) {
             state[partId] = {};
             this.parts[partId].toState(state[partId]);
         }
+    }
+
+    asState() {
+        const state = {};
+        this.toState(state);
+        if (!state.id) throw Error(`No ID in ${this} - did you call super.toState()?`);
+        return state;
     }
 
     // NATURAL VIEW
@@ -57,6 +64,8 @@ export default class Model extends PartOwner {
 
 /** @extends {Part<Model>} */
 export class ModelPart extends Part {
+    get island() { return this.owner.island; }
+
     constructor(owner, fullState, options) {
         super(owner, options);
         this.fromState(fullState[this.partId], options);
@@ -73,22 +82,22 @@ export class ModelPart extends Part {
     // PUB/SUB
     subscribe(event, methodName, scope=this.owner.id, part=this.partId) {
         const fullScope = scope + (part ? "." + part : "");
-        this.owner.island.addModelSubscription(fullScope, event, this.owner.id, this.partId, methodName);
+        this.island.addModelSubscription(fullScope, event, this.owner.id, this.partId, methodName);
     }
 
     unsubscribe(event, methodName, scope=this.owner.id, part=this.partId) {
         const fullScope = scope + (part ? "." + part : "");
-        this.owner.island.removeModelSubscription(fullScope, event, this.owner.id, this.partId, methodName);
+        this.island.removeModelSubscription(fullScope, event, this.owner.id, this.partId, methodName);
     }
 
-    publish(event, data, tOffset=0, scope=this.owner.id, part=this.partId) {
+    publish(event, data, scope=this.owner.id, part=this.partId) {
         const fullScope = scope + (part ? "." + part : "");
-        this.owner.island.publishFromModel(fullScope, event, data, tOffset);
+        this.island.publishFromModel(fullScope, event, data);
     }
 
     // FUTURE
     future(tOffset=0) {
-        return this.owner.island.futureProxy(this, tOffset);
+        return this.island.futureProxy(tOffset, this.owner, this.partId);
     }
 
     // STATE

@@ -5,7 +5,7 @@ if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`
 /** @extends PartOwner<ViewPart> */
 export default class View extends PartOwner {
     // LIFECYCLE
-    /** @arg {import('./islandReplica').default} island */
+    /** @arg {import('./island').default} island */
     constructor(island, viewOptions={}) {
         super();
         this.island = island;
@@ -18,45 +18,45 @@ export default class View extends PartOwner {
 
     attach(modelState) {
         this.modelId = modelState.id;
-        for (let partId of Object.keys(this.parts)) {
+        for (const partId of Object.keys(this.parts)) {
             this.parts[partId].attach(modelState);
         }
     }
 
     detach() {
-        for (let partId of Object.keys(this.parts)) {
+        for (const partId of Object.keys(this.parts)) {
             this.parts[partId].detach();
         }
     }
 
     addToThreeParent(parent) {
-        for (let partId of Object.keys(this.parts)) {
+        for (const partId of Object.keys(this.parts)) {
             const part = this.parts[partId];
             if (part.addToThreeParent) part.addToThreeParent(parent);
         }
     }
 
     removeFromThreeParent(parent) {
-        for (let partId of Object.keys(this.parts)) {
+        for (const partId of Object.keys(this.parts)) {
             const part = this.parts[partId];
             if (part.removeFromThreeParent) part.removeFromThreeParent(parent);
         }
     }
 
-    model(tOffset=0) {
+    get model() {
         return new Proxy({}, {
             get: (_t1, partOrMethodName) => {
                 const partOrMethodProxy = new Proxy(() => {}, {
                     get: (_t2, methodName) => {
                         const partMethodProxy = new Proxy(() => {}, {
                             apply: (_a, _b, args) => {
-                                this.island.callModelMethod(this.modelId, partOrMethodName, methodName, args, tOffset);
+                                this.island.callModelMethod(this.modelId, partOrMethodName, methodName, args);
                             }
                         });
                         return partMethodProxy;
                     },
                     apply: (_a, _b, args) => {
-                        this.island.callModelMethod(this.modelId, null, partOrMethodName, args, tOffset);
+                        this.island.callModelMethod(this.modelId, null, partOrMethodName, args);
                     }
                 });
                 return partOrMethodProxy;

@@ -31,7 +31,7 @@ export default class DraggableViewPart extends ViewPart {
 
     onPointerDrag({dragStart, dragEndOnHorizontalPlane, dragEndOnVerticalPlane}) {
         const dragEnd = this.dragVertically ? dragEndOnVerticalPlane : dragEndOnHorizontalPlane;
-        this.owner.model()[this.targetPartName].moveTo(
+        this.owner.model[this.targetPartName].moveTo(
             this.positionAtDragStart.clone().add(dragEnd.clone().sub(dragStart))
         );
     }

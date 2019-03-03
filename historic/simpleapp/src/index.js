@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import IslandReplica from './islandReplica.js';
+import Island from './island.js';
 import Model, {ModelPart} from './model.js';
 import SpatialPart from './modelParts/spatial.js';
 import { Room, RoomView } from './room.js';
@@ -17,8 +17,8 @@ import { LayoutRoot, LayoutContainer, LayoutSlotStretch3D } from './viewParts/la
 
 if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
 
-/** Model for a Box */
-export class Box extends Model {
+/** Model for a Bouncing Box */
+export class BouncingBox extends Model {
     buildParts(state) {
         new BouncingSpatialPart(this, state);
     }
@@ -27,11 +27,14 @@ export class Box extends Model {
 }
 
 class AutoRotate extends ModelPart {
-    constructor(owner, _state, options) {
+    constructor(owner, state, options) {
         options = {target: "spatial", ...options};
         super(owner, options);
         /** @type {SpatialPart} */
         this.spatialPart = owner.parts[options.target];
+        // kick off rotation only (!) if created from scratch
+        if (!state[this.partId]) this.doRotation();
+        // otherwise, future message is still scheduled
     }
 
     doRotation() {
@@ -44,8 +47,7 @@ class AutoRotate extends ModelPart {
 export class RotatingBox extends Model {
     buildParts(state) {
         new InertialSpatialPart(this, state);
-        new AutoRotate(this);
-        this.parts.autoRotate.doRotation();
+        new AutoRotate(this, state);
     }
 
     naturalViewClass() { return BoxView; }
@@ -146,10 +148,10 @@ function start() {
     let room;
     let observer;
 
-    const island = new IslandReplica(state.island, () => {
+    const island = new Island(state.island, () => {
         room = new Room();
 
-        const box = new Box({ spatial: { position: new THREE.Vector3(0, 1.0, 0) } });
+        const box = new BouncingBox({ spatial: { position: new THREE.Vector3(0, 1.0, 0) } });
         room.parts.objects.add(box);
 
         const rotatingBox = new RotatingBox({ spatial: { position: new THREE.Vector3(3, 1.0, 0) } });
@@ -197,10 +199,14 @@ function start() {
     observerView.attach(observer);
     observerView.addToThreeParent(roomView.parts.scene.scene);
 
+    let before = Date.now();
     function frame() {
         renderer.render(roomView.parts.scene.scene, observerView.parts.camera.threeObj);
         observerView.parts.pointer.updatePointer(roomView.parts.scene.scene);
+        const now = Date.now();
+        island.advanceTo(island.time + (now - before));
         island.processModelViewEvents();
+        before = now;
         hotreload.requestAnimationFrame(frame);
     }
 
