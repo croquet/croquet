@@ -28,6 +28,7 @@ export class LayoutViewPart extends ViewPart {
         if (this.options.padding) this.node.setPadding(EDGE_ALL, this.options.padding * MUL);
         if (this.options.minHeight) this.node.setMinHeight(this.options.minHeight * MUL);
         if (this.options.minWidth) this.node.setMinWidth(this.options.minWidth * MUL);
+        if (this.options.aspectRatio) this.node.setAspectRatio(this.options.aspectRatio);
         if (this.options.alignItems) {
             switch (this.options.alignItems) {
                 case "center": this.node.setAlignItems(ALIGN_CENTER); break;
@@ -124,7 +125,6 @@ export class LayoutRoot extends LayoutContainer {
         options = {target: "object3D", ...options};
         super.fromOptions(options);
         this.targetViewPart = this.owner.parts[options.target];
-        this.group.scale.setY(-1);
     }
 
     attach(modelState) {
@@ -165,7 +165,7 @@ export class LayoutSlotCenter3D extends LayoutViewPart {
     onLayoutChanged() {
         const targetPos = new THREE.Vector3(
             (this.node.getComputedLeft() + 0.5 * this.node.getComputedWidth()) / MUL,
-            (this.node.getComputedTop() + 0.5 * this.node.getComputedHeight()) / MUL,
+            -1 * (this.node.getComputedTop() + 0.5 * this.node.getComputedHeight()) / MUL,
             0
         );
 
@@ -187,5 +187,37 @@ export class LayoutSlotStretch3D extends LayoutSlotCenter3D {
         super.onLayoutChanged();
         this.targetViewPart.threeObj.scale.setX(this.node.getComputedWidth() / MUL);
         this.targetViewPart.threeObj.scale.setY(this.node.getComputedHeight() / MUL);
+    }
+}
+
+export class LayoutSlotText extends LayoutViewPart {
+    fromOptions(options) {
+        options = {affects: "text", ...options};
+        super.fromOptions(options);
+        this.targetViewPart = this.owner.parts[options.affects];
+        this.subscribe(LayoutEvents.layoutChanged, "onLayoutChanged");
+    }
+
+    onLayoutChanged() {
+        const targetPos = new THREE.Vector3(
+            (this.node.getComputedLeft()) / MUL,
+            -1 * (this.node.getComputedTop()) / MUL,
+            0
+        );
+
+        this.targetViewPart.threeObj.position.copy(targetPos);
+        this.targetViewPart.update({
+            width: (this.node.getComputedWidth()) / MUL,
+            anchor: "top"
+        });
+        //console.log(this.partId, this.node.getComputedLeft(), this.node.getComputedTop(), this.node.getComputedWidth(), this.node.getComputedHeight());
+    }
+
+    addToThreeParent(parent) {
+        this.targetViewPart.addToThreeParent(parent);
+    }
+
+    removeFromThreeParent(parent) {
+        this.targetViewPart.removeFromThreeParent(parent);
     }
 }
