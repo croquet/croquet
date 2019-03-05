@@ -1,0 +1,6 @@
+{
+  "mangle": {
+    "keep_classnames": true,
+    "keep_fnames": true,
+  }
+}
