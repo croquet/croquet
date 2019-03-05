@@ -26,7 +26,7 @@ export default class ChildrenPart extends ModelPart {
     }
 
     remove(childModel) {
-        this.children.remove(childModel);
+        this.children.delete(childModel);
         this.publish(ChildEvents.childRemoved, childModel);
     }
 }

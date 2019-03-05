@@ -15,7 +15,7 @@ Math.random = () => {
 
 // this is the only place allowed to change CurrentIsland
 const hotIsland = module.hot && module.hot.data && module.hot.data.setCurrent;
-function execOnIsland(island, fn) {
+export function execOnIsland(island, fn) {
     if (CurrentIsland) throw Error("Island confusion");
     if (!(island instanceof Island)) throw Error("not an island: " + island);
     const previousIsland = CurrentIsland;
@@ -181,6 +181,18 @@ export default class Island {
         const topic = scope + ":" + event;
         const handler = subscriberId + "." + part + "." + methodName;
         if (this.viewSubscriptions[topic]) this.viewSubscriptions[topic].delete(handler);
+    }
+
+    removeAllViewSubscriptionsFor(subscriberId, part) {
+        const handlerPrefix = subscriberId + "." + part;
+        // TODO: optimize this - reverse lookup table?
+        for (const topicSubscribers of Object.values(this.viewSubscriptions)) {
+            for (const handler of topicSubscribers) {
+                if (handler.startsWith(handlerPrefix)) {
+                    topicSubscribers.delete(handler);
+                }
+            }
+        }
     }
 
     publishFromModel(scope, event, data) {
