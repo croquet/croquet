@@ -240,6 +240,7 @@ function start() {
     }, {passive: false});
 
     if (module.hot) {
+        module.hot.accept(() => { });
         // our hot-reload strategy is to reload all the code (meaning no reload
         // handlers in individual modules) but store the complete model state
         // in this dispose handler and restore it in start()
