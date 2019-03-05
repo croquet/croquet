@@ -26,6 +26,9 @@ export default class View extends PartOwner {
     detach() {
         for (const partId of Object.keys(this.parts)) {
             this.parts[partId].detach();
+            if (!this.parts[partId].superDetachedCalled) {
+                throw new Error("super.detach() wasn't called by " + Object.prototype(this.parts[partId]).constructor.name + ".detach()");
+            }
         }
     }
 
@@ -84,8 +87,10 @@ export class ViewPart extends Part {
     /** @abstract */
     attach(_modelState) {}
 
-    /** @abstract */
-    detach() {}
+    detach() {
+        this.owner.island.removeAllViewSubscriptionsFor(this.owner.id, this.partId);
+        this.superDetachedCalled = true;
+    }
 
     // PUB/SUB
     subscribe(event, methodName, scope=this.owner.id, part=this.partId) {
