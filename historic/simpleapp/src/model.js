@@ -99,6 +99,12 @@ export class ModelPart extends Part {
         return this.island.futureProxy(tOffset, this.owner, this.partId);
     }
 
+    // for setting type of arguments in future messages
+    ensure(object, cls) {
+        if (object instanceof cls) return;
+        Object.setPrototypeOf(object, cls.prototype);
+    }
+
     // STATE
     toState(_state) { }
 }

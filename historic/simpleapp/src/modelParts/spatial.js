@@ -36,9 +36,7 @@ export default class SpatialPart extends ModelPart {
     }
 
     rotateTo(quaternion) {
-        if (!(quaternion instanceof THREE.Quaternion)) {
-            Object.setPrototypeOf(quaternion, THREE.Quaternion.prototype); // HACK for future message
-        }
+        this.ensure(quaternion, THREE.Quaternion); // HACK for future message
         this.quaternion.copy(quaternion);
         this.publish(SpatialEvents.rotated, this.quaternion.clone());
     }

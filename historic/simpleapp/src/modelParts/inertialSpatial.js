@@ -31,9 +31,7 @@ export default class InertialSpatialPart extends SpatialPart {
     }
 
     moveTo(newPosition, addInertia=true) {
-        if (!(newPosition instanceof THREE.Vector3)) {
-            Object.setPrototypeOf(newPosition, THREE.Vector3.prototype); // HACK for future message
-        }
+        this.ensure(newPosition, THREE.Vector3); // HACK for future message
         const positionBefore = this.position.clone();
         super.moveTo(newPosition);
         const delta = newPosition.sub(positionBefore);
@@ -48,9 +46,7 @@ export default class InertialSpatialPart extends SpatialPart {
     }
 
     rotateTo(quaternion, addInertia=true) {
-        if (!(quaternion instanceof THREE.Quaternion)) {
-            Object.setPrototypeOf(quaternion, THREE.Quaternion.prototype); // HACK for future message
-        }
+        this.ensure(quaternion, THREE.Quaternion); // HACK for future message
         const deltaQuaternion = quaternion.clone().multiply(this.quaternion.clone().inverse());
         super.rotateTo(quaternion);
         if (addInertia) this.estimatedRotationalVelocity.copy(this.estimatedRotationalVelocity.clone().slerp(deltaQuaternion, 0.3));
