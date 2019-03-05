@@ -9,11 +9,11 @@ import BouncingSpatialPart from './modelParts/bouncingSpatial.js';
 import View from './view.js';
 import hotreload from "./hotreload.js";
 import TextPart from './modelParts/text.js';
-import TextViewPart from './viewParts/text.js';
+import TextViewPart, { TrackText } from './viewParts/text.js';
 import Object3D, { Object3DGroup } from './viewParts/object3D.js';
 import DraggableViewPart from './viewParts/draggable.js';
 import TrackSpatial from './viewParts/trackSpatial.js';
-import { LayoutRoot, LayoutContainer, LayoutSlotStretch3D } from './viewParts/layout.js';
+import { LayoutRoot, LayoutContainer, LayoutSlotStretch3D, LayoutSlotText } from './viewParts/layout.js';
 
 if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
 
@@ -90,8 +90,9 @@ class BoxView extends View {
 /** View for rendering a Text */
 class TextView extends View {
     buildParts() {
-        new TextViewPart(this);
+        new TextViewPart(this, {fontSize: 0.4});
         new TrackSpatial(this, {affects: "text"});
+        new TrackText(this);
     }
 }
 
@@ -107,11 +108,12 @@ export class LayoutTestModel extends Model {
 
 class LayoutTestView extends View {
     buildParts() {
-        new BoxViewPart(this, {id: "box1", color: "#ff0000"});
-        new BoxViewPart(this, {id: "box2", color: "#ffff00"});
-        new BoxViewPart(this, {id: "box3", color: "#00ff00"});
-        new BoxViewPart(this, {id: "box4", color: "#00ffff"});
-        new BoxViewPart(this, {id: "box5", color: "#0000ff"});
+        new BoxViewPart(this, {id: "box1", color: "#dd8888"});
+        new BoxViewPart(this, {id: "box2", color: "#dddd88"});
+        new BoxViewPart(this, {id: "box3", color: "#88dd88"});
+        new TextViewPart(this, {id: "text1", fontSize: 0.19, content: `Our first design for multiple inheritance presumed that a state variable such as ohms had a meaning independent of the individual perspectives. Hence, it was sensible for it to be owned by the node itself. All perspectives would reference this single variable when referring to resistance. This proved adequate so long as the system designer knew all of the perspectives that might be associated with a given node, and could ensure this uniformity of intended reference.`});
+        new BoxViewPart(this, {id: "box4", color: "#88dddd"});
+        new BoxViewPart(this, {id: "box5", color: "#8888dd"});
 
         new Object3DGroup(this);
         new TrackSpatial(this);
@@ -125,6 +127,7 @@ class LayoutTestView extends View {
                 children: [
                     new LayoutSlotStretch3D(this, {id: "box1layout", affects: "box1", margin: 0.1}),
                     new LayoutSlotStretch3D(this, {id: "box2layout", affects: "box2", margin: 0.1}),
+                    new LayoutSlotText(this, {id: "text1layout", affects: "text1", margin: 0.1, aspectRatio: 1}),
                     new LayoutContainer(this, {
                         id: "columnInRow",
                         flexDirection: "column",

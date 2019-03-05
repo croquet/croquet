@@ -28,6 +28,13 @@ class RoomScenePart extends Object3D {
         this.scene.add(this.grid);
         this.light = new THREE.DirectionalLight("#ffffdd");
         this.light.position.set(1, 2, 1);
+        this.light.castShadow = true;
+        this.light.shadow.mapSize.width = 1024;  // default
+        this.light.shadow.mapSize.height = 1024; // default
+        this.light.shadow.radius = 5;
+        this.light.shadow.camera.near = 0.5;    // default
+        this.light.shadow.camera.far = 10;     // default
+
         this.scene.add(this.light);
         this.ambientLight = new THREE.HemisphereLight("#ddddff", "#ffdddd");
         this.scene.add(this.ambientLight);
