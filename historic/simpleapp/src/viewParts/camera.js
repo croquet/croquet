@@ -12,4 +12,11 @@ export default class CameraViewPart extends Object3D {
     attachWithObject3D(_modelState) {
         return new THREE.PerspectiveCamera(75, this.width/this.height, 0.1, 1000);
     }
+
+    setSize(width, height) {
+        this.width = width;
+        this.height = height;
+        this.threeObj.aspect = this.width / this.height;
+        this.threeObj.updateProjectionMatrix();
+    }
 }

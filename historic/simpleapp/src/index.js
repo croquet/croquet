@@ -136,6 +136,11 @@ function start() {
         event.preventDefault();
     }, {passive: false});
 
+    hotreload.addEventListener(window, "resize", () => {
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        if (currentObserverView) {currentObserverView.parts.camera.setSize(window.innerWidth, window.innerHeight);}
+    });
+
     hotreload.addEventListener(window, "hashchange", () => joinRoom(window.location.hash.replace("#", "")));
 
     if (module.hot) {
