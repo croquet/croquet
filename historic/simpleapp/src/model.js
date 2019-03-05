@@ -31,8 +31,8 @@ export default class Model extends PartOwner {
     /** @arg {Object} state */
     /** @arg {Object} objectsByID */
     restoreObjectReferences(state, objectsByID) {
-        for (const partId of Object.keys(this.parts)) {
-            this.parts[partId].restoreObjectReferences(state[partId], objectsByID);
+        for (const [partId, part] of Object.entries(this.parts)) {
+            part.restoreObjectReferences(state[partId], objectsByID);
         }
     }
 
@@ -44,16 +44,15 @@ export default class Model extends PartOwner {
     toState(state) {
         state.className = this.constructor.name;
         state.id = this.id;
-        for (const partId of Object.keys(this.parts)) {
-            state[partId] = {};
-            this.parts[partId].toState(state[partId]);
+        for (const [partId, part] of Object.entries(this.parts)) {
+            part.toState(state[partId] = {});
         }
     }
 
     asState() {
         const state = {};
         this.toState(state);
-        if (!state.id) throw Error(`No ID in ${this} - did you call super.toState()?`);
+        if (!state.id) throw Error(`No ID in ${this} - did you call super.toState(state)?`);
         return state;
     }
 
@@ -81,17 +80,17 @@ export class ModelPart extends Part {
 
     // PUB/SUB
     subscribe(event, methodName, scope=this.owner.id, part=this.partId) {
-        const fullScope = scope + (part ? "." + part : "");
+        const fullScope = part ? `${scope}.${part}` : scope;
         this.island.addModelSubscription(fullScope, event, this.owner.id, this.partId, methodName);
     }
 
     unsubscribe(event, methodName, scope=this.owner.id, part=this.partId) {
-        const fullScope = scope + (part ? "." + part : "");
+        const fullScope = part ? `${scope}.${part}` : scope;
         this.island.removeModelSubscription(fullScope, event, this.owner.id, this.partId, methodName);
     }
 
     publish(event, data, scope=this.owner.id, part=this.partId) {
-        const fullScope = scope + (part ? "." + part : "");
+        const fullScope = part ? `${scope}.${part}` : scope;
         this.island.publishFromModel(fullScope, event, data);
     }
 
