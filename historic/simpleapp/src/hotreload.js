@@ -40,7 +40,7 @@ function dispose() {
     for (const handle of timeoutHandles) window.clearTimeout(handle);
     for (const handle of frameHandles) window.cancelAnimationFrame(handle);
     for (const {obj, args} of eventListeners) obj.removeEventListener(...args);
-    console.log(`Clearing ${timeoutHandles.size} timeouts, ${frameHandles.size} animationFrames, ${eventListeners.length} eventListeners`);
+    if (module.bundle.v) console.log(`Clearing ${timeoutHandles.size} timeouts, ${frameHandles.size} animationFrames, ${eventListeners.length} eventListeners`);
     timeoutHandles.clear();
     frameHandles.clear();
     eventListeners.length = 0;

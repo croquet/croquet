@@ -6,12 +6,15 @@ import { PointingObserverCameraView, Observer } from './observer.js';
 import { execOnIsland } from './island.js';
 import initRoom2 from './sampleRooms/room2.js';
 
+const LOG_HOTRELOAD = false;
+
 const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
+let hotState = module.hot && module.hot.data && module.hot.data.hotState || {};
+
 /** The main function. */
 function start() {
-    let hotState = module.hot && module.hot.data && module.hot.data.hotState || {};
 
     const ALL_ROOMS = {
         room1: initRoom1(hotState.rooms && hotState.rooms.room1),
@@ -81,7 +84,7 @@ function start() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    hotState = null; // prevent accidental access below
+    hotState = null; // free memory, and prevent accidental access below
 
     let before = Date.now();
     function frame() {
@@ -145,13 +148,10 @@ function start() {
     hotreload.addEventListener(window, "hashchange", () => joinRoom(window.location.hash.replace("#", "")));
 
     if (module.hot) {
-        module.hot.accept(() => { });
         // our hot-reload strategy is to reload all the code (meaning no reload
         // handlers in individual modules) but store the complete model state
         // in this dispose handler and restore it in start()
         module.hot.dispose(hotData => {
-            // unregister all callbacks, they refer to old functions
-            hotreload.dispose();
             // release WebGL resources
             if (currentRoomView) {
                 currentRoomView.detach();
@@ -174,8 +174,19 @@ function start() {
             }
         });
         // start logging module loads
-        if (!module.bundle.v) module.bundle.v = 1;
+        if (LOG_HOTRELOAD && !module.bundle.v) module.bundle.v = 1;
     }
 }
 
-start();
+if (module.hot) {
+    // no module.hot.accept(), to force reloading of all dependencies
+    // but preserve hotState
+    module.hot.dispose(hotData => {
+        hotData.hotState = hotState;
+        hotreload.dispose(); // specifically, cancel our delayed start()
+    });
+}
+
+// delay start to let hotreload finish to load all modules
+if (!hotState.renderer) start();
+else hotreload.setTimeout(start, 0);
