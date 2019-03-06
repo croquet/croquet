@@ -21,6 +21,7 @@ export default class Model extends PartOwner {
     /** @arg {Object} state */
     constructor(state={}, modelOptions={}) {
         super();
+        if (!this.island) throw Error("We probably have a hot reload problem again!");
         this.id = this.island.registerModel(this, state.id);
         this.buildParts(state, modelOptions);
     }

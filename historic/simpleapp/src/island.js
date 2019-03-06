@@ -1,5 +1,4 @@
 import SeedRandom from "seedrandom";
-import hotreload from "./hotreload.js";
 import PriorityQueue from "./util/priorityQueue.js";
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
@@ -15,17 +14,14 @@ Math.random = () => {
 };
 
 // this is the only place allowed to change CurrentIsland
-const hotIsland = module.hot && module.hot.data && module.hot.data.setCurrent;
 export function execOnIsland(island, fn) {
     if (CurrentIsland) throw Error("Island confusion");
     if (!(island instanceof Island)) throw Error("not an island: " + island);
     const previousIsland = CurrentIsland;
     try {
-        if (hotIsland) hotIsland(island);
         CurrentIsland = island;
         fn();
     } finally {
-        if (hotIsland) hotIsland(previousIsland);
         CurrentIsland = previousIsland;
     }
 }
@@ -307,7 +303,7 @@ class Message {
 
     static fromState(state) {
         const [time, seq, receiver, part, selector, args] = state;
-        const decoded = decode(part, selector, args)
+        const decoded = decode(part, selector, args);
         return new Message(time, seq, receiver, part, selector, decoded);
     }
 
@@ -323,7 +319,7 @@ class Message {
 // https://github.com/parcel-bundler/parcel/pull/2660/
 
 // map model class names to model classes
-let ModelClasses = {};
+const ModelClasses = {};
 
 function modelClassNamed(className) {
     if (ModelClasses[className]) return ModelClasses[className];
@@ -335,14 +331,4 @@ function modelClassNamed(className) {
     }
     if (ModelClasses[className]) return ModelClasses[className];
     throw new Error(`Class "${className}" not found, is it exported?`);
-}
-
-
-hotreload.addDisposeHandler(module.id, () => ModelClasses = {});
-
-if (module.hot) {
-    // this is a workaround for our implicit dependency on model.js:
-    // Since model.js might refer to an old version of this module,
-    // we set CurrentIsland in both the current and previous module version
-    module.hot.dispose(hotData => hotData.setCurrent = island => CurrentIsland = island);
 }
