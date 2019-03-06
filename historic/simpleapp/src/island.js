@@ -252,6 +252,38 @@ export default class Island {
 }
 
 
+// Message encoders / decoders
+
+
+const XYZ = {
+    encode: a => [a[0].x, a[0].y, a[0].z],
+    decode: a => [{ x: a[0], y: a[1], z: a[2] }],
+};
+
+const XYZW = {
+    encode: a => [a[0].x, a[0].y, a[0].z, a[0].w],
+    decode: a => [{ x: a[0], y: a[1], z: a[2], w: a[3] }],
+};
+
+const transcoders = {
+    "*.moveTo": XYZ,
+    "*.rotateTo": XYZW,
+};
+
+function encode(part, selector, args) {
+    if (args.length === 0) return args;
+    const transcoder = transcoders[`${part}.${selector}`] || transcoders[`*.${selector}`] || transcoders['*'];
+    if (!transcoder) throw Error(`No transcoder defined for ${part}.${selector}`);
+    return transcoder.encode(args);
+}
+
+function decode(part, selector, encoded) {
+    if (encoded.length === 0) return encoded;
+    const transcoder = transcoders[`${part}.${selector}`] || transcoders[`*.${selector}`] || transcoders['*'];
+    if (!transcoder) throw Error(`No transcoder defined for ${part}.${selector}`);
+    return transcoder.decode(encoded);
+}
+
 class Message {
     constructor(time, seq, receiver, part, selector, args) {
         this.time = time;
@@ -259,7 +291,7 @@ class Message {
         this.receiver = receiver;
         this.part = part;
         this.selector = selector;
-        this.args = JSON.parse(JSON.stringify(args));   // make sure args can be serialized
+        this.args = encode(part, selector, args);   // make sure args can be serialized
     }
 
     before(other) {
@@ -274,12 +306,14 @@ class Message {
 
     static fromState(state) {
         const [time, seq, receiver, part, selector, args] = state;
-        return new Message(time, seq, receiver, part, selector, args);
+        const decoded = decode(part, selector, args)
+        return new Message(time, seq, receiver, part, selector, decoded);
     }
 
     executeOn(island) {
         const {receiver, part, selector, args} = this;
-        execOnIsland(island, () => island.modelsById[receiver].parts[part][selector](...args));
+        const decoded = decode(part, selector, args);
+        execOnIsland(island, () => island.modelsById[receiver].parts[part][selector](...decoded));
     }
 }
 
