@@ -14,7 +14,7 @@ Math.random = () => {
 };
 
 // this is the only place allowed to change CurrentIsland
-export function execOnIsland(island, fn) {
+function execOnIsland(island, fn) {
     if (CurrentIsland) throw Error("Island confusion");
     if (!(island instanceof Island)) throw Error("not an island: " + island);
     const previousIsland = CurrentIsland;

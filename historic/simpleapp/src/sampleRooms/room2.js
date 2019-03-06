@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import Island from "../island.js";
-import { Room } from "../room.js";
+import Room from "../room/model.js";
 
 const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }

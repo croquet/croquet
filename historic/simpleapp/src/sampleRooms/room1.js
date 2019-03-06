@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import Island from '../island.js';
-import { Room } from '../room.js';
+import Room from "../room/model.js";
 import Model, {ModelPart} from '../model.js';
 import SpatialPart from '../modelParts/spatial.js';
 import InertialSpatialPart from '../modelParts/inertialSpatial.js';
