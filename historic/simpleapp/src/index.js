@@ -1,9 +1,7 @@
 import * as THREE from 'three';
 import hotreload from "./hotreload.js";
 import initRoom1 from './sampleRooms/room1.js';
-import { RoomView } from './room.js';
-import { PointingObserverCameraView, Observer } from './observer.js';
-import { execOnIsland } from './island.js';
+import RoomView from './room/view.js';
 import initRoom2 from './sampleRooms/room2.js';
 
 if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
@@ -17,58 +15,30 @@ function start() {
         room2: initRoom2(hotState.rooms && hotState.rooms.room2)
     };
 
-    /** @type {import('./room').Room} */
-    let currentRoomIsland = null;
-    let currentRoom = null;
-    let currentRoomView = null;
-    let currentObserver = null;
-    let currentObserverView = null;
+    const activeRoomViews = {};
 
-    function joinRoom(roomName, existingObserverId) {
+    /** @type {import('./room/model').default} */
+    let currentRoom = null;
+    /** @type {import('./room/view').default} */
+    let currentRoomView = null;
+
+    function joinRoom(roomName) {
         // leave previous room
         if (currentRoom) {
-            currentObserverView.detach();
-            currentObserverView = null;
-            currentRoomView.detach();
             currentRoomView = null;
-            // TODO: what if this is async? (also see comment below)
-            execOnIsland(currentRoomIsland, () => {
-                currentRoom.parts.observers.remove(currentObserver);
-            });
             currentRoom = null;
-            currentObserver = null;
         }
 
         const island = ALL_ROOMS[roomName].island;
         const room = ALL_ROOMS[roomName].room;
-        let observer = island.modelsById[existingObserverId];
 
-        if (!observer) {
-            // TODO: what if this is async? When do we have a time to attach views to our newly added observer
-            // maybe there should be a callback for running "normal" code after the "in-island" callback has run
-            execOnIsland(island, () => {
-                observer = new Observer({
-                    spatial: {
-                        position: new THREE.Vector3(0, 2, 5),
-                    },
-                    name: "Guest1"
-                });
-                room.parts.observers.add(observer);
-            });
+        if (!activeRoomViews[roomName]) {
+            const roomView = new RoomView(island, {activeParticipant: true});
+            roomView.attach(room);
         }
 
-        const roomView = new RoomView(island, {localObserver: observer});
-        roomView.attach(room);
-
-        const observerView = new PointingObserverCameraView(island, {width: window.innerWidth, height: window.innerHeight});
-        observerView.attach(observer);
-        observerView.addToThreeParent(roomView.parts.scene.scene);
-
-        currentRoomIsland = island;
         currentRoom = room;
-        currentRoomView = roomView;
-        currentObserver = observer;
-        currentObserverView = observerView;
+        currentRoomView = activeRoomViews[roomName];
     }
 
     joinRoom(
@@ -85,8 +55,8 @@ function start() {
     let before = Date.now();
     function frame() {
         if (currentRoom) {
-            renderer.render(currentRoomView.parts.scene.scene, currentObserverView.parts.camera.threeObj);
-            currentObserverView.parts.pointer.updatePointer(currentRoomView.parts.scene.scene);
+            renderer.render(currentRoomView.parts.scene.scene, currentRoomView.parts.camera.threeObj);
+            currentRoomView.parts.pointer.updatePointer();
         }
         const now = Date.now();
         for (const room of Object.values(ALL_ROOMS)) {
@@ -100,45 +70,45 @@ function start() {
     hotreload.requestAnimationFrame(frame);
 
     hotreload.addEventListener(window, "mousemove", event => {
-        if (currentObserverView) currentObserverView.parts.pointer.onMouseMove(event.clientX, event.clientY);
+        if (currentRoomView) currentRoomView.parts.pointer.onMouseMove(event.clientX, event.clientY);
     });
     hotreload.addEventListener(window, "mousedown", event => {
-        if (currentObserverView) currentObserverView.parts.pointer.onMouseDown(event);
+        if (currentRoomView) currentRoomView.parts.pointer.onMouseDown(event);
     });
     hotreload.addEventListener(window, "mouseup", event => {
-        if (currentObserverView) currentObserverView.parts.pointer.onMouseUp(event);
+        if (currentRoomView) currentRoomView.parts.pointer.onMouseUp(event);
     });
     hotreload.addEventListener(document.body, "touchstart", event => {
-        if (currentObserverView) {
-            currentObserverView.parts.pointer.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
-            currentObserverView.pointer.updatePointer(currentRoomView.parts.scene);
-            currentObserverView.parts.pointer.onMouseDown();
+        if (currentRoomView) {
+            currentRoomView.parts.pointer.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
+            currentRoomView.parts.pointer.updatePointer();
+            currentRoomView.parts.pointer.onMouseDown();
         }
         event.stopPropagation();
         event.preventDefault();
     }, {passive: false});
 
     hotreload.addEventListener(document.body, "touchmove", event => {
-        if (currentObserverView) {
-            currentObserverView.parts.pointer.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
+        if (currentRoomView) {
+            currentRoomView.parts.pointer.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
         }
     }, {passive: false});
 
     hotreload.addEventListener(document.body, "touchend", event => {
-        if (currentObserverView) {currentObserverView.parts.pointer.onMouseUp();}
+        if (currentRoomView) {currentRoomView.parts.pointer.onMouseUp();}
         event.stopPropagation();
         event.preventDefault();
     }, {passive: false});
 
     hotreload.addEventListener(document.body, "wheel", event => {
-        if (currentObserverView) {currentObserverView.parts.treadmillNavigation.onWheel(event);}
+        if (currentRoomView) {currentRoomView.parts.treadmillNavigation.onWheel(event);}
         event.stopPropagation();
         event.preventDefault();
     }, {passive: false});
 
     hotreload.addEventListener(window, "resize", () => {
         renderer.setSize(window.innerWidth, window.innerHeight);
-        if (currentObserverView) {currentObserverView.parts.camera.setSize(window.innerWidth, window.innerHeight);}
+        if (currentRoomView) {currentRoomView.parts.camera.setSize(window.innerWidth, window.innerHeight);}
     });
 
     hotreload.addEventListener(window, "hashchange", () => joinRoom(window.location.hash.replace("#", "")));
@@ -152,15 +122,13 @@ function start() {
             // unregister all callbacks, they refer to old functions
             hotreload.dispose();
             // release WebGL resources
-            if (currentRoomView) {
-                currentRoomView.detach();
-                currentObserverView.detach();
+            for (const roomView of activeRoomViews) {
+                roomView.detach();
             }
             // preserve state, will be available as module.hot.data after reload
             hotData.hotState = {
                 renderer,
                 rooms: {},
-                observerId: currentObserver && currentObserver.id,
                 currentRoomName: window.location.hash.replace("#", ""),
             };
 

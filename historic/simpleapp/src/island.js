@@ -15,7 +15,7 @@ Math.random = () => {
 
 // this is the only place allowed to change CurrentIsland
 const hotIsland = module.hot && module.hot.data && module.hot.data.setCurrent;
-export function execOnIsland(island, fn) {
+function execOnIsland(island, fn) {
     if (CurrentIsland) throw Error("Island confusion");
     if (!(island instanceof Island)) throw Error("not an island: " + island);
     const previousIsland = CurrentIsland;

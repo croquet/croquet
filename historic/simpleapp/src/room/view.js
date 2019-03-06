@@ -1,34 +1,84 @@
 import * as THREE from 'three';
-import arrowsAlt from '../assets/arrows-alt.svg';
-import arrowsAltRot from '../assets/arrows-alt-rot.svg';
-import Model from './model.js';
-import InertialSpatialPart from './modelParts/inertialSpatial.js';
-import SVGIcon from './util/svgIcon.js';
-import View from './view.js';
-import CameraViewPart from './viewParts/camera.js';
-import Object3D from './viewParts/object3D.js';
-import TrackSpatial from './viewParts/trackSpatial.js';
-import PointerViewPart, { PointerEvents, makePointerSensitive, ignorePointer } from './viewParts/pointer.js';
+import View, { ViewPart } from '../view.js';
+import ManipulatorView from '../manipulatorView.js';
+import { ChildEvents } from '../modelParts/children.js';
+import Object3D from '../viewParts/object3D.js';
+import CameraViewPart from '../viewParts/camera.js';
+import PointerViewPart, { makePointerSensitive, ignorePointer, PointerEvents } from '../viewParts/pointer.js';
+import arrowsAlt from '../../assets/arrows-alt.svg';
+import arrowsAltRot from '../../assets/arrows-alt-rot.svg';
+import SVGIcon from '../util/svgIcon.js';
 
 if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
 
-/** Represents an observer of a Room. This can be an active participant,
- *  a passive viewer, or internal camera views, such as for portals
- */
-export class Observer extends Model {
-    buildParts(state={}) {
-        new InertialSpatialPart(this, state);
+export default class RoomView extends View {
+    buildParts(viewOptions={}) {
+        new RoomScene(this);
+        new ObjectViewManager(this);
+        new CameraViewPart(this, {id: "observerCamera"});
+        if (viewOptions.isActiveParticipant) {
+            new PointerViewPart(this, {scenePartName: "roomScene"});
+            new TreadmillNavigation(this);
+        }
     }
 }
 
-/** Used to render a physical manifestation / Avatar of another participant
- *  in the Room.
- */
-export class ObserverAvatarView extends View {
-    // TODO
+class RoomScene extends Object3D {
+    /** @arg {Room} room */
+    attachWithObject3D(room) {
+        this.scene = new THREE.Scene();
+        this.scene.background = room.parts.color.value;
+        this.grid = new THREE.GridHelper(room.parts.size.x, 10, "#888888", "#aaaaaa");
+        this.scene.add(this.grid);
+        this.light = new THREE.DirectionalLight("#ffffdd");
+        this.light.position.set(1, 2, 1);
+        this.light.castShadow = true;
+        this.light.shadow.mapSize.width = 1024;  // default
+        this.light.shadow.mapSize.height = 1024; // default
+        this.light.shadow.radius = 5;
+        this.light.shadow.camera.near = 0.5;    // default
+        this.light.shadow.camera.far = 10;     // default
+
+        this.scene.add(this.light);
+        this.ambientLight = new THREE.HemisphereLight("#ddddff", "#ffdddd");
+        this.scene.add(this.ambientLight);
+        // this.scene.add(new THREE.AxesHelper(5));
+        return this.scene;
+    }
 }
 
-class TreadmillNavigationViewPart extends Object3D {
+class ObjectViewManager extends ViewPart {
+    /** @arg {Room} room */
+    attach(room) {
+        this.viewsForObjects = {};
+
+        for (const object of room.parts.objects.children) {
+            this.onObjectAdded(object);
+        }
+
+        this.subscribe(ChildEvents.childAdded, "onObjectAdded", room.id, "objects");
+        this.subscribe(ChildEvents.childRemoved, "onObjectRemoved", room.id, "objects");
+    }
+
+    onObjectAdded(object) {
+        const NaturalView = object.naturalViewClass("in-room");
+        /** @type {View} */
+        const innerView = new NaturalView(this.owner.island);
+        const view = new ManipulatorView(this.owner.island, {wrappedView: innerView});
+        this.viewsForObjects[object.id] = view;
+        view.attach(object);
+        view.addToThreeParent(this.owner.parts.scene.scene);
+    }
+
+    onObjectRemoved(object) {
+        const view = this.viewsForObjects[object.id];
+        view.removeFromThreeParent(this.owner.parts.scene.scene);
+        view.onDetach();
+        delete this.viewsForObjects[object.id];
+    }
+}
+
+class TreadmillNavigation extends Object3D {
     constructor(owner, options) {
         options = {cameraPartName: "camera", ...options};
         super(owner, options);
@@ -125,18 +175,5 @@ class TreadmillNavigationViewPart extends Object3D {
     onWheel(event) {
         const multiplier = 0.01;
         this.owner.model.spatial.moveBy(new THREE.Vector3(event.deltaX * multiplier, 0, event.deltaY * multiplier).applyQuaternion(this.threeObj.quaternion), false);
-    }
-}
-
-/** For participants in a Room, allowing navigation of space (i.e. moving one's observer model).
- *  Also manages object picking and object interaction by maintaining a pointer, hover and drag states.
-*/
-export class PointingObserverCameraView extends View {
-    buildParts({width, height}) {
-        new CameraViewPart(this, {width, height});
-        new TrackSpatial(this, {id: "trackCamera", affects: "camera"});
-        new TreadmillNavigationViewPart(this);
-        new TrackSpatial(this, {id: "trackTreadmill", affects: "treadmillNavigation"});
-        new PointerViewPart(this);
     }
 }
