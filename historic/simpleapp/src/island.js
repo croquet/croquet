@@ -2,7 +2,8 @@ import SeedRandom from "seedrandom";
 import hotreload from "./hotreload.js";
 import PriorityQueue from "./util/priorityQueue.js";
 
-if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
+const moduleVersion = `${module.id}#${module.bundle.v||0}`;
+if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
 let viewID = 0;
 let CurrentIsland = null;

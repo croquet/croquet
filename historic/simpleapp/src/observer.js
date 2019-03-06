@@ -10,7 +10,8 @@ import Object3D from './viewParts/object3D.js';
 import TrackSpatial from './viewParts/trackSpatial.js';
 import PointerViewPart, { PointerEvents, makePointerSensitive, ignorePointer } from './viewParts/pointer.js';
 
-if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
+const moduleVersion = `${module.id}#${module.bundle.v||0}`;
+if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
 /** Represents an observer of a Room. This can be an active participant,
  *  a passive viewer, or internal camera views, such as for portals

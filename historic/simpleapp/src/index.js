@@ -6,7 +6,8 @@ import { PointingObserverCameraView, Observer } from './observer.js';
 import { execOnIsland } from './island.js';
 import initRoom2 from './sampleRooms/room2.js';
 
-if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
+const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
+if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
 /** The main function. */
 function start() {

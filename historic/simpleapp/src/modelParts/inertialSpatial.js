@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import SpatialPart from './spatial.js';
 
-if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
+const moduleVersion = `${module.id}#${module.bundle.v||0}`;
+if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
 /** A spatial model with inertia */
 export default class InertialSpatialPart extends SpatialPart {

@@ -1,7 +1,8 @@
 import Part, { PartOwner } from "./parts.js";
 import Island from "./island.js";
 
-if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
+const moduleVersion = `${module.id}#${module.bundle.v||0}`;
+if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
 export const ModelEvents = {
     constructed: "model-constructed",
