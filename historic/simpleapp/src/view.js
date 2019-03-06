@@ -87,6 +87,24 @@ export default class View extends PartOwner {
         const fullScope = scope + (part ? "." + part : "");
         this.island.publishFromView(fullScope, event, data);
     }
+
+    // FUTURE (simplified)
+    futureProxy(tOffset=0, partId) {
+        const object = this.parts[partId];
+        return new Proxy(object, {
+            get(_target, property) {
+                if (typeof object[property] === "function") {
+                    const methodProxy = new Proxy(object[property], {
+                        apply(_method, _this, args) {
+                            setTimeout(() => object[property](...args), tOffset);
+                        }
+                    });
+                    return methodProxy;
+                }
+                throw Error("Tried to call " + property + "() on future of " + Object.getPrototypeOf(object).constructor.name + " which is not a function");
+            }
+        });
+    }
 }
 
 /** @extends Part<View> */

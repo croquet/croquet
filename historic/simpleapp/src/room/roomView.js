@@ -8,8 +8,8 @@ import PointerViewPart, { makePointerSensitive, ignorePointer, PointerEvents } f
 import arrowsAlt from '../../assets/arrows-alt.svg';
 import arrowsAltRot from '../../assets/arrows-alt-rot.svg';
 import SVGIcon from '../util/svgIcon.js';
-import SpatialPart from '../stateParts/spatial.js';
 import TrackSpatial from '../viewParts/trackSpatial.js';
+import InertialSpatialPart from '../stateParts/inertialSpatial.js';
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
@@ -22,7 +22,7 @@ export default class RoomView extends View {
             width: viewOptions.width,
             height: viewOptions.height
         });
-        new SpatialPart(this, {cameraPosition: {
+        new InertialSpatialPart(this, {cameraPosition: {
             position: viewOptions.cameraPosition,
             quaternion: viewOptions.cameraQuaternion
         }}, {id: "cameraPosition"});
