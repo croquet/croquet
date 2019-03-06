@@ -126,7 +126,7 @@ function start() {
         // in this dispose handler and restore it in start()
         module.hot.dispose(hotData => {
             // release WebGL resources
-            for (const roomView of activeRoomViews) {
+            for (const roomView of Object.values(activeRoomViews)) {
                 roomView.detach();
             }
             // preserve state, will be available as module.hot.data after reload
