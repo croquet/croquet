@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 
-if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
+const moduleVersion = `${module.id}#${module.bundle.v||0}`;
+if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
 export default class LazyObject3D extends THREE.Group {
     constructor(placeholder, object3DPromise) {

@@ -11,7 +11,8 @@ import SVGIcon from '../util/svgIcon.js';
 import SpatialPart from '../stateParts/spatial.js';
 import TrackSpatial from '../viewParts/trackSpatial.js';
 
-if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
+const moduleVersion = `${module.id}#${module.bundle.v||0}`;
+if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
 export default class RoomView extends View {
     buildParts(viewOptions={}) {

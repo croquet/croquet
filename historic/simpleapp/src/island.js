@@ -1,8 +1,8 @@
 import SeedRandom from "seedrandom";
-import hotreload from "./hotreload.js";
 import PriorityQueue from "./util/priorityQueue.js";
 
-if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
+const moduleVersion = `${module.id}#${module.bundle.v||0}`;
+if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
 let viewID = 0;
 let CurrentIsland = null;
@@ -14,17 +14,14 @@ Math.random = () => {
 };
 
 // this is the only place allowed to change CurrentIsland
-const hotIsland = module.hot && module.hot.data && module.hot.data.setCurrent;
 function execOnIsland(island, fn) {
     if (CurrentIsland) throw Error("Island confusion");
     if (!(island instanceof Island)) throw Error("not an island: " + island);
     const previousIsland = CurrentIsland;
     try {
-        if (hotIsland) hotIsland(island);
         CurrentIsland = island;
         fn();
     } finally {
-        if (hotIsland) hotIsland(previousIsland);
         CurrentIsland = previousIsland;
     }
 }
@@ -252,6 +249,38 @@ export default class Island {
 }
 
 
+// Message encoders / decoders
+
+
+const XYZ = {
+    encode: a => [a[0].x, a[0].y, a[0].z],
+    decode: a => [{ x: a[0], y: a[1], z: a[2] }],
+};
+
+const XYZW = {
+    encode: a => [a[0].x, a[0].y, a[0].z, a[0].w],
+    decode: a => [{ x: a[0], y: a[1], z: a[2], w: a[3] }],
+};
+
+const transcoders = {
+    "*.moveTo": XYZ,
+    "*.rotateTo": XYZW,
+};
+
+function encode(part, selector, args) {
+    if (args.length === 0) return args;
+    const transcoder = transcoders[`${part}.${selector}`] || transcoders[`*.${selector}`] || transcoders['*'];
+    if (!transcoder) throw Error(`No transcoder defined for ${part}.${selector}`);
+    return transcoder.encode(args);
+}
+
+function decode(part, selector, encoded) {
+    if (encoded.length === 0) return encoded;
+    const transcoder = transcoders[`${part}.${selector}`] || transcoders[`*.${selector}`] || transcoders['*'];
+    if (!transcoder) throw Error(`No transcoder defined for ${part}.${selector}`);
+    return transcoder.decode(encoded);
+}
+
 class Message {
     constructor(time, seq, receiver, part, selector, args) {
         this.time = time;
@@ -259,7 +288,7 @@ class Message {
         this.receiver = receiver;
         this.part = part;
         this.selector = selector;
-        this.args = JSON.parse(JSON.stringify(args));   // make sure args can be serialized
+        this.args = encode(part, selector, args);   // make sure args can be serialized
     }
 
     before(other) {
@@ -274,12 +303,14 @@ class Message {
 
     static fromState(state) {
         const [time, seq, receiver, part, selector, args] = state;
-        return new Message(time, seq, receiver, part, selector, args);
+        const decoded = decode(part, selector, args);
+        return new Message(time, seq, receiver, part, selector, decoded);
     }
 
     executeOn(island) {
         const {receiver, part, selector, args} = this;
-        execOnIsland(island, () => island.modelsById[receiver].parts[part][selector](...args));
+        const decoded = decode(part, selector, args);
+        execOnIsland(island, () => island.modelsById[receiver].parts[part][selector](...decoded));
     }
 }
 
@@ -288,7 +319,7 @@ class Message {
 // https://github.com/parcel-bundler/parcel/pull/2660/
 
 // map model class names to model classes
-let ModelClasses = {};
+const ModelClasses = {};
 
 function modelClassNamed(className) {
     if (ModelClasses[className]) return ModelClasses[className];
@@ -300,14 +331,4 @@ function modelClassNamed(className) {
     }
     if (ModelClasses[className]) return ModelClasses[className];
     throw new Error(`Class "${className}" not found, is it exported?`);
-}
-
-
-hotreload.addDisposeHandler(module.id, () => ModelClasses = {});
-
-if (module.hot) {
-    // this is a workaround for our implicit dependency on model.js:
-    // Since model.js might refer to an old version of this module,
-    // we set CurrentIsland in both the current and previous module version
-    module.hot.dispose(hotData => hotData.setCurrent = island => CurrentIsland = island);
 }

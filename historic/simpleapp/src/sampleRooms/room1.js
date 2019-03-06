@@ -14,6 +14,9 @@ import DraggableViewPart from '../viewParts/draggable.js';
 import TrackSpatial from '../viewParts/trackSpatial.js';
 import { LayoutRoot, LayoutContainer, LayoutSlotStretch3D, LayoutSlotText } from '../viewParts/layout.js';
 
+const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
+if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
+
 /** Model for a Bouncing Box */
 export class BouncingBox extends Model {
     buildParts(state) {

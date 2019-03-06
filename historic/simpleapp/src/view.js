@@ -1,6 +1,7 @@
 import Part, { PartOwner } from './parts.js';
 
-if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
+const moduleVersion = `${module.id}#${module.bundle.v||0}`;
+if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
 /** @extends PartOwner<ViewPart> */
 export default class View extends PartOwner {

@@ -3,7 +3,8 @@
 import * as THREE from 'three';
 import StatePart from "../statePart.js";
 
-if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
+const moduleVersion = `${module.id}#${module.bundle.v||0}`;
+if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
 export const SpatialEvents = {
     moved: "spatial-moved",

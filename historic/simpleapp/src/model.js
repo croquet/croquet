@@ -1,7 +1,8 @@
 import { PartOwner } from "./parts.js";
 import Island from "./island.js";
 
-if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
+const moduleVersion = `${module.id}#${module.bundle.v||0}`;
+if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
 export const ModelEvents = {
     constructed: "model-constructed",
@@ -23,6 +24,7 @@ export default class Model extends PartOwner {
     /** @arg {Object} state */
     constructor(state={}, modelOptions={}) {
         super();
+        if (!this.island) throw Error("We probably have a hot reload problem again!");
         this.id = this.island.registerModel(this, state.id);
         this.buildParts(state, modelOptions);
     }
