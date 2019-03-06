@@ -1,24 +1,35 @@
 import * as THREE from 'three';
 import View, { ViewPart } from '../view.js';
 import ManipulatorView from '../manipulatorView.js';
-import { ChildEvents } from '../modelParts/children.js';
+import { ChildEvents } from '../stateParts/children.js';
 import Object3D from '../viewParts/object3D.js';
 import CameraViewPart from '../viewParts/camera.js';
 import PointerViewPart, { makePointerSensitive, ignorePointer, PointerEvents } from '../viewParts/pointer.js';
 import arrowsAlt from '../../assets/arrows-alt.svg';
 import arrowsAltRot from '../../assets/arrows-alt-rot.svg';
 import SVGIcon from '../util/svgIcon.js';
+import SpatialPart from '../stateParts/spatial.js';
+import TrackSpatial from '../viewParts/trackSpatial.js';
 
 if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
 
 export default class RoomView extends View {
     buildParts(viewOptions={}) {
         new RoomScene(this);
-        new ObjectViewManager(this);
-        new CameraViewPart(this, {id: "observerCamera"});
-        if (viewOptions.isActiveParticipant) {
+        new ObjectViewManager(this, {scenePartName: "roomScene"});
+        new CameraViewPart(this, {
+            width: viewOptions.width,
+            height: viewOptions.height
+        });
+        new SpatialPart(this, {cameraPosition: {
+            position: viewOptions.cameraPosition,
+            quaternion: viewOptions.cameraQuaternion
+        }}, {id: "cameraPosition"});
+        new TrackSpatial(this, {source: "this.cameraPosition", affects: "camera"});
+        if (viewOptions.activeParticipant) {
             new PointerViewPart(this, {scenePartName: "roomScene"});
-            new TreadmillNavigation(this);
+            new TreadmillNavigation(this, {scenePartName: "roomScene"});
+            new TrackSpatial(this, {source: "this.cameraPosition", affects: "treadmillNavigation", id: "trackTreadmill"});
         }
     }
 }
@@ -48,6 +59,12 @@ class RoomScene extends Object3D {
 }
 
 class ObjectViewManager extends ViewPart {
+    fromOptions(options) {
+        options = {scenePartName: "scene", ...options};
+        super.fromOptions(options);
+        this.scenePart = this.owner.parts[options.scenePartName];
+    }
+
     /** @arg {Room} room */
     attach(room) {
         this.viewsForObjects = {};
@@ -67,12 +84,12 @@ class ObjectViewManager extends ViewPart {
         const view = new ManipulatorView(this.owner.island, {wrappedView: innerView});
         this.viewsForObjects[object.id] = view;
         view.attach(object);
-        view.addToThreeParent(this.owner.parts.scene.scene);
+        view.addToThreeParent(this.scenePart.threeObj);
     }
 
     onObjectRemoved(object) {
         const view = this.viewsForObjects[object.id];
-        view.removeFromThreeParent(this.owner.parts.scene.scene);
+        view.removeFromThreeParent(this.scenePart.threeObj);
         view.onDetach();
         delete this.viewsForObjects[object.id];
     }
@@ -80,10 +97,14 @@ class ObjectViewManager extends ViewPart {
 
 class TreadmillNavigation extends Object3D {
     constructor(owner, options) {
-        options = {cameraPartName: "camera", ...options};
+        options = {cameraPartName: "camera", scenePartName: "scene", affects: "cameraPosition", ...options};
         super(owner, options);
         /** @type {CameraViewPart} */
         this.cameraPart = owner.parts[options.cameraPartName];
+        /** @type {RoomScene} */
+        this.scenePart = owner.parts[options.scenePartName];
+        /** @type {SpatialPart} */
+        this.affectedSpatial = owner.parts[options.affects];
     }
 
     attachWithObject3D(_modelState) {
@@ -122,6 +143,8 @@ class TreadmillNavigation extends Object3D {
         this.subscribe(PointerEvents.pointerDown, "onDragTreadmillStart");
         this.subscribe(PointerEvents.pointerDrag, "onDragTreadmill");
 
+        this.scenePart.threeObj.add(group);
+
         return group;
     }
 
@@ -154,14 +177,14 @@ class TreadmillNavigation extends Object3D {
 
     onDragTreadmill({dragStart, dragEndOnHorizontalPlane, dragStartThreeObj}) {
         if (dragStartThreeObj === this.treadmillForwardStrip) {
-            this.owner.model.spatial.moveTo(this.threeObj.position.clone().sub(dragEndOnHorizontalPlane.clone().sub(dragStart)));
+            this.affectedSpatial.moveTo(this.threeObj.position.clone().sub(dragEndOnHorizontalPlane.clone().sub(dragStart)));
             this.moveCursor.position.copy(this.threeObj.worldToLocal(dragEndOnHorizontalPlane.clone()));
         } else {
             const delta = (new THREE.Quaternion()).setFromUnitVectors(
                 dragEndOnHorizontalPlane.clone().sub(this.threeObj.position.clone().setY(dragStart.y)).normalize(),
                 dragStart.clone().sub(this.threeObj.position.clone().setY(dragStart.y)).normalize()
             );
-            this.owner.model.spatial.rotateTo(this.threeObj.quaternion.clone().multiply(delta));
+            this.affectedSpatial.rotateTo(this.threeObj.quaternion.clone().multiply(delta));
             this.rotateCursor.position.copy(this.threeObj.worldToLocal(dragEndOnHorizontalPlane.clone()));
             const deltaCursor = (new THREE.Quaternion()).setFromUnitVectors(
                 this.threeObj.getWorldDirection(new THREE.Vector3()),
@@ -174,6 +197,6 @@ class TreadmillNavigation extends Object3D {
     // TODO: this and its callsite is very ad-hoc
     onWheel(event) {
         const multiplier = 0.01;
-        this.owner.model.spatial.moveBy(new THREE.Vector3(event.deltaX * multiplier, 0, event.deltaY * multiplier).applyQuaternion(this.threeObj.quaternion), false);
+        this.affectedSpatial.moveBy(new THREE.Vector3(event.deltaX * multiplier, 0, event.deltaY * multiplier).applyQuaternion(this.threeObj.quaternion), false);
     }
 }

@@ -1,7 +1,7 @@
 import Model from '../model.js';
-import ChildrenPart from '../modelParts/children.js';
-import ColorPart from '../modelParts/color.js';
-import SizePart from '../modelParts/size.js';
+import ChildrenPart from '../stateParts/children.js';
+import ColorPart from '../stateParts/color.js';
+import SizePart from '../stateParts/size.js';
 
 export default class Room extends Model {
     buildParts(state = {}) {

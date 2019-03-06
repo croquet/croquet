@@ -1,4 +1,4 @@
-import Part, { PartOwner } from "./parts.js";
+import { PartOwner } from "./parts.js";
 import Island from "./island.js";
 
 if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
@@ -8,12 +8,15 @@ export const ModelEvents = {
     destroyed: "model-destroyed"
 };
 
-/** @extends {PartOwner<ModelPart>} */
+/** @typedef {import('./statePart').default} StatePart */
+
+/** @extends {PartOwner<StatePart>} */
 export default class Model extends PartOwner {
     // mark this and subclasses as model classes
     // used in island.js:modelFromState
     static __isTeatimeModelClass__() { return true; }
 
+    /** @returns {Island} */
     get island() { return Island.current(); }
 
     // LIFECYCLE
@@ -40,6 +43,27 @@ export default class Model extends PartOwner {
         this.island.deregisterModel(this.id);
     }
 
+    // PUB/SUB
+    subscribePart(scope, part, event, subscribingPartId, methodName) {
+        const fullScope = part ? `${scope}.${part}` : scope;
+        this.island.addModelSubscription(fullScope, event, this.id, subscribingPartId, methodName);
+    }
+
+    unsubscribePart(scope, part, event, subscribingPartId, methodName) {
+        const fullScope = part ? `${scope}.${part}` : scope;
+        this.island.removeModelSubscription(fullScope, event, this.id, subscribingPartId, methodName);
+    }
+
+    publish(scope, part, event, data) {
+        const fullScope = part ? `${scope}.${part}` : scope;
+        this.island.publishFromModel(fullScope, event, data);
+    }
+
+    // FUTURE
+    futureProxy(tOffset=0, partId) {
+        return this.island.futureProxy(tOffset, this, partId);
+    }
+
     // STATE
     toState(state) {
         state.className = this.constructor.name;
@@ -59,52 +83,4 @@ export default class Model extends PartOwner {
     // NATURAL VIEW
     /** @abstract */
     naturalViewClass(_viewContext) { }
-}
-
-/** @extends {Part<Model>} */
-export class ModelPart extends Part {
-    get island() { return this.owner.island; }
-
-    constructor(owner, fullState, options) {
-        super(owner, options);
-        this.fromState(fullState[this.partId], options);
-    }
-
-    /** @abstract */
-    fromState(_state, _options) {}
-
-    /** second init pass: wire up objects */
-    /** @arg {Object} _state */
-    /** @arg {Object} _objectsByID */
-    restoreObjectReferences(_state, _objectsByID) {}
-
-    // PUB/SUB
-    subscribe(event, methodName, scope=this.owner.id, part=this.partId) {
-        const fullScope = part ? `${scope}.${part}` : scope;
-        this.island.addModelSubscription(fullScope, event, this.owner.id, this.partId, methodName);
-    }
-
-    unsubscribe(event, methodName, scope=this.owner.id, part=this.partId) {
-        const fullScope = part ? `${scope}.${part}` : scope;
-        this.island.removeModelSubscription(fullScope, event, this.owner.id, this.partId, methodName);
-    }
-
-    publish(event, data, scope=this.owner.id, part=this.partId) {
-        const fullScope = part ? `${scope}.${part}` : scope;
-        this.island.publishFromModel(fullScope, event, data);
-    }
-
-    // FUTURE
-    future(tOffset=0) {
-        return this.island.futureProxy(tOffset, this.owner, this.partId);
-    }
-
-    // for setting type of arguments in future messages
-    ensure(object, cls) {
-        if (object instanceof cls) return;
-        Object.setPrototypeOf(object, cls.prototype);
-    }
-
-    // STATE
-    toState(_state) { }
 }

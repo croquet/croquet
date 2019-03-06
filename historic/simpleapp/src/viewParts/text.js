@@ -4,7 +4,7 @@ import Shader from 'three-bmfont-text/shaders/msdf.js';
 import Object3D from "./object3D.js";
 import LazyObject3D from "../util/lazyObject3D.js";
 import { ViewPart } from '../view.js';
-import { TextEvents } from '../modelParts/text.js';
+import { TextEvents } from '../stateParts/text.js';
 
 if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
 

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import hotreload from "./hotreload.js";
 import initRoom1 from './sampleRooms/room1.js';
-import RoomView from './room/view.js';
+import RoomView from './room/roomView.js';
 import initRoom2 from './sampleRooms/room2.js';
 
 if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
@@ -17,9 +17,9 @@ function start() {
 
     const activeRoomViews = {};
 
-    /** @type {import('./room/model').default} */
+    /** @type {import('./room/roomModel').default} */
     let currentRoom = null;
-    /** @type {import('./room/view').default} */
+    /** @type {import('./room/roomView').default} */
     let currentRoomView = null;
 
     function joinRoom(roomName) {
@@ -33,18 +33,21 @@ function start() {
         const room = ALL_ROOMS[roomName].room;
 
         if (!activeRoomViews[roomName]) {
-            const roomView = new RoomView(island, {activeParticipant: true});
+            const roomView = new RoomView(island, {
+                activeParticipant: true,
+                width: window.innerWidth,
+                height: window.innerHeight,
+                cameraPosition: new THREE.Vector3(0, 2, 5)
+            });
             roomView.attach(room);
+            activeRoomViews[roomName] = roomView;
         }
 
         currentRoom = room;
         currentRoomView = activeRoomViews[roomName];
     }
 
-    joinRoom(
-        hotState.currentRoomName || window.location.hash.replace("#", "") || "room1",
-        hotState.observerId
-    );
+    joinRoom(hotState.currentRoomName || window.location.hash.replace("#", "") || "room1");
 
     const renderer = hotState.renderer || new THREE.WebGLRenderer();
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -54,8 +57,8 @@ function start() {
 
     let before = Date.now();
     function frame() {
-        if (currentRoom) {
-            renderer.render(currentRoomView.parts.scene.scene, currentRoomView.parts.camera.threeObj);
+        if (currentRoomView) {
+            renderer.render(currentRoomView.parts.roomScene.threeObj, currentRoomView.parts.camera.threeObj);
             currentRoomView.parts.pointer.updatePointer();
         }
         const now = Date.now();

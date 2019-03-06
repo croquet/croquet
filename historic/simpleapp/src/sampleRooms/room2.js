@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import Island from "../island.js";
-import Room from "../room/model.js";
+import Room from "../room/roomModel.js";
 
 export default function initRoom2(state) {
     let room;

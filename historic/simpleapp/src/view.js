@@ -19,15 +19,19 @@ export default class View extends PartOwner {
     attach(modelState) {
         this.modelId = modelState.id;
         for (const partId of Object.keys(this.parts)) {
-            this.parts[partId].attach(modelState);
+            if (this.parts[partId] instanceof ViewPart) {
+                this.parts[partId].attach(modelState);
+            }
         }
     }
 
     detach() {
         for (const partId of Object.keys(this.parts)) {
-            this.parts[partId].detach();
-            if (!this.parts[partId].superDetachedCalled) {
-                throw new Error("super.detach() wasn't called by " + Object.prototype(this.parts[partId]).constructor.name + ".detach()");
+            if (this.parts[partId] instanceof ViewPart) {
+                this.parts[partId].detach();
+                if (!this.parts[partId].superDetachedCalled) {
+                    throw new Error("super.detach() wasn't called by " + Object.prototype(this.parts[partId]).constructor.name + ".detach()");
+                }
             }
         }
     }
@@ -66,6 +70,22 @@ export default class View extends PartOwner {
             }
         });
     }
+
+    // PUB/SUB
+    subscribePart(scope, part, event, subscribingPartId, methodName) {
+        const fullScope = scope + (part ? "." + part : "");
+        this.island.addViewSubscription(fullScope, event, this.id, subscribingPartId, methodName);
+    }
+
+    unsubscribePart(scope, part, event, subscribingPartId, methodName) {
+        const fullScope = scope + (part ? "." + part : "");
+        this.island.removeViewSubscription(fullScope, event, this.id, subscribingPartId, methodName);
+    }
+
+    publish(scope, part, event, data) {
+        const fullScope = scope + (part ? "." + part : "");
+        this.island.publishFromView(fullScope, event, data);
+    }
 }
 
 /** @extends Part<View> */
@@ -94,18 +114,15 @@ export class ViewPart extends Part {
 
     // PUB/SUB
     subscribe(event, methodName, scope=this.owner.id, part=this.partId) {
-        const fullScope = scope + (part ? "." + part : "");
-        this.owner.island.addViewSubscription(fullScope, event, this.owner.id, this.partId, methodName);
+        this.owner.subscribePart(scope, part, event, this.partId, methodName);
     }
 
     unsubscribe(event, methodName, scope=this.owner.id, part=this.partId) {
-        const fullScope = scope + (part ? "." + part : "");
-        this.owner.island.removeViewSubscription(fullScope, event, this.owner.id, this.partId, methodName);
+        this.owner.unsubscribePart(scope, part, event, this.partId, methodName);
     }
 
     publish(event, data, scope=this.owner.id, part=this.partId) {
-        const fullScope = scope + (part ? "." + part : "");
-        this.owner.island.publishFromView(fullScope, event, data);
+        this.owner.publish(scope, part, event, data);
     }
 
     asViewPartRef() {

@@ -1,7 +1,7 @@
 /** @module spatialPart */
 
 import * as THREE from 'three';
-import {ModelPart} from '../model.js';
+import StatePart from "../statePart.js";
 
 if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
 
@@ -12,9 +12,9 @@ export const SpatialEvents = {
 
 /**
  * @class SpatialPart
- * @extends ModelPart
+ * @extends StatePart
  */
-export default class SpatialPart extends ModelPart {
+export default class SpatialPart extends StatePart {
     fromState(state={}) {
         /** @type {THREE.Vector3} */
         this.position = state.position || new THREE.Vector3(0, 0, 0);

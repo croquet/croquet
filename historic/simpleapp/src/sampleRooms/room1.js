@@ -1,12 +1,13 @@
 import * as THREE from 'three';
 import Island from '../island.js';
-import Room from "../room/model.js";
-import Model, {ModelPart} from '../model.js';
-import SpatialPart from '../modelParts/spatial.js';
-import InertialSpatialPart from '../modelParts/inertialSpatial.js';
-import BouncingSpatialPart from '../modelParts/bouncingSpatial.js';
+import Room from "../room/roomModel.js";
+import Model from '../model.js';
+import StatePart from "../statePart.js";
+import SpatialPart from '../stateParts/spatial.js';
+import InertialSpatialPart from '../stateParts/inertialSpatial.js';
+import BouncingSpatialPart from '../stateParts/bouncingSpatial.js';
 import View from '../view.js';
-import TextPart from '../modelParts/text.js';
+import TextPart from '../stateParts/text.js';
 import TextViewPart, { TrackText } from '../viewParts/text.js';
 import Object3D, { Object3DGroup } from '../viewParts/object3D.js';
 import DraggableViewPart from '../viewParts/draggable.js';
@@ -22,7 +23,7 @@ export class BouncingBox extends Model {
     naturalViewClass() { return BoxView; }
 }
 
-class AutoRotate extends ModelPart {
+class AutoRotate extends StatePart {
     constructor(owner, state, options) {
         options = {target: "spatial", ...options};
         super(owner, options);

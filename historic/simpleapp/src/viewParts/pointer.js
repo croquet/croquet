@@ -26,7 +26,7 @@ export default class PointerViewPart extends ViewPart {
     fromOptions(options) {
         options = {cameraPartName: "camera", scenePartName: "scene", ...options};
         this.cameraPart = this.owner.parts[options.cameraPartName];
-        this.scenePart = this.owner.parts[options.scenePart];
+        this.scenePart = this.owner.parts[options.scenePartName];
         this.mouse = new THREE.Vector2();
         this.raycaster = new THREE.Raycaster();
         this.hoveredViewPart = null;

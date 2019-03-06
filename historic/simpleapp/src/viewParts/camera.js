@@ -5,6 +5,7 @@ if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`
 
 export default class CameraViewPart extends Object3D {
     fromOptions(options) {
+        super.fromOptions(options);
         this.width = options.width;
         this.height = options.height;
     }

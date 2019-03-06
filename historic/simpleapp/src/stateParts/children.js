@@ -1,4 +1,4 @@
-import { ModelPart } from "../model.js";
+import StatePart from "../statePart.js";
 
 if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
 
@@ -7,7 +7,7 @@ export const ChildEvents = {
     childRemoved: "child-removed",
 };
 
-export default class ChildrenPart extends ModelPart {
+export default class ChildrenPart extends StatePart {
     fromState(_state, _options) {
         this.children = new Set();
     }

@@ -1,4 +1,4 @@
-import { ModelPart } from "../model.js";
+import StatePart from "../statePart.js";
 
 if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
 
@@ -7,7 +7,7 @@ export const TextEvents = {
     fontChanged: 'text-fontChanged'
 };
 
-export default class TextPart extends ModelPart {
+export default class TextPart extends StatePart {
     fromState(state={}) {
         this.content = state.content || "";
         this.font = state.font || "Barlow";
