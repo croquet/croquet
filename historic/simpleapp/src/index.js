@@ -9,7 +9,8 @@ const LOG_HOTRELOAD = false;
 const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
-let hotState = module.hot && module.hot.data && module.hot.data.hotState || {};
+let hotState = module.hot && module.hot.data || {};
+if (typeof hotState.rooms === "string") hotState.rooms = JSON.parse(hotState.rooms);
 
 /** The main function. */
 function start() {
@@ -183,19 +184,19 @@ function start() {
                 roomView.detach();
             }
             // preserve state, will be available as module.hot.data after reload
-            hotData.hotState = {
-                renderer,
-                rooms: {},
-                currentRoomName: window.location.hash.replace("#", ""),
-            };
-
-            for (const roomName of Object.keys(ALL_ROOMS)) {
-                const room = ALL_ROOMS[roomName];
-                hotData.hotState.rooms[roomName] = {
+            const rooms = {};
+            for (const [roomName, room] of Object.entries(ALL_ROOMS)) {
+                rooms[roomName] = {
                     island: room.island.asState(),
                     room: room.room.id,
                 };
             }
+            Object.assign(hotData, {
+                renderer,
+                rooms: JSON.stringify(rooms),   // stringify to catch problems
+                currentRoomName: window.location.hash.replace("#", ""),
+            });
+
         });
         // start logging module loads
         if (LOG_HOTRELOAD && !module.bundle.v) module.bundle.v = 1;
@@ -206,7 +207,7 @@ if (module.hot) {
     // no module.hot.accept(), to force reloading of all dependencies
     // but preserve hotState
     module.hot.dispose(hotData => {
-        hotData.hotState = hotState;
+        Object.assign(hotData, hotState);
         hotreload.dispose(); // specifically, cancel our delayed start()
     });
 }
