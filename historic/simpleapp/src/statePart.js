@@ -45,7 +45,7 @@ export default class StatePart extends Part {
     ensure(object, cls) {
         if (object instanceof cls) return;
         Object.setPrototypeOf(object, cls.prototype);
-    }
+   }
 
     // STATE
     toState(_state) { }

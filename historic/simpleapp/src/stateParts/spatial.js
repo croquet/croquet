@@ -22,6 +22,9 @@ export default class SpatialPart extends StatePart {
         /** @type {THREE.Quaternion} */
         this.quaternion = state.quaternion || new THREE.Quaternion();
         this.scale = state.scale || new THREE.Vector3(1, 1, 1);
+        this.ensure(this.position, THREE.Vector3);
+        this.ensure(this.scale, THREE.Vector3);
+        this.ensure(this.quaternion, THREE.Quaternion);
     }
 
     /** @arg {THREE.Vector3} position */
