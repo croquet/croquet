@@ -1,5 +1,6 @@
 import SeedRandom from "seedrandom";
 import PriorityQueue from "./util/priorityQueue.js";
+import hotreload from "./hotreload.js";
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
@@ -354,7 +355,7 @@ class Message {
 // https://github.com/parcel-bundler/parcel/pull/2660/
 
 // map model class names to model classes
-const ModelClasses = {};
+let ModelClasses = {};
 
 function modelClassNamed(className) {
     if (ModelClasses[className]) return ModelClasses[className];
@@ -367,3 +368,6 @@ function modelClassNamed(className) {
     if (ModelClasses[className]) return ModelClasses[className];
     throw new Error(`Class "${className}" not found, is it exported?`);
 }
+
+// flush ModelClasses after hot reload
+hotreload.addDisposeHandler(module.id, () => ModelClasses = {});
