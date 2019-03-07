@@ -1,8 +1,8 @@
 import SeedRandom from "seedrandom";
-import hotreload from "./hotreload.js";
 import PriorityQueue from "./util/priorityQueue.js";
 
-if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
+const moduleVersion = `${module.id}#${module.bundle.v||0}`;
+if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
 let viewID = 0;
 let CurrentIsland = null;
@@ -14,17 +14,14 @@ Math.random = () => {
 };
 
 // this is the only place allowed to change CurrentIsland
-const hotIsland = module.hot && module.hot.data && module.hot.data.setCurrent;
 function execOnIsland(island, fn) {
     if (CurrentIsland) throw Error("Island confusion");
     if (!(island instanceof Island)) throw Error("not an island: " + island);
     const previousIsland = CurrentIsland;
     try {
-        if (hotIsland) hotIsland(island);
         CurrentIsland = island;
         fn();
     } finally {
-        if (hotIsland) hotIsland(previousIsland);
         CurrentIsland = previousIsland;
     }
 }
@@ -96,21 +93,14 @@ export default class Island {
     }
 
     // This will become in-directed via the Reflector
-    callModelMethod(modelId, part, method, args) {
-        const model = this.modelsById[modelId];
-        execOnIsland(this, () => {
-            if (part) {
-                model.parts[part][method](...args);
-            } else {
-                model[method](...args);
-            }
-        });
+    callModelMethod(modelId, partId, selector, args) {
+        execOnIsland(this, () => this.futureSend(0, modelId, partId, selector, args));
     }
 
-    futureSend(tOffset, receiver, partID, selector, args) {
+    futureSend(tOffset, receiverID, partID, selector, args) {
+        if (CurrentIsland !== this) throw Error("Island Error");
         if (tOffset < 0) throw Error("attempt to send future message into the past");
-        if (this.modelsById[receiver.id] !== receiver) throw Error("future send to unregistered model");
-        const message = new Message(this.time + tOffset, ++this.timeSeq, receiver.id, partID, selector, args);
+        const message = new Message(this.time + tOffset, ++this.timeSeq, receiverID, partID, selector, args);
         this.messages.add(message);
         // make sure sequence counter does not roll over
         // rethink this when router is stimestamping
@@ -122,7 +112,7 @@ export default class Island {
     }
 
     // Convert model.parts[partID].future(tOffset).property(...args)
-    // into this.futureSend(tOffset, model, partID, "property", args)
+    // into this.futureSend(tOffset, model.id, partID, "property", args)
     futureProxy(tOffset, model, partID) {
         if (CurrentIsland !== this) throw Error("Island Error");
         const island = this;
@@ -132,7 +122,8 @@ export default class Island {
                 if (typeof object[property] === "function") {
                     const methodProxy = new Proxy(object[property], {
                         apply(_method, _this, args) {
-                            island.futureSend(tOffset, model, partID, property, args);
+                            if (island.modelsById[model.id] !== model) throw Error("future send to unregistered model");
+                            island.futureSend(tOffset, model.id, partID, property, args);
                         }
                     });
                     return methodProxy;
@@ -143,6 +134,7 @@ export default class Island {
     }
 
     advanceTo(time) {
+        if (CurrentIsland) throw Error("Island Error");
         let message;
         while ((message = this.messages.peek()) && message.time <= time) {
             if (message.time < this.time) throw Error("past message encountered: " + message);
@@ -183,13 +175,25 @@ export default class Island {
         if (this.viewSubscriptions[topic]) this.viewSubscriptions[topic].delete(handler);
     }
 
+    removeAllViewSubscriptionsFor(subscriberId, part) {
+        const handlerPrefix = subscriberId + "." + part;
+        // TODO: optimize this - reverse lookup table?
+        for (const topicSubscribers of Object.values(this.viewSubscriptions)) {
+            for (const handler of topicSubscribers) {
+                if (handler.startsWith(handlerPrefix)) {
+                    topicSubscribers.delete(handler);
+                }
+            }
+        }
+    }
+
     publishFromModel(scope, event, data) {
         if (CurrentIsland !== this) throw Error("Island Error");
         const topic = scope + ":" + event;
         if (this.modelSubscriptions[topic]) {
             for (const handler of this.modelSubscriptions[topic]) {
-                const [subscriberId, part, method] = handler.split(".");
-                this.callModelMethod(subscriberId, part, method, [data]);
+                const [subscriberId, partID, selector] = handler.split(".");
+                this.futureSend(0, subscriberId, partID, selector, data ? [data] : []);
             }
         }
         // To ensure model code is executed bit-identically everywhere, we have to notify views
@@ -198,6 +202,7 @@ export default class Island {
     }
 
     processModelViewEvents() {
+        if (CurrentIsland) throw Error("Island Error");
         while (this.modelViewEvents.length > 0) {
             const { scope, event, data } = this.modelViewEvents.pop();
             this.publishFromView(scope, event, data);
@@ -244,6 +249,38 @@ export default class Island {
 }
 
 
+// Message encoders / decoders
+
+
+const XYZ = {
+    encode: a => [a[0].x, a[0].y, a[0].z],
+    decode: a => [{ x: a[0], y: a[1], z: a[2] }],
+};
+
+const XYZW = {
+    encode: a => [a[0].x, a[0].y, a[0].z, a[0].w],
+    decode: a => [{ x: a[0], y: a[1], z: a[2], w: a[3] }],
+};
+
+const transcoders = {
+    "*.moveTo": XYZ,
+    "*.rotateTo": XYZW,
+};
+
+function encode(part, selector, args) {
+    if (args.length === 0) return args;
+    const transcoder = transcoders[`${part}.${selector}`] || transcoders[`*.${selector}`] || transcoders['*'];
+    if (!transcoder) throw Error(`No transcoder defined for ${part}.${selector}`);
+    return transcoder.encode(args);
+}
+
+function decode(part, selector, encoded) {
+    if (encoded.length === 0) return encoded;
+    const transcoder = transcoders[`${part}.${selector}`] || transcoders[`*.${selector}`] || transcoders['*'];
+    if (!transcoder) throw Error(`No transcoder defined for ${part}.${selector}`);
+    return transcoder.decode(encoded);
+}
+
 class Message {
     constructor(time, seq, receiver, part, selector, args) {
         this.time = time;
@@ -251,7 +288,7 @@ class Message {
         this.receiver = receiver;
         this.part = part;
         this.selector = selector;
-        this.args = JSON.parse(JSON.stringify(args));   // make sure args can be serialized
+        this.args = encode(part, selector, args);   // make sure args can be serialized
     }
 
     before(other) {
@@ -266,12 +303,14 @@ class Message {
 
     static fromState(state) {
         const [time, seq, receiver, part, selector, args] = state;
-        return new Message(time, seq, receiver, part, selector, args);
+        const decoded = decode(part, selector, args);
+        return new Message(time, seq, receiver, part, selector, decoded);
     }
 
     executeOn(island) {
         const {receiver, part, selector, args} = this;
-        execOnIsland(island, () => island.modelsById[receiver].parts[part][selector](...args));
+        const decoded = decode(part, selector, args);
+        execOnIsland(island, () => island.modelsById[receiver].parts[part][selector](...decoded));
     }
 }
 
@@ -280,7 +319,7 @@ class Message {
 // https://github.com/parcel-bundler/parcel/pull/2660/
 
 // map model class names to model classes
-let ModelClasses = {};
+const ModelClasses = {};
 
 function modelClassNamed(className) {
     if (ModelClasses[className]) return ModelClasses[className];
@@ -292,14 +331,4 @@ function modelClassNamed(className) {
     }
     if (ModelClasses[className]) return ModelClasses[className];
     throw new Error(`Class "${className}" not found, is it exported?`);
-}
-
-
-hotreload.addDisposeHandler(module.id, () => ModelClasses = {});
-
-if (module.hot) {
-    // this is a workaround for our implicit dependency on model.js:
-    // Since model.js might refer to an old version of this module,
-    // we set CurrentIsland in both the current and previous module version
-    module.hot.dispose(hotData => hotData.setCurrent = island => CurrentIsland = island);
 }

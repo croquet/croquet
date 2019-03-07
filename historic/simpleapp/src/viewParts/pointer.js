@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { ViewPart } from '../view.js';
 
-if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
+const moduleVersion = `${module.id}#${module.bundle.v||0}`;
+if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
 export const PointerEvents = {
     pointerEnter: "pointer-enter",
@@ -24,8 +25,9 @@ export function ignorePointer(threeObj) {
 
 export default class PointerViewPart extends ViewPart {
     fromOptions(options) {
-        options = {cameraPartName: "camera", ...options};
+        options = {cameraPartName: "camera", scenePartName: "scene", ...options};
         this.cameraPart = this.owner.parts[options.cameraPartName];
+        this.scenePart = this.owner.parts[options.scenePartName];
         this.mouse = new THREE.Vector2();
         this.raycaster = new THREE.Raycaster();
         this.hoveredViewPart = null;
@@ -73,7 +75,7 @@ export default class PointerViewPart extends ViewPart {
         }
     }
 
-    updatePointer(scene) {
+    updatePointer() {
         this.raycaster.setFromCamera(this.mouse, this.cameraPart.threeObj);
         if (this.draggedViewPart) {
             const newVerticalDragPoint = this.raycaster.ray.intersectPlane(this.draggingVerticalPlane, new THREE.Vector3()) || this.dragStartPoint;
@@ -92,7 +94,7 @@ export default class PointerViewPart extends ViewPart {
             );
         }
         else {
-            const intersects = this.raycaster.intersectObject(scene, true);
+            const intersects = this.raycaster.intersectObject(this.scenePart.threeObj, true);
             // look up effective THREE userData by traversing each intersected
             // object's parent chain until we find one
             for (const intersect of intersects) {

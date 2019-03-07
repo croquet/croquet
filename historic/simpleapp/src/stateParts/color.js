@@ -1,13 +1,14 @@
 import * as THREE from 'three';
-import { ModelPart } from "../model.js";
+import StatePart from "../statePart.js";
 
-if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
+const moduleVersion = `${module.id}#${module.bundle.v||0}`;
+if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
 const ColorEvents = {
     changed: 'color-changed'
 };
 
-export default class ColorPart extends ModelPart {
+export default class ColorPart extends StatePart {
     fromState(state={}) {
         this.value = state.value || new THREE.Color("#dddddd");
     }

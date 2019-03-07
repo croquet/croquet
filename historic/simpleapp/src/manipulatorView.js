@@ -7,7 +7,8 @@ import Object3D from "./viewParts/object3D.js";
 import View, { ViewPart } from "./view.js";
 import TrackSpatial from "./viewParts/trackSpatial.js";
 
-if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
+const moduleVersion = `${module.id}#${module.bundle.v||0}`;
+if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
 class WrappedViewViewPart extends ViewPart {
     /** @param {import('./view').default} wrappedView */

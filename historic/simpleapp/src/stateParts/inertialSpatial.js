@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import SpatialPart from './spatial.js';
 
-if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
+const moduleVersion = `${module.id}#${module.bundle.v||0}`;
+if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
 /** A spatial model with inertia */
 export default class InertialSpatialPart extends SpatialPart {
@@ -31,6 +32,7 @@ export default class InertialSpatialPart extends SpatialPart {
     }
 
     moveTo(newPosition, addInertia=true) {
+        this.ensure(newPosition, THREE.Vector3); // HACK for future message
         const positionBefore = this.position.clone();
         super.moveTo(newPosition);
         const delta = newPosition.sub(positionBefore);
@@ -45,6 +47,7 @@ export default class InertialSpatialPart extends SpatialPart {
     }
 
     rotateTo(quaternion, addInertia=true) {
+        this.ensure(quaternion, THREE.Quaternion); // HACK for future message
         const deltaQuaternion = quaternion.clone().multiply(this.quaternion.clone().inverse());
         super.rotateTo(quaternion);
         if (addInertia) this.estimatedRotationalVelocity.copy(this.estimatedRotationalVelocity.clone().slerp(deltaQuaternion, 0.3));

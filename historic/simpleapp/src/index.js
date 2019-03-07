@@ -1,181 +1,65 @@
 import * as THREE from 'three';
-import Island from './island.js';
-import Model, {ModelPart} from './model.js';
-import SpatialPart from './modelParts/spatial.js';
-import { Room, RoomView } from './room.js';
-import { Observer, PointingObserverCameraView } from './observer.js';
-import InertialSpatialPart from './modelParts/inertialSpatial.js';
-import BouncingSpatialPart from './modelParts/bouncingSpatial.js';
-import View from './view.js';
 import hotreload from "./hotreload.js";
-import TextPart from './modelParts/text.js';
-import TextViewPart, { TrackText } from './viewParts/text.js';
-import Object3D, { Object3DGroup } from './viewParts/object3D.js';
-import DraggableViewPart from './viewParts/draggable.js';
-import TrackSpatial from './viewParts/trackSpatial.js';
-import { LayoutRoot, LayoutContainer, LayoutSlotStretch3D, LayoutSlotText } from './viewParts/layout.js';
-import { fontRegistry } from './viewParts/text.js';
+import initRoom1 from './sampleRooms/room1.js';
+import RoomView from './room/roomView.js';
+import initRoom2 from './sampleRooms/room2.js';
+import initRoom3 from './sampleRooms/room3.js';
+import {fontRegistry} from './viewParts/text.js';
 
-if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
+const LOG_HOTRELOAD = false;
 
-/** Model for a Bouncing Box */
-export class BouncingBox extends Model {
-    buildParts(state) {
-        new BouncingSpatialPart(this, state);
-    }
+const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
+if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
-    naturalViewClass() { return BoxView; }
-}
-
-class AutoRotate extends ModelPart {
-    constructor(owner, state, options) {
-        options = {target: "spatial", ...options};
-        super(owner, options);
-        /** @type {SpatialPart} */
-        this.spatialPart = owner.parts[options.target];
-        // kick off rotation only (!) if created from scratch
-        if (!state[this.partId]) this.doRotation();
-        // otherwise, future message is still scheduled
-    }
-
-    doRotation() {
-        this.spatialPart.rotateBy((new THREE.Quaternion()).setFromAxisAngle(new THREE.Vector3(0, 1, 0), 0.01));
-        this.future(1000/60).doRotation();
-    }
-}
-
-/** Model for a rotating Box */
-export class RotatingBox extends Model {
-    buildParts(state) {
-        new InertialSpatialPart(this, state);
-        new AutoRotate(this, state);
-    }
-
-    naturalViewClass() { return BoxView; }
-}
-
-/** Model for a simple text display */
-export class Text extends Model {
-    buildParts(state) {
-        new TextPart(this, state);
-        new SpatialPart(this, state);
-    }
-
-    naturalViewClass() { return TextView; }
-}
-
-/** View for a Box */
-class BoxViewPart extends Object3D {
-    fromOptions(options) {
-        options = {color: "#aaaaaa", ...options};
-        super.fromOptions(options);
-        this.color = options.color;
-    }
-
-    attachWithObject3D(_modelState) {
-        return new THREE.Mesh(
-            new THREE.BoxBufferGeometry(1, 1, 1),
-            new THREE.MeshStandardMaterial({color: new THREE.Color(this.color)})
-        );
-    }
-}
-
-class BoxView extends View {
-    buildParts() {
-        new BoxViewPart(this);
-        new TrackSpatial(this, {affects: "box"});
-        new DraggableViewPart(this, {dragHandle: "box"});
-    }
-}
-
-/** View for rendering a Text */
-class TextView extends View {
-    buildParts() {
-        new TextViewPart(this, {fontSize: 0.4});
-        new TrackSpatial(this, {affects: "text"});
-        new TrackText(this);
-    }
-}
-
-export class LayoutTestModel extends Model {
-    buildParts(state) {
-        new SpatialPart(this, state);
-    }
-
-    naturalViewClass() {
-        return LayoutTestView;
-    }
-}
-
-class LayoutTestView extends View {
-    buildParts() {
-        new BoxViewPart(this, {id: "box1", color: "#dd8888"});
-        new BoxViewPart(this, {id: "box2", color: "#dddd88"});
-        new BoxViewPart(this, {id: "box3", color: "#88dd88"});
-        new TextViewPart(this, {id: "text1", fontSize: 0.19, content: `Our first design for multiple inheritance presumed that a state variable such as ohms had a meaning independent of the individual perspectives. Hence, it was sensible for it to be owned by the node itself. All perspectives would reference this single variable when referring to resistance. This proved adequate so long as the system designer knew all of the perspectives that might be associated with a given node, and could ensure this uniformity of intended reference.`});
-        new BoxViewPart(this, {id: "box4", color: "#88dddd"});
-        new BoxViewPart(this, {id: "box5", color: "#8888dd"});
-
-        new Object3DGroup(this);
-        new TrackSpatial(this);
-
-        new LayoutRoot(this, {children: [
-            new LayoutContainer(this, {
-                id: "row",
-                flexDirection: "row",
-                alignItems: "stretch",
-                // padding: 0.3,
-                children: [
-                    new LayoutSlotStretch3D(this, {id: "box1layout", affects: "box1", margin: 0.1}),
-                    new LayoutSlotStretch3D(this, {id: "box2layout", affects: "box2", margin: 0.1}),
-                    new LayoutSlotText(this, {id: "text1layout", affects: "text1", margin: 0.1, aspectRatio: 1}),
-                    new LayoutContainer(this, {
-                        id: "columnInRow",
-                        flexDirection: "column",
-                        // padding: 0.1,
-                        children: [
-                            new LayoutSlotStretch3D(this, {id: "box3layout", affects: "box3", margin: 0.1}),
-                            new LayoutSlotStretch3D(this, {id: "box4layout", affects: "box4", margin: 0.1}),
-                            new LayoutSlotStretch3D(this, {id: "box5layout", affects: "box5", margin: 0.1}),
-                        ]
-                    })
-                ]
-            })
-        ]});
-    }
-}
+let hotState = module.hot && module.hot.data && module.hot.data.hotState || {};
 
 /** The main function. */
 function start() {
-    let state = module.hot && module.hot.data && module.hot.data.hotState || {};
 
-    let room;
-    let observer;
+    const ALL_ROOMS = {
+        room1: initRoom1(hotState.rooms && hotState.rooms.room1),
+        room2: initRoom2(hotState.rooms && hotState.rooms.room2),
+        room3: initRoom3(hotState.rooms && hotState.rooms.room3),
+    };
+
+    const activeRoomViews = {};
 
     fontRegistry.getAtlasFor("Barlow").then(() => {
 
-    const island = new Island(state.island, () => {
-        room = new Room();
+    /** @type {import('./room/roomModel').default} */
+    let currentRoom = null;
+    /** @type {import('./room/roomView').default} */
+    let currentRoomView = null;
 
-        const text1 = new Text({
-            spatial: { position: new THREE.Vector3(-3, 1.0, 0) },
-            text: { content: "man is much more than a tool builder... he is an inventor of universes." }
-        });
-        room.parts.objects.add(text1);
+    function joinRoom(roomName) {
+        // leave previous room
+        if (currentRoom) {
+            currentRoomView = null;
+            currentRoom = null;
+        }
 
-        observer = new Observer({
-            spatial: {
-                position: new THREE.Vector3(0, 2, 5),
-            },
-            name: "Guest1"
-        });
-        room.parts.observers.add(observer);
-    });
+        const island = ALL_ROOMS[roomName].island;
+        const room = ALL_ROOMS[roomName].room;
 
-    room = room || island.modelsById[state.room];
-    observer = observer || island.modelsById[state.observer];
+        if (!activeRoomViews[roomName]) {
+            const roomView = new RoomView(island, {
+                activeParticipant: true,
+                width: window.innerWidth,
+                height: window.innerHeight,
+                cameraPosition: new THREE.Vector3(0, 2, 5)
+            });
+            roomView.attach(room);
+            activeRoomViews[roomName] = roomView;
+        }
 
-    let renderer = state.renderer;
+        currentRoom = room;
+        currentRoomView = activeRoomViews[roomName];
+    }
+
+    joinRoom(hotState.currentRoomName || window.location.hash.replace("#", "") || "room1");
+
+
+    let renderer = hotState.renderer;
     if (!renderer) {
 	const canvas = document.createElement('canvas');
 	const context = canvas.getContext("webgl2", {});
@@ -185,78 +69,108 @@ function start() {
 	document.body.appendChild(renderer.domElement);
     }
 
-    state = null; // prevent accidental access below
-
-    const roomView = new RoomView(island, {localObserver: observer});
-    roomView.attach(room);
-
-    const observerView = new PointingObserverCameraView(island, {width: window.innerWidth, height: window.innerHeight});
-    observerView.attach(observer);
-    observerView.addToThreeParent(roomView.parts.scene.scene);
+    hotState = null; // free memory, and prevent accidental access below
 
     let before = Date.now();
     function frame() {
-        renderer.render(roomView.parts.scene.scene, observerView.parts.camera.threeObj);
-        observerView.parts.pointer.updatePointer(roomView.parts.scene.scene);
+        if (currentRoomView) {
+            renderer.render(currentRoomView.parts.roomScene.threeObj, currentRoomView.parts.camera.threeObj);
+            currentRoomView.parts.pointer.updatePointer();
+        }
         const now = Date.now();
-        island.advanceTo(island.time + (now - before));
-        island.processModelViewEvents();
+        for (const room of Object.values(ALL_ROOMS)) {
+            room.island.advanceTo(room.island.time + (now - before));
+            room.island.processModelViewEvents();
+        }
         before = now;
         hotreload.requestAnimationFrame(frame);
     }
 
     hotreload.requestAnimationFrame(frame);
 
-    hotreload.addEventListener(window, "mousemove", event => observerView.parts.pointer.onMouseMove(event.clientX, event.clientY));
-    hotreload.addEventListener(window, "mousedown", event => observerView.parts.pointer.onMouseDown(event));
-    hotreload.addEventListener(window, "mouseup", event => observerView.parts.pointer.onMouseUp(event));
+    hotreload.addEventListener(window, "mousemove", event => {
+        if (currentRoomView) currentRoomView.parts.pointer.onMouseMove(event.clientX, event.clientY);
+    });
+    hotreload.addEventListener(window, "mousedown", event => {
+        if (currentRoomView) currentRoomView.parts.pointer.onMouseDown(event);
+    });
+    hotreload.addEventListener(window, "mouseup", event => {
+        if (currentRoomView) currentRoomView.parts.pointer.onMouseUp(event);
+    });
     hotreload.addEventListener(document.body, "touchstart", event => {
-        observerView.parts.pointer.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
-        observerView.pointer.updatePointer(roomView.parts.scene);
-        observerView.parts.pointer.onMouseDown();
+        if (currentRoomView) {
+            currentRoomView.parts.pointer.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
+            currentRoomView.parts.pointer.updatePointer();
+            currentRoomView.parts.pointer.onMouseDown();
+        }
         event.stopPropagation();
         event.preventDefault();
     }, {passive: false});
 
     hotreload.addEventListener(document.body, "touchmove", event => {
-        observerView.parts.pointer.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
+        if (currentRoomView) {
+            currentRoomView.parts.pointer.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
+        }
     }, {passive: false});
 
     hotreload.addEventListener(document.body, "touchend", event => {
-        observerView.parts.pointer.onMouseUp();
+        if (currentRoomView) {currentRoomView.parts.pointer.onMouseUp();}
         event.stopPropagation();
         event.preventDefault();
     }, {passive: false});
 
     hotreload.addEventListener(document.body, "wheel", event => {
-        observerView.parts.treadmillNavigation.onWheel(event);
+        if (currentRoomView) {currentRoomView.parts.treadmillNavigation.onWheel(event);}
         event.stopPropagation();
         event.preventDefault();
     }, {passive: false});
 
+    hotreload.addEventListener(window, "resize", () => {
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        if (currentRoomView) {currentRoomView.parts.camera.setSize(window.innerWidth, window.innerHeight);}
+    });
+
+    hotreload.addEventListener(window, "hashchange", () => joinRoom(window.location.hash.replace("#", "")));
+
     if (module.hot) {
-        module.hot.accept(() => { });
         // our hot-reload strategy is to reload all the code (meaning no reload
         // handlers in individual modules) but store the complete model state
         // in this dispose handler and restore it in start()
         module.hot.dispose(hotData => {
-            // unregister all callbacks, they refer to old functions
-            hotreload.dispose();
             // release WebGL resources
-            roomView.detach();
-            observerView.detach();
+            for (const roomView of Object.values(activeRoomViews)) {
+                roomView.detach();
+            }
             // preserve state, will be available as module.hot.data after reload
             hotData.hotState = {
                 renderer,
-                island: island.toState(),
-                room: room.id,
-                observer: observer.id,
+                rooms: {},
+                currentRoomName: window.location.hash.replace("#", ""),
             };
+
+            for (const roomName of Object.keys(ALL_ROOMS)) {
+                const room = ALL_ROOMS[roomName];
+                hotData.hotState.rooms[roomName] = {
+                    island: room.island.toState(),
+                    room: room.room.id,
+                };
+            }
         });
         // start logging module loads
-        if (!module.bundle.v) module.bundle.v = 1;
+        if (LOG_HOTRELOAD && !module.bundle.v) module.bundle.v = 1;
     }
     });
 }
 
-start();
+if (module.hot) {
+    // no module.hot.accept(), to force reloading of all dependencies
+    // but preserve hotState
+    module.hot.dispose(hotData => {
+        hotData.hotState = hotState;
+        hotreload.dispose(); // specifically, cancel our delayed start()
+    });
+}
+
+// delay start to let hotreload finish to load all modules
+if (!hotState.renderer) start();
+else hotreload.setTimeout(start, 0);

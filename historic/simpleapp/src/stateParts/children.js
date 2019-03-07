@@ -1,13 +1,14 @@
-import { ModelPart } from "../model.js";
+import StatePart from "../statePart.js";
 
-if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
+const moduleVersion = `${module.id}#${module.bundle.v||0}`;
+if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
 export const ChildEvents = {
     childAdded: "child-added",
     childRemoved: "child-removed",
 };
 
-export default class ChildrenPart extends ModelPart {
+export default class ChildrenPart extends StatePart {
     fromState(_state, _options) {
         this.children = new Set();
     }
@@ -26,7 +27,7 @@ export default class ChildrenPart extends ModelPart {
     }
 
     remove(childModel) {
-        this.children.remove(childModel);
+        this.children.delete(childModel);
         this.publish(ChildEvents.childRemoved, childModel);
     }
 }

@@ -1,22 +1,25 @@
 import { ViewPart } from "../view.js";
-import { SpatialEvents } from '../modelParts/spatial.js';
+import { SpatialEvents } from '../stateParts/spatial.js';
 
-if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
+const moduleVersion = `${module.id}#${module.bundle.v||0}`;
+if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
 export default class TrackSpatial extends ViewPart {
     fromOptions(options) {
-        options = {modelSource: "spatial", affects: "object3D", ...options};
-        this.modelSource = options.modelSource;
+        options = {source: "model.spatial", affects: "object3D", ...options};
+        this.source = options.source;
         /** @type {Object3DView} */
         this.targetViewPart = this.owner.parts[options.affects];
     }
 
     attach(modelState) {
-        const modelPart = modelState.parts[this.modelSource];
-        this.targetViewPart.threeObj.position.copy(modelPart.position);
-        this.targetViewPart.threeObj.quaternion.copy(modelPart.quaternion);
-        this.subscribe(SpatialEvents.moved, "onMoved", modelState.id, this.modelSource);
-        this.subscribe(SpatialEvents.rotated, "onRotated", modelState.id, this.modelSource);
+        const [contextName, partName] = this.source.split(".");
+        const context = contextName === "model" ? modelState : this.owner;
+        const spatialPart = context.parts[partName];
+        this.targetViewPart.threeObj.position.copy(spatialPart.position);
+        this.targetViewPart.threeObj.quaternion.copy(spatialPart.quaternion);
+        this.subscribe(SpatialEvents.moved, "onMoved", context.id, partName );
+        this.subscribe(SpatialEvents.rotated, "onRotated", context.id, partName );
     }
 
     onMoved(newPosition) {

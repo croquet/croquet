@@ -1,9 +1,10 @@
 /** @module spatialPart */
 
 import * as THREE from 'three';
-import {ModelPart} from '../model.js';
+import StatePart from "../statePart.js";
 
-if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
+const moduleVersion = `${module.id}#${module.bundle.v||0}`;
+if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
 export const SpatialEvents = {
     moved: "spatial-moved",
@@ -12,9 +13,9 @@ export const SpatialEvents = {
 
 /**
  * @class SpatialPart
- * @extends ModelPart
+ * @extends StatePart
  */
-export default class SpatialPart extends ModelPart {
+export default class SpatialPart extends StatePart {
     fromState(state={}) {
         /** @type {THREE.Vector3} */
         this.position = state.position || new THREE.Vector3(0, 0, 0);
@@ -36,6 +37,7 @@ export default class SpatialPart extends ModelPart {
     }
 
     rotateTo(quaternion) {
+        this.ensure(quaternion, THREE.Quaternion); // HACK for future message
         this.quaternion.copy(quaternion);
         this.publish(SpatialEvents.rotated, this.quaternion.clone());
     }

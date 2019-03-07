@@ -1,6 +1,7 @@
 import Part, { PartOwner } from './parts.js';
 
-if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
+const moduleVersion = `${module.id}#${module.bundle.v||0}`;
+if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
 /** @extends PartOwner<ViewPart> */
 export default class View extends PartOwner {
@@ -19,13 +20,20 @@ export default class View extends PartOwner {
     attach(modelState) {
         this.modelId = modelState.id;
         for (const partId of Object.keys(this.parts)) {
-            this.parts[partId].attach(modelState);
+            if (this.parts[partId] instanceof ViewPart) {
+                this.parts[partId].attach(modelState);
+            }
         }
     }
 
     detach() {
         for (const partId of Object.keys(this.parts)) {
-            this.parts[partId].detach();
+            if (this.parts[partId] instanceof ViewPart) {
+                this.parts[partId].detach();
+                if (!this.parts[partId].superDetachedCalled) {
+                    throw new Error("super.detach() wasn't called by " + Object.prototype(this.parts[partId]).constructor.name + ".detach()");
+                }
+            }
         }
     }
 
@@ -63,6 +71,40 @@ export default class View extends PartOwner {
             }
         });
     }
+
+    // PUB/SUB
+    subscribePart(scope, part, event, subscribingPartId, methodName) {
+        const fullScope = scope + (part ? "." + part : "");
+        this.island.addViewSubscription(fullScope, event, this.id, subscribingPartId, methodName);
+    }
+
+    unsubscribePart(scope, part, event, subscribingPartId, methodName) {
+        const fullScope = scope + (part ? "." + part : "");
+        this.island.removeViewSubscription(fullScope, event, this.id, subscribingPartId, methodName);
+    }
+
+    publish(scope, part, event, data) {
+        const fullScope = scope + (part ? "." + part : "");
+        this.island.publishFromView(fullScope, event, data);
+    }
+
+    // FUTURE (simplified)
+    futureProxy(tOffset=0, partId) {
+        const object = this.parts[partId];
+        return new Proxy(object, {
+            get(_target, property) {
+                if (typeof object[property] === "function") {
+                    const methodProxy = new Proxy(object[property], {
+                        apply(_method, _this, args) {
+                            setTimeout(() => object[property](...args), tOffset);
+                        }
+                    });
+                    return methodProxy;
+                }
+                throw Error("Tried to call " + property + "() on future of " + Object.getPrototypeOf(object).constructor.name + " which is not a function");
+            }
+        });
+    }
 }
 
 /** @extends Part<View> */
@@ -84,23 +126,22 @@ export class ViewPart extends Part {
     /** @abstract */
     attach(_modelState) {}
 
-    /** @abstract */
-    detach() {}
+    detach() {
+        this.owner.island.removeAllViewSubscriptionsFor(this.owner.id, this.partId);
+        this.superDetachedCalled = true;
+    }
 
     // PUB/SUB
     subscribe(event, methodName, scope=this.owner.id, part=this.partId) {
-        const fullScope = scope + (part ? "." + part : "");
-        this.owner.island.addViewSubscription(fullScope, event, this.owner.id, this.partId, methodName);
+        this.owner.subscribePart(scope, part, event, this.partId, methodName);
     }
 
     unsubscribe(event, methodName, scope=this.owner.id, part=this.partId) {
-        const fullScope = scope + (part ? "." + part : "");
-        this.owner.island.removeViewSubscription(fullScope, event, this.owner.id, this.partId, methodName);
+        this.owner.unsubscribePart(scope, part, event, this.partId, methodName);
     }
 
     publish(event, data, scope=this.owner.id, part=this.partId) {
-        const fullScope = scope + (part ? "." + part : "");
-        this.owner.island.publishFromView(fullScope, event, data);
+        this.owner.publish(scope, part, event, data);
     }
 
     asViewPartRef() {
