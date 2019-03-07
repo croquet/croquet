@@ -11,6 +11,17 @@
   },
   "author": "",
   "license": "ISC",
+  "browserslist": {
+    "production": [
+      "> 1%"
+    ],
+    "development": [
+      "last 1 Chrome version",
+      "last 1 Firefox version",
+      "last 1 Safari version",
+      "last 1 iOS major version"
+    ]
+  },
   "dependencies": {
     "array-flat-polyfill": "^1.0.0",
     "fastpriorityqueue": "^0.6.1",
