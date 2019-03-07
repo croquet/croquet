@@ -5,6 +5,7 @@ import Object3D from "./object3D.js";
 import LazyObject3D from "../util/lazyObject3D.js";
 import { ViewPart } from '../view.js';
 import { TextEvents } from '../stateParts/text.js';
+import { Carota } from './carota/editor.js';
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
@@ -33,11 +34,11 @@ class FontRegistry {
             if (this.fonts[font]) {
                 resolve(this.fonts[font]);
             } else {
-		console.log("start loading");
+                console.log("start loading");
                 new THREE.TextureLoader().load(texPath, tex => {
                     this.fonts[font] = tex;
                     this.measurers[font] = new TextLayout({font});
-		    console.log("loaded", tex);
+                    console.log("loaded", tex);
                     resolve(tex);
                 });
             }
@@ -67,7 +68,7 @@ export default class TextViewPart extends Object3D {
     }
 
     attachWithObject3D() {
-        return this.buildGeometry();
+        return this.initEditor(this.options.numLines);
         /*const promise = this.maybeLoadFont();
         const placeholder = new THREE.Mesh(new THREE.BoxBufferGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
 
@@ -78,7 +79,7 @@ export default class TextViewPart extends Object3D {
 
     maybeLoadFont() {
         return fontRegistry.getAtlasFor(this.options.font).then(atlasTexture => {
-            return this.buildGeometry();
+            return this.initEditor(this.options.numLines);
         });
     }
 
@@ -94,16 +95,16 @@ export default class TextViewPart extends Object3D {
         const baseFontSize = fontPaths[this.options.font].json.info.size;
         const atlasTexture = fontRegistry.getTexture(this.options.font);
 
-        const widthInBaseFontSizeMultiples = (this.options.width / this.options.fontSize) * baseFontSize;
-
-        const measurer = fontRegistry.getMeasurer(this.options.font);
+        /*
+          const measurer = fontRegistry.getMeasurer(this.options.font);
         const font = fontPaths[this.options.font].json;
         const glyphs = measurer.computeGlyphs({font, drawnStrings: testTextContent});
+        */
 
         const geometry = new TextGeometry({
             font: fontPaths[this.options.font].json,
             width: this.options.width,
-            glyphs: glyphs,
+            glyphs: [],
             align: null,
             flipY: true
         });
@@ -124,6 +125,45 @@ export default class TextViewPart extends Object3D {
         return mesh;
     }
 
+    initEditor(numLines) {
+        this.editor = new Carota(this.options.width, this.options.height, numLines);
+
+        this.editor.isScrollable = true;  // unless client decides otherwise
+
+        this.clippingPlanes = [new THREE.Plane(new THREE.Vector3(0, 1, 0),  0),
+                               new THREE.Plane(new THREE.Vector3(0, -1, 0), 0),
+                               new THREE.Plane(new THREE.Vector3(-1, 0, 0), 0),
+                               new THREE.Plane(new THREE.Vector3(1, 0, 0), 0)]
+
+        this.editor.mockCallback = ctx => {
+            let glyphs = this.processMockContext(ctx);
+            this.updateMaterial();
+            this.updateGeometry(glyphs, ctx.filledRects);
+        };
+
+        const callback = () => this.onTextChange();
+        this.editor.setSubscribers(callback);
+
+        this.initSelectionMesh();
+        this.initScrollBarMesh();
+
+	let text = this.text = this.buildGeometry();
+
+        const box = new THREE.Mesh(new THREE.PlaneBufferGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
+
+        let meterInPixel = this.options.width / this.editor.scaleX;
+        text.scale.set(meterInPixel, -meterInPixel, meterInPixel);
+
+        box.add(text);
+
+        this.updateGeometry([], []);
+        this.editor.load([]);
+        this.newText(this.initialText);
+
+        return box;
+    }
+
+
     updateGeometry(geometry, drawnStrings) {
         const measurer = fontRegistry.getMeasurer(this.options.font);
         const font = fontPaths[this.options.font].json;
@@ -133,7 +173,8 @@ export default class TextViewPart extends Object3D {
 
     update(newOptions) {
         this.options = {...this.options, ...newOptions};
-        if (this.geometry) this.updateGeometry(this.geometry, testTextContent);
+	let text = this.text;
+        if (text && text.geometry) this.updateGeometry(text.geometry, testTextContent);
     }
 }
 
