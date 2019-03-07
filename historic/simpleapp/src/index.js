@@ -14,6 +14,7 @@ import Object3D, { Object3DGroup } from './viewParts/object3D.js';
 import DraggableViewPart from './viewParts/draggable.js';
 import TrackSpatial from './viewParts/trackSpatial.js';
 import { LayoutRoot, LayoutContainer, LayoutSlotStretch3D, LayoutSlotText } from './viewParts/layout.js';
+import { fontRegistry } from './viewParts/text.js';
 
 if (module.bundle.v) console.log(`Hot reload ${module.bundle.v++}: ${module.id}`);
 
@@ -151,31 +152,16 @@ function start() {
     let room;
     let observer;
 
+    fontRegistry.getAtlasFor("Barlow").then(() => {
+
     const island = new Island(state.island, () => {
         room = new Room();
-
-        const box = new BouncingBox({ spatial: { position: new THREE.Vector3(0, 1.0, 0) } });
-        room.parts.objects.add(box);
-
-        const rotatingBox = new RotatingBox({ spatial: { position: new THREE.Vector3(3, 1.0, 0) } });
-        room.parts.objects.add(rotatingBox);
 
         const text1 = new Text({
             spatial: { position: new THREE.Vector3(-3, 1.0, 0) },
             text: { content: "man is much more than a tool builder... he is an inventor of universes." }
         });
         room.parts.objects.add(text1);
-
-        const text2 = new Text({
-            spatial: { position: new THREE.Vector3(5, 1.0, 0) },
-            text: { content: "Chapter Eight - The Queen's Croquet Ground", font: "Lora" },
-        });
-        room.parts.objects.add(text2);
-
-        const layoutTest = new LayoutTestModel({
-            spatial: { position: new THREE.Vector3(0, 1.0, 1.0)}
-        });
-        room.parts.objects.add(layoutTest);
 
         observer = new Observer({
             spatial: {
@@ -189,9 +175,15 @@ function start() {
     room = room || island.modelsById[state.room];
     observer = observer || island.modelsById[state.observer];
 
-    const renderer = state.renderer || new THREE.WebGLRenderer();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
+    let renderer = state.renderer;
+    if (!renderer) {
+	const canvas = document.createElement('canvas');
+	const context = canvas.getContext("webgl2", {});
+
+	renderer = new THREE.WebGLRenderer({canvas, context});
+	renderer.setSize(window.innerWidth, window.innerHeight);
+	document.body.appendChild(renderer.domElement);
+    }
 
     state = null; // prevent accidental access below
 
@@ -264,6 +256,7 @@ function start() {
         // start logging module loads
         if (!module.bundle.v) module.bundle.v = 1;
     }
+    });
 }
 
 start();

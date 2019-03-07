@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import createGeometry from 'three-bmfont-text';
-import Shader from 'three-bmfont-text/shaders/msdf.js';
+import { TextGeometry, HybridMSDFShader } from '../../../../../three-bmfont-text';
+import { TextLayout } from './textlayout.js';
 import Object3D from "./object3D.js";
 import LazyObject3D from "../util/lazyObject3D.js";
 import { ViewPart } from '../view.js';
@@ -20,21 +20,43 @@ const fontPaths = {
     },
 };
 
-const texCache = {
+class FontRegistry {
+    constructor() {
+        this.fonts = {}; // {name<string>: {font: aTexture}
+        this.measurers = {}; // {name<string>: a TextLayout}
+    }
+
     getAtlasFor(font) {
         return new Promise((resolve, _reject) => {
             const texPath = fontPaths[font].atlas;
-            if (this[texPath]) {
-                resolve(this[texPath]);
+            if (this.fonts[font]) {
+                resolve(this.fonts[font]);
             } else {
+		console.log("start loading");
                 new THREE.TextureLoader().load(texPath, tex => {
-                    this[texPath] = tex;
+                    this.fonts[font] = tex;
+                    this.measurers[font] = new TextLayout({font});
+		    console.log("loaded", tex);
                     resolve(tex);
                 });
             }
         });
     }
-};
+
+    getTexture(font) {
+        return this.fonts[font];
+    }
+    getMeasurer(font) {
+        return this.measurers[font];
+    }
+}
+
+export const fontRegistry = fontRegistry || new FontRegistry();
+
+let testTextContent = [{x: 0, y: 0, string: "A", style: "black"},
+                       {x: 23, y: 0, string: "B", style: "red"},
+];
+
 
 export default class TextViewPart extends Object3D {
     fromOptions(options) {
@@ -44,52 +66,73 @@ export default class TextViewPart extends Object3D {
     }
 
     attachWithObject3D() {
-        const promise = this.build();
-        const placeholder = new THREE.Mesh(new THREE.PlaneBufferGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
+        return this.buildGeometry();
+        /*const promise = this.maybeLoadFont();
+        const placeholder = new THREE.Mesh(new THREE.BoxBufferGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
 
-        return new LazyObject3D(placeholder, promise);
+        let lazy = new LazyObject3D(placeholder, promise);
+        window.lazy = lazy;
+        return lazy;*/
     }
 
-    build() {
+    maybeLoadFont() {
+        return fontRegistry.getAtlasFor(this.options.font).then(atlasTexture => {
+            return this.buildGeometry();
+        });
+    }
+
+    updateMaterial() {
+        let text = this;
+        //let bounds = this.editor.visibleTextBounds(); 
+        text.threeObj.material.uniforms.corners.value = new THREE.Vector4(0, 0, 1000, 1000);
+    }
+
+    buildGeometry() {
+	console.log("buildGeometry");
+
         const baseFontSize = fontPaths[this.options.font].json.info.size;
+        const atlasTexture = fontRegistry.getTexture(this.options.font);
+
         const widthInBaseFontSizeMultiples = (this.options.width / this.options.fontSize) * baseFontSize;
 
-        const geometry = createGeometry({
+        const measurer = fontRegistry.getMeasurer(this.options.font);
+        const font = fontPaths[this.options.font].json;
+        const glyphs = measurer.computeGlyphs({font, drawnStrings: testTextContent});
+
+        const geometry = new TextGeometry({
             font: fontPaths[this.options.font].json,
-            width: widthInBaseFontSizeMultiples,
-            text: this.options.content,
-            align: this.options.textAlign,
+            width: this.options.width,
+            glyphs: glyphs,
+            align: null,
             flipY: true
         });
 
-        if (this.options.anchor === "top") {
-            geometry.computeBoundingBox();
-            geometry.translate(0, geometry.boundingBox.max.y - geometry.boundingBox.min.y, 0);
-        }
+        this.updateGeometry(geometry, testTextContent);
 
-        return texCache.getAtlasFor(this.options.font).then(atlasTexture => {
-            const material = new THREE.RawShaderMaterial(Shader({
-                map: atlasTexture,
-                side: THREE.DoubleSide,
-                transparent: true,
-                color: 'rgb(0, 0, 0)',
-                negate: false
-            }));
+        window.text = this;
+        const material = new THREE.RawShaderMaterial(HybridMSDFShader({
+            map: atlasTexture,
+            side: THREE.DoubleSide,
+            transparent: true,
+            negate: true
+        }));
 
-            const mesh = new THREE.Mesh(geometry, material);
-            const scale = this.options.fontSize / baseFontSize;
-            mesh.scale.set(scale, -scale, scale);
-            return mesh;
-        });
+        const mesh = new THREE.Mesh(geometry, material);
+        const scale = this.options.fontSize / baseFontSize;
+        mesh.scale.set(scale, -scale, scale);
+        return mesh;
     }
 
-    rebuild() {
-        this.threeObj.replace(this.build());
+    updateGeometry(geometry, drawnStrings) {
+        const measurer = fontRegistry.getMeasurer(this.options.font);
+        const font = fontPaths[this.options.font].json;
+        const glyphs = measurer.computeGlyphs({font: font, drawnStrings: drawnStrings});
+        geometry.update({font: fontPaths[this.options.font].json, glyphs});
     }
 
     update(newOptions) {
         this.options = {...this.options, ...newOptions};
-        this.rebuild();
+        if (this.geometry) this.updateGeometry(this.geometry, testTextContent);
     }
 }
 
