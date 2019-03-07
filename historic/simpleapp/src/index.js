@@ -19,6 +19,52 @@ function start() {
         room2: initRoom2(hotState.rooms && hotState.rooms.room2)
     };
 
+    const socket = new WebSocket("ws://localhost:9090/");
+    console.log("connecting to localhost:9090");
+
+    socket.onopen = _event => {
+        console.log("websocket connected");
+    };
+
+    socket.onmessage = event => {
+        console.log("received: ", event.data);
+        if (socket.room) {
+            const { action, args } = JSON.parse(event.data);
+            switch (action) {
+                case 'RECV': socket.room.island.RECV(args); break;
+                case 'SNAPSHOT': {
+                    console.log('SNAPSHOT');
+                    socket.send(JSON.stringify({
+                        action: 'ISLAND',
+                        args: {
+                            island: socket.room.island.asState(),
+                            room: socket.room.room.id,
+                        }
+                    }));
+                    //socket.room.island.sendNoop();
+                    console.log('sending ISLAND');
+                    break;
+                }
+                case 'ISLAND': {
+                    console.log('ISLAND');
+                    ALL_ROOMS.room1 = initRoom1(args);
+                    joinRoom('room1');
+                    ALL_ROOMS.room1.island.discardOldMessages();
+                    break;
+                }
+                default: console.log("Unknown action:", action);
+            }
+        }
+    };
+
+    socket.onerror = event => {
+        console.log("websocket error: ", event);
+    };
+
+    socket.onclose = _event => {
+        console.log("websocket closed");
+    };
+
     const activeRoomViews = {};
 
     /** @type {import('./room/roomModel').default} */
@@ -29,12 +75,17 @@ function start() {
     function joinRoom(roomName) {
         // leave previous room
         if (currentRoom) {
+            socket.room = null;
             currentRoomView = null;
             currentRoom = null;
         }
 
         const island = ALL_ROOMS[roomName].island;
         const room = ALL_ROOMS[roomName].room;
+
+        socket.room = ALL_ROOMS[roomName];
+        island.socket = socket;
+        console.log('Joining at time', island.time);
 
         if (!activeRoomViews[roomName]) {
             const roomView = new RoomView(island, {
@@ -125,6 +176,8 @@ function start() {
         // handlers in individual modules) but store the complete model state
         // in this dispose handler and restore it in start()
         module.hot.dispose(hotData => {
+            // dispose socket
+            socket.close();
             // release WebGL resources
             for (const roomView of Object.values(activeRoomViews)) {
                 roomView.detach();
@@ -139,7 +192,7 @@ function start() {
             for (const roomName of Object.keys(ALL_ROOMS)) {
                 const room = ALL_ROOMS[roomName];
                 hotData.hotState.rooms[roomName] = {
-                    island: room.island.toState(),
+                    island: room.island.asState(),
                     room: room.room.id,
                 };
             }

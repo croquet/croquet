@@ -20,6 +20,7 @@ function execOnIsland(island, fn) {
     const previousIsland = CurrentIsland;
     try {
         CurrentIsland = island;
+        window.ISLAND = island;
         fn();
     } finally {
         CurrentIsland = previousIsland;
@@ -92,23 +93,48 @@ export default class Island {
         delete this.viewsById[id];
     }
 
-    // This will become in-directed via the Reflector
+    // Send to the reflector
     callModelMethod(modelId, partId, selector, args) {
-        execOnIsland(this, () => this.futureSend(0, modelId, partId, selector, args));
+        if (CurrentIsland) throw Error("Island Error");
+
+        const message = new Message(this.time, 0, modelId, partId, selector, args);
+        this.socket.send(JSON.stringify({
+            action: 'SEND',
+            args: message.asState(),
+        }));
+        console.log(this.time, 'SEND', message);
+    }
+
+    sendNoop() {
+        const message = new Message(this.time, 0, this.id, 0, 'noop', []);
+        this.socket.send(JSON.stringify({
+            action: 'SEND',
+            args: message.asState(),
+        }));
+        console.log(this.time, 'SEND', message);
+    }
+    discardOldMessages() {
+        let message;
+        while ((message = this.messages.peek()) && message.time <= this.time) {
+            console.log(this.time, 'discarding message', message);
+            this.messages.poll();
+        }
+    }
+
+    // message coming back from reflector
+    RECV(data) {
+        console.log('RECV', data);
+        const message = Message.fromState(data);
+        this.messages.add(message);
+        console.log(this.time, 'scheduled', message);
     }
 
     futureSend(tOffset, receiverID, partID, selector, args) {
         if (CurrentIsland !== this) throw Error("Island Error");
         if (tOffset < 0) throw Error("attempt to send future message into the past");
-        const message = new Message(this.time + tOffset, ++this.timeSeq, receiverID, partID, selector, args);
+        this.timeSeq = (this.timeSeq + 100000000) % 1000000000000000;
+        const message = new Message(this.time + tOffset, this.timeSeq, receiverID, partID, selector, args);
         this.messages.add(message);
-        // make sure sequence counter does not roll over
-        // rethink this when router is stimestamping
-        if (this.timeSeq > 0xFFFF) {
-            this.timeSeq = 0;
-            this.messages.forEach(m => m.seq = ++this.timeSeq);
-            console.log("re-sequencing future messages");
-        }
     }
 
     // Convert model.parts[partID].future(tOffset).property(...args)
@@ -143,6 +169,7 @@ export default class Island {
             message.executeOn(this);
         }
         this.time = time;
+        console.log(time);
     }
 
     addModelSubscription(scope, event, subscriberId, part, methodName) {
@@ -222,7 +249,7 @@ export default class Island {
         }
     }
 
-    toState() {
+    asState() {
         return {
             id: this.id,
             time: this.time,
