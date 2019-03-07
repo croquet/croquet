@@ -267,28 +267,32 @@ const transcoders = {
     "*.rotateTo": XYZW,
 };
 
-function encode(part, selector, args) {
-    if (args.length === 0) return args;
-    const transcoder = transcoders[`${part}.${selector}`] || transcoders[`*.${selector}`] || transcoders['*'];
-    if (!transcoder) throw Error(`No transcoder defined for ${part}.${selector}`);
-    return transcoder.encode(args);
+function encode(receiver, part, selector, args) {
+    if (args.length > 0) {
+        const transcoder = transcoders[`${part}.${selector}`] || transcoders[`*.${selector}`] || transcoders['*'];
+        if (!transcoder) throw Error(`No transcoder defined for ${part}.${selector}`);
+        args = transcoder.encode(args);
+    }
+    return `${receiver}.${part}.${selector}${args.length > 0 ? JSON.stringify(args):""}`;
 }
 
-function decode(part, selector, encoded) {
-    if (encoded.length === 0) return encoded;
-    const transcoder = transcoders[`${part}.${selector}`] || transcoders[`*.${selector}`] || transcoders['*'];
-    if (!transcoder) throw Error(`No transcoder defined for ${part}.${selector}`);
-    return transcoder.decode(encoded);
+function decode(payload) {
+    const [_, msg, argString] = payload.match(/^([^[]+)(\[.*)?$/);
+    const [receiver, part, selector] = msg.split('.');
+    let args = [];
+    if (argString) {
+        const transcoder = transcoders[`${part}.${selector}`] || transcoders[`*.${selector}`] || transcoders['*'];
+        if (!transcoder) throw Error(`No transcoder defined for ${part}.${selector}`);
+        args = transcoder.decode(JSON.parse(argString));
+    }
+    return {receiver, part, selector, args};
 }
 
 class Message {
     constructor(time, seq, receiver, part, selector, args) {
         this.time = time;
         this.seq = seq;
-        this.receiver = receiver;
-        this.part = part;
-        this.selector = selector;
-        this.args = encode(part, selector, args);   // make sure args can be serialized
+        this.payload = encode(receiver, part, selector, args);
     }
 
     before(other) {
@@ -298,19 +302,18 @@ class Message {
     }
 
     asState() {
-        return [this.time, this.seq, this.receiver, this.part, this.selector, this.args];
+        return [this.time, this.seq, this.payload];
     }
 
     static fromState(state) {
-        const [time, seq, receiver, part, selector, args] = state;
-        const decoded = decode(part, selector, args);
-        return new Message(time, seq, receiver, part, selector, decoded);
+        const [time, seq, payload] = state;
+        const { receiver, part, selector, args } = decode(payload);
+        return new Message(time, seq, receiver, part, selector, args);
     }
 
     executeOn(island) {
-        const {receiver, part, selector, args} = this;
-        const decoded = decode(part, selector, args);
-        execOnIsland(island, () => island.modelsById[receiver].parts[part][selector](...decoded));
+        const { receiver, part, selector, args } = decode(this.payload);
+        execOnIsland(island, () => island.modelsById[receiver].parts[part][selector](...args));
     }
 }
 
