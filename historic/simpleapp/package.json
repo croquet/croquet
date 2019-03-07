@@ -16,7 +16,7 @@
     "fastpriorityqueue": "^0.6.1",
     "seedrandom": "^2.4.4",
     "three": "^0.101.1",
-    "three-bmfont-text": "git+https://github.com/aeickhoff/three-bmfont-text.git",
+    "three-bmfont-text": "git+https://github.com/yoshikiohshima/three-bmfont-text.git",
     "three-svg-loader": "^0.1.0",
     "yoga-layout-prebuilt": "^1.9.3"
   },
