@@ -115,7 +115,7 @@ export default class TextViewPart extends Object3D {
             map: atlasTexture,
             side: THREE.DoubleSide,
             transparent: true,
-            negate: true
+            negate: false
         }));
 
         const mesh = new THREE.Mesh(geometry, material);

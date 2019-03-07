@@ -61,8 +61,17 @@ function start() {
 
     let renderer = hotState.renderer;
     if (!renderer) {
+	let contextAttributes = {
+            alpha: false,
+            depth: true,
+            stencil: true,
+            antialias: true,
+            premultipliedAlpha: true,
+            preserveDrawingBuffer: false,
+            powerPreference: "default"
+        };
 	const canvas = document.createElement('canvas');
-	const context = canvas.getContext("webgl2", {});
+	const context = canvas.getContext("webgl2", contextAttributes);
 
 	renderer = new THREE.WebGLRenderer({canvas, context});
 	renderer.setSize(window.innerWidth, window.innerHeight);
