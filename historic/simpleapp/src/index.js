@@ -20,51 +20,56 @@ function start() {
         room2: initRoom2(hotState.rooms && hotState.rooms.room2)
     };
 
-    const socket = new WebSocket("ws://localhost:9090/");
-    console.log("connecting to localhost:9090");
+    const offline = true;
+    let socket = null;
 
-    socket.onopen = _event => {
-        console.log("websocket connected");
-    };
+    if (!offline) {
+        socket = new WebSocket("ws://localhost:9090/");
+        console.log("connecting to localhost:9090");
 
-    socket.onmessage = event => {
-        console.log("received: ", event.data);
-        if (socket.room) {
-            const { action, args } = JSON.parse(event.data);
-            switch (action) {
-                case 'RECV': socket.room.island.RECV(args); break;
-                case 'SNAPSHOT': {
-                    console.log('SNAPSHOT');
-                    socket.send(JSON.stringify({
-                        action: 'ISLAND',
-                        args: {
-                            island: socket.room.island.asState(),
-                            room: socket.room.room.id,
-                        }
-                    }));
-                    //socket.room.island.sendNoop();
-                    console.log('sending ISLAND');
-                    break;
+        socket.onopen = _event => {
+            console.log("websocket connected");
+        };
+
+        socket.onmessage = event => {
+            console.log("received: ", event.data);
+            if (socket.room) {
+                const { action, args } = JSON.parse(event.data);
+                switch (action) {
+                    case 'RECV': socket.room.island.RECV(args); break;
+                    case 'SERVE': {
+                        console.log('SERVE');
+                        socket.send(JSON.stringify({
+                            action: 'SYNC',
+                            args: {
+                                island: socket.room.island.asState(),
+                                room: socket.room.room.id,
+                            }
+                        }));
+                        //socket.room.island.sendNoop();
+                        console.log('sending SYNC');
+                        break;
+                    }
+                    case 'ISLAND': {
+                        console.log('ISLAND');
+                        ALL_ROOMS.room1 = initRoom1(args);
+                        joinRoom('room1');
+                        ALL_ROOMS.room1.island.discardOldMessages();
+                        break;
+                    }
+                    default: console.log("Unknown action:", action);
                 }
-                case 'ISLAND': {
-                    console.log('ISLAND');
-                    ALL_ROOMS.room1 = initRoom1(args);
-                    joinRoom('room1');
-                    ALL_ROOMS.room1.island.discardOldMessages();
-                    break;
-                }
-                default: console.log("Unknown action:", action);
             }
-        }
-    };
+        };
 
-    socket.onerror = event => {
-        console.log("websocket error: ", event);
-    };
+        socket.onerror = event => {
+            console.log("websocket error: ", event);
+        };
 
-    socket.onclose = _event => {
-        console.log("websocket closed");
-    };
+        socket.onclose = _event => {
+            console.log("websocket closed");
+        };
+    }
 
     const activeRoomViews = {};
 
@@ -119,8 +124,10 @@ function start() {
         }
         const now = Date.now();
         for (const room of Object.values(ALL_ROOMS)) {
-            room.island.advanceTo(room.island.time + (now - before));
-            room.island.processModelViewEvents();
+            if (offline) {
+                room.island.advanceTo(room.island.time + (now - before));
+                room.island.processModelViewEvents();
+            }
         }
         before = now;
         hotreload.requestAnimationFrame(frame);
@@ -178,7 +185,7 @@ function start() {
         // in this dispose handler and restore it in start()
         module.hot.dispose(hotData => {
             // dispose socket
-            socket.close();
+            if (socket) socket.close();
             // release WebGL resources
             for (const roomView of Object.values(activeRoomViews)) {
                 roomView.detach();
