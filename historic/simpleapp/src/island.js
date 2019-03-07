@@ -93,16 +93,20 @@ export default class Island {
         delete this.viewsById[id];
     }
 
-    // Send to the reflector
+    // Send via reflector
     callModelMethod(modelId, partId, selector, args) {
         if (CurrentIsland) throw Error("Island Error");
 
-        const message = new Message(this.time, 0, modelId, partId, selector, args);
-        this.socket.send(JSON.stringify({
-            action: 'SEND',
-            args: message.asState(),
-        }));
-        console.log(this.time, 'SEND', message);
+        if (!this.socket) {
+            execOnIsland(this, () => this.futureSend(0, modelId, partId, selector, args));
+        } else {
+            const message = new Message(this.time, 0, modelId, partId, selector, args);
+            this.socket.send(JSON.stringify({
+                action: 'SEND',
+                args: message.asState(),
+            }));
+            console.log(this.time, 'SEND', message);
+        }
     }
 
     sendNoop() {
@@ -113,6 +117,7 @@ export default class Island {
         }));
         console.log(this.time, 'SEND', message);
     }
+
     discardOldMessages() {
         let message;
         while ((message = this.messages.peek()) && message.time <= this.time) {
@@ -121,10 +126,11 @@ export default class Island {
         }
     }
 
-    // message coming back from reflector
+    // message coming in from reflector
     RECV(data) {
         console.log('RECV', data);
         const message = Message.fromState(data);
+        if (message.time < this.time) throw Error("Past message from reflector");
         this.messages.add(message);
         console.log(this.time, 'scheduled', message);
     }
@@ -169,7 +175,6 @@ export default class Island {
             message.executeOn(this);
         }
         this.time = time;
-        console.log(time);
     }
 
     addModelSubscription(scope, event, subscriberId, part, methodName) {

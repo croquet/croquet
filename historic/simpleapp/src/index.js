@@ -83,9 +83,9 @@ function start() {
         const island = ALL_ROOMS[roomName].island;
         const room = ALL_ROOMS[roomName].room;
 
-        socket.room = ALL_ROOMS[roomName];
-        island.socket = socket;
-        console.log('Joining at time', island.time);
+        //socket.room = ALL_ROOMS[roomName];
+        //island.socket = socket;
+        //console.log('Joining at time', island.time);
 
         if (!activeRoomViews[roomName]) {
             const roomView = new RoomView(island, {
