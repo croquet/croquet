@@ -39,7 +39,6 @@ class RoomScene extends Object3D {
     /** @arg {Room} room */
     attachWithObject3D(room) {
         this.scene = new THREE.Scene();
-        this.scene.background = room.parts.color.value;
         this.grid = new THREE.GridHelper(room.parts.size.x, 10, "#888888", "#aaaaaa");
         this.scene.add(this.grid);
         this.light = new THREE.DirectionalLight("#ffffdd");
@@ -50,6 +49,11 @@ class RoomScene extends Object3D {
         this.light.shadow.radius = 5;
         this.light.shadow.camera.near = 0.5;    // default
         this.light.shadow.camera.far = 10;     // default
+        this.skyball = new THREE.Mesh(
+            new THREE.SphereGeometry(50, 10, 10),
+            new THREE.MeshBasicMaterial({color: room.parts.color.value, side: THREE.DoubleSide})
+        );
+        this.scene.add(this.skyball);
 
         this.scene.add(this.light);
         this.ambientLight = new THREE.HemisphereLight("#ddddff", "#ffdddd");
