@@ -53,7 +53,7 @@ class FontRegistry {
     }
 }
 
-export const fontRegistry = fontRegistry || new FontRegistry();
+export let fontRegistry = new FontRegistry();
 
 let testTextContent = [{x: 0, y: 0, string: "A", style: "black"},
                        {x: 23, y: 0, string: "B", style: "red"},
@@ -62,7 +62,7 @@ let testTextContent = [{x: 0, y: 0, string: "A", style: "black"},
 
 export default class TextViewPart extends Object3D {
     fromOptions(options) {
-        options = {content: "Hello", font: "Barlow", width: 5, fontSize: 0.3, anchor: "bottom", ...options};
+        options = {content: "Hello", font: "Barlow", width: 5, height: 3, numLines: 10, anchor: "bottom", ...options};
         this.modelSource = options.modelSource;
         this.options = options;
     }
@@ -84,9 +84,9 @@ export default class TextViewPart extends Object3D {
     }
 
     updateMaterial() {
-        let text = this;
+        let text = this.text;
         //let bounds = this.editor.visibleTextBounds(); 
-        text.threeObj.material.uniforms.corners.value = new THREE.Vector4(0, 0, 1000, 1000);
+        text.material.uniforms.corners.value = new THREE.Vector4(0, 0, 1000, 1000);
     }
 
     buildGeometry() {
@@ -109,7 +109,7 @@ export default class TextViewPart extends Object3D {
             flipY: true
         });
 
-        this.updateGeometry(geometry, testTextContent);
+        this.updateGeometry(geometry, testTextContent, []);
 
         window.text = this;
         const material = new THREE.RawShaderMaterial(HybridMSDFShader({
@@ -138,7 +138,7 @@ export default class TextViewPart extends Object3D {
         this.editor.mockCallback = ctx => {
             let glyphs = this.processMockContext(ctx);
             this.updateMaterial();
-            this.updateGeometry(glyphs, ctx.filledRects);
+            this.updateGeometry(this.text.geometry, glyphs, ctx.filledRects);
         };
 
         const callback = () => this.onTextChange();
@@ -149,22 +149,59 @@ export default class TextViewPart extends Object3D {
 
 	let text = this.text = this.buildGeometry();
 
-        const box = new THREE.Mesh(new THREE.PlaneBufferGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
+        const box = new THREE.Mesh(new THREE.PlaneBufferGeometry(this.options.width, this.options.height), new THREE.MeshBasicMaterial({ color: 0xeeeeee }));
 
         let meterInPixel = this.options.width / this.editor.scaleX;
         text.scale.set(meterInPixel, -meterInPixel, meterInPixel);
+	text.position.z = 0.0001;
 
         box.add(text);
 
-        this.updateGeometry([], []);
+        this.updateGeometry(text.geometry, [], []);
         this.editor.load([]);
-        this.newText(this.initialText);
-
+        //this.newText(this.initialText);
         return box;
     }
 
+    initSelectionMesh() {
+        // geometry for the cursor bar rendered if selection is empty
+        // see makeBoxSelectionMesh for actual selection
+        /*const cube = new TCube(this.frame);
+        cube.material = new THREE.MeshBasicMaterial({
+            color: 0x8080C0,
+        });
+        cube.visible = false;
+        this.addChild(cube);
+        this.selectionBar = cube;
+        cube.object3D.onBeforeRender = this.selectionBeforeRender.bind(this);
 
-    updateGeometry(geometry, drawnStrings) {
+        this.boxSelections = [];
+	*/
+    }
+
+    initScrollBarMesh() {
+	/*
+        let cube = new TCube(this.frame);
+        cube.visible = false;
+        cube.setColor(new THREE.Color(0x0022ff));
+        this.addChild(cube);
+        this.scrollBar = cube;
+
+        cube = new TCube(this.frame);
+        cube.visible = false;
+        cube.setColor(new THREE.Color(0x00aaff));
+        this.addChild(cube);
+        this.scrollKnob = cube;
+*/
+    }
+
+    processMockContext(ctx) {
+        let layout = fontRegistry.getMeasurer(this.options.font);
+	let font = fontPaths[this.options.font].json;
+        return layout.computeGlyphs({font: font, drawnStrings: ctx.drawnStrings});
+    }
+
+    updateGeometry(geometry, drawnStrings, selections) {
         const measurer = fontRegistry.getMeasurer(this.options.font);
         const font = fontPaths[this.options.font].json;
         const glyphs = measurer.computeGlyphs({font: font, drawnStrings: drawnStrings});
@@ -174,8 +211,11 @@ export default class TextViewPart extends Object3D {
     update(newOptions) {
         this.options = {...this.options, ...newOptions};
 	let text = this.text;
-        if (text && text.geometry) this.updateGeometry(text.geometry, testTextContent);
+        if (text && text.geometry) this.updateGeometry(text.geometry, testTextContent, []);
     }
+
+    onTextChange() {}
+
 }
 
 export class TrackText extends ViewPart {
@@ -200,4 +240,5 @@ export class TrackText extends ViewPart {
     onFontChanged(newFont) {
         this.targetViewPart.update({font: newFont});
     }
+
 }
