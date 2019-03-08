@@ -24,7 +24,7 @@ function start() {
 
     const activeRoomViews = {};
 
-    fontRegistry.getAtlasFor("Barlow").then(() => {
+    fontRegistry.getAtlasFor("Roboto").then(() => {
 
     /** @type {import('./room/roomModel').default} */
     let currentRoom = null;

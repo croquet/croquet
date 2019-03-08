@@ -20,6 +20,10 @@ const fontPaths = {
         json: require('../../assets/fonts/Lora-Regular-msdf.json'),
         atlas: require('../../assets/fonts/Lora-Regular.png')
     },
+    Roboto: {
+        json: require('../../assets/fonts/Roboto.json'),
+        atlas: require('../../assets/fonts/Roboto.png')
+    },
 };
 
 class FontRegistry {
@@ -55,14 +59,11 @@ class FontRegistry {
 
 export let fontRegistry = new FontRegistry();
 
-let testTextContent = [{x: 0, y: 0, string: "A", style: "black"},
-                       {x: 23, y: 0, string: "B", style: "red"},
-];
-
+let debugFontRegistry = fontRegistry;
 
 export default class TextViewPart extends Object3D {
     fromOptions(options) {
-        options = {content: "Hello", font: "Barlow", width: 5, height: 3, numLines: 10, anchor: "bottom", ...options};
+        options = {content: "Hello", font: "Roboto", width: 3, height: 2, numLines: 10, anchor: "bottom", ...options};
         this.modelSource = options.modelSource;
         this.options = options;
     }
@@ -86,12 +87,10 @@ export default class TextViewPart extends Object3D {
     updateMaterial() {
         let text = this.text;
         //let bounds = this.editor.visibleTextBounds(); 
-        text.material.uniforms.corners.value = new THREE.Vector4(0, 0, 1000, 1000);
+        text.material.uniforms.corners.value = new THREE.Vector4(-100, -100, 1000, 1000);
     }
 
     buildGeometry() {
-	console.log("buildGeometry");
-
         const baseFontSize = fontPaths[this.options.font].json.info.size;
         const atlasTexture = fontRegistry.getTexture(this.options.font);
 
@@ -109,14 +108,14 @@ export default class TextViewPart extends Object3D {
             flipY: true
         });
 
-        this.updateGeometry(geometry, testTextContent, []);
+        //this.updateGeometry(geometry, testTextContent, []);
 
         window.text = this;
         const material = new THREE.RawShaderMaterial(HybridMSDFShader({
             map: atlasTexture,
             side: THREE.DoubleSide,
             transparent: true,
-            negate: false
+            negate: true
         }));
 
         const mesh = new THREE.Mesh(geometry, material);
@@ -133,7 +132,7 @@ export default class TextViewPart extends Object3D {
         this.clippingPlanes = [new THREE.Plane(new THREE.Vector3(0, 1, 0),  0),
                                new THREE.Plane(new THREE.Vector3(0, -1, 0), 0),
                                new THREE.Plane(new THREE.Vector3(-1, 0, 0), 0),
-                               new THREE.Plane(new THREE.Vector3(1, 0, 0), 0)]
+                               new THREE.Plane(new THREE.Vector3(1, 0, 0), 0)];
 
         this.editor.mockCallback = ctx => {
             let glyphs = this.processMockContext(ctx);
@@ -147,19 +146,19 @@ export default class TextViewPart extends Object3D {
         this.initSelectionMesh();
         this.initScrollBarMesh();
 
-	let text = this.text = this.buildGeometry();
+        let text = this.text = this.buildGeometry();
 
         const box = new THREE.Mesh(new THREE.PlaneBufferGeometry(this.options.width, this.options.height), new THREE.MeshBasicMaterial({ color: 0xeeeeee }));
 
         let meterInPixel = this.options.width / this.editor.scaleX;
         text.scale.set(meterInPixel, -meterInPixel, meterInPixel);
-	text.position.z = 0.0001;
+        text.position.z = 0.01;
 
         box.add(text);
 
-        this.updateGeometry(text.geometry, [], []);
+//        this.updateGeometry(text.geometry, [], []);
         this.editor.load([]);
-        //this.newText(this.initialText);
+        this.newText(this.options.initialText||'abc');
         return box;
     }
 
@@ -201,21 +200,22 @@ export default class TextViewPart extends Object3D {
         return layout.computeGlyphs({font: font, drawnStrings: ctx.drawnStrings});
     }
 
-    updateGeometry(geometry, drawnStrings, selections) {
-        const measurer = fontRegistry.getMeasurer(this.options.font);
-        const font = fontPaths[this.options.font].json;
-        const glyphs = measurer.computeGlyphs({font: font, drawnStrings: drawnStrings});
+    updateGeometry(geometry, glyphs, selections) {
         geometry.update({font: fontPaths[this.options.font].json, glyphs});
     }
 
     update(newOptions) {
         this.options = {...this.options, ...newOptions};
-	let text = this.text;
-        if (text && text.geometry) this.updateGeometry(text.geometry, testTextContent, []);
+        let text = this.text;
+        //if (text && text.geometry) this.updateGeometry(text.geometry, testTextContent, []);
     }
 
     onTextChange() {}
 
+    newText(txt) {
+        this.editor.load([]); //clear current text
+        this.editor.insert(txt); //insert the new text
+    }
 }
 
 export class TrackText extends ViewPart {
