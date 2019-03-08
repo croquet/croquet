@@ -37,6 +37,7 @@ export default class Island {
     constructor(state = {}, initFn) {
         this.modelsById = {};
         this.viewsById = {};
+        this.modelsByName = {};
         // Models can only subscribe to other model events
         // Views can subscribe to model or other view events
         this.modelSubscriptions = {};
@@ -92,6 +93,12 @@ export default class Island {
     deregisterView(id) {
         if (CurrentIsland) throw Error("Island Error");
         delete this.viewsById[id];
+    }
+
+    get(modelName) { return this.modelsByName[modelName]; }
+    set(modelName, model) {
+        if (CurrentIsland !== this) throw Error("Island Error");
+        this.modelsByName[modelName] = model;
     }
 
     // Send via reflector
