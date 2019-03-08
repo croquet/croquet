@@ -32,9 +32,9 @@ export default class BouncingSpatialPart extends InertialSpatialPart {
             if (this.position.z < -10) { this.estimatedVelocity.z = Math.abs(this.estimatedVelocity.z); this.position.z = -10; bounce = true; }
             if (this.position.z > 10) { this.estimatedVelocity.z = -Math.abs(this.estimatedVelocity.z); this.position.z =  10; bounce = true; }
             if (bounce) {
-                this.estimatedVelocity.x += (this.island.random() * this.bounce * Math.sign(this.estimatedVelocity.x));
-                this.estimatedVelocity.y += (this.island.random() * this.bounce * Math.sign(this.estimatedVelocity.y));
-                this.estimatedVelocity.z += (this.island.random() * this.bounce * Math.sign(this.estimatedVelocity.z));
+                this.estimatedVelocity.x += (this.island.random() * this.bounce * (this.estimatedVelocity.x < 0 ? -1 : 1));
+                this.estimatedVelocity.y += (this.island.random() * this.bounce * (this.estimatedVelocity.y < 0 ? -1 : 1));
+                this.estimatedVelocity.z += (this.island.random() * this.bounce * (this.estimatedVelocity.z < 0 ? -1 : 1));
             }
             const speed = this.estimatedVelocity.length();
             if (speed > 1) this.estimatedVelocity.multiplyScalar(0.5);
