@@ -1,5 +1,6 @@
 import SeedRandom from "seedrandom";
 import PriorityQueue from "./util/priorityQueue.js";
+import AsyncQueue from './util/asyncQueue.js';
 import hotreload from "./hotreload.js";
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
@@ -105,47 +106,34 @@ export default class Island {
     callModelMethod(modelId, partId, selector, args) {
         if (CurrentIsland) throw Error("Island Error");
 
-        if (!this.socket) {
+        if (!this.controller.connected) {
             execOnIsland(this, () => this.futureSend(0, modelId, partId, selector, args));
         } else {
             const message = new Message(this.time, 0, modelId, partId, selector, args);
-            this.socket.send(JSON.stringify({
-                action: 'SEND',
-                args: message.asState(),
-            }));
-            console.log(this.time, 'SEND', message);
+            this.controller.sendMessage(message);
         }
     }
 
     sendNoop() {
         const message = new Message(this.time, 0, this.id, 0, 'noop', []);
-        this.socket.send(JSON.stringify({
-            action: 'SEND',
-            args: message.asState(),
-        }));
-        console.log(this.time, 'SEND', message);
+        this.controller.sendMessage(message);
     }
 
-    discardOldMessages() {
-        let message;
-        while ((message = this.messages.peek()) && message.time <= this.time) {
-            console.log(this.time, 'discarding message', message);
-            this.messages.poll();
-        }
-    }
-
-    // message coming in from reflector
-    RECV(data) {
-        console.log('RECV', data);
-        const message = Message.fromState(data);
-        if (message.time < this.time) throw Error("Past message from reflector");
+    decodeScheduleAndExecute(msgData) {
+        const message = Message.fromState(msgData);
         this.messages.add(message);
-        console.log(this.time, 'scheduled', message);
+        this.advanceTo(message.time);
     }
 
     futureSend(tOffset, receiverID, partID, selector, args) {
         if (CurrentIsland !== this) throw Error("Island Error");
         if (tOffset < 0) throw Error("attempt to send future message into the past");
+         // Wrapping below means that if we have an overflow, messages
+        // scheduled after the overflow will be executed *before* messages
+        // scheduled earlier. It won't lead to any collisions (this would require
+        // wrap-around within a time slot) but it still is a problem since it
+        // may cause unpredictable effects on the code.
+        // The reflector uses a similar scheme with sequence numbers below 100000000.
         this.timeSeq = (this.timeSeq + 100000000) % 1000000000000000;
         const message = new Message(this.time + tOffset, this.timeSeq, receiverID, partID, selector, args);
         this.messages.add(message);
@@ -289,6 +277,162 @@ export default class Island {
 }
 
 
+// Socket
+
+const socket = new WebSocket('ws://localhost:9090/');
+socket.onopen = _event => {
+    console.log("websocket connected");
+};
+socket.onerror = _event => {
+    console.log("websocket error");
+};
+socket.onclose = _event => {
+    console.log("websocket closed");
+};
+
+hotreload.addDisposeHandler("socket", () => socket.close());
+
+// Controller
+
+export class Controller {
+    constructor() {
+        this.networkQueue = new AsyncQueue();
+
+        this.tickPeriod = 1000;           // heartBeat
+        this.timeStamp = 0;               // will be set to Island time
+        this.lastTick = Date.now();
+        this.tickMsg = [0, 0, "tickMsg"]; // dummy message
+
+        socket.onmessage = event => this.receive(event.data);
+    }
+
+    get connected() { return socket.readyState !== WebSocket.CLOSED; }
+
+    // handle messages from reflector
+    receive(data) {
+        const { action, args } = JSON.parse(data);
+        switch (action) {
+            case 'RECV': {
+                const msg = args;
+                //if (msg.sender === this.senderID) this.addToStatistics(msg);
+                this.networkQueue.put(msg);
+                break;
+            }
+            case 'SERVE': {
+                console.log('SERVE - replying with snapshot');
+                socket.send(JSON.stringify({
+                    action: args, // reply action
+                    args: this.island.asState(),
+                }));
+                // and send a dummy message so that the other guy can play catch up
+                this.island.sendNoop();
+                break;
+            }
+            case 'SYNC': {
+                console.log('SYNC - received snapshot');
+                this.install(args);
+                break;
+            }
+            default: console.log("Unknown action:", action);
+        }
+    }
+
+    async install(snapshot) {
+        const newIsland = this.islandCreator.creatorFn(snapshot);
+        const newTime = newIsland.time;
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+            // eslint-disable-next-line no-await-in-loop
+            const nextMsg = await this.networkQueue.next();
+            if (nextMsg[0] > newTime) {
+                // This is the first 'real' message arriving.
+                newIsland.decodeScheduleAndExecute(nextMsg);
+                this.setIsland(newIsland); // install island
+                return; // done
+            }
+            // otherwise, silently skip the message
+        }
+    }
+
+    setIsland(island) {
+        this.island = island;
+        this.island.controller = this;
+        this.timeStamp = island.time;
+        this.islandCreator.callbackFn(this.island);
+    }
+
+    newIsland(creatorFn, state, callbackFn) {
+        this.islandCreator = { creatorFn, callbackFn };
+        this.setIsland(creatorFn(state));
+    }
+
+    // network queue
+
+    sendMessage(msg) {
+        // SEND: Broadcast a message to all participants.
+        socket.send(JSON.stringify({
+            action: 'SEND',
+            args: msg.asState(),
+        }));
+    }
+
+    stampMessage(msgData) {
+        // put a time stamp on the given message
+        const nextTick = Date.now();
+        const delta = nextTick - this.lastTick;
+        this.timeStamp += delta;
+        this.lastTick = nextTick;
+        msgData[0] = this.timeStamp;
+    }
+
+    advanceTo(newTime) {
+        if (!this.island) return;    // we are probably still sync-ing
+        this.processMessages();      // process all the messages thus far
+        this.island.advanceTo(newTime);
+    }
+
+    processMessages() {
+        // Process pending messages for this island
+        if (!this.island) return;     // we are probably still sync-ing
+        let msgData;
+        // Get the next message from the (concurrent) network queue
+        while ((msgData = this.networkQueue.nextNonBlocking())) {
+            // And have the island decode, schedule, and update to that message
+            this.island.decodeScheduleAndExecute(msgData);
+        }
+    }
+
+    // heartBeat
+
+    startHeartBeat(period) {
+        this.stopHeartBeat();
+        if (period) this.tickPeriod = period;
+        this.heartBeat = hotreload.setTimeout(() => this.runHeartBeat(), this.tickPeriod);
+        //console.log(this, "start heartbeat", this.tickPeriod);
+    }
+
+    stopHeartBeat() {
+        if (this.heartBeat) hotreload.clearTimeout(this.heartBeat);
+        this.heartBeat = 0;
+        //console.log(this, "stopped heartbeat");
+    }
+
+    runHeartBeat() {
+        // See if we've exceeded the period between ticks
+        const nextTick = Date.now();
+        let delta = nextTick - this.lastTick;
+        if (delta >= this.tickPeriod) {
+            this.stampMessage(this.tickMsg); // sets lastTick
+            //console.log("heartbeat", this.tickMsg[0]);
+            this.advanceTo(this.tickMsg[0]);
+            delta = 0;
+        }
+        if (delta) console.log(this, "next heartbeat in", this.tickPeriod - delta);
+        this.heartBeat = hotreload.setTimeout(() => this.runHeartBeat(), this.tickPeriod - delta);
+    }
+}
+
+
 // Message encoders / decoders
 
 
@@ -353,7 +497,10 @@ class Message {
 
     executeOn(island) {
         const { receiver, part, selector, args } = decode(this.payload);
-        execOnIsland(island, () => island.modelsById[receiver].parts[part][selector](...args));
+        if (receiver === island.id) return; // noop
+        let object = island.modelsById[receiver];
+        if (part) object = object.parts[part];
+        execOnIsland(island, () => object[selector](...args));
     }
 }
 
