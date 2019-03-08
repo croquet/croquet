@@ -146,10 +146,8 @@ class LayoutTestView extends View {
 
 
 export default function initRoom1(state) {
-    let room;
-
-    const island = new Island(state && state.island, () => {
-        room = new Room();
+    const island = new Island(state, () => {
+        const room = new Room();
 
         const box = new BouncingBox({ spatial: { position: new THREE.Vector3(0, 1.0, 0) } });
         room.parts.objects.add(box);
@@ -175,7 +173,5 @@ export default function initRoom1(state) {
         room.parts.objects.add(layoutTest);
     });
 
-    room = room || island.modelsById[state.room];
-
-    return {island, room};
+    return island;
 }
