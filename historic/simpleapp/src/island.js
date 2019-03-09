@@ -262,9 +262,15 @@ const XYZW = {
     decode: a => [{ x: a[0], y: a[1], z: a[2], w: a[3] }],
 };
 
+const Null = {
+    encode: a => [],
+    decode: a => undefined,
+};
+
 const transcoders = {
     "*.moveTo": XYZ,
     "*.rotateTo": XYZW,
+    "*.newNewText": Null,
 };
 
 function encode(receiver, part, selector, args) {

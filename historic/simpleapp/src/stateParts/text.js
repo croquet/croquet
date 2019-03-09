@@ -58,6 +58,11 @@ export default class TextPart extends StatePart {
         this.editor.insert(txt); //insert the new text
     }
 
+    newNewText() {
+        this.editor.load([]); //clear current text
+        this.editor.insert('abc'); //insert the new text
+    }
+
     setContent(newContent) {
         this.content = newContent;
         this.editor.newText(newContent);

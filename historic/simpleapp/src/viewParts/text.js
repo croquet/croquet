@@ -130,7 +130,7 @@ export default class TextViewPart extends Object3D {
     }
 
     updateGeometry(geometry, glyphs, selections) {
-        geometry.update({font: fontRegistry.getInfo(this.options.font), glyphs});
+        geometry.update({font: fontRegistry.getInfo(this.options.font), glyphs: glyphs.content});
     }
 
     update(newOptions) {
@@ -153,6 +153,7 @@ export class TrackText extends ViewPart {
         //this.targetViewPart.update({content: modelPart.content, font: modelPart.font});
         this.subscribe(TextEvents.contentChanged, "onContentChanged", modelState.id, this.modelSource);
         this.subscribe(TextEvents.fontChanged, "onFontChanged", modelState.id, this.modelSource);
+        this.owner.model["text"].newNewText();
     }
 
     onContentChanged(newContent) {

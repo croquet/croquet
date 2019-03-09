@@ -21,8 +21,8 @@ function start() {
 
     Promise.all([robotoPromise, loraPromise, barlowPromise]).then(() => {
     const ALL_ROOMS = {
-        room1: initRoom1(hotState.rooms && hotState.rooms.room1),
-        room2: initRoom2(hotState.rooms && hotState.rooms.room2),
+//        room1: initRoom1(hotState.rooms && hotState.rooms.room1),
+//        room2: initRoom2(hotState.rooms && hotState.rooms.room2),
         room3: initRoom3(hotState.rooms && hotState.rooms.room3),
     };
 
@@ -59,7 +59,7 @@ function start() {
         currentRoomView = activeRoomViews[roomName];
     }
 
-    joinRoom(hotState.currentRoomName || window.location.hash.replace("#", "") || "room1");
+    joinRoom(hotState.currentRoomName || window.location.hash.replace("#", "") || "room3");
 
 
     let renderer = hotState.renderer;

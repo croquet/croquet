@@ -61,9 +61,9 @@ export class Carota extends Doc {
   }
 
   setSubscribers(callback) {
-      //this.selectionChanged(this.paint.bind(this));
+      this.selectionChanged(this.paint.bind(this));
       this.contentChanged(this.paint.bind(this));
-      //this.contentChanged(callback);
+      this.contentChanged(callback);
   }
 
   get showsScrollbar() { return this._showsScrollbar; }
