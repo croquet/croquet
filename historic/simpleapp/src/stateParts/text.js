@@ -1,4 +1,6 @@
 import StatePart from "../statePart.js";
+import { Carota } from './carota/editor.js';
+import { fontRegistry } from '../viewParts/fontRegistry.js';
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
@@ -11,17 +13,54 @@ export const TextEvents = {
 export default class TextPart extends StatePart {
     fromState(state={}) {
         this.content = state.content || "";
-        this.font = state.font || "Barlow";
+        this.font = state.font || "Roboto";
+        this.width = state.width || 3;
+        this.height = state.height || 2;
+        this.numLines = state.numLines || 10;
+        this.initEditor();
     }
 
     toState(state) {
         state.content = this.content;
         state.font = this.font;
+        state.width = this.width;
+        state.height = this.height;
+        state.numLines = this.numLines;
+    }
+
+    initEditor() {
+        this.editor = new Carota(this.width, this.height, this.numLines);
+
+        this.editor.isScrollable = true;  // unless client decides otherwise
+        this.editor.load([]);
+
+        this.editor.mockCallback = ctx => {
+            let glyphs = this.processMockContext(ctx);
+            this.publish(TextEvents.contentChanged, glyphs);
+        };
+
+        const callback = () => this.onTextChange();
+        this.editor.setSubscribers(callback);
+        this.newText(this.content);
+        window.textModel = this;
+    }
+
+    processMockContext(ctx) {
+        let layout = fontRegistry.getMeasurer(this.font);
+        let info = fontRegistry.getInfo(this.font);
+        return layout.computeGlyphs({font: info, drawnStrings: ctx.drawnStrings});
+    }
+
+    onTextChange() {}
+
+    newText(txt) {
+        this.editor.load([]); //clear current text
+        this.editor.insert(txt); //insert the new text
     }
 
     setContent(newContent) {
         this.content = newContent;
-        this.publish(TextEvents.contentChanged, newContent);
+        this.editor.newText(newContent);
     }
 
     setFont(font) {

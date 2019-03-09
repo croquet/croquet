@@ -167,7 +167,7 @@ export class TextLayout {
                         color = null
                         lastStyle = 'black'
                     } else if (lastStyle !== style) {
-                        color = new THREE.Color(style)
+                        color = THREE.Color(style);
                         lastStyle == style
                     }
                     glyphs.push({

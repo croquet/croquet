@@ -61,9 +61,9 @@ export class Carota extends Doc {
   }
 
   setSubscribers(callback) {
-      this.selectionChanged(this.paint.bind(this));
+      //this.selectionChanged(this.paint.bind(this));
       this.contentChanged(this.paint.bind(this));
-      this.contentChanged(callback);
+      //this.contentChanged(callback);
   }
 
   get showsScrollbar() { return this._showsScrollbar; }
@@ -264,8 +264,10 @@ export class Carota extends Doc {
     if (b > vBounds.b && this.extendingSelection != 'top') deltaY = b - vBounds.b;
     if (t < vBounds.t && this.extendingSelection != 'bottom') deltaY = t - vBounds.t;
     if (deltaY != 0 && this.margins && this.margins.top) deltaY += this.margins.top;
-    deltaY /= (this.useMockContext ? this.frame.height : scaleY);
-    this.scrollBy(0, deltaY);
+    deltaY /= this.frame.height;
+    if (deltaY !== 0) {
+      this.scrollBy(0, deltaY);
+    }
   }
 
   scrollCursorIntoView() {

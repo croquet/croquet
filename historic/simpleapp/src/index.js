@@ -4,7 +4,7 @@ import initRoom1 from './sampleRooms/room1.js';
 import RoomView from './room/roomView.js';
 import initRoom2 from './sampleRooms/room2.js';
 import initRoom3 from './sampleRooms/room3.js';
-import {fontRegistry} from './viewParts/text.js';
+import {fontRegistry} from './viewParts/fontRegistry.js';
 
 const LOG_HOTRELOAD = false;
 
@@ -15,7 +15,11 @@ let hotState = module.hot && module.hot.data && module.hot.data.hotState || {};
 
 /** The main function. */
 function start() {
+    let robotoPromise = fontRegistry.getAtlasFor("Roboto");
+    let loraPromise = fontRegistry.getAtlasFor("Lora");
+    let barlowPromise = fontRegistry.getAtlasFor("Barlow");
 
+    Promise.all([robotoPromise, loraPromise, barlowPromise]).then(() => {
     const ALL_ROOMS = {
         room1: initRoom1(hotState.rooms && hotState.rooms.room1),
         room2: initRoom2(hotState.rooms && hotState.rooms.room2),
@@ -24,7 +28,6 @@ function start() {
 
     const activeRoomViews = {};
 
-    fontRegistry.getAtlasFor("Roboto").then(() => {
 
     /** @type {import('./room/roomModel').default} */
     let currentRoom = null;
@@ -168,7 +171,7 @@ function start() {
         // start logging module loads
         if (LOG_HOTRELOAD && !module.bundle.v) module.bundle.v = 1;
     }
-    });
+    })
 }
 
 if (module.hot) {
