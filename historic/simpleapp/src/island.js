@@ -204,7 +204,7 @@ export default class Island {
     processModelViewEvents() {
         if (CurrentIsland) throw Error("Island Error");
         while (this.modelViewEvents.length > 0) {
-            const { scope, event, data } = this.modelViewEvents.pop();
+            const { scope, event, data } = this.modelViewEvents.shift();
             this.publishFromView(scope, event, data);
         }
     }
