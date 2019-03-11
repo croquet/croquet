@@ -28,6 +28,7 @@
     "seedrandom": "^2.4.4",
     "three": "^0.101.1",
     "three-bmfont-text": "git+https://github.com/yoshikiohshima/three-bmfont-text.git",
+    "three-buffer-vertex-data": "git+https://github.com/aeickhoff/three-buffer-vertex-data.git",
     "three-svg-loader": "^0.1.0",
     "yoga-layout-prebuilt": "^1.9.3"
   },
