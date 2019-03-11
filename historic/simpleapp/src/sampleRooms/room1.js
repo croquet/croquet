@@ -144,7 +144,6 @@ class LayoutTestView extends View {
     }
 }
 
-
 export default function initRoom1(state) {
     let room;
 
