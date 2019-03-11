@@ -25,7 +25,7 @@ function start() {
 
     const ALL_ROOMS = {
         room1: initRoom1(hotState.rooms && hotState.rooms.room1),
-        room2: initRoom2(hotState.rooms && hotState.rooms.room2)
+        room2: initRoom2(hotState.rooms && hotState.rooms.room2),
         room3: initRoom3(hotState.rooms && hotState.rooms.room3),
     };
 
@@ -144,6 +144,7 @@ function start() {
         // start logging module loads
         if (LOG_HOTRELOAD && !module.bundle.v) module.bundle.v = 1;
     }
+    });
 }
 
 if (module.hot) {
