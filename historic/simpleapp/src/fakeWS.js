@@ -38,7 +38,9 @@ export class LocalSocket extends CallbackHandler {
         this.remotePort = options.port || (Math.random() * 0x10000 | 0x8000);
         this._otherEnd = null;
         this._callbacks = [];
-        if (!options.isServer) hotreload.setTimeout(() => wss._connect(this), 0);
+        // if we have a url, connect to the server
+        // otherwise this is the server's socket
+        if (url) hotreload.setTimeout(() => wss._connect(this), 0);
     }
 
     get onopen() { return this._callbacks['open']; }
@@ -82,7 +84,7 @@ export class LocalSocket extends CallbackHandler {
 class Client extends CallbackHandler {
     constructor(socket, options) {
         super();
-        this._socket = new LocalSocket("fake://", { host: options.host, port: options.port, isServer: true });
+        this._socket = new LocalSocket('', { host: options.host, port: options.port});
         this._socket.onopen = () => this._callback('open');
         this._socket.onclose = () => this._callback('close');
         this._socket.onerror = () => this._callback('error');

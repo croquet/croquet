@@ -295,8 +295,11 @@ function socketSetup() {
                 const error = document.getElementById("error");
                 error.innerText = 'No Connection';
                 console.log("no connection to server, setting up local server");
+                // The following import runs the exact same code that's
+                // executing on Node normally. It imports 'ws' which now
+                // comes from our own fakeWS.js
                 import("../../reflector/index.js").then(() => {
-                    socket = new LocalSocket();
+                    socket = new LocalSocket('fakeWS://local/');
                     socketSetup();
                 });
             }
