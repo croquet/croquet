@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import PortalViewPart from "./viewParts/portal.js";
 
+const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
+if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
+
 export const RENDER_LAYERS = {
     NORMAL: 0,
     ALL_PORTALS: 1,
