@@ -1,5 +1,5 @@
 import StatePart from "../statePart.js";
-import { Carota } from './carota/editor.js';
+import { Carota, setCachedMeasureText } from './carota/editor.js';
 import { fontRegistry } from '../viewParts/fontRegistry.js';
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
@@ -13,7 +13,7 @@ export const TextEvents = {
 export default class TextPart extends StatePart {
     fromState(state={}) {
         this.content = state.content || "";
-        this.font = state.font || "Roboto";
+        this.font = state.font || fontRegistry.defaultFont();
         this.width = state.width || 3;
         this.height = state.height || 2;
         this.numLines = state.numLines || 10;
@@ -30,13 +30,14 @@ export default class TextPart extends StatePart {
 
     initEditor() {
         this.editor = new Carota(this.width, this.height, this.numLines);
+        Carota.setCachedMeasureText(fontRegistry.measureText.bind(fontRegistry)); // ???
 
         this.editor.isScrollable = true;  // unless client decides otherwise
         this.editor.load([]);
 
         this.editor.mockCallback = ctx => {
             let glyphs = this.processMockContext(ctx);
-            this.publish(TextEvents.contentChanged, glyphs);
+            this.publish(TextEvents.contentChanged, {content: glyphs, corners: this.editor.visibleTextBounds(), scaleX: this.editor.scaleX, scrollTop: this.editor.scrollTop, frameHeight: this.editor.frame.height});
         };
 
         const callback = () => this.onTextChange();
@@ -60,7 +61,7 @@ export default class TextPart extends StatePart {
 
     newNewText() {
         this.editor.load([]); //clear current text
-        this.editor.insert('abc'); //insert the new text
+        this.editor.insert("man is much more than a tool builder... he is an inventor of universes... Except the real one."); //insert the new text
     }
 
     setContent(newContent) {

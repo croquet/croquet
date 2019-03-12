@@ -16,6 +16,7 @@ const fontPaths = {
         atlas: require('../../assets/fonts/Roboto.png')
     },
 };
+const defaultFont = "Roboto";
 
 class FontRegistry {
     constructor() {
@@ -32,7 +33,7 @@ class FontRegistry {
                 console.log("start loading");
                 new THREE.TextureLoader().load(texPath, tex => {
                     this.fonts[font] = tex;
-                    this.measurers[font] = new TextLayout({font});
+                    this.measurers[font] = new TextLayout({font: this.getInfo(font)});
                     console.log("loaded", tex);
                     resolve(tex);
                 });
@@ -51,9 +52,24 @@ class FontRegistry {
     getMeasurer(font) {
         return this.measurers[font];
     }
+
+    defaultFont() {
+        return defaultFont;
+    }
+
+    measureText(text, formatting) {
+        if (formatting === undefined) formatting = {};
+        let fontName = formatting.font || defaultFont;
+        let scale = (formatting.size || 10) / 10;
+        if (!this.measurers[fontName]) {
+            if (!this.measurers[defaultFont]) {
+                return {ascent: 1, height: 2, descent: 1, width: 1};
+            }
+        }
+        fontName = defaultFont;
+        return this.measurers[fontName].measureText(text, scale);
+    }
 }
 
 export let fontRegistry = new FontRegistry();
-
 let debugFontRegistry = fontRegistry;
-

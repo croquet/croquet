@@ -2,7 +2,7 @@ import per from './per.js';
 import Doc from './doc.js';
 import rect from './rect.js';
 import MockContext from './MockContext.js';
-import {cachedMeasureText} from './text.js';
+import {cachedMeasureText, setCachedMeasureText} from './text.js';
 
 // This was a pretty brutal reorganization of the beautiful Carota system so
 // that I could have a basic text editor in 3D.
@@ -20,6 +20,9 @@ function differentLine(caret1, caret2) {
 }
 
 export class Carota extends Doc {
+    static setCachedMeasureText(func) {
+	setCachedMeasureText(func);
+    }
 
   constructor(width, height, numLines) {
     super();

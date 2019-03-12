@@ -35,8 +35,9 @@ export default class TextViewPart extends Object3D {
 
     updateMaterial() {
         let text = this.text;
+        let bounds = this.options.corners;
         //let bounds = this.editor.visibleTextBounds();
-        text.material.uniforms.corners.value = new THREE.Vector4(-100, -100, 1000, 1000);
+        text.material.uniforms.corners.value = new THREE.Vector4(bounds.l, bounds.t, bounds.r, bounds.b);
     }
 
     initTextMesh() {
@@ -129,14 +130,36 @@ export default class TextViewPart extends Object3D {
         return layout.computeGlyphs({font: font, drawnStrings: ctx.drawnStrings});
     }
 
-    updateGeometry(geometry, glyphs, selections) {
-        geometry.update({font: fontRegistry.getInfo(this.options.font), glyphs: glyphs.content});
+    updateGeometry(geometry) {
+        let font = fontRegistry.getInfo(this.options.font);
+        let meterInPixel = this.options.width / this.options.scaleX;
+        let scrollT = this.options.scrollTop;
+        let descent = font.common.lineHeight - font.common.base;
+
+        let docHeight = this.options.frameHeight;
+        let docInMeter = docHeight * meterInPixel;
+
+        let text = this.text;
+        text.scale.x = meterInPixel;
+        text.scale.y = -meterInPixel;
+
+        text.position.x = -this.options.width / 2;
+        text.position.y = this.options.height / 2 + (scrollT * docInMeter);
+        text.position.z = 0.005;
+
+
+        geometry.update({font: fontRegistry.getInfo(this.options.font), glyphs: this.options.content});
+
+
     }
 
     update(newOptions) {
-        this.options = {...this.options, ...newOptions};
+        this.options = Object.assign(this.options, newOptions);
         let text = this.text;
-        if (text && text.geometry) this.updateGeometry(text.geometry, newOptions, []);
+        if (text && text.geometry) {
+            this.updateMaterial();
+            this.updateGeometry(text.geometry);
+        }
     }
 }
 
@@ -157,7 +180,7 @@ export class TrackText extends ViewPart {
     }
 
     onContentChanged(newContent) {
-        this.targetViewPart.update({content: newContent});
+        this.targetViewPart.update(newContent);
     }
 
     onFontChanged(newFont) {
