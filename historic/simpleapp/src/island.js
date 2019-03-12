@@ -105,13 +105,8 @@ export default class Island {
     // Send via reflector
     callModelMethod(modelId, partId, selector, args) {
         if (CurrentIsland) throw Error("Island Error");
-
-        if (!this.controller.connected) {
-            execOnIsland(this, () => this.futureSend(0, modelId, partId, selector, args));
-        } else {
-            const message = new Message(this.time, 0, modelId, partId, selector, args);
-            this.controller.sendMessage(message);
-        }
+        const message = new Message(this.time, 0, modelId, partId, selector, args);
+        this.controller.sendMessage(message);
     }
 
     sendNoop() {
@@ -297,12 +292,6 @@ hotreload.addDisposeHandler("socket", () => socket.close());
 export class Controller {
     constructor() {
         this.networkQueue = new AsyncQueue();
-
-        this.tickPeriod = 1000;           // heartBeat
-        this.timeStamp = 0;               // will be set to Island time
-        this.lastTick = Date.now();
-        this.tickMsg = [0, 0, "tickMsg"]; // dummy message
-
         socket.onmessage = event => this.receive(event.data);
     }
 
@@ -316,6 +305,11 @@ export class Controller {
                 const msg = args;
                 //if (msg.sender === this.senderID) this.addToStatistics(msg);
                 this.networkQueue.put(msg);
+                break;
+            }
+            case 'TICK': {
+                const time = args;
+                this.advanceTo(time);
                 break;
             }
             case 'SERVE': {
@@ -357,7 +351,6 @@ export class Controller {
     setIsland(island) {
         this.island = island;
         this.island.controller = this;
-        this.timeStamp = island.time;
         this.islandCreator.callbackFn(this.island);
     }
 
@@ -376,15 +369,6 @@ export class Controller {
         }));
     }
 
-    stampMessage(msgData) {
-        // put a time stamp on the given message
-        const nextTick = Date.now();
-        const delta = nextTick - this.lastTick;
-        this.timeStamp += delta;
-        this.lastTick = nextTick;
-        msgData[0] = this.timeStamp;
-    }
-
     advanceTo(newTime) {
         if (!this.island) return;    // we are probably still sync-ing
         this.processMessages();      // process all the messages thus far
@@ -400,35 +384,6 @@ export class Controller {
             // And have the island decode, schedule, and update to that message
             this.island.decodeScheduleAndExecute(msgData);
         }
-    }
-
-    // heartBeat
-
-    startHeartBeat(period) {
-        this.stopHeartBeat();
-        if (period) this.tickPeriod = period;
-        this.heartBeat = hotreload.setTimeout(() => this.runHeartBeat(), this.tickPeriod);
-        //console.log(this, "start heartbeat", this.tickPeriod);
-    }
-
-    stopHeartBeat() {
-        if (this.heartBeat) hotreload.clearTimeout(this.heartBeat);
-        this.heartBeat = 0;
-        //console.log(this, "stopped heartbeat");
-    }
-
-    runHeartBeat() {
-        // See if we've exceeded the period between ticks
-        const nextTick = Date.now();
-        let delta = nextTick - this.lastTick;
-        if (delta >= this.tickPeriod) {
-            this.stampMessage(this.tickMsg); // sets lastTick
-            //console.log("heartbeat", this.tickMsg[0]);
-            this.advanceTo(this.tickMsg[0]);
-            delta = 0;
-        }
-        if (delta) console.log(this, "next heartbeat in", this.tickPeriod - delta);
-        this.heartBeat = hotreload.setTimeout(() => this.runHeartBeat(), this.tickPeriod - delta);
     }
 }
 

@@ -18,7 +18,6 @@ function start() {
     let currentView = null;
 
     const controller = new Controller();
-    controller.startHeartBeat(50);
 
     controller.newIsland(initRoom1, hotState.island, island => {
         if (currentView) currentView.detach();
