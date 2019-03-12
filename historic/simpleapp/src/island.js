@@ -1,4 +1,5 @@
 import SeedRandom from "seedrandom";
+import { LocalSocket } from "ws";
 import PriorityQueue from "./util/priorityQueue.js";
 import AsyncQueue from './util/asyncQueue.js';
 import hotreload from "./hotreload.js";
@@ -110,7 +111,10 @@ export default class Island {
     }
 
     sendNoop() {
-        const message = new Message(this.time, 0, this.id, 0, 'noop', []);
+        // this is only used for syncing after a snapshot
+        // noop() isn't actually implemented, sends to island id
+        // are filtered out in executeOn()
+        const message = new Message(this.time, 0, this.id, 0, "noop", []);
         this.controller.sendMessage(message);
     }
 
@@ -273,24 +277,37 @@ export default class Island {
 
 
 // Socket
+let socket = new WebSocket('ws://localhost:9090/');
 
-const socket = new WebSocket('ws://localhost:9090/');
-socket.onopen = _event => {
-    console.log("websocket connected");
-    Controller.connected();
-};
-socket.onerror = _event => {
-    console.log("websocket error");
-};
-socket.onclose = _event => {
-    console.log("websocket closed");
-};
+function socketSetup() {
+    Object.assign(socket, {
+        onopen: _event => {
+            console.log(socket.constructor.name, "connected");
+            Controller.connected();
+        },
+        onerror: _event => {
+            console.log(socket.constructor.name, "error");
+        },
+        onclose: event => {
+            console.log(socket.constructor.name, "closed:", event.code);
+            socket = null;
+            if (event.code === 1006) {
+                console.log("no connection to server, setting up local server");
+                import("../../reflector/index.js").then(() => {
+                    socket = new LocalSocket();
+                    socketSetup();
+                });
+            }
+        },
+        onmessage: event => {
+            Controller.receive(event.data);
+        }
+    });
+    const currentSocket = socket;  // create closure
+    hotreload.addDisposeHandler("socket", () => currentSocket.close());
+}
 
-socket.onmessage = event => {
-    Controller.receive(event.data);
-};
-
-hotreload.addDisposeHandler("socket", () => socket.close());
+socketSetup();
 
 // Controller
 
@@ -419,7 +436,10 @@ export class Controller {
 
 
 // Message encoders / decoders
-
+//
+// Eventually, these should be provided by the application
+// to tailor the encoding for specific scenarios.
+// (unless we find a truly efficient and general encoding scheme)
 
 const XYZ = {
     encode: a => [a[0].x, a[0].y, a[0].z],

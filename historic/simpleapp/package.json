@@ -22,6 +22,9 @@
       "last 1 iOS major version"
     ]
   },
+  "alias": {
+    "ws": "./src/fakeWS.js"
+  },
   "dependencies": {
     "array-flat-polyfill": "^1.0.0",
     "fastpriorityqueue": "^0.6.1",
