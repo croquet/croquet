@@ -21,10 +21,10 @@ export default class RoomViewManager {
         }
     }
 
-    request(roomName, allRooms, initialCameraPosition) {
+    request(roomName, allIslands, initialCameraPosition) {
         if (!this.activeRoomViews[roomName]) {
-            const island = allRooms[roomName].island;
-            const room = allRooms[roomName].room;
+            const island = allIslands[roomName];
+            const room = island.get("room");
 
             if (!this.activeRoomViews[roomName]) {
                 const roomView = new RoomView(island, {
@@ -42,10 +42,10 @@ export default class RoomViewManager {
         return this.activeRoomViews[roomName];
     }
 
-    requestPassive(roomName, allRooms, initialCameraPosition) {
+    requestPassive(roomName, allIslands, initialCameraPosition) {
         if (!this.passiveRoomViews[roomName]) {
-            const island = allRooms[roomName].island;
-            const room = allRooms[roomName].room;
+            const island = allIslands[roomName];
+            const room = island.get("room");
 
             if (!this.passiveRoomViews[roomName]) {
                 const roomView = new RoomView(island, {

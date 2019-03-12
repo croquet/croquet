@@ -4,6 +4,7 @@ import initRoom1 from './sampleRooms/room1.js';
 import initRoom2 from './sampleRooms/room2.js';
 import RoomViewManager from './room/roomViewManager.js';
 import Renderer from './render.js';
+import { Controller } from "./island.js";
 
 const LOG_HOTRELOAD = false;
 
@@ -11,38 +12,35 @@ const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
 let hotState = module.hot && module.hot.data || {};
-if (typeof hotState.island === "string") hotState.island = JSON.parse(hotState.island);
-
 
 /** The main function. */
 function start() {
-    let currentView = null;
 
-    const ALL_ROOMS = {
-        room1: initRoom1(hotState.rooms && hotState.rooms.room1),
-        room2: initRoom2(hotState.rooms && hotState.rooms.room2)
-    };
-
-    /** @type {import('./room/roomModel').default} */
+    const ALL_ISLANDS = {};
     let currentRoomName = null;
     const roomViewManager = new RoomViewManager(window.innerWidth, window.innerHeight);
 
     function joinRoom(roomName) {
         currentRoomName = roomName;
         // request ahead of render, set initial camera position if necessary
-        roomViewManager.request(roomName, ALL_ROOMS, new THREE.Vector3(0, 2, 4));
+        roomViewManager.request(roomName, ALL_ISLANDS, new THREE.Vector3(0, 2, 4));
     }
 
-    controller.newIsland(initRoom1, hotState.island, island => {
-        if (currentView) currentView.detach();
-        currentView = new RoomView(island, {
-            activeParticipant: true,
-            width: window.innerWidth,
-            height: window.innerHeight,
-            cameraPosition: new THREE.Vector3(0, 2, 5)
+    const startRoom = hotState.currentRoomName || window.location.hash.replace("#", "") || "room1";
+
+    function newIsland(roomName, creatorFn) {
+        let state = hotState.islands && hotState.islands[roomName];
+        if (state) state = JSON.parse(state);
+        const controller = new Controller();
+        controller.newIsland(creatorFn, state, island => {
+            ALL_ISLANDS[roomName] = island;
+            if (roomName === startRoom) joinRoom(roomName);
         });
-        currentView.attach(island.get('room')); // HACK! Reaching into island
-    });
+        return controller.island;
+    }
+
+    newIsland("room1", initRoom1);
+    newIsland("room2", initRoom2);
 
     /** @type {Renderer} */
     const renderer = hotState.renderer || new Renderer(window.innerWidth, window.innerHeight);
@@ -51,39 +49,35 @@ function start() {
 
     function frame() {
         if (currentRoomName) {
-            renderer.render(currentRoomName, ALL_ROOMS, roomViewManager);
-            const currentRoomView = roomViewManager.request(currentRoomName, ALL_ROOMS);
+            renderer.render(currentRoomName, ALL_ISLANDS, roomViewManager);
+            const currentRoomView = roomViewManager.request(currentRoomName, ALL_ISLANDS);
 
             if (currentRoomView) {
                 currentRoomView.parts.pointer.updatePointer();
             }
         }
-
-        const now = Date.now();
-        for (const room of Object.values(ALL_ROOMS)) {
-            room.island.advanceTo(room.island.time + (now - before));
-            room.island.processModelViewEvents();
+        for (const island of Object.values(ALL_ISLANDS)) {
+            island.processModelViewEvents();
         }
-        controller.island.processModelViewEvents();
         hotreload.requestAnimationFrame(frame);
     }
 
     hotreload.requestAnimationFrame(frame);
 
     hotreload.addEventListener(window, "mousemove", event => {
-        const currentRoomView = currentRoomName && roomViewManager.request(currentRoomName, ALL_ROOMS);
+        const currentRoomView = currentRoomName && roomViewManager.request(currentRoomName, ALL_ISLANDS);
         if (currentRoomView) currentRoomView.parts.pointer.onMouseMove(event.clientX, event.clientY);
     });
     hotreload.addEventListener(window, "mousedown", event => {
-        const currentRoomView = currentRoomName && roomViewManager.request(currentRoomName, ALL_ROOMS);
+        const currentRoomView = currentRoomName && roomViewManager.request(currentRoomName, ALL_ISLANDS);
         if (currentRoomView) currentRoomView.parts.pointer.onMouseDown(event);
     });
     hotreload.addEventListener(window, "mouseup", event => {
-        const currentRoomView = currentRoomName && roomViewManager.request(currentRoomName, ALL_ROOMS);
+        const currentRoomView = currentRoomName && roomViewManager.request(currentRoomName, ALL_ISLANDS);
         if (currentRoomView) currentRoomView.parts.pointer.onMouseUp(event);
     });
     hotreload.addEventListener(document.body, "touchstart", event => {
-        const currentRoomView = currentRoomName && roomViewManager.request(currentRoomName, ALL_ROOMS);
+        const currentRoomView = currentRoomName && roomViewManager.request(currentRoomName, ALL_ISLANDS);
         if (currentRoomView) {
             currentRoomView.parts.pointer.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
             currentRoomView.parts.pointer.updatePointer();
@@ -94,21 +88,21 @@ function start() {
     }, {passive: false});
 
     hotreload.addEventListener(document.body, "touchmove", event => {
-        const currentRoomView = currentRoomName && roomViewManager.request(currentRoomName, ALL_ROOMS);
+        const currentRoomView = currentRoomName && roomViewManager.request(currentRoomName, ALL_ISLANDS);
         if (currentRoomView) {
             currentRoomView.parts.pointer.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
         }
     }, {passive: false});
 
     hotreload.addEventListener(document.body, "touchend", event => {
-        const currentRoomView = currentRoomName && roomViewManager.request(currentRoomName, ALL_ROOMS);
+        const currentRoomView = currentRoomName && roomViewManager.request(currentRoomName, ALL_ISLANDS);
         if (currentRoomView) {currentRoomView.parts.pointer.onMouseUp();}
         event.stopPropagation();
         event.preventDefault();
     }, {passive: false});
 
     hotreload.addEventListener(document.body, "wheel", event => {
-        const currentRoomView = currentRoomName && roomViewManager.request(currentRoomName, ALL_ROOMS);
+        const currentRoomView = currentRoomName && roomViewManager.request(currentRoomName, ALL_ISLANDS);
         if (currentRoomView) {currentRoomView.parts.treadmillNavigation.onWheel(event);}
         event.stopPropagation();
         event.preventDefault();
@@ -118,6 +112,8 @@ function start() {
         renderer.changeViewportSize(window.innerWidth, window.innerHeight);
         roomViewManager.changeViewportSize(window.innerWidth, window.innerHeight);
     });
+
+    hotreload.addEventListener(window, "hashchange", () => joinRoom(window.location.hash.replace("#", "")));
 
     if (module.hot) {
         // our hot-reload strategy is to reload all the code (meaning no reload
@@ -129,16 +125,11 @@ function start() {
             // preserve state, will be available as module.hot.data after reload
             Object.assign(hotData, {
                 renderer,
-                rooms: {},
-                currentRoomName,
-            };
-
-            for (const roomName of Object.keys(ALL_ROOMS)) {
-                const room = ALL_ROOMS[roomName];
-                hotData.hotState.rooms[roomName] = {
-                    island: room.island.toState(),
-                    room: room.room.id,
-                };
+                islands: {},
+                currentRoomName
+            });
+            for (const [name, island] of Object.entries(ALL_ISLANDS)) {
+                hotData.islands[name] = JSON.stringify(island.asState());
             }
         });
         // start logging module loads

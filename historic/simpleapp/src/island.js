@@ -277,6 +277,7 @@ export default class Island {
 const socket = new WebSocket('ws://localhost:9090/');
 socket.onopen = _event => {
     console.log("websocket connected");
+    Controller.connected();
 };
 socket.onerror = _event => {
     console.log("websocket error");
@@ -285,22 +286,49 @@ socket.onclose = _event => {
     console.log("websocket closed");
 };
 
+socket.onmessage = event => {
+    Controller.receive(event.data);
+};
+
 hotreload.addDisposeHandler("socket", () => socket.close());
 
 // Controller
 
+const Controllers = {};
+
 export class Controller {
+    // socket was connected, join session for all islands
+    static connected() {
+        for (const controller of Object.values(Controllers)) {
+            console.log('JOIN', controller.island.id);
+            socket.send(JSON.stringify({
+                id: controller.island.id,
+                action: 'JOIN',
+                args: controller.island.time,
+            }));
+        }
+    }
+
+    // dispatch to right controller
+    static receive(data) {
+        const { id, action, args } = JSON.parse(data);
+        Controllers[id].receive(action, args);
+    }
+
     constructor() {
         this.networkQueue = new AsyncQueue();
-        socket.onmessage = event => this.receive(event.data);
     }
 
     get connected() { return socket.readyState !== WebSocket.CLOSED; }
 
     // handle messages from reflector
-    receive(data) {
-        const { action, args } = JSON.parse(data);
+    receive(action, args) {
         switch (action) {
+            case 'START': {
+                // we are not joining an island but starting up cold
+                this.islandCreator.callbackFn(this.island);
+                break;
+            }
             case 'RECV': {
                 const msg = args;
                 //if (msg.sender === this.senderID) this.addToStatistics(msg);
@@ -342,6 +370,7 @@ export class Controller {
                 // This is the first 'real' message arriving.
                 newIsland.decodeScheduleAndExecute(nextMsg);
                 this.setIsland(newIsland); // install island
+                this.islandCreator.callbackFn(this.island);
                 return; // done
             }
             // otherwise, silently skip the message
@@ -351,12 +380,12 @@ export class Controller {
     setIsland(island) {
         this.island = island;
         this.island.controller = this;
-        this.islandCreator.callbackFn(this.island);
     }
 
-    newIsland(creatorFn, state, callbackFn) {
+    newIsland(creatorFn, state, callbackFn=()=>{}) {
         this.islandCreator = { creatorFn, callbackFn };
         this.setIsland(creatorFn(state));
+        Controllers[this.island.id] = this;
     }
 
     // network queue
@@ -364,6 +393,7 @@ export class Controller {
     sendMessage(msg) {
         // SEND: Broadcast a message to all participants.
         socket.send(JSON.stringify({
+            id: this.island.id,
             action: 'SEND',
             args: msg.asState(),
         }));
