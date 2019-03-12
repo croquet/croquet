@@ -292,6 +292,8 @@ function socketSetup() {
             console.log(socket.constructor.name, "closed:", event.code);
             socket = null;
             if (event.code === 1006) {
+                const error = document.getElementById("error");
+                error.innerText = 'No Connection';
                 console.log("no connection to server, setting up local server");
                 import("../../reflector/index.js").then(() => {
                     socket = new LocalSocket();
