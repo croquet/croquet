@@ -15,6 +15,8 @@ export default class InertialSpatialPart extends SpatialPart {
         this.estimatedRotationalVelocity = state.estimatedRotationalVelocity || new THREE.Quaternion();
         this.dampening = state.dampening || 0.1;
         this.inInertiaPhase = state.inInertiaPhase || false;
+        this.ensure(this.estimatedVelocity, THREE.Vector3);
+        this.ensure(this.estimatedRotationalVelocity, THREE.Quaternion);
     }
 
     toState(state) {

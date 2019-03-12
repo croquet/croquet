@@ -38,8 +38,4 @@ export default function initRoom2(state) {
         const portal = new Portal({ spatial: { position: new THREE.Vector3(0, 0.5, 0) } });
         room.parts.objects.add(portal);
     });
-
-    room = room || island.modelsById[state.room];
-
-    return {island, room};
 }

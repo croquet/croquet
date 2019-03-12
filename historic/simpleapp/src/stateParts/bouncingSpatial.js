@@ -14,6 +14,7 @@ export default class BouncingSpatialPart extends InertialSpatialPart {
         this.dampening = state.dampening || 0.01;
         this.gravity = state.gravity || new THREE.Vector3(0, -0.001, 0);
         this.bounce = state.bounce || 0.1;
+        this.ensure(this.gravity, THREE.Vector3);
     }
 
     toState(state) {

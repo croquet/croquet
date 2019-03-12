@@ -1,5 +1,7 @@
 import SeedRandom from "seedrandom";
 import PriorityQueue from "./util/priorityQueue.js";
+import AsyncQueue from './util/asyncQueue.js';
+import hotreload from "./hotreload.js";
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
@@ -20,6 +22,7 @@ function execOnIsland(island, fn) {
     const previousIsland = CurrentIsland;
     try {
         CurrentIsland = island;
+        window.ISLAND = island;
         fn();
     } finally {
         CurrentIsland = previousIsland;
@@ -35,6 +38,7 @@ export default class Island {
     constructor(state = {}, initFn) {
         this.modelsById = {};
         this.viewsById = {};
+        this.modelsByName = {};
         // Models can only subscribe to other model events
         // Views can subscribe to model or other view events
         this.modelSubscriptions = {};
@@ -92,23 +96,42 @@ export default class Island {
         delete this.viewsById[id];
     }
 
-    // This will become in-directed via the Reflector
+    get(modelName) { return this.modelsByName[modelName]; }
+    set(modelName, model) {
+        if (CurrentIsland !== this) throw Error("Island Error");
+        this.modelsByName[modelName] = model;
+    }
+
+    // Send via reflector
     callModelMethod(modelId, partId, selector, args) {
-        execOnIsland(this, () => this.futureSend(0, modelId, partId, selector, args));
+        if (CurrentIsland) throw Error("Island Error");
+        const message = new Message(this.time, 0, modelId, partId, selector, args);
+        this.controller.sendMessage(message);
+    }
+
+    sendNoop() {
+        const message = new Message(this.time, 0, this.id, 0, 'noop', []);
+        this.controller.sendMessage(message);
+    }
+
+    decodeScheduleAndExecute(msgData) {
+        const message = Message.fromState(msgData);
+        this.messages.add(message);
+        this.advanceTo(message.time);
     }
 
     futureSend(tOffset, receiverID, partID, selector, args) {
         if (CurrentIsland !== this) throw Error("Island Error");
         if (tOffset < 0) throw Error("attempt to send future message into the past");
-        const message = new Message(this.time + tOffset, ++this.timeSeq, receiverID, partID, selector, args);
+         // Wrapping below means that if we have an overflow, messages
+        // scheduled after the overflow will be executed *before* messages
+        // scheduled earlier. It won't lead to any collisions (this would require
+        // wrap-around within a time slot) but it still is a problem since it
+        // may cause unpredictable effects on the code.
+        // The reflector uses a similar scheme with sequence numbers below 100000000.
+        this.timeSeq = (this.timeSeq + 100000000) % 1000000000000000;
+        const message = new Message(this.time + tOffset, this.timeSeq, receiverID, partID, selector, args);
         this.messages.add(message);
-        // make sure sequence counter does not roll over
-        // rethink this when router is stimestamping
-        if (this.timeSeq > 0xFFFF) {
-            this.timeSeq = 0;
-            this.messages.forEach(m => m.seq = ++this.timeSeq);
-            console.log("re-sequencing future messages");
-        }
     }
 
     // Convert model.parts[partID].future(tOffset).property(...args)
@@ -222,7 +245,7 @@ export default class Island {
         }
     }
 
-    toState() {
+    asState() {
         return {
             id: this.id,
             time: this.time,
@@ -245,6 +268,122 @@ export default class Island {
             id += (this._random.int32() >>> 0).toString(16).padStart(8, '0');
         }
         return id;
+    }
+}
+
+
+// Socket
+
+const socket = new WebSocket('ws://localhost:9090/');
+socket.onopen = _event => {
+    console.log("websocket connected");
+};
+socket.onerror = _event => {
+    console.log("websocket error");
+};
+socket.onclose = _event => {
+    console.log("websocket closed");
+};
+
+hotreload.addDisposeHandler("socket", () => socket.close());
+
+// Controller
+
+export class Controller {
+    constructor() {
+        this.networkQueue = new AsyncQueue();
+        socket.onmessage = event => this.receive(event.data);
+    }
+
+    get connected() { return socket.readyState !== WebSocket.CLOSED; }
+
+    // handle messages from reflector
+    receive(data) {
+        const { action, args } = JSON.parse(data);
+        switch (action) {
+            case 'RECV': {
+                const msg = args;
+                //if (msg.sender === this.senderID) this.addToStatistics(msg);
+                this.networkQueue.put(msg);
+                break;
+            }
+            case 'TICK': {
+                const time = args;
+                this.advanceTo(time);
+                break;
+            }
+            case 'SERVE': {
+                console.log('SERVE - replying with snapshot');
+                socket.send(JSON.stringify({
+                    action: args, // reply action
+                    args: this.island.asState(),
+                }));
+                // and send a dummy message so that the other guy can play catch up
+                this.island.sendNoop();
+                break;
+            }
+            case 'SYNC': {
+                console.log('SYNC - received snapshot');
+                this.install(args);
+                break;
+            }
+            default: console.log("Unknown action:", action);
+        }
+    }
+
+    async install(snapshot) {
+        const newIsland = this.islandCreator.creatorFn(snapshot);
+        const newTime = newIsland.time;
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+            // eslint-disable-next-line no-await-in-loop
+            const nextMsg = await this.networkQueue.next();
+            if (nextMsg[0] > newTime) {
+                // This is the first 'real' message arriving.
+                newIsland.decodeScheduleAndExecute(nextMsg);
+                this.setIsland(newIsland); // install island
+                return; // done
+            }
+            // otherwise, silently skip the message
+        }
+    }
+
+    setIsland(island) {
+        this.island = island;
+        this.island.controller = this;
+        this.islandCreator.callbackFn(this.island);
+    }
+
+    newIsland(creatorFn, state, callbackFn) {
+        this.islandCreator = { creatorFn, callbackFn };
+        this.setIsland(creatorFn(state));
+    }
+
+    // network queue
+
+    sendMessage(msg) {
+        // SEND: Broadcast a message to all participants.
+        socket.send(JSON.stringify({
+            action: 'SEND',
+            args: msg.asState(),
+        }));
+    }
+
+    advanceTo(newTime) {
+        if (!this.island) return;    // we are probably still sync-ing
+        this.processMessages();      // process all the messages thus far
+        this.island.advanceTo(newTime);
+    }
+
+    processMessages() {
+        // Process pending messages for this island
+        if (!this.island) return;     // we are probably still sync-ing
+        let msgData;
+        // Get the next message from the (concurrent) network queue
+        while ((msgData = this.networkQueue.nextNonBlocking())) {
+            // And have the island decode, schedule, and update to that message
+            this.island.decodeScheduleAndExecute(msgData);
+        }
     }
 }
 
@@ -313,7 +452,10 @@ class Message {
 
     executeOn(island) {
         const { receiver, part, selector, args } = decode(this.payload);
-        execOnIsland(island, () => island.modelsById[receiver].parts[part][selector](...args));
+        if (receiver === island.id) return; // noop
+        let object = island.modelsById[receiver];
+        if (part) object = object.parts[part];
+        execOnIsland(island, () => object[selector](...args));
     }
 }
 
@@ -322,7 +464,7 @@ class Message {
 // https://github.com/parcel-bundler/parcel/pull/2660/
 
 // map model class names to model classes
-const ModelClasses = {};
+let ModelClasses = {};
 
 function modelClassNamed(className) {
     if (ModelClasses[className]) return ModelClasses[className];
@@ -335,3 +477,6 @@ function modelClassNamed(className) {
     if (ModelClasses[className]) return ModelClasses[className];
     throw new Error(`Class "${className}" not found, is it exported?`);
 }
+
+// flush ModelClasses after hot reload
+hotreload.addDisposeHandler(module.id, () => ModelClasses = {});

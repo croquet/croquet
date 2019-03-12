@@ -10,10 +10,13 @@ const LOG_HOTRELOAD = false;
 const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
-let hotState = module.hot && module.hot.data && module.hot.data.hotState || {};
+let hotState = module.hot && module.hot.data || {};
+if (typeof hotState.island === "string") hotState.island = JSON.parse(hotState.island);
+
 
 /** The main function. */
 function start() {
+    let currentView = null;
 
     const ALL_ROOMS = {
         room1: initRoom1(hotState.rooms && hotState.rooms.room1),
@@ -30,14 +33,22 @@ function start() {
         roomViewManager.request(roomName, ALL_ROOMS, new THREE.Vector3(0, 2, 4));
     }
 
-    joinRoom(hotState.currentRoomName || window.location.hash.replace("#", "") || "room1");
+    controller.newIsland(initRoom1, hotState.island, island => {
+        if (currentView) currentView.detach();
+        currentView = new RoomView(island, {
+            activeParticipant: true,
+            width: window.innerWidth,
+            height: window.innerHeight,
+            cameraPosition: new THREE.Vector3(0, 2, 5)
+        });
+        currentView.attach(island.get('room')); // HACK! Reaching into island
+    });
 
     /** @type {Renderer} */
     const renderer = hotState.renderer || new Renderer(window.innerWidth, window.innerHeight);
 
     hotState = null; // free memory, and prevent accidental access below
 
-    let before = Date.now();
     function frame() {
         if (currentRoomName) {
             renderer.render(currentRoomName, ALL_ROOMS, roomViewManager);
@@ -53,7 +64,7 @@ function start() {
             room.island.advanceTo(room.island.time + (now - before));
             room.island.processModelViewEvents();
         }
-        before = now;
+        controller.island.processModelViewEvents();
         hotreload.requestAnimationFrame(frame);
     }
 
@@ -108,8 +119,6 @@ function start() {
         roomViewManager.changeViewportSize(window.innerWidth, window.innerHeight);
     });
 
-    hotreload.addEventListener(window, "hashchange", () => joinRoom(window.location.hash.replace("#", "")));
-
     if (module.hot) {
         // our hot-reload strategy is to reload all the code (meaning no reload
         // handlers in individual modules) but store the complete model state
@@ -118,7 +127,7 @@ function start() {
             // release WebGL resources
             roomViewManager.detachAll();
             // preserve state, will be available as module.hot.data after reload
-            hotData.hotState = {
+            Object.assign(hotData, {
                 renderer,
                 rooms: {},
                 currentRoomName,
@@ -141,7 +150,7 @@ if (module.hot) {
     // no module.hot.accept(), to force reloading of all dependencies
     // but preserve hotState
     module.hot.dispose(hotData => {
-        hotData.hotState = hotState;
+        Object.assign(hotData, hotState);
         hotreload.dispose(); // specifically, cancel our delayed start()
     });
 }
