@@ -29,17 +29,12 @@ class PortalView extends View {
     }
 }
 
-export default function initRoom2(state) {
-    let room;
-
-    const island = new Island(state && state.island, () => {
-        room = new Room({color: {value: new THREE.Color("#000088")}});
+export default function initRoom2(state = {}) {
+    state = { id: "2bb90375ea596139cc2cdcf474df4117", ...state };
+    return new Island(state, () => {
+        const room = new Room({color: {value: new THREE.Color("#000088")}});
 
         const portal = new Portal({ spatial: { position: new THREE.Vector3(0, 0.5, 0) } });
         room.parts.objects.add(portal);
     });
-
-    room = room || island.modelsById[state.room];
-
-    return {island, room};
 }

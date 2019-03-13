@@ -10,11 +10,11 @@ const ColorEvents = {
 
 export default class ColorPart extends StatePart {
     fromState(state={}) {
-        this.value = state.value || new THREE.Color("#dddddd");
+        this.value = new THREE.Color(state.value || "#dddddd");
     }
 
     toState(state) {
-        state.value = this.value.clone();
+        state.value = '#' + this.value.getHexString();
     }
 
     setColor(newColor) {

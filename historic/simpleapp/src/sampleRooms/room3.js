@@ -35,10 +35,9 @@ class TextView extends View {
 }
 
 export default function initRoom3(state) {
-    let room;
-
-    const island = new Island(state && state.island, () => {
-        room = new Room();
+    state = { id: "2bb90375ea596139cc2cdcf474df4118", ...state };
+    return new Island(state, () => {
+        let room = new Room();
 
         const text1 = new Text({
             spatial: { position: new THREE.Vector3(-3, 1.0, 0) },
@@ -46,8 +45,4 @@ export default function initRoom3(state) {
         });
         room.parts.objects.add(text1);
     });
-
-    room = room || island.modelsById[state.room];
-
-    return {island, room};
 }

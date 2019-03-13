@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import Object3D from "./object3D.js";
 
+const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
+if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
+
 export default class PortalViewPart extends Object3D {
     fromOptions(options={}) {
         super.fromOptions(options);
