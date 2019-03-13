@@ -4,6 +4,7 @@ import Object3D from "./object3D.js";
 //import LazyObject3D from "../util/lazyObject3D.js";
 import { ViewPart } from '../view.js';
 import { TextEvents } from '../stateParts/text.js';
+import { PointerEvents, makePointerSensitive } from "./pointer.js";
 import { fontRegistry } from './fontRegistry.js';
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
@@ -14,23 +15,26 @@ export default class TextViewPart extends Object3D {
         options = {content: "Hello", font: "Roboto", width: 3, height: 2, numLines: 10, pixelWidth: 300, anchor: "bottom", ...options};
         this.modelSource = options.modelSource;
         this.options = options;
+
+        this.subscribe(PointerEvents.pointerDown, "onPointerDown");
     }
 
     attachWithObject3D() {
-        return this.initMesh(this.options.numLines);
+        this.maybeLoadFont().then((atlas) => this.initTextMesh(atlas));
+        return this.initBoxMesh();
+    }
 
-        /*const promise = this.maybeLoadFont();
-        const placeholder = new THREE.Mesh(new THREE.BoxBufferGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
+    attach() {
+        super.attach();
+        makePointerSensitive(this.threeObj, this.asViewPartRef());
+    }
 
-        let lazy = new LazyObject3D(placeholder, promise);
-        window.lazy = lazy;
-        return lazy;*/
+    onPointerDown() {
+        this.owner
     }
 
     maybeLoadFont() {
-        return fontRegistry.getAtlasFor(this.options.font).then(atlasTexture => {
-            return this.initMesh(this.options.numLines);
-        });
+        return fontRegistry.getAtlasFor(this.options.font);
     }
 
     updateMaterial() {
@@ -40,9 +44,9 @@ export default class TextViewPart extends Object3D {
         text.material.uniforms.corners.value = new THREE.Vector4(bounds.l, bounds.t, bounds.r, bounds.b);
     }
 
-    initTextMesh() {
+    initTextMesh(atlasTexture) {
         let font = this.options.font;
-        const atlasTexture = fontRegistry.getTexture(font);
+        //const atlasTexture = fontRegistry.getTexture(font);
 
         /*
           const measurer = fontRegistry.getMeasurer(this.options.font);
@@ -72,10 +76,13 @@ export default class TextViewPart extends Object3D {
         let meterInPixel = this.options.width / this.options.pixelWidth;
         textMesh.scale.set(meterInPixel, -meterInPixel, meterInPixel);
         textMesh.position.z = 0.01;
-        return textMesh;
+
+        this.text = textMesh;
+        let box = this.threeObj;
+        box.add(textMesh);
     }
 
-    initMesh() {
+    initBoxMesh() {
         this.clippingPlanes = [new THREE.Plane(new THREE.Vector3(0, 1, 0),  0),
                                new THREE.Plane(new THREE.Vector3(0, -1, 0), 0),
                                new THREE.Plane(new THREE.Vector3(-1, 0, 0), 0),
@@ -84,10 +91,7 @@ export default class TextViewPart extends Object3D {
         this.initSelectionMesh();
         this.initScrollBarMesh();
 
-        let text = this.text = this.initTextMesh();
-
         const box = new THREE.Mesh(new THREE.PlaneBufferGeometry(this.options.width, this.options.height), new THREE.MeshBasicMaterial({ color: 0xeeeeee }));
-        box.add(text);
         return box;
     }
 
@@ -123,13 +127,6 @@ export default class TextViewPart extends Object3D {
 */
     }
 
-    processMockContext(ctx) {
-        let fontName = this.options.font;
-        let layout = fontRegistry.getMeasurer(font);
-        let font = fontRegistry.getInfo(fontName);
-        return layout.computeGlyphs({font: font, drawnStrings: ctx.drawnStrings});
-    }
-
     updateGeometry(geometry) {
         let font = fontRegistry.getInfo(this.options.font);
         let meterInPixel = this.options.width / this.options.scaleX;
@@ -147,10 +144,7 @@ export default class TextViewPart extends Object3D {
         text.position.y = this.options.height / 2 + (scrollT * docInMeter);
         text.position.z = 0.005;
 
-
         geometry.update({font: fontRegistry.getInfo(this.options.font), glyphs: this.options.content});
-
-
     }
 
     update(newOptions) {
@@ -186,5 +180,4 @@ export class TrackText extends ViewPart {
     onFontChanged(newFont) {
         this.targetViewPart.update({font: newFont});
     }
-
 }

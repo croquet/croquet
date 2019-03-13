@@ -5,6 +5,7 @@ import initRoom2 from './sampleRooms/room2.js';
 import initRoom3 from './sampleRooms/room3.js';
 import RoomViewManager from './room/roomViewManager.js';
 import Renderer from './render.js';
+import {KeyboardManager, KeyboardEvents} from './keyboardManager.js';
 import {fontRegistry} from './viewParts/fontRegistry.js';
 
 
@@ -43,6 +44,7 @@ function start() {
 
     /** @type {Renderer} */
     const renderer = hotState.renderer || new Renderer(window.innerWidth, window.innerHeight);
+    let keyboardManager = new KeyboardManager();
 
     hotState = null; // free memory, and prevent accidental access below
 
@@ -51,6 +53,8 @@ function start() {
         if (currentRoomName) {
             renderer.render(currentRoomName, ALL_ROOMS, roomViewManager);
             const currentRoomView = roomViewManager.request(currentRoomName, ALL_ROOMS);
+
+	    keyboardManager.setCurrentRoomView(currentRoomView);
 
             if (currentRoomView) {
                 currentRoomView.parts.pointer.updatePointer();
@@ -119,6 +123,8 @@ function start() {
 
     hotreload.addEventListener(window, "hashchange", () => joinRoom(window.location.hash.replace("#", "")));
 
+    keyboardManager.install(hotreload);
+
     if (module.hot) {
         // our hot-reload strategy is to reload all the code (meaning no reload
         // handlers in individual modules) but store the complete model state
@@ -129,6 +135,7 @@ function start() {
             // preserve state, will be available as module.hot.data after reload
             hotData.hotState = {
                 renderer,
+		keyboardManager,
                 rooms: {},
                 currentRoomName,
             };

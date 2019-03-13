@@ -29,7 +29,7 @@ export class Text extends Model {
 /** View for rendering a Text */
 class TextView extends View {
     buildParts() {
-        new TextViewPart(this, {fontSize: 0.4});
+        new TextViewPart(this, {});
         new TrackSpatial(this, {affects: "text"});
         new TrackText(this);
     }

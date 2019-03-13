@@ -43,11 +43,11 @@ export default class TextPart extends StatePart {
         const callback = () => this.onTextChange();
         this.editor.setSubscribers(callback);
         this.newText(this.content);
-        window.textModel = this;
     }
 
     processMockContext(ctx) {
         let layout = fontRegistry.getMeasurer(this.font);
+	if (!layout) {return [];}
         let info = fontRegistry.getInfo(this.font);
         return layout.computeGlyphs({font: info, drawnStrings: ctx.drawnStrings});
     }
@@ -62,6 +62,16 @@ export default class TextPart extends StatePart {
     newNewText() {
         this.editor.load([]); //clear current text
         this.editor.insert("man is much more than a tool builder... he is an inventor of universes... Except the real one."); //insert the new text
+    }
+
+    requestFocus() {
+	let room;
+	let island = this.island;
+	for (let v in island.viewsById) {
+	    if (island.viewsById[v].constructor.name === "RoomView") {
+		room = island.viewsById[v];
+	    }
+	}
     }
 
     setContent(newContent) {

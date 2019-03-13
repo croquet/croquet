@@ -5,6 +5,7 @@ import { ChildEvents } from '../stateParts/children.js';
 import Object3D from '../viewParts/object3D.js';
 import CameraViewPart from '../viewParts/camera.js';
 import PointerViewPart, { makePointerSensitive, ignorePointer, PointerEvents } from '../viewParts/pointer.js';
+import KeyboardViewPart, { focus, blur, KeyboardEvents } from '../viewParts/keyboard.js';
 import arrowsAlt from '../../assets/arrows-alt.svg';
 import arrowsAltRot from '../../assets/arrows-alt-rot.svg';
 import SVGIcon from '../util/svgIcon.js';
@@ -29,6 +30,7 @@ export default class RoomView extends View {
         new TrackSpatial(this, {source: "this.cameraPosition", affects: "camera"});
         if (viewOptions.activeParticipant) {
             new PointerViewPart(this, {scenePartName: "roomScene"});
+            new KeyboardViewPart(this, {scenePartName: "keyboard"});
             new TreadmillNavigation(this, {scenePartName: "roomScene"});
             new TrackSpatial(this, {source: "this.cameraPosition", affects: "treadmillNavigation", id: "trackTreadmill"});
         }
