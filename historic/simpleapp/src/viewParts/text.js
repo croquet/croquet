@@ -13,12 +13,14 @@ if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle
 
 export default class TextViewPart extends Object3D {
     fromOptions(options) {
-        options = {content: [], glyphs: [], font: "Roboto", width: 3, height: 2, numLines: 10, ...options};
+        options = {content: [], glyphs: [], font: "Roboto", width: 3, height: 2, numLines: 10, editable: false, ...options};
         this.modelSource = options.modelSource;
         this.options = options;
 
-        this.subscribe(PointerEvents.pointerDown, "onPointerDown");
-        this.subscribe(KeyboardEvents.keydown, "onKeyDown");
+        if (this.options.editable) {
+            this.subscribe(PointerEvents.pointerDown, "onPointerDown");
+            this.subscribe(KeyboardEvents.keydown, "onKeyDown");
+        }
     }
 
     attachWithObject3D() {
@@ -29,11 +31,13 @@ export default class TextViewPart extends Object3D {
 
     attach(modelState) {
         super.attach(modelState);
-        makePointerSensitive(this.threeObj, this.asViewPartRef());
-	if (modelState && modelState.parts.text && modelState.parts.text.content) {
+        if (this.options.editable) {
+            makePointerSensitive(this.threeObj, this.asViewPartRef());
+        }
+        if (modelState && modelState.parts.text && modelState.parts.text.content) {
             this.options.content = modelState.parts.text.content;
             this.subscribe(TextEvents.modelContentChanged, "onContentChanged", modelState.id, this.modelSource);
-	}
+        }
     }
 
     onPointerDown() {
@@ -48,10 +52,10 @@ export default class TextViewPart extends Object3D {
         this.editor.mockCallback = ctx => {
             let glyphs = this.processMockContext(ctx);
             this.update({glyphs: glyphs, corners: this.editor.visibleTextBounds(), scaleX: this.editor.scaleX, scrollTop: this.editor.scrollTop, frameHeight: this.editor.frame.height});
-            this.owner.model["text"].onContentChanged(this.editor.save());
+            if (this.options.editable) {
+                this.owner.model["text"].onContentChanged(this.editor.save());
+            }
         };
-
-        this.editor.load([]);
 
         window.editor = this.editor;
     }
@@ -171,11 +175,6 @@ export default class TextViewPart extends Object3D {
             this.updateMaterial();
             this.updateGeometry(text.geometry);
         }
-    }
-
-    newText(txt) {
-        this.editor.load([]); //clear current text
-        this.editor.insert(txt); //insert the new text
     }
 
     onContentChanged(newContent) {
