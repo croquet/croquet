@@ -284,7 +284,7 @@ function socketSetup(socket) {
     Object.assign(socket, {
         onopen: _event => {
             console.log(socket.constructor.name, "connected");
-            Controller.connected();
+            Controller.joinAll();
         },
         onerror: _event => {
             console.log(socket.constructor.name, "error");
@@ -319,7 +319,7 @@ const Controllers = {};
 
 export class Controller {
     // socket was connected, join session for all islands
-    static connected() {
+    static joinAll() {
         for (const controller of Object.values(Controllers)) {
             console.log('JOIN', controller.island.id);
             TheSocket.send(JSON.stringify({
@@ -339,8 +339,6 @@ export class Controller {
     constructor() {
         this.networkQueue = new AsyncQueue();
     }
-
-    get connected() { return TheSocket.readyState !== WebSocket.CLOSED; }
 
     // handle messages from reflector
     receive(action, args) {
