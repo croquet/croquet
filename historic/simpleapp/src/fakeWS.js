@@ -1,16 +1,13 @@
 // This is a fake WebSocket server which lets us reuse the reflector code
 // for running without an actual server connection.
 //
-// This file is aliased to the 'ws' module in package.json
-// so the require('ws') in the reflector resolves to this.
+// This file is aliased to the 'ws' module in package.json so require('ws') in
+// the reflector resolves to this instead of the actual 'ws' module.
 
 import hotreload from "./hotreload.js";
 
 const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
-
-
-let wss = null; // global server instance
 
 
 class CallbackHandler {
@@ -23,7 +20,7 @@ class CallbackHandler {
     _callback(event, ...args) {
         const callback = this._callbacks[event];
         if (callback) {
-            if (event === 'close') callback(...args);  // for hot reload dispose
+            if (event === 'close') callback(...args);  // needs to be sync for hot reload dispose
             else hotreload.setTimeout(() => callback(...args));
         }
     }
@@ -31,16 +28,16 @@ class CallbackHandler {
 
 
 export class LocalSocket extends CallbackHandler {
-    constructor(url, options = {}) {
+    constructor(options = {}) {
         super();
         this.readyState = WebSocket.CONNECTING;
         this.remoteAddress = options.host || '::fake';
         this.remotePort = options.port || (Math.random() * 0x10000 | 0x8000);
         this._otherEnd = null;
         this._callbacks = [];
-        // if we have a url, connect to the server
-        // otherwise this is the server's socket
-        if (url) hotreload.setTimeout(() => wss._connect(this), 0);
+        // if we were given server, connect to it
+        // otherwise this is a server-side socket
+        if (options.server) hotreload.setTimeout(() => options.server._accept(this), 0);
     }
 
     get onopen() { return this._callbacks['open']; }
@@ -84,7 +81,7 @@ export class LocalSocket extends CallbackHandler {
 class Client extends CallbackHandler {
     constructor(socket, options) {
         super();
-        this._socket = new LocalSocket('', { host: options.host, port: options.port});
+        this._socket = new LocalSocket({ host: options.host, port: options.port});
         this._socket.onopen = () => this._callback('open');
         this._socket.onclose = () => this._callback('close');
         this._socket.onerror = () => this._callback('error');
@@ -104,13 +101,12 @@ export class Server extends CallbackHandler {
     constructor(options = {}) {
         super();
         this.options = {host: '::server', port: 1234, ...options};
-        wss = this;
         this.clients = new Set();
     }
 
     // Private
 
-    _connect(socket) {
+    _accept(socket) {
         const client = new Client(socket, this.options);
         this.clients.add(client);
         const request = { connection: socket };

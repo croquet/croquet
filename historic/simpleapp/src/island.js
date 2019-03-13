@@ -1,5 +1,5 @@
+import { LocalSocket } from "ws";    // eslint-disable-line import/no-extraneous-dependencies
 import SeedRandom from "seedrandom";
-import { LocalSocket } from "ws";
 import PriorityQueue from "./util/priorityQueue.js";
 import AsyncQueue from './util/asyncQueue.js';
 import hotreload from "./hotreload.js";
@@ -299,9 +299,10 @@ function socketSetup(socket) {
                 // The following import runs the exact same code that's
                 // executing on Node normally. It imports 'ws' which now
                 // comes from our own fakeWS.js
-                import("reflector").then(() => {
-                    socketSetup(new LocalSocket('fakeWS://local/'));
-                });
+                // ESLint doesn't know about the alias in package.json:
+                // eslint-disable-next-line global-require,import/no-unresolved
+                const server = require("reflector").server; // start up local server
+                socketSetup(new LocalSocket({server})); // connect to it
             }
         },
         onmessage: event => {
