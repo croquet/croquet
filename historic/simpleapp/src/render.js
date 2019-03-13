@@ -13,9 +13,7 @@ export const RENDER_LAYERS = {
 export default class Renderer {
     constructor(width, height) {
         this.renderer = new THREE.WebGLRenderer();
-        this.renderer.autoClearStencil = false;
-        this.renderer.autoClearDepth = false;
-        this.renderer.autoClearColor = false;
+        this.renderer.autoClear = false;
         this.changeViewportSize(width, height);
         document.body.appendChild(this.renderer.domElement);
     }
