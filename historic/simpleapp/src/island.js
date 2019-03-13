@@ -298,9 +298,8 @@ function socketSetup() {
                 // The following import runs the exact same code that's
                 // executing on Node normally. It imports 'ws' which now
                 // comes from our own fakeWS.js
-                import("../../reflector/index.js").then(() => {
-                    socket = new LocalSocket('fakeWS://local/');
-                    socketSetup();
+                import("reflector").then(() => {
+                    socketSetup(new LocalSocket('fakeWS://local/'));
                 });
             }
         },

@@ -23,6 +23,7 @@
     ]
   },
   "alias": {
+    "reflector": "/../../reflector/index.js",
     "ws": "./src/fakeWS.js"
   },
   "dependencies": {
