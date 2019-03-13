@@ -277,9 +277,10 @@ export default class Island {
 
 
 // Socket
-let socket = new WebSocket('ws://localhost:9090/');
+let TheSocket = null;
 
-function socketSetup() {
+function socketSetup(socket) {
+    TheSocket = socket;
     Object.assign(socket, {
         onopen: _event => {
             console.log(socket.constructor.name, "connected");
@@ -290,7 +291,7 @@ function socketSetup() {
         },
         onclose: event => {
             console.log(socket.constructor.name, "closed:", event.code);
-            socket = null;
+            TheSocket = null;
             if (event.code === 1006) {
                 const error = document.getElementById("error");
                 error.innerText = 'No Connection';
@@ -307,11 +308,10 @@ function socketSetup() {
             Controller.receive(event.data);
         }
     });
-    const currentSocket = socket;  // create closure
-    hotreload.addDisposeHandler("socket", () => currentSocket.close());
+    hotreload.addDisposeHandler("socket", () => socket.close());
 }
 
-socketSetup();
+socketSetup(new WebSocket('ws://localhost:9090/'));
 
 // Controller
 
@@ -322,7 +322,7 @@ export class Controller {
     static connected() {
         for (const controller of Object.values(Controllers)) {
             console.log('JOIN', controller.island.id);
-            socket.send(JSON.stringify({
+            TheSocket.send(JSON.stringify({
                 id: controller.island.id,
                 action: 'JOIN',
                 args: controller.island.time,
@@ -340,7 +340,7 @@ export class Controller {
         this.networkQueue = new AsyncQueue();
     }
 
-    get connected() { return socket.readyState !== WebSocket.CLOSED; }
+    get connected() { return TheSocket.readyState !== WebSocket.CLOSED; }
 
     // handle messages from reflector
     receive(action, args) {
@@ -363,7 +363,7 @@ export class Controller {
             }
             case 'SERVE': {
                 console.log('SERVE - replying with snapshot');
-                socket.send(JSON.stringify({
+                TheSocket.send(JSON.stringify({
                     action: args, // reply action
                     args: this.island.asState(),
                 }));
@@ -413,7 +413,7 @@ export class Controller {
 
     sendMessage(msg) {
         // SEND: Broadcast a message to all participants.
-        socket.send(JSON.stringify({
+        TheSocket.send(JSON.stringify({
             id: this.island.id,
             action: 'SEND',
             args: msg.asState(),
