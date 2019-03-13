@@ -66,7 +66,6 @@ class FontRegistry {
                 return {ascent: 1, height: 2, descent: 1, width: 1};
             }
         }
-        fontName = defaultFont;
         return this.measurers[fontName].measureText(text, scale);
     }
 }

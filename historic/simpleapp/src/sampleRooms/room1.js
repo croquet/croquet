@@ -8,7 +8,7 @@ import InertialSpatialPart from '../stateParts/inertialSpatial.js';
 import BouncingSpatialPart from '../stateParts/bouncingSpatial.js';
 import View from '../view.js';
 import TextPart from '../stateParts/text.js';
-import TextViewPart, { TrackText } from '../viewParts/text.js';
+import TextViewPart from '../viewParts/text.js';
 import Object3D, { Object3DGroup } from '../viewParts/object3D.js';
 import DraggableViewPart from '../viewParts/draggable.js';
 import TrackSpatial from '../viewParts/trackSpatial.js';
@@ -92,7 +92,6 @@ class TextView extends View {
     buildParts() {
         new TextViewPart(this, {fontSize: 0.4});
         new TrackSpatial(this, {affects: "text"});
-        new TrackText(this);
     }
 }
 

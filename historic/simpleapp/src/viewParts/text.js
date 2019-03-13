@@ -2,9 +2,9 @@ import * as THREE from 'three';
 import { TextGeometry, HybridMSDFShader } from 'three-bmfont-text';
 import Object3D from "./object3D.js";
 //import LazyObject3D from "../util/lazyObject3D.js";
-import { ViewPart } from '../view.js';
 import { TextEvents } from '../stateParts/text.js';
 import { PointerEvents, makePointerSensitive } from "./pointer.js";
+import { Carota } from './carota/editor.js';
 import { fontRegistry } from './fontRegistry.js';
 import { KeyboardEvents, KeyboardTopic } from '../domKeyboardManager.js';
 
@@ -13,7 +13,7 @@ if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle
 
 export default class TextViewPart extends Object3D {
     fromOptions(options) {
-        options = {content: "Hello", font: "Roboto", width: 3, height: 2, numLines: 10, pixelWidth: 300, anchor: "bottom", ...options};
+        options = {content: "", font: "Roboto", width: 3, height: 2, numLines: 10, ...options};
         this.modelSource = options.modelSource;
         this.options = options;
 
@@ -22,40 +22,52 @@ export default class TextViewPart extends Object3D {
     }
 
     attachWithObject3D() {
-        this.maybeLoadFont().then((atlas) => this.initTextMesh(atlas));
+        this.initEditor();
+        fontRegistry.getAtlasFor(this.options.font).then((atlas) => this.initTextMesh(atlas));
         return this.initBoxMesh();
     }
 
-    attach() {
-        super.attach();
+    attach(modelState) {
+        super.attach(modelState);
         makePointerSensitive(this.threeObj, this.asViewPartRef());
+        this.options.content = modelState.parts.text.content;
+        this.subscribe(TextEvents.modelContentChanged, "onContentChanged", modelState.id, this.modelSource);
     }
 
     onPointerDown() {
         this.publish(KeyboardEvents.requestfocus, {requesterRef: this.asViewPartRef()}, KeyboardTopic, null);
     }
 
-    maybeLoadFont() {
-        return fontRegistry.getAtlasFor(this.options.font);
+    initEditor() {
+        Carota.setCachedMeasureText(fontRegistry.measureText.bind(fontRegistry)); // ???
+        this.editor = new Carota(this.options.width, this.options.height, this.options.numLines);
+        this.editor.isScrollable = true;  // unless client decides otherwise
+
+        this.editor.mockCallback = ctx => {
+            let glyphs = this.processMockContext(ctx);
+            this.update({content: glyphs, corners: this.editor.visibleTextBounds(), scaleX: this.editor.scaleX, scrollTop: this.editor.scrollTop, frameHeight: this.editor.frame.height});
+            this.owner.model["text"].onContentChanged(this.editor.save());
+        };
+
+        window.editor = this.editor;
+    }
+
+    processMockContext(ctx) {
+        let layout = fontRegistry.getMeasurer(this.options.font);
+        if (!layout) {return [];}
+        let info = fontRegistry.getInfo(this.options.font);
+        return layout.computeGlyphs({font: info, drawnStrings: ctx.drawnStrings});
     }
 
     updateMaterial() {
         let text = this.text;
         let bounds = this.options.corners;
-        //let bounds = this.editor.visibleTextBounds();
         text.material.uniforms.corners.value = new THREE.Vector4(bounds.l, bounds.t, bounds.r, bounds.b);
     }
 
     initTextMesh(atlasTexture) {
-        let font = this.options.font;
         //const atlasTexture = fontRegistry.getTexture(font);
-
-        /*
-          const measurer = fontRegistry.getMeasurer(this.options.font);
-        const font = fontPaths[this.options.font].json;
-        const glyphs = measurer.computeGlyphs({font, drawnStrings: testTextContent});
-        */
-
+        let font = this.options.font;
         const geometry = new TextGeometry({
             font: fontRegistry.getInfo(font),
             width: this.options.width,
@@ -64,9 +76,6 @@ export default class TextViewPart extends Object3D {
             flipY: true
         });
 
-        //this.updateGeometry(geometry, testTextContent, []);
-
-        window.text = this;
         const material = new THREE.RawShaderMaterial(HybridMSDFShader({
             map: atlasTexture,
             side: THREE.DoubleSide,
@@ -75,13 +84,15 @@ export default class TextViewPart extends Object3D {
         }));
 
         const textMesh = new THREE.Mesh(geometry, material);
-        let meterInPixel = this.options.width / this.options.pixelWidth;
-        textMesh.scale.set(meterInPixel, -meterInPixel, meterInPixel);
-        textMesh.position.z = 0.01;
-
         this.text = textMesh;
         let box = this.threeObj;
         box.add(textMesh);
+
+        const callback = () => this.onTextChanged();
+        this.editor.setSubscribers(callback);
+        this.editor.load(this.options.content);
+
+        window.view = this;
     }
 
     initBoxMesh() {
@@ -158,32 +169,18 @@ export default class TextViewPart extends Object3D {
         }
     }
 
-    onKeyDown(evt) {
-        this.owner.model["text"].onKeyDown(evt.key);
-    }
-}
-
-export class TrackText extends ViewPart {
-    fromOptions(options) {
-        options = {modelSource: "text", affects: "text", ...options};
-        this.modelSource = options.modelSource;
-        /** @type {TextViewPart} */
-        this.targetViewPart = this.owner.parts[options.affects];
-    }
-
-    attach(modelState) {
-        const modelPart = modelState.parts[this.modelSource];
-        //this.targetViewPart.update({content: modelPart.content, font: modelPart.font});
-        this.subscribe(TextEvents.contentChanged, "onContentChanged", modelState.id, this.modelSource);
-        this.subscribe(TextEvents.fontChanged, "onFontChanged", modelState.id, this.modelSource);
-        this.owner.model["text"].newNewText();
+    newText(txt) {
+        this.editor.load([]); //clear current text
+        this.editor.insert(txt); //insert the new text
     }
 
     onContentChanged(newContent) {
-        this.targetViewPart.update(newContent);
+        this.editor.load(newContent);
     }
 
-    onFontChanged(newFont) {
-        this.targetViewPart.update({font: newFont});
+    onTextChanged() {}
+
+    onKeyDown(evt) {
+        this.editor.insert(evt.key);
     }
 }

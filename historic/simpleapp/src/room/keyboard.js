@@ -12,8 +12,8 @@ export class KeyboardViewPart extends ViewPart {
     }
 
     handleEvent(evt) {
-	let type = evt.type;
 	if (this.focus) {
+	    let type = evt.type;
 	    this.publish(KeyboardEvents[type], evt, ...this.focus.requesterRef.split("."));
 	}
     }

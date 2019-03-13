@@ -271,6 +271,7 @@ const transcoders = {
     "*.moveTo": XYZ,
     "*.rotateTo": XYZW,
     "*.onKeyDown": Identity,
+    "*.onContentChanged": Identity,
 };
 
 function encode(receiver, part, selector, args) {

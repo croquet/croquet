@@ -17,12 +17,6 @@ export const KeyboardEvents = {
 
 export const KeyboardTopic = "topic-keyboard";
 
-export const KeyboardMethodNames = {
-    keydown: "onKeyDown",
-    keyup: "onKeyUp",
-    input: "onInput",
-};
-
 let placeholderValue = "\x01\x01";
 let placeholderRe = new RegExp("\x01", "g");
 
@@ -259,10 +253,10 @@ export class KeyboardManager {
 
     onTextareaInput(evt) {
         if (this.inputState.composition) return;
-        if (!evt.data) {
-            const data = this.readValue();
-            evt.__defineGetter__('data', () => data); // ??
-        }
+        // if (!evt.data) {
+        //     const data = this.readValue();
+        //     //evt.__defineGetter__('data', () => data); // ??
+        // }
         this.resetValue();
         this.dispatchDOMEvent(evt);
     }
