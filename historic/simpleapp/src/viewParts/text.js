@@ -13,7 +13,7 @@ if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle
 
 export default class TextViewPart extends Object3D {
     fromOptions(options) {
-        options = {content: "", font: "Roboto", width: 3, height: 2, numLines: 10, ...options};
+        options = {content: [], glyphs: [], font: "Roboto", width: 3, height: 2, numLines: 10, ...options};
         this.modelSource = options.modelSource;
         this.options = options;
 
@@ -30,8 +30,10 @@ export default class TextViewPart extends Object3D {
     attach(modelState) {
         super.attach(modelState);
         makePointerSensitive(this.threeObj, this.asViewPartRef());
-        this.options.content = modelState.parts.text.content;
-        this.subscribe(TextEvents.modelContentChanged, "onContentChanged", modelState.id, this.modelSource);
+	if (modelState && modelState.parts.text && modelState.parts.text.content) {
+            this.options.content = modelState.parts.text.content;
+            this.subscribe(TextEvents.modelContentChanged, "onContentChanged", modelState.id, this.modelSource);
+	}
     }
 
     onPointerDown() {
@@ -45,9 +47,11 @@ export default class TextViewPart extends Object3D {
 
         this.editor.mockCallback = ctx => {
             let glyphs = this.processMockContext(ctx);
-            this.update({content: glyphs, corners: this.editor.visibleTextBounds(), scaleX: this.editor.scaleX, scrollTop: this.editor.scrollTop, frameHeight: this.editor.frame.height});
+            this.update({glyphs: glyphs, corners: this.editor.visibleTextBounds(), scaleX: this.editor.scaleX, scrollTop: this.editor.scrollTop, frameHeight: this.editor.frame.height});
             this.owner.model["text"].onContentChanged(this.editor.save());
         };
+
+        this.editor.load([]);
 
         window.editor = this.editor;
     }
@@ -157,7 +161,7 @@ export default class TextViewPart extends Object3D {
         text.position.y = this.options.height / 2 + (scrollT * docInMeter);
         text.position.z = 0.005;
 
-        geometry.update({font: fontRegistry.getInfo(this.options.font), glyphs: this.options.content});
+        geometry.update({font: fontRegistry.getInfo(this.options.font), glyphs: this.options.glyphs});
     }
 
     update(newOptions) {

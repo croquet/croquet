@@ -2,17 +2,11 @@ import * as THREE from 'three';
 import Island from '../island.js';
 import Room from "../room/roomModel.js";
 import Model from '../model.js';
-import StatePart from "../statePart.js";
 import SpatialPart from '../stateParts/spatial.js';
-import InertialSpatialPart from '../stateParts/inertialSpatial.js';
-import BouncingSpatialPart from '../stateParts/bouncingSpatial.js';
 import View from '../view.js';
 import TextPart from '../stateParts/text.js';
-import TextViewPart, { TrackText } from '../viewParts/text.js';
-import Object3D, { Object3DGroup } from '../viewParts/object3D.js';
-import DraggableViewPart from '../viewParts/draggable.js';
+import TextViewPart from '../viewParts/text.js';
 import TrackSpatial from '../viewParts/trackSpatial.js';
-import { LayoutRoot, LayoutContainer, LayoutSlotStretch3D, LayoutSlotText } from '../viewParts/layout.js';
 
 const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
