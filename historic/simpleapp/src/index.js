@@ -5,7 +5,7 @@ import initRoom2 from './sampleRooms/room2.js';
 import initRoom3 from './sampleRooms/room3.js';
 import RoomViewManager from './room/roomViewManager.js';
 import Renderer from './render.js';
-import {KeyboardManager, KeyboardEvents} from './keyboardManager.js';
+import {KeyboardManager} from './domKeyboardManager.js';
 import {fontRegistry} from './viewParts/fontRegistry.js';
 
 
@@ -54,11 +54,10 @@ function start() {
             renderer.render(currentRoomName, ALL_ROOMS, roomViewManager);
             const currentRoomView = roomViewManager.request(currentRoomName, ALL_ROOMS);
 
-	    keyboardManager.setCurrentRoomView(currentRoomView);
-
             if (currentRoomView) {
                 currentRoomView.parts.pointer.updatePointer();
             }
+	    keyboardManager.setCurrentRoomView(currentRoomView);
         }
 
         const now = Date.now();

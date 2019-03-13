@@ -6,6 +6,7 @@ import { ViewPart } from '../view.js';
 import { TextEvents } from '../stateParts/text.js';
 import { PointerEvents, makePointerSensitive } from "./pointer.js";
 import { fontRegistry } from './fontRegistry.js';
+import { KeyboardEvents, KeyboardTopic } from '../domKeyboardManager.js';
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
@@ -17,6 +18,7 @@ export default class TextViewPart extends Object3D {
         this.options = options;
 
         this.subscribe(PointerEvents.pointerDown, "onPointerDown");
+        this.subscribe(KeyboardEvents.keydown, "onKeyDown");
     }
 
     attachWithObject3D() {
@@ -30,7 +32,7 @@ export default class TextViewPart extends Object3D {
     }
 
     onPointerDown() {
-        this.owner
+        this.publish(KeyboardEvents.requestfocus, {requesterRef: this.asViewPartRef()}, KeyboardTopic, null);
     }
 
     maybeLoadFont() {
@@ -154,6 +156,10 @@ export default class TextViewPart extends Object3D {
             this.updateMaterial();
             this.updateGeometry(text.geometry);
         }
+    }
+
+    onKeyDown(evt) {
+        this.owner.model["text"].onKeyDown(evt.key);
     }
 }
 

@@ -6,13 +6,16 @@ if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle
 let bowser = {};
 
 export const KeyboardEvents = {
-    keyDown: "keyboard-down",
-    keyUp: "keyboard-up",
+    keydown: "keyboard-down",
+    keyup: "keyboard-up",
     input: "keyboard-input",
     copy: "keyboard-copy",
     cut: "keyboard-cut",
-    paste: "keyboard-paste"
+    paste: "keyboard-paste",
+    requestfocus: "keyboard-requestFocus"
 };
+
+export const KeyboardTopic = "topic-keyboard";
 
 export const KeyboardMethodNames = {
     keydown: "onKeyDown",
@@ -49,20 +52,9 @@ export class KeyboardManager {
     dispatchDOMEvent(evt) {
         let view = this.currentRoomView;
         if (!view) {return;}
-        let method = KeyboardMethodNames[evt.type];
-
-        let target = view.getKeyboardTarget();
-
-        if (typeof target[method] !== "function") {
-            console.error(`${target} does not have method ${method}!`);
-        }
-        try {
-            let result = target[method](evt);
-            if (result) { evt.stopPropagation(); return; }
-            target = target.tParent;
-        } catch (err) {
-            console.error(`Error in event handler ${target}.${method}:`, err);
-        }
+        let keyboardView = view.parts["keyboard"];
+        if (!keyboardView) {return;}
+        keyboardView.handleEvent(evt);
     }
 
     install(hotreload) {

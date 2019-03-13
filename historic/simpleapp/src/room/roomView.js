@@ -5,12 +5,12 @@ import { ChildEvents } from '../stateParts/children.js';
 import Object3D from '../viewParts/object3D.js';
 import CameraViewPart from '../viewParts/camera.js';
 import PointerViewPart, { makePointerSensitive, ignorePointer, PointerEvents } from '../viewParts/pointer.js';
-import KeyboardViewPart, { focus, blur, KeyboardEvents } from '../viewParts/keyboard.js';
 import arrowsAlt from '../../assets/arrows-alt.svg';
 import arrowsAltRot from '../../assets/arrows-alt-rot.svg';
 import SVGIcon from '../util/svgIcon.js';
 import TrackSpatial from '../viewParts/trackSpatial.js';
 import InertialSpatialPart from '../stateParts/inertialSpatial.js';
+import { KeyboardViewPart } from './keyboard.js';
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }

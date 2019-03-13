@@ -64,14 +64,9 @@ export default class TextPart extends StatePart {
         this.editor.insert("man is much more than a tool builder... he is an inventor of universes... Except the real one."); //insert the new text
     }
 
-    requestFocus() {
-	let room;
-	let island = this.island;
-	for (let v in island.viewsById) {
-	    if (island.viewsById[v].constructor.name === "RoomView") {
-		room = island.viewsById[v];
-	    }
-	}
+    onKeyDown(str) {
+	console.log("onKeyDown", str);
+	this.editor.insert(str);
     }
 
     setContent(newContent) {
