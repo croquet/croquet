@@ -4,7 +4,7 @@
 // This file is aliased to the 'ws' module in package.json so require('ws') in
 // the reflector resolves to this instead of the actual 'ws' module.
 
-import hotreload from "./hotreload.js";
+import hotreload from "../hotreload.js";
 
 const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
