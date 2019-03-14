@@ -289,8 +289,7 @@ function socketSetup(socket) {
         onclose: event => {
             console.log(socket.constructor.name, "closed:", event.code);
             if (event.code === 1006) {
-                const error = document.getElementById("error");
-                error.innerText = 'No Connection';
+                document.getElementById("error").innerText = 'No Connection';
                 console.log("no connection to server, setting up local server");
                 // The following import runs the exact same code that's
                 // executing on Node normally. It imports 'ws' which now

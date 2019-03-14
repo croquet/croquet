@@ -34,7 +34,9 @@ function discover() {
 function discovered(id) {
     if (timeout) { clearTimeout(timeout); timeout = 0; }
     if (activeServerID === NO_SERVER) activeServerID = id;
-    console.log("Active server:", activeServerID, activeServerID === myID ? "(me)" : "(not me)");
+    const me = activeServerID === myID ? "(me)" : "(not me)";
+    console.log("Active server:", activeServerID, me);
+    document.getElementById("error").innerText = 'Using in-browser reflector ' + me;
     channel._processWaiting();
 }
 
