@@ -111,6 +111,14 @@ export class Server extends CallbackHandler {
         this.clients = new Set();
     }
 
+    address() {
+        return {
+            address: this.options.host,
+            port: this.options.port,
+            family: 'FAKE',
+        };
+    }
+
     // Private
 
     _accept(socket) {

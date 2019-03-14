@@ -133,7 +133,6 @@ export class Socket extends FakeSocket {
         super(options);
         this._id = options.id || myID;
         this._addr = `${this.remoteAddress}:${this.remotePort}`;
-        console.log("New Socket:", this._addr);
     }
 
     // Private
@@ -167,6 +166,13 @@ export class Server extends FakeServer {
     constructor(options = {}) {
         super(options);
         myServer = this;
+    }
+
+    address() {
+        return {
+            ...super.address(),
+            family: 'CHANNEL',
+        };
     }
 }
 
