@@ -19,10 +19,10 @@ let hotState = module.hot && module.hot.data || {};
 /** The main function. */
 function start() {
     let robotoPromise = fontRegistry.getAtlasFor("Roboto");
-    //let loraPromise = fontRegistry.getAtlasFor("Lora");
-    //let barlowPromise = fontRegistry.getAtlasFor("Barlow");
+    let loraPromise = fontRegistry.getAtlasFor("Lora");
+    let barlowPromise = fontRegistry.getAtlasFor("Barlow");
 
-    Promise.all([robotoPromise/*, loraPromise, barlowPromise*/]).then(() => {
+    Promise.all([robotoPromise, loraPromise, barlowPromise]).then(() => {
 
     const ALL_ISLANDS = {};
     let currentRoomName = null;

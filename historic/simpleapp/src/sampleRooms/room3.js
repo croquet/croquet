@@ -35,7 +35,7 @@ export default function initRoom3(state) {
 
         const text1 = new Text({
             spatial: { position: new THREE.Vector3(-3, 1.0, 0) },
-            text: { content: [{text: "man is much more than a tool builder... he is an inventor of universes... Except the real one."}], numLines: 10, width: 3, height: 2}
+            text: { content: [{text: "man is much more than a tool builder... he is an inventor of universes... Except the real one."}], font: "Lora", numLines: 10, width: 3, height: 2}
         });
         room.parts.objects.add(text1);
     });

@@ -13,7 +13,7 @@ if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle
 
 export default class TextViewPart extends Object3D {
     fromOptions(options) {
-        options = {content: [], glyphs: [], font: "Roboto", width: 3, height: 2, numLines: 10, editable: false, ...options};
+        options = {content: [], glyphs: [], font: "Lora", width: 3, height: 2, numLines: 10, editable: false, ...options};
         this.modelSource = options.modelSource;
         this.options = options;
 
