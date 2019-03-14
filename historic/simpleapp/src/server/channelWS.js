@@ -6,7 +6,7 @@
 //
 // This is used as in './ws.js' if the BroadcastChannel API is available.
 
-import { Socket as FakeSocket, Server as FakeServer } from "./fakeWS.js";
+import { FakeSocket, FakeServer } from "./fakeWS.js";
 import hotreload from "../hotreload.js";
 
 const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
@@ -71,7 +71,7 @@ channel.onmessage = ({ data: msg }) => {
             // sent from client that wants to connect
             if (activeServerID === myID) {
                 const {id, host, port} = msg;
-                const socket = new Socket({ id, host, port });
+                const socket = new ChannelSocket({ id, host, port });
                 openSockets[id + socket._addr] = socket;
                 myServer._accept(socket);
                 openSockets['server:*'] = socket._otherEnd;
@@ -84,7 +84,7 @@ channel.onmessage = ({ data: msg }) => {
             if (msg.id === myID) {
                 const { client } = msg;
                 const clientSocket = openSockets[client];
-                const serverSocket = new Socket({ id: activeServerID, host: 'server', port: '*' });
+                const serverSocket = new ChannelSocket({ id: activeServerID, host: 'server', port: '*' });
                 serverSocket._connectTo(clientSocket);
                 console.log('ACCEPTED', client, serverSocket._addr);
             }
@@ -125,7 +125,7 @@ channel._post = (what, options={}) => {
 };
 
 
-export class Socket extends FakeSocket {
+export class ChannelSocket extends FakeSocket {
 
     static isSupported() { return !!window.BroadcastChannel; }
 
@@ -161,7 +161,7 @@ export class Socket extends FakeSocket {
 }
 
 
-export class Server extends FakeServer {
+export class ChannelServer extends FakeServer {
 
     constructor(options = {}) {
         super(options);

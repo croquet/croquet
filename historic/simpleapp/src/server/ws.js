@@ -8,8 +8,8 @@
 // the reflector resolves to this instead of the actual 'ws' module.
 
 
-import { Socket as FakeSocket, Server as FakeServer } from "./fakeWS.js";
-import { Socket as ChannelSocket, Server as ChannelServer } from "./channelWS.js";
+import { FakeSocket, FakeServer } from "./fakeWS.js";
+import { ChannelSocket, ChannelServer } from "./channelWS.js";
 
 const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }

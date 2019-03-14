@@ -29,7 +29,7 @@ class CallbackHandler {
 }
 
 
-export class Socket extends CallbackHandler {
+export class FakeSocket extends CallbackHandler {
     constructor(options = {}) {
         super();
         this.readyState = WebSocket.CONNECTING;
@@ -86,10 +86,10 @@ export class Socket extends CallbackHandler {
 }
 
 
-class Client extends CallbackHandler {
+class FakeClient extends CallbackHandler {
     constructor(socket, options) {
         super();
-        this._socket = new Socket({ host: options.host, port: options.port});
+        this._socket = new FakeSocket({ host: options.host, port: options.port});
         this._socket.onopen = () => this._callback('open');
         this._socket.onclose = () => this._callback('close');
         this._socket.onerror = () => this._callback('error');
@@ -103,7 +103,7 @@ class Client extends CallbackHandler {
 }
 
 
-export class Server extends CallbackHandler {
+export class FakeServer extends CallbackHandler {
 
     constructor(options = {}) {
         super();
@@ -122,7 +122,7 @@ export class Server extends CallbackHandler {
     // Private
 
     _accept(socket) {
-        const client = new Client(socket, this.options);
+        const client = new FakeClient(socket, this.options);
         this.clients.add(client);
         const request = { connection: socket };
         this._callback('connection', client, request);
