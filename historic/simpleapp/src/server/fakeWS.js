@@ -1,8 +1,10 @@
-// This is a fake WebSocket server which lets us reuse the reflector code
+// This is an in-browser WebSocket server which lets us reuse the reflector code
 // for running without an actual server connection.
 //
-// This file is aliased to the 'ws' module in package.json so require('ws') in
-// the reflector resolves to this instead of the actual 'ws' module.
+// This version does not communicate with anything, not even other tabs/windows
+// in the same browser.
+//
+// This is used as fallback in 'ws.js' if no other option is available.
 
 import hotreload from "../hotreload.js";
 
@@ -27,7 +29,7 @@ class CallbackHandler {
 }
 
 
-export class LocalSocket extends CallbackHandler {
+export class Socket extends CallbackHandler {
     constructor(options = {}) {
         super();
         this.readyState = WebSocket.CONNECTING;
@@ -81,7 +83,7 @@ export class LocalSocket extends CallbackHandler {
 class Client extends CallbackHandler {
     constructor(socket, options) {
         super();
-        this._socket = new LocalSocket({ host: options.host, port: options.port});
+        this._socket = new Socket({ host: options.host, port: options.port});
         this._socket.onopen = () => this._callback('open');
         this._socket.onclose = () => this._callback('close');
         this._socket.onerror = () => this._callback('error');

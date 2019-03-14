@@ -24,7 +24,7 @@
   },
   "alias": {
     "reflector": "/../../reflector/index.js",
-    "ws": "./src/server/fakeWS.js"
+    "ws": "./src/server/ws.js"
   },
   "dependencies": {
     "array-flat-polyfill": "^1.0.0",
