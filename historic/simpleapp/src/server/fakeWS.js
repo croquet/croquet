@@ -33,7 +33,7 @@ export class FakeSocket extends CallbackHandler {
     constructor(options = {}) {
         super();
         this.readyState = WebSocket.CONNECTING;
-        this.remoteAddress = options.host || '::fake';
+        this.remoteAddress = options.host || 'fake';
         this.remotePort = options.port || (Math.random() * 0x10000 | 0x8000);
         this._otherEnd = null;
         this._callbacks = [];
@@ -107,7 +107,7 @@ export class FakeServer extends CallbackHandler {
 
     constructor(options = {}) {
         super();
-        this.options = {host: '::server', port: 1234, ...options};
+        this.options = { host: 'fake-server', port: 0, ...options };
         this.clients = new Set();
     }
 

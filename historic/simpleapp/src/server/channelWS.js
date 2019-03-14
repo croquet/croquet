@@ -17,7 +17,7 @@ if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle
 const NO_SERVER = 1000;
 
 const channel = new BroadcastChannel("croquet-reflector");
-const myID = Math.random();
+const myID = Math.floor(Math.random() * 10e15);
 let myServer = null;
 let activeServerID = NO_SERVER;
 
@@ -27,7 +27,7 @@ const openSockets = {};
 let timeout = 0;
 function discover() {
     channel.postMessage({ what: "discover" });
-    console.log("discover", myID);
+    console.log("Channel: discover", myID);
     if (timeout) clearTimeout(timeout);
     timeout = hotreload.setTimeout(() => discovered(myID), 500);
 }
@@ -35,13 +35,13 @@ function discovered(id) {
     if (timeout) { clearTimeout(timeout); timeout = 0; }
     if (activeServerID === NO_SERVER) activeServerID = id;
     const me = activeServerID === myID ? "(me)" : "(not me)";
-    console.log("Active server:", activeServerID, me);
+    console.log("Channel: discovered", activeServerID, me);
     document.getElementById("error").innerText = 'Using in-browser reflector ' + me;
     channel._processWaiting();
 }
 
 channel.onmessage = ({ data: msg }) => {
-    //console.log("RECEIVE", msg);
+    //console.log("Channel: RECEIVE", msg);
     switch (msg.what) {
         case "discover":
             // a new window is trying to discover a server
@@ -60,7 +60,7 @@ channel.onmessage = ({ data: msg }) => {
             break;
         case "close":
             // a server window was closed (not working yet?)
-            console.log("channel closed", msg.id);
+            console.log("Channel: closed", msg.id);
             for (const socket of Object.values(openSockets)) {
                 if (socket._id === msg.id) {
                     socket.close();
@@ -76,7 +76,7 @@ channel.onmessage = ({ data: msg }) => {
                 myServer._accept(socket);
                 openSockets['server:*'] = socket._otherEnd;
                 channel._post("accept", { id, client: socket._addr});
-                console.log('ACCEPTING', id, socket._addr);
+                console.log('Channel: sending accept', id, socket._addr);
             }
             break;
         case "accept":
@@ -86,7 +86,7 @@ channel.onmessage = ({ data: msg }) => {
                 const clientSocket = openSockets[client];
                 const serverSocket = new ChannelSocket({ id: activeServerID, host: 'server', port: '*' });
                 serverSocket._connectTo(clientSocket);
-                console.log('ACCEPTED', client, serverSocket._addr);
+                console.log('Channel: got accepted', client, serverSocket._addr);
             }
             break;
         case "packet":
@@ -94,7 +94,7 @@ channel.onmessage = ({ data: msg }) => {
             if (msg.id === myID) {
                 const socket = openSockets[msg.addr];
                 if (socket) socket._processIncoming(msg.data);
-                else console.warn('Cannot find socket', msg.addr);
+                else console.warn('Channel: cannot find socket', msg.addr);
             }
             break;
         default: throw Error("Unknown: " + msg.what);
@@ -102,7 +102,7 @@ channel.onmessage = ({ data: msg }) => {
 };
 
 channel.onmessageerror = err => {
-    console.log("Broadcast channel error:", err);
+    console.log("Channel: broadcast error:", err);
 };
 
 channel._connectSocket = socket => {
@@ -121,7 +121,7 @@ channel._processWaiting = () => {
 
 channel._post = (what, options={}) => {
     channel.postMessage({ what, ...options });
-//    console.log("EMIT", { what, ...options });
+//    console.log("Channel: sending", { what, ...options });
 };
 
 
@@ -130,6 +130,7 @@ export class ChannelSocket extends FakeSocket {
     static isSupported() { return !!window.BroadcastChannel; }
 
     constructor(options = {}) {
+        options = {host: 'channel', port: myID, ...options};
         super(options);
         this._id = options.id || myID;
         this._addr = `${this.remoteAddress}:${this.remotePort}`;
@@ -164,6 +165,7 @@ export class ChannelSocket extends FakeSocket {
 export class ChannelServer extends FakeServer {
 
     constructor(options = {}) {
+        options = { ...options, host: 'channel-server', port: myID };
         super(options);
         myServer = this;
     }
