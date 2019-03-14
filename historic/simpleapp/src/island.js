@@ -1,5 +1,5 @@
+import { Socket } from "ws";    // eslint-disable-line import/no-extraneous-dependencies
 import SeedRandom from "seedrandom";
-import { LocalSocket } from "ws";
 import PriorityQueue from "./util/priorityQueue.js";
 import AsyncQueue from './util/asyncQueue.js';
 import hotreload from "./hotreload.js";
@@ -15,6 +15,7 @@ Math.random = () => {
     if (CurrentIsland) throw Error("You must use this.island.random() in model code!");
     return Math_random();
 };
+hotreload.addDisposeHandler("math-random", () => Math.random = Math_random);
 
 // this is the only place allowed to change CurrentIsland
 function execOnIsland(island, fn) {
@@ -276,22 +277,17 @@ export default class Island {
 }
 
 
-// Socket
-let TheSocket = null;
-
 function socketSetup(socket) {
-    TheSocket = socket;
     Object.assign(socket, {
         onopen: _event => {
             console.log(socket.constructor.name, "connected");
-            Controller.joinAll();
+            Controller.joinAll(socket);
         },
         onerror: _event => {
             console.log(socket.constructor.name, "error");
         },
         onclose: event => {
             console.log(socket.constructor.name, "closed:", event.code);
-            TheSocket = null;
             if (event.code === 1006) {
                 const error = document.getElementById("error");
                 error.innerText = 'No Connection';
@@ -299,9 +295,10 @@ function socketSetup(socket) {
                 // The following import runs the exact same code that's
                 // executing on Node normally. It imports 'ws' which now
                 // comes from our own fakeWS.js
-                import("reflector").then(() => {
-                    socketSetup(new LocalSocket('fakeWS://local/'));
-                });
+                // ESLint doesn't know about the alias in package.json:
+                // eslint-disable-next-line global-require,import/no-unresolved
+                const server = require("reflector").server; // start up local server
+                socketSetup(new Socket({server})); // connect to it
             }
         },
         onmessage: event => {
@@ -319,14 +316,9 @@ const Controllers = {};
 
 export class Controller {
     // socket was connected, join session for all islands
-    static joinAll() {
+    static joinAll(socket) {
         for (const controller of Object.values(Controllers)) {
-            console.log('JOIN', controller.island.id);
-            TheSocket.send(JSON.stringify({
-                id: controller.island.id,
-                action: 'JOIN',
-                args: controller.island.time,
-            }));
+            controller.join(socket);
         }
     }
 
@@ -361,7 +353,7 @@ export class Controller {
             }
             case 'SERVE': {
                 console.log('SERVE - replying with snapshot');
-                TheSocket.send(JSON.stringify({
+                this.socket.send(JSON.stringify({
                     action: args, // reply action
                     args: this.island.asState(),
                 }));
@@ -409,9 +401,19 @@ export class Controller {
 
     // network queue
 
+    join(socket) {
+        console.log('JOIN', this.island.id);
+        this.socket = socket;
+        socket.send(JSON.stringify({
+            id: this.island.id,
+            action: 'JOIN',
+            args: this.island.time,
+        }));
+    }
+
     sendMessage(msg) {
         // SEND: Broadcast a message to all participants.
-        TheSocket.send(JSON.stringify({
+        this.socket.send(JSON.stringify({
             id: this.island.id,
             action: 'SEND',
             args: msg.asState(),
