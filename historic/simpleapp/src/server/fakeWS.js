@@ -4,7 +4,7 @@
 // This version does not communicate with anything, not even other tabs/windows
 // in the same browser.
 //
-// This is used as fallback in 'ws.js' if no other option is available.
+// This is used as fallback in './ws.js' if no other option is available.
 
 import hotreload from "../hotreload.js";
 
@@ -37,9 +37,9 @@ export class Socket extends CallbackHandler {
         this.remotePort = options.port || (Math.random() * 0x10000 | 0x8000);
         this._otherEnd = null;
         this._callbacks = [];
-        // if we were given server, connect to it
+        // if we were given a server, connect to it
         // otherwise this is a server-side socket
-        if (options.server) hotreload.setTimeout(() => options.server._accept(this), 0);
+        if (options.server) this._runServer(options.server);
     }
 
     get onopen() { return this._callbacks['open']; }
@@ -69,13 +69,19 @@ export class Socket extends CallbackHandler {
     // Private
 
     _connectTo(socket) {
-        this._otherEnd = socket;
+        if (this._otherEnd) return;
         this.readyState = WebSocket.OPEN;
+        this._otherEnd = socket;
+        this._otherEnd._connectTo(this);
         this._callback('open');
     }
 
     _processIncoming(data) {
         this._callback('message', { data });
+    }
+
+    _runServer(server) {
+        hotreload.setTimeout(() => server._accept(this), 0);
     }
 }
 
@@ -89,7 +95,6 @@ class Client extends CallbackHandler {
         this._socket.onerror = () => this._callback('error');
         this._socket.onmessage = ({data}) => this._callback('message', data);
         this._socket._connectTo(socket);
-        socket._connectTo(this._socket);
     }
 
     send(data) {

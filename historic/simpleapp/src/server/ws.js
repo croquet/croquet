@@ -14,7 +14,7 @@ import { Socket as ChannelSocket, Server as ChannelServer } from "./channelWS.js
 const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
-const channel = ChannelServer.isSupported();
+const channel = ChannelSocket.isSupported();
 
 export const Socket = channel ? ChannelSocket : FakeSocket;
 export const Server = channel ? ChannelServer : FakeServer;

@@ -2,11 +2,11 @@
 // for running without an actual server connection.
 //
 // This version communicates with other browser tabs/windows using the
-// BroadcastChannel API, which is only available on Chrome and Firefox
+// BroadcastChannel API, which is available on Chrome and Firefox.
 //
-// This is used as in 'ws.js' if the BroadcastChannel API is available.
+// This is used as in './ws.js' if the BroadcastChannel API is available.
 
-
+import { Socket as FakeSocket, Server as FakeServer } from "./fakeWS.js";
 import hotreload from "../hotreload.js";
 
 const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
@@ -37,15 +37,6 @@ function discovered(id) {
     console.log("Active server:", activeServerID, activeServerID === myID ? "(me)" : "(not me)");
     channel._processWaiting();
 }
-discover();
-
-hotreload.addDisposeHandler("broadcast-channel", () => {
-    try {
-        channel.postMessage({ what: "close", id: myID });
-    } catch (e) {
-        // ignore
-    }
-});
 
 channel.onmessage = ({ data: msg }) => {
     //console.log("RECEIVE", msg);
@@ -132,129 +123,55 @@ channel._post = (what, options={}) => {
 };
 
 
-// now the actual classes
+export class Socket extends FakeSocket {
 
-class CallbackHandler {
-    constructor() { this._callbacks = []; }
+    static isSupported() { return !!window.BroadcastChannel; }
 
-    on(event, callback) { this._callbacks[event] = callback; }
-
-    // Private
-
-    _callback(event, ...args) {
-        const callback = this._callbacks[event];
-        if (callback) {
-            if (event === 'close') callback(...args);  // needs to be sync for hot reload dispose
-            else hotreload.setTimeout(() => callback(...args));
-        }
-    }
-}
-
-
-export class Socket extends CallbackHandler {
     constructor(options = {}) {
-        super();
-        this.readyState = WebSocket.CONNECTING;
-        this.remoteAddress = options.host || (myID === activeServerID ? '::fake' : '::channel');
-        this.remotePort = options.port || (Math.random() * 0x10000 | 0x8000);
+        super(options);
         this._id = options.id || myID;
         this._addr = `${this.remoteAddress}:${this.remotePort}`;
-        this._otherEnd = null;
-        this._callbacks = [];
-        // if we were given server, connect to it
-        // otherwise this is a server-side socket
-        const server = options.server;
-        if (server) {
-            const accept = () => {
-                // if we are the active server, connect directly to it
-                if (activeServerID === myID) server._accept(this);
-                else {
-                    // otherwise connect via broadcast channel
-                    const {host, port} = server.options;
-                    channel._connectSocket(this, host, port);
-                }
-            };
-            if (activeServerID === NO_SERVER) whenConnected.push(accept);
-            else hotreload.setTimeout(accept, 0);
-        }
-    }
-
-    get onopen() { return this._callbacks['open']; }
-    set onopen(fn) { this._callbacks['open'] = fn; }
-    get onerror() { return this._callbacks['error']; }
-    set onerror(fn) { this._callbacks['error'] = fn; }
-    get onclose() { return this._callbacks['close']; }
-    set onclose(fn) { this._callbacks['close'] = fn; }
-    get onmessage() { return this._callbacks['message']; }
-    set onmessage(fn) { this._callbacks['message'] = fn; }
-
-    send(data) {
-        if (this._id !== myID) debugger;
-        this._otherEnd._processIncoming(data);
-    }
-
-    close() {
-        if (this.readyState !== WebSocket.CLOSED) {
-            this.readyState = WebSocket.CLOSED;
-            if (this._otherEnd) {
-                this._otherEnd.close();
-                this._otherEnd = null;
-            }
-            this._callback('close', {});
-        }
+        console.log("New Socket:", this._addr);
     }
 
     // Private
-
-    _connectTo(socket) {
-        if (this._otherEnd) return;
-        this.readyState = WebSocket.OPEN;
-        this._otherEnd = socket;
-        this._otherEnd._connectTo(this);
-        this._callback('open');
-    }
 
     _processIncoming(data) {
-        if (this._id === myID) this._callback('message', { data });
+        if (this._id === myID) super._processIncoming(data);
         else channel._post("packet", {id: this._id, addr: this._addr, data});
     }
+
+    _runServer(server) {
+        const accept = () => {
+            // if we are the active server, connect directly to it
+            if (activeServerID === myID) server._accept(this);
+            else {
+                // otherwise connect via broadcast channel
+                const { host, port } = server.options;
+                channel._connectSocket(this, host, port);
+            }
+        };
+        if (activeServerID === NO_SERVER) {
+            // kick off discovery of server
+            discover();
+            whenConnected.push(accept);
+        } else hotreload.setTimeout(accept, 0);
+    }
 }
 
 
-class Client extends CallbackHandler {
-    constructor(socket, options) {
-        super();
-        this._socket = new Socket({ host: options.host, port: options.port });
-        this._socket.onopen = () => this._callback('open');
-        this._socket.onclose = () => this._callback('close');
-        this._socket.onerror = () => this._callback('error');
-        this._socket.onmessage = ({ data }) => this._callback('message', data);
-        this._socket._connectTo(socket);
-    }
-
-    send(data) {
-        this._socket.send(data);
-    }
-}
-
-
-export class Server extends CallbackHandler {
-
-    static isSupported() { return window.BroadcastChannel; }
+export class Server extends FakeServer {
 
     constructor(options = {}) {
-        super();
-        this.options = { host: '::server', port: 1234, ...options };
-        this.clients = new Set();
+        super(options);
         myServer = this;
     }
-
-    // Private
-
-    _accept(socket) {
-        const client = new Client(socket, this.options);
-        this.clients.add(client);
-        const request = { connection: socket };
-        this._callback('connection', client, request);
-    }
 }
+
+hotreload.addDisposeHandler("broadcast-channel", () => {
+    try {
+        channel.postMessage({ what: "close", id: myID });
+    } catch (e) {
+        // ignore
+    }
+});
