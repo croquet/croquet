@@ -18,21 +18,21 @@ if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle
 export default class RoomView extends View {
     buildParts(viewOptions={}) {
         new RoomScene(this);
+        new InertialSpatialPart(this, {cameraSpatial: {
+            position: viewOptions.cameraPosition,
+            quaternion: viewOptions.cameraQuaternion
+        }}, {id: "cameraSpatial"});
         new ObjectViewManager(this, {scenePartName: "roomScene"});
         new CameraViewPart(this, {
             width: viewOptions.width,
             height: viewOptions.height
         });
-        new InertialSpatialPart(this, {cameraPosition: {
-            position: viewOptions.cameraPosition,
-            quaternion: viewOptions.cameraQuaternion
-        }}, {id: "cameraPosition"});
-        new TrackSpatial(this, {source: "this.cameraPosition", affects: "camera"});
+        new TrackSpatial(this, {source: "this.cameraSpatial", affects: "camera"});
         if (viewOptions.activeParticipant) {
             new PointerViewPart(this, {scenePartName: "roomScene"});
             new KeyboardViewPart(this, {scenePartName: "keyboard"});
             new TreadmillNavigation(this, {scenePartName: "roomScene"});
-            new TrackSpatial(this, {source: "this.cameraPosition", affects: "treadmillNavigation", id: "trackTreadmill"});
+            new TrackSpatial(this, {source: "this.cameraSpatial", affects: "treadmillNavigation", id: "trackTreadmill"});
         }
     }
 }
@@ -67,7 +67,7 @@ class RoomScene extends Object3D {
 
 class ObjectViewManager extends ViewPart {
     fromOptions(options) {
-        options = {scenePartName: "scene", ...options};
+        options = {scenePartName: "scene", cameraSpatialName: "cameraSpatial", ...options};
         super.fromOptions(options);
         this.scenePart = this.owner.parts[options.scenePartName];
     }
@@ -104,7 +104,7 @@ class ObjectViewManager extends ViewPart {
 
 class TreadmillNavigation extends Object3D {
     constructor(owner, options) {
-        options = {cameraPartName: "camera", scenePartName: "scene", affects: "cameraPosition", ...options};
+        options = {cameraPartName: "camera", scenePartName: "scene", affects: "cameraSpatial", ...options};
         super(owner, options);
         /** @type {CameraViewPart} */
         this.cameraPart = owner.parts[options.cameraPartName];
@@ -124,9 +124,9 @@ class TreadmillNavigation extends Object3D {
         this.treadmill = new THREE.Group();
         this.treadmillForwardStrip = new THREE.Mesh(new THREE.ShapeBufferGeometry(stripShape), new THREE.MeshBasicMaterial({ color: "#eeeeee", visible: false}));
         this.treadmillForwardStrip.position.z += 0.1;
-        makePointerSensitive(this.treadmillForwardStrip, this.asViewPartRef(), -1);
+        makePointerSensitive(this.treadmillForwardStrip, this.asPartRef(), -1);
         this.treadmillRotateArea = new THREE.Mesh(new THREE.CircleBufferGeometry(100, 30), new THREE.MeshBasicMaterial({color: "#cccccc", opacity: 0.2, transparent: true}));
-        makePointerSensitive(this.treadmillRotateArea, this.asViewPartRef(), -1);
+        makePointerSensitive(this.treadmillRotateArea, this.asPartRef(), -1);
         this.treadmill.add(this.treadmillForwardStrip);
         this.treadmill.add(this.treadmillRotateArea);
         this.treadmill.quaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);

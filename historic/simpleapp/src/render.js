@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import PortalViewPart from "./viewParts/portal.js";
+import { PortalViewPart } from "./portal/portalView.js";
 
 const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
@@ -94,20 +94,15 @@ export default class Renderer {
             // stencil buffer is not changed
             gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
 
-            const portalTargetRoomView = roomViewManager.requestPassive(portalViewPart.targetRoom, allRooms);
+            const portalPart = portalViewPart.portalPart;
+            const portalTargetRoomView = roomViewManager.requestPassive(portalPart.there, allRooms);
             const portalTargetScene = portalTargetRoomView.parts.roomScene.threeObj;
             /** @type {THREE.Camera} */
             const portalTargetCamera = portalTargetRoomView.parts.camera.threeObj;
 
-            const cameraToPortalPositionInCameraCoords = mainCamera.worldToLocal(portalViewPart.threeObj.position.clone());
-            const cameraToPortalQuaternionDelta = mainCamera.quaternion.clone().multiply(portalViewPart.threeObj.quaternion.clone().inverse());
-
-            portalTargetCamera.quaternion.copy(portalViewPart.quaternionInTargetRoom.clone().multiply(cameraToPortalQuaternionDelta));
-            portalTargetCamera.position.set(0, 0, 0);
-            portalTargetCamera.updateMatrix();
-            portalTargetCamera.updateMatrixWorld(true);
-            const targetCameraToTargetPortal = portalTargetCamera.localToWorld(cameraToPortalPositionInCameraCoords.clone());
-            portalTargetCamera.position.copy(portalViewPart.positionInTargetRoom.clone().sub(targetCameraToTargetPortal));
+            const {targetPosition, targetQuaternion} = portalPart.projectThroughPortal(mainCamera.position, mainCamera.quaternion);
+            portalTargetCamera.position.copy(targetPosition);
+            portalTargetCamera.quaternion.copy(targetQuaternion);
 
             // render the view through the portal
             this.renderer.render(portalTargetScene, portalTargetCamera);

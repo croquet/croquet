@@ -57,7 +57,7 @@ export class Carota extends Doc {
     this.plainClipboard = null;
 
     this.debug = false;
-
+    this.hasFocus = false;
     this.resizeToNumLines(numLines);
 
     return this;
@@ -200,7 +200,6 @@ export class Carota extends Doc {
     // indicates the scroll ration (screen height / doc height).
     // Note that all values are in absolute document coordinates.
 
-    if (this.useMockContext) {
       var {
           scaleX, // now means pixel count x
           scaleY, // now means pixel count y
@@ -216,25 +215,6 @@ export class Carota extends Doc {
         var barTop = scrollT * scaleY
         var minHeight = scaleY / 100 * 5
         var barHeight = scrollVRatio > 1.0 ? scaleY - 3 : Math.max(minHeight, scaleY * scrollVRatio - 6)
-    } else {
-      var {
-          scaleX,
-          scaleY,
-          scrollTop: scrollT,
-          screenHeight: screenH,
-          screenWidth: screenW,
-          relativeScrollBarWidth: relWidth,
-          frame
-        } = this,
-        docH = frame.bounds().h / scaleY,
-        scrollVRatio = screenH / docH,
-        barW = relWidth * screenW * scaleX,
-          barW = Math.max(barW, 30),  //Patched by Dan for new text  editor
-        barLeft = screenW * scaleX - barW - 3,
-        barTop = scrollT * scrollVRatio * scaleY + scrollT * scaleY - 3,
-        minHeight = screenH/100 * 5 * scaleY,
-        barHeight = Math.max(minHeight, screenH * scrollVRatio * scaleY - 3);
-    }
     return rect(barLeft, barTop, barW, barHeight);
   }
 
@@ -246,12 +226,8 @@ export class Carota extends Doc {
     let {screenHeight, scaleY} = this,
         docHeight = this.frame.height
     // this.scrollLeft = ...
-    if (this.useMockContext) {
       let max = 1.0 - scaleY / docHeight
       this.scrollTop = Math.max(0, Math.min(max, scrollTop));
-    } else {
-      this.scrollTop = Math.max(0, Math.min(docHeight/scaleY - screenHeight, scrollTop));
-    }
     this.contentChanged.fire();
   }
 
@@ -333,8 +309,6 @@ export class Carota extends Doc {
       }
     }
 
-    if (this.useMockContext) {
-
     if (this.scrollBarClick) {
       let {realStartY, scrollBarTopOnDown} = this.scrollBarClick;
       let docHeight = this.frame.bounds().h;
@@ -346,37 +320,15 @@ export class Carota extends Doc {
       this.setScroll(0, newPos);
       this.paint();
     }
-
-} else {
-
-    if (this.scrollBarClick) {
-      let {screenHeight: screenH, scaleY, scrollTop} = this,
-          {scrollBarVOffset} = this.scrollBarClick,
-          docH = this.frame.bounds().h,
-          scaledScrollTop = scrollTop*scaleY,
-          scaledScrollH = screenH * scaleY,
-          normDocH = docH / scaleY,
-          relScrollTop = (y-scrollBarVOffset - scaledScrollTop) / scaledScrollH,
-          newScrollTop = Math.min(normDocH * relScrollTop, normDocH - screenH);
-      this.scrollBarClick.type = "move";
-      this.setScroll(0, newScrollTop);
-      this.paint();
-    }
-}
   }
 
   mouseUp(x,y, realY) {
     if (this.scrollBarClick) {
       if (this.scrollBarClick.type === "clicked") {
         var yToUse, scrollAmount;
-            if (this.useMockContext) {
             // We just need the right y here to compare with scrollbarBounds
             yToUse = realY;
             scrollAmount = 0.9*(this.scaleY/this.frame.height);
-            } else {
-            yToUse = y;
-            scrollAmount = this.scaleY/this.screenHeight;
-            }
         let {t, b} = this.scrollbarBounds();
         if (yToUse < t) this.scrollBy(0, -scrollAmount);
         else if (yToUse > b) this.scrollBy(0, scrollAmount);

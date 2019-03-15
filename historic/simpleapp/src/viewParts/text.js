@@ -13,7 +13,7 @@ if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle
 
 export default class TextViewPart extends Object3D {
     fromOptions(options) {
-        options = {content: [], glyphs: [], font: "Lora", width: 3, height: 2, numLines: 10, editable: false, ...options};
+        options = {content: [], glyphs: [], font: "Lora", width: 3, height: 2, numLines: 10, drawnRects: [], editable: false, showSelection: true, ...options};
         this.modelSource = options.modelSource;
         this.options = options;
 
@@ -42,6 +42,11 @@ export default class TextViewPart extends Object3D {
 
     onPointerDown() {
         this.publish(KeyboardEvents.requestfocus, {requesterRef: this.asViewPartRef()}, KeyboardTopic, null);
+o    }
+
+    onGetFocus() {
+        // I acquire focus
+        // this.editor.getFocus();
     }
 
     initEditor() {
@@ -51,7 +56,7 @@ export default class TextViewPart extends Object3D {
 
         this.editor.mockCallback = ctx => {
             let glyphs = this.processMockContext(ctx);
-            this.update({glyphs: glyphs, corners: this.editor.visibleTextBounds(), scaleX: this.editor.scaleX, scrollTop: this.editor.scrollTop, frameHeight: this.editor.frame.height});
+            this.update({glyphs: glyphs, corners: this.editor.visibleTextBounds(), scaleX: this.editor.scaleX, scrollTop: this.editor.scrollTop, frameHeight: this.editor.frame.height, drawnRects: ctx.filledRects});
             if (this.options.editable) {
                 this.owner.model["text"].onContentChanged(this.editor.save());
             }
@@ -100,6 +105,9 @@ export default class TextViewPart extends Object3D {
         this.editor.setSubscribers(callback);
         this.editor.load(this.options.content);
 
+        this.initSelectionMesh();
+        this.initScrollBarMesh();
+
         window.view = this;
     }
 
@@ -109,9 +117,6 @@ export default class TextViewPart extends Object3D {
                                new THREE.Plane(new THREE.Vector3(-1, 0, 0), 0),
                                new THREE.Plane(new THREE.Vector3(1, 0, 0), 0)];
 
-        this.initSelectionMesh();
-        this.initScrollBarMesh();
-
         const box = new THREE.Mesh(new THREE.PlaneBufferGeometry(this.options.width, this.options.height), new THREE.MeshBasicMaterial({ color: 0xeeeeee }));
         return box;
     }
@@ -119,33 +124,28 @@ export default class TextViewPart extends Object3D {
     initSelectionMesh() {
         // geometry for the cursor bar rendered if selection is empty
         // see makeBoxSelectionMesh for actual selection
-        /*const cube = new TCube(this.frame);
-        cube.material = new THREE.MeshBasicMaterial({
-            color: 0x8080C0,
-        });
-        cube.visible = false;
-        this.addChild(cube);
-        this.selectionBar = cube;
-        cube.object3D.onBeforeRender = this.selectionBeforeRender.bind(this);
+        let box = this.threeObj;
 
+        const plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(0.1, 0.1), new THREE.MeshBasicMaterial({ color: 0xeeeeee }));
+
+        plane.visible = false;
+        box.add(plane);
+        this.selectionBar = plane;
+        //cube.object3D.onBeforeRender = this.selectionBeforeRender.bind(this);
         this.boxSelections = [];
-        */
     }
 
     initScrollBarMesh() {
-        /*
-        let cube = new TCube(this.frame);
-        cube.visible = false;
-        cube.setColor(new THREE.Color(0x0022ff));
-        this.addChild(cube);
-        this.scrollBar = cube;
+        let box = this.threeObj;
+        let plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(0.1, 0.1), new THREE.MeshBasicMaterial({ color: 0x0044ee }));
+        plane.visible = false;
+        box.add(plane);
+        this.scrollBar = plane;
 
-        cube = new TCube(this.frame);
-        cube.visible = false;
-        cube.setColor(new THREE.Color(0x00aaff));
-        this.addChild(cube);
-        this.scrollKnob = cube;
-*/
+        plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(0.1, 0.1), new THREE.MeshBasicMaterial({ color: 0x00aaee }));
+        plane.visible = false;
+        box.add(plane);
+        this.scrollKnob = plane;
     }
 
     updateGeometry(geometry) {
@@ -166,6 +166,53 @@ export default class TextViewPart extends Object3D {
         text.position.z = 0.005;
 
         geometry.update({font: fontRegistry.getInfo(this.options.font), glyphs: this.options.glyphs});
+
+        this.updateScrollBarAndSelections(this.options.drawnRects, meterInPixel, docHeight, scrollT, descent);
+    }
+
+    updateScrollBarAndSelections(drawnRects, meterInPixel, docHeight, scrollT, descent) {
+        let boxInd = 0;
+        for (let i = 0; i < drawnRects.length; i++) {
+            let rec = drawnRects[i];
+            let w = rec.w * meterInPixel;
+            let h = rec.h * meterInPixel;
+            //Fudge factors to accomodate Roboto font
+            let x = -this.extent.x / 2 + (rec.x + 5) * meterInPixel + w / 2;
+            let y = this.extent.y / 2 + ((scrollT * docHeight) - (rec.y + descent * 2)) * meterInPixel - h / 2;
+            let meshRect = {x, y, w, h};
+
+            if (rec.style === 'bar selection') {
+                if (this.options.showsSelection) {
+                    // drawing the insertion  - line width of text cursor should relate to font
+                    meshRect.w = 5 * meterInPixel;
+                    this.updateSelection(this.selectionBar, meshRect);
+                    this.boxSelections.forEach(box => this.updateSelection(box, null));
+                }
+            } else if (rec.style === 'box selection focus' ||
+                       rec.style === 'box selection unfocus') {
+                // boxes of selections
+                if (this.options.showsSelection) {
+                    let cube;
+                    if (!this.boxSelections[boxInd]) {
+                        cube = this.boxSelections[boxInd] = this.makeBoxSelectionMesh();
+                        this.addChild(cube);
+                    }
+                    cube = this.boxSelections[boxInd];
+                    this.updateSelection(cube, meshRect);
+                    boxInd++;
+                    this.updateSelection(this.selectionBar, null);
+                }
+            } else if (rec.style === 'scroll bar') {
+                meshRect.y += -scrollT * docHeight * meterInPixel + (descent * 2 * meterInPixel);
+                this.updateSelection(this.scrollBar, meshRect);
+            } else if (rec.style === 'scroll knob') {
+                meshRect.y += -scrollT * docHeight * meterInPixel + (descent * 2 * meterInPixel);
+                this.updateSelection(this.scrollKnob, meshRect, 0.004);
+            }
+        }
+        for (let i = boxInd; i < this.boxSelections.length; i++) {
+            this.updateSelection(this.boxSelections[i], null);
+        }
     }
 
     update(newOptions) {

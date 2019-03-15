@@ -23,7 +23,7 @@ export default class DraggableViewPart extends ViewPart {
     }
 
     attach() {
-        makePointerSensitive(this.dragHandlePart.threeObj, this.asViewPartRef());
+        makePointerSensitive(this.dragHandlePart.threeObj, this.asPartRef());
     }
 
     onPointerDown() {

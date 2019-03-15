@@ -287,25 +287,26 @@ function socketSetup(socket) {
             console.log(socket.constructor.name, "error");
         },
         onclose: event => {
-            console.log(socket.constructor.name, "closed:", event.code);
+            console.log(socket.constructor.name, "closed:", event.code, event.reason);
             if (event.code === 1006) {
-                const error = document.getElementById("error");
-                error.innerText = 'No Connection';
-                console.log("no connection to server, setting up local server");
-                // The following import runs the exact same code that's
-                // executing on Node normally. It imports 'ws' which now
-                // comes from our own fakeWS.js
-                // ESLint doesn't know about the alias in package.json:
-                // eslint-disable-next-line global-require,import/no-unresolved
-                const server = require("reflector").server; // start up local server
-                socketSetup(new Socket({server})); // connect to it
+                hotreload.setTimeout(() => {
+                    document.getElementById("error").innerText = 'No Connection';
+                    console.log("no connection to server, setting up local server");
+                    // The following import runs the exact same code that's
+                    // executing on Node normally. It imports 'ws' which now
+                    // comes from our own fakeWS.js
+                    // ESLint doesn't know about the alias in package.json:
+                    // eslint-disable-next-line global-require,import/no-unresolved
+                    const server = require("reflector").server; // start up local server
+                    socketSetup(new Socket({server})); // connect to it
+                });
             }
         },
         onmessage: event => {
             Controller.receive(event.data);
         }
     });
-    hotreload.addDisposeHandler("socket", () => socket.close());
+    hotreload.addDisposeHandler("socket", () => socket.readyState !== WebSocket.CLOSED && socket.close(1000, "hotreload "+moduleVersion));
 }
 
 socketSetup(new WebSocket('ws://localhost:9090/'));

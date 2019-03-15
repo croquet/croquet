@@ -143,8 +143,4 @@ export class ViewPart extends Part {
     publish(event, data, scope=this.owner.id, part=this.partId) {
         this.owner.publish(scope, part, event, data);
     }
-
-    asViewPartRef() {
-        return this.owner.id + "." + this.partId;
-    }
 }

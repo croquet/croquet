@@ -17,6 +17,10 @@ export default class Part {
         const name = this.name.replace("Part", "");
         return name.charAt(0).toLowerCase() + name.slice(1);
     }
+
+    asPartRef() {
+        return this.owner.id + "." + this.partId;
+    }
 }
 
 /** @template {Part} T */
