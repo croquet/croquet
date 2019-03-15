@@ -55,14 +55,14 @@ export class FakeSocket extends CallbackHandler {
         this._otherEnd._processIncoming(data);
     }
 
-    close() {
+    close(code, reason) {
         if (this.readyState !== WebSocket.CLOSED) {
             this.readyState = WebSocket.CLOSED;
             if (this._otherEnd) {
-                this._otherEnd.close();
+                this._otherEnd.close(code, reason);
                 this._otherEnd = null;
             }
-            this._callback('close', {});
+            this._callback('close', {code, reason});
         }
     }
 
@@ -92,12 +92,12 @@ export class FakeSocket extends CallbackHandler {
 
 
 class FakeClient extends CallbackHandler {
-    constructor(socket, options) {
+    constructor(socket, options, server) {
         super();
         this._socket = new socket.constructor({ host: options.host, port: options.port});
-        this._socket.onopen = () => this._callback('open');
-        this._socket.onclose = () => this._callback('close');
-        this._socket.onerror = () => this._callback('error');
+        this._socket.onopen = (...args) => this._callback('open', ...args);
+        this._socket.onclose = (...args) => {server.clients.delete(this); this._callback('close', ...args); };
+        this._socket.onerror = (...args) => this._callback('error', ...args);
         this._socket.onmessage = ({data}) => this._callback('message', data);
         this._socket._connectTo(socket);
     }
@@ -127,7 +127,7 @@ export class FakeServer extends CallbackHandler {
     // Private
 
     _accept(socket) {
-        const client = new FakeClient(socket, this.options);
+        const client = new FakeClient(socket, this.options, this);
         this.clients.add(client);
         const request = { connection: socket };
         this._callback('connection', client, request);

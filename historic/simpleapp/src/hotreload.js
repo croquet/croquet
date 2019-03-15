@@ -36,6 +36,10 @@ function addDisposeHandler(key, fn) {
     disposeHandlers[key] = fn;
 }
 
+function callDisposeHandlers() {
+    for (const fn of Object.values(disposeHandlers)) fn();
+}
+
 function dispose() {
     for (const handle of timeoutHandles) window.clearTimeout(handle);
     for (const handle of frameHandles) window.cancelAnimationFrame(handle);
@@ -44,8 +48,10 @@ function dispose() {
     timeoutHandles.clear();
     frameHandles.clear();
     eventListeners.length = 0;
-    for (const fn of Object.values(disposeHandlers)) fn();
+    callDisposeHandlers();
 }
+
+window.onbeforeunload = callDisposeHandlers;
 
 export default {
     setTimeout,
