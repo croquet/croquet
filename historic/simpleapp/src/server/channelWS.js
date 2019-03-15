@@ -31,17 +31,18 @@ let myServer = null;
 // This is how we discover the serverPort on startup
 const whenDiscovered = [];
 let timeout = 0;
-function discover(callback) {
-    whenDiscovered.push(callback);
+function discover(ms, callback) {
+    if (callback) whenDiscovered.push(callback);
     channel._post("discover", {from: myPort});
     if (timeout) clearTimeout(timeout);
     timeout = hotreload.setTimeout(() => {
+        if (ms < 500) return discover(ms * 1.5);
         console.log("Channel: TIMEOUT for discover");
         discovered(myPort);
-    }, 500);
+    }, 10);
 }
 function discovered(port) {
-    if (timeout) { clearTimeout(timeout); timeout = 0; }
+    clearTimeout(timeout);
     if (serverPort === NO_SERVER) serverPort = port;
     const me = serverPort === myPort ? "(me)" : "(not me)";
     console.log("Channel: discovered", serverPort, me);
@@ -63,12 +64,7 @@ channel.onmessage = ({ data: msg }) => {
         case "discovered":
             // a server answered our discover request
             if (msg.to === myPort) {
-                if (timeout) {
-                    clearTimeout(timeout); timeout = 0;
-                    if (serverPort === NO_SERVER) discovered(msg.server);
-                    else console.warn("Channel: new active server?!", msg.port);
-                }
-                else console.warn("Channel: discovered without request?!", msg.port);
+                discovered(msg.server);
             }
             break;
         case "connect":
@@ -135,7 +131,7 @@ export class ChannelSocket extends FakeSocket {
         // if connected to this window, send directly
         if (this._otherEnd) super.send(data);
         // otherwise, send via channel
-        else channel._post("packet", { from: myPort, to: this.remotePort, data });
+        else if (channel) channel._post("packet", { from: myPort, to: this.remotePort, data });
     }
 
     // Private
@@ -155,7 +151,7 @@ export class ChannelSocket extends FakeSocket {
     _connectToServer(server) {
         // kick off discovery of server
         if (serverPort !== NO_SERVER) throw Error("Channel: why is there a server?");
-        discover(() => {
+        discover(50, () => {
             // if we are the active server, connect directly to it
             if (serverPort === myPort) server._accept(this);
             else {
