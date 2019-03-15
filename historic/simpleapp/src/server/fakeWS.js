@@ -127,9 +127,15 @@ export class FakeServer extends CallbackHandler {
     // Private
 
     _accept(socket) {
+        socket.url = this._url;
         const client = new FakeClient(socket, this.options, this);
         this.clients.add(client);
         const request = { connection: socket };
         this._callback('connection', client, request);
+    }
+
+    get _url() {
+        const {address, port, family} = this.address();
+        return `${family.toLowerCase()}://${address}:${port}/`;
     }
 }

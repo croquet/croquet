@@ -294,7 +294,7 @@ function socketSetup(socket) {
     Object.assign(socket, {
         onopen: _event => {
             if (socket.constructor === WebSocket) document.getElementById("error").innerText = '';
-            console.log(socket.constructor.name, "connected");
+            console.log(socket.constructor.name, "connected to", socket.url);
             Controller.joinAll(socket);
         },
         onerror: _event => {
@@ -313,7 +313,7 @@ function socketSetup(socket) {
 }
 
 const reflector = "reflector" in urlOptions ? urlOptions.reflector : "wss://dev1.os.vision/reflector-v1";
-if (typeof reflector === 'string') socketSetup(new WebSocket(reflector));
+if (reflector && typeof reflector === 'string') socketSetup(new WebSocket(reflector));
 else startReflectorInBrowser();
 
 // Controller
