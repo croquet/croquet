@@ -1,5 +1,8 @@
 import Part from "./parts.js";
 
+const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
+if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
+
 /** @typedef {import('./view').default} View */
 /** @typedef {import('./model').default} Model */
 
@@ -45,7 +48,7 @@ export default class StatePart extends Part {
     ensure(object, cls) {
         if (object instanceof cls) return;
         Object.setPrototypeOf(object, cls.prototype);
-    }
+   }
 
     // STATE
     toState(_state) { }

@@ -5,6 +5,9 @@ import SizePart from '../stateParts/size.js';
 import Model from '../model.js';
 import PortalView from './portalView.js';
 
+const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
+if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
+
 export const PortalEvents = {
     traversed: "portal-traversed",
     traverserMoved: "portal-traverserMoved",

@@ -1,5 +1,8 @@
+import { Socket } from "ws";    // eslint-disable-line import/no-extraneous-dependencies
 import SeedRandom from "seedrandom";
 import PriorityQueue from "./util/priorityQueue.js";
+import AsyncQueue from './util/asyncQueue.js';
+import hotreload from "./hotreload.js";
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
@@ -12,6 +15,7 @@ Math.random = () => {
     if (CurrentIsland) throw Error("You must use this.island.random() in model code!");
     return Math_random();
 };
+hotreload.addDisposeHandler("math-random", () => Math.random = Math_random);
 
 // this is the only place allowed to change CurrentIsland
 function execOnIsland(island, fn) {
@@ -20,6 +24,7 @@ function execOnIsland(island, fn) {
     const previousIsland = CurrentIsland;
     try {
         CurrentIsland = island;
+        window.ISLAND = island;
         fn();
     } finally {
         CurrentIsland = previousIsland;
@@ -35,6 +40,7 @@ export default class Island {
     constructor(state = {}, initFn) {
         this.modelsById = {};
         this.viewsById = {};
+        this.modelsByName = {};
         // Models can only subscribe to other model events
         // Views can subscribe to model or other view events
         this.modelSubscriptions = {};
@@ -92,23 +98,45 @@ export default class Island {
         delete this.viewsById[id];
     }
 
-    // This will become in-directed via the Reflector
+    get(modelName) { return this.modelsByName[modelName]; }
+    set(modelName, model) {
+        if (CurrentIsland !== this) throw Error("Island Error");
+        this.modelsByName[modelName] = model;
+    }
+
+    // Send via reflector
     callModelMethod(modelId, partId, selector, args) {
-        execOnIsland(this, () => this.futureSend(0, modelId, partId, selector, args));
+        if (CurrentIsland) throw Error("Island Error");
+        const message = new Message(this.time, 0, modelId, partId, selector, args);
+        this.controller.sendMessage(message);
+    }
+
+    sendNoop() {
+        // this is only used for syncing after a snapshot
+        // noop() isn't actually implemented, sends to island id
+        // are filtered out in executeOn()
+        const message = new Message(this.time, 0, this.id, 0, "noop", []);
+        this.controller.sendMessage(message);
+    }
+
+    decodeScheduleAndExecute(msgData) {
+        const message = Message.fromState(msgData);
+        this.messages.add(message);
+        this.advanceTo(message.time);
     }
 
     futureSend(tOffset, receiverID, partID, selector, args) {
         if (CurrentIsland !== this) throw Error("Island Error");
         if (tOffset < 0) throw Error("attempt to send future message into the past");
-        const message = new Message(this.time + tOffset, ++this.timeSeq, receiverID, partID, selector, args);
+         // Wrapping below means that if we have an overflow, messages
+        // scheduled after the overflow will be executed *before* messages
+        // scheduled earlier. It won't lead to any collisions (this would require
+        // wrap-around within a time slot) but it still is a problem since it
+        // may cause unpredictable effects on the code.
+        // The reflector uses a similar scheme with sequence numbers below 100000000.
+        this.timeSeq = (this.timeSeq + 100000000) % 1000000000000000;
+        const message = new Message(this.time + tOffset, this.timeSeq, receiverID, partID, selector, args);
         this.messages.add(message);
-        // make sure sequence counter does not roll over
-        // rethink this when router is stimestamping
-        if (this.timeSeq > 0xFFFF) {
-            this.timeSeq = 0;
-            this.messages.forEach(m => m.seq = ++this.timeSeq);
-            console.log("re-sequencing future messages");
-        }
     }
 
     // Convert model.parts[partID].future(tOffset).property(...args)
@@ -204,7 +232,7 @@ export default class Island {
     processModelViewEvents() {
         if (CurrentIsland) throw Error("Island Error");
         while (this.modelViewEvents.length > 0) {
-            const { scope, event, data } = this.modelViewEvents.pop();
+            const { scope, event, data } = this.modelViewEvents.shift();
             this.publishFromView(scope, event, data);
         }
     }
@@ -222,7 +250,7 @@ export default class Island {
         }
     }
 
-    toState() {
+    asState() {
         return {
             id: this.id,
             time: this.time,
@@ -249,8 +277,173 @@ export default class Island {
 }
 
 
-// Message encoders / decoders
+function socketSetup(socket) {
+    Object.assign(socket, {
+        onopen: _event => {
+            console.log(socket.constructor.name, "connected");
+            Controller.joinAll(socket);
+        },
+        onerror: _event => {
+            console.log(socket.constructor.name, "error");
+        },
+        onclose: event => {
+            console.log(socket.constructor.name, "closed:", event.code);
+            if (event.code === 1006) {
+                const error = document.getElementById("error");
+                error.innerText = 'No Connection';
+                console.log("no connection to server, setting up local server");
+                // The following import runs the exact same code that's
+                // executing on Node normally. It imports 'ws' which now
+                // comes from our own fakeWS.js
+                // ESLint doesn't know about the alias in package.json:
+                // eslint-disable-next-line global-require,import/no-unresolved
+                const server = require("reflector").server; // start up local server
+                socketSetup(new Socket({server})); // connect to it
+            }
+        },
+        onmessage: event => {
+            Controller.receive(event.data);
+        }
+    });
+    hotreload.addDisposeHandler("socket", () => socket.close());
+}
 
+socketSetup(new WebSocket('ws://localhost:9090/'));
+
+// Controller
+
+const Controllers = {};
+
+export class Controller {
+    // socket was connected, join session for all islands
+    static joinAll(socket) {
+        for (const controller of Object.values(Controllers)) {
+            controller.join(socket);
+        }
+    }
+
+    // dispatch to right controller
+    static receive(data) {
+        const { id, action, args } = JSON.parse(data);
+        Controllers[id].receive(action, args);
+    }
+
+    constructor() {
+        this.networkQueue = new AsyncQueue();
+    }
+
+    // handle messages from reflector
+    receive(action, args) {
+        switch (action) {
+            case 'START': {
+                // we are not joining an island but starting up cold
+                this.islandCreator.callbackFn(this.island);
+                break;
+            }
+            case 'RECV': {
+                const msg = args;
+                //if (msg.sender === this.senderID) this.addToStatistics(msg);
+                this.networkQueue.put(msg);
+                break;
+            }
+            case 'TICK': {
+                const time = args;
+                this.advanceTo(time);
+                break;
+            }
+            case 'SERVE': {
+                console.log('SERVE - replying with snapshot');
+                this.socket.send(JSON.stringify({
+                    action: args, // reply action
+                    args: this.island.asState(),
+                }));
+                // and send a dummy message so that the other guy can play catch up
+                this.island.sendNoop();
+                break;
+            }
+            case 'SYNC': {
+                console.log('SYNC - received snapshot');
+                this.install(args);
+                break;
+            }
+            default: console.log("Unknown action:", action);
+        }
+    }
+
+    async install(snapshot) {
+        const newIsland = this.islandCreator.creatorFn(snapshot);
+        const newTime = newIsland.time;
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+            // eslint-disable-next-line no-await-in-loop
+            const nextMsg = await this.networkQueue.next();
+            if (nextMsg[0] > newTime) {
+                // This is the first 'real' message arriving.
+                newIsland.decodeScheduleAndExecute(nextMsg);
+                this.setIsland(newIsland); // install island
+                this.islandCreator.callbackFn(this.island);
+                return; // done
+            }
+            // otherwise, silently skip the message
+        }
+    }
+
+    setIsland(island) {
+        this.island = island;
+        this.island.controller = this;
+    }
+
+    newIsland(creatorFn, state, callbackFn=()=>{}) {
+        this.islandCreator = { creatorFn, callbackFn };
+        this.setIsland(creatorFn(state));
+        Controllers[this.island.id] = this;
+    }
+
+    // network queue
+
+    join(socket) {
+        console.log('JOIN', this.island.id);
+        this.socket = socket;
+        socket.send(JSON.stringify({
+            id: this.island.id,
+            action: 'JOIN',
+            args: this.island.time,
+        }));
+    }
+
+    sendMessage(msg) {
+        // SEND: Broadcast a message to all participants.
+        this.socket.send(JSON.stringify({
+            id: this.island.id,
+            action: 'SEND',
+            args: msg.asState(),
+        }));
+    }
+
+    advanceTo(newTime) {
+        if (!this.island) return;    // we are probably still sync-ing
+        this.processMessages();      // process all the messages thus far
+        this.island.advanceTo(newTime);
+    }
+
+    processMessages() {
+        // Process pending messages for this island
+        if (!this.island) return;     // we are probably still sync-ing
+        let msgData;
+        // Get the next message from the (concurrent) network queue
+        while ((msgData = this.networkQueue.nextNonBlocking())) {
+            // And have the island decode, schedule, and update to that message
+            this.island.decodeScheduleAndExecute(msgData);
+        }
+    }
+}
+
+
+// Message encoders / decoders
+//
+// Eventually, these should be provided by the application
+// to tailor the encoding for specific scenarios.
+// (unless we find a truly efficient and general encoding scheme)
 
 const XYZ = {
     encode: a => [a[0].x, a[0].y, a[0].z],
@@ -313,7 +506,10 @@ class Message {
 
     executeOn(island) {
         const { receiver, part, selector, args } = decode(this.payload);
-        execOnIsland(island, () => island.modelsById[receiver].parts[part][selector](...args));
+        if (receiver === island.id) return; // noop
+        let object = island.modelsById[receiver];
+        if (part) object = object.parts[part];
+        execOnIsland(island, () => object[selector](...args));
     }
 }
 
@@ -322,7 +518,7 @@ class Message {
 // https://github.com/parcel-bundler/parcel/pull/2660/
 
 // map model class names to model classes
-const ModelClasses = {};
+let ModelClasses = {};
 
 function modelClassNamed(className) {
     if (ModelClasses[className]) return ModelClasses[className];
@@ -335,3 +531,6 @@ function modelClassNamed(className) {
     if (ModelClasses[className]) return ModelClasses[className];
     throw new Error(`Class "${className}" not found, is it exported?`);
 }
+
+// flush ModelClasses after hot reload
+hotreload.addDisposeHandler(module.id, () => ModelClasses = {});

@@ -11,6 +11,12 @@ export const SizeEvents = {
 export default class SizePart extends StatePart {
     fromState(state={}) {
         this.value = state.value || new THREE.Vector3(1, 1, 1);
+        this.ensure(this.value, THREE.Vector3);
+    }
+
+    toState(state) {
+        super.toState(state);
+        state.value = this.value.clone();
     }
 
     set(newSize) {

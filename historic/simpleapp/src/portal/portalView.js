@@ -4,6 +4,9 @@ import { SpatialEvents } from '../stateParts/spatial.js';
 import { SizeEvents } from '../stateParts/size.js';
 import View from '../view.js';
 
+const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
+if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
+
 export default class PortalView extends View {
     buildParts() {
         new PortalViewPart(this);

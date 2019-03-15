@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { PortalViewPart } from "./portal/portalView.js";
 
+const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
+if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
+
 export const RENDER_LAYERS = {
     NORMAL: 0,
     ALL_PORTALS: 1,
@@ -10,9 +13,7 @@ export const RENDER_LAYERS = {
 export default class Renderer {
     constructor(width, height) {
         this.renderer = new THREE.WebGLRenderer();
-        this.renderer.autoClearStencil = false;
-        this.renderer.autoClearDepth = false;
-        this.renderer.autoClearColor = false;
+        this.renderer.autoClear = false;
         this.changeViewportSize(width, height);
         document.body.appendChild(this.renderer.domElement);
     }
