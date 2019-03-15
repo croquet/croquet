@@ -36,9 +36,11 @@ function discover(ms, callback) {
     channel._post("discover", {from: myPort});
     if (timeout) clearTimeout(timeout);
     timeout = hotreload.setTimeout(() => {
-        if (ms < 500) return discover(ms * 1.5);
-        console.log("Channel: TIMEOUT for discover");
-        discovered(myPort);
+        if (ms < 500) discover(ms * 1.5);
+        else {
+            console.log("Channel: TIMEOUT for discover");
+            discovered(myPort);
+        }
     }, 10);
 }
 function discovered(port) {
