@@ -56,7 +56,7 @@ export default class PointerViewPart extends ViewPart {
             this.dragStartThreeObj = this.hoverThreeObj;
             this.publish(
                 PointerEvents.pointerDown,
-                { at: this.dragStartPoint, pointer: this.asViewPartRef() },
+                { at: this.dragStartPoint, pointer: this.asPartRef() },
                 ...this.draggedViewPart.split(".")
             );
             this.draggingVerticalPlane.setFromNormalAndCoplanarPoint(this.cameraPart.threeObj.getWorldDirection(new THREE.Vector3()), this.hoverPoint);
@@ -68,7 +68,7 @@ export default class PointerViewPart extends ViewPart {
         if (this.draggedViewPart) {
             this.publish(
                 PointerEvents.pointerUp,
-                { pointer: this.asViewPartRef() },
+                { pointer: this.asPartRef() },
                 ...this.hoveredViewPart.split(".")
             );
             this.draggedViewPart = null;
@@ -88,7 +88,7 @@ export default class PointerViewPart extends ViewPart {
                     dragStartThreeObj: this.dragStartThreeObj,
                     dragEndOnVerticalPlane: newVerticalDragPoint,
                     dragEndOnHorizontalPlane: newHorizontalDragPoint,
-                    pointer: this.asViewPartRef()
+                    pointer: this.asPartRef()
                 },
                 ...this.draggedViewPart.split(".")
             );
@@ -144,7 +144,7 @@ export default class PointerViewPart extends ViewPart {
                 if (this.hoveredViewPart) {
                     this.publish(
                         PointerEvents.pointerLeave,
-                        { pointer: this.asViewPartRef() },
+                        { pointer: this.asPartRef() },
                         ...this.hoveredViewPart.split(".")
                     );
                 }
@@ -152,7 +152,7 @@ export default class PointerViewPart extends ViewPart {
                 if (newlyHoveredViewPart) {
                     this.publish(
                         PointerEvents.pointerEnter,
-                        { hoverPoint, hoverNormal, hoverThreeObj, pointer: this.asViewPartRef() },
+                        { hoverPoint, hoverNormal, hoverThreeObj, pointer: this.asPartRef() },
                         ...newlyHoveredViewPart.split(".")
                     );
                 }
@@ -163,7 +163,7 @@ export default class PointerViewPart extends ViewPart {
             else if (this.hoveredViewPart && this.hoveredViewPart === newlyHoveredViewPart) {
                 this.publish(
                     PointerEvents.pointerMove,
-                    { hoverPoint, hoverNormal, hoverThreeObj, pointer: this.asViewPartRef() },
+                    { hoverPoint, hoverNormal, hoverThreeObj, pointer: this.asPartRef() },
                     ...newlyHoveredViewPart.split(".")
                 );
             }

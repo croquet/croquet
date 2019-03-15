@@ -4,7 +4,7 @@ import StatePart from "../statePart.js";
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
-const SizeEvents = {
+export const SizeEvents = {
     changed: "size-changed"
 };
 

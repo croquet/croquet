@@ -13,13 +13,13 @@ export default class TrackSpatial extends ViewPart {
     }
 
     attach(modelState) {
-        const [contextName, partName] = this.source.split(".");
+        const [contextName, partId] = this.source.split(".");
         const context = contextName === "model" ? modelState : this.owner;
-        const spatialPart = context.parts[partName];
+        const spatialPart = context.parts[partId];
         this.targetViewPart.threeObj.position.copy(spatialPart.position);
         this.targetViewPart.threeObj.quaternion.copy(spatialPart.quaternion);
-        this.subscribe(SpatialEvents.moved, "onMoved", context.id, partName );
-        this.subscribe(SpatialEvents.rotated, "onRotated", context.id, partName );
+        this.subscribe(SpatialEvents.moved, "onMoved", context.id, partId );
+        this.subscribe(SpatialEvents.rotated, "onRotated", context.id, partId );
     }
 
     onMoved(newPosition) {
