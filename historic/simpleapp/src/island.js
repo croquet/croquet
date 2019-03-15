@@ -2,6 +2,7 @@ import { Socket } from "ws";    // eslint-disable-line import/no-extraneous-depe
 import SeedRandom from "seedrandom";
 import PriorityQueue from "./util/priorityQueue.js";
 import AsyncQueue from './util/asyncQueue.js';
+import urlOptions from "./util/urlOptions.js";
 import hotreload from "./hotreload.js";
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
@@ -276,31 +277,33 @@ export default class Island {
     }
 }
 
+function startReflectorInBrowser() {
+    document.getElementById("error").innerText = 'No Connection';
+    console.log("no connection to server, setting up local server");
+    // The following import runs the exact same code that's
+    // executing on Node normally. It imports 'ws' which now
+    // comes from our own fakeWS.js
+    // ESLint doesn't know about the alias in package.json:
+    // eslint-disable-next-line global-require,import/no-unresolved
+    const server = require("reflector").server; // start up local server
+    socketSetup(new Socket({ server })); // connect to it
+}
 
 function socketSetup(socket) {
+    document.getElementById("error").innerText = 'Connecting to ' + socket.url;
     Object.assign(socket, {
         onopen: _event => {
+            if (socket.constructor === WebSocket) document.getElementById("error").innerText = '';
             console.log(socket.constructor.name, "connected");
             Controller.joinAll(socket);
         },
         onerror: _event => {
+            document.getElementById("error").innerText = 'Connection error';
             console.log(socket.constructor.name, "error");
         },
         onclose: event => {
+            document.getElementById("error").innerText = 'Connection closed:' + event.code + ' ' + event.reason;
             console.log(socket.constructor.name, "closed:", event.code, event.reason);
-            if (event.code === 1006) {
-                hotreload.setTimeout(() => {
-                    document.getElementById("error").innerText = 'No Connection';
-                    console.log("no connection to server, setting up local server");
-                    // The following import runs the exact same code that's
-                    // executing on Node normally. It imports 'ws' which now
-                    // comes from our own fakeWS.js
-                    // ESLint doesn't know about the alias in package.json:
-                    // eslint-disable-next-line global-require,import/no-unresolved
-                    const server = require("reflector").server; // start up local server
-                    socketSetup(new Socket({server})); // connect to it
-                });
-            }
         },
         onmessage: event => {
             Controller.receive(event.data);
@@ -309,7 +312,9 @@ function socketSetup(socket) {
     hotreload.addDisposeHandler("socket", () => socket.readyState !== WebSocket.CLOSED && socket.close(1000, "hotreload "+moduleVersion));
 }
 
-socketSetup(new WebSocket('ws://localhost:9090/'));
+const reflector = "reflector" in urlOptions ? urlOptions.reflector : "wss://dev1.os.vision/reflector-v1";
+if (typeof reflector === 'string') socketSetup(new WebSocket(reflector));
+else startReflectorInBrowser();
 
 // Controller
 
