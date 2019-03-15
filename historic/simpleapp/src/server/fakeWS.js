@@ -38,8 +38,7 @@ export class FakeSocket extends CallbackHandler {
         this._otherEnd = null;
         this._callbacks = [];
         // if we were given a server, connect to it
-        // otherwise this is a server-side socket
-        if (options.server) this._runServer(options.server);
+        if (options.server) this._connectToServer(options.server);
     }
 
     get onopen() { return this._callbacks['open']; }
@@ -51,6 +50,7 @@ export class FakeSocket extends CallbackHandler {
     get onmessage() { return this._callbacks['message']; }
     set onmessage(fn) { this._callbacks['message'] = fn; }
 
+    // subclasses may do something more involved
     send(data) {
         this._otherEnd._processIncoming(data);
     }
@@ -68,6 +68,9 @@ export class FakeSocket extends CallbackHandler {
 
     // Private
 
+    // Connect this socket to its peer
+    // this one simply stores the other end directly
+    // subclasses may use other means
     _connectTo(socket) {
         if (this._otherEnd) return;
         this.readyState = WebSocket.OPEN;
@@ -76,11 +79,13 @@ export class FakeSocket extends CallbackHandler {
         this._callback('open');
     }
 
+    // some data for this socket arrived
     _processIncoming(data) {
         this._callback('message', { data });
     }
 
-    _runServer(server) {
+    // connect this socket to the given server
+    _connectToServer(server) {
         hotreload.setTimeout(() => server._accept(this), 0);
     }
 }
@@ -89,7 +94,7 @@ export class FakeSocket extends CallbackHandler {
 class FakeClient extends CallbackHandler {
     constructor(socket, options) {
         super();
-        this._socket = new FakeSocket({ host: options.host, port: options.port});
+        this._socket = new socket.constructor({ host: options.host, port: options.port});
         this._socket.onopen = () => this._callback('open');
         this._socket.onclose = () => this._callback('close');
         this._socket.onerror = () => this._callback('error');

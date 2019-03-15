@@ -13,88 +13,100 @@ const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
 
-// discover: find active server or be active server
-const NO_SERVER = 1000;
+// We are opening a single BroadcastChannel for communication.
+// Each window gets a random unique ID, stored as myPort.
+// Sockets referring to other windows are stored in channelSockets.
+// Their socket.remotePort is the unique ID of that window.
+const NO_SERVER = -1;
 
-const channel = new BroadcastChannel("croquet-reflector");
-const myID = Math.floor(Math.random() * 10e15);
+let channel = new BroadcastChannel("croquet-reflector");
+const myPort = Math.floor(Math.random() * 10e15);
+let serverPort = NO_SERVER;
+const channelSockets = {};  // all the sockets connected via channel, indexed by remote port
+
+// This is my Server instance. It is only used if I am the
+// active, that is, myPort === serverPort
 let myServer = null;
-let activeServerID = NO_SERVER;
 
-const whenConnected = [];
-const openSockets = {};
-
+// This is how we discover the serverPort on startup
+const whenDiscovered = [];
 let timeout = 0;
-function discover() {
-    channel.postMessage({ what: "discover" });
-    console.log("Channel: discover", myID);
+function discover(callback) {
+    whenDiscovered.push(callback);
+    channel._post("discover", {from: myPort});
     if (timeout) clearTimeout(timeout);
-    timeout = hotreload.setTimeout(() => discovered(myID), 500);
+    timeout = hotreload.setTimeout(() => {
+        console.log("Channel: TIMEOUT for discover");
+        discovered(myPort);
+    }, 500);
 }
-function discovered(id) {
+function discovered(port) {
     if (timeout) { clearTimeout(timeout); timeout = 0; }
-    if (activeServerID === NO_SERVER) activeServerID = id;
-    const me = activeServerID === myID ? "(me)" : "(not me)";
-    console.log("Channel: discovered", activeServerID, me);
+    if (serverPort === NO_SERVER) serverPort = port;
+    const me = serverPort === myPort ? "(me)" : "(not me)";
+    console.log("Channel: discovered", serverPort, me);
     document.getElementById("error").innerText = 'Using in-browser reflector ' + me;
-    channel._processWaiting();
+    while (whenDiscovered.length) whenDiscovered.shift()();
 }
 
+// This is the central message handler listening to the shared channel
 channel.onmessage = ({ data: msg }) => {
-    //console.log("Channel: RECEIVE", msg);
+    if (msg.what !== "packet") console.log("Channel: RECEIVE", msg.what, JSON.stringify(msg, (k, v) => k === "what" ? undefined : v));
     switch (msg.what) {
         case "discover":
             // a new window is trying to discover a server
-            if (activeServerID === myID) {
-                channel.postMessage({ what: "discovered", id: myID });
+            if (serverPort === myPort) {
+                // if we are the server, reply with our port
+                channel._post("discovered", {to: msg.from, server: myPort });
             }
             break;
         case "discovered":
-            // a server answered the discover request
-            if (timeout) { clearTimeout(timeout); timeout = 0; }
-            if (activeServerID === NO_SERVER) {
-                discovered(msg.id);
-            } else if (msg.id !== activeServerID) {
-                throw Error("new active server");
-            }
-            break;
-        case "close":
-            // a server window was closed (not working yet?)
-            console.log("Channel: closed", msg.id);
-            for (const socket of Object.values(openSockets)) {
-                if (socket._id === msg.id) {
-                    socket.close();
+            // a server answered our discover request
+            if (msg.to === myPort) {
+                if (timeout) {
+                    clearTimeout(timeout); timeout = 0;
+                    if (serverPort === NO_SERVER) discovered(msg.server);
+                    else console.warn("Channel: new active server?!", msg.port);
                 }
+                else console.warn("Channel: discovered without request?!", msg.port);
             }
             break;
         case "connect":
             // sent from client that wants to connect
-            if (activeServerID === myID) {
-                const {id, host, port} = msg;
-                const socket = new ChannelSocket({ id, host, port });
-                openSockets[id + socket._addr] = socket;
-                myServer._accept(socket);
-                openSockets['server:*'] = socket._otherEnd;
-                channel._post("accept", { id, client: socket._addr});
-                console.log('Channel: sending accept', id, socket._addr);
+            if (msg.to === myPort) {
+                if (serverPort !== myPort) throw Error("Connecting to wrong server?");
+                myServer._accept(new ChannelSocket({ port: msg.client }));
+                channel._post("accept", { to: msg.client, server: myPort });
             }
             break;
         case "accept":
             // sent from server that accepted connection
-            if (msg.id === myID) {
-                const { client } = msg;
-                const clientSocket = openSockets[client];
-                const serverSocket = new ChannelSocket({ id: activeServerID, host: 'server', port: '*' });
-                serverSocket._connectTo(clientSocket);
-                console.log('Channel: got accepted', client, serverSocket._addr);
+            if (msg.to === myPort) {
+                const { server } = msg;
+                if (serverPort !== server) throw Error("Accept from wrong server?");
+                const socket = channelSockets[server]; // we stashed it there in _connectToServer()
+                socket._connectTo({remotePort: server});
+                console.log('Channel: got accepted', myPort, 'by', server);
             }
             break;
         case "packet":
             // receive a packet if it is meant for me
-            if (msg.id === myID) {
-                const socket = openSockets[msg.addr];
+            if (msg.to === myPort) {
+                const socket = channelSockets[msg.from];
                 if (socket) socket._processIncoming(msg.data);
-                else console.warn('Channel: cannot find socket', msg.addr);
+                else console.warn('Channel: cannot find socket', msg.from);
+            }
+            break;
+        case "close":
+            // a window was closed
+            for (const socket of Object.values(channelSockets)) {
+                if (socket.remotePort === msg.port) {
+                    if (socket.readyState !== WebSocket.CLOSED) {
+                        console.log("Channel: closing socket", socket.remotePort);
+                        socket.close();
+                        delete channelSockets[socket.remotePort];
+                    }
+                }
             }
             break;
         default: throw Error("Unknown: " + msg.what);
@@ -102,26 +114,12 @@ channel.onmessage = ({ data: msg }) => {
 };
 
 channel.onmessageerror = err => {
-    console.log("Channel: broadcast error:", err);
+    console.log("Channel: broadcast error", err);
 };
 
-channel._connectSocket = socket => {
-    if (activeServerID === NO_SERVER) throw Error("no server yet");
-    if (activeServerID === myID) throw Error("only for channel connections");
-    channel._post("connect", {id: myID, host: socket.remoteAddress, port: socket.remotePort});
-    openSockets[socket._addr] = socket;
-};
-
-channel._processWaiting = () => {
-    while (whenConnected.length > 0) {
-        const fn = whenConnected.shift();
-        fn();
-   }
-};
-
-channel._post = (what, options={}) => {
-    channel.postMessage({ what, ...options });
-//    console.log("Channel: sending", { what, ...options });
+channel._post = (what, args={}) => {
+    if (what !== "packet") console.log("Channel: SENDING", what, JSON.stringify(args));
+    channel.postMessage({ what, ...args });
 };
 
 
@@ -130,34 +128,43 @@ export class ChannelSocket extends FakeSocket {
     static isSupported() { return !!window.BroadcastChannel; }
 
     constructor(options = {}) {
-        options = {host: 'channel', port: myID, ...options};
-        super(options);
-        this._id = options.id || myID;
-        this._addr = `${this.remoteAddress}:${this.remotePort}`;
+        super({ host: 'channel', port: myPort, ...options });
+    }
+
+    send(data) {
+        // if connected to this window, send directly
+        if (this._otherEnd) super.send(data);
+        // otherwise, send via channel
+        else channel._post("packet", { from: myPort, to: this.remotePort, data });
     }
 
     // Private
 
-    _processIncoming(data) {
-        if (this._id === myID) super._processIncoming(data);
-        else channel._post("packet", {id: this._id, addr: this._addr, data});
+    _connectTo(socket) {
+        // if server is in this window, connect directly
+        if (this.remotePort === socket.remotePort) { super._connectTo(socket); return; }
+        // otherwise, turn this local socket into a remote socket via channel
+        if (this.remotePort !== myPort) throw Error("wrong direction of connecting");
+        this.remotePort = socket.remotePort;
+        channelSockets[this.remotePort] = this;
+        console.log('Channel: registering remote socket', this.remotePort);
+        this.readyState = WebSocket.OPEN;
+        this._callback('open');
     }
 
-    _runServer(server) {
-        const accept = () => {
+    _connectToServer(server) {
+        // kick off discovery of server
+        if (serverPort !== NO_SERVER) throw Error("Channel: why is there a server?");
+        discover(() => {
             // if we are the active server, connect directly to it
-            if (activeServerID === myID) server._accept(this);
+            if (serverPort === myPort) server._accept(this);
             else {
                 // otherwise connect via broadcast channel
-                const { host, port } = server.options;
-                channel._connectSocket(this, host, port);
+                channelSockets[serverPort] = this;
+                channel._post("connect", { to: serverPort, client: myPort });
+                // will be connected in "accept" handler
             }
-        };
-        if (activeServerID === NO_SERVER) {
-            // kick off discovery of server
-            discover();
-            whenConnected.push(accept);
-        } else hotreload.setTimeout(accept, 0);
+        });
     }
 }
 
@@ -165,23 +172,20 @@ export class ChannelSocket extends FakeSocket {
 export class ChannelServer extends FakeServer {
 
     constructor(options = {}) {
-        options = { ...options, host: 'channel-server', port: myID };
+        options = { ...options, host: 'channel-server', port: myPort };
         super(options);
         myServer = this;
     }
 
-    address() {
-        return {
-            ...super.address(),
-            family: 'CHANNEL',
-        };
-    }
+    address() { return { ...super.address(), family: 'CHANNEL' }; }
 }
 
+
 hotreload.addDisposeHandler("broadcast-channel", () => {
-    try {
-        channel.postMessage({ what: "close", id: myID });
-    } catch (e) {
-        // ignore
+    if (channel) {
+        // notify everyone with a socket to this window
+        channel._post("close", {port: myPort });
+        channel.onmessage = () => {};
+        channel = null;
     }
 });
