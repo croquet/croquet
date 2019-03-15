@@ -41,6 +41,7 @@ function callDisposeHandlers() {
 }
 
 function dispose() {
+    document.getElementById("error").innerText = '';
     for (const handle of timeoutHandles) window.clearTimeout(handle);
     for (const handle of frameHandles) window.cancelAnimationFrame(handle);
     for (const {obj, args} of eventListeners) obj.removeEventListener(...args);

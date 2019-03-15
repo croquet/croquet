@@ -13,7 +13,7 @@
   "license": "ISC",
   "browserslist": {
     "production": [
-      "> 1%"
+      "> 5%"
     ],
     "development": [
       "last 1 Chrome version",
