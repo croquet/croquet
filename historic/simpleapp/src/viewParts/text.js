@@ -20,6 +20,8 @@ export default class TextViewPart extends Object3D {
 
         if (this.options.editable) {
             this.subscribe(PointerEvents.pointerDown, "onPointerDown");
+            this.subscribe(PointerEvents.pointerMove, "onPointerMove");
+            this.subscribe(PointerEvents.pointerUp, "onPointerUp");
             this.subscribe(KeyboardEvents.keydown, "onKeyDown");
         }
 
@@ -43,34 +45,6 @@ export default class TextViewPart extends Object3D {
         }
     }
 
-    textPtFromEvt(evt) {
-        let pt = this.threeObj.worldToLocal(evt.at.clone());
-        let {editor: {scaleX, scaleY, scrollLeft, scrollTop}} = this,
-        width = this.options.width,
-        height = this.options.height,
-        visibleTop = (scrollTop * this.editor.frame.height),
-        x = Math.floor((width / 2 + pt.x + scrollLeft) * (scaleX / width)),
-        realY = (height / 2 - pt.y) * (scaleY / height),
-        y = Math.floor(realY + visibleTop);
-
-        let {screenWidth, relativeScrollBarWidth, showsScrollbar} = this.editor,
-        scrollBarWidth = relativeScrollBarWidth * scaleX,
-        scrollBarLeft = scaleX - scrollBarWidth - 3,
-        inScrollbar = showsScrollbar && x >= scrollBarLeft && x<= scrollBarLeft + scrollBarWidth;
-        return {x, y, realY, inScrollbar};
-    }
-
-    onPointerDown(evt) {
-        this.publish(KeyboardEvents.requestfocus, {requesterRef: this.asPartRef()}, KeyboardTopic, null);
-        this.editorPointerDown(this.textPtFromEvt(evt));
-    }
-
-    editorPointerDown(localPt) {
-        //this.makePlane(evt);
-        this.editor.mouseDown(localPt.x, localPt.y, localPt.realY);
-        return true;
-    }
-
     onGetFocus() {
         // I acquire focus
         // this.editor.getFocus();
@@ -78,6 +52,7 @@ export default class TextViewPart extends Object3D {
 
     initEditor() {
         Carota.setCachedMeasureText(fontRegistry.measureText.bind(fontRegistry)); // ???
+        this.lastPt = false;
         this.editor = new Carota(this.options.width, this.options.height, this.options.numLines);
         this.editor.isScrollable = true;  // unless client decides otherwise
 
@@ -88,8 +63,6 @@ export default class TextViewPart extends Object3D {
                 this.owner.model["text"].onContentChanged(this.editor.save());
             }
         };
-
-        window.editor = this.editor;
     }
 
     processMockContext(ctx) {
@@ -292,16 +265,54 @@ export default class TextViewPart extends Object3D {
 
     onTextChanged() {}
 
+    textPtFromEvt(evtPt) {
+        let pt = this.threeObj.worldToLocal(evtPt.clone());
+        let {editor: {scaleX, scaleY, scrollLeft, scrollTop}} = this,
+        width = this.options.width,
+        height = this.options.height,
+        visibleTop = (scrollTop * this.editor.frame.height),
+        x = Math.floor((width / 2 + pt.x + scrollLeft) * (scaleX / width)),
+        realY = (height / 2 - pt.y) * (scaleY / height),
+        y = Math.floor(realY + visibleTop);
+
+        return {x, y, realY};
+    }
+
+    onPointerDown(evt) {
+        this.publish(KeyboardEvents.requestfocus, {requesterRef: this.asPartRef()}, KeyboardTopic, null);
+        let pt = this.textPtFromEvt(evt.at);
+        this.editor.mouseDown(pt.x, pt.y, pt.realY);
+        this.lastPt = pt;
+        return true;
+    }
+
+    onPointerMove(evt) {
+        if (!this.lastPt) { return false;}
+        let pt = this.textPtFromEvt(evt.hoverPoint);
+        this.editor.mouseMove(pt.x, pt.y, pt.realY);
+        this.lastPt = pt;
+        return true;
+    }
+
+    onPointerUp(evt) {
+        let pt = this.lastPt;
+        this.mouseIsDown = false;
+        this.editor.mouseUp(pt.x, pt.y, pt.realY);
+        this.lastPt = null;
+        return true;
+    }
+
     onKeyDown(evt) {
         if (evt.keyCode === 13) {
             this.editor.insert('\n');
             return true;
         }
-        if (!(evt.ctrlKey || evt.metaKey)) {
+        let handled = this.editor.handleKey(evt.keyCode, evt.shiftKey, evt.ctrlKey|| evt.metaKey);
+
+        if (!handled && !(evt.ctrlKey || evt.metaKey)) {
             this.editor.insert(evt.key);
             return true;
         }
-        this.editor.handleKey(evt.keyCode, evt.shiftKey, evt.ctrlKey|| evt.metaKey);
         return true;
     }
 }
