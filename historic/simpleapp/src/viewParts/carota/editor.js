@@ -345,204 +345,195 @@ export class Carota extends Doc {
   }
 }
 
-
-
 // doc.sendKey = handleKey;
 
+Carota.prototype.keyDown = function(event) {
+  return handleKey(event.which || event.keyCode, event.shiftKey, event.ctrlKey|| event.metaKey);
+};
 
+Carota.prototype.keyPress = function(event, onFilter) {
+  if(event.charCode === 13)doc.insert('\n')
+  else if(!(event.ctrlKey || event.metaKey))doc.insert(String.fromCharCode(event.charCode));
+}
 
-// Carota.prototype.keyDown = function(event){
-//   return handleKey(event.which || event.keyCode, event.shiftKey, event.ctrlKey|| event.metaKey);
-// }
-//
-// Carota.prototype.keyPress = function(event, onFilter){
-//   if(event.charCode === 13)doc.insert('\n')
-//   else if(!(event.ctrlKey || event.metaKey))doc.insert(String.fromCharCode(event.charCode));
-// }
+Carota.prototype.handleKey = function(key, selecting, ctrlKey) {
+   return handleKey(this, key, selecting, ctrlKey);
+}
 
+var toggles = {
+  66: 'bold',
+  73: 'italic',
+  85: 'underline',
+  83: 'strikeout'
+};
 
-// var toggles = {
-//   66: 'bold',
-//   73: 'italic',
-//   85: 'underline',
-//   83: 'strikeout'
-// };
+let handleKey = function(doc, key, selecting, ctrlKey) {
+      let start = doc.selection.start,
+          end = doc.selection.end,
+          length = doc.frame.length - 1,
+          handled = false;
 
-// var handleKey = function(key, selecting, ctrlKey) {
-//       var start = doc.selection.start,
-//           end = doc.selection.end,
-//           length = doc.frame.length - 1,
-//           handled = false;
-//
-//       nextKeyboardX = null;
-//
-//       if (!selecting) {
-//         keyboardSelect = 0;
-//       } else if (!keyboardSelect) {
-//         switch (key) {
-//           case 37: // left arrow
-//           case 38: // up - find character above
-//           case 36: // start of line
-//           case 33: // page up
-//             keyboardSelect = -1;
-//             break;
-//           case 39: // right arrow
-//           case 40: // down arrow - find character below
-//           case 35: // end of line
-//           case 34: // page down
-//             keyboardSelect = 1;
-//             break;
-//         }
-//       }
-//
-//       var ordinal = keyboardSelect === 1 ? end : start;
-//
-//       var changingCaret = false;
-//       switch (key) {
-//         case 37: // left arrow
-//           if (!selecting && start != end) {
-//             ordinal = start;
-//           } else {
-//             if (ordinal > 0) {
-//               if (ctrlKey) {
-//                 var wordInfo = doc.wordContainingOrdinal(ordinal);
-//                 if (wordInfo.ordinal === ordinal) {
-//                   ordinal = wordInfo.index > 0 ? doc.wordOrdinal(wordInfo.index - 1) : 0;
-//                 } else {
-//                   ordinal = wordInfo.ordinal;
-//                 }
-//               } else {
-//                 ordinal--;
-//               }
-//             }
-//           }
-//           changingCaret = true;
-//           break;
-//         case 39: // right arrow
-//           if (!selecting && start != end) {
-//             ordinal = end;
-//           } else {
-//             if (ordinal < length) {
-//               if (ctrlKey) {
-//                 var wordInfo = doc.wordContainingOrdinal(ordinal);
-//                 ordinal = wordInfo.ordinal + wordInfo.word.length;
-//               } else {
-//                 ordinal++;
-//               }
-//             }
-//           }
-//           changingCaret = true;
-//           break;
-//         case 40: // down arrow - find character below
-//           ordinal = changeLine(ordinal, 1);
-//           changingCaret = true;
-//           break;
-//         case 38: // up - find character above
-//           ordinal = changeLine(ordinal, -1);
-//           changingCaret = true;
-//           break;
-//         case 36: // start of line
-//           ordinal = endOfline(ordinal, -1);
-//           changingCaret = true;
-//           break;
-//         case 35: // end of line
-//           ordinal = endOfline(ordinal, 1);
-//           changingCaret = true;
-//           break;
-//         case 33: // page up
-//           ordinal = 0;
-//           changingCaret = true;
-//           break;
-//         case 34: // page down
-//           ordinal = length;
-//           changingCaret = true;
-//           break;
-//         case 8: // backspace
-//           if (start === end && start > 0) {
-//             doc.range(start - 1, start).clear();
-//             focusChar = start - 1;
-//             doc.select(focusChar, focusChar);
-//             handled = true;
-//           }
-//           break;
-//         case 46: // del
-//           if (start === end && start < length) {
-//             doc.range(start, start + 1).clear();
-//             handled = true;
-//           }
-//           break;
-//         case 90: // Z undo
-//           if (ctrlKey) {
-//             handled = true;
-//             doc.performUndo();
-//           }
-//           break;
-//         case 89: // Y undo
-//           if (ctrlKey) {
-//             handled = true;
-//             doc.performUndo(true);
-//           }
-//           break;
-//         case 65: // A select all
-//           if (ctrlKey) {
-//             handled = true;
-//             doc.select(0, length);
-//           }
-//           break;
-//         case 67: // C - copy to clipboard
-//         case 88: // X - cut to clipboard
-//           if (ctrlKey) {
-//             // Allow standard handling to take place as well
-//             richClipboard = doc.selectedRange().save();
-//             plainClipboard = doc.selectedRange().plainText();
-//           }
-//           break;
-//       }
-//
-//       var toggle = toggles[key];
-//       if (ctrlKey && toggle) {
-//         var selRange = doc.selectedRange();
-//         selRange.setFormatting(toggle, selRange.getFormatting()[toggle] !== true);
-//         doc.paint();
-//         handled = true;
-//       }
-//
-//       if (changingCaret) {
-//         switch (keyboardSelect) {
-//           case 0:
-//             start = end = ordinal;
-//             break;
-//           case -1:
-//             start = ordinal;
-//             break;
-//           case 1:
-//             end = ordinal;
-//             break;
-//         }
-//
-//         if (start === end) {
-//           keyboardSelect = 0;
-//         } else {
-//           if (start > end) {
-//             keyboardSelect = -keyboardSelect;
-//             var t = end;
-//             end = start;
-//             start = t;
-//           }
-//         }
-//         focusChar = ordinal;
-//         doc.select(start, end);
-//         handled = true;
-//       }
-//
-//       keyboardX = nextKeyboardX;
-//       return handled;
-//     };
-//    focusChar = ordinal;
-//         doc.select(start, end);
-//         handled = true;
-//       }
-//
-//       keyboardX = nextKeyboardX;
-//       return handled;
-//     };
+      doc.nextKeyboardX = null;
+
+      if (!selecting) {
+        doc.keyboardSelect = 0;
+      } else if (!doc.keyboardSelect) {
+        switch (key) {
+          case 37: // left arrow
+          case 38: // up - find character above
+          case 36: // start of line
+          case 33: // page up
+            doc.keyboardSelect = -1;
+            break;
+          case 39: // right arrow
+          case 40: // down arrow - find character below
+          case 35: // end of line
+          case 34: // page down
+            doc.keyboardSelect = 1;
+            break;
+        }
+      }
+
+      let ordinal = doc.keyboardSelect === 1 ? end : start;
+
+      let changingCaret = false;
+      switch (key) {
+        case 37: // left arrow
+          if (!selecting && start !== end) {
+            ordinal = start;
+          } else {
+            if (ordinal > 0) {
+              if (ctrlKey) {
+                let wordInfo = doc.wordContainingOrdinal(ordinal);
+                if (wordInfo.ordinal === ordinal) {
+                  ordinal = wordInfo.index > 0 ? doc.wordOrdinal(wordInfo.index - 1) : 0;
+                } else {
+                  ordinal = wordInfo.ordinal;
+                }
+              } else {
+                ordinal--;
+              }
+            }
+          }
+          changingCaret = true;
+          break;
+        case 39: // right arrow
+          if (!selecting && start !== end) {
+            ordinal = end;
+          } else {
+            if (ordinal < length) {
+              if (ctrlKey) {
+                let wordInfo = doc.wordContainingOrdinal(ordinal);
+                ordinal = wordInfo.ordinal + wordInfo.word.length;
+              } else {
+                ordinal++;
+              }
+            }
+          }
+          changingCaret = true;
+          break;
+        case 40: // down arrow - find character below
+          ordinal = doc.changeLine(ordinal, 1);
+          changingCaret = true;
+          break;
+        case 38: // up - find character above
+          ordinal = doc.changeLine(ordinal, -1);
+          changingCaret = true;
+          break;
+        case 36: // start of line
+          ordinal = doc.endOfline(ordinal, -1);
+          changingCaret = true;
+          break;
+        case 35: // end of line
+          ordinal = doc.endOfline(ordinal, 1);
+          changingCaret = true;
+          break;
+        case 33: // page up
+          ordinal = 0;
+          changingCaret = true;
+          break;
+        case 34: // page down
+          ordinal = length;
+          changingCaret = true;
+          break;
+        case 8: // backspace
+          if (start === end && start > 0) {
+            doc.range(start - 1, start).clear();
+            doc.focusChar = start - 1;
+            doc.select(doc.focusChar, doc.focusChar);
+            handled = true;
+          }
+          break;
+        case 46: // del
+          if (start === end && start < length) {
+            doc.range(start, start + 1).clear();
+            handled = true;
+          }
+          break;
+        case 90: // Z undo
+          if (ctrlKey) {
+            handled = true;
+            doc.performUndo();
+          }
+          break;
+        case 89: // Y undo
+          if (ctrlKey) {
+            handled = true;
+            doc.performUndo(true);
+          }
+          break;
+        case 65: // A select all
+          if (ctrlKey) {
+            handled = true;
+            doc.select(0, length);
+          }
+          break;
+        case 67: // C - copy to clipboard
+        case 88: // X - cut to clipboard
+          if (ctrlKey) {
+            // Allow standard handling to take place as well
+            richClipboard = doc.selectedRange().save();
+            plainClipboard = doc.selectedRange().plainText();
+          }
+          break;
+      }
+
+      let toggle = toggles[key];
+      if (ctrlKey && toggle) {
+        var selRange = doc.selectedRange();
+        selRange.setFormatting(toggle, selRange.getFormatting()[toggle] !== true);
+        //doc.paint();
+        handled = true;
+      }
+
+      if (changingCaret) {
+        switch (doc.keyboardSelect) {
+          case 0:
+            start = end = ordinal;
+            break;
+          case -1:
+            start = ordinal;
+            break;
+          case 1:
+            end = ordinal;
+            break;
+        }
+
+        if (start === end) {
+          doc.keyboardSelect = 0;
+        } else {
+          if (start > end) {
+            doc.keyboardSelect = -doc.keyboardSelect;
+            var t = end;
+            end = start;
+            start = t;
+          }
+        }
+        doc.focusChar = ordinal;
+        doc.select(start, end);
+        handled = true;
+      }
+
+      doc.keyboardX = doc.nextKeyboardX;
+      return handled;
+};

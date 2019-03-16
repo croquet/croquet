@@ -7,6 +7,7 @@ import { PointerEvents, makePointerSensitive } from "./pointer.js";
 import { Carota } from './carota/editor.js';
 import { fontRegistry } from './fontRegistry.js';
 import { KeyboardEvents, KeyboardTopic } from '../domKeyboardManager.js';
+//import { textCommands, jsEditorCommands, defaultKeyBindings } from './text-commands.js';
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
@@ -101,6 +102,7 @@ export default class TextViewPart extends Object3D {
 
     updateMaterial() {
         let text = this.text;
+
         let bounds = this.options.corners;
         text.material.uniforms.corners.value = new THREE.Vector4(bounds.l, bounds.t, bounds.r, bounds.b);
     }
@@ -253,6 +255,28 @@ export default class TextViewPart extends Object3D {
         selection.position.set(rect.x, rect.y, optZ || 0.003);
     }
 
+    removeSelections() {
+        if (this.boxSelections) {
+            this.boxSelections.forEach(box => box.remove());
+        }
+        this.boxSelections = [];
+
+        ['selectionBar', 'scrollBar', 'scrollKnob'].forEach(name => {
+            if (this[name]) {
+                this[name].remove();
+                this[name] = null;
+            }
+        });
+    }
+
+    makeBoxSelectionMesh() {
+        const plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(0.1, 0.1), new THREE.MeshBasicMaterial({ color: 0xA0CFEC }));
+
+        plane.visible = false;
+        //plane.onBeforeRender = this.selectionBeforeRender.bind(this);
+        return plane;
+    }
+
     update(newOptions) {
         this.options = Object.assign(this.options, newOptions);
         let text = this.text;
@@ -269,6 +293,15 @@ export default class TextViewPart extends Object3D {
     onTextChanged() {}
 
     onKeyDown(evt) {
-        this.editor.insert(evt.key);
+        if (evt.keyCode === 13) {
+            this.editor.insert('\n');
+            return true;
+        }
+        if (!(evt.ctrlKey || evt.metaKey)) {
+            this.editor.insert(evt.key);
+            return true;
+        }
+        this.editor.handleKey(evt.keyCode, evt.shiftKey, evt.ctrlKey|| evt.metaKey);
+        return true;
     }
 }
