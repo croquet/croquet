@@ -13,7 +13,7 @@ if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle
 
 export default class TextViewPart extends Object3D {
     fromOptions(options) {
-        options = {content: [], glyphs: [], font: "Lora", width: 3, height: 2, numLines: 10, drawnRects: [], editable: false, showSelection: true, ...options};
+        options = {content: [], glyphs: [], font: "Roboto", width: 3, height: 2, numLines: 10, drawnRects: [], editable: false, showSelection: true, ...options};
         this.modelSource = options.modelSource;
         this.options = options;
 
@@ -21,6 +21,8 @@ export default class TextViewPart extends Object3D {
             this.subscribe(PointerEvents.pointerDown, "onPointerDown");
             this.subscribe(KeyboardEvents.keydown, "onKeyDown");
         }
+
+        this.boxSelections = [];
     }
 
     attachWithObject3D() {
@@ -32,7 +34,7 @@ export default class TextViewPart extends Object3D {
     attach(modelState) {
         super.attach(modelState);
         if (this.options.editable) {
-            makePointerSensitive(this.threeObj, this.asViewPartRef());
+            makePointerSensitive(this.threeObj, this.asPartRef());
         }
         if (modelState && modelState.parts.text && modelState.parts.text.content) {
             this.options.content = modelState.parts.text.content;
@@ -40,9 +42,33 @@ export default class TextViewPart extends Object3D {
         }
     }
 
-    onPointerDown() {
-        this.publish(KeyboardEvents.requestfocus, {requesterRef: this.asViewPartRef()}, KeyboardTopic, null);
-o    }
+    textPtFromEvt(evt) {
+        let pt = this.threeObj.worldToLocal(evt.at.clone());
+        let {editor: {scaleX, scaleY, scrollLeft, scrollTop}} = this,
+        width = this.options.width,
+        height = this.options.height,
+        visibleTop = (scrollTop * this.editor.frame.height),
+        x = Math.floor((width / 2 + pt.x + scrollLeft) * (scaleX / width)),
+        realY = (height / 2 - pt.y) * (scaleY / height),
+        y = Math.floor(realY + visibleTop);
+
+        let {screenWidth, relativeScrollBarWidth, showsScrollbar} = this.editor,
+        scrollBarWidth = relativeScrollBarWidth * scaleX,
+        scrollBarLeft = scaleX - scrollBarWidth - 3,
+        inScrollbar = showsScrollbar && x >= scrollBarLeft && x<= scrollBarLeft + scrollBarWidth;
+        return {x, y, realY, inScrollbar};
+    }
+
+    onPointerDown(evt) {
+        this.publish(KeyboardEvents.requestfocus, {requesterRef: this.asPartRef()}, KeyboardTopic, null);
+        this.editorPointerDown(this.textPtFromEvt(evt));
+    }
+
+    editorPointerDown(localPt) {
+        //this.makePlane(evt);
+        this.editor.mouseDown(localPt.x, localPt.y, localPt.realY);
+        return true;
+    }
 
     onGetFocus() {
         // I acquire focus
@@ -56,7 +82,7 @@ o    }
 
         this.editor.mockCallback = ctx => {
             let glyphs = this.processMockContext(ctx);
-            this.update({glyphs: glyphs, corners: this.editor.visibleTextBounds(), scaleX: this.editor.scaleX, scrollTop: this.editor.scrollTop, frameHeight: this.editor.frame.height, drawnRects: ctx.filledRects});
+            this.update({glyphs, corners: this.editor.visibleTextBounds(), scaleX: this.editor.scaleX, scrollTop: this.editor.scrollTop, frameHeight: this.editor.frame.height, drawnRects: ctx.filledRects});
             if (this.options.editable) {
                 this.owner.model["text"].onContentChanged(this.editor.save());
             }
@@ -69,7 +95,8 @@ o    }
         let layout = fontRegistry.getMeasurer(this.options.font);
         if (!layout) {return [];}
         let info = fontRegistry.getInfo(this.options.font);
-        return layout.computeGlyphs({font: info, drawnStrings: ctx.drawnStrings});
+        let baseLine = fontRegistry.getOffsetY(this.options.font);
+        return layout.computeGlyphs({font: info, drawnStrings: ctx.drawnStrings, offsetY: baseLine});
     }
 
     updateMaterial() {
@@ -126,7 +153,7 @@ o    }
         // see makeBoxSelectionMesh for actual selection
         let box = this.threeObj;
 
-        const plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(0.1, 0.1), new THREE.MeshBasicMaterial({ color: 0xeeeeee }));
+        const plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(0.1, 0.1), new THREE.MeshBasicMaterial({ color: 0x111180 }));
 
         plane.visible = false;
         box.add(plane);
@@ -172,17 +199,18 @@ o    }
 
     updateScrollBarAndSelections(drawnRects, meterInPixel, docHeight, scrollT, descent) {
         let boxInd = 0;
+        let [cursorX, cursorY] = fontRegistry.getCursorOffset(this.options.font);
+
         for (let i = 0; i < drawnRects.length; i++) {
             let rec = drawnRects[i];
             let w = rec.w * meterInPixel;
             let h = rec.h * meterInPixel;
-            //Fudge factors to accomodate Roboto font
-            let x = -this.extent.x / 2 + (rec.x + 5) * meterInPixel + w / 2;
-            let y = this.extent.y / 2 + ((scrollT * docHeight) - (rec.y + descent * 2)) * meterInPixel - h / 2;
+            let x = -this.options.width / 2 + (rec.x + cursorX) * meterInPixel + w / 2;
+            let y = this.options.height / 2 + ((scrollT * docHeight) - (rec.y + cursorY)) * meterInPixel - h / 2;
             let meshRect = {x, y, w, h};
 
             if (rec.style === 'bar selection') {
-                if (this.options.showsSelection) {
+                if (this.options.showSelection) {
                     // drawing the insertion  - line width of text cursor should relate to font
                     meshRect.w = 5 * meterInPixel;
                     this.updateSelection(this.selectionBar, meshRect);
@@ -191,11 +219,11 @@ o    }
             } else if (rec.style === 'box selection focus' ||
                        rec.style === 'box selection unfocus') {
                 // boxes of selections
-                if (this.options.showsSelection) {
+                if (this.options.showSelection) {
                     let cube;
                     if (!this.boxSelections[boxInd]) {
                         cube = this.boxSelections[boxInd] = this.makeBoxSelectionMesh();
-                        this.addChild(cube);
+                        this.threeObj.add(cube);
                     }
                     cube = this.boxSelections[boxInd];
                     this.updateSelection(cube, meshRect);
@@ -203,16 +231,26 @@ o    }
                     this.updateSelection(this.selectionBar, null);
                 }
             } else if (rec.style === 'scroll bar') {
-                meshRect.y += -scrollT * docHeight * meterInPixel + (descent * 2 * meterInPixel);
+                meshRect.y += -scrollT * docHeight * meterInPixel;
                 this.updateSelection(this.scrollBar, meshRect);
             } else if (rec.style === 'scroll knob') {
-                meshRect.y += -scrollT * docHeight * meterInPixel + (descent * 2 * meterInPixel);
+                meshRect.y += -scrollT * docHeight * meterInPixel;
                 this.updateSelection(this.scrollKnob, meshRect, 0.004);
             }
         }
         for (let i = boxInd; i < this.boxSelections.length; i++) {
             this.updateSelection(this.boxSelections[i], null);
         }
+    }
+
+    updateSelection(selection, rect, optZ) {
+        if (!selection) {return;}
+        let actuallyShow = !!rect;
+        selection.visible = actuallyShow;
+        if (!actuallyShow) {return;}
+        let geom = new THREE.PlaneBufferGeometry(rect.w, rect.h);
+        selection.geometry = geom;
+        selection.position.set(rect.x, rect.y, optZ || 0.003);
     }
 
     update(newOptions) {

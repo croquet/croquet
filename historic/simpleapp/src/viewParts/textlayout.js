@@ -132,6 +132,17 @@ export class TextLayout {
         var letterSpacing = opt.letterSpacing || 0
         var height = lineHeight - descender
         var align = getAlignType(this._opt.align)
+        var offsetY = opt.offsetY || 0
+
+        //the metrics for this text layout
+        this._height = height
+        this._descender = lineHeight - baseline
+        this._baseline = baseline
+        this._xHeight = getXHeight(font)
+        this._capHeight = getCapHeight(font)
+        this._lineHeight = lineHeight
+        this._ascender = lineHeight - descender - this._xHeight
+
 
         drawnStrings.forEach((drawnString) => {
             var x = drawnString.x
@@ -139,17 +150,7 @@ export class TextLayout {
             var style = drawnString.style
 
             //draw text along baseline
-            //y -= height
-  
-            //the metrics for this text layout
-            this._height = height
-            this._descender = lineHeight - baseline
-            this._baseline = baseline
-            this._xHeight = getXHeight(font)
-            this._capHeight = getCapHeight(font)
-            this._lineHeight = lineHeight
-            this._ascender = lineHeight - descender - this._xHeight
-
+            y -= height - offsetY
 
             //layout each glyph
             var lastGlyph
@@ -188,7 +189,7 @@ export class TextLayout {
 }
 
 //getters for the private vars
-;['width', 'height', 
+;['width', 'height',
   'descender', 'ascender',
   'xHeight', 'baseline',
   'capHeight',

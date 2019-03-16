@@ -1,21 +1,28 @@
 import * as THREE from 'three';
-import { TextLayout } from '../stateParts/textlayout.js';
+import { TextLayout } from '../viewParts/textlayout.js';
 
 const fontPaths = {
     /* eslint-disable global-require */
     Barlow: {
         json: require('../../assets/fonts/Barlow-Medium-msdf.json'),
-        atlas: require('../../assets/fonts/Barlow-Medium.png')
+        atlas: require('../../assets/fonts/Barlow-Medium.png'),
+        offsetY: 0,
+        cursorOffset: [0, 8],
     },
     Lora: {
         json: require('../../assets/fonts/Lora-Regular-msdf.json'),
-        atlas: require('../../assets/fonts/Lora-Regular.png')
+        atlas: require('../../assets/fonts/Lora-Regular.png'),
+        offsetY: 0,
+        cursorOffset: [0, 8],
     },
     Roboto: {
         json: require('../../assets/fonts/Roboto.json'),
-        atlas: require('../../assets/fonts/Roboto.png')
+        atlas: require('../../assets/fonts/Roboto.png'),
+        offsetY: 38,
+        cursorOffset: [5, 5],
     },
 };
+
 const defaultFont = "Roboto";
 
 class FontRegistry {
@@ -47,6 +54,14 @@ class FontRegistry {
 
     getTexture(font) {
         return this.fonts[font];
+    }
+
+    getOffsetY(font) {
+        return fontPaths[font].offsetY;
+    }
+
+    getCursorOffset(font) {
+        return fontPaths[font].cursorOffset;
     }
 
     getMeasurer(font) {
