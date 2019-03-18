@@ -8,6 +8,7 @@ if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle
 
 export const SpatialEvents = {
     moved: "spatial-moved",
+    scaled: "spatial-scaled",
     rotated: "spatial-rotated"
 };
 
@@ -37,6 +38,18 @@ export default class SpatialPart extends StatePart {
     moveBy(delta) {
         this.position.add(delta);
         this.publish(SpatialEvents.moved, this.position.clone());
+    }
+
+    /** @arg {THREE.Vector3} position */
+    scaleTo(scale) {
+        this.scale.copy(scale);
+        this.publish(SpatialEvents.scaled, this.scale.clone());
+    }
+
+    /** @arg {THREE.Vector3} delta */
+    scaleBy(delta) {
+        this.scale.add(delta);
+        this.publish(SpatialEvents.scaled, this.scale.clone());
     }
 
     rotateTo(quaternion) {
