@@ -538,11 +538,14 @@ function modelClassNamed(className) {
     // HACK: go through all exports and find model subclasses
     for (const m of Object.values(module.bundle.cache)) {
         for (const cls of Object.values(m.exports)) {
-            if (cls && cls.__isTeatimeModelClass__) ModelClasses[cls.name] = cls;
+            if (cls && cls.__isTeatimeModelClass__) {
+                if (ModelClasses[cls.name]) throw Error(`Duplicate Model subclass: ${cls.name}`);
+                ModelClasses[cls.name] = cls;
+            }
         }
     }
     if (ModelClasses[className]) return ModelClasses[className];
-    throw new Error(`Class "${className}" not found, is it exported?`);
+    throw Error(`Class "${className}" not found, is it exported?`);
 }
 
 // flush ModelClasses after hot reload
