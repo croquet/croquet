@@ -13,6 +13,7 @@ import Object3D, { Object3DGroup } from '../viewParts/object3D.js';
 import DraggableViewPart from '../viewParts/draggable.js';
 import TrackSpatial from '../viewParts/trackSpatial.js';
 import { LayoutRoot, LayoutContainer, LayoutSlotStretch3D, LayoutSlotText } from '../viewParts/layout.js';
+import ChildrenPart, { ChildEvents } from '../stateParts/children.js';
 
 const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
@@ -24,6 +25,55 @@ export class BouncingBox extends Model {
     }
 
     naturalViewClass() { return BoxView; }
+}
+
+export class Group extends Model {
+    buildParts(state) {
+        new SpatialPart(this, state);
+        new ChildrenPart(this, state);
+    }
+
+    naturalViewClass() { return GroupView; }
+}
+
+class GroupView extends View {
+    buildParts() {
+        new Object3DChildren(this);    // provides 'object3D'
+        new TrackSpatial(this);        // affects 'object3D'
+    }
+
+}
+
+class Object3DChildren extends Object3DGroup {
+
+    attach(modelState) {
+        super.attach(modelState);
+
+        this.viewsForObjects = {};
+
+        for (const object of modelState.parts.children.children) {
+            this.onObjectAdded(object);
+        }
+
+        this.subscribe(ChildEvents.childAdded, "onObjectAdded", modelState.id, "children");
+        this.subscribe(ChildEvents.childRemoved, "onObjectRemoved", modelState.id, "children");
+    }
+
+    onObjectAdded(object) {
+        const NaturalView = object.naturalViewClass("in-group");
+        /** @type {View} */
+        const view = new NaturalView(this.owner.island);
+        this.viewsForObjects[object.id] = view;
+        view.attach(object);
+        view.addToThreeParent(this.threeObj);
+    }
+
+    onObjectRemoved(object) {
+        const view = this.viewsForObjects[object.id];
+        view.removeFromThreeParent(this.threeObj);
+        view.onDetach();
+        delete this.viewsForObjects[object.id];
+    }
 }
 
 class AutoRotate extends StatePart {
