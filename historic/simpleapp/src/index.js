@@ -24,17 +24,20 @@ function start() {
     function onTraversedPortalView(portalRef, traverserRef, island, sourceRoomName) {
         const [portalModelId, portalPartId] = portalRef.split(".");
         /** @type {import('./portal/portalModel').PortalPart} */
-        const portalPart = island.modelsById[portalModelId].parts[portalPartId];
+        const portal = island.modelsById[portalModelId];
+        const portalPart = portal.parts[portalPartId];
         /** @type {import('./room/roomModel').default}*/
         const roomView = roomViewManager.expect(sourceRoomName);
 
         if (traverserRef === roomView.parts.portalTraverser.asPartRef()) {
             const spatialPart = roomView.parts[roomView.parts.portalTraverser.spatialName];
+            // TODO: ugly
+            const portalSpatialPart = portal.parts[portalPart.hereSpatialPartId];
             const {targetPosition, targetQuaternion} = portalPart.projectThroughPortal(spatialPart.position, spatialPart.quaternion);
             joinRoom(portalPart.there, targetPosition, targetQuaternion, true);
 
             // take a "step back" in the source room
-            const newSourcePosition = spatialPart.position.clone().add(new THREE.Vector3(0, 0, 2.5).applyQuaternion(spatialPart.quaternion));
+            const newSourcePosition = portalSpatialPart.position.clone().add(new THREE.Vector3(0, 0, 2.5).applyQuaternion(spatialPart.quaternion));
             roomViewManager.moveCamera(sourceRoomName, newSourcePosition, spatialPart.quaternion.clone());
             roomView.parts.pointer.onMouseUp();
         }

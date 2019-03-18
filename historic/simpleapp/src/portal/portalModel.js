@@ -73,7 +73,7 @@ export class PortalPart extends StatePart {
         const size = this.owner.parts[this.sizePartId].value;
 
         // intersection with oriented, bounded plane. Should be easy to extend to oriented box (just add depth).
-        if (Math.sign(localFrom.z) !== Math.sign(localTo.z)) {
+        if (localFrom.z > 0 &&  localTo.z < 0) {
             const intersectionPointRatio = Math.abs(localTo.z) / (Math.abs(localTo.z) + Math.abs(localFrom.z));
             const localIntersectionPoint = localFrom.lerp(localTo, intersectionPointRatio);
             if (Math.abs(localIntersectionPoint.x) < size.x / 2.0 && Math.abs(localIntersectionPoint.y) < size.y / 2.0) {
