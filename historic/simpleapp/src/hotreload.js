@@ -36,7 +36,12 @@ function addDisposeHandler(key, fn) {
     disposeHandlers[key] = fn;
 }
 
+function callDisposeHandlers() {
+    for (const fn of Object.values(disposeHandlers)) fn();
+}
+
 function dispose() {
+    document.getElementById("error").innerText = '';
     for (const handle of timeoutHandles) window.clearTimeout(handle);
     for (const handle of frameHandles) window.cancelAnimationFrame(handle);
     for (const {obj, args} of eventListeners) obj.removeEventListener(...args);
@@ -44,8 +49,10 @@ function dispose() {
     timeoutHandles.clear();
     frameHandles.clear();
     eventListeners.length = 0;
-    for (const fn of Object.values(disposeHandlers)) fn();
+    callDisposeHandlers();
 }
+
+window.onbeforeunload = callDisposeHandlers;
 
 export default {
     setTimeout,
