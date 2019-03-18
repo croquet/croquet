@@ -12,6 +12,7 @@ import TrackSpatial from '../viewParts/trackSpatial.js';
 import InertialSpatialPart from '../stateParts/inertialSpatial.js';
 import { PortalTraverserPart, PortalTopic } from '../portal/portalModel.js';
 import { PortalViewEvents } from '../portal/portalView.js';
+import { KeyboardViewPart } from './keyboard.js';
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
@@ -33,6 +34,7 @@ export default class RoomView extends View {
         new TrackSpatial(this, {source: "this.cameraSpatial", affects: "camera"});
         if (viewOptions.activeParticipant) {
             new PointerViewPart(this, {scenePartName: "roomScene"});
+            new KeyboardViewPart(this, {scenePartName: "keyboard"});
             new TreadmillNavigation(this, {scenePartName: "roomScene"});
             new TrackSpatial(this, {source: "this.cameraSpatial", affects: "treadmillNavigation", id: "trackTreadmill"});
         }

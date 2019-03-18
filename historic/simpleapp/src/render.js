@@ -12,7 +12,22 @@ export const RENDER_LAYERS = {
 
 export default class Renderer {
     constructor(width, height) {
-        this.renderer = new THREE.WebGLRenderer();
+	let contextAttributes = {
+            alpha: false,
+            depth: true,
+            stencil: true,
+            antialias: true,
+            premultipliedAlpha: true,
+            preserveDrawingBuffer: false,
+            powerPreference: "default"
+        };
+	const canvas = document.createElement('canvas');
+	const context = canvas.getContext("webgl2", contextAttributes);
+
+        this.renderer = new THREE.WebGLRenderer({canvas, context});
+        this.renderer.autoClearStencil = false;
+        this.renderer.autoClearDepth = false;
+        this.renderer.autoClearColor = false;
         this.renderer.autoClear = false;
         this.changeViewportSize(width, height);
         document.body.appendChild(this.renderer.domElement);

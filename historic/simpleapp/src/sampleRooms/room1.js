@@ -8,7 +8,7 @@ import InertialSpatialPart from '../stateParts/inertialSpatial.js';
 import BouncingSpatialPart from '../stateParts/bouncingSpatial.js';
 import View from '../view.js';
 import TextPart from '../stateParts/text.js';
-import TextViewPart, { TrackText } from '../viewParts/text.js';
+import TextViewPart from '../viewParts/text.js';
 import Object3D, { Object3DGroup } from '../viewParts/object3D.js';
 import DraggableViewPart from '../viewParts/draggable.js';
 import TrackSpatial from '../viewParts/trackSpatial.js';
@@ -90,9 +90,8 @@ class BoxView extends View {
 /** View for rendering a Text */
 class TextView extends View {
     buildParts() {
-        new TextViewPart(this, {fontSize: 0.4});
+        new TextViewPart(this, {});
         new TrackSpatial(this, {affects: "text"});
-        new TrackText(this);
     }
 }
 
@@ -111,7 +110,7 @@ class LayoutTestView extends View {
         new BoxViewPart(this, {id: "box1", color: "#dd8888"});
         new BoxViewPart(this, {id: "box2", color: "#dddd88"});
         new BoxViewPart(this, {id: "box3", color: "#88dd88"});
-        new TextViewPart(this, {id: "text1", fontSize: 0.19, content: `Our first design for multiple inheritance presumed that a state variable such as ohms had a meaning independent of the individual perspectives. Hence, it was sensible for it to be owned by the node itself. All perspectives would reference this single variable when referring to resistance. This proved adequate so long as the system designer knew all of the perspectives that might be associated with a given node, and could ensure this uniformity of intended reference.`});
+        new TextViewPart(this, {id: "text1", width: 3, height: 2, numLines: 5, content: [{text: `Our first design for multiple inheritance presumed that a state variable such as ohms had a meaning independent of the individual perspectives. Hence, it was sensible for it to be owned by the node itself. All perspectives would reference this single variable when referring to resistance. This proved adequate so long as the system designer knew all of the perspectives that might be associated with a given node, and could ensure this uniformity of intended reference.`}]});
         new BoxViewPart(this, {id: "box4", color: "#88dddd"});
         new BoxViewPart(this, {id: "box5", color: "#8888dd"});
 
@@ -157,13 +156,13 @@ export default function initRoom1(state = {}) {
 
         const text1 = new Text({
             spatial: { position: new THREE.Vector3(-3, 1.0, 0) },
-            text: { content: "man is much more than a tool builder... he is an inventor of universes." }
+            text: { content: [{text: "man is much more than a tool builder... he is an inventor of universes."}] }
         });
         room.parts.objects.add(text1);
 
         const text2 = new Text({
             spatial: { position: new THREE.Vector3(5, 1.0, 0) },
-            text: { content: "Chapter Eight - The Queen's Croquet Ground", font: "Lora" },
+            text: { content: [{text: "Chapter Eight - The Queen's Croquet Ground", font: "Roboto"}] },
         });
         room.parts.objects.add(text2);
 

@@ -2,9 +2,12 @@ import * as THREE from "three";
 import hotreload from "./hotreload.js";
 import initRoom1 from './sampleRooms/room1.js';
 import initRoom2 from './sampleRooms/room2.js';
+import initRoom3 from './sampleRooms/room3.js';
 import RoomViewManager from './room/roomViewManager.js';
 import Renderer from './render.js';
 import { Controller } from "./island.js";
+import {KeyboardManager} from './domKeyboardManager.js';
+import {fontRegistry} from './viewParts/fontRegistry.js';
 
 const LOG_HOTRELOAD = false;
 
@@ -15,6 +18,11 @@ let hotState = module.hot && module.hot.data || {};
 
 /** The main function. */
 function start() {
+    let robotoPromise = fontRegistry.getAtlasFor("Roboto");
+    let loraPromise = fontRegistry.getAtlasFor("Lora");
+    let barlowPromise = fontRegistry.getAtlasFor("Barlow");
+
+    Promise.all([robotoPromise, loraPromise, barlowPromise]).then(() => {
 
     const ALL_ISLANDS = {};
     let currentRoomName = null;
@@ -67,9 +75,12 @@ function start() {
 
     newIsland("room1", initRoom1);
     newIsland("room2", initRoom2);
+    newIsland("room3", initRoom3);
 
     /** @type {Renderer} */
     const renderer = hotState.renderer || new Renderer(window.innerWidth, window.innerHeight);
+    let keyboardManager = new KeyboardManager();
+
 
     hotState = null; // free memory, and prevent accidental access below
 
@@ -80,6 +91,7 @@ function start() {
 
             if (currentRoomView) {
                 currentRoomView.parts.pointer.updatePointer();
+		keyboardManager.setCurrentRoomView(currentRoomView);
             }
         }
         for (const island of Object.values(ALL_ISLANDS)) {
@@ -141,6 +153,8 @@ function start() {
 
     hotreload.addEventListener(window, "hashchange", () => joinRoom(window.location.hash.replace("#", "")));
 
+    keyboardManager.install(hotreload);
+
     if (module.hot) {
         // our hot-reload strategy is to reload all the code (meaning no reload
         // handlers in individual modules) but store the complete model state
@@ -151,6 +165,7 @@ function start() {
             // preserve state, will be available as module.hot.data after reload
             Object.assign(hotData, {
                 renderer,
+		keyboardManager,
                 islands: {},
                 currentRoomName
             });
@@ -161,6 +176,7 @@ function start() {
         // start logging module loads
         if (LOG_HOTRELOAD && !module.bundle.v) module.bundle.v = 1;
     }
+    });
 }
 
 if (module.hot) {

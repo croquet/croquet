@@ -461,9 +461,16 @@ const XYZW = {
     decode: a => [{ x: a[0], y: a[1], z: a[2], w: a[3] }],
 };
 
+const Identity = {
+    encode: a => a,
+    decode: a => a,
+};
+
 const transcoders = {
     "*.moveTo": XYZ,
     "*.rotateTo": XYZW,
+    "*.onKeyDown": Identity,
+    "*.onContentChanged": Identity,
 };
 
 function encode(receiver, part, selector, args) {
