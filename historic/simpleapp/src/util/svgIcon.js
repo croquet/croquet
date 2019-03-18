@@ -40,6 +40,7 @@ export default class SVGIcon extends LazyObject3D {
                 svgLoader.load(
                     filePath,
                     shapePaths => {
+                        if (!shapePaths.length) reject(Error("Empty SVG: " + filePath));
                         const geometry = new THREE.ExtrudeBufferGeometry(
                             shapePaths.filter(sP => !sP.color.equals(altColor)).flatMap(shapePath => shapePath.toShapes(true).map(shapes => shapes)),
                             { curveSegments, depth: 0.1, bevelEnabled: false }

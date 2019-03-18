@@ -27,6 +27,6 @@ export default class LazyObject3D extends THREE.Group {
                 this.loading = false;
                 this.newestPromise = undefined;
             }
-        });
+        }).catch(error => console.error(error));
     }
 }
