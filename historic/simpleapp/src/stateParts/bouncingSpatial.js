@@ -45,4 +45,6 @@ export default class BouncingSpatialPart extends InertialSpatialPart {
             super.applyVelocity();
         }
     }
+
+    stopped() { return false; }
 }

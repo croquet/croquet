@@ -75,11 +75,14 @@ export default class InertialSpatialPart extends SpatialPart {
             super.rotateBy(this.estimatedRotationalVelocity.clone());
             this.estimatedVelocity.multiplyScalar(1 - this.dampening);
             this.estimatedRotationalVelocity.slerp(new THREE.Quaternion(), this.dampening);
-            const done = this.estimatedVelocity.manhattanLength() +
-                this.estimatedRotationalVelocity.manhattanLength() - 1 < 0.00001;
-            if (done) this.inInertiaPhase = false;
+            if (this.stopped()) this.inInertiaPhase = false;
             else this.future(1000 / 60).applyVelocity();
         }
+    }
+
+    stopped() {
+        return this.estimatedVelocity.manhattanLength() +
+            this.estimatedRotationalVelocity.manhattanLength() - 1 < 0.00001;
     }
 }
 
