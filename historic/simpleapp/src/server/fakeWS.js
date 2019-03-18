@@ -38,7 +38,10 @@ export class FakeSocket extends CallbackHandler {
         this._otherEnd = null;
         this._callbacks = [];
         // if we were given a server, connect to it
-        if (options.server) this._connectToServer(options.server);
+        if (options.server) {
+            this.url = options.server._url;
+            this._connectToServer(options.server);
+        }
     }
 
     get onopen() { return this._callbacks['open']; }
@@ -127,7 +130,6 @@ export class FakeServer extends CallbackHandler {
     // Private
 
     _accept(socket) {
-        socket.url = this._url;
         const client = new FakeClient(socket, this.options, this);
         this.clients.add(client);
         const request = { connection: socket };
