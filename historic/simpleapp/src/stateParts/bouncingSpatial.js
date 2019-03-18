@@ -15,6 +15,9 @@ export default class BouncingSpatialPart extends InertialSpatialPart {
         this.gravity = state.gravity || new THREE.Vector3(0, -0.001, 0);
         this.bounce = state.bounce || 0.1;
         this.ensure(this.gravity, THREE.Vector3);
+        // kick off animation only (!) if created from scratch
+        if (!state[this.partId]) this.startInertiaPhase();
+        // otherwise, future message is still scheduled
     }
 
     toState(state) {
