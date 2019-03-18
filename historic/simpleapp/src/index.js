@@ -7,7 +7,6 @@ import RoomViewManager from './room/roomViewManager.js';
 import Renderer from './render.js';
 import { Controller } from "./island.js";
 import {KeyboardManager} from './domKeyboardManager.js';
-import {fontRegistry} from './viewParts/fontRegistry.js';
 
 const LOG_HOTRELOAD = false;
 
@@ -18,12 +17,6 @@ let hotState = module.hot && module.hot.data || {};
 
 /** The main function. */
 function start() {
-    let robotoPromise = fontRegistry.getAtlasFor("Roboto");
-    let loraPromise = fontRegistry.getAtlasFor("Lora");
-    let barlowPromise = fontRegistry.getAtlasFor("Barlow");
-
-    Promise.all([robotoPromise, loraPromise, barlowPromise]).then(() => {
-
     const ALL_ISLANDS = {};
     let currentRoomName = null;
     const roomViewManager = new RoomViewManager(window.innerWidth, window.innerHeight);
@@ -56,7 +49,7 @@ function start() {
         // request ahead of render, set initial camera position if necessary
         roomViewManager.request(roomName, ALL_ISLANDS, {cameraPosition, cameraQuaternion, overrideCamera}, onTraversedPortalView);
         if (window.location.hash.replace("#", "") !== roomName) {
-            window.history.pushState({}, "", "/#" + roomName);
+            window.history.pushState({}, "", "#" + roomName);
         }
     }
 
@@ -176,7 +169,6 @@ function start() {
         // start logging module loads
         if (LOG_HOTRELOAD && !module.bundle.v) module.bundle.v = 1;
     }
-    });
 }
 
 if (module.hot) {

@@ -28,23 +28,21 @@ export default class TextViewPart extends Object3D {
         this.boxSelections = [];
     }
 
-    attachWithObject3D() {
-        this.initEditor();
-        fontRegistry.getAtlasFor(this.options.font).then((atlas) => this.initTextMesh(atlas));
-        return this.initBoxMesh();
-    }
-
-    attach(modelState) {
-        super.attach(modelState);
+    attachWithObject3D(modelState) {
+        fontRegistry.getAtlasFor(this.options.font).then(atlas => {
+            this.initEditor();
+            this.initTextMesh(atlas);
+        });
+        const boxMesh = this.initBoxMesh();
         if (this.options.editable) {
-            makePointerSensitive(this.threeObj, this.asPartRef());
+            makePointerSensitive(boxMesh, this.asPartRef());
         }
         if (modelState && modelState.parts.text && modelState.parts.text.content) {
             this.options.content = modelState.parts.text.content;
             this.subscribe(TextEvents.modelContentChanged, "onContentChanged", modelState.id, this.modelSource);
         }
+        return boxMesh;
     }
-
     onGetFocus() {
         // I acquire focus
         // this.editor.getFocus();
@@ -81,7 +79,6 @@ export default class TextViewPart extends Object3D {
     }
 
     initTextMesh(atlasTexture) {
-        //const atlasTexture = fontRegistry.getTexture(font);
         let font = this.options.font;
         const geometry = new TextGeometry({
             font: fontRegistry.getInfo(font),
