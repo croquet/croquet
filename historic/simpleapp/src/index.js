@@ -20,10 +20,33 @@ function start() {
     let currentRoomName = null;
     const roomViewManager = new RoomViewManager(window.innerWidth, window.innerHeight);
 
-    function joinRoom(roomName) {
+    /** @arg {import('./island').default} island */
+    function onTraversedPortalView(portalRef, traverserRef, island, sourceRoomName) {
+        const [portalModelId, portalPartId] = portalRef.split(".");
+        /** @type {import('./portal/portalModel').PortalPart} */
+        const portalPart = island.modelsById[portalModelId].parts[portalPartId];
+        /** @type {import('./room/roomModel').default}*/
+        const roomView = roomViewManager.expect(sourceRoomName);
+
+        if (traverserRef === roomView.parts.portalTraverser.asPartRef()) {
+            const spatialPart = roomView.parts[roomView.parts.portalTraverser.spatialName];
+            const {targetPosition, targetQuaternion} = portalPart.projectThroughPortal(spatialPart.position, spatialPart.quaternion);
+            joinRoom(portalPart.there, targetPosition, targetQuaternion, true);
+
+            // take a "step back" in the source room
+            const newSourcePosition = spatialPart.position.clone().add(new THREE.Vector3(0, 0, 2.5).applyQuaternion(spatialPart.quaternion));
+            roomViewManager.moveCamera(sourceRoomName, newSourcePosition, spatialPart.quaternion.clone());
+            roomView.parts.pointer.onMouseUp();
+        }
+    }
+
+    function joinRoom(roomName, cameraPosition=new THREE.Vector3(0, 2, 4), cameraQuaternion=new THREE.Quaternion(), overrideCamera) {
         currentRoomName = roomName;
         // request ahead of render, set initial camera position if necessary
-        roomViewManager.request(roomName, ALL_ISLANDS, new THREE.Vector3(0, 2, 4));
+        roomViewManager.request(roomName, ALL_ISLANDS, {cameraPosition, cameraQuaternion, overrideCamera}, onTraversedPortalView);
+        if (window.location.hash.replace("#", "") !== roomName) {
+            window.history.pushState({}, "", "/#" + roomName);
+        }
     }
 
     const startRoom = hotState.currentRoomName || window.location.hash.replace("#", "") || "room1";
@@ -50,7 +73,7 @@ function start() {
     function frame() {
         if (currentRoomName) {
             renderer.render(currentRoomName, ALL_ISLANDS, roomViewManager);
-            const currentRoomView = roomViewManager.request(currentRoomName, ALL_ISLANDS);
+            const currentRoomView = roomViewManager.getIfLoaded(currentRoomName);
 
             if (currentRoomView) {
                 currentRoomView.parts.pointer.updatePointer();
@@ -65,19 +88,19 @@ function start() {
     hotreload.requestAnimationFrame(frame);
 
     hotreload.addEventListener(window, "mousemove", event => {
-        const currentRoomView = currentRoomName && roomViewManager.request(currentRoomName, ALL_ISLANDS);
+        const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
         if (currentRoomView) currentRoomView.parts.pointer.onMouseMove(event.clientX, event.clientY);
     });
     hotreload.addEventListener(window, "mousedown", event => {
-        const currentRoomView = currentRoomName && roomViewManager.request(currentRoomName, ALL_ISLANDS);
+        const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
         if (currentRoomView) currentRoomView.parts.pointer.onMouseDown(event);
     });
-    hotreload.addEventListener(window, "mouseup", event => {
-        const currentRoomView = currentRoomName && roomViewManager.request(currentRoomName, ALL_ISLANDS);
-        if (currentRoomView) currentRoomView.parts.pointer.onMouseUp(event);
+    hotreload.addEventListener(window, "mouseup", _ => {
+        const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
+        if (currentRoomView) currentRoomView.parts.pointer.onMouseUp();
     });
     hotreload.addEventListener(document.body, "touchstart", event => {
-        const currentRoomView = currentRoomName && roomViewManager.request(currentRoomName, ALL_ISLANDS);
+        const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
         if (currentRoomView) {
             currentRoomView.parts.pointer.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
             currentRoomView.parts.pointer.updatePointer();
@@ -88,21 +111,21 @@ function start() {
     }, {passive: false});
 
     hotreload.addEventListener(document.body, "touchmove", event => {
-        const currentRoomView = currentRoomName && roomViewManager.request(currentRoomName, ALL_ISLANDS);
+        const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
         if (currentRoomView) {
             currentRoomView.parts.pointer.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
         }
     }, {passive: false});
 
     hotreload.addEventListener(document.body, "touchend", event => {
-        const currentRoomView = currentRoomName && roomViewManager.request(currentRoomName, ALL_ISLANDS);
+        const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
         if (currentRoomView) {currentRoomView.parts.pointer.onMouseUp();}
         event.stopPropagation();
         event.preventDefault();
     }, {passive: false});
 
     hotreload.addEventListener(document.body, "wheel", event => {
-        const currentRoomView = currentRoomName && roomViewManager.request(currentRoomName, ALL_ISLANDS);
+        const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
         if (currentRoomView) {currentRoomView.parts.treadmillNavigation.onWheel(event);}
         event.stopPropagation();
         event.preventDefault();

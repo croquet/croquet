@@ -21,25 +21,51 @@ export default class RoomViewManager {
         }
     }
 
-    request(roomName, allIslands, initialCameraPosition) {
-        if (!this.activeRoomViews[roomName]) {
+    moveCamera(roomName, cameraPosition, cameraQuaternion) {
+        const portalTraverserHandler = this.activeRoomViews[roomName].parts.portalTraverseHandler;
+        const cameraSpatialPart = this.activeRoomViews[roomName].parts.cameraSpatial;
+        portalTraverserHandler.disable();
+        cameraSpatialPart.moveTo(cameraPosition, false);
+        cameraSpatialPart.rotateTo(cameraQuaternion, false);
+        cameraSpatialPart.stop();
+        portalTraverserHandler.enable();
+    }
+
+    request(roomName, allIslands, {cameraPosition, cameraQuaternion, overrideCamera}, onTraversedPortalView) {
+        if (this.activeRoomViews[roomName]) {
+            if (overrideCamera) {
+                this.moveCamera(roomName, cameraPosition, cameraQuaternion);
+            }
+        } else {
             const island = allIslands[roomName];
             const room = island.get("room");
 
-            if (!this.activeRoomViews[roomName]) {
-                const roomView = new RoomView(island, {
-                    activeParticipant: true,
-                    width: this.viewportWidth,
-                    height: this.viewportHeight,
-                    cameraPosition: initialCameraPosition
-                });
-                roomView.attach(room);
-                this.activeRoomViews[roomName] = roomView;
-            }
+            const roomView = new RoomView(island, {
+                activeParticipant: true,
+                width: this.viewportWidth,
+                height: this.viewportHeight,
+                cameraPosition,
+                cameraQuaternion,
+                onTraversedPortalView: (portalRef, traverserRef) => onTraversedPortalView(portalRef, traverserRef, island, roomName)
+            });
+            roomView.attach(room);
+            this.activeRoomViews[roomName] = roomView;
         }
 
         // might return null in the future if roomViews are constructed asynchronously
         return this.activeRoomViews[roomName];
+    }
+
+    getIfLoaded(roomName) {
+        return this.activeRoomViews[roomName];
+    }
+
+    expect(roomName) {
+        const roomView = this.activeRoomViews[roomName];
+        if (!roomView) {
+            throw new Error(`Expected RoomView for ${roomName} to already exist.`);
+        }
+        return roomView;
     }
 
     requestPassive(roomName, allIslands, initialCameraPosition) {

@@ -56,6 +56,12 @@ export default class InertialSpatialPart extends SpatialPart {
         this.startInertiaPhase();
     }
 
+    stop() {
+        this.estimatedVelocity = new THREE.Vector3(0, 0, 0);
+        this.estimatedRotationalVelocity = new THREE.Quaternion();
+        this.inInertiaPhase = false;
+    }
+
     startInertiaPhase() {
         if (!this.inInertiaPhase) {
             this.inInertiaPhase = true;

@@ -13,12 +13,12 @@ export default function initRoom2(state) {
         const room = new Room({color: {value: new THREE.Color("#000088")}});
 
         const portal = new Portal({
-            spatial: { position: new THREE.Vector3(0, 1.25, 0) },
+            spatial: { position: new THREE.Vector3(0, 2, 0) },
             thereSpatial: {
-                position: new THREE.Vector3(-4, 1, 4),
+                position: new THREE.Vector3(-4, 1.25, 4),
                 quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 4)
             },
-            size: { value: new THREE.Vector3(1.5, 2.5, 0) },
+            size: { value: new THREE.Vector3(1.5, 2.5, 1.0) },
             portal: { there: "room1" }
         });
         room.parts.objects.add(portal);
