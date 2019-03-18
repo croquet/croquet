@@ -37,8 +37,8 @@ export default class Renderer {
         this.renderer.setSize(width, height);
     }
 
-    render(room, allRooms, roomViewManager) {
-        const currentRoomView = roomViewManager.request(room, allRooms);
+    render(room, allIslands, roomViewManager) {
+        const currentRoomView = roomViewManager.expect(room);
         // Portal rendering technique inspired by https://github.com/zadvorsky/three.portals/blob/master/src/THREE.PortalController.js
         const mainScene = currentRoomView.parts.roomScene.threeObj;
         /** @type {THREE.Camera} */
@@ -63,7 +63,7 @@ export default class Renderer {
         gl.stencilMask(0xFF);
 
         for (const portalViewPart of portalViewParts) {
-            portalViewPart.threeObj.layers.enable(RENDER_LAYERS.INDIVIDUAL_PORTAL);
+            portalViewPart.enableLayersAsIndividual();
             mainCamera.layers.disable(RENDER_LAYERS.NORMAL);
             mainCamera.layers.enable(RENDER_LAYERS.INDIVIDUAL_PORTAL);
 
@@ -81,7 +81,7 @@ export default class Renderer {
             // render the portal shape using the settings above
             this.renderer.render(mainScene, mainCamera);
 
-            portalViewPart.threeObj.layers.disable(RENDER_LAYERS.INDIVIDUAL_PORTAL);
+            portalViewPart.disableLayersAsIndividual();
             mainCamera.layers.enable(RENDER_LAYERS.NORMAL);
             mainCamera.layers.disable(RENDER_LAYERS.INDIVIDUAL_PORTAL);
 
@@ -94,8 +94,8 @@ export default class Renderer {
             // stencil buffer is not changed
             gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
 
-            const portalPart = portalViewPart.portalPart;
-            const portalTargetRoomView = roomViewManager.requestPassive(portalPart.there, allRooms);
+            const portalPart = portalViewPart.modelPortalPart;
+            const portalTargetRoomView = roomViewManager.requestPassive(portalPart.there, allIslands);
             const portalTargetScene = portalTargetRoomView.parts.roomScene.threeObj;
             /** @type {THREE.Camera} */
             const portalTargetCamera = portalTargetRoomView.parts.camera.threeObj;

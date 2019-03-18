@@ -29,7 +29,7 @@ export default class Portal extends Model {
     }
 }
 
-class PortalPart extends StatePart {
+export class PortalPart extends StatePart {
     fromState(state={}, options={}) {
         this.hereSpatialPartId = options.hereSpatialPartId || "spatial";
         this.thereSpatialPartId = options.thereSpatialPartId || "thereSpatial";
@@ -67,19 +67,26 @@ class PortalPart extends StatePart {
         return {targetPosition, targetQuaternion};
     }
 
-    /** @arg {{from: THREE.Vector3, to: THREE.Vector3, traverserRef: string}} data */
-    onTraverserMoved({from, to, traverserRef}) {
+    didTraverse(from, to) {
         const localFrom = this.worldToLocal(from);
         const localTo = this.worldToLocal(to);
-        const size = this.owner.parts[this.sizePartId];
+        const size = this.owner.parts[this.sizePartId].value;
 
         // intersection with oriented, bounded plane. Should be easy to extend to oriented box (just add depth).
-        if (Math.sign(localFrom.z) !== Math.sign(localTo.z)) {
-            const intersectionPointRatio = Math.abs(localTo.z) / Math.abs(localFrom.z);
-            const localIntersectionPoint = from.lerp(to, intersectionPointRatio);
+        if (localFrom.z > 0 &&  localTo.z < 0) {
+            const intersectionPointRatio = Math.abs(localTo.z) / (Math.abs(localTo.z) + Math.abs(localFrom.z));
+            const localIntersectionPoint = localFrom.lerp(localTo, intersectionPointRatio);
             if (Math.abs(localIntersectionPoint.x) < size.x / 2.0 && Math.abs(localIntersectionPoint.y) < size.y / 2.0) {
-                this.publish(PortalEvents.traversed, {portalRef: this.asPartRef(), traverserRef}, PortalTopic, null);
+                return true;
             }
+        }
+        return false;
+    }
+
+    /** @arg {{from: THREE.Vector3, to: THREE.Vector3, traverserRef: string}} data */
+    onTraverserMoved({from, to, traverserRef}) {
+        if (this.didTraverse(from, to)) {
+            this.publish(PortalEvents.traversed, {portalRef: this.asPartRef(), traverserRef}, PortalTopic, null);
         }
     }
 }
@@ -96,7 +103,7 @@ export class PortalTraverserPart extends StatePart {
         state.lastPosition = this.lastPosition;
     }
 
-    onMove(newPosition) {
+    onMoved(newPosition) {
         this.publish(PortalEvents.traverserMoved, {from: this.lastPosition, to: newPosition, traverserRef: this.asPartRef()}, PortalTopic, null);
         this.lastPosition = newPosition.clone();
     }

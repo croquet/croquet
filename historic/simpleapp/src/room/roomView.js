@@ -10,6 +10,8 @@ import arrowsAltRot from '../../assets/arrows-alt-rot.svg';
 import SVGIcon from '../util/svgIcon.js';
 import TrackSpatial from '../viewParts/trackSpatial.js';
 import InertialSpatialPart from '../stateParts/inertialSpatial.js';
+import { PortalTraverserPart, PortalTopic } from '../portal/portalModel.js';
+import { PortalViewEvents } from '../portal/portalView.js';
 import { KeyboardViewPart } from './keyboard.js';
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
@@ -27,6 +29,8 @@ export default class RoomView extends View {
             width: viewOptions.width,
             height: viewOptions.height
         });
+        new PortalTraverserPart(this, {}, {spatialName: "cameraSpatial"});
+        new PortalTraverseHandler(this, {onTraversed: viewOptions.onTraversedPortalView});
         new TrackSpatial(this, {source: "this.cameraSpatial", affects: "camera"});
         if (viewOptions.activeParticipant) {
             new PointerViewPart(this, {scenePartName: "roomScene"});
@@ -205,5 +209,27 @@ class TreadmillNavigation extends Object3D {
     onWheel(event) {
         const multiplier = 0.01;
         this.affectedSpatial.moveBy(new THREE.Vector3(event.deltaX * multiplier, 0, event.deltaY * multiplier).applyQuaternion(this.threeObj.quaternion), false);
+    }
+}
+
+class PortalTraverseHandler extends ViewPart {
+    fromOptions(options) {
+        this.subscribe(PortalViewEvents.traversedView, "onTraversed", PortalTopic, null);
+        this.onTraversedCallback = options.onTraversed;
+        this.enabled = true;
+    }
+
+    onTraversed({portalRef, traverserRef}) {
+        if (this.enabled) {
+            this.onTraversedCallback(portalRef, traverserRef);
+        }
+    }
+
+    enable() {
+        this.enabled = true;
+    }
+
+    disable() {
+        this.enabled = false;
     }
 }

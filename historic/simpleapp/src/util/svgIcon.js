@@ -10,27 +10,14 @@ const svgLoader = new SVGLoader();
 const svgCache = {};
 
 export default class SVGIcon extends LazyObject3D {
-    constructor(path, material, altMaterial=material, targetSize=1, horizontal=true, curveSegments=12, altColor=new THREE.Color(0, 0, 1)) {
+    constructor(filePath, material, altMaterial=material, targetSize=1, horizontal=true, curveSegments=12, altColor=new THREE.Color(0, 0, 1)) {
         const placeholder = new THREE.Mesh(new THREE.PlaneGeometry(targetSize, targetSize), material);
         if (horizontal) {
             placeholder.quaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI/2);
         }
 
         const promise = new Promise((resolve, reject) => {
-            const build = shapePaths => {
-                const geometry = new THREE.ExtrudeBufferGeometry(
-                    shapePaths.filter(sP => !sP.color.equals(altColor)).flatMap(shapePath => shapePath.toShapes(true).map(shapes => shapes)),
-                    { curveSegments, depth: 0.1, bevelEnabled: false }
-                );
-
-                const altGeometry = new THREE.ExtrudeBufferGeometry(
-                    shapePaths.filter(sP => sP.color.equals(altColor)).flatMap(shapePath => shapePath.toShapes(true).map(shapes => shapes)),
-                    { curveSegments, depth: 0.1, bevelEnabled: false }
-                );
-
-                geometry.center();
-                altGeometry.center();
-
+            const assembleMesh = (geometry, altGeometry) => {
                 const group = new THREE.Group();
 
                 const mesh = new THREE.Mesh(geometry, placeholder.material);
@@ -46,15 +33,31 @@ export default class SVGIcon extends LazyObject3D {
                 if (horizontal) {
                     group.quaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
                 }
-                return group;
+                resolve(group);
             };
 
-
-            if (svgCache[path]) resolve(build(svgCache[path]));
-            else svgLoader.load(path,
-                /* onLoad */ shapePaths => resolve(build(svgCache[path] = shapePaths)),
-                /* onProgress */ null,
-                /* onError    */ reject);
+            if (!svgCache[filePath]) {
+                svgLoader.load(
+                    filePath,
+                    shapePaths => {
+                        const geometry = new THREE.ExtrudeBufferGeometry(
+                            shapePaths.filter(sP => !sP.color.equals(altColor)).flatMap(shapePath => shapePath.toShapes(true).map(shapes => shapes)),
+                            { curveSegments, depth: 0.1, bevelEnabled: false }
+                        ).center();
+                        const altGeometry = new THREE.ExtrudeBufferGeometry(
+                            shapePaths.filter(sP => sP.color.equals(altColor)).flatMap(shapePath => shapePath.toShapes(true).map(shapes => shapes)),
+                            { curveSegments, depth: 0.1, bevelEnabled: false }
+                        ).center();
+                        svgCache[filePath] = {geometry, altGeometry};
+                        assembleMesh(geometry, altGeometry);
+                    },
+                    null,
+                    reject
+                );
+            } else {
+                const {geometry, altGeometry} = svgCache[filePath];
+                assembleMesh(geometry, altGeometry);
+            }
         });
 
         super(placeholder, promise);
