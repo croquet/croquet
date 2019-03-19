@@ -55,7 +55,7 @@ export default class TextViewPart extends Object3D {
         this.editor.isScrollable = true;  // unless client decides otherwise
 
         this.editor.mockCallback = ctx => {
-            let glyphs = this.processMockContext(ctx);
+            const glyphs = this.processMockContext(ctx);
             this.update({glyphs, corners: this.editor.visibleTextBounds(), scaleX: this.editor.scaleX, scrollTop: this.editor.scrollTop, frameHeight: this.editor.frame.height, drawnRects: ctx.filledRects});
             if (this.options.editable) {
                 this.owner.model["text"].onContentChanged(this.editor.save());
@@ -64,22 +64,22 @@ export default class TextViewPart extends Object3D {
     }
 
     processMockContext(ctx) {
-        let layout = fontRegistry.getMeasurer(this.options.font);
+        const layout = fontRegistry.getMeasurer(this.options.font);
         if (!layout) {return [];}
-        let info = fontRegistry.getInfo(this.options.font);
-        let baseLine = fontRegistry.getOffsetY(this.options.font);
+        const info = fontRegistry.getInfo(this.options.font);
+        const baseLine = fontRegistry.getOffsetY(this.options.font);
         return layout.computeGlyphs({font: info, drawnStrings: ctx.drawnStrings, offsetY: baseLine});
     }
 
     updateMaterial() {
-        let text = this.text;
+        const text = this.text;
 
-        let bounds = this.options.corners;
+        const bounds = this.options.corners;
         text.material.uniforms.corners.value = new THREE.Vector4(bounds.l, bounds.t, bounds.r, bounds.b);
     }
 
     initTextMesh(atlasTexture) {
-        let font = this.options.font;
+        const font = this.options.font;
         const geometry = new TextGeometry({
             font: fontRegistry.getInfo(font),
             width: this.options.width,
@@ -97,7 +97,7 @@ export default class TextViewPart extends Object3D {
 
         const textMesh = new THREE.Mesh(geometry, material);
         this.text = textMesh;
-        let box = this.threeObj;
+        const box = this.threeObj;
         box.add(textMesh);
 
         const callback = () => this.onTextChanged();
@@ -123,7 +123,7 @@ export default class TextViewPart extends Object3D {
     initSelectionMesh() {
         // geometry for the cursor bar rendered if selection is empty
         // see makeBoxSelectionMesh for actual selection
-        let box = this.threeObj;
+        const box = this.threeObj;
 
         const plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(0.1, 0.1), new THREE.MeshBasicMaterial({ color: 0x111180 }));
 
@@ -135,7 +135,7 @@ export default class TextViewPart extends Object3D {
     }
 
     initScrollBarMesh() {
-        let box = this.threeObj;
+        const box = this.threeObj;
         let plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(0.1, 0.1), new THREE.MeshBasicMaterial({ color: 0x0044ee }));
         plane.visible = false;
         box.add(plane);
@@ -148,15 +148,15 @@ export default class TextViewPart extends Object3D {
     }
 
     updateGeometry(geometry) {
-        let font = fontRegistry.getInfo(this.options.font);
-        let meterInPixel = this.options.width / this.options.scaleX;
-        let scrollT = this.options.scrollTop;
-        let descent = font.common.lineHeight - font.common.base;
+        const font = fontRegistry.getInfo(this.options.font);
+        const meterInPixel = this.options.width / this.options.scaleX;
+        const scrollT = this.options.scrollTop;
+        const descent = font.common.lineHeight - font.common.base;
 
-        let docHeight = this.options.frameHeight;
-        let docInMeter = docHeight * meterInPixel;
+        const docHeight = this.options.frameHeight;
+        const docInMeter = docHeight * meterInPixel;
 
-        let text = this.text;
+        const text = this.text;
         text.scale.x = meterInPixel;
         text.scale.y = -meterInPixel;
 
@@ -169,17 +169,17 @@ export default class TextViewPart extends Object3D {
         this.updateScrollBarAndSelections(this.options.drawnRects, meterInPixel, docHeight, scrollT, descent);
     }
 
-    updateScrollBarAndSelections(drawnRects, meterInPixel, docHeight, scrollT, descent) {
+    updateScrollBarAndSelections(drawnRects, meterInPixel, docHeight, scrollT, _descent) {
         let boxInd = 0;
-        let [cursorX, cursorY] = fontRegistry.getCursorOffset(this.options.font);
+        const [cursorX, cursorY] = fontRegistry.getCursorOffset(this.options.font);
 
         for (let i = 0; i < drawnRects.length; i++) {
-            let rec = drawnRects[i];
-            let w = rec.w * meterInPixel;
-            let h = rec.h * meterInPixel;
-            let x = -this.options.width / 2 + (rec.x + cursorX) * meterInPixel + w / 2;
-            let y = this.options.height / 2 + ((scrollT * docHeight) - (rec.y + cursorY)) * meterInPixel - h / 2;
-            let meshRect = {x, y, w, h};
+            const rec = drawnRects[i];
+            const w = rec.w * meterInPixel;
+            const h = rec.h * meterInPixel;
+            const x = -this.options.width / 2 + (rec.x + cursorX) * meterInPixel + w / 2;
+            const y = this.options.height / 2 + ((scrollT * docHeight) - (rec.y + cursorY)) * meterInPixel - h / 2;
+            const meshRect = {x, y, w, h};
 
             if (rec.style === 'bar selection') {
                 if (this.options.showSelection) {
@@ -217,10 +217,10 @@ export default class TextViewPart extends Object3D {
 
     updateSelection(selection, rect, optZ) {
         if (!selection) {return;}
-        let actuallyShow = !!rect;
+        const actuallyShow = !!rect;
         selection.visible = actuallyShow;
         if (!actuallyShow) {return;}
-        let geom = new THREE.PlaneBufferGeometry(rect.w, rect.h);
+        const geom = new THREE.PlaneBufferGeometry(rect.w, rect.h);
         selection.geometry = geom;
         selection.position.set(rect.x, rect.y, optZ || 0.003);
     }
@@ -249,7 +249,7 @@ export default class TextViewPart extends Object3D {
 
     update(newOptions) {
         this.options = Object.assign(this.options, newOptions);
-        let text = this.text;
+        const text = this.text;
         if (text && text.geometry) {
             this.updateMaterial();
             this.updateGeometry(text.geometry);
@@ -263,21 +263,21 @@ export default class TextViewPart extends Object3D {
     onTextChanged() {}
 
     textPtFromEvt(evtPt) {
-        let pt = this.threeObj.worldToLocal(evtPt.clone());
-        let {editor: {scaleX, scaleY, scrollLeft, scrollTop}} = this,
-        width = this.options.width,
-        height = this.options.height,
-        visibleTop = (scrollTop * this.editor.frame.height),
-        x = Math.floor((width / 2 + pt.x + scrollLeft) * (scaleX / width)),
-        realY = (height / 2 - pt.y) * (scaleY / height),
-        y = Math.floor(realY + visibleTop);
+        const pt = this.threeObj.worldToLocal(evtPt.clone());
+        const {editor: {scaleX, scaleY, scrollLeft, scrollTop}} = this;
+        const width = this.options.width;
+        const height = this.options.height;
+        const visibleTop = (scrollTop * this.editor.frame.height);
+        const x = Math.floor((width / 2 + pt.x + scrollLeft) * (scaleX / width));
+        const realY = (height / 2 - pt.y) * (scaleY / height);
+        const y = Math.floor(realY + visibleTop);
 
         return {x, y, realY};
     }
 
     onPointerDown(evt) {
         this.publish(KeyboardEvents.requestfocus, {requesterRef: this.asPartRef()}, KeyboardTopic, null);
-        let pt = this.textPtFromEvt(evt.at);
+        const pt = this.textPtFromEvt(evt.at);
         this.editor.mouseDown(pt.x, pt.y, pt.realY);
         this.lastPt = pt;
         return true;
@@ -285,14 +285,14 @@ export default class TextViewPart extends Object3D {
 
     onPointerMove(evt) {
         if (!this.lastPt) { return false;}
-        let pt = this.textPtFromEvt(evt.hoverPoint);
+        const pt = this.textPtFromEvt(evt.hoverPoint);
         this.editor.mouseMove(pt.x, pt.y, pt.realY);
         this.lastPt = pt;
         return true;
     }
 
-    onPointerUp(evt) {
-        let pt = this.lastPt;
+    onPointerUp(_evt) {
+        const pt = this.lastPt;
         this.mouseIsDown = false;
         this.editor.mouseUp(pt.x, pt.y, pt.realY);
         this.lastPt = null;
@@ -304,7 +304,7 @@ export default class TextViewPart extends Object3D {
             this.editor.insert('\n');
             return true;
         }
-        let handled = this.editor.handleKey(evt.keyCode, evt.shiftKey, evt.ctrlKey|| evt.metaKey);
+        const handled = this.editor.handleKey(evt.keyCode, evt.shiftKey, evt.ctrlKey|| evt.metaKey);
 
         if (!handled && !(evt.ctrlKey || evt.metaKey)) {
             this.editor.insert(evt.key);

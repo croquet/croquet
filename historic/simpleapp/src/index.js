@@ -74,7 +74,7 @@ function start() {
 
     /** @type {Renderer} */
     const renderer = hotState.renderer || new Renderer(window.innerWidth, window.innerHeight);
-    let keyboardManager = new KeyboardManager();
+    const keyboardManager = new KeyboardManager();
 
 
     hotState = null; // free memory, and prevent accidental access below
@@ -86,7 +86,7 @@ function start() {
 
             if (currentRoomView) {
                 currentRoomView.parts.pointer.updatePointer();
-		keyboardManager.setCurrentRoomView(currentRoomView);
+                keyboardManager.setCurrentRoomView(currentRoomView);
             }
         }
         for (const island of Object.values(ALL_ISLANDS)) {
@@ -160,7 +160,7 @@ function start() {
             // preserve state, will be available as module.hot.data after reload
             Object.assign(hotData, {
                 renderer,
-		keyboardManager,
+                keyboardManager,
                 islands: {},
                 currentRoomName
             });

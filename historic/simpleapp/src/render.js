@@ -12,17 +12,17 @@ export const RENDER_LAYERS = {
 
 export default class Renderer {
     constructor(width, height) {
-	let contextAttributes = {
-            alpha: false,
-            depth: true,
-            stencil: true,
-            antialias: true,
-            premultipliedAlpha: true,
-            preserveDrawingBuffer: false,
-            powerPreference: "default"
-        };
-	const canvas = document.createElement('canvas');
-	const context = canvas.getContext("webgl2", contextAttributes);
+    const contextAttributes = {
+        alpha: false,
+        depth: true,
+        stencil: true,
+        antialias: true,
+        premultipliedAlpha: true,
+        preserveDrawingBuffer: false,
+        powerPreference: "default"
+    };
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext("webgl2", contextAttributes);
 
         this.renderer = new THREE.WebGLRenderer({canvas, context});
         this.renderer.autoClearStencil = false;
