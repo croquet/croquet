@@ -198,26 +198,29 @@ export default function initRoom1(state = {}) {
     return new Island(state, () => {
         const room = new Room();
 
-        const box = new BouncingBox({ spatial: { position: new THREE.Vector3(0, 1.0, 0) } });
-        room.parts.objects.add(box);
+        const bouncingBoxes = new Group({ spatial: { position: {x: -15, y: 0, z: -15} } });
+        room.parts.objects.add(bouncingBoxes);
+        for (let i = 0; i < 100; i++) {
+            bouncingBoxes.parts.children.add(new BouncingBox({ spatial: { scale: {x: 0.1, y: 0.1, z: 0.1 } } }));
+        }
 
-        const rotatingBox = new RotatingBox({ spatial: { position: new THREE.Vector3(3, 1.0, 0) } });
+        const rotatingBox = new RotatingBox({ spatial: { position: {x: 3, y: 4, z: 0} } });
         room.parts.objects.add(rotatingBox);
 
         const text1 = new Text({
-            spatial: { position: new THREE.Vector3(-3, 1.0, 0) },
+            spatial: { position: {x: -3, y: 1, z: 0} },
             text: { content: [{text: "man is much more than a tool builder... he is an inventor of universes."}] }
         });
         room.parts.objects.add(text1);
 
         const text2 = new Text({
-            spatial: { position: new THREE.Vector3(5, 1.0, 0) },
+            spatial: { position: {x: 5, y: 1, z: 0} },
             text: { content: [{text: "Chapter Eight - The Queen's Croquet Ground", font: "Roboto"}] },
         });
         room.parts.objects.add(text2);
 
         const layoutTest = new LayoutTestModel({
-            spatial: { position: new THREE.Vector3(0, 1.0, 1.0)}
+            spatial: { position: {x: 0, y: 1, z: -3 } },
         });
         room.parts.objects.add(layoutTest);
     });
