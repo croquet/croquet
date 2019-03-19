@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import SeedRandom from "seedrandom";
 import Island from '../island.js';
 import Room from "../room/roomModel.js";
 import Model from '../model.js';
@@ -73,6 +74,32 @@ class Object3DChildren extends Object3DGroup {
         view.removeFromThreeParent(this.threeObj);
         view.onDetach();
         delete this.viewsForObjects[object.id];
+    }
+}
+
+/** A group that assigns random colors to its children's views */
+export class RandomColorGroup extends Group {
+    naturalViewClass() { return RandomColorGroupView; }
+}
+
+class RandomColorGroupView extends GroupView {
+    buildParts() {
+        new RandomColorChildren(this);
+        new TrackSpatial(this);
+    }
+}
+
+class RandomColorChildren extends Object3DChildren {
+    constructor(...args) {
+        super(...args);
+        this.random = new SeedRandom(this.owner.island.id);
+    }
+
+    onObjectAdded(object) {
+        super.onObjectAdded(object);
+        const view = this.viewsForObjects[object.id];
+        const material = view.parts.box.threeObj.material;      // FIXME: hard-coded 'box'
+        material.color.setHSL(this.random(), 1, 0.5);
     }
 }
 
@@ -180,7 +207,7 @@ export default function initRoom1(state = {}) {
     return new Island(state, () => {
         const room = new Room();
 
-        const bouncingBoxes = new Group({ spatial: { position: {x: -15, y: 0, z: -15} } });
+        const bouncingBoxes = new RandomColorGroup({ spatial: { position: {x: -15, y: 0, z: -15} } });
         room.parts.objects.add(bouncingBoxes);
         for (let i = 0; i < 100; i++) {
             bouncingBoxes.parts.children.add(new BouncingBox({ spatial: { scale: {x: 0.1, y: 0.1, z: 0.1 } } }));
