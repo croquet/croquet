@@ -534,17 +534,19 @@ class Message {
 let ModelClasses = {};
 
 function modelClassNamed(className) {
-    if (ModelClasses[className]) return ModelClasses[className];
+    if (ModelClasses[className]) return ModelClasses[className].cls;
     // HACK: go through all exports and find model subclasses
-    for (const m of Object.values(module.bundle.cache)) {
+    ModelClasses = {};
+    for (const [file, m] of Object.entries(module.bundle.cache)) {
         for (const cls of Object.values(m.exports)) {
             if (cls && cls.__isTeatimeModelClass__) {
-                if (ModelClasses[cls.name]) throw Error(`Duplicate Model subclass: ${cls.name}`);
-                ModelClasses[cls.name] = cls;
+                const dupe = ModelClasses[cls.name];
+                if (dupe) throw Error(`Duplicate Model subclass "${cls.name}" in ${file} and ${dupe.file}`);
+                ModelClasses[cls.name] = {cls, file};
             }
         }
     }
-    if (ModelClasses[className]) return ModelClasses[className];
+    if (ModelClasses[className]) return ModelClasses[className].cls;
     throw Error(`Class "${className}" not found, is it exported?`);
 }
 
