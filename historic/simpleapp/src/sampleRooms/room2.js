@@ -22,5 +22,18 @@ export default function initRoom2(state) {
             portal: { there: "room1" }
         });
         room.parts.objects.add(portal);
+
+        const portalBounce = new Portal({
+            spatial: {
+                position: {x: -2, y: 2, z: 2},
+                quaternion: new THREE.Quaternion().setFromAxisAngle({x: 0, y: 1, z: 0}, Math.PI / 2)
+            },
+            thereSpatial: {
+                position: {x: 0, y: 0, z: 2},
+            },
+            size: { value: {x: 1.5, y: 2.5, z: 1.0} },
+            portal: { there: "bounce" }
+        });
+        room.parts.objects.add(portalBounce);
     });
 }

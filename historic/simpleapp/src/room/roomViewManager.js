@@ -71,21 +71,21 @@ export default class RoomViewManager {
     requestPassive(roomName, allIslands, initialCameraPosition) {
         if (!this.passiveRoomViews[roomName]) {
             const island = allIslands[roomName];
+
+            if (!island) {return null;}
+
             const room = island.get("room");
 
-            if (!this.passiveRoomViews[roomName]) {
-                const roomView = new RoomView(island, {
-                    activeParticipant: false,
-                    width: this.viewportWidth,
-                    height: this.viewportHeight,
-                    cameraPosition: initialCameraPosition
-                });
-                roomView.attach(room);
-                this.passiveRoomViews[roomName] = roomView;
-            }
+            const roomView = new RoomView(island, {
+                activeParticipant: false,
+                width: this.viewportWidth,
+                height: this.viewportHeight,
+                cameraPosition: initialCameraPosition
+            });
+            roomView.attach(room);
+            this.passiveRoomViews[roomName] = roomView;
         }
 
-        // might return null in the future if roomViews are constructed asynchronously
         return this.passiveRoomViews[roomName];
     }
 

@@ -96,16 +96,19 @@ export default class Renderer {
 
             const portalPart = portalViewPart.modelPortalPart;
             const portalTargetRoomView = roomViewManager.requestPassive(portalPart.there, allIslands);
-            const portalTargetScene = portalTargetRoomView.parts.roomScene.threeObj;
-            /** @type {THREE.Camera} */
-            const portalTargetCamera = portalTargetRoomView.parts.camera.threeObj;
 
-            const {targetPosition, targetQuaternion} = portalPart.projectThroughPortal(mainCamera.position, mainCamera.quaternion);
-            portalTargetCamera.position.copy(targetPosition);
-            portalTargetCamera.quaternion.copy(targetQuaternion);
+            if (portalTargetRoomView) {
+                const portalTargetScene = portalTargetRoomView.parts.roomScene.threeObj;
+                /** @type {THREE.Camera} */
+                const portalTargetCamera = portalTargetRoomView.parts.camera.threeObj;
 
-            // render the view through the portal
-            this.renderer.render(portalTargetScene, portalTargetCamera);
+                const {targetPosition, targetQuaternion} = portalPart.projectThroughPortal(mainCamera.position, mainCamera.quaternion);
+                portalTargetCamera.position.copy(targetPosition);
+                portalTargetCamera.quaternion.copy(targetQuaternion);
+
+                // render the view through the portal
+                this.renderer.render(portalTargetScene, portalTargetCamera);
+            }
 
             // clear the stencil buffer for the next portal
             this.renderer.clear(false, false, true);
