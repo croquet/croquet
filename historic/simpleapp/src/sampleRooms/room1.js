@@ -7,7 +7,7 @@ import SpatialPart from '../stateParts/spatial.js';
 import InertialSpatialPart from '../stateParts/inertialSpatial.js';
 import BouncingSpatialPart from '../stateParts/bouncingSpatial.js';
 import View from '../view.js';
-import TextPart from '../stateParts/text.js';
+import Text from '../objects/text.js';
 import TextViewPart from '../viewParts/text.js';
 import Object3D, { Object3DGroup } from '../viewParts/object3D.js';
 import DraggableViewPart from '../viewParts/draggable.js';
@@ -103,16 +103,6 @@ export class RotatingBox extends Model {
     naturalViewClass() { return BoxView; }
 }
 
-/** Model for a simple text display */
-export class Text extends Model {
-    buildParts(state) {
-        new TextPart(this, state);
-        new SpatialPart(this, state);
-    }
-
-    naturalViewClass() { return TextView; }
-}
-
 /** View for a Box */
 class BoxViewPart extends Object3D {
     fromOptions(options) {
@@ -134,14 +124,6 @@ class BoxView extends View {
         new BoxViewPart(this);
         new TrackSpatial(this, {affects: "box"});
         new DraggableViewPart(this, {dragHandle: "box"});
-    }
-}
-
-/** View for rendering a Text */
-class TextView extends View {
-    buildParts() {
-        new TextViewPart(this, {});
-        new TrackSpatial(this, {affects: "text"});
     }
 }
 
