@@ -3,6 +3,7 @@ import hotreload from "./hotreload.js";
 import initRoom1 from './sampleRooms/room1.js';
 import initRoom2 from './sampleRooms/room2.js';
 import initRoom3 from './sampleRooms/room3.js';
+import initBounce from './sampleRooms/bounce.js';
 import RoomViewManager from './room/roomViewManager.js';
 import Renderer from './render.js';
 import { Controller } from "./island.js";
@@ -69,6 +70,7 @@ function start() {
     newIsland("room1", initRoom1);
     newIsland("room2", initRoom2);
     newIsland("room3", initRoom3);
+    newIsland("bounce", initBounce);
 
     /** @type {Renderer} */
     const renderer = hotState.renderer || new Renderer(window.innerWidth, window.innerHeight);
