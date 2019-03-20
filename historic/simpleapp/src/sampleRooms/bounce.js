@@ -94,8 +94,7 @@ class RandomColorChildren extends Object3DChildren {
     }
 }
 
-export default function initBounce(state = {}) {
-    state = { id: "a0df94cc1fecc08956a32537911faaa2", ...state};
+export default function initBounce(state) {
     return new Island(state, () => {
         const room = new Room();
 

@@ -116,8 +116,7 @@ class LayoutTestView extends View {
     }
 }
 
-export default function initRoom1(state = {}) {
-    state = { id: "e1828c550e86141da18ea20a1feb5bed", ...state};
+export default function initRoom1(state) {
     return new Island(state, () => {
         const room = new Room();
 

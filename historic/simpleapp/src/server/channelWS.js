@@ -84,7 +84,7 @@ channel.onmessage = ({ data: msg }) => {
                 if (serverPort !== server) throw Error("Accept from wrong server?");
                 const socket = channelSockets[server]; // we stashed it there in _connectToServer()
                 socket._connectTo({remotePort: server});
-                console.log('Channel: got accepted', myPort, 'by', server);
+                console.log('Channel:', myPort, 'got accepted by', server);
             }
             break;
         case "packet":

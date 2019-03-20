@@ -60,11 +60,10 @@ function start() {
         let state = hotState.islands && hotState.islands[roomName];
         if (state) state = JSON.parse(state);
         const controller = new Controller();
-        controller.newIsland(creatorFn, state, island => {
+        controller.newIsland(`sampleRooms/${roomName}.js`, creatorFn, state, island => {
             ALL_ISLANDS[roomName] = island;
             if (roomName === startRoom) joinRoom(roomName);
         });
-        return controller.island;
     }
 
     newIsland("room1", initRoom1);
