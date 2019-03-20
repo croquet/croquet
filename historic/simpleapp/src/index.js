@@ -56,20 +56,19 @@ function start() {
 
     const startRoom = hotState.currentRoomName || window.location.hash.replace("#", "") || "room1";
 
-    function newIsland(roomName, creatorFn) {
-        let state = hotState.islands && hotState.islands[roomName];
-        if (state) state = JSON.parse(state);
+    async function create(roomName, creatorFn) {
+        // let state = hotState.islands && hotState.islands[roomName];
+        // if (state) state = JSON.parse(state);
         const controller = new Controller();
-        controller.newIsland(`sampleRooms/${roomName}.js`, creatorFn, state, island => {
-            ALL_ISLANDS[roomName] = island;
-            if (roomName === startRoom) joinRoom(roomName);
-        });
+        const island = await controller.create(`sampleRooms/${roomName}.js`, creatorFn);
+        ALL_ISLANDS[roomName] = island;
+        if (roomName === startRoom) joinRoom(roomName);
     }
 
-    newIsland("room1", initRoom1);
-    newIsland("room2", initRoom2);
-    newIsland("room3", initRoom3);
-    newIsland("bounce", initBounce);
+    create("room1", initRoom1);
+    create("room2", initRoom2);
+    create("room3", initRoom3);
+    create("bounce", initBounce);
 
     /** @type {Renderer} */
     const renderer = hotState.renderer || new Renderer(window.innerWidth, window.innerHeight);

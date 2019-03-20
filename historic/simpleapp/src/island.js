@@ -370,13 +370,15 @@ export class Controller {
      * @param {String} fileName The filename of creatorFn for dependency analysis
      * @param {Function} creatorFn The function creating the island
      * @param {*} snapshot The island's initial state (unless supplied by server)
-     * @param {Function} callbackFn callback when island is running
+     * @returns {Promise<Island>}
      */
-    async newIsland(fileName, creatorFn, snapshot={}, callbackFn=()=>{}) {
+    async create(fileName, creatorFn, snapshot={}) {
         snapshot.id = await Controller.versionIDFor(fileName);
         console.log(`ID for ${fileName}: ${snapshot.id}`);
-        this.islandCreator = { fileName, creatorFn, snapshot, callbackFn };
-        Controller.join(this, snapshot.id);   // when socket is ready, join server
+        return new Promise(resolve => {
+            this.islandCreator = { fileName, creatorFn, snapshot, callbackFn: resolve };
+            Controller.join(this, snapshot.id);   // when socket is ready, join server
+        });
     }
 
     /** @type String: this controller's island id */
