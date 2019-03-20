@@ -45,12 +45,15 @@ function allDependenciesOf(mod, filter, result = new Set([mod])) {
 
 // hashing
 
-const toHex = bits => (new Uint8Array(bits))
-    .reduce((str, byte) => str + byte.toString(16).padStart(2, '0'), '');
-
 async function hashBuffer(buffer) {
-    const hash = await window.crypto.subtle.digest("SHA-256", buffer);
-    return toHex(hash);
+    const bits = await window.crypto.subtle.digest("SHA-256", buffer);
+    // condense 256 bit hash into 128 bit hash by XORing first half and last half
+    const bytes = new Uint8Array(bits);
+    let hash = '';
+    for (let i = 0; i < 16; i++) {
+        hash += (bytes[i] ^ bytes[i + 16]).toString(16).padStart(2, '0');
+    }
+    return hash;
 }
 
 const encoder = new TextEncoder();
