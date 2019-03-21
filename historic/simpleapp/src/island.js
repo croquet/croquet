@@ -286,10 +286,14 @@ function startReflectorInBrowser() {
     // The following import runs the exact same code that's
     // executing on Node normally. It imports 'ws' which now
     // comes from our own fakeWS.js
-    // ESLint doesn't know about the alias in package.json:
-    // eslint-disable-next-line global-require,import/no-unresolved
-    const server = require("reflector").server; // start up local server
-    socketSetup(new Socket({ server })); // connect to it
+    hotreload.setTimeout(() => {
+        // ESLint doesn't know about the alias in package.json:
+        // eslint-disable-next-line global-require,import/no-unresolved
+        const server = require("reflector").server; // start up local server
+        socketSetup(new Socket({ server })); // connect to it
+    }, 0);
+    // we defer starting the server until hotreload has finished
+    // loading all new modules
 }
 
 function socketSetup(socket) {
