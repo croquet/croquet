@@ -171,14 +171,24 @@ export default class Island {
 
     advanceTo(time) {
         if (CurrentIsland) throw Error("Island Error");
+        const totalStep = time - this.time;
+        if (totalStep < 0) throw Error("Advancing to old time");
+        if (totalStep > 500) console.warn(this.id, `advanceTo by ${totalStep} ms`);
+        let cpuTime = Date.now();
+
         let message;
+        let count = 0;
         while ((message = this.messages.peek()) && message.time <= time) {
             if (message.time < this.time) throw Error("past message encountered: " + message);
             this.messages.poll();
             this.time = message.time;
             message.executeOn(this);
+            count++;
         }
         this.time = time;
+
+        cpuTime = Date.now() - cpuTime;
+        if (cpuTime > totalStep && cpuTime > 10) console.warn(`Simulating ${count} messages for ${totalStep} ms took ${cpuTime} ms CPU time`);
     }
 
     addModelSubscription(scope, event, subscriberId, part, methodName) {
