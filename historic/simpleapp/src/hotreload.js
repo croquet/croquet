@@ -6,6 +6,11 @@ const frameHandles = new Set();
 const eventListeners = [];
 const disposeHandlers = {};
 
+let promisesOK = true;
+function promiseResolveThen(fn) {
+    Promise.resolve().then(() => promisesOK && fn());
+}
+
 function setTimeout(fn, ms) {
     const handle = window.setTimeout((...args) => {
         timeoutHandles.delete(handle);
@@ -50,11 +55,13 @@ function dispose() {
     frameHandles.clear();
     eventListeners.length = 0;
     callDisposeHandlers();
+    promisesOK = false;
 }
 
 window.onbeforeunload = callDisposeHandlers;
 
 export default {
+    promiseResolveThen,
     setTimeout,
     requestAnimationFrame,
     addEventListener,
