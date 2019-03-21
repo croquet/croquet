@@ -31,13 +31,13 @@ export default class RoomViewManager {
         portalTraverserHandler.enable();
     }
 
-    request(roomName, allIslands, {cameraPosition, cameraQuaternion, overrideCamera}, onTraversedPortalView) {
+    request(roomName, allRooms, {cameraPosition, cameraQuaternion, overrideCamera}, onTraversedPortalView) {
         if (this.activeRoomViews[roomName]) {
             if (overrideCamera) {
                 this.moveCamera(roomName, cameraPosition, cameraQuaternion);
             }
         } else {
-            const island = allIslands[roomName];
+            const island = allRooms[roomName].island;
             const room = island.get("room");
 
             const roomView = new RoomView(island, {
@@ -68,11 +68,11 @@ export default class RoomViewManager {
         return roomView;
     }
 
-    requestPassive(roomName, allIslands, initialCameraPosition) {
+    requestPassive(roomName, allRooms, initialCameraPosition) {
         if (!this.passiveRoomViews[roomName]) {
-            const island = allIslands[roomName];
+            const island = allRooms[roomName].island;
 
-            if (!island) {return null;}
+            if (!island) { allRooms.getIsland(roomName); return null; }
 
             const room = island.get("room");
 

@@ -18,7 +18,22 @@ let hotState = module.hot && module.hot.data || {};
 
 /** The main function. */
 function start() {
-    const ALL_ISLANDS = {};
+    const ALL_ROOMS = {
+        room1: {creator: room1},
+        room2: {creator: room2},
+        room3: {creator: room3},
+        bounce: {creator: roomBounce},
+
+        async getIsland(roomName) {
+            const ROOM = ALL_ROOMS[roomName];
+            if (!ROOM) throw Error("Unknown room: " + roomName);
+            if (ROOM.islandPromise) return ROOM.islandPromise;
+            const creator = ROOM.creator;
+            const controller = new Controller();
+            ROOM.islandPromise = controller.create(roomName, creator);
+            return ROOM.island = await ROOM.islandPromise;
+        }
+    };
     let currentRoomName = null;
     const roomViewManager = new RoomViewManager(window.innerWidth, window.innerHeight);
 
@@ -45,30 +60,18 @@ function start() {
         }
     }
 
-    function joinRoom(roomName, cameraPosition=new THREE.Vector3(0, 2, 4), cameraQuaternion=new THREE.Quaternion(), overrideCamera) {
+    async function joinRoom(roomName, cameraPosition=new THREE.Vector3(0, 2, 4), cameraQuaternion=new THREE.Quaternion(), overrideCamera) {
+        await ALL_ROOMS.getIsland(roomName);
         currentRoomName = roomName;
         // request ahead of render, set initial camera position if necessary
-        roomViewManager.request(roomName, ALL_ISLANDS, {cameraPosition, cameraQuaternion, overrideCamera}, onTraversedPortalView);
+        roomViewManager.request(roomName, ALL_ROOMS, {cameraPosition, cameraQuaternion, overrideCamera}, onTraversedPortalView);
         if (window.location.hash.replace("#", "") !== roomName) {
             window.history.pushState({}, "", "#" + roomName);
         }
     }
 
     const startRoom = hotState.currentRoomName || window.location.hash.replace("#", "") || "room1";
-
-    async function create(roomName, creator) {
-        // let state = hotState.islands && hotState.islands[roomName];
-        // if (state) state = JSON.parse(state);
-        const controller = new Controller();
-        const island = await controller.create(roomName, creator);
-        ALL_ISLANDS[roomName] = island;
-        if (roomName === startRoom) joinRoom(roomName);
-    }
-
-    create("room1", room1);
-    create("room2", room2);
-    create("room3", room3);
-    create("bounce", roomBounce);
+    joinRoom(startRoom);
 
     /** @type {Renderer} */
     const renderer = hotState.renderer || new Renderer(window.innerWidth, window.innerHeight);
@@ -79,7 +82,7 @@ function start() {
 
     function frame() {
         if (currentRoomName) {
-            renderer.render(currentRoomName, ALL_ISLANDS, roomViewManager);
+            renderer.render(currentRoomName, ALL_ROOMS, roomViewManager);
             const currentRoomView = roomViewManager.getIfLoaded(currentRoomName);
 
             if (currentRoomView) {
@@ -87,8 +90,8 @@ function start() {
                 keyboardManager.setCurrentRoomView(currentRoomView);
             }
         }
-        for (const island of Object.values(ALL_ISLANDS)) {
-            island.processModelViewEvents();
+        for (const {island} of Object.values(ALL_ROOMS)) {
+            if (island) island.processModelViewEvents();
         }
         hotreload.requestAnimationFrame(frame);
     }
@@ -162,9 +165,9 @@ function start() {
                 islands: {},
                 currentRoomName
             });
-            for (const [name, island] of Object.entries(ALL_ISLANDS)) {
-                hotData.islands[name] = JSON.stringify(island.asState());
-            }
+            // for (const [name, {island}] of Object.entries(ALL_ROOMS)) {
+            //     if (island) hotData.islands[name] = JSON.stringify(island.asState());
+            // }
         });
         // start logging module loads
         if (LOG_HOTRELOAD && !module.bundle.v) module.bundle.v = 1;
