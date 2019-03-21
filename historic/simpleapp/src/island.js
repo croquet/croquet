@@ -4,6 +4,8 @@ import PriorityQueue from "./util/priorityQueue.js";
 import AsyncQueue from './util/asyncQueue.js';
 import urlOptions from "./util/urlOptions.js";
 import hotreload from "./hotreload.js";
+import { hashModelCode } from "./modules.js";
+
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
@@ -319,12 +321,20 @@ else startReflectorInBrowser();
 // Controller
 
 const Controllers = {};
+let TheSocket = null;
 
 export class Controller {
     // socket was connected, join session for all islands
+    static join(controller, id) {
+        Controllers[id] = controller;
+        if (TheSocket) controller.join(TheSocket, id);
+    }
+
     static joinAll(socket) {
-        for (const controller of Object.values(Controllers)) {
-            controller.join(socket);
+        if (TheSocket) throw Error("TheSocket already set?");
+        TheSocket = socket;
+        for (const [id, controller] of Object.entries(Controllers)) {
+            if (!controller.socket) controller.join(socket, id);
         }
     }
 
@@ -334,31 +344,77 @@ export class Controller {
         Controllers[id].receive(action, args);
     }
 
+    /**
+     * Generate an ID from a name and file versions.
+     *
+     * Two participants running the same code will generate the same ID
+     * for the same name.
+     * @param {String} fileName the filename of the room.
+     * @returns {String} ID
+     */
+    static versionIDFor(fileName) {
+        return hashModelCode(fileName);
+    }
+
     constructor() {
         this.networkQueue = new AsyncQueue();
     }
+
+    /**
+     * Create a new Island by requesting to join the reflector
+     *
+     * Detail: the island/session id is created from fileName and a hash of
+     *         all source code that is imported by that file
+     *
+     * TODO: convert callback to promise
+     * @param {String} fileName The filename of creatorFn for dependency analysis
+     * @param {Function} creatorFn The function creating the island
+     * @param {*} snapshot The island's initial state (unless supplied by server)
+     * @returns {Promise<Island>}
+     */
+    async create(fileName, creatorFn, snapshot={}) {
+        snapshot.id = await Controller.versionIDFor(fileName);
+        console.log(`ID for ${fileName}: ${snapshot.id}`);
+        return new Promise(resolve => {
+            this.islandCreator = { fileName, creatorFn, snapshot, callbackFn: resolve };
+            Controller.join(this, snapshot.id);   // when socket is ready, join server
+        });
+    }
+
+    /** @type String: this controller's island id */
+    get id() {return this.island ? this.island.id : this.islandCreator.snapshot.id; }
 
     // handle messages from reflector
     receive(action, args) {
         switch (action) {
             case 'START': {
-                // we are not joining an island but starting up cold
-                this.islandCreator.callbackFn(this.island);
+                // we are starting a new island session
+                console.log(this.id, 'Controller received START - creating island');
+                this.install(false);
+                break;
+            }
+            case 'SYNC': {
+                // we are joining an island session
+                this.islandCreator.snapshot = args;    // set snapshot
+                console.log(this.id, 'Controller received SYNC - resuming snapshot');
+                this.install(true);
                 break;
             }
             case 'RECV': {
+                console.log(this.id, 'Controller received RECV ' + args);
                 const msg = args;
                 //if (msg.sender === this.senderID) this.addToStatistics(msg);
                 this.networkQueue.put(msg);
                 break;
             }
             case 'TICK': {
+                //console.log(this.id, 'Controller received TICK ' + args);
                 const time = args;
                 this.advanceTo(time);
                 break;
             }
             case 'SERVE': {
-                console.log('SERVE - replying with snapshot');
+                console.log(this.id, 'Controller received SERVE - replying with snapshot');
                 this.socket.send(JSON.stringify({
                     action: args, // reply action
                     args: this.island.asState(),
@@ -367,31 +423,27 @@ export class Controller {
                 this.island.sendNoop();
                 break;
             }
-            case 'SYNC': {
-                console.log('SYNC - received snapshot');
-                this.install(args);
-                break;
-            }
             default: console.log("Unknown action:", action);
         }
     }
 
-    async install(snapshot) {
-        const newIsland = this.islandCreator.creatorFn(snapshot);
+    async install(drainQueue=false) {
+        const {snapshot, creatorFn, callbackFn} = this.islandCreator;
+        const newIsland = creatorFn(snapshot);
         const newTime = newIsland.time;
         // eslint-disable-next-line no-constant-condition
-        while (true) {
+        while (drainQueue) {
             // eslint-disable-next-line no-await-in-loop
             const nextMsg = await this.networkQueue.next();
             if (nextMsg[0] > newTime) {
                 // This is the first 'real' message arriving.
                 newIsland.decodeScheduleAndExecute(nextMsg);
-                this.setIsland(newIsland); // install island
-                this.islandCreator.callbackFn(this.island);
-                return; // done
+                drainQueue = false;
             }
             // otherwise, silently skip the message
         }
+        this.setIsland(newIsland); // install island
+        callbackFn(this.island);
     }
 
     setIsland(island) {
@@ -399,28 +451,24 @@ export class Controller {
         this.island.controller = this;
     }
 
-    newIsland(creatorFn, state, callbackFn=()=>{}) {
-        this.islandCreator = { creatorFn, callbackFn };
-        this.setIsland(creatorFn(state));
-        Controllers[this.island.id] = this;
-    }
-
     // network queue
 
-    join(socket) {
-        console.log('JOIN', this.island.id);
+    join(socket, id) {
+        console.log(id, 'Controller sending JOIN');
         this.socket = socket;
+        const time = this.islandCreator.snapshot.time || 0;
         socket.send(JSON.stringify({
-            id: this.island.id,
+            id,
             action: 'JOIN',
-            args: this.island.time,
+            args: time,
         }));
     }
 
     sendMessage(msg) {
         // SEND: Broadcast a message to all participants.
+        console.log(this.id, `Controller sending SEND ${msg.asState()}`);
         this.socket.send(JSON.stringify({
-            id: this.island.id,
+            id: this.id,
             action: 'SEND',
             args: msg.asState(),
         }));

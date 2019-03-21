@@ -6,7 +6,6 @@ const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
 export default function initRoom3(state) {
-    state = { id: "2bb90375ea596139cc2cdcf474df4118", ...state };
     return new Island(state, () => {
         const room = new Room();
         const text1 = new Editor({
