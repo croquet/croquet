@@ -209,6 +209,7 @@ export class LayoutSlotText extends LayoutViewPart {
         this.targetViewPart.threeObj.position.copy(targetPos);
         this.targetViewPart.update({
             width: (this.node.getComputedWidth()) / MUL,
+            height: (this.node.getComputedHeight()) / MUL,
             anchor: "top"
         });
         //console.log(this.partId, this.node.getComputedLeft(), this.node.getComputedTop(), this.node.getComputedWidth(), this.node.getComputedHeight());

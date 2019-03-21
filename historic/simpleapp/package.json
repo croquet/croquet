@@ -29,6 +29,7 @@
   "dependencies": {
     "array-flat-polyfill": "^1.0.0",
     "fastpriorityqueue": "^0.6.1",
+    "linebreak": "^0.3.0",
     "seedrandom": "^2.4.4",
     "three": "^0.101.1",
     "three-bmfont-text": "git+https://github.com/yoshikiohshima/three-bmfont-text.git",

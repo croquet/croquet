@@ -6,12 +6,13 @@ import StatePart from "../statePart.js";
 import SpatialPart from '../stateParts/spatial.js';
 import InertialSpatialPart from '../stateParts/inertialSpatial.js';
 import View from '../view.js';
-import Text from '../objects/text.js';
-import TextViewPart from '../viewParts/text.js';
 import Object3D, { Object3DGroup } from '../viewParts/object3D.js';
 import DraggableViewPart from '../viewParts/draggable.js';
 import TrackSpatial from '../viewParts/trackSpatial.js';
+import { Text } from '../objects/text.js';
 import { LayoutRoot, LayoutContainer, LayoutSlotStretch3D, LayoutSlotText } from '../viewParts/layout.js';
+import TextViewPart from '../viewParts/text.js';
+import { Editor } from '../objects/editableText.js';
 
 const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
@@ -83,7 +84,7 @@ class LayoutTestView extends View {
         new BoxViewPart(this, {id: "box1", color: "#dd8888"});
         new BoxViewPart(this, {id: "box2", color: "#dddd88"});
         new BoxViewPart(this, {id: "box3", color: "#88dd88"});
-        new TextViewPart(this, {id: "text1", width: 3, height: 2, numLines: 5, content: [{text: `Our first design for multiple inheritance presumed that a state variable such as ohms had a meaning independent of the individual perspectives. Hence, it was sensible for it to be owned by the node itself. All perspectives would reference this single variable when referring to resistance. This proved adequate so long as the system designer knew all of the perspectives that might be associated with a given node, and could ensure this uniformity of intended reference.`}]});
+        new TextViewPart(this, {id: "text1", fontSize: 0.25, content: `This is an example of text in a dynamic layout: "Our first design for multiple inheritance presumed that a state variable such as ohms had a meaning independent of the individual perspectives. Hence, it was sensible for it to be owned by the node itself. All perspectives would reference this single variable when referring to resistance. This proved adequate so long as the system designer knew all of the perspectives that might be associated with a given node, and could ensure this uniformity of intended reference."`});
         new BoxViewPart(this, {id: "box4", color: "#88dddd"});
         new BoxViewPart(this, {id: "box5", color: "#8888dd"});
 
@@ -121,20 +122,29 @@ export default function initRoom1(state = {}) {
     return new Island(state, () => {
         const room = new Room();
 
-        const rotatingBox = new RotatingBox({ spatial: { position: {x: 3, y: 4, z: 0} } });
+        const rotatingBox = new RotatingBox({ spatial: { position: {x: 1.5, y: 1, z: 0} } });
         room.parts.objects.add(rotatingBox);
 
         const text1 = new Text({
-            spatial: { position: {x: -3, y: 1, z: 0} },
-            text: { content: [{text: "man is much more than a tool builder... he is an inventor of universes."}] }
+            spatial: { position: new THREE.Vector3(-3.5, 0.7, -1) },
+            text: { content: "Man is much more than a tool builder... he is an inventor of universes." }
         });
         room.parts.objects.add(text1);
 
         const text2 = new Text({
-            spatial: { position: {x: 5, y: 1, z: 0} },
-            text: { content: [{text: "Chapter Eight - The Queen's Croquet Ground", font: "Roboto"}] },
+            spatial: { position: new THREE.Vector3(4, 1.0, -2) },
+            text: { content: "Chapter Eight - The Queen's Croquet Ground", font: "Lora" },
         });
         room.parts.objects.add(text2);
+
+        const editText = new Editor({
+            spatial: { position: {x: -4, y: 2, z: -1.5} },
+            editableText: { content: [{text: "This text can be edited"}], font: "Roboto", numLines: 10, width: 3, height: 2}
+        },
+        {
+            editable: true,
+        });
+        room.parts.objects.add(editText);
 
         const layoutTest = new LayoutTestModel({
             spatial: { position: {x: 0, y: 1, z: -3 } },

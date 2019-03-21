@@ -7,8 +7,8 @@ var CAP_HEIGHTS = ['H', 'I', 'N', 'E', 'F', 'K', 'L', 'T', 'U', 'V', 'W', 'X', '
 var TAB_ID = '\t'.charCodeAt(0)
 var SPACE_ID = ' '.charCodeAt(0)
 var NB_SPACE_ID = '\xa0'.charCodeAt(0)
-var ALIGN_LEFT = 0, 
-    ALIGN_CENTER = 1, 
+var ALIGN_LEFT = 0,
+    ALIGN_CENTER = 1,
     ALIGN_RIGHT = 2
 
 function number(a, b) {
@@ -31,12 +31,12 @@ function extend() {
     return target
 }
 
-export class TextLayout {
+export class GlyphLayout {
     constructor(opt) {
         this.glyphs = []
         //this._measure = this.computeMetrics.bind(this)
         opt.tabSize = opt.tabSize || 4
-        this._opt = opt 
+        this._opt = opt
         this.setupSpaceGlyphs(opt.font)
         //this.update(opt)
     }
@@ -54,8 +54,8 @@ export class TextLayout {
         //try to get space glyph
         //then fall back to the 'm' or 'w' glyphs
         //then fall back to the first glyph available
-        var space = getGlyphById(font, SPACE_ID) 
-            || getMGlyph(font) 
+        var space = getGlyphById(font, SPACE_ID)
+            || getMGlyph(font)
             || font.chars[0]
 
         //and create a fallback for tab
@@ -63,7 +63,7 @@ export class TextLayout {
         this._fallbackSpaceGlyph = space
         this._fallbackNBSpaceGlyph = space
         this._fallbackTabGlyph = extend(space, {
-            x: 0, y: 0, xadvance: tabWidth, id: TAB_ID, 
+            x: 0, y: 0, xadvance: tabWidth, id: TAB_ID,
             xoffset: 0, yoffset: 0, width: 0, height: 0
         })
     }
@@ -72,9 +72,9 @@ export class TextLayout {
         var glyph = getGlyphById(font, id)
         if (glyph)
             return glyph
-        else if (id === TAB_ID) 
+        else if (id === TAB_ID)
             return this._fallbackTabGlyph
-        else if (id === SPACE_ID || NB_SPACE_ID) 
+        else if (id === SPACE_ID || NB_SPACE_ID)
             return this._fallbackSpaceGlyph
         return null
     }
@@ -106,7 +106,7 @@ export class TextLayout {
             }
             count++
         }
-  
+
         let result = {}
         result.ascent = font.common.base
         result.height = font.common.lineHeight
@@ -196,7 +196,7 @@ export class TextLayout {
   'lineHeight' ].forEach(addGetter)
 
 function addGetter(name) {
-  Object.defineProperty(TextLayout.prototype, name, {
+  Object.defineProperty(GlyphLayout.prototype, name, {
     get: wrapper(name),
     configurable: true
   })
@@ -225,7 +225,7 @@ function getXHeight(font) {
   for (var i=0; i<X_HEIGHTS.length; i++) {
     var id = X_HEIGHTS[i].charCodeAt(0)
     var idx = findChar(font.chars, id)
-    if (idx >= 0) 
+    if (idx >= 0)
       return font.chars[idx].height
   }
   return 0
@@ -235,7 +235,7 @@ function getMGlyph(font) {
   for (var i=0; i<M_WIDTHS.length; i++) {
     var id = M_WIDTHS[i].charCodeAt(0)
     var idx = findChar(font.chars, id)
-    if (idx >= 0) 
+    if (idx >= 0)
       return font.chars[idx]
   }
   return 0
@@ -245,7 +245,7 @@ function getCapHeight(font) {
   for (var i=0; i<CAP_HEIGHTS.length; i++) {
     var id = CAP_HEIGHTS[i].charCodeAt(0)
     var idx = findChar(font.chars, id)
-    if (idx >= 0) 
+    if (idx >= 0)
       return font.chars[idx].height
   }
   return 0

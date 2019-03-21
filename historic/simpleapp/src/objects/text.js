@@ -1,13 +1,12 @@
-import Model from '../model.js';
-import SpatialPart from '../stateParts/spatial.js';
-import TextPart from '../stateParts/text.js';
-
-import View from '../view.js';
-import TrackSpatial from '../viewParts/trackSpatial.js';
-import TextViewPart from '../viewParts/text.js';
+import Model from "../model.js";
+import TextPart from "../stateParts/text.js";
+import SpatialPart from "../stateParts/spatial.js";
+import View from "../view.js";
+import TextViewPart, { TrackText } from "../viewParts/text.js";
+import TrackSpatial from "../viewParts/trackSpatial.js";
 
 /** Model for a simple text display */
-export default class Text extends Model {
+export class Text extends Model {
     buildParts(state) {
         new TextPart(this, state);
         new SpatialPart(this, state);
@@ -16,24 +15,11 @@ export default class Text extends Model {
     naturalViewClass() { return TextView; }
 }
 
-/** Model for a text editor */
-export class Editor extends Text {
-
-    naturalViewClass() { return EditorView; }
-
-}
-
 /** View for rendering a Text */
-class TextView extends View {
+export class TextView extends View {
     buildParts() {
-        new TextViewPart(this, {});
-        new TrackSpatial(this, { affects: "text" });
-    }
-}
-
-class EditorView extends View {
-    buildParts() {
-        new TextViewPart(this, { editable: true });
-        new TrackSpatial(this, { affects: "text" });
+        new TextViewPart(this, {fontSize: 0.4});
+        new TrackSpatial(this, {affects: "text"});
+        new TrackText(this);
     }
 }

@@ -1,315 +1,159 @@
 import * as THREE from 'three';
 import { TextGeometry, HybridMSDFShader } from 'three-bmfont-text';
+import LineBreaker from 'linebreak';
 import Object3D from "./object3D.js";
-//import LazyObject3D from "../util/lazyObject3D.js";
+import LazyObject3D from "../util/lazyObject3D.js";
+import { ViewPart } from '../view.js';
 import { TextEvents } from '../stateParts/text.js';
-import { PointerEvents, makePointerSensitive } from "./pointer.js";
-import { Carota } from './carota/editor.js';
-import { fontRegistry } from './fontRegistry.js';
-import { KeyboardEvents, KeyboardTopic } from '../domKeyboardManager.js';
-//import { textCommands, jsEditorCommands, defaultKeyBindings } from './text-commands.js';
+import { fontRegistry } from '../util/fontRegistry.js';
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
+const DEBUG_GLYPH_GEOMETRY = false;
+const DEBUG_SIZEBOX = false;
+
 export default class TextViewPart extends Object3D {
     fromOptions(options) {
-        options = {content: [], glyphs: [], font: "Roboto", width: 3, height: 2, numLines: 10, drawnRects: [], editable: false, showSelection: true, ...options};
+        options = {content: "Hello", font: "Barlow", width: 5, height: 2, fontSize: 0.3, anchor: "bottom", ...options};
         this.modelSource = options.modelSource;
         this.options = options;
-
-        if (this.options.editable) {
-            this.subscribe(PointerEvents.pointerDown, "onPointerDown");
-            this.subscribe(PointerEvents.pointerMove, "onPointerMove");
-            this.subscribe(PointerEvents.pointerUp, "onPointerUp");
-            this.subscribe(KeyboardEvents.keydown, "onKeyDown");
-        }
-
-        this.boxSelections = [];
     }
 
-    attachWithObject3D(modelState) {
-        fontRegistry.getAtlasFor(this.options.font).then(atlas => {
-            this.initEditor();
-            this.initTextMesh(atlas);
-        });
-        const boxMesh = this.initBoxMesh();
-        if (this.options.editable) {
-            makePointerSensitive(boxMesh, this.asPartRef());
-        }
-        if (modelState && modelState.parts.text && modelState.parts.text.content) {
-            this.options.content = modelState.parts.text.content;
-            this.subscribe(TextEvents.modelContentChanged, "onContentChanged", modelState.id, this.modelSource);
-        }
-        return boxMesh;
-    }
-    onGetFocus() {
-        // I acquire focus
-        // this.editor.getFocus();
+    attachWithObject3D() {
+        const promise = this.build();
+        const placeholder = new THREE.Mesh(new THREE.PlaneBufferGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
+
+        return new LazyObject3D(placeholder, promise);
     }
 
-    initEditor() {
-        Carota.setCachedMeasureText(fontRegistry.measureText.bind(fontRegistry)); // ???
-        this.lastPt = false;
-        this.editor = new Carota(this.options.width, this.options.height, this.options.numLines);
-        this.editor.isScrollable = true;  // unless client decides otherwise
+    build() {
+        return fontRegistry.load(this.options.font).then(({atlas, measurer, info}) => {
+            const baseFontSize = info.info.size;
+            const scale = this.options.fontSize / baseFontSize;
+            const widthInBaseFontSizeMultiples = this.options.width / scale;
 
-        this.editor.mockCallback = ctx => {
-            const glyphs = this.processMockContext(ctx);
-            this.update({glyphs, corners: this.editor.visibleTextBounds(), scaleX: this.editor.scaleX, scrollTop: this.editor.scrollTop, frameHeight: this.editor.frame.height, drawnRects: ctx.filledRects});
-            if (this.options.editable) {
-                this.owner.model["text"].onContentChanged(this.editor.save());
-            }
-        };
-    }
+            const lineWidth = widthInBaseFontSizeMultiples;
+            const lineSpacing = info.common.lineHeight;
 
-    processMockContext(ctx) {
-        const layout = fontRegistry.getMeasurer(this.options.font);
-        if (!layout) {return [];}
-        const info = fontRegistry.getInfo(this.options.font);
-        const baseLine = fontRegistry.getOffsetY(this.options.font);
-        return layout.computeGlyphs({font: info, drawnStrings: ctx.drawnStrings, offsetY: baseLine});
-    }
+            const breaker = new LineBreaker(this.options.content);
+            let bk = breaker.nextBreak();
+            let lineBeginningIdx = 0;
+            let lastWordIdx = 0;
+            let currentLineWidth = 0;
+            const lines = [];
 
-    updateMaterial() {
-        const text = this.text;
+            while (bk) {
+                const word = this.options.content.slice(lastWordIdx, bk.position);
+                const spaceWidth = measurer.measureText(" ").width;
+                const wordWidth = measurer.measureText(word).width;
+                const nextBk = breaker.nextBreak();
+                const tooLong = currentLineWidth + wordWidth > lineWidth;
 
-        const bounds = this.options.corners;
-        text.material.uniforms.corners.value = new THREE.Vector4(bounds.l, bounds.t, bounds.r, bounds.b);
-    }
-
-    initTextMesh(atlasTexture) {
-        const font = this.options.font;
-        const geometry = new TextGeometry({
-            font: fontRegistry.getInfo(font),
-            width: this.options.width,
-            glyphs: [],
-            align: null,
-            flipY: true
-        });
-
-        const material = new THREE.RawShaderMaterial(HybridMSDFShader({
-            map: atlasTexture,
-            side: THREE.DoubleSide,
-            transparent: true,
-            negate: true
-        }));
-
-        const textMesh = new THREE.Mesh(geometry, material);
-        this.text = textMesh;
-        const box = this.threeObj;
-        box.add(textMesh);
-
-        const callback = () => this.onTextChanged();
-        this.editor.setSubscribers(callback);
-        this.editor.load(this.options.content);
-
-        this.initSelectionMesh();
-        this.initScrollBarMesh();
-
-        window.view = this;
-    }
-
-    initBoxMesh() {
-        this.clippingPlanes = [new THREE.Plane(new THREE.Vector3(0, 1, 0),  0),
-                               new THREE.Plane(new THREE.Vector3(0, -1, 0), 0),
-                               new THREE.Plane(new THREE.Vector3(-1, 0, 0), 0),
-                               new THREE.Plane(new THREE.Vector3(1, 0, 0), 0)];
-
-        const box = new THREE.Mesh(new THREE.PlaneBufferGeometry(this.options.width, this.options.height), new THREE.MeshBasicMaterial({ color: 0xeeeeee }));
-        return box;
-    }
-
-    initSelectionMesh() {
-        // geometry for the cursor bar rendered if selection is empty
-        // see makeBoxSelectionMesh for actual selection
-        const box = this.threeObj;
-
-        const plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(0.1, 0.1), new THREE.MeshBasicMaterial({ color: 0x111180 }));
-
-        plane.visible = false;
-        box.add(plane);
-        this.selectionBar = plane;
-        //cube.object3D.onBeforeRender = this.selectionBeforeRender.bind(this);
-        this.boxSelections = [];
-    }
-
-    initScrollBarMesh() {
-        const box = this.threeObj;
-        let plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(0.1, 0.1), new THREE.MeshBasicMaterial({ color: 0x0044ee }));
-        plane.visible = false;
-        box.add(plane);
-        this.scrollBar = plane;
-
-        plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(0.1, 0.1), new THREE.MeshBasicMaterial({ color: 0x00aaee }));
-        plane.visible = false;
-        box.add(plane);
-        this.scrollKnob = plane;
-    }
-
-    updateGeometry(geometry) {
-        const font = fontRegistry.getInfo(this.options.font);
-        const meterInPixel = this.options.width / this.options.scaleX;
-        const scrollT = this.options.scrollTop;
-        const descent = font.common.lineHeight - font.common.base;
-
-        const docHeight = this.options.frameHeight;
-        const docInMeter = docHeight * meterInPixel;
-
-        const text = this.text;
-        text.scale.x = meterInPixel;
-        text.scale.y = -meterInPixel;
-
-        text.position.x = -this.options.width / 2;
-        text.position.y = this.options.height / 2 + (scrollT * docInMeter);
-        text.position.z = 0.005;
-
-        geometry.update({font: fontRegistry.getInfo(this.options.font), glyphs: this.options.glyphs});
-
-        this.updateScrollBarAndSelections(this.options.drawnRects, meterInPixel, docHeight, scrollT, descent);
-    }
-
-    updateScrollBarAndSelections(drawnRects, meterInPixel, docHeight, scrollT, _descent) {
-        let boxInd = 0;
-        const [cursorX, cursorY] = fontRegistry.getCursorOffset(this.options.font);
-
-        for (let i = 0; i < drawnRects.length; i++) {
-            const rec = drawnRects[i];
-            const w = rec.w * meterInPixel;
-            const h = rec.h * meterInPixel;
-            const x = -this.options.width / 2 + (rec.x + cursorX) * meterInPixel + w / 2;
-            const y = this.options.height / 2 + ((scrollT * docHeight) - (rec.y + cursorY)) * meterInPixel - h / 2;
-            const meshRect = {x, y, w, h};
-
-            if (rec.style === 'bar selection') {
-                if (this.options.showSelection) {
-                    // drawing the insertion  - line width of text cursor should relate to font
-                    meshRect.w = 5 * meterInPixel;
-                    this.updateSelection(this.selectionBar, meshRect);
-                    this.boxSelections.forEach(box => this.updateSelection(box, null));
-                }
-            } else if (rec.style === 'box selection focus' ||
-                       rec.style === 'box selection unfocus') {
-                // boxes of selections
-                if (this.options.showSelection) {
-                    let cube;
-                    if (!this.boxSelections[boxInd]) {
-                        cube = this.boxSelections[boxInd] = this.makeBoxSelectionMesh();
-                        this.threeObj.add(cube);
+                if (!nextBk || bk.required || tooLong) {
+                    if (tooLong) {
+                        lines.push(this.options.content.slice(lineBeginningIdx, lastWordIdx));
+                        if (!nextBk) {
+                            lines.push(this.options.content.slice(lastWordIdx, bk.position));
+                        }
+                    } else {
+                        lines.push(this.options.content.slice(lineBeginningIdx, bk.position));
                     }
-                    cube = this.boxSelections[boxInd];
-                    this.updateSelection(cube, meshRect);
-                    boxInd++;
-                    this.updateSelection(this.selectionBar, null);
+
+                    currentLineWidth = tooLong ? wordWidth : 0;
+                    lineBeginningIdx = lastWordIdx;
+                } else {
+                    currentLineWidth += wordWidth + spaceWidth;
                 }
-            } else if (rec.style === 'scroll bar') {
-                meshRect.y += -scrollT * docHeight * meterInPixel;
-                this.updateSelection(this.scrollBar, meshRect);
-            } else if (rec.style === 'scroll knob') {
-                meshRect.y += -scrollT * docHeight * meterInPixel;
-                this.updateSelection(this.scrollKnob, meshRect, 0.004);
+
+                lastWordIdx = bk.position;
+                bk = nextBk;
             }
-        }
-        for (let i = boxInd; i < this.boxSelections.length; i++) {
-            this.updateSelection(this.boxSelections[i], null);
-        }
-    }
 
-    updateSelection(selection, rect, optZ) {
-        if (!selection) {return;}
-        const actuallyShow = !!rect;
-        selection.visible = actuallyShow;
-        if (!actuallyShow) {return;}
-        const geom = new THREE.PlaneBufferGeometry(rect.w, rect.h);
-        selection.geometry = geom;
-        selection.position.set(rect.x, rect.y, optZ || 0.003);
-    }
+            const drawnStrings = lines.map((line, i) => ({
+                x: 0,
+                y: (i + 1) * lineSpacing, // because computeGlyphs will remove 1x letter height
+                string: line,
+                font: this.options.font,
+                style: "black"
+            }));
 
-    removeSelections() {
-        if (this.boxSelections) {
-            this.boxSelections.forEach(box => box.remove());
-        }
-        this.boxSelections = [];
+            const geometry = new TextGeometry({
+                font: info,
+                glyphs: measurer.computeGlyphs({
+                    font: info,
+                    drawnStrings
+                }),
+                flipY: true
+            });
+            const height = lines.length * lineSpacing;
 
-        ['selectionBar', 'scrollBar', 'scrollKnob'].forEach(name => {
-            if (this[name]) {
-                this[name].remove();
-                this[name] = null;
+            const material = DEBUG_GLYPH_GEOMETRY
+                ? new THREE.MeshBasicMaterial({color: "#00ff00", side: THREE.DoubleSide})
+                : new THREE.RawShaderMaterial(HybridMSDFShader({
+                    map: atlas,
+                    side: THREE.DoubleSide,
+                    transparent: true,
+                    color: 'rgb(0, 0, 0)',
+                    negate: true
+                }));
+            if (!DEBUG_GLYPH_GEOMETRY) {
+                material.uniforms.corners.value = new THREE.Vector4(0, 0, lineWidth, this.options.height / scale);
             }
+
+            const mesh = new THREE.Mesh(geometry, material);
+            if (this.options.anchor !== "top") {
+                mesh.position.copy(new THREE.Vector3(0, scale * (height / 2), 0));
+            }
+            mesh.scale.set(scale, -scale, scale);
+            const group = new THREE.Group();
+            group.add(mesh);
+
+            if (DEBUG_SIZEBOX) {
+                const box = new THREE.Mesh(
+                    new THREE.PlaneBufferGeometry(this.options.width, this.options.height),
+                    new THREE.MeshBasicMaterial({color: "#0000ff", transparent: true, opacity: 0.3}));
+                box.position.x += this.options.width / 2;
+                if (this.options.anchor === "top") {
+                    box.position.y -= this.options.height / 2;
+                }
+                group.add(box);
+            }
+
+            return group;
         });
     }
 
-    makeBoxSelectionMesh() {
-        const plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(0.1, 0.1), new THREE.MeshBasicMaterial({ color: 0xA0CFEC }));
-
-        plane.visible = false;
-        //plane.onBeforeRender = this.selectionBeforeRender.bind(this);
-        return plane;
+    rebuild() {
+        this.threeObj.replace(this.build());
     }
 
     update(newOptions) {
-        this.options = Object.assign(this.options, newOptions);
-        const text = this.text;
-        if (text && text.geometry) {
-            this.updateMaterial();
-            this.updateGeometry(text.geometry);
-        }
+        this.options = {...this.options, ...newOptions};
+        this.rebuild();
+    }
+}
+
+export class TrackText extends ViewPart {
+    fromOptions(options) {
+        options = {modelSource: "text", affects: "text", ...options};
+        this.modelSource = options.modelSource;
+        /** @type {TextViewPart} */
+        this.targetViewPart = this.owner.parts[options.affects];
+    }
+
+    attach(modelState) {
+        const modelPart = modelState.parts[this.modelSource];
+        this.targetViewPart.update({content: modelPart.content, font: modelPart.font});
+        this.subscribe(TextEvents.contentChanged, "onContentChanged", modelState.id, this.modelSource);
+        this.subscribe(TextEvents.fontChanged, "onFontChanged", modelState.id, this.modelSource);
     }
 
     onContentChanged(newContent) {
-        this.editor.load(newContent);
+        this.targetViewPart.update({content: newContent});
     }
 
-    onTextChanged() {}
-
-    textPtFromEvt(evtPt) {
-        const pt = this.threeObj.worldToLocal(evtPt.clone());
-        const {editor: {scaleX, scaleY, scrollLeft, scrollTop}} = this;
-        const width = this.options.width;
-        const height = this.options.height;
-        const visibleTop = (scrollTop * this.editor.frame.height);
-        const x = Math.floor((width / 2 + pt.x + scrollLeft) * (scaleX / width));
-        const realY = (height / 2 - pt.y) * (scaleY / height);
-        const y = Math.floor(realY + visibleTop);
-
-        return {x, y, realY};
-    }
-
-    onPointerDown(evt) {
-        this.publish(KeyboardEvents.requestfocus, {requesterRef: this.asPartRef()}, KeyboardTopic, null);
-        const pt = this.textPtFromEvt(evt.at);
-        this.editor.mouseDown(pt.x, pt.y, pt.realY);
-        this.lastPt = pt;
-        return true;
-    }
-
-    onPointerMove(evt) {
-        if (!this.lastPt) { return false;}
-        const pt = this.textPtFromEvt(evt.hoverPoint);
-        this.editor.mouseMove(pt.x, pt.y, pt.realY);
-        this.lastPt = pt;
-        return true;
-    }
-
-    onPointerUp(_evt) {
-        const pt = this.lastPt;
-        this.mouseIsDown = false;
-        this.editor.mouseUp(pt.x, pt.y, pt.realY);
-        this.lastPt = null;
-        return true;
-    }
-
-    onKeyDown(evt) {
-        if (evt.keyCode === 13) {
-            this.editor.insert('\n');
-            return true;
-        }
-        const handled = this.editor.handleKey(evt.keyCode, evt.shiftKey, evt.ctrlKey|| evt.metaKey);
-
-        if (!handled && !(evt.ctrlKey || evt.metaKey)) {
-            this.editor.insert(evt.key);
-            return true;
-        }
-        return true;
+    onFontChanged(newFont) {
+        this.targetViewPart.update({font: newFont});
     }
 }
