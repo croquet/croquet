@@ -39,6 +39,7 @@ function execOnIsland(island, fn) {
  * uniform pub/sub between models and views possible.*/
 export default class Island {
     static current() { return CurrentIsland; }
+    static encodeClassOf(obj) { return classToID(obj.constructor); }
 
     constructor(state = {}, initFn) {
         this.modelsById = {};
@@ -60,7 +61,7 @@ export default class Island {
             if (state.models) {
                 // create all models
                 for (const modelState of state.models || []) {
-                    const ModelClass = modelClassNamed(modelState.className);
+                    const ModelClass = classFromID(modelState.class);
                     new ModelClass(modelState);  // registers the model
                 }
                 // wire up models in second pass
@@ -585,21 +586,38 @@ class Message {
 // map model class names to model classes
 let ModelClasses = {};
 
-function modelClassNamed(className) {
-    if (ModelClasses[className]) return ModelClasses[className].cls;
+// Symbol for storing class ID in constructors
+const CLASS_ID = Symbol('CLASS_ID');
+
+function gatherModelClasses() {
     // HACK: go through all exports and find model subclasses
     ModelClasses = {};
     for (const [file, m] of Object.entries(module.bundle.cache)) {
         for (const cls of Object.values(m.exports)) {
             if (cls && cls.__isTeatimeModelClass__) {
-                const dupe = ModelClasses[cls.name];
-                if (dupe) throw Error(`Duplicate Model subclass "${cls.name}" in ${file} and ${dupe.file}`);
-                ModelClasses[cls.name] = {cls, file};
+                // create a classID for this class
+                const id = `${file}:${cls.name}`;
+                const dupe = ModelClasses[id];
+                if (dupe) throw Error(`Duplicate Model subclass "${id}" in ${file} and ${dupe.file}`);
+                ModelClasses[id] = {cls, file};
+                cls[CLASS_ID] = id;
             }
         }
     }
-    if (ModelClasses[className]) return ModelClasses[className].cls;
-    throw Error(`Class "${className}" not found, is it exported?`);
+}
+
+function classToID(cls) {
+    if (cls[CLASS_ID]) return cls[CLASS_ID];
+    gatherModelClasses();
+    if (cls[CLASS_ID]) return cls[CLASS_ID];
+    throw Error(`Class "${cls.name}" not found, is it exported?`);
+}
+
+function classFromID(classID) {
+    if (ModelClasses[classID]) return ModelClasses[classID].cls;
+    gatherModelClasses();
+    if (ModelClasses[classID]) return ModelClasses[classID].cls;
+    throw Error(`Class "${classID}" not found, is it exported?`);
 }
 
 // flush ModelClasses after hot reload

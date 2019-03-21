@@ -68,7 +68,7 @@ export default class Model extends PartOwner {
 
     // STATE
     toState(state) {
-        state.className = this.constructor.name;
+        state.class = Island.encodeClassOf(this);
         state.id = this.id;
         for (const [partId, part] of Object.entries(this.parts)) {
             part.toState(state[partId] = {});
