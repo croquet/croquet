@@ -3,10 +3,9 @@ import hotreload from "./hotreload.js";
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
-/** prefix to identify our own source files, as opposed to node modules etc */
-const prefix = "../src/";
-if (prefix + 'modules.js' !== module.id) throw Error("source structure changed!");
-const exclude = /(index.js|hotreload.js|modules.js|server\/|util\/|view)/i;
+// this exclude list only works for unmangled moduleIDs during development
+// in production, moduleIDs are mangled so essentially all files will be hashed
+const exclude = /(index.js|hotreload.js|modules.js|server\/|util\/|view|node_modules)/i;
 
 /**
  * find the given module
@@ -73,12 +72,14 @@ async function hashFile(mod) {
 }
 
 
-export async function hashModelCode(filePath) {
-    if (!moduleNamed(prefix + filePath)) throw Error("Module not found: " + prefix + filePath);
-    const filter = name=>name.startsWith(prefix) && !name.match(exclude);
-    const mods = allDependenciesOf(prefix + filePath, filter);
-    //console.log("hashing:", mods);
-    const hashes = await Promise.all(Array.from(mods).sort().map(mod => hashFile(mod)));
-    const hash = await hashString(filePath + hashes.join('|'));
+export async function hashModelCode(name, moduleID) {
+    if (!moduleNamed(moduleID)) throw Error("Module not found: " + moduleID);
+    // console.time("Hashing " + name);
+    const filter = id => !id.match(exclude);
+    const mods = Array.from(allDependenciesOf(moduleID, filter)).sort();
+    // console.log(`${name} Hashing ${moduleID}: ${mods.join(' ')}`);
+    const hashes = await Promise.all(mods.map(hashFile));
+    const hash = await hashString([name, ...hashes].join('|'));
+    // console.timeEnd("Hashing " + name);
     return hash;
 }

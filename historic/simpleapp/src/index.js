@@ -1,9 +1,9 @@
 import * as THREE from "three";
 import hotreload from "./hotreload.js";
-import initRoom1 from './sampleRooms/room1.js';
-import initRoom2 from './sampleRooms/room2.js';
-import initRoom3 from './sampleRooms/room3.js';
-import initBounce from './sampleRooms/bounce.js';
+import room1 from './sampleRooms/room1.js';
+import room2 from './sampleRooms/room2.js';
+import room3 from './sampleRooms/room3.js';
+import roomBounce from './sampleRooms/bounce.js';
 import RoomViewManager from './room/roomViewManager.js';
 import Renderer from './render.js';
 import { Controller } from "./island.js";
@@ -56,19 +56,19 @@ function start() {
 
     const startRoom = hotState.currentRoomName || window.location.hash.replace("#", "") || "room1";
 
-    async function create(roomName, creatorFn) {
+    async function create(roomName, creator) {
         // let state = hotState.islands && hotState.islands[roomName];
         // if (state) state = JSON.parse(state);
         const controller = new Controller();
-        const island = await controller.create(`sampleRooms/${roomName}.js`, creatorFn);
+        const island = await controller.create(roomName, creator);
         ALL_ISLANDS[roomName] = island;
         if (roomName === startRoom) joinRoom(roomName);
     }
 
-    create("room1", initRoom1);
-    create("room2", initRoom2);
-    create("room3", initRoom3);
-    create("bounce", initBounce);
+    create("room1", room1);
+    create("room2", room2);
+    create("room3", room3);
+    create("bounce", roomBounce);
 
     /** @type {Renderer} */
     const renderer = hotState.renderer || new Renderer(window.innerWidth, window.innerHeight);

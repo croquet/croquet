@@ -349,11 +349,12 @@ export class Controller {
      *
      * Two participants running the same code will generate the same ID
      * for the same name.
-     * @param {String} fileName the filename of the room.
+     * @param {String} name a name for the room.
+     * @param {String} moduleID the ID of the module defining the room.
      * @returns {String} ID
      */
-    static versionIDFor(fileName) {
-        return hashModelCode(fileName);
+    static versionIDFor(name, moduleID) {
+        return hashModelCode(name, moduleID);
     }
 
     constructor() {
@@ -367,16 +368,19 @@ export class Controller {
      *         all source code that is imported by that file
      *
      * TODO: convert callback to promise
-     * @param {String} fileName The filename of creatorFn for dependency analysis
-     * @param {Function} creatorFn The function creating the island
-     * @param {*} snapshot The island's initial state (unless supplied by server)
+     * @param {String} name A (human-readable) name for the room
+     * @param {{moduleID:String, creatorFn:Function}} creator The moduleID and function creating the island
+     * @param {{}} snapshot The island's initial state (if hot-reloading)
      * @returns {Promise<Island>}
      */
-    async create(fileName, creatorFn, snapshot={}) {
-        snapshot.id = await Controller.versionIDFor(fileName);
-        console.log(`ID for ${fileName}: ${snapshot.id}`);
+    async create(name, creator, snapshot={}) {
+        const {moduleID, creatorFn} = creator;
+        const resumingID = snapshot.id;
+        snapshot.id = await Controller.versionIDFor(name, moduleID);
+        if (resumingID && resumingID !== snapshot.id) console.warn(name, 'resuming snapshot of different version!');
+        console.log(`ID for ${name}: ${snapshot.id}`);
         return new Promise(resolve => {
-            this.islandCreator = { fileName, creatorFn, snapshot, callbackFn: resolve };
+            this.islandCreator = { name, creatorFn, snapshot, callbackFn: resolve };
             Controller.join(this, snapshot.id);   // when socket is ready, join server
         });
     }

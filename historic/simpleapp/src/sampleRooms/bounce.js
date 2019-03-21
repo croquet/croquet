@@ -10,6 +10,9 @@ import SpatialPart from '../stateParts/spatial.js';
 import TrackSpatial from '../viewParts/trackSpatial.js';
 import { BoxView } from "./room1.js";
 
+const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
+if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
+
 /** Model for a Bouncing Box */
 export class BouncingBox extends Model {
     buildParts(state) {
@@ -94,7 +97,7 @@ class RandomColorChildren extends Object3DChildren {
     }
 }
 
-export default function initBounce(state) {
+function initBounce(state) {
     return new Island(state, () => {
         const room = new Room();
 
@@ -105,3 +108,8 @@ export default function initBounce(state) {
         }
     });
 }
+
+export default {
+    moduleID: module.id,
+    creatorFn: initBounce,
+};

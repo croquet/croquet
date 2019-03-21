@@ -117,7 +117,7 @@ class LayoutTestView extends View {
     }
 }
 
-export default function initRoom1(state) {
+function initRoom1(state) {
     return new Island(state, () => {
         const room = new Room();
 
@@ -151,3 +151,8 @@ export default function initRoom1(state) {
         room.parts.objects.add(layoutTest);
     });
 }
+
+export default {
+    moduleID: module.id,
+    creatorFn: initRoom1,
+};

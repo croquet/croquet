@@ -5,7 +5,7 @@ import { Editor } from '../objects/editableText.js';
 const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
-export default function initRoom3(state) {
+function initRoom3(state) {
     return new Island(state, () => {
         const room = new Room();
         const text1 = new Editor({
@@ -18,3 +18,8 @@ export default function initRoom3(state) {
         room.parts.objects.add(text1);
     });
 }
+
+export default {
+    moduleID: module.id,
+    creatorFn: initRoom3,
+};

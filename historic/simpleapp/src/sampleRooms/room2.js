@@ -6,7 +6,7 @@ import Portal from "../portal/portalModel.js";
 const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
-export default function initRoom2(state) {
+function initRoom2(state) {
     return new Island(state, () => {
         const room = new Room({color: {value: new THREE.Color("#000088")}});
 
@@ -35,3 +35,8 @@ export default function initRoom2(state) {
         room.parts.objects.add(portalBounce);
     });
 }
+
+export default {
+    moduleID: module.id,
+    creatorFn: initRoom2,
+};
