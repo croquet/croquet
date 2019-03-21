@@ -35,7 +35,7 @@ function execOnIsland(island, fn) {
 }
 
 /** An island holds the models which are replicated by teatime,
- * a queue of messages, plus additional bookeeping to make
+ * a queue of messages, plus additional bookkeeping to make
  * uniform pub/sub between models and views possible.*/
 export default class Island {
     static current() { return CurrentIsland; }
@@ -137,8 +137,12 @@ export default class Island {
         // scheduled earlier. It won't lead to any collisions (this would require
         // wrap-around within a time slot) but it still is a problem since it
         // may cause unpredictable effects on the code.
-        // The reflector uses a similar scheme with sequence numbers below 100000000.
-        this.timeSeq = (this.timeSeq + 100000000) % 1000000000000000;
+        // Then again, if we produced 1000 messages at 60 fps it would still take
+        // over 1000 years to wrap around. 2^53 is big.
+        // To have a defined ordering between future messages generated on island
+        // and messages from the reflector, we create even sequence numbers here and
+        // the reflector's sequence numbers are made odd on arrival
+        this.timeSeq = (this.timeSeq + 2) % (Number.MAX_SAFE_INTEGER + 1);
         const message = new Message(this.time + tOffset, this.timeSeq, receiverID, partID, selector, args);
         this.messages.add(message);
     }
@@ -412,6 +416,7 @@ export class Controller {
             case 'RECV': {
                 console.log(this.id, 'Controller received RECV ' + args);
                 const msg = args;
+                msg.seq = msg.seq * 2 + 1;  // make odd timeSeq from controller
                 //if (msg.sender === this.senderID) this.addToStatistics(msg);
                 this.networkQueue.put(msg);
                 break;
