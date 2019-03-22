@@ -41,7 +41,7 @@ function discover(ms, callback) {
             console.log("Channel: TIMEOUT for discover");
             discovered(myPort);
         }
-    }, 10);
+    }, ms);
 }
 function discovered(port) {
     clearTimeout(timeout);
