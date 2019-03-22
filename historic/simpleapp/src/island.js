@@ -124,10 +124,9 @@ export default class Island {
         this.controller.sendMessage(message);
     }
 
-    decodeScheduleAndExecute(msgData) {
+    decodeAndSchedule(msgData) {
         const message = Message.fromState(msgData);
         this.messages.add(message);
-        this.advanceTo(message.time);
     }
 
     futureSend(tOffset, receiverID, partID, selector, args) {
@@ -419,7 +418,10 @@ export class Controller {
     }
 
     constructor() {
+        /** the messages received from reflector */
         this.networkQueue = new AsyncQueue();
+        /** the time of last message received from reflector */
+        this.time = 0;
     }
 
     /**
@@ -471,12 +473,13 @@ export class Controller {
                 msg.seq = msg.seq * 2 + 1;  // make odd timeSeq from controller
                 //if (msg.sender === this.senderID) this.addToStatistics(msg);
                 this.networkQueue.put(msg);
+                this.time = msg.time;
                 break;
             }
             case 'TICK': {
                 // console.log(this.id, 'Controller received TICK ' + args);
                 const time = args;
-                this.advanceTo(time);
+                this.time = time;
                 break;
             }
             case 'SERVE': {
@@ -503,7 +506,7 @@ export class Controller {
             const nextMsg = await this.networkQueue.next();
             if (nextMsg[0] > newTime) {
                 // This is the first 'real' message arriving.
-                newIsland.decodeScheduleAndExecute(nextMsg);
+                newIsland.decodeAndSchedule(nextMsg);
                 drainQueue = false;
             }
             // otherwise, silently skip the message
@@ -540,12 +543,6 @@ export class Controller {
         }));
     }
 
-    advanceTo(newTime) {
-        if (!this.island) return;    // we are probably still sync-ing
-        this.processMessages();      // process all the messages thus far
-        this.island.advanceTo(newTime);
-    }
-
     processMessages() {
         // Process pending messages for this island
         if (!this.island) return;     // we are probably still sync-ing
@@ -553,8 +550,9 @@ export class Controller {
         // Get the next message from the (concurrent) network queue
         while ((msgData = this.networkQueue.nextNonBlocking())) {
             // And have the island decode, schedule, and update to that message
-            this.island.decodeScheduleAndExecute(msgData);
+            this.island.decodeAndSchedule(msgData);
         }
+        this.island.advanceTo(this.time);
     }
 }
 

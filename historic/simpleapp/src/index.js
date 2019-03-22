@@ -88,13 +88,12 @@ function start() {
             const currentRoomView = roomViewManager.getIfLoaded(currentRoomName);
 
             if (currentRoomView) {
+                Object.values(ALL_ROOMS).forEach(({island}) => island && island.processModelViewEvents());
                 currentRoomView.parts.pointer.updatePointer();
                 keyboardManager.setCurrentRoomView(currentRoomView);
             }
         }
-        for (const {island} of Object.values(ALL_ROOMS)) {
-            if (island) island.processModelViewEvents();
-        }
+        Object.values(ALL_ROOMS).forEach(({island}) => island && island.controller.processMessages());
         hotreload.requestAnimationFrame(frame);
     }
 
