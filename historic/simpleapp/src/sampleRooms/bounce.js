@@ -1,25 +1,48 @@
+import * as THREE from 'three';
 import SeedRandom from "seedrandom";
 import Island from "../island.js";
 import Model from '../model.js';
 import View from '../view.js';
 import Room from "../room/roomModel.js";
-import { Object3DGroup } from '../viewParts/object3D.js';
+import Object3D, { Object3DGroup } from '../viewParts/object3D.js';
 import ChildrenPart, { ChildEvents } from '../stateParts/children.js';
 import BouncingSpatialPart from '../stateParts/bouncingSpatial.js';
 import SpatialPart from '../stateParts/spatial.js';
 import TrackSpatial from '../viewParts/trackSpatial.js';
-import { BoxView } from "./room1.js";
+import Clickable from '../viewParts/clickable.js';
 
 const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
-/** Model for a Bouncing Box */
 export class BouncingBox extends Model {
     buildParts(state) {
         new BouncingSpatialPart(this, state);
     }
 
     naturalViewClass() { return BoxView; }
+}
+
+class BoxViewPart extends Object3D {
+    fromOptions(options) {
+        options = {color: "#aaaaaa", ...options};
+        super.fromOptions(options);
+        this.color = options.color;
+    }
+
+    attachWithObject3D(_modelState) {
+        return new THREE.Mesh(
+            new THREE.BoxBufferGeometry(1, 1, 1),
+            new THREE.MeshStandardMaterial({color: new THREE.Color(this.color)})
+        );
+    }
+}
+
+class BoxView extends View {
+    buildParts() {
+        new BoxViewPart(this);
+        new TrackSpatial(this, {affects: "box"});
+        new Clickable(this, {clickable: "box", method: "toggle"});
+    }
 }
 
 export class Group extends Model {

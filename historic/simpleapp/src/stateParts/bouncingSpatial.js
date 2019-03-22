@@ -16,7 +16,7 @@ export default class BouncingSpatialPart extends InertialSpatialPart {
         this.bounce = state.bounce || 0.1;
         this.ensure(this.gravity, THREE.Vector3);
         // kick off animation only (!) if created from scratch
-        if (!state[this.partId]) this.startInertiaPhase();
+        if (!("inInertiaPhase" in state)) this.startInertiaPhase();
         // otherwise, future message is still scheduled
     }
 
@@ -47,5 +47,10 @@ export default class BouncingSpatialPart extends InertialSpatialPart {
         }
     }
 
-    stopped() { return false; }
+    shouldStop() { return false; }
+
+    toggle() {
+        if (this.inInertiaPhase) this.stop();
+        else this.startInertiaPhase();
+    }
 }

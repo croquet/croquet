@@ -61,7 +61,7 @@ class BoxViewPart extends Object3D {
     }
 }
 
-export class BoxView extends View {
+class BoxView extends View {
     buildParts() {
         new BoxViewPart(this);
         new TrackSpatial(this, {affects: "box"});
