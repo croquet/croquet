@@ -16,6 +16,8 @@ if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle
 
 let hotState = module.hot && module.hot.data || {};
 
+const defaultRoom = window.location.hostname === "croquet.studio" ? "bounce" : "room1";
+
 /** The main function. */
 function start() {
     const ALL_ROOMS = {
@@ -70,7 +72,7 @@ function start() {
         }
     }
 
-    const startRoom = hotState.currentRoomName || window.location.hash.replace("#", "") || "room1";
+    const startRoom = hotState.currentRoomName || window.location.hash.slice(1) || defaultRoom;
     joinRoom(startRoom);
 
     /** @type {Renderer} */
