@@ -455,19 +455,22 @@ export class Controller {
     receive(action, args) {
         switch (action) {
             case 'START': {
-                // we are starting a new island session
+                // We are starting a new island session.
                 console.log(this.id, 'Controller received START - creating island');
                 this.install(false);
                 break;
             }
             case 'SYNC': {
-                // we are joining an island session
+                // We are joining an island session.
                 this.islandCreator.snapshot = args;    // set snapshot
                 console.log(this.id, 'Controller received SYNC - resuming snapshot');
                 this.install(true);
                 break;
             }
             case 'RECV': {
+                // We received a message from reflector.
+                // Put it in the queue, and set time.
+                // Actual processing happens in main loop.
                 console.log(this.id, 'Controller received RECV ' + args);
                 const msg = args;
                 msg.seq = msg.seq * 2 + 1;  // make odd timeSeq from controller
@@ -477,18 +480,22 @@ export class Controller {
                 break;
             }
             case 'TICK': {
+                // We received a tick from reflector.
+                // Just set time so main loop knows how far it can advance.
                 // console.log(this.id, 'Controller received TICK ' + args);
-                const time = args;
-                this.time = time;
+                this.time = args;
                 break;
             }
             case 'SERVE': {
+                // We received a request to serve a current snapshot
                 console.log(this.id, 'Controller received SERVE - replying with snapshot');
+                // send the snapshot
                 this.socket.send(JSON.stringify({
                     action: args, // reply action
                     args: this.island.asState(),
                 }));
-                // and send a dummy message so that the other guy can play catch up
+                // and send a dummy message so that the other guy can drop
+                // old messages in controller.install()
                 this.island.sendNoop();
                 break;
             }
