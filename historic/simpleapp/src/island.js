@@ -49,9 +49,10 @@ export default class Island {
         // Views can subscribe to model or other view events
         this.modelSubscriptions = {};
         this.viewSubscriptions = {};
+        // topics that had events since last frame
+        this.frameTopics = new Set();
         // pending messages, sorted by time
         this.messages = new PriorityQueue((a, b) => a.before(b));
-        this.modelViewEvents = [];
         execOnIsland(this, () => {
             // our synced random stream
             this._random = new SeedRandom(null, { state: state.random || true });
@@ -206,29 +207,47 @@ export default class Island {
         if (this.modelSubscriptions[topic]) this.modelSubscriptions[topic].remove(handler);
     }
 
-    addViewSubscription(scope, event, subscriberId, part, methodName) {
+    addViewSubscription(scope, event, subscriberId, part, methodName, oncePerFrame) {
         if (CurrentIsland) throw Error("Island Error");
         const topic = scope + ":" + event;
         const handler = subscriberId + "." + part + "." + methodName;
-        if (!this.viewSubscriptions[topic]) this.viewSubscriptions[topic] = new Set();
-        this.viewSubscriptions[topic].add(handler);
+        let subs = this.viewSubscriptions[topic];
+        if (!subs) subs = this.viewSubscriptions[topic] = {
+            data: [],
+            onceHandlers: new Set(),
+            queueHandlers: new Set(),
+        };
+        if (oncePerFrame) subs.onceHandlers.add(handler);
+        else subs.queueHandlers.add(handler);
     }
 
     removeViewSubscription(scope, event, subscriberId, part, methodName) {
         if (CurrentIsland) throw Error("Island Error");
         const topic = scope + ":" + event;
         const handler = subscriberId + "." + part + "." + methodName;
-        if (this.viewSubscriptions[topic]) this.viewSubscriptions[topic].delete(handler);
+        const subs = this.viewSubscriptions[topic];
+        if (subs) {
+            subs.onceHandlers.delete(handler);
+            subs.queueHandlers.delete(handler);
+            if (subs.onceHandlers.size + subs.queueHandlers.size === 0) {
+                delete this.viewSubscriptions[topic];
+            }
+        }
     }
 
     removeAllViewSubscriptionsFor(subscriberId, part) {
-        const handlerPrefix = subscriberId + "." + part;
+        const handlerPrefix = `${subscriberId}.${part}.`;
         // TODO: optimize this - reverse lookup table?
-        for (const topicSubscribers of Object.values(this.viewSubscriptions)) {
-            for (const handler of topicSubscribers) {
-                if (handler.startsWith(handlerPrefix)) {
-                    topicSubscribers.delete(handler);
+        for (const [topic, subs] of Object.entries(this.viewSubscriptions)) {
+            for (const kind of ["onceHandlers", "queueHandlers"]) {
+                for (const handler of subs[kind]) {
+                    if (handler.startsWith(handlerPrefix)) {
+                        subs.delete(handler);
+                    }
                 }
+            }
+            if (subs.onceHandlers.size + subs.queueHandlers.size === 0) {
+                delete this.viewSubscriptions[topic];
             }
         }
     }
@@ -244,26 +263,49 @@ export default class Island {
         }
         // To ensure model code is executed bit-identically everywhere, we have to notify views
         // later, since different views might be subscribed in different island replicas
-        if (this.viewSubscriptions[topic]) this.modelViewEvents.push({scope, event, data});
+        const topicSubscribers = this.viewSubscriptions[topic];
+        if (topicSubscribers) {
+            this.frameTopics.add(topic);
+            if (topicSubscribers.queueHandlers.size > 0) {
+                topicSubscribers.data.push(data);
+                if (topicSubscribers.data.length % 1000 === 0) console.warn(`${topic} has ${topicSubscribers.data.length} events`);
+            } else topicSubscribers.data[0] = data;
+        }
     }
 
     processModelViewEvents() {
         if (CurrentIsland) throw Error("Island Error");
-        while (this.modelViewEvents.length > 0) {
-            const { scope, event, data } = this.modelViewEvents.shift();
-            this.publishFromView(scope, event, data);
+        // handle subscriptions for all new topics
+        for (const topic of this.frameTopics) {
+            const subscriptions = this.viewSubscriptions[topic];
+            if (subscriptions) {
+                this.handleViewEvents(topic, subscriptions.data);
+                subscriptions.data.length = 0;
+            }
         }
+        this.frameTopics.clear();
     }
 
     publishFromView(scope, event, data) {
         if (CurrentIsland) throw Error("Island Error");
         const topic = scope + ":" + event;
+        this.handleViewEvents(topic, [data]);
+    }
+
+    handleViewEvents(topic, dataArray) {
         // Events published by views can only reach other views
-        if (this.viewSubscriptions[topic]) {
-            for (const handler of this.viewSubscriptions[topic]) {
-                const [subscriberId, part, method] = handler.split(".");
+        const subscriptions = this.viewSubscriptions[topic];
+        if (subscriptions) {
+            for (const subscriber of subscriptions.queueHandlers) {
+                const [subscriberId, part, method] = subscriber.split(".");
                 const partInstance = this.viewsById[subscriberId].parts[part];
-                partInstance[method].call(partInstance, data);
+                for (const data of dataArray) partInstance[method](data);
+            }
+            const data = dataArray[dataArray.length - 1];
+            for (const subscriber of subscriptions.onceHandlers) {
+                const [subscriberId, part, method] = subscriber.split(".");
+                const partInstance = this.viewsById[subscriberId].parts[part];
+                partInstance[method](data);
             }
         }
     }
@@ -432,7 +474,7 @@ export class Controller {
                 break;
             }
             case 'TICK': {
-                //console.log(this.id, 'Controller received TICK ' + args);
+                // console.log(this.id, 'Controller received TICK ' + args);
                 const time = args;
                 this.advanceTo(time);
                 break;

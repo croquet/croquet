@@ -73,9 +73,9 @@ export default class View extends PartOwner {
     }
 
     // PUB/SUB
-    subscribePart(scope, part, event, subscribingPartId, methodName) {
+    subscribePart(scope, part, event, subscribingPartId, methodName, oncePerFrame) {
         const fullScope = scope + (part ? "." + part : "");
-        this.island.addViewSubscription(fullScope, event, this.id, subscribingPartId, methodName);
+        this.island.addViewSubscription(fullScope, event, this.id, subscribingPartId, methodName, oncePerFrame);
     }
 
     unsubscribePart(scope, part, event, subscribingPartId, methodName) {
@@ -132,8 +132,8 @@ export class ViewPart extends Part {
     }
 
     // PUB/SUB
-    subscribe(event, methodName, scope=this.owner.id, part=this.partId) {
-        this.owner.subscribePart(scope, part, event, this.partId, methodName);
+    subscribe(event, methodName, scope=this.owner.id, part=this.partId, oncePerFrame=false) {
+        this.owner.subscribePart(scope, part, event, this.partId, methodName, oncePerFrame);
     }
 
     unsubscribe(event, methodName, scope=this.owner.id, part=this.partId) {

@@ -19,9 +19,9 @@ export default class TrackSpatial extends ViewPart {
         this.targetViewPart.threeObj.position.copy(spatialPart.position);
         this.targetViewPart.threeObj.scale.copy(spatialPart.scale);
         this.targetViewPart.threeObj.quaternion.copy(spatialPart.quaternion);
-        this.subscribe(SpatialEvents.moved, "onMoved", context.id, partId );
-        this.subscribe(SpatialEvents.scaled, "onScaled", context.id, partId);
-        this.subscribe(SpatialEvents.rotated, "onRotated", context.id, partId );
+        this.subscribe(SpatialEvents.moved, "onMoved", context.id, partId, true);
+        this.subscribe(SpatialEvents.scaled, "onScaled", context.id, partId, true);
+        this.subscribe(SpatialEvents.rotated, "onRotated", context.id, partId, true);
     }
 
     onMoved(newPosition) {
