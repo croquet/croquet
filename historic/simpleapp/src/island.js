@@ -169,21 +169,20 @@ export default class Island {
     }
 
     /**
-     * Process pending messages for this island and advance simulation
+     * Process pending messages for this island and advance simulation.
+     * Must only be sent by controller!
      * @param {Number} time simulate up to this time
      * @param {Number} deadline real time deadline for interrupting simulation
      */
     advanceTo(time, deadline) {
         if (CurrentIsland) throw Error("Island Error");
         let message;
-        let count = 0;
-        const interruptCheck = 1000; // check every 1000 messages
         while ((message = this.messages.peek()) && message.time <= time) {
             if (message.time < this.time) throw Error("past message encountered: " + message);
             this.messages.poll();
             this.time = message.time;
             message.executeOn(this);
-            if (++count % interruptCheck === 0 && Date.now() >= deadline) return;
+            if (Date.now() > deadline) return;
         }
         this.time = time;
     }
@@ -552,12 +551,11 @@ export class Controller {
 
     /**
      * Process pending messages for this island and advance simulation
-     * @param {Number} deadline real time deadline for interrupting simulation
+     * @param {Number} ms real time allocated before interrupting simulation
      * @returns {Number} ms of simulation time remaining (or 0 if done)
      */
-    processMessages(deadline) {
+    processMessages(ms = 1) {
         // Process pending messages for this island
-        // Simulation may take at most deadline ms
         //
         if (!this.island) return 0;     // we are probably still sync-ing
         let msgData;
@@ -566,7 +564,7 @@ export class Controller {
             // And have the island decode, schedule, and update to that message
             this.island.decodeAndSchedule(msgData);
         }
-        this.island.advanceTo(this.time, deadline);
+        this.island.advanceTo(this.time, Date.now() + ms);
         const simTimeRemaining = this.time - this.island.time;
         if (simTimeRemaining > 500) console.log(`${simTimeRemaining} ms of simulation behind`);
         return this.time - this.island.time;

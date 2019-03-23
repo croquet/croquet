@@ -82,9 +82,24 @@ function start() {
 
     hotState = null; // free memory, and prevent accidental access below
 
+    // simulate models
+    function simulate() {
+        // simulate current room for 1 ms
+        if (currentRoomName) {
+            const island = ALL_ROOMS[currentRoomName].island;
+            if (island) island.controller.processMessages(1);
+        }
+        // simulate all rooms for 1 ms (including current one again)
+        const liveRooms = Object.values(ALL_ROOMS).filter(room => room.island);
+        for (const {island} of liveRooms) {
+            island.controller.processMessages(1);
+        }
+        hotreload.setTimeout(simulate, 0);
+    }
+    hotreload.setTimeout(simulate, 0);
+
+    // process views
     function frame() {
-        const frameBudget = 1000 / 60;
-        const startOfFrame = Date.now();
         if (currentRoomName) {
             renderer.render(currentRoomName, ALL_ROOMS, roomViewManager);
             const currentRoomView = roomViewManager.getIfLoaded(currentRoomName);
@@ -95,13 +110,8 @@ function start() {
                 keyboardManager.setCurrentRoomView(currentRoomView);
             }
         }
-        const deadline = startOfFrame + frameBudget;
-        for (const {island} of Object.values(ALL_ROOMS)) {
-            if (island) island.controller.processMessages(deadline);
-        }
         hotreload.requestAnimationFrame(frame);
     }
-
     hotreload.requestAnimationFrame(frame);
 
     hotreload.addEventListener(window, "mousemove", event => {
