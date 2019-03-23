@@ -83,6 +83,8 @@ function start() {
     hotState = null; // free memory, and prevent accidental access below
 
     function frame() {
+        const frameBudget = 1000 / 60;
+        const startOfFrame = Date.now();
         if (currentRoomName) {
             renderer.render(currentRoomName, ALL_ROOMS, roomViewManager);
             const currentRoomView = roomViewManager.getIfLoaded(currentRoomName);
@@ -93,7 +95,10 @@ function start() {
                 keyboardManager.setCurrentRoomView(currentRoomView);
             }
         }
-        Object.values(ALL_ROOMS).forEach(({island}) => island && island.controller.processMessages());
+        const deadline = startOfFrame + frameBudget;
+        for (const {island} of Object.values(ALL_ROOMS)) {
+            if (island) island.controller.processMessages(deadline);
+        }
         hotreload.requestAnimationFrame(frame);
     }
 

@@ -169,26 +169,24 @@ export default class Island {
         });
     }
 
-    advanceTo(time) {
+    /**
+     * Process pending messages for this island and advance simulation
+     * @param {Number} time simulate up to this time
+     * @param {Number} deadline real time deadline for interrupting simulation
+     */
+    advanceTo(time, deadline) {
         if (CurrentIsland) throw Error("Island Error");
-        const totalStep = time - this.time;
-        if (totalStep < 0) throw Error("Advancing to old time");
-        if (totalStep > 500) console.warn(this.id, `advanceTo by ${totalStep} ms`);
-        let cpuTime = Date.now();
-
         let message;
         let count = 0;
+        const interruptCheck = 1000; // check every 1000 messages
         while ((message = this.messages.peek()) && message.time <= time) {
             if (message.time < this.time) throw Error("past message encountered: " + message);
             this.messages.poll();
             this.time = message.time;
             message.executeOn(this);
-            count++;
+            if (++count % interruptCheck === 0 && Date.now() >= deadline) return;
         }
         this.time = time;
-
-        cpuTime = Date.now() - cpuTime;
-        if (cpuTime > totalStep && cpuTime > 10) console.warn(`Simulating ${count} messages for ${totalStep} ms took ${cpuTime} ms CPU time`);
     }
 
     addModelSubscription(scope, event, subscriberId, part, methodName) {
@@ -550,16 +548,27 @@ export class Controller {
         }));
     }
 
-    processMessages() {
+
+    /**
+     * Process pending messages for this island and advance simulation
+     * @param {Number} deadline real time deadline for interrupting simulation
+     * @returns {Number} ms of simulation time remaining (or 0 if done)
+     */
+    processMessages(deadline) {
         // Process pending messages for this island
-        if (!this.island) return;     // we are probably still sync-ing
+        // Simulation may take at most deadline ms
+        //
+        if (!this.island) return 0;     // we are probably still sync-ing
         let msgData;
         // Get the next message from the (concurrent) network queue
         while ((msgData = this.networkQueue.nextNonBlocking())) {
             // And have the island decode, schedule, and update to that message
             this.island.decodeAndSchedule(msgData);
         }
-        this.island.advanceTo(this.time);
+        this.island.advanceTo(this.time, deadline);
+        const simTimeRemaining = this.time - this.island.time;
+        if (simTimeRemaining > 500) console.log(`${simTimeRemaining} ms of simulation behind`);
+        return this.time - this.island.time;
     }
 }
 
