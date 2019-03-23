@@ -1,4 +1,3 @@
-import { Socket } from "ws";    // eslint-disable-line import/no-extraneous-dependencies
 import SeedRandom from "seedrandom";
 import PriorityQueue from "./util/priorityQueue.js";
 import AsyncQueue from './util/asyncQueue.js';
@@ -343,6 +342,8 @@ function startReflectorInBrowser() {
         // ESLint doesn't know about the alias in package.json:
         // eslint-disable-next-line global-require,import/no-unresolved
         const server = require("reflector").server; // start up local server
+        // eslint-disable-next-line global-require,import/no-extraneous-dependencies
+        const Socket = require("ws").Socket;
         socketSetup(new Socket({ server })); // connect to it
     }, 0);
     // we defer starting the server until hotreload has finished
