@@ -498,7 +498,7 @@ export class Controller {
                 this.island.sendNoop();
                 break;
             }
-            default: console.log("Unknown action:", action);
+            default: console.warn("Unknown action:", action);
         }
     }
 
