@@ -6,20 +6,30 @@ import View from '../view.js';
 import Room from "../room/roomModel.js";
 import Object3D, { Object3DGroup } from '../viewParts/object3D.js';
 import ChildrenPart, { ChildEvents } from '../stateParts/children.js';
-import BouncingSpatialPart from '../stateParts/bouncingSpatial.js';
 import SpatialPart from '../stateParts/spatial.js';
+import InertialSpatialPart from '../stateParts/inertialSpatial.js';
+import BouncingSpatialPart from '../stateParts/bouncingSpatial.js';
 import TrackSpatial from '../viewParts/trackSpatial.js';
 import Clickable from '../viewParts/clickable.js';
+import Draggable from '../viewParts/draggable.js';
 
 const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
+
+export class Box extends Model {
+    buildParts(state) {
+        new InertialSpatialPart(this, state);
+    }
+
+    naturalViewClass() { return DragBoxView; }
+}
 
 export class BouncingBox extends Model {
     buildParts(state) {
         new BouncingSpatialPart(this, state);
     }
 
-    naturalViewClass() { return BoxView; }
+    naturalViewClass() { return ClickBoxView; }
 }
 
 class BoxViewPart extends Object3D {
@@ -37,11 +47,19 @@ class BoxViewPart extends Object3D {
     }
 }
 
-class BoxView extends View {
+class ClickBoxView extends View {
     buildParts() {
         new BoxViewPart(this);
         new TrackSpatial(this, {affects: "box"});
         new Clickable(this, {clickable: "box", method: "toggle"});
+    }
+}
+
+class DragBoxView extends View {
+    buildParts() {
+        new BoxViewPart(this);
+        new TrackSpatial(this, {affects: "box"});
+        new Draggable(this, {dragHandle: "box"});
     }
 }
 
@@ -123,6 +141,9 @@ class RandomColorChildren extends Object3DChildren {
 function initBounce(state) {
     return new Island(state, () => {
         const room = new Room();
+
+        const bigBox = new Box({ spatial: { position: { x: 0, y: 0.5, z: -2 }}});
+        room.parts.objects.add(bigBox);
 
         const bouncingBoxes = new RandomColorGroup({ spatial: { scale: {x: 0.5, y: 0.5, z: 0.5 } } });
         room.parts.objects.add(bouncingBoxes);
