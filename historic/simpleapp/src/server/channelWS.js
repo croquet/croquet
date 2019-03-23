@@ -6,6 +6,7 @@
 //
 // This is used as in './ws.js' if the BroadcastChannel API is available.
 
+import BroadcastChannel from "broadcast-channel";
 import { FakeSocket, FakeServer } from "./fakeWS.js";
 import hotreload from "../hotreload.js";
 
@@ -19,7 +20,7 @@ if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle
 // Their socket.remotePort is the unique ID of that window.
 const NO_SERVER = -1;
 
-let channel = new BroadcastChannel("croquet-reflector");
+let channel = new BroadcastChannel("croquet-reflector", { webWorkerSupport: false });
 const myPort = Math.floor(Math.random() * 10e15);
 let serverPort = NO_SERVER;
 const channelSockets = {};  // all the sockets connected via channel, indexed by remote port
@@ -53,7 +54,7 @@ function discovered(port) {
 }
 
 // This is the central message handler listening to the shared channel
-channel.onmessage = ({ data: msg }) => {
+channel.onmessage = msg => {
     if (msg.what !== "packet") console.log("Channel: RECEIVE", msg.what, JSON.stringify(msg, (k, v) => k === "what" ? undefined : v));
     switch (msg.what) {
         case "discover":
@@ -123,7 +124,7 @@ channel._post = (what, args={}) => {
 
 export class ChannelSocket extends FakeSocket {
 
-    static isSupported() { return !!window.BroadcastChannel; }
+    static isSupported() { return true; } // ... since we're using broadcast-channel package
 
     constructor(options = {}) {
         super({ host: 'channel', port: myPort, ...options });
