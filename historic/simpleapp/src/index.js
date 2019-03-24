@@ -33,7 +33,7 @@ function start() {
             if (ROOM.islandPromise) return ROOM.islandPromise;
             const creator = ROOM.creator;
             const controller = new Controller();
-            ROOM.islandPromise = controller.create(roomName, creator);
+            ROOM.islandPromise = controller.createIsland(roomName, creator);
             return ROOM.island = await ROOM.islandPromise;
         }
     };

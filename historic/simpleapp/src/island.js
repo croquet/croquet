@@ -443,14 +443,15 @@ export class Controller {
      * @param {{}} snapshot The island's initial state (if hot-reloading)
      * @returns {Promise<Island>}
      */
-    async create(name, creator, snapshot={}) {
-        const {moduleID, creatorFn} = creator;
+    async createIsland(name, creator, snapshot={}) {
+        const {moduleID, creatorFn, options} = creator;
+        if (options) name += JSON.stringify(options); // include options in hash
         const resumingID = snapshot.id;
         snapshot.id = await Controller.versionIDFor(name, moduleID);
         if (resumingID && resumingID !== snapshot.id) console.warn(name, 'resuming snapshot of different version!');
         console.log(`ID for ${name}: ${snapshot.id}`);
         return new Promise(resolve => {
-            this.islandCreator = { name, creatorFn, snapshot, callbackFn: resolve };
+            this.islandCreator = { name, creatorFn, snapshot, options, callbackFn: resolve };
             Controller.join(this, snapshot.id);   // when socket is ready, join server
         });
     }
@@ -522,8 +523,8 @@ export class Controller {
     }
 
     async install(drainQueue=false) {
-        const {snapshot, creatorFn, callbackFn} = this.islandCreator;
-        const newIsland = creatorFn(snapshot);
+        const {snapshot, creatorFn, options, callbackFn} = this.islandCreator;
+        const newIsland = creatorFn(snapshot, options);
         const newTime = newIsland.time;
         // eslint-disable-next-line no-constant-condition
         while (drainQueue) {
