@@ -143,8 +143,10 @@ function initBounce(state, options) {
     return new Island(state, () => {
         const room = new Room();
 
-        const bigBox = new Box({ spatial: { position: { x: 0, y: 0.5, z: -2 }}});
-        room.parts.objects.add(bigBox);
+        for (let x = -3; x <= 3; x += 3) {
+            const bigBox = new Box({ spatial: { position: { x, y: 0.5, z: -2 }}});
+            room.parts.objects.add(bigBox);
+        }
 
         const bouncingBoxes = new RandomColorGroup({ spatial: { scale: {x: 0.5, y: 0.5, z: 0.5 } } });
         room.parts.objects.add(bouncingBoxes);
