@@ -43,10 +43,10 @@ newFrame(performance.now());
 
 
 export default {
-    startFrame() {
-        const now = performance.now();
-        this.endCurrentFrame(now);
-        newFrame(now);
+    animationFrame(timestamp) {
+        //const now = performance.now();
+        this.endCurrentFrame(timestamp);
+        newFrame(timestamp);
     },
     begin(item) {
         const now = performance.now();

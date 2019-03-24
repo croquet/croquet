@@ -100,8 +100,8 @@ function start() {
     hotreload.setTimeout(simulate, 0);
 
     // process views
-    function frame() {
-        Stats.startFrame();
+    function frame(timestamp) {
+        Stats.animationFrame(timestamp);
         if (currentRoomName) {
             Stats.begin("render");
             renderer.render(currentRoomName, ALL_ROOMS, roomViewManager);
