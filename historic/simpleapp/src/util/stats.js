@@ -1,4 +1,7 @@
 
+const StartDate = Date.now();
+if (typeof performance === "undefined") window.performance = { now: () => Date.now() - StartDate };
+
 const div = document.createElement("div");
 div.style.position = "absolute";
 div.style.right = 0;
@@ -31,22 +34,23 @@ const colors = {
 
 
 const frames = [];
-let currentFrame = null;
+let currentFrame = newFrame(0);
 
-function newFrame(now) {
-    currentFrame = {
+function newFrame(now, opts={}) {
+    return {
         start: now,
+        total: 0,
         items: {},
+        backlog: 0,
+        users: 0,
+        ...opts
     };
 }
-newFrame(performance.now());
-
 
 export default {
     animationFrame(timestamp) {
-        //const now = performance.now();
         this.endCurrentFrame(timestamp);
-        newFrame(timestamp);
+        currentFrame = newFrame(timestamp);
     },
     begin(item) {
         const now = performance.now();
@@ -57,21 +61,32 @@ export default {
         currentFrame.items[item] += now;
     },
     backlog(ms) {
-        currentFrame.backlog = ms;
+        currentFrame.backlog = Math.max(ms, currentFrame.backlog);
     },
     users(users) {
         currentFrame.users = users;
     },
-    endCurrentFrame(now) {
-        currentFrame.total = now - currentFrame.start;
+    endCurrentFrame(timestamp) {
+        // add current frame to end
+        currentFrame.total = timestamp - currentFrame.start;
         frames.push(currentFrame);
-        if (frames.length > 120) frames.shift();
 
-        const avgMS = frames.map(f => f.total).reduce( (a,b) => a + b) / frames.length;
+        // get base framerate as minimum of all frames
+        const realFrames = frames.filter(f => f.total);
+        const minMS = Math.min(...realFrames.map(f => f.total));
+
+        // if this frame took multiple frames, add empty frames to graph
+        const n = Math.min(3, Math.round(currentFrame.total / minMS));
+        for (let i = 1; i < n; i++) frames.push(newFrame(timestamp, {backlog: currentFrame.backlog}));
+
+        while (frames.length > 120) frames.shift();
+
+        // show average framerate
+        const avgMS = realFrames.map(f => f.total).reduce( (a,b) => a + b) / realFrames.length;
         fps.innerText = `${currentFrame.users} users, ${Math.round(1000/avgMS)} fps`;
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        const map = v => (1 - v / (1000/60)) * 20 + 40;
+        const map = v => (1 - v / minMS) * 20 + 40;
         for (let i = 0; i < frames.length; i++) {
             const frame = frames[i];
             const x = i + 0.5;
