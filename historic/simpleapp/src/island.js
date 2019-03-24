@@ -589,7 +589,7 @@ export class Controller {
     simulate(ms = 1) {
         // Process pending messages for this island
         //
-        if (!this.island) return 0;     // we are probably still sync-ing
+        if (!this.island) return;     // we are probably still sync-ing
         this.scheduleMessages();
         Stats.begin("simulate");
         this.island.advanceTo(this.time, Date.now() + ms);
