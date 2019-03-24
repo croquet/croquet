@@ -4,6 +4,7 @@ import AsyncQueue from './util/asyncQueue.js';
 import urlOptions from "./util/urlOptions.js";
 import hotreload from "./hotreload.js";
 import { hashModelCode } from "./modules.js";
+import Stats from "./util/stats.js";
 
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
@@ -563,6 +564,7 @@ export class Controller {
         // Process pending messages for this island
         //
         if (!this.island) return 0;     // we are probably still sync-ing
+        Stats.begin("simulate");
         let msgData;
         // Get the next message from the (concurrent) network queue
         while ((msgData = this.networkQueue.nextNonBlocking())) {
@@ -570,8 +572,10 @@ export class Controller {
             this.island.decodeAndSchedule(msgData);
         }
         this.island.advanceTo(this.time, Date.now() + ms);
+        Stats.end("simulate");
         const simTimeRemaining = this.time - this.island.time;
-        if (simTimeRemaining > 500) console.log(`${simTimeRemaining} ms of simulation behind`);
+        //if (simTimeRemaining > 500) console.log(`${simTimeRemaining} ms of simulation behind`);
+        Stats.backlog(simTimeRemaining);
         return this.time - this.island.time;
     }
 }

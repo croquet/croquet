@@ -8,6 +8,7 @@ import RoomViewManager from './room/roomViewManager.js';
 import Renderer from './render.js';
 import { Controller } from "./island.js";
 import {KeyboardManager} from './domKeyboardManager.js';
+import Stats from "./util/stats.js";
 
 const LOG_HOTRELOAD = false;
 
@@ -87,12 +88,12 @@ function start() {
         // simulate current room for 1 ms
         if (currentRoomName) {
             const island = ALL_ROOMS[currentRoomName].island;
-            if (island) island.controller.processMessages(1);
+            if (island) island.controller.processMessages(5);
         }
         // simulate all rooms for 1 ms (including current one again)
         const liveRooms = Object.values(ALL_ROOMS).filter(room => room.island);
         for (const {island} of liveRooms) {
-            island.controller.processMessages(1);
+            island.controller.processMessages(2);
         }
         hotreload.setTimeout(simulate, 0);
     }
@@ -100,12 +101,17 @@ function start() {
 
     // process views
     function frame() {
+        Stats.startFrame();
         if (currentRoomName) {
+            Stats.begin("render");
             renderer.render(currentRoomName, ALL_ROOMS, roomViewManager);
-            const currentRoomView = roomViewManager.getIfLoaded(currentRoomName);
+            Stats.end("render");
 
+            const currentRoomView = roomViewManager.getIfLoaded(currentRoomName);
             if (currentRoomView) {
+                Stats.begin("events");
                 Object.values(ALL_ROOMS).forEach(({island}) => island && island.processModelViewEvents());
+                Stats.end("events");
                 currentRoomView.parts.pointer.updatePointer();
                 keyboardManager.setCurrentRoomView(currentRoomView);
             }
