@@ -480,17 +480,20 @@ export class Controller {
                 // Actual processing happens in main loop.
                 if (DEBUG.messages) console.log(this.id, 'Controller received RECV ' + args);
                 const msg = args;
-                msg.seq = msg.seq * 2 + 1;  // make odd timeSeq from controller
+                const time = msg[0];
+                const seq = msg[1];
+                msg[1] = seq * 2 + 1;  // make odd timeSeq from controller
                 //if (msg.sender === this.senderID) this.addToStatistics(msg);
                 this.networkQueue.put(msg);
-                this.time = msg.time;
+                this.timeFromReflector(time);
                 break;
             }
             case 'TICK': {
                 // We received a tick from reflector.
                 // Just set time so main loop knows how far it can advance.
-                if (DEBUG.ticks) console.log(this.id, 'Controller received TICK ' + args);
-                this.time = args;
+                const time = args;
+                if (DEBUG.ticks) console.log(this.id, 'Controller received TICK ' + time);
+                this.timeFromReflector(time);
                 break;
             }
             case 'SERVE': {
@@ -588,10 +591,14 @@ export class Controller {
         Stats.begin("simulate");
         this.island.advanceTo(this.time, Date.now() + ms);
         Stats.end("simulate");
-        const simTimeRemaining = this.time - this.island.time;
-        //if (simTimeRemaining > 500) console.log(`${simTimeRemaining} ms of simulation behind`);
-        Stats.backlog(simTimeRemaining);
+        Stats.backlog(this.time - this.island.time);
         return this.time - this.island.time;
+    }
+
+    /** Got the official time from reflector server */
+    timeFromReflector(time) {
+        this.time = time;
+        if (this.island) Stats.backlog(this.time - this.island.time);
     }
 }
 
