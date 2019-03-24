@@ -74,6 +74,8 @@ export default {
         // get base framerate as minimum of all frames
         const realFrames = frames.filter(f => f.total);
         const minMS = Math.min(...realFrames.map(f => f.total));
+        const avgMS = realFrames.map(f => f.total).reduce( (a,b) => a + b) / realFrames.length;
+        const maxBacklog = Math.max(1000, ...realFrames.map(f => f.backlog));
 
         // if this frame took multiple frames, add empty frames to graph
         const n = Math.min(3, Math.round(currentFrame.total / minMS));
@@ -82,8 +84,8 @@ export default {
         while (frames.length > 120) frames.shift();
 
         // show average framerate
-        const avgMS = realFrames.map(f => f.total).reduce( (a,b) => a + b) / realFrames.length;
-        fps.innerText = `${currentFrame.users} users, ${Math.round(1000/avgMS)} fps`;
+        fps.innerText = `${currentFrame.users} users, ${Math.round(1000/avgMS)} fps,
+            backlog: ${(currentFrame.backlog/1000).toFixed(1)} s`;
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         const map = v => (1 - v / minMS) * 20 + 40;
@@ -115,7 +117,7 @@ export default {
 
             if (frame.backlog) {
                 ctx.moveTo(x, map(-5));
-                ctx.lineTo(x, map(-5 -frame.backlog / 10));
+                ctx.lineTo(x, map(-5 -frame.backlog / maxBacklog * 60));
                 ctx.strokeStyle = colors["backlog"];
                 ctx.stroke();
             }

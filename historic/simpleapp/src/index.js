@@ -109,6 +109,7 @@ function start() {
 
             const currentIsland = ALL_ROOMS[currentRoomName].island;
             Stats.users(currentIsland ? currentIsland.controller.users : 0);
+            Stats.backlog(currentIsland ? currentIsland.controller.backlog : 0);
 
             const currentRoomView = roomViewManager.getIfLoaded(currentRoomName);
             if (currentRoomView) {

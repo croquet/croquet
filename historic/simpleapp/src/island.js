@@ -579,6 +579,8 @@ export class Controller {
         }
     }
 
+    get backlog() { return this.island ? this.time - this.island.time : 0; }
+
     /**
      * Process pending messages for this island and advance simulation
      * @param {Number} ms real time allocated before interrupting simulation
@@ -592,14 +594,13 @@ export class Controller {
         Stats.begin("simulate");
         this.island.advanceTo(this.time, Date.now() + ms);
         Stats.end("simulate");
-        Stats.backlog(this.time - this.island.time);
-        return this.time - this.island.time;
+        Stats.backlog(this.backlog);
     }
 
     /** Got the official time from reflector server */
     timeFromReflector(time) {
         this.time = time;
-        if (this.island) Stats.backlog(this.time - this.island.time);
+        if (this.island) Stats.backlog(this.backlog);
     }
 }
 
