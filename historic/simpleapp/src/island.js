@@ -9,6 +9,11 @@ import { hashModelCode } from "./modules.js";
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
+const DEBUG = {
+    messages: false,
+    ticks: false,
+};
+
 let viewID = 0;
 let CurrentIsland = null;
 
@@ -469,7 +474,7 @@ export class Controller {
                 // We received a message from reflector.
                 // Put it in the queue, and set time.
                 // Actual processing happens in main loop.
-                console.log(this.id, 'Controller received RECV ' + args);
+                if (DEBUG.messages) console.log(this.id, 'Controller received RECV ' + args);
                 const msg = args;
                 msg.seq = msg.seq * 2 + 1;  // make odd timeSeq from controller
                 //if (msg.sender === this.senderID) this.addToStatistics(msg);
@@ -480,7 +485,7 @@ export class Controller {
             case 'TICK': {
                 // We received a tick from reflector.
                 // Just set time so main loop knows how far it can advance.
-                // console.log(this.id, 'Controller received TICK ' + args);
+                if (DEBUG.ticks) console.log(this.id, 'Controller received TICK ' + args);
                 this.time = args;
                 break;
             }
@@ -540,7 +545,7 @@ export class Controller {
 
     sendMessage(msg) {
         // SEND: Broadcast a message to all participants.
-        console.log(this.id, `Controller sending SEND ${msg.asState()}`);
+        if (DEBUG.messages) console.log(this.id, `Controller sending SEND ${msg.asState()}`);
         this.socket.send(JSON.stringify({
             id: this.id,
             action: 'SEND',
