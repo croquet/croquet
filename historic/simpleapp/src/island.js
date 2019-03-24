@@ -496,6 +496,8 @@ export class Controller {
             case 'SERVE': {
                 // We received a request to serve a current snapshot
                 console.log(this.id, 'Controller received SERVE - replying with snapshot');
+                // put all pending messages into future queue
+                this.scheduleMessages();
                 // send the snapshot
                 this.socket.send(JSON.stringify({
                     action: args, // reply action
@@ -563,23 +565,27 @@ export class Controller {
         }));
     }
 
-
-    /**
-     * Process pending messages for this island and advance simulation
-     * @param {Number} ms real time allocated before interrupting simulation
-     * @returns {Number} ms of simulation time remaining (or 0 if done)
-     */
-    processMessages(ms = 1) {
-        // Process pending messages for this island
-        //
-        if (!this.island) return 0;     // we are probably still sync-ing
-        Stats.begin("simulate");
+    /** Schedule all messages received from reflector as future messages in island */
+    scheduleMessages() {
         let msgData;
         // Get the next message from the (concurrent) network queue
         while ((msgData = this.networkQueue.nextNonBlocking())) {
             // And have the island decode, schedule, and update to that message
             this.island.decodeAndSchedule(msgData);
         }
+    }
+
+    /**
+     * Process pending messages for this island and advance simulation
+     * @param {Number} ms real time allocated before interrupting simulation
+     * @returns {Number} ms of simulation time remaining (or 0 if done)
+     */
+    simulate(ms = 1) {
+        // Process pending messages for this island
+        //
+        if (!this.island) return 0;     // we are probably still sync-ing
+        this.scheduleMessages();
+        Stats.begin("simulate");
         this.island.advanceTo(this.time, Date.now() + ms);
         Stats.end("simulate");
         const simTimeRemaining = this.time - this.island.time;

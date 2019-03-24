@@ -85,15 +85,15 @@ function start() {
 
     // simulate models
     function simulate() {
-        // simulate current room for 1 ms
+        // simulate current room for 2 ms
         if (currentRoomName) {
             const island = ALL_ROOMS[currentRoomName].island;
-            if (island) island.controller.processMessages(5);
+            if (island) island.controller.simulate(2);
         }
         // simulate all rooms for 1 ms (including current one again)
         const liveRooms = Object.values(ALL_ROOMS).filter(room => room.island);
         for (const {island} of liveRooms) {
-            island.controller.processMessages(2);
+            island.controller.simulate(1);
         }
         hotreload.setTimeout(simulate, 0);
     }
