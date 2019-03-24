@@ -59,13 +59,16 @@ export default {
     backlog(ms) {
         currentFrame.backlog = ms;
     },
+    users(users) {
+        currentFrame.users = users;
+    },
     endCurrentFrame(now) {
         currentFrame.total = now - currentFrame.start;
         frames.push(currentFrame);
         if (frames.length > 120) frames.shift();
 
         const avgMS = frames.map(f => f.total).reduce( (a,b) => a + b) / frames.length;
-        fps.innerText = `${avgMS.toFixed(1)} ms | ${Math.round(1000/avgMS)} fps`;
+        fps.innerText = `${currentFrame.users} users, ${Math.round(1000/avgMS)} fps`;
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         const map = v => (1 - v / (1000/60)) * 20 + 40;

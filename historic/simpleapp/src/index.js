@@ -107,6 +107,9 @@ function start() {
             renderer.render(currentRoomName, ALL_ROOMS, roomViewManager);
             Stats.end("render");
 
+            const island = ALL_ROOMS[currentRoomName].island;
+            Stats.users(island ? island.controller.users : 0);
+
             const currentRoomView = roomViewManager.getIfLoaded(currentRoomName);
             if (currentRoomView) {
                 Stats.begin("events");

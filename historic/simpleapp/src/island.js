@@ -426,6 +426,8 @@ export class Controller {
         this.networkQueue = new AsyncQueue();
         /** the time of last message received from reflector */
         this.time = 0;
+        /** the number of concurrent users in our island */
+        this.users = 0;
     }
 
     /**
@@ -503,7 +505,13 @@ export class Controller {
                 this.island.sendNoop();
                 break;
             }
-            default: console.warn("Unknown action:", action);
+            case 'USERS': {
+                // a user joined or left this island
+                console.log(this.id, 'Controller received USERS', args);
+                this.users = args;
+                break;
+            }
+            default: console.warn("Unknown action:", action, args);
         }
     }
 
