@@ -22,7 +22,9 @@ function moduleNamed(mod) {
  * @returns {String} the module source code
  */
 function sourceCodeOf(mod) {
-    return "" + moduleNamed(mod)[0];
+    const source = "" + moduleNamed(mod)[0];
+    // some browsers add a space when stringifying a Function
+    return source.replace(/^function ?/, '');
 }
 
 /** find all files that are directly imported by a given module */
