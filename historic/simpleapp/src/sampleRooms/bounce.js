@@ -12,6 +12,7 @@ import BouncingSpatialPart from '../stateParts/bouncingSpatial.js';
 import TrackSpatial from '../viewParts/trackSpatial.js';
 import Clickable from '../viewParts/clickable.js';
 import Draggable from '../viewParts/draggable.js';
+import urlOptions from '../util/urlOptions.js';
 
 const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
@@ -138,7 +139,7 @@ class RandomColorChildren extends Object3DChildren {
     }
 }
 
-function initBounce(state) {
+function initBounce(state, options) {
     return new Island(state, () => {
         const room = new Room();
 
@@ -147,7 +148,7 @@ function initBounce(state) {
 
         const bouncingBoxes = new RandomColorGroup({ spatial: { scale: {x: 0.5, y: 0.5, z: 0.5 } } });
         room.parts.objects.add(bouncingBoxes);
-        for (let i = 0; i < 100; i++) {
+        for (let i = 0; i < options.n; i++) {
             bouncingBoxes.parts.children.add(new BouncingBox({ spatial: { scale: {x: 0.3, y: 0.3, z: 0.3 } } }));
         }
     });
@@ -156,4 +157,5 @@ function initBounce(state) {
 export default {
     moduleID: module.id,
     creatorFn: initBounce,
+    options: { n: urlOptions.n || 0 }
 };
