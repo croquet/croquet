@@ -182,13 +182,14 @@ export default class Island {
      */
     advanceTo(time, deadline) {
         if (CurrentIsland) throw Error("Island Error");
+        let count = 0;
         let message;
         while ((message = this.messages.peek()) && message.time <= time) {
             if (message.time < this.time) throw Error("past message encountered: " + message);
             this.messages.poll();
             this.time = message.time;
             message.executeOn(this);
-            if (Date.now() > deadline) return;
+            if (++count > 100) { count = 0; if (Date.now() > deadline) return; }
         }
         this.time = time;
     }
