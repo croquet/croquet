@@ -132,7 +132,15 @@ function start() {
     }
     hotreload.requestAnimationFrame(frame);
 
+    const eventTimes = {};
+    const throttle = event => {
+        const now = Date.now();
+        if (now - eventTimes[event.type] < 50) return;
+        eventTimes[event.type] = now;
+    }
+
     hotreload.addEventListener(window, "mousemove", event => {
+        if (throttle(event)) return;
         const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
         if (currentRoomView) currentRoomView.parts.pointer.onMouseMove(event.clientX, event.clientY);
     });
@@ -156,6 +164,7 @@ function start() {
     }, {passive: false});
 
     hotreload.addEventListener(document.body, "touchmove", event => {
+        if (throttle(event)) return;
         const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
         if (currentRoomView) {
             currentRoomView.parts.pointer.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
@@ -170,6 +179,7 @@ function start() {
     }, {passive: false});
 
     hotreload.addEventListener(document.body, "wheel", event => {
+        if (throttle(event)) return;
         const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
         if (currentRoomView) {currentRoomView.parts.treadmillNavigation.onWheel(event);}
         event.stopPropagation();
