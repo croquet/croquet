@@ -9,6 +9,7 @@ import Renderer from './render.js';
 import { Controller } from "./island.js";
 import {KeyboardManager} from './domKeyboardManager.js';
 import Stats from "./util/stats.js";
+import urlOptions from "./util/urlOptions.js";
 
 const LOG_HOTRELOAD = false;
 
@@ -32,6 +33,10 @@ function start() {
             if (!ROOM) throw Error("Unknown room: " + roomName);
             if (ROOM.islandPromise) return ROOM.islandPromise;
             const creator = ROOM.creator;
+            if (urlOptions.owner) {
+                const options = creator.options||{};
+                creator.options = {...options, owner: urlOptions.owner};
+            }
             const controller = new Controller();
             ROOM.islandPromise = controller.createIsland(roomName, creator);
             return ROOM.island = await ROOM.islandPromise;
