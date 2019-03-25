@@ -64,12 +64,15 @@ function start() {
     }
 
     async function joinRoom(roomName, cameraPosition=new THREE.Vector3(0, 2, 4), cameraQuaternion=new THREE.Quaternion(), overrideCamera) {
+        if (!ALL_ROOMS[roomName]) roomName = defaultRoom;
+        if (currentRoomName === roomName) return;
         await ALL_ROOMS.getIsland(roomName);
         currentRoomName = roomName;
         // request ahead of render, set initial camera position if necessary
         roomViewManager.request(roomName, ALL_ROOMS, {cameraPosition, cameraQuaternion, overrideCamera}, onTraversedPortalView);
-        if (window.location.hash.replace("#", "") !== roomName) {
-            window.history.pushState({}, "", "#" + roomName);
+        const desiredHash = roomName === defaultRoom ? "" : roomName;
+        if (window.location.hash.slice(1) !== desiredHash) {
+            window.history.pushState({}, "", "#" + desiredHash);
         }
     }
 
@@ -173,7 +176,7 @@ function start() {
         roomViewManager.changeViewportSize(window.innerWidth, window.innerHeight);
     });
 
-    hotreload.addEventListener(window, "hashchange", () => joinRoom(window.location.hash.replace("#", "")));
+    hotreload.addEventListener(window, "hashchange", () => joinRoom(window.location.hash.slice(1)));
 
     keyboardManager.install(hotreload);
 
