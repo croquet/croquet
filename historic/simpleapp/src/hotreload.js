@@ -2,6 +2,7 @@ const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
 const timeoutHandles = new Set();
+const intervalHandles = new Set();
 const frameHandles = new Set();
 const eventListeners = [];
 const disposeHandlers = {};
@@ -17,6 +18,15 @@ function setTimeout(fn, ms) {
         fn(...args);
     }, ms);
     timeoutHandles.add(handle);
+    return handle;
+}
+
+function setInterval(fn, ms) {
+    const handle = window.setInterval((...args) => {
+        intervalHandles.delete(handle);
+        fn(...args);
+    }, ms);
+    intervalHandles.add(handle);
     return handle;
 }
 
@@ -48,6 +58,7 @@ function callDisposeHandlers() {
 function dispose() {
     document.getElementById("error").innerText = '';
     for (const handle of timeoutHandles) window.clearTimeout(handle);
+    for (const handle of intervalHandles) window.clearTimeout(handle);
     for (const handle of frameHandles) window.cancelAnimationFrame(handle);
     for (const {obj, args} of eventListeners) obj.removeEventListener(...args);
     if (module.bundle.v) console.log(`Clearing ${timeoutHandles.size} timeouts, ${frameHandles.size} animationFrames, ${eventListeners.length} eventListeners`);
@@ -63,6 +74,7 @@ window.onbeforeunload = callDisposeHandlers;
 export default {
     promiseResolveThen,
     setTimeout,
+    setInterval,
     requestAnimationFrame,
     addEventListener,
     addDisposeHandler,
