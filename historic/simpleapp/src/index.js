@@ -121,9 +121,9 @@ function start() {
 
             const currentRoomView = roomViewManager.getIfLoaded(currentRoomName);
             if (currentRoomView) {
-                Stats.begin("events");
+                Stats.begin("update");
                 Object.values(ALL_ROOMS).forEach(({island}) => island && island.processModelViewEvents());
-                Stats.end("events");
+                Stats.end("update");
                 currentRoomView.parts.pointer.updatePointer();
                 keyboardManager.setCurrentRoomView(currentRoomView);
             }

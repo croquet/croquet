@@ -1,6 +1,22 @@
+const moduleVersion = `${module.id}#${module.bundle.v||0}`;
+if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
 const StartDate = Date.now();
 if (typeof performance === "undefined") window.performance = { now: () => Date.now() - StartDate };
+
+const order = [
+    "simulate",
+    "update",
+    "render",
+];
+
+const colors = {
+    total: "black",
+    update: "blue",
+    render: "magenta",
+    simulate: "yellow",
+    backlog: "red",
+};
 
 const div = document.createElement("div");
 div.style.position = "absolute";
@@ -12,25 +28,12 @@ const fps = document.createElement("div");
 div.appendChild(fps);
 
 const canvas = document.createElement("canvas");
+canvas.title = Object.entries(colors).map(([k,c])=>`${c}: ${k}`).join('\n');
 canvas.width = canvas.style.width = 120;
 canvas.height = canvas.style.height = 360;
 div.appendChild(canvas);
 const ctx = canvas.getContext("2d");
 ctx.lineWidth = 1;
-
-const order = [
-    "simulate",
-    "events",
-    "render",
-];
-
-const colors = {
-    total: "black",
-    events: "blue",
-    render: "yellow",
-    simulate: "green",
-    backlog: "red",
-};
 
 
 const frames = [];
