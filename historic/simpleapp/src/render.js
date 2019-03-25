@@ -29,6 +29,7 @@ export default class Renderer {
         this.renderer.autoClearDepth = false;
         this.renderer.autoClearColor = false;
         this.renderer.autoClear = false;
+        this.renderer.setPixelRatio(window.devicePixelRatio);
         this.changeViewportSize(width, height);
         document.body.appendChild(this.renderer.domElement);
     }

@@ -29,11 +29,14 @@ div.appendChild(fps);
 
 const canvas = document.createElement("canvas");
 canvas.title = Object.entries(colors).map(([k,c])=>`${c}: ${k}`).join('\n');
-canvas.width = canvas.style.width = 120;
-canvas.height = canvas.style.height = 360;
+canvas.style.width = 120;
+canvas.style.height = 360;
+canvas.width = 120 * window.devicePixelRatio;
+canvas.height = 360 * window.devicePixelRatio;
 div.appendChild(canvas);
 const ctx = canvas.getContext("2d");
-ctx.lineWidth = 1;
+ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+ctx.lineWidth = window.devicePixelRatio;
 
 
 const frames = [];
