@@ -88,7 +88,7 @@ export default {
 
         // show average framerate
         fps.innerText = `${currentFrame.users} users, ${Math.round(1000/avgMS)} fps,
-            backlog: ${(currentFrame.backlog/1000).toFixed(1)} s`;
+            backlog: ${currentFrame.backlog < 100 ? '0.0' : (currentFrame.backlog/1000).toFixed(1)} s`;
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         const map = v => (1 - v / minMS) * 20 + 40;
