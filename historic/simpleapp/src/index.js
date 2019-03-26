@@ -105,7 +105,11 @@ function start() {
     let lastFrame = 0;
 
     /** time spent simulating the last few frames */
-    const simTimes = [];
+    const simLoad = [0];
+    /** number of frames to spread load (TODO: make adaptive to tick rate */
+    const loadBalance = 4;
+    /** time in ms we allow sim to lag behind before increasing sim budget */
+    const balanceMS = loadBalance * (1000 / 60);
 
     // main loop
     hotreload.requestAnimationFrame(frame);
@@ -116,14 +120,14 @@ function start() {
             const currentIsland = ALL_ROOMS[currentRoomName].island;
             if (currentIsland) {
                 const simStart = Date.now();
-                const avgSimTime = simTimes.reduce((a,b) => a + b, 0) / simTimes.length;
+                const simBudget = simLoad.reduce((a,b) => a + b, 0) / simLoad.length;
                 // simulate about as long as in the prev frame to distribute load
-                simulate(Math.min(avgSimTime, 200));
+                simulate(Math.min(simBudget, 200));
                 // if backlogged, use all CPU time for simulation, but render at least at 5 fps
-                if (currentIsland.controller.backlog > 100) simulate(200);
+                if (currentIsland.controller.backlog > balanceMS) simulate(200 - simBudget);
                 // keep log of sim times
-                simTimes.push(Date.now() - simStart);
-                if (simTimes.length > 4) simTimes.shift();
+                simLoad.push(Date.now() - simStart);
+                if (simLoad.length > loadBalance) simLoad.shift();
                 // update stats
                 Stats.users(currentIsland.controller.users);
                 Stats.backlog(currentIsland.controller.backlog);
