@@ -91,39 +91,32 @@ function start() {
 
     hotState = null; // free memory, and prevent accidental access below
 
-    // simulate models
-    function simulate() {
-        // simulate current room for 2 ms
-        if (currentRoomName) {
-            const island = ALL_ROOMS[currentRoomName].island;
-            if (island) island.controller.simulate(2);
-        }
-        // simulate all rooms for 1 ms (including current one again)
-        const liveRooms = Object.values(ALL_ROOMS).filter(room => room.island);
-        for (const {island} of liveRooms) {
-            island.controller.simulate(1);
-        }
-        hotreload.setTimeout(simulate, 0);
-    }
-    hotreload.setTimeout(simulate, 0);
-
-    // process views
+    // main loop
     function frame(timestamp) {
         Stats.animationFrame(timestamp);
         if (currentRoomName) {
+            const currentIsland = ALL_ROOMS[currentRoomName].island;
+            if (currentIsland) {
+                // use all CPU time for simulation, but render at least at 5 fps
+                currentIsland.controller.simulate(200);
+                // update stats
+                Stats.users(currentIsland.controller.users);
+                Stats.backlog(currentIsland.controller.backlog);
+            }
+
+            // update views from model
+            Stats.begin("update");
+            Object.values(ALL_ROOMS).forEach(({island}) => island && island.processModelViewEvents());
+            Stats.end("update");
+
+            // render views
             Stats.begin("render");
             renderer.render(currentRoomName, ALL_ROOMS, roomViewManager);
             Stats.end("render");
 
-            const currentIsland = ALL_ROOMS[currentRoomName].island;
-            Stats.users(currentIsland ? currentIsland.controller.users : 0);
-            Stats.backlog(currentIsland ? currentIsland.controller.backlog : 0);
-
+            // update view state
             const currentRoomView = roomViewManager.getIfLoaded(currentRoomName);
             if (currentRoomView) {
-                Stats.begin("update");
-                Object.values(ALL_ROOMS).forEach(({island}) => island && island.processModelViewEvents());
-                Stats.end("update");
                 currentRoomView.parts.pointer.updatePointer();
                 keyboardManager.setCurrentRoomView(currentRoomView);
             }
@@ -132,12 +125,27 @@ function start() {
     }
     hotreload.requestAnimationFrame(frame);
 
+
+    // simulate all rooms for a few ms
+    function simulateAll() {
+        const liveRooms = Object.values(ALL_ROOMS).filter(room => room.island);
+        const currentIsland = currentRoomName && ALL_ROOMS[currentRoomName].island;
+        for (const {island} of liveRooms) {
+            const ms = island === currentIsland ? 100 : 1;
+            island.controller.simulate(ms);
+        }
+    }
+
+    // simulate a bit all the time, even if in background
+    hotreload.setInterval(simulateAll, 10);
+
+    // set up event handlers
     const eventTimes = {};
     const throttle = event => {
         const now = Date.now();
         if (now - eventTimes[event.type] < 50) return;
         eventTimes[event.type] = now;
-    }
+    };
 
     hotreload.addEventListener(window, "mousemove", event => {
         if (throttle(event)) return;

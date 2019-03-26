@@ -587,8 +587,6 @@ export class Controller {
      * @returns {Number} ms of simulation time remaining (or 0 if done)
      */
     simulate(ms = 1) {
-        // Process pending messages for this island
-        //
         if (!this.island) return;     // we are probably still sync-ing
         this.scheduleMessages();
         Stats.begin("simulate");
