@@ -1,5 +1,3 @@
-export { _event as event, derive };
-
 function _event() {
   var handlers = [];
 
@@ -24,3 +22,5 @@ function derive(prototype, methods) {
   });
   return Object.create(prototype, properties);
 };
+
+export { _event as event, derive };

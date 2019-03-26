@@ -153,7 +153,7 @@ codes.listStart = function(obj, data, allCodes) {
   });
 };
 
-export default function codes(obj, number, allCodes) {
+export default function(obj, number, allCodes) {
   var impl = codes[obj.$];
   return impl && impl(obj, number, allCodes);
 };
