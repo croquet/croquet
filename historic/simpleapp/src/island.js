@@ -492,6 +492,7 @@ export class Controller {
             case 'TICK': {
                 // We received a tick from reflector.
                 // Just set time so main loop knows how far it can advance.
+                if (!this.island) break; // ignore ticks before we are simulating
                 const time = args;
                 if (DEBUG.ticks) console.log(this.id, 'Controller received TICK ' + time);
                 this.timeFromReflector(time);
@@ -587,8 +588,6 @@ export class Controller {
      * @returns {Number} ms of simulation time remaining (or 0 if done)
      */
     simulate(ms = 1) {
-        // Process pending messages for this island
-        //
         if (!this.island) return;     // we are probably still sync-ing
         this.scheduleMessages();
         Stats.begin("simulate");

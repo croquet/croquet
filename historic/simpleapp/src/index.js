@@ -9,6 +9,7 @@ import Renderer from './render.js';
 import { Controller } from "./island.js";
 import {theKeyboardManager} from './domKeyboardManager.js';
 import Stats from "./util/stats.js";
+import urlOptions from "./util/urlOptions.js";
 
 const LOG_HOTRELOAD = false;
 
@@ -32,6 +33,10 @@ function start() {
             if (!ROOM) throw Error("Unknown room: " + roomName);
             if (ROOM.islandPromise) return ROOM.islandPromise;
             const creator = ROOM.creator;
+            if (urlOptions.owner) {
+                const options = creator.options||{};
+                creator.options = {...options, owner: urlOptions.owner};
+            }
             const controller = new Controller();
             ROOM.islandPromise = controller.createIsland(roomName, creator);
             return ROOM.island = await ROOM.islandPromise;
@@ -64,12 +69,15 @@ function start() {
     }
 
     async function joinRoom(roomName, cameraPosition=new THREE.Vector3(0, 2, 4), cameraQuaternion=new THREE.Quaternion(), overrideCamera) {
+        if (!ALL_ROOMS[roomName]) roomName = defaultRoom;
+        if (currentRoomName === roomName) return;
         await ALL_ROOMS.getIsland(roomName);
         currentRoomName = roomName;
         // request ahead of render, set initial camera position if necessary
         roomViewManager.request(roomName, ALL_ROOMS, {cameraPosition, cameraQuaternion, overrideCamera}, onTraversedPortalView);
-        if (window.location.hash.replace("#", "") !== roomName) {
-            window.history.pushState({}, "", "#" + roomName);
+        const desiredHash = roomName === defaultRoom ? "" : roomName;
+        if (window.location.hash.slice(1) !== desiredHash) {
+            window.history.pushState({}, "", "#" + desiredHash);
         }
     }
 
@@ -83,48 +91,87 @@ function start() {
 
     hotState = null; // free memory, and prevent accidental access below
 
-    // simulate models
-    function simulate() {
-        // simulate current room for 2 ms
-        if (currentRoomName) {
-            const island = ALL_ROOMS[currentRoomName].island;
-            if (island) island.controller.simulate(2);
-        }
-        // simulate all rooms for 1 ms (including current one again)
+    /** simulate for a given time budget */
+    function simulate(budget = 50) {
         const liveRooms = Object.values(ALL_ROOMS).filter(room => room.island);
+        const currentIsland = currentRoomName && ALL_ROOMS[currentRoomName].island;
         for (const {island} of liveRooms) {
-            island.controller.simulate(1);
+            const ms = island === currentIsland ? budget : 1;
+            island.controller.simulate(ms);
         }
-        hotreload.setTimeout(simulate, 0);
     }
-    hotreload.setTimeout(simulate, 0);
 
-    // process views
+    /** time when last frame was rendered */
+    let lastFrame = 0;
+
+    /** time spent simulating the last few frames */
+    const simLoad = [0];
+    /** number of frames to spread load (TODO: make adaptive to tick rate */
+    const loadBalance = 4;
+    /** time in ms we allow sim to lag behind before increasing sim budget */
+    const balanceMS = loadBalance * (1000 / 60);
+
+    // main loop
+    hotreload.requestAnimationFrame(frame);
     function frame(timestamp) {
+        hotreload.requestAnimationFrame(frame);
         Stats.animationFrame(timestamp);
         if (currentRoomName) {
+            const currentIsland = ALL_ROOMS[currentRoomName].island;
+            if (currentIsland) {
+                const simStart = Date.now();
+                const simBudget = simLoad.reduce((a,b) => a + b, 0) / simLoad.length;
+                // simulate about as long as in the prev frame to distribute load
+                simulate(Math.min(simBudget, 200));
+                // if backlogged, use all CPU time for simulation, but render at least at 5 fps
+                if (currentIsland.controller.backlog > balanceMS) simulate(200 - simBudget);
+                // keep log of sim times
+                simLoad.push(Date.now() - simStart);
+                if (simLoad.length > loadBalance) simLoad.shift();
+                // update stats
+                Stats.users(currentIsland.controller.users);
+                Stats.backlog(currentIsland.controller.backlog);
+                // remember lastFrame for setInterval()
+                lastFrame = Date.now();
+            }
+
+            // update views from model
+            Stats.begin("update");
+            Object.values(ALL_ROOMS).forEach(({island}) => island && island.processModelViewEvents());
+            Stats.end("update");
+
+            // render views
             Stats.begin("render");
             renderer.render(currentRoomName, ALL_ROOMS, roomViewManager);
             Stats.end("render");
 
-            const currentIsland = ALL_ROOMS[currentRoomName].island;
-            Stats.users(currentIsland ? currentIsland.controller.users : 0);
-            Stats.backlog(currentIsland ? currentIsland.controller.backlog : 0);
-
+            // update view state
             const currentRoomView = roomViewManager.getIfLoaded(currentRoomName);
             if (currentRoomView) {
-                Stats.begin("events");
-                Object.values(ALL_ROOMS).forEach(({island}) => island && island.processModelViewEvents());
-                Stats.end("events");
                 currentRoomView.parts.pointer.updatePointer();
                 keyboardManager.setCurrentRoomView(currentRoomView);
             }
         }
-        hotreload.requestAnimationFrame(frame);
     }
-    hotreload.requestAnimationFrame(frame);
+
+    // simulate even if rendering stopped
+    hotreload.setInterval(() => {
+        // if we are rendering, do nothing
+        if (Date.now() - lastFrame < 100) return;
+        // otherwise, simulate a bit
+        simulate(10);
+    }, 10);
+
+    // set up event handlers
+    const eventTimes = {};
+    const throttle = event => {
+        const now = Date.now();
+        if (now - eventTimes[event.type] < 50) return;
+        eventTimes[event.type] = now;
+    };
 
     hotreload.addEventListener(window, "mousemove", event => {
+        if (throttle(event)) return;
         const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
         if (currentRoomView) currentRoomView.parts.pointer.onMouseMove(event.clientX, event.clientY);
     });
@@ -148,6 +195,7 @@ function start() {
     }, {passive: false});
 
     hotreload.addEventListener(document.body, "touchmove", event => {
+        if (throttle(event)) return;
         const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
         if (currentRoomView) {
             currentRoomView.parts.pointer.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
@@ -162,6 +210,7 @@ function start() {
     }, {passive: false});
 
     hotreload.addEventListener(document.body, "wheel", event => {
+        if (throttle(event)) return;
         const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
         if (currentRoomView) {currentRoomView.parts.treadmillNavigation.onWheel(event);}
         event.stopPropagation();
@@ -173,7 +222,7 @@ function start() {
         roomViewManager.changeViewportSize(window.innerWidth, window.innerHeight);
     });
 
-    hotreload.addEventListener(window, "hashchange", () => joinRoom(window.location.hash.replace("#", "")));
+    hotreload.addEventListener(window, "hashchange", () => joinRoom(window.location.hash.slice(1)));
 
     keyboardManager.install(hotreload);
 

@@ -6,19 +6,6 @@ var enter = nbsp; // String.fromCharCode(9166);
 var cachedMeasureText = createCachedMeasureText();
 var externalMeasurementFunc;
 
-export {
-  enter, nbsp, cachedMeasureText,
-
-  getFontString,
-  applyRunStyle,
-  prepareContext,
-  getRunStyle,
-  createCachedMeasureText, 
-  measureText,
-  measure, draw,
-  setCachedMeasureText
-}
-
 function setCachedMeasureText(func) {
     cachedMeasureText = createCachedMeasureText();
     externalMeasurementFunc = func;
@@ -180,4 +167,17 @@ function draw(ctx, str, formatting, left, baseline, width, ascent, descent) {
   if (formatting.strikeout) {
     ctx.fillRect(left, 1 + baseline - (ascent/2), width, 1);
   }
+}
+
+export {
+  enter, nbsp, cachedMeasureText,
+
+  getFontString,
+  applyRunStyle,
+  prepareContext,
+  getRunStyle,
+  createCachedMeasureText,
+  measureText,
+  measure, draw,
+  setCachedMeasureText
 }
