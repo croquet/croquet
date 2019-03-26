@@ -99,7 +99,7 @@ export class KeyboardManager {
             { type: "keydown", node: textareaNode,
               fn: env => this.onTextareaKeyDown(env), capturing: false },
             { type: "keyup", node: textareaNode,
-              fn: env => this.onTextareaKeyUp(env), capturing: false },
+               fn: env => this.onTextareaKeyUp(env), capturing: false },
             { type: "cut", node: textareaNode,
               fn: env => this.onTextareaCut(env), capturing: false },
             { type: "copy", node: textareaNode,
@@ -117,8 +117,8 @@ export class KeyboardManager {
         domState.eventHandlers.forEach((ref) => {
             let {type, node, fn, capturing} = ref;
             hotreload.addEventListener(node, type, fn, capturing);
-      });
-      return this;
+        });
+        return this;
     }
 
     uninstall() {
@@ -245,10 +245,12 @@ export class KeyboardManager {
 
     onTextareaKeyUp(evt) {
         this.dispatchDOMEvent(evt);
+        evt.stopPropagation();
     }
 
     onTextareaKeyDown(evt) {
         this.dispatchDOMEvent(evt);
+        evt.stopPropagation();
     }
 
     onTextareaInput(evt) {
@@ -297,3 +299,5 @@ export class KeyboardManager {
         this.dispatchDOMEvent(evt);
     }
 }
+
+export let theKeyboardManager = new KeyboardManager();

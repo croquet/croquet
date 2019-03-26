@@ -1,10 +1,10 @@
 import { ViewPart } from '../view.js';
-import { KeyboardEvents, KeyboardTopic } from '../domKeyboardManager.js';
+import { KeyboardEvents, KeyboardTopic, theKeyboardManager } from '../domKeyboardManager.js';
 
 export class KeyboardViewPart extends ViewPart {
     fromOptions(options) {
-	this.subscribe(KeyboardEvents.requestfocus, "onRequestFocus", KeyboardTopic, null);
-	this.focus = null;
+        this.subscribe(KeyboardEvents.requestfocus, "onRequestFocus", KeyboardTopic, null);
+        this.focus = null;
     }
 
     onRequestFocus(viewId) {
@@ -12,9 +12,10 @@ export class KeyboardViewPart extends ViewPart {
     }
 
     handleEvent(evt) {
-	if (this.focus) {
-	    let type = evt.type;
-	    this.publish(KeyboardEvents[type], evt, ...this.focus.requesterRef.split("."));
-	}
+        if (this.focus) {
+            theKeyboardManager.focus();
+            this.publish(KeyboardEvents[evt.type], evt, ...this.focus.requesterRef.split("."));
+            evt.preventDefault();
+        }
     }
 }

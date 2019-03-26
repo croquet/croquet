@@ -58,385 +58,400 @@ function doEval(morph, range, additionalOpts, code) {
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 // commands
 
-export let textCommands = [
-  {
-    name: "clipboard copy",
-    doc: "placeholder for native copy",
-    exec: text => false
-  },
+let textCommands = {
+    "clipboard copy": {
+        doc: "placeholder for native copy",
+        exec: text => false
+    },
 
-  {
-    name: "clipboard cut",
-    doc: "placeholder for native cut",
-    exec: text => false
-  },
+    "clipboard cut": {
+        doc: "placeholder for native cut",
+        exec: text => false
+    },
 
-  {
-    name: "clipboard paste",
-    doc: "placeholder for native paste",
-    exec: text => false
-  },
+    "clipboard paste": {
+        doc: "placeholder for native paste",
+        exec: text => false
+    },
+};
 
-  {
-    name: "select all",
-    doc: "Selects entire text contents.",
-    scrollCursorIntoView: false,
-    multiSelectAction: "single",
-    exec: text => {
-      text.selectAll();
-      return true;
+let jsEditorCommands = {
+    "doit": {
+        doc: "Evaluates the selected code or the current line and report the result",
+        exec: async (text, opts, count = 1) => {
+            maybeSelectCommentOrLine(text);
+            let result, err;
+            try {
+                opts = Object.assign({}, opts, {inspect: true, inspectDepth: count});
+                result = await doEval(text, undefined, opts);
+                err = result.isError ? result.value : null;
+            } catch (e) { err = e; }
+            if (err) console.log('**' + err);
+            return result;
+        }
+    },
+
+    "printit": {
+        doc: "Evaluates selected code or the current line and inserts the result in a printed representation",
+        exec: async (text, opts) => {
+            // opts = {targetModule}
+            maybeSelectCommentOrLine(text);
+            let result, err;
+            try {
+                opts = Object.assign({}, opts, {asString: true});
+                result = await doEval(text, undefined, opts);
+                err = result.isError ? result.value : null;
+            } catch (e) { err = e; }
+            text.selection.collapseToEnd();
+            text.insertTextAndSelect(err ?
+                                     String(err) + (err.stack ? "\n" + err.stack : "") :
+                                     String(result.value));
+            return result;
+        }
+    },
+
+    "save": {
+        doc: "Saves...",
+        handlesCount: true,
+        exec: async (text, opts, count = 1) => {
+            //if (morph.saveTextToModel) return morph.saveTextToModel();
+            //const container = morph.getContainer();
+            //console.log(`container is a ${container.constructor}`)
+            //if (container && container.save) return container.save();
+            // The following line makes ‘save’ work in the TSystemBrowser,
+            // but it should be handled by a better route than tParent
+            //if (morph.tParent && morph.tParent.save) return morph.tParent.save();
+            console.log("this text doesn't know how to save");
+            return true;
+        }
     }
-  },
+};
 
-  {
-    name: "delete backwards",
-    doc: "Delete the character in front of the cursor or the selection.",
-    exec: (text) => {
-      if (text.rejectsInput()) return false;
-      var sel = text.selection;
-      if (sel.isEmpty()) sel.growLeft(1);
-      sel.text = "";
-      sel.collapse();
-      if (text.activeMark) text.activeMark = null;
-      return true;
-    }
-  },
-
-  {
-    name: "delete",
-    doc: "Delete the character following the cursor or the selection.",
-    exec: text => {
-      var sel = text.selection;
-      if (text.rejectsInput()) return false;
-      if (sel.isEmpty()) sel.growRight(1);
-      sel.text = "";
-      sel.collapse();
-      if (text.activeMark) text.activeMark = null;
-      return true;
-    }
-  },
-
-  {
-    name: "go left",
-    doc: "Move the cursor 1 character left. At the beginning of a line move the cursor up. If a selection is active, collapse the selection left.",
-    exec: text => {
-      text.activeMark ?
-        text.selection.selectLeft(1) :
-        text.selection.goLeft(1);
-      return true;
-    }
-  },
-
-  {
-    name: "go right",
-    doc: "Move the cursor 1 character right. At the end of a line move the cursor down. If a selection is active, collapse the selection right.",
-    exec: text => {
-      text.activeMark ?
-        text.selection.selectRight(1) :
-        text.selection.goRight(1);
-      return true;
-    }
-  },
-
-  {
-    name: "go up",
-    doc: "Move the cursor 1 line. At the end of a line move the cursor down. If a selection is active, collapse the selection right.",
-    scrollCursorIntoView: true,
-    exec: text => {
-      text.activeMark ?
-        text.selection.selectUp(1) :
-        text.selection.goUp(1, true/*use screen position*/);
-      return true;
-    }
-  },
-
-  {
-    name: "go down",
-    exec: text => {
-      text.activeMark ?
-        text.selection.selectDown(1) :
-        text.selection.goDown(1, true/*use screen position*/);
-      return true;
-    }
-  },
-
-  {
-    name: "select left",
-    exec: text => { text.selection.selectLeft(1); return true; }
-  },
-
-  {
-    name: "select right",
-    exec: text => { text.selection.selectRight(1); return true; }
-  },
-
-  {
-    name: "select up",
-    exec: text => { text.selection.selectUp(1, true); return true; }
-  },
-
-  {
-    name: "select down",
-    exec: text => { text.selection.selectDown(1, true); return true; }
-  },
-
-  {
-    name: "select line",
-    exec: text => {
-      let sel = text.selection,
-          row = sel.lead.row,
-          fullLine = text.lineRange(row, false);
-      sel.range = sel.range.equals(fullLine) ? text.lineRange(row, true) : fullLine;
-      return true;
-    }
-  },
-
-  {
-    name: "goto line start",
-    exec: (text, opts = {select: false})  => {
-      let select = opts.select || !!text.activeMark,
-          sel = text.selection,
-          cursor = sel.lead,
-          line = text.lineRange(cursor, true);
-      sel.lead = eqPosition(cursor, line.start) ? {column: 0, row: cursor.row} : line.start;
-      if (!select) sel.anchor = sel.lead;
-      return true;
-    }
-  },
-
-  {
-    name: "goto line end",
-    exec: (text, opts = {select: false}) => {
-      let select = opts.select || !!text.activeMark,
-          sel = text.selection,
-          cursor = sel.lead,
-          line = text.lineRange(cursor, true);
-      sel.lead = line.end;
-      if (!select) {sel.anchor = sel.lead};
-      return true;
-    }
-  },
-
-  {
-    name: "newline",
-    exec: text => {
-      var {row} = text.cursorPosition,
-          currentLine = text.getLineString(row),
-          indent = currentLine.match(/^\s*/)[0].length;
-
-      if (!currentLine.trim() && indent) // remove trailing spaces of empty lines
-        text.deleteText({start: {row, column: 0}, end: {row, column: indent}});
-
-      let prefill = "\n" + " ".repeat(indent);
-
-      text.selection.text = prefill;
-      text.selection.collapseToEnd();
-      return true;
-    }
-  },
-
-  {
-    name: "insertstring",
-    exec: (text, args = {string: null, undoGroup: false}) => {
-      let {string, undoGroup} = args,
-          isValid = typeof string === "string" && string.length;
-      if (!isValid) console.warn(`command insertstring called with not string value`);
-      if (text.rejectsInput() || !isValid) return false;
-      let sel = text.selection, isDelete = !sel.isEmpty();
-      sel.text = string;
-      sel.collapseToEnd();
-      return true;
-    }
-  }
-];
-
-export let jsEditorCommands = [
-  {
-    name: "doit",
-    doc: "Evaluates the selected code or the current line and report the result",
-    exec: async (text, opts, count = 1) => {
-      maybeSelectCommentOrLine(text);
-      let result, err;
-      try {
-        opts = Object.assign({}, opts, {inspect: true, inspectDepth: count});
-        result = await doEval(text, undefined, opts);
-        err = result.isError ? result.value : null;
-      } catch (e) { err = e; }
-      if (err) console.log('**' + err);
-      return result;
-    }
-  },
-
-  {
-    name: "printit",
-    doc: "Evaluates selected code or the current line and inserts the result in a printed representation",
-    exec: async (text, opts) => {
-      // opts = {targetModule}
-      maybeSelectCommentOrLine(text);
-      var result, err;
-      try {
-        opts = Object.assign({}, opts, {asString: true});
-        result = await doEval(text, undefined, opts);
-        err = result.isError ? result.value : null;
-      } catch (e) { err = e; }
-      text.selection.collapseToEnd();
-      text.insertTextAndSelect(err ?
-        String(err) + (err.stack ? "\n" + err.stack : "") :
-        String(result.value));
-      return result;
-    }
-  },
-
-  {
-    name: "save",
-    doc: "Saves...",
-    handlesCount: true,
-    exec: async (text, opts, count = 1) => {
-      //if (morph.saveTextToModel) return morph.saveTextToModel();
-      //const container = morph.getContainer();
-      //console.log(`container is a ${container.constructor}`)
-      //if (container && container.save) return container.save();
-      // The following line makes ‘save’ work in the TSystemBrowser,
-      // but it should be handled by a better route than tParent
-      //if (morph.tParent && morph.tParent.save) return morph.tParent.save();
-      console.log("this text doesn't know how to save");
-      return true;
-    }
-  }
-];
+export const defaultCommands = Object.assign({}, textCommands, jsEditorCommands);
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 // keybindings
 
 export const defaultKeyBindings = [
-  {keys: {mac: 'Meta-C', win: 'Ctrl-C'}, command: {command: "clipboard copy", passEvent: true}},
-  {keys: {mac: 'Meta-X', win: 'Ctrl-X'}, command: {command: "clipboard cut", passEvent: true}},
-  {keys: {mac: 'Meta-V', win: 'Ctrl-V'}, command: {command: "clipboard paste", passEvent: true}},
+  {keys: {mac: 'Meta-C', win: 'Ctrl-C'}, command: "clipboard copy"},
+  {keys: {mac: 'Meta-X', win: 'Ctrl-X'}, command: "clipboard cut"},
+  {keys: {mac: 'Meta-V', win: 'Ctrl-V'}, command: "clipboard paste"},
 
-  //{keys: {mac: 'Meta-Z|Ctrl-Shift--|Ctrl-x u', win: 'Ctrl-Z|Ctrl-Shift--|Ctrl-x u'}, command: "text undo"},
+  {keys: {mac: 'Meta-Z', win: 'Ctrl-Z'}, command: "text undo"},
   //{keys: {mac: 'Meta-Shift-Z', win: 'Ctrl-Shift-Z'}, command: "text redo"},
 
-  {keys: {mac: 'Meta-A|Ctrl-X H', win: 'Ctrl-A|Ctrl-X H'}, command: "select all"},
   {keys: {mac: 'Meta-D', win:  'Ctrl-D'}, command: "doit"},
-  {keys: {mac: "Meta-Shift-L X B"},      command: "eval all"},
   {keys: {mac: 'Meta-P', win: 'Ctrl-P'}, command: "printit"},
   {keys: {mac: 'Meta-S', win: 'Ctrl-S'}, command: "save"},
-  {keys: {mac: 'Meta-I', win: 'Ctrl-I'}, command: "print inspectit"},
-  {keys: {mac: 'Meta-Shift-I', win: 'Ctrl-Shift-I'}, command: "inspectit"},
-  {keys: {mac: 'Meta-Shift-U', win: 'Ctrl-Shift-U'}, command: "undefine variable"},
-
-  {keys: 'Backspace',                           command: "delete backwards"},
-  {keys: {win: 'Delete', mac: 'Delete|Ctrl-D'}, command: "delete"},
-
-  {keys: {win: 'Left', mac: 'Left|Ctrl-B'},   command: "go left"},
-  {keys: {win: 'Right', mac: 'Right|Ctrl-F'}, command: "go right"},
-  {keys: {win: 'Up', mac: 'Up|Ctrl-P'},       command: "go up"},
-  {keys: {win: 'Down', mac: 'Down|Ctrl-N'},   command: "go down"},
-
-  {keys: 'Shift-Left',  command: "select left"},
-  {keys: 'Shift-Right', command: "select right"},
-  {keys: 'Shift-Up',    command: "select up"},
-  {keys: 'Shift-Down',  command: "select down"},
-
-  {keys: {win: 'Ctrl-Right', mac: 'Alt-Right|Alt-F'}, command: "goto word right"},
-  {keys: {win: 'Ctrl-Left', mac: 'Alt-Left|Alt-B'}, command: "goto word left"},
-  {keys: {win: 'Ctrl-Shift-Right', mac: 'Alt-Shift-Right|Alt-Shift-F'}, command: {command: "goto word right", args: {select: true}}},
-  {keys: {win: 'Ctrl-Shift-Left', mac: 'Alt-Shift-Left|Alt-Shift-B'}, command: {command: "goto word left", args: {select: true}}},
-  {keys: 'Alt-Backspace',                command: "delete word left"},
-  {keys: 'Alt-D',                        command: "delete word right"},
-  {keys: 'Alt-Ctrl-K',                   command: "delete word right"/*actualle delete sexp!*/},
-  {keys: 'Alt-Shift-2',                  command: "select word right"},
-
-  {keys: "Ctrl-X Ctrl-X",                                     command: "reverse selection"},
-  {keys: {win: "Ctrl-Shift-L", mac: 'Meta-L'},                command: "select line"},
-  {keys: {win: "Shift-Home", mac: "Shift-Home|Ctrl-Shift-A"}, command: {command: "goto line start", args: {select: true}}},
-  {keys: {win: "Home", mac: "Home|Ctrl-A"},                   command: {command: "goto line start", args: {select: false}}},
-  {keys: {win: "Shift-End", mac: "Shift-End|Ctrl-Shift-E"},   command: {command: "goto line end", args: {select: true}}},
-  {keys: {win: "End", mac: "End|Ctrl-E"},                     command: {command: "goto line end", args: {select: false}}},
-
-  {keys: "Ctrl-C J",                                     command: {command: "join line", args: {withLine: "before"}}},
-  {keys: "Ctrl-C Shift-J",                               command: {command: "join line", args: {withLine: "after"}}},
-  {keys: {win: "Ctrl-Shift-D", mac: "Meta-Shift-D|Ctrl-C P"},     command: "duplicate line or selection"},
-  {keys: {win: "Ctrl-Backspace", mac: "Meta-Backspace"}, command: "delete left until beginning of line"},
-  {keys: "Ctrl-K",                                       command: "delete emtpy line or until end of line"},
-
-  {keys: {win: "Ctrl-Alt-Up|Ctrl-Alt-P", mac: "Ctrl-Meta-Up|Ctrl-Meta-P"}, command: "move lines up"},
-  {keys: {win: "Ctrl-Alt-Down|Ctrl-Alt-N", mac: "Ctrl-Meta-Down|Ctrl-Meta-N"}, command: "move lines down"},
-
-  {keys: {win: "PageDown", mac: "PageDown|Ctrl-V"},      command: "goto page down"},
-  {keys: {win: "PageUp", mac: "PageUp|Alt-V"},           command: "goto page up"},
-  {keys: {win: "Shift-PageDown", mac: "Shift-PageDown"}, command: "goto page down and select"},
-  {keys: {win: "Shift-PageUp", mac: "Shift-PageUp"},     command: "goto page up and select"},
-  {keys: 'Alt-Ctrl-,'/*Alt-Ctrl-<*/,                     command: 'move cursor to screen top in 1/3 steps'},
-  {keys: 'Alt-Ctrl-.'/*Alt-Ctrl-<*/,                     command: 'move cursor to screen bottom in 1/3 steps'},
-
-  {keys: {win: "Alt-Left", mac: "Meta-Left"},               command: "goto matching left"},
-  {keys: {win: "Alt-Shift-Left", mac: "Meta-Shift-Left"},   command: {command: "goto matching left", args: {select: true}}},
-  {keys: {win: "Alt-Right", mac: "Meta-Right"},             command: "goto matching right"},
-  {keys: {win: "Alt-Shift-Right", mac: "Meta-Shift-Right"}, command: {command: "goto matching right", args: {select: true}}},
-
-  // FIXME this is actually fwd/bwd sexp
-  {keys: "Alt-Ctrl-B", command: "goto matching left"},
-  {keys: "Alt-Ctrl-F", command: "goto matching right"},
-
-  {keys: "Ctrl-Up", command: "goto paragraph above"},
-  {keys: "Ctrl-Down", command: "goto paragraph below"},
-
-
-  {keys: {win: "Ctrl-Shift-Home", mac: "Meta-Shift-Up"},           command: {command: "goto start", args: {select: true}}},
-  {keys: {win: "Ctrl-Shift-End", mac: "Meta-Shift-Down"},          command: {command: "goto end", args: {select: true}}},
-  {keys: {win: "Ctrl-Home", mac: "Meta-Up|Meta-Home|Alt-Shift-,"}, command: "goto start"},
-  {keys: {win: "Ctrl-End", mac: "Meta-Down|Meta-End|Alt-Shift-."}, command: "goto end"},
-
-  {keys: "Ctrl-L",                                           command: "realign top-bottom-center"},
-  {keys: {win: "Ctrl-Shift-L", mac: "Ctrl-Shift-L|Alt-G G"}, command: "goto line"},
-
-  {keys: 'Enter', command: "newline"},
-  {keys: 'Space', command: {command: "insertstring", args: {string: " ", undoGroup: true}}},
-  {keys: 'Tab',   command: {command: "tab - snippet expand or indent"}},
-
-  {keys: {win: 'Ctrl-]', mac: 'Meta-]'}, command: "indent"},
-  {keys: {win: 'Ctrl-[', mac: 'Meta-['}, command: "outdent"},
-
-  {keys: {win: 'Ctrl-Enter', mac: 'Meta-Enter'}, command: {command: "insert line", args: {where: "below"}}},
-  {keys: 'Shift-Enter',                          command: {command: "insert line", args: {where: "above"}}},
-  {keys: 'Ctrl-O',                               command: "split line"},
-
-  {keys: {mac: 'Ctrl-X Ctrl-T'}, command: "transpose chars"},
-  {keys: {mac: 'Ctrl-C Ctrl-U'}, command: "uppercase"},
-  {keys: {mac: 'Ctrl-C Ctrl-L'}, command: "lowercase"},
-  {keys: {mac: 'Meta-Shift-L W t'}, command: "remove trailing whitespace"},
-
-  {keys: "Ctrl-Space", command: "toggle active mark"},
-
-
-  {keys: {mac: 'Meta-Shift-L L T'}, command: "toggle line wrapping"},
-  {keys: {win: 'Ctrl-=', mac: 'Meta-='}, command: "increase font size"},
-  {keys: {win: 'Ctrl--', mac: 'Meta--'}, command: "decrease font size"},
-
-  {keys: "Esc|Ctrl-G", command: "cancel input"},
-
-  {keys: {win: "Ctrl-/", mac: "Meta-/"}, command: "toggle comment"},
-  {keys: {win: "Alt-Ctrl-/", mac: "Alt-Meta-/|Alt-Meta-÷"/*FIXME*/}, command: "toggle block comment"},
-  {keys: "Meta-Shift-L /  D", command: "comment box"},
-
-  {keys: {windows: "Ctrl-.", mac: "Meta-."}, command: '[IyGotoChar] activate'},
-  {keys: {windows: "Ctrl-,", mac: "Meta-,"}, command: {command: '[IyGotoChar] activate', args: {backwards: true}}},
-
-  {keys: "Alt-Shift-Space|Alt-Space|Meta-Shift-P", command: "text completion"},
-
-  {keys: "Alt-Q", command: "fit text to column"},
-
-  {keys: {win: "Ctrl-F|Ctrl-G|F3", mac: "Meta-F|Meta-G|Ctrl-S"},                      command: "search in text"},
-  {keys: {win: "Ctrl-Shift-F|Ctrl-Shift-G", mac: "Meta-Shift-F|Meta-Shift-G|Ctrl-R"}, command: {command: "search in text", args: {backwards: true}}},
-
-  {keys: {mac: 'Meta-E', win: 'Ctrl-E'}, command: "doExchange"},
-  {keys: {mac: 'Meta-M', win: 'Ctrl-M'}, command: "doMore"},
-  {keys: {mac: 'Meta-Shift-M', win: 'Ctrl-Shift-M'}, command: "doMuchMore"}
-
-
 ];
 
+export function lookup(evt, bindings) {
+    for (let i = 0; i < bindings.length; i++) {
+        let b = bindings[i];
+        let keys = b.keys;
+        // use bowser for real
+        for (let k in keys) {
+            if (keys[k] === evt.keyCombo) {
+                return b.command;
+            }
+        }
+    }
+    return null;
+}
+
+function computeHashIdOfEvent(evt) {
+    let letterRe = /[a-z]/i;
+
+    let key = evt.key,
+        ctrlKey = evt.ctrlKey,
+        altKey = evt.altKey,
+        shiftKey = evt.shiftKey,
+        metaKey = evt.metaKey,
+        hashId = 0 | (ctrlKey ? 1 : 0) | (altKey ? 2 : 0) | (shiftKey ? 4 : 0) | (metaKey ? 8 : 0);
+
+    if (hashId === 0 && !canonicalizeFunctionKey(key) && key && letterRe.test(key)) hashId = -1;
+  return hashId;
+}
+
+let KEY_MODS = (function () {
+    let base = {
+        "control": 1, "ctrl": 1, "alt": 2, "option": 2, "shift": 4,
+        "super": 8, "win": 8, "meta": 8, "command": 8, "cmd": 8
+    };
+
+    let mods = ["alt", "ctrl", "meta", "shift"];
+    for (let i = 2 ** mods.length; i--;) {
+        base[i] = mods.filter(x => i & base[x]).join("-") + "-";
+    }
+    base[0] = "";
+    base[-1] = "input-";
+
+  return base;
+})();
+
+let isNumber = function (key) {
+    return /^[0-9]+$/.test(key)
+};
+
+
+function isModifier(key) {
+    if (isNumber(key)) return false;
+    key = key.replace(/-$/, "").toLowerCase();
+
+    return KEY_MODS.hasOwnProperty(key);
+}
+
+let FUNCTION_KEYS = [
+    "backspace", "tab", "enter", "pause", "escape", " ", "pageup", "pagedown", "end", "home", "left", "up", "right", "down", "print", "insert", "delete", "numpad0", "numpad1", "numpad2", "numpad3", "numpad4", "numpad5", "numpad6", "numpad7", "numpad8", "numpad9", "numpadenter", "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11", "f12", "numlock", "scrolllock"];
+
+function canonicalizeFunctionKey(key) {
+    key = key.toLowerCase();
+    switch (key) {
+    case 'space':
+        key = "space";
+        break;
+    case 'esc':
+        key = "escape";
+        break;
+    case 'return':
+        key = "enter";
+        break;
+    case 'arrowleft':
+        key = "left";
+        break;
+    case 'arrowright':
+        key = "right";
+        break;
+    case 'arrowup':
+        key = "up";
+        break;
+    case 'arrowdown':
+        key = "down";
+        break;
+    default:
+        break;
+    }
+
+    if (FUNCTION_KEYS.includes(key)) {
+        return key[0].toUpperCase() + key.slice(1);
+    }
+    return "";
+}
+
+function decodeKeyIdentifier(identifier, keyCode) {
+    // trying to find out what the String representation of the key pressed
+    // in key event is.
+    // Uses keyIdentifier which can be Unicode like "U+0021"
+
+    let id = identifier,
+        unicodeDecodeRe = /u\+?([\d\w]{4})/gi,
+        unicodeReplacer = (match, grp) => {
+            return String.fromCharCode(parseInt(grp, 16));
+        },
+    key = id && id.replace(unicodeDecodeRe, unicodeReplacer);
+
+    if (key === 'Command' || key === 'Cmd') key = "Meta";
+    if (key === ' ') key = "Space";
+    if (keyCode === 8 /*KEY_BACKSPACE*/) key = "Backspace";
+    return key;
+}
+
+function identifyKeyFromCode(evt) {
+    let code = evt.code;
+
+    // works on Chrome and Safari
+    // https://developer.mozilla.org/en/docs/Web/API/KeyboardEvent/code
+    // For certain inputs evt.key or keyCode will return the inserted char, not
+    // the key pressed. For keybindings it is nicer to have the actual key,
+    // however
+
+    if (typeof code !== "string") return null;
+
+    if (code.startsWith("Key")) return code.slice(3);
+    if (code.startsWith("Numpad")) return code;
+    if (code.startsWith("Digit")) return code.slice(5);
+    if (code.startsWith("Arrow")) return code.slice(5);
+    if (code.match(/^F[0-9]{1-2}$/)) return code;
+
+    switch (code) {
+    case "Insert":
+    case "Home":
+    case "PageUp":
+    case "PageDown":
+        return code;
+    case 'Period':
+        return ".";
+    case 'Comma':
+        return ",";
+    case 'Help':
+        return "Insert";
+    case 'Equal':
+        return "=";
+    case 'Backslash':
+    case 'IntlBackslash':
+        return "\\";
+    case 'Equal':
+        return "=";
+    case "Minus":
+        return "-";
+    case "BracketRight":
+        return "]";
+    case "BracketLeft":
+        return "[";
+    case "Quote":
+        return "'";
+    case 'Backquote':
+        return "`";
+    case 'Semicolon':
+        return ";";
+    }
+
+    return null;
+}
+
+function dedasherize(keyCombo) {
+    // splits string like Meta-x or Ctrl-- into its parts
+    // dedasherize("Ctrl--") => ["Ctrl", "-"]
+    let parts = [];
+    while (true) {
+        let idx = keyCombo.indexOf("-");
+        if (idx === -1) {
+            if (keyCombo) parts.push(keyCombo);
+            return parts;
+        }
+        if (idx === 0) {
+            parts.push(keyCombo[0]);
+            keyCombo = keyCombo.slice(2);
+        } else {
+            parts.push(keyCombo.slice(0, idx));
+            keyCombo = keyCombo.slice(idx + 1);
+        }
+    }
+}
+
+function keyComboToEventSpec(keyCombo) {
+    // 1. create a key event object. We first gather what properties need to be
+    // passed to the event creator in terms of the keyboard state
+
+    let spec = {
+        _isLivelyKeyEventSpec: true,
+        keyCombo: "",
+        key: '',
+        ctrlKey: false,
+        shiftKey: false,
+        altKey: false,
+        metaKey: false,
+        altGraphKey: false,
+        isFunctionKey: false,
+        isModified: false,
+        onlyModifiers: false
+    };
+
+    // 2. Are any modifier keys pressed?
+    let keyMods = dedasherize(keyCombo),
+        modsToEvent = {
+            shift: "shiftKey",
+            control: "ctrlKey",
+            ctrl: "ctrlKey",
+            alt: "altKey",
+            meta: "metaKey",
+            command: "metaKey",
+            cmd: "metaKey",
+        };
+
+    if (keyMods[0] === "input" && keyMods.length === 2) {
+        spec.keyCombo = keyCombo;
+        spec.key = keyMods[1];
+        return spec;
+    }
+
+    for (let i = keyMods.length - 1; i >= 0; i--) {
+        let mod = keyMods[i],
+            modEventFlag = modsToEvent[mod.toLowerCase()];
+        if (!modEventFlag) continue;
+        keyMods.splice(i, 1);
+        spec.isModified = true;
+        spec[modEventFlag] = true;
+    }
+
+    // only modifiers
+    if (!keyMods.length) {
+        let combo = eventToKeyCombo(spec);
+        let dedash = dedasherize(combo);
+        spec.keyCombo = combo;
+        spec.key = dedash[dedash.length - 1];
+        spec.onlyModifiers = true;
+        return spec;
+    }
+
+    if (keyMods.length > 1) {
+        console.warn("Strange key \"" + keyCombo + "\" encountered in keyComboToEventSpec, parsing probably failed");
+    }
+
+    let trailing = keyMods[keyMods.length-1];
+
+    // 3. determine the key code and key string of the event.
+    let fnKey = canonicalizeFunctionKey(trailing);
+    if (fnKey) {
+        spec.isFunctionKey = true;
+        spec.key = fnKey;
+    } else if (spec.isModified) {
+        spec.key = trailing[0].toUpperCase() + trailing.slice(1);
+    } else {
+        spec.key = trailing;
+    }
+
+    spec.keyCombo = eventToKeyCombo(spec);
+    return spec;
+}
+
+function eventToKeyCombo(evt, options) {
+    // var evt = Keys.keyComboToEventSpec("Enter")
+    // var evt = {type: "keydown", keyIdentifier: "Meta"}
+    // Keys.eventToKeyCombo(x)
+    // stringify event to a key or key combo
+    let key = evt.key,
+        data = evt.data,
+        keyIdentifier = evt.keyIdentifier;
+
+    // deal with input events: They are considered coming from verbatim key
+    // presses which might not be real but we maintain the data this way
+
+    if (typeof data === "string") return "input-" + data;
+
+    // fallback to keyIdentifier for Safari...
+    if (!key && keyIdentifier) {
+      key = decodeKeyIdentifier(keyIdentifier, evt.which || evt.keyCode);
+      evt.key = key = key[evt.shiftKey ? "toUpperCase" : "toLowerCase"]();
+      if (isModifier(key)) return key[0].toUpperCase() + key.slice(1);
+    }
+
+    let mod = KEY_MODS[computeHashIdOfEvent(evt)];
+
+    if (mod === "input-") return mod + key;
+
+    if (evt.code) key = identifyKeyFromCode(evt) || key;
+
+    let keyCombo = !key || isModifier(key) ? mod.replace(/-$/, "") : mod + key;
+
+    if (keyCombo.match(/\s$/)) keyCombo = keyCombo.replace(/\s$/, "Space");
+
+    // I don't know what this is
+    return keyCombo.replace(/(^|-)([a-z])/g,
+                            (_, start, char) => start + char.toUpperCase());
+}
+
+export let canonicalize = {
+    computeHashIdOfEvent,
+
+    canonicalizeKeyCombo: function canonicalizeKeyCombo(str) {
+        return eventToKeyCombo(keyComboToEventSpec(str));
+    },
+    canonicalizeEvent: function canonicalizeEvent(evt) {
+        return evt._isLivelyKeyEventSpec ? evt
+            : keyComboToEventSpec(eventToKeyCombo(evt));
+    }
+};
 
     // // "text access"
     // indexToPosition(index) {

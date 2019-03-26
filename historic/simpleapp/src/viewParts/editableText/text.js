@@ -7,7 +7,7 @@ import { PointerEvents, makePointerSensitive } from "../pointer.js";
 import { Carota } from './carota/editor.js';
 import { fontRegistry } from '../../util/fontRegistry.js';
 import { KeyboardEvents, KeyboardTopic } from '../../domKeyboardManager.js';
-//import { textCommands, jsEditorCommands, defaultKeyBindings } from './text-commands.js';
+import { defaultCommands, defaultKeyBindings, canonicalize, lookup } from './text-commands.js';
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
@@ -23,8 +23,10 @@ export default class EditableTextViewPart extends Object3D {
             this.subscribe(PointerEvents.pointerMove, "onPointerMove");
             this.subscribe(PointerEvents.pointerUp, "onPointerUp");
             this.subscribe(KeyboardEvents.keydown, "onKeyDown");
+            this.subscribe(KeyboardEvents.copy, "onCopy");
+            this.subscribe(KeyboardEvents.cut, "onCut");
+            this.subscribe(KeyboardEvents.paste, "onPaste");
         }
-
         this.boxSelections = [];
     }
 
@@ -300,10 +302,23 @@ export default class EditableTextViewPart extends Object3D {
     }
 
     onKeyDown(evt) {
+        let myEvt = canonicalize.canonicalizeEvent(evt);
+
+        if (myEvt.onlyModifiers) {return true;}
+
+        // let command = defaultCommands[lookup(myEvt, defaultKeyBindings)];
+        // if (command) {
+        //     command.exec(this);
+        //     return true;
+        //     // its weird but cut/copy/paste are handled by ClipboardEvent not keyevent.
+        //     // so effectively their "text => false" functions are noop
+        // }
+
         if (evt.keyCode === 13) {
             this.editor.insert('\n');
             return true;
         }
+
         const handled = this.editor.handleKey(evt.keyCode, evt.shiftKey, evt.ctrlKey|| evt.metaKey);
 
         if (!handled && !(evt.ctrlKey || evt.metaKey)) {
@@ -311,5 +326,51 @@ export default class EditableTextViewPart extends Object3D {
             return true;
         }
         return true;
+    }
+
+    onCopy(evt) {
+        evt.clipboardData.setData("text/plain", this.editor.selectedRange().plainText());
+        evt.preventDefault();
+        return true;
+    }
+
+    onCut(evt) {
+        this.onCopy(evt);
+        this.selection.text = "";
+        return true;
+    }
+
+    onPaste(evt) {
+        let pasteChars = evt.clipboardData.getData("text");
+        this.editor.insert(pasteChars);
+        evt.preventDefault();
+        return true;
+    }
+
+    // "text access"
+    indexToPosition(index) {
+        let carota = this.editor,
+        lines = carota.frame.lines, row = 0;
+        for (; row < lines.length; row++) {
+            let line = lines[row];
+            if (index < line.length) break;
+            index -= line.length;
+        }
+        return {row, column: index};
+    }
+
+    positionToIndex(textPos) {
+        let {frame: {lines}} = this.editor,
+        {row, column} = textPos,
+        minRow = 0, maxRow = lines.length -1;
+        if (row < minRow) { row = 0; column = 0; }
+        if (row > maxRow) { row = maxRow; column = lines[maxRow].length-1; }
+        return lines[row].ordinal + column;
+    }
+
+    textInRange(range) {
+        let from = this.positionToIndex(range.start),
+        to = this.positionToIndex(range.end);
+        return this.editor.range(from, to).plainText();
     }
 }
