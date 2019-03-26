@@ -91,17 +91,34 @@ function start() {
 
     hotState = null; // free memory, and prevent accidental access below
 
+    /** simulate for a given time budget */
+    function simulate(budget = 50) {
+        const liveRooms = Object.values(ALL_ROOMS).filter(room => room.island);
+        const currentIsland = currentRoomName && ALL_ROOMS[currentRoomName].island;
+        for (const {island} of liveRooms) {
+            const ms = island === currentIsland ? budget : 1;
+            island.controller.simulate(ms);
+        }
+    }
+
+    /** time when last frame was rendered */
+    let lastFrame = 0;
+
     // main loop
+    hotreload.requestAnimationFrame(frame);
     function frame(timestamp) {
+        hotreload.requestAnimationFrame(frame);
         Stats.animationFrame(timestamp);
         if (currentRoomName) {
             const currentIsland = ALL_ROOMS[currentRoomName].island;
             if (currentIsland) {
                 // use all CPU time for simulation, but render at least at 5 fps
-                currentIsland.controller.simulate(200);
+                simulate(200);
                 // update stats
                 Stats.users(currentIsland.controller.users);
                 Stats.backlog(currentIsland.controller.backlog);
+                // remember lastFrame for setInterval()
+                lastFrame = Date.now();
             }
 
             // update views from model
@@ -121,23 +138,15 @@ function start() {
                 keyboardManager.setCurrentRoomView(currentRoomView);
             }
         }
-        hotreload.requestAnimationFrame(frame);
-    }
-    hotreload.requestAnimationFrame(frame);
-
-
-    // simulate all rooms for a few ms
-    function simulateAll() {
-        const liveRooms = Object.values(ALL_ROOMS).filter(room => room.island);
-        const currentIsland = currentRoomName && ALL_ROOMS[currentRoomName].island;
-        for (const {island} of liveRooms) {
-            const ms = island === currentIsland ? 100 : 1;
-            island.controller.simulate(ms);
-        }
     }
 
-    // simulate a bit all the time, even if in background
-    hotreload.setInterval(simulateAll, 10);
+    // simulate even if rendering stopped
+    hotreload.setInterval(() => {
+        // if we are rendering, do nothing
+        if (Date.now() - lastFrame < 100) return;
+        // otherwise, simulate a bit
+        simulate(10);
+    }, 10);
 
     // set up event handlers
     const eventTimes = {};
