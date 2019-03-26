@@ -163,7 +163,7 @@ function initBounce(state, options) {
             room.parts.objects.add(bigBox);
         }
         const text1 = new Text({
-            spatial: { position: new THREE.Vector3(-1.5, 2.5, -1) },
+            spatial: { position: new THREE.Vector3(-2.25, 3, -2) },
             text: { content: "Croquet runs identically on any platform. Load this in another page to compare. Drag the cubes." }
         });
         room.parts.objects.add(text1);
