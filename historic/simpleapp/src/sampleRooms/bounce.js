@@ -7,7 +7,6 @@ import Room from "../room/roomModel.js";
 import Object3D, { Object3DGroup } from '../viewParts/object3D.js';
 import ChildrenPart, { ChildEvents } from '../stateParts/children.js';
 import SpatialPart from '../stateParts/spatial.js';
-import InertialSpatialPart from '../stateParts/inertialSpatial.js';
 import BouncingSpatialPart from '../stateParts/bouncingSpatial.js';
 import TrackSpatial from '../viewParts/trackSpatial.js';
 import Clickable from '../viewParts/clickable.js';
@@ -19,7 +18,7 @@ if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle
 
 export class Box extends Model {
     buildParts(state) {
-        new InertialSpatialPart(this, state);
+        new SpatialPart(this, state);
     }
 
     naturalViewClass() { return DragBoxView; }
