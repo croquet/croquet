@@ -11,6 +11,7 @@ import BouncingSpatialPart from '../stateParts/bouncingSpatial.js';
 import TrackSpatial from '../viewParts/trackSpatial.js';
 import Clickable from '../viewParts/clickable.js';
 import Draggable from '../viewParts/draggable.js';
+import { Text } from '../objects/text.js';
 import urlOptions from '../util/urlOptions.js';
 
 const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
@@ -47,11 +48,26 @@ class BoxViewPart extends Object3D {
     }
 }
 
+class BallViewPart extends Object3D {
+    fromOptions(options) {
+        options = {color: "#aaaaaa", ...options};
+        super.fromOptions(options);
+        this.color = options.color;
+    }
+
+    attachWithObject3D(_modelState) {
+        return new THREE.Mesh(
+            new THREE.SphereBufferGeometry(0.75, 16, 16),
+            new THREE.MeshStandardMaterial({color: new THREE.Color(this.color)})
+        );
+    }
+}
+
 class ClickBoxView extends View {
     buildParts() {
-        new BoxViewPart(this);
-        new TrackSpatial(this, {affects: "box"});
-        new Clickable(this, {clickable: "box", method: "toggle"});
+        new BallViewPart(this);
+        new TrackSpatial(this, {affects: "ball"});
+        new Clickable(this, {clickable: "ball", method: "toggle"});
     }
 }
 
@@ -133,7 +149,7 @@ class RandomColorChildren extends Object3DChildren {
     onObjectAdded(object) {
         super.onObjectAdded(object);
         const view = this.viewsForObjects[object.id];
-        const material = view.parts.box.threeObj.material;      // FIXME: hard-coded 'box'
+        const material = view.parts.ball.threeObj.material;      // FIXME: hard-coded 'box'
         material.color.setHSL(this.random(), 1, 0.5);
     }
 }
@@ -146,7 +162,11 @@ function initBounce(state, options) {
             const bigBox = new Box({ spatial: { position: { x, y: 0.5, z: -2 }}});
             room.parts.objects.add(bigBox);
         }
-
+        const text1 = new Text({
+            spatial: { position: new THREE.Vector3(-1.5, 2.5, -1) },
+            text: { content: "Croquet runs identically on any platform. Load this page again anywhere and compare. Drag the cubes." }
+        });
+        room.parts.objects.add(text1);
         const bouncingBoxes = new RandomColorGroup({ spatial: { scale: {x: 0.5, y: 0.5, z: 0.5 } } });
         room.parts.objects.add(bouncingBoxes);
         for (let i = 0; i < options.n; i++) {
