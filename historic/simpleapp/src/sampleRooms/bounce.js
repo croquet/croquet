@@ -164,7 +164,7 @@ function initBounce(state, options) {
         }
         const text1 = new Text({
             spatial: { position: new THREE.Vector3(-1.5, 2.5, -1) },
-            text: { content: "Croquet runs identically on any platform. Load this page again anywhere and compare. Drag the cubes." }
+            text: { content: "Croquet runs identically on any platform. Load this in another page to compare. Drag the cubes." }
         });
         room.parts.objects.add(text1);
         const bouncingBoxes = new RandomColorGroup({ spatial: { scale: {x: 0.5, y: 0.5, z: 0.5 } } });
