@@ -88,7 +88,7 @@ export default {
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         const oneFrame = 1000 / 60;
-        const map = v => (1 - v / oneFrame) * 20 + 40;
+        const map = v => (1 - v / oneFrame) * 20 + 60;
         for (let i = 0; i < frames.length; i++) {
             const frame = frames[i];
             const x = i + 0.5;
