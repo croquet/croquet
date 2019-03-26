@@ -112,8 +112,10 @@ function start() {
         if (currentRoomName) {
             const currentIsland = ALL_ROOMS[currentRoomName].island;
             if (currentIsland) {
-                // use all CPU time for simulation, but render at least at 5 fps
-                simulate(200);
+                // simulate for 8 ms (half our frame time at 60 fps)
+                simulate(8);
+                // if backlogged, use all CPU time for simulation, but render at least at 5 fps
+                if (currentIsland.controller.backlog > 100) simulate(200);
                 // update stats
                 Stats.users(currentIsland.controller.users);
                 Stats.backlog(currentIsland.controller.backlog);
