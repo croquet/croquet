@@ -36,20 +36,18 @@ canvas.height = 360 * window.devicePixelRatio;
 div.appendChild(canvas);
 const ctx = canvas.getContext("2d");
 ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-ctx.lineWidth = window.devicePixelRatio;
 
 
 const frames = [];
 let currentFrame = newFrame(0);
 
-function newFrame(now, opts={}) {
+function newFrame(now) {
     return {
         start: now,
         total: 0,
         items: {},
         backlog: 0,
         users: 0,
-        ...opts
     };
 }
 
@@ -79,13 +77,8 @@ export default {
 
         // get base framerate as minimum of all frames
         const realFrames = frames.filter(f => f.total);
-        const minMS = Math.min(...realFrames.map(f => f.total));
         const avgMS = realFrames.map(f => f.total).reduce( (a,b) => a + b) / realFrames.length;
         const maxBacklog = Math.max(1000, ...realFrames.map(f => f.backlog));
-
-        // if this frame took multiple frames, add empty frames to graph
-        const n = Math.min(3, Math.round(currentFrame.total / minMS));
-        for (let i = 1; i < n; i++) frames.push(newFrame(timestamp, {backlog: currentFrame.backlog}));
 
         while (frames.length > 120) frames.shift();
 
@@ -94,7 +87,8 @@ export default {
             backlog: ${currentFrame.backlog < 100 ? '0.0' : (currentFrame.backlog/1000).toFixed(1)} s`;
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        const map = v => (1 - v / minMS) * 20 + 40;
+        const oneFrame = 1000 / 60;
+        const map = v => (1 - v / oneFrame) * 20 + 40;
         for (let i = 0; i < frames.length; i++) {
             const frame = frames[i];
             const x = i + 0.5;
