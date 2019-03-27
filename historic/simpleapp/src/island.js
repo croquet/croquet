@@ -397,16 +397,16 @@ let TheSocket = null;
 
 export class Controller {
     // socket was connected, join session for all islands
-    static join(controller, id) {
-        Controllers[id] = controller;
-        if (TheSocket) controller.join(TheSocket, id);
+    static join(controller) {
+        Controllers[controller.id] = controller;
+        if (TheSocket) controller.join(TheSocket);
     }
 
     static joinAll(socket) {
         if (TheSocket) throw Error("TheSocket already set?");
         TheSocket = socket;
-        for (const [id, controller] of Object.entries(Controllers)) {
-            if (!controller.socket) controller.join(socket, id);
+        for (const controller of Object.values(Controllers)) {
+            if (!controller.socket) controller.join(socket);
         }
     }
 
@@ -452,16 +452,27 @@ export class Controller {
      * @param {{}} snapshot The island's initial state (if hot-reloading)
      * @returns {Promise<Island>}
      */
-    async createIsland(name, creator, snapshot={}) {
+    async createIsland(name, creator) {
         const {moduleID, creatorFn, options} = creator;
         if (options) name += JSON.stringify(options); // include options in hash
-        const resumingID = snapshot.id;
-        snapshot.id = await Controller.versionIDFor(name, moduleID);
-        if (resumingID && resumingID !== snapshot.id) console.warn(name, 'resuming snapshot of different version!');
-        console.log(`ID for ${name}: ${snapshot.id}`);
+        this.islandCreator = { name, options, creatorFn, snapshot: {
+            id: await Controller.versionIDFor(name, moduleID),
+            time: 0,
+        }};
+        console.log(`ID for ${name}: ${this.id}`);
+        // try to fetch latest snapshot
+        try {
+            const snapshot = await this.fetchSnapshot();
+            if (snapshot.id !== this.id) console.warn(name, 'resuming snapshot of different version!');
+            this.islandCreator.snapshot = snapshot;
+            console.log(this.id, `Controller got snapshot (time: ${Math.floor(snapshot.time)})`);
+        } catch (e) {
+            console.log(this.id, 'Controller got no snapshot');
+        }
+
         return new Promise(resolve => {
-            this.islandCreator = { name, creatorFn, snapshot, options, callbackFn: resolve };
-            Controller.join(this, snapshot.id);   // when socket is ready, join server
+            this.islandCreator.callbackFn = resolve;
+            Controller.join(this);   // when socket is ready, join server
         });
     }
 
@@ -471,10 +482,11 @@ export class Controller {
         return this.island.asState();
     }
 
-    snapshotName() {
+    snapshotUrl() {
         // name includes JSON options
         const options = this.islandCreator.name.split(/[^A-Z0-9]+/i);
-        return `${window.location.hostname}-${options.filter(_=>_).join('-')}-${this.id}`;
+        const snapshotName = `${window.location.hostname}-${options.filter(_=>_).join('-')}-${this.id}`;
+        return `https://db.croquet.studio/files-v1/${snapshotName}.json`;
     }
 
     /** upload a snapshot to the asset server */
@@ -483,7 +495,7 @@ export class Controller {
         // take snapshot
         const snapshot = this.takeSnapshot();
         const string = JSON.stringify(snapshot);
-        const url = `https://db.croquet.studio/files-v1/${this.snapshotName()}.json`;
+        const url = this.snapshotUrl();
         console.log(this.id, `Controller uploading snapshot (${string.length} bytes) to ${url}`);
         await fetch(url, {
             method: "PUT",
@@ -491,6 +503,14 @@ export class Controller {
             headers: { "Content-Type": "application/json" },
             body: string,
         });
+    }
+
+    async fetchSnapshot() {
+        const url = this.snapshotUrl();
+        const response = await fetch(url, {
+            mode: "cors",
+        });
+        return response.json();
     }
 
     /** @type String: this controller's island id */
@@ -585,12 +605,12 @@ export class Controller {
 
     // network queue
 
-    join(socket, id) {
-        console.log(id, 'Controller sending JOIN');
+    join(socket) {
+        console.log(this.id, 'Controller sending JOIN');
         this.socket = socket;
         const time = this.islandCreator.snapshot.time || 0;
         socket.send(JSON.stringify({
-            id,
+            id: this.id,
             action: 'JOIN',
             args: time,
         }));
