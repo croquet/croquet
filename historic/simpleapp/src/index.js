@@ -162,6 +162,18 @@ function start() {
         simulate(10);
     }, 10);
 
+
+    // upload snapshots every 30 seconds
+    function uploadSnapshots() {
+        const liveRooms = Object.values(ALL_ROOMS).filter(room => room.island);
+        for (const {island: {controller}} of liveRooms) {
+            if (controller.backlog < balanceMS) controller.uploadSnapshot();
+        }
+    }
+    hotreload.setInterval(uploadSnapshots, 30000);
+    // also upload when we the page gets unloaded
+    hotreload.addDisposeHandler('snapshots', uploadSnapshots);
+
     // set up event handlers
     const eventTimes = {};
     const throttle = event => {
