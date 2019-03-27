@@ -35,8 +35,6 @@ export class KeyboardManager {
 
         this.inputState = {
             composition: null,
-            manualCopy: null,
-            manualPaste: null
         };
     }
 
@@ -188,7 +186,7 @@ export class KeyboardManager {
     }
 
     blur() {
-        var node = this.domState.textareaNode;
+        let node = this.domState.textareaNode;
         if (node) node.blur();
     }
 
@@ -205,7 +203,9 @@ export class KeyboardManager {
             let textareaNode = this.domState.textareaNode,
                 rootNode = this.domState.rootNode;
 
-            if (rootNode && document.activeElement === rootNode) rootNode && rootNode.focus();
+            if (rootNode && document.activeElement === rootNode) {
+                rootNode.focus();
+            }
       }, 0);
     }
 
@@ -254,19 +254,11 @@ export class KeyboardManager {
     }
 
     onTextareaPaste(evt) {
-        if (this.inputState.manualPaste) {
-            this.inputState.manualPaste.onEvent(evt);
-        } else {
-            this.dispatchDOMEvent(evt);
-        }
+        this.dispatchDOMEvent(evt);
     }
 
     onTextareaCopy(evt) {
-        if (this.inputState.manualCopy) {
-            this.inputState.manualCopy.onEvent(evt);
-        } else {
-            this.dispatchDOMEvent(evt);
-        }
+        this.dispatchDOMEvent(evt);
     }
 
     onTextareaCut(evt) {
