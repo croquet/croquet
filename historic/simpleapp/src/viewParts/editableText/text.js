@@ -16,6 +16,7 @@ export default class EditableTextViewPart extends Object3D {
     fromOptions(options) {
         options = {content: [], glyphs: [], font: "Roboto", width: 3, height: 2, numLines: 10, drawnRects: [], editable: false, showSelection: true, ...options};
         this.modelSource = options.modelSource;
+        this.changeInitiatedByView = true;
         this.options = options;
 
         if (this.options.editable) {
@@ -45,6 +46,7 @@ export default class EditableTextViewPart extends Object3D {
         }
         return boxMesh;
     }
+
     onGetFocus() {
         // I acquire focus
         // this.editor.getFocus();
@@ -60,7 +62,9 @@ export default class EditableTextViewPart extends Object3D {
             const glyphs = this.processMockContext(ctx);
             this.update({glyphs, corners: this.editor.visibleTextBounds(), scaleX: this.editor.scaleX, scrollTop: this.editor.scrollTop, frameHeight: this.editor.frame.height, drawnRects: ctx.filledRects});
             if (this.options.editable) {
-                this.owner.model["editableText"].onContentChanged(this.editor.save());
+                if (this.changeInitiatedByView) {
+                    this.owner.model["editableText"].onContentChanged(this.editor.save());
+                }
             }
         };
     }
@@ -286,7 +290,12 @@ export default class EditableTextViewPart extends Object3D {
     }
 
     onContentChanged(newContent) {
-        this.editor.load(newContent);
+        try {
+            this.changeInitiatedByView = false;
+            this.editor.load(newContent);
+        } finally {
+            this.changeInitiatedByView = true;
+        }
     }
 
     onTextChanged() {}

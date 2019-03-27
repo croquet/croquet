@@ -11,8 +11,6 @@ export const TextEvents = {
 export default class EditableTextPart extends StatePart {
     fromState(state={}) {
         this.content = state.content || [];
-        this.subscribe(TextEvents.viewContentChanged, "onContentChanged");
-
         window.model = this;
     }
 
@@ -22,5 +20,6 @@ export default class EditableTextPart extends StatePart {
 
     onContentChanged(newContent) {
         this.content = newContent;
+        this.publish(TextEvents.modelContentChanged, this.content);
     }
 }
