@@ -33,9 +33,9 @@ function start() {
             if (!ROOM) throw Error("Unknown room: " + roomName);
             if (ROOM.islandPromise) return ROOM.islandPromise;
             const creator = ROOM.creator;
-            if (urlOptions.owner) {
-                const options = creator.options||{};
-                creator.options = {...options, owner: urlOptions.owner};
+            if (!creator.options) creator.options = {};
+            for (const opt of ["owner","session"]) {
+                if (urlOptions[opt]) creator.options[opt] = urlOptions[opt];
             }
             const controller = new Controller();
             ROOM.islandPromise = controller.createIsland(roomName, creator);
