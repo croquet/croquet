@@ -10,8 +10,10 @@ function initRoom3(state) {
         const room = new Room();
         const text1 = new Editor({
             spatial: { position: {x: -3, y: 1, z: 0} },
-            editableText: { content: [{text: "man is much more than a tool builder... he is an inventor of universes... Except the real one."}], font: "Roboto", numLines: 10, width: 3, height: 2}
-        },
+            editableText: {
+                content: [{text: "man is much more than a tool builder... he is an inventor of universes... Except the real one."}],
+                selection: {start: 0, end: 0}},
+            font: "Roboto", numLines: 10, width: 3, height: 2},
         {
             editable: true,
         });
@@ -19,8 +21,10 @@ function initRoom3(state) {
 
         const text2 = new Editor({
             spatial: { position: {x: 3, y: 1, z: 0} },
-            editableText: { content: [{text: "man is much more than a tool builder... he is an inventor of universes..."}], font: "Barlow", numLines: 10, width: 3, height: 2}
-        },
+            editableText: {
+                content: [{text: "man is much more than a tool builder... he is an inventor of universes..."}],
+                selection: {start: 0, end: 0}},
+            font: "Barlow", numLines: 10, width: 3, height: 2},
         {
             editable: true,
         });
