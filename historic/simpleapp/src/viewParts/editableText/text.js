@@ -7,7 +7,7 @@ import { PointerEvents, makePointerSensitive } from "../pointer.js";
 import { Carota } from './carota/editor.js';
 import { fontRegistry } from '../../util/fontRegistry.js';
 import { KeyboardEvents, KeyboardTopic } from '../../domKeyboardManager.js';
-//import { textCommands, jsEditorCommands, defaultKeyBindings } from './text-commands.js';
+import { defaultCommands, defaultKeyBindings, canonicalize, lookup } from './text-commands.js';
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
@@ -23,8 +23,10 @@ export default class EditableTextViewPart extends Object3D {
             this.subscribe(PointerEvents.pointerMove, "onPointerMove");
             this.subscribe(PointerEvents.pointerUp, "onPointerUp");
             this.subscribe(KeyboardEvents.keydown, "onKeyDown");
+            this.subscribe(KeyboardEvents.copy, "onCopy");
+            this.subscribe(KeyboardEvents.cut, "onCut");
+            this.subscribe(KeyboardEvents.paste, "onPaste");
         }
-
         this.boxSelections = [];
     }
 
@@ -247,6 +249,33 @@ export default class EditableTextViewPart extends Object3D {
         return plane;
     }
 
+    computeClippingPlanes(ary) {
+        //let [top, bottom, right, left] = ary; this is the order
+        let planes = [];
+        let text = this.text;
+        if (isNaN(text.matrixWorld.elements[0])) return [];
+        for (let i = 0; i < 4; i++) {
+            planes[i] = new THREE.Plane();
+            planes[i].copy(this.clippingPlanes[i]);
+            planes[i].constant = ary[i];
+            planes[i].applyMatrix4(text.matrixWorld);
+        }
+        return planes;
+    }
+
+    selectionBeforeRender(renderer, scene, camera, geometry, material, group) {
+        let meterInPixel = this.options.width / this.editor.scaleX;
+        let scrollT = this.editor.scrollTop;
+        let docHeight = this.editor.frame.height;
+        let docInMeter = docHeight * meterInPixel;
+        let top = -scrollT * docHeight;
+        let bottom = -(top - this.editor.scaleY);
+        let right = this.editor.scaleX * (1.0 - this.editor.relativeScrollBarWidth);
+        let left = 0;
+        let planes = this.computeClippingPlanes([top, bottom, right, left]);
+        material.clippingPlanes = planes;
+    }
+
     update(newOptions) {
         this.options = Object.assign(this.options, newOptions);
         const text = this.text;
@@ -299,17 +328,63 @@ export default class EditableTextViewPart extends Object3D {
         return true;
     }
 
-    onKeyDown(evt) {
-        if (evt.keyCode === 13) {
+    onKeyDown(cEvt) {
+        if (cEvt.onlyModifiers) {return true;}
+
+        if (cEvt.keyCode === 13) {
             this.editor.insert('\n');
             return true;
         }
-        const handled = this.editor.handleKey(evt.keyCode, evt.shiftKey, evt.ctrlKey|| evt.metaKey);
+        if (cEvt.keyCode === 32) {
+            this.editor.insert(' ');
+            return true;
+        }
+        if (cEvt.keyCode === 9) {
+            this.editor.insert('\t');
+            return true;
+        }
 
-        if (!handled && !(evt.ctrlKey || evt.metaKey)) {
-            this.editor.insert(evt.key);
+        const handled = this.editor.handleKey(cEvt.keyCode, cEvt.shiftKey, cEvt.ctrlKey|| cEvt.metaKey);
+
+        if (!handled && !(cEvt.ctrlKey || cEvt.metaKey)) {
+            this.editor.insert(cEvt.key);
             return true;
         }
         return true;
+    }
+
+    onCopy(evt) {
+        evt.clipboardData.setData("text/plain", this.editor.selectedRange().plainText());
+        evt.preventDefault();
+        return true;
+    }
+
+    onCut(evt) {
+        this.onCopy(evt);
+        this.editor.insert("");//or something else to keep undo sane?
+        return true;
+    }
+
+    onPaste(evt) {
+        let pasteChars = evt.clipboardData.getData("text");
+        this.editor.insert(pasteChars);
+        evt.preventDefault();
+        return true;
+    }
+
+    // "text access"
+    positionToIndex(textPos) {
+        let {frame: {lines}} = this.editor,
+        {row, column} = textPos,
+        minRow = 0, maxRow = lines.length -1;
+        if (row < minRow) { row = 0; column = 0; }
+        if (row > maxRow) { row = maxRow; column = lines[maxRow].length-1; }
+        return lines[row].ordinal + column;
+    }
+
+    textInRange(range) {
+        let from = this.positionToIndex(range.start),
+        to = this.positionToIndex(range.end);
+        return this.editor.range(from, to).plainText();
     }
 }

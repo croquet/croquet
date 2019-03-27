@@ -461,8 +461,10 @@ let handleKey = function(doc, key, selecting, ctrlKey) {
             doc.range(start - 1, start).clear();
             doc.focusChar = start - 1;
             doc.select(doc.focusChar, doc.focusChar);
-            handled = true;
+          } else {
+            doc.insert("");
           }
+          handled = true;
           break;
         case 46: // del
           if (start === end && start < length) {
@@ -488,14 +490,14 @@ let handleKey = function(doc, key, selecting, ctrlKey) {
             doc.select(0, length);
           }
           break;
-        case 67: // C - copy to clipboard
-        case 88: // X - cut to clipboard
-          if (ctrlKey) {
-            // Allow standard handling to take place as well
-            richClipboard = doc.selectedRange().save();
-            plainClipboard = doc.selectedRange().plainText();
-          }
-          break;
+        // case 67: // C - copy to clipboard
+        // case 88: // X - cut to clipboard
+        //   if (ctrlKey) {
+        //     // Allow standard handling to take place as well
+        //     richClipboard = doc.selectedRange().save();
+        //     plainClipboard = doc.selectedRange().plainText();
+        //   }
+        //   break;
       }
 
       let toggle = toggles[key];

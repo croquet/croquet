@@ -7,7 +7,7 @@ import roomBounce from './sampleRooms/bounce.js';
 import RoomViewManager from './room/roomViewManager.js';
 import Renderer from './render.js';
 import { Controller } from "./island.js";
-import {KeyboardManager} from './domKeyboardManager.js';
+import {theKeyboardManager} from './domKeyboardManager.js';
 import Stats from "./util/stats.js";
 import urlOptions from "./util/urlOptions.js";
 
@@ -86,8 +86,8 @@ function start() {
 
     /** @type {Renderer} */
     const renderer = hotState.renderer || new Renderer(window.innerWidth, window.innerHeight);
-    const keyboardManager = new KeyboardManager();
-
+    const keyboardManager = theKeyboardManager; //new KeyboardManager();
+    window.keyboardManager = keyboardManager;
 
     hotState = null; // free memory, and prevent accidental access below
 
