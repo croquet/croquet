@@ -454,7 +454,7 @@ export class Controller {
      */
     async createIsland(name, creator) {
         const {moduleID, creatorFn, options} = creator;
-        if (options) name += JSON.stringify(options); // include options in hash
+        if (options) name += JSON.stringify(Object.values(options)); // include options in hash
         this.islandCreator = { name, options, creatorFn, snapshot: {
             id: await Controller.versionIDFor(name, moduleID),
             time: 0,
