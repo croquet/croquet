@@ -1,13 +1,12 @@
 import * as THREE from 'three';
 import { TextGeometry, HybridMSDFShader } from 'three-bmfont-text';
+import { rendererVersion } from '../../render.js';
 import Object3D from "../object3D.js";
-//import LazyObject3D from "../util/lazyObject3D.js";
 import { TextEvents } from '../../stateParts/editableText.js';
 import { PointerEvents, makePointerSensitive } from "../pointer.js";
 import { Carota } from './carota/editor.js';
 import { fontRegistry } from '../../util/fontRegistry.js';
 import { KeyboardEvents, KeyboardTopic } from '../../domKeyboardManager.js';
-import { defaultCommands, defaultKeyBindings, canonicalize, lookup } from './text-commands.js';
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
@@ -98,6 +97,7 @@ export default class EditableTextViewPart extends Object3D {
             map: atlasTexture,
             side: THREE.DoubleSide,
             transparent: true,
+            version: rendererVersion.shaderLanguageVersion,
             negate: true
         }));
 

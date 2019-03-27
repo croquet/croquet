@@ -10,20 +10,22 @@ export const RENDER_LAYERS = {
     INDIVIDUAL_PORTAL: 2,
 };
 
+export const rendererVersion = {renderingContextVersion: '2', shaderLanguageVersion: '300'};
+
 export default class Renderer {
     constructor(width, height) {
-    const contextAttributes = {
-        alpha: false,
-        depth: true,
-        stencil: true,
-        antialias: true,
-        premultipliedAlpha: true,
-        preserveDrawingBuffer: false,
-        powerPreference: "default"
-    };
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext("webgl2", contextAttributes);
+        const contextAttributes = {
+            alpha: false,
+            depth: true,
+            stencil: true,
+            antialias: true,
+            premultipliedAlpha: true,
+            preserveDrawingBuffer: false,
+            powerPreference: "default"
+        };
 
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext("webgl2", contextAttributes);
         this.renderer = new THREE.WebGLRenderer({canvas, context});
         this.renderer.autoClearStencil = false;
         this.renderer.autoClearDepth = false;
@@ -32,6 +34,12 @@ export default class Renderer {
         //this.renderer.setPixelRatio(window.devicePixelRatio);
         this.changeViewportSize(width, height);
         document.body.appendChild(this.renderer.domElement);
+        if (this.renderer.context) {
+            if (this.renderer.context.constructor === window.WebGLRenderingContext) {
+                rendererVersion.renderingContextVersion = '1';
+                rendererVersion.shaderLanguageVersion = '100';
+            }
+        }
     }
 
     changeViewportSize(width, height) {

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { TextGeometry, HybridMSDFShader } from 'three-bmfont-text';
+import { rendererVersion } from '../render.js';
 import LineBreaker from 'linebreak';
 import Object3D from "./object3D.js";
 import LazyObject3D from "../util/lazyObject3D.js";
@@ -95,6 +96,7 @@ export default class TextViewPart extends Object3D {
                     side: THREE.DoubleSide,
                     transparent: true,
                     color: 'rgb(0, 0, 0)',
+                    version: rendererVersion.shaderLangaugeVersion,
                     negate: true
                 }));
             if (!DEBUG_GLYPH_GEOMETRY) {
