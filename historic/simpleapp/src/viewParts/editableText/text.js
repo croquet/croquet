@@ -14,7 +14,7 @@ if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle
 
 export default class EditableTextViewPart extends Object3D {
     fromOptions(options) {
-        options = {content: [], glyphs: [], font: "Roboto", width: 3, height: 2, numLines: 10, drawnRects: [], editable: false, showSelection: true, ...options};
+        options = {content: {content: [], selection: {start: 0, end: 0}}, glyphs: [], font: "Roboto", width: 3, height: 2, numLines: 10, drawnRects: [], editable: true, showSelection: true, ...options};
         this.modelSource = options.modelSource;
         this.changeInitiatedByView = true;
         this.options = options;
@@ -63,7 +63,7 @@ export default class EditableTextViewPart extends Object3D {
             this.update({glyphs, corners: this.editor.visibleTextBounds(), scaleX: this.editor.scaleX, scrollTop: this.editor.scrollTop, frameHeight: this.editor.frame.height, drawnRects: ctx.filledRects});
             if (this.options.editable) {
                 if (this.changeInitiatedByView) {
-                    this.owner.model["editableText"].onContentChanged(this.editor.save());
+                    this.owner.model["editableText"].updateContents({content: this.editor.save(), selection: this.editor.selection});
                 }
             }
         };
@@ -108,7 +108,8 @@ export default class EditableTextViewPart extends Object3D {
 
         const callback = () => this.onTextChanged();
         this.editor.setSubscribers(callback);
-        this.editor.load(this.options.content);
+        this.editor.load(this.options.content.content);
+        this.editor.select(this.options.content.selection.start, this.options.content.selection.end);
 
         this.initSelectionMesh();
         this.initScrollBarMesh();
@@ -292,7 +293,9 @@ export default class EditableTextViewPart extends Object3D {
     onContentChanged(newContent) {
         try {
             this.changeInitiatedByView = false;
-            this.editor.load(newContent);
+            this.editor.load(newContent.content);
+            this.editor.select(newContent.selection.start,
+                               newContent.selection.end);
         } finally {
             this.changeInitiatedByView = true;
         }
