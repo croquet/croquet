@@ -190,7 +190,7 @@ let KEY_MODS = (function () {
 })();
 
 let isNumber = function (key) {
-    return /^[0-9]+$/.test(key)
+    return /^[0-9]+$/.test(key);
 };
 
 
@@ -304,9 +304,9 @@ function identifyKeyFromCode(evt) {
         return "`";
     case 'Semicolon':
         return ";";
+    default:
+        return null;
     }
-
-    return null;
 }
 
 function dedasherize(keyCombo) {
@@ -329,12 +329,11 @@ function dedasherize(keyCombo) {
     }
 }
 
-function keyComboToEventSpec(keyCombo) {
+function keyComboToEventSpec(keyCombo, evt) {
     // 1. create a key event object. We first gather what properties need to be
     // passed to the event creator in terms of the keyboard state
 
     let spec = {
-        _isLivelyKeyEventSpec: true,
         keyCombo: "",
         key: '',
         ctrlKey: false,
@@ -344,7 +343,9 @@ function keyComboToEventSpec(keyCombo) {
         altGraphKey: false,
         isFunctionKey: false,
         isModified: false,
-        onlyModifiers: false
+        onlyModifiers: false,
+        type: evt.type,
+        keyCode: evt.keyCode
     };
 
     // 2. Are any modifier keys pressed?
@@ -442,202 +443,7 @@ function eventToKeyCombo(evt, options) {
 }
 
 export let canonicalize = {
-    computeHashIdOfEvent,
-
-    canonicalizeKeyCombo: function canonicalizeKeyCombo(str) {
-        return eventToKeyCombo(keyComboToEventSpec(str));
-    },
     canonicalizeEvent: function canonicalizeEvent(evt) {
-        return evt._isLivelyKeyEventSpec ? evt
-            : keyComboToEventSpec(eventToKeyCombo(evt));
+        return keyComboToEventSpec(eventToKeyCombo(evt), evt);
     }
 };
-
-    // // "text access"
-    // indexToPosition(index) {
-    //     let carota = this.editor,
-    //     lines = carota.frame.lines, row = 0;
-    //     for (; row < lines.length; row++) {
-    //         let line = lines[row];
-    //         if (index < line.length) break;
-    //         index -= line.length;
-    //     }
-    //     return {row, column: index};
-    // }
-
-    // positionToIndex(textPos) {
-    //     let {frame: {lines}} = this.editor,
-    //     {row, column} = textPos,
-    //     minRow = 0, maxRow = lines.length -1;
-    //     if (row < minRow) { row = 0; column = 0; }
-    //     if (row > maxRow) { row = maxRow; column = lines[maxRow].length-1; }
-    //     return lines[row].ordinal + column;
-    // }
-
-    // getCursorPosition() {
-    //     return this.selection.range.start;
-    // }
-
-    // setCursorPosition(pos) {
-    //     this.selection.range = {start: pos, end: pos};
-    // }
-
-    // getLineString(row) {
-    //     // the carota interface is pretty awkward...
-    //     return this.textInRange(this.lineRange(row));
-    // }
-
-    // lineRange(row) {
-    //     if (typeof row !== "number") row = this.cursorPosition.row;
-    //     let endCol = this.editor.frame.lines[row].length-1;
-    //     return {start: {row, column: 0}, end: {row, column: endCol}};
-    // }
-
-    // getTextString() { return this.editor.documentRange().plainText(); }
-
-    // setTextString(string) {
-    //     if (typeof string !== "string") {
-    //         string = JSON.stringify(string);
-    //     }
-    //     this.editor.documentRange().setText(string);
-    // }
-
-    // textInRange(range) {
-    //     let from = this.positionToIndex(range.start),
-    //     to = this.positionToIndex(range.end);
-    //     return this.editor.range(from, to).plainText();
-    // }
-
-    // selectLine(row) {
-    //     return this.selection.range = this.lineRange(row);
-    // }
-
-    // selectionOrLineString() {
-    //     return this.textInRange(this.selection.isEmpty() ? this.lineRange() : this.selection.range);
-    // }
-
-    // get documentRange() {
-    //     let {start, end} = this.editor.documentRange();
-    //     return {start: this.indexToPosition(start), end: this.indexToPosition(end)};
-    // }
-
-    // selectAll() {
-    //     this.selection.range = this.documentRange;
-    //     // this.changed(SELECTION_CHANGE);
-    // }
-
-    // selection() {
-    //     if (this._selection) return this._selection;
-    //     let text = this, carota = this.editor;
-
-    //     return this._selection = {
-
-    //         get start() { return this.range.start; },
-    //         set start(start) { this.range = {start, end: start}; },
-
-    //         get end() { return this.range.end; },
-    //         set end(end) { this.range = {start: end, end}; },
-
-    //         get anchor() { return this.isReverse() ? this.range.end : this.range.start; },
-    //         set anchor(pos) {
-    //             this.range = {start: pos, end: this.lead};
-    //             // text.changed(SELECTION_CHANGE);
-    //         },
-    //         get lead() { return this.isReverse() ? this.range.start : this.range.end; },
-    //         set lead(pos) {
-    //             this.range = {start: this.anchor, end: pos};
-    //             // text.changed(SELECTION_CHANGE);
-    //         },
-
-    //         get range() {
-    //             return {
-    //                 start: text.indexToPosition(carota.selection.start),
-    //                 end: text.indexToPosition(carota.selection.end)
-    //             };
-    //         },
-
-    //         set range(range) {
-    //             let from = text.positionToIndex(range.start),
-    //             to = text.positionToIndex(range.end);
-    //             carota.select(from, to, true);
-    //         },
-
-    //         get text() { return text.textInRange(this.range); },
-    //         set text(string) { return text.setTextInRange(string, this.range); },
-
-    //         isEmpty() { return carota.selection.start === carota.selection.end; },
-
-    //         collapse() {
-    //             let pos = text.indexToPosition(carota.selection.start);
-    //             this.range = {start: pos, end: pos};
-    //         },
-
-    //         collapseToEnd() {
-    //             let pos = text.indexToPosition(carota.selection.end);
-    //             this.range = {start: pos, end: pos};
-    //         },
-
-    //         isReverse() { return false; },
-
-    //         growRight(n) {
-    //             carota.select(carota.selection.start, carota.selection.end+n, true);
-    //         },
-
-    //         growLeft(n) {
-    //             carota.select(carota.selection.start-n, carota.selection.end, true);
-    //         },
-
-    //         selectLeft(n) { this.growLeft(n); },
-    //         selectRight(n) { this.growRight(n); },
-
-    //         selectUp(n) {
-    //             let {start, end: pos} = this.range,
-    //             lastPos = text.documentRange.end,
-    //             newRow = Math.min(Math.max(0, pos.row-n), lastPos.row),
-    //             range = text.lineRange(newRow),
-    //             newCol = Math.min(pos.column, range.end.column),
-    //             newPos = {row: newRow, column: newCol};
-    //             this.range = {start, end: newPos};
-    //         },
-
-    //         selectDown(n) { return this.selectUp(-n); },
-
-    //         goRight(n) {
-    //             let index = carota.selection.start + n;
-    //             carota.select(index, index, true);
-    //             text.resetTyping();
-    //         },
-
-    //         goLeft(n) { return this.goRight(-n); },
-
-    //         goUp(n) {
-    //             this.selectUp(n);
-    //             this.collapseToEnd();
-    //             text.resetTyping()
-    //         },
-    //         goDown(n) { return this.goUp(-n); }
-    //     };
-    // }
-
-    // rejectsInput() { return false; }
-
-    // setTextInRange(string, range, keepSelection) {
-    //     let {start, end} = this.editor.selection;
-    //     this.selection.range = range;
-    //     this.editor.insert(string, true);
-    //     let {end: newEnd} = this.editor.selection;
-    //     if (keepSelection) {this.editor.select(start, end, true);}
-    //     let newRange = {start: this.indexToPosition(start), end: this.indexToPosition(newEnd)};
-    //     return newRange;
-    // }
-
-    // insertText(string, textPos) {
-    //     if (textPos === undefined) textPos = this.cursorPosition;
-    //     return this.setTextInRange(string, {start: textPos, end: textPos});
-    // }
-
-    // insertTextAndSelect(string, pos) {
-    //     return this.selection.range = this.insertText(string, pos);
-    // }
-
-    // deleteText(range) { return this.setTextInRange("", range); }

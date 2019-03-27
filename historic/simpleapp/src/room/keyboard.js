@@ -15,7 +15,6 @@ export class KeyboardViewPart extends ViewPart {
         if (this.focus) {
             theKeyboardManager.focus();
             this.publish(KeyboardEvents[evt.type], evt, ...this.focus.requesterRef.split("."));
-            evt.preventDefault();
         }
     }
 }

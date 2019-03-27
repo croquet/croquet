@@ -249,6 +249,33 @@ export default class EditableTextViewPart extends Object3D {
         return plane;
     }
 
+    computeClippingPlanes(ary) {
+        //let [top, bottom, right, left] = ary; this is the order
+        let planes = [];
+        let text = this.text;
+        if (isNaN(text.matrixWorld.elements[0])) return [];
+        for (let i = 0; i < 4; i++) {
+            planes[i] = new THREE.Plane();
+            planes[i].copy(this.clippingPlanes[i]);
+            planes[i].constant = ary[i];
+            planes[i].applyMatrix4(text.matrixWorld);
+        }
+        return planes;
+    }
+
+    selectionBeforeRender(renderer, scene, camera, geometry, material, group) {
+        let meterInPixel = this.options.width / this.editor.scaleX;
+        let scrollT = this.editor.scrollTop;
+        let docHeight = this.editor.frame.height;
+        let docInMeter = docHeight * meterInPixel;
+        let top = -scrollT * docHeight;
+        let bottom = -(top - this.editor.scaleY);
+        let right = this.editor.scaleX * (1.0 - this.editor.relativeScrollBarWidth);
+        let left = 0;
+        let planes = this.computeClippingPlanes([top, bottom, right, left]);
+        material.clippingPlanes = planes;
+    }
+
     update(newOptions) {
         this.options = Object.assign(this.options, newOptions);
         const text = this.text;
@@ -301,28 +328,26 @@ export default class EditableTextViewPart extends Object3D {
         return true;
     }
 
-    onKeyDown(evt) {
-        let myEvt = canonicalize.canonicalizeEvent(evt);
+    onKeyDown(cEvt) {
+        if (cEvt.onlyModifiers) {return true;}
 
-        if (myEvt.onlyModifiers) {return true;}
-
-        // let command = defaultCommands[lookup(myEvt, defaultKeyBindings)];
-        // if (command) {
-        //     command.exec(this);
-        //     return true;
-        //     // its weird but cut/copy/paste are handled by ClipboardEvent not keyevent.
-        //     // so effectively their "text => false" functions are noop
-        // }
-
-        if (evt.keyCode === 13) {
+        if (cEvt.keyCode === 13) {
             this.editor.insert('\n');
             return true;
         }
+        if (cEvt.keyCode === 32) {
+            this.editor.insert(' ');
+            return true;
+        }
+        if (cEvt.keyCode === 9) {
+            this.editor.insert('\t');
+            return true;
+        }
 
-        const handled = this.editor.handleKey(evt.keyCode, evt.shiftKey, evt.ctrlKey|| evt.metaKey);
+        const handled = this.editor.handleKey(cEvt.keyCode, cEvt.shiftKey, cEvt.ctrlKey|| cEvt.metaKey);
 
-        if (!handled && !(evt.ctrlKey || evt.metaKey)) {
-            this.editor.insert(evt.key);
+        if (!handled && !(cEvt.ctrlKey || cEvt.metaKey)) {
+            this.editor.insert(cEvt.key);
             return true;
         }
         return true;
@@ -336,7 +361,7 @@ export default class EditableTextViewPart extends Object3D {
 
     onCut(evt) {
         this.onCopy(evt);
-        this.selection.text = "";
+        this.editor.insert("");//or something else to keep undo sane?
         return true;
     }
 
@@ -348,17 +373,6 @@ export default class EditableTextViewPart extends Object3D {
     }
 
     // "text access"
-    indexToPosition(index) {
-        let carota = this.editor,
-        lines = carota.frame.lines, row = 0;
-        for (; row < lines.length; row++) {
-            let line = lines[row];
-            if (index < line.length) break;
-            index -= line.length;
-        }
-        return {row, column: index};
-    }
-
     positionToIndex(textPos) {
         let {frame: {lines}} = this.editor,
         {row, column} = textPos,

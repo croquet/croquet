@@ -461,8 +461,10 @@ let handleKey = function(doc, key, selecting, ctrlKey) {
             doc.range(start - 1, start).clear();
             doc.focusChar = start - 1;
             doc.select(doc.focusChar, doc.focusChar);
-            handled = true;
+          } else {
+            doc.insert("");
           }
+          handled = true;
           break;
         case 46: // del
           if (start === end && start < length) {

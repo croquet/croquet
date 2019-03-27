@@ -1,9 +1,10 @@
 import * as THREE from 'three';
+import { defaultCommands, defaultKeyBindings, canonicalize, lookup } from './viewParts/editableText/text-commands.js';
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
-let bowser = {};
+let bowser = {}; // we probably use bowser or something to detect the browser
 
 export const KeyboardEvents = {
     keydown: "keyboard-down",
@@ -45,20 +46,33 @@ export class KeyboardManager {
 
     dispatchDOMEvent(evt) {
         let view = this.currentRoomView;
-        if (!view) {return;}
+        if (!view) {return false;}
         let keyboardView = view.parts["keyboard"];
-        if (!keyboardView) {return;}
-        keyboardView.handleEvent(evt);
+        if (!keyboardView) {return false;}
+
+        if (evt.constructor === KeyboardEvent) {
+            let cEvt = canonicalize.canonicalizeEvent(evt);
+            let command = defaultCommands[lookup(cEvt, defaultKeyBindings)];
+            if (command) {
+                return command.exec(this);
+                // it's a bit weird but cut/copy/paste are handled by
+                // ClipboardEvent generated when the key event is not handled.
+                // so effectively their "text => false" functions are noop
+            }
+            evt.preventDefault();
+            return keyboardView.handleEvent(cEvt);
+        }
+        // ClipboardEvent
+        return keyboardView.handleEvent(evt);
     }
 
     install(hotreload) {
         let domState = this.domState,
             doc = window.document,
-            isInstalled = domState.isInstalled,
             rootNode = domState.rootNode,
             newRootNode = doc.body;
 
-        if (isInstalled) {
+        if (domState.isInstalled) {
             if (rootNode === window) return null;
             //this.uninstall();
         }
@@ -89,31 +103,31 @@ export class KeyboardManager {
         // event handlers
         domState.eventHandlers = [
             { type: "keydown", node: newRootNode,
-              fn: env => this.onRootNodeKeyDown(env), capturing: false },
+              fn: evt => this.onRootNodeKeyDown(evt), capturing: false },
             { type: "keyup", node: newRootNode,
-              fn: env => this.onRootNodeKeyUp(env), capturing: false },
-            { type: "focus", node: newRootNode,
-              fn: env => this.onRootNodeFocus(env), capturing: true },
+              fn: evt => this.onRootNodeKeyUp(evt), capturing: false },
+            { type: "focus", node: textareaNode,
+              fn: evt => this.focusTextareaNode(), capturing: true },
             { type: "blur", node: textareaNode,
-              fn: env => this.onTextareaBlur(env), capturing: true },
-            { type: "keydown", node: textareaNode,
-              fn: env => this.onTextareaKeyDown(env), capturing: false },
-            { type: "keyup", node: textareaNode,
-               fn: env => this.onTextareaKeyUp(env), capturing: false },
+              fn: evt => this.onTextareaBlur(evt), capturing: true },
+            //{ type: "keydown", node: textareaNode,
+            //fn: evt => this.onTextareaKeyDown(evt), capturing: false },
+            //{ type: "keyup", node: textareaNode,
+            //fn: evt => this.onTextareaKeyUp(evt), capturing: false },
             { type: "cut", node: textareaNode,
-              fn: env => this.onTextareaCut(env), capturing: false },
+              fn: evt => this.onTextareaCut(evt), capturing: false },
             { type: "copy", node: textareaNode,
-              fn: env => this.onTextareaCopy(env), capturing: false },
+              fn: evt => this.onTextareaCopy(evt), capturing: false },
             { type: "paste", node: textareaNode,
-              fn: env => this.onTextareaPaste(env), capturing: false },
+              fn: evt => this.onTextareaPaste(evt), capturing: false },
             { type: "compositionstart", node: textareaNode,
-              fn: env => this.onCompositionStart(env), capturing: false },
+              fn: evt => this.onCompositionStart(evt), capturing: false },
             { type: "compositionend", node: textareaNode,
-              fn: env => this.onCompositionEnd(env), capturing: false },
+              fn: evt => this.onCompositionEnd(evt), capturing: false },
             { type: "compositionupdate", node: textareaNode,
-              fn: env => this.onCompositionUpdate(env), capturing: false },
+              fn: evt => this.onCompositionUpdate(evt), capturing: false },
             { type: "input", node: textareaNode,
-              fn: env => this.onTextareaInput(env), capturing: false }];
+              fn: evt => this.onTextareaInput(evt), capturing: false }];
         domState.eventHandlers.forEach((ref) => {
             let {type, node, fn, capturing} = ref;
             hotreload.addEventListener(node, type, fn, capturing);
@@ -150,11 +164,12 @@ export class KeyboardManager {
         if (!node) return;
         if (node.ownerDocument.activeElement !== node) node.focus();
 
-        if (bowser.firefox) // FF needs an extra invitation...
-            Promise.resolve().then(function () {
+        if (bowser.firefox) {
+            // FF needs an extra invitation...
+            Promise.resolve().then(() => {
                 return node.ownerDocument.activeElement !== node && node.focus();
             });
-
+        }
         if (obj) {
             //this.ensureBeingAtCursorOfText(morph)
         } else if (room) {
@@ -175,47 +190,6 @@ export class KeyboardManager {
     blur() {
         var node = this.domState.textareaNode;
         if (node) node.blur();
-    }
-
-    doCopyWithMimeTypes(dataAndTypes) {
-        // dataAndTypes [{data: STRING, type: mime-type-STRING}]
-        return this.execCommand("manualCopy", () => {
-            let el = this.domState.textareaNode;
-            let h = (evt) => {
-                el.removeEventListener('copy', h);
-                evt.preventDefault();
-                dataAndTypes.forEach(ref => {
-                    let {data, type} = ref;
-                    return evt.clipboardData.setData(type, data);
-                });
-            };
-            setTimeout(() => el.removeEventListener('copy', h), 300);
-            el.addEventListener('copy', h);
-            el.value = "";
-            el.select();
-            el.ownerDocument.execCommand("copy");
-        });
-    }
-
-    doCopy(content) {
-        // attempt to manually copy to the clipboard
-        // this might fail for various strange browser reasons
-        // also it will probably steal the focus...
-        return this.execCommand("manualCopy", () => {
-            let el = this.domState.textareaNode;
-            el.value = content;
-            el.select();
-            el.ownerDocument.execCommand("copy");
-        });
-    }
-
-    doPaste() {
-        return this.execCommand("manualPaste", () => {
-            let el = this.domState.textareaNode;
-            el.value = "";
-            el.select();
-            el.ownerDocument.execCommand("paste");
-        });
     }
 
     onRootNodeFocus(evt) {

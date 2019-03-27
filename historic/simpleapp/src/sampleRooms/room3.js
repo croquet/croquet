@@ -16,6 +16,15 @@ function initRoom3(state) {
             editable: true,
         });
         room.parts.objects.add(text1);
+
+        const text2 = new Editor({
+            spatial: { position: {x: 3, y: 1, z: 0} },
+            editableText: { content: [{text: "man is much more than a tool builder... he is an inventor of universes..."}], font: "Barlow", numLines: 10, width: 3, height: 2}
+        },
+        {
+            editable: true,
+        });
+        room.parts.objects.add(text2);
     });
 }
 
