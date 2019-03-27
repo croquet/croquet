@@ -129,9 +129,14 @@ export default class Island {
         this.controller.sendMessage(message);
     }
 
+    /** decode msgData and sort it into future queue
+     * @param {MessageData} msgData - encoded message
+     * @return {Message} decoded message
+     */
     decodeAndSchedule(msgData) {
         const message = Message.fromState(msgData);
         this.messages.add(message);
+        return message;
     }
 
     futureSend(tOffset, receiverID, partID, selector, args) {
@@ -177,8 +182,9 @@ export default class Island {
     /**
      * Process pending messages for this island and advance simulation.
      * Must only be sent by controller!
-     * @param {Number} time simulate up to this time
-     * @param {Number} deadline real time deadline for interrupting simulation
+     * @param {Number} time - simulate up to this time
+     * @param {Number} deadline - CPU time deadline for interrupting simulation
+     * @returns {Boolean} true if finished simulation before deadline
      */
     advanceTo(time, deadline) {
         if (CurrentIsland) throw Error("Island Error");
@@ -189,9 +195,10 @@ export default class Island {
             this.messages.poll();
             this.time = message.time;
             message.executeOn(this);
-            if (++count > 100) { count = 0; if (Date.now() > deadline) return; }
+            if (++count > 100) { count = 0; if (Date.now() > deadline) return false; }
         }
         this.time = time;
+        return true;
     }
 
     addModelSubscription(scope, event, subscriberId, part, methodName) {
@@ -423,6 +430,8 @@ export class Controller {
     }
 
     constructor() {
+        /** @type {Island} */
+        this.island = null;
         /** the messages received from reflector */
         this.networkQueue = new AsyncQueue();
         /** the time of last message received from reflector */
@@ -456,6 +465,12 @@ export class Controller {
         });
     }
 
+    takeSnapshot() {
+        // put all pending messages into future queue
+        this.scheduleAllPendingMessages();
+        return this.island.asState();
+    }
+
     /** @type String: this controller's island id */
     get id() {return this.island ? this.island.id : this.islandCreator.snapshot.id; }
 
@@ -480,7 +495,7 @@ export class Controller {
                 // Put it in the queue, and set time.
                 // Actual processing happens in main loop.
                 if (DEBUG.messages) console.log(this.id, 'Controller received RECV ' + args);
-                const msg = args;
+                const msg = args;   // [time, seq, payload]
                 const time = msg[0];
                 const seq = msg[1];
                 msg[1] = seq * 2 + 1;  // make odd timeSeq from controller
@@ -501,15 +516,14 @@ export class Controller {
             case 'SERVE': {
                 // We received a request to serve a current snapshot
                 console.log(this.id, 'Controller received SERVE - replying with snapshot');
-                // put all pending messages into future queue
-                this.scheduleMessages();
+                const snapshot = this.takeSnapshot();
                 // send the snapshot
                 this.socket.send(JSON.stringify({
                     action: args, // reply action
-                    args: this.island.asState(),
+                    args: snapshot,
                 }));
                 // and send a dummy message so that the other guy can drop
-                // old messages in controller.install()
+                // old messages in their controller.install()
                 this.island.sendNoop();
                 break;
             }
@@ -571,11 +585,11 @@ export class Controller {
     }
 
     /** Schedule all messages received from reflector as future messages in island */
-    scheduleMessages() {
+    scheduleAllPendingMessages() {
         let msgData;
         // Get the next message from the (concurrent) network queue
         while ((msgData = this.networkQueue.nextNonBlocking())) {
-            // And have the island decode, schedule, and update to that message
+            // And have the island decode and schedule that message
             this.island.decodeAndSchedule(msgData);
         }
     }
@@ -584,14 +598,23 @@ export class Controller {
 
     /**
      * Process pending messages for this island and advance simulation
-     * @param {Number} ms real time allocated before interrupting simulation
-     * @returns {Number} ms of simulation time remaining (or 0 if done)
+     * @param {Number} ms CPU time budget before interrupting simulation
      */
     simulate(ms = 1) {
         if (!this.island) return;     // we are probably still sync-ing
-        this.scheduleMessages();
         Stats.begin("simulate");
-        this.island.advanceTo(this.time, Date.now() + ms);
+        const deadline = Date.now() + ms;
+        let weHaveTime = true;
+        while (weHaveTime) {
+            // Get the next message from the (concurrent) network queue
+            const msgData = this.networkQueue.nextNonBlocking();
+            if (!msgData) break;
+            // have the island decode and schedule that message
+            const msg = this.island.decodeAndSchedule(msgData);
+            // simulate up to that message
+            weHaveTime = this.island.advanceTo(msg.time, deadline);
+        }
+        if (weHaveTime) this.island.advanceTo(this.time, deadline);
         Stats.end("simulate");
         Stats.backlog(this.backlog);
     }
