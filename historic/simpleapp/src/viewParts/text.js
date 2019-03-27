@@ -96,7 +96,7 @@ export default class TextViewPart extends Object3D {
                     side: THREE.DoubleSide,
                     transparent: true,
                     color: 'rgb(0, 0, 0)',
-                    version: rendererVersion.shaderLangaugeVersion,
+                    version: rendererVersion.shaderLanguageVersion,
                     negate: true
                 }));
             if (!DEBUG_GLYPH_GEOMETRY) {
