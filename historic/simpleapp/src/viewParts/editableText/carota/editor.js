@@ -134,6 +134,11 @@ export class Carota extends Doc {
       this.scaleY = neededPixels;
       let scale = neededPixels / this.screenHeight;
       this.scaleX = this.screenWidth * scale;
+
+      if (this.scaleX * this.relativeScrollBarWidth <= 30) {
+          this.relativeScrollBarWidth = 30 /this.scaleX;
+      }
+
       this.width(this.scaleX * (1.0 - this.relativeScrollBarWidth));
       this.lineHeight = m.height / scale;
       this.contentChanged.fire();
@@ -210,7 +215,6 @@ export class Carota extends Doc {
         var docH = frame.height
         var scrollVRatio = scaleY / docH
         var barW = scaleX * 0.02
-          barW = Math.max(barW, 30)  //Patched by Dan for new text  editor
         var barLeft = scaleX - barW - 6
         var barTop = scrollT * scaleY
         var minHeight = scaleY / 100 * 5

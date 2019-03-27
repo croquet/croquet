@@ -137,7 +137,7 @@ export default class EditableTextViewPart extends Object3D {
         plane.visible = false;
         box.add(plane);
         this.selectionBar = plane;
-        //cube.object3D.onBeforeRender = this.selectionBeforeRender.bind(this);
+        plane.onBeforeRender = this.selectionBeforeRender.bind(this);
         this.boxSelections = [];
     }
 
@@ -250,7 +250,7 @@ export default class EditableTextViewPart extends Object3D {
         const plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(0.1, 0.1), new THREE.MeshBasicMaterial({ color: 0xA0CFEC }));
 
         plane.visible = false;
-        //plane.onBeforeRender = this.selectionBeforeRender.bind(this);
+        plane.onBeforeRender = this.selectionBeforeRender.bind(this);
         return plane;
     }
 
@@ -258,7 +258,7 @@ export default class EditableTextViewPart extends Object3D {
         //let [top, bottom, right, left] = ary; this is the order
         let planes = [];
         let text = this.text;
-        if (isNaN(text.matrixWorld.elements[0])) return [];
+        if (isNaN(text.matrixWorld.elements[0])) return null;
         for (let i = 0; i < 4; i++) {
             planes[i] = new THREE.Plane();
             planes[i].copy(this.clippingPlanes[i]);
