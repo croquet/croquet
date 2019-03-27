@@ -138,7 +138,7 @@ function initRoom1(state) {
 
         const editText = new Editor({
             spatial: { position: {x: -4, y: 2, z: -1.5} },
-            editableText: { content: [{text: "This text can be edited"}], font: "Roboto", numLines: 10, width: 3, height: 2}
+            editableText: { content: {content: [{text: "This text can be edited"}], selection: {start: 0, end: 0}}, font: "Roboto", numLines: 10, width: 3, height: 2}
         },
         {
             editable: true,

@@ -10,9 +10,7 @@ export const TextEvents = {
 
 export default class EditableTextPart extends StatePart {
     fromState(state={}) {
-        this.content = state.content || [];
-        this.subscribe(TextEvents.viewContentChanged, "onContentChanged");
-
+        this.content = state.content || {content: [], selection: {start: 0, end: 0}};
         window.model = this;
     }
 
@@ -20,7 +18,8 @@ export default class EditableTextPart extends StatePart {
         state.content = this.content;
     }
 
-    onContentChanged(newContent) {
+    updateContents(newContent) {
         this.content = newContent;
+        this.publish(TextEvents.modelContentChanged, this.content);
     }
 }
