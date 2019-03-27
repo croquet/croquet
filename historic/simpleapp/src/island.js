@@ -471,6 +471,28 @@ export class Controller {
         return this.island.asState();
     }
 
+    snapshotName() {
+        // name includes JSON options
+        const options = this.islandCreator.name.split(/[^A-Z0-9]+/i);
+        return `${window.location.hostname}-${options.filter(_=>_).join('-')}-${this.id}`;
+    }
+
+    /** upload a snapshot to the asset server */
+    async uploadSnapshot() {
+        if (!this.island) return;
+        // take snapshot
+        const snapshot = this.takeSnapshot();
+        const string = JSON.stringify(snapshot);
+        const url = `https://db.croquet.studio/files-v1/${this.snapshotName()}.json`;
+        console.log(this.id, `Controller uploading snapshot (${string.length} bytes) to ${url}`);
+        await fetch(url, {
+            method: "PUT",
+            mode: "cors",
+            headers: { "Content-Type": "application/json" },
+            body: string,
+        });
+    }
+
     /** @type String: this controller's island id */
     get id() {return this.island ? this.island.id : this.islandCreator.snapshot.id; }
 
