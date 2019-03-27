@@ -186,14 +186,18 @@ function start() {
         if (throttle(event)) return;
         const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
         if (currentRoomView) currentRoomView.parts.pointer.onMouseMove(event.clientX, event.clientY);
+        event.preventDefault();
+
     });
     hotreload.addEventListener(window, "mousedown", event => {
         const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
         if (currentRoomView) currentRoomView.parts.pointer.onMouseDown(event);
+        event.preventDefault();
     });
     hotreload.addEventListener(window, "mouseup", _ => {
         const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
         if (currentRoomView) currentRoomView.parts.pointer.onMouseUp();
+        event.preventDefault();
     });
     hotreload.addEventListener(document.body, "touchstart", event => {
         const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);

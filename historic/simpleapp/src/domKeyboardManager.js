@@ -108,10 +108,10 @@ export class KeyboardManager {
               fn: evt => this.focusTextareaNode(), capturing: true },
             { type: "blur", node: textareaNode,
               fn: evt => this.onTextareaBlur(evt), capturing: true },
-            //{ type: "keydown", node: textareaNode,
-            //fn: evt => this.onTextareaKeyDown(evt), capturing: false },
-            //{ type: "keyup", node: textareaNode,
-            //fn: evt => this.onTextareaKeyUp(evt), capturing: false },
+            { type: "keydown", node: textareaNode,
+              fn: evt => this.onTextareaKeyDown(evt), capturing: false },
+            { type: "keyup", node: textareaNode,
+              fn: evt => this.onTextareaKeyUp(evt), capturing: false },
             { type: "cut", node: textareaNode,
               fn: evt => this.onTextareaCut(evt), capturing: false },
             { type: "copy", node: textareaNode,
@@ -203,18 +203,20 @@ export class KeyboardManager {
             let textareaNode = this.domState.textareaNode,
                 rootNode = this.domState.rootNode;
 
-            if (rootNode && document.activeElement === rootNode) {
+            if (rootNode && document.activeElement !== rootNode) {
                 rootNode.focus();
             }
       }, 0);
     }
 
     onRootNodeKeyUp(evt) {
-        this.dispatchDOMEvent(evt);
+        //this.dispatchDOMEvent(evt);
+        //here, non text keyboard handling by a widget need to happen
     }
 
     onRootNodeKeyDown(evt) {
-        this.dispatchDOMEvent(evt);
+        //this.dispatchDOMEvent(evt);
+        //here, non text keyboard handling by a widget need to happen
     }
 
     onTextareaKeyUp(evt) {

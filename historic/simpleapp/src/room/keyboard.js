@@ -9,11 +9,11 @@ export class KeyboardViewPart extends ViewPart {
 
     onRequestFocus(viewId) {
         this.focus = viewId;
+        theKeyboardManager.focus();
     }
 
     handleEvent(evt) {
         if (this.focus) {
-            theKeyboardManager.focus();
             this.publish(KeyboardEvents[evt.type], evt, ...this.focus.requesterRef.split("."));
         }
     }
