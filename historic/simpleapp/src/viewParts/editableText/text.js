@@ -60,11 +60,6 @@ export default class EditableTextViewPart extends Object3D {
         this.editor.mockCallback = ctx => {
             const glyphs = this.processMockContext(ctx);
             this.update({glyphs, corners: this.editor.visibleTextBounds(), scaleX: this.editor.scaleX, scrollTop: this.editor.scrollTop, frameHeight: this.editor.frame.height, drawnRects: ctx.filledRects});
-            if (this.options.editable) {
-                if (this.changeInitiatedByView) {
-                    this.owner.model["editableText"].updateContents({content: this.editor.save(), selection: this.editor.selection});
-                }
-            }
         };
     }
 
@@ -110,11 +105,11 @@ export default class EditableTextViewPart extends Object3D {
         this.editor.setSubscribers(callback);
         this.editor.load(this.options.content.content);
         this.editor.select(this.options.content.selection.start, this.options.content.selection.end);
+        this.changed();
 
         this.initSelectionMesh();
         this.initScrollBarMesh();
-
-        window.view = this;
+        this.changed();
     }
 
     initBoxMesh() {
@@ -293,15 +288,26 @@ export default class EditableTextViewPart extends Object3D {
     onContentChanged(newContent) {
         try {
             this.changeInitiatedByView = false;
+            this.editor.delayPaint = false;
             this.editor.load(newContent.content);
             this.editor.select(newContent.selection.start,
                                newContent.selection.end);
+            this.editor.paint();
         } finally {
             this.changeInitiatedByView = true;
+            this.editor.delayPaint = true;
         }
     }
 
     onTextChanged() {}
+
+    changed() {
+        if (this.options.editable) {
+            if (this.changeInitiatedByView) {
+                this.owner.model["editableText"].updateContents({content: this.editor.save(), selection: this.editor.selection});
+            }
+        }
+    }
 
     textPtFromEvt(evtPt) {
         const pt = this.threeObj.worldToLocal(evtPt.clone());
@@ -321,6 +327,7 @@ export default class EditableTextViewPart extends Object3D {
         const pt = this.textPtFromEvt(evt.at);
         this.editor.mouseDown(pt.x, pt.y, pt.realY);
         this.lastPt = pt;
+        this.changed();
         return true;
     }
 
@@ -329,6 +336,7 @@ export default class EditableTextViewPart extends Object3D {
         const pt = this.textPtFromEvt(evt.hoverPoint);
         this.editor.mouseMove(pt.x, pt.y, pt.realY);
         this.lastPt = pt;
+        this.changed();
         return true;
     }
 
@@ -337,6 +345,7 @@ export default class EditableTextViewPart extends Object3D {
         this.mouseIsDown = false;
         this.editor.mouseUp(pt.x, pt.y, pt.realY);
         this.lastPt = null;
+        this.changed();
         return true;
     }
 
@@ -345,14 +354,17 @@ export default class EditableTextViewPart extends Object3D {
 
         if (cEvt.keyCode === 13) {
             this.editor.insert('\n');
+            this.changed();
             return true;
         }
         if (cEvt.keyCode === 32) {
             this.editor.insert(' ');
+            this.changed();
             return true;
         }
         if (cEvt.keyCode === 9) {
             this.editor.insert('\t');
+            this.changed();
             return true;
         }
 
@@ -360,8 +372,10 @@ export default class EditableTextViewPart extends Object3D {
 
         if (!handled && !(cEvt.ctrlKey || cEvt.metaKey)) {
             this.editor.insert(cEvt.key);
+            this.changed();
             return true;
         }
+        this.changed();
         return true;
     }
 
@@ -374,6 +388,7 @@ export default class EditableTextViewPart extends Object3D {
     onCut(evt) {
         this.onCopy(evt);
         this.editor.insert("");//or something else to keep undo sane?
+        this.changed();
         return true;
     }
 
@@ -381,6 +396,7 @@ export default class EditableTextViewPart extends Object3D {
         let pasteChars = evt.clipboardData.getData("text");
         this.editor.insert(pasteChars);
         evt.preventDefault();
+        this.changed();
         return true;
     }
 
