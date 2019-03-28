@@ -111,15 +111,17 @@ async function uploadModule(mod, allFiles=false) {
     } catch (ex) { /* ignore */ }
     // not found, so try to upload it
     try {
-        const code = sourceCodeOf(mod);
-        const dependencies = await Promise.all(dependenciesOf(mod).map(hashFile));
-        const meta = { hint: mod, dependencies };
+        const meta = { hint: mod, dependencies: {} };
+        for (const [key, dep] of Object.entries(moduleNamed(mod)[1])) {
+            meta.dependencies[key] = await hashFile(dep);   //eslint-disable-line no-await-in-loop
+        }
         if (allFiles) meta.files = await Promise.all(Object.keys(module.bundle.modules).map(hashFile));
+        const code = sourceCodeOf(mod);
         console.log(`uploading ${mod}: ${code.length} bytes`);
         fetch(`${url}/${hash}.js`, {
             method: "PUT",
             mode: "cors",
-            body: sourceCodeOf(mod),
+            body: code,
         });
         fetch(`${url}/${hash}.json`, {
             method: "PUT",
