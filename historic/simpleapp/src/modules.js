@@ -163,7 +163,7 @@ async function uploadModule(mod, includeAllFiles=false) {
     const url = 'https://db.croquet.studio/files-v1/code';
     try {
         // see if it's already there
-        const response = await fetch(`${url}/${hash}.js`, { method: 'HEAD' });
+        const response = await fetch(`${url}/${hash}.json`, { method: 'HEAD' });
         // if successfull, return
         if (response.ok) return;
     } catch (ex) { /* ignore */ }
@@ -172,11 +172,12 @@ async function uploadModule(mod, includeAllFiles=false) {
         const meta = await metadataFor(mod, includeAllFiles);
         const code = sourceCodeOf(mod);
         console.log(`uploading "${meta.name}" (${hash}): ${code.length} bytes`);
-        fetch(`${url}/${hash}.js`, {
+        await fetch(`${url}/${hash}.js`, {
             method: "PUT",
             mode: "cors",
             body: code,
         });
+        // uplod JSON only when uploading JS was succesful
         fetch(`${url}/${hash}.json`, {
             method: "PUT",
             mode: "cors",
