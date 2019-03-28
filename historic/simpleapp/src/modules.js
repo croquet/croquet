@@ -10,13 +10,21 @@ if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle
 // in production, moduleIDs are mangled so essentially all files will be hashed
 const exclude = /(index.js|hotreload.js|modules.js|server\/|util\/|view|node_modules)/i;
 
+function allModules() {
+    return module.bundle.modules;
+}
+
+function allModuleIDs() {
+    return Object.keys(allModules());
+}
+
 /**
  * find the given module
- * @param {String} mod module name
+ * @param {String} id module ID
  * @returns {[Function, Array<String>]} the module function and its list of imports
  */
-function moduleNamed(mod) {
-    return module.bundle.modules[mod];
+function moduleWithID(id) {
+    return allModules()[id];
 }
 
 function functionSource(fn) {
@@ -30,7 +38,7 @@ function functionSource(fn) {
  * @returns {String} the module source code
  */
 function sourceCodeOf(mod) {
-    const source = functionSource(moduleNamed(mod)[0]);
+    const source = functionSource(moduleWithID(mod)[0]);
     /*
     // verify that code survives stringification
     const fn = new Function('require', 'module', 'exports', source);
@@ -40,17 +48,23 @@ function sourceCodeOf(mod) {
     return source;
 }
 
-/** find all files that are directly imported by a given module */
-function dependenciesOf(mod) {
-    return Object.values(moduleNamed(mod)[1]);
+/** find all import names and IDs that are directly imported by a given module */
+function namedImportsOf(mod) {
+    return moduleWithID(mod)[1];
+}
+
+
+/** return all module IDs that are directly imported by a given module */
+function importsOf(mod) {
+    return Object.values(namedImportsOf(mod));
 }
 
 /** find all files that are (transitively) imported by a given module */
-function allDependenciesOf(mod, filter, result = new Set([mod])) {
-    for (const imp of dependenciesOf(mod).filter(filter)) {
+function allImportsOf(mod, filter, result = new Set([mod])) {
+    for (const imp of importsOf(mod).filter(filter)) {
         if (!result.has(imp)) {
             result.add(imp, result);
-            allDependenciesOf(imp, filter, result);
+            allImportsOf(imp, filter, result);
         }
     }
     return result;
@@ -88,10 +102,10 @@ async function hashFile(mod) {
 
 
 export async function hashModelCode(name, moduleID) {
-    if (!moduleNamed(moduleID)) throw Error("Module not found: " + moduleID);
+    if (!moduleWithID(moduleID)) throw Error("Module not found: " + moduleID);
     // console.time("Hashing " + name);
     const filter = id => !id.match(exclude);
-    const mods = Array.from(allDependenciesOf(moduleID, filter)).sort();
+    const mods = Array.from(allImportsOf(moduleID, filter)).sort();
     // console.log(`${name} Hashing ${moduleID}: ${mods.join(' ')}`);
     const hashes = await Promise.all(mods.map(hashFile));
     const hash = await hashString([name, ...hashes].join('|'));
@@ -99,8 +113,45 @@ export async function hashModelCode(name, moduleID) {
     return hash;
 }
 
+// naming
 
-async function uploadModule(mod, allFiles=false) {
+const names = {};
+
+function resolveNames(entry) {
+    names[entry] = "entry";
+    // get all path names
+    for (const m of allModuleIDs()) {
+        for (const [name, dep] of Object.entries(namedImportsOf(m))) {
+            const existing = names[dep] || '';
+            const clean = name.replace(/^[./]*/, '');
+            if (clean.length > existing) names[dep] = clean;
+        }
+    }
+}
+
+function nameOf(mod) {
+    if (names[mod]) return names[mod];
+    console.warn('No name for ' + mod);
+    return mod;
+}
+
+// uploading
+
+async function metadataFor(mod, includeAllFiles=false) {
+    const meta = { name: nameOf(mod), imports: {} };
+    for (const [key, dep] of Object.entries(moduleWithID(mod)[1])) {
+        meta.imports[key] = await hashFile(dep);   //eslint-disable-line no-await-in-loop
+    }
+    if (includeAllFiles) {
+        meta.files = {};
+        for (const id of allModuleIDs()) {
+            meta.files[await hashFile(id)] = nameOf(id); //eslint-disable-line no-await-in-loop
+        }
+    }
+    return meta;
+}
+
+async function uploadModule(mod, includeAllFiles=false) {
     const hash = await hashFile(mod);
     const url = 'https://db.croquet.studio/files-v1/code';
     try {
@@ -111,13 +162,9 @@ async function uploadModule(mod, allFiles=false) {
     } catch (ex) { /* ignore */ }
     // not found, so try to upload it
     try {
-        const meta = { hint: mod, dependencies: {} };
-        for (const [key, dep] of Object.entries(moduleNamed(mod)[1])) {
-            meta.dependencies[key] = await hashFile(dep);   //eslint-disable-line no-await-in-loop
-        }
-        if (allFiles) meta.files = await Promise.all(Object.keys(module.bundle.modules).map(hashFile));
+        const meta = await metadataFor(mod, includeAllFiles);
         const code = sourceCodeOf(mod);
-        console.log(`uploading ${mod}: ${code.length} bytes`);
+        console.log(`uploading ${meta.name}: ${code.length} bytes`);
         fetch(`${url}/${hash}.js`, {
             method: "PUT",
             mode: "cors",
@@ -133,10 +180,11 @@ async function uploadModule(mod, allFiles=false) {
 
 /** upload code for all modules */
 export async function uploadCode(entryPoint) {
-    for (const mod of Object.keys(module.bundle.modules)) {
+    resolveNames(entryPoint);
+    for (const mod of allModuleIDs()) {
         uploadModule(mod, mod === entryPoint);
     }
     // prelude is the Parcel loader code, which loads the entrypoint
-    const prelude = moduleNamed(module.id)[1]["parcel/lib/builtins/prelude.js"];
+    const prelude = moduleWithID(module.id)[1]["parcel/lib/builtins/prelude.js"];
     return { prelude: await hashFile(prelude), entry: await hashFile(entryPoint) };
 }
