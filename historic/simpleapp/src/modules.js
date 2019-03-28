@@ -153,6 +153,7 @@ export async function hashModelCode(name, moduleID) {
 // naming
 
 const names = {};
+const assets = [];
 
 function resolveNames(entry) {
     names[entry] = entryPointName;
@@ -162,6 +163,7 @@ function resolveNames(entry) {
             const existing = names[id] || '';
             const clean = name.replace(/^[./]*/, '');
             if (clean.length > existing) names[id] = clean;
+            if (clean.match(/^assets\//)) assets.push({id, code: sourceCodeOf(id)});
         }
     }
 }
@@ -238,6 +240,19 @@ async function uploadHTML() {
     uploadFile(htmlName, meta, ".html");
 }
 
+/* we don't want to fetch assets to upload for now
+async function uploadAsset(asset) {
+    const src = sourceCodeOf(asset.id);
+    const match = src.match(/^module.exports ?= ?"(.*\.(.*))";$/);
+    if (match) {
+        const [_, url, ext] = match;
+        console.log(asset.id, url, ext);
+    } else {
+        // not a url (probably JSON)
+    }
+}
+*/
+
 /** upload code for all modules */
 export async function uploadCode(entryPoint) {
     resolveNames(entryPoint);
@@ -245,6 +260,9 @@ export async function uploadCode(entryPoint) {
     for (const mod of allModuleIDs()) {
         uploadModule(mod, mod === entryPoint);
     }
+    // for (const asset of assets) {
+    //     uploadAsset(asset);
+    // }
     // prelude is the Parcel loader code, which loads the entrypoint
     const prelude = moduleWithID(module.id)[1]["parcel/lib/builtins/prelude.js"];
     return { prelude: await hashFile(prelude), entry: await hashFile(entryPoint), html: await hashFile(htmlName) };
