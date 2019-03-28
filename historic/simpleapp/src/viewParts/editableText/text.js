@@ -205,10 +205,13 @@ export default class EditableTextViewPart extends Object3D {
                     this.updateSelection(this.selectionBar, null);
                 }
             } else if (rec.style === 'scroll bar') {
-                meshRect.y += -scrollT * docHeight * meterInPixel;
+                // oh, boy.  we are compensating it with fudge factor and recompensationg
+                // here. The right thing should be to fix the data in json and cursorY
+                // should be always zero for all fonts.
+                meshRect.y += (-scrollT * docHeight + cursorY) * meterInPixel;
                 this.updateSelection(this.scrollBar, meshRect);
             } else if (rec.style === 'scroll knob') {
-                meshRect.y += -scrollT * docHeight * meterInPixel;
+                meshRect.y += (-scrollT * docHeight + cursorY) * meterInPixel;
                 this.updateSelection(this.scrollKnob, meshRect, 0.004);
             }
         }
@@ -399,6 +402,9 @@ export default class EditableTextViewPart extends Object3D {
         this.changed();
         return true;
     }
+
+    onSave() {}
+        
 
     // "text access"
     positionToIndex(textPos) {

@@ -344,6 +344,7 @@ function keyComboToEventSpec(keyCombo, evt) {
         isFunctionKey: false,
         isModified: false,
         onlyModifiers: false,
+        onlyShiftModifier: null,
         type: evt.type,
         keyCode: evt.keyCode
     };
@@ -370,6 +371,9 @@ function keyComboToEventSpec(keyCombo, evt) {
         let mod = keyMods[i],
             modEventFlag = modsToEvent[mod.toLowerCase()];
         if (!modEventFlag) continue;
+        if (spec.onlyShiftModifier === null) {
+            spec.onlyShiftModifier = mod === "Shift";
+        }
         keyMods.splice(i, 1);
         spec.isModified = true;
         spec[modEventFlag] = true;
@@ -397,7 +401,11 @@ function keyComboToEventSpec(keyCombo, evt) {
         spec.isFunctionKey = true;
         spec.key = fnKey;
     } else if (spec.isModified) {
-        spec.key = trailing[0].toUpperCase() + trailing.slice(1);
+        if (spec.onlyShiftModifier) {
+            spec.key = evt.key;
+        } else {
+            spec.key = trailing[0].toUpperCase() + trailing.slice(1);
+        }
     } else {
         spec.key = trailing;
     }
