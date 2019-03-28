@@ -109,22 +109,6 @@ let jsEditorCommands = {
             return result;
         }
     },
-
-    "save": {
-        doc: "Saves...",
-        handlesCount: true,
-        exec: async (text, opts, count = 1) => {
-            //if (morph.saveTextToModel) return morph.saveTextToModel();
-            //const container = morph.getContainer();
-            //console.log(`container is a ${container.constructor}`)
-            //if (container && container.save) return container.save();
-            // The following line makes ‘save’ work in the TSystemBrowser,
-            // but it should be handled by a better route than tParent
-            //if (morph.tParent && morph.tParent.save) return morph.tParent.save();
-            console.log("this text doesn't know how to save");
-            return true;
-        }
-    }
 };
 
 export const defaultCommands = Object.assign({}, textCommands, jsEditorCommands);

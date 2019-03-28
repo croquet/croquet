@@ -22,4 +22,12 @@ export default class EditableTextPart extends StatePart {
         this.content = newContent;
         this.publish(TextEvents.modelContentChanged, this.content);
     }
+
+    plaintext(content) {
+        return content.content.map(c => c.text || "").join('');
+    }
+
+    acceptContent() {
+        console.log("accept");
+    }
 }
