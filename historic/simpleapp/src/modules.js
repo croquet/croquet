@@ -6,6 +6,18 @@ import "parcel/lib/builtins/prelude.js";    // eslint-disable-line
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
+const entryPointName = "entry.js";
+
+// grab HTML source now before it gets modified
+const scripts = Array.from(document.getElementsByTagName('script')).map(script => script.outerHTML);
+if (scripts.length > 1) console.warn("More than one script tag!");
+const rawHTML = document.getElementsByTagName('html')[0].outerHTML;
+// replace main script tag (which changes all the time)
+const htmlSource = rawHTML.replace(scripts[0], `<script src="${entryPointName}"></script>`);
+if (!htmlSource.includes(entryPointName)) console.error("Entry point substitution failed!");
+const htmlName = "index.html";
+
+
 // this exclude list only works for unmangled moduleIDs during development
 // in production, moduleIDs are mangled so essentially all files will be hashed
 const exclude = /(index.js|hotreload.js|modules.js|server\/|util\/|view|node_modules)/i;
@@ -38,6 +50,7 @@ function functionSource(fn) {
  * @returns {String} the module source code
  */
 function sourceCodeOf(mod) {
+    if (mod === htmlName) return htmlSource; //  little hack
     const source = functionSource(moduleWithID(mod)[0]);
     /*
     // verify that code survives stringification
@@ -118,7 +131,7 @@ export async function hashModelCode(name, moduleID) {
 const names = {};
 
 function resolveNames(entry) {
-    names[entry] = "entry";
+    names[entry] = entryPointName;
     // get all path names
     for (const m of allModuleIDs()) {
         for (const [name, dep] of Object.entries(namedImportsOf(m))) {
@@ -131,18 +144,23 @@ function resolveNames(entry) {
 
 function nameOf(mod) {
     if (names[mod]) return names[mod];
-    console.warn('No name for ' + mod);
+    // "hmr-runtime.js" is injected by parcel in dev builds
+    if (!mod.endsWith("hmr-runtime.js")) console.warn('No name for ' + mod);
     return mod;
 }
 
 // uploading
 
-async function metadataFor(mod, includeAllFiles=false) {
-    const meta = {
-        name: nameOf(mod),
+function createMetadata(name) {
+    return {
+        name,
         date: (new Date()).toISOString(),
         host: window.location.hostname,
     };
+}
+
+async function metadataFor(mod, includeAllFiles=false) {
+    const meta = createMetadata(nameOf(mod));
     // add imports
     for (const [key, dep] of Object.entries(moduleWithID(mod)[1])) {
         if (!meta.imports) meta.imports = {};
@@ -154,13 +172,15 @@ async function metadataFor(mod, includeAllFiles=false) {
         for (const id of allModuleIDs()) {
             meta.files[await hashFile(id)] = nameOf(id); //eslint-disable-line no-await-in-loop
         }
+        meta.html = await hashFile(htmlName);
     }
     return meta;
 }
 
-async function uploadModule(mod, includeAllFiles=false) {
-    const hash = await hashFile(mod);
+async function uploadFile(mod, meta, ext=".js") {
     const url = 'https://db.croquet.studio/files-v1/code';
+    const hash = await hashFile(mod);
+    const body = sourceCodeOf(mod);
     try {
         // see if it's already there
         const response = await fetch(`${url}/${hash}.json`, { method: 'HEAD' });
@@ -169,13 +189,11 @@ async function uploadModule(mod, includeAllFiles=false) {
     } catch (ex) { /* ignore */ }
     // not found, so try to upload it
     try {
-        const meta = await metadataFor(mod, includeAllFiles);
-        const code = sourceCodeOf(mod);
-        console.log(`uploading "${meta.name}" (${hash}): ${code.length} bytes`);
-        await fetch(`${url}/${hash}.js`, {
+        console.log(`uploading "${meta.name}" (${hash}): ${body.length} bytes`);
+        await fetch(`${url}/${hash}${ext}`, {
             method: "PUT",
             mode: "cors",
-            body: code,
+            body,
         });
         // uplod JSON only when uploading JS was succesful
         fetch(`${url}/${hash}.json`, {
@@ -186,13 +204,24 @@ async function uploadModule(mod, includeAllFiles=false) {
     } catch (error) { /* ignore */}
 }
 
+async function uploadModule(mod, includeAllFiles=false) {
+    const meta = await metadataFor(mod, includeAllFiles);
+    uploadFile(mod, meta);
+}
+
+async function uploadHTML() {
+    const meta = createMetadata(htmlName);
+    uploadFile(htmlName, meta, ".html");
+}
+
 /** upload code for all modules */
 export async function uploadCode(entryPoint) {
     resolveNames(entryPoint);
+    uploadHTML();
     for (const mod of allModuleIDs()) {
         uploadModule(mod, mod === entryPoint);
     }
     // prelude is the Parcel loader code, which loads the entrypoint
     const prelude = moduleWithID(module.id)[1]["parcel/lib/builtins/prelude.js"];
-    return { prelude: await hashFile(prelude), entry: await hashFile(entryPoint) };
+    return { prelude: await hashFile(prelude), entry: await hashFile(entryPoint), html: await hashFile(htmlName) };
 }
