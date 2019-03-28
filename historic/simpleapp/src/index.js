@@ -194,7 +194,7 @@ function start() {
         if (currentRoomView) currentRoomView.parts.pointer.onMouseDown(event);
         event.preventDefault();
     });
-    hotreload.addEventListener(window, "mouseup", _ => {
+    hotreload.addEventListener(window, "mouseup", event => {
         const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
         if (currentRoomView) currentRoomView.parts.pointer.onMouseUp();
         event.preventDefault();
