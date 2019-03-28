@@ -164,7 +164,7 @@ async function uploadModule(mod, includeAllFiles=false) {
     try {
         const meta = await metadataFor(mod, includeAllFiles);
         const code = sourceCodeOf(mod);
-        console.log(`uploading ${meta.name}: ${code.length} bytes`);
+        console.log(`uploading "${meta.name}": ${code.length} bytes`);
         fetch(`${url}/${hash}.js`, {
             method: "PUT",
             mode: "cors",
