@@ -21,13 +21,14 @@ function differentLine(caret1, caret2) {
 
 export class Carota extends Doc {
     static setCachedMeasureText(func) {
-	setCachedMeasureText(func);
+        setCachedMeasureText(func);
     }
 
   constructor(width, height, numLines) {
     super();
 
     this.useMockContext = true;
+    this.delayPaint = true;
 
     this.selectionChanged((getformatting, takeFocus) => {
       this.scrollRangeIntoView(this.selection);
@@ -145,7 +146,7 @@ export class Carota extends Doc {
   }
 
   paint() {
-    // logicalWidth = Math.max(this.frame.actualWidth(), screenWidth),
+    if (this.delayPaint) {return;}
     let {
           resolution,
           screenWidth,
