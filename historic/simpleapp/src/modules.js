@@ -77,7 +77,10 @@ function moduleWithID(id) {
 
 function functionSource(fn) {
     // strip the Function(args) { ...source ... } to just the source
-    return ("" + fn).replace(/^.*?\{/s, '').trim().slice(0, -1).trim();
+    const str = "" + fn;
+    const openingBrace = str.indexOf('{');
+    const closingBrace = str.lastIndexOf('}');
+    return str.slice(openingBrace + 1, closingBrace).trim();
 }
 
 /**
