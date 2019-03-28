@@ -6,20 +6,44 @@ import "parcel/lib/builtins/prelude.js";    // eslint-disable-line
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
-const entryPointName = "entry.js";
+/*
+We use the Parcel module system to inspect our own source code:
 
-// grab HTML source now before it gets modified
+module.bundle.modules = {
+    id: [<Module>, <Imports>],
+}
+
+<Module> = function(require,module,exports) {
+    ... module code (as pre-processed by Parcel)...
+}
+
+<Imports> = {
+    path1: id1,
+    path2: id2,
+}
+
+where "Module" is the module source code wrapped in a function definition
+and "Imports" is a dictionary mapping import paths to other module IDs.
+
+A minor complication is that module IDs look like file paths in
+development build, but are replaced by random short identifiers in
+production. That's why we must not ascribe any meaning to those IDs.
+*/
+
+const entryPointName = "entry.js";
+const htmlName = "index.html";
+
+// grab HTML source now before the DOM gets modified
 const scripts = Array.from(document.getElementsByTagName('script')).map(script => script.outerHTML);
 if (scripts.length > 1) console.warn("More than one script tag!");
 const rawHTML = document.getElementsByTagName('html')[0].outerHTML;
 // replace main script tag (which changes all the time)
 const htmlSource = rawHTML.replace(scripts[0], `<script src="${entryPointName}"></script>`);
 if (!htmlSource.includes(entryPointName)) console.error("Entry point substitution failed!");
-const htmlName = "index.html";
 
 
-// this exclude list only works for unmangled moduleIDs during development
-// in production, moduleIDs are mangled so essentially all files will be hashed
+// This exclude list only works for unmangled moduleIDs during development.
+// In production, moduleIDs are mangled so essentially all files will be hashed.
 const exclude = /(index.js|hotreload.js|modules.js|server\/|util\/|view|node_modules)/i;
 
 function allModules() {
@@ -40,8 +64,8 @@ function moduleWithID(id) {
 }
 
 function functionSource(fn) {
-    // some browsers add a space when stringifying a Function
-    return ("" + fn).replace(/^.*?\{/s, '').slice(0, -1).trim();
+    // strip the Function(args) { ...source ... } to just the source
+    return ("" + fn).replace(/^.*?\{/s, '').trim().slice(0, -1).trim();
 }
 
 /**
@@ -134,10 +158,10 @@ function resolveNames(entry) {
     names[entry] = entryPointName;
     // get all path names
     for (const m of allModuleIDs()) {
-        for (const [name, dep] of Object.entries(namedImportsOf(m))) {
-            const existing = names[dep] || '';
+        for (const [name, id] of Object.entries(namedImportsOf(m))) {
+            const existing = names[id] || '';
             const clean = name.replace(/^[./]*/, '');
-            if (clean.length > existing) names[dep] = clean;
+            if (clean.length > existing) names[id] = clean;
         }
     }
 }
@@ -162,9 +186,9 @@ function createMetadata(name) {
 async function metadataFor(mod, includeAllFiles=false) {
     const meta = createMetadata(nameOf(mod));
     // add imports
-    for (const [key, dep] of Object.entries(moduleWithID(mod)[1])) {
+    for (const [key, id] of Object.entries(moduleWithID(mod)[1])) {
         if (!meta.imports) meta.imports = {};
-        meta.imports[key] = await hashFile(dep);   //eslint-disable-line no-await-in-loop
+        meta.imports[key] = await hashFile(id);   //eslint-disable-line no-await-in-loop
     }
     // add all files if requested
     if (includeAllFiles) {
