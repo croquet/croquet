@@ -494,7 +494,11 @@ export class Controller {
         if (!this.island) return;
         // take snapshot
         const snapshot = this.takeSnapshot();
-        if (hashes) snapshot.code = hashes;
+        snapshot.meta = {
+            date: (new Date()).toISOString(),
+            host: window.location.hostname,
+        };
+        if (hashes) snapshot.meta.code = hashes;
         const string = JSON.stringify(snapshot);
         const url = this.snapshotUrl();
         console.log(this.id, `Controller uploading snapshot (${string.length} bytes) to ${url}`);

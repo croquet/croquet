@@ -138,10 +138,17 @@ function nameOf(mod) {
 // uploading
 
 async function metadataFor(mod, includeAllFiles=false) {
-    const meta = { name: nameOf(mod), imports: {} };
+    const meta = {
+        name: nameOf(mod),
+        date: (new Date()).toISOString(),
+        host: window.location.hostname,
+    };
+    // add imports
     for (const [key, dep] of Object.entries(moduleWithID(mod)[1])) {
+        if (!meta.imports) meta.imports = {};
         meta.imports[key] = await hashFile(dep);   //eslint-disable-line no-await-in-loop
     }
+    // add all files if requested
     if (includeAllFiles) {
         meta.files = {};
         for (const id of allModuleIDs()) {
@@ -164,7 +171,7 @@ async function uploadModule(mod, includeAllFiles=false) {
     try {
         const meta = await metadataFor(mod, includeAllFiles);
         const code = sourceCodeOf(mod);
-        console.log(`uploading "${meta.name}": ${code.length} bytes`);
+        console.log(`uploading "${meta.name}" (${hash}): ${code.length} bytes`);
         fetch(`${url}/${hash}.js`, {
             method: "PUT",
             mode: "cors",
