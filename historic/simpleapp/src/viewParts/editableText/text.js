@@ -355,6 +355,15 @@ export default class EditableTextViewPart extends Object3D {
     onKeyDown(cEvt) {
         if (cEvt.onlyModifiers) {return true;}
 
+        // what has to happen here is that the kinds of keycombo that browser need to pass
+        // through, and the kinds that the editor handles are different.
+        // We need to separated them, and for the latter, the text commands list has
+        // to be tested here.
+        if (cEvt.keyCombo === "Meta-S") {
+            this.accept();
+            return true;
+        }
+
         if (cEvt.keyCode === 13) {
             this.editor.insert('\n');
             this.changed();
@@ -405,6 +414,9 @@ export default class EditableTextViewPart extends Object3D {
 
     onSave() {}
         
+    accept() {
+        this.owner.model["editableText"].acceptContent();
+    }
 
     // "text access"
     positionToIndex(textPos) {
