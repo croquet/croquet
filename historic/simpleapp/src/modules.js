@@ -1,5 +1,8 @@
 import hotreload from "./hotreload.js";
 
+// we include the parcel prelude only so we can get at its source code
+import "parcel/lib/builtins/prelude.js";    // eslint-disable-line
+
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
@@ -16,15 +19,25 @@ function moduleNamed(mod) {
     return module.bundle.modules[mod];
 }
 
+function functionSource(fn) {
+    // some browsers add a space when stringifying a Function
+    return ("" + fn).replace(/^.*?\{/s, '').slice(0, -1).trim();
+}
+
 /**
  * find source code of a given module (mangled by parcel.js)
  * @param {String} mod module name
  * @returns {String} the module source code
  */
 function sourceCodeOf(mod) {
-    const source = "" + moduleNamed(mod)[0];
-    // some browsers add a space when stringifying a Function
-    return source.replace(/^function ?/, '');
+    const source = functionSource(moduleNamed(mod)[0]);
+    /*
+    // verify that code survives stringification
+    const fn = new Function('require', 'module', 'exports', source);
+    const src = functionSource(fn);
+    if (src !== source) throw Error("source does not match");
+    */
+    return source;
 }
 
 /** find all files that are directly imported by a given module */
@@ -84,4 +97,44 @@ export async function hashModelCode(name, moduleID) {
     const hash = await hashString([name, ...hashes].join('|'));
     // console.timeEnd("Hashing " + name);
     return hash;
+}
+
+
+async function uploadModule(mod, allFiles=false) {
+    const hash = await hashFile(mod);
+    const url = 'https://db.croquet.studio/files-v1/code';
+    try {
+        // see if its already there
+        const response = await fetch(`${url}/${hash}.js`, { method: 'HEAD' });
+        // if successfull, return
+        if (response.ok) return;
+    } catch (ex) { /* ignore */ }
+    // not found, so try to upload it
+    try {
+        const code = sourceCodeOf(mod);
+        const dependencies = await Promise.all(dependenciesOf(mod).map(hashFile));
+        const meta = { hint: mod, dependencies };
+        if (allFiles) meta.files = await Promise.all(Object.keys(module.bundle.modules).map(hashFile));
+        console.log(`uploading ${mod}: ${code.length} bytes`);
+        fetch(`${url}/${hash}.js`, {
+            method: "PUT",
+            mode: "cors",
+            body: sourceCodeOf(mod),
+        });
+        fetch(`${url}/${hash}.json`, {
+            method: "PUT",
+            mode: "cors",
+            body: JSON.stringify(meta),
+        });
+    } catch (error) { /* ignore */}
+}
+
+/** upload code for all modules */
+export async function uploadCode(entryPoint) {
+    for (const mod of Object.keys(module.bundle.modules)) {
+        uploadModule(mod, mod === entryPoint);
+    }
+    // prelude is the Parcel loader code, which loads the entrypoint
+    const prelude = dependenciesOf(module.id).filter(m => m.match(/prelude/))[0];
+    return { prelude: await hashFile(prelude), entry: await hashFile(entryPoint) };
 }

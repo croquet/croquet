@@ -10,6 +10,7 @@ import { Controller } from "./island.js";
 import {theKeyboardManager} from './domKeyboardManager.js';
 import Stats from "./util/stats.js";
 import urlOptions from "./util/urlOptions.js";
+import { uploadCode } from "./modules.js";
 
 const LOG_HOTRELOAD = false;
 
@@ -20,8 +21,12 @@ let hotState = module.hot && module.hot.data || {};
 
 const defaultRoom = window.location.hostname === "croquet.studio" ? "bounce" : "room1";
 
+let codeHashes = null;
+
 /** The main function. */
 function start() {
+    uploadCode(module.id).then(hashes => codeHashes = hashes);
+
     const ALL_ROOMS = {
         room1: {creator: room1},
         room2: {creator: room2},
@@ -167,7 +172,7 @@ function start() {
     function uploadSnapshots() {
         const liveRooms = Object.values(ALL_ROOMS).filter(room => room.island);
         for (const {island: {controller}} of liveRooms) {
-            if (controller.backlog < balanceMS) controller.uploadSnapshot();
+            if (controller.backlog < balanceMS) controller.uploadSnapshot(codeHashes);
         }
     }
     hotreload.setInterval(uploadSnapshots, 30000);

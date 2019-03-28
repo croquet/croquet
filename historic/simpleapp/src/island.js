@@ -490,10 +490,11 @@ export class Controller {
     }
 
     /** upload a snapshot to the asset server */
-    async uploadSnapshot() {
+    async uploadSnapshot(hashes) {
         if (!this.island) return;
         // take snapshot
         const snapshot = this.takeSnapshot();
+        if (hashes) snapshot.code = hashes;
         const string = JSON.stringify(snapshot);
         const url = this.snapshotUrl();
         console.log(this.id, `Controller uploading snapshot (${string.length} bytes) to ${url}`);
