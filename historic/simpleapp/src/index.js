@@ -25,7 +25,7 @@ let codeHashes = null;
 
 /** The main function. */
 function start() {
-    uploadCode(module.id).then(hashes => codeHashes = hashes);
+    if (urlOptions.upload !== false) uploadCode(module.id).then(hashes => codeHashes = hashes);
 
     const ALL_ROOMS = {
         room1: {creator: room1},
@@ -167,17 +167,18 @@ function start() {
         simulate(10);
     }, 10);
 
-
-    // upload snapshots every 30 seconds
-    function uploadSnapshots() {
-        const liveRooms = Object.values(ALL_ROOMS).filter(room => room.island);
-        for (const {island: {controller}} of liveRooms) {
-            if (controller.backlog < balanceMS) controller.uploadSnapshot(codeHashes);
+    if (urlOptions.upload !== false) {
+        // upload snapshots every 30 seconds
+        function uploadSnapshots() {
+            const liveRooms = Object.values(ALL_ROOMS).filter(room => room.island);
+            for (const {island: {controller}} of liveRooms) {
+                if (controller.backlog < balanceMS) controller.uploadSnapshot(codeHashes);
+            }
         }
+        hotreload.setInterval(uploadSnapshots, 30000);
+        // also upload when we the page gets unloaded
+        hotreload.addDisposeHandler('snapshots', uploadSnapshots);
     }
-    hotreload.setInterval(uploadSnapshots, 30000);
-    // also upload when we the page gets unloaded
-    hotreload.addDisposeHandler('snapshots', uploadSnapshots);
 
     // set up event handlers
     const eventTimes = {};
