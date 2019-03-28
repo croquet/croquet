@@ -3,7 +3,7 @@ import PriorityQueue from "./util/priorityQueue.js";
 import AsyncQueue from './util/asyncQueue.js';
 import urlOptions from "./util/urlOptions.js";
 import hotreload from "./hotreload.js";
-import { hashModelCode } from "./modules.js";
+import { hashModelCode, baseUrl } from "./modules.js";
 import Stats from "./util/stats.js";
 
 
@@ -485,8 +485,9 @@ export class Controller {
     snapshotUrl() {
         // name includes JSON options
         const options = this.islandCreator.name.split(/[^A-Z0-9]+/i);
-        const snapshotName = `${window.location.hostname}-${options.filter(_=>_).join('-')}-${this.id}`;
-        return `https://db.croquet.studio/files-v1/${snapshotName}.json`;
+        const snapshotName = `${options.filter(_=>_).join('-')}-${this.id}`;
+        const base = baseUrl('snapshots');
+        return `${base}${snapshotName}.json`;
     }
 
     /** upload a snapshot to the asset server */

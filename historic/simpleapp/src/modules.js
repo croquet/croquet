@@ -42,6 +42,18 @@ const htmlSource = rawHTML.replace(scripts[0], `<script src="${entryPointName}">
 if (!htmlSource.includes(entryPointName)) console.error("Entry point substitution failed!");
 
 
+const BASE_URL = baseUrl('code');
+
+// we special-case 'croquet.studio' and 'localhost' which have their own server directories
+// all others share a directory but prefix the file name wth the host name
+export function baseUrl(what='code') {
+    const hostname = window.location.hostname;
+    const isSpecial = ['croquet.studio', 'localhost'].includes(hostname);
+    const host = isSpecial ? hostname : "other";
+    const prefix = isSpecial ? "" : `${hostname}/`;
+    return `https://db.croquet.studio/files-v1/${host}/${what}/${prefix}`;
+}
+
 // This exclude list only works for unmangled moduleIDs during development.
 // In production, moduleIDs are mangled so essentially all files will be hashed.
 const exclude = /(index.js|hotreload.js|modules.js|server\/|util\/|view|node_modules)/i;
@@ -204,25 +216,24 @@ async function metadataFor(mod, includeAllFiles=false) {
 }
 
 async function uploadFile(mod, meta, ext=".js") {
-    const url = 'https://db.croquet.studio/files-v1/code';
     const hash = await hashFile(mod);
     const body = sourceCodeOf(mod);
     try {
         // see if it's already there
-        const response = await fetch(`${url}/${hash}.json`, { method: 'HEAD' });
+        const response = await fetch(`${BASE_URL}${hash}.json`, { method: 'HEAD' });
         // if successfull, return
         if (response.ok) return;
     } catch (ex) { /* ignore */ }
     // not found, so try to upload it
     try {
         console.log(`uploading "${meta.name}" (${hash}): ${body.length} bytes`);
-        await fetch(`${url}/${hash}${ext}`, {
+        await fetch(`${BASE_URL}${hash}${ext}`, {
             method: "PUT",
             mode: "cors",
             body,
         });
         // uplod JSON only when uploading JS was succesful
-        fetch(`${url}/${hash}.json`, {
+        fetch(`${BASE_URL}${hash}.json`, {
             method: "PUT",
             mode: "cors",
             body: JSON.stringify(meta),
