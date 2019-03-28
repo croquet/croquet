@@ -60,7 +60,8 @@ export default class Island {
         this.messages = new PriorityQueue((a, b) => a.before(b));
         execOnIsland(this, () => {
             // our synced random stream
-            this._random = new SeedRandom(null, { state: state.random || true });
+            const seed = state.id; // okay to be undefined
+            this._random = new SeedRandom(seed, { state: state.random || true });
             this.id = state.id || this.randomID();
             this.time = state.time || 0;
             this.timeSeq = state.timeSeq || 0;
@@ -457,7 +458,6 @@ export class Controller {
         if (options) name += JSON.stringify(Object.values(options)); // include options in hash
         this.islandCreator = { name, options, creatorFn, snapshot: {
             id: await Controller.versionIDFor(name, moduleID),
-            time: 0,
         }};
         console.log(`ID for ${name}: ${this.id}`);
         // try to fetch latest snapshot
