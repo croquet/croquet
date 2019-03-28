@@ -104,7 +104,7 @@ async function uploadModule(mod, allFiles=false) {
     const hash = await hashFile(mod);
     const url = 'https://db.croquet.studio/files-v1/code';
     try {
-        // see if its already there
+        // see if it's already there
         const response = await fetch(`${url}/${hash}.js`, { method: 'HEAD' });
         // if successfull, return
         if (response.ok) return;
@@ -135,6 +135,6 @@ export async function uploadCode(entryPoint) {
         uploadModule(mod, mod === entryPoint);
     }
     // prelude is the Parcel loader code, which loads the entrypoint
-    const prelude = dependenciesOf(module.id).filter(m => m.match(/prelude/))[0];
+    const prelude = moduleNamed(module.id)[1]["parcel/lib/builtins/prelude.js"];
     return { prelude: await hashFile(prelude), entry: await hashFile(entryPoint) };
 }
