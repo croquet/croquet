@@ -1,3 +1,4 @@
+import Hashids from "hashids";
 import hotreload from "./hotreload.js";
 
 // we include the parcel prelude only so we can get at its source code
@@ -124,16 +125,18 @@ function allImportsOf(mod, filter, result = new Set([mod])) {
 
 
 // hashing
+const hashIds = new Hashids('croquet');
 
 async function hashBuffer(buffer) {
     const bits = await window.crypto.subtle.digest("SHA-256", buffer);
+    const data = new DataView(bits);
     // condense 256 bit hash into 128 bit hash by XORing first half and last half
-    const bytes = new Uint8Array(bits);
-    let hash = '';
-    for (let i = 0; i < 16; i++) {
-        hash += (bytes[i] ^ bytes[i + 16]).toString(16).padStart(2, '0');
+    const words = [];
+    for (let i = 0; i < 16; i += 4) {
+        words.push((data.getUint32(i) ^ data.getUint32(i + 16)) >>> 0);
     }
-    return hash;
+    // use hashIds to generate a shorter encoding than hex
+    return hashIds.encode(words);
 }
 
 const encoder = new TextEncoder();
