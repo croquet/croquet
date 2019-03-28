@@ -83,7 +83,7 @@ hotreload.addDisposeHandler("fileHashes", () => fileHashes = {});
 async function hashFile(mod) {
     if (fileHashes[mod]) return fileHashes[mod];
     const source = sourceCodeOf(mod);
-    return hashString(source);
+    return fileHashes[mod] = await hashString(source);
 }
 
 
