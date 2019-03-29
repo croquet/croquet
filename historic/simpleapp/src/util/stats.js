@@ -42,6 +42,7 @@ ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
 
 
 const frames = [];
+let maxBacklog = 0;
 let currentFrame = newFrame(0);
 
 function newFrame(now) {
@@ -81,7 +82,8 @@ export default {
         // get base framerate as minimum of all frames
         const realFrames = frames.filter(f => f.total);
         const avgMS = realFrames.map(f => f.total).reduce( (a,b) => a + b) / realFrames.length;
-        const maxBacklog = Math.max(1000, ...realFrames.map(f => f.backlog));
+        const newMax = Math.max(...realFrames.map(f => f.backlog));
+        maxBacklog = Math.max(newMax, maxBacklog * 0.98); // reduce scale slowly
 
         while (frames.length > 120) frames.shift();
 
@@ -92,6 +94,7 @@ export default {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         const oneFrame = 1000 / 60;
         const map = v => (1 - v / oneFrame) * 20 + 60;
+        const mapBacklog = v => map(v / Math.max(3000, maxBacklog) * -200) + 5;
         for (let i = 0; i < frames.length; i++) {
             const frame = frames[i];
             const x = i + 0.5;
@@ -119,10 +122,34 @@ export default {
             }
 
             if (frame.backlog) {
-                ctx.moveTo(x, map(-5));
-                ctx.lineTo(x, map(-5 -frame.backlog / maxBacklog * 60));
+                ctx.moveTo(x, mapBacklog(0));
+                ctx.lineTo(x, mapBacklog(frame.backlog));
                 ctx.strokeStyle = colors["backlog"];
                 ctx.stroke();
+            }
+        }
+        // draw horizontal lines over graph, one per frame
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        for (let y = 0; y < 60; y += oneFrame) {
+            ctx.moveTo(0, map(y));
+            ctx.lineTo(120, map(y));
+            ctx.stroke();
+        }
+
+        if (maxBacklog > 500) {
+            // draw lines with labels for backlog
+            // use log10 to draw lines every 1s, or 10s, or 100s etc.
+            const unit = 10 ** Math.floor(Math.log10(Math.max(3000, maxBacklog)));
+            ctx.font = '10pt sans-serif';
+            ctx.fillStyle = 'rgba(255, 255, 255, 1)';
+            for (let i = 1; i < 11; i++) {
+                const value = i * unit;
+                const y = mapBacklog(value);
+                ctx.moveTo(0, y);
+                ctx.lineTo(120, y);
+                ctx.stroke();
+                ctx.fillText(`${value / 1000}s`, 0, y - 5);
+                if (value > maxBacklog) break;
             }
         }
     }
