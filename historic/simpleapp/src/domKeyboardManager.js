@@ -23,19 +23,15 @@ let placeholderRe = new RegExp("\x01", "g");
 
 export class KeyboardManager {
     constructor() {
-        let options = {};
-        this.keepTextNodeFocused = options.hasOwnProperty("keepTextNodeFocused") ? options.keepTextNodeFocused : false;
+        //this.keepTextNodeFocused = options.hasOwnProperty("keepTextNodeFocused") ? options.keepTextNodeFocused : false;
 
-        this.domState = {
-            rootNode: null,
-            textareaNode: null,
-            eventHandlers: [],
-            isInstalled: false
-        };
+        this.rootNode = null;
+        this.textareaNode = null;
+        this.eventHandlers = [];
+        this.isInstalled = false;
 
-        this.inputState = {
-            composition: null,
-        };
+        this.composition = null;
+        this.currentRoomView = null;
     }
 
     setCurrentRoomView(roomView) {
@@ -55,7 +51,8 @@ export class KeyboardManager {
                 return command.exec(this);
                 // it's a bit weird but cut/copy/paste are handled by
                 // ClipboardEvent generated when the key event is not handled.
-                // so effectively their "text => false" functions are noop
+                // so effectively their "text => false" functions are guarding
+                // further propagation.
             }
             evt.preventDefault();
             return keyboardView.handleEvent(cEvt);
@@ -65,25 +62,24 @@ export class KeyboardManager {
     }
 
     install(hotreload) {
-        let domState = this.domState,
-            doc = window.document,
-            rootNode = domState.rootNode,
+        let doc = window.document,
+            rootNode = this.rootNode,
             newRootNode = doc.body;
 
-        if (domState.isInstalled) {
+        if (this.isInstalled) {
             if (rootNode === window) return null;
             //this.uninstall();
         }
 
-        domState.isInstalled = true;
-        domState.rootNode = newRootNode;
+        this.isInstalled = true;
+        this.rootNode = newRootNode;
 
         doc.tabIndex = 1; // focusable so that we can relay the focus to the textarea
 
         // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
         // textarea element that acts as an event proxy
 
-        let textareaNode = domState.textareaNode = doc.createElement("textarea");
+        let textareaNode = this.textareaNode = doc.createElement("textarea");
 
         textareaNode.setAttribute("style", "\n      position: absolute;\n      /*extent cannot be 0, input won't work correctly in Chrome 52.0*/\n      width: 20px; height: 20px;\n      z-index: 0;\n      opacity: 0;\n      background: transparent;\n      -moz-appearance: none;\n      appearance: none;\n      border: none;\n      resize: none;\n      outline: none;\n      overflow: hidden;\n      font: inherit;\n      padding: 0 1px;\n      margin: 0 -1px;\n      text-indent: -1em;\n      -ms-user-select: text;\n      -moz-user-select: text;\n      -webkit-user-select: text;\n      user-select: text;\n      /*with pre-line chrome inserts &nbsp; instead of space*/\n      white-space: pre!important;");
 
@@ -99,7 +95,7 @@ export class KeyboardManager {
 
         // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
         // event handlers
-        domState.eventHandlers = [
+        this.eventHandlers = [
             { type: "keydown", node: newRootNode,
               fn: evt => this.onRootNodeKeyDown(evt), capturing: false },
             { type: "keyup", node: newRootNode,
@@ -126,7 +122,7 @@ export class KeyboardManager {
               fn: evt => this.onCompositionUpdate(evt), capturing: false },
             { type: "input", node: textareaNode,
               fn: evt => this.onTextareaInput(evt), capturing: false }];
-        domState.eventHandlers.forEach((ref) => {
+        this.eventHandlers.forEach((ref) => {
             let {type, node, fn, capturing} = ref;
             hotreload.addEventListener(node, type, fn, capturing);
         });
@@ -134,31 +130,32 @@ export class KeyboardManager {
     }
 
     uninstall() {
-        let domState = this.domState;
-        domState.isInstalled = false;
-        domState.eventHandlers.forEach((_ref) => {
-            let {type, node, fn, capturing} =_ref;
+        this.isInstalled = false;
+        this.eventHandlers.forEach(ref => {
+            let {type, node, fn, capturing} = ref;
             return node.removeEventListener(type, fn, capturing);
         });
 
-        let n = domState.textareaNode;
-        if (n && n.parentNode) n.parentNode.removeChild(n);
-        domState.rootNode = null;
+        let node = this.textareaNode;
+        if (node && node.parentNode) {
+            node.parentNode.removeChild(node);
+        }
+        this.rootNode = null;
         return this;
     }
 
     resetValue() {
-        let node = this.domState.textareaNode;
+        let node = this.textareaNode;
         if (node) node.value = placeholderValue;
     }
 
     readValue() {
-        let node = this.domState.textareaNode;
+        let node = this.textareaNode;
         return node ? node.value.replace(placeholderRe, "") : "";
     }
 
     focus(obj, room) {
-        let node = this.domState.textareaNode;
+        let node = this.textareaNode;
         if (!node) return;
         if (node.ownerDocument.activeElement !== node) node.focus();
 
@@ -180,29 +177,27 @@ export class KeyboardManager {
     }
 
     focusRootNode(_morph, _world) {
-        let node = this.domState.rootNode;
+        let node = this.rootNode;
         if (!node) return;
         if (node.ownerDocument.activeElement !== node) node.focus();
     }
 
     blur() {
-        let node = this.domState.textareaNode;
+        let node = this.textareaNode;
         if (node) node.blur();
     }
 
     onRootNodeFocus(evt) {
-        let textareaNode = this.domState.textareaNode,
-            rootNode = this.domState.rootNode;
+        let textareaNode = this.textareaNode,
+            rootNode = this.rootNode;
 
         if (this.keepTextNodeFocused && (evt.target === textareaNode || evt.target === rootNode)) this.focus();
-        this.inputState.composition = null;
+        this.composition = null;
     }
 
     onTextareaBlur(evt) {
         setTimeout(() => {
-            let textareaNode = this.domState.textareaNode,
-                rootNode = this.domState.rootNode;
-
+            let rootNode = this.rootNode;
             if (rootNode && document.activeElement !== rootNode) {
                 rootNode.focus();
             }
@@ -211,12 +206,12 @@ export class KeyboardManager {
 
     onRootNodeKeyUp(evt) {
         //this.dispatchDOMEvent(evt);
-        //here, non text keyboard handling by a widget need to happen
+        //here, keyboard handling by non-text widget needs to happen
     }
 
     onRootNodeKeyDown(evt) {
         //this.dispatchDOMEvent(evt);
-        //here, non text keyboard handling by a widget need to happen
+        //here, keyboard handling by non-text widget needs to happen
 
         // HACK: Pressing F1 "resets" the current Island
         if (evt.code === "F1" && window.ISLAND) window.ISLAND.broadcastInitialState();
@@ -233,7 +228,7 @@ export class KeyboardManager {
     }
 
     onTextareaInput(evt) {
-        if (this.inputState.composition) return;
+        if (this.composition) return;
         // if (!evt.data) {
         //     const data = this.readValue();
         //     //evt.__defineGetter__('data', () => data); // ??
@@ -243,11 +238,11 @@ export class KeyboardManager {
     }
 
     onCompositionStart(evt) {
-        this.inputState.composition = {};
+        this.composition = {};
     }
 
     onCompositionUpdate(evt) {
-        let c = this.inputState.composition,
+        let c = this.composition,
             val = this.readValue();
 
         if (c.lastValue === val) return;
@@ -255,7 +250,7 @@ export class KeyboardManager {
     }
 
     onCompositionEnd(evt) {
-        this.inputState.composition = null;
+        this.composition = null;
     }
 
     onTextareaPaste(evt) {
@@ -271,4 +266,4 @@ export class KeyboardManager {
     }
 }
 
-export let theKeyboardManager = new KeyboardManager();
+export const theKeyboardManager = new KeyboardManager();

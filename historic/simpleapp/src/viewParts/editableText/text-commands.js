@@ -1,27 +1,6 @@
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 // helper
 
-function comparePosition(pos1, pos2) {
-  // pos1.row < pos2.row = -2
-  // pos1.row = pos2.row and pos1.column < pos2.column  = -1
-  // pos1 = pos2  = 0
-  // pos1.row = pos2.row and pos1.column > pos2.column  = 1
-  // pos1.row > pos2.row = 2
-  let {row, column} = pos1,
-      {row: row2, column: column2} = pos2;
-  if (row < row2) return -2;
-  if (row === row2) {
-    if (column < column2) return -1;
-    if (column === column2) return 0;
-    return 1;
-  }
-  return 2;
-}
-
-function eqPosition(p1, p2) {
-  return comparePosition(p1, p2) === 0;
-}
-
 function maybeSelectCommentOrLine(morph) {
   // Dan's famous selection behvior! Here it goes...
   /*   If you click to the right of '//' in the following...
