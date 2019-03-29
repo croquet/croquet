@@ -690,12 +690,11 @@ export class Controller {
 
     /**
      * Process pending messages for this island and advance simulation
-     * @param {Number} ms CPU time budget before interrupting simulation
+     * @param {Number} deadline CPU time deadline before interrupting simulation
      */
-    simulate(ms = 1) {
+    simulate(deadline) {
         if (!this.island) return;     // we are probably still sync-ing
         Stats.begin("simulate");
-        const deadline = Date.now() + ms;
         let weHaveTime = true;
         while (weHaveTime) {
             // Get the next message from the (concurrent) network queue

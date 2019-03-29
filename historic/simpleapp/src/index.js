@@ -97,12 +97,10 @@ function start() {
     hotState = null; // free memory, and prevent accidental access below
 
     /** simulate for a given time budget */
-    function simulate(budget = 50) {
+    function simulate(deadline) {
         const liveRooms = Object.values(ALL_ROOMS).filter(room => room.island);
-        const currentIsland = currentRoomName && ALL_ROOMS[currentRoomName].island;
         for (const {island} of liveRooms) {
-            const ms = island === currentIsland ? budget : 1;
-            island.controller.simulate(ms);
+            island.controller.simulate(deadline);
         }
     }
 
@@ -127,9 +125,9 @@ function start() {
                 const simStart = Date.now();
                 const simBudget = simLoad.reduce((a,b) => a + b, 0) / simLoad.length;
                 // simulate about as long as in the prev frame to distribute load
-                simulate(Math.min(simBudget, 200));
+                simulate(simStart + Math.min(simBudget, 200));
                 // if backlogged, use all CPU time for simulation, but render at least at 5 fps
-                if (currentIsland.controller.backlog > balanceMS) simulate(200 - simBudget);
+                if (currentIsland.controller.backlog > balanceMS) simulate(simStart + 200 - simBudget);
                 // keep log of sim times
                 simLoad.push(Date.now() - simStart);
                 if (simLoad.length > loadBalance) simLoad.shift();
