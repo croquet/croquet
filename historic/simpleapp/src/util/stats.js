@@ -22,15 +22,18 @@ const div = document.createElement("div");
 div.style.position = "absolute";
 div.style.right = 0;
 div.style.width = 125;
+div.style.background = "rgba(255,255,255,0.2)";
 document.body.appendChild(div);
 
 const fps = document.createElement("div");
+fps.style.padding = 5;
+fps.style.background = "rgba(255,255,255,0.2)";
 div.appendChild(fps);
 
 const canvas = document.createElement("canvas");
 canvas.title = Object.entries(colors).map(([k,c])=>`${c}: ${k}`).join('\n');
 canvas.style.width = 120;
-canvas.style.height = 360;
+canvas.style.height = 300;
 canvas.width = 120 * window.devicePixelRatio;
 canvas.height = 360 * window.devicePixelRatio;
 div.appendChild(canvas);
