@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { defaultCommands, defaultKeyBindings, canonicalize, lookup } from './viewParts/editableText/text-commands.js';
+import { defaultCommands, defaultKeyBindings, canonicalizeEvent, lookup } from './viewParts/editableText/text-commands.js';
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
@@ -45,7 +45,7 @@ export class KeyboardManager {
         if (!keyboardView) {return false;}
 
         if (evt.constructor === KeyboardEvent) {
-            let cEvt = canonicalize.canonicalizeEvent(evt);
+            let cEvt = canonicalizeEvent(evt);
             let command = defaultCommands[lookup(cEvt, defaultKeyBindings)];
             if (command) {
                 return command.exec(this);
