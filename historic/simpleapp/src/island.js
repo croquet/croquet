@@ -344,6 +344,43 @@ export default class Island {
         }
         return id;
     }
+
+
+    // HACK: create a clean island, and move all Spatial parts
+    // to their initial position/rotation via reflector.
+    // Also, stop and restart InertialSpatial parts.
+    // Also, reset editable text
+    broadcastInitialState() {
+        const cleanIsland = this.controller.createCleanIsland();
+        for (const [modelId, model] of Object.entries(this.modelsById)) {
+            const cleanModel = cleanIsland.modelsById[modelId];
+            if (!cleanModel) continue;
+            for (const [partId, part] of Object.entries(model.parts)) {
+                const cleanPart = cleanModel.parts[partId];
+                if (!cleanPart) continue;
+                if (part.position && typeof part.moveTo === "function"
+                        && !part.position.equals(cleanPart.position)) {
+                    this.callModelMethod(modelId, partId, "moveTo", [cleanPart.position]);
+                    if (part.inInertiaPhase && typeof part.stop === "function") {
+                        this.callModelMethod(modelId, partId, "stop", []);
+                        if (typeof part.startInertiaPhase === "function") {
+                            // This is such a hack: we need to wait for a tick that "cancels" the future messages
+                            // before we can start it up again. Otherwise we get twice the number of future messages.
+                            setTimeout(() => this.callModelMethod(modelId, partId, "startInertiaPhase", [], 1000));
+                        }
+                    }
+                }
+                if (part.quaternion && typeof part.rotateTo === "function"
+                        && !part.quaternion.equals(cleanPart.quaternion)) {
+                    this.callModelMethod(modelId, partId, "rotateTo", [cleanPart.quaternion]);
+                }
+                if (part.content && typeof part.updateContents === "function"
+                        && part.content !== cleanPart.content) {
+                    this.callModelMethod(modelId, partId, "updateContents", [cleanPart.content]);
+                }
+            }
+        }
+    }
 }
 
 function startReflectorInBrowser() {
@@ -607,6 +644,13 @@ export class Controller {
     setIsland(island) {
         this.island = island;
         this.island.controller = this;
+    }
+
+    // create an island in its initial state
+    createCleanIsland() {
+        const { options, creatorFn } = this.islandCreator;
+        const snapshot = { id: this.id };
+        return creatorFn(snapshot, options);
     }
 
     // network queue

@@ -217,6 +217,9 @@ export class KeyboardManager {
     onRootNodeKeyDown(evt) {
         //this.dispatchDOMEvent(evt);
         //here, non text keyboard handling by a widget need to happen
+
+        // HACK: Pressing F1 "resets" the current Island
+        if (evt.code === "F1" && window.ISLAND) window.ISLAND.broadcastInitialState();
     }
 
     onTextareaKeyUp(evt) {
