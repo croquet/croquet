@@ -625,12 +625,13 @@ export class Controller {
     async install(drainQueue=false) {
         const {snapshot, creatorFn, options, callbackFn} = this.islandCreator;
         const newIsland = creatorFn(snapshot, options);
-        const newTime = newIsland.time;
+        const snapshotTime = newIsland.time;
+        this.time = snapshotTime;
         // eslint-disable-next-line no-constant-condition
         while (drainQueue) {
             // eslint-disable-next-line no-await-in-loop
             const nextMsg = await this.networkQueue.next();
-            if (nextMsg[0] > newTime) {
+            if (nextMsg[0] > snapshotTime) {
                 // This is the first 'real' message arriving.
                 newIsland.decodeAndSchedule(nextMsg);
                 drainQueue = false;
