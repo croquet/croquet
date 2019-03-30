@@ -5,12 +5,15 @@ import AsyncQueue from './util/asyncQueue.js';
 import urlOptions from "./util/urlOptions.js";
 import hotreload from "./hotreload.js";
 import { hashModelCode } from "./modules.js";
+import { inModelRealm } from "./modelView.js";
+import { PART_PATH_SEPARATOR } from "./parts.js";
 
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
 let viewID = 0;
+/** @type {Island} */
 let CurrentIsland = null;
 
 const Math_random = Math.random.bind(Math);
@@ -53,28 +56,34 @@ export default class Island {
         this.messages = new PriorityQueue((a, b) => a.before(b));
         this.modelViewEvents = [];
         execOnIsland(this, () => {
-            // our synced random stream
-            this._random = new SeedRandom(null, { state: state.random || true });
-            this.id = state.id || this.randomID();
-            this.time = state.time || 0;
-            this.timeSeq = state.timeSeq || 0;
-            if (state.models) {
-                // create all models
-                for (const modelState of state.models || []) {
-                    const ModelClass = classFromID(modelState.class);
-                    new ModelClass(modelState);  // registers the model
+            inModelRealm(this, () => {
+                // our synced random stream
+                this._random = new SeedRandom(null, { state: state.random || true });
+                this.id = state.id || this.randomID();
+                this.time = state.time || 0;
+                this.timeSeq = state.timeSeq || 0;
+                if (state.models) {
+                    // create all models, uninitialized, but already registered
+                    for (const modelState of state.models || []) {
+                        const ModelClass = classFromID(modelState.class);
+                        const model = new ModelClass();
+                        model.register();
+                    }
+                    // restore model state, allow resolving object references
+                    for (const modelState of state.models || []) {
+                        const model = this.modelsById[modelState.id];
+                        model.restore(modelState, this.modelsById);
+                        model.restoreDone();
+                    }
+                    // restore messages
+                    for (const messageState of state.messages || []) {
+                        const message = Message.fromState(messageState);
+                        this.messages.add(message);
+                    }
+                } else {
+                    initFn(this);
                 }
-                // wire up models in second pass
-                for (const modelState of state.models || []) {
-                    const model = this.modelsById[modelState.id];
-                    model.restoreObjectReferences(modelState, this.modelsById);
-                }
-                // restore messages
-                for (const messageState of state.messages || []) {
-                    const message = Message.fromState(messageState);
-                    this.messages.add(message);
-                }
-            } else initFn();
+            });
         });
     }
 
@@ -109,9 +118,10 @@ export default class Island {
     }
 
     // Send via reflector
-    callModelMethod(modelId, partId, selector, args) {
+    callModelMethod(modelId, partPath, selector, args) {
         if (CurrentIsland) throw Error("Island Error");
-        const message = new Message(this.time, 0, modelId, partId, selector, args);
+        const fullRecipient = partPath ? modelId + PART_PATH_SEPARATOR + partPath : partPath;
+        const message = new Message(this.time, 0, fullRecipient, selector, args);
         this.controller.sendMessage(message);
     }
 
@@ -129,7 +139,7 @@ export default class Island {
         this.advanceTo(message.time);
     }
 
-    futureSend(tOffset, receiverID, partID, selector, args) {
+    futureSend(tOffset, receiverID, selector, args) {
         if (CurrentIsland !== this) throw Error("Island Error");
         if (tOffset < 0) throw Error("attempt to send future message into the past");
          // Wrapping below means that if we have an overflow, messages
@@ -139,28 +149,27 @@ export default class Island {
         // may cause unpredictable effects on the code.
         // The reflector uses a similar scheme with sequence numbers below 100000000.
         this.timeSeq = (this.timeSeq + 100000000) % 1000000000000000;
-        const message = new Message(this.time + tOffset, this.timeSeq, receiverID, partID, selector, args);
+        const message = new Message(this.time + tOffset, this.timeSeq, receiverID, selector, args);
         this.messages.add(message);
     }
 
-    // Convert model.parts[partID].future(tOffset).property(...args)
-    // into this.futureSend(tOffset, model.id, partID, "property", args)
-    futureProxy(tOffset, model, partID) {
+    // Convert model.future(tOffset).property(...args)
+    // into this.futureSend(tOffset, model.id, "property", args)
+    futureProxy(tOffset, model) {
         if (CurrentIsland !== this) throw Error("Island Error");
         const island = this;
-        const object = partID ? model.parts[partID] : model;
-        return new Proxy(object, {
+        return new Proxy(model, {
             get(_target, property) {
-                if (typeof object[property] === "function") {
-                    const methodProxy = new Proxy(object[property], {
+                if (typeof model[property] === "function") {
+                    const methodProxy = new Proxy(model[property], {
                         apply(_method, _this, args) {
                             if (island.modelsById[model.id] !== model) throw Error("future send to unregistered model");
-                            island.futureSend(tOffset, model.id, partID, property, args);
+                            island.futureSend(tOffset, model.id, property, args);
                         }
                     });
                     return methodProxy;
                 }
-                throw Error("Tried to call " + property + "() on future of " + Object.getPrototypeOf(object).constructor.name + " which is not a function");
+                throw Error("Tried to call " + property + "() on future of " + Object.getPrototypeOf(model).constructor.name + " which is not a function");
             }
         });
     }
@@ -177,42 +186,41 @@ export default class Island {
         this.time = time;
     }
 
-    addModelSubscription(scope, event, subscriberId, part, methodName) {
+    addModelSubscription(scope, event, subscriberId, methodName) {
         if (CurrentIsland !== this) throw Error("Island Error");
         const topic = scope + ":" + event;
-        const handler = subscriberId + "." + part + "." + methodName;
+        const handler = subscriberId + "." + methodName;
         if (!this.modelSubscriptions[topic]) this.modelSubscriptions[topic] = new Set();
         this.modelSubscriptions[topic].add(handler);
     }
 
-    removeModelSubscription(scope, event, subscriberId, part, methodName) {
+    removeModelSubscription(scope, event, subscriberId, methodName) {
         if (CurrentIsland !== this) throw Error("Island Error");
         const topic = scope + ":" + event;
-        const handler = subscriberId + "." + part + "." + methodName;
+        const handler = subscriberId + "." + methodName;
         if (this.modelSubscriptions[topic]) this.modelSubscriptions[topic].remove(handler);
     }
 
-    addViewSubscription(scope, event, subscriberId, part, methodName) {
+    addViewSubscription(scope, event, subscriberId, methodName) {
         if (CurrentIsland) throw Error("Island Error");
         const topic = scope + ":" + event;
-        const handler = subscriberId + "." + part + "." + methodName;
+        const handler = subscriberId + "." + methodName;
         if (!this.viewSubscriptions[topic]) this.viewSubscriptions[topic] = new Set();
         this.viewSubscriptions[topic].add(handler);
     }
 
-    removeViewSubscription(scope, event, subscriberId, part, methodName) {
+    removeViewSubscription(scope, event, subscriberId, methodName) {
         if (CurrentIsland) throw Error("Island Error");
         const topic = scope + ":" + event;
-        const handler = subscriberId + "." + part + "." + methodName;
+        const handler = subscriberId + "." + methodName;
         if (this.viewSubscriptions[topic]) this.viewSubscriptions[topic].delete(handler);
     }
 
-    removeAllViewSubscriptionsFor(subscriberId, part) {
-        const handlerPrefix = subscriberId + "." + part;
+    removeAllViewSubscriptionsFor(subscriberId) {
         // TODO: optimize this - reverse lookup table?
         for (const topicSubscribers of Object.values(this.viewSubscriptions)) {
             for (const handler of topicSubscribers) {
-                if (handler.startsWith(handlerPrefix)) {
+                if (handler.startsWith(subscriberId)) {
                     topicSubscribers.delete(handler);
                 }
             }
@@ -224,8 +232,8 @@ export default class Island {
         const topic = scope + ":" + event;
         if (this.modelSubscriptions[topic]) {
             for (const handler of this.modelSubscriptions[topic]) {
-                const [subscriberId, partID, selector] = handler.split(".");
-                this.futureSend(0, subscriberId, partID, selector, data ? [data] : []);
+                const [subscriberId, selector] = handler.split(".");
+                this.futureSend(0, subscriberId, selector, data ? [data] : []);
             }
         }
         // To ensure model code is executed bit-identically everywhere, we have to notify views
@@ -247,9 +255,9 @@ export default class Island {
         // Events published by views can only reach other views
         if (this.viewSubscriptions[topic]) {
             for (const handler of this.viewSubscriptions[topic]) {
-                const [subscriberId, part, method] = handler.split(".");
-                const partInstance = this.viewsById[subscriberId].parts[part];
-                partInstance[method].call(partInstance, data);
+                const [subscriberId, method] = handler.split(".");
+                const view = this.viewsById[subscriberId];
+                view[method].call(view, data);
             }
         }
     }
@@ -526,32 +534,32 @@ const transcoders = {
     "*.onContentChanged": Identity,
 };
 
-function encode(receiver, part, selector, args) {
+function encode(receiver, selector, args) {
     if (args.length > 0) {
-        const transcoder = transcoders[`${part}.${selector}`] || transcoders[`*.${selector}`] || transcoders['*'];
-        if (!transcoder) throw Error(`No transcoder defined for ${part}.${selector}`);
+        const transcoder = transcoders[`${receiver}.${selector}`] || transcoders[`*.${selector}`] || transcoders['*'];
+        if (!transcoder) throw Error(`No transcoder defined for ${receiver}.${selector}`);
         args = transcoder.encode(args);
     }
-    return `${receiver}.${part}.${selector}${args.length > 0 ? JSON.stringify(args):""}`;
+    return `${receiver}.${selector}${args.length > 0 ? JSON.stringify(args):""}`;
 }
 
 function decode(payload) {
     const [_, msg, argString] = payload.match(/^([^[]+)(\[.*)?$/);
-    const [receiver, part, selector] = msg.split('.');
+    const [receiver, selector] = msg.split('.');
     let args = [];
     if (argString) {
-        const transcoder = transcoders[`${part}.${selector}`] || transcoders[`*.${selector}`] || transcoders['*'];
-        if (!transcoder) throw Error(`No transcoder defined for ${part}.${selector}`);
+        const transcoder = transcoders[`${receiver}.${selector}`] || transcoders[`*.${selector}`] || transcoders['*'];
+        if (!transcoder) throw Error(`No transcoder defined for ${receiver}.${selector}`);
         args = transcoder.decode(JSON.parse(argString));
     }
-    return {receiver, part, selector, args};
+    return {receiver, selector, args};
 }
 
 class Message {
-    constructor(time, seq, receiver, part, selector, args) {
+    constructor(time, seq, receiver, selector, args) {
         this.time = time;
         this.seq = seq;
-        this.payload = encode(receiver, part, selector, args);
+        this.payload = encode(receiver, selector, args);
     }
 
     before(other) {
@@ -566,16 +574,17 @@ class Message {
 
     static fromState(state) {
         const [time, seq, payload] = state;
-        const { receiver, part, selector, args } = decode(payload);
-        return new Message(time, seq, receiver, part, selector, args);
+        const { receiver, selector, args } = decode(payload);
+        return new Message(time, seq, receiver, selector, args);
     }
 
     executeOn(island) {
-        const { receiver, part, selector, args } = decode(this.payload);
+        const { receiver, selector, args } = decode(this.payload);
         if (receiver === island.id) return; // noop
-        let object = island.modelsById[receiver];
-        if (part) object = object.parts[part];
-        execOnIsland(island, () => object[selector](...args));
+        const object = island.modelsById[receiver];
+        execOnIsland(island, () => {
+            inModelRealm(island, () => object[selector](...args));
+        });
     }
 }
 

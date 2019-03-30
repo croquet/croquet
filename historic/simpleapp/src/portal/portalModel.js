@@ -1,8 +1,6 @@
 import * as THREE from 'three';
-import StatePart from '../statePart.js';
+import { StatePart } from '../modelView.js';
 import SpatialPart, { SpatialEvents } from '../stateParts/spatial.js';
-import SizePart from '../stateParts/size.js';
-import Model from '../model.js';
 import PortalView from './portalView.js';
 
 const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
@@ -16,53 +14,44 @@ export const PortalEvents = {
 
 export const PortalTopic = "topic-portals";
 
-export default class Portal extends Model {
-    buildParts(state={}, _options={}) {
-        new SpatialPart(this, state);
-        new SpatialPart(this, state, {id: "thereSpatial"});
-        new SizePart(this, state);
-        new PortalPart(this, state);
+// export default clas
+
+export default class PortalPart extends StatePart {
+    constructor() {
+        super();
+        this.parts = {
+            spatial: new SpatialPart(),
+            spatialThere: new SpatialPart(),
+        };
     }
 
-    naturalViewClass() {
-        return PortalView;
+    onInitialized() {
+        this.subscribe(PortalEvents.traverserMoved, "onTraverserMoved", PortalTopic);
     }
-}
 
-export class PortalPart extends StatePart {
-    fromState(state={}, options={}) {
-        this.hereSpatialPartId = options.hereSpatialPartId || "spatial";
-        this.thereSpatialPartId = options.thereSpatialPartId || "thereSpatial";
-        this.sizePartId = options.sizePartId || "size";
+    applyState(state) {
+        super.applyState(state);
         this.there = state.there;
-        this.subscribe(PortalEvents.traverserMoved, "onTraverserMoved", PortalTopic, null);
     }
 
     toState(state) {
         super.toState(state);
-        state.width = this.width;
-        state.height = this.height;
         state.there = this.there;
     }
 
     worldToLocal(position) {
-        const spatialHere = this.owner.parts[this.hereSpatialPartId];
-
-        const matrixHere = new THREE.Matrix4().makeRotationFromQuaternion(spatialHere.quaternion).setPosition(spatialHere.position);
+        const matrixHere = new THREE.Matrix4().makeRotationFromQuaternion(this.parts.spatial.quaternion).setPosition(this.parts.spatial.position);
         const inverseMatrixHere = new THREE.Matrix4().getInverse(matrixHere);
         return position.clone().applyMatrix4(inverseMatrixHere);
     }
 
     projectThroughPortal(sourcePosition, sourceQuaternion) {
-        const spatialHere = this.owner.parts[this.hereSpatialPartId];
-        const spatialThere = this.owner.parts[this.thereSpatialPartId];
-
         const sourceInPortalCoords = this.worldToLocal(sourcePosition);
-        const sourceToPortalQuaternionDelta = sourceQuaternion.clone().multiply(spatialHere.quaternion.clone().inverse());
+        const sourceToPortalQuaternionDelta = sourceQuaternion.clone().multiply(this.parts.spatial.quaternion.clone().inverse());
 
-        const matrixThere = new THREE.Matrix4().makeRotationFromQuaternion(spatialThere.quaternion).setPosition(spatialThere.position);
-        const targetPosition = spatialThere.position.clone().add(sourceInPortalCoords.clone().applyMatrix4(matrixThere));
-        const targetQuaternion = spatialThere.quaternion.clone().multiply(sourceToPortalQuaternionDelta);
+        const matrixThere = new THREE.Matrix4().makeRotationFromQuaternion(this.parts.spatialThere.quaternion).setPosition(this.parts.spatialThere.position);
+        const targetPosition = this.parts.spatialThere.position.clone().add(sourceInPortalCoords.clone().applyMatrix4(matrixThere));
+        const targetQuaternion = this.parts.spatialThere.quaternion.clone().multiply(sourceToPortalQuaternionDelta);
 
         return {targetPosition, targetQuaternion};
     }
@@ -89,10 +78,14 @@ export class PortalPart extends StatePart {
             this.publish(PortalEvents.traversed, {portalRef: this.asPartRef(), traverserRef}, PortalTopic, null);
         }
     }
+
+    naturalViewClass() {
+        return PortalView;
+    }
 }
 
 export class PortalTraverserPart extends StatePart {
-    fromState(state={}, options) {
+    applyState(state={}, options) {
         this.spatialName = options.spatialName || "spatial";
         this.subscribe(SpatialEvents.moved, "onMoved", this.owner.id, this.spatialName);
         this.lastPosition = state.lastPosition || this.owner.parts[this.spatialName].position;

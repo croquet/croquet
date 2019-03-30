@@ -1,29 +1,37 @@
-import { ViewPart } from "../view.js";
+import { ViewPart } from "../modelView.js";
 import { PointerEvents, makePointerSensitive } from "./pointer.js";
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
+/** @typedef {import("../modelView.js").StatePart} StatePart */
+/** @typedef {import("../parts.js").PartPath} PartPath */
+
 export default class DraggableViewPart extends ViewPart {
-    fromOptions(options) {
+    /**
+     * @arg {Object} options
+     * @arg {ViewPart} options.inner - a callback that constructs the inner ViewPart that should be draggable
+     * @arg {PartPath | null} options.dragHandle - an optional path to a subpart of the inner ViewPart to use as the drag handle - otherwise uses the whole inner part
+     * @arg {PartPath | null} options.target - the path into the attached model to modify on drag - defaults to "spatial"
+     * @arg {boolean | null} options.dragVertically - whether drags should be on a horizontal or vertical camera-oriented plane
+    */
+    constructor(modelState, options) {
         options = {
-            dragHandle: "object3D",
+            dragHandle: "",
             target: "spatial",
             dragVertically: true,
             ...options
         };
+        super(modelState, options);
 
-        /** @type {import('./object3D').Object3D} */
-        this.dragHandlePart = this.owner.parts[options.dragHandle];
-        this.targetPartName = options.target;
+        this.parts = {inner: options.inner};
+        /** @type {SceneNode} */
+        this.dragHandlePart = this.parts.inner.lookUp(options.dragHandle);
+        makePointerSensitive(this.dragHandlePart.threeObj);
+        this.targetPartPath = options.target;
         this.dragVertically = options.dragVertically;
         this.subscribe(PointerEvents.pointerDown, "onPointerDown");
         this.subscribe(PointerEvents.pointerDrag, "onPointerDrag");
-        this.subscribe(PointerEvents.pointerUp, "onPointerUp");
-    }
-
-    attach() {
-        makePointerSensitive(this.dragHandlePart.threeObj, this.asPartRef());
     }
 
     onPointerDown() {
@@ -32,10 +40,8 @@ export default class DraggableViewPart extends ViewPart {
 
     onPointerDrag({dragStart, dragEndOnHorizontalPlane, dragEndOnVerticalPlane}) {
         const dragEnd = this.dragVertically ? dragEndOnVerticalPlane : dragEndOnHorizontalPlane;
-        this.owner.model[this.targetPartName].moveTo(
+        this.modelPart(this.targetPartPath).moveTo(
             this.positionAtDragStart.clone().add(dragEnd.clone().sub(dragStart))
         );
     }
-
-    onPointerUp() {}
 }

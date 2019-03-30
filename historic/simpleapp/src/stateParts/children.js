@@ -1,4 +1,4 @@
-import StatePart from "../statePart.js";
+import { StatePart } from "../modelView.js";
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
@@ -9,12 +9,12 @@ export const ChildEvents = {
 };
 
 export default class ChildrenPart extends StatePart {
-    fromState(_state, _options) {
-        this.children = new Set();
-    }
-
-    restoreObjectReferences(state, objectsByID) {
-        this.children = new Set(state.children.map(id => objectsByID[id]));
+    applyState(state, objectsByID) {
+        if (state.children) {
+            this.children = new Set(state.children.map(id => objectsByID[id]));
+        } else {
+            this.children = new Set();
+        }
     }
 
     toState(state) {

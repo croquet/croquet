@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PortalViewPart } from "./portal/portalView.js";
+import PortalViewPart from "./portal/portalView.js";
 
 const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
@@ -42,11 +42,11 @@ export default class Renderer {
         // Portal rendering technique inspired by https://github.com/zadvorsky/three.portals/blob/master/src/THREE.PortalController.js
         const mainScene = currentRoomView.parts.roomScene.threeObj;
         /** @type {THREE.Camera} */
-        const mainCamera = currentRoomView.parts.camera.threeObj;
+        const mainCamera = currentRoomView.lookUp("trackedCamera.inner").threeObj;
 
         /** @type {PortalViewPart[]} */
         const portalViewParts = Object.values(currentRoomView.parts.objectViewManager.viewsForObjects)
-            .map(wrappingView => wrappingView.parts.wrappedView.wrapped)
+            .map(wrappingView => wrappingView.parts.inner)
             .reduce((views, view) => {
                 return views.concat(
                     Object.values(view.parts).filter(viewPart => viewPart instanceof PortalViewPart));

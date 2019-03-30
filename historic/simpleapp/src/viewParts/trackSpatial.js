@@ -1,38 +1,35 @@
-import { ViewPart } from "../view.js";
+import { ViewPart } from "../modelView.js";
 import { SpatialEvents } from '../stateParts/spatial.js';
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
 export default class TrackSpatial extends ViewPart {
-    fromOptions(options) {
-        options = {source: "model.spatial", affects: "object3D", ...options};
-        this.source = options.source;
-        /** @type {Object3DView} */
-        this.targetViewPart = this.owner.parts[options.affects];
-    }
-
-    attach(modelState) {
-        const [contextName, partId] = this.source.split(".");
-        const context = contextName === "model" ? modelState : this.owner;
-        const spatialPart = context.parts[partId];
-        this.targetViewPart.threeObj.position.copy(spatialPart.position);
-        this.targetViewPart.threeObj.scale.copy(spatialPart.scale);
-        this.targetViewPart.threeObj.quaternion.copy(spatialPart.quaternion);
-        this.subscribe(SpatialEvents.moved, "onMoved", context.id, partId );
-        this.subscribe(SpatialEvents.scaled, "onScaled", context.id, partId);
-        this.subscribe(SpatialEvents.rotated, "onRotated", context.id, partId );
+    constructor(modelState, options) {
+        super(modelState, options);
+        options = {source: "spatial", ...options};
+        /** @type {import('../parts').PartPath} */
+        const source = modelState.lookUp(options.source);
+        const sourcePath = modelState.absolutePath(options.source);
+        this.parts = {inner: options.inner};
+        // TODO: what to do if the inner view has multiple threeObjs?
+        this.parts.inner.threeObjs()[0].position.copy(source.position);
+        this.parts.inner.threeObjs()[0].scale.copy(source.scale);
+        this.parts.inner.threeObjs()[0].quaternion.copy(source.quaternion);
+        this.subscribe(SpatialEvents.moved, "onMoved", sourcePath);
+        this.subscribe(SpatialEvents.scaled, "onScaled", sourcePath);
+        this.subscribe(SpatialEvents.rotated, "onRotated", sourcePath);
     }
 
     onMoved(newPosition) {
-        this.targetViewPart.threeObj.position.copy(newPosition);
+        this.parts.inner.threeObjs()[0].position.copy(newPosition);
     }
 
     onScaled(newScale) {
-        this.targetViewPart.threeObj.scale.copy(newScale);
+        this.parts.inner.threeObjs()[0].scale.copy(newScale);
     }
 
     onRotated(newQuaternion) {
-        this.targetViewPart.threeObj.quaternion.copy(newQuaternion);
+        this.parts.inner.threeObjs()[0].quaternion.copy(newQuaternion);
     }
 }

@@ -6,11 +6,9 @@ if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle
 
 /** A spatial model with inertia */
 export default class InertialSpatialPart extends SpatialPart {
-    static defaultPartId() { return "spatial"; }
-
     /** @param {SpatialPart} spatialPart */
-    fromState(state={}, options) {
-        super.fromState(state, options);
+    applyState(state={}) {
+        super.applyState(state);
         this.estimatedVelocity = state.estimatedVelocity || new THREE.Vector3(0, 0, 0);
         this.estimatedRotationalVelocity = state.estimatedRotationalVelocity || new THREE.Quaternion();
         this.dampening = state.dampening || 0.1;

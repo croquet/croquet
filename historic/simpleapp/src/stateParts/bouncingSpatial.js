@@ -1,16 +1,15 @@
 import * as THREE from 'three';
 import InertialSpatialPart from './inertialSpatial.js';
+import { currentRealm } from '../modelView.js';
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
 /** A spatial model with inertia, gravity, and bouncing */
 export default class BouncingSpatialPart extends InertialSpatialPart {
-    static defaultPartId() { return "spatial"; }
-
     /** @param {SpatialPart} spatialPart */
-    fromState(state={}, options) {
-        super.fromState(state, options);
+    applyState(state={}) {
+        super.applyState(state);
         this.dampening = state.dampening || 0.01;
         this.gravity = state.gravity || new THREE.Vector3(0, -0.001, 0);
         this.bounce = state.bounce || 0.1;
@@ -36,7 +35,7 @@ export default class BouncingSpatialPart extends InertialSpatialPart {
             if (this.position.z < -10) { this.estimatedVelocity.z = Math.abs(this.estimatedVelocity.z); this.position.z = -10; bounce = true; }
             if (this.position.z > 10) { this.estimatedVelocity.z = -Math.abs(this.estimatedVelocity.z); this.position.z =  10; bounce = true; }
             if (bounce) {
-                const random = axis => this.island.random() * this.bounce * (Math.sign(this.estimatedVelocity[axis]) || this.island.random() - 0.5);
+                const random = axis => currentRealm().random() * this.bounce * (Math.sign(this.estimatedVelocity[axis]) || currentRealm().random() - 0.5);
                 this.estimatedVelocity.x += random('x');
                 this.estimatedVelocity.y += random('y');
                 this.estimatedVelocity.z += random('z');

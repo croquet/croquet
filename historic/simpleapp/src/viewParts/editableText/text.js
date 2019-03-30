@@ -1,21 +1,25 @@
 import * as THREE from 'three';
 import { TextGeometry, HybridMSDFShader } from 'three-bmfont-text';
-import Object3D from "../object3D.js";
 //import LazyObject3D from "../util/lazyObject3D.js";
 import { TextEvents } from '../../stateParts/editableText.js';
 import { PointerEvents, makePointerSensitive } from "../pointer.js";
 import { Carota } from './carota/editor.js';
 import { fontRegistry } from '../../util/fontRegistry.js';
 import { KeyboardEvents, KeyboardTopic } from '../../domKeyboardManager.js';
+import { ViewPart } from '../../modelView.js';
 //import { textCommands, jsEditorCommands, defaultKeyBindings } from './text-commands.js';
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
-export default class EditableTextViewPart extends Object3D {
-    fromOptions(options) {
-        options = {content: [], glyphs: [], font: "Roboto", width: 3, height: 2, numLines: 10, drawnRects: [], editable: false, showSelection: true, ...options};
-        this.modelSource = options.modelSource;
+export default class EditableTextViewPart extends ViewPart {
+    constructor(modelState, options) {
+        options = {
+            content: [], glyphs: [], font: "Roboto", width: 3, height: 2, numLines: 10, drawnRects: [],
+            source: "text", editable: false, showSelection: true, ...options,
+        };
+        super(modelState, options);
+        this.modelSource = modelState.lookUp(options.source);
         this.options = options;
 
         if (this.options.editable) {
@@ -26,23 +30,26 @@ export default class EditableTextViewPart extends Object3D {
         }
 
         this.boxSelections = [];
-    }
 
-    attachWithObject3D(modelState) {
         fontRegistry.load(this.options.font).then(entry => {
             this.initEditor();
             this.initTextMesh(entry.atlas);
         });
+
         const boxMesh = this.initBoxMesh();
+
         if (this.options.editable) {
-            makePointerSensitive(boxMesh, this.asPartRef());
+            makePointerSensitive(boxMesh, this.id);
         }
+
         if (modelState && modelState.parts.editableText && modelState.parts.editableText.content) {
             this.options.content = modelState.parts.editableText.content;
-            this.subscribe(TextEvents.modelContentChanged, "onContentChanged", modelState.id, this.modelSource);
+            this.subscribe(TextEvents.modelContentChanged, "onContentChanged", this.modelSource.id);
         }
-        return boxMesh;
+
+        this.threeObj = boxMesh;
     }
+
     onGetFocus() {
         // I acquire focus
         // this.editor.getFocus();
@@ -58,7 +65,7 @@ export default class EditableTextViewPart extends Object3D {
             const glyphs = this.processMockContext(ctx);
             this.update({glyphs, corners: this.editor.visibleTextBounds(), scaleX: this.editor.scaleX, scrollTop: this.editor.scrollTop, frameHeight: this.editor.frame.height, drawnRects: ctx.filledRects});
             if (this.options.editable) {
-                this.owner.model["editableText"].onContentChanged(this.editor.save());
+                this.modelPart("text").onContentChanged(this.editor.save());
             }
         };
     }
@@ -276,7 +283,7 @@ export default class EditableTextViewPart extends Object3D {
     }
 
     onPointerDown(evt) {
-        this.publish(KeyboardEvents.requestfocus, {requesterRef: this.asPartRef()}, KeyboardTopic, null);
+        this.publish(KeyboardEvents.requestfocus, {requesterRef: this.asPartRef()}, KeyboardTopic);
         const pt = this.textPtFromEvt(evt.at);
         this.editor.mouseDown(pt.x, pt.y, pt.realY);
         this.lastPt = pt;

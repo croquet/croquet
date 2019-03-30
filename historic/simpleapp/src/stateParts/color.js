@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import StatePart from "../statePart.js";
+import { StatePart } from "../modelView.js";
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
@@ -9,7 +9,7 @@ const ColorEvents = {
 };
 
 export default class ColorPart extends StatePart {
-    fromState(state={}) {
+    applyState(state={}) {
         this.value = new THREE.Color(state.value || "#dddddd");
     }
 

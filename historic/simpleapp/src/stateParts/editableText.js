@@ -1,4 +1,4 @@
-import StatePart from "../statePart.js";
+import { StatePart } from "../modelView.js";
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
@@ -9,11 +9,9 @@ export const TextEvents = {
 };
 
 export default class EditableTextPart extends StatePart {
-    fromState(state={}) {
+    applyState(state={}) {
         this.content = state.content || [];
         this.subscribe(TextEvents.viewContentChanged, "onContentChanged");
-
-        window.model = this;
     }
 
     toState(state) {

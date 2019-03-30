@@ -1,40 +1,35 @@
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
-/** @template {PartOwner} T */
+export const PART_PATH_SEPARATOR = ".";
+const PATH_PART_SEPARATOR_SPLIT_REGEXP = /\.(.+)/;
+
+/** @typedef {string} PartPath */
+
+/** @template {Part} SubPart */
 export default class Part {
-    /**
-     * @param {T} owner
-     * @param {String} partId
-    */
-    constructor(owner, options={}) {
-        this.owner = owner;
-        this.partId = options.id || this.constructor.defaultPartId();
-        owner.addPart(this);
-    }
-
-    static defaultPartId() {
-        const name = this.name.replace("Part", "");
-        return name.charAt(0).toLowerCase() + name.slice(1);
-    }
-
-    asPartRef() {
-        return this.owner.id + "." + this.partId;
-    }
-}
-
-/** @template {Part} T */
-export class PartOwner {
     constructor() {
-        /** @type {Object<string, T>} */
+        /** @type {Object<string, SubPart>} */
         this.parts = {};
+        this.id = null;
     }
 
-    /** @param {T} part */
-    addPart(part) {
-        if (this.parts[part.partId]) {
-            throw new Error(`A part with id ${part.partId} already exists in the parent ${this.constructor.name}. Please use the "id" option to give this part a unique name`);
+    /** Get a (potentially nested) sub part
+     * @arg {PartPath} path
+     * @returns {Part} */
+    lookUp(path) {
+        const [first, rest] = path.split(PATH_PART_SEPARATOR_SPLIT_REGEXP);
+        if (rest) {
+            return this.parts[first].lookUp(rest);
         }
-        this.parts[part.partId] = part;
+        return this.parts[first];
+    }
+
+    /** Get an absolute sub part path from a relative one
+     * @arg {PartPath} relativePath
+     * @returns {PartPath}
+    */
+    absolutePath(relativePath) {
+        return this.id + PART_PATH_SEPARATOR + relativePath;
     }
 }

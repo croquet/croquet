@@ -1,9 +1,8 @@
 import * as THREE from 'three';
 import { TextGeometry, HybridMSDFShader } from 'three-bmfont-text';
 import LineBreaker from 'linebreak';
-import Object3D from "./object3D.js";
 import LazyObject3D from "../util/lazyObject3D.js";
-import { ViewPart } from '../view.js';
+import { ViewPart } from '../modelView.js';
 import { TextEvents } from '../stateParts/text.js';
 import { fontRegistry } from '../util/fontRegistry.js';
 
@@ -13,18 +12,15 @@ if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle
 const DEBUG_GLYPH_GEOMETRY = false;
 const DEBUG_SIZEBOX = false;
 
-export default class TextViewPart extends Object3D {
-    fromOptions(options) {
-        options = {content: "Hello", font: "Barlow", width: 5, height: 2, fontSize: 0.3, anchor: "bottom", ...options};
-        this.modelSource = options.modelSource;
+export default class TextViewPart extends ViewPart {
+    constructor(modelState, options) {
+        options = {
+            content: "Hello", font: "Barlow", width: 5, height: 2, fontSize: 0.3, anchor: "bottom", ...options
+        };
+        super(modelState, options);
         this.options = options;
-    }
-
-    attachWithObject3D() {
-        const promise = this.build();
         const placeholder = new THREE.Mesh(new THREE.PlaneBufferGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
-
-        return new LazyObject3D(placeholder, promise);
+        this.threeObj = new LazyObject3D(placeholder, this.build());
     }
 
     build() {
@@ -135,25 +131,23 @@ export default class TextViewPart extends Object3D {
 }
 
 export class TrackText extends ViewPart {
-    fromOptions(options) {
-        options = {modelSource: "text", affects: "text", ...options};
+    constructor(modelState, options) {
+        options = {source: "text", ...options};
+        super(modelState, options);
         this.modelSource = options.modelSource;
         /** @type {TextViewPart} */
-        this.targetViewPart = this.owner.parts[options.affects];
-    }
-
-    attach(modelState) {
-        const modelPart = modelState.parts[this.modelSource];
-        this.targetViewPart.update({content: modelPart.content, font: modelPart.font});
-        this.subscribe(TextEvents.contentChanged, "onContentChanged", modelState.id, this.modelSource);
-        this.subscribe(TextEvents.fontChanged, "onFontChanged", modelState.id, this.modelSource);
+        this.parts = {inner: options.inner};
+        const modelPart = modelState.lookUp(options.source);
+        this.parts.inner.update({content: modelPart.content, font: modelPart.font});
+        this.subscribe(TextEvents.contentChanged, "onContentChanged", modelState.id);
+        this.subscribe(TextEvents.fontChanged, "onFontChanged", modelState.id);
     }
 
     onContentChanged(newContent) {
-        this.targetViewPart.update({content: newContent});
+        this.parts.inner.update({content: newContent});
     }
 
     onFontChanged(newFont) {
-        this.targetViewPart.update({font: newFont});
+        this.parts.inner.update({font: newFont});
     }
 }

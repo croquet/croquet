@@ -1,4 +1,5 @@
 import RoomView from "./roomView.js";
+import { inViewRealm } from "../modelView.js";
 
 const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
@@ -40,16 +41,17 @@ export default class RoomViewManager {
             const island = allIslands[roomName];
             const room = island.get("room");
 
-            const roomView = new RoomView(island, {
-                activeParticipant: true,
-                width: this.viewportWidth,
-                height: this.viewportHeight,
-                cameraPosition,
-                cameraQuaternion,
-                onTraversedPortalView: (portalRef, traverserRef) => onTraversedPortalView(portalRef, traverserRef, island, roomName)
+            inViewRealm(island, () => {
+                const roomView = new RoomView(room, {
+                    activeParticipant: true,
+                    width: this.viewportWidth,
+                    height: this.viewportHeight,
+                    cameraPosition,
+                    cameraQuaternion,
+                    onTraversedPortalView: (portalRef, traverserRef) => onTraversedPortalView(portalRef, traverserRef, island, roomName)
+                });
+                this.activeRoomViews[roomName] = roomView;
             });
-            roomView.attach(room);
-            this.activeRoomViews[roomName] = roomView;
         }
 
         // might return null in the future if roomViews are constructed asynchronously

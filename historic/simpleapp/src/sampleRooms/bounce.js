@@ -1,9 +1,8 @@
 import SeedRandom from "seedrandom";
+import * as THREE from 'three';
 import Island from "../island.js";
-import Model from '../model.js';
-import View from '../view.js';
+import {StatePart, ViewPart} from '../modelView.js';
 import Room from "../room/roomModel.js";
-import { Object3DGroup } from '../viewParts/object3D.js';
 import ChildrenPart, { ChildEvents } from '../stateParts/children.js';
 import BouncingSpatialPart from '../stateParts/bouncingSpatial.js';
 import SpatialPart from '../stateParts/spatial.js';
@@ -14,37 +13,41 @@ const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
 /** Model for a Bouncing Box */
-export class BouncingBox extends Model {
-    buildParts(state) {
-        new BouncingSpatialPart(this, state);
+export class BouncingBox extends StatePart {
+    constructor() {
+        super();
+        this.parts = {spatial: new BouncingSpatialPart()};
     }
 
     naturalViewClass() { return BoxView; }
 }
 
-export class Group extends Model {
-    buildParts(state) {
-        new SpatialPart(this, state);
-        new ChildrenPart(this, state);
+export class Group extends StatePart {
+    constructor() {
+        super();
+        this.parts = {
+            spatial: new SpatialPart(),
+            children: new ChildrenPart()
+        };
     }
 
     naturalViewClass() { return GroupView; }
 }
 
-class GroupView extends View {
-    buildParts() {
-        new Object3DChildren(this);    // provides 'object3D'
-        new TrackSpatial(this);        // affects 'object3D'
+class GroupView extends ViewPart {
+    constructor(modelState, options) {
+        super(modelState, options);
+        this.parts = {
+            childrenGroupView: new TrackSpatial(modelState, {
+                inner: new ChildrenGroupView()
+            })
+        };
     }
-
 }
 
-class Object3DChildren extends Object3DGroup {
-
-    attach(modelState) {
-        super.attach(modelState);
-
-        this.viewsForObjects = {};
+class ChildrenGroupView extends ViewPart {
+    constructor(modelState, options) {
+        super(modelState, options);
 
         for (const object of modelState.parts.children.children) {
             this.onObjectAdded(object);
@@ -52,21 +55,22 @@ class Object3DChildren extends Object3DGroup {
 
         this.subscribe(ChildEvents.childAdded, "onObjectAdded", modelState.id, "children");
         this.subscribe(ChildEvents.childRemoved, "onObjectRemoved", modelState.id, "children");
+        this.group = new THREE.Group();
+        this.threeObj = this.group;
     }
 
     onObjectAdded(object) {
         const NaturalView = object.naturalViewClass("in-group");
         /** @type {View} */
-        const view = new NaturalView(this.owner.island);
+        const view = new NaturalView(object);
         this.viewsForObjects[object.id] = view;
-        view.attach(object);
-        view.addToThreeParent(this.threeObj);
+        this.group.add(...view.threeObjs());
     }
 
     onObjectRemoved(object) {
         const view = this.viewsForObjects[object.id];
-        view.removeFromThreeParent(this.threeObj);
-        view.onDetach();
+        this.group.remove(...view.threeObjs());
+        view.detach();
         delete this.viewsForObjects[object.id];
     }
 }
@@ -76,35 +80,41 @@ export class RandomColorGroup extends Group {
     naturalViewClass() { return RandomColorGroupView; }
 }
 
-class RandomColorGroupView extends GroupView {
-    buildParts() {
-        new RandomColorChildren(this);
-        new TrackSpatial(this);
+class RandomColorGroupView extends ViewPart {
+    constructor(modelState, options) {
+        super(modelState, options);
+        this.parts = {
+            childrenGroupView: new TrackSpatial(modelState, {
+                inner: new RandomColorChildrenGroupView()
+            })
+        };
     }
 }
 
-class RandomColorChildren extends Object3DChildren {
-    constructor(...args) {
-        super(...args);
-        this.random = new SeedRandom(this.owner.island.id);
+class RandomColorChildrenGroupView extends ChildrenGroupView {
+    constructor(modelState, options) {
+        super(modelState, options);
+        this.random = new SeedRandom(this.modelState.id);
     }
 
     onObjectAdded(object) {
         super.onObjectAdded(object);
         const view = this.viewsForObjects[object.id];
-        const material = view.parts.box.threeObj.material;      // FIXME: hard-coded 'box'
-        material.color.setHSL(this.random(), 1, 0.5);
+        for (const threeObj of view.threeObjs()) {
+            threeObj.material.color.setHSL(this.random(), 1, 0.5);
+        }
     }
 }
 
 function initBounce(state) {
-    return new Island(state, () => {
-        const room = new Room();
+    return new Island(state, island => {
+        const room = new Room().init({});
+        island.set("room", room);
 
-        const bouncingBoxes = new RandomColorGroup({ spatial: { scale: {x: 0.5, y: 0.5, z: 0.5 } } });
+        const bouncingBoxes = new RandomColorGroup().init({ spatial: { scale: {x: 0.5, y: 0.5, z: 0.5 } } });
         room.parts.objects.add(bouncingBoxes);
         for (let i = 0; i < 100; i++) {
-            bouncingBoxes.parts.children.add(new BouncingBox({ spatial: { scale: {x: 0.3, y: 0.3, z: 0.3 } } }));
+            bouncingBoxes.parts.children.add(new BouncingBox().init({ spatial: { scale: {x: 0.3, y: 0.3, z: 0.3 } } }));
         }
     });
 }
