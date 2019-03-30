@@ -89,6 +89,17 @@ export default class RoomViewManager {
         return this.passiveRoomViews[roomName];
     }
 
+    detach(roomName) {
+        if (this.activeRoomViews[roomName]) {
+            this.activeRoomViews[roomName].detach();
+            delete this.activeRoomViews[roomName];
+        }
+        if (this.passiveRoomViews[roomName]) {
+            this.passiveRoomViews[roomName].detach();
+            delete this.passiveRoomViews[roomName];
+        }
+    }
+
     detachAll() {
         for (const roomView of Object.values(this.activeRoomViews)) {
             roomView.detach();
@@ -96,5 +107,7 @@ export default class RoomViewManager {
         for (const roomView of Object.values(this.passiveRoomViews)) {
             roomView.detach();
         }
+        this.activeRoomViews = {};
+        this.passiveRoomViews = {};
     }
 }

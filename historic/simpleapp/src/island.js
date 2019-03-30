@@ -252,7 +252,7 @@ export default class Island {
             for (const kind of ["onceHandlers", "queueHandlers"]) {
                 for (const handler of subs[kind]) {
                     if (handler.startsWith(handlerPrefix)) {
-                        subs.delete(handler);
+                        delete subs[handler];
                     }
                 }
             }
@@ -401,6 +401,14 @@ function startReflectorInBrowser() {
     // loading all new modules
 }
 
+function connectToReflector() {
+    const reflector = "reflector" in urlOptions ? urlOptions.reflector : "wss://dev1.os.vision/reflector-v1";
+    if (reflector && typeof reflector === 'string') socketSetup(new WebSocket(reflector));
+    else startReflectorInBrowser();
+}
+
+connectToReflector();
+
 function socketSetup(socket) {
     document.getElementById("error").innerText = 'Connecting to ' + socket.url;
     Object.assign(socket, {
@@ -416,6 +424,12 @@ function socketSetup(socket) {
         onclose: event => {
             document.getElementById("error").innerText = 'Connection closed:' + event.code + ' ' + event.reason;
             console.log(socket.constructor.name, "closed:", event.code, event.reason);
+            Controller.leaveAll();
+            if (event.code !== 1000) {
+                // if abnormal close, try to connect again
+                document.getElementById("error").innerText = 'Reconnecting ...';
+                hotreload.setTimeout(connectToReflector, 1000);
+            }
         },
         onmessage: event => {
             Controller.receive(event.data);
@@ -424,9 +438,6 @@ function socketSetup(socket) {
     hotreload.addDisposeHandler("socket", () => socket.readyState !== WebSocket.CLOSED && socket.close(1000, "hotreload "+moduleVersion));
 }
 
-const reflector = "reflector" in urlOptions ? urlOptions.reflector : "wss://dev1.os.vision/reflector-v1";
-if (reflector && typeof reflector === 'string') socketSetup(new WebSocket(reflector));
-else startReflectorInBrowser();
 
 // Controller
 
@@ -445,6 +456,15 @@ export class Controller {
         TheSocket = socket;
         for (const controller of Object.values(Controllers)) {
             if (!controller.socket) controller.join(socket);
+        }
+    }
+
+    // socket was disconnected, destroy all islands
+    static leaveAll() {
+        if (!TheSocket) return;
+        TheSocket = null;
+        for (const controller of Object.values(Controllers)) {
+            controller.leave();
         }
     }
 
@@ -468,8 +488,14 @@ export class Controller {
     }
 
     constructor() {
+        this.reset();
+    }
+
+    reset() {
         /** @type {Island} */
         this.island = null;
+        /** the (shared) websocket for talking to the reflector */
+        this.socket = null;
         /** the messages received from reflector */
         this.networkQueue = new AsyncQueue();
         /** the time of last message received from reflector */
@@ -491,22 +517,17 @@ export class Controller {
      * @returns {Promise<Island>}
      */
     async createIsland(name, creator) {
-        const {moduleID, creatorFn, options} = creator;
+        const {moduleID, options} = creator;
         if (options) name += JSON.stringify(Object.values(options)); // include options in hash
-        this.islandCreator = { name, options, creatorFn, snapshot: {
-            id: await Controller.versionIDFor(name, moduleID),
-        }};
-        console.log(`ID for ${name}: ${this.id}`);
-        // try to fetch latest snapshot
-        try {
-            const snapshot = await this.fetchSnapshot();
-            if (snapshot.id !== this.id) console.warn(name, 'resuming snapshot of different version!');
-            this.islandCreator.snapshot = snapshot;
-            console.log(this.id, `Controller got snapshot (time: ${Math.floor(snapshot.time)})`);
-        } catch (e) {
-            console.log(this.id, 'Controller got no snapshot');
+        const id = await Controller.versionIDFor(name, moduleID);
+        console.log(`ID for ${name}: ${id}`);
+        this.islandCreator = {
+            name,
+            ...creator,
+        };
+        if (!this.islandCreator.snapshot) {
+            this.islandCreator.snapshot = { id, time: 0 };
         }
-
         return new Promise(resolve => {
             this.islandCreator.callbackFn = resolve;
             Controller.join(this);   // when socket is ready, join server
@@ -554,6 +575,23 @@ export class Controller {
             mode: "cors",
         });
         return response.json();
+    }
+
+    async updateSnapshot() {
+        // try to fetch latest snapshot
+        try {
+            const snapshot = await this.fetchSnapshot();
+            if (snapshot.id !== this.id) console.warn(this.id ,'resuming snapshot of different version!');
+            if (snapshot.time > this.islandCreator.snapshot.time) {
+                this.islandCreator.snapshot = snapshot;
+                console.log(this.id, `Controller got snapshot (time: ${Math.floor(snapshot.time)})`);
+            } else {
+                console.log(this.id, "Controller got snapshot but older than local" +
+                    ` (remote: ${Math.floor(snapshot.time)}, local: ${this.islandCreator.snapshot.time})`);
+            }
+        } catch (e) {
+            console.log(this.id, 'Controller got no snapshot');
+        }
     }
 
     /** @type String: this controller's island id */
@@ -657,7 +695,8 @@ export class Controller {
 
     // network queue
 
-    join(socket) {
+    async join(socket) {
+        await this.updateSnapshot();
         console.log(this.id, 'Controller sending JOIN');
         this.socket = socket;
         const time = this.islandCreator.snapshot.time || 0;
@@ -666,6 +705,17 @@ export class Controller {
             action: 'JOIN',
             args: time,
         }));
+    }
+
+    leave() {
+        const island = this.island;
+        this.reset();
+        if (!this.islandCreator) throw Error("do not discard islandCreator!");
+        const {destroyerFn} = this.islandCreator;
+        if (destroyerFn) {
+            const snapshot = island.asState();
+            destroyerFn(snapshot);
+        }
     }
 
     sendMessage(msg) {

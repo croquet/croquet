@@ -42,6 +42,18 @@ function start() {
             for (const opt of ["owner","session"]) {
                 if (urlOptions[opt]) creator.options[opt] = urlOptions[opt];
             }
+            creator.destroyerFn = snapshot => {
+                console.log("destroyer: detaching view for " + roomName);
+                delete ROOM.island;
+                delete ROOM.islandPromise;
+                roomViewManager.detach(roomName);
+                creator.snapshot = snapshot;
+                if (currentRoomName === roomName) {
+                    console.log("destroyer: re-joining " + roomName);
+                    currentRoomName = null;
+                    joinRoom(roomName);
+                }
+            };
             const controller = new Controller();
             ROOM.islandPromise = controller.createIsland(roomName, creator);
             return ROOM.island = await ROOM.islandPromise;
@@ -143,14 +155,13 @@ function start() {
             Object.values(ALL_ROOMS).forEach(({island}) => island && island.processModelViewEvents());
             Stats.end("update");
 
-            // render views
-            Stats.begin("render");
-            renderer.render(currentRoomName, ALL_ROOMS, roomViewManager);
-            Stats.end("render");
-
             // update view state
             const currentRoomView = roomViewManager.getIfLoaded(currentRoomName);
             if (currentRoomView) {
+                // render views
+                Stats.begin("render");
+                renderer.render(currentRoomName, ALL_ROOMS, roomViewManager);
+                Stats.end("render");
                 currentRoomView.parts.pointer.updatePointer();
                 keyboardManager.setCurrentRoomView(currentRoomView);
             }
