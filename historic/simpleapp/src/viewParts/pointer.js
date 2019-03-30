@@ -14,6 +14,9 @@ export const PointerEvents = {
     pointerUp: "pointer-up"
 };
 
+export const TrackPlaneTopic = "topic-trackplane";
+export const TrackPlaneEvents = {requestTrackPlane: "requestTrackPlane"};
+
 /** @param {THREE.Object3D} threeObj */
 export function makePointerSensitive(threeObj, targetPartRef, layer=1) {
     threeObj.userData.pointerSensitiveFor = targetPartRef;
@@ -40,6 +43,8 @@ export default class PointerViewPart extends ViewPart {
         this.dragStartThreeObj = null;
         this.draggingVerticalPlane = new THREE.Plane();
         this.draggingHorizontalPlane = new THREE.Plane();
+
+        this.subscribe(TrackPlaneEvents.requestTrackPlane, "onRequestTrackPlane", TrackPlaneTopic, null);
     }
 
     onMouseMove(clientX, clientY) {
@@ -82,6 +87,10 @@ export default class PointerViewPart extends ViewPart {
         if (this.draggedViewPart) {
             const newVerticalDragPoint = this.raycaster.ray.intersectPlane(this.draggingVerticalPlane, new THREE.Vector3()) || this.dragStartPoint;
             const newHorizontalDragPoint = this.raycaster.ray.intersectPlane(this.draggingHorizontalPlane, new THREE.Vector3()) || this.dragStartPoint;
+            let newUserDragPoint = null;
+            if (this.userDraggingPlane) {
+                newUserDragPoint = this.raycaster.ray.intersectPlane(this.userDraggingPlane, new THREE.Vector3()) || this.dragStartPoint;
+            }
             this.publish(
                 PointerEvents.pointerDrag,
                 {
@@ -90,6 +99,7 @@ export default class PointerViewPart extends ViewPart {
                     dragStartThreeObj: this.dragStartThreeObj,
                     dragEndOnVerticalPlane: newVerticalDragPoint,
                     dragEndOnHorizontalPlane: newHorizontalDragPoint,
+                    dragEndOnUserPlane: newUserDragPoint,
                     pointer: this.asPartRef()
                 },
                 ...this.draggedViewPart.split(".")
@@ -170,5 +180,10 @@ export default class PointerViewPart extends ViewPart {
                 );
             }
         }
+    }
+
+    onRequestTrackPlane(request) {
+        //const requestor = request.requestor;
+        this.userDraggingPlane = request.plane;
     }
 }
