@@ -3,7 +3,7 @@ import { TextGeometry, HybridMSDFShader } from 'three-bmfont-text';
 import { rendererVersion } from '../../render.js';
 import Object3D from "../object3D.js";
 import { TextEvents } from '../../stateParts/editableText.js';
-import { PointerEvents, makePointerSensitive } from "../pointer.js";
+import { PointerEvents, makePointerSensitive, TrackPlaneEvents, TrackPlaneTopic } from "../pointer.js";
 import { Carota } from './carota/editor.js';
 import { fontRegistry } from '../../util/fontRegistry.js';
 import { KeyboardEvents, KeyboardTopic } from '../../domKeyboardManager.js';
@@ -20,7 +20,7 @@ export default class EditableTextViewPart extends Object3D {
 
         if (this.options.editable) {
             this.subscribe(PointerEvents.pointerDown, "onPointerDown");
-            this.subscribe(PointerEvents.pointerMove, "onPointerMove");
+            this.subscribe(PointerEvents.pointerDrag, "onPointerDrag");
             this.subscribe(PointerEvents.pointerUp, "onPointerUp");
             this.subscribe(KeyboardEvents.keydown, "onKeyDown");
             this.subscribe(KeyboardEvents.copy, "onCopy");
@@ -119,6 +119,7 @@ export default class EditableTextViewPart extends Object3D {
                                new THREE.Plane(new THREE.Vector3(1, 0, 0), 0)];
 
         const box = new THREE.Mesh(new THREE.PlaneBufferGeometry(this.options.width, this.options.height), new THREE.MeshBasicMaterial({ color: 0xeeeeee }));
+        this.draggingPlane = new THREE.Plane();
         return box;
     }
 
@@ -329,14 +330,20 @@ export default class EditableTextViewPart extends Object3D {
         this.publish(KeyboardEvents.requestfocus, {requesterRef: this.asPartRef()}, KeyboardTopic, null);
         const pt = this.textPtFromEvt(evt.at);
         this.editor.mouseDown(pt.x, pt.y, pt.realY);
-        this.lastPt = pt;
+        this.lastPt = evt.at;
+
+        this.draggingPlane.setFromNormalAndCoplanarPoint(this.threeObj.getWorldDirection(new THREE.Vector3()), this.threeObj.position);
+        this.publish(TrackPlaneEvents.requestTrackPlane, {requesterRef: this.asPartRef(), plane: this.draggingPlane}, TrackPlaneTopic, null);
+
         this.changed();
         return true;
     }
 
-    onPointerMove(evt) {
-        if (!this.lastPt) { return false;}
-        const pt = this.textPtFromEvt(evt.hoverPoint);
+    onPointerDrag(evt) {
+        if (!this.lastPt) {return false;}
+        let p = evt.dragEndOnUserPlane;
+        if (!p) {return false;}
+        const pt = this.textPtFromEvt(p);
         this.editor.mouseMove(pt.x, pt.y, pt.realY);
         this.lastPt = pt;
         this.changed();
@@ -348,6 +355,8 @@ export default class EditableTextViewPart extends Object3D {
         this.mouseIsDown = false;
         this.editor.mouseUp(pt.x, pt.y, pt.realY);
         this.lastPt = null;
+        this.publish(TrackPlaneEvents.requestTrackPlane, {requesterRef: this.asPartRef(), plane: null}, TrackPlaneTopic, null);
+
         this.changed();
         return true;
     }
