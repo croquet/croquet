@@ -191,7 +191,9 @@ function start() {
             }
         }
         hotreload.setInterval(uploadSnapshots, 30000);
-        // also upload when we the page gets unloaded
+        // also upload when the page gets unloaded
+        hotreload.addEventListener(document.body, "unload", uploadSnapshots);
+        // ... and on hotreload
         hotreload.addDisposeHandler('snapshots', uploadSnapshots);
     }
 
