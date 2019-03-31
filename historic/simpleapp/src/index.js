@@ -272,6 +272,13 @@ function start() {
         roomViewManager.changeViewportSize(window.innerWidth, window.innerHeight);
     });
 
+    hotreload.addEventListener(document.getElementById('reset'), "click", () => {
+        if (currentRoomName) {
+            const currentIsland = ALL_ROOMS[currentRoomName].island;
+            if (currentIsland) currentIsland.broadcastInitialState();
+        }
+    });
+
     hotreload.addEventListener(window, "hashchange", () => joinRoom(window.location.hash.slice(1)));
 
     keyboardManager.install(hotreload);
