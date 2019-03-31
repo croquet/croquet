@@ -47,6 +47,7 @@ function start() {
                 if (urlOptions[opt]) creator.options[opt] = urlOptions[opt];
             }
             creator.destroyerFn = snapshot => {
+                Stats.connected(false);
                 console.log("destroyer: detaching view for " + roomName);
                 delete ROOM.island;
                 delete ROOM.islandPromise;
@@ -93,6 +94,7 @@ function start() {
         if (!ALL_ROOMS[roomName]) roomName = defaultRoom;
         if (currentRoomName === roomName) return;
         await ALL_ROOMS.getIsland(roomName);
+        Stats.connected(true);
         currentRoomName = roomName;
         // request ahead of render, set initial camera position if necessary
         roomViewManager.request(roomName, ALL_ROOMS, {cameraPosition, cameraQuaternion, overrideCamera}, onTraversedPortalView);

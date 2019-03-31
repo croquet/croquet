@@ -16,6 +16,7 @@ const colors = {
     render: "magenta",
     simulate: "yellow",
     backlog: "red",
+    disconnected: "gray",
 };
 
 const div = document.createElement("div");
@@ -43,6 +44,7 @@ ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
 
 const frames = [];
 let maxBacklog = 0;
+let connected = false;
 let currentFrame = newFrame(0);
 
 function newFrame(now) {
@@ -52,6 +54,7 @@ function newFrame(now) {
         items: {},
         backlog: 0,
         users: 0,
+        connected
     };
 }
 
@@ -73,6 +76,9 @@ export default {
     },
     users(users) {
         currentFrame.users = users;
+    },
+    connected(bool) {
+        currentFrame.connected = connected = bool;
     },
     endCurrentFrame(timestamp) {
         // add current frame to end
@@ -103,7 +109,7 @@ export default {
             ctx.beginPath();
             ctx.moveTo(x, y);
             ctx.lineTo(x, map(frame.total));
-            ctx.strokeStyle = colors["total"];
+            ctx.strokeStyle = colors[frame.connected ? "total" : "disconnected"];
             ctx.stroke();
 
             ctx.beginPath();
