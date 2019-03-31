@@ -39,9 +39,6 @@ function start() {
             if (!ROOM) throw Error("Unknown room: " + roomName);
             if (ROOM.islandPromise) return ROOM.islandPromise;
             const creator = ROOM.creator;
-            if (!creator.snapshot && hotState.islands && hotState.islands[roomName]) {
-                creator.snapshot = JSON.parse(hotState.islands[roomName]);
-            }
             if (!creator.options) creator.options = {};
             for (const opt of ["owner","session"]) {
                 if (urlOptions[opt]) creator.options[opt] = urlOptions[opt];
@@ -101,6 +98,13 @@ function start() {
         const desiredHash = roomName === defaultRoom ? "" : roomName;
         if (window.location.hash.slice(1) !== desiredHash) {
             window.history.pushState({}, "", "#" + desiredHash);
+        }
+    }
+
+    // if hot-reloading, read out the island snapshots
+    for (const [roomName, room] of Object.entries(ALL_ROOMS) {
+        if (!room.creator.snapshot && hotState.islands && hotState.islands[roomName]) {
+            room.creator.snapshot = JSON.parse(hotState.islands[roomName]);
         }
     }
 
