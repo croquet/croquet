@@ -166,7 +166,7 @@ export class LayoutSlotCenter3D extends LayoutSlot {
     }
 }
 
-export class LayoutSlotStretch3D extends LayoutSlot {
+export class LayoutSlotStretch3D extends LayoutSlotCenter3D {
     onLayoutChanged() {
         super.onLayoutChanged();
         // TODO: what to do if the inner view has multiple threeObjs?

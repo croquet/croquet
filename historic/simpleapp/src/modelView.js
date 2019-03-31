@@ -11,7 +11,8 @@ export class StatePart extends Part {
     // used in island.js:modelFromState
     static __isTeatimeModelClass__() { return true; }
 
-    register(state) {
+    register(state={}) {
+        this.realm = currentRealm();
         this.id = currentRealm().registerPart(this, state.id);
     }
 
@@ -44,7 +45,7 @@ export class StatePart extends Part {
         for (const part of Object.values(this.parts)) {
             part.destroy();
         }
-        currentRealm().deregisterPart(this);
+        this.realm.deregisterPart(this);
     }
 
     /** @abstract */
@@ -66,22 +67,22 @@ export class StatePart extends Part {
     // PUB/SUB
     subscribe(event, methodName, to=this.id) {
         if (!this.id) {throw new Error("Cant subscribe before StatePart is registered. Please do so in onInitialized()");}
-        currentRealm().subscribe(event, this.id, methodName, to);
+        this.realm.subscribe(event, this.id, methodName, to);
     }
 
     unsubscribe(event, methodName, to=this.id) {
         if (!this.id) {throw new Error("Cant unsubscribe before StatePart is registered. Please do so in onInitialized()");}
-        currentRealm().unsubscribe(event, this.id, methodName, to);
+        this.realm.unsubscribe(event, this.id, methodName, to);
     }
 
     publish(event, data, to=this.id) {
         if (!this.id) {throw new Error("Cant publish before StatePart is registered. Please do so in onInitialized()");}
-        currentRealm().publish(event, data, to);
+        this.realm.publish(event, data, to);
     }
 
     // FUTURE
     future(tOffset=0) {
-        return currentRealm().futureProxy(tOffset, this);
+        return this.realm.futureProxy(tOffset, this);
     }
 
     // for setting type of arguments in future messages
@@ -102,7 +103,10 @@ export class ViewPart extends Part {
     /** @abstract */
     constructor(modelState, _options={}) {
         super();
+
+        this.realm = currentRealm();
         this.id = currentRealm().registerPart(this);
+
         this.modelId = modelState.id;
         // if we are being passed the viewState of another ViewPart as a modelState
         // store a reference to it directly, so we can manipulate it directly
@@ -114,6 +118,7 @@ export class ViewPart extends Part {
         /** @type {import('THREE').Object3D | null} */
         this.threeObj = null;
         this.viewState = new StatePart();
+        this.viewState.register();
         this.viewState.isViewState = true;
     }
 
@@ -144,20 +149,20 @@ export class ViewPart extends Part {
         }
 
         this.viewState.destroy();
-        currentRealm().deregisterPart(this);
+        this.realm.deregisterPart(this);
     }
 
     // PUB/SUB
     subscribe(event, methodName, to=this.id) {
-        currentRealm().subscribe(event, this.id, methodName, to);
+        this.realm.subscribe(event, this.id, methodName, to);
     }
 
     unsubscribe(event, methodName, to=this.id) {
-        currentRealm().unsubscribe(event, this.id, methodName, to);
+        this.realm.unsubscribe(event, this.id, methodName, to);
     }
 
     publish(event, data, to=this.id) {
-        currentRealm().publish(event, data, to);
+        this.realm.publish(event, data, to);
     }
 
     /** @arg {PartPath}  */
@@ -169,7 +174,7 @@ export class ViewPart extends Part {
             get: (_, methodName) => {
                 const partMethodProxy = new Proxy(() => {}, {
                     apply: (_a, _b, args) => {
-                        currentRealm().callModelMethod(this.modelId, partPath, methodName, args);
+                        this.realm.callModelMethod(this.modelId, partPath, methodName, args);
                     }
                 });
                 return partMethodProxy;
@@ -178,7 +183,7 @@ export class ViewPart extends Part {
     }
 
     future(tOffset) {
-        return currentRealm().futureProxy(tOffset, this);
+        return this.realm.futureProxy(tOffset, this);
     }
 }
 
@@ -245,15 +250,15 @@ class ViewRealm {
     futureProxy(tOffset, part) {
         return new Proxy(part, {
             get(_target, property) {
-                if (typeof this[property] === "function") {
-                    const methodProxy = new Proxy(this[property], {
+                if (typeof part[property] === "function") {
+                    const methodProxy = new Proxy(part[property], {
                         apply(_method, _this, args) {
-                            setTimeout(() => this[property](...args), tOffset);
+                            setTimeout(() => part[property](...args), tOffset);
                         }
                     });
                     return methodProxy;
                 }
-                throw Error("Tried to call " + property + "() on future of " + Object.getPrototypeOf(this).constructor.name + " which is not a function");
+                throw Error("Tried to call " + property + "() on future of " + Object.getPrototypeOf(part).constructor.name + " which is not a function");
             }
         });
     }

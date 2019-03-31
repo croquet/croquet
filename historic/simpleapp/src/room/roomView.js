@@ -137,9 +137,9 @@ class TreadmillNavigation extends ViewPart {
         this.treadmill = new THREE.Group();
         this.treadmillForwardStrip = new THREE.Mesh(new THREE.ShapeBufferGeometry(stripShape), new THREE.MeshBasicMaterial({ color: "#eeeeee", visible: false}));
         this.treadmillForwardStrip.position.z += 0.1;
-        makePointerSensitive(this.treadmillForwardStrip, this.id, -1);
+        makePointerSensitive(this.treadmillForwardStrip, this, -1);
         this.treadmillRotateArea = new THREE.Mesh(new THREE.CircleBufferGeometry(100, 30), new THREE.MeshBasicMaterial({color: "#cccccc", opacity: 0.2, transparent: true}));
-        makePointerSensitive(this.treadmillRotateArea, this.id, -1);
+        makePointerSensitive(this.treadmillRotateArea, this, -1);
         this.treadmill.add(this.treadmillForwardStrip);
         this.treadmill.add(this.treadmillRotateArea);
         this.treadmill.quaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
@@ -162,8 +162,8 @@ class TreadmillNavigation extends ViewPart {
         this.subscribe(PointerEvents.pointerLeave, "onHoverTreadmillLeave");
         this.subscribe(PointerEvents.pointerDown, "onDragTreadmillStart");
         this.subscribe(PointerEvents.pointerDrag, "onDragTreadmill");
-
         this.threeObj = group;
+        this.scenePart.threeObj.add(group);
     }
 
     onHoverTreadmillMove({hoverThreeObj, hoverPoint}) {

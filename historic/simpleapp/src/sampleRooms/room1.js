@@ -52,7 +52,7 @@ class BoxViewPart extends ViewPart {
         super(modelState, options);
         this.threeObj = new THREE.Mesh(
             new THREE.BoxBufferGeometry(1, 1, 1),
-            new THREE.MeshStandardMaterial({color: new THREE.Color(this.color)})
+            new THREE.MeshStandardMaterial({color: new THREE.Color(options.color)})
         );
     }
 }
@@ -100,7 +100,7 @@ class LayoutTestView extends ViewPart {
                         }),
                         new LayoutSlotStretch3D(modelState, {
                             margin: 0.1,
-                            inner: new BoxViewPart(modelState, {color: "#dd8888"})
+                            inner: new BoxViewPart(modelState, {color: "#88dd88"})
                         }),
                         new LayoutSlotText(modelState, {
                             margin: 0.1,
@@ -114,7 +114,7 @@ class LayoutTestView extends ViewPart {
                             children: [
                                 new LayoutSlotStretch3D(modelState, {
                                     margin: 0.1,
-                                    inner: new BoxViewPart(modelState, {id: "box3", color: "#88dd88"})
+                                    inner: new BoxViewPart(modelState, {id: "box3", color: "#dddd88"})
                                 }),
                                 new LayoutSlotStretch3D(modelState, {
                                     margin: 0.1,
@@ -122,7 +122,7 @@ class LayoutTestView extends ViewPart {
                                 }),
                                 new LayoutSlotStretch3D(modelState, {
                                     margin: 0.1,
-                                    inner: new BoxViewPart(this, {id: "box4", color: "#88dddd"})
+                                    inner: new BoxViewPart(this, {id: "box4", color: "#dd88dd"})
                                 }),
                             ]
                         })

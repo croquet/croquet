@@ -39,7 +39,7 @@ export default class EditableTextViewPart extends ViewPart {
         const boxMesh = this.initBoxMesh();
 
         if (this.options.editable) {
-            makePointerSensitive(boxMesh, this.id);
+            makePointerSensitive(boxMesh, this);
         }
 
         if (modelState && modelState.parts.editableText && modelState.parts.editableText.content) {

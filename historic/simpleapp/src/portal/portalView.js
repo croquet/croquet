@@ -13,17 +13,17 @@ export const PortalViewEvents = {
 
 export default class PortalViewPart extends ViewPart {
     constructor(modelState, options={}) {
-        options = {visualOffset: -0.1, source: "portal", ...options};
+        options = {visualOffset: -0.1, source: null, ...options};
         super(modelState, options);
 
         this.viewState.parts = {
             // maintain a view-local "copy" of the portal info to reuse the traversal logic in the view
             clonedPortal: new PortalPart()
         };
-        this.viewState.parts.clonedPortal.applyState(modelState.lookUp(this.source));
+        this.viewState.parts.clonedPortal.init({...modelState.lookUp(options.source), id: null});
 
         this.visualOffset = options.visualOffset;
-        this.source = options.source;
+        const sourceSpatialPart = modelState.lookUp(options.source).parts.spatial;
 
         const mesh = new THREE.Mesh(
             new THREE.PlaneGeometry(1, 1, 1, 1),
@@ -34,13 +34,13 @@ export default class PortalViewPart extends ViewPart {
         mesh.position.copy(new THREE.Vector3(0, 0, this.visualOffset));
 
         // TODO: actually use something like internal "TrackSpatial" and "TrackSize" parts here
-        group.position.copy(modelState.lookUp(this.source).spatial.position);
-        group.quaternion.copy(modelState.lookUp(this.source).spatial.quaternion);
-        group.scale.copy(modelState.lookUp(this.source).spatial.scale);
+        group.position.copy(sourceSpatialPart.position);
+        group.quaternion.copy(sourceSpatialPart.quaternion);
+        group.scale.copy(sourceSpatialPart.scale);
 
-        this.subscribe(SpatialEvents.moved, "onMoved", modelState.lookUp(this.source).spatial.id);
-        this.subscribe(SpatialEvents.rotated, "onRotated", modelState.lookUp(this.source).spatial.id);
-        this.subscribe(SpatialEvents.scaled, "onScaled", modelState.lookUp(this.source).spatial.id);
+        this.subscribe(SpatialEvents.moved, "onMoved", sourceSpatialPart.id);
+        this.subscribe(SpatialEvents.rotated, "onRotated", sourceSpatialPart.id);
+        this.subscribe(SpatialEvents.scaled, "onScaled", sourceSpatialPart.id);
 
         this.subscribe(PortalEvents.traverserMoved, "onTraverserMoved", PortalTopic);
 

@@ -17,9 +17,9 @@ export const PointerEvents = {
 
 /**
  * @arg {THREE.Object3D} threeObj
- * @arg {PartPath} targetId */
-export function makePointerSensitive(threeObj, targetId, layer=1) {
-    threeObj.userData.pointerSensitiveFor = targetId;
+ * @arg {ViewPart} target */
+export function makePointerSensitive(threeObj, target, layer=1) {
+    threeObj.userData.pointerSensitiveFor = target;
     threeObj.userData.pointerLayer = layer;
 }
 

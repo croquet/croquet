@@ -134,7 +134,7 @@ function start() {
 
     hotreload.addEventListener(document.body, "wheel", event => {
         const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
-        if (currentRoomView) {currentRoomView.parts.treadmillNavigation.onWheel(event);}
+        if (currentRoomView) {currentRoomView.parts.treadmill.parts.inner.onWheel(event);}
         event.stopPropagation();
         event.preventDefault();
     }, {passive: false});

@@ -47,10 +47,7 @@ export default class Renderer {
         /** @type {PortalViewPart[]} */
         const portalViewParts = Object.values(currentRoomView.parts.objectViewManager.viewsForObjects)
             .map(wrappingView => wrappingView.parts.inner)
-            .reduce((views, view) => {
-                return views.concat(
-                    Object.values(view.parts).filter(viewPart => viewPart instanceof PortalViewPart));
-            }, []);
+            .filter(viewPart => viewPart instanceof PortalViewPart);
 
         const gl = this.renderer.context;
 
@@ -94,13 +91,13 @@ export default class Renderer {
             // stencil buffer is not changed
             gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
 
-            const portalPart = portalViewPart.modelPortalPart;
+            const portalPart = portalViewPart.viewState.parts.clonedPortal;
             const portalTargetRoomView = roomViewManager.requestPassive(portalPart.there, allIslands);
 
             if (portalTargetRoomView) {
                 const portalTargetScene = portalTargetRoomView.parts.roomScene.threeObj;
                 /** @type {THREE.Camera} */
-                const portalTargetCamera = portalTargetRoomView.parts.camera.threeObj;
+                const portalTargetCamera = portalTargetRoomView.parts.trackedCamera.parts.inner.threeObj;
 
                 const {targetPosition, targetQuaternion} = portalPart.projectThroughPortal(mainCamera.position, mainCamera.quaternion);
                 portalTargetCamera.position.copy(targetPosition);

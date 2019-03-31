@@ -27,7 +27,7 @@ export default class DraggableViewPart extends ViewPart {
         this.parts = {inner: options.inner};
         /** @type {SceneNode} */
         this.dragHandlePart = this.parts.inner.lookUp(options.dragHandle);
-        makePointerSensitive(this.dragHandlePart.threeObj);
+        makePointerSensitive(this.dragHandlePart.threeObj, this);
         this.targetPartPath = options.target;
         this.dragVertically = options.dragVertically;
         this.subscribe(PointerEvents.pointerDown, "onPointerDown");

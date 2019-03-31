@@ -6,8 +6,6 @@ import urlOptions from "./util/urlOptions.js";
 import hotreload from "./hotreload.js";
 import { hashModelCode } from "./modules.js";
 import { inModelRealm } from "./modelView.js";
-import { PART_PATH_SEPARATOR } from "./parts.js";
-
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
@@ -120,8 +118,8 @@ export default class Island {
     // Send via reflector
     callModelMethod(modelId, partPath, selector, args) {
         if (CurrentIsland) throw Error("Island Error");
-        const fullRecipient = partPath ? modelId + PART_PATH_SEPARATOR + partPath : partPath;
-        const message = new Message(this.time, 0, fullRecipient, selector, args);
+        const recipient = this.modelsById[modelId].absoluteId(partPath);
+        const message = new Message(this.time, 0, recipient, selector, args);
         this.controller.sendMessage(message);
     }
 

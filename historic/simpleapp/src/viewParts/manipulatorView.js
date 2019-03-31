@@ -31,9 +31,9 @@ class ManipulatorViewPart extends ViewPart {
         );
         this.moveHandle.position.y -= 0.8;
         this.moveHandle.position.z = 0.2;
-        makePointerSensitive(this.moveHandle, this.id);
+        makePointerSensitive(this.moveHandle, this);
         this.rotateHandle.position.y -= 0.7;
-        makePointerSensitive(this.rotateHandle, this.id);
+        makePointerSensitive(this.rotateHandle, this);
         this.group.add(this.moveHandle);
         this.group.add(this.rotateHandle);
 
@@ -94,7 +94,8 @@ export default class WithManipulatorView extends ViewPart {
         this.parts = {
             inner: options.inner,
             manipulator: new TrackSpatial(modelState, {
-                inner: new ManipulatorViewPart(modelState, {})
+                inner: new ManipulatorViewPart(modelState, {}),
+                scale: false
             })
         };
     }

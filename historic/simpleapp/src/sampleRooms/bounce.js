@@ -48,15 +48,16 @@ class GroupView extends ViewPart {
 class ChildrenGroupView extends ViewPart {
     constructor(modelState, options) {
         super(modelState, options);
-
-        for (const object of modelState.parts.children.children) {
-            this.onObjectAdded(object);
-        }
+        this.viewsForObjects = {};
 
         this.subscribe(ChildEvents.childAdded, "onObjectAdded", modelState.id, "children");
         this.subscribe(ChildEvents.childRemoved, "onObjectRemoved", modelState.id, "children");
         this.group = new THREE.Group();
         this.threeObj = this.group;
+
+        for (const object of modelState.parts.children.children) {
+            this.onObjectAdded(object);
+        }
     }
 
     onObjectAdded(object) {
@@ -85,21 +86,17 @@ class RandomColorGroupView extends ViewPart {
         super(modelState, options);
         this.parts = {
             childrenGroupView: new TrackSpatial(modelState, {
-                inner: new RandomColorChildrenGroupView()
+                inner: new RandomColorChildrenGroupView(modelState)
             })
         };
     }
 }
 
 class RandomColorChildrenGroupView extends ChildrenGroupView {
-    constructor(modelState, options) {
-        super(modelState, options);
-        this.random = new SeedRandom(this.modelState.id);
-    }
-
     onObjectAdded(object) {
         super.onObjectAdded(object);
         const view = this.viewsForObjects[object.id];
+        if (!this.random) this.random = new SeedRandom(this.modelId);
         for (const threeObj of view.threeObjs()) {
             threeObj.material.color.setHSL(this.random(), 1, 0.5);
         }

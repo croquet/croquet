@@ -85,10 +85,15 @@ export default class PortalPart extends StatePart {
 }
 
 export class PortalTraverserPart extends StatePart {
-    applyState(state={}, options) {
-        this.spatialName = options.spatialName || "spatial";
-        this.subscribe(SpatialEvents.moved, "onMoved", this.owner.id, this.spatialName);
-        this.lastPosition = state.lastPosition || this.owner.parts[this.spatialName].position;
+    constructor(options) {
+        super();
+        // this.spatialName = options.spatialName || "spatial";
+        // this.subscribe(SpatialEvents.moved, "onMoved", this.owner.id, this.spatialName);
+    }
+
+    applyState(state) {
+        super.applyState(state);
+        // this.lastPosition = state.lastPosition || this.owner.parts[this.spatialName].position;
     }
 
     toState(state) {

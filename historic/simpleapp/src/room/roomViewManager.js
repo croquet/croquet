@@ -78,14 +78,15 @@ export default class RoomViewManager {
 
             const room = island.get("room");
 
-            const roomView = new RoomView(island, {
-                activeParticipant: false,
-                width: this.viewportWidth,
-                height: this.viewportHeight,
-                cameraPosition: initialCameraPosition
+            inViewRealm(island, () => {
+                const roomView = new RoomView(room, {
+                    activeParticipant: false,
+                    width: this.viewportWidth,
+                    height: this.viewportHeight,
+                    cameraPosition: initialCameraPosition
+                });
+                this.passiveRoomViews[roomName] = roomView;
             });
-            roomView.attach(room);
-            this.passiveRoomViews[roomName] = roomView;
         }
 
         return this.passiveRoomViews[roomName];

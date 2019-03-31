@@ -7,18 +7,19 @@ if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle
 export default class TrackSpatial extends ViewPart {
     constructor(modelState, options) {
         super(modelState, options);
-        options = {source: "spatial", ...options};
+        options = {source: "spatial", scale: true, ...options};
         /** @type {import('../parts').PartPath} */
         const source = modelState.lookUp(options.source);
-        const sourcePath = modelState.absolutePath(options.source);
         this.parts = {inner: options.inner};
         // TODO: what to do if the inner view has multiple threeObjs?
         this.parts.inner.threeObjs()[0].position.copy(source.position);
-        this.parts.inner.threeObjs()[0].scale.copy(source.scale);
+        if (options.scale) {
+            this.parts.inner.threeObjs()[0].scale.copy(source.scale);
+            this.subscribe(SpatialEvents.scaled, "onScaled", source.id);
+        }
         this.parts.inner.threeObjs()[0].quaternion.copy(source.quaternion);
-        this.subscribe(SpatialEvents.moved, "onMoved", sourcePath);
-        this.subscribe(SpatialEvents.scaled, "onScaled", sourcePath);
-        this.subscribe(SpatialEvents.rotated, "onRotated", sourcePath);
+        this.subscribe(SpatialEvents.moved, "onMoved", source.id);
+        this.subscribe(SpatialEvents.rotated, "onRotated", source.id);
     }
 
     onMoved(newPosition) {
