@@ -6,7 +6,7 @@
   "scripts": {
     "start": "parcel ./assets/index.html -p 9000 --host 0.0.0.0",
     "bundle": "rm -f bundled/* && parcel build ./assets/index.html -d bundled --public-url . --no-source-maps",
-    "deploy": "rm -f ../../servers/croquet.studio/* && parcel build ./assets/index.html -d ../../servers/croquet.studio/ --no-source-maps",
+    "deploy": "./deploy.sh",
     "lint": "eslint src",
     "docs": "jsdoc src -r -d docs"
   },
