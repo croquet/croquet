@@ -548,6 +548,8 @@ export class Controller {
     /** upload a snapshot to the asset server */
     async uploadSnapshot(hashes) {
         if (!this.island) return;
+        if (this.lastSnapshotTime === this.island.time) return;
+        this.lastSnapshotTime = this.island.time;
         // take snapshot
         const snapshot = this.takeSnapshot();
         snapshot.meta = {
