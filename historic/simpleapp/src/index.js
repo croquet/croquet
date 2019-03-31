@@ -6,13 +6,13 @@ import room3 from './sampleRooms/room3.js';
 import roomBounce from './sampleRooms/bounce.js';
 import RoomViewManager from './room/roomViewManager.js';
 import Renderer from './render.js';
-import { Controller } from "./island.js";
+import { connectToReflector, Controller } from "./island.js";
 import {theKeyboardManager} from './domKeyboardManager.js';
 import Stats from "./util/stats.js";
 import urlOptions from "./util/urlOptions.js";
 import { uploadCode } from "./modules.js";
 
-const LOG_HOTRELOAD = false;
+const LOG_HOTRELOAD = true;
 
 const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
@@ -25,6 +25,7 @@ let codeHashes = null;
 
 /** The main function. */
 function start() {
+    connectToReflector();
     if (urlOptions.upload !== false) uploadCode(module.id).then(hashes => codeHashes = hashes);
 
     const ALL_ROOMS = {
@@ -38,6 +39,9 @@ function start() {
             if (!ROOM) throw Error("Unknown room: " + roomName);
             if (ROOM.islandPromise) return ROOM.islandPromise;
             const creator = ROOM.creator;
+            if (!creator.snapshot && hotState.islands && hotState.islands[roomName]) {
+                creator.snapshot = JSON.parse(hotState.islands[roomName]);
+            }
             if (!creator.options) creator.options = {};
             for (const opt of ["owner","session"]) {
                 if (urlOptions[opt]) creator.options[opt] = urlOptions[opt];
@@ -271,9 +275,9 @@ function start() {
                 islands: {},
                 currentRoomName
             });
-            // for (const [name, {island}] of Object.entries(ALL_ROOMS)) {
-            //     if (island) hotData.islands[name] = JSON.stringify(island.asState());
-            // }
+            for (const [name, {island}] of Object.entries(ALL_ROOMS)) {
+                if (island) hotData.islands[name] = JSON.stringify(island.asState());
+            }
         });
         // start logging module loads
         if (LOG_HOTRELOAD && !module.bundle.v) module.bundle.v = 1;
@@ -281,8 +285,8 @@ function start() {
 }
 
 if (module.hot) {
-    // no module.hot.accept(), to force reloading of all dependencies
-    // but preserve hotState
+    module.hot.accept();
+    // preserve hotState
     module.hot.dispose(hotData => {
         Object.assign(hotData, hotState);
         hotreload.dispose(); // specifically, cancel our delayed start()

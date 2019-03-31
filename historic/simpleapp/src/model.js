@@ -1,5 +1,6 @@
 import { PartOwner } from "./parts.js";
 import Island from "./island.js";
+import hotreload from "./hotreload.js";
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
@@ -67,8 +68,13 @@ export default class Model extends PartOwner {
     }
 
     // STATE
+    static fromState(state) {
+        const ModelClass = classFromID(state.class);
+        return new ModelClass(state);
+    }
+
     toState(state) {
-        state.class = Island.encodeClassOf(this);
+        state.class = classToID(this.constructor);
         state.id = this.id;
         for (const [partId, part] of Object.entries(this.parts)) {
             part.toState(state[partId] = {});
@@ -86,3 +92,44 @@ export default class Model extends PartOwner {
     /** @abstract */
     naturalViewClass(_viewContext) { }
 }
+
+
+// map model class names to model classes
+let ModelClasses = {};
+
+// Symbol for storing class ID in constructors
+const CLASS_ID = Symbol('CLASS_ID');
+
+function gatherModelClasses() {
+    // HACK: go through all exports and find model subclasses
+    ModelClasses = {};
+    for (const [file, m] of Object.entries(module.bundle.cache)) {
+        for (const cls of Object.values(m.exports)) {
+            if (cls && cls.__isTeatimeModelClass__) {
+                // create a classID for this class
+                const id = `${file}:${cls.name}`;
+                const dupe = ModelClasses[id];
+                if (dupe) throw Error(`Duplicate Model subclass "${id}" in ${file} and ${dupe.file}`);
+                ModelClasses[id] = {cls, file};
+                cls[CLASS_ID] = id;
+            }
+        }
+    }
+}
+
+function classToID(cls) {
+    if (cls[CLASS_ID]) return cls[CLASS_ID];
+    gatherModelClasses();
+    if (cls[CLASS_ID]) return cls[CLASS_ID];
+    throw Error(`Class "${cls.name}" not found, is it exported?`);
+}
+
+function classFromID(classID) {
+    if (ModelClasses[classID]) return ModelClasses[classID].cls;
+    gatherModelClasses();
+    if (ModelClasses[classID]) return ModelClasses[classID].cls;
+    throw Error(`Class "${classID}" not found, is it exported?`);
+}
+
+// flush ModelClasses after hot reload
+hotreload.addDisposeHandler(module.id, () => ModelClasses = {});
