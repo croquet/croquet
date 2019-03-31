@@ -523,7 +523,7 @@ export class Controller {
             ...creator,
         };
         if (!this.islandCreator.snapshot) {
-            this.islandCreator.snapshot = { id, time: 0 };
+            this.islandCreator.snapshot = { id, time: 0, meta: { created: (new Date()).toISOString() } };
         }
         return new Promise(resolve => {
             this.islandCreator.callbackFn = resolve;
@@ -553,6 +553,7 @@ export class Controller {
         // take snapshot
         const snapshot = this.takeSnapshot();
         snapshot.meta = {
+            ...this.islandCreator.snapshot.meta,
             date: (new Date()).toISOString(),
             host: window.location.hostname,
         };
