@@ -25,7 +25,10 @@ let codeHashes = null;
 
 /** The main function. */
 function start() {
+    // start websocket connection
     connectToReflector();
+
+    // upload changed code files
     if (urlOptions.upload !== false) uploadCode(module.id).then(hashes => codeHashes = hashes);
 
     const ALL_ROOMS = {
