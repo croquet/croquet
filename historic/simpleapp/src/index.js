@@ -38,6 +38,13 @@ function start() {
         bounce: {creator: roomBounce},
     };
 
+    // if hot-reloading, store the island snapshots in the room creators
+    for (const [roomName, room] of Object.entries(ALL_ROOMS)) {
+        if (!room.creator.snapshot && hotState.islands && hotState.islands[roomName]) {
+            room.creator.snapshot = JSON.parse(hotState.islands[roomName]);
+        }
+    }
+
     Object.defineProperty(ALL_ROOMS, 'getIsland', {
         enumerable: false,
         value: async function getIsland(roomName) {
@@ -105,13 +112,6 @@ function start() {
         const desiredHash = roomName === defaultRoom ? "" : roomName;
         if (window.location.hash.slice(1) !== desiredHash) {
             window.history.pushState({}, "", "#" + desiredHash);
-        }
-    }
-
-    // if hot-reloading, read out the island snapshots
-    for (const [roomName, room] of Object.entries(ALL_ROOMS)) {
-        if (!room.creator.snapshot && hotState.islands && hotState.islands[roomName]) {
-            room.creator.snapshot = JSON.parse(hotState.islands[roomName]);
         }
     }
 
