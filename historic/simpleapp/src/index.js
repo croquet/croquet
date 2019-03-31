@@ -36,8 +36,11 @@ function start() {
         room2: {creator: room2},
         room3: {creator: room3},
         bounce: {creator: roomBounce},
+    };
 
-        async getIsland(roomName) {
+    Object.defineProperty(ALL_ROOMS, 'getIsland', {
+        enumerable: false,
+        value: async function getIsland(roomName) {
             const ROOM = ALL_ROOMS[roomName];
             if (!ROOM) throw Error("Unknown room: " + roomName);
             if (ROOM.islandPromise) return ROOM.islandPromise;
@@ -63,7 +66,8 @@ function start() {
             ROOM.islandPromise = controller.createIsland(roomName, creator);
             return ROOM.island = await ROOM.islandPromise;
         }
-    };
+    });
+
     let currentRoomName = null;
     const roomViewManager = new RoomViewManager(window.innerWidth, window.innerHeight);
 
@@ -105,7 +109,7 @@ function start() {
     }
 
     // if hot-reloading, read out the island snapshots
-    for (const [roomName, room] of Object.entries(ALL_ROOMS) {
+    for (const [roomName, room] of Object.entries(ALL_ROOMS)) {
         if (!room.creator.snapshot && hotState.islands && hotState.islands[roomName]) {
             room.creator.snapshot = JSON.parse(hotState.islands[roomName]);
         }
