@@ -587,12 +587,12 @@ export class Controller {
         try {
             const snapshot = await this.fetchSnapshot();
             if (snapshot.id !== this.id) console.warn(this.id ,'resuming snapshot of different version!');
-            if (snapshot.time > this.islandCreator.snapshot.time) {
+            if (snapshot.time >= this.islandCreator.snapshot.time) {
                 this.islandCreator.snapshot = snapshot;
-                console.log(this.id, `Controller got snapshot (time: ${Math.floor(snapshot.time)})`);
+                console.log(this.id, `Controller fetched snapshot (time: ${Math.floor(snapshot.time)})`);
             } else {
-                console.log(this.id, "Controller got snapshot but older than local" +
-                    ` (remote: ${Math.floor(snapshot.time)}, local: ${this.islandCreator.snapshot.time})`);
+                console.log(this.id, "Controller fetched snapshot but older than local" +
+                    ` (remote: ${snapshot.time}, local: ${this.islandCreator.snapshot.time})`);
             }
         } catch (e) {
             console.log(this.id, 'Controller got no snapshot');
