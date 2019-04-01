@@ -499,6 +499,8 @@ export class Controller {
         this.time = 0;
         /** the number of concurrent users in our island */
         this.users = 0;
+        /** wallclock time we last heard from reflector */
+        this.lastReceived = Date.now();
     }
 
     /**
@@ -599,6 +601,7 @@ export class Controller {
 
     // handle messages from reflector
     receive(action, args) {
+        this.lastReceived = Date.now();
         switch (action) {
             case 'START': {
                 // We are starting a new island session.

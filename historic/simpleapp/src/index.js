@@ -163,6 +163,7 @@ function start() {
                 // update stats
                 Stats.users(currentIsland.controller.users);
                 Stats.backlog(currentIsland.controller.backlog);
+                Stats.network(Date.now() - currentIsland.controller.lastReceived);
                 // remember lastFrame for setInterval()
                 lastFrame = Date.now();
             }
