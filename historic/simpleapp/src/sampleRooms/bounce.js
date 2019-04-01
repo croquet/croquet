@@ -57,7 +57,7 @@ class BallViewPart extends ViewPart {
 
 const ClickBoxView = Clickable(Tracking(BallViewPart), {
     onClick() {
-        this.toggle();
+        this.modelPart("spatial").toggle();
     }
 });
 

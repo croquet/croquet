@@ -16,7 +16,7 @@ export default function Clickable(BaseViewPart, clickOptions) {
 
             /** @type {import('./object3D').Object3D} */
             this.clickablePart = this.lookUp(clickOptions.clickHandle);
-            makePointerSensitive(this.clickablePart.threeObj, this.id);
+            makePointerSensitive(this.clickablePart.threeObj, this);
             this.subscribe(PointerEvents.pointerDown, "clickableOnPointerDown");
         }
 
