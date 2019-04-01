@@ -235,30 +235,33 @@ function start() {
         if (currentRoomView) currentRoomView.parts.pointer.onMouseUp();
         event.preventDefault();
     });
-    hotreload.addEventListener(document.body, "touchstart", event => {
+    const canvas = renderer.renderer.context.canvas;
+    hotreload.addEventListener(canvas, "touchstart", event => {
         const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
         if (currentRoomView) {
             currentRoomView.parts.pointer.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
             currentRoomView.parts.pointer.updatePointer();
             currentRoomView.parts.pointer.onMouseDown();
         }
-        event.stopPropagation();
         event.preventDefault();
+        event.stopPropagation();
     }, {passive: false});
 
-    hotreload.addEventListener(document.body, "touchmove", event => {
+    hotreload.addEventListener(canvas, "touchmove", event => {
         if (throttle(event)) return;
         const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
         if (currentRoomView) {
             currentRoomView.parts.pointer.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
         }
+        event.preventDefault();
+        event.stopPropagation();
     }, {passive: false});
 
-    hotreload.addEventListener(document.body, "touchend", event => {
+    hotreload.addEventListener(canvas, "touchend", event => {
         const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
         if (currentRoomView) {currentRoomView.parts.pointer.onMouseUp();}
-        event.stopPropagation();
         event.preventDefault();
+        event.stopPropagation();
     }, {passive: false});
 
     hotreload.addEventListener(document.body, "wheel", event => {
