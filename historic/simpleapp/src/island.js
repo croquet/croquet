@@ -8,8 +8,8 @@ import Model from "./model.js";
 import Stats from "./util/stats.js";
 
 
-const moduleVersion = `${module.id}#${module.bundle.v||0}`;
-if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
+const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 const DEBUG = {
     messages: false,
@@ -44,12 +44,17 @@ function execOnIsland(island, fn) {
  * a queue of messages, plus additional bookkeeping to make
  * uniform pub/sub between models and views possible.*/
 export default class Island {
+    static latest() { return module.bundle.v && module.bundle.v[module.id] || 0; }
+    static version() { return moduleVersion; }
     static current() {
-        if (!CurrentIsland) console.warn(`No CurrentIsland in ${moduleVersion}!`);
+        if (!CurrentIsland) console.warn(`No CurrentIsland in v${moduleVersion}!`);
         return CurrentIsland;
     }
 
     constructor(state = {}, initFn) {
+        console.log("new Island() v" + moduleVersion);
+        if (moduleVersion !== Island.latest()) throw Error("Hot Reload problem: Instantiating old Island v" + moduleVersion);
+
         this.modelsById = {};
         this.viewsById = {};
         this.modelsByName = {};

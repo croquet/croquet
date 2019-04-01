@@ -14,8 +14,8 @@ import { uploadCode } from "./modules.js";
 
 const LOG_HOTRELOAD = true;
 
-const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
-if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
+const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 let hotState = module.hot && module.hot.data || {};
 
@@ -307,7 +307,7 @@ function start() {
             }
         });
         // start logging module loads
-        if (LOG_HOTRELOAD && !module.bundle.v) module.bundle.v = 1;
+        if (LOG_HOTRELOAD && !module.bundle.v) module.bundle.v = {};
     }
 }
 

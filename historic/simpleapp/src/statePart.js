@@ -1,7 +1,7 @@
 import Part from "./parts.js";
 
-const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
-if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
+const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 /** @typedef {import('./view').default} View */
 /** @typedef {import('./model').default} Model */

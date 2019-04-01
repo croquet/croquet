@@ -4,8 +4,8 @@ import hotreload from "./hotreload.js";
 // we include the parcel prelude only so we can get at its source code
 import "parcel/src/builtins/prelude.js";    // eslint-disable-line
 
-const moduleVersion = `${module.id}#${module.bundle.v||0}`;
-if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
+const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 /*
 We use the Parcel module system to inspect our own source code:

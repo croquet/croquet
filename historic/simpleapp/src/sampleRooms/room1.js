@@ -14,8 +14,8 @@ import { LayoutRoot, LayoutContainer, LayoutSlotStretch3D, LayoutSlotText } from
 import TextViewPart from '../viewParts/text.js';
 import { Editor } from '../objects/editableText.js';
 
-const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
-if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
+const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 
 class AutoRotate extends StatePart {
