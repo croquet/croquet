@@ -45,6 +45,6 @@
     "eslint-config-airbnb-base": "^13.1.0",
     "eslint-plugin-import": "^2.16.0",
     "jsdoc": "git+https://github.com/jsdoc3/jsdoc.git",
-    "parcel": "^1.12.3"
+    "parcel": "git+https://github.com/bertfreudenberg/parcel-bundler.git"
   }
 }
