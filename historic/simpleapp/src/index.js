@@ -212,8 +212,9 @@ function start() {
     const eventTimes = {};
     const throttle = event => {
         const now = Date.now();
-        if (now - eventTimes[event.type] < 50) return;
+        if (now - eventTimes[event.type] < (1000 / 60)) return true;
         eventTimes[event.type] = now;
+        return false;
     };
 
     hotreload.addEventListener(window, "mousemove", event => {
