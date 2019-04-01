@@ -44,7 +44,10 @@ function execOnIsland(island, fn) {
  * a queue of messages, plus additional bookkeeping to make
  * uniform pub/sub between models and views possible.*/
 export default class Island {
-    static current() { return CurrentIsland; }
+    static current() {
+        if (!CurrentIsland) console.warn(`No CurrentIsland in ${moduleVersion}!`);
+        return CurrentIsland;
+    }
 
     constructor(state = {}, initFn) {
         this.modelsById = {};
