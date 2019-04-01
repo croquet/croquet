@@ -1,13 +1,12 @@
 import * as THREE from 'three';
 import { TextGeometry, HybridMSDFShader } from 'three-bmfont-text';
-//import LazyObject3D from "../util/lazyObject3D.js";
+import { rendererVersion } from '../../render.js';
 import { TextEvents } from '../../stateParts/editableText.js';
-import { PointerEvents, makePointerSensitive } from "../pointer.js";
+import { PointerEvents, makePointerSensitive, TrackPlaneEvents, TrackPlaneTopic } from "../pointer.js";
 import { Carota } from './carota/editor.js';
 import { fontRegistry } from '../../util/fontRegistry.js';
 import { KeyboardEvents, KeyboardTopic } from '../../domKeyboardManager.js';
 import { ViewPart } from '../../modelView.js';
-//import { textCommands, jsEditorCommands, defaultKeyBindings } from './text-commands.js';
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
@@ -15,20 +14,23 @@ if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle
 export default class EditableTextViewPart extends ViewPart {
     constructor(modelState, options) {
         options = {
-            content: [], glyphs: [], font: "Roboto", width: 3, height: 2, numLines: 10, drawnRects: [],
+            content: {content: [], selection: {start: 0, end: 0}}, glyphs: [], font: "Roboto", width: 3, height: 2, numLines: 10, drawnRects: [],
             source: "text", editable: false, showSelection: true, ...options,
         };
         super(modelState, options);
         this.modelSource = modelState.lookUp(options.source);
+        this.changeInitiatedByView = true;
         this.options = options;
 
         if (this.options.editable) {
             this.subscribe(PointerEvents.pointerDown, "onPointerDown");
-            this.subscribe(PointerEvents.pointerMove, "onPointerMove");
+            this.subscribe(PointerEvents.pointerDrag, "onPointerDrag");
             this.subscribe(PointerEvents.pointerUp, "onPointerUp");
             this.subscribe(KeyboardEvents.keydown, "onKeyDown");
+            this.subscribe(KeyboardEvents.copy, "onCopy");
+            this.subscribe(KeyboardEvents.cut, "onCut");
+            this.subscribe(KeyboardEvents.paste, "onPaste");
         }
-
         this.boxSelections = [];
 
         fontRegistry.load(this.options.font).then(entry => {
@@ -64,9 +66,6 @@ export default class EditableTextViewPart extends ViewPart {
         this.editor.mockCallback = ctx => {
             const glyphs = this.processMockContext(ctx);
             this.update({glyphs, corners: this.editor.visibleTextBounds(), scaleX: this.editor.scaleX, scrollTop: this.editor.scrollTop, frameHeight: this.editor.frame.height, drawnRects: ctx.filledRects});
-            if (this.options.editable) {
-                this.modelPart("text").onContentChanged(this.editor.save());
-            }
         };
     }
 
@@ -99,6 +98,7 @@ export default class EditableTextViewPart extends ViewPart {
             map: atlasTexture,
             side: THREE.DoubleSide,
             transparent: true,
+            version: rendererVersion.shaderLanguageVersion,
             negate: true
         }));
 
@@ -109,12 +109,13 @@ export default class EditableTextViewPart extends ViewPart {
 
         const callback = () => this.onTextChanged();
         this.editor.setSubscribers(callback);
-        this.editor.load(this.options.content);
+        this.editor.load(this.options.content.content);
+        this.editor.select(this.options.content.selection.start, this.options.content.selection.end);
+        this.changed();
 
         this.initSelectionMesh();
         this.initScrollBarMesh();
-
-        window.view = this;
+        this.changed();
     }
 
     initBoxMesh() {
@@ -124,6 +125,7 @@ export default class EditableTextViewPart extends ViewPart {
                                new THREE.Plane(new THREE.Vector3(1, 0, 0), 0)];
 
         const box = new THREE.Mesh(new THREE.PlaneBufferGeometry(this.options.width, this.options.height), new THREE.MeshBasicMaterial({ color: 0xeeeeee }));
+        this.draggingPlane = new THREE.Plane();
         return box;
     }
 
@@ -137,7 +139,7 @@ export default class EditableTextViewPart extends ViewPart {
         plane.visible = false;
         box.add(plane);
         this.selectionBar = plane;
-        //cube.object3D.onBeforeRender = this.selectionBeforeRender.bind(this);
+        plane.onBeforeRender = this.selectionBeforeRender.bind(this);
         this.boxSelections = [];
     }
 
@@ -210,10 +212,13 @@ export default class EditableTextViewPart extends ViewPart {
                     this.updateSelection(this.selectionBar, null);
                 }
             } else if (rec.style === 'scroll bar') {
-                meshRect.y += -scrollT * docHeight * meterInPixel;
+                // oh, boy.  we are compensating it with fudge factor and recompensationg
+                // here. The right thing should be to fix the data in json and cursorY
+                // should be always zero for all fonts.
+                meshRect.y += (-scrollT * docHeight + cursorY) * meterInPixel;
                 this.updateSelection(this.scrollBar, meshRect);
             } else if (rec.style === 'scroll knob') {
-                meshRect.y += -scrollT * docHeight * meterInPixel;
+                meshRect.y += (-scrollT * docHeight + cursorY) * meterInPixel;
                 this.updateSelection(this.scrollKnob, meshRect, 0.004);
             }
         }
@@ -250,8 +255,35 @@ export default class EditableTextViewPart extends ViewPart {
         const plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(0.1, 0.1), new THREE.MeshBasicMaterial({ color: 0xA0CFEC }));
 
         plane.visible = false;
-        //plane.onBeforeRender = this.selectionBeforeRender.bind(this);
+        plane.onBeforeRender = this.selectionBeforeRender.bind(this);
         return plane;
+    }
+
+    computeClippingPlanes(ary) {
+        //let [top, bottom, right, left] = ary; this is the order
+        let planes = [];
+        let text = this.text;
+        if (isNaN(text.matrixWorld.elements[0])) return null;
+        for (let i = 0; i < 4; i++) {
+            planes[i] = new THREE.Plane();
+            planes[i].copy(this.clippingPlanes[i]);
+            planes[i].constant = ary[i];
+            planes[i].applyMatrix4(text.matrixWorld);
+        }
+        return planes;
+    }
+
+    selectionBeforeRender(renderer, scene, camera, geometry, material, group) {
+        let meterInPixel = this.options.width / this.editor.scaleX;
+        let scrollT = this.editor.scrollTop;
+        let docHeight = this.editor.frame.height;
+        let docInMeter = docHeight * meterInPixel;
+        let top = -scrollT * docHeight;
+        let bottom = -(top - this.editor.scaleY);
+        let right = this.editor.scaleX * (1.0 - this.editor.relativeScrollBarWidth);
+        let left = 0;
+        let planes = this.computeClippingPlanes([top, bottom, right, left]);
+        material.clippingPlanes = planes;
     }
 
     update(newOptions) {
@@ -264,10 +296,28 @@ export default class EditableTextViewPart extends ViewPart {
     }
 
     onContentChanged(newContent) {
-        this.editor.load(newContent);
+        try {
+            this.changeInitiatedByView = false;
+            this.editor.delayPaint = false;
+            this.editor.load(newContent.content);
+            this.editor.select(newContent.selection.start,
+                               newContent.selection.end);
+            this.editor.paint();
+        } finally {
+            this.changeInitiatedByView = true;
+            this.editor.delayPaint = true;
+        }
     }
 
     onTextChanged() {}
+
+    changed() {
+        if (this.options.editable) {
+            if (this.changeInitiatedByView) {
+                this.modelPart("text").updateContents({content: this.editor.save(), selection: this.editor.selection});
+            }
+        }
+    }
 
     textPtFromEvt(evtPt) {
         const pt = this.threeObj.worldToLocal(evtPt.clone());
@@ -286,15 +336,23 @@ export default class EditableTextViewPart extends ViewPart {
         this.publish(KeyboardEvents.requestfocus, {requesterRef: this.asPartRef()}, KeyboardTopic);
         const pt = this.textPtFromEvt(evt.at);
         this.editor.mouseDown(pt.x, pt.y, pt.realY);
-        this.lastPt = pt;
+        this.lastPt = evt.at;
+
+        this.draggingPlane.setFromNormalAndCoplanarPoint(this.threeObj.getWorldDirection(new THREE.Vector3()), this.threeObj.position);
+        this.publish(TrackPlaneEvents.requestTrackPlane, {requesterRef: this.asPartRef(), plane: this.draggingPlane}, TrackPlaneTopic, null);
+
+        this.changed();
         return true;
     }
 
-    onPointerMove(evt) {
-        if (!this.lastPt) { return false;}
-        const pt = this.textPtFromEvt(evt.hoverPoint);
+    onPointerDrag(evt) {
+        if (!this.lastPt) {return false;}
+        let p = evt.dragEndOnUserPlane;
+        if (!p) {return false;}
+        const pt = this.textPtFromEvt(p);
         this.editor.mouseMove(pt.x, pt.y, pt.realY);
         this.lastPt = pt;
+        this.changed();
         return true;
     }
 
@@ -303,20 +361,91 @@ export default class EditableTextViewPart extends ViewPart {
         this.mouseIsDown = false;
         this.editor.mouseUp(pt.x, pt.y, pt.realY);
         this.lastPt = null;
+        this.publish(TrackPlaneEvents.requestTrackPlane, {requesterRef: this.asPartRef(), plane: null}, TrackPlaneTopic, null);
+
+        this.changed();
         return true;
     }
 
-    onKeyDown(evt) {
-        if (evt.keyCode === 13) {
-            this.editor.insert('\n');
-            return true;
-        }
-        const handled = this.editor.handleKey(evt.keyCode, evt.shiftKey, evt.ctrlKey|| evt.metaKey);
+    onKeyDown(cEvt) {
+        if (cEvt.onlyModifiers) {return true;}
 
-        if (!handled && !(evt.ctrlKey || evt.metaKey)) {
-            this.editor.insert(evt.key);
+        // what has to happen here is that the kinds of keycombo that browser need to pass
+        // through, and the kinds that the editor handles are different.
+        // We need to separated them, and for the latter, the text commands list has
+        // to be tested here.
+        if (cEvt.keyCombo === "Meta-S") {
+            this.accept();
             return true;
         }
+
+        if (cEvt.keyCode === 13) {
+            this.editor.insert('\n');
+            this.changed();
+            return true;
+        }
+        if (cEvt.keyCode === 32) {
+            this.editor.insert(' ');
+            this.changed();
+            return true;
+        }
+        if (cEvt.keyCode === 9) {
+            this.editor.insert('\t');
+            this.changed();
+            return true;
+        }
+
+        const handled = this.editor.handleKey(cEvt.keyCode, cEvt.shiftKey, cEvt.ctrlKey|| cEvt.metaKey);
+
+        if (!handled && !(cEvt.ctrlKey || cEvt.metaKey)) {
+            this.editor.insert(cEvt.key);
+            this.changed();
+            return true;
+        }
+        this.changed();
         return true;
+    }
+
+    onCopy(evt) {
+        evt.clipboardData.setData("text/plain", this.editor.selectedRange().plainText());
+        evt.preventDefault();
+        return true;
+    }
+
+    onCut(evt) {
+        this.onCopy(evt);
+        this.editor.insert("");//or something else to keep undo sane?
+        this.changed();
+        return true;
+    }
+
+    onPaste(evt) {
+        let pasteChars = evt.clipboardData.getData("text");
+        this.editor.insert(pasteChars);
+        evt.preventDefault();
+        this.changed();
+        return true;
+    }
+
+    onSave() {}
+
+    accept() {
+        this.owner.model["editableText"].acceptContent();
+    }
+
+    // "text access"
+    positionToIndex(textPos) {
+        let {frame: {lines}} = this.editor,
+        {row, column} = textPos,
+        minRow = 0, maxRow = lines.length -1;
+        if (row < minRow) { row = 0; column = 0; }
+        if (row > maxRow) { row = maxRow; column = lines[maxRow].length-1; }
+        return lines[row].ordinal + column;
+    }
+
+    textInRange(range) {
+        let from = this.positionToIndex(range.start),
+        to = this.positionToIndex(range.end);
+        return this.editor.range(from, to).plainText();
     }
 }

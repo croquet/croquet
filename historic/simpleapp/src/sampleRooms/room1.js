@@ -2,14 +2,14 @@ import * as THREE from 'three';
 import Island from '../island.js';
 import Room from "../room/roomModel.js";
 import SpatialPart from '../stateParts/spatial.js';
-import InertialSpatialPart from '../stateParts/inertialSpatial.js';
+import Inertial from '../stateParts/inertial.js';
 import { StatePart, ViewPart } from '../modelView.js';
-import DraggableViewPart from '../viewParts/draggable.js';
-import TrackSpatial from '../viewParts/trackSpatial.js';
+import Tracking from '../viewParts/tracking.js';
 import { TextObject } from '../objects/text.js';
 import { LayoutRoot, LayoutContainer, LayoutSlotStretch3D, LayoutSlotText } from '../viewParts/layout.js';
 import TextViewPart from '../viewParts/text.js';
 import { CarotaEditorObject } from '../objects/editableText.js';
+import Draggable from '../viewParts/draggable.js';
 
 const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
@@ -38,7 +38,7 @@ export class RotatingBox extends StatePart {
     constructor() {
         super();
         this.parts = {
-            spatial: new (AutoRotating(InertialSpatialPart))()
+            spatial: new (AutoRotating(Inertial(SpatialPart)))()
         };
     }
 
@@ -57,19 +57,7 @@ class BoxViewPart extends ViewPart {
     }
 }
 
-export class BoxView extends ViewPart {
-    constructor(modelState, options) {
-        super(modelState, options);
-        this.parts = {
-            main: new DraggableViewPart(modelState, {
-                dragHandle: "inner", // inner of the TrackSpatial
-                inner: new TrackSpatial(modelState, {
-                    inner: new BoxViewPart(modelState, options)
-                })
-            })
-        };
-    }
-}
+export const BoxView = Draggable(Tracking(BoxViewPart));
 
 export class LayoutTestModel extends StatePart {
     constructor() {
@@ -88,7 +76,7 @@ class LayoutTestView extends ViewPart {
     constructor(modelState, options) {
         super(modelState, options);
         this.parts = {
-            layout: new TrackSpatial(modelState, {inner: new LayoutRoot(modelState, {children: [
+            layout: new (Tracking(LayoutRoot))(modelState, {children: [
                 new LayoutContainer(modelState, {
                     flexDirection: "row",
                     alignItems: "stretch",
@@ -128,7 +116,7 @@ class LayoutTestView extends ViewPart {
                         })
                     ]
                 })
-            ]})})
+            ]})
         };
     }
 }

@@ -30,36 +30,42 @@ export default class SpatialPart extends StatePart {
 
     /** @arg {THREE.Vector3} position */
     moveTo(position) {
+        if (this.position.equals(position)) return;
         this.position.copy(position);
         this.publish(SpatialEvents.moved, this.position.clone());
     }
 
     /** @arg {THREE.Vector3} delta */
     moveBy(delta) {
+        if ((delta.x === 0) && (delta.y === 0) && (delta.z === 0)) return;
         this.position.add(delta);
         this.publish(SpatialEvents.moved, this.position.clone());
     }
 
     /** @arg {THREE.Vector3} position */
     scaleTo(scale) {
+        if (this.scale.equals(scale)) return;
         this.scale.copy(scale);
         this.publish(SpatialEvents.scaled, this.scale.clone());
     }
 
     /** @arg {THREE.Vector3} delta */
-    scaleBy(delta) {
-        this.scale.add(delta);
+    scaleBy(factor) {
+        if ((factor.x === 1) && (factor.y === 1) && (factor.z === 1)) return;
+        this.scale.multiply(factor);
         this.publish(SpatialEvents.scaled, this.scale.clone());
     }
 
     rotateTo(quaternion) {
+        if (this.quaternion.equals(quaternion)) return;
         this.ensure(quaternion, THREE.Quaternion); // HACK for future message
         this.quaternion.copy(quaternion);
         this.publish(SpatialEvents.rotated, this.quaternion.clone());
     }
 
-    rotateBy(deltaQuaternion) {
-        this.quaternion.multiply(deltaQuaternion);
+    rotateBy(delta) {
+        if ((delta.x === 0) && (delta.y === 0) && (delta.z === 0)) return;
+        this.quaternion.multiply(delta);
         // quaternions apparently need to be normalized after
         // accrued multiplications or they get out of hand.
         this.quaternion.normalize();

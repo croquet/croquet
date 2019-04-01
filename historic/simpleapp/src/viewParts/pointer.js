@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { ViewPart } from '../modelView.js';
+import { theKeyboardManager } from '../domKeyboardManager.js';
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
@@ -13,7 +14,8 @@ export const PointerEvents = {
     pointerUp: "pointer-up"
 };
 
-/** @typedef {import('../modelView').PartPath} PartPath */
+export const TrackPlaneTopic = "topic-trackplane";
+export const TrackPlaneEvents = {requestTrackPlane: "requestTrackPlane"};
 
 /**
  * @arg {THREE.Object3D} threeObj
@@ -43,6 +45,8 @@ export default class PointerViewPart extends ViewPart {
         this.dragStartThreeObj = null;
         this.draggingVerticalPlane = new THREE.Plane();
         this.draggingHorizontalPlane = new THREE.Plane();
+
+        this.subscribe(TrackPlaneEvents.requestTrackPlane, "onRequestTrackPlane", TrackPlaneTopic, null);
     }
 
     onMouseMove(clientX, clientY) {
@@ -58,6 +62,7 @@ export default class PointerViewPart extends ViewPart {
             this.dragStartPoint = this.hoverPoint.clone();
             this.dragStartNormal = this.hoverNormal.clone();
             this.dragStartThreeObj = this.hoverThreeObj;
+            theKeyboardManager.blur();
             this.publish(
                 PointerEvents.pointerDown,
                 { at: this.dragStartPoint, pointer: this.id },
@@ -84,6 +89,10 @@ export default class PointerViewPart extends ViewPart {
         if (this.draggedViewPart) {
             const newVerticalDragPoint = this.raycaster.ray.intersectPlane(this.draggingVerticalPlane, new THREE.Vector3()) || this.dragStartPoint;
             const newHorizontalDragPoint = this.raycaster.ray.intersectPlane(this.draggingHorizontalPlane, new THREE.Vector3()) || this.dragStartPoint;
+            let newUserDragPoint = null;
+            if (this.userDraggingPlane) {
+                newUserDragPoint = this.raycaster.ray.intersectPlane(this.userDraggingPlane, new THREE.Vector3()) || this.dragStartPoint;
+            }
             this.publish(
                 PointerEvents.pointerDrag,
                 {
@@ -92,6 +101,7 @@ export default class PointerViewPart extends ViewPart {
                     dragStartThreeObj: this.dragStartThreeObj,
                     dragEndOnVerticalPlane: newVerticalDragPoint,
                     dragEndOnHorizontalPlane: newHorizontalDragPoint,
+                    dragEndOnUserPlane: newUserDragPoint,
                     pointer: this.id
                 },
                 this.draggedViewPart.id
@@ -172,5 +182,10 @@ export default class PointerViewPart extends ViewPart {
                 );
             }
         }
+    }
+
+    onRequestTrackPlane(request) {
+        //const requestor = request.requestor;
+        this.userDraggingPlane = request.plane;
     }
 }

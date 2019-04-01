@@ -21,13 +21,14 @@ function differentLine(caret1, caret2) {
 
 export class Carota extends Doc {
     static setCachedMeasureText(func) {
-	setCachedMeasureText(func);
+        setCachedMeasureText(func);
     }
 
   constructor(width, height, numLines) {
     super();
 
     this.useMockContext = true;
+    this.delayPaint = true;
 
     this.selectionChanged((getformatting, takeFocus) => {
       this.scrollRangeIntoView(this.selection);
@@ -134,13 +135,18 @@ export class Carota extends Doc {
       this.scaleY = neededPixels;
       let scale = neededPixels / this.screenHeight;
       this.scaleX = this.screenWidth * scale;
+
+      if (this.scaleX * this.relativeScrollBarWidth <= 30) {
+          this.relativeScrollBarWidth = 30 /this.scaleX;
+      }
+
       this.width(this.scaleX * (1.0 - this.relativeScrollBarWidth));
       this.lineHeight = m.height / scale;
       this.contentChanged.fire();
   }
 
   paint() {
-    // logicalWidth = Math.max(this.frame.actualWidth(), screenWidth),
+    if (this.delayPaint) {return;}
     let {
           resolution,
           screenWidth,
@@ -210,7 +216,6 @@ export class Carota extends Doc {
         var docH = frame.height
         var scrollVRatio = scaleY / docH
         var barW = scaleX * 0.02
-          barW = Math.max(barW, 30)  //Patched by Dan for new text  editor
         var barLeft = scaleX - barW - 6
         var barTop = scrollT * scaleY
         var minHeight = scaleY / 100 * 5
@@ -461,8 +466,10 @@ let handleKey = function(doc, key, selecting, ctrlKey) {
             doc.range(start - 1, start).clear();
             doc.focusChar = start - 1;
             doc.select(doc.focusChar, doc.focusChar);
-            handled = true;
+          } else {
+            doc.insert("");
           }
+          handled = true;
           break;
         case 46: // del
           if (start === end && start < length) {
@@ -488,14 +495,14 @@ let handleKey = function(doc, key, selecting, ctrlKey) {
             doc.select(0, length);
           }
           break;
-        case 67: // C - copy to clipboard
-        case 88: // X - cut to clipboard
-          if (ctrlKey) {
-            // Allow standard handling to take place as well
-            richClipboard = doc.selectedRange().save();
-            plainClipboard = doc.selectedRange().plainText();
-          }
-          break;
+        // case 67: // C - copy to clipboard
+        // case 88: // X - cut to clipboard
+        //   if (ctrlKey) {
+        //     // Allow standard handling to take place as well
+        //     richClipboard = doc.selectedRange().save();
+        //     plainClipboard = doc.selectedRange().plainText();
+        //   }
+        //   break;
       }
 
       let toggle = toggles[key];

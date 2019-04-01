@@ -1,14 +1,20 @@
-import { Socket } from "ws";    // eslint-disable-line import/no-extraneous-dependencies
 import SeedRandom from "seedrandom";
 import PriorityQueue from "./util/priorityQueue.js";
 import AsyncQueue from './util/asyncQueue.js';
 import urlOptions from "./util/urlOptions.js";
 import hotreload from "./hotreload.js";
-import { hashModelCode } from "./modules.js";
-import { inModelRealm } from "./modelView.js";
+import { hashModelCode, baseUrl } from "./modules.js";
+import { inModelRealm, StatePart } from "./modelView.js";
+import Stats from "./util/stats.js";
+
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
+
+const DEBUG = {
+    messages: false,
+    ticks: false,
+};
 
 let viewID = 0;
 /** @type {Island} */
@@ -36,11 +42,10 @@ function execOnIsland(island, fn) {
 }
 
 /** An island holds the models which are replicated by teatime,
- * a queue of messages, plus additional bookeeping to make
+ * a queue of messages, plus additional bookkeeping to make
  * uniform pub/sub between models and views possible.*/
 export default class Island {
     static current() { return CurrentIsland; }
-    static encodeClassOf(obj) { return classToID(obj.constructor); }
 
     constructor(state = {}, initFn) {
         this.modelsById = {};
@@ -50,9 +55,10 @@ export default class Island {
         // Views can subscribe to model or other view events
         this.modelSubscriptions = {};
         this.viewSubscriptions = {};
+        // topics that had events since last frame
+        this.frameTopics = new Set();
         // pending messages, sorted by time
         this.messages = new PriorityQueue((a, b) => a.before(b));
-        this.modelViewEvents = [];
         execOnIsland(this, () => {
             inModelRealm(this, () => {
                 // our synced random stream
@@ -63,8 +69,7 @@ export default class Island {
                 if (state.models) {
                     // create all models, uninitialized, but already registered
                     for (const modelState of state.models || []) {
-                        const ModelClass = classFromID(modelState.class);
-                        const model = new ModelClass();
+                        const model = StatePart.constructFromState(modelState);
                         model.register();
                     }
                     // restore model state, allow resolving object references
@@ -131,10 +136,14 @@ export default class Island {
         this.controller.sendMessage(message);
     }
 
-    decodeScheduleAndExecute(msgData) {
+    /** decode msgData and sort it into future queue
+     * @param {MessageData} msgData - encoded message
+     * @return {Message} decoded message
+     */
+    decodeAndSchedule(msgData) {
         const message = Message.fromState(msgData);
         this.messages.add(message);
-        this.advanceTo(message.time);
+        return message;
     }
 
     futureSend(tOffset, receiverID, selector, args) {
@@ -145,8 +154,12 @@ export default class Island {
         // scheduled earlier. It won't lead to any collisions (this would require
         // wrap-around within a time slot) but it still is a problem since it
         // may cause unpredictable effects on the code.
-        // The reflector uses a similar scheme with sequence numbers below 100000000.
-        this.timeSeq = (this.timeSeq + 100000000) % 1000000000000000;
+        // Then again, if we produced 1000 messages at 60 fps it would still take
+        // over 1000 years to wrap around. 2^53 is big.
+        // To have a defined ordering between future messages generated on island
+        // and messages from the reflector, we create even sequence numbers here and
+        // the reflector's sequence numbers are made odd on arrival
+        this.timeSeq = (this.timeSeq + 2) % (Number.MAX_SAFE_INTEGER + 1);
         const message = new Message(this.time + tOffset, this.timeSeq, receiverID, selector, args);
         this.messages.add(message);
     }
@@ -172,16 +185,26 @@ export default class Island {
         });
     }
 
-    advanceTo(time) {
+    /**
+     * Process pending messages for this island and advance simulation.
+     * Must only be sent by controller!
+     * @param {Number} time - simulate up to this time
+     * @param {Number} deadline - CPU time deadline for interrupting simulation
+     * @returns {Boolean} true if finished simulation before deadline
+     */
+    advanceTo(time, deadline) {
         if (CurrentIsland) throw Error("Island Error");
+        let count = 0;
         let message;
         while ((message = this.messages.peek()) && message.time <= time) {
             if (message.time < this.time) throw Error("past message encountered: " + message);
             this.messages.poll();
             this.time = message.time;
             message.executeOn(this);
+            if (++count > 100) { count = 0; if (Date.now() > deadline) return false; }
         }
         this.time = time;
+        return true;
     }
 
     addModelSubscription(scope, event, subscriberId, methodName) {
@@ -199,28 +222,47 @@ export default class Island {
         if (this.modelSubscriptions[topic]) this.modelSubscriptions[topic].remove(handler);
     }
 
-    addViewSubscription(scope, event, subscriberId, methodName) {
+    addViewSubscription(scope, event, subscriberId, methodName, oncePerFrame) {
         if (CurrentIsland) throw Error("Island Error");
         const topic = scope + ":" + event;
         const handler = subscriberId + "." + methodName;
-        if (!this.viewSubscriptions[topic]) this.viewSubscriptions[topic] = new Set();
-        this.viewSubscriptions[topic].add(handler);
+        let subs = this.viewSubscriptions[topic];
+        if (!subs) subs = this.viewSubscriptions[topic] = {
+            data: [],
+            onceHandlers: new Set(),
+            queueHandlers: new Set(),
+        };
+        if (oncePerFrame) subs.onceHandlers.add(handler);
+        else subs.queueHandlers.add(handler);
     }
 
     removeViewSubscription(scope, event, subscriberId, methodName) {
         if (CurrentIsland) throw Error("Island Error");
         const topic = scope + ":" + event;
         const handler = subscriberId + "." + methodName;
-        if (this.viewSubscriptions[topic]) this.viewSubscriptions[topic].delete(handler);
+        const subs = this.viewSubscriptions[topic];
+        if (subs) {
+            subs.onceHandlers.delete(handler);
+            subs.queueHandlers.delete(handler);
+            if (subs.onceHandlers.size + subs.queueHandlers.size === 0) {
+                delete this.viewSubscriptions[topic];
+            }
+        }
     }
 
     removeAllViewSubscriptionsFor(subscriberId) {
+        const handlerPrefix = `${subscriberId}.`;
         // TODO: optimize this - reverse lookup table?
-        for (const topicSubscribers of Object.values(this.viewSubscriptions)) {
-            for (const handler of topicSubscribers) {
-                if (handler.startsWith(subscriberId)) {
-                    topicSubscribers.delete(handler);
+        for (const [topic, subs] of Object.entries(this.viewSubscriptions)) {
+            for (const kind of ["onceHandlers", "queueHandlers"]) {
+                for (const handler of subs[kind]) {
+                    if (handler.startsWith(handlerPrefix)) {
+                        delete subs[handler];
+                    }
                 }
+            }
+            if (subs.onceHandlers.size + subs.queueHandlers.size === 0) {
+                delete this.viewSubscriptions[topic];
             }
         }
     }
@@ -236,26 +278,49 @@ export default class Island {
         }
         // To ensure model code is executed bit-identically everywhere, we have to notify views
         // later, since different views might be subscribed in different island replicas
-        if (this.viewSubscriptions[topic]) this.modelViewEvents.push({scope, event, data});
+        const topicSubscribers = this.viewSubscriptions[topic];
+        if (topicSubscribers) {
+            this.frameTopics.add(topic);
+            if (topicSubscribers.queueHandlers.size > 0) {
+                topicSubscribers.data.push(data);
+                if (topicSubscribers.data.length % 1000 === 0) console.warn(`${topic} has ${topicSubscribers.data.length} events`);
+            } else topicSubscribers.data[0] = data;
+        }
     }
 
     processModelViewEvents() {
         if (CurrentIsland) throw Error("Island Error");
-        while (this.modelViewEvents.length > 0) {
-            const { scope, event, data } = this.modelViewEvents.shift();
-            this.publishFromView(scope, event, data);
+        // handle subscriptions for all new topics
+        for (const topic of this.frameTopics) {
+            const subscriptions = this.viewSubscriptions[topic];
+            if (subscriptions) {
+                this.handleViewEvents(topic, subscriptions.data);
+                subscriptions.data.length = 0;
+            }
         }
+        this.frameTopics.clear();
     }
 
     publishFromView(scope, event, data) {
         if (CurrentIsland) throw Error("Island Error");
         const topic = scope + ":" + event;
+        this.handleViewEvents(topic, [data]);
+    }
+
+    handleViewEvents(topic, dataArray) {
         // Events published by views can only reach other views
-        if (this.viewSubscriptions[topic]) {
-            for (const handler of this.viewSubscriptions[topic]) {
-                const [subscriberId, method] = handler.split(".");
+        const subscriptions = this.viewSubscriptions[topic];
+        if (subscriptions) {
+            for (const subscriber of subscriptions.queueHandlers) {
+                const [subscriberId, method] = subscriber.split(".");
                 const view = this.viewsById[subscriberId];
-                view[method].call(view, data);
+                for (const data of dataArray) view[method](data);
+            }
+            const data = dataArray[dataArray.length - 1];
+            for (const subscriber of subscriptions.onceHandlers) {
+                const [subscriberId, method] = subscriber.split(".");
+                const view = this.viewsById[subscriberId];
+                view[method](data);
             }
         }
     }
@@ -284,6 +349,43 @@ export default class Island {
         }
         return id;
     }
+
+
+    // HACK: create a clean island, and move all Spatial parts
+    // to their initial position/rotation via reflector.
+    // Also, stop and restart InertialSpatial parts.
+    // Also, reset editable text
+    broadcastInitialState() {
+        const cleanIsland = this.controller.createCleanIsland();
+        for (const [modelId, model] of Object.entries(this.modelsById)) {
+            const cleanModel = cleanIsland.modelsById[modelId];
+            if (!cleanModel) continue;
+            for (const [partId, part] of Object.entries(model.parts)) {
+                const cleanPart = cleanModel.parts[partId];
+                if (!cleanPart) continue;
+                if (part.position && typeof part.moveTo === "function"
+                        && !part.position.equals(cleanPart.position)) {
+                    this.callModelMethod(modelId, partId, "moveTo", [cleanPart.position]);
+                    if (part.inInertiaPhase && typeof part.stop === "function") {
+                        this.callModelMethod(modelId, partId, "stop", []);
+                        if (typeof part.startInertiaPhase === "function") {
+                            // This is such a hack: we need to wait for a tick that "cancels" the future messages
+                            // before we can start it up again. Otherwise we get twice the number of future messages.
+                            setTimeout(() => this.callModelMethod(modelId, partId, "startInertiaPhase", [], 1000));
+                        }
+                    }
+                }
+                if (part.quaternion && typeof part.rotateTo === "function"
+                        && !part.quaternion.equals(cleanPart.quaternion)) {
+                    this.callModelMethod(modelId, partId, "rotateTo", [cleanPart.quaternion]);
+                }
+                if (part.content && typeof part.updateContents === "function"
+                        && part.content !== cleanPart.content) {
+                    this.callModelMethod(modelId, partId, "updateContents", [cleanPart.content]);
+                }
+            }
+        }
+    }
 }
 
 function startReflectorInBrowser() {
@@ -292,10 +394,22 @@ function startReflectorInBrowser() {
     // The following import runs the exact same code that's
     // executing on Node normally. It imports 'ws' which now
     // comes from our own fakeWS.js
-    // ESLint doesn't know about the alias in package.json:
-    // eslint-disable-next-line global-require,import/no-unresolved
-    const server = require("reflector").server; // start up local server
-    socketSetup(new Socket({ server })); // connect to it
+    hotreload.setTimeout(() => {
+        // ESLint doesn't know about the alias in package.json:
+        // eslint-disable-next-line global-require,import/no-unresolved
+        const server = require("reflector").server; // start up local server
+        // eslint-disable-next-line global-require,import/no-extraneous-dependencies
+        const Socket = require("ws").Socket;
+        socketSetup(new Socket({ server })); // connect to it
+    }, 0);
+    // we defer starting the server until hotreload has finished
+    // loading all new modules
+}
+
+export function connectToReflector() {
+    const reflector = "reflector" in urlOptions ? urlOptions.reflector : "wss://dev1.os.vision/reflector-v1";
+    if (reflector && typeof reflector === 'string') socketSetup(new WebSocket(reflector));
+    else startReflectorInBrowser();
 }
 
 function socketSetup(socket) {
@@ -313,6 +427,12 @@ function socketSetup(socket) {
         onclose: event => {
             document.getElementById("error").innerText = 'Connection closed:' + event.code + ' ' + event.reason;
             console.log(socket.constructor.name, "closed:", event.code, event.reason);
+            Controller.leaveAll();
+            if (event.code !== 1000) {
+                // if abnormal close, try to connect again
+                document.getElementById("error").innerText = 'Reconnecting ...';
+                hotreload.setTimeout(connectToReflector, 1000);
+            }
         },
         onmessage: event => {
             Controller.receive(event.data);
@@ -321,9 +441,6 @@ function socketSetup(socket) {
     hotreload.addDisposeHandler("socket", () => socket.readyState !== WebSocket.CLOSED && socket.close(1000, "hotreload "+moduleVersion));
 }
 
-const reflector = "reflector" in urlOptions ? urlOptions.reflector : "wss://dev1.os.vision/reflector-v1";
-if (reflector && typeof reflector === 'string') socketSetup(new WebSocket(reflector));
-else startReflectorInBrowser();
 
 // Controller
 
@@ -332,16 +449,25 @@ let TheSocket = null;
 
 export class Controller {
     // socket was connected, join session for all islands
-    static join(controller, id) {
-        Controllers[id] = controller;
-        if (TheSocket) controller.join(TheSocket, id);
+    static join(controller) {
+        Controllers[controller.id] = controller;
+        if (TheSocket) controller.join(TheSocket);
     }
 
     static joinAll(socket) {
         if (TheSocket) throw Error("TheSocket already set?");
         TheSocket = socket;
-        for (const [id, controller] of Object.entries(Controllers)) {
-            if (!controller.socket) controller.join(socket, id);
+        for (const controller of Object.values(Controllers)) {
+            if (!controller.socket) controller.join(socket);
+        }
+    }
+
+    // socket was disconnected, destroy all islands
+    static leaveAll() {
+        if (!TheSocket) return;
+        TheSocket = null;
+        for (const controller of Object.values(Controllers)) {
+            controller.leave();
         }
     }
 
@@ -365,7 +491,20 @@ export class Controller {
     }
 
     constructor() {
+        this.reset();
+    }
+
+    reset() {
+        /** @type {Island} */
+        this.island = null;
+        /** the (shared) websocket for talking to the reflector */
+        this.socket = null;
+        /** the messages received from reflector */
         this.networkQueue = new AsyncQueue();
+        /** the time of last message received from reflector */
+        this.time = 0;
+        /** the number of concurrent users in our island */
+        this.users = 0;
     }
 
     /**
@@ -380,16 +519,84 @@ export class Controller {
      * @param {{}} snapshot The island's initial state (if hot-reloading)
      * @returns {Promise<Island>}
      */
-    async create(name, creator, snapshot={}) {
-        const {moduleID, creatorFn} = creator;
-        const resumingID = snapshot.id;
-        snapshot.id = await Controller.versionIDFor(name, moduleID);
-        if (resumingID && resumingID !== snapshot.id) console.warn(name, 'resuming snapshot of different version!');
-        console.log(`ID for ${name}: ${snapshot.id}`);
+    async createIsland(name, creator) {
+        const {moduleID, options} = creator;
+        if (options) name += JSON.stringify(Object.values(options)); // include options in hash
+        const id = await Controller.versionIDFor(name, moduleID);
+        console.log(`ID for ${name}: ${id}`);
+        this.islandCreator = {
+            name,
+            ...creator,
+        };
+        if (!this.islandCreator.snapshot) {
+            this.islandCreator.snapshot = { id, time: 0 };
+        }
         return new Promise(resolve => {
-            this.islandCreator = { name, creatorFn, snapshot, callbackFn: resolve };
-            Controller.join(this, snapshot.id);   // when socket is ready, join server
+            this.islandCreator.callbackFn = resolve;
+            Controller.join(this);   // when socket is ready, join server
         });
+    }
+
+    takeSnapshot() {
+        // put all pending messages into future queue
+        this.scheduleAllPendingMessages();
+        return this.island.asState();
+    }
+
+    snapshotUrl() {
+        // name includes JSON options
+        const options = this.islandCreator.name.split(/[^A-Z0-9]+/i);
+        const snapshotName = `${options.filter(_=>_).join('-')}-${this.id}`;
+        const base = baseUrl('snapshots');
+        return `${base}${snapshotName}.json`;
+    }
+
+    /** upload a snapshot to the asset server */
+    async uploadSnapshot(hashes) {
+        if (!this.island) return;
+        if (this.lastSnapshotTime === this.island.time) return;
+        this.lastSnapshotTime = this.island.time;
+        // take snapshot
+        const snapshot = this.takeSnapshot();
+        snapshot.meta = {
+            date: (new Date()).toISOString(),
+            host: window.location.hostname,
+        };
+        if (hashes) snapshot.meta.code = hashes;
+        const string = JSON.stringify(snapshot);
+        const url = this.snapshotUrl();
+        console.log(this.id, `Controller uploading snapshot (${string.length} bytes) to ${url}`);
+        await fetch(url, {
+            method: "PUT",
+            mode: "cors",
+            headers: { "Content-Type": "application/json" },
+            body: string,
+        });
+    }
+
+    async fetchSnapshot() {
+        const url = this.snapshotUrl();
+        const response = await fetch(url, {
+            mode: "cors",
+        });
+        return response.json();
+    }
+
+    async updateSnapshot() {
+        // try to fetch latest snapshot
+        try {
+            const snapshot = await this.fetchSnapshot();
+            if (snapshot.id !== this.id) console.warn(this.id ,'resuming snapshot of different version!');
+            if (snapshot.time > this.islandCreator.snapshot.time) {
+                this.islandCreator.snapshot = snapshot;
+                console.log(this.id, `Controller got snapshot (time: ${Math.floor(snapshot.time)})`);
+            } else {
+                console.log(this.id, "Controller got snapshot but older than local" +
+                    ` (remote: ${Math.floor(snapshot.time)}, local: ${this.islandCreator.snapshot.time})`);
+            }
+        } catch (e) {
+            console.log(this.id, 'Controller got no snapshot');
+        }
     }
 
     /** @type String: this controller's island id */
@@ -399,56 +606,78 @@ export class Controller {
     receive(action, args) {
         switch (action) {
             case 'START': {
-                // we are starting a new island session
+                // We are starting a new island session.
                 console.log(this.id, 'Controller received START - creating island');
                 this.install(false);
                 break;
             }
             case 'SYNC': {
-                // we are joining an island session
+                // We are joining an island session.
                 this.islandCreator.snapshot = args;    // set snapshot
                 console.log(this.id, 'Controller received SYNC - resuming snapshot');
                 this.install(true);
                 break;
             }
             case 'RECV': {
-                console.log(this.id, 'Controller received RECV ' + args);
-                const msg = args;
+                // We received a message from reflector.
+                // Put it in the queue, and set time.
+                // Actual processing happens in main loop.
+                if (DEBUG.messages) console.log(this.id, 'Controller received RECV ' + args);
+                const msg = args;   // [time, seq, payload]
+                const time = msg[0];
+                const seq = msg[1];
+                msg[1] = seq * 2 + 1;  // make odd timeSeq from controller
                 //if (msg.sender === this.senderID) this.addToStatistics(msg);
                 this.networkQueue.put(msg);
+                this.timeFromReflector(time);
                 break;
             }
             case 'TICK': {
-                //console.log(this.id, 'Controller received TICK ' + args);
+                // We received a tick from reflector.
+                // Just set time so main loop knows how far it can advance.
+                if (!this.island) break; // ignore ticks before we are simulating
                 const time = args;
-                this.advanceTo(time);
+                if (DEBUG.ticks) console.log(this.id, 'Controller received TICK ' + time);
+                this.timeFromReflector(time);
                 break;
             }
             case 'SERVE': {
+                if (!this.island) break; // can't serve if we don't have an island
+                // We received a request to serve a current snapshot
                 console.log(this.id, 'Controller received SERVE - replying with snapshot');
+                const snapshot = this.takeSnapshot();
+                // send the snapshot
                 this.socket.send(JSON.stringify({
                     action: args, // reply action
-                    args: this.island.asState(),
+                    args: snapshot,
                 }));
-                // and send a dummy message so that the other guy can play catch up
+                // and send a dummy message so that the other guy can drop
+                // old messages in their controller.install()
                 this.island.sendNoop();
                 break;
             }
-            default: console.log("Unknown action:", action);
+            case 'USERS': {
+                // a user joined or left this island
+                console.log(this.id, 'Controller received USERS', args);
+                this.users = args;
+                break;
+            }
+            default: console.warn("Unknown action:", action, args);
         }
     }
 
     async install(drainQueue=false) {
-        const {snapshot, creatorFn, callbackFn} = this.islandCreator;
-        const newIsland = creatorFn(snapshot);
-        const newTime = newIsland.time;
+        const {snapshot, creatorFn, options, callbackFn} = this.islandCreator;
+        const newIsland = creatorFn(snapshot, options);
+        const snapshotTime = newIsland.time;
+        this.time = snapshotTime;
         // eslint-disable-next-line no-constant-condition
         while (drainQueue) {
             // eslint-disable-next-line no-await-in-loop
             const nextMsg = await this.networkQueue.next();
-            if (nextMsg[0] > newTime) {
+            if (nextMsg[0] > snapshotTime) {
                 // This is the first 'real' message arriving.
-                newIsland.decodeScheduleAndExecute(nextMsg);
+                newIsland.decodeAndSchedule(nextMsg);
                 drainQueue = false;
             }
             // otherwise, silently skip the message
@@ -462,22 +691,41 @@ export class Controller {
         this.island.controller = this;
     }
 
+    // create an island in its initial state
+    createCleanIsland() {
+        const { options, creatorFn } = this.islandCreator;
+        const snapshot = { id: this.id };
+        return creatorFn(snapshot, options);
+    }
+
     // network queue
 
-    join(socket, id) {
-        console.log(id, 'Controller sending JOIN');
+    async join(socket) {
+        await this.updateSnapshot();
+        console.log(this.id, 'Controller sending JOIN');
         this.socket = socket;
         const time = this.islandCreator.snapshot.time || 0;
         socket.send(JSON.stringify({
-            id,
+            id: this.id,
             action: 'JOIN',
             args: time,
         }));
     }
 
+    leave() {
+        const island = this.island;
+        this.reset();
+        if (!this.islandCreator) throw Error("do not discard islandCreator!");
+        const {destroyerFn} = this.islandCreator;
+        if (destroyerFn) {
+            const snapshot = island.asState();
+            destroyerFn(snapshot);
+        }
+    }
+
     sendMessage(msg) {
         // SEND: Broadcast a message to all participants.
-        console.log(this.id, `Controller sending SEND ${msg.asState()}`);
+        if (DEBUG.messages) console.log(this.id, `Controller sending SEND ${msg.asState()}`);
         this.socket.send(JSON.stringify({
             id: this.id,
             action: 'SEND',
@@ -485,21 +733,44 @@ export class Controller {
         }));
     }
 
-    advanceTo(newTime) {
-        if (!this.island) return;    // we are probably still sync-ing
-        this.processMessages();      // process all the messages thus far
-        this.island.advanceTo(newTime);
-    }
-
-    processMessages() {
-        // Process pending messages for this island
-        if (!this.island) return;     // we are probably still sync-ing
+    /** Schedule all messages received from reflector as future messages in island */
+    scheduleAllPendingMessages() {
         let msgData;
         // Get the next message from the (concurrent) network queue
         while ((msgData = this.networkQueue.nextNonBlocking())) {
-            // And have the island decode, schedule, and update to that message
-            this.island.decodeScheduleAndExecute(msgData);
+            // And have the island decode and schedule that message
+            this.island.decodeAndSchedule(msgData);
         }
+    }
+
+    get backlog() { return this.island ? this.time - this.island.time : 0; }
+
+    /**
+     * Process pending messages for this island and advance simulation
+     * @param {Number} deadline CPU time deadline before interrupting simulation
+     */
+    simulate(deadline) {
+        if (!this.island) return;     // we are probably still sync-ing
+        Stats.begin("simulate");
+        let weHaveTime = true;
+        while (weHaveTime) {
+            // Get the next message from the (concurrent) network queue
+            const msgData = this.networkQueue.nextNonBlocking();
+            if (!msgData) break;
+            // have the island decode and schedule that message
+            const msg = this.island.decodeAndSchedule(msgData);
+            // simulate up to that message
+            weHaveTime = this.island.advanceTo(msg.time, deadline);
+        }
+        if (weHaveTime) this.island.advanceTo(this.time, deadline);
+        Stats.end("simulate");
+        Stats.backlog(this.backlog);
+    }
+
+    /** Got the official time from reflector server */
+    timeFromReflector(time) {
+        this.time = time;
+        if (this.island) Stats.backlog(this.backlog);
     }
 }
 
@@ -529,7 +800,7 @@ const transcoders = {
     "*.moveTo": XYZ,
     "*.rotateTo": XYZW,
     "*.onKeyDown": Identity,
-    "*.onContentChanged": Identity,
+    "*.updateContents": Identity,
 };
 
 function encode(receiver, selector, args) {
@@ -585,47 +856,3 @@ class Message {
         });
     }
 }
-
-// TODO: move this back to model.js and declare a dependency on model.js
-// once this pull request is in a Parcel release:
-// https://github.com/parcel-bundler/parcel/pull/2660/
-
-// map model class names to model classes
-let ModelClasses = {};
-
-// Symbol for storing class ID in constructors
-const CLASS_ID = Symbol('CLASS_ID');
-
-function gatherModelClasses() {
-    // HACK: go through all exports and find model subclasses
-    ModelClasses = {};
-    for (const [file, m] of Object.entries(module.bundle.cache)) {
-        for (const cls of Object.values(m.exports)) {
-            if (cls && cls.__isTeatimeModelClass__) {
-                // create a classID for this class
-                const id = `${file}:${cls.name}`;
-                const dupe = ModelClasses[id];
-                if (dupe) throw Error(`Duplicate Model subclass "${id}" in ${file} and ${dupe.file}`);
-                ModelClasses[id] = {cls, file};
-                cls[CLASS_ID] = id;
-            }
-        }
-    }
-}
-
-function classToID(cls) {
-    if (cls[CLASS_ID]) return cls[CLASS_ID];
-    gatherModelClasses();
-    if (cls[CLASS_ID]) return cls[CLASS_ID];
-    throw Error(`Class "${cls.name}" not found, is it exported?`);
-}
-
-function classFromID(classID) {
-    if (ModelClasses[classID]) return ModelClasses[classID].cls;
-    gatherModelClasses();
-    if (ModelClasses[classID]) return ModelClasses[classID].cls;
-    throw Error(`Class "${classID}" not found, is it exported?`);
-}
-
-// flush ModelClasses after hot reload
-hotreload.addDisposeHandler(module.id, () => ModelClasses = {});

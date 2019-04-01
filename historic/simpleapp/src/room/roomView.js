@@ -1,14 +1,15 @@
 import * as THREE from 'three';
 import { ViewPart } from '../modelView.js';
-import WithManipulatorView from '../viewParts/manipulatorView.js';
+import WithManipulator from '../viewParts/manipulatorView.js';
 import { ChildEvents } from '../stateParts/children.js';
 import CameraViewPart from '../viewParts/camera.js';
 import PointerViewPart, { makePointerSensitive, ignorePointer, PointerEvents } from '../viewParts/pointer.js';
 import arrowsAlt from '../../assets/arrows-alt.svg';
 import arrowsAltRot from '../../assets/arrows-alt-rot.svg';
 import SVGIcon from '../util/svgIcon.js';
-import TrackSpatial from '../viewParts/trackSpatial.js';
-import InertialSpatialPart from '../stateParts/inertialSpatial.js';
+import Tracking from '../viewParts/tracking.js';
+import SpatialPart from '../stateParts/spatial.js';
+import Inertial from '../stateParts/inertial.js';
 import { PortalTraverserPart } from '../portal/portalModel.js';
 import { KeyboardViewPart } from './keyboard.js';
 
@@ -19,7 +20,7 @@ export default class RoomView extends ViewPart {
     constructor(modelState, options={}) {
         super(modelState, options);
 
-        this.viewState.parts.cameraSpatial = new InertialSpatialPart();
+        this.viewState.parts.cameraSpatial = new (Inertial(SpatialPart))();
         this.viewState.init({
             cameraSpatial: {
                 position: options.cameraPosition,
@@ -27,12 +28,9 @@ export default class RoomView extends ViewPart {
             }
         });
 
-        this.parts.trackedCamera = new TrackSpatial(this.viewState, {
-            source: "cameraSpatial",
-            inner: new CameraViewPart(modelState, {
-                width: options.width,
-                height: options.height
-            })
+        this.parts.camera = new (Tracking(CameraViewPart, {source: "cameraSpatial"}))(this.viewState, {
+            width: options.width,
+            height: options.height
         });
 
         this.parts.roomScene = new RoomScene(modelState);
@@ -44,15 +42,12 @@ export default class RoomView extends ViewPart {
         });
 
         if (options.activeParticipant) {
-            this.parts.pointer = new PointerViewPart(modelState, {cameraPart: this.lookUp("trackedCamera.inner"), scenePart: this.parts.roomScene});
+            this.parts.pointer = new PointerViewPart(modelState, {cameraPart: this.parts.camera, scenePart: this.parts.roomScene});
             this.parts.keyboard = new KeyboardViewPart(modelState, {});
-            this.parts.treadmill = new TrackSpatial(this.viewState, {
-                source: "cameraSpatial",
-                inner: new TreadmillNavigation(this.viewState, {
-                    affects: "cameraSpatial",
-                    scenePart: this.parts.roomScene,
-                    cameraPart: this.lookUp("trackedCamera.inner"),
-                })
+            this.parts.treadmill = new (Tracking(TreadmillNavigation, {source: "cameraSpatial"}))(this.viewState, {
+                affects: "cameraSpatial",
+                scenePart: this.parts.roomScene,
+                cameraPart: this.parts.camera,
             });
         }
     }
@@ -104,8 +99,7 @@ class ObjectViewManager extends ViewPart {
     onObjectAdded(object) {
         const NaturalView = object.naturalViewClass("in-room");
         /** @type {View} */
-        const innerView = new NaturalView(object, {});
-        const view = new WithManipulatorView(object, {inner: innerView});
+        const view = new (WithManipulator(NaturalView))(object, {});
         this.viewsForObjects[object.id] = view;
         this.scenePart.threeObj.add(...view.threeObjs());
     }

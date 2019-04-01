@@ -6,6 +6,7 @@
   "scripts": {
     "start": "parcel ./assets/index.html -p 9000 --host 0.0.0.0",
     "bundle": "rm -f bundled/* && parcel build ./assets/index.html -d bundled --public-url . --no-source-maps",
+    "deploy": "./deploy.sh",
     "lint": "eslint src",
     "docs": "jsdoc src -r -d docs"
   },
@@ -28,7 +29,9 @@
   },
   "dependencies": {
     "array-flat-polyfill": "^1.0.0",
+    "broadcast-channel": "^2.1.10",
     "fastpriorityqueue": "^0.6.1",
+    "hashids": "^1.2.2",
     "linebreak": "^0.3.0",
     "seedrandom": "^2.4.4",
     "three": "^0.101.1",

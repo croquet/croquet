@@ -4,7 +4,7 @@ import lineHandle from "../../assets/line-handle.svg";
 import rotateHandle from "../../assets/rotate-handle.svg";
 import { PointerEvents, makePointerSensitive } from "./pointer.js";
 import { ViewPart } from "../modelView.js";
-import TrackSpatial from "./trackSpatial.js";
+import Tracking from "./tracking.js";
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
@@ -88,15 +88,14 @@ class ManipulatorViewPart extends ViewPart {
     }
 }
 
-export default class WithManipulatorView extends ViewPart {
-    constructor(modelState, options) {
-        super(modelState, options);
-        this.parts = {
-            inner: options.inner,
-            manipulator: new TrackSpatial(modelState, {
-                inner: new ManipulatorViewPart(modelState, {}),
-                scale: false
-            })
-        };
-    }
+export default function WithManipulator(BaseViewPart) {
+    return class WithManipulatorView extends ViewPart {
+        constructor(modelState, options) {
+            super(modelState, {});
+            this.parts = {
+                inner: new BaseViewPart(modelState, options),
+                manipulator: new (Tracking(ManipulatorViewPart, {scale: false}))(modelState, {})
+            };
+        }
+    };
 }

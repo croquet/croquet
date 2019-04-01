@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { TextGeometry, HybridMSDFShader } from 'three-bmfont-text';
 import LineBreaker from 'linebreak';
+import { rendererVersion } from '../render.js';
 import LazyObject3D from "../util/lazyObject3D.js";
 import { ViewPart } from '../modelView.js';
 import { TextEvents } from '../stateParts/text.js';
@@ -91,6 +92,7 @@ export default class TextViewPart extends ViewPart {
                     side: THREE.DoubleSide,
                     transparent: true,
                     color: 'rgb(0, 0, 0)',
+                    version: rendererVersion.shaderLanguageVersion,
                     negate: true
                 }));
             if (!DEBUG_GLYPH_GEOMETRY) {
@@ -130,24 +132,24 @@ export default class TextViewPart extends ViewPart {
     }
 }
 
-export class TrackText extends ViewPart {
-    constructor(modelState, options) {
-        options = {source: "text", ...options};
-        super(modelState, options);
-        this.modelSource = options.modelSource;
-        /** @type {TextViewPart} */
-        this.parts = {inner: options.inner};
-        const modelPart = modelState.lookUp(options.source);
-        this.parts.inner.update({content: modelPart.content, font: modelPart.font});
-        this.subscribe(TextEvents.contentChanged, "onContentChanged", modelState.id);
-        this.subscribe(TextEvents.fontChanged, "onFontChanged", modelState.id);
-    }
+export function TextTracking(BaseTextViewPart, textTrackingOptions={}) {
+    textTrackingOptions = {source: "text", ...textTrackingOptions};
 
-    onContentChanged(newContent) {
-        this.parts.inner.update({content: newContent});
-    }
+    return class TrackingTextViewPart extends BaseTextViewPart {
+        constructor(modelState, options) {
+            super(modelState, options);
+            const modelPart = modelState.lookUp(textTrackingOptions.source);
+            this.update({content: modelPart.content, font: modelPart.font});
+            this.subscribe(TextEvents.contentChanged, "onContentChanged", modelPart.id);
+            this.subscribe(TextEvents.fontChanged, "onFontChanged", modelPart.id);
+        }
 
-    onFontChanged(newFont) {
-        this.parts.inner.update({font: newFont});
-    }
+        onContentChanged(newContent) {
+            this.update({content: newContent});
+        }
+
+        onFontChanged(newFont) {
+            this.update({font: newFont});
+        }
+    };
 }

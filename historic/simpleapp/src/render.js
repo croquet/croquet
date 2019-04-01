@@ -10,39 +10,49 @@ export const RENDER_LAYERS = {
     INDIVIDUAL_PORTAL: 2,
 };
 
+export const rendererVersion = {renderingContextVersion: '2', shaderLanguageVersion: '300'};
+
 export default class Renderer {
     constructor(width, height) {
-    const contextAttributes = {
-        alpha: false,
-        depth: true,
-        stencil: true,
-        antialias: true,
-        premultipliedAlpha: true,
-        preserveDrawingBuffer: false,
-        powerPreference: "default"
-    };
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext("webgl2", contextAttributes);
+        const contextAttributes = {
+            alpha: false,
+            depth: true,
+            stencil: true,
+            antialias: true,
+            premultipliedAlpha: true,
+            preserveDrawingBuffer: false,
+            powerPreference: "default"
+        };
 
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext("webgl2", contextAttributes);
         this.renderer = new THREE.WebGLRenderer({canvas, context});
         this.renderer.autoClearStencil = false;
         this.renderer.autoClearDepth = false;
         this.renderer.autoClearColor = false;
         this.renderer.autoClear = false;
+        this.renderer.localClippingEnabled = true;
+        //this.renderer.setPixelRatio(window.devicePixelRatio);
         this.changeViewportSize(width, height);
         document.body.appendChild(this.renderer.domElement);
+        if (this.renderer.context) {
+            if (this.renderer.context.constructor === window.WebGLRenderingContext) {
+                rendererVersion.renderingContextVersion = '1';
+                rendererVersion.shaderLanguageVersion = '100';
+            }
+        }
     }
 
     changeViewportSize(width, height) {
         this.renderer.setSize(width, height);
     }
 
-    render(room, allIslands, roomViewManager) {
+    render(room, allRooms, getIsland, roomViewManager) {
         const currentRoomView = roomViewManager.expect(room);
         // Portal rendering technique inspired by https://github.com/zadvorsky/three.portals/blob/master/src/THREE.PortalController.js
         const mainScene = currentRoomView.parts.roomScene.threeObj;
         /** @type {THREE.Camera} */
-        const mainCamera = currentRoomView.lookUp("trackedCamera.inner").threeObj;
+        const mainCamera = currentRoomView.parts.camera.threeObj;
 
         /** @type {PortalViewPart[]} */
         const portalViewParts = Object.values(currentRoomView.parts.objectViewManager.viewsForObjects)
@@ -92,12 +102,12 @@ export default class Renderer {
             gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
 
             const portalPart = portalViewPart.viewState.parts.clonedPortal;
-            const portalTargetRoomView = roomViewManager.requestPassive(portalPart.there, allIslands);
+            const portalTargetRoomView = roomViewManager.requestPassive(portalPart.there, allRooms, getIsland);
 
             if (portalTargetRoomView) {
                 const portalTargetScene = portalTargetRoomView.parts.roomScene.threeObj;
                 /** @type {THREE.Camera} */
-                const portalTargetCamera = portalTargetRoomView.parts.trackedCamera.parts.inner.threeObj;
+                const portalTargetCamera = portalTargetRoomView.parts.camera.threeObj;
 
                 const {targetPosition, targetQuaternion} = portalPart.projectThroughPortal(mainCamera.position, mainCamera.quaternion);
                 portalTargetCamera.position.copy(targetPosition);

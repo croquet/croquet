@@ -1,8 +1,8 @@
 import {StatePart, ViewPart} from "../modelView.js";
 import TextPart from "../stateParts/text.js";
 import SpatialPart from "../stateParts/spatial.js";
-import TextViewPart, { TrackText } from "../viewParts/text.js";
-import TrackSpatial from "../viewParts/trackSpatial.js";
+import TextViewPart, { TextTracking } from "../viewParts/text.js";
+import Tracking from "../viewParts/tracking.js";
 
 /** Model for a simple text display */
 export class TextObject extends StatePart {
@@ -22,11 +22,7 @@ export class TextObjectView extends ViewPart {
     constructor(modelState, options) {
         super(modelState, options);
         this.parts = {
-            main: new TrackSpatial(modelState, {
-                inner: new TrackText(modelState, {inner:
-                    new TextViewPart(modelState, {fontSize: 0.4})
-                })
-            })
+            main: new (Tracking(TextTracking(TextViewPart)))(modelState, {fontSize: 0.4})
         };
     }
 }

@@ -10,15 +10,23 @@ export const TextEvents = {
 
 export default class EditableTextPart extends StatePart {
     applyState(state={}) {
-        this.content = state.content || [];
-        this.subscribe(TextEvents.viewContentChanged, "onContentChanged");
+        this.content = state.content || {content: [], selection: {start: 0, end: 0}};
     }
 
     toState(state) {
         state.content = this.content;
     }
 
-    onContentChanged(newContent) {
+    updateContents(newContent) {
         this.content = newContent;
+        this.publish(TextEvents.modelContentChanged, this.content);
+    }
+
+    plaintext(content) {
+        return content.content.map(c => c.text || "").join('');
+    }
+
+    acceptContent() {
+        console.log("accept");
     }
 }

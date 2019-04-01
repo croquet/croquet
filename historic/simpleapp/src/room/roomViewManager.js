@@ -32,13 +32,13 @@ export default class RoomViewManager {
         portalTraverserHandler.enable();
     }
 
-    request(roomName, allIslands, {cameraPosition, cameraQuaternion, overrideCamera}, onTraversedPortalView) {
+    request(roomName, allRooms, {cameraPosition, cameraQuaternion, overrideCamera}, onTraversedPortalView) {
         if (this.activeRoomViews[roomName]) {
             if (overrideCamera) {
                 this.moveCamera(roomName, cameraPosition, cameraQuaternion);
             }
         } else {
-            const island = allIslands[roomName];
+            const island = allRooms[roomName].island;
             const room = island.get("room");
 
             inViewRealm(island, () => {
@@ -70,11 +70,11 @@ export default class RoomViewManager {
         return roomView;
     }
 
-    requestPassive(roomName, allIslands, initialCameraPosition) {
+    requestPassive(roomName, allRooms, getIsland, initialCameraPosition) {
         if (!this.passiveRoomViews[roomName]) {
-            const island = allIslands[roomName];
+            const island = allRooms[roomName].island;
 
-            if (!island) {return null;}
+            if (!island) { getIsland(roomName); return null; }
 
             const room = island.get("room");
 
@@ -92,6 +92,17 @@ export default class RoomViewManager {
         return this.passiveRoomViews[roomName];
     }
 
+    detach(roomName) {
+        if (this.activeRoomViews[roomName]) {
+            this.activeRoomViews[roomName].detach();
+            delete this.activeRoomViews[roomName];
+        }
+        if (this.passiveRoomViews[roomName]) {
+            this.passiveRoomViews[roomName].detach();
+            delete this.passiveRoomViews[roomName];
+        }
+    }
+
     detachAll() {
         for (const roomView of Object.values(this.activeRoomViews)) {
             roomView.detach();
@@ -99,5 +110,7 @@ export default class RoomViewManager {
         for (const roomView of Object.values(this.passiveRoomViews)) {
             roomView.detach();
         }
+        this.activeRoomViews = {};
+        this.passiveRoomViews = {};
     }
 }

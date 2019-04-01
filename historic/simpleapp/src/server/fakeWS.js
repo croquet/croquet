@@ -23,7 +23,7 @@ class CallbackHandler {
         const callback = this._callbacks[event];
         if (callback) {
             if (event === 'close') callback(...args);  // needs to be sync for hot reload dispose
-            else hotreload.setTimeout(() => callback(...args));
+            else hotreload.promiseResolveThen(() => callback(...args));    // async but in order
         }
     }
 }

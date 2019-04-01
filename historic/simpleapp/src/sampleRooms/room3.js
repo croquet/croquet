@@ -11,9 +11,27 @@ function initRoom3(state) {
         island.set("room", room);
         const text1 = new CarotaEditorObject().init({
             spatial: { position: {x: -3, y: 1, z: 0} },
-            text: { content: [{text: "man is much more than a tool builder... he is an inventor of universes... Except the real one."}], font: "Roboto", numLines: 10, width: 3, height: 2}
+            text: {
+                content: {
+                    content: [{text: "man is much more than a tool builder... he is an inventor of universes... Except the real one."}],
+                    selection: {start: 0, end: 0},
+                },
+                font: "Roboto", numLines: 10, width: 3, height: 2
+            }
         });
         room.parts.objects.add(text1);
+
+        const text2 = new CarotaEditorObject().init({
+            spatial: { position: {x: 3, y: 1, z: 0} },
+            text: {
+                content: {
+                    content: [{text: "man is much more than a tool builder... he is an inventor of universes..."}],
+                    selection: {start: 0, end: 0},
+                },
+                font: "Barlow", numLines: 10, width: 3, height: 2
+            }
+        });
+        room.parts.objects.add(text2);
     });
 }
 
