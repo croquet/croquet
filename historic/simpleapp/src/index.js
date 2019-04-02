@@ -24,7 +24,21 @@ const defaultRoom = window.location.hostname === "croquet.studio" ? "bounce" : "
 let codeHashes = null;
 
 /** The main function. */
-function start() {
+async function start() {
+
+    if (urlOptions.replay) {
+        console.warn("Replaying snapshot, overriding all other options");
+        const response = await fetch(urlOptions.replay, { mode: "cors" });
+        const snapshot = await response.json();
+        for (const key of Object.keys(urlOptions)) delete urlOptions[key];
+        Object.assign(urlOptions, snapshot.meta.options);
+        urlOptions.reflector = false;
+        urlOptions.upload = false;
+        hotState.currentRoomName = snapshot.meta.room;
+        hotState.islands = { [snapshot.meta.room]: snapshot };
+    }
+
+
     // start websocket connection
     connectToReflector();
 
@@ -41,7 +55,8 @@ function start() {
     // if hot-reloading, store the island snapshots in the room creators
     for (const [roomName, room] of Object.entries(ALL_ROOMS)) {
         if (!room.creator.snapshot && hotState.islands && hotState.islands[roomName]) {
-            room.creator.snapshot = JSON.parse(hotState.islands[roomName]);
+            const snapshot = hotState.islands[roomName];
+            room.creator.snapshot = typeof snapshot === "string" ? JSON.parse(snapshot) : snapshot;
         }
     }
 
@@ -52,6 +67,7 @@ function start() {
             if (!ROOM) throw Error("Unknown room: " + roomName);
             if (ROOM.islandPromise) return ROOM.islandPromise;
             const creator = ROOM.creator;
+            creator.room = roomName;
             if (!creator.options) creator.options = {};
             for (const opt of ["owner","session"]) {
                 if (urlOptions[opt]) creator.options[opt] = urlOptions[opt];
