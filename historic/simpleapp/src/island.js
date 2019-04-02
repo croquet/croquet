@@ -563,6 +563,8 @@ export class Controller {
         const snapshot = this.takeSnapshot();
         snapshot.meta = {
             ...this.islandCreator.snapshot.meta,
+            room: this.islandCreator.room,
+            options: this.islandCreator.options,
             date: (new Date()).toISOString(),
             host: window.location.hostname,
         };
