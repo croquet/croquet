@@ -407,8 +407,8 @@ async function startReflectorInBrowser() {
     socketSetup(new Socket({ server })); // connect to it
 }
 
-export function connectToReflector() {
-    const reflector = "reflector" in urlOptions ? urlOptions.reflector : "wss://dev1.os.vision/reflector-v1";
+export function connectToReflector(reflector = "wss://dev1.os.vision/reflector-v1") {
+    if ("reflector" in urlOptions) reflector = urlOptions.reflector;
     if (reflector && typeof reflector === 'string') socketSetup(new WebSocket(reflector));
     else startReflectorInBrowser();
 }
