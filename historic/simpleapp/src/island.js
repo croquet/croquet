@@ -534,6 +534,7 @@ export class Controller {
         if (!this.islandCreator.snapshot) {
             this.islandCreator.snapshot = { id, time: 0, meta: { created: (new Date()).toISOString() } };
         }
+        if (this.islandCreator.snapshot.id !== id) console.warn(`Resuming snapshot on different code base!`);
         return new Promise(resolve => {
             this.islandCreator.callbackFn = resolve;
             Controller.join(this);   // when socket is ready, join server
