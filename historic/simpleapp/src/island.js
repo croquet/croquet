@@ -390,22 +390,21 @@ export default class Island {
     }
 }
 
-function startReflectorInBrowser() {
+async function startReflectorInBrowser() {
     document.getElementById("error").innerText = 'No Connection';
     console.log("no connection to server, setting up local server");
+    // we defer starting the server until hotreload has finished
+    // loading all new modules
+    await hotreload.waitTimeout(0);
     // The following import runs the exact same code that's
     // executing on Node normally. It imports 'ws' which now
     // comes from our own fakeWS.js
-    hotreload.setTimeout(() => {
-        // ESLint doesn't know about the alias in package.json:
-        // eslint-disable-next-line global-require,import/no-unresolved
-        const server = require("reflector").server; // start up local server
-        // eslint-disable-next-line global-require,import/no-extraneous-dependencies
-        const Socket = require("ws").Socket;
-        socketSetup(new Socket({ server })); // connect to it
-    }, 0);
-    // we defer starting the server until hotreload has finished
-    // loading all new modules
+    // ESLint doesn't know about the alias in package.json:
+    // eslint-disable-next-line global-require,import/no-unresolved
+    const server = require("reflector").server; // start up local server
+    // eslint-disable-next-line global-require,import/no-extraneous-dependencies
+    const Socket = require("ws").Socket;
+    socketSetup(new Socket({ server })); // connect to it
 }
 
 export function connectToReflector() {

@@ -12,6 +12,10 @@ function promiseResolveThen(fn) {
     Promise.resolve().then(() => promisesOK && fn());
 }
 
+function waitTimeout(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 function setTimeout(fn, ms) {
     const handle = window.setTimeout((...args) => {
         timeoutHandles.delete(handle);
@@ -73,6 +77,7 @@ window.onbeforeunload = callDisposeHandlers;
 
 export default {
     promiseResolveThen,
+    waitTimeout,
     setTimeout,
     setInterval,
     requestAnimationFrame,
