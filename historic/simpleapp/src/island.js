@@ -649,6 +649,7 @@ export class Controller {
             }
             case 'SERVE': {
                 if (!this.island) break; // can't serve if we don't have an island
+                if (this.backlog > 1000) break; // don't serve if we're not up-to-date
                 // We received a request to serve a current snapshot
                 console.log(this.id, 'Controller received SERVE - replying with snapshot');
                 const snapshot = this.takeSnapshot();
