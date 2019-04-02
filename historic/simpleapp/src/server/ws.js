@@ -52,7 +52,7 @@ function discovered(port) {
     const me = serverPort === myPort ? "(me)" : "(not me)";
     console.log("Channel: discovered", serverPort, me);
     document.getElementById("error").innerText = 'Using in-browser reflector ' + me;
-    while (whenDiscovered.length) whenDiscovered.shift()();
+    while (whenDiscovered.length) whenDiscovered.shift()(serverPort);
 }
 
 // This is the central message handler listening to the shared channel
@@ -152,8 +152,8 @@ export class Socket extends CallbackHandler {
         this._otherEnd = null;
         // if we were given a server, connect to it
         if (options.server) {
-            this.url = options.server._url;
-            this._connectToServer(options.server);
+            this.url = options.server;
+            this._connectToServerUrl(options.server);
         }
     }
 
@@ -204,6 +204,7 @@ export class Socket extends CallbackHandler {
     _connectViaChannelTo(socket) {
         if (this.remotePort !== myPort) throw Error("wrong direction of connecting");
         this.remotePort = socket.remotePort;
+        this.url = `channel://server:${this.remotePort}`;
         channelSockets[this.remotePort] = this;
         console.log('Channel: registering remote socket', this.remotePort);
         this.readyState = WebSocket.OPEN;
@@ -215,19 +216,25 @@ export class Socket extends CallbackHandler {
         this._callback('message', { data });
     }
 
-    _connectToServer(server) {
+    _connectToServerUrl(serverUrl) {
+        const port = Number.parseInt(serverUrl.match(/:([0-9]+)/)[1], 10);
+        if (port) { this._connectToServerPort(port); return; }
         // kick off discovery of server
         if (serverPort !== NO_SERVER) throw Error("Channel: why is there a server?");
-        discover(50, () => {
-            // if we are the active server, connect directly to it
-            if (serverPort === myPort) server._accept(this);
-            else {
-                // otherwise connect via broadcast channel
-                channelSockets[serverPort] = this;
-                channel._post("connect", { to: serverPort, client: myPort });
-                // will be connected in "accept" handler
-            }
+        discover(50, discoveredPort => {
+            this._connectToServerPort(discoveredPort);
         });
+    }
+
+    _connectToServerPort(port) {
+        // if we are the active server, connect directly to it
+        if (port === myPort) myServer._accept(this);
+        else {
+            // otherwise connect via broadcast channel
+            channelSockets[port] = this;
+            channel._post("connect", { to: port, client: myPort });
+            // will be connected in "accept" handler
+        }
     }
 }
 
@@ -253,7 +260,7 @@ export class Server extends CallbackHandler {
 
     constructor(options = {}) {
         super();
-        this.options = { ...options, host: 'channel-server', port: myPort };
+        this.options = { ...options, host: 'server', port: myPort };
         this.clients = new Set();
         myServer = this;
     }
@@ -269,6 +276,7 @@ export class Server extends CallbackHandler {
     // Private
 
     _accept(socket) {
+        socket.url = this._url;
         const client = new Client(socket, this.options, this);
         this.clients.add(client);
         const request = { connection: socket };

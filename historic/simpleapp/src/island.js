@@ -1,7 +1,6 @@
 import SeedRandom from "seedrandom";
 import PriorityQueue from "./util/priorityQueue.js";
 import AsyncQueue from './util/asyncQueue.js';
-import urlOptions from "./util/urlOptions.js";
 import hotreload from "./hotreload.js";
 import { hashModelCode, baseUrl } from "./modules.js";
 import Model from "./model.js";
@@ -390,9 +389,10 @@ export default class Island {
     }
 }
 
+
 async function startReflectorInBrowser() {
     document.getElementById("error").innerText = 'No Connection';
-    console.log("no connection to server, setting up local server");
+    console.log("Starting in-browser reflector");
     // we defer starting the server until hotreload has finished
     // loading all new modules
     await hotreload.waitTimeout(0);
@@ -401,16 +401,27 @@ async function startReflectorInBrowser() {
     // comes from our own fakeWS.js
     // ESLint doesn't know about the alias in package.json:
     // eslint-disable-next-line global-require,import/no-unresolved
-    const server = require("reflector").server; // start up local server
-    // eslint-disable-next-line global-require,import/no-extraneous-dependencies
-    const Socket = require("ws").Socket;
-    socketSetup(new Socket({ server })); // connect to it
+    require("reflector"); // start up local server
+    // we could return require("reflector").server._url
+    // to connect to our server.
+    // However, we want to discover servers in other tabs
+    // so we use the magic port 0 to connect to that.
+    return 'channel://server:0/';
 }
 
-export function connectToReflector(reflector = "wss://dev1.os.vision/reflector-v1") {
-    if ("reflector" in urlOptions) reflector = urlOptions.reflector;
-    if (reflector && typeof reflector === 'string') socketSetup(new WebSocket(reflector));
-    else startReflectorInBrowser();
+function newInBrowserSocket(server) {
+    // eslint-disable-next-line global-require,import/no-extraneous-dependencies
+    const Socket = require("ws").Socket;
+    return new Socket({ server });
+}
+
+export async function connectToReflector(reflectorUrl) {
+    let socket;
+    if (typeof reflectorUrl !== "string") reflectorUrl = await startReflectorInBrowser();
+    if (reflectorUrl.match(/^wss?:/)) socket = new WebSocket(reflectorUrl);
+    else if (reflectorUrl.match(/^channel:/)) socket = newInBrowserSocket(reflectorUrl);
+    else throw Error('Cannot interpret reflector address ' + reflectorUrl);
+    socketSetup(socket);
 }
 
 function socketSetup(socket) {

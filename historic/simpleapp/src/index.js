@@ -25,6 +25,8 @@ let codeHashes = null;
 
 /** The main function. */
 async function start() {
+    let reflector = "wss://dev1.os.vision/reflector-v1";
+    if ("reflector" in urlOptions) reflector = urlOptions.reflector;
 
     if (urlOptions.replay) {
         console.warn("Replaying snapshot, overriding all other options");
@@ -32,15 +34,13 @@ async function start() {
         const snapshot = await response.json();
         for (const key of Object.keys(urlOptions)) delete urlOptions[key];
         Object.assign(urlOptions, snapshot.meta.options);
-        urlOptions.reflector = false;
         urlOptions.upload = false;
         hotState.currentRoomName = snapshot.meta.room;
         hotState.islands = { [snapshot.meta.room]: snapshot };
     }
 
-
     // start websocket connection
-    connectToReflector();
+    connectToReflector(reflector);
 
     // upload changed code files
     if (urlOptions.upload !== false) uploadCode(module.id).then(hashes => codeHashes = hashes);
