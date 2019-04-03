@@ -854,7 +854,8 @@ const transcoders = {
     "*#updateContents": Identity,
 };
 
-function encode(receiver, selector, args) {
+function encode(receiver, part, selector, args) {
+    if (!part) part = '';
     if (args.length > 0) {
         const transcoder = transcoders[`${receiver}#${selector}`] || transcoders[`*#${selector}`] || transcoders['*'];
         if (!transcoder) throw Error(`No transcoder defined for ${receiver}#${selector}`);
@@ -864,8 +865,8 @@ function encode(receiver, selector, args) {
 }
 
 function decode(payload) {
-    const [_, msg, argString] = payload.match(/^([^[]+)(\[.*)?$/);
-    const [receiver, selector] = msg.split('#');
+    const [_, msg, argString] = payload.match(/^([a-z0-9.]+)(.*)$/i);
+    const [receiver, part, selector] = msg.split('.');
     let args = [];
     if (argString) {
         const transcoder = transcoders[`${receiver}#${selector}`] || transcoders[`*#${selector}`] || transcoders['*'];
