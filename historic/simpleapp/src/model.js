@@ -1,5 +1,6 @@
 import { PartOwner } from "./parts.js";
 import Island from "./island.js";
+import { fileHashes } from "./modules.js";
 import hotreload from "./hotreload.js";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
@@ -108,7 +109,9 @@ function gatherModelClasses() {
         for (const cls of Object.values(m.exports)) {
             if (cls && cls.__isTeatimeModelClass__) {
                 // create a classID for this class
-                const id = `${file}:${cls.name}`;
+                const hash = fileHashes[file];
+                if (!hash) throw Error(`Missing file hash for ${file}`);
+                const id = `${hash}:${cls.name}`;
                 const dupe = ModelClasses[id];
                 if (dupe) throw Error(`Duplicate Model subclass "${id}" in ${file} and ${dupe.file}`);
                 ModelClasses[id] = {cls, file};

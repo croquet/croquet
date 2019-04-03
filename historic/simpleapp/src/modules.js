@@ -146,10 +146,11 @@ async function hashString(string) {
     return hashBuffer(buffer);
 }
 
-let fileHashes = {};
-hotreload.addDisposeHandler("fileHashes", () => fileHashes = {});
+export const fileHashes = {};
 
-async function hashFile(mod) {
+hotreload.addDisposeHandler("fileHashes", () => { for (const f of (Object.keys(fileHashes))) delete fileHashes[f]; });
+
+export async function hashFile(mod) {
     if (fileHashes[mod]) return fileHashes[mod];
     const source = sourceCodeOf(mod);
     return fileHashes[mod] = await hashString(source);
