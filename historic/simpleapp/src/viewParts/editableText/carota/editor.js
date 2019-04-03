@@ -78,6 +78,18 @@ export class Carota extends Doc {
     }
   }
 
+  setUserID(string) {
+    if (this.transformer) {
+        this.transformer.setUserID(string);
+    }
+  }
+
+  getUserID(string) {
+    if (this.transformer) {
+        return this.transformer.userID;
+    }
+  }
+
   get showsScrollbar() { return this._showsScrollbar; }
   set showsScrollbar(val) { this._showsScrollbar = val; this.paint(); }
   get_isScrollable() { return this._isScrollable; }
@@ -367,11 +379,11 @@ Carota.prototype.keyDown = function(event) {
 Carota.prototype.keyPress = function(event, onFilter) {
   if(event.charCode === 13)doc.insert('\n')
   else if(!(event.ctrlKey || event.metaKey))doc.insert(String.fromCharCode(event.charCode));
-}
+};
 
 Carota.prototype.handleKey = function(key, selecting, ctrlKey) {
    return handleKey(this, key, selecting, ctrlKey);
-}
+};
 
 Carota.prototype.backspace = function(start, end) {
     let doc = this;
@@ -380,9 +392,10 @@ Carota.prototype.backspace = function(start, end) {
         doc.focusChar = start - 1;
         doc.select(doc.focusChar, doc.focusChar);
     } else {
-        doc.insert("");
+        doc.range(start, end).clear();
+        doc.select(start, start);
     }
-}
+};
 
 var toggles = {
   66: 'bold',

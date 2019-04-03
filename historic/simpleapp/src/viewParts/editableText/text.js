@@ -7,13 +7,14 @@ import { PointerEvents, makePointerSensitive, TrackPlaneEvents, TrackPlaneTopic 
 import { Carota } from './carota/editor.js';
 import { fontRegistry } from '../../util/fontRegistry.js';
 import { KeyboardEvents, KeyboardTopic } from '../../domKeyboardManager.js';
+import getUserID from '../../userid.js';
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
 export default class EditableTextViewPart extends Object3D {
     fromOptions(options) {
-        options = {content: {content: [], selections: {"1": {start: 0, end: 0}}, timezone: 0}, glyphs: [], font: "Roboto", width: 3, height: 2, numLines: 10, drawnRects: [], editable: true, showSelection: true, ...options};
+        options = {content: {content: [], selections: {}, timezone: 0}, glyphs: [], font: "Roboto", width: 3, height: 2, numLines: 10, drawnRects: [], editable: true, showSelection: true, ...options};
         this.modelSource = options.modelSource;
         this.changeInitiatedByView = true;
         this.options = options;
@@ -59,11 +60,17 @@ export default class EditableTextViewPart extends Object3D {
         this.editor = new Carota(this.options.width, this.options.height, this.options.numLines);
         this.editor.isScrollable = true;  // unless client decides otherwise
 
+        this.editor.setUserID(getUserID());
+
         this.editor.mockCallback = ctx => {
             const glyphs = this.processMockContext(ctx);
             this.update({glyphs, corners: this.editor.visibleTextBounds(), scaleX: this.editor.scaleX, scrollTop: this.editor.scrollTop, frameHeight: this.editor.frame.height, drawnRects: ctx.filledRects});
         };
     }
+
+    mySelection() {
+        return this.options.content.selections[this.editor.getUserID()] || {start: 0, end: 0};
+    }       
 
     processMockContext(ctx) {
         const layout = fontRegistry.getMeasurer(this.options.font);
@@ -106,7 +113,8 @@ export default class EditableTextViewPart extends Object3D {
         const callback = () => this.onTextChanged();
         this.editor.setSubscribers(callback);
         this.editor.load(this.options.content.content);
-        this.editor.select(this.options.content.selections[1].start, this.options.content.selections[1].end);
+        let selection = this.mySelection();
+        this.editor.select(selection.start, selection.end);
         this.initSelectionMesh();
         this.initScrollBarMesh();
         this.initialUpdate();
@@ -306,8 +314,13 @@ export default class EditableTextViewPart extends Object3D {
             this.changeIniftiatedByView = false;
             this.editor.delayPaint = false;
             this.editor.load(newContent.content);
-            this.editor.select(newContent.selections[1].start,
-                               newContent.selections[1].end);
+
+            for (let k in newContent.selections) {
+                let selection = newContent.selections[k];
+                let color;
+                this.editor.select(selection.start,
+                                   selection.end);
+            }
             this.editor.paint();
         } finally {
             this.changeInitiatedByView = true;

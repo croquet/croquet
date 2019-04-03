@@ -11,7 +11,7 @@ export const TextEvents = {
 
 export default class EditableTextPart extends StatePart {
     fromState(state={}) {
-        this.content = state.content || {content: [], selections: {'1': {start: 0, end: 0}}, timezone: 0, queue: []};
+        this.content = state.content || {content: [], selections: {}, timezone: 0, queue: []};
         window.model = this;
     }
 
@@ -64,17 +64,16 @@ export default class EditableTextPart extends StatePart {
                 if (o.type === "insert") {
                     if (n.pos > o.pos) {
                         return Object.assign({}, n, {pos: n.pos + len});
-                    } else {
-                        return n;
                     }
+                    return n;
                 } else if (o.type === "erase") {
                     if (n.pos < o.start) {
                         return n;
-                    } else if (o.start <= n.pos && n.pos < o.end) {
-                        return Object.assign({}, n, {pos: o.start});
-                    } else {
-                        return Object.assign({}, n, {pos: n.pos - len});
                     }
+                    if (o.start <= n.pos && n.pos < o.end) {
+                        return Object.assign({}, n, {pos: o.start});
+                    }
+                    return Object.assign({}, n, {pos: n.pos - len});
                 }
             } else if (n.type === "erase") {
                 if (o.type === "insert") {
@@ -109,7 +108,8 @@ export default class EditableTextPart extends StatePart {
 
         let queue = this.content.queue;
         let sendQueue = [];
-        // events in events  should all be in the same timezone
+        let unseenIDs = Object.assign({}, this.content.selections);
+        // all events in variable 'events' should be in the same timezone
         let ind = findFirst(queue, events[0]);
         events.forEach(event => {
             let t = event;
@@ -124,6 +124,14 @@ export default class EditableTextPart extends StatePart {
         });
 
         ind = queue.findIndex(e => e.timezone < this.content.timezone - 60);
+
+        for (let i = 0; i < ind; i++) {
+            let e = queue[i];
+            delete unseenIDs[e.user];
+        }
+        for (let k in unseenIDs) {
+            delete this.content.selections[k];
+        }
         queue.splice(0, ind);
 
         this.publish(TextEvents.sequencedEvents, sendQueue);
