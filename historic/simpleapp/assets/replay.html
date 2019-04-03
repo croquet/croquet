@@ -7,16 +7,15 @@
             body {
                 display: flex;
                 flex-direction: column;
-                align-items: center;
+                align-items: stretch;
             }
-            iframe {
-                width: 600px;
-                height: 400px;
-            }
+            iframe { flex: 2; }
+            textarea { flex: 1; }
         </style>
     </head>
     <body>
-        <iframe src=""></iframe>
+        <iframe src="about:blank"></iframe>
+        <textarea></textarea>
         <script src="../src/replay.js"></script>
     </body>
 </html>
