@@ -854,6 +854,10 @@ const transcoders = {
     "*#updateContents": Identity,
 };
 
+export function addMessageTranscoder(pattern, encoder, decoder) {
+    transcoders[pattern] = {encode: encoder, decode: decoder};
+}
+
 function encode(receiver, part, selector, args) {
     if (!part) part = '';
     if (args.length > 0) {
