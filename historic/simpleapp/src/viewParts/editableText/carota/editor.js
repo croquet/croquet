@@ -2,6 +2,7 @@ import per from './per.js';
 import Doc from './doc.js';
 import rect from './rect.js';
 import MockContext from './MockContext.js';
+import OperationTransformer from './transformer.js';
 import {cachedMeasureText, setCachedMeasureText} from './text.js';
 
 // This was a pretty brutal reorganization of the beautiful Carota system so
@@ -20,15 +21,16 @@ function differentLine(caret1, caret2) {
 }
 
 export class Carota extends Doc {
-    static setCachedMeasureText(func) {
-        setCachedMeasureText(func);
-    }
+  static setCachedMeasureText(func) {
+    setCachedMeasureText(func);
+  }
 
   constructor(width, height, numLines) {
     super();
 
     this.useMockContext = true;
     this.delayPaint = true;
+    this.transformer = new OperationTransformer();
 
     this.selectionChanged((getformatting, takeFocus) => {
       this.scrollRangeIntoView(this.selection);
@@ -68,6 +70,12 @@ export class Carota extends Doc {
       this.selectionChanged(this.paint.bind(this));
       this.contentChanged(this.paint.bind(this));
       this.contentChanged(callback);
+  }
+
+  setTimezone(integer) {
+    if (this.transformer) {
+        this.transformer.setTimezone(integer);
+    }
   }
 
   get showsScrollbar() { return this._showsScrollbar; }
@@ -365,6 +373,17 @@ Carota.prototype.handleKey = function(key, selecting, ctrlKey) {
    return handleKey(this, key, selecting, ctrlKey);
 }
 
+Carota.prototype.backspace = function(start, end) {
+    let doc = this;
+    if (start === end && start > 0) {
+        doc.range(start - 1, start).clear();
+        doc.focusChar = start - 1;
+        doc.select(doc.focusChar, doc.focusChar);
+    } else {
+        doc.insert("");
+    }
+}
+
 var toggles = {
   66: 'bold',
   73: 'italic',
@@ -466,6 +485,9 @@ let handleKey = function(doc, key, selecting, ctrlKey) {
             doc.range(start - 1, start).clear();
             doc.focusChar = start - 1;
             doc.select(doc.focusChar, doc.focusChar);
+            if (doc.transformer) {
+               doc.transformer.erase(start-1, start);
+            }
           } else {
             doc.insert("");
           }
@@ -474,6 +496,10 @@ let handleKey = function(doc, key, selecting, ctrlKey) {
         case 46: // del
           if (start === end && start < length) {
             doc.range(start, start + 1).clear();
+            if (doc.transformer) {
+               doc.transformer.erase(start, start+1);
+            }
+
             handled = true;
           }
           break;

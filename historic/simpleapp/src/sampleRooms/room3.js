@@ -13,7 +13,11 @@ function initRoom3(state) {
             editableText: {
                 content: {
                     content: [{text: "man is much more than a tool builder... he is an inventor of universes... Except the real one."}],
-                    selection: {start: 0, end: 0}},
+                    selections: {"1": {start: 0, end: 0}},
+                    timezone: 0,
+                    queue: []
+                },
+                
                 }},
             {
                 editable: true,
@@ -21,18 +25,21 @@ function initRoom3(state) {
             });
         room.parts.objects.add(text1);
 
-        const text2 = new Editor({
-            spatial: { position: {x: 3, y: 1, z: 0} },
-            editableText: {
-                content: {
-                    content: [{text: "man is much more than a tool builder... he is an inventor of universes..."}],
-                    selection: {start: 0, end: 0}},
-                }},
-            {
-                editable: true,
-                font: "Barlow", numLines: 10, width: 3, height: 2
-            });
-        room.parts.objects.add(text2);
+        // const text2 = new Editor({
+        //     spatial: { position: {x: 3, y: 1, z: 0} },
+        //     editableText: {
+        //         content: {
+        //             content: [{text: "man is much more than a tool builder... he is an inventor of universes..."}],
+        //             selections: {"1": {start: 0, end: 0}},
+        //timezone: 0
+        //              queue: []
+        //},
+        //         }},
+        //     {
+        //         editable: true,
+        //         font: "Barlow", numLines: 10, width: 3, height: 2
+        //     });
+        // room.parts.objects.add(text2);
     });
 }
 

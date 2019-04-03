@@ -13,7 +13,7 @@ if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle
 
 export default class EditableTextViewPart extends Object3D {
     fromOptions(options) {
-        options = {content: {content: [], selection: {start: 0, end: 0}}, glyphs: [], font: "Roboto", width: 3, height: 2, numLines: 10, drawnRects: [], editable: true, showSelection: true, ...options};
+        options = {content: {content: [], selections: {"1": {start: 0, end: 0}}, timezone: 0}, glyphs: [], font: "Roboto", width: 3, height: 2, numLines: 10, drawnRects: [], editable: true, showSelection: true, ...options};
         this.modelSource = options.modelSource;
         this.changeInitiatedByView = true;
         this.options = options;
@@ -28,6 +28,7 @@ export default class EditableTextViewPart extends Object3D {
             this.subscribe(KeyboardEvents.paste, "onPaste");
         }
         this.boxSelections = [];
+        window.view = this;
     }
 
     attachWithObject3D(modelState) {
@@ -42,6 +43,7 @@ export default class EditableTextViewPart extends Object3D {
         if (modelState && modelState.parts.editableText && modelState.parts.editableText.content) {
             this.options.content = modelState.parts.editableText.content;
             this.subscribe(TextEvents.modelContentChanged, "onContentChanged", modelState.id, this.modelSource);
+            this.subscribe(TextEvents.sequencedEvents, "onEditEvents", modelState.id, this.modelSource);
         }
         return boxMesh;
     }
@@ -104,12 +106,10 @@ export default class EditableTextViewPart extends Object3D {
         const callback = () => this.onTextChanged();
         this.editor.setSubscribers(callback);
         this.editor.load(this.options.content.content);
-        this.editor.select(this.options.content.selection.start, this.options.content.selection.end);
-        this.changed();
-
+        this.editor.select(this.options.content.selections[1].start, this.options.content.selections[1].end);
         this.initSelectionMesh();
         this.initScrollBarMesh();
-        this.changed();
+        this.initialUpdate();
     }
 
     initBoxMesh() {
@@ -289,13 +289,25 @@ export default class EditableTextViewPart extends Object3D {
         }
     }
 
+    onEvents(ary) {
+        ary.forEach(event => {
+            if (event.type === "insert") {
+                this.editor.select(event.pos,
+                                   event.pos + evt.length);
+                this.editor.insert(event.text);
+            }
+        });
+        this.editor(event[event.length - 1].timezone);
+    }
+
     onContentChanged(newContent) {
+        // the first time and only the first time, presumably
         try {
-            this.changeInitiatedByView = false;
+            this.changeIniftiatedByView = false;
             this.editor.delayPaint = false;
             this.editor.load(newContent.content);
-            this.editor.select(newContent.selection.start,
-                               newContent.selection.end);
+            this.editor.select(newContent.selections[1].start,
+                               newContent.selections[1].end);
             this.editor.paint();
         } finally {
             this.changeInitiatedByView = true;
@@ -303,12 +315,43 @@ export default class EditableTextViewPart extends Object3D {
         }
     }
 
+    onEditEvents(eventList) {
+        eventList.forEach(e => {
+            if (e.type === "insert") {
+                let editor = this.editor;
+                editor.select(e.pos, e.pos);
+                let text = e.text[0].text.value; // hmm
+                editor.select(editor.selection.end + editor.selectedRange().setText(text), null, false);
+            } else if (e.type === "erase") {
+                this.editor.backspace(e.start, e.end);
+            }
+            try {
+                this.changeIniftiatedByView = false;
+                this.editor.delayPaint = false;
+                this.editor.paint();
+            } finally {
+                this.changeInitiatedByView = true;
+                this.editor.delayPaint = true;
+            }
+        });
+    }
+
     onTextChanged() {}
 
     changed() {
+        let events = this.editor.transformer.contents();
+        this.editor.transformer.reset();
+        if (events.length > 0
+            && this.options.editable
+            && this.changeInitiatedByView) {
+            this.owner.model["editableText"].receiveEditEvents(events);
+        }
+    }
+
+    initialUpdate() {
         if (this.options.editable) {
             if (this.changeInitiatedByView) {
-                this.owner.model["editableText"].updateContents({content: this.editor.save(), selection: this.editor.selection});
+                this.owner.model["editableText"].initialUpdate({content: this.editor.save(), selection: this.editor.selection});
             }
         }
     }

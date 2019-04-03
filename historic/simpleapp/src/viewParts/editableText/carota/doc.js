@@ -148,7 +148,30 @@ setMarginsFromEditor(margins) {
   }
 
   insert(text, takeFocus) {
-    this.select(this.selection.end + this.selectedRange().setText(text), null, takeFocus);
+    let start = this.selection.start;
+    let end = this.selection.end;
+    let erased;
+    let added;
+    if (this.transformer) {
+        if (end > start) {
+            this.transformer.erase(start, end);
+        }
+        if (typeof text === 'string') {
+            var sample = Math.max(0, start - 1);
+            var sampleRun = per({ start: sample, end: sample + 1 })
+                .per(this.runs, this)
+                .first();
+            text = [
+                sampleRun ? Object.assign({}, sampleRun, { text: { value: text } }) : 
+                { text: text }
+            ];
+        } else if (!Array.isArray(text)) {
+            text = [{ text: text }];
+        }
+
+        this.transformer.insert(text, start);
+    }
+    //this.select(this.selection.end + this.selectedRange().setText(text), null, takeFocus);
   }
 
   modifyInsertFormatting(attribute, value) {

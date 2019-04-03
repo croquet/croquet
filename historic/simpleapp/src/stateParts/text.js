@@ -11,6 +11,7 @@ export const TextEvents = {
 export default class TextPart extends StatePart {
     fromState(state={}) {
         this.content = state.content || "";
+        this.content.eventId = 0;
         this.font = state.font || "Barlow";
     }
 
