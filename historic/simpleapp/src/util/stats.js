@@ -90,8 +90,8 @@ export default {
         frames.push(currentFrame);
 
         // get base framerate as minimum of all frames
-        const realFrames = frames.filter(f => f.total);
-        const avgMS = realFrames.map(f => f.total).reduce( (a,b) => a + b) / realFrames.length;
+        const realFrames = frames.slice(1).filter(f => f.total);
+        const avgMS = realFrames.map(f => f.total).reduce( (a,b) => a + b, 0) / realFrames.length;
         const newMax = Math.max(...realFrames.map(f => Math.max(f.backlog, f.network)));
         maxBacklog = Math.max(newMax, maxBacklog * 0.98); // reduce scale slowly
 

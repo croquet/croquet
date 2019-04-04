@@ -462,6 +462,7 @@ function socketSetup(socket) {
             if (socket.constructor === WebSocket) document.getElementById("error").innerText = '';
             console.log(socket.constructor.name, "connected to", socket.url);
             Controller.joinAll(socket);
+            Stats.connected(true);
         },
         onerror: _event => {
             document.getElementById("error").innerText = 'Connection error';
@@ -470,6 +471,7 @@ function socketSetup(socket) {
         onclose: event => {
             document.getElementById("error").innerText = 'Connection closed:' + event.code + ' ' + event.reason;
             console.log(socket.constructor.name, "closed:", event.code, event.reason);
+            Stats.connected(false);
             Controller.leaveAll();
             if (event.code !== 1000) {
                 // if abnormal close, try to connect again

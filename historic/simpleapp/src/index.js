@@ -60,15 +60,33 @@ async function start() {
         }
     }
 
-    const getIsland = async function (roomName) {
-        const ROOM = ALL_ROOMS[roomName];
-        if (!ROOM) throw Error("Unknown room: " + roomName);
-        if (ROOM.islandPromise) return ROOM.islandPromise;
-        const creator = ROOM.creator;
-        creator.room = roomName;
-        if (!creator.options) creator.options = {};
-        for (const opt of ["owner","session"]) {
-            if (urlOptions[opt]) creator.options[opt] = urlOptions[opt];
+    Object.defineProperty(ALL_ROOMS, 'getIsland', {
+        enumerable: false,
+        value: async function getIsland(roomName) {
+            const ROOM = ALL_ROOMS[roomName];
+            if (!ROOM) throw Error("Unknown room: " + roomName);
+            if (ROOM.islandPromise) return ROOM.islandPromise;
+            const creator = ROOM.creator;
+            creator.room = roomName;
+            if (!creator.options) creator.options = {};
+            for (const opt of ["owner","session"]) {
+                if (urlOptions[opt]) creator.options[opt] = urlOptions[opt];
+            }
+            creator.destroyerFn = snapshot => {
+                console.log("destroyer: detaching view for " + roomName);
+                delete ROOM.island;
+                delete ROOM.islandPromise;
+                roomViewManager.detach(roomName);
+                creator.snapshot = snapshot;
+                if (currentRoomName === roomName) {
+                    console.log("destroyer: re-joining " + roomName);
+                    currentRoomName = null;
+                    joinRoom(roomName);
+                }
+            };
+            const controller = new Controller();
+            ROOM.islandPromise = controller.createIsland(roomName, creator);
+            return ROOM.island = await ROOM.islandPromise;
         }
         creator.destroyerFn = snapshot => {
             Stats.connected(false);
@@ -98,8 +116,7 @@ async function start() {
     async function joinRoom(roomName, cameraPosition=new THREE.Vector3(0, 2, 4), cameraQuaternion=new THREE.Quaternion(), overrideCamera) {
         if (!ALL_ROOMS[roomName]) roomName = defaultRoom;
         if (currentRoomName === roomName) return;
-        await getIsland(roomName);
-        Stats.connected(true);
+        await ALL_ROOMS.getIsland(roomName);
         currentRoomName = roomName;
         // request ahead of render, set initial camera position if necessary
         roomViewManager.request(roomName, ALL_ROOMS, {cameraPosition, cameraQuaternion, overrideCamera}, traversePortalToRoom);
@@ -156,7 +173,6 @@ async function start() {
                 if (simLoad.length > loadBalance) simLoad.shift();
                 // update stats
                 Stats.users(currentIsland.controller.users);
-                Stats.backlog(currentIsland.controller.backlog);
                 Stats.network(Date.now() - currentIsland.controller.lastReceived);
                 // remember lastFrame for setInterval()
                 lastFrame = Date.now();
