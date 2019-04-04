@@ -1,4 +1,4 @@
-import Part from "./parts.js";
+import Part, { PART_PATH_SEPARATOR } from "./parts.js";
 import hotreload from "./hotreload.js";
 
 const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
@@ -6,30 +6,51 @@ if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle
 
 /** @typedef {import('./parts.js').PartPath} PartPath */
 
+// TODO: The current flow of initialising, registering, restoring
+//       of StateParts, distinguishing between top-level and sub-parts
+//       works, but feels unnecessarily messy. There seems to be a lot
+//       of redundant and almost-the-same methods in here...
+
+// TODO: This all also tends to assume a static sub-part composition of parts.
+//       To truly support user-created objects, we should be able to restore from
+//       state and register properly parts that consist of spontaneously composed parts
+
 /** @extends {Part<StatePart>} */
 export class StatePart extends Part {
     // mark this and subclasses as model classes
     // used in island.js:modelFromState
     static __isTeatimeModelClass__() { return true; }
 
-    register(state={}) {
+    register(state={}, isTopLevel) {
         this.realm = currentRealm();
-        this.id = currentRealm().registerPart(this, state.id);
+        if (isTopLevel) {
+            this.id = currentRealm().registerTopLevelPart(this, state.id);
+        } else {
+            this.id = state.id;
+        }
     }
 
-    // first time init (after manual construction)
-    init(state) {
-        this.register(state);
+    registerRecursively(state={}, isTopLevel) {
+        this.register(state, isTopLevel);
         for (const [partName, part] of Object.entries(this.parts)) {
-            part.init(state[partName] || {});
+            part.registerRecursively({id: this.id + PART_PATH_SEPARATOR + partName}, false);
+        }
+    }
+
+    // first time init at top level (after manual construction)
+    // TODO: the default setting to true is potentially dangerous, see above for maybe a complete simplification
+    init(state, isTopLevel=true) {
+        this.register(state, isTopLevel);
+        for (const [partName, part] of Object.entries(this.parts)) {
+            part.init({...state[partName], id: this.id + PART_PATH_SEPARATOR + partName}, false);
         }
         this.applyState(state);
         this.onInitialized(true);
         return this;
     }
 
-    restore(stateToRestore, objectsByID) {
-        this.applyStateRecursively(stateToRestore, objectsByID);
+    restore(stateToRestore, topLevelPartsById) {
+        this.applyStateRecursively(stateToRestore, topLevelPartsById);
     }
 
     restoreDone() {
@@ -46,26 +67,34 @@ export class StatePart extends Part {
         for (const part of Object.values(this.parts)) {
             part.destroy();
         }
-        this.realm.deregisterPart(this);
+        this.realm.deregisterTopLevelPart(this);
     }
 
     /** @abstract */
     static constructFromState(state) {
         const ModelClass = classFromID(state.class);
-        return new ModelClass(state);
+        return new ModelClass();
     }
 
-    applyState(_state, _objectsByID) {}
+    applyState(_state, _topLevelPartsById) {}
 
-    applyStateRecursively(state, objectsByID) {
-        this.applyState(state);
+    applyStateRecursively(state, topLevelPartsById) {
+        this.applyState(state, topLevelPartsById);
         for (const [partName, part] of Object.entries(this.parts)) {
-            part.applyStateRecursively(state[partName], objectsByID);
+            part.applyStateRecursively(state[partName], topLevelPartsById);
         }
     }
 
     toState(state) {
+        // TODO: weird way to check whether this is a top level component
+        if (!this.id.includes(PART_PATH_SEPARATOR)) {
+            state.id = this.id;
+        }
+
+        state.class = classToID(this.constructor);
+
         for (const [partName, part] of Object.entries(this.parts)) {
+            if (!state[partName]) state[partName] = {};
             part.toState(state[partName]);
         }
     }
@@ -111,7 +140,7 @@ export class ViewPart extends Part {
         super();
 
         this.realm = currentRealm();
-        this.id = currentRealm().registerPart(this);
+        this.id = currentRealm().registerTopLevelPart(this);
 
         this.modelId = modelState.id;
         // if we are being passed the viewState of another ViewPart as a modelState
@@ -155,7 +184,7 @@ export class ViewPart extends Part {
         }
 
         this.viewState.destroy();
-        this.realm.deregisterPart(this);
+        this.realm.deregisterTopLevelPart(this);
     }
 
     // PUB/SUB
@@ -199,10 +228,10 @@ class ModelRealm {
     constructor(island) {
         this.island = island;
     }
-    registerPart(part, existingId) {
+    registerTopLevelPart(part, existingId) {
         return this.island.registerModel(part, existingId);
     }
-    deregisterPart(part) {
+    deregisterTopLevelPart(part) {
         this.island.deregisterModel(part.id);
     }
     /** @abstract */
@@ -236,10 +265,10 @@ class ViewRealm {
         this.island = island;
     }
 
-    registerPart(part) {
+    registerTopLevelPart(part) {
         return this.island.registerView(part);
     }
-    deregisterPart(part) {
+    deregisterTopLevelPart(part) {
         this.island.deregisterView(part.id);
     }
     /** @abstract */

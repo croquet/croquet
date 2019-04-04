@@ -6,6 +6,7 @@ import hotreload from "./hotreload.js";
 import { hashModelCode, baseUrl } from "./modules.js";
 import { inModelRealm, StatePart } from "./modelView.js";
 import Stats from "./util/stats.js";
+import { PATH_PART_SEPARATOR_SPLIT_REGEXP } from "./parts.js";
 
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
@@ -48,7 +49,7 @@ export default class Island {
     static current() { return CurrentIsland; }
 
     constructor(state = {}, initFn) {
-        this.modelsById = {};
+        this.topLevelModelsById = {};
         this.viewsById = {};
         this.modelsByName = {};
         // Models can only subscribe to other model events
@@ -70,12 +71,17 @@ export default class Island {
                     // create all models, uninitialized, but already registered
                     for (const modelState of state.models || []) {
                         const model = StatePart.constructFromState(modelState);
-                        model.register();
+                        model.registerRecursively(modelState, true);
                     }
+
+                    for (const [modelName, modelId] of Object.entries(state.namedModels)) {
+                        this.set(modelName, this.lookUpModel(modelId));
+                    }
+
                     // restore model state, allow resolving object references
                     for (const modelState of state.models || []) {
-                        const model = this.modelsById[modelState.id];
-                        model.restore(modelState, this.modelsById);
+                        const model = this.topLevelModelsById[modelState.id];
+                        model.restore(modelState, this.topLevelModelsById);
                         model.restoreDone();
                     }
                     // restore messages
@@ -93,13 +99,21 @@ export default class Island {
     registerModel(model, id) {
         if (CurrentIsland !== this) throw Error("Island Error");
         if (!id) id = "M" + this.randomID();
-        this.modelsById[id] = model;
+        this.topLevelModelsById[id] = model;
         return id;
     }
 
     deregisterModel(id) {
         if (CurrentIsland !== this) throw Error("Island Error");
-        delete this.modelsById[id];
+        delete this.topLevelModelsById[id];
+    }
+
+    lookUpModel(id) {
+        const [topLevelModelId, rest] = id.split(PATH_PART_SEPARATOR_SPLIT_REGEXP);
+        if (rest) {
+            return this.topLevelModelsById[topLevelModelId].lookUp(rest);
+        }
+        return this.topLevelModelsById[topLevelModelId];
     }
 
     registerView(view) {
@@ -121,9 +135,9 @@ export default class Island {
     }
 
     // Send via reflector
-    callModelMethod(modelId, partPath, selector, args) {
+    callModelMethod(modelId, subPartPath, selector, args) {
         if (CurrentIsland) throw Error("Island Error");
-        const recipient = this.modelsById[modelId].absoluteId(partPath);
+        const recipient = this.lookUpModel(modelId).lookUp(subPartPath).id;
         const message = new Message(this.time, 0, recipient, selector, args);
         this.controller.sendMessage(message);
     }
@@ -174,7 +188,7 @@ export default class Island {
                 if (typeof model[property] === "function") {
                     const methodProxy = new Proxy(model[property], {
                         apply(_method, _this, args) {
-                            if (island.modelsById[model.id] !== model) throw Error("future send to unregistered model");
+                            if (island.lookUpModel(model.id) !== model) throw Error("future send to unregistered model");
                             island.futureSend(tOffset, model.id, property, args);
                         }
                     });
@@ -326,12 +340,23 @@ export default class Island {
     }
 
     asState() {
+        const namedModels = {};
+
+        for (const [modelName, model] of Object.entries(this.modelsByName)) {
+            namedModels[modelName] = model.id;
+        }
+
         return {
             id: this.id,
             time: this.time,
             timeSeq: this.timeSeq,
             random: this._random.state(),
-            models: Object.values(this.modelsById).map(model => model.asState()),
+            models: Object.values(this.topLevelModelsById).map(model => {
+                const state = {};
+                model.toState(state);
+                return state;
+            }),
+            namedModels,
             messages: this.messages.asUnsortedArray().map(message => message.asState()),
         };
     }
@@ -357,7 +382,7 @@ export default class Island {
     // Also, reset editable text
     broadcastInitialState() {
         const cleanIsland = this.controller.createCleanIsland();
-        for (const [modelId, model] of Object.entries(this.modelsById)) {
+        for (const [modelId, model] of Object.entries(this.topLevelModelsById)) {
             const cleanModel = cleanIsland.modelsById[modelId];
             if (!cleanModel) continue;
             for (const [partId, part] of Object.entries(model.parts)) {
@@ -797,28 +822,28 @@ const Identity = {
 };
 
 const transcoders = {
-    "*.moveTo": XYZ,
-    "*.rotateTo": XYZW,
-    "*.onKeyDown": Identity,
-    "*.updateContents": Identity,
+    "*#moveTo": XYZ,
+    "*#rotateTo": XYZW,
+    "*#onKeyDown": Identity,
+    "*#updateContents": Identity,
 };
 
 function encode(receiver, selector, args) {
     if (args.length > 0) {
-        const transcoder = transcoders[`${receiver}.${selector}`] || transcoders[`*.${selector}`] || transcoders['*'];
-        if (!transcoder) throw Error(`No transcoder defined for ${receiver}.${selector}`);
+        const transcoder = transcoders[`${receiver}#${selector}`] || transcoders[`*#${selector}`] || transcoders['*'];
+        if (!transcoder) throw Error(`No transcoder defined for ${receiver}#${selector}`);
         args = transcoder.encode(args);
     }
-    return `${receiver}.${selector}${args.length > 0 ? JSON.stringify(args):""}`;
+    return `${receiver}#${selector}${args.length > 0 ? JSON.stringify(args):""}`;
 }
 
 function decode(payload) {
     const [_, msg, argString] = payload.match(/^([^[]+)(\[.*)?$/);
-    const [receiver, selector] = msg.split('.');
+    const [receiver, selector] = msg.split('#');
     let args = [];
     if (argString) {
-        const transcoder = transcoders[`${receiver}.${selector}`] || transcoders[`*.${selector}`] || transcoders['*'];
-        if (!transcoder) throw Error(`No transcoder defined for ${receiver}.${selector}`);
+        const transcoder = transcoders[`${receiver}#${selector}`] || transcoders[`*#${selector}`] || transcoders['*'];
+        if (!transcoder) throw Error(`No transcoder defined for ${receiver}#${selector}`);
         args = transcoder.decode(JSON.parse(argString));
     }
     return {receiver, selector, args};
@@ -850,7 +875,7 @@ class Message {
     executeOn(island) {
         const { receiver, selector, args } = decode(this.payload);
         if (receiver === island.id) return; // noop
-        const object = island.modelsById[receiver];
+        const object = island.lookUpModel(receiver);
         execOnIsland(island, () => {
             inModelRealm(island, () => object[selector](...args));
         });

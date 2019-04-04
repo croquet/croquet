@@ -20,7 +20,9 @@ export default class PortalViewPart extends ViewPart {
             // maintain a view-local "copy" of the portal info to reuse the traversal logic in the view
             clonedPortal: new PortalPart()
         };
-        this.viewState.parts.clonedPortal.init({...modelState.lookUp(options.source), id: null});
+        const stateToClone = {};
+        modelState.lookUp(options.source).toState(stateToClone);
+        this.viewState.parts.clonedPortal.init({...stateToClone, id: null});
 
         this.visualOffset = options.visualOffset;
         const sourceSpatialPart = modelState.lookUp(options.source).parts.spatial;

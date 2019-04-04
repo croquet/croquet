@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { StatePart } from '../modelView.js';
-import SpatialPart, { SpatialEvents } from '../stateParts/spatial.js';
+import SpatialPart from '../stateParts/spatial.js';
 import PortalView from './portalView.js';
 
 const moduleVersion = `${module.id}#${module.bundle.v || 0}`;

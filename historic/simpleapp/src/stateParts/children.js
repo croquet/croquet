@@ -9,9 +9,9 @@ export const ChildEvents = {
 };
 
 export default class ChildrenPart extends StatePart {
-    applyState(state, objectsByID) {
+    applyState(state={}, topLevelPartsById) {
         if (state.children) {
-            this.children = new Set(state.children.map(id => objectsByID[id]));
+            this.children = new Set(state.children.map(id => topLevelPartsById[id]));
         } else {
             this.children = new Set();
         }

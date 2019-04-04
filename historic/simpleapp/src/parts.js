@@ -2,7 +2,7 @@ const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
 export const PART_PATH_SEPARATOR = ".";
-const PATH_PART_SEPARATOR_SPLIT_REGEXP = /\.(.+)/;
+export const PATH_PART_SEPARATOR_SPLIT_REGEXP = /\.(.+)/;
 
 /** @typedef {string} PartPath */
 
