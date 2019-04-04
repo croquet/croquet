@@ -19,12 +19,8 @@ const colors = {
     network: "lightgray",
 };
 
-const div = document.createElement("div");
-div.style.position = "absolute";
-div.style.right = 0;
-div.style.width = 125;
-div.style.background = "rgba(255,255,255,0.2)";
-document.body.appendChild(div);
+const div = document.getElementById("stats");
+while (div.firstChild) div.removeChild(div.firstChild);
 
 const fps = document.createElement("div");
 fps.style.padding = 5;
@@ -168,5 +164,7 @@ export default {
                 if (value > maxBacklog) break;
             }
         }
+
+        div.style.bottom = mapBacklog(Math.max(1000, maxBacklog)) - 350;
     }
 };
