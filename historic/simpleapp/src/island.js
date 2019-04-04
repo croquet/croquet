@@ -754,7 +754,7 @@ export class Controller {
     // network queue
 
     async join(socket) {
-        await this.updateSnapshot();
+        if (!this.nodownload) await this.updateSnapshot();
         console.log(this.id, 'Controller sending JOIN');
         this.socket = socket;
         const time = this.islandCreator.snapshot.time || 0;

@@ -34,7 +34,8 @@ async function start() {
         const snapshot = await response.json();
         for (const key of Object.keys(urlOptions)) delete urlOptions[key];
         Object.assign(urlOptions, snapshot.meta.options);
-        urlOptions.upload = false;
+        urlOptions.noupload = true;
+        urlOptions.nodownload = true;
         hotState.currentRoomName = snapshot.meta.room;
         hotState.islands = { [snapshot.meta.room]: snapshot };
     }
@@ -43,7 +44,7 @@ async function start() {
     connectToReflector(reflector);
 
     // upload changed code files
-    if (urlOptions.upload !== false) uploadCode(module.id).then(hashes => codeHashes = hashes);
+    if (!urlOptions.noupload) uploadCode(module.id).then(hashes => codeHashes = hashes);
 
     const ALL_ROOMS = {
         room1: {creator: room1},
@@ -85,6 +86,7 @@ async function start() {
                 }
             };
             const controller = new Controller();
+            if (urlOptions.nodownload) controller.nodownload = true;
             ROOM.islandPromise = controller.createIsland(roomName, creator);
             return ROOM.island = await ROOM.islandPromise;
         }
@@ -204,7 +206,7 @@ async function start() {
         simulate(10);
     }, 10);
 
-    if (urlOptions.upload !== false) {
+    if (!urlOptions.noupload) {
         // upload snapshots every 30 seconds
         function uploadSnapshots() {
             const liveRooms = Object.values(ALL_ROOMS).filter(room => room.island);
