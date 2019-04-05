@@ -452,10 +452,10 @@ export async function connectToReflector(reflectorUrl) {
     if (reflectorUrl.match(/^wss?:/)) socket = new WebSocket(reflectorUrl);
     else if (reflectorUrl.match(/^channel:/)) socket = newInBrowserSocket(reflectorUrl);
     else throw Error('Cannot interpret reflector address ' + reflectorUrl);
-    socketSetup(socket);
+    socketSetup(socket, reflectorUrl);
 }
 
-function socketSetup(socket) {
+function socketSetup(socket, reflectorUrl) {
     document.getElementById("error").innerText = 'Connecting to ' + socket.url;
     Object.assign(socket, {
         onopen: _event => {
@@ -476,7 +476,7 @@ function socketSetup(socket) {
             if (event.code !== 1000) {
                 // if abnormal close, try to connect again
                 document.getElementById("error").innerText = 'Reconnecting ...';
-                hotreload.setTimeout(connectToReflector, 1000);
+                hotreload.setTimeout(() => connectToReflector(reflectorUrl), 1000);
             }
         },
         onmessage: event => {
