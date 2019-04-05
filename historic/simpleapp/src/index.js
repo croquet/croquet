@@ -213,9 +213,10 @@ async function start() {
     };
 
     hotreload.addEventListener(window, "mousemove", event => {
-        if (throttle(event)) return;
-        const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
-        if (currentRoomView) currentRoomView.parts.pointer.onMouseMove(event.clientX, event.clientY);
+        if (!throttle(event)) {
+            const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
+            if (currentRoomView) currentRoomView.parts.pointer.onMouseMove(event.clientX, event.clientY);
+        }
         event.preventDefault();
 
     });
@@ -242,10 +243,11 @@ async function start() {
     }, {passive: false});
 
     hotreload.addEventListener(canvas, "touchmove", event => {
-        if (throttle(event)) return;
-        const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
-        if (currentRoomView) {
-            currentRoomView.parts.pointer.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
+        if (!throttle(event)) {
+            const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
+            if (currentRoomView) {
+                currentRoomView.parts.pointer.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
+            }
         }
         event.preventDefault();
         event.stopPropagation();
@@ -259,9 +261,10 @@ async function start() {
     }, {passive: false});
 
     hotreload.addEventListener(document.body, "wheel", event => {
-        if (throttle(event)) return;
-        const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
-        if (currentRoomView) {currentRoomView.parts.treadmill.onWheel(event);}
+        if (!throttle(event)) {
+            const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
+            if (currentRoomView) {currentRoomView.parts.treadmill.onWheel(event);}
+        }
         event.stopPropagation();
         event.preventDefault();
     }, {passive: false});
