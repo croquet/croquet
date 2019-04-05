@@ -637,7 +637,11 @@ export class Controller {
         // try to fetch latest snapshot
         try {
             const snapshot = await this.fetchSnapshot();
-            if (snapshot.id !== this.id) console.warn(this.id ,'resuming snapshot of different version!');
+            if (snapshot.id !== this.id) {
+                console.warn(this.id ,'fetched snapshot of different version!');
+                snapshot.originalID = snapshot.id;
+                snapshot.id = this.id;
+            }
             if (snapshot.time >= this.islandCreator.snapshot.time) {
                 this.islandCreator.snapshot = snapshot;
                 console.log(this.id, `Controller fetched snapshot (time: ${Math.floor(snapshot.time)})`);
