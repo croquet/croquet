@@ -1,0 +1,37 @@
+<html>
+<head>
+<script type="text/javascript" src="doc.js"></script>
+<script type="text/javascript" src="wrap.js"></script>
+<script>
+
+window.onload = function () {
+    let doc = new Doc();
+
+    //doc.load([{text: "hello!"}]);
+
+    let tests = [
+        [
+            [{text: "he"}, {text: "ll", style: {font: "Roman", size: 10}}, {text: 'o!'}],
+            [{text: "hello!", start: 0, end: 6}]
+        ],
+
+        [
+            [{text: "he"}, {text: "ll", style: {font: "Roman", size: 10}}, {text: 'o!', style: {font: "Comic"}}],
+            [{text: "hell", start: 0, end: 4}, {text: "o!", style: {font: "Comic"}, start: 4, end: 6}]
+        ],
+    ];
+        
+    tests.forEach(([runs, expected]) => {
+        let result = doc.canonicalize(runs)
+        console.log(result, JSON.stringify(expected) === JSON.stringify(result));
+    });
+
+    console.log(wrap([{text: 'Hell'}, {text: 'o'}, {text: '\n World!'}], 100, mockMeasurer));
+}
+</script>
+
+</head>
+<body>
+</body>
+</html>
+
