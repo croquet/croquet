@@ -1,14 +1,15 @@
 import SeedRandom from "seedrandom";
 import PriorityQueue from "./util/priorityQueue.js";
 import AsyncQueue from './util/asyncQueue.js';
-import urlOptions from "./util/urlOptions.js";
 import hotreload from "./hotreload.js";
 import { hashModelCode, baseUrl } from "./modules.js";
+import { inModelRealm, StatePart } from "./modelView.js";
 import Stats from "./util/stats.js";
+import { PATH_PART_SEPARATOR_SPLIT_REGEXP } from "./parts.js";
 
 
-const moduleVersion = `${module.id}#${module.bundle.v||0}`;
-if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
+const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 const DEBUG = {
     messages: false,
@@ -16,6 +17,7 @@ const DEBUG = {
 };
 
 let viewID = 0;
+/** @type {Island} */
 let CurrentIsland = null;
 
 const Math_random = Math.random.bind(Math);
@@ -43,11 +45,18 @@ function execOnIsland(island, fn) {
  * a queue of messages, plus additional bookkeeping to make
  * uniform pub/sub between models and views possible.*/
 export default class Island {
-    static current() { return CurrentIsland; }
-    static encodeClassOf(obj) { return classToID(obj.constructor); }
+    static latest() { return module.bundle.v && module.bundle.v[module.id] || 0; }
+    static version() { return moduleVersion; }
+    static current() {
+        if (!CurrentIsland) console.warn(`No CurrentIsland in v${moduleVersion}!`);
+        return CurrentIsland;
+    }
 
     constructor(state = {}, initFn) {
-        this.modelsById = {};
+        console.log("new Island() v" + moduleVersion);
+        if (moduleVersion !== Island.latest()) throw Error("Hot Reload problem: Instantiating old Island v" + moduleVersion);
+
+        this.topLevelModelsById = {};
         this.viewsById = {};
         this.modelsByName = {};
         // Models can only subscribe to other model events
@@ -59,42 +68,59 @@ export default class Island {
         // pending messages, sorted by time
         this.messages = new PriorityQueue((a, b) => a.before(b));
         execOnIsland(this, () => {
-            // our synced random stream
-            const seed = state.id; // okay to be undefined
-            this._random = new SeedRandom(seed, { state: state.random || true });
-            this.id = state.id || this.randomID();
-            this.time = state.time || 0;
-            this.timeSeq = state.timeSeq || 0;
-            if (state.models) {
-                // create all models
-                for (const modelState of state.models || []) {
-                    const ModelClass = classFromID(modelState.class);
-                    new ModelClass(modelState);  // registers the model
+            inModelRealm(this, () => {
+                // our synced random stream
+                this._random = new SeedRandom(null, { state: state.random || true });
+                this.id = state.id || this.randomID();
+                this.time = state.time || 0;
+                this.timeSeq = state.timeSeq || 0;
+                if (state.models) {
+                    // create all models, uninitialized, but already registered
+                    for (const modelState of state.models || []) {
+                        const model = StatePart.constructFromState(modelState);
+                        model.registerRecursively(modelState, true);
+                    }
+
+                    for (const [modelName, modelId] of Object.entries(state.namedModels)) {
+                        this.set(modelName, this.lookUpModel(modelId));
+                    }
+
+                    // restore model state, allow resolving object references
+                    for (const modelState of state.models || []) {
+                        const model = this.topLevelModelsById[modelState.id];
+                        model.restore(modelState, this.topLevelModelsById);
+                        model.restoreDone();
+                    }
+                    // restore messages
+                    for (const messageState of state.messages || []) {
+                        const message = Message.fromState(messageState);
+                        this.messages.add(message);
+                    }
+                } else {
+                    initFn(this);
                 }
-                // wire up models in second pass
-                for (const modelState of state.models || []) {
-                    const model = this.modelsById[modelState.id];
-                    model.restoreObjectReferences(modelState, this.modelsById);
-                }
-                // restore messages
-                for (const messageState of state.messages || []) {
-                    const message = Message.fromState(messageState);
-                    this.messages.add(message);
-                }
-            } else initFn();
+            });
         });
     }
 
     registerModel(model, id) {
         if (CurrentIsland !== this) throw Error("Island Error");
         if (!id) id = "M" + this.randomID();
-        this.modelsById[id] = model;
+        this.topLevelModelsById[id] = model;
         return id;
     }
 
     deregisterModel(id) {
         if (CurrentIsland !== this) throw Error("Island Error");
-        delete this.modelsById[id];
+        delete this.topLevelModelsById[id];
+    }
+
+    lookUpModel(id) {
+        const [topLevelModelId, rest] = id.split(PATH_PART_SEPARATOR_SPLIT_REGEXP);
+        if (rest) {
+            return this.topLevelModelsById[topLevelModelId].lookUp(rest);
+        }
+        return this.topLevelModelsById[topLevelModelId];
     }
 
     registerView(view) {
@@ -116,9 +142,10 @@ export default class Island {
     }
 
     // Send via reflector
-    callModelMethod(modelId, partId, selector, args) {
+    callModelMethod(modelId, subPartPath, selector, args) {
         if (CurrentIsland) throw Error("Island Error");
-        const message = new Message(this.time, 0, modelId, partId, selector, args);
+        const recipient = this.lookUpModel(modelId).lookUp(subPartPath).id;
+        const message = new Message(this.time, 0, recipient, selector, args);
         this.controller.sendMessage(message);
     }
 
@@ -126,7 +153,7 @@ export default class Island {
         // this is only used for syncing after a snapshot
         // noop() isn't actually implemented, sends to island id
         // are filtered out in executeOn()
-        const message = new Message(this.time, 0, this.id, 0, "noop", []);
+        const message = new Message(this.time, 0, this.id, "noop", []);
         this.controller.sendMessage(message);
     }
 
@@ -140,7 +167,7 @@ export default class Island {
         return message;
     }
 
-    futureSend(tOffset, receiverID, partID, selector, args) {
+    futureSend(tOffset, receiverID, selector, args) {
         if (CurrentIsland !== this) throw Error("Island Error");
         if (tOffset < 0) throw Error("attempt to send future message into the past");
          // Wrapping below means that if we have an overflow, messages
@@ -154,28 +181,27 @@ export default class Island {
         // and messages from the reflector, we create even sequence numbers here and
         // the reflector's sequence numbers are made odd on arrival
         this.timeSeq = (this.timeSeq + 2) % (Number.MAX_SAFE_INTEGER + 1);
-        const message = new Message(this.time + tOffset, this.timeSeq, receiverID, partID, selector, args);
+        const message = new Message(this.time + tOffset, this.timeSeq, receiverID, selector, args);
         this.messages.add(message);
     }
 
-    // Convert model.parts[partID].future(tOffset).property(...args)
-    // into this.futureSend(tOffset, model.id, partID, "property", args)
-    futureProxy(tOffset, model, partID) {
+    // Convert model.future(tOffset).property(...args)
+    // into this.futureSend(tOffset, model.id, "property", args)
+    futureProxy(tOffset, model) {
         if (CurrentIsland !== this) throw Error("Island Error");
         const island = this;
-        const object = partID ? model.parts[partID] : model;
-        return new Proxy(object, {
+        return new Proxy(model, {
             get(_target, property) {
-                if (typeof object[property] === "function") {
-                    const methodProxy = new Proxy(object[property], {
+                if (typeof model[property] === "function") {
+                    const methodProxy = new Proxy(model[property], {
                         apply(_method, _this, args) {
-                            if (island.modelsById[model.id] !== model) throw Error("future send to unregistered model");
-                            island.futureSend(tOffset, model.id, partID, property, args);
+                            if (island.lookUpModel(model.id) !== model) throw Error("future send to unregistered model");
+                            island.futureSend(tOffset, model.id, property, args);
                         }
                     });
                     return methodProxy;
                 }
-                throw Error("Tried to call " + property + "() on future of " + Object.getPrototypeOf(object).constructor.name + " which is not a function");
+                throw Error("Tried to call " + property + "() on future of " + Object.getPrototypeOf(model).constructor.name + " which is not a function");
             }
         });
     }
@@ -202,25 +228,25 @@ export default class Island {
         return true;
     }
 
-    addModelSubscription(scope, event, subscriberId, part, methodName) {
+    addModelSubscription(scope, event, subscriberId, methodName) {
         if (CurrentIsland !== this) throw Error("Island Error");
         const topic = scope + ":" + event;
-        const handler = subscriberId + "." + part + "." + methodName;
+        const handler = subscriberId + "." + methodName;
         if (!this.modelSubscriptions[topic]) this.modelSubscriptions[topic] = new Set();
         this.modelSubscriptions[topic].add(handler);
     }
 
-    removeModelSubscription(scope, event, subscriberId, part, methodName) {
+    removeModelSubscription(scope, event, subscriberId, methodName) {
         if (CurrentIsland !== this) throw Error("Island Error");
         const topic = scope + ":" + event;
-        const handler = subscriberId + "." + part + "." + methodName;
+        const handler = subscriberId + "." + methodName;
         if (this.modelSubscriptions[topic]) this.modelSubscriptions[topic].remove(handler);
     }
 
-    addViewSubscription(scope, event, subscriberId, part, methodName, oncePerFrame) {
+    addViewSubscription(scope, event, subscriberId, methodName, oncePerFrame) {
         if (CurrentIsland) throw Error("Island Error");
         const topic = scope + ":" + event;
-        const handler = subscriberId + "." + part + "." + methodName;
+        const handler = subscriberId + "." + methodName;
         let subs = this.viewSubscriptions[topic];
         if (!subs) subs = this.viewSubscriptions[topic] = {
             data: [],
@@ -231,10 +257,10 @@ export default class Island {
         else subs.queueHandlers.add(handler);
     }
 
-    removeViewSubscription(scope, event, subscriberId, part, methodName) {
+    removeViewSubscription(scope, event, subscriberId, methodName) {
         if (CurrentIsland) throw Error("Island Error");
         const topic = scope + ":" + event;
-        const handler = subscriberId + "." + part + "." + methodName;
+        const handler = subscriberId + "." + methodName;
         const subs = this.viewSubscriptions[topic];
         if (subs) {
             subs.onceHandlers.delete(handler);
@@ -245,14 +271,14 @@ export default class Island {
         }
     }
 
-    removeAllViewSubscriptionsFor(subscriberId, part) {
-        const handlerPrefix = `${subscriberId}.${part}.`;
+    removeAllViewSubscriptionsFor(subscriberId) {
+        const handlerPrefix = `${subscriberId}.`;
         // TODO: optimize this - reverse lookup table?
         for (const [topic, subs] of Object.entries(this.viewSubscriptions)) {
             for (const kind of ["onceHandlers", "queueHandlers"]) {
                 for (const handler of subs[kind]) {
                     if (handler.startsWith(handlerPrefix)) {
-                        subs.delete(handler);
+                        delete subs[handler];
                     }
                 }
             }
@@ -267,8 +293,8 @@ export default class Island {
         const topic = scope + ":" + event;
         if (this.modelSubscriptions[topic]) {
             for (const handler of this.modelSubscriptions[topic]) {
-                const [subscriberId, partID, selector] = handler.split(".");
-                this.futureSend(0, subscriberId, partID, selector, data ? [data] : []);
+                const [subscriberId, selector] = handler.split(".");
+                this.futureSend(0, subscriberId, selector, data ? [data] : []);
             }
         }
         // To ensure model code is executed bit-identically everywhere, we have to notify views
@@ -307,26 +333,37 @@ export default class Island {
         const subscriptions = this.viewSubscriptions[topic];
         if (subscriptions) {
             for (const subscriber of subscriptions.queueHandlers) {
-                const [subscriberId, part, method] = subscriber.split(".");
-                const partInstance = this.viewsById[subscriberId].parts[part];
-                for (const data of dataArray) partInstance[method](data);
+                const [subscriberId, method] = subscriber.split(".");
+                const view = this.viewsById[subscriberId];
+                for (const data of dataArray) view[method](data);
             }
             const data = dataArray[dataArray.length - 1];
             for (const subscriber of subscriptions.onceHandlers) {
-                const [subscriberId, part, method] = subscriber.split(".");
-                const partInstance = this.viewsById[subscriberId].parts[part];
-                partInstance[method](data);
+                const [subscriberId, method] = subscriber.split(".");
+                const view = this.viewsById[subscriberId];
+                view[method](data);
             }
         }
     }
 
     asState() {
+        const namedModels = {};
+
+        for (const [modelName, model] of Object.entries(this.modelsByName)) {
+            namedModels[modelName] = model.id;
+        }
+
         return {
             id: this.id,
             time: this.time,
             timeSeq: this.timeSeq,
             random: this._random.state(),
-            models: Object.values(this.modelsById).map(model => model.asState()),
+            models: Object.values(this.topLevelModelsById).map(model => {
+                const state = {};
+                model.toState(state);
+                return state;
+            }),
+            namedModels,
             messages: this.messages.asUnsortedArray().map(message => message.asState()),
         };
     }
@@ -352,8 +389,8 @@ export default class Island {
     // Also, reset editable text
     broadcastInitialState() {
         const cleanIsland = this.controller.createCleanIsland();
-        for (const [modelId, model] of Object.entries(this.modelsById)) {
-            const cleanModel = cleanIsland.modelsById[modelId];
+        for (const [modelId, model] of Object.entries(this.topLevelModelsById)) {
+            const cleanModel = cleanIsland.topLevelModelsById[modelId];
             if (!cleanModel) continue;
             for (const [partId, part] of Object.entries(model.parts)) {
                 const cleanPart = cleanModel.parts[partId];
@@ -383,31 +420,49 @@ export default class Island {
     }
 }
 
-function startReflectorInBrowser() {
+
+async function startReflectorInBrowser() {
     document.getElementById("error").innerText = 'No Connection';
-    console.log("no connection to server, setting up local server");
+    console.log("Starting in-browser reflector");
+    // we defer starting the server until hotreload has finished
+    // loading all new modules
+    await hotreload.waitTimeout(0);
     // The following import runs the exact same code that's
     // executing on Node normally. It imports 'ws' which now
     // comes from our own fakeWS.js
-    hotreload.setTimeout(() => {
-        // ESLint doesn't know about the alias in package.json:
-        // eslint-disable-next-line global-require,import/no-unresolved
-        const server = require("reflector").server; // start up local server
-        // eslint-disable-next-line global-require,import/no-extraneous-dependencies
-        const Socket = require("ws").Socket;
-        socketSetup(new Socket({ server })); // connect to it
-    }, 0);
-    // we defer starting the server until hotreload has finished
-    // loading all new modules
+    // ESLint doesn't know about the alias in package.json:
+    // eslint-disable-next-line global-require,import/no-unresolved
+    require("reflector"); // start up local server
+    // we could return require("reflector").server._url
+    // to connect to our server.
+    // However, we want to discover servers in other tabs
+    // so we use the magic port 0 to connect to that.
+    return 'channel://server:0/';
 }
 
-function socketSetup(socket) {
+function newInBrowserSocket(server) {
+    // eslint-disable-next-line global-require,import/no-extraneous-dependencies
+    const Socket = require("ws").Socket;
+    return new Socket({ server });
+}
+
+export async function connectToReflector(reflectorUrl) {
+    let socket;
+    if (typeof reflectorUrl !== "string") reflectorUrl = await startReflectorInBrowser();
+    if (reflectorUrl.match(/^wss?:/)) socket = new WebSocket(reflectorUrl);
+    else if (reflectorUrl.match(/^channel:/)) socket = newInBrowserSocket(reflectorUrl);
+    else throw Error('Cannot interpret reflector address ' + reflectorUrl);
+    socketSetup(socket, reflectorUrl);
+}
+
+function socketSetup(socket, reflectorUrl) {
     document.getElementById("error").innerText = 'Connecting to ' + socket.url;
     Object.assign(socket, {
         onopen: _event => {
             if (socket.constructor === WebSocket) document.getElementById("error").innerText = '';
             console.log(socket.constructor.name, "connected to", socket.url);
             Controller.joinAll(socket);
+            Stats.connected(true);
         },
         onerror: _event => {
             document.getElementById("error").innerText = 'Connection error';
@@ -416,6 +471,13 @@ function socketSetup(socket) {
         onclose: event => {
             document.getElementById("error").innerText = 'Connection closed:' + event.code + ' ' + event.reason;
             console.log(socket.constructor.name, "closed:", event.code, event.reason);
+            Stats.connected(false);
+            Controller.leaveAll();
+            if (event.code !== 1000) {
+                // if abnormal close, try to connect again
+                document.getElementById("error").innerText = 'Reconnecting ...';
+                hotreload.setTimeout(() => connectToReflector(reflectorUrl), 1000);
+            }
         },
         onmessage: event => {
             Controller.receive(event.data);
@@ -424,9 +486,6 @@ function socketSetup(socket) {
     hotreload.addDisposeHandler("socket", () => socket.readyState !== WebSocket.CLOSED && socket.close(1000, "hotreload "+moduleVersion));
 }
 
-const reflector = "reflector" in urlOptions ? urlOptions.reflector : "wss://dev1.os.vision/reflector-v1";
-if (reflector && typeof reflector === 'string') socketSetup(new WebSocket(reflector));
-else startReflectorInBrowser();
 
 // Controller
 
@@ -445,6 +504,15 @@ export class Controller {
         TheSocket = socket;
         for (const controller of Object.values(Controllers)) {
             if (!controller.socket) controller.join(socket);
+        }
+    }
+
+    // socket was disconnected, destroy all islands
+    static leaveAll() {
+        if (!TheSocket) return;
+        TheSocket = null;
+        for (const controller of Object.values(Controllers)) {
+            controller.leave();
         }
     }
 
@@ -468,14 +536,22 @@ export class Controller {
     }
 
     constructor() {
+        this.reset();
+    }
+
+    reset() {
         /** @type {Island} */
         this.island = null;
+        /** the (shared) websocket for talking to the reflector */
+        this.socket = null;
         /** the messages received from reflector */
         this.networkQueue = new AsyncQueue();
         /** the time of last message received from reflector */
         this.time = 0;
         /** the number of concurrent users in our island */
         this.users = 0;
+        /** wallclock time we last heard from reflector */
+        this.lastReceived = Date.now();
     }
 
     /**
@@ -491,22 +567,18 @@ export class Controller {
      * @returns {Promise<Island>}
      */
     async createIsland(name, creator) {
-        const {moduleID, creatorFn, options} = creator;
+        const {moduleID, options} = creator;
         if (options) name += JSON.stringify(Object.values(options)); // include options in hash
-        this.islandCreator = { name, options, creatorFn, snapshot: {
-            id: await Controller.versionIDFor(name, moduleID),
-        }};
-        console.log(`ID for ${name}: ${this.id}`);
-        // try to fetch latest snapshot
-        try {
-            const snapshot = await this.fetchSnapshot();
-            if (snapshot.id !== this.id) console.warn(name, 'resuming snapshot of different version!');
-            this.islandCreator.snapshot = snapshot;
-            console.log(this.id, `Controller got snapshot (time: ${Math.floor(snapshot.time)})`);
-        } catch (e) {
-            console.log(this.id, 'Controller got no snapshot');
+        const id = await Controller.versionIDFor(name, moduleID);
+        console.log(`ID for ${name}: ${id}`);
+        this.islandCreator = {
+            name,
+            ...creator,
+        };
+        if (!this.islandCreator.snapshot) {
+            this.islandCreator.snapshot = { id, time: 0, meta: { created: (new Date()).toISOString() } };
         }
-
+        if (this.islandCreator.snapshot.id !== id) console.warn(`Resuming snapshot on different code base!`);
         return new Promise(resolve => {
             this.islandCreator.callbackFn = resolve;
             Controller.join(this);   // when socket is ready, join server
@@ -530,9 +602,14 @@ export class Controller {
     /** upload a snapshot to the asset server */
     async uploadSnapshot(hashes) {
         if (!this.island) return;
+        if (this.lastSnapshotTime === this.island.time) return;
+        this.lastSnapshotTime = this.island.time;
         // take snapshot
         const snapshot = this.takeSnapshot();
         snapshot.meta = {
+            ...this.islandCreator.snapshot.meta,
+            room: this.islandCreator.room,
+            options: this.islandCreator.options,
             date: (new Date()).toISOString(),
             host: window.location.hostname,
         };
@@ -556,11 +633,33 @@ export class Controller {
         return response.json();
     }
 
+    async updateSnapshot() {
+        // try to fetch latest snapshot
+        try {
+            const snapshot = await this.fetchSnapshot();
+            if (snapshot.id !== this.id) {
+                console.warn(this.id ,'fetched snapshot of different version!');
+                snapshot.originalID = snapshot.id;
+                snapshot.id = this.id;
+            }
+            if (snapshot.time >= this.islandCreator.snapshot.time) {
+                this.islandCreator.snapshot = snapshot;
+                console.log(this.id, `Controller fetched snapshot (time: ${Math.floor(snapshot.time)})`);
+            } else {
+                console.log(this.id, "Controller fetched snapshot but older than local" +
+                    ` (remote: ${snapshot.time}, local: ${this.islandCreator.snapshot.time})`);
+            }
+        } catch (e) {
+            console.log(this.id, 'Controller got no snapshot');
+        }
+    }
+
     /** @type String: this controller's island id */
     get id() {return this.island ? this.island.id : this.islandCreator.snapshot.id; }
 
     // handle messages from reflector
     receive(action, args) {
+        this.lastReceived = Date.now();
         switch (action) {
             case 'START': {
                 // We are starting a new island session.
@@ -599,6 +698,8 @@ export class Controller {
                 break;
             }
             case 'SERVE': {
+                if (!this.island) break; // can't serve if we don't have an island
+                if (this.backlog > 1000) break; // don't serve if we're not up-to-date
                 // We received a request to serve a current snapshot
                 console.log(this.id, 'Controller received SERVE - replying with snapshot');
                 const snapshot = this.takeSnapshot();
@@ -625,12 +726,13 @@ export class Controller {
     async install(drainQueue=false) {
         const {snapshot, creatorFn, options, callbackFn} = this.islandCreator;
         const newIsland = creatorFn(snapshot, options);
-        const newTime = newIsland.time;
+        const snapshotTime = newIsland.time;
+        this.time = snapshotTime;
         // eslint-disable-next-line no-constant-condition
         while (drainQueue) {
             // eslint-disable-next-line no-await-in-loop
             const nextMsg = await this.networkQueue.next();
-            if (nextMsg[0] > newTime) {
+            if (nextMsg[0] > snapshotTime) {
                 // This is the first 'real' message arriving.
                 newIsland.decodeAndSchedule(nextMsg);
                 drainQueue = false;
@@ -655,7 +757,8 @@ export class Controller {
 
     // network queue
 
-    join(socket) {
+    async join(socket) {
+        if (!this.nodownload) await this.updateSnapshot();
         console.log(this.id, 'Controller sending JOIN');
         this.socket = socket;
         const time = this.islandCreator.snapshot.time || 0;
@@ -664,6 +767,17 @@ export class Controller {
             action: 'JOIN',
             args: time,
         }));
+    }
+
+    leave() {
+        const island = this.island;
+        this.reset();
+        if (!this.islandCreator) throw Error("do not discard islandCreator!");
+        const {destroyerFn} = this.islandCreator;
+        if (destroyerFn) {
+            const snapshot = island.asState();
+            destroyerFn(snapshot);
+        }
     }
 
     sendMessage(msg) {
@@ -740,39 +854,42 @@ const Identity = {
 };
 
 const transcoders = {
-    "*.moveTo": XYZ,
-    "*.rotateTo": XYZW,
-    "*.updateContents": Identity,
-    "*.receiveEditEvents": Identity,
-    "*.initialUpdate": Identity,
+    "*#moveTo": XYZ,
+    "*#rotateTo": XYZW,
+    "*#onKeyDown": Identity,
+    "*#updateContents": Identity,
 };
 
-function encode(receiver, part, selector, args) {
+export function addMessageTranscoder(pattern, encoder, decoder) {
+    transcoders[pattern] = {encode: encoder, decode: decoder};
+}
+
+function encode(receiver, selector, args) {
     if (args.length > 0) {
-        const transcoder = transcoders[`${part}.${selector}`] || transcoders[`*.${selector}`] || transcoders['*'];
-        if (!transcoder) throw Error(`No transcoder defined for ${part}.${selector}`);
+        const transcoder = transcoders[`${receiver}#${selector}`] || transcoders[`*#${selector}`] || transcoders['*'];
+        if (!transcoder) throw Error(`No transcoder defined for ${receiver}#${selector}`);
         args = transcoder.encode(args);
     }
-    return `${receiver}.${part}.${selector}${args.length > 0 ? JSON.stringify(args):""}`;
+    return `${receiver}#${selector}${args.length > 0 ? JSON.stringify(args):""}`;
 }
 
 function decode(payload) {
-    const [_, msg, argString] = payload.match(/^([^[]+)(\[.*)?$/);
-    const [receiver, part, selector] = msg.split('.');
+    const [_, msg, argString] = payload.match(/^([a-z0-9.#]+)(.*)$/i);
+    const [receiver, selector] = msg.split('#');
     let args = [];
     if (argString) {
-        const transcoder = transcoders[`${part}.${selector}`] || transcoders[`*.${selector}`] || transcoders['*'];
-        if (!transcoder) throw Error(`No transcoder defined for ${part}.${selector}`);
+        const transcoder = transcoders[`${receiver}#${selector}`] || transcoders[`*#${selector}`] || transcoders['*'];
+        if (!transcoder) throw Error(`No transcoder defined for ${receiver}#${selector}`);
         args = transcoder.decode(JSON.parse(argString));
     }
-    return {receiver, part, selector, args};
+    return {receiver, selector, args};
 }
 
 class Message {
-    constructor(time, seq, receiver, part, selector, args) {
+    constructor(time, seq, receiver, selector, args) {
         this.time = time;
         this.seq = seq;
-        this.payload = encode(receiver, part, selector, args);
+        this.payload = encode(receiver, selector, args);
     }
 
     before(other) {
@@ -787,59 +904,16 @@ class Message {
 
     static fromState(state) {
         const [time, seq, payload] = state;
-        const { receiver, part, selector, args } = decode(payload);
-        return new Message(time, seq, receiver, part, selector, args);
+        const { receiver, selector, args } = decode(payload);
+        return new Message(time, seq, receiver, selector, args);
     }
 
     executeOn(island) {
-        const { receiver, part, selector, args } = decode(this.payload);
+        const { receiver, selector, args } = decode(this.payload);
         if (receiver === island.id) return; // noop
-        let object = island.modelsById[receiver];
-        if (part) object = object.parts[part];
-        execOnIsland(island, () => object[selector](...args));
+        const object = island.lookUpModel(receiver);
+        execOnIsland(island, () => {
+            inModelRealm(island, () => object[selector](...args));
+        });
     }
 }
-
-// TODO: move this back to model.js and declare a dependency on model.js
-// once this pull request is in a Parcel release:
-// https://github.com/parcel-bundler/parcel/pull/2660/
-
-// map model class names to model classes
-let ModelClasses = {};
-
-// Symbol for storing class ID in constructors
-const CLASS_ID = Symbol('CLASS_ID');
-
-function gatherModelClasses() {
-    // HACK: go through all exports and find model subclasses
-    ModelClasses = {};
-    for (const [file, m] of Object.entries(module.bundle.cache)) {
-        for (const cls of Object.values(m.exports)) {
-            if (cls && cls.__isTeatimeModelClass__) {
-                // create a classID for this class
-                const id = `${file}:${cls.name}`;
-                const dupe = ModelClasses[id];
-                if (dupe) throw Error(`Duplicate Model subclass "${id}" in ${file} and ${dupe.file}`);
-                ModelClasses[id] = {cls, file};
-                cls[CLASS_ID] = id;
-            }
-        }
-    }
-}
-
-function classToID(cls) {
-    if (cls[CLASS_ID]) return cls[CLASS_ID];
-    gatherModelClasses();
-    if (cls[CLASS_ID]) return cls[CLASS_ID];
-    throw Error(`Class "${cls.name}" not found, is it exported?`);
-}
-
-function classFromID(classID) {
-    if (ModelClasses[classID]) return ModelClasses[classID].cls;
-    gatherModelClasses();
-    if (ModelClasses[classID]) return ModelClasses[classID].cls;
-    throw Error(`Class "${classID}" not found, is it exported?`);
-}
-
-// flush ModelClasses after hot reload
-hotreload.addDisposeHandler(module.id, () => ModelClasses = {});

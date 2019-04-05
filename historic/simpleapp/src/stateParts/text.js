@@ -1,7 +1,7 @@
-import StatePart from "../statePart.js";
+import { StatePart } from "../modelView.js";
 
-const moduleVersion = `${module.id}#${module.bundle.v||0}`;
-if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
+const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 export const TextEvents = {
     contentChanged: 'text-contentChanged',
@@ -9,7 +9,7 @@ export const TextEvents = {
 };
 
 export default class TextPart extends StatePart {
-    fromState(state={}) {
+    applyState(state={}) {
         this.content = state.content || "";
         this.content.eventId = 0;
         this.font = state.font || "Barlow";

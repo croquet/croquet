@@ -1,36 +1,49 @@
 import * as THREE from 'three';
-import Object3D from "../viewParts/object3D.js";
 import { SpatialEvents } from '../stateParts/spatial.js';
-import { SizeEvents } from '../stateParts/size.js';
-import View from '../view.js';
-import { PortalEvents, PortalTopic } from './portalModel.js';
+import { ViewPart } from '../modelView.js';
+import PortalPart from './portalModel.js';
 import { RENDER_LAYERS } from '../render.js';
 
-const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
-if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
+const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
-export const PortalViewEvents = {
-    "traversedView": "portal-traversedView"
-};
+export default class PortalViewPart extends ViewPart {
+    constructor(model, options={}) {
+        options = {visualOffset: -0.1, source: null, ...options};
+        super(model, options);
 
-export default class PortalView extends View {
-    buildParts() {
-        new PortalViewPart(this);
-    }
-}
+        this.viewState.parts = {
+            // maintain a view-local "copy" of the portal info to reuse the traversal logic in the view
+            // This allows spatial viewStates to traverse this cloned portal viewState and create the correct events
+            clonedPortal: new PortalPart()
+        };
+        const stateToClone = {};
+        model.lookUp(options.source).toState(stateToClone);
+        this.viewState.parts.clonedPortal.init({...stateToClone, id: null});
 
-export class PortalViewPart extends Object3D {
-    fromOptions(options={}) {
-        super.fromOptions(options);
-        this.visualOffset = options.visualOffset || -0.1;
-        this.source = options.source || "model.portal";
-    }
+        this.visualOffset = options.visualOffset;
+        const sourceSpatialPart = model.lookUp(options.source).parts.spatial;
 
-    attachWithObject3D(modelState) {
-        const portalShape = this.attachWithPortalShape(modelState);
-        portalShape.children[0].layers.disable(RENDER_LAYERS.NORMAL);
-        portalShape.children[0].layers.enable(RENDER_LAYERS.ALL_PORTALS);
-        return portalShape;
+        const mesh = new THREE.Mesh(
+            new THREE.PlaneGeometry(1, 1, 1, 1),
+            new THREE.MeshBasicMaterial({color: new THREE.Color("#00ffff")})
+        );
+        const group = new THREE.Group();
+        group.add(mesh);
+        mesh.position.copy(new THREE.Vector3(0, 0, this.visualOffset));
+
+        // TODO: actually use something like internal "TrackSpatial" and "TrackSize" parts here
+        group.position.copy(sourceSpatialPart.position);
+        group.quaternion.copy(sourceSpatialPart.quaternion);
+        group.scale.copy(sourceSpatialPart.scale);
+
+        this.subscribe(SpatialEvents.moved, "onMoved", sourceSpatialPart.id);
+        this.subscribe(SpatialEvents.rotated, "onRotated", sourceSpatialPart.id);
+        this.subscribe(SpatialEvents.scaled, "onScaled", sourceSpatialPart.id);
+
+        group.children[0].layers.disable(RENDER_LAYERS.NORMAL);
+        group.children[0].layers.enable(RENDER_LAYERS.ALL_PORTALS);
+        this.threeObj = group;
     }
 
     enableLayersAsIndividual() {
@@ -41,51 +54,18 @@ export class PortalViewPart extends Object3D {
         this.threeObj.children[0].layers.disable(RENDER_LAYERS.INDIVIDUAL_PORTAL);
     }
 
-    /** @abstract */
-    attachWithPortalShape(modelState) {
-        const [contextName, partId] = this.source.split(".");
-        const context = contextName === "model" ? modelState : this.owner;
-        this.modelPortalPart = context.parts[partId];
-        const hereSpatialPart = context.parts[this.modelPortalPart.hereSpatialPartId];
-        const sizePart = context.parts[this.modelPortalPart.sizePartId];
-        const mesh = new THREE.Mesh(
-            new THREE.PlaneGeometry(1, 1, 1, 1),
-            new THREE.MeshBasicMaterial({color: new THREE.Color("#00ffff")})
-        );
-        const group = new THREE.Group();
-        group.add(mesh);
-        mesh.position.copy(new THREE.Vector3(0, 0, this.visualOffset));
-
-        // TODO: actually use something like internal "TrackSpatial" and "TrackSize" parts here
-        group.position.copy(hereSpatialPart.position);
-        group.quaternion.copy(hereSpatialPart.quaternion);
-        group.scale.copy(sizePart.value);
-
-        this.subscribe(SpatialEvents.moved, "onMoved", context.id, this.modelPortalPart.hereSpatialPartId);
-        this.subscribe(SpatialEvents.rotated, "onRotated", context.id, this.modelPortalPart.hereSpatialPartId);
-        this.subscribe(SizeEvents.changed, "onResized", context.id, this.modelPortalPart.sizePartId);
-
-        this.subscribe(PortalEvents.traverserMoved, "onTraverserMoved", PortalTopic, null);
-
-        return group;
-    }
-
     onMoved(newPosition) {
         this.threeObj.position.copy(newPosition);
+        this.viewState.parts.clonedPortal.parts.spatial.moveTo(newPosition);
     }
 
     onRotated(newQuaternion) {
         this.threeObj.quaternion.copy(newQuaternion);
+        this.viewState.parts.clonedPortal.parts.spatial.rotateTo(newQuaternion);
     }
 
-    onResized(newSize) {
-        this.threeObj.scale.copy(newSize);
-    }
-
-    onTraverserMoved({from, to, traverserRef}) {
-        // TODO: this is such a hack. We shouldn't expect to be holding on to a model like this
-        if (this.modelPortalPart && this.modelPortalPart.didTraverse(from, to)) {
-            this.publish(PortalViewEvents.traversedView, {portalRef: this.modelPortalPart.asPartRef(), traverserRef}, PortalTopic, null);
-        }
+    onScaled(newScale) {
+        this.threeObj.scale.copy(newScale);
+        this.viewState.parts.clonedPortal.parts.spatial.scaleTo(newScale);
     }
 }

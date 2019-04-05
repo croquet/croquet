@@ -4,9 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "parcel ./assets/index.html -p 9000 --host 0.0.0.0",
-    "bundle": "rm -f bundled/* && parcel build ./assets/index.html -d bundled --public-url . --no-source-maps",
-    "deploy": "rm -f ../../servers/croquet.studio/* && parcel build ./assets/index.html -d ../../servers/croquet.studio/ --no-source-maps",
+    "start": "parcel ./assets/*.html -p 9000 --host 0.0.0.0",
+    "deploy": "./deploy.sh",
     "lint": "eslint src",
     "docs": "jsdoc src -r -d docs"
   },
@@ -45,6 +44,6 @@
     "eslint-config-airbnb-base": "^13.1.0",
     "eslint-plugin-import": "^2.16.0",
     "jsdoc": "git+https://github.com/jsdoc3/jsdoc.git",
-    "parcel": "^1.12.3"
+    "parcel": "git+https://github.com/bertfreudenberg/parcel-bundler.git"
   }
 }

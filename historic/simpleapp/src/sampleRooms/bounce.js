@@ -1,176 +1,149 @@
 import * as THREE from 'three';
 import SeedRandom from "seedrandom";
 import Island from "../island.js";
-import Model from '../model.js';
-import View from '../view.js';
+import {StatePart, ViewPart} from '../modelView.js';
 import Room from "../room/roomModel.js";
-import Object3D, { Object3DGroup } from '../viewParts/object3D.js';
 import ChildrenPart, { ChildEvents } from '../stateParts/children.js';
 import SpatialPart from '../stateParts/spatial.js';
-import BouncingSpatialPart from '../stateParts/bouncingSpatial.js';
-import TrackSpatial from '../viewParts/trackSpatial.js';
+import Bouncing from '../stateParts/bouncing.js';
+import Tracking from '../viewParts/tracking.js';
 import Clickable from '../viewParts/clickable.js';
 import Draggable from '../viewParts/draggable.js';
-import { Text } from '../objects/text.js';
+import { TextObject } from '../objects/text.js';
 import urlOptions from '../util/urlOptions.js';
 
-const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
-if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
+const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
-export class Box extends Model {
-    buildParts(state) {
-        new SpatialPart(this, state);
+export class Box extends StatePart {
+    constructor() {
+        super();
+        this.parts = {spatial: new SpatialPart()};
     }
 
     naturalViewClass() { return DragBoxView; }
 }
 
-export class BouncingBox extends Model {
-    buildParts(state) {
-        new BouncingSpatialPart(this, state);
+export class BouncingBox extends StatePart {
+    constructor() {
+        super();
+        this.parts = {spatial: new (Bouncing(SpatialPart))()};
     }
 
     naturalViewClass() { return ClickBoxView; }
 }
 
-class BoxViewPart extends Object3D {
-    fromOptions(options) {
+class BoxViewPart extends ViewPart {
+    constructor(model, options) {
         options = {color: "#aaaaaa", ...options};
-        super.fromOptions(options);
-        this.color = options.color;
-    }
-
-    attachWithObject3D(_modelState) {
-        return new THREE.Mesh(
+        super(model, options);
+        this.threeObj = new THREE.Mesh(
             new THREE.BoxBufferGeometry(1, 1, 1),
-            new THREE.MeshStandardMaterial({color: new THREE.Color(this.color)})
+            new THREE.MeshStandardMaterial({color: new THREE.Color(options.color)})
         );
     }
 }
 
-class BallViewPart extends Object3D {
-    fromOptions(options) {
+class BallViewPart extends ViewPart {
+    constructor(model, options) {
         options = {color: "#aaaaaa", ...options};
-        super.fromOptions(options);
-        this.color = options.color;
-    }
-
-    attachWithObject3D(_modelState) {
-        return new THREE.Mesh(
+        super(model, options);
+        this.threeObj = new THREE.Mesh(
             new THREE.SphereBufferGeometry(0.75, 16, 16),
             new THREE.MeshStandardMaterial({color: new THREE.Color(this.color)})
         );
     }
 }
 
-class ClickBoxView extends View {
-    buildParts() {
-        new BallViewPart(this);
-        new TrackSpatial(this, {affects: "ball"});
-        new Clickable(this, {clickable: "ball", method: "toggle"});
+const ClickBoxView = Clickable(Tracking(BallViewPart), {
+    onClick() {
+        this.modelPart("spatial").toggle();
     }
-}
+});
 
-class DragBoxView extends View {
-    buildParts() {
-        new BoxViewPart(this);
-        new TrackSpatial(this, {affects: "box"});
-        new Draggable(this, {dragHandle: "box"});
-    }
-}
+const DragBoxView = Draggable(Tracking(BoxViewPart));
 
-export class Group extends Model {
-    buildParts(state) {
-        new SpatialPart(this, state);
-        new ChildrenPart(this, state);
+export class Group extends StatePart {
+    constructor() {
+        super();
+        this.parts = {
+            spatial: new SpatialPart(),
+            children: new ChildrenPart()
+        };
     }
 
     naturalViewClass() { return GroupView; }
 }
 
-class GroupView extends View {
-    buildParts() {
-        new Object3DChildren(this);    // provides 'object3D'
-        new TrackSpatial(this);        // affects 'object3D'
-    }
-
-}
-
-class Object3DChildren extends Object3DGroup {
-
-    attach(modelState) {
-        super.attach(modelState);
-
+class ChildrenGroupView extends ViewPart {
+    constructor(model, options) {
+        super(model, options);
         this.viewsForObjects = {};
 
-        for (const object of modelState.parts.children.children) {
+        this.subscribe(ChildEvents.childAdded, "onObjectAdded", model.id, "children");
+        this.subscribe(ChildEvents.childRemoved, "onObjectRemoved", model.id, "children");
+        this.group = new THREE.Group();
+        this.threeObj = this.group;
+
+        for (const object of model.parts.children.children) {
             this.onObjectAdded(object);
         }
-
-        this.subscribe(ChildEvents.childAdded, "onObjectAdded", modelState.id, "children");
-        this.subscribe(ChildEvents.childRemoved, "onObjectRemoved", modelState.id, "children");
     }
 
     onObjectAdded(object) {
         const NaturalView = object.naturalViewClass("in-group");
         /** @type {View} */
-        const view = new NaturalView(this.owner.island);
+        const view = new NaturalView(object);
         this.viewsForObjects[object.id] = view;
-        view.attach(object);
-        view.addToThreeParent(this.threeObj);
+        this.group.add(...view.threeObjs());
     }
 
     onObjectRemoved(object) {
         const view = this.viewsForObjects[object.id];
-        view.removeFromThreeParent(this.threeObj);
-        view.onDetach();
+        this.group.remove(...view.threeObjs());
+        view.detach();
         delete this.viewsForObjects[object.id];
     }
 }
+
+const GroupView = Tracking(ChildrenGroupView);
 
 /** A group that assigns random colors to its children's views */
 export class RandomColorGroup extends Group {
     naturalViewClass() { return RandomColorGroupView; }
 }
 
-class RandomColorGroupView extends GroupView {
-    buildParts() {
-        new RandomColorChildren(this);
-        new TrackSpatial(this);
-    }
-}
-
-class RandomColorChildren extends Object3DChildren {
-    constructor(...args) {
-        super(...args);
-        this.random = new SeedRandom(this.owner.island.id);
-    }
-
+class RandomColorChildrenGroupView extends ChildrenGroupView {
     onObjectAdded(object) {
         super.onObjectAdded(object);
         const view = this.viewsForObjects[object.id];
-        const material = view.parts.ball.threeObj.material;      // FIXME: hard-coded 'box'
-        material.color.setHSL(this.random(), 1, 0.5);
+        if (!this.random) this.random = new SeedRandom(this.modelId);
+        for (const threeObj of view.threeObjs()) {
+            threeObj.material.color.setHSL(this.random(), 1, 0.5);
+        }
     }
 }
 
+const RandomColorGroupView = Tracking(RandomColorChildrenGroupView);
+
 function initBounce(state, options) {
-    return new Island(state, () => {
-        const room = new Room();
+    return new Island(state, island => {
+        const room = new Room().init({});
+        island.set("room", room);
 
         for (let x = -3; x <= 3; x += 3) {
-            const bigBox = new Box({ spatial: { position: { x, y: 0.5, z: -2 }}});
+            const bigBox = new Box().init({ spatial: { position: { x, y: 0.5, z: -2 }}});
             room.parts.objects.add(bigBox);
         }
-        const text1 = new Text({
+        const text1 = new TextObject().init({
             spatial: { position: new THREE.Vector3(-2.25, 3, -2) },
             text: { content: "Croquet runs identically on any platform. Load this in another page to compare. Drag the cubes." }
         });
         room.parts.objects.add(text1);
-        const bouncingBoxes = new RandomColorGroup({ spatial: { scale: {x: 0.5, y: 0.5, z: 0.5 } } });
+        const bouncingBoxes = new RandomColorGroup().init({ spatial: { scale: {x: 0.5, y: 0.5, z: 0.5 } } });
         room.parts.objects.add(bouncingBoxes);
         for (let i = 0; i < options.n; i++) {
-            bouncingBoxes.parts.children.add(new BouncingBox({ spatial: { scale: {x: 0.3, y: 0.3, z: 0.3 } } }));
+            bouncingBoxes.parts.children.add(new BouncingBox().init({ spatial: { scale: {x: 0.3, y: 0.3, z: 0.3 } } }));
         }
     });
 }

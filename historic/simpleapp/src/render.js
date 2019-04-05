@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { PortalViewPart } from "./portal/portalView.js";
+import PortalViewPart from "./portal/portalView.js";
 
-const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
-if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
+const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 export const RENDER_LAYERS = {
     NORMAL: 0,
@@ -56,11 +56,8 @@ export default class Renderer {
 
         /** @type {PortalViewPart[]} */
         const portalViewParts = Object.values(currentRoomView.parts.objectViewManager.viewsForObjects)
-            .map(wrappingView => wrappingView.parts.wrappedView.wrapped)
-            .reduce((views, view) => {
-                return views.concat(
-                    Object.values(view.parts).filter(viewPart => viewPart instanceof PortalViewPart));
-            }, []);
+            .map(wrappingView => wrappingView.parts.inner)
+            .filter(viewPart => viewPart instanceof PortalViewPart);
 
         const gl = this.renderer.context;
 
@@ -104,7 +101,7 @@ export default class Renderer {
             // stencil buffer is not changed
             gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
 
-            const portalPart = portalViewPart.modelPortalPart;
+            const portalPart = portalViewPart.viewState.parts.clonedPortal;
             const portalTargetRoomView = roomViewManager.requestPassive(portalPart.there, allRooms);
 
             if (portalTargetRoomView) {

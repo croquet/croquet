@@ -1,39 +1,43 @@
-import Model from '../model.js';
+import {StatePart, ViewPart} from '../modelView.js';
 import SpatialPart from '../stateParts/spatial.js';
 import TextPart from '../stateParts/editableText.js';
 
-import View from '../view.js';
-import TrackSpatial from '../viewParts/trackSpatial.js';
+import Tracking from '../viewParts/tracking.js';
 import EditableTextViewPart from '../viewParts/editableText/text.js';
 
 /** Model for a simple text display */
-export default class Text extends Model {
-    buildParts(state) {
-        new TextPart(this, state);
-        new SpatialPart(this, state);
+export default class CarotaTextObject extends StatePart {
+    constructor() {
+        super();
+        this.parts = {
+            text: new TextPart(),
+            spatial: new SpatialPart()
+        };
     }
 
-    naturalViewClass() { return TextView; }
+    naturalViewClass() { return CarotaTextView; }
 }
 
 /** Model for a text editor */
-export class Editor extends Text {
-
-    naturalViewClass() { return EditorView; }
-
+export class CarotaEditorObject extends CarotaTextObject {
+    naturalViewClass() { return CarotaEditorView; }
 }
 
 /** View for rendering a Text */
-class TextView extends View {
-    buildParts() {
-        new EditableTextViewPart(this, {});
-        new TrackSpatial(this, { affects: "editableText" });
+class CarotaTextView extends ViewPart {
+    constructor(model, options) {
+        super(model, options);
+        this.parts = {
+            main: new (Tracking(EditableTextViewPart))(model, {})
+        };
     }
 }
 
-class EditorView extends View {
-    buildParts() {
-        new EditableTextViewPart(this, { editable: true });
-        new TrackSpatial(this, { affects: "editableText" });
+class CarotaEditorView extends ViewPart {
+    constructor(model, options) {
+        super(model, options);
+        this.parts = {
+            main: new (Tracking(EditableTextViewPart))(model, {editable: true})
+        };
     }
 }

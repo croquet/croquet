@@ -1,21 +1,24 @@
 import * as THREE from 'three';
 import { TextGeometry, HybridMSDFShader } from 'three-bmfont-text';
 import { rendererVersion } from '../../render.js';
-import Object3D from "../object3D.js";
 import { TextEvents } from '../../stateParts/editableText.js';
 import { PointerEvents, makePointerSensitive, TrackPlaneEvents, TrackPlaneTopic } from "../pointer.js";
 import { Carota } from './carota/editor.js';
 import { fontRegistry } from '../../util/fontRegistry.js';
 import { KeyboardEvents, KeyboardTopic } from '../../domKeyboardManager.js';
-import getUserID from '../../userid.js';
+import { ViewPart } from '../../modelView.js';
 
-const moduleVersion = `${module.id}#${module.bundle.v||0}`;
-if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
+const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
-export default class EditableTextViewPart extends Object3D {
-    fromOptions(options) {
-        options = {content: {content: [], selections: {}, timezone: 0}, glyphs: [], font: "Roboto", width: 3, height: 2, numLines: 10, drawnRects: [], editable: true, showSelection: true, ...options};
-        this.modelSource = options.modelSource;
+export default class EditableTextViewPart extends ViewPart {
+    constructor(model, options) {
+        options = {
+            content: {content: [], selection: {start: 0, end: 0}}, glyphs: [], font: "Roboto", width: 3, height: 2, numLines: 10, drawnRects: [],
+            source: "text", editable: false, showSelection: true, ...options,
+        };
+        super(model, options);
+        this.modelSource = model.lookUp(options.source);
         this.changeInitiatedByView = true;
         this.options = options;
 
@@ -29,24 +32,24 @@ export default class EditableTextViewPart extends Object3D {
             this.subscribe(KeyboardEvents.paste, "onPaste");
         }
         this.boxSelections = [];
-        window.view = this;
-    }
 
-    attachWithObject3D(modelState) {
         fontRegistry.load(this.options.font).then(entry => {
             this.initEditor();
             this.initTextMesh(entry.atlas);
         });
+
         const boxMesh = this.initBoxMesh();
+
         if (this.options.editable) {
-            makePointerSensitive(boxMesh, this.asPartRef());
+            makePointerSensitive(boxMesh, this);
         }
-        if (modelState && modelState.parts.editableText && modelState.parts.editableText.content) {
-            this.options.content = modelState.parts.editableText.content;
-            this.subscribe(TextEvents.modelContentChanged, "onContentChanged", modelState.id, this.modelSource);
-            this.subscribe(TextEvents.sequencedEvents, "onEditEvents", modelState.id, this.modelSource);
+
+        if (model && model.parts.text && model.parts.text.content) {
+            this.options.content = model.parts.text.content;
+            this.subscribe(TextEvents.modelContentChanged, "onContentChanged", model.parts.text.id);
         }
-        return boxMesh;
+
+        this.threeObj = boxMesh;
     }
 
     onGetFocus() {
@@ -60,17 +63,11 @@ export default class EditableTextViewPart extends Object3D {
         this.editor = new Carota(this.options.width, this.options.height, this.options.numLines);
         this.editor.isScrollable = true;  // unless client decides otherwise
 
-        this.editor.setUserID(getUserID());
-
         this.editor.mockCallback = ctx => {
             const glyphs = this.processMockContext(ctx);
             this.update({glyphs, corners: this.editor.visibleTextBounds(), scaleX: this.editor.scaleX, scrollTop: this.editor.scrollTop, frameHeight: this.editor.frame.height, drawnRects: ctx.filledRects});
         };
     }
-
-    mySelection() {
-        return this.options.content.selections[this.editor.getUserID()] || {start: 0, end: 0};
-    }       
 
     processMockContext(ctx) {
         const layout = fontRegistry.getMeasurer(this.options.font);
@@ -113,11 +110,12 @@ export default class EditableTextViewPart extends Object3D {
         const callback = () => this.onTextChanged();
         this.editor.setSubscribers(callback);
         this.editor.load(this.options.content.content);
-        let selection = this.mySelection();
-        this.editor.select(selection.start, selection.end);
+        this.editor.select(this.options.content.selection.start, this.options.content.selection.end);
+        this.changed();
+
         this.initSelectionMesh();
         this.initScrollBarMesh();
-        this.initialUpdate();
+        this.changed();
     }
 
     initBoxMesh() {
@@ -297,30 +295,13 @@ export default class EditableTextViewPart extends Object3D {
         }
     }
 
-    onEvents(ary) {
-        ary.forEach(event => {
-            if (event.type === "insert") {
-                this.editor.select(event.pos,
-                                   event.pos + evt.length);
-                this.editor.insert(event.text);
-            }
-        });
-        this.editor(event[event.length - 1].timezone);
-    }
-
     onContentChanged(newContent) {
-        // the first time and only the first time, presumably
         try {
-            this.changeIniftiatedByView = false;
+            this.changeInitiatedByView = false;
             this.editor.delayPaint = false;
             this.editor.load(newContent.content);
-
-            for (let k in newContent.selections) {
-                let selection = newContent.selections[k];
-                let color;
-                this.editor.select(selection.start,
-                                   selection.end);
-            }
+            this.editor.select(newContent.selection.start,
+                               newContent.selection.end);
             this.editor.paint();
         } finally {
             this.changeInitiatedByView = true;
@@ -328,43 +309,12 @@ export default class EditableTextViewPart extends Object3D {
         }
     }
 
-    onEditEvents(eventList) {
-        eventList.forEach(e => {
-            if (e.type === "insert") {
-                let editor = this.editor;
-                editor.select(e.pos, e.pos);
-                let text = e.text[0].text.value; // hmm
-                editor.select(editor.selection.end + editor.selectedRange().setText(text), null, false);
-            } else if (e.type === "erase") {
-                this.editor.backspace(e.start, e.end);
-            }
-            try {
-                this.changeIniftiatedByView = false;
-                this.editor.delayPaint = false;
-                this.editor.paint();
-            } finally {
-                this.changeInitiatedByView = true;
-                this.editor.delayPaint = true;
-            }
-        });
-    }
-
     onTextChanged() {}
 
     changed() {
-        let events = this.editor.transformer.contents();
-        this.editor.transformer.reset();
-        if (events.length > 0
-            && this.options.editable
-            && this.changeInitiatedByView) {
-            this.owner.model["editableText"].receiveEditEvents(events);
-        }
-    }
-
-    initialUpdate() {
         if (this.options.editable) {
             if (this.changeInitiatedByView) {
-                this.owner.model["editableText"].initialUpdate({content: this.editor.save(), selection: this.editor.selection});
+                this.modelPart("text").updateContents({content: this.editor.save(), selection: this.editor.selection});
             }
         }
     }
@@ -383,13 +333,13 @@ export default class EditableTextViewPart extends Object3D {
     }
 
     onPointerDown(evt) {
-        this.publish(KeyboardEvents.requestfocus, {requesterRef: this.asPartRef()}, KeyboardTopic, null);
+        this.publish(KeyboardEvents.requestfocus, {requesterRef: this.id}, KeyboardTopic);
         const pt = this.textPtFromEvt(evt.at);
         this.editor.mouseDown(pt.x, pt.y, pt.realY);
         this.lastPt = evt.at;
 
         this.draggingPlane.setFromNormalAndCoplanarPoint(this.threeObj.getWorldDirection(new THREE.Vector3()), this.threeObj.position);
-        this.publish(TrackPlaneEvents.requestTrackPlane, {requesterRef: this.asPartRef(), plane: this.draggingPlane}, TrackPlaneTopic, null);
+        this.publish(TrackPlaneEvents.requestTrackPlane, {requesterRef: this.id, plane: this.draggingPlane}, TrackPlaneTopic, null);
 
         this.changed();
         return true;
@@ -411,7 +361,7 @@ export default class EditableTextViewPart extends Object3D {
         this.mouseIsDown = false;
         this.editor.mouseUp(pt.x, pt.y, pt.realY);
         this.lastPt = null;
-        this.publish(TrackPlaneEvents.requestTrackPlane, {requesterRef: this.asPartRef(), plane: null}, TrackPlaneTopic, null);
+        this.publish(TrackPlaneEvents.requestTrackPlane, {requesterRef: this.id, plane: null}, TrackPlaneTopic, null);
 
         this.changed();
         return true;
@@ -478,7 +428,7 @@ export default class EditableTextViewPart extends Object3D {
     }
 
     onSave() {}
-        
+
     accept() {
         this.owner.model["editableText"].acceptContent();
     }

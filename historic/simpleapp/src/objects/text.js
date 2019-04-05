@@ -1,25 +1,28 @@
-import Model from "../model.js";
+import {StatePart, ViewPart} from "../modelView.js";
 import TextPart from "../stateParts/text.js";
 import SpatialPart from "../stateParts/spatial.js";
-import View from "../view.js";
-import TextViewPart, { TrackText } from "../viewParts/text.js";
-import TrackSpatial from "../viewParts/trackSpatial.js";
+import TextViewPart, { TextTracking } from "../viewParts/text.js";
+import Tracking from "../viewParts/tracking.js";
 
 /** Model for a simple text display */
-export class Text extends Model {
-    buildParts(state) {
-        new TextPart(this, state);
-        new SpatialPart(this, state);
+export class TextObject extends StatePart {
+    constructor() {
+        super();
+        this.parts = {
+            text: new TextPart(),
+            spatial: new SpatialPart()
+        };
     }
 
-    naturalViewClass() { return TextView; }
+    naturalViewClass() { return TextObjectView; }
 }
 
 /** View for rendering a Text */
-export class TextView extends View {
-    buildParts() {
-        new TextViewPart(this, {fontSize: 0.4});
-        new TrackSpatial(this, {affects: "text"});
-        new TrackText(this);
+export class TextObjectView extends ViewPart {
+    constructor(model, options) {
+        super(model, options);
+        this.parts = {
+            main: new (Tracking(TextTracking(TextViewPart)))(model, {fontSize: 0.4})
+        };
     }
 }

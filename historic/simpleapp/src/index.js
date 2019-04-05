@@ -6,16 +6,16 @@ import room3 from './sampleRooms/room3.js';
 import roomBounce from './sampleRooms/bounce.js';
 import RoomViewManager from './room/roomViewManager.js';
 import Renderer from './render.js';
-import { Controller } from "./island.js";
+import { connectToReflector, Controller } from "./island.js";
 import {theKeyboardManager} from './domKeyboardManager.js';
 import Stats from "./util/stats.js";
 import urlOptions from "./util/urlOptions.js";
 import { uploadCode } from "./modules.js";
 
-const LOG_HOTRELOAD = false;
+const LOG_HOTRELOAD = true;
 
-const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
-if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
+const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 let hotState = module.hot && module.hot.data || {};
 
@@ -24,53 +24,79 @@ const defaultRoom = window.location.hostname === "croquet.studio" ? "bounce" : "
 let codeHashes = null;
 
 /** The main function. */
-function start() {
-    if (urlOptions.upload !== false) uploadCode(module.id).then(hashes => codeHashes = hashes);
+async function start() {
+    let reflector = "wss://dev1.os.vision/reflector-v1";
+    if ("reflector" in urlOptions) reflector = urlOptions.reflector;
+
+    if (urlOptions.replay) {
+        console.warn("Replaying snapshot, overriding all other options");
+        const response = await fetch(urlOptions.replay, { mode: "cors" });
+        const snapshot = await response.json();
+        for (const key of Object.keys(urlOptions)) delete urlOptions[key];
+        Object.assign(urlOptions, snapshot.meta.options);
+        urlOptions.noupload = true;
+        urlOptions.nodownload = true;
+        hotState.currentRoomName = snapshot.meta.room;
+        hotState.islands = { [snapshot.meta.room]: snapshot };
+    }
+
+    // start websocket connection
+    connectToReflector(reflector);
+
+    // upload changed code files
+    if (!urlOptions.noupload) uploadCode(module.id).then(hashes => codeHashes = hashes);
 
     const ALL_ROOMS = {
         room1: {creator: room1},
         room2: {creator: room2},
         room3: {creator: room3},
         bounce: {creator: roomBounce},
+    };
 
-        async getIsland(roomName) {
+    // if hot-reloading, store the island snapshots in the room creators
+    for (const [roomName, room] of Object.entries(ALL_ROOMS)) {
+        if (!room.creator.snapshot && hotState.islands && hotState.islands[roomName]) {
+            const snapshot = hotState.islands[roomName];
+            room.creator.snapshot = typeof snapshot === "string" ? JSON.parse(snapshot) : snapshot;
+        }
+    }
+
+    Object.defineProperty(ALL_ROOMS, 'getIsland', {
+        enumerable: false,
+        value: async function getIsland(roomName) {
             const ROOM = ALL_ROOMS[roomName];
             if (!ROOM) throw Error("Unknown room: " + roomName);
             if (ROOM.islandPromise) return ROOM.islandPromise;
             const creator = ROOM.creator;
+            creator.room = roomName;
             if (!creator.options) creator.options = {};
             for (const opt of ["owner","session"]) {
                 if (urlOptions[opt]) creator.options[opt] = urlOptions[opt];
             }
+            creator.destroyerFn = snapshot => {
+                console.log("destroyer: detaching view for " + roomName);
+                delete ROOM.island;
+                delete ROOM.islandPromise;
+                roomViewManager.detach(roomName);
+                creator.snapshot = snapshot;
+                if (currentRoomName === roomName) {
+                    console.log("destroyer: re-joining " + roomName);
+                    currentRoomName = null;
+                    joinRoom(roomName);
+                }
+            };
             const controller = new Controller();
+            if (urlOptions.nodownload) controller.nodownload = true;
             ROOM.islandPromise = controller.createIsland(roomName, creator);
             return ROOM.island = await ROOM.islandPromise;
         }
-    };
+    });
+
     let currentRoomName = null;
     const roomViewManager = new RoomViewManager(window.innerWidth, window.innerHeight);
 
-    /** @arg {import('./island').default} island */
-    function onTraversedPortalView(portalRef, traverserRef, island, sourceRoomName) {
-        const [portalModelId, portalPartId] = portalRef.split(".");
-        /** @type {import('./portal/portalModel').PortalPart} */
-        const portal = island.modelsById[portalModelId];
-        const portalPart = portal.parts[portalPartId];
-        /** @type {import('./room/roomModel').default}*/
-        const roomView = roomViewManager.expect(sourceRoomName);
-
-        if (traverserRef === roomView.parts.portalTraverser.asPartRef()) {
-            const spatialPart = roomView.parts[roomView.parts.portalTraverser.spatialName];
-            // TODO: ugly
-            const portalSpatialPart = portal.parts[portalPart.hereSpatialPartId];
-            const {targetPosition, targetQuaternion} = portalPart.projectThroughPortal(spatialPart.position, spatialPart.quaternion);
-            joinRoom(portalPart.there, targetPosition, targetQuaternion, true);
-
-            // take a "step back" in the source room
-            const newSourcePosition = portalSpatialPart.position.clone().add(new THREE.Vector3(0, 0, 2.5).applyQuaternion(spatialPart.quaternion));
-            roomViewManager.moveCamera(sourceRoomName, newSourcePosition, spatialPart.quaternion.clone());
-            roomView.parts.pointer.onMouseUp();
-        }
+    function traversePortalToRoom({targetRoom, targetPosition, targetQuaternion}) {
+        joinRoom(targetRoom, targetPosition, targetQuaternion, true);
     }
 
     async function joinRoom(roomName, cameraPosition=new THREE.Vector3(0, 2, 4), cameraQuaternion=new THREE.Quaternion(), overrideCamera) {
@@ -79,7 +105,7 @@ function start() {
         await ALL_ROOMS.getIsland(roomName);
         currentRoomName = roomName;
         // request ahead of render, set initial camera position if necessary
-        roomViewManager.request(roomName, ALL_ROOMS, {cameraPosition, cameraQuaternion, overrideCamera}, onTraversedPortalView);
+        roomViewManager.request(roomName, ALL_ROOMS, {cameraPosition, cameraQuaternion, overrideCamera}, traversePortalToRoom);
         const desiredHash = roomName === defaultRoom ? "" : roomName;
         if (window.location.hash.slice(1) !== desiredHash) {
             window.history.pushState({}, "", "#" + desiredHash);
@@ -133,7 +159,7 @@ function start() {
                 if (simLoad.length > loadBalance) simLoad.shift();
                 // update stats
                 Stats.users(currentIsland.controller.users);
-                Stats.backlog(currentIsland.controller.backlog);
+                Stats.network(Date.now() - currentIsland.controller.lastReceived);
                 // remember lastFrame for setInterval()
                 lastFrame = Date.now();
             }
@@ -143,14 +169,13 @@ function start() {
             Object.values(ALL_ROOMS).forEach(({island}) => island && island.processModelViewEvents());
             Stats.end("update");
 
-            // render views
-            Stats.begin("render");
-            renderer.render(currentRoomName, ALL_ROOMS, roomViewManager);
-            Stats.end("render");
-
             // update view state
             const currentRoomView = roomViewManager.getIfLoaded(currentRoomName);
             if (currentRoomView) {
+                // render views
+                Stats.begin("render");
+                renderer.render(currentRoomName, ALL_ROOMS, roomViewManager);
+                Stats.end("render");
                 currentRoomView.parts.pointer.updatePointer();
                 keyboardManager.setCurrentRoomView(currentRoomView);
             }
@@ -165,7 +190,7 @@ function start() {
         simulate(10);
     }, 10);
 
-    if (urlOptions.upload !== false) {
+    if (!urlOptions.noupload) {
         // upload snapshots every 30 seconds
         function uploadSnapshots() {
             const liveRooms = Object.values(ALL_ROOMS).filter(room => room.island);
@@ -174,7 +199,9 @@ function start() {
             }
         }
         hotreload.setInterval(uploadSnapshots, 30000);
-        // also upload when we the page gets unloaded
+        // also upload when the page gets unloaded
+        hotreload.addEventListener(document.body, "unload", uploadSnapshots);
+        // ... and on hotreload
         hotreload.addDisposeHandler('snapshots', uploadSnapshots);
     }
 
@@ -182,14 +209,16 @@ function start() {
     const eventTimes = {};
     const throttle = event => {
         const now = Date.now();
-        if (now - eventTimes[event.type] < 50) return;
+        if (now - eventTimes[event.type] < (1000 / 60)) return true;
         eventTimes[event.type] = now;
+        return false;
     };
 
     hotreload.addEventListener(window, "mousemove", event => {
-        if (throttle(event)) return;
-        const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
-        if (currentRoomView) currentRoomView.parts.pointer.onMouseMove(event.clientX, event.clientY);
+        if (!throttle(event)) {
+            const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
+            if (currentRoomView) currentRoomView.parts.pointer.onMouseMove(event.clientX, event.clientY);
+        }
         event.preventDefault();
 
     });
@@ -203,36 +232,41 @@ function start() {
         if (currentRoomView) currentRoomView.parts.pointer.onMouseUp();
         event.preventDefault();
     });
-    hotreload.addEventListener(document.body, "touchstart", event => {
+    const canvas = renderer.renderer.context.canvas;
+    hotreload.addEventListener(canvas, "touchstart", event => {
         const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
         if (currentRoomView) {
             currentRoomView.parts.pointer.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
             currentRoomView.parts.pointer.updatePointer();
             currentRoomView.parts.pointer.onMouseDown();
         }
-        event.stopPropagation();
         event.preventDefault();
+        event.stopPropagation();
     }, {passive: false});
 
-    hotreload.addEventListener(document.body, "touchmove", event => {
-        if (throttle(event)) return;
-        const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
-        if (currentRoomView) {
-            currentRoomView.parts.pointer.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
+    hotreload.addEventListener(canvas, "touchmove", event => {
+        if (!throttle(event)) {
+            const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
+            if (currentRoomView) {
+                currentRoomView.parts.pointer.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
+            }
         }
+        event.preventDefault();
+        event.stopPropagation();
     }, {passive: false});
 
-    hotreload.addEventListener(document.body, "touchend", event => {
+    hotreload.addEventListener(canvas, "touchend", event => {
         const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
         if (currentRoomView) {currentRoomView.parts.pointer.onMouseUp();}
-        event.stopPropagation();
         event.preventDefault();
+        event.stopPropagation();
     }, {passive: false});
 
     hotreload.addEventListener(document.body, "wheel", event => {
-        if (throttle(event)) return;
-        const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
-        if (currentRoomView) {currentRoomView.parts.treadmillNavigation.onWheel(event);}
+        if (!throttle(event)) {
+            const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
+            if (currentRoomView) {currentRoomView.parts.treadmill.onWheel(event);}
+        }
         event.stopPropagation();
         event.preventDefault();
     }, {passive: false});
@@ -240,6 +274,13 @@ function start() {
     hotreload.addEventListener(window, "resize", () => {
         renderer.changeViewportSize(window.innerWidth, window.innerHeight);
         roomViewManager.changeViewportSize(window.innerWidth, window.innerHeight);
+    });
+
+    hotreload.addEventListener(document.getElementById('reset'), "click", () => {
+        if (currentRoomName) {
+            const currentIsland = ALL_ROOMS[currentRoomName].island;
+            if (currentIsland) currentIsland.broadcastInitialState();
+        }
     });
 
     hotreload.addEventListener(window, "hashchange", () => joinRoom(window.location.hash.slice(1)));
@@ -260,18 +301,18 @@ function start() {
                 islands: {},
                 currentRoomName
             });
-            // for (const [name, {island}] of Object.entries(ALL_ROOMS)) {
-            //     if (island) hotData.islands[name] = JSON.stringify(island.asState());
-            // }
+            for (const [name, {island}] of Object.entries(ALL_ROOMS)) {
+                if (island) hotData.islands[name] = JSON.stringify(island.asState());
+            }
         });
         // start logging module loads
-        if (LOG_HOTRELOAD && !module.bundle.v) module.bundle.v = 1;
+        if (LOG_HOTRELOAD && !module.bundle.v) module.bundle.v = {};
     }
 }
 
 if (module.hot) {
-    // no module.hot.accept(), to force reloading of all dependencies
-    // but preserve hotState
+    module.hot.accept();
+    // preserve hotState
     module.hot.dispose(hotData => {
         Object.assign(hotData, hotState);
         hotreload.dispose(); // specifically, cancel our delayed start()

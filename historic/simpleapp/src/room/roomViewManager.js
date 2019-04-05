@@ -1,7 +1,8 @@
 import RoomView from "./roomView.js";
+import { inViewRealm } from "../modelView.js";
 
-const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
-if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
+const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 export default class RoomViewManager {
     constructor(width, height) {
@@ -22,16 +23,13 @@ export default class RoomViewManager {
     }
 
     moveCamera(roomName, cameraPosition, cameraQuaternion) {
-        const portalTraverserHandler = this.activeRoomViews[roomName].parts.portalTraverseHandler;
-        const cameraSpatialPart = this.activeRoomViews[roomName].parts.cameraSpatial;
-        portalTraverserHandler.disable();
-        cameraSpatialPart.moveTo(cameraPosition, false);
+        const cameraSpatialPart = this.activeRoomViews[roomName].viewState.parts.cameraSpatial;
+        cameraSpatialPart.moveToNoPortalTraverse(cameraPosition, false);
         cameraSpatialPart.rotateTo(cameraQuaternion, false);
         cameraSpatialPart.stop();
-        portalTraverserHandler.enable();
     }
 
-    request(roomName, allRooms, {cameraPosition, cameraQuaternion, overrideCamera}, onTraversedPortalView) {
+    request(roomName, allRooms, {cameraPosition, cameraQuaternion, overrideCamera}, traversePortalToRoom) {
         if (this.activeRoomViews[roomName]) {
             if (overrideCamera) {
                 this.moveCamera(roomName, cameraPosition, cameraQuaternion);
@@ -40,16 +38,17 @@ export default class RoomViewManager {
             const island = allRooms[roomName].island;
             const room = island.get("room");
 
-            const roomView = new RoomView(island, {
-                activeParticipant: true,
-                width: this.viewportWidth,
-                height: this.viewportHeight,
-                cameraPosition,
-                cameraQuaternion,
-                onTraversedPortalView: (portalRef, traverserRef) => onTraversedPortalView(portalRef, traverserRef, island, roomName)
+            inViewRealm(island, () => {
+                const roomView = new RoomView(room, {
+                    activeParticipant: true,
+                    width: this.viewportWidth,
+                    height: this.viewportHeight,
+                    cameraPosition,
+                    cameraQuaternion,
+                    traversePortalToRoom    ,
+                });
+                this.activeRoomViews[roomName] = roomView;
             });
-            roomView.attach(room);
-            this.activeRoomViews[roomName] = roomView;
         }
 
         // might return null in the future if roomViews are constructed asynchronously
@@ -76,17 +75,29 @@ export default class RoomViewManager {
 
             const room = island.get("room");
 
-            const roomView = new RoomView(island, {
-                activeParticipant: false,
-                width: this.viewportWidth,
-                height: this.viewportHeight,
-                cameraPosition: initialCameraPosition
+            inViewRealm(island, () => {
+                const roomView = new RoomView(room, {
+                    activeParticipant: false,
+                    width: this.viewportWidth,
+                    height: this.viewportHeight,
+                    cameraPosition: initialCameraPosition
+                });
+                this.passiveRoomViews[roomName] = roomView;
             });
-            roomView.attach(room);
-            this.passiveRoomViews[roomName] = roomView;
         }
 
         return this.passiveRoomViews[roomName];
+    }
+
+    detach(roomName) {
+        if (this.activeRoomViews[roomName]) {
+            this.activeRoomViews[roomName].detach();
+            delete this.activeRoomViews[roomName];
+        }
+        if (this.passiveRoomViews[roomName]) {
+            this.passiveRoomViews[roomName].detach();
+            delete this.passiveRoomViews[roomName];
+        }
     }
 
     detachAll() {
@@ -96,5 +107,7 @@ export default class RoomViewManager {
         for (const roomView of Object.values(this.passiveRoomViews)) {
             roomView.detach();
         }
+        this.activeRoomViews = {};
+        this.passiveRoomViews = {};
     }
 }

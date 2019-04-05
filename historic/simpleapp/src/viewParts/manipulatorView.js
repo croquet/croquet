@@ -1,47 +1,20 @@
 import * as THREE from "three";
-import SVGIcon from "./util/svgIcon.js";
-import lineHandle from "../assets/line-handle.svg";
-import rotateHandle from "../assets/rotate-handle.svg";
-import { PointerEvents, makePointerSensitive } from "./viewParts/pointer.js";
-import Object3D from "./viewParts/object3D.js";
-import View, { ViewPart } from "./view.js";
-import TrackSpatial from "./viewParts/trackSpatial.js";
+import SVGIcon from "../util/svgIcon.js";
+import lineHandle from "../../assets/line-handle.svg";
+import rotateHandle from "../../assets/rotate-handle.svg";
+import { PointerEvents, makePointerSensitive } from "./pointer.js";
+import { ViewPart } from "../modelView.js";
+import Tracking from "./tracking.js";
 
-const moduleVersion = `${module.id}#${module.bundle.v||0}`;
-if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
+const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
-class WrappedViewViewPart extends ViewPart {
-    /** @param {import('./view').default} wrappedView */
-    constructor(owner, options) {
-        super(owner, options);
-        this.wrapped = options.wrappedView;
-    }
-
-    attach(modelState) {
-        this.wrapped.attach(modelState);
-    }
-
-    detach() {
-        this.wrapped.detach();
-    }
-
-    addToThreeParent(parent) {
-        if (this.wrapped.addToThreeParent) this.wrapped.addToThreeParent(parent);
-    }
-
-    removeFromThreeParent(parent) {
-        if (this.wrapped.removeFromThreeParent) this.wrapped.removeFromThreeParent(parent);
-    }
-}
-
-class ManipulatorViewPart extends Object3D {
-    constructor(owner, options) {
+class ManipulatorViewPart extends ViewPart {
+    constructor(model, options) {
         options = {target: "spatial", ...options};
-        super(owner, options);
-        this.targetPartName = options.target;
-    }
+        super(model, options);
 
-    attachWithObject3D(_modelState) {
+        this.target = options.target;
         this.group = new THREE.Group();
         this.moveHandle = new SVGIcon(
             lineHandle,
@@ -58,9 +31,9 @@ class ManipulatorViewPart extends Object3D {
         );
         this.moveHandle.position.y -= 0.8;
         this.moveHandle.position.z = 0.2;
-        makePointerSensitive(this.moveHandle, this.asPartRef());
+        makePointerSensitive(this.moveHandle, this);
         this.rotateHandle.position.y -= 0.7;
-        makePointerSensitive(this.rotateHandle, this.asPartRef());
+        makePointerSensitive(this.rotateHandle, this);
         this.group.add(this.moveHandle);
         this.group.add(this.rotateHandle);
 
@@ -69,7 +42,7 @@ class ManipulatorViewPart extends Object3D {
         this.subscribe(PointerEvents.pointerDown, "onPointerDown");
         this.subscribe(PointerEvents.pointerDrag, "onPointerDrag");
 
-        return this.group;
+        this.threeObj = this.group;
     }
 
     onPointerMove({hoverThreeObj}) {
@@ -94,13 +67,13 @@ class ManipulatorViewPart extends Object3D {
     }
 
     onPointerDown() {
-        this.positionAtDragStart = this.threeObj.position.clone();
-        this.quaternionAtDragStart = this.threeObj.quaternion.clone();
+        this.positionAtDragStart = this.group.position.clone();
+        this.quaternionAtDragStart = this.group.quaternion.clone();
     }
 
     onPointerDrag({dragStart, dragEndOnHorizontalPlane, dragStartThreeObj}) {
         if (dragStartThreeObj === this.moveHandle) {
-            this.owner.model[this.targetPartName].moveTo(
+            this.modelPart(this.target).moveTo(
                 this.positionAtDragStart.clone().add(dragEndOnHorizontalPlane.clone().sub(dragStart))
             );
         } else if (dragStartThreeObj === this.rotateHandle) {
@@ -108,17 +81,21 @@ class ManipulatorViewPart extends Object3D {
                 dragStart.clone().sub(this.positionAtDragStart).setY(0).normalize(),
                 dragEndOnHorizontalPlane.clone().sub(this.positionAtDragStart).setY(0).normalize(),
             );
-            this.owner.model[this.targetPartName].rotateTo(
+            this.modelPart(this.target).rotateTo(
                 this.quaternionAtDragStart.clone().multiply(delta)
             );
         }
     }
 }
 
-export default class ManipulatorView extends View {
-    buildParts({wrappedView}) {
-        new WrappedViewViewPart(this, {wrappedView});
-        new ManipulatorViewPart(this);
-        new TrackSpatial(this, {affects: "manipulator"});
-    }
+export default function WithManipulator(BaseViewPart) {
+    return class WithManipulatorView extends ViewPart {
+        constructor(model, options) {
+            super(model, {});
+            this.parts = {
+                inner: new BaseViewPart(model, options),
+                manipulator: new (Tracking(ManipulatorViewPart, {scale: false}))(model, {})
+            };
+        }
+    };
 }

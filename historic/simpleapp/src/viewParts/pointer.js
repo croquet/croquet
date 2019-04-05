@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { ViewPart } from '../view.js';
+import { ViewPart } from '../modelView.js';
 import { theKeyboardManager } from '../domKeyboardManager.js';
 
-const moduleVersion = `${module.id}#${module.bundle.v||0}`;
-if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
+const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 export const PointerEvents = {
     pointerEnter: "pointer-enter",
@@ -17,9 +17,11 @@ export const PointerEvents = {
 export const TrackPlaneTopic = "topic-trackplane";
 export const TrackPlaneEvents = {requestTrackPlane: "requestTrackPlane"};
 
-/** @param {THREE.Object3D} threeObj */
-export function makePointerSensitive(threeObj, targetPartRef, layer=1) {
-    threeObj.userData.pointerSensitiveFor = targetPartRef;
+/**
+ * @arg {THREE.Object3D} threeObj
+ * @arg {ViewPart} target */
+export function makePointerSensitive(threeObj, target, layer=1) {
+    threeObj.userData.pointerSensitiveFor = target;
     threeObj.userData.pointerLayer = layer;
 }
 
@@ -28,10 +30,10 @@ export function ignorePointer(threeObj) {
 }
 
 export default class PointerViewPart extends ViewPart {
-    fromOptions(options) {
-        options = {cameraPartName: "camera", scenePartName: "scene", ...options};
-        this.cameraPart = this.owner.parts[options.cameraPartName];
-        this.scenePart = this.owner.parts[options.scenePartName];
+    constructor(model, options) {
+        super(model, options);
+        this.cameraPart = options.cameraPart;
+        this.scenePart = options.scenePart;
         this.mouse = new THREE.Vector2();
         this.raycaster = new THREE.Raycaster();
         this.hoveredViewPart = null;
@@ -63,8 +65,8 @@ export default class PointerViewPart extends ViewPart {
             theKeyboardManager.blur();
             this.publish(
                 PointerEvents.pointerDown,
-                { at: this.dragStartPoint, pointer: this.asPartRef() },
-                ...this.draggedViewPart.split(".")
+                { at: this.dragStartPoint, pointer: this.id },
+                this.draggedViewPart.id
             );
             this.draggingVerticalPlane.setFromNormalAndCoplanarPoint(this.cameraPart.threeObj.getWorldDirection(new THREE.Vector3()), this.hoverPoint);
             this.draggingHorizontalPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), this.hoverPoint);
@@ -75,8 +77,8 @@ export default class PointerViewPart extends ViewPart {
         if (this.draggedViewPart) {
             this.publish(
                 PointerEvents.pointerUp,
-                { pointer: this.asPartRef() },
-                ...this.hoveredViewPart.split(".")
+                { pointer: this.id },
+                this.hoveredViewPart.id
             );
             this.draggedViewPart = null;
         }
@@ -100,9 +102,9 @@ export default class PointerViewPart extends ViewPart {
                     dragEndOnVerticalPlane: newVerticalDragPoint,
                     dragEndOnHorizontalPlane: newHorizontalDragPoint,
                     dragEndOnUserPlane: newUserDragPoint,
-                    pointer: this.asPartRef()
+                    pointer: this.id
                 },
-                ...this.draggedViewPart.split(".")
+                this.draggedViewPart.id
             );
         }
         else {
@@ -156,16 +158,16 @@ export default class PointerViewPart extends ViewPart {
                 if (this.hoveredViewPart) {
                     this.publish(
                         PointerEvents.pointerLeave,
-                        { pointer: this.asPartRef() },
-                        ...this.hoveredViewPart.split(".")
+                        { pointer: this.id },
+                        this.hoveredViewPart.id
                     );
                 }
                 this.hoveredViewPart = newlyHoveredViewPart;
                 if (newlyHoveredViewPart) {
                     this.publish(
                         PointerEvents.pointerEnter,
-                        { hoverPoint, hoverNormal, hoverThreeObj, pointer: this.asPartRef() },
-                        ...newlyHoveredViewPart.split(".")
+                        { hoverPoint, hoverNormal, hoverThreeObj, pointer: this.id },
+                        newlyHoveredViewPart.id
                     );
                 }
                 else {
@@ -175,8 +177,8 @@ export default class PointerViewPart extends ViewPart {
             else if (this.hoveredViewPart && this.hoveredViewPart === newlyHoveredViewPart) {
                 this.publish(
                     PointerEvents.pointerMove,
-                    { hoverPoint, hoverNormal, hoverThreeObj, pointer: this.asPartRef() },
-                    ...newlyHoveredViewPart.split(".")
+                    { hoverPoint, hoverNormal, hoverThreeObj, pointer: this.id },
+                    newlyHoveredViewPart.id
                 );
             }
         }

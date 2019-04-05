@@ -2,10 +2,10 @@ import Hashids from "hashids";
 import hotreload from "./hotreload.js";
 
 // we include the parcel prelude only so we can get at its source code
-import "parcel/lib/builtins/prelude.js";    // eslint-disable-line
+import "parcel/src/builtins/prelude.js";    // eslint-disable-line
 
-const moduleVersion = `${module.id}#${module.bundle.v||0}`;
-if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
+const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 /*
 We use the Parcel module system to inspect our own source code:
@@ -146,10 +146,11 @@ async function hashString(string) {
     return hashBuffer(buffer);
 }
 
-let fileHashes = {};
-hotreload.addDisposeHandler("fileHashes", () => fileHashes = {});
+export const fileHashes = {};
 
-async function hashFile(mod) {
+hotreload.addDisposeHandler("fileHashes", () => { for (const f of (Object.keys(fileHashes))) delete fileHashes[f]; });
+
+export async function hashFile(mod) {
     if (fileHashes[mod]) return fileHashes[mod];
     const source = sourceCodeOf(mod);
     return fileHashes[mod] = await hashString(source);
@@ -281,6 +282,6 @@ export async function uploadCode(entryPoint) {
     //     uploadAsset(asset);
     // }
     // prelude is the Parcel loader code, which loads the entrypoint
-    const prelude = moduleWithID(module.id)[1]["parcel/lib/builtins/prelude.js"];
-    return { prelude: await hashFile(prelude), entry: await hashFile(entryPoint), html: await hashFile(htmlName) };
+    const prelude = moduleWithID(module.id)[1]["parcel/src/builtins/prelude.js"];
+    return { base: BASE_URL, prelude: await hashFile(prelude), entry: await hashFile(entryPoint), html: await hashFile(htmlName) };
 }
