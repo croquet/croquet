@@ -2,9 +2,9 @@ import Island, { connectToReflector, Controller, addMessageTranscoder } from "./
 import { StatePart, ViewPart, currentRealm, inViewRealm } from "./modelView.js";
 import Stats from "./util/stats.js";
 
-const THROTTLE = 1000 / 60;
+const THROTTLE = 1000 / 60;     // mouse event throttling
 
-let SCALE = 1; // model uses virtual 1000x1000 space
+let SCALE = 1;      // model uses a virtual 1000x1000 space
 
 addMessageTranscoder('*', a => a, a => a);
 
@@ -76,9 +76,9 @@ class RootView extends ViewPart {
     }
 
     resize() {
-        const size = Math.max(200, Math.min(window.innerWidth, window.innerHeight) - 20);
+        const size = Math.max(50, Math.min(window.innerWidth, window.innerHeight) - 10);
         SCALE = size / 1100;
-        this.element.style.transform = `translate(${(window.innerWidth - size) / 2}px,${10}px) scale(${SCALE})`;
+        this.element.style.transform = `translate(${(window.innerWidth - size) / 2}px,${5}px) scale(${SCALE})`;
         this.element.style.transformOrigin = "0 0";
     }
 
@@ -142,7 +142,7 @@ async function go() {
     });
 
     inViewRealm(mainIsland, () => {
-        const rootView = new RootView(mainIsland.get('root'));
+        new RootView(mainIsland.get('root'));
     });
 
     window.requestAnimationFrame(frame);
