@@ -153,7 +153,7 @@ export default class Island {
         // this is only used for syncing after a snapshot
         // noop() isn't actually implemented, sends to island id
         // are filtered out in executeOn()
-        const message = new Message(this.time, 0, this.id, 0, "noop", []);
+        const message = new Message(this.time, 0, this.id, "noop", []);
         this.controller.sendMessage(message);
     }
 
