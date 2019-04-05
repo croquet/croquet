@@ -153,10 +153,10 @@ function wrap(runs, textWidth, measurer, margins={left: 0, top: 0, right: 0, bot
             rect = mockMeasurer(' ', word.style);
             currentHeight = Math.max(currentHeight, rect.height);
             rect.left = left;
-            word.rect = rect;
+            Object.assign(word, rect);
             currentLine.push(word);
             currentLine.forEach(c => {
-                c.rect.height = currentHeight;
+                c.height = currentHeight;
             });
             lines.push(currentLine);
             currentLine = [];
@@ -186,13 +186,16 @@ function wrap(runs, textWidth, measurer, margins={left: 0, top: 0, right: 0, bot
             top += currentHeight;
         }
         rect.left = left;
-        word.rect = rect;
+        Object.assign(word, rect);
         left += rect.width;
         currentLine.push(word);
     }
 
     if (currentLine.length > 0) {
+        currentLine.forEach(c => {
+            c.height = currentHeight;
+        });
         lines.push(currentLine);
     }
-    return lines;
+    return [lines, words];
 }

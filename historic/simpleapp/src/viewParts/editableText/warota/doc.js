@@ -16,16 +16,17 @@ class Insert {
     constructor(user, runs, pos, timezone) {
         this.user = user;
         this.runs = runs;
+        this.pos = pos;
         this.length = length(runs);
         this.timezone = timezone;
     }
 
     do(doc) {
-        doc.insert(pos, runs);
+        doc.insert(this.pos, this.runs);
     }
 
     undo(doc) {
-        doc.delete(pos, length);
+        doc.delete(this.pos, length);
     }
 
     type() {return "insert";}
@@ -43,12 +44,12 @@ class Delete {
     }
 
     do(doc) {
-        this.deleted = doc.get(start, end);
-        doc.delete(pos, length);
+        this.deleted = doc.get(this.start, this.end);
+        doc.delete(this.start, this.end - this.start);
     }
 
     undo(doc) {
-        doc.insert(start, this.deleted);
+        doc.insert(this.start, this.deleted);
     }
 
     type() {return "delete";}
@@ -60,12 +61,7 @@ class Doc {
         this._width = 0;
         this.doc = [{start: 0, end: 0, text: ""}]; // [{start: num, end: num, text: str, (opt)style: {font: str, size: num, color: str, emphasis: 'b' | 'i'|'bi'}}]
 
-        // created in layout, as it involves line wrapping.
-        // all letters in a "word" shares the same style,
-        // and never go across the displayed lines
-        // note that, a space character between letters is counted as a word
-        this.renderedWords = null; // [{start: num, end: num, text: string, left: num, top, num, width: num, height: num}]
-
+        this.commands = [];
         this.defaultFont = "Roman";
         this.defaultSize = 10;
     }
@@ -78,13 +74,8 @@ class Doc {
     load(runs) {
         // runs does not have start and end (a human would not want to add them).
         // The canonicalize method adds them.  What save() would do is to strip them out.
-        this.commands = [];
         this.doc = this.canonicalize(runs);
-        this.layout();
-    }
-
-    setMargins(margins) {
-        this.margins = margins;
+        this.commands = [];
     }
 
     equalStyle(prev, next, defaultFont, defaultSize) {
@@ -135,28 +126,21 @@ class Doc {
         return result;
     }
 
-    splitLines(runs) {
-        // assumes that runs is canonicalized
-    }
-     
-    layout() {
-        this.frame = null;
-
-        try {
-            let [lines, attrs] = this.splitLines(runs);
-
-            // transient.  Constructed from this.doc
-            this.lines = lines; // // [{start: num, end: num, text: str}]
-
-            // transient.  Constructed from this.doc.  The length may be dfferent from lines
-            this.attrs = attrs; // [{start: num, end: num, style: <tbd>}]
-        } catch (x) {
-            console.error(x);
-        }
-    }
-
     save(optStart, optEnd) {
         //return;
+    }
+}
+
+export class DocView {
+    constructor(doc) {
+        this.doc = doc;
+        this.layout();
+}
+
+    layout() {
+        let [lines, words] = wrap(this.doc.doc, this._width, mockMeasurer, this.margins);
+        this.lines = lines;
+        this.words = words;
     }
 
     findLine(pos) {
@@ -165,31 +149,34 @@ class Doc {
     }
 
     findRun(pos) {
-        let ind = this.doc.findIndex(run => run.start <= run && pos < run.end);
+        let runs = this.doc.doc;
+        let ind = runs.findIndex(run => run.start <= run && pos < run.end);
         if (ind < 0) {
-            ind = this.doc.length - 1;
+            ind = runs.length - 1;
         }
-        return [this.doc[ind], ind];
+        return [runs, ind];
     }
 
     findWord(pos, x, y) {
+        let word;
+        const isNewline = (str) => /[\n\r]/.test(str);
         if (x !== undefined && y !== undefined) {
-            let wordIndex = this.words.findIndex(word => word.top + word.height >= y);
-            let word = this.words[wordIndex];
+            let wordIndex = this.words.findIndex(w => w.top + w.height >= y);
+            word = this.words[wordIndex];
             let top = word.top;
             while (true) {
                 if (word.left <= x && x < word.left + word.width) {
                     return [word, wordIndex];
                 }
-                if (word.isEOL) {
+                if (isNewline(word.text)) {
                     // at the end of line
-                    return [word, wordIndex]
+                    return [word, wordIndex];
                 }
                 word = this.words[++wordIndex];
             }
             // last line?
         }
-        let wordIndex = this.words.findIndex(word => word.start <= pos && pos < word.end);
+        let wordIndex = this.words.findIndex(w => w.start <= pos && pos < w.end);
         return [word, wordIndex];
     }
 
@@ -235,6 +222,7 @@ class Doc {
         }
         this._width = optWidth;
         this.layout();
+        return null;
     }
 
     positionFromIndex(pos) {
@@ -257,13 +245,12 @@ class Doc {
         return 0;
     }
 
-  performUndo() {
-      let command = this.commands.pop();
-
-      if (command) {
-          command.undo(this);
-      }
-      this.layout();
+    performUndo() {
+        let command = this.commands.pop();
+        
+        if (command) {
+            command.undo(this);
+        }
+        this.layout();
     }
-
 }
