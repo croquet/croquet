@@ -114,6 +114,9 @@ export class LayoutRoot extends LayoutContainer {
         super(modelState, options);
         // cause and propagate first layout calculation
         this.onChildContentChanged();
+        this.outerGroup = new THREE.Group();
+        this.outerGroup.add(this.group);
+        this.threeObj = this.outerGroup;
     }
 
     onChildContentChanged() {
