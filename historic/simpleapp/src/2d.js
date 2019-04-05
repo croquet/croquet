@@ -1,6 +1,7 @@
 import Island, { connectToReflector, Controller, addMessageTranscoder } from "./island.js";
 import { StatePart, ViewPart, currentRealm, inViewRealm } from "./modelView.js";
 import Stats from "./util/stats.js";
+import urlOptions from "./util/urlOptions.js";
 
 const THROTTLE = 1000 / 60;     // mouse event throttling
 
@@ -125,7 +126,7 @@ class ShapeView extends ViewPart {
 
 
 async function go() {
-    connectToReflector("wss://dev1.os.vision/reflector-v1");
+    connectToReflector(urlOptions.reflector || "wss://dev1.os.vision/reflector-v1");
 
     const controller = new Controller();
     const mainIsland = await controller.createIsland("2d", {
