@@ -10,7 +10,7 @@ import SVGIcon from '../util/svgIcon.js';
 import Tracking from '../viewParts/tracking.js';
 import SpatialPart from '../stateParts/spatial.js';
 import Inertial from '../stateParts/inertial.js';
-import { PortalTraverserPart } from '../portal/portalModel.js';
+import { PortalTraversing, PortalEvents, PortalTopic } from '../portal/portalModel.js';
 import { KeyboardViewPart } from './keyboard.js';
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
@@ -20,7 +20,7 @@ export default class RoomView extends ViewPart {
     constructor(modelState, options={}) {
         super(modelState, options);
 
-        this.viewState.parts.cameraSpatial = new (Inertial(SpatialPart))();
+        this.viewState.parts.cameraSpatial = new (PortalTraversing(Inertial(SpatialPart)))();
         this.viewState.init({
             cameraSpatial: {
                 position: options.cameraPosition,
@@ -36,11 +36,6 @@ export default class RoomView extends ViewPart {
         this.parts.roomScene = new RoomScene(modelState);
         this.parts.objectViewManager = new ObjectViewManager(modelState, {scenePart: this.parts.roomScene});
 
-        this.parts.portalTraverser = new PortalTraverserPart(this.viewState, {
-            source: "cameraSpatial",
-            onTraversed: options.onTraversedPortalView
-        });
-
         if (options.activeParticipant) {
             this.parts.pointer = new PointerViewPart(modelState, {cameraPart: this.parts.camera, scenePart: this.parts.roomScene});
             this.parts.keyboard = new KeyboardViewPart(modelState, {});
@@ -49,6 +44,20 @@ export default class RoomView extends ViewPart {
                 scenePart: this.parts.roomScene,
                 cameraPart: this.parts.camera,
             });
+
+            this.traversePortalToRoom = options.traversePortalToRoom;
+            this.subscribe(PortalEvents.traversed, "onPortalTraversed", PortalTopic);
+        }
+    }
+
+    onPortalTraversed(traverseInfo) {
+        const cameraSpatial = this.viewState.parts.cameraSpatial;
+        if (traverseInfo.traverserId === cameraSpatial.id) {
+            this.traversePortalToRoom(traverseInfo);
+            this.parts.pointer.onMouseUp();
+            // take a step back in this room for when we come back
+            const stepBack = new THREE.Vector3(0, 0, 1).applyQuaternion(cameraSpatial.quaternion);
+            cameraSpatial.moveByNoPortalTraverse(stepBack);
         }
     }
 }

@@ -23,16 +23,13 @@ export default class RoomViewManager {
     }
 
     moveCamera(roomName, cameraPosition, cameraQuaternion) {
-        const portalTraverserHandler = this.activeRoomViews[roomName].parts.portalTraverseHandler;
-        const cameraSpatialPart = this.activeRoomViews[roomName].parts.cameraSpatial;
-        portalTraverserHandler.disable();
-        cameraSpatialPart.moveTo(cameraPosition, false);
+        const cameraSpatialPart = this.activeRoomViews[roomName].viewState.parts.cameraSpatial;
+        cameraSpatialPart.moveToNoPortalTraverse(cameraPosition, false);
         cameraSpatialPart.rotateTo(cameraQuaternion, false);
         cameraSpatialPart.stop();
-        portalTraverserHandler.enable();
     }
 
-    request(roomName, allRooms, {cameraPosition, cameraQuaternion, overrideCamera}, onTraversedPortalView) {
+    request(roomName, allRooms, {cameraPosition, cameraQuaternion, overrideCamera}, traversePortalToRoom) {
         if (this.activeRoomViews[roomName]) {
             if (overrideCamera) {
                 this.moveCamera(roomName, cameraPosition, cameraQuaternion);
@@ -48,7 +45,7 @@ export default class RoomViewManager {
                     height: this.viewportHeight,
                     cameraPosition,
                     cameraQuaternion,
-                    onTraversedPortalView: (portalRef, traverserRef) => onTraversedPortalView(portalRef, traverserRef, island, roomName)
+                    traversePortalToRoom    ,
                 });
                 this.activeRoomViews[roomName] = roomView;
             });

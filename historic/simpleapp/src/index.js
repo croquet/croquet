@@ -68,27 +68,8 @@ function start() {
     let currentRoomName = null;
     const roomViewManager = new RoomViewManager(window.innerWidth, window.innerHeight);
 
-    /** @arg {import('./island').default} island */
-    function onTraversedPortalView(portalRef, traverserRef, island, sourceRoomName) {
-        const [portalModelId, portalPartId] = portalRef.split(".");
-        /** @type {import('./portal/portalModel').PortalPart} */
-        const portal = island.modelsById[portalModelId];
-        const portalPart = portal.parts[portalPartId];
-        /** @type {import('./room/roomModel').default}*/
-        const roomView = roomViewManager.expect(sourceRoomName);
-
-        if (traverserRef === roomView.parts.portalTraverser.asPartRef()) {
-            const spatialPart = roomView.parts[roomView.parts.portalTraverser.spatialName];
-            // TODO: ugly
-            const portalSpatialPart = portal.parts[portalPart.hereSpatialPartId];
-            const {targetPosition, targetQuaternion} = portalPart.projectThroughPortal(spatialPart.position, spatialPart.quaternion);
-            joinRoom(portalPart.there, targetPosition, targetQuaternion, true);
-
-            // take a "step back" in the source room
-            const newSourcePosition = portalSpatialPart.position.clone().add(new THREE.Vector3(0, 0, 2.5).applyQuaternion(spatialPart.quaternion));
-            roomViewManager.moveCamera(sourceRoomName, newSourcePosition, spatialPart.quaternion.clone());
-            roomView.parts.pointer.onMouseUp();
-        }
+    function traversePortalToRoom({targetRoom, targetPosition, targetQuaternion}) {
+        joinRoom(targetRoom, targetPosition, targetQuaternion, true);
     }
 
     async function joinRoom(roomName, cameraPosition=new THREE.Vector3(0, 2, 4), cameraQuaternion=new THREE.Quaternion(), overrideCamera) {
@@ -98,7 +79,7 @@ function start() {
         Stats.connected(true);
         currentRoomName = roomName;
         // request ahead of render, set initial camera position if necessary
-        roomViewManager.request(roomName, ALL_ROOMS, {cameraPosition, cameraQuaternion, overrideCamera}, onTraversedPortalView);
+        roomViewManager.request(roomName, ALL_ROOMS, {cameraPosition, cameraQuaternion, overrideCamera}, traversePortalToRoom);
         const desiredHash = roomName === defaultRoom ? "" : roomName;
         if (window.location.hash.slice(1) !== desiredHash) {
             window.history.pushState({}, "", "#" + desiredHash);

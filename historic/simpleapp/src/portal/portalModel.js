@@ -59,7 +59,7 @@ export default class PortalPart extends StatePart {
     didTraverse(from, to) {
         const localFrom = this.worldToLocal(from);
         const localTo = this.worldToLocal(to);
-        const size = this.owner.parts[this.sizePartId].value;
+        const size = this.parts.spatial.scale;
 
         // intersection with oriented, bounded plane. Should be easy to extend to oriented box (just add depth).
         if (localFrom.z > 0 &&  localTo.z < 0) {
@@ -72,10 +72,16 @@ export default class PortalPart extends StatePart {
         return false;
     }
 
-    /** @arg {{from: THREE.Vector3, to: THREE.Vector3, traverserRef: string}} data */
-    onTraverserMoved({from, to, traverserRef}) {
-        if (this.didTraverse(from, to)) {
-            this.publish(PortalEvents.traversed, {portalRef: this.asPartRef(), traverserRef}, PortalTopic, null);
+    onTraverserMoved({fromPosition, toPosition, toQuaternion, traverserId}) {
+        if (this.didTraverse(fromPosition, toPosition)) {
+            const {targetPosition, targetQuaternion} = this.projectThroughPortal(toPosition, toQuaternion);
+            this.publish(PortalEvents.traversed, {
+                portalId: this.id,
+                traverserId,
+                targetRoom: this.there,
+                targetPosition,
+                targetQuaternion
+            }, PortalTopic, null);
         }
     }
 
@@ -84,25 +90,30 @@ export default class PortalPart extends StatePart {
     }
 }
 
-export class PortalTraverserPart extends StatePart {
-    constructor(options) {
-        super();
-        // this.spatialName = options.spatialName || "spatial";
-        // this.subscribe(SpatialEvents.moved, "onMoved", this.owner.id, this.spatialName);
-    }
+export function PortalTraversing(BaseSpatialPartClass) {
+    return class PortalTraversingSpatial extends BaseSpatialPartClass {
+        moveTo(...args) {
+            const fromPosition = this.position.clone();
+            super.moveTo(...args);
+            const toPosition = this.position.clone();
+            const toQuaternion = this.quaternion.clone();
+            this.publish(PortalEvents.traverserMoved, {fromPosition, toPosition, toQuaternion, traverserId: this.id}, PortalTopic, null);
+        }
 
-    applyState(state) {
-        super.applyState(state);
-        // this.lastPosition = state.lastPosition || this.owner.parts[this.spatialName].position;
-    }
+        moveBy(...args) {
+            const fromPosition = this.position.clone();
+            super.moveBy(...args);
+            const toPosition = this.position.clone();
+            const toQuaternion = this.quaternion.clone();
+            this.publish(PortalEvents.traverserMoved, {fromPosition, toPosition, toQuaternion, traverserId: this.id}, PortalTopic, null);
+        }
 
-    toState(state) {
-        super.toState(state);
-        state.lastPosition = this.lastPosition;
-    }
+        moveToNoPortalTraverse(...args) {
+            super.moveTo(...args);
+        }
 
-    onMoved(newPosition) {
-        this.publish(PortalEvents.traverserMoved, {from: this.lastPosition, to: newPosition, traverserRef: this.asPartRef()}, PortalTopic, null);
-        this.lastPosition = newPosition.clone();
-    }
+        moveByNoPortalTraverse(...args) {
+            super.moveBy(...args);
+        }
+    };
 }

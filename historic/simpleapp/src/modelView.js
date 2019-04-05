@@ -67,6 +67,7 @@ export class StatePart extends Part {
         for (const part of Object.values(this.parts)) {
             part.destroy();
         }
+        this.realm.unsubscribeAll(this.id);
         this.realm.deregisterTopLevelPart(this);
     }
 
@@ -173,7 +174,7 @@ export class ViewPart extends Part {
     }
 
     detach() {
-        this.owner.island.removeAllViewSubscriptionsFor(this.id);
+        this.realm.unsubscribeAll(this.id);
         this.superDetachedCalled = true;
 
         for (const partId of Object.keys(this.parts)) {
@@ -226,6 +227,7 @@ export class ViewPart extends Part {
 
 class ModelRealm {
     constructor(island) {
+        /** @type import('./island').default */
         this.island = island;
     }
     registerTopLevelPart(part, existingId) {
@@ -234,17 +236,17 @@ class ModelRealm {
     deregisterTopLevelPart(part) {
         this.island.deregisterModel(part.id);
     }
-    /** @abstract */
     publish(event, data, to) {
         this.island.publishFromModel(to, event, data);
     }
-    /** @abstract */
     subscribe(event, partId, methodName, to) {
         this.island.addModelSubscription(to, event, partId, methodName);
     }
-    /** @abstract */
     unsubscribe(event, partId, methodName, to) {
         this.island.removeModelSubscription(to, event, partId, methodName);
+    }
+    unsubscribeAll(id) {
+        this.island.removeAllModelSubscriptionsFor(id);
     }
 
     futureProxy(tOffset, part) {
@@ -262,6 +264,7 @@ class ModelRealm {
 
 class ViewRealm {
     constructor(island) {
+        /** @type import('./island').default */
         this.island = island;
     }
 
@@ -271,17 +274,17 @@ class ViewRealm {
     deregisterTopLevelPart(part) {
         this.island.deregisterView(part.id);
     }
-    /** @abstract */
     publish(event, data, to) {
         this.island.publishFromView(to, event, data);
     }
-    /** @abstract */
     subscribe(event, partId, methodName, to) {
         this.island.addViewSubscription(to, event, partId, methodName);
     }
-    /** @abstract */
     unsubscribe(event, partId, methodName, to) {
         this.island.removeViewSubscription(to, event, partId, methodName);
+    }
+    unsubscribeAll(id) {
+        this.island.removeAllViewSubscriptionsFor(id);
     }
 
     futureProxy(tOffset, part) {

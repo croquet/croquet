@@ -1,15 +1,11 @@
 import * as THREE from 'three';
 import { SpatialEvents } from '../stateParts/spatial.js';
 import { ViewPart } from '../modelView.js';
-import PortalPart, { PortalEvents, PortalTopic } from './portalModel.js';
+import PortalPart from './portalModel.js';
 import { RENDER_LAYERS } from '../render.js';
 
 const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
-
-export const PortalViewEvents = {
-    "traversedView": "portal-traversedView"
-};
 
 export default class PortalViewPart extends ViewPart {
     constructor(modelState, options={}) {
@@ -18,6 +14,7 @@ export default class PortalViewPart extends ViewPart {
 
         this.viewState.parts = {
             // maintain a view-local "copy" of the portal info to reuse the traversal logic in the view
+            // This allows spatial viewStates to traverse this cloned portal viewState and create the correct events
             clonedPortal: new PortalPart()
         };
         const stateToClone = {};
@@ -43,8 +40,6 @@ export default class PortalViewPart extends ViewPart {
         this.subscribe(SpatialEvents.moved, "onMoved", sourceSpatialPart.id);
         this.subscribe(SpatialEvents.rotated, "onRotated", sourceSpatialPart.id);
         this.subscribe(SpatialEvents.scaled, "onScaled", sourceSpatialPart.id);
-
-        this.subscribe(PortalEvents.traverserMoved, "onTraverserMoved", PortalTopic);
 
         group.children[0].layers.disable(RENDER_LAYERS.NORMAL);
         group.children[0].layers.enable(RENDER_LAYERS.ALL_PORTALS);
@@ -72,11 +67,5 @@ export default class PortalViewPart extends ViewPart {
     onScaled(newScale) {
         this.threeObj.scale.copy(newScale);
         this.viewState.parts.clonedPortal.parts.spatial.scaleTo(newScale);
-    }
-
-    onTraverserMoved({from, to, traverserRef}) {
-        if (this.viewState.parts.clonedPortal.didTraverse(from, to)) {
-            this.publish(PortalViewEvents.traversedView, {portalRef: this.viewState.parts.clonedPortal.id, traverserRef}, PortalTopic);
-        }
     }
 }
