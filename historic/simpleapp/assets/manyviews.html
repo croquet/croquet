@@ -14,11 +14,23 @@
                 width: 100px;
                 height: 100px;
             }
+            #overlay {
+                position: absolute;
+                display: flex;
+                align-content: center;
+                justify-content: center;
+                width: 100%;
+                color: #fff;
+                opacity: 0.5;
+                font: 200px sans-serif;
+            }
         </style>
     </head>
     <body>
+        <div id="overlay">100</div>
         <script>
             const n = Number.parseInt(location.hash.slice(1)) || 100;
+            overlay.innerText = n;
             for (let i = 0; i < n; i++) {
                 const iframe = document.createElement("iframe");
                 iframe.src = "/2d.html?nostats";
