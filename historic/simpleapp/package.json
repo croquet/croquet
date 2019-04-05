@@ -4,8 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "parcel ./assets/index.html -p 9000 --host 0.0.0.0",
-    "bundle": "rm -f bundled/* && parcel build ./assets/index.html -d bundled --public-url . --no-source-maps",
+    "start": "parcel ./assets/*.html -p 9000 --host 0.0.0.0",
     "deploy": "./deploy.sh",
     "lint": "eslint src",
     "docs": "jsdoc src -r -d docs"
