@@ -1,19 +1,9 @@
-class Rect {
-    constructor(l, t, w, h) {
-        this.left = l;
-        this.top = t;
-        this.width = w;
-        this.height = h;
-    }
-}
+import {Wrap, mockMeasurer} from './wrap.js';
+import MockContext from './MockContext.js';
 
-function length(ary) {
-    return ary.map(c => c.text).reduce((s, x) => x.length + s, 0);
-}
-
-/*export*/
-class Insert {
+export class Insert {
     constructor(user, runs, pos, timezone) {
+        let length = (ary) => ary.map(c => c.text).reduce((s, x) => x.length + s, 0);
         this.user = user;
         this.runs = runs;
         this.pos = pos;
@@ -26,14 +16,13 @@ class Insert {
     }
 
     undo(doc) {
-        doc.delete(this.pos, length);
+        doc.delete(this.pos, this.length);
     }
 
     type() {return "insert";}
 }
 
-/*export*/
-class Delete {
+export class Delete {
     constructor(user, start, end, timezone) {
         this.user = user;
         this.start = start;
@@ -55,10 +44,26 @@ class Delete {
     type() {return "delete";}
 }
 
-/*export*/
-class Doc {
+export class Selection {
+    constructor(user, start, end, color) {
+        this.user = user;
+        this.start = start;
+        this.end = end;
+        this.color = color;
+    }
+
+    do(doc) {
+        doc.selection(this.user, this.start, this.end, this.color);
+    }
+
+    undo(doc) {
+    }
+
+    type() {return "selection";}
+}
+
+export class Doc {
     constructor() {
-        this._width = 0;
         this.doc = [{start: 0, end: 0, text: ""}]; // [{start: num, end: num, text: str, (opt)style: {font: str, size: num, color: str, emphasis: 'b' | 'i'|'bi'}}]
 
         this.commands = [];
@@ -78,7 +83,9 @@ class Doc {
         this.commands = [];
     }
 
-    equalStyle(prev, next, defaultFont, defaultSize) {
+    equalStyle(prev, next) {
+        let defaultFont = this.doc.defaultFont;
+        let defaultSize = this.doc.defaultSize;
         if (!prev && !next) {return true;}
 
         if (!prev) {
@@ -105,7 +112,7 @@ class Doc {
         let i = 1;
         let run = runs[i];
         while (run) {
-            if (this.equalStyle(lastRun.style, run.style, this.defaultFont, this.defaultSize)) {
+            if (this.equalStyle(lastRun.style, run.style)) {
                 lastRun.text += run.text;
             } else {
                 lastRun.start = start;
@@ -129,19 +136,114 @@ class Doc {
     save(optStart, optEnd) {
         //return;
     }
+
+    performUndo() {
+        let command = this.commands.pop();
+
+        if (command) {
+            command.undo(this);
+        }
+        this.doc = this.canonicalize(this.doc);
+    }
 }
 
 export class DocView {
     constructor(doc) {
         this.doc = doc;
-        this.layout();
-}
+        this._width = 0;
+        this.margins = {left: 0, top: 0, right: 0, bottom: 0};
+
+        this.scrollLeft = 0;
+        this.scrollTop = 0;
+        this.relativeScrollBarWidth = 0.02;
+        this.showsScrollbar = true;
+        this.isScrollable = true;
+    }
+
+    width(width) {
+        if (width === undefined) {
+            return this._width;
+        }
+        this._width = width;
+        return null;
+    }
+
+    setDefault(font, size) {
+        this.doc.setDefault(font, size);
+    }
+
+    resize(width, height) {
+        this.screenWidth = width;
+        this.screenHeight = height;
+    }
+
+    resizeToNumLines(numLines) {
+        let lineHeight = mockMeasurer.lineHeight;
+        let neededPixels = lineHeight * numLines + this.margins.top + this.margins.bottom;
+        this.pixelY = neededPixels;
+        let scale = neededPixels / this.screenHeight;
+        this.pixelX = this.screenWidth * scale;
+
+        if (this.pixelX * this.relativeScrollBarWidth <= 30) {
+            this.relativeScrollBarWidth = 30 / this.pixelX;
+        }
+
+        this.width(this.pixelX * (1.0 - this.relativeScrollBarWidth)); // ??
+        this.lineHeight = lineHeight;
+    }
 
     layout() {
-        let [lines, words] = wrap(this.doc.doc, this._width, mockMeasurer, this.margins);
+        let [lines, words] = new Wrap().wrap(this.doc.doc, this._width, mockMeasurer, this.doc.defaultFont, this.doc.defaultSize, this.margins);
         this.lines = lines;
         this.words = words;
+        let lastWord = lines[lines.length-1][0]; // there should be always one
+        this.docHeight = lastWord.top + lastWord.height;
     }
+
+    paint() {
+        let ctx = new MockContext();
+        let canvas = {width: this.pixelX, height: this.pixelY};
+        let docHeight = this.docHeight;
+        let absScrollTop = this.scrollTop * docHeight;
+        let absScrollLeft = this.scrollLeft * this.pixelX;
+
+        ctx.save();
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.translate(0, -absScrollTop);
+
+        this.draw(ctx, {left: absScrollLeft, top: absScrollTop, width: this.pixelX, height: this.pixelY});
+        this.drawSelections(ctx);
+
+        if (this.showsScrollbar) this.drawScrollbar(ctx);
+
+        ctx.restore();
+        if (this.mockCallback) {
+            this.mockCallback(ctx);
+        }
+        return ctx;
+    }
+
+    draw(ctx, rect) {
+        this.words.forEach(word => {
+            if (word.styles) {
+                word.styles.forEach(style => {
+                    ctx.fillStyle = style.color;
+                    // and more styles...
+
+                    ctx.fillText(word.text.slice(style.start, style.end),
+                                 word.left, word.top + word.baseline);
+                });
+            } else {
+                ctx.fillStyle = word.style || 'black';
+                // and more styles...
+
+                ctx.fillText(word.text, word.left, word.top + word.baseline);
+            }
+        });
+    }
+
+    drawSelections(ctx) {}
+    drawScrollbar(ctx) {}
 
     findLine(pos) {
         // a smarty may do a binary search
@@ -216,21 +318,12 @@ export class DocView {
         this.layout();
     }
 
-    width(optWidth) {
-        if (optWidth === undefined) {
-            return this._width;
-        }
-        this._width = optWidth;
-        this.layout();
-        return null;
-    }
-
     positionFromIndex(pos) {
         let [word, wordIndex] = this.findWord(pos);
 
         let measure0 = this.measureText(word.text.slice(0, pos-1), word.style);
         let measure1 = this.measureText(word.text.slice(0, pos), word.style);
-        return new Rect(word.left + measure0.width, word.top, measure1.width - measure0.width, word.height);
+        return {left: word.left + measure0.width, top: word.top, width: measure1.with - measure0.width, height: word.height};
     }
 
     indexFromPosition(x, y) {
@@ -243,14 +336,5 @@ export class DocView {
             }
         }
         return 0;
-    }
-
-    performUndo() {
-        let command = this.commands.pop();
-        
-        if (command) {
-            command.undo(this);
-        }
-        this.layout();
     }
 }

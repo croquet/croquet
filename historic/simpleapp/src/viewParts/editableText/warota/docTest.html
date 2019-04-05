@@ -1,14 +1,11 @@
 <html>
 <head>
-<script type="text/javascript" src="doc.js"></script>
-<script type="text/javascript" src="wrap.js"></script>
-<script>
+<script type="module" src="doc.mjs"></script>
+<script type="module" src="wrap.mjs"></script>
+<script type="module">
+import {Doc, DocView} from './doc.mjs';
 
 window.onload = function () {
-    let doc = new Doc();
-
-    //doc.load([{text: "hello!"}]);
-
     let tests = [
         [
             [{text: "he"}, {text: "ll", style: {font: "Roman", size: 10}}, {text: 'o!'}],
@@ -22,11 +19,27 @@ window.onload = function () {
     ];
         
     tests.forEach(([runs, expected]) => {
-        let result = doc.canonicalize(runs)
+        let td = new Doc();
+        let result = td.canonicalize(runs)
         console.log(result, JSON.stringify(expected) === JSON.stringify(result));
     });
 
-    console.log(wrap([{text: 'Hell'}, {text: 'o'}, {text: '\n World!'}], 100, mockMeasurer));
+    let doc = new Doc();
+
+    let testRun = [{text: 'Hell'}, {text: 'o'}, {text: '\n World!'}];
+
+    doc.load(testRun);
+
+    console.log(doc.doc);
+
+    let view = new DocView(doc);
+    view.setDefault("Roman", 10);
+    view.width(100);
+    view.layout();
+    console.log('lines', view.lines);
+    console.log('words', view.words);
+
+    console.log('paint', view.paint());
 }
 </script>
 
