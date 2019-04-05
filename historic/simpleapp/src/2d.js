@@ -1,6 +1,5 @@
 import Island, { connectToReflector, Controller, addMessageTranscoder } from "./island.js";
-import Model from "./model.js";
-import View from "./view.js";
+import { StatePart, ViewPart, currentRealm, inViewRealm } from "./modelView.js";
 import Stats from "./util/stats.js";
 
 const THROTTLE = 1000 / 60;
@@ -9,16 +8,10 @@ let SCALE = 1; // model uses virtual 1000x1000 space
 
 addMessageTranscoder('*', a => a, a => a);
 
-export class Root extends Model {
+export class Root extends StatePart {
 
-    constructor(state) {
-        super(state);
-        this.island.set('root', this);
-        this.children = [];
-    }
-
-    restoreObjectReferences(state, objectsByID) {
-        this.children = state.children.map(id => objectsByID[id]);
+    applyState(state={}, topLevelPartsById) {
+        this.children = (state.children || []).map(id => topLevelPartsById[id]);
     }
 
     toState(state) {
@@ -30,18 +23,16 @@ export class Root extends Model {
 
     add(child) {
         this.children.push(child);
-        this.publish(this.id, null, 'child-added', child.id);
+        this.publish('child-added', child.id);
     }
 
 }
 
 
-export class Shape extends Model {
+export class Shape extends StatePart {
 
-    constructor(state={}) {
-        super(state);
-        this.island.set('text', this);
-        const r = max => Math.floor(max * this.island.random());
+    applyState(state={}) {
+        const r = max => Math.floor(max * currentRealm().random());
         this.type = state.type || 'circle';
         this.color = state.color || `hsl(${r(360)},${r(50)+50}%,50%)`;
         this.pos = state.pos || [r(1000), r(1000)];
@@ -59,30 +50,28 @@ export class Shape extends Model {
     moveBy(dx, dy) {
         this.pos[0] = Math.max(0, Math.min(1000, this.pos[0] + dx));
         this.pos[1] = Math.max(0, Math.min(1000, this.pos[1] + dy));
-        this.publish(this.id, null, 'pos-changed', this.pos);
+        this.publish('pos-changed', this.pos);
     }
 }
 
 
-class RootView extends View {
+class RootView extends ViewPart {
 
-    attach(model) {
-        super.attach(model);
+    constructor(modelState) {
+        super(modelState);
         this.element = document.createElement("div");
         this.element.className = "root";
         this.resize();
         document.body.appendChild(this.element);
         window.onresize = () => this.resize();
-        model.children.forEach(child => this.attachChild(child.id));
-        this.subscribePart(this.modelId, null, 'child-added', null, "attachChild", true);
+        modelState.children.forEach(child => this.attachChild(child));
+        this.subscribe('child-added', 'attachChild', this.modelId);
     }
 
     // non-inherited methods below
 
-    attachChild(childID) {
-        const model = this.island.modelsById[childID];
-        const view = new ShapeView(this.island);
-        view.attach(model);
+    attachChild(child) {
+        const view = new ShapeView(child);
         this.element.appendChild(view.element);
     }
 
@@ -96,13 +85,13 @@ class RootView extends View {
 }
 
 
-class ShapeView extends View {
+class ShapeView extends ViewPart {
 
-    attach(model) {
-        super.attach(model);
+    constructor(modelState) {
+        super(modelState);
         this.element = document.createElement("div");
-        this.element.className = model.type;
-        this.element.style.backgroundColor = model.color;
+        this.element.className = modelState.type;
+        this.element.style.backgroundColor = modelState.color;
         this.element.onmousedown = () => {
             let dx = 0;
             let dy = 0;
@@ -111,7 +100,7 @@ class ShapeView extends View {
                 dx += evt.movementX;
                 dy += evt.movementY;
                 if (evt.timeStamp - timeStamp > THROTTLE) {
-                    this.model.moveBy(dx / SCALE, dy / SCALE);
+                    this.modelPart().moveBy(dx / SCALE, dy / SCALE);
                     dx = dy = 0;
                     timeStamp = evt.timeStamp;
                 }
@@ -121,8 +110,8 @@ class ShapeView extends View {
                 document.onmousemove = null;
             };
         };
-        this.subscribePart(this.modelId, null, 'pos-changed', null, "move", true);
-        this.move(model.pos);
+        this.subscribe('pos-changed', 'move', this.modelId);
+        this.move(modelState.pos);
     }
 
     // non-inherited methods below
@@ -139,21 +128,22 @@ async function go() {
     connectToReflector("wss://dev1.os.vision/reflector-v1");
 
     const controller = new Controller();
-    const island = await controller.createIsland("2d", {
+    const mainIsland = await controller.createIsland("2d", {
         moduleID: module.id,
         creatorFn(state) {
-            return new Island(state, () => {
-                const root = new Root();
+            return new Island(state, island => {
+                const root = new Root().init();
+                island.set('root', root);
                 for (let i = 0; i < 100; i++) {
-                    root.add(new Shape());
+                    root.add(new Shape().init());
                 }
             });
         }
     });
 
-    const rootView = new RootView(island);
-    rootView.attach(island.get('root'));
-
+    inViewRealm(mainIsland, () => {
+        const rootView = new RootView(mainIsland.get('root'));
+    });
 
     window.requestAnimationFrame(frame);
     function frame(timestamp) {
@@ -164,7 +154,7 @@ async function go() {
         controller.simulate(Date.now() + 200);
 
         Stats.begin("render");
-        island.processModelViewEvents();
+        mainIsland.processModelViewEvents();
         Stats.end("render");
 
         window.requestAnimationFrame(frame);

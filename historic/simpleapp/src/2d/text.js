@@ -1,14 +1,11 @@
-import Model from "../model.js";
-import View from "../view.js";
+import { StatePart, ViewPart } from "../modelView.js";
 
 const COLORS = [ "#FFF", "#C00", "#0C0", "#880", "#00C", "#C0C", "#0CC", "#888" ];
 const CURSOR = "|";
 
-export class Text extends Model {
+export class Text extends StatePart {
 
-    constructor(state) {
-        super(state);
-        this.island.set('text', this);
+    applyState(state) {
         this.text = state.text || {
             contents: '',
             selections: {},
@@ -23,7 +20,7 @@ export class Text extends Model {
     // non-inherited methods below
 
     changed() {
-        this.publish(this.id, null, 'text-changed', this.text);
+        this.publish('text-changed', this.text);
     }
 
     keydown(user, key, meta, shift) {
@@ -84,10 +81,10 @@ export class Text extends Model {
 }
 
 
-export class TextView extends View {
+export class TextView extends ViewPart {
 
-    attach(modelState) {
-        super.attach(modelState);
+    constructor(modelState) {
+        super(modelState);
         this.div = document.createElement("div");
         this.render(modelState.text);
         document.body.appendChild(this.div);
