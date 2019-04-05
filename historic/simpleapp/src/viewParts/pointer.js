@@ -30,8 +30,8 @@ export function ignorePointer(threeObj) {
 }
 
 export default class PointerViewPart extends ViewPart {
-    constructor(modelState, options) {
-        super(modelState, options);
+    constructor(model, options) {
+        super(model, options);
         this.cameraPart = options.cameraPart;
         this.scenePart = options.scenePart;
         this.mouse = new THREE.Vector2();

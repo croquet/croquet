@@ -2,8 +2,8 @@ import { ViewPart } from '../modelView.js';
 import { KeyboardEvents, KeyboardTopic, theKeyboardManager } from '../domKeyboardManager.js';
 
 export class KeyboardViewPart extends ViewPart {
-    constructor(modelState, options) {
-        super(modelState, options);
+    constructor(model, options) {
+        super(model, options);
         this.subscribe(KeyboardEvents.requestfocus, "onRequestFocus", KeyboardTopic, null);
         this.focus = null;
     }

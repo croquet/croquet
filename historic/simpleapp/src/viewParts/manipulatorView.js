@@ -10,9 +10,9 @@ const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 class ManipulatorViewPart extends ViewPart {
-    constructor(modelState, options) {
+    constructor(model, options) {
         options = {target: "spatial", ...options};
-        super(modelState, options);
+        super(model, options);
 
         this.target = options.target;
         this.group = new THREE.Group();
@@ -90,11 +90,11 @@ class ManipulatorViewPart extends ViewPart {
 
 export default function WithManipulator(BaseViewPart) {
     return class WithManipulatorView extends ViewPart {
-        constructor(modelState, options) {
-            super(modelState, {});
+        constructor(model, options) {
+            super(model, {});
             this.parts = {
-                inner: new BaseViewPart(modelState, options),
-                manipulator: new (Tracking(ManipulatorViewPart, {scale: false}))(modelState, {})
+                inner: new BaseViewPart(model, options),
+                manipulator: new (Tracking(ManipulatorViewPart, {scale: false}))(model, {})
             };
         }
     };

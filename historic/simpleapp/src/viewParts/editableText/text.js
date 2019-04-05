@@ -12,13 +12,13 @@ const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 export default class EditableTextViewPart extends ViewPart {
-    constructor(modelState, options) {
+    constructor(model, options) {
         options = {
             content: {content: [], selection: {start: 0, end: 0}}, glyphs: [], font: "Roboto", width: 3, height: 2, numLines: 10, drawnRects: [],
             source: "text", editable: false, showSelection: true, ...options,
         };
-        super(modelState, options);
-        this.modelSource = modelState.lookUp(options.source);
+        super(model, options);
+        this.modelSource = model.lookUp(options.source);
         this.changeInitiatedByView = true;
         this.options = options;
 
@@ -44,9 +44,9 @@ export default class EditableTextViewPart extends ViewPart {
             makePointerSensitive(boxMesh, this);
         }
 
-        if (modelState && modelState.parts.text && modelState.parts.text.content) {
-            this.options.content = modelState.parts.text.content;
-            this.subscribe(TextEvents.modelContentChanged, "onContentChanged", modelState.parts.text.id);
+        if (model && model.parts.text && model.parts.text.content) {
+            this.options.content = model.parts.text.content;
+            this.subscribe(TextEvents.modelContentChanged, "onContentChanged", model.parts.text.id);
         }
 
         this.threeObj = boxMesh;

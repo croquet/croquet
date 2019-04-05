@@ -8,9 +8,9 @@ const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 export default class PortalViewPart extends ViewPart {
-    constructor(modelState, options={}) {
+    constructor(model, options={}) {
         options = {visualOffset: -0.1, source: null, ...options};
-        super(modelState, options);
+        super(model, options);
 
         this.viewState.parts = {
             // maintain a view-local "copy" of the portal info to reuse the traversal logic in the view
@@ -18,11 +18,11 @@ export default class PortalViewPart extends ViewPart {
             clonedPortal: new PortalPart()
         };
         const stateToClone = {};
-        modelState.lookUp(options.source).toState(stateToClone);
+        model.lookUp(options.source).toState(stateToClone);
         this.viewState.parts.clonedPortal.init({...stateToClone, id: null});
 
         this.visualOffset = options.visualOffset;
-        const sourceSpatialPart = modelState.lookUp(options.source).parts.spatial;
+        const sourceSpatialPart = model.lookUp(options.source).parts.spatial;
 
         const mesh = new THREE.Mesh(
             new THREE.PlaneGeometry(1, 1, 1, 1),

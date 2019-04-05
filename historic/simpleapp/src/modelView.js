@@ -137,19 +137,19 @@ export class StatePart extends Part {
 /** @extends {Part<ViewPart>} */
 export class ViewPart extends Part {
     /** @abstract */
-    constructor(modelState, _options={}) {
+    constructor(model, _options={}) {
         super();
 
         this.realm = currentRealm();
         this.id = currentRealm().registerTopLevelPart(this);
 
-        this.modelId = modelState.id;
-        // if we are being passed the viewState of another ViewPart as a modelState
+        this.modelId = model.id;
+        // if we are being passed the viewState of another ViewPart as a model
         // store a reference to it directly, so we can manipulate it directly
         // (as opposed to true modelStates, which are manipulated through proxies).
         // Also see the modelPart method
-        if (modelState.isViewState) {
-            this.viewStateThatActsAsModelState = modelState;
+        if (model.isViewState) {
+            this.viewStateThatActsAsModelState = model;
         }
         /** @type {import('THREE').Object3D | null} */
         this.threeObj = null;

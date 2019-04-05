@@ -17,8 +17,8 @@ const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 export default class RoomView extends ViewPart {
-    constructor(modelState, options={}) {
-        super(modelState, options);
+    constructor(model, options={}) {
+        super(model, options);
 
         this.viewState.parts.cameraSpatial = new (PortalTraversing(Inertial(SpatialPart)))();
         this.viewState.init({
@@ -33,12 +33,12 @@ export default class RoomView extends ViewPart {
             height: options.height
         });
 
-        this.parts.roomScene = new RoomScene(modelState);
-        this.parts.objectViewManager = new ObjectViewManager(modelState, {scenePart: this.parts.roomScene});
+        this.parts.roomScene = new RoomScene(model);
+        this.parts.objectViewManager = new ObjectViewManager(model, {scenePart: this.parts.roomScene});
 
         if (options.activeParticipant) {
-            this.parts.pointer = new PointerViewPart(modelState, {cameraPart: this.parts.camera, scenePart: this.parts.roomScene});
-            this.parts.keyboard = new KeyboardViewPart(modelState, {});
+            this.parts.pointer = new PointerViewPart(model, {cameraPart: this.parts.camera, scenePart: this.parts.roomScene});
+            this.parts.keyboard = new KeyboardViewPart(model, {});
             this.parts.treadmill = new (Tracking(TreadmillNavigation, {source: "cameraSpatial"}))(this.viewState, {
                 affects: "cameraSpatial",
                 scenePart: this.parts.roomScene,
@@ -64,8 +64,8 @@ export default class RoomView extends ViewPart {
 
 class RoomScene extends ViewPart {
     /** @arg {Room} room */
-    constructor(modelState, options) {
-        super(modelState, options);
+    constructor(model, options) {
+        super(model, options);
         this.scene = new THREE.Scene();
         this.grid = new THREE.GridHelper(10.0, 10, "#888888", "#aaaaaa");
         this.scene.add(this.grid);
@@ -79,7 +79,7 @@ class RoomScene extends ViewPart {
         this.light.shadow.camera.far = 10;     // default
         this.skyball = new THREE.Mesh(
             new THREE.SphereGeometry(50, 10, 10),
-            new THREE.MeshBasicMaterial({color: modelState.parts.color.value, side: THREE.DoubleSide})
+            new THREE.MeshBasicMaterial({color: model.parts.color.value, side: THREE.DoubleSide})
         );
         this.scene.add(this.skyball);
 
@@ -92,17 +92,17 @@ class RoomScene extends ViewPart {
 }
 
 class ObjectViewManager extends ViewPart {
-    constructor(modelState, options) {
-        super(modelState, options);
+    constructor(model, options) {
+        super(model, options);
         this.scenePart = options.scenePart;
         this.viewsForObjects = {};
 
-        for (const object of modelState.parts.objects.children) {
+        for (const object of model.parts.objects.children) {
             this.onObjectAdded(object);
         }
 
-        this.subscribe(ChildEvents.childAdded, "onObjectAdded", modelState.parts.objects.id);
-        this.subscribe(ChildEvents.childRemoved, "onObjectRemoved", modelState.parts.objects.id);
+        this.subscribe(ChildEvents.childAdded, "onObjectAdded", model.parts.objects.id);
+        this.subscribe(ChildEvents.childRemoved, "onObjectRemoved", model.parts.objects.id);
     }
 
     onObjectAdded(object) {
@@ -122,8 +122,8 @@ class ObjectViewManager extends ViewPart {
 }
 
 class TreadmillNavigation extends ViewPart {
-    constructor(modelState, options) {
-        super(modelState, options);
+    constructor(model, options) {
+        super(model, options);
         /** @type {CameraViewPart} */
         this.cameraPart = options.cameraPart;
         /** @type {RoomScene} */

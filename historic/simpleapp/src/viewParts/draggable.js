@@ -21,8 +21,8 @@ export default function Draggable(BaseViewPart, dragOptions) {
          * @arg {PartPath | null} options.target - the path into the attached model to modify on drag - defaults to "spatial"
          * @arg {boolean | null} options.dragVertically - whether drags should be on a horizontal or vertical camera-oriented plane
         */
-        constructor(modelState, options) {
-            super(modelState, options);
+        constructor(model, options) {
+            super(model, options);
             this.dragHandlePart = this.lookUp(dragOptions.dragHandle);
             makePointerSensitive(this.dragHandlePart.threeObj, this);
             this.dragTargetPartPath = dragOptions.target;

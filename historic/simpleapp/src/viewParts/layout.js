@@ -16,8 +16,8 @@ export const LayoutEvents = {
 };
 
 export class LayoutViewPart extends ViewPart {
-    constructor(modelState, options) {
-        super(modelState, options);
+    constructor(model, options) {
+        super(model, options);
         this.yogaNode = Node.create();
         this.options = options;
         if (this.options.flexDirection) this.yogaNode.setFlexDirection(
@@ -67,8 +67,8 @@ export class LayoutViewPart extends ViewPart {
 
 export class LayoutContainer extends LayoutViewPart {
     /** @arg {{children: (LayoutViewPart)[]}} options */
-    constructor(modelState, options) {
-        super(modelState, options);
+    constructor(model, options) {
+        super(model, options);
         this.children = new Set();
         this.group = new THREE.Group();
         this.threeObj = this.group;
@@ -110,8 +110,8 @@ export class LayoutContainer extends LayoutViewPart {
 }
 
 export class LayoutRoot extends LayoutContainer {
-    constructor(modelState, options) {
-        super(modelState, options);
+    constructor(model, options) {
+        super(model, options);
         // cause and propagate first layout calculation
         this.onChildContentChanged();
         this.outerGroup = new THREE.Group();
@@ -136,8 +136,8 @@ export class LayoutSlot extends LayoutViewPart {
      * @arg {Object} options
      * @arg {ViewPart} options.inner - inner ViewPart that should be layouted
      */
-    constructor(modelState, options) {
-        super(modelState, options);
+    constructor(model, options) {
+        super(model, options);
         this.subscribe(LayoutEvents.layoutChanged, "onLayoutChanged");
         this.parts = {inner: options.inner};
     }
@@ -147,8 +147,8 @@ export class LayoutSlot extends LayoutViewPart {
 }
 
 export class LayoutSlotCenter3D extends LayoutSlot {
-    constructor(modelState, options) {
-        super(modelState, options);
+    constructor(model, options) {
+        super(model, options);
         // TODO: what to do if the inner view has multiple threeObjs?
         const bbox = (new THREE.Box3()).setFromObject(this.parts.inner.threeObjs()[0]);
         this.yogaNode.setMinWidth((bbox.max.x - bbox.min.x) * MUL);

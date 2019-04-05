@@ -57,14 +57,14 @@ export class Shape extends StatePart {
 
 class RootView extends ViewPart {
 
-    constructor(modelState) {
-        super(modelState);
+    constructor(model) {
+        super(model);
         this.element = document.createElement("div");
         this.element.className = "root";
         this.resize();
         document.body.appendChild(this.element);
         window.onresize = () => this.resize();
-        modelState.children.forEach(child => this.attachChild(child));
+        model.children.forEach(child => this.attachChild(child));
         this.subscribe('child-added', 'attachChild', this.modelId);
     }
 
@@ -87,11 +87,11 @@ class RootView extends ViewPart {
 
 class ShapeView extends ViewPart {
 
-    constructor(modelState) {
-        super(modelState);
+    constructor(model) {
+        super(model);
         this.element = document.createElement("div");
-        this.element.className = modelState.type;
-        this.element.style.backgroundColor = modelState.color;
+        this.element.className = model.type;
+        this.element.style.backgroundColor = model.color;
         this.element.onmousedown = () => {
             let dx = 0;
             let dy = 0;
@@ -111,7 +111,7 @@ class ShapeView extends ViewPart {
             };
         };
         this.subscribe('pos-changed', 'move', this.modelId);
-        this.move(modelState.pos);
+        this.move(model.pos);
     }
 
     // non-inherited methods below

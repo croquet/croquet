@@ -47,9 +47,9 @@ export class RotatingBox extends StatePart {
 
 /** View for a Box */
 class BoxViewPart extends ViewPart {
-    constructor(modelState, options) {
+    constructor(model, options) {
         options = {color: "#aaaaaa", ...options};
-        super(modelState, options);
+        super(model, options);
         this.threeObj = new THREE.Mesh(
             new THREE.BoxBufferGeometry(1, 1, 1),
             new THREE.MeshStandardMaterial({color: new THREE.Color(options.color)})
@@ -73,42 +73,42 @@ export class LayoutTestModel extends StatePart {
 }
 
 class LayoutTestView extends ViewPart {
-    constructor(modelState, options) {
-        super(modelState, options);
+    constructor(model, options) {
+        super(model, options);
         this.parts = {
-            layout: new (Tracking(LayoutRoot))(modelState, {children: [
-                new LayoutContainer(modelState, {
+            layout: new (Tracking(LayoutRoot))(model, {children: [
+                new LayoutContainer(model, {
                     flexDirection: "row",
                     alignItems: "stretch",
                     // padding: 0.3,
                     children: [
-                        new LayoutSlotStretch3D(modelState, {
+                        new LayoutSlotStretch3D(model, {
                             margin: 0.1,
-                            inner: new BoxViewPart(modelState, {color: "#dd8888"}),
+                            inner: new BoxViewPart(model, {color: "#dd8888"}),
                         }),
-                        new LayoutSlotStretch3D(modelState, {
+                        new LayoutSlotStretch3D(model, {
                             margin: 0.1,
-                            inner: new BoxViewPart(modelState, {color: "#88dd88"})
+                            inner: new BoxViewPart(model, {color: "#88dd88"})
                         }),
-                        new LayoutSlotText(modelState, {
+                        new LayoutSlotText(model, {
                             margin: 0.1,
                             aspectRatio: 1,
-                            inner: new TextViewPart(modelState, {fontSize: 0.25, content: `This is an example of text in a dynamic layout: "Our first design for multiple inheritance presumed that a state variable such as ohms had a meaning independent of the individual perspectives. Hence, it was sensible for it to be owned by the node itself. All perspectives would reference this single variable when referring to resistance. This proved adequate so long as the system designer knew all of the perspectives that might be associated with a given node, and could ensure this uniformity of intended reference."`})
+                            inner: new TextViewPart(model, {fontSize: 0.25, content: `This is an example of text in a dynamic layout: "Our first design for multiple inheritance presumed that a state variable such as ohms had a meaning independent of the individual perspectives. Hence, it was sensible for it to be owned by the node itself. All perspectives would reference this single variable when referring to resistance. This proved adequate so long as the system designer knew all of the perspectives that might be associated with a given node, and could ensure this uniformity of intended reference."`})
                         }),
-                        new LayoutContainer(modelState, {
+                        new LayoutContainer(model, {
                             id: "columnInRow",
                             flexDirection: "column",
                             // padding: 0.1,
                             children: [
-                                new LayoutSlotStretch3D(modelState, {
+                                new LayoutSlotStretch3D(model, {
                                     margin: 0.1,
-                                    inner: new BoxViewPart(modelState, {id: "box3", color: "#dddd88"})
+                                    inner: new BoxViewPart(model, {id: "box3", color: "#dddd88"})
                                 }),
-                                new LayoutSlotStretch3D(modelState, {
+                                new LayoutSlotStretch3D(model, {
                                     margin: 0.1,
                                     inner: new BoxViewPart(this, {id: "box4", color: "#88dddd"})
                                 }),
-                                new LayoutSlotStretch3D(modelState, {
+                                new LayoutSlotStretch3D(model, {
                                     margin: 0.1,
                                     inner: new BoxViewPart(this, {id: "box4", color: "#dd88dd"})
                                 }),

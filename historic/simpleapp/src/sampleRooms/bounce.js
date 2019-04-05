@@ -34,9 +34,9 @@ export class BouncingBox extends StatePart {
 }
 
 class BoxViewPart extends ViewPart {
-    constructor(modelState, options) {
+    constructor(model, options) {
         options = {color: "#aaaaaa", ...options};
-        super(modelState, options);
+        super(model, options);
         this.threeObj = new THREE.Mesh(
             new THREE.BoxBufferGeometry(1, 1, 1),
             new THREE.MeshStandardMaterial({color: new THREE.Color(options.color)})
@@ -45,9 +45,9 @@ class BoxViewPart extends ViewPart {
 }
 
 class BallViewPart extends ViewPart {
-    constructor(modelState, options) {
+    constructor(model, options) {
         options = {color: "#aaaaaa", ...options};
-        super(modelState, options);
+        super(model, options);
         this.threeObj = new THREE.Mesh(
             new THREE.SphereBufferGeometry(0.75, 16, 16),
             new THREE.MeshStandardMaterial({color: new THREE.Color(this.color)})
@@ -76,16 +76,16 @@ export class Group extends StatePart {
 }
 
 class ChildrenGroupView extends ViewPart {
-    constructor(modelState, options) {
-        super(modelState, options);
+    constructor(model, options) {
+        super(model, options);
         this.viewsForObjects = {};
 
-        this.subscribe(ChildEvents.childAdded, "onObjectAdded", modelState.id, "children");
-        this.subscribe(ChildEvents.childRemoved, "onObjectRemoved", modelState.id, "children");
+        this.subscribe(ChildEvents.childAdded, "onObjectAdded", model.id, "children");
+        this.subscribe(ChildEvents.childRemoved, "onObjectRemoved", model.id, "children");
         this.group = new THREE.Group();
         this.threeObj = this.group;
 
-        for (const object of modelState.parts.children.children) {
+        for (const object of model.parts.children.children) {
             this.onObjectAdded(object);
         }
     }

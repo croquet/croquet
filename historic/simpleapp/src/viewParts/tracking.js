@@ -7,11 +7,11 @@ export default function Tracking(BaseViewPart, trackingOptions={}) {
     trackingOptions = {source: "spatial", scale: true, ...trackingOptions};
 
     return class TrackingViewPart extends BaseViewPart {
-        constructor(modelState, options) {
-            super(modelState, options);
+        constructor(model, options) {
+            super(model, options);
 
             /** @type {import('../parts').PartPath} */
-            const source = modelState.lookUp(trackingOptions.source);
+            const source = model.lookUp(trackingOptions.source);
             // TODO: what to do if the inner view has multiple threeObjs?
             this.threeObj.position.copy(source.position);
             if (trackingOptions.scale) {

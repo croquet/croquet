@@ -25,19 +25,19 @@ export class CarotaEditorObject extends CarotaTextObject {
 
 /** View for rendering a Text */
 class CarotaTextView extends ViewPart {
-    constructor(modelState, options) {
-        super(modelState, options);
+    constructor(model, options) {
+        super(model, options);
         this.parts = {
-            main: new (Tracking(EditableTextViewPart))(modelState, {})
+            main: new (Tracking(EditableTextViewPart))(model, {})
         };
     }
 }
 
 class CarotaEditorView extends ViewPart {
-    constructor(modelState, options) {
-        super(modelState, options);
+    constructor(model, options) {
+        super(model, options);
         this.parts = {
-            main: new (Tracking(EditableTextViewPart))(modelState, {editable: true})
+            main: new (Tracking(EditableTextViewPart))(model, {editable: true})
         };
     }
 }

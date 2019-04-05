@@ -83,10 +83,10 @@ export class Text extends StatePart {
 
 export class TextView extends ViewPart {
 
-    constructor(modelState) {
-        super(modelState);
+    constructor(model) {
+        super(model);
         this.div = document.createElement("div");
-        this.render(modelState.text);
+        this.render(model.text);
         document.body.appendChild(this.div);
 
         this.subscribePart(this.modelId, null, 'text-changed', null, "render", true);

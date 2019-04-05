@@ -11,8 +11,8 @@ export default function Clickable(BaseViewPart, clickOptions) {
     };
 
     return class ClickableViewPart extends BaseViewPart {
-        constructor(modelState, options) {
-            super(modelState, options);
+        constructor(model, options) {
+            super(model, options);
 
             /** @type {import('./object3D').Object3D} */
             this.clickablePart = this.lookUp(clickOptions.clickHandle);
