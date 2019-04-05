@@ -90,23 +90,7 @@ async function start() {
             ROOM.islandPromise = controller.createIsland(roomName, creator);
             return ROOM.island = await ROOM.islandPromise;
         }
-        creator.destroyerFn = snapshot => {
-            Stats.connected(false);
-            console.log("destroyer: detaching view for " + roomName);
-            delete ROOM.island;
-            delete ROOM.islandPromise;
-            roomViewManager.detach(roomName);
-            creator.snapshot = snapshot;
-            if (currentRoomName === roomName) {
-                console.log("destroyer: re-joining " + roomName);
-                currentRoomName = null;
-                joinRoom(roomName);
-            }
-        };
-        const controller = new Controller();
-        ROOM.islandPromise = controller.createIsland(roomName, creator);
-        return ROOM.island = await ROOM.islandPromise;
-    };
+    });
 
     let currentRoomName = null;
     const roomViewManager = new RoomViewManager(window.innerWidth, window.innerHeight);
@@ -190,7 +174,7 @@ async function start() {
             if (currentRoomView) {
                 // render views
                 Stats.begin("render");
-                renderer.render(currentRoomName, ALL_ROOMS, getIsland, roomViewManager);
+                renderer.render(currentRoomName, ALL_ROOMS, roomViewManager);
                 Stats.end("render");
                 currentRoomView.parts.pointer.updatePointer();
                 keyboardManager.setCurrentRoomView(currentRoomView);

@@ -47,7 +47,7 @@ export default class Renderer {
         this.renderer.setSize(width, height);
     }
 
-    render(room, allRooms, getIsland, roomViewManager) {
+    render(room, allRooms, roomViewManager) {
         const currentRoomView = roomViewManager.expect(room);
         // Portal rendering technique inspired by https://github.com/zadvorsky/three.portals/blob/master/src/THREE.PortalController.js
         const mainScene = currentRoomView.parts.roomScene.threeObj;
@@ -102,7 +102,7 @@ export default class Renderer {
             gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
 
             const portalPart = portalViewPart.viewState.parts.clonedPortal;
-            const portalTargetRoomView = roomViewManager.requestPassive(portalPart.there, allRooms, getIsland);
+            const portalTargetRoomView = roomViewManager.requestPassive(portalPart.there, allRooms);
 
             if (portalTargetRoomView) {
                 const portalTargetScene = portalTargetRoomView.parts.roomScene.threeObj;
