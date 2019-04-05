@@ -4,8 +4,8 @@ import { ViewPart } from '../modelView.js';
 import PortalPart from './portalModel.js';
 import { RENDER_LAYERS } from '../render.js';
 
-const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
-if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
+const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 export default class PortalViewPart extends ViewPart {
     constructor(modelState, options={}) {

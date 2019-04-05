@@ -1,5 +1,5 @@
-const moduleVersion = `${module.id}#${module.bundle.v||0}`;
-if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
+const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 const StartDate = Date.now();
 if (typeof performance === "undefined") window.performance = { now: () => Date.now() - StartDate };
@@ -16,7 +16,7 @@ const colors = {
     render: "magenta",
     simulate: "yellow",
     backlog: "red",
-    disconnected: "gray",
+    network: "lightgray",
 };
 
 const div = document.createElement("div");
@@ -52,8 +52,9 @@ function newFrame(now) {
         start: now,
         total: 0,
         items: {},
-        backlog: 0,
         users: 0,
+        backlog: 0,
+        network: 0,
         connected
     };
 }
@@ -74,6 +75,9 @@ export default {
     backlog(ms) {
         currentFrame.backlog = Math.max(ms, currentFrame.backlog);
     },
+    network(ms) {
+        currentFrame.network = ms;
+    },
     users(users) {
         currentFrame.users = users;
     },
@@ -88,7 +92,7 @@ export default {
         // get base framerate as minimum of all frames
         const realFrames = frames.filter(f => f.total);
         const avgMS = realFrames.map(f => f.total).reduce( (a,b) => a + b) / realFrames.length;
-        const newMax = Math.max(...realFrames.map(f => f.backlog));
+        const newMax = Math.max(...realFrames.map(f => Math.max(f.backlog, f.network)));
         maxBacklog = Math.max(newMax, maxBacklog * 0.98); // reduce scale slowly
 
         while (frames.length > 120) frames.shift();
@@ -109,7 +113,7 @@ export default {
             ctx.beginPath();
             ctx.moveTo(x, y);
             ctx.lineTo(x, map(frame.total));
-            ctx.strokeStyle = colors[frame.connected ? "total" : "disconnected"];
+            ctx.strokeStyle = colors[frame.connected ? "total" : "network"];
             ctx.stroke();
 
             ctx.beginPath();
@@ -127,6 +131,12 @@ export default {
                 ctx.moveTo(x, y);
             }
 
+            if (frame.network) {
+                ctx.moveTo(x, mapBacklog(0));
+                ctx.lineTo(x, mapBacklog(frame.network));
+                ctx.strokeStyle = colors["network"];
+                ctx.stroke();
+            }
             if (frame.backlog) {
                 ctx.moveTo(x, mapBacklog(0));
                 ctx.lineTo(x, mapBacklog(frame.backlog));

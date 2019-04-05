@@ -1,7 +1,6 @@
 import SeedRandom from "seedrandom";
 import PriorityQueue from "./util/priorityQueue.js";
 import AsyncQueue from './util/asyncQueue.js';
-import urlOptions from "./util/urlOptions.js";
 import hotreload from "./hotreload.js";
 import { hashModelCode, baseUrl } from "./modules.js";
 import { inModelRealm, StatePart } from "./modelView.js";
@@ -9,8 +8,8 @@ import Stats from "./util/stats.js";
 import { PATH_PART_SEPARATOR_SPLIT_REGEXP } from "./parts.js";
 
 
-const moduleVersion = `${module.id}#${module.bundle.v||0}`;
-if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
+const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 const DEBUG = {
     messages: false,
@@ -46,9 +45,17 @@ function execOnIsland(island, fn) {
  * a queue of messages, plus additional bookkeeping to make
  * uniform pub/sub between models and views possible.*/
 export default class Island {
-    static current() { return CurrentIsland; }
+    static latest() { return module.bundle.v && module.bundle.v[module.id] || 0; }
+    static version() { return moduleVersion; }
+    static current() {
+        if (!CurrentIsland) console.warn(`No CurrentIsland in v${moduleVersion}!`);
+        return CurrentIsland;
+    }
 
     constructor(state = {}, initFn) {
+        console.log("new Island() v" + moduleVersion);
+        if (moduleVersion !== Island.latest()) throw Error("Hot Reload problem: Instantiating old Island v" + moduleVersion);
+
         this.topLevelModelsById = {};
         this.viewsById = {};
         this.modelsByName = {};
@@ -413,28 +420,39 @@ export default class Island {
     }
 }
 
-function startReflectorInBrowser() {
+
+async function startReflectorInBrowser() {
     document.getElementById("error").innerText = 'No Connection';
-    console.log("no connection to server, setting up local server");
+    console.log("Starting in-browser reflector");
+    // we defer starting the server until hotreload has finished
+    // loading all new modules
+    await hotreload.waitTimeout(0);
     // The following import runs the exact same code that's
     // executing on Node normally. It imports 'ws' which now
     // comes from our own fakeWS.js
-    hotreload.setTimeout(() => {
-        // ESLint doesn't know about the alias in package.json:
-        // eslint-disable-next-line global-require,import/no-unresolved
-        const server = require("reflector").server; // start up local server
-        // eslint-disable-next-line global-require,import/no-extraneous-dependencies
-        const Socket = require("ws").Socket;
-        socketSetup(new Socket({ server })); // connect to it
-    }, 0);
-    // we defer starting the server until hotreload has finished
-    // loading all new modules
+    // ESLint doesn't know about the alias in package.json:
+    // eslint-disable-next-line global-require,import/no-unresolved
+    require("reflector"); // start up local server
+    // we could return require("reflector").server._url
+    // to connect to our server.
+    // However, we want to discover servers in other tabs
+    // so we use the magic port 0 to connect to that.
+    return 'channel://server:0/';
 }
 
-export function connectToReflector() {
-    const reflector = "reflector" in urlOptions ? urlOptions.reflector : "wss://dev1.os.vision/reflector-v1";
-    if (reflector && typeof reflector === 'string') socketSetup(new WebSocket(reflector));
-    else startReflectorInBrowser();
+function newInBrowserSocket(server) {
+    // eslint-disable-next-line global-require,import/no-extraneous-dependencies
+    const Socket = require("ws").Socket;
+    return new Socket({ server });
+}
+
+export async function connectToReflector(reflectorUrl) {
+    let socket;
+    if (typeof reflectorUrl !== "string") reflectorUrl = await startReflectorInBrowser();
+    if (reflectorUrl.match(/^wss?:/)) socket = new WebSocket(reflectorUrl);
+    else if (reflectorUrl.match(/^channel:/)) socket = newInBrowserSocket(reflectorUrl);
+    else throw Error('Cannot interpret reflector address ' + reflectorUrl);
+    socketSetup(socket);
 }
 
 function socketSetup(socket) {
@@ -530,6 +548,8 @@ export class Controller {
         this.time = 0;
         /** the number of concurrent users in our island */
         this.users = 0;
+        /** wallclock time we last heard from reflector */
+        this.lastReceived = Date.now();
     }
 
     /**
@@ -554,8 +574,9 @@ export class Controller {
             ...creator,
         };
         if (!this.islandCreator.snapshot) {
-            this.islandCreator.snapshot = { id, time: 0 };
+            this.islandCreator.snapshot = { id, time: 0, meta: { created: (new Date()).toISOString() } };
         }
+        if (this.islandCreator.snapshot.id !== id) console.warn(`Resuming snapshot on different code base!`);
         return new Promise(resolve => {
             this.islandCreator.callbackFn = resolve;
             Controller.join(this);   // when socket is ready, join server
@@ -584,6 +605,9 @@ export class Controller {
         // take snapshot
         const snapshot = this.takeSnapshot();
         snapshot.meta = {
+            ...this.islandCreator.snapshot.meta,
+            room: this.islandCreator.room,
+            options: this.islandCreator.options,
             date: (new Date()).toISOString(),
             host: window.location.hostname,
         };
@@ -612,12 +636,12 @@ export class Controller {
         try {
             const snapshot = await this.fetchSnapshot();
             if (snapshot.id !== this.id) console.warn(this.id ,'resuming snapshot of different version!');
-            if (snapshot.time > this.islandCreator.snapshot.time) {
+            if (snapshot.time >= this.islandCreator.snapshot.time) {
                 this.islandCreator.snapshot = snapshot;
-                console.log(this.id, `Controller got snapshot (time: ${Math.floor(snapshot.time)})`);
+                console.log(this.id, `Controller fetched snapshot (time: ${Math.floor(snapshot.time)})`);
             } else {
-                console.log(this.id, "Controller got snapshot but older than local" +
-                    ` (remote: ${Math.floor(snapshot.time)}, local: ${this.islandCreator.snapshot.time})`);
+                console.log(this.id, "Controller fetched snapshot but older than local" +
+                    ` (remote: ${snapshot.time}, local: ${this.islandCreator.snapshot.time})`);
             }
         } catch (e) {
             console.log(this.id, 'Controller got no snapshot');
@@ -629,6 +653,7 @@ export class Controller {
 
     // handle messages from reflector
     receive(action, args) {
+        this.lastReceived = Date.now();
         switch (action) {
             case 'START': {
                 // We are starting a new island session.
@@ -668,6 +693,7 @@ export class Controller {
             }
             case 'SERVE': {
                 if (!this.island) break; // can't serve if we don't have an island
+                if (this.backlog > 1000) break; // don't serve if we're not up-to-date
                 // We received a request to serve a current snapshot
                 console.log(this.id, 'Controller received SERVE - replying with snapshot');
                 const snapshot = this.takeSnapshot();

@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { defaultCommands, defaultKeyBindings, canonicalizeEvent, lookup } from './viewParts/editableText/text-commands.js';
 
-const moduleVersion = `${module.id}#${module.bundle.v||0}`;
-if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
+const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 let bowser = {}; // we probably use bowser or something to detect the browser
 
@@ -212,9 +212,6 @@ export class KeyboardManager {
     onRootNodeKeyDown(evt) {
         //this.dispatchDOMEvent(evt);
         //here, keyboard handling by non-text widget needs to happen
-
-        // HACK: Pressing F1 "resets" the current Island
-        if (evt.code === "F1" && window.ISLAND) window.ISLAND.broadcastInitialState();
     }
 
     onTextareaKeyUp(evt) {

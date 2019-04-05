@@ -7,8 +7,8 @@ import { ViewPart } from '../modelView.js';
 import { TextEvents } from '../stateParts/text.js';
 import { fontRegistry } from '../util/fontRegistry.js';
 
-const moduleVersion = `${module.id}#${module.bundle.v||0}`;
-if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
+const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 const DEBUG_GLYPH_GEOMETRY = false;
 const DEBUG_SIZEBOX = false;

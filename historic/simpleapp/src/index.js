@@ -14,8 +14,8 @@ import { uploadCode } from "./modules.js";
 
 const LOG_HOTRELOAD = true;
 
-const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
-if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
+const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 let hotState = module.hot && module.hot.data || {};
 
@@ -24,9 +24,23 @@ const defaultRoom = window.location.hostname === "croquet.studio" ? "bounce" : "
 let codeHashes = null;
 
 /** The main function. */
-function start() {
+async function start() {
+    let reflector = "wss://dev1.os.vision/reflector-v1";
+    if ("reflector" in urlOptions) reflector = urlOptions.reflector;
+
+    if (urlOptions.replay) {
+        console.warn("Replaying snapshot, overriding all other options");
+        const response = await fetch(urlOptions.replay, { mode: "cors" });
+        const snapshot = await response.json();
+        for (const key of Object.keys(urlOptions)) delete urlOptions[key];
+        Object.assign(urlOptions, snapshot.meta.options);
+        urlOptions.upload = false;
+        hotState.currentRoomName = snapshot.meta.room;
+        hotState.islands = { [snapshot.meta.room]: snapshot };
+    }
+
     // start websocket connection
-    connectToReflector();
+    connectToReflector(reflector);
 
     // upload changed code files
     if (urlOptions.upload !== false) uploadCode(module.id).then(hashes => codeHashes = hashes);
@@ -36,13 +50,22 @@ function start() {
         room2: {creator: room2},
         room3: {creator: room3},
         bounce: {creator: roomBounce},
-
     };
+
+    // if hot-reloading, store the island snapshots in the room creators
+    for (const [roomName, room] of Object.entries(ALL_ROOMS)) {
+        if (!room.creator.snapshot && hotState.islands && hotState.islands[roomName]) {
+            const snapshot = hotState.islands[roomName];
+            room.creator.snapshot = typeof snapshot === "string" ? JSON.parse(snapshot) : snapshot;
+        }
+    }
+
     const getIsland = async function (roomName) {
         const ROOM = ALL_ROOMS[roomName];
         if (!ROOM) throw Error("Unknown room: " + roomName);
         if (ROOM.islandPromise) return ROOM.islandPromise;
         const creator = ROOM.creator;
+        creator.room = roomName;
         if (!creator.options) creator.options = {};
         for (const opt of ["owner","session"]) {
             if (urlOptions[opt]) creator.options[opt] = urlOptions[opt];
@@ -83,13 +106,6 @@ function start() {
         const desiredHash = roomName === defaultRoom ? "" : roomName;
         if (window.location.hash.slice(1) !== desiredHash) {
             window.history.pushState({}, "", "#" + desiredHash);
-        }
-    }
-
-    // if hot-reloading, read out the island snapshots
-    for (const [roomName, room] of Object.entries(ALL_ROOMS)) {
-        if (!room.creator.snapshot && hotState.islands && hotState.islands[roomName]) {
-            room.creator.snapshot = JSON.parse(hotState.islands[roomName]);
         }
     }
 
@@ -141,6 +157,7 @@ function start() {
                 // update stats
                 Stats.users(currentIsland.controller.users);
                 Stats.backlog(currentIsland.controller.backlog);
+                Stats.network(Date.now() - currentIsland.controller.lastReceived);
                 // remember lastFrame for setInterval()
                 lastFrame = Date.now();
             }
@@ -190,8 +207,9 @@ function start() {
     const eventTimes = {};
     const throttle = event => {
         const now = Date.now();
-        if (now - eventTimes[event.type] < 50) return;
+        if (now - eventTimes[event.type] < (1000 / 60)) return true;
         eventTimes[event.type] = now;
+        return false;
     };
 
     hotreload.addEventListener(window, "mousemove", event => {
@@ -211,30 +229,33 @@ function start() {
         if (currentRoomView) currentRoomView.parts.pointer.onMouseUp();
         event.preventDefault();
     });
-    hotreload.addEventListener(document.body, "touchstart", event => {
+    const canvas = renderer.renderer.context.canvas;
+    hotreload.addEventListener(canvas, "touchstart", event => {
         const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
         if (currentRoomView) {
             currentRoomView.parts.pointer.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
             currentRoomView.parts.pointer.updatePointer();
             currentRoomView.parts.pointer.onMouseDown();
         }
-        event.stopPropagation();
         event.preventDefault();
+        event.stopPropagation();
     }, {passive: false});
 
-    hotreload.addEventListener(document.body, "touchmove", event => {
+    hotreload.addEventListener(canvas, "touchmove", event => {
         if (throttle(event)) return;
         const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
         if (currentRoomView) {
             currentRoomView.parts.pointer.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
         }
+        event.preventDefault();
+        event.stopPropagation();
     }, {passive: false});
 
-    hotreload.addEventListener(document.body, "touchend", event => {
+    hotreload.addEventListener(canvas, "touchend", event => {
         const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
         if (currentRoomView) {currentRoomView.parts.pointer.onMouseUp();}
-        event.stopPropagation();
         event.preventDefault();
+        event.stopPropagation();
     }, {passive: false});
 
     hotreload.addEventListener(document.body, "wheel", event => {
@@ -248,6 +269,13 @@ function start() {
     hotreload.addEventListener(window, "resize", () => {
         renderer.changeViewportSize(window.innerWidth, window.innerHeight);
         roomViewManager.changeViewportSize(window.innerWidth, window.innerHeight);
+    });
+
+    hotreload.addEventListener(document.getElementById('reset'), "click", () => {
+        if (currentRoomName) {
+            const currentIsland = ALL_ROOMS[currentRoomName].island;
+            if (currentIsland) currentIsland.broadcastInitialState();
+        }
     });
 
     hotreload.addEventListener(window, "hashchange", () => joinRoom(window.location.hash.slice(1)));
@@ -273,7 +301,7 @@ function start() {
             }
         });
         // start logging module loads
-        if (LOG_HOTRELOAD && !module.bundle.v) module.bundle.v = 1;
+        if (LOG_HOTRELOAD && !module.bundle.v) module.bundle.v = {};
     }
 }
 
