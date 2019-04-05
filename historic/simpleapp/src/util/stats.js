@@ -1,3 +1,5 @@
+import urlOptions from "./urlOptions.js";
+
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
@@ -19,7 +21,7 @@ const colors = {
     network: "lightgray",
 };
 
-const div = document.getElementById("stats");
+const div = !urlOptions.nostats && document.getElementById("stats");
 let fps = null;
 let canvas = null;
 let ctx = null;
