@@ -45,15 +45,16 @@ async function start() {
 
     const modules = [];
 
-    for (const {name, hash, imports, source} of files) {
+    for (const {name, hash, imports, _source} of files) {
         const deps = Object.entries(imports||[]).map(([k,v]) => `"${k}":"${v}"`);
         modules.push(`"${hash}":/*${name}*/[function(require,module,exports) {\n \n}, {${deps.join(',')}}]`);
     }
-debugger
+
+
     const combinedSources = `debugger;${prelude}\nparcelRequire({\n${modules.join(',\n')}\n}, {}, ["${entry}"], null)`
         .split("<!--").join("<\\!--")
         .split("<script").join("<\\script")
-        .split("</script").join("<\\/script");
+        .split("</script").join("<\\/script");          // eslint-disable-line newline-per-chained-call
 
     const combinedHtml = html.replace('<script src="entry.js"></script>', `<script>${combinedSources}</script>`);
 

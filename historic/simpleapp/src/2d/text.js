@@ -95,6 +95,7 @@ export class TextView extends ViewPart {
             this.model.keydown(this.user, evt.key, evt.metaKey || evt.ctrlKey, evt.shiftKey);
         });
 
+        // eslint-disable-next-line no-alert
         this.user = localStorage.user || (localStorage.user = window.prompt("What's your name for this browser?"));
         this.model.createSelection(this.user);
     }
