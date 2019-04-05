@@ -44,9 +44,9 @@ export default class EditableTextViewPart extends ViewPart {
             makePointerSensitive(boxMesh, this);
         }
 
-        if (modelState && modelState.parts.editableText && modelState.parts.editableText.content) {
-            this.options.content = modelState.parts.editableText.content;
-            this.subscribe(TextEvents.modelContentChanged, "onContentChanged", this.modelSource.id);
+        if (modelState && modelState.parts.text && modelState.parts.text.content) {
+            this.options.content = modelState.parts.text.content;
+            this.subscribe(TextEvents.modelContentChanged, "onContentChanged", modelState.parts.text.id);
         }
 
         this.threeObj = boxMesh;
@@ -333,13 +333,13 @@ export default class EditableTextViewPart extends ViewPart {
     }
 
     onPointerDown(evt) {
-        this.publish(KeyboardEvents.requestfocus, {requesterRef: this.asPartRef()}, KeyboardTopic);
+        this.publish(KeyboardEvents.requestfocus, {requesterRef: this.id}, KeyboardTopic);
         const pt = this.textPtFromEvt(evt.at);
         this.editor.mouseDown(pt.x, pt.y, pt.realY);
         this.lastPt = evt.at;
 
         this.draggingPlane.setFromNormalAndCoplanarPoint(this.threeObj.getWorldDirection(new THREE.Vector3()), this.threeObj.position);
-        this.publish(TrackPlaneEvents.requestTrackPlane, {requesterRef: this.asPartRef(), plane: this.draggingPlane}, TrackPlaneTopic, null);
+        this.publish(TrackPlaneEvents.requestTrackPlane, {requesterRef: this.id, plane: this.draggingPlane}, TrackPlaneTopic, null);
 
         this.changed();
         return true;
@@ -361,7 +361,7 @@ export default class EditableTextViewPart extends ViewPart {
         this.mouseIsDown = false;
         this.editor.mouseUp(pt.x, pt.y, pt.realY);
         this.lastPt = null;
-        this.publish(TrackPlaneEvents.requestTrackPlane, {requesterRef: this.asPartRef(), plane: null}, TrackPlaneTopic, null);
+        this.publish(TrackPlaneEvents.requestTrackPlane, {requesterRef: this.id, plane: null}, TrackPlaneTopic, null);
 
         this.changed();
         return true;

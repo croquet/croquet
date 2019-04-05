@@ -383,7 +383,7 @@ export default class Island {
     broadcastInitialState() {
         const cleanIsland = this.controller.createCleanIsland();
         for (const [modelId, model] of Object.entries(this.topLevelModelsById)) {
-            const cleanModel = cleanIsland.modelsById[modelId];
+            const cleanModel = cleanIsland.topLevelModelsById[modelId];
             if (!cleanModel) continue;
             for (const [partId, part] of Object.entries(model.parts)) {
                 const cleanPart = cleanModel.parts[partId];

@@ -143,7 +143,10 @@ function initRoom1(state) {
 
         const editText = new CarotaEditorObject().init({
             spatial: { position: {x: -4, y: 2, z: -1.5} },
-            text: { content: [{text: "This text can be edited"}], font: "Roboto", numLines: 10, width: 3, height: 2}
+            text: { content: {
+                content: [{text: "This text can be edited"}],
+                selection: {start: 0, end: 0}
+            }, font: "Roboto", numLines: 10, width: 3, height: 2}
         });
         room.parts.objects.add(editText);
 
