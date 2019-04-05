@@ -20,23 +20,28 @@ const colors = {
 };
 
 const div = document.getElementById("stats");
-while (div.firstChild) div.removeChild(div.firstChild);
+let fps = null;
+let canvas = null;
+let ctx = null;
 
-const fps = document.createElement("div");
-fps.style.padding = 5;
-fps.style.background = "rgba(255,255,255,0.2)";
-div.appendChild(fps);
+if (div) {
+    while (div.firstChild) div.removeChild(div.firstChild);
 
-const canvas = document.createElement("canvas");
-canvas.title = Object.entries(colors).map(([k,c])=>`${c}: ${k}`).join('\n');
-canvas.style.width = 120;
-canvas.style.height = 300;
-canvas.width = 120 * window.devicePixelRatio;
-canvas.height = 360 * window.devicePixelRatio;
-div.appendChild(canvas);
-const ctx = canvas.getContext("2d");
-ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    fps = document.createElement("div");
+    fps.style.padding = 5;
+    fps.style.background = "rgba(255,255,255,0.2)";
+    div.appendChild(fps);
 
+    canvas = document.createElement("canvas");
+    canvas.title = Object.entries(colors).map(([k,c])=>`${c}: ${k}`).join('\n');
+    canvas.style.width = 120;
+    canvas.style.height = 300;
+    canvas.width = 120 * window.devicePixelRatio;
+    canvas.height = 360 * window.devicePixelRatio;
+    div.appendChild(canvas);
+    ctx = canvas.getContext("2d");
+    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+}
 
 const frames = [];
 let maxBacklog = 0;
@@ -55,8 +60,9 @@ function newFrame(now) {
     };
 }
 
-export default {
+const Stats = {
     animationFrame(timestamp) {
+        if (!div) return;
         this.endCurrentFrame(timestamp);
         currentFrame = newFrame(timestamp);
     },
@@ -168,3 +174,5 @@ export default {
         div.style.bottom = mapBacklog(Math.max(1000, maxBacklog)) - 350;
     }
 };
+
+export default Stats;
