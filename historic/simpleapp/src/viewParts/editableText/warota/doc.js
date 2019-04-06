@@ -1,73 +1,12 @@
-import {Wrap, mockMeasurer} from './wrap.js';
+import {Wrap, Measurer} from './wrap.js';
 import MockContext from './MockContext.js';
-
-export class Insert {
-    constructor(user, runs, pos, timezone) {
-        let length = (ary) => ary.map(c => c.text).reduce((s, x) => x.length + s, 0);
-        this.user = user;
-        this.runs = runs;
-        this.pos = pos;
-        this.length = length(runs);
-        this.timezone = timezone;
-    }
-
-    do(doc) {
-        doc.insert(this.pos, this.runs);
-    }
-
-    undo(doc) {
-        doc.delete(this.pos, this.length);
-    }
-
-    type() {return "insert";}
-}
-
-export class Delete {
-    constructor(user, start, end, timezone) {
-        this.user = user;
-        this.start = start;
-        this.end = end;
-        this.timezone = timezone;
-
-        this.deleted = null;
-    }
-
-    do(doc) {
-        this.deleted = doc.get(this.start, this.end);
-        doc.delete(this.start, this.end - this.start);
-    }
-
-    undo(doc) {
-        doc.insert(this.start, this.deleted);
-    }
-
-    type() {return "delete";}
-}
-
-export class Selection {
-    constructor(user, start, end, color) {
-        this.user = user;
-        this.start = start;
-        this.end = end;
-        this.color = color;
-    }
-
-    do(doc) {
-        doc.selection(this.user, this.start, this.end, this.color);
-    }
-
-    undo(doc) {
-    }
-
-    type() {return "selection";}
-}
 
 export class Doc {
     constructor() {
         this.doc = [{start: 0, end: 0, text: ""}]; // [{start: num, end: num, text: str, (opt)style: {font: str, size: num, color: str, emphasis: 'b' | 'i'|'bi'}}]
 
         this.commands = [];
-        this.defaultFont = "Roman";
+        this.defaultFont = "Roboto";
         this.defaultSize = 10;
     }
 
@@ -147,17 +86,30 @@ export class Doc {
     }
 }
 
-export class DocView {
-    constructor(doc) {
-        this.doc = doc;
+export class Warota {
+    constructor(width, height, numLines) {
+        this.doc = new Doc();
+        this.doc.setDefault("Roboto", 10);
         this._width = 0;
         this.margins = {left: 0, top: 0, right: 0, bottom: 0};
+
+        this.selections = {};
 
         this.scrollLeft = 0;
         this.scrollTop = 0;
         this.relativeScrollBarWidth = 0.02;
         this.showsScrollbar = true;
         this.isScrollable = true;
+
+        this.resize(width, height);
+        this.resizeToNumLines(numLines);
+
+        this.events = [];
+        this.timezone = 0;
+    }
+
+    resetEvents() {
+        this.events = [];
     }
 
     width(width) {
@@ -172,13 +124,17 @@ export class DocView {
         this.doc.setDefault(font, size);
     }
 
+    setTimezone(num) {
+        this.timezone = num;
+    }
+
     resize(width, height) {
         this.screenWidth = width;
         this.screenHeight = height;
     }
 
     resizeToNumLines(numLines) {
-        let lineHeight = mockMeasurer.lineHeight;
+        let lineHeight = new Measurer().lineHeight(this.doc.defaultFont);
         let neededPixels = lineHeight * numLines + this.margins.top + this.margins.bottom;
         this.pixelY = neededPixels;
         let scale = neededPixels / this.screenHeight;
@@ -188,12 +144,19 @@ export class DocView {
             this.relativeScrollBarWidth = 30 / this.pixelX;
         }
 
-        this.width(this.pixelX * (1.0 - this.relativeScrollBarWidth)); // ??
+        this.width(this.pixelX * (1.0 - this.relativeScrollBarWidth));
         this.lineHeight = lineHeight;
     }
 
+    load(runs) {
+        // runs does not have start and end (a human would not want to add them).
+        // The canonicalize method adds them.  What save() would do is to strip them out.
+        this.doc.load(runs);
+        this.layout();
+    }
+
     layout() {
-        let [lines, words] = new Wrap().wrap(this.doc.doc, this._width, mockMeasurer, this.doc.defaultFont, this.doc.defaultSize, this.margins);
+        let [lines, words] = new Wrap().wrap(this.doc.doc, this._width, new Measurer(), this.doc.defaultFont, this.doc.defaultSize, this.margins);
         this.lines = lines;
         this.words = words;
         let lastWord = lines[lines.length-1][0]; // there should be always one
@@ -223,6 +186,19 @@ export class DocView {
         return ctx;
     }
 
+    visibleBounds() {
+        let docH = this.docHeight;
+        return {left: this.scrollLeft * this.pixelX, top: this.scrollTop * docH,
+                width: this.pixelX, height: this.pixelY};
+    }
+
+    visibleTextBounds() {
+        let r = this.visibleBounds();
+        let w = r.width * (1.0 - this.relativeScrollBarWidth);
+        let h = r.height;
+        return {l: r.left, t: r.top, w: r.width * (1.0 - this.relativeScrollBarWidth), h: r.height, b: r.top + h, r: r.left + w};
+    }
+
     draw(ctx, rect) {
         this.words.forEach(word => {
             if (word.styles) {
@@ -231,18 +207,30 @@ export class DocView {
                     // and more styles...
 
                     ctx.fillText(word.text.slice(style.start, style.end),
-                                 word.left, word.top + word.baseline);
+                                 word.left, word.top + word.ascent);
                 });
             } else {
                 ctx.fillStyle = word.style || 'black';
                 // and more styles...
 
-                ctx.fillText(word.text, word.left, word.top + word.baseline);
+                ctx.fillText(word.text, word.left, word.top + word.ascent);
             }
         });
     }
 
-    drawSelections(ctx) {}
+    drawSelections(ctx) {
+        ctx.save();
+        for (let k in this.selections) {
+            let selection = this.selections[k];
+            if (selection.end === selection.start) {
+                //ctx.fillStyle = 'barSelection ' + k;
+                //let caretRect = this.caretRect(selection);
+                //ctx.fillRect(this.indexFromPosition(selection.start)
+            }
+        }
+        ctx.restore();
+    }
+
     drawScrollbar(ctx) {}
 
     findLine(pos) {
@@ -256,7 +244,21 @@ export class DocView {
         if (ind < 0) {
             ind = runs.length - 1;
         }
-        return [runs, ind];
+        return [runs[ind], ind];
+    }
+
+    splitDocAt(runIndex, sizeInRun) {
+        let runs = this.doc.doc;
+        let run = runs[runIndex];
+        let one = {start: run.start,
+                   end: run.start + sizeInRun,
+                   text: run.text.slice(0, sizeInRun),
+                   style: run.style};
+        let two = {start: run.start + sizeInRun,
+                   end: run.end,
+                   text: run.text.slice(sizeInRun, run.text.length),
+                   style: run.style};
+        runs.splice(runIndex, 1, one, two);
     }
 
     findWord(pos, x, y) {
@@ -282,20 +284,51 @@ export class DocView {
         return [word, wordIndex];
     }
 
-    insert(pos, runs) {
+    insert(userID, runs) {
+        let evt;
+        let selection = this.selections[userID] || {start: 0, end: 0}; // or at the end?
+        if (selection.start === selection.end) {
+            evt = Event.insert(userID, runs, selection.start, this.timezone);
+            this.events.push(evt);
+            let pos = selection.start + runLength(runs);
+            evt = Event.select(userID, pos, pos, this.timezone);
+            this.events.push(evt);
+        } else {
+            evt = Event.delete(userID, selection.start, selection.end, this.timezone);
+            this.events.push(evt);
+            evt = Event.insert(userID, runs, selection.start, this.timezone);
+            this.events.push(evt);
+            let pos = selection.start + runLength(runs);
+            evt = Event.select(userID, pos, pos, this.timezone);
+            this.events.push(evt);
+        }
+    }
+
+    delete(userID, start, end, timezone) {
+        let evt = Event.delete(userID, start, end, timezone);
+        this.events.push(evt);
+    }
+
+    select(userID, start, end, color) {
+        let evt = Event.select(userID, start, end, color, this.timezone);
+        this.events.push(evt);
+    }
+
+    doInsert(pos, runs) {
         // runs: [{text: <string>, style: <tbd>}]
 
         let [run, runIndex] = this.findRun(pos);
 
-        if (run.end !== pos) { // that is, pos is within the run
+        if (run.end !== pos && run.start !== pos) { // that is, pos is within the run
             this.splitDocAt(runIndex, pos - run.start);
+            runIndex += 1;
         }
-        this.doc.splice(runIndex, 0, runs); // destructively adding the runs
-        this.doc = this.canonicalize(this.doc, run.start);
+        this.doc.doc.splice(runIndex, 0, ...runs); // destructively adding the runs
+        this.doc.doc = this.doc.canonicalize(this.doc.doc, run.start);
         this.layout();
     }
 
-    delete(pos, end) {
+    doDelete(pos, end) {
         let [run, runIndex] = this.findRun(pos);
 
         if (run.end !== pos) { // that is, pos is within the run
@@ -313,9 +346,13 @@ export class DocView {
             this.splitDocAt(endRunIndex, end - endRun.start);
         }
 
-        this.doc.splice(runIndex, endRunIndex);
-        this.doc = this.canonicalize(this.doc);
+        this.doc.doc.splice(runIndex, endRunIndex);
+        this.doc.doc = this.doc.canonicalize(this.doc.doc);
         this.layout();
+    }
+
+    doSelect(userID, start, end, color) {
+        this.selections[userID] = {start, end, color};
     }
 
     positionFromIndex(pos) {
@@ -330,11 +367,77 @@ export class DocView {
         let [word, wordIndex] = this.findWord(null, x, y);
 
         for (let i = 0; i < word.text.length; i++) {
-            let measure = this.measureText(word.text.slice(0, i), word.style);
+            let measure = new Measurer().measureText(word.text.slice(0, i), word.style);
             if (measure.width > y - word.left) {
                 return word.start + i;
             }
         }
         return 0;
     }
+
+    addSelection(userID, start, end, color) {
+        this.selections[userID] = {start, end, color};
+    }
+
+    mouseDown(x, y, realY, userID) {
+        if (false /*this.isScrollbarClick(x, y)*/) {
+            this.scrollBarClick = {
+                type: "clicked",
+                scrollBarVOffset: y - this.scrollbarBounds().t,
+                scrollBarTopOnDown: this.scrollTop,
+                realStartY: realY,
+                startX: x, startY: y
+            };
+        } else {
+            let index = this.indexFromPosition(x, y);
+            this.extendingSelection = null;
+            this.selectDragStart = index;
+            this.select(userID, index, index);
+        }
+        this.keyboardX = null;
+    }
+    mouseMove(x,y, realY) {}
+    mouseUp(x,y, realY) {}
+
+}
+
+function runLength(ary) {
+    return ary.map(c => c.text).reduce((s, x) => x.length + s, 0);
+}
+
+class Event {
+    static insert(user, runs, pos, timezone) {
+        return {type: "insert", user, runs, pos, length: runLength(runs), timezone};
+    }
+
+    static doInsert(doc, insert) {
+        doc.doInsert(insert.pos, insert.runs);
+    }
+
+    static undoInsert(doc, insert) {
+        doc.doDelete(insert.pos, insert.length);
+    }
+
+    static delete(user, start, end, timezone) {
+        return {type: "delete", user, start, end, timezone, deleted: null};
+    }
+
+    static doDelete(doc, del) {
+        del.deleted = doc.get(this.start, this.end);
+        doc.doDelete(del.start, del.end - del.start);
+    }
+
+    static undoDelete(doc, del) {
+        doc.doInsert(del.start, del.deleted);
+    }
+
+    static select(user, start, end, color, timezone) {
+        return {type: "select", user, start, end, color, timezone};
+    }
+
+    static doSelect(doc, select) {
+        doc.doSelect(select.user, select.start, select.end, select.color);
+    }
+
+    static undoSelect(doc, select) { }
 }

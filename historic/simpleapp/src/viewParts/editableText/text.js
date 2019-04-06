@@ -3,10 +3,11 @@ import { TextGeometry, HybridMSDFShader } from 'three-bmfont-text';
 import { rendererVersion } from '../../render.js';
 import { TextEvents } from '../../stateParts/editableText.js';
 import { PointerEvents, makePointerSensitive, TrackPlaneEvents, TrackPlaneTopic } from "../pointer.js";
-import { Carota } from './carota/editor.js';
+import { Warota } from './warota/doc.js';
 import { fontRegistry } from '../../util/fontRegistry.js';
 import { KeyboardEvents, KeyboardTopic } from '../../domKeyboardManager.js';
 import { ViewPart } from '../../modelView.js';
+import { userID } from "../../util/userid.js";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
@@ -47,9 +48,11 @@ export default class EditableTextViewPart extends ViewPart {
         if (model && model.parts.text && model.parts.text.content) {
             this.options.content = model.parts.text.content;
             this.subscribe(TextEvents.modelContentChanged, "onContentChanged", model.parts.text.id);
+            this.subscribe(TextEvents.sequencedEvents, "onEditEvents", model.parts.text.id);
         }
 
         this.threeObj = boxMesh;
+        window.view = this;
     }
 
     onGetFocus() {
@@ -58,14 +61,14 @@ export default class EditableTextViewPart extends ViewPart {
     }
 
     initEditor() {
-        Carota.setCachedMeasureText(fontRegistry.measureText.bind(fontRegistry)); // ???
+        //Carota.setCachedMeasureText(fontRegistry.measureText.bind(fontRegistry)); // ???
         this.lastPt = false;
-        this.editor = new Carota(this.options.width, this.options.height, this.options.numLines);
+        this.editor = new Warota(this.options.width, this.options.height, this.options.numLines);
         this.editor.isScrollable = true;  // unless client decides otherwise
 
         this.editor.mockCallback = ctx => {
             const glyphs = this.processMockContext(ctx);
-            this.update({glyphs, corners: this.editor.visibleTextBounds(), scaleX: this.editor.scaleX, scrollTop: this.editor.scrollTop, frameHeight: this.editor.frame.height, drawnRects: ctx.filledRects});
+            this.update({glyphs, corners: this.editor.visibleTextBounds(), scaleX: this.editor.pixelX, scrollTop: this.editor.scrollTop, frameHeight: this.editor.docHeight, drawnRects: ctx.filledRects});
         };
     }
 
@@ -108,14 +111,11 @@ export default class EditableTextViewPart extends ViewPart {
         box.add(textMesh);
 
         const callback = () => this.onTextChanged();
-        this.editor.setSubscribers(callback);
         this.editor.load(this.options.content.content);
-        this.editor.select(this.options.content.selection.start, this.options.content.selection.end);
-        this.changed();
-
+        this.editor.doSelect(userID, 0, 0, userID);
         this.initSelectionMesh();
         this.initScrollBarMesh();
-        this.changed();
+        this.editor.paint();
     }
 
     initBoxMesh() {
@@ -295,6 +295,26 @@ export default class EditableTextViewPart extends ViewPart {
         }
     }
 
+    onEditEvents(eventList) {
+        let timezone;
+        eventList.forEach(e => {
+            timezone = e.timezone;
+            if (e.type === "insert") {
+                let editor = this.editor;
+                editor.doInsert(e.pos, e.runs);
+                editor.doSelect(e.user, e.pos, e.pos, e.user);
+            } else if (e.type === "delete") {
+                this.editor.backspace(e.start, e.end);
+            } else if (e.type === "select") {
+                this.editor.doSelect(e.user, e.start, e.end, e.color);
+            }
+            this.editor.paint();
+        });
+        if (timezone) {
+            this.editor.setTimezone(timezone);
+        }
+    }
+
     onContentChanged(newContent) {
         try {
             this.changeInitiatedByView = false;
@@ -312,21 +332,21 @@ export default class EditableTextViewPart extends ViewPart {
     onTextChanged() {}
 
     changed() {
-        if (this.options.editable) {
-            if (this.changeInitiatedByView) {
-                this.modelPart("text").updateContents({content: this.editor.save(), selection: this.editor.selection});
-            }
+        let events = this.editor.events;
+        this.editor.resetEvents();
+        if (events.length > 0 && this.options.editable) {
+            this.modelPart("text").receiveEditEvents(events);
         }
     }
 
     textPtFromEvt(evtPt) {
         const pt = this.threeObj.worldToLocal(evtPt.clone());
-        const {editor: {scaleX, scaleY, scrollLeft, scrollTop}} = this;
+        const {editor: {pixelX, pixelY, scrollLeft, scrollTop}} = this;
         const width = this.options.width;
         const height = this.options.height;
-        const visibleTop = (scrollTop * this.editor.frame.height);
-        const x = Math.floor((width / 2 + pt.x + scrollLeft) * (scaleX / width));
-        const realY = (height / 2 - pt.y) * (scaleY / height);
+        const visibleTop = (scrollTop * this.editor.docHeight);
+        const x = Math.floor((width / 2 + pt.x + scrollLeft) * (pixelX / width));
+        const realY = (height / 2 - pt.y) * (pixelY / height);
         const y = Math.floor(realY + visibleTop);
 
         return {x, y, realY};
@@ -335,7 +355,7 @@ export default class EditableTextViewPart extends ViewPart {
     onPointerDown(evt) {
         this.publish(KeyboardEvents.requestfocus, {requesterRef: this.id}, KeyboardTopic);
         const pt = this.textPtFromEvt(evt.at);
-        this.editor.mouseDown(pt.x, pt.y, pt.realY);
+        this.editor.mouseDown(pt.x, pt.y, pt.realY, userID);
         this.lastPt = evt.at;
 
         this.draggingPlane.setFromNormalAndCoplanarPoint(this.threeObj.getWorldDirection(new THREE.Vector3()), this.threeObj.position);
@@ -346,25 +366,25 @@ export default class EditableTextViewPart extends ViewPart {
     }
 
     onPointerDrag(evt) {
-        if (!this.lastPt) {return false;}
-        let p = evt.dragEndOnUserPlane;
-        if (!p) {return false;}
-        const pt = this.textPtFromEvt(p);
-        this.editor.mouseMove(pt.x, pt.y, pt.realY);
-        this.lastPt = pt;
-        this.changed();
-        return true;
+        // if (!this.lastPt) {return false;}
+        // let p = evt.dragEndOnUserPlane;
+        // if (!p) {return false;}
+        // const pt = this.textPtFromEvt(p);
+        // this.editor.mouseMove(pt.x, pt.y, pt.realY);
+        // this.lastPt = pt;
+        // this.changed();
+        // return true;
     }
 
     onPointerUp(_evt) {
-        const pt = this.lastPt;
-        this.mouseIsDown = false;
-        this.editor.mouseUp(pt.x, pt.y, pt.realY);
-        this.lastPt = null;
-        this.publish(TrackPlaneEvents.requestTrackPlane, {requesterRef: this.id, plane: null}, TrackPlaneTopic, null);
+        // const pt = this.lastPt;
+        // this.mouseIsDown = false;
+        // this.editor.mouseUp(pt.x, pt.y, pt.realY);
+        // this.lastPt = null;
+        // this.publish(TrackPlaneEvents.requestTrackPlane, {requesterRef: this.id, plane: null}, TrackPlaneTopic, null);
 
-        this.changed();
-        return true;
+        // this.changed();
+        // return true;
     }
 
     onKeyDown(cEvt) {
@@ -380,25 +400,29 @@ export default class EditableTextViewPart extends ViewPart {
         }
 
         if (cEvt.keyCode === 13) {
-            this.editor.insert('\n');
+            this.editor.insert(userID, '\n');
             this.changed();
             return true;
         }
         if (cEvt.keyCode === 32) {
-            this.editor.insert(' ');
+            this.editor.insert(userID, ' ');
             this.changed();
             return true;
         }
         if (cEvt.keyCode === 9) {
-            this.editor.insert('\t');
+            this.editor.insert(userID, '\t');
             this.changed();
             return true;
         }
 
+        this.editor.insert(userID, [{text: cEvt.key}]);
+        this.changed();
+        return true;
+
         const handled = this.editor.handleKey(cEvt.keyCode, cEvt.shiftKey, cEvt.ctrlKey|| cEvt.metaKey);
 
         if (!handled && !(cEvt.ctrlKey || cEvt.metaKey)) {
-            this.editor.insert(cEvt.key);
+            this.editor.insert(userID, cEvt.key);
             this.changed();
             return true;
         }
@@ -414,14 +438,14 @@ export default class EditableTextViewPart extends ViewPart {
 
     onCut(evt) {
         this.onCopy(evt);
-        this.editor.insert("");//or something else to keep undo sane?
+        this.editor.insert(userID, "");//or something else to keep undo sane?
         this.changed();
         return true;
     }
 
     onPaste(evt) {
         let pasteChars = evt.clipboardData.getData("text");
-        this.editor.insert(pasteChars);
+        this.editor.insert(userID, pasteChars);
         evt.preventDefault();
         this.changed();
         return true;

@@ -858,6 +858,7 @@ const transcoders = {
     "*#rotateTo": XYZW,
     "*#onKeyDown": Identity,
     "*#updateContents": Identity,
+    "*#receiveEditEvents": Identity,
 };
 
 export function addMessageTranscoder(pattern, encoder, decoder) {

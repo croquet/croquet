@@ -9,26 +9,30 @@ function initRoom3(state) {
     return new Island(state, island => {
         const room = new Room().init({});
         island.set("room", room);
-        const text1 = new CarotaEditorObject().init({
-            spatial: { position: {x: -3, y: 1, z: 0} },
-            text: {
-                content: {
-                    content: [{text: "man is much more than a tool builder... he is an inventor of universes... Except the real one."}],
-                    selection: {start: 0, end: 0},
-                },
-                font: "Roboto", numLines: 10, width: 3, height: 2
-            }
-        });
-        room.parts.objects.add(text1);
+        // const text1 = new CarotaEditorObject().init({
+        //     spatial: { position: {x: -3, y: 1, z: 0} },
+        //     text: {
+        //         content: {
+        //             content: [{text: "man is much more than a tool builder... he is an inventor of universes... Except the real one."}],
+        //             selections: {},
+        //             timezone: 0,
+        //             queue: []
+        //         },
+        //         font: "Roboto", numLines: 10, width: 3, height: 2
+        //     }
+        // });
+        // room.parts.objects.add(text1);
 
         const text2 = new CarotaEditorObject().init({
             spatial: { position: {x: 3, y: 1, z: 0} },
             text: {
                 content: {
                     content: [{text: "man is much more than a tool builder... he is an inventor of universes..."}],
-                    selection: {start: 0, end: 0},
+                    selections: {},
+                    timezone: 0,
+                    queue: []
                 },
-                font: "Barlow", numLines: 10, width: 3, height: 2
+                font: "Roboto", numLines: 10, width: 2, height: 2
             }
         });
         room.parts.objects.add(text2);

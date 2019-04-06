@@ -1,8 +1,17 @@
-export function mockMeasurer(str, style) {
-    return {width: str.length * 10, height: 20, baseline: 15};
-}
+import { fontRegistry } from '../../../util/fontRegistry.js';
 
-mockMeasurer.lineHeight = 25;
+export class Measurer {
+    measureText(str, style) {
+        let m = fontRegistry.measureText(str, style);
+        return m;
+        //return {width: str.length * 10, height: 20, ascent: 15};
+    }
+
+    lineHeight(font) {
+        if (!font) {return 20;}
+        return fontRegistry.getInfo(font).common.lineHeight;
+    }
+}
 
 export class Wrap {
     equalStyle(prev, next, defaultFont, defaultSize) {
@@ -31,9 +40,6 @@ export class Wrap {
 
         let words = [];
         let lines = [];
-
-        let currentLine = [];
-        let currentHeight = 0;
 
         let isInWord;
         let start = 0;
@@ -127,19 +133,21 @@ export class Wrap {
         if (!m1) {return m2;}
         if (!m2) {return m1;}
         return {width: m1.width + m2.width,
-                height: Math.min(m1.height, m2.height)};
+                height: Math.max(m1.height, m2.height),
+                ascent: Math.max(m1.ascent, m2.ascent),
+               };
     }
 
     wrap(runs, textWidth, measurer, defaultFont, defaultSize, margins={left: 0, top: 0, right: 0, bottom: 0}) {
         // returns words and lines.
 
         const width = textWidth - margins.left - margins.right;
-        const isSpace = (str) => /[ \f\n\r\t\v\u00A0\u2028\u2029]/.test(str);
+        //const isSpace = (str) => /[ \f\n\r\t\v\u00A0\u2028\u2029]/.test(str);
         const isNewline = (str) => /[\n\r]/.test(str);
 
         let currentLine = [];
         let currentHeight = 0;
-        let currentBaseline = 0;
+        let currentAscent = 0;
         let lines = []; // list of list of words
 
         let left = margins.left;
@@ -149,14 +157,12 @@ export class Wrap {
 
         let pushLine = () => {
             currentLine.forEach(c => {
-                c.baseline = currentBaseline;
+                c.ascent = currentAscent;
             });
             lines.push(currentLine);
             currentLine = [];
             left = margins.left;
             top += currentHeight;
-            currentBaseline = 0;
-            currentHeight = 0;
         };
 
         for (let w = 0; w < words.length; w++) {
@@ -164,32 +170,36 @@ export class Wrap {
             let rect;
 
             if (isNewline(word.text)) {
-                rect = mockMeasurer(' ', word.style);
+                rect = measurer.measureText(' ', word.style);
                 currentHeight = Math.max(currentHeight, rect.height);
-                currentBaseline = Math.max(currentBaseline, rect.baseline);
+                currentAscent = Math.max(currentAscent, rect.ascent);
                 rect.left = left;
                 rect.top = top;
                 Object.assign(word, rect);
                 currentLine.push(word);
                 pushLine();
+                currentHeight = 0;
+                currentAscent = 0;
                 continue;
             }
 
             if (word.styles) {
                 // a word with multiple styles
                 for (let i = 0; i < word.styles.length; i++) {
-                    let m = mockMeasurer(word.text.slice(word.styles[i].start, word.styles[i].end), word.styles[i]);
+                    let m = measurer.measureText(word.text.slice(word.styles[i].start, word.styles[i].end), word.styles[i]);
                     rect = this.mergeRect(rect, m);
                 }
             } else {
-                rect = mockMeasurer(word.text, word.style);
+                rect = measurer.measureText(word.text, word.style);
             }
             currentHeight = Math.max(currentHeight, rect.height);
-            currentBaseline = Math.max(currentBaseline, rect.baseline);
+            currentAscent = Math.max(currentAscent, rect.ascent);
 
             if (rect.width + left > width) {
                 pushLine();
             }
+            currentHeight = rect.height;
+            currentAscent = rect.ascent;
             rect.left = left;
             rect.top = top;
             Object.assign(word, rect);
