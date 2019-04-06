@@ -29,19 +29,29 @@
         </style>
     </head>
     <body>
-        <div id="overlay">0</div>
+        <div id="overlay"></div>
         <script>
             let connectedFrames = 0;
             window.onmessage = evt => {
                 const { connected } = evt.data;
                 if (connected) overlay.innerText = connectedFrames += connected;
             };
-            const n = Number.parseInt(location.hash.slice(1)) || 100;
-            for (let i = 0; i < n; i++) {
-                const iframe = document.createElement("iframe");
-                iframe.src = "/2d.html?nostats";
-                document.body.appendChild(iframe);
+            window.onresize = () => {
+                const n = Number.parseInt(location.hash.slice(1)) ||
+                    Math.floor(window.innerWidth / 102) * Math.floor(window.innerHeight/102);
+                const iframes = Array.from(document.getElementsByTagName("iframe"));
+                while (iframes.length > n) {
+                    document.body.removeChild(iframes.pop());
+                    window.onmessage({ data: { connected: -1 } });
+                }
+                while (iframes.length < n) {
+                    const iframe = document.createElement("iframe");
+                    iframe.src = "/2d.html?nostats";
+                    document.body.appendChild(iframe);
+                    iframes.push(iframe);
+                }
             }
-        </script>
+            window.onresize();
+            </script>
     </body>
 </html>
