@@ -150,6 +150,7 @@ async function go() {
                 });
             },
             destroyerFn(prevSnapshot) {
+                window.top.postMessage({connected: -1});
                 rootView.detach();
                 setup(prevSnapshot);
             }
@@ -158,6 +159,8 @@ async function go() {
         inViewRealm(mainIsland, () => {
             rootView = new RootView(mainIsland.get('root'));
         });
+
+        window.top.postMessage({connected: +1});
     }
 
     await setup();
