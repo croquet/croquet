@@ -216,11 +216,18 @@ async function go() {
 
     await setup();
 
+    let users = 0;
+
     window.requestAnimationFrame(frame);
     function frame(timestamp) {
         Stats.animationFrame(timestamp);
         Stats.users(controller.users);
         Stats.network(Date.now() - controller.lastReceived);
+
+        if (users !== controller.users) {
+            users = controller.users;
+            window.top.postMessage({ users }, "*");
+        }
 
         if (controller.island) {
             controller.simulate(Date.now() + 200);

@@ -32,9 +32,12 @@
         <div id="overlay"></div>
         <script>
             let connectedFrames = 0;
+            let totalUsers = 0;
             window.onmessage = evt => {
-                const { connected } = evt.data;
-                if (connected) overlay.innerText = connectedFrames += connected;
+                const { connected, users } = evt.data;
+                if (connected) connectedFrames += connected;
+                if (users) totalUsers = users;
+                overlay.innerText = `${connectedFrames}/${totalUsers}`;
             };
             window.onresize = () => {
                 const n = Number.parseInt(location.hash.slice(1)) ||
