@@ -4,8 +4,8 @@ import Stats from "./util/stats.js";
 import urlOptions from "./util/urlOptions.js";
 
 const THROTTLE = 1000 / 60;     // mouse event throttling
-
-let SCALE = 1;      // model uses a virtual 1000x1000 space
+const SPEED = 10;               // bouncing ball speed
+let SCALE = 1;                  // model uses a virtual 1000x1000 space
 
 addMessageTranscoder('*', a => a, a => a);
 
@@ -35,7 +35,7 @@ export class Shape extends StatePart {
     applyState(state={}) {
         const r = max => Math.floor(max * currentRealm().random());
         this.type = state.type || 'circle';
-        this.color = state.color || `hsl(${r(360)},${r(50)+50}%,50%)`;
+        this.color = state.color || `hsla(${r(360)},${r(50)+50}%,50%,0.5)`;
         this.pos = state.pos || [r(1000), r(1000)];
     }
 
@@ -49,9 +49,41 @@ export class Shape extends StatePart {
     // non-inherited methods below
 
     moveBy(dx, dy) {
-        this.pos[0] = Math.max(0, Math.min(1000, this.pos[0] + dx));
-        this.pos[1] = Math.max(0, Math.min(1000, this.pos[1] + dy));
+        const [x, y] = this.pos;
+        this.moveTo(x + dx, y + dy);
+    }
+
+    moveTo(x, y) {
+        this.pos[0] = Math.max(0, Math.min(1000, x));
+        this.pos[1] = Math.max(0, Math.min(1000, y));
         this.publish('pos-changed', this.pos);
+    }
+}
+
+
+export class BouncingShape extends Shape {
+
+    applyState(state={}) {
+        super.applyState(state);
+        const r = currentRealm().random() * 2 * Math.PI;
+        this.speed = state.speed || [Math.cos(r) * SPEED, Math.sin(r) * SPEED];
+        if (!state.speed) this.step();
+    }
+
+    // non-inherited methods below
+
+    step() {
+        this.moveBy(...this.speed);
+        this.future(1000/30).step();
+    }
+
+    moveTo(x, y) {
+        const [dx, dy] = this.speed.map(Math.abs);
+        if (x < 0) this.speed[0] = dx;
+        if (x >= 1000) this.speed[0] = -dx;
+        if (y < 0) this.speed[1] = dy;
+        if (y >= 1000) this.speed[1] = -dy;
+        super.moveTo(x, y);
     }
 }
 
@@ -144,9 +176,10 @@ async function go() {
                 return new Island(state, island => {
                     const root = new Root().init();
                     island.set('root', root);
-                    for (let i = 0; i < 100; i++) {
+                    for (let i = 0; i < 99; i++) {
                         root.add(new Shape().init());
                     }
+                    root.add(new BouncingShape().init({pos: [500, 500], color: "white"}));
                 });
             },
             destroyerFn(prevSnapshot) {
