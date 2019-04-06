@@ -52,7 +52,7 @@ export default class Island {
         return CurrentIsland;
     }
 
-    constructor(state = {}, initFn) {
+    constructor(snapshot, initFn) {
         if (moduleVersion !== Island.latest()) throw Error("Hot Reload problem: Instantiating old Island v" + moduleVersion);
 
         this.topLevelModelsById = {};
@@ -69,33 +69,37 @@ export default class Island {
         execOnIsland(this, () => {
             inModelRealm(this, () => {
                 // our synced random stream
-                this._random = new SeedRandom(null, { state: state.random || true });
-                this.id = state.id || this.randomID();
-                this.time = state.time || 0;
-                this.timeSeq = state.timeSeq || 0;
-                if (state.models) {
+                this._random = () => { throw Error("You must not use random when applying state!"); };
+                this.id = snapshot.id; // the controller always provides an ID
+                this.time = snapshot.time || 0;
+                this.timeSeq = snapshot.timeSeq || 0;
+                if (snapshot.models) {
                     // create all models, uninitialized, but already registered
-                    for (const modelState of state.models || []) {
+                    for (const modelState of snapshot.models || []) {
                         const model = StatePart.constructFromState(modelState);
                         model.registerRecursively(modelState, true);
                     }
 
-                    for (const [modelName, modelId] of Object.entries(state.namedModels)) {
+                    for (const [modelName, modelId] of Object.entries(snapshot.namedModels)) {
                         this.set(modelName, this.lookUpModel(modelId));
                     }
 
-                    // restore model state, allow resolving object references
-                    for (const modelState of state.models || []) {
+                    // restore model snapshot, allow resolving object references
+                    for (const modelState of snapshot.models || []) {
                         const model = this.topLevelModelsById[modelState.id];
                         model.restore(modelState, this.topLevelModelsById);
                         model.restoreDone();
                     }
                     // restore messages
-                    for (const messageState of state.messages || []) {
+                    for (const messageState of snapshot.messages || []) {
                         const message = Message.fromState(messageState);
                         this.messages.add(message);
                     }
+                    // now it's safe to use stored random
+                    this._random = new SeedRandom(null, { state: snapshot.random });
                 } else {
+                    // create new random, it is okay to use in init code
+                    this._random = new SeedRandom(null, { state: true });
                     initFn(this);
                 }
             });
