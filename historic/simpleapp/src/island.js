@@ -53,7 +53,6 @@ export default class Island {
     }
 
     constructor(state = {}, initFn) {
-        console.log("new Island() v" + moduleVersion);
         if (moduleVersion !== Island.latest()) throw Error("Hot Reload problem: Instantiating old Island v" + moduleVersion);
 
         this.topLevelModelsById = {};
@@ -698,8 +697,8 @@ export class Controller {
                 break;
             }
             case 'SERVE': {
-                if (!this.island) break; // can't serve if we don't have an island
-                if (this.backlog > 1000) break; // don't serve if we're not up-to-date
+                if (!this.island) { console.log("SERVE no island"); break; } // can't serve if we don't have an island
+                if (this.backlog > 1000) { console.log("SERVE backlog", this.backlog); break; } // don't serve if we're not up-to-date
                 // We received a request to serve a current snapshot
                 console.log(this.id, 'Controller received SERVE - replying with snapshot');
                 const snapshot = this.takeSnapshot();

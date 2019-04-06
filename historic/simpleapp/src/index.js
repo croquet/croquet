@@ -54,7 +54,7 @@ async function start() {
     };
 
     // if hot-reloading, store the island snapshots in the room creators
-    for (const [roomName, room] of Object.entries(ALL_ROOMS)) {
+    if (urlOptions.hotreload) for (const [roomName, room] of Object.entries(ALL_ROOMS)) {
         if (!room.creator.snapshot && hotState.islands && hotState.islands[roomName]) {
             const snapshot = hotState.islands[roomName];
             room.creator.snapshot = typeof snapshot === "string" ? JSON.parse(snapshot) : snapshot;
