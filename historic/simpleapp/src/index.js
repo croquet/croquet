@@ -86,7 +86,7 @@ async function start() {
                 }
             };
             const controller = new Controller();
-            if (urlOptions.nodownload) controller.nodownload = true;
+            controller.fetchUpdatedSnapshot = !urlOptions.nodownload;
             ROOM.islandPromise = controller.createIsland(roomName, creator);
             return ROOM.island = await ROOM.islandPromise;
         }
