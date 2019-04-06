@@ -69,6 +69,11 @@ class RootView extends ViewPart {
         this.subscribe('child-added', 'attachChild', this.modelId);
     }
 
+    detach() {
+        super.detach();
+        document.body.removeChild(this.element);
+    }
+
     // non-inherited methods below
 
     attachChild(child) {
@@ -129,22 +134,33 @@ async function go() {
     connectToReflector(urlOptions.reflector || "wss://dev1.os.vision/reflector-v1");
 
     const controller = new Controller();
-    const mainIsland = await controller.createIsland("2d", {
-        moduleID: module.id,
-        creatorFn(state) {
-            return new Island(state, island => {
-                const root = new Root().init();
-                island.set('root', root);
-                for (let i = 0; i < 100; i++) {
-                    root.add(new Shape().init());
-                }
-            });
-        }
-    });
+    let rootView = null;
 
-    inViewRealm(mainIsland, () => {
-        new RootView(mainIsland.get('root'));
-    });
+    async function setup(snapshot) {
+        const mainIsland = await controller.createIsland("2d", {
+            moduleID: module.id,
+            snapshot,
+            creatorFn(state) {
+                return new Island(state, island => {
+                    const root = new Root().init();
+                    island.set('root', root);
+                    for (let i = 0; i < 100; i++) {
+                        root.add(new Shape().init());
+                    }
+                });
+            },
+            destroyerFn(prevSnapshot) {
+                rootView.detach();
+                setup(prevSnapshot);
+            }
+        });
+
+        inViewRealm(mainIsland, () => {
+            rootView = new RootView(mainIsland.get('root'));
+        });
+    }
+
+    await setup();
 
     window.requestAnimationFrame(frame);
     function frame(timestamp) {
@@ -152,11 +168,13 @@ async function go() {
         Stats.users(controller.users);
         Stats.network(Date.now() - controller.lastReceived);
 
-        controller.simulate(Date.now() + 200);
+        if (controller.island) {
+            controller.simulate(Date.now() + 200);
 
-        Stats.begin("render");
-        mainIsland.processModelViewEvents();
-        Stats.end("render");
+            Stats.begin("render");
+            controller.island.processModelViewEvents();
+            Stats.end("render");
+        }
 
         window.requestAnimationFrame(frame);
     }
