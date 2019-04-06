@@ -65,9 +65,18 @@ export class BouncingShape extends Shape {
 
     applyState(state={}) {
         super.applyState(state);
-        const r = currentRealm().random() * 2 * Math.PI;
-        this.speed = state.speed || [Math.cos(r) * SPEED, Math.sin(r) * SPEED];
+        this.speed = state.speed || randomSpeed();
         if (!state.speed) this.step();
+
+        function randomSpeed() {
+            const r = currentRealm().random() * 2 * Math.PI;
+            return [Math.cos(r) * SPEED, Math.sin(r) * SPEED];
+        }
+    }
+
+    toState(state) {
+        super.toState(state);
+        state.speed = this.speed;
     }
 
     // non-inherited methods below
@@ -78,11 +87,17 @@ export class BouncingShape extends Shape {
     }
 
     moveTo(x, y) {
-        const [dx, dy] = this.speed.map(Math.abs);
-        if (x < 0) this.speed[0] = dx;
-        if (x >= 1000) this.speed[0] = -dx;
-        if (y < 0) this.speed[1] = dy;
-        if (y >= 1000) this.speed[1] = -dy;
+        let dx = x < 0 ? 1 : x >= 1000 ? -1 : 0;
+        let dy = y < 0 ? 1 : y >= 1000 ? -1 : 0;
+        if (dx || dy) {
+            if (!dx) dx = Math.sign(this.speed[0]);
+            if (!dy) dy = Math.sign(this.speed[1]);
+            const r = currentRealm().random() * 2 * Math.PI;
+            this.speed = [
+                dx * Math.abs(Math.cos(r)) * SPEED,
+                dy * Math.abs(Math.sin(r)) * SPEED,
+            ];
+        }
         super.moveTo(x, y);
     }
 }
