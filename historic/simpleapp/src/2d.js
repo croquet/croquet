@@ -163,7 +163,10 @@ class ShapeView extends ViewPart {
 
 
 async function go() {
-    connectToReflector(urlOptions.reflector || "wss://dev1.os.vision/reflector-v1");
+    const reflector = window.location.hostname === 'localhost'
+        ? "ws://localhost:9090/"
+        : "wss://dev1.os.vision/reflector-v1";
+    connectToReflector(urlOptions.reflector || reflector);
 
     const controller = new Controller();
     let rootView = null;
