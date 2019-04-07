@@ -189,8 +189,8 @@ export class ViewPart extends Part {
     }
 
     // PUB/SUB
-    subscribe(event, methodName, to=this.id) {
-        this.realm.subscribe(event, this.id, methodName, to);
+    subscribe(event, methodName, to=this.id, oncePerFrame=false) {
+        this.realm.subscribe(event, this.id, methodName, to, oncePerFrame);
     }
 
     unsubscribe(event, methodName, to=this.id) {
@@ -277,8 +277,8 @@ class ViewRealm {
     publish(event, data, to) {
         this.island.publishFromView(to, event, data);
     }
-    subscribe(event, partId, methodName, to) {
-        this.island.addViewSubscription(to, event, partId, methodName);
+    subscribe(event, partId, methodName, to, oncePerFrame) {
+        this.island.addViewSubscription(to, event, partId, methodName, oncePerFrame);
     }
     unsubscribe(event, partId, methodName, to) {
         this.island.removeViewSubscription(to, event, partId, methodName);
