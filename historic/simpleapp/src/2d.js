@@ -181,7 +181,7 @@ class ShapeView extends ViewPart {
             };
             document.onmouseup = () => document.onmousemove = null;
         };
-        this.subscribe('pos-changed', 'move', this.modelId);
+        this.subscribe('pos-changed', 'move', this.modelId, true);
         this.move(model.pos);
     }
 
