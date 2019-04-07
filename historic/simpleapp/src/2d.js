@@ -3,8 +3,10 @@ import { StatePart, ViewPart, currentRealm, inViewRealm } from "./modelView.js";
 import Stats from "./util/stats.js";
 import urlOptions from "./util/urlOptions.js";
 
-const THROTTLE = 1000 / 60;     // mouse event throttling
-const SPEED = 10;               // bouncing ball speed
+const THROTTLE = 1000 / 20;     // mouse event throttling
+const STEP_MS = 1000 / 20;      // bouncing ball step time in ms
+const SPEED = 15;               // bouncing ball speed in virtual pixels / step
+
 let SCALE = 1;                  // model uses a virtual 1000x1000 space
 
 addMessageTranscoder('*', a => a, a => a);
@@ -83,7 +85,7 @@ export class BouncingShape extends Shape {
 
     step() {
         this.moveBy(...this.speed);
-        this.future(1000/30).step();
+        this.future(STEP_MS).step();
     }
 
     moveTo(x, y) {
