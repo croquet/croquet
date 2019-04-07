@@ -52,8 +52,7 @@ export default class Island {
         return CurrentIsland;
     }
 
-    constructor(state = {}, initFn) {
-        console.log("new Island() v" + moduleVersion);
+    constructor(snapshot, initFn) {
         if (moduleVersion !== Island.latest()) throw Error("Hot Reload problem: Instantiating old Island v" + moduleVersion);
 
         this.topLevelModelsById = {};
@@ -63,40 +62,49 @@ export default class Island {
         // Views can subscribe to model or other view events
         this.modelSubscriptions = {};
         this.viewSubscriptions = {};
-        // topics that had events since last frame
+        /** topics that had events since last frame */
         this.frameTopics = new Set();
-        // pending messages, sorted by time
+        /** pending messages, sorted by time and sequence number */
         this.messages = new PriorityQueue((a, b) => a.before(b));
         execOnIsland(this, () => {
             inModelRealm(this, () => {
-                // our synced random stream
-                this._random = new SeedRandom(null, { state: state.random || true });
-                this.id = state.id || this.randomID();
-                this.time = state.time || 0;
-                this.timeSeq = state.timeSeq || 0;
-                if (state.models) {
+                /** @type {SeedRandom} our synced pseudo random stream */
+                this._random = () => { throw Error("You must not use random when applying state!"); };
+                /** @type {String} island ID */
+                this.id = snapshot.id; // the controller always provides an ID
+                /** @type {Number} how far simulation has progressed */
+                this.time = snapshot.time || 0;
+                /** @type {Number} timestamp of last external message */
+                this.externalTime = snapshot.externalTime || 0;
+                /** @type {Number} sequence number for disambiguating messages with same timestamp */
+                this.sequence = snapshot.sequence || 0;
+                if (snapshot.models) {
                     // create all models, uninitialized, but already registered
-                    for (const modelState of state.models || []) {
+                    for (const modelState of snapshot.models || []) {
                         const model = StatePart.constructFromState(modelState);
                         model.registerRecursively(modelState, true);
                     }
 
-                    for (const [modelName, modelId] of Object.entries(state.namedModels)) {
+                    for (const [modelName, modelId] of Object.entries(snapshot.namedModels)) {
                         this.set(modelName, this.lookUpModel(modelId));
                     }
 
-                    // restore model state, allow resolving object references
-                    for (const modelState of state.models || []) {
+                    // restore model snapshot, allow resolving object references
+                    for (const modelState of snapshot.models || []) {
                         const model = this.topLevelModelsById[modelState.id];
                         model.restore(modelState, this.topLevelModelsById);
                         model.restoreDone();
                     }
                     // restore messages
-                    for (const messageState of state.messages || []) {
+                    for (const messageState of snapshot.messages || []) {
                         const message = Message.fromState(messageState);
                         this.messages.add(message);
                     }
+                    // now it's safe to use stored random
+                    this._random = new SeedRandom(null, { state: snapshot.random });
                 } else {
+                    // create new random, it is okay to use in init code
+                    this._random = new SeedRandom(null, { state: true });
                     initFn(this);
                 }
             });
@@ -161,9 +169,10 @@ export default class Island {
      * @param {MessageData} msgData - encoded message
      * @return {Message} decoded message
      */
-    decodeAndSchedule(msgData) {
+    processExternalMessage(msgData) {
         const message = Message.fromState(msgData);
         this.messages.add(message);
+        this.externalTime = message.time; // we have all external messages up to this time
         return message;
     }
 
@@ -180,8 +189,8 @@ export default class Island {
         // To have a defined ordering between future messages generated on island
         // and messages from the reflector, we create even sequence numbers here and
         // the reflector's sequence numbers are made odd on arrival
-        this.timeSeq = (this.timeSeq + 2) % (Number.MAX_SAFE_INTEGER + 1);
-        const message = new Message(this.time + tOffset, this.timeSeq, receiverID, selector, args);
+        this.sequence = (this.sequence + 2) % (Number.MAX_SAFE_INTEGER + 1);
+        const message = new Message(this.time + tOffset, this.sequence, receiverID, selector, args);
         this.messages.add(message);
     }
 
@@ -356,7 +365,8 @@ export default class Island {
         return {
             id: this.id,
             time: this.time,
-            timeSeq: this.timeSeq,
+            externalTime: this.externalTime,
+            sequence: this.sequence,
             random: this._random.state(),
             models: Object.values(this.topLevelModelsById).map(model => {
                 const state = {};
@@ -586,8 +596,6 @@ export class Controller {
     }
 
     takeSnapshot() {
-        // put all pending messages into future queue
-        this.scheduleAllPendingMessages();
         return this.island.asState();
     }
 
@@ -682,7 +690,7 @@ export class Controller {
                 const msg = args;   // [time, seq, payload]
                 const time = msg[0];
                 const seq = msg[1];
-                msg[1] = seq * 2 + 1;  // make odd timeSeq from controller
+                msg[1] = seq * 2 + 1;  // make odd sequence from controller
                 //if (msg.sender === this.senderID) this.addToStatistics(msg);
                 this.networkQueue.put(msg);
                 this.timeFromReflector(time);
@@ -698,8 +706,8 @@ export class Controller {
                 break;
             }
             case 'SERVE': {
-                if (!this.island) break; // can't serve if we don't have an island
-                if (this.backlog > 1000) break; // don't serve if we're not up-to-date
+                if (!this.island) { console.log("SERVE no island"); break; } // can't serve if we don't have an island
+                if (this.backlog > 1000) { console.log("SERVE backlog", this.backlog); break; } // don't serve if we're not up-to-date
                 // We received a request to serve a current snapshot
                 console.log(this.id, 'Controller received SERVE - replying with snapshot');
                 const snapshot = this.takeSnapshot();
@@ -734,7 +742,7 @@ export class Controller {
             const nextMsg = await this.networkQueue.next();
             if (nextMsg[0] > snapshotTime) {
                 // This is the first 'real' message arriving.
-                newIsland.decodeAndSchedule(nextMsg);
+                newIsland.processExternalMessage(nextMsg);
                 drainQueue = false;
             }
             // otherwise, silently skip the message
@@ -758,7 +766,7 @@ export class Controller {
     // network queue
 
     async join(socket) {
-        if (!this.nodownload) await this.updateSnapshot();
+        if (this.fetchUpdatedSnapshot) await this.updateSnapshot();
         console.log(this.id, 'Controller sending JOIN');
         this.socket = socket;
         const time = this.islandCreator.snapshot.time || 0;
@@ -790,24 +798,15 @@ export class Controller {
         }));
     }
 
-    /** Schedule all messages received from reflector as future messages in island */
-    scheduleAllPendingMessages() {
-        let msgData;
-        // Get the next message from the (concurrent) network queue
-        while ((msgData = this.networkQueue.nextNonBlocking())) {
-            // And have the island decode and schedule that message
-            this.island.decodeAndSchedule(msgData);
-        }
-    }
-
     get backlog() { return this.island ? this.time - this.island.time : 0; }
 
     /**
      * Process pending messages for this island and advance simulation
      * @param {Number} deadline CPU time deadline before interrupting simulation
+     * @return {Boolean} true if simulation finished before deadline
      */
     simulate(deadline) {
-        if (!this.island) return;     // we are probably still sync-ing
+        if (!this.island) return true;     // we are probably still sync-ing
         Stats.begin("simulate");
         let weHaveTime = true;
         while (weHaveTime) {
@@ -815,13 +814,14 @@ export class Controller {
             const msgData = this.networkQueue.nextNonBlocking();
             if (!msgData) break;
             // have the island decode and schedule that message
-            const msg = this.island.decodeAndSchedule(msgData);
+            const msg = this.island.processExternalMessage(msgData);
             // simulate up to that message
             weHaveTime = this.island.advanceTo(msg.time, deadline);
         }
-        if (weHaveTime) this.island.advanceTo(this.time, deadline);
+        if (weHaveTime) weHaveTime = this.island.advanceTo(this.time, deadline);
         Stats.end("simulate");
         Stats.backlog(this.backlog);
+        return weHaveTime;
     }
 
     /** Got the official time from reflector server */

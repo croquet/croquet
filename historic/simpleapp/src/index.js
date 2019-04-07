@@ -54,7 +54,7 @@ async function start() {
     };
 
     // if hot-reloading, store the island snapshots in the room creators
-    for (const [roomName, room] of Object.entries(ALL_ROOMS)) {
+    if (urlOptions.hotreload) for (const [roomName, room] of Object.entries(ALL_ROOMS)) {
         if (!room.creator.snapshot && hotState.islands && hotState.islands[roomName]) {
             const snapshot = hotState.islands[roomName];
             room.creator.snapshot = typeof snapshot === "string" ? JSON.parse(snapshot) : snapshot;
@@ -86,7 +86,7 @@ async function start() {
                 }
             };
             const controller = new Controller();
-            if (urlOptions.nodownload) controller.nodownload = true;
+            controller.fetchUpdatedSnapshot = !urlOptions.nodownload;
             ROOM.islandPromise = controller.createIsland(roomName, creator);
             return ROOM.island = await ROOM.islandPromise;
         }
@@ -124,6 +124,12 @@ async function start() {
 
     /** simulate for a given time budget */
     function simulate(deadline) {
+        // simulate current room first
+        const currentRoom = ALL_ROOMS[currentRoomName];
+        const currentIsland = currentRoom && ALL_ROOMS[currentRoomName].island;
+        const weHaveMoreTime = !currentIsland || currentIsland.controller.simulate(deadline);
+        if (!weHaveMoreTime) return;
+        // if we have time, simulate other rooms
         const liveRooms = Object.values(ALL_ROOMS).filter(room => room.island);
         for (const {island} of liveRooms) {
             island.controller.simulate(deadline);
