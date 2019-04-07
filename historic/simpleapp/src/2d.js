@@ -7,6 +7,8 @@ const THROTTLE = 1000 / 20;     // mouse event throttling
 const STEP_MS = 1000 / 20;      // bouncing ball step time in ms
 const SPEED = 15;               // bouncing ball speed in virtual pixels / step
 
+const TOUCH ='ontouchstart' in document.documentElement;
+
 let SCALE = 1;                  // model uses a virtual 1000x1000 space
 
 addMessageTranscoder('*', a => a, a => a);
@@ -144,10 +146,26 @@ class ShapeView extends ViewPart {
 
     constructor(model) {
         super(model);
-        this.element = document.createElement("div");
-        this.element.className = model.type;
-        this.element.style.backgroundColor = model.color;
-        this.element.onmousedown = () => {
+        const el = this.element = document.createElement("div");
+        el.className = model.type;
+        el.style.backgroundColor = model.color;
+        if (TOUCH) el.ontouchstart = start => {
+            start.preventDefault();
+            let x = start.touches[0].clientX;
+            let y = start.touches[0].clientY;
+            let timeStamp = 0;
+            el.ontouchmove = evt => {
+                const dx = evt.touches[0].clientX - x;
+                const dy = evt.touches[0].clientY - y;
+                if (evt.timeStamp - timeStamp > THROTTLE) {
+                    this.modelPart().moveBy(dx / SCALE, dy / SCALE);
+                    x += dx;
+                    y += dy;
+                    timeStamp = evt.timeStamp;
+                }
+            };
+            el.ontouchend = el.ontouchcancel = () => el.ontouchmove = null;
+        }; else el.onmousedown = () => {
             let dx = 0;
             let dy = 0;
             let timeStamp = 0;
@@ -160,10 +178,7 @@ class ShapeView extends ViewPart {
                     timeStamp = evt.timeStamp;
                 }
             };
-            document.onmouseup = () => {
-                document.onmouseup = null;
-                document.onmousemove = null;
-            };
+            document.onmouseup = () => document.onmousemove = null;
         };
         this.subscribe('pos-changed', 'move', this.modelId);
         this.move(model.pos);
