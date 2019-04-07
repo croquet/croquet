@@ -77,7 +77,7 @@ export default class Island {
                 /** @type {Number} timestamp of last external message */
                 this.externalTime = snapshot.externalTime || 0;
                 /** @type {Number} sequence number for disambiguating messages with same timestamp */
-                this.timeSeq = snapshot.timeSeq || 0;
+                this.sequence = snapshot.sequence || 0;
                 if (snapshot.models) {
                     // create all models, uninitialized, but already registered
                     for (const modelState of snapshot.models || []) {
@@ -189,8 +189,8 @@ export default class Island {
         // To have a defined ordering between future messages generated on island
         // and messages from the reflector, we create even sequence numbers here and
         // the reflector's sequence numbers are made odd on arrival
-        this.timeSeq = (this.timeSeq + 2) % (Number.MAX_SAFE_INTEGER + 1);
-        const message = new Message(this.time + tOffset, this.timeSeq, receiverID, selector, args);
+        this.sequence = (this.sequence + 2) % (Number.MAX_SAFE_INTEGER + 1);
+        const message = new Message(this.time + tOffset, this.sequence, receiverID, selector, args);
         this.messages.add(message);
     }
 
@@ -366,7 +366,7 @@ export default class Island {
             id: this.id,
             time: this.time,
             externalTime: this.externalTime,
-            timeSeq: this.timeSeq,
+            sequence: this.sequence,
             random: this._random.state(),
             models: Object.values(this.topLevelModelsById).map(model => {
                 const state = {};
@@ -690,7 +690,7 @@ export class Controller {
                 const msg = args;   // [time, seq, payload]
                 const time = msg[0];
                 const seq = msg[1];
-                msg[1] = seq * 2 + 1;  // make odd timeSeq from controller
+                msg[1] = seq * 2 + 1;  // make odd sequence from controller
                 //if (msg.sender === this.senderID) this.addToStatistics(msg);
                 this.networkQueue.put(msg);
                 this.timeFromReflector(time);
