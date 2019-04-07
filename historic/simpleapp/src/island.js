@@ -62,17 +62,21 @@ export default class Island {
         // Views can subscribe to model or other view events
         this.modelSubscriptions = {};
         this.viewSubscriptions = {};
-        // topics that had events since last frame
+        /** topics that had events since last frame */
         this.frameTopics = new Set();
-        // pending messages, sorted by time
+        /** pending messages, sorted by time and sequence number */
         this.messages = new PriorityQueue((a, b) => a.before(b));
         execOnIsland(this, () => {
             inModelRealm(this, () => {
-                // our synced random stream
+                /** @type {SeedRandom} our synced pseudo random stream */
                 this._random = () => { throw Error("You must not use random when applying state!"); };
+                /** @type {String} island ID */
                 this.id = snapshot.id; // the controller always provides an ID
+                /** @type {Number} how far simulation has progressed */
                 this.time = snapshot.time || 0;
+                /** @type {Number} timestamp of last external message */
                 this.externalTime = snapshot.externalTime || 0;
+                /** @type {Number} sequence number for disambiguating messages with same timestamp */
                 this.timeSeq = snapshot.timeSeq || 0;
                 if (snapshot.models) {
                     // create all models, uninitialized, but already registered
