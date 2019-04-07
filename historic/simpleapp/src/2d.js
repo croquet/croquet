@@ -113,6 +113,7 @@ class RootView extends ViewPart {
         super(model);
         this.element = document.createElement("div");
         this.element.className = "root";
+        if (TOUCH) this.element.ontouchstart = e => e.preventDefault();
         this.resize();
         document.body.appendChild(this.element);
         window.onresize = () => this.resize();
