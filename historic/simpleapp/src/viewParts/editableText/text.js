@@ -64,8 +64,6 @@ export default class EditableTextViewPart extends ViewPart {
         //Carota.setCachedMeasureText(fontRegistry.measureText.bind(fontRegistry)); // ???
         this.lastPt = false;
         this.editor = new Warota(this.options.width, this.options.height, this.options.numLines);
-        this.editor.isScrollable = true;  // unless client decides otherwise
-
         this.editor.mockCallback = ctx => {
             const glyphs = this.processMockContext(ctx);
             this.update({glyphs, corners: this.editor.visibleTextBounds(), scaleX: this.editor.pixelX, scrollTop: this.editor.scrollTop, frameHeight: this.editor.docHeight, drawnRects: ctx.filledRects});

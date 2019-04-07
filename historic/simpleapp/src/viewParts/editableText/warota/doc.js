@@ -1,6 +1,11 @@
 import {Wrap, Measurer} from './wrap.js';
 import MockContext from './MockContext.js';
 
+function runLength(ary) {
+    return ary.map(c => c.text).reduce((s, x) => x.length + s, 0);
+}
+
+
 export class Doc {
     constructor() {
         this.doc = [{start: 0, end: 0, text: ""}]; // [{start: num, end: num, text: str, (opt)style: {font: str, size: num, color: str, emphasis: 'b' | 'i'|'bi'}}]
@@ -45,7 +50,6 @@ export class Doc {
     canonicalize(runs) {
         let result = [];
         let lastRun = runs[0];
-        let lastStyle = lastRun.style;
         let start = 0;
         let end = 0;
         let i = 1;
@@ -291,7 +295,7 @@ export class Warota {
             evt = Event.insert(userID, runs, selection.start, this.timezone);
             this.events.push(evt);
             let pos = selection.start + runLength(runs);
-            evt = Event.select(userID, pos, pos, this.timezone);
+            evt = Event.select(userID, pos, pos, userID, this.timezone);
             this.events.push(evt);
         } else {
             evt = Event.delete(userID, selection.start, selection.end, this.timezone);
@@ -299,7 +303,7 @@ export class Warota {
             evt = Event.insert(userID, runs, selection.start, this.timezone);
             this.events.push(evt);
             let pos = selection.start + runLength(runs);
-            evt = Event.select(userID, pos, pos, this.timezone);
+            evt = Event.select(userID, pos, pos, userID, this.timezone);
             this.events.push(evt);
         }
     }
@@ -392,17 +396,13 @@ export class Warota {
             let index = this.indexFromPosition(x, y);
             this.extendingSelection = null;
             this.selectDragStart = index;
-            this.select(userID, index, index);
+            this.select(userID, index, index, userID);
         }
         this.keyboardX = null;
     }
     mouseMove(x,y, realY) {}
     mouseUp(x,y, realY) {}
 
-}
-
-function runLength(ary) {
-    return ary.map(c => c.text).reduce((s, x) => x.length + s, 0);
 }
 
 class Event {

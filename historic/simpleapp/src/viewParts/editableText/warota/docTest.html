@@ -3,43 +3,48 @@
 <script type="module" src="doc.mjs"></script>
 <script type="module" src="wrap.mjs"></script>
 <script type="module">
-import {Doc, DocView} from './doc.mjs';
+import {Doc, Warota} from './doc.mjs';
 
 window.onload = function () {
-    let tests = [
-        [
-            [{text: "he"}, {text: "ll", style: {font: "Roboto", size: 10}}, {text: 'o!'}],
-            [{text: "hello!", start: 0, end: 6}]
-        ],
+    let timezone = 0;
+    let evts;
 
-        [
-            [{text: "he"}, {text: "ll", style: {font: "Roboto", size: 10}}, {text: 'o!', style: {font: "Comic"}}],
-            [{text: "hell", start: 0, end: 4}, {text: "o!", style: {font: "Comic"}, start: 4, end: 6}]
-        ],
-    ];
-        
-    tests.forEach(([runs, expected]) => {
-        let td = new Doc();
-        let result = td.canonicalize(runs)
-        console.log(result, JSON.stringify(expected) === JSON.stringify(result));
-    });
+    let userID ='010203';
+    let view = new Warota(3, 2, 10);
+    window.view = view;
+    view.load([{text: "man is much more than a tool builder... he is an inventor of universes..."}]);
 
-    let doc = new Doc();
+    view.select(userID, 3, 3, 0);
+    evts = view.events;
+    view.resetEvents();
+    view.doSelect(evts[0].user, evts[0].start, evts[0].end, evts[0].color);
 
-    let testRun = [{text: 'Hell'}, {text: 'o'}, {text: '\n World!'}];
+    view.setTimezone(++timezone);
 
-    doc.load(testRun);
+    view.insert(userID, [{text: 'A'}]);
+    evts = view.events;
+    view.resetEvents();
+    view.doInsert(evts[0].pos, evts[0].runs);
+    view.doSelect(evts[1].user, evts[1].start, evts[1].end, evts[1].color);
 
-    console.log(doc.doc);
+    view.setTimezone(++timezone);
 
-    let view = new DocView(doc);
-    view.setDefault("Roboto", 10);
-    view.width(100);
-    view.layout();
-    console.log('lines', view.lines);
-    console.log('words', view.words);
+    view.insert(userID, [{text: 'B'}]);
+    evts = view.events;
+    view.resetEvents();
+    view.doInsert(evts[0].pos, evts[0].runs);
+    view.doSelect(evts[1].user, evts[1].start, evts[1].end, evts[1].color);
 
-    console.log('paint', view.paint());
+    view.select(userID, 1, 2, 0);
+    evts = view.events;
+    view.resetEvents();
+    view.doSelect(evts[0].user, evts[0].start, evts[0].end, evts[0].color);
+
+    view.setTimezone(++timezone);
+
+    let ctx = view.paint();
+    console.log(ctx.drawnStrings);
+
 }
 </script>
 
