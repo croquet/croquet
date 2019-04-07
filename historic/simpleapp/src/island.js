@@ -72,6 +72,7 @@ export default class Island {
                 this._random = () => { throw Error("You must not use random when applying state!"); };
                 this.id = snapshot.id; // the controller always provides an ID
                 this.time = snapshot.time || 0;
+                this.externalTime = snapshot.externalTime || 0;
                 this.timeSeq = snapshot.timeSeq || 0;
                 if (snapshot.models) {
                     // create all models, uninitialized, but already registered
@@ -164,9 +165,10 @@ export default class Island {
      * @param {MessageData} msgData - encoded message
      * @return {Message} decoded message
      */
-    decodeAndSchedule(msgData) {
+    processExternalMessage(msgData) {
         const message = Message.fromState(msgData);
         this.messages.add(message);
+        this.externalTime = message.time; // we have all external messages up to this time
         return message;
     }
 
@@ -359,6 +361,7 @@ export default class Island {
         return {
             id: this.id,
             time: this.time,
+            externalTime: this.externalTime,
             timeSeq: this.timeSeq,
             random: this._random.state(),
             models: Object.values(this.topLevelModelsById).map(model => {
@@ -589,8 +592,6 @@ export class Controller {
     }
 
     takeSnapshot() {
-        // put all pending messages into future queue
-        this.scheduleAllPendingMessages();
         return this.island.asState();
     }
 
@@ -737,7 +738,7 @@ export class Controller {
             const nextMsg = await this.networkQueue.next();
             if (nextMsg[0] > snapshotTime) {
                 // This is the first 'real' message arriving.
-                newIsland.decodeAndSchedule(nextMsg);
+                newIsland.processExternalMessage(nextMsg);
                 drainQueue = false;
             }
             // otherwise, silently skip the message
@@ -793,16 +794,6 @@ export class Controller {
         }));
     }
 
-    /** Schedule all messages received from reflector as future messages in island */
-    scheduleAllPendingMessages() {
-        let msgData;
-        // Get the next message from the (concurrent) network queue
-        while ((msgData = this.networkQueue.nextNonBlocking())) {
-            // And have the island decode and schedule that message
-            this.island.decodeAndSchedule(msgData);
-        }
-    }
-
     get backlog() { return this.island ? this.time - this.island.time : 0; }
 
     /**
@@ -818,7 +809,7 @@ export class Controller {
             const msgData = this.networkQueue.nextNonBlocking();
             if (!msgData) break;
             // have the island decode and schedule that message
-            const msg = this.island.decodeAndSchedule(msgData);
+            const msg = this.island.processExternalMessage(msgData);
             // simulate up to that message
             weHaveTime = this.island.advanceTo(msg.time, deadline);
         }
