@@ -803,9 +803,10 @@ export class Controller {
     /**
      * Process pending messages for this island and advance simulation
      * @param {Number} deadline CPU time deadline before interrupting simulation
+     * @return {Boolean} true if simulation finished before deadline
      */
     simulate(deadline) {
-        if (!this.island) return;     // we are probably still sync-ing
+        if (!this.island) return true;     // we are probably still sync-ing
         Stats.begin("simulate");
         let weHaveTime = true;
         while (weHaveTime) {
@@ -817,9 +818,10 @@ export class Controller {
             // simulate up to that message
             weHaveTime = this.island.advanceTo(msg.time, deadline);
         }
-        if (weHaveTime) this.island.advanceTo(this.time, deadline);
+        if (weHaveTime) weHaveTime = this.island.advanceTo(this.time, deadline);
         Stats.end("simulate");
         Stats.backlog(this.backlog);
+        return weHaveTime;
     }
 
     /** Got the official time from reflector server */

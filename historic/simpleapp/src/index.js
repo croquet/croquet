@@ -124,6 +124,12 @@ async function start() {
 
     /** simulate for a given time budget */
     function simulate(deadline) {
+        // simulate current room first
+        const currentRoom = ALL_ROOMS[currentRoomName];
+        const currentIsland = currentRoom && ALL_ROOMS[currentRoomName].island;
+        const weHaveMoreTime = !currentIsland || currentIsland.controller.simulate(deadline);
+        if (!weHaveMoreTime) return;
+        // if we have time, simulate other rooms
         const liveRooms = Object.values(ALL_ROOMS).filter(room => room.island);
         for (const {island} of liveRooms) {
             island.controller.simulate(deadline);
