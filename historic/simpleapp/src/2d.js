@@ -123,7 +123,11 @@ class RootView extends ViewPart {
 
     detach() {
         super.detach();
-        document.body.removeChild(this.element);
+        try {
+            document.body.removeChild(this.element);
+        } catch (e) {
+            console.warn('detach() failed to remove from body:', this.element);
+        }
     }
 
     // non-inherited methods below
