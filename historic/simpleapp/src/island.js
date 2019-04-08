@@ -3,7 +3,7 @@ import PriorityQueue from "./util/priorityQueue.js";
 import AsyncQueue from './util/asyncQueue.js';
 import hotreload from "./hotreload.js";
 import { hashModelCode, baseUrl } from "./modules.js";
-import { inModelRealm, StatePart } from "./modelView.js";
+import { inModelRealm, StatePart, inViewRealm } from "./modelView.js";
 import Stats from "./util/stats.js";
 import { PATH_PART_SEPARATOR_SPLIT_REGEXP } from "./parts.js";
 
@@ -339,20 +339,22 @@ export default class Island {
 
     handleViewEvents(topic, dataArray) {
         // Events published by views can only reach other views
-        const subscriptions = this.viewSubscriptions[topic];
-        if (subscriptions) {
-            for (const subscriber of subscriptions.queueHandlers) {
-                const [subscriberId, method] = subscriber.split(".");
-                const view = this.viewsById[subscriberId];
-                for (const data of dataArray) view[method](data);
+        inViewRealm(this, () => {
+            const subscriptions = this.viewSubscriptions[topic];
+            if (subscriptions) {
+                for (const subscriber of subscriptions.queueHandlers) {
+                    const [subscriberId, method] = subscriber.split(".");
+                    const view = this.viewsById[subscriberId];
+                    for (const data of dataArray) view[method](data);
+                }
+                const data = dataArray[dataArray.length - 1];
+                for (const subscriber of subscriptions.onceHandlers) {
+                    const [subscriberId, method] = subscriber.split(".");
+                    const view = this.viewsById[subscriberId];
+                    view[method](data);
+                }
             }
-            const data = dataArray[dataArray.length - 1];
-            for (const subscriber of subscriptions.onceHandlers) {
-                const [subscriberId, method] = subscriber.split(".");
-                const view = this.viewsById[subscriberId];
-                view[method](data);
-            }
-        }
+        });
     }
 
     asState() {
