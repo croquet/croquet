@@ -36,9 +36,9 @@ if (div) {
 
     canvas = document.createElement("canvas");
     canvas.title = Object.entries(colors).map(([k,c])=>`${c}: ${k}`).join('\n');
-    canvas.style.width = 120;
+    canvas.style.width = Math.min(120, window.innerWidth);
     canvas.style.height = 300;
-    canvas.width = 120 * window.devicePixelRatio;
+    canvas.width = Math.min(120, window.innerWidth) * window.devicePixelRatio;
     canvas.height = 360 * window.devicePixelRatio;
     div.appendChild(canvas);
     ctx = canvas.getContext("2d");
@@ -73,7 +73,7 @@ function endCurrentFrame(timestamp) {
     const newMax = Math.max(...realFrames.map(f => Math.max(f.backlog, f.network)));
     maxBacklog = Math.max(newMax, maxBacklog * 0.98); // reduce scale slowly
 
-    while (frames.length > 120) frames.shift();
+    while (frames.length > Math.min(120, window.innerWidth)) frames.shift();
 
     // show average framerate
     fps.innerText = `${currentFrame.users} users, ${Math.round(1000/avgMS)} fps,
