@@ -134,9 +134,9 @@ class RootView extends ViewPart {
     }
 
     resize() {
-        const size = Math.max(50, Math.min(window.innerWidth, window.innerHeight) - 10);
+        const size = Math.max(50, Math.min(window.innerWidth, window.innerHeight));
         SCALE = size / 1100;
-        this.element.style.transform = `translate(${(window.innerWidth - size) / 2}px,${5}px) scale(${SCALE})`;
+        this.element.style.transform = `translate(${(window.innerWidth - size) / 2}px,0px) scale(${SCALE})`;
         this.element.style.transformOrigin = "0 0";
     }
 
