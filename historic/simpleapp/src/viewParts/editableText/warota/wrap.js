@@ -1,13 +1,13 @@
-//import { fontRegistry } from '../../../util/fontRegistry.js';
+import { fontRegistry } from '../../../util/fontRegistry.js';
 
-let fontRegistry = {
-    measureText: function(str, style) {
-        return {width: str.length * 10, height: 20, ascent: 15};
-    },
-    getInfo: function(font) {
-        return {common: {lineHeight: 20}};
-    }
-};
+// let fontRegistry = {
+//     measureText: function(str, style) {
+//         return {width: str.length * 10, height: 20, ascent: 15};
+//     },
+//     getInfo: function(font) {
+//         return {common: {lineHeight: 20}};
+//     }
+// };
 
 export class Measurer {
     measureText(str, style) {

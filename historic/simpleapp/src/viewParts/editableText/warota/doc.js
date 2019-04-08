@@ -77,7 +77,16 @@ export class Doc {
     }
 
     save(optStart, optEnd) {
-        //return;
+        // can I assume it is canonicalized? => yes
+        let result = [];
+        this.doc.forEach(run => {
+            if (run.style) {
+                result.push({text: run.text, style: run.style});
+            } else {
+                result.push({text: run.text});
+            }
+        });
+        return result;
     }
 
     performUndo() {
@@ -227,9 +236,9 @@ export class Warota {
         for (let k in this.selections) {
             let selection = this.selections[k];
             if (selection.end === selection.start) {
-                //ctx.fillStyle = 'barSelection ' + k;
-                //let caretRect = this.caretRect(selection);
-                //ctx.fillRect(this.indexFromPosition(selection.start)
+                ctx.fillStyle = 'barSelection ' + k;
+                let caretRect = this.barRect(selection);
+                ctx.fillRect(caretRect.left, caretRect.top, caretRect.width, caretRect.height);
             }
         }
         ctx.restore();
@@ -237,18 +246,54 @@ export class Warota {
 
     drawScrollbar(ctx) {}
 
-    findLine(pos) {
-        // a smarty may do a binary search
-        return this.lines.find(line => line.start <= pos && pos < line.end);
-    }
-
-    findRun(pos) {
+    findRun(pos, x, y) {
         let runs = this.doc.doc;
-        let ind = runs.findIndex(run => run.start <= run && pos < run.end);
+
+        if (x !== undefined && y !== undefined) {
+            let lineIndex = this.lines.findIndex(line => {
+                let w = line[0]; // should be always one
+                return w.top <= y && y < w.top + w.height;
+            });
+            if (lineIndex < 0) {
+                return runs[runs.length - 1]; // or?
+            }
+            let line = this.lines[lineIndex];
+            let ind = line.findIndex(run => run.left <= x && x  < run.left + run.width);
+            return [runs[ind], ind];
+        }
+
+        let ind = runs.findIndex(run => run.start <= pos && pos < run.end);
+
         if (ind < 0) {
             ind = runs.length - 1;
         }
         return [runs[ind], ind];
+    }
+
+    findLine(pos, x, y) {
+        // a smarty way would be to do a binary search
+        let lines = this.lines;
+        if (x !== undefined && y !== undefined) {
+            let lineIndex = lines.findIndex(line => {
+                let w = line[0]; // should be always one
+                return w.top <= y && y < w.top + w.height;
+            });
+            if (lineIndex < 0) {
+                lineIndex = lines.length - 1;
+            }
+            return [lines[lineIndex], lineIndex];
+        }
+
+        let lineIndex = lines.findIndex(line => {
+            let start = line[0];
+            let end = line[line.length-1];
+            return start.start <= pos && pos < end.end;
+        });
+
+        if (lineIndex < 0) {
+            lineIndex = lines.length;
+        }
+        return [lines[lineIndex], lineIndex];
     }
 
     splitDocAt(runIndex, sizeInRun) {
@@ -269,23 +314,20 @@ export class Warota {
         let word;
         const isNewline = (str) => /[\n\r]/.test(str);
         if (x !== undefined && y !== undefined) {
-            let wordIndex = this.words.findIndex(w => w.top + w.height >= y);
-            word = this.words[wordIndex];
-            let top = word.top;
-            while (true) {
-                if (word.left <= x && x < word.left + word.width) {
-                    return [word, wordIndex];
-                }
-                if (isNewline(word.text)) {
-                    // at the end of line
-                    return [word, wordIndex];
-                }
-                word = this.words[++wordIndex];
+            let [line, lineIndex] = this.findLine(pos, x, y);
+            let wordIndex = line.findIndex(w => w.left <= x && x < w.left + w.width);
+            if (wordIndex < 0) {
+                wordIndex = line.length - 1;
             }
-            // last line?
+            return line[wordIndex];
+        } 
+
+        let [line, lineIndex] = this.findLine(pos, x, y);
+        let wordIndex = line.findIndex(w => w.start <= pos && pos < w.end);
+        if (wordIndex < 0) {
+            wordIndex = this.words.length - 1;
         }
-        let wordIndex = this.words.findIndex(w => w.start <= pos && pos < w.end);
-        return [word, wordIndex];
+        return line[wordIndex];
     }
 
     insert(userID, runs) {
@@ -308,14 +350,26 @@ export class Warota {
         }
     }
 
-    delete(userID, start, end, timezone) {
-        let evt = Event.delete(userID, start, end, timezone);
+    delete(userID, start, end) {
+        let evt = Event.delete(userID, start, end, this.timezone);
+        this.events.push(evt);
+        evt = Event.select(userID, start, start, userID, this.timezone);
         this.events.push(evt);
     }
 
     select(userID, start, end, color) {
         let evt = Event.select(userID, start, end, color, this.timezone);
         this.events.push(evt);
+    }
+
+    doEvent(evt) {
+        if (evt.type === "insert") {
+            this.doInsert(evt.pos, evt.runs);
+        } else if (evt.type === "delete") {
+            this.doDelete(evt.start, evt.end);
+        } else if (evt.type === "select") {
+            this.doSelect(evt.user, evt.start, evt.end, evt.color);
+        }
     }
 
     doInsert(pos, runs) {
@@ -337,6 +391,8 @@ export class Warota {
 
         if (run.end !== pos) { // that is, pos is within the run
             this.splitDocAt(runIndex, pos - run.start);
+            // here, previous run ends at pos. and next one starts at pos.
+            runIndex += 1;
         }
 
         let endRun = run;
@@ -348,9 +404,10 @@ export class Warota {
         let reminder = end - endRun.start;
         if (end !== endRun.end) {
             this.splitDocAt(endRunIndex, end - endRun.start);
+            endRunIndex += 1;
         }
 
-        this.doc.doc.splice(runIndex, endRunIndex);
+        this.doc.doc.splice(runIndex, endRunIndex - runIndex);
         this.doc.doc = this.doc.canonicalize(this.doc.doc);
         this.layout();
     }
@@ -360,23 +417,40 @@ export class Warota {
     }
 
     positionFromIndex(pos) {
-        let [word, wordIndex] = this.findWord(pos);
+        let word = this.findWord(pos);
 
-        let measure0 = this.measureText(word.text.slice(0, pos-1), word.style);
-        let measure1 = this.measureText(word.text.slice(0, pos), word.style);
-        return {left: word.left + measure0.width, top: word.top, width: measure1.with - measure0.width, height: word.height};
+        let lp = pos - word.start;
+        if (lp === 0) {
+            let measure0 = new Measurer().measureText(word.text.slice(0, 0), word.style);
+            return {left: word.left + measure0.width, top: word.top, width: measure0.width, height: word.height};
+        }
+
+        let measure0 = new Measurer().measureText(word.text.slice(0, pos-word.start), word.style);
+        let measure1 = new Measurer().measureText(word.text.slice(0, pos-word.start+1), word.style);
+        return {left: word.left + measure0.width, top: word.top, width: measure1.width - measure0.width, height: word.height};
     }
 
     indexFromPosition(x, y) {
-        let [word, wordIndex] = this.findWord(null, x, y);
-
-        for (let i = 0; i < word.text.length; i++) {
+        let word = this.findWord(null, x, y);
+        let last = 0;
+        let lx = x - word.left;
+        for (let i = 0; i <= word.text.length; i++) {
             let measure = new Measurer().measureText(word.text.slice(0, i), word.style);
-            if (measure.width > y - word.left) {
+            let half = (measure.width - last) / 2;
+            if (last <= lx && lx < last + half) {
+                return word.start + i - 1;
+            }
+            if (last + half <= lx && lx < measure.width) {
                 return word.start + i;
             }
+            last = measure.width;
         }
-        return 0;
+        return word.end;
+    }
+
+    barRect(selection) {
+        let rect = this.positionFromIndex(selection.start);
+        return {left: rect.left, top: rect.top, width: 5, height: rect.height};
     }
 
     addSelection(userID, start, end, color) {
@@ -394,6 +468,7 @@ export class Warota {
             };
         } else {
             let index = this.indexFromPosition(x, y);
+            console.log("index:", index);
             this.extendingSelection = null;
             this.selectDragStart = index;
             this.select(userID, index, index, userID);
@@ -403,6 +478,31 @@ export class Warota {
     mouseMove(x,y, realY) {}
     mouseUp(x,y, realY) {}
 
+    backspace(userID) {
+        let selection = this.selections[userID] || {start: 0, end: 0};
+        if (selection.start === selection.end && selection.start > 0) {
+            this.delete(userID, selection.start - 1, selection.end);
+        } else {
+            this.delete(userID, selection.start, selection.end);
+        }
+    }
+
+    handleKey(userID, key, selecting, ctrlKey) {
+        let selection = this.selections[userID] || {start: 0, end: 0};
+        let start = selection.start,
+            end = selection.end,
+            handled = false;
+
+        switch (key) {
+        case 8: // backspace
+            this.backspace(userID);
+            handled = true;
+            break;
+            default:
+            break;
+        }
+        return handled;
+    }
 }
 
 class Event {

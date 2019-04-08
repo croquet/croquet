@@ -50,7 +50,19 @@ export default class EditableTextPart extends StatePart {
         this.content.timezone++;
 
         function findFirst(queue, event) {
-            return queue.findIndex(elem => event.timezone >= elem.timezone);
+            //if (event.type === "insert") {debugger;}
+            if (queue.length === 0) {
+                return 0;
+            }
+            if (queue[queue.length-1].timezone < event.timezone) {
+                return queue.length;
+            }
+            for (let i = queue.length - 1; i >= 0; i--) {
+                if (queue[i].timezone < event.timezone) {
+                    return i+1;
+                }
+            }
+            return 0;
         }
 
         function transform(n, o) {
@@ -133,15 +145,16 @@ export default class EditableTextPart extends StatePart {
             }
             t.timezone = this.content.timezone;
             sendQueue.push(t);
-            queue.push(t);
             if (t.type === "select") {
                 this.content.selections[t.user] = {start: t.start, end: t.end};
             }
         });
 
-        ind = queue.findIndex(e => e.timezone < this.content.timezone - 60);
+        queue = queue.concat(sendQueue);
 
-        for (let i = 0; i < ind; i++) {
+        ind = queue.findIndex(e => e.timezone > this.content.timezone - 60);
+
+        for (let i = queue.length-1; i >=0 ; i--) {
             let e = queue[i];
             delete unseenIDs[e.user];
         }

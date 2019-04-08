@@ -32,7 +32,8 @@ export default class EditableTextViewPart extends ViewPart {
             this.subscribe(KeyboardEvents.cut, "onCut");
             this.subscribe(KeyboardEvents.paste, "onPaste");
         }
-        this.boxSelections = [];
+        this.barSelections = {}; // {userID: threeobj}
+        this.boxSelections = {}; // {userID: [threeobj]}
 
         fontRegistry.load(this.options.font).then(entry => {
             this.initEditor();
@@ -111,7 +112,6 @@ export default class EditableTextViewPart extends ViewPart {
         const callback = () => this.onTextChanged();
         this.editor.load(this.options.content.content);
         this.editor.doSelect(userID, 0, 0, userID);
-        this.initSelectionMesh();
         this.initScrollBarMesh();
         this.editor.paint();
     }
@@ -127,18 +127,17 @@ export default class EditableTextViewPart extends ViewPart {
         return box;
     }
 
-    initSelectionMesh() {
+    makeSelectionMesh() {
         // geometry for the cursor bar rendered if selection is empty
         // see makeBoxSelectionMesh for actual selection
         const box = this.threeObj;
 
-        const plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(0.1, 0.1), new THREE.MeshBasicMaterial({ color: 0x111180 }));
+        const plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(0.1, 0.1), new THREE.MeshBasicMaterial({ color: 0x8080C0 }));
 
         plane.visible = false;
         box.add(plane);
-        this.selectionBar = plane;
         plane.onBeforeRender = this.selectionBeforeRender.bind(this);
-        this.boxSelections = [];
+        return plane;
     }
 
     initScrollBarMesh() {
@@ -188,12 +187,19 @@ export default class EditableTextViewPart extends ViewPart {
             const y = this.options.height / 2 + ((scrollT * docHeight) - (rec.y + cursorY)) * meterInPixel - h / 2;
             const meshRect = {x, y, w, h};
 
-            if (rec.style === 'bar selection') {
+            if (rec.style.startsWith('barSelection')) {
                 if (this.options.showSelection) {
                     // drawing the insertion  - line width of text cursor should relate to font
+                    let id = rec.style.split(' ')[1];
+
                     meshRect.w = 5 * meterInPixel;
-                    this.updateSelection(this.selectionBar, meshRect);
-                    this.boxSelections.forEach(box => this.updateSelection(box, null));
+                    if (!this.barSelections[id]) {
+                        this.barSelections[id] = this.makeSelectionMesh();
+                    }
+                    this.updateSelection(id, this.barSelections[id], meshRect, id);
+                    if (this.boxSelections[id]) {
+                        this.boxSelections[id].forEach(box => this.updateSelection(id, box, id, null));
+                    }
                 }
             } else if (rec.style === 'box selection focus' ||
                        rec.style === 'box selection unfocus') {
@@ -225,10 +231,12 @@ export default class EditableTextViewPart extends ViewPart {
         }
     }
 
-    updateSelection(selection, rect, optZ) {
+    updateSelection(id, selection, rect, color, optZ) {
         if (!selection) {return;}
         const actuallyShow = !!rect;
         selection.visible = actuallyShow;
+        color = new THREE.Color('#'+color);
+        selection.material.color = color;
         if (!actuallyShow) {return;}
         const geom = new THREE.PlaneBufferGeometry(rect.w, rect.h);
         selection.geometry = geom;
@@ -274,8 +282,7 @@ export default class EditableTextViewPart extends ViewPart {
     selectionBeforeRender(renderer, scene, camera, geometry, material, group) {
         let meterInPixel = this.options.width / this.editor.scaleX;
         let scrollT = this.editor.scrollTop;
-        let docHeight = this.editor.frame.height;
-        let docInMeter = docHeight * meterInPixel;
+        let docHeight = this.editor.docHeight;
         let top = -scrollT * docHeight;
         let bottom = -(top - this.editor.scaleY);
         let right = this.editor.scaleX * (1.0 - this.editor.relativeScrollBarWidth);
@@ -302,7 +309,7 @@ export default class EditableTextViewPart extends ViewPart {
                 editor.doInsert(e.pos, e.runs);
                 editor.doSelect(e.user, e.pos, e.pos, e.user);
             } else if (e.type === "delete") {
-                this.editor.backspace(e.start, e.end);
+                this.editor.doDelete(e.start, e.end);
             } else if (e.type === "select") {
                 this.editor.doSelect(e.user, e.start, e.end, e.color);
             }
@@ -339,6 +346,7 @@ export default class EditableTextViewPart extends ViewPart {
 
     textPtFromEvt(evtPt) {
         const pt = this.threeObj.worldToLocal(evtPt.clone());
+        console.log(pt);
         const {editor: {pixelX, pixelY, scrollLeft, scrollTop}} = this;
         const width = this.options.width;
         const height = this.options.height;
@@ -398,29 +406,25 @@ export default class EditableTextViewPart extends ViewPart {
         }
 
         if (cEvt.keyCode === 13) {
-            this.editor.insert(userID, '\n');
+            this.editor.insert(userID, [{text: '\n'}]);
             this.changed();
             return true;
         }
         if (cEvt.keyCode === 32) {
-            this.editor.insert(userID, ' ');
+            this.editor.insert(userID, [{text: ' '}]);
             this.changed();
             return true;
         }
         if (cEvt.keyCode === 9) {
-            this.editor.insert(userID, '\t');
+            this.editor.insert(userID, [{text: '\t'}]);
             this.changed();
             return true;
         }
 
-        this.editor.insert(userID, [{text: cEvt.key}]);
-        this.changed();
-        return true;
-
-        const handled = this.editor.handleKey(cEvt.keyCode, cEvt.shiftKey, cEvt.ctrlKey|| cEvt.metaKey);
+        const handled = this.editor.handleKey(userID, cEvt.keyCode, cEvt.shiftKey, cEvt.ctrlKey|| cEvt.metaKey);
 
         if (!handled && !(cEvt.ctrlKey || cEvt.metaKey)) {
-            this.editor.insert(userID, cEvt.key);
+            this.editor.insert(userID, [{text: cEvt.key}]);
             this.changed();
             return true;
         }
@@ -436,14 +440,14 @@ export default class EditableTextViewPart extends ViewPart {
 
     onCut(evt) {
         this.onCopy(evt);
-        this.editor.insert(userID, "");//or something else to keep undo sane?
+        this.editor.insert(userID, [{text: ""}]);//or something else to keep undo sane?
         this.changed();
         return true;
     }
 
     onPaste(evt) {
         let pasteChars = evt.clipboardData.getData("text");
-        this.editor.insert(userID, pasteChars);
+        this.editor.insert(userID, [{text: pasteChars}]);
         evt.preventDefault();
         this.changed();
         return true;

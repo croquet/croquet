@@ -17,34 +17,42 @@ window.onload = function () {
     view.select(userID, 3, 3, 0);
     evts = view.events;
     view.resetEvents();
-    view.doSelect(evts[0].user, evts[0].start, evts[0].end, evts[0].color);
+    evts.forEach(evt => view.doEvent(evt));
 
     view.setTimezone(++timezone);
 
     view.insert(userID, [{text: 'A'}]);
     evts = view.events;
     view.resetEvents();
-    view.doInsert(evts[0].pos, evts[0].runs);
-    view.doSelect(evts[1].user, evts[1].start, evts[1].end, evts[1].color);
-
+    evts.forEach(evt => view.doEvent(evt));
     view.setTimezone(++timezone);
 
     view.insert(userID, [{text: 'B'}]);
     evts = view.events;
     view.resetEvents();
-    view.doInsert(evts[0].pos, evts[0].runs);
-    view.doSelect(evts[1].user, evts[1].start, evts[1].end, evts[1].color);
+    evts.forEach(evt => view.doEvent(evt));
+    view.setTimezone(++timezone);
 
     view.select(userID, 1, 2, 0);
     evts = view.events;
     view.resetEvents();
-    view.doSelect(evts[0].user, evts[0].start, evts[0].end, evts[0].color);
+    evts.forEach(evt => view.doEvent(evt));
+    view.setTimezone(++timezone);
 
+    view.insert(userID, [{text: 'CD'}]);
+    evts = view.events;
+    view.resetEvents();
+    evts.forEach(evt => view.doEvent(evt));
+    view.setTimezone(++timezone);
+
+    view.insert(userID, [{text: 'EF', style: {size: 11}}]);
+    evts = view.events;
+    view.resetEvents();
+    evts.forEach(evt => view.doEvent(evt));
     view.setTimezone(++timezone);
 
     let ctx = view.paint();
     console.log(ctx.drawnStrings);
-
 }
 </script>
 
