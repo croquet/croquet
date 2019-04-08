@@ -220,7 +220,7 @@ async function go() {
             },
             destroyerFn(prevSnapshot) {
                 window.top.postMessage({connected: -1}, "*");
-                rootView.detach();
+                if (rootView) rootView.detach();
                 setup(prevSnapshot);
             }
         });
