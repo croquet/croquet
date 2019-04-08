@@ -609,8 +609,8 @@ export class Controller {
 
     /** upload a snapshot to the asset server */
     async uploadSnapshot(hashes) {
-        if (!this.island) return;
-        if (this.lastSnapshotTime === this.island.time) return;
+        if (!this.island) return false;
+        if (this.lastSnapshotTime === this.island.time) return false;
         this.lastSnapshotTime = this.island.time;
         // take snapshot
         const snapshot = this.takeSnapshot();
@@ -625,12 +625,17 @@ export class Controller {
         const string = JSON.stringify(snapshot);
         const url = this.snapshotUrl();
         console.log(this.id, `Controller uploading snapshot (${string.length} bytes) to ${url}`);
-        await fetch(url, {
-            method: "PUT",
-            mode: "cors",
-            headers: { "Content-Type": "application/json" },
-            body: string,
-        });
+        try {
+            await fetch(url, {
+                method: "PUT",
+                mode: "cors",
+                headers: { "Content-Type": "application/json" },
+                body: string,
+            });
+            return true;
+        } catch (e) {
+            return false;
+        }
     }
 
     async fetchSnapshot() {
