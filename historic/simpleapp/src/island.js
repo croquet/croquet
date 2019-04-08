@@ -431,6 +431,26 @@ export default class Island {
 }
 
 
+// Socket
+
+let TheSocket = null;
+let LastReceived = 0;
+
+/** start sending PINGs to server after not receiving anything for this timeout */
+const PING_TIMEOUT = 500;
+/** send PINGs using this interval until hearing back from server */
+const PING_INTERVAL = 1000 / 5;
+
+// one reason for having this is to prevent the connection from going idle,
+// which caused some router/computer combinations to buffer packets instead
+// of delivering them immediately (observed on AT&T Fiber + Mac)
+hotreload.setInterval(() => {
+    if (TheSocket.readyState !== WebSocket.OPEN) return;
+    if (Date.now() - LastReceived < PING_TIMEOUT) return;
+    TheSocket.send(JSON.stringify({ action: 'PING' }));
+    console.log('PING');
+}, PING_INTERVAL);
+
 async function startReflectorInBrowser() {
     document.getElementById("error").innerText = 'No Connection';
     console.log("Starting in-browser reflector");
@@ -490,6 +510,7 @@ function socketSetup(socket, reflectorUrl) {
             }
         },
         onmessage: event => {
+            LastReceived = Date.now();
             Controller.receive(event.data);
         }
     });
@@ -500,7 +521,6 @@ function socketSetup(socket, reflectorUrl) {
 // Controller
 
 const Controllers = {};
-let TheSocket = null;
 
 export class Controller {
     // socket was connected, join session for all islands
@@ -671,8 +691,8 @@ export class Controller {
     get id() {return this.island ? this.island.id : this.islandCreator.snapshot.id; }
 
     // handle messages from reflector
-    receive(action, args) {
-        this.lastReceived = Date.now();
+    async receive(action, args) {
+        this.lastReceived = LastReceived;
         switch (action) {
             case 'START': {
                 // We are starting a new island session.
