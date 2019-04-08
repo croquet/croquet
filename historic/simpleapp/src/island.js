@@ -783,7 +783,7 @@ export class Controller {
         if (!this.islandCreator) throw Error("do not discard islandCreator!");
         const {destroyerFn} = this.islandCreator;
         if (destroyerFn) {
-            const snapshot = island.asState();
+            const snapshot = island && island.asState();
             destroyerFn(snapshot);
         }
     }
