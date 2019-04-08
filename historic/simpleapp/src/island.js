@@ -445,7 +445,7 @@ const PING_INTERVAL = 1000 / 5;
 // which caused some router/computer combinations to buffer packets instead
 // of delivering them immediately (observed on AT&T Fiber + Mac)
 hotreload.setInterval(() => {
-    if (TheSocket.readyState !== WebSocket.OPEN) return;
+    if (!TheSocket || TheSocket.readyState !== WebSocket.OPEN) return;
     if (Date.now() - LastReceived < PING_TIMEOUT) return;
     TheSocket.send(JSON.stringify({ action: 'PING' }));
     console.log('PING');
