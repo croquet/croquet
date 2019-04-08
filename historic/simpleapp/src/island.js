@@ -441,14 +441,17 @@ const PING_TIMEOUT = 500;
 /** send PINGs using this interval until hearing back from server */
 const PING_INTERVAL = 1000 / 5;
 
+function PING() {
+    if (!TheSocket || TheSocket.readyState !== WebSocket.OPEN) return;
+    TheSocket.send(JSON.stringify({ action: 'PING', args: Date.now()}));
+}
+
 // one reason for having this is to prevent the connection from going idle,
 // which caused some router/computer combinations to buffer packets instead
 // of delivering them immediately (observed on AT&T Fiber + Mac)
 hotreload.setInterval(() => {
-    if (!TheSocket || TheSocket.readyState !== WebSocket.OPEN) return;
     if (Date.now() - LastReceived < PING_TIMEOUT) return;
-    TheSocket.send(JSON.stringify({ action: 'PING' }));
-    console.log('PING');
+    PING();
 }, PING_INTERVAL);
 
 async function startReflectorInBrowser() {
@@ -493,6 +496,7 @@ function socketSetup(socket, reflectorUrl) {
             console.log(socket.constructor.name, "connected to", socket.url);
             Controller.joinAll(socket);
             Stats.connected(true);
+            hotreload.setTimeout(PING, 0);
         },
         onerror: _event => {
             document.getElementById("error").innerText = 'Connection error';
@@ -549,7 +553,11 @@ export class Controller {
     // dispatch to right controller
     static receive(data) {
         const { id, action, args } = JSON.parse(data);
-        Controllers[id].receive(action, args);
+        if (id) Controllers[id].receive(action, args);
+        else switch (action) {
+            case 'PONG': console.log('PONG after', Date.now() - args, 'ms'); break;
+            default: console.warn('Unknown action', action);
+        }
     }
 
     /**
