@@ -1,13 +1,13 @@
 {
-  "name": "croquet-simpleapp",
+  "name": "croquet-2d",
   "version": "0.0.1",
   "description": "",
-  "main": "index.js",
+  "main": "2d.js",
   "scripts": {
-    "start": "parcel ./assets/*.html -p 9000 --host 0.0.0.0",
+    "start": "parcel 2d.html -p 9009 --host 0.0.0.0",
     "deploy": "./deploy.sh",
-    "lint": "eslint src",
-    "docs": "jsdoc src -r -d docs"
+    "lint": "eslint",
+    "docs": "jsdoc . -r -d docs"
   },
   "author": "",
   "license": "ISC",
@@ -23,21 +23,14 @@
     ]
   },
   "alias": {
-    "reflector": "/../../../croquet/reflector/index.js",
-    "ws": "./src/server/ws.js"
+    "reflector": "/../reflector/index.js",
+    "ws": "./server/ws.js"
   },
   "dependencies": {
-    "array-flat-polyfill": "^1.0.0",
     "broadcast-channel": "^2.1.10",
     "fastpriorityqueue": "^0.6.1",
     "hashids": "^1.2.2",
-    "linebreak": "^0.3.0",
-    "seedrandom": "^2.4.4",
-    "three": "^0.101.1",
-    "three-bmfont-text": "git+https://github.com/yoshikiohshima/three-bmfont-text.git",
-    "three-buffer-vertex-data": "git+https://github.com/aeickhoff/three-buffer-vertex-data.git",
-    "three-svg-loader": "git+https://github.com/bertfreudenberg/three-svg-loader.git",
-    "yoga-layout-prebuilt": "^1.9.3"
+    "seedrandom": "^2.4.4"
   },
   "devDependencies": {
     "eslint": "^5.14.1",
