@@ -128,7 +128,7 @@ export default class EditableTextViewPart extends ViewPart {
     }
 
     makeSelectionMesh() {
-        // geometry for the cursor bar rendered if selection is empty
+        // geometry for the cursor bar rendered if selection's size is 0
         // see makeBoxSelectionMesh for actual selection
         const box = this.threeObj;
 
@@ -136,6 +136,14 @@ export default class EditableTextViewPart extends ViewPart {
 
         plane.visible = false;
         box.add(plane);
+        plane.onBeforeRender = this.selectionBeforeRender.bind(this);
+        return plane;
+    }
+
+    makeBoxSelectionMesh() {
+        const plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(0.1, 0.1), new THREE.MeshBasicMaterial({ color: 0xA0CFEC }));
+
+        plane.visible = false;
         plane.onBeforeRender = this.selectionBeforeRender.bind(this);
         return plane;
     }
@@ -255,14 +263,6 @@ export default class EditableTextViewPart extends ViewPart {
                 this[name] = null;
             }
         });
-    }
-
-    makeBoxSelectionMesh() {
-        const plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(0.1, 0.1), new THREE.MeshBasicMaterial({ color: 0xA0CFEC }));
-
-        plane.visible = false;
-        plane.onBeforeRender = this.selectionBeforeRender.bind(this);
-        return plane;
     }
 
     computeClippingPlanes(ary) {

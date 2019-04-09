@@ -88,7 +88,7 @@ export class Doc {
                 result.push({text: run.text});
             }
         });
-        return result;
+        return {content: result, selections: this.selections};
     }
 
     splitDocAt(runIndex, sizeInRun) {
@@ -220,7 +220,8 @@ export class Doc {
                         return Object.assign({}, n, {pos: n.pos + o.length});
                     }
                     return n;
-                } else if (o.type === "delete") {
+                }
+                if (o.type === "delete") {
                     if (n.pos < o.start) {
                         return n;
                     }
@@ -229,7 +230,8 @@ export class Doc {
                     }
                     let len = o.end - o.start;
                     return Object.assign({}, n, {pos: n.pos - len});
-                } else if (o.type === "select") {
+                }
+                if (o.type === "select") {
                     return n;
                 }
             } else if (n.type === "delete") {
@@ -267,10 +269,32 @@ export class Doc {
                 }
             } else if (n.type === "select") {
                 if (o.type === "insert") {
+                    if (o.pos <= n.start) {
+                        return Object.assign({}, n, {start: n.start + o.length,
+                                                    end: n.end + o.length});
+                    }
+                    if (n.start <= o.pos && o.pos <= n.end) {
+                        return Object.assign({}, n, {end: n.end + o.length});
+                    }
                     return n;
                 }
                 if (o.type === "delete") {
-                    return n;
+                    if (n.end <= o.start) {
+                        return n;
+                    }
+                    if (o.start <= n.start && n.end <= o.end) {
+                        // subsume
+                        return Object.assign({}, n, {start: o.start, end: o.start});
+                    }
+                    if (o.end <= n.start) {
+                        return n;
+                    }
+                    if (n.start <= o.start && n.end < o.end) {
+                        return Object.assign({}, n, {end: o.start});
+                    }
+                    if (o.start <= n.start && o.end < n.end) {
+                        return Object.assign({}, n, {start: o.start, end: n.end - o.end});
+                    }
                 }
                 if (o.type === "select") {
                     return n;
@@ -282,8 +306,11 @@ export class Doc {
         let queue = content.queue;
         let sendQueue = [];
         let unseenIDs = Object.assign({}, content.selections);
+
         // all events in variable 'events' should be in the same timezone
         let ind = findFirst(queue, events[0]);
+        let user = events[0].user;
+        
         events.forEach(event => {
             let t = event;
             if (ind >= 0) {
@@ -296,6 +323,48 @@ export class Doc {
         });
 
         queue.push(...sendQueue);
+
+        sendQueue.forEach(e => {
+            if (e.type === "insert") {
+                for (let k in content.selections) {
+                    if (k !== e.user) {
+                        let sel = content.selections[k];
+                        if (e.pos <= sel.start) {
+                            content.selections[k].start += e.length;
+                            content.selections[k].end += e.length;
+                        } else if (sel.start < e.pos && e.pos <= sel.end) {
+                            content.selections[k].end += e.length;
+                        }
+                    }
+                }
+            } else if (e.type === "delete") {
+                for (let k in content.selections) {
+                    if (k !== e.user) {
+                        let sel = content.selections[k];
+                        if (e.end <= sel.start) {
+                            content.selections[k].start -= e.length;
+                            content.selections[k].end -= e.length;
+                        } else if (sel.start < e.start && sel.end <= e.end) {
+                            content.selections[k].end = e.start;
+                        } else if (e.start < sel.start && sel.end <= e.end) {
+                            content.selections[k].start = e.start;
+                            content.selections[k].end = e.start;
+                        } else if (e.start < sel.start && e.end <= sel.end) {
+                            content.selections[k].start = e.start;
+                            content.selections[k].end = sel.end - (e.end - e.start);
+                        } else if (sel.start <= e.end) {
+                        }
+                    }
+                }
+            }
+        });
+
+        for (let k in content.selections) {
+            if (k !== user) {
+                let sel = content.selections[k];
+                sendQueue.push(Event.select(k, sel.start, sel.end, k, content.timezone));
+            }
+        }
 
         ind = queue.findIndex(e => e.timezone > content.timezone - 60);
 
@@ -448,6 +517,12 @@ export class Warota {
                 ctx.fillStyle = 'barSelection ' + k;
                 let caretRect = this.barRect(selection);
                 ctx.fillRect(caretRect.left, caretRect.top, caretRect.width, caretRect.height);
+            } else {
+                ctx.fillStyle = 'boxSelection ' + k;
+                let boxRects = this.boxRects(selection);
+                boxRects.forEach(box => {
+                  ctx.fillRect(box.left, box.top, box.width, box.height);
+                });
             }
         }
         ctx.restore();
@@ -594,6 +669,41 @@ export class Warota {
     barRect(selection) {
         let rect = this.positionFromIndex(selection.start);
         return {left: rect.left, top: rect.top, width: 5, height: rect.height};
+    }
+
+    boxRects(selection) {
+        let [line0, line0Index] = this.findLine(selection.start);
+        let [line1, line1Index] = this.findLine(selection.end);
+
+        if (line0Index === line1Index) {
+            // one rectangle
+            let pos1 = this.positionFromIndex(selection.start);
+            let pos2 = this.positionFromIndex(selection.end);
+            return [{left: pos1.left, top: pos1.top,
+                    width: pos2.left - pos1.left + pos2.width,
+                    height: pos1.height}];
+        }
+        let rects = [];
+        let pos1 = this.positionFromIndex(selection.start);
+        let pos2 = this.positionFromIndex(line0[line0.length-1].end);
+        rects.push({left: pos1.left, top: pos1.top,
+                    width: this.width() - pos1.left,
+                    height: pos1.height});
+        if (line1Index - line0Index >= 1) {
+            pos1 = this.positionFromIndex(this.lines[line0Index+1][0].start);
+            let penultimate = this.lines[line1Index-1];
+            pos2 = this.positionFromIndex(penultimate[penultimate.length-1].end);
+            rects.push({left: this.margins.left, top: pos1.top,
+                        width: this.width(),
+                        height: pos2.top - pos1.top + pos2.height});
+        }
+
+        pos1 = this.positionFromIndex(this.lines[line1Index][0].start);
+        pos2 = this.positionFromIndex(selection.end);
+        rects.push({left: this.margins.left, top: pos1.top,
+                    width: pos2.left - this.margins.left + pos2.width,
+                    height: pos2.height});
+        return rects;
     }
 
     mouseDown(x, y, realY, userID) {

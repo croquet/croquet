@@ -19,7 +19,9 @@ window.onload = function () {
     function doIt(doc, edit) {
         sendQueue = doc.receiveEditEvents([edit], content);
         sendQueue.forEach(evt => doc.doEvent(evt));
-        content.content = doc.save();
+        let save = doc.save();
+        content.content = save.content;
+        content.selections = save.selections;
     }
 
     let sendQueue;
