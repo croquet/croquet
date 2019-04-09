@@ -339,7 +339,7 @@ export default class Island {
     publishFromView(scope, event, data) {
         if (CurrentIsland) throw Error("Island Error");
         const topic = scope + ":" + event;
-        this.handleViewEvents(topic, [data]);
+        hotreload.promiseResolveThen(() => this.handleViewEvents(topic, [data]));
     }
 
     handleViewEvents(topic, dataArray) {
