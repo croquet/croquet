@@ -35,7 +35,9 @@ export default class EditableTextPart extends StatePart {
     receiveEditEvents(events) {
         let sendQueue = this.doc.receiveEditEvents(events, this.content);
         sendQueue.forEach(evt => this.doc.doEvent(evt));
-        this.content.content = this.doc.save();
+        let saved = this.doc.save();
+        this.content.content = saved.content;
+        this.content.selections = saved.selections;
         this.publish(TextEvents.sequencedEvents, sendQueue);
     }
 }

@@ -161,6 +161,8 @@ export class Doc {
     }
 
     doSelect(userID, start, end, color) {
+        if (start === undefined || end === undefined) {debugger;}
+        if (isNaN(start) || isNaN(end)) {debugger;}
         this.selections[userID] = {start, end, color};
     }
 
@@ -324,40 +326,40 @@ export class Doc {
 
         queue.push(...sendQueue);
 
-        sendQueue.forEach(e => {
-            if (e.type === "insert") {
-                for (let k in content.selections) {
-                    if (k !== e.user) {
-                        let sel = content.selections[k];
-                        if (e.pos <= sel.start) {
-                            content.selections[k].start += e.length;
-                            content.selections[k].end += e.length;
-                        } else if (sel.start < e.pos && e.pos <= sel.end) {
-                            content.selections[k].end += e.length;
-                        }
-                    }
-                }
-            } else if (e.type === "delete") {
-                for (let k in content.selections) {
-                    if (k !== e.user) {
-                        let sel = content.selections[k];
-                        if (e.end <= sel.start) {
-                            content.selections[k].start -= e.length;
-                            content.selections[k].end -= e.length;
-                        } else if (sel.start < e.start && sel.end <= e.end) {
-                            content.selections[k].end = e.start;
-                        } else if (e.start < sel.start && sel.end <= e.end) {
-                            content.selections[k].start = e.start;
-                            content.selections[k].end = e.start;
-                        } else if (e.start < sel.start && e.end <= sel.end) {
-                            content.selections[k].start = e.start;
-                            content.selections[k].end = sel.end - (e.end - e.start);
-                        } else if (sel.start <= e.end) {
-                        }
-                    }
-                }
-            }
-        });
+        // sendQueue.forEach(e => {
+        //     if (e.type === "insert") {
+        //         for (let k in content.selections) {
+        //             if (k !== e.user) {
+        //                 let sel = content.selections[k];
+        //                 if (e.pos <= sel.start) {
+        //                     content.selections[k].start += e.length;
+        //                     content.selections[k].end += e.length;
+        //                 } else if (sel.start < e.pos && e.pos <= sel.end) {
+        //                     content.selections[k].end += e.length;
+        //                 }
+        //             }
+        //         }
+        //     } else if (e.type === "delete") {
+        //         for (let k in content.selections) {
+        //             if (k !== e.user) {
+        //                 let sel = content.selections[k];
+        //                 if (e.end <= sel.start) {
+        //                     content.selections[k].start -= e.length;
+        //                     content.selections[k].end -= e.length;
+        //                 } else if (sel.start < e.start && sel.end <= e.end) {
+        //                     content.selections[k].end = e.start;
+        //                 } else if (e.start < sel.start && sel.end <= e.end) {
+        //                     content.selections[k].start = e.start;
+        //                     content.selections[k].end = e.start;
+        //                 } else if (e.start < sel.start && e.end <= sel.end) {
+        //                     content.selections[k].start = e.start;
+        //                     content.selections[k].end = sel.end - (e.end - e.start);
+        //                 } else if (sel.start <= e.end) {
+        //                 }
+        //             }
+        //         }
+        //     }
+        // });
 
         for (let k in content.selections) {
             if (k !== user) {
@@ -368,7 +370,7 @@ export class Doc {
 
         ind = queue.findIndex(e => e.timezone > content.timezone - 60);
 
-        for (let i = queue.length-1; i >=0 ; i--) {
+        for (let i = queue.length-1; i >= 0; i--) {
             let e = queue[i];
             delete unseenIDs[e.user];
         }
@@ -738,17 +740,91 @@ export class Warota {
 
     handleKey(userID, key, selecting, ctrlKey) {
         let selection = this.doc.selections[userID] || {start: 0, end: 0};
+        let lastLine = this.lines[this.lines.length-1];
+        let lastWord = lastLine[lastLine.length-1];
         let start = selection.start,
             end = selection.end,
+            length = lastWord.end,
             handled = false;
 
+        if (!selecting) {
+            this.keyboardSelect = 0;
+        } else if (!this.keyboardSelect) {
+            switch (key) {
+            case 37: // left arrow
+            case 38: // up - find character above
+            case 36: // start of line
+            case 33: // page up
+                this.keyboardSelect = -1;
+                break;
+            case 39: // right arrow
+            case 40: // down arrow - find character below
+            case 35: // end of line
+            case 34: // page down
+                this.keyboardSelect = 1;
+                break;
+            default:
+                break;
+            }
+        }
+
+        let pos = this.keyboardSelect === 1 ? end : start;
+        let changingCaret = false;
         switch (key) {
+        case 37: // left arrow
+            if (!selecting && start !== end) {
+                pos = start;
+            } else {
+                if (pos > 0) {
+                    pos--;
+                }
+            }
+            changingCaret = true;
+            break;
+        case 39: // right arrow
+            if (!selecting && start !== end) {
+                pos = end;
+            } else {
+                if (pos < length) {
+                    pos++;
+                }
+            }
+            changingCaret = true;
+            break;
+
+
         case 8: // backspace
             this.backspace(userID);
             handled = true;
             break;
-            default:
+        default:
             break;
+        }
+
+        if (changingCaret) {
+            switch (this.keyboardSelect) {
+            case 0:
+                start = end = pos;
+                break;
+            case -1:
+                start = pos;
+                break;
+            case 1:
+                end = pos;
+            break;
+            }
+
+            if (start === end) {
+                this.keyboardSelect = 0;
+            } else {
+                if (start > end) {
+                    this.keyboardSelect = -this.keyboardSelect;
+                    let t = end;
+                    end = start;
+                    start = t;
+                }
+            }
+            this.select(userID, start, end, userID);
         }
         return handled;
     }
