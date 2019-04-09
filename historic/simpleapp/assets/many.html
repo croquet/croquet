@@ -16,7 +16,8 @@
                 border: solid 1px #fff;
             }
             #overlay {
-                position: absolute;
+                position: fixed;
+                top: 0;
                 pointer-events: none;
                 display: flex;
                 align-content: center;
@@ -25,6 +26,7 @@
                 color: #fff;
                 opacity: 0.5;
                 font: 20vw sans-serif;
+                text-shadow: 2px 2px 5px  #000;
             }
         </style>
     </head>
@@ -48,8 +50,9 @@
                     window.onmessage({ data: { connected: -1 } });
                 }
                 while (iframes.length < n) {
+                    const urlOptions = document.location.search.slice(1);
                     const iframe = document.createElement("iframe");
-                    iframe.src = "/2d.html?nostats";
+                    iframe.src = "/2d.html?nostats" + (urlOptions ? '&' + urlOptions : '');
                     document.body.appendChild(iframe);
                     iframes.push(iframe);
                 }

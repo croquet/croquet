@@ -123,7 +123,11 @@ class RootView extends ViewPart {
 
     detach() {
         super.detach();
-        document.body.removeChild(this.element);
+        try {
+            document.body.removeChild(this.element);
+        } catch (e) {
+            console.warn('detach() failed to remove from body:', this.element);
+        }
     }
 
     // non-inherited methods below
@@ -134,9 +138,9 @@ class RootView extends ViewPart {
     }
 
     resize() {
-        const size = Math.max(50, Math.min(window.innerWidth, window.innerHeight) - 10);
+        const size = Math.max(50, Math.min(window.innerWidth, window.innerHeight));
         SCALE = size / 1100;
-        this.element.style.transform = `translate(${(window.innerWidth - size) / 2}px,${5}px) scale(${SCALE})`;
+        this.element.style.transform = `translate(${(window.innerWidth - size) / 2}px,0px) scale(${SCALE})`;
         this.element.style.transformOrigin = "0 0";
     }
 
@@ -181,7 +185,7 @@ class ShapeView extends ViewPart {
             };
             document.onmouseup = () => document.onmousemove = null;
         };
-        this.subscribe('pos-changed', 'move', this.modelId);
+        this.subscribe('pos-changed', 'move', this.modelId, true);
         this.move(model.pos);
     }
 
@@ -220,7 +224,7 @@ async function go() {
             },
             destroyerFn(prevSnapshot) {
                 window.top.postMessage({connected: -1}, "*");
-                rootView.detach();
+                if (rootView) rootView.detach();
                 setup(prevSnapshot);
             }
         });
