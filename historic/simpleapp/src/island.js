@@ -828,12 +828,17 @@ export class Controller {
 
     sendMessage(msg) {
         // SEND: Broadcast a message to all participants.
+        if (!this.socket) return;  // probably view sending event while connection is closing
         if (DEBUG.messages) console.log(this.id, `Controller sending SEND ${msg.asState()}`);
-        this.socket.send(JSON.stringify({
-            id: this.id,
-            action: 'SEND',
-            args: msg.asState(),
-        }));
+        try {
+            this.socket.send(JSON.stringify({
+                id: this.id,
+                action: 'SEND',
+                args: msg.asState(),
+            }));
+        } catch (e) {
+            console.error('ERROR while sending', e);
+        }
     }
 
     get backlog() { return this.island ? this.time - this.island.time : 0; }
