@@ -32,6 +32,8 @@ export default class EditableTextViewPart extends ViewPart {
             this.subscribe(KeyboardEvents.cut, "onCut");
             this.subscribe(KeyboardEvents.paste, "onPaste");
         }
+
+        this.selections = []; // For each rendering, we grab available one, change the color and size.
         this.barSelections = {}; // {userID: threeobj}
         this.boxSelections = {}; // {userID: [threeobj]}
 
@@ -140,14 +142,6 @@ export default class EditableTextViewPart extends ViewPart {
         return plane;
     }
 
-    makeBoxSelectionMesh() {
-        const plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(0.1, 0.1), new THREE.MeshBasicMaterial({ color: 0xA0CFEC }));
-
-        plane.visible = false;
-        plane.onBeforeRender = this.selectionBeforeRender.bind(this);
-        return plane;
-    }
-
     initScrollBarMesh() {
         const box = this.threeObj;
         let plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(0.1, 0.1), new THREE.MeshBasicMaterial({ color: 0x0044ee }));
@@ -187,6 +181,20 @@ export default class EditableTextViewPart extends ViewPart {
         let boxInd = 0;
         const [cursorX, cursorY] = fontRegistry.getCursorOffset(this.options.font);
 
+        let selIndex = 0;
+        let getSelectionBox = () => {
+            let box = this.selections[selIndex];
+            if (!box) {
+                box = this.makeSelectionMesh();
+                this.selections[selIndex] = box;
+            }
+            selIndex++;
+            box.visible = true;
+            return box;
+        };
+
+        this.selections.forEach(p => p.visible = false);
+
         for (let i = 0; i < drawnRects.length; i++) {
             const rec = drawnRects[i];
             const w = rec.w * meterInPixel;
@@ -201,45 +209,31 @@ export default class EditableTextViewPart extends ViewPart {
                     let id = rec.style.split(' ')[1];
 
                     meshRect.w = 5 * meterInPixel;
-                    if (!this.barSelections[id]) {
-                        this.barSelections[id] = this.makeSelectionMesh();
-                    }
-                    this.updateSelection(id, this.barSelections[id], meshRect, id);
-                    if (this.boxSelections[id]) {
-                        this.boxSelections[id].forEach(box => this.updateSelection(id, box, id, null));
-                    }
+                    let box = getSelectionBox();
+                    this.updateSelection(box, meshRect, id);
                 }
-            } else if (rec.style === 'box selection focus' ||
-                       rec.style === 'box selection unfocus') {
+            } else if (rec.style.startsWith('boxSelection')) {
+                //rec.style === 'boxSelectionUnfocus' ||'boxSelectionFocus'
+                let id = rec.style.split(' ')[1];
                 // boxes of selections
                 if (this.options.showSelection) {
-                    let cube;
-                    if (!this.boxSelections[boxInd]) {
-                        cube = this.boxSelections[boxInd] = this.makeBoxSelectionMesh();
-                        this.threeObj.add(cube);
-                    }
-                    cube = this.boxSelections[boxInd];
-                    this.updateSelection(cube, meshRect);
-                    boxInd++;
-                    this.updateSelection(this.selectionBar, null);
+                    let box = getSelectionBox();
+                    this.updateSelection(box, meshRect, id);
                 }
-            } else if (rec.style === 'scroll bar') {
+            } else if (rec.style === 'scrollBar') {
                 // oh, boy.  we are compensating it with fudge factor and recompensationg
                 // here. The right thing should be to fix the data in json and cursorY
                 // should be always zero for all fonts.
                 meshRect.y += (-scrollT * docHeight + cursorY) * meterInPixel;
                 this.updateSelection(this.scrollBar, meshRect);
-            } else if (rec.style === 'scroll knob') {
+            } else if (rec.style === 'scrollKnob') {
                 meshRect.y += (-scrollT * docHeight + cursorY) * meterInPixel;
                 this.updateSelection(this.scrollKnob, meshRect, 0.004);
             }
         }
-        for (let i = boxInd; i < this.boxSelections.length; i++) {
-            this.updateSelection(this.boxSelections[i], null);
-        }
     }
 
-    updateSelection(id, selection, rect, color, optZ) {
+    updateSelection(selection, rect, color, optZ) {
         if (!selection) {return;}
         const actuallyShow = !!rect;
         selection.visible = actuallyShow;
@@ -252,17 +246,9 @@ export default class EditableTextViewPart extends ViewPart {
     }
 
     removeSelections() {
-        if (this.boxSelections) {
-            this.boxSelections.forEach(box => box.remove());
-        }
-        this.boxSelections = [];
+        const box = this.threeObj;
 
-        ['selectionBar', 'scrollBar', 'scrollKnob'].forEach(name => {
-            if (this[name]) {
-                this[name].remove();
-                this[name] = null;
-            }
-        });
+        this.selections.forEach(s => box.removeChild(s));
     }
 
     computeClippingPlanes(ary) {
@@ -308,6 +294,7 @@ export default class EditableTextViewPart extends ViewPart {
             this.editor.paint();
         });
         this.editor.setTimezone(timezone);
+        if (window.model.content.content[0].text !== this.editor.doc.doc[0].text) {debugger;}
     }
 
     onContentChanged(newContent) {

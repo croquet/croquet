@@ -126,7 +126,7 @@ export class Doc {
             } else {
                 if (pos <= sel.start) {
                     this.selections[k] = {start: sel.start + length, end: sel.end + length};
-                } else if (sel.start < pos && pos <= sel.end) {
+                } else if (sel.start < pos && pos < sel.end) {
                     this.selections[k] = {start: sel.start, end: sel.end + length};
                 } /*else {}*/
             }
@@ -143,7 +143,6 @@ export class Doc {
                 if (end <= sel.start) {
                     this.selections[k] = {start: sel.start - len, end: sel.end - len};
                 } else if (sel.end <= start) {
-                    this.selections[k] = {start: sel.start - len, end: sel.end - len};
                 } else if (start <= sel.start && sel.end < end) {
                     this.selections[k] = {start, end: start};
                 } else if (start < sel.start && end < sel.end) {
@@ -152,7 +151,7 @@ export class Doc {
                     this.selections[k] = {start: sel.start, end: sel.end - len};
                 } else if (sel.start <= start && start < sel.end) {
                     this.selections[k] = {start: sel.start, end: sel.end - start};
-                } /* else if (sel.end <= end) {} */
+                }
             }
         }
     }
@@ -235,8 +234,6 @@ export class Doc {
     }
 
     doSelect(userID, start, end, color) {
-        if (start === undefined || end === undefined) {debugger;}
-        if (isNaN(start) || isNaN(end)) {debugger;}
         this.selections[userID] = {start, end, color};
     }
 
@@ -379,15 +376,18 @@ export class Doc {
 
         // execute events in sendQueue, and then add selections
 
-        doc.setSelections(content.selections);
+        doc.setSelections(JSON.parse(JSON.stringify(content.selections)));
         sendQueue.forEach(e => {
             doc.doEvent(e);
         });
 
-        for (let k in content.selections) {
-            let sel = content.selections[k];
-            sendQueue.push(Event.select(k, sel.start, sel.end, k, content.timezone));
+        for (let k in doc.selections) {
+            let sel = doc.selections[k];
+            content.selections[k] = sel;
         }
+
+        sendQueue.push(Event.selectAll(content.selections));
+
         return sendQueue;
     }
 }
@@ -578,9 +578,11 @@ export class Warota {
                 wordIndex = line.length - 1;
             }
             return line[wordIndex];
-        } 
+        }
 
         let [line, lineIndex] = this.findLine(pos, x, y);
+        if (!line) {debugger;}
+
         let wordIndex = line.findIndex(w => w.start <= pos && pos < w.end);
         if (wordIndex < 0) {
             wordIndex = this.words.length - 1;
@@ -604,7 +606,14 @@ export class Warota {
     }
 
     doEvent(evt) {
-        this.doc.doEvent(evt);
+        if (evt.type === "selectAll") {
+            this.doc.selections = {};
+            for (let k in evt.selections) {
+                this.doc.selections[k] = evt.selections[k];
+            }
+        } else {
+            this.doc.doEvent(evt);
+        }
         this.layout();
     }
 
@@ -638,6 +647,18 @@ export class Warota {
             last = measure.width;
         }
         return word.end;
+    }
+
+    changeLine(user, pos, dir) {
+        let [line, lineIndex] = this.findLine(pos);
+        let rect = this.positionFromIndex(pos);
+        let newLineIndex = lineIndex + dir;
+        if (newLineIndex < 0) {return 0;}
+        if (newLineIndex >= this.lines.length) {
+            return this.lines[this.lines.length-1][0].start;
+        }
+        let newLine = this.lines[newLineIndex];
+        return this.indexFromPosition(rect.left, newLine[0].top);
     }
 
     barRect(selection) {
@@ -764,6 +785,14 @@ export class Warota {
             changingCaret = true;
             break;
 
+        case 40: // down arrow - find character below
+          pos = this.changeLine(userID, pos, 1);
+          changingCaret = true;
+          break;
+        case 38: // up - find character above
+          pos = this.changeLine(userID, pos, -1);
+          changingCaret = true;
+          break;
 
         case 8: // backspace
             this.backspace(userID);
@@ -797,6 +826,7 @@ export class Warota {
                 }
             }
             this.select(userID, start, end, userID);
+            handled = true;
         }
         return handled;
     }
@@ -837,6 +867,10 @@ export class Event {
     }
 
     static undoSelect(doc, select) { }
+
+    static selectAll(obj) {
+        return {type: "selectAll", selections: obj};
+    }
 }
 
 

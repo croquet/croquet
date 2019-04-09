@@ -5,6 +5,11 @@
 import {Doc, Event} from './doc.mjs';
 
 window.onload = function () {
+    let sendQueue;
+    let edit;
+
+    let user1 ='010203';
+    let user2 ='020406';
 
     let doc;
     let content;
@@ -25,15 +30,8 @@ window.onload = function () {
         content.content = saved.content;
     }
 
-    let sendQueue;
-    let edit;
-
-    let user1 ='010203';
-    let user2 ='020406';
-
     function case1() {
         resetContent();
-        doc.load([{text: "man is much more than a tool builder."}]);
 
         edit = Event.select(user1, 1, 1, user1, content.timezone);
         doIt(doc, edit);
@@ -50,122 +48,97 @@ window.onload = function () {
         doIt(doc, edit);
    }
 
-   case1();
-   console.log(window.doc.doc[0]);
+   case1.expected = "mAaB is much more than a tool builder.";
 
    function case2() {
-       let doc = new Doc();
-       resetContent();
-       window.doc = doc;
-       doc.load([{text: "man is much more than a tool builder."}]);
+        resetContent();
 
-       edit = Event.insert(user2, [{text: 'B'}], 3, content.timezone);
-       doIt(doc, edit);
+        edit = Event.select(user1, 1, 1, user1, content.timezone);
+        doIt(doc, edit);
 
-       edit = Event.insert(user1, [{text: 'A'}], 1, content.timezone);
-       doIt(doc, edit);
+        edit = Event.select(user2, 2, 3, user2, content.timezone);
+        doIt(doc, edit);
+
+        content.timezone++;
+
+        edit = Event.insert(user2, [{text: 'B'}], content.timezone);
+        doIt(doc, edit);
+
+        edit = Event.insert(user1, [{text: 'A'}], content.timezone);
+        doIt(doc, edit);
    }
 
-   case2();
-   console.log(window.doc.doc[0], window.doc.doc[0].text === "mAanB is much more than a tool builder.");
+   case2.expected = "mAaB is much more than a tool builder.";
 
    function case3() {
-       let doc = new Doc();
-       resetContent();
-       window.doc = doc;
-       doc.load([{text: "man is much more than a tool builder."}]);
+        resetContent();
 
-       edit = Event.delete(user1, 2, 3, content.timezone);
-       doIt(doc, edit);
+        edit = Event.select(user1, 1, 2, user1, content.timezone);
+        doIt(doc, edit);
 
-       edit = Event.insert(user2, [{text: 'A'}], 1, content.timezone);
-       doIt(doc, edit);
+        edit = Event.select(user2, 2, 2, user2, content.timezone);
+        doIt(doc, edit);
+
+        content.timezone++;
+
+        edit = Event.insert(user2, [{text: 'B'}], content.timezone);
+        doIt(doc, edit);
+
+        edit = Event.insert(user1, [{text: 'A'}], content.timezone);
+        doIt(doc, edit);
    }
 
-   case3();
-   console.log(window.doc.doc[0], window.doc.doc[0].text === "mAa is much more than a tool builder.");
+   case3.expected = "mABn is much more than a tool builder.";
 
    function case4() {
-       let doc = new Doc();
-       resetContent();
-       window.doc = doc;
-       doc.load([{text: "man is much more than a tool builder."}]);
+        resetContent();
 
-       edit = Event.insert(user1, [{text: 'A'}], 3, content.timezone);
-       doIt(doc, edit);
+        edit = Event.select(user1, 1, 2, user1, content.timezone);
+        doIt(doc, edit);
 
-       edit = Event.delete(user2, 2, 3, content.timezone);
-       doIt(doc, edit);
+        edit = Event.select(user2, 2, 2, user2, content.timezone);
+        doIt(doc, edit);
+
+        content.timezone++;
+
+        edit = Event.insert(user1, [{text: 'A'}], content.timezone);
+        doIt(doc, edit);
+
+        edit = Event.insert(user2, [{text: 'B'}], content.timezone);
+        doIt(doc, edit);
    }
 
-   case4();
-   console.log(window.doc.doc[0], window.doc.doc[0].text === "maA is much more than a tool builder.");
+   case4.expected = "mABn is much more than a tool builder.";
 
+
+//   console.log("case4:", window.doc.doc[0], window.doc.doc[0].text === );
 
    function case5() {
-       let doc = new Doc();
-       resetContent();
-       window.doc = doc;
-       doc.load([{text: "man is much more than a tool builder."}]);
+        resetContent();
 
-       edit = Event.insert(user1, [{text: 'A'}], 3, content.timezone);
-       doIt(doc, edit);
+        edit = Event.select(user1, 1, 2, user1, content.timezone);
+        doIt(doc, edit);
 
-       edit = Event.delete(user2, 3, 5, content.timezone);
-       doIt(doc, edit);
+        edit = Event.select(user2, 1, 1, user2, content.timezone);
+        doIt(doc, edit);
+
+        content.timezone++;
+
+        edit = Event.insert(user1, [{text: 'A'}], content.timezone);
+        doIt(doc, edit);
+
+        edit = Event.insert(user2, [{text: 'B'}], content.timezone);
+        doIt(doc, edit);
    }
 
-   case5();
-   console.log(window.doc.doc[0], window.doc.doc[0].text === "manAs much more than a tool builder.");
+   case5.expected = "mBAn is much more than a tool builder.";
 
-   function case6() {
-       let doc = new Doc();
-       resetContent();
-       window.doc = doc;
-       doc.load([{text: "man is much more than a tool builder."}]);
 
-       edit = Event.insert(user1, [{text: 'A'}], 3, content.timezone);
-       doIt(doc, edit);
-
-       edit = Event.delete(user2, 2, 5, content.timezone);
-       doIt(doc, edit);
-   }
-
-   case6();
-   console.log(window.doc.doc[0], window.doc.doc[0].text === "maA is much more than a tool builder.");
-
-   function case7() {
-       let doc = new Doc();
-       resetContent();
-       window.doc = doc;
-       doc.load([{text: "man is much more than a tool builder."}]);
-
-       edit = Event.delete(user1, 2, 5, content.timezone);
-       doIt(doc, edit);
-
-       edit = Event.delete(user2, 2, 5, content.timezone);
-       doIt(doc, edit);
-   }
-
-   case7();
-   console.log(window.doc.doc[0], window.doc.doc[0].text === "mas much more than a tool builder.");
-
-   function case8() {
-       let doc = new Doc();
-       resetContent();
-       window.doc = doc;
-       doc.load([{text: "man is much more than a tool builder."}]);
-
-       edit = Event.select(user1, 2, 5, user1, content.timezone);
-       doIt(doc, edit);
-
-       edit = Event.insert(user2, [{text: "A"}], 1, content.timezone);
-       doIt(doc, edit);
-   }
-
-   case8();
-   console.log(window.doc.doc[0], window.doc.doc[0].text === "mAan is much more than a tool builder." && window.doc.selections[user1].start === 3);
-
+   let run = [case1, case2, case3, case4, case5];
+   run.forEach(r => {
+     r();
+     console.log(r.name + ":", window.doc.doc[0], window.doc.doc[0].text === r.expected);
+   });
 }
 </script>
 
