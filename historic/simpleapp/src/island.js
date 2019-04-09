@@ -14,6 +14,7 @@ if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); 
 const DEBUG = {
     messages: false,
     ticks: false,
+    pong: false,
 };
 
 let viewID = 0;
@@ -558,7 +559,8 @@ export class Controller {
         const { id, action, args } = JSON.parse(data);
         if (id) Controllers[id].receive(action, args);
         else switch (action) {
-            case 'PONG': console.log('PONG after', Date.now() - args, 'ms'); break;
+            case 'PONG': if (DEBUG.pong) console.log('PONG after', Date.now() - args, 'ms');
+                break;
             default: console.warn('Unknown action', action);
         }
     }
