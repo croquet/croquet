@@ -45,6 +45,9 @@ export default class PointerViewPart extends ViewPart {
         this.dragStartThreeObj = null;
         this.draggingVerticalPlane = new THREE.Plane();
         this.draggingHorizontalPlane = new THREE.Plane();
+        this.dragEndOnVerticalPlane = new THREE.Vector3();
+        this.dragEndOnHorizontalPlane = new THREE.Vector3();
+        this.dragEndOnUserPlane = new THREE.Vector3();
 
         this.subscribe(TrackPlaneEvents.requestTrackPlane, "onRequestTrackPlane", TrackPlaneTopic, null);
     }
@@ -77,7 +80,13 @@ export default class PointerViewPart extends ViewPart {
         if (this.draggedViewPart) {
             this.publish(
                 PointerEvents.pointerUp,
-                { pointer: this.id },
+                {
+                    pointer: this.id,
+                    dragStartPoint: this.dragStartPoint,
+                    dragEndOnVerticalPlane: this.dragEndOnVerticalPlane,
+                    dragEndOnHorizontalPlane: this.dragEndOnHorizontalPlane,
+                    dragEndOnUserPlane: this.dragEndOnUserPlane,
+                },
                 this.hoveredViewPart.id
             );
             this.draggedViewPart = null;
@@ -93,6 +102,11 @@ export default class PointerViewPart extends ViewPart {
             if (this.userDraggingPlane) {
                 newUserDragPoint = this.raycaster.ray.intersectPlane(this.userDraggingPlane, new THREE.Vector3()) || this.dragStartPoint;
             }
+
+            this.dragEndOnVerticalPlane = newVerticalDragPoint;
+            this.dragEndOnHorizontalPlane = newHorizontalDragPoint;
+            this.dragEndOnUserPlane = newUserDragPoint;
+
             this.publish(
                 PointerEvents.pointerDrag,
                 {

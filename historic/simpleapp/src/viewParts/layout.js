@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Node, ALIGN_CENTER, ALIGN_FLEX_START, ALIGN_FLEX_END, ALIGN_STRETCH, FLEX_DIRECTION_ROW, FLEX_DIRECTION_COLUMN, EDGE_ALL, DIRECTION_LTR } from 'yoga-layout-prebuilt';
+import { Node, ALIGN_CENTER, ALIGN_FLEX_START, ALIGN_FLEX_END, ALIGN_STRETCH, FLEX_DIRECTION_ROW, FLEX_DIRECTION_COLUMN, EDGE_ALL, DIRECTION_LTR, POSITION_TYPE_ABSOLUTE } from 'yoga-layout-prebuilt';
 import { ViewPart } from '../modelView.js';
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
@@ -69,7 +69,7 @@ export class LayoutContainer extends LayoutViewPart {
     /** @arg {{children: (LayoutViewPart)[]}} options */
     constructor(model, options) {
         super(model, options);
-        this.children = new Set();
+        this.children = [];
         this.group = new THREE.Group();
         this.threeObj = this.group;
         for (const child of options.children || []) this.addChild(child, false);
@@ -79,7 +79,7 @@ export class LayoutContainer extends LayoutViewPart {
 
     /** @arg {LayoutViewPart} child */
     addChild(child, publishContentChanged=true) {
-        this.children.add(child);
+        this.children.push(child);
         this.yogaNode.insertChild(child.yogaNode, this.yogaNode.getChildCount());
         this.subscribe(LayoutEvents.contentChanged, "onChildContentChanged", child.id);
         if (publishContentChanged) this.publish(LayoutEvents.contentChanged, {});
@@ -88,7 +88,8 @@ export class LayoutContainer extends LayoutViewPart {
 
     /** @arg {LayoutViewPart} child */
     removeChild(child, publishContentChanged=true) {
-        this.children.delete(child);
+        const idx = this.children.indexOf(child);
+        this.children.splice(idx, 1);
         this.yogaNode.removeChild(child.yogaNode);
         this.unsubscribe(LayoutEvents.contentChanged, "onChildContentChanged", child.id);
         if (publishContentChanged) this.publish(LayoutEvents.contentChanged, {});
@@ -104,8 +105,8 @@ export class LayoutContainer extends LayoutViewPart {
             this.publish(LayoutEvents.layoutChanged, {}, child.id);
         }
         this.group.position.setX(this.yogaNode.getComputedLeft() / MUL);
-        this.group.position.setY(this.yogaNode.getComputedTop() / MUL);
-        //console.log(this.partId, this.yogaNode.getComputedLeft(), this.yogaNode.getComputedTop(), this.yogaNode.getComputedWidth(), this.yogaNode.getComputedHeight());
+        this.group.position.setY(-this.yogaNode.getComputedTop() / MUL);
+        // console.log(this.id, this.yogaNode.getComputedLeft(), this.yogaNode.getComputedTop(), this.yogaNode.getComputedWidth(), this.yogaNode.getComputedHeight());
     }
 }
 
@@ -146,22 +147,26 @@ export class LayoutSlot extends LayoutViewPart {
     onLayoutChanged() {}
 }
 
-export class LayoutSlotCenter3D extends LayoutSlot {
-    constructor(model, options) {
-        super(model, options);
-        // TODO: what to do if the inner view has multiple threeObjs?
-        const bbox = (new THREE.Box3()).setFromObject(this.parts.inner.threeObjs()[0]);
-        this.yogaNode.setMinWidth((bbox.max.x - bbox.min.x) * MUL);
-        this.yogaNode.setMinHeight((bbox.max.y - bbox.min.y) * MUL);
-        this.yogaNode.setWidthAuto();
-        this.yogaNode.setHeightAuto();
-    }
+export function MinFromBBox(BaseLayoutSlotClass) {
+    return class MinFromBBoxLayoutSlot extends BaseLayoutSlotClass {
+        constructor(model, options) {
+            super(model, options);
+            // TODO: what to do if the inner view has multiple threeObjs?
+            const bbox = (new THREE.Box3()).setFromObject(this.parts.inner.threeObjs()[0]);
+            this.yogaNode.setMinWidth((bbox.max.x - bbox.min.x) * MUL);
+            this.yogaNode.setMinHeight((bbox.max.y - bbox.min.y) * MUL);
+            this.yogaNode.setWidthAuto();
+            this.yogaNode.setHeightAuto();
+        }
+    };
+}
 
+export class LayoutSlotCenter3D extends LayoutSlot {
     onLayoutChanged() {
         const targetPos = new THREE.Vector3(
             (this.yogaNode.getComputedLeft() + 0.5 * this.yogaNode.getComputedWidth()) / MUL,
             -1 * (this.yogaNode.getComputedTop() + 0.5 * this.yogaNode.getComputedHeight()) / MUL,
-            0
+            this.options.z || 0
         );
 
         // TODO: what to do if the inner view has multiple threeObjs?
@@ -183,7 +188,7 @@ export class LayoutSlotText extends LayoutSlot {
         const targetPos = new THREE.Vector3(
             (this.yogaNode.getComputedLeft()) / MUL,
             -1 * (this.yogaNode.getComputedTop()) / MUL,
-            0
+            this.options.z || 0
         );
 
         // TODO: what to do if the inner view has multiple threeObjs?
@@ -193,5 +198,42 @@ export class LayoutSlotText extends LayoutSlot {
             height: (this.yogaNode.getComputedHeight()) / MUL,
             anchor: "top"
         });
+    }
+}
+
+/** A LayoutStack allows to create a stack of overlapping children occupying the same parent layout slot,
+ * for example, to create a button that has both a background rectangle and a foreground text label.
+ */
+export class LayoutStack extends LayoutContainer {
+    /** @arg {LayoutViewPart} child */
+    addChild(child, publishContentChanged=true) {
+        this.children.push(child);
+        /** @type {YogaNode} */
+        const wrapperNode = Node.create();
+        wrapperNode.setPositionType(POSITION_TYPE_ABSOLUTE);
+        wrapperNode.setPosition(EDGE_ALL, 0);
+        wrapperNode.setWidthAuto();
+        wrapperNode.setHeightAuto();
+        wrapperNode.insertChild(child.yogaNode);
+        child.yogaNode.setFlexGrow(1);
+        this.yogaNode.insertChild(wrapperNode, this.yogaNode.getChildCount());
+        if (!this.wrapperNodesForChildren) this.wrapperNodesForChildren = new Map();
+        this.wrapperNodesForChildren.set(child, wrapperNode);
+        this.subscribe(LayoutEvents.contentChanged, "onChildContentChanged", child.id);
+        if (publishContentChanged) this.publish(LayoutEvents.contentChanged, {});
+        this.group.add(...child.threeObjs());
+    }
+
+    /** @arg {LayoutViewPart} child */
+    removeChild(child, publishContentChanged=true) {
+        const idx = this.children.indexOf(child);
+        this.children.splice(idx, 1);
+        const wrapperNode = this.wrapperNodesForChildren.get(child);
+        this.wrapperNodesForChildren.delete(child);
+        wrapperNode.removeChild(child.yogaNode);
+        this.yogaNode.removeChild(wrapperNode);
+        this.unsubscribe(LayoutEvents.contentChanged, "onChildContentChanged", child.id);
+        if (publishContentChanged) this.publish(LayoutEvents.contentChanged, {});
+        this.group.remove(...child.threeObjs());
     }
 }

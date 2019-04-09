@@ -39,6 +39,7 @@ addMessageTranscoder('*#moveTo', XYZ);
 addMessageTranscoder('*#rotateTo', XYZW);
 addMessageTranscoder('*#onKeyDown', Identity);
 addMessageTranscoder('*#updateContents', Identity);
+addMessageTranscoder('*#setColor', Identity);
 
 
 let codeHashes = null;
