@@ -878,36 +878,14 @@ export class Controller {
 }
 
 
-// Message encoders / decoders
-//
-// Eventually, these should be provided by the application
-// to tailor the encoding for specific scenarios.
-// (unless we find a truly efficient and general encoding scheme)
+/** Message encoders / decoders.
+ * Pattern is "receiver#selector" or "*#selector" or "*"
+ * @type { { pattern: {encoder: Function, decoder: Function} }'receiver#selector'
+ */
+const transcoders = {};
 
-const XYZ = {
-    encode: a => [a[0].x, a[0].y, a[0].z],
-    decode: a => [{ x: a[0], y: a[1], z: a[2] }],
-};
-
-const XYZW = {
-    encode: a => [a[0].x, a[0].y, a[0].z, a[0].w],
-    decode: a => [{ x: a[0], y: a[1], z: a[2], w: a[3] }],
-};
-
-const Identity = {
-    encode: a => a,
-    decode: a => a,
-};
-
-const transcoders = {
-    "*#moveTo": XYZ,
-    "*#rotateTo": XYZW,
-    "*#onKeyDown": Identity,
-    "*#updateContents": Identity,
-};
-
-export function addMessageTranscoder(pattern, encoder, decoder) {
-    transcoders[pattern] = {encode: encoder, decode: decoder};
+export function addMessageTranscoder(pattern, transcoder) {
+    transcoders[pattern] = transcoder;
 }
 
 function encode(receiver, selector, args) {

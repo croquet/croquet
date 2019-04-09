@@ -11,7 +11,7 @@ const TOUCH ='ontouchstart' in document.documentElement;
 
 let SCALE = 1;                  // model uses a virtual 1000x1000 space
 
-addMessageTranscoder('*', a => a, a => a);
+addMessageTranscoder('*', { encode: a => a, decode: a => a });
 
 export class Root extends StatePart {
 
