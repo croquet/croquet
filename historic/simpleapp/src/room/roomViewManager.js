@@ -45,7 +45,7 @@ export default class RoomViewManager {
                     height: this.viewportHeight,
                     cameraPosition,
                     cameraQuaternion,
-                    traversePortalToRoom    ,
+                    traversePortalToRoom,
                 });
                 this.activeRoomViews[roomName] = roomView;
             });

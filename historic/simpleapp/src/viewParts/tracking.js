@@ -4,7 +4,7 @@ const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
 export default function Tracking(BaseViewPart, trackingOptions={}) {
-    trackingOptions = {source: "spatial", scale: true, ...trackingOptions};
+    trackingOptions = {source: "spatial", position: true, rotation: true, scale: true, ...trackingOptions};
 
     return class TrackingViewPart extends BaseViewPart {
         constructor(model, options) {
@@ -13,14 +13,18 @@ export default function Tracking(BaseViewPart, trackingOptions={}) {
             /** @type {import('../parts').PartPath} */
             const source = model.lookUp(trackingOptions.source);
             // TODO: what to do if the inner view has multiple threeObjs?
-            this.threeObj.position.copy(source.position);
+            if (trackingOptions.position) {
+                this.threeObj.position.copy(source.position);
+                this.subscribe(SpatialEvents.moved, "onMoved", source.id);
+            }
             if (trackingOptions.scale) {
                 this.threeObj.scale.copy(source.scale);
                 this.subscribe(SpatialEvents.scaled, "onScaled", source.id);
             }
-            this.threeObj.quaternion.copy(source.quaternion);
-            this.subscribe(SpatialEvents.moved, "onMoved", source.id);
-            this.subscribe(SpatialEvents.rotated, "onRotated", source.id);
+            if (trackingOptions.rotation) {
+                this.threeObj.quaternion.copy(source.quaternion);
+                this.subscribe(SpatialEvents.rotated, "onRotated", source.id);
+            }
         }
 
         onMoved(newPosition) {
@@ -35,4 +39,8 @@ export default function Tracking(BaseViewPart, trackingOptions={}) {
             this.threeObj.quaternion.copy(newQuaternion);
         }
     };
+}
+
+export function Facing(BaseViewPart, trackingOptions) {
+    return Tracking(BaseViewPart, {...trackingOptions, position: false, scale: false});
 }
