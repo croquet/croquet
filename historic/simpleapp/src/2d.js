@@ -67,10 +67,15 @@ export class Shape extends StatePart {
 
 export class BouncingShape extends Shape {
 
+    init(state) {
+        super.init(state);
+        this.future(STEP_MS).step();
+        return this;
+    }
+
     applyState(state={}) {
         super.applyState(state);
         this.speed = state.speed || randomSpeed();
-        if (!state.speed) this.step();
 
         function randomSpeed() {
             const r = currentRealm().random() * 2 * Math.PI;
@@ -91,6 +96,7 @@ export class BouncingShape extends Shape {
     }
 
     moveTo(x, y) {
+        super.moveTo(x, y);
         let dx = x < 0 ? 1 : x >= 1000 ? -1 : 0;
         let dy = y < 0 ? 1 : y >= 1000 ? -1 : 0;
         if (dx || dy) {
@@ -102,7 +108,6 @@ export class BouncingShape extends Shape {
                 dy * Math.abs(Math.sin(r)) * SPEED,
             ];
         }
-        super.moveTo(x, y);
     }
 }
 
