@@ -154,8 +154,11 @@ export default class Island {
     // Send via reflector
     callModelMethod(modelId, subPartPath, selector, args) {
         if (CurrentIsland) throw Error("Island Error");
-        const recipient = this.lookUpModel(modelId).lookUp(subPartPath).id;
-        const message = new Message(this.time, 0, recipient, selector, args);
+        const model = this.lookUpModel(modelId);
+        if (!model) { console.error(Error(`Model not found: ${modelId}`)); return; }
+        const recipient = model.lookUp(subPartPath);
+        if (!recipient) { console.error(Error(`Model part not found: ${modelId}.${subPartPath}`)); return; }
+        const message = new Message(this.time, 0, recipient.id, selector, args);
         this.controller.sendMessage(message);
     }
 
