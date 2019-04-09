@@ -1,0 +1,167 @@
+<html>
+<head>
+<script type="module" src="doc.mjs"></script>
+<script type="module">
+import {Doc, Event} from './doc.mjs';
+
+window.onload = function () {
+
+        
+    let content;
+
+    function resetContent() {
+        content = {content: 
+                   [{text: "man is much more than a tool builder."}],
+                   selections: {}, timezone: 0, queue: []
+                  };
+    }
+
+    function doIt(doc, edit) {
+        sendQueue = doc.receiveEditEvents([edit], content);
+        sendQueue.forEach(evt => doc.doEvent(evt));
+        content.content = doc.save();
+    }
+
+    let sendQueue;
+    let edit;
+
+    let user1 ='010203';
+    let user2 ='020406';
+
+    function case1() {
+        let doc = new Doc();
+        resetContent();
+        window.doc = doc;
+        doc.load([{text: "man is much more than a tool builder."}]);
+
+        edit = Event.insert(user1, [{text: 'A'}], 1, content.timezone);
+        doIt(doc, edit);
+
+        edit = Event.insert(user2, [{text: 'B'}], 3, content.timezone);
+        doIt(doc, edit);
+   }
+
+   case1();
+   console.log(window.doc.doc[0], window.doc.doc[0].text === "mAanB is much more than a tool builder.");
+
+   function case2() {
+       let doc = new Doc();
+       resetContent();
+       window.doc = doc;
+       doc.load([{text: "man is much more than a tool builder."}]);
+
+       edit = Event.insert(user2, [{text: 'B'}], 3, content.timezone);
+       doIt(doc, edit);
+
+       edit = Event.insert(user1, [{text: 'A'}], 1, content.timezone);
+       doIt(doc, edit);
+   }
+
+   case2();
+   console.log(window.doc.doc[0], window.doc.doc[0].text === "mAanB is much more than a tool builder.");
+
+   function case3() {
+       let doc = new Doc();
+       resetContent();
+       window.doc = doc;
+       doc.load([{text: "man is much more than a tool builder."}]);
+
+       edit = Event.delete(user1, 2, 3, content.timezone);
+       doIt(doc, edit);
+
+       edit = Event.insert(user2, [{text: 'A'}], 1, content.timezone);
+       doIt(doc, edit);
+   }
+
+   case3();
+   console.log(window.doc.doc[0], window.doc.doc[0].text === "mAa is much more than a tool builder.");
+
+   function case4() {
+       let doc = new Doc();
+       resetContent();
+       window.doc = doc;
+       doc.load([{text: "man is much more than a tool builder."}]);
+
+       edit = Event.insert(user1, [{text: 'A'}], 3, content.timezone);
+       doIt(doc, edit);
+
+       edit = Event.delete(user2, 2, 3, content.timezone);
+       doIt(doc, edit);
+   }
+
+   case4();
+   console.log(window.doc.doc[0], window.doc.doc[0].text === "maA is much more than a tool builder.");
+
+
+   function case5() {
+       let doc = new Doc();
+       resetContent();
+       window.doc = doc;
+       doc.load([{text: "man is much more than a tool builder."}]);
+
+       edit = Event.insert(user1, [{text: 'A'}], 3, content.timezone);
+       doIt(doc, edit);
+
+       edit = Event.delete(user2, 3, 5, content.timezone);
+       doIt(doc, edit);
+   }
+
+   case5();
+   console.log(window.doc.doc[0], window.doc.doc[0].text === "manAs much more than a tool builder.");
+
+   function case6() {
+       let doc = new Doc();
+       resetContent();
+       window.doc = doc;
+       doc.load([{text: "man is much more than a tool builder."}]);
+
+       edit = Event.insert(user1, [{text: 'A'}], 3, content.timezone);
+       doIt(doc, edit);
+
+       edit = Event.delete(user2, 2, 5, content.timezone);
+       doIt(doc, edit);
+   }
+
+   case6();
+   console.log(window.doc.doc[0], window.doc.doc[0].text === "maA is much more than a tool builder.");
+
+   function case7() {
+       let doc = new Doc();
+       resetContent();
+       window.doc = doc;
+       doc.load([{text: "man is much more than a tool builder."}]);
+
+       edit = Event.delete(user1, 2, 5, content.timezone);
+       doIt(doc, edit);
+
+       edit = Event.delete(user2, 2, 5, content.timezone);
+       doIt(doc, edit);
+   }
+
+   case7();
+   console.log(window.doc.doc[0], window.doc.doc[0].text === "mas much more than a tool builder.");
+
+   function case8() {
+       let doc = new Doc();
+       resetContent();
+       window.doc = doc;
+       doc.load([{text: "man is much more than a tool builder."}]);
+
+       edit = Event.select(user1, 2, 5, user1, content.timezone);
+       doIt(doc, edit);
+
+       edit = Event.insert(user2, [{text: "A"}], 1, content.timezone);
+       doIt(doc, edit);
+   }
+
+   case8();
+   console.log(window.doc.doc[0], window.doc.doc[0].text === "mAan is much more than a tool builder." && window.doc.selections[user1].start === 3);
+
+}
+</script>
+
+</head>
+<body>
+</body>
+</html>
+

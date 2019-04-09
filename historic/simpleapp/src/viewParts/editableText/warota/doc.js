@@ -5,12 +5,14 @@ function runLength(ary) {
     return ary.map(c => c.text).reduce((s, x) => x.length + s, 0);
 }
 
-
 export class Doc {
     constructor() {
         this.doc = [{start: 0, end: 0, text: ""}]; // [{start: num, end: num, text: str, (opt)style: {font: str, size: num, color: str, emphasis: 'b' | 'i'|'bi'}}]
 
+        this.selections = {}; // {user: {start: num, end: num}}
+
         this.commands = [];
+
         this.defaultFont = "Roboto";
         this.defaultSize = 10;
     }
@@ -21,8 +23,8 @@ export class Doc {
     }
 
     load(runs) {
-        // runs does not have start and end (a human would not want to add them).
-        // The canonicalize method adds them.  What save() would do is to strip them out.
+        // runs does not have start and end (human would not want to add them by hand).
+        // The canonicalize method adds them. save() strip them out.
         this.doc = this.canonicalize(runs);
         this.commands = [];
     }
@@ -89,6 +91,79 @@ export class Doc {
         return result;
     }
 
+    splitDocAt(runIndex, sizeInRun) {
+        let runs = this.doc;
+        let run = runs[runIndex];
+        let one = {start: run.start,
+                   end: run.start + sizeInRun,
+                   text: run.text.slice(0, sizeInRun),
+                   style: run.style};
+        let two = {start: run.start + sizeInRun,
+                   end: run.end,
+                   text: run.text.slice(sizeInRun, run.text.length),
+                   style: run.style};
+        runs.splice(runIndex, 1, one, two);
+    }
+
+    findRun(pos) {
+        let runs = this.doc;
+        let ind = runs.findIndex(run => run.start <= pos && pos < run.end);
+        if (ind < 0) {
+            ind = runs.length - 1;
+        }
+        return [runs[ind], ind];
+    }
+
+    doEvent(evt) {
+        if (evt.type === "insert") {
+            this.doInsert(evt.pos, evt.runs);
+        } else if (evt.type === "delete") {
+            this.doDelete(evt.start, evt.end);
+        } else if (evt.type === "select") {
+            this.doSelect(evt.user, evt.start, evt.end, evt.color);
+        }
+    }
+
+    doInsert(pos, runs) {
+        // runs: [{text: <string>, (opt)style: {}}]
+        let [run, runIndex] = this.findRun(pos);
+        if (run.end !== pos && run.start !== pos) { // that is, pos is within the run
+            this.splitDocAt(runIndex, pos - run.start);
+            runIndex += 1;
+        }
+        this.doc.splice(runIndex, 0, ...runs); // destructively adding the runs
+        this.doc = this.canonicalize(this.doc, run.start);
+    }
+
+    doDelete(pos, end) {
+        let [run, runIndex] = this.findRun(pos);
+
+        if (run.end !== pos) { // that is, pos is within the run
+            this.splitDocAt(runIndex, pos - run.start);
+            // here, previous run ends at pos. and next one starts at pos.
+            runIndex += 1;
+        }
+
+        let endRun = run;
+        let endRunIndex;
+        do {
+            [endRun, endRunIndex] = this.findRun(endRun.end);
+        } while (endRun.end < end && endRunIndex < this.doc.length);
+
+        let reminder = end - endRun.start;
+        if (end !== endRun.end) {
+            this.splitDocAt(endRunIndex, reminder);
+            endRunIndex += 1;
+        }
+
+        this.doc.splice(runIndex, endRunIndex - runIndex);
+        this.doc = this.canonicalize(this.doc);
+    }
+
+    doSelect(userID, start, end, color) {
+        this.selections[userID] = {start, end, color};
+    }
+
     performUndo() {
         let command = this.commands.pop();
 
@@ -97,16 +172,150 @@ export class Doc {
         }
         this.doc = this.canonicalize(this.doc);
     }
+
+    receiveEditEvents(events, content) {
+        // What this method assumes, and what this method does are:
+        // - edit events from a client who lagged badly won't be processed.
+        // - The model maintains the timezone ID, which is incremented once for a series
+        //   of edit commands from a client (effectively, once in the invocation of
+        //   this method).
+        // - AN event sent to the model (to this method) has a timezone value,
+        //   which is the value the model sent to the view as the last view update.
+        //   That is, the view commands are generated in that logical timezone.
+        // - When an event arrives, first the timezone of the event is checcked to see
+        //   if it is still considered recent enough.
+        //   -- Then, starting from the first events with the same timezone,
+        //      the event will be inclusively transformed repeatedly until the last event,
+        //      and it will be pushed to the list.
+        //   -- And also, the event will be pushed to the list of events that needs
+        //      to be sent to the view.
+        // - Then, the early elements in the list are dropped as they are deemed to be
+        //   past their life.
+        // - The list is a part of the saved model. It will be saved with the string content.
+        // Things are all destructively updated in content,
+        // and somewhat arbitrarily returns sendQueue
+        content.timezone++;
+
+        function findFirst(queue, event) {
+            if (queue.length === 0) {
+                return 0;
+            }
+            if (queue[queue.length-1].timezone < event.timezone) {
+                return queue.length;
+            }
+            for (let i = queue.length - 1; i >= 0; i--) {
+                if (queue[i].timezone < event.timezone) {
+                    return i+1;
+                }
+            }
+            return 0;
+        }
+
+        function transform(n, o) {
+            // it already assumes that n (for new) is newer than o (for old)
+            // the first empty obj in assign is not necessary; but make it easier to debug
+            if (n.type === "insert") {
+                if (o.type === "insert") {
+                    if (n.pos > o.pos) {
+                        return Object.assign({}, n, {pos: n.pos + o.length});
+                    }
+                    return n;
+                } else if (o.type === "delete") {
+                    if (n.pos < o.start) {
+                        return n;
+                    }
+                    if (o.start <= n.pos && n.pos < o.end) {
+                        return Object.assign({}, n, {pos: o.start});
+                    }
+                    let len = o.end - o.start;
+                    return Object.assign({}, n, {pos: n.pos - len});
+                } else if (o.type === "select") {
+                    return n;
+                }
+            } else if (n.type === "delete") {
+                if (o.type === "insert") {
+                    if (n.end <= o.pos) {
+                        return n;
+                    }
+                    if (n.start < o.pos && o.pos < n.end) {
+                        // this need to create two delete events but we don't want that.
+                        return Object.assign({}, n, {end: o.pos});
+                    }
+                    return Object.assign({}, n, {start: n.start + o.length, end: n.end + o.length});
+                }
+                if (o.type === "delete") {
+                    if (n.end <= o.start) {
+                        return n;
+                    }
+                    if (o.start <= n.start && n.end <= o.end) {
+                        // subsume
+                        return Object.assign({}, n, {start: n.start, end: n.start});
+                    }
+                    if (o.end <= n.start) {
+                        let len = o.end - o.start;
+                        return Object.assign({}, n, {start: n.start - len, end: n.end - len});
+                    }
+                    if (n.start <= o.start && n.end < o.end) {
+                        return Object.assign({}, n, {end: o.start});
+                    }
+                    if (o.start <= n.start && o.end < n.end) {
+                        return Object.assign({}, n, {start: o.start, end: n.end - o.end});
+                    }
+                }
+                if (o.type === "select") {
+                    return n;
+                }
+            } else if (n.type === "select") {
+                if (o.type === "insert") {
+                    return n;
+                }
+                if (o.type === "delete") {
+                    return n;
+                }
+                if (o.type === "select") {
+                    return n;
+                }
+            }
+            throw new Error("unknown event");
+        }
+
+        let queue = content.queue;
+        let sendQueue = [];
+        let unseenIDs = Object.assign({}, content.selections);
+        // all events in variable 'events' should be in the same timezone
+        let ind = findFirst(queue, events[0]);
+        events.forEach(event => {
+            let t = event;
+            if (ind >= 0) {
+                for (let i = ind; i < queue.length; i++) {
+                    t = transform(t, queue[i]);
+                }
+            }
+            t.timezone = content.timezone;
+            sendQueue.push(t);
+        });
+
+        queue.push(...sendQueue);
+
+        ind = queue.findIndex(e => e.timezone > content.timezone - 60);
+
+        for (let i = queue.length-1; i >=0 ; i--) {
+            let e = queue[i];
+            delete unseenIDs[e.user];
+        }
+        for (let k in unseenIDs) {
+            delete content.selections[k];
+        }
+        queue.splice(0, ind);
+        return sendQueue;
+    }
 }
 
 export class Warota {
     constructor(width, height, numLines) {
         this.doc = new Doc();
-        this.doc.setDefault("Roboto", 10);
         this._width = 0;
         this.margins = {left: 0, top: 0, right: 0, bottom: 0};
-
-        this.selections = {};
 
         this.scrollLeft = 0;
         this.scrollTop = 0;
@@ -233,8 +442,8 @@ export class Warota {
 
     drawSelections(ctx) {
         ctx.save();
-        for (let k in this.selections) {
-            let selection = this.selections[k];
+        for (let k in this.doc.selections) {
+            let selection = this.doc.selections[k];
             if (selection.end === selection.start) {
                 ctx.fillStyle = 'barSelection ' + k;
                 let caretRect = this.barRect(selection);
@@ -245,30 +454,6 @@ export class Warota {
     }
 
     drawScrollbar(ctx) {}
-
-    findRun(pos, x, y) {
-        let runs = this.doc.doc;
-
-        if (x !== undefined && y !== undefined) {
-            let lineIndex = this.lines.findIndex(line => {
-                let w = line[0]; // should be always one
-                return w.top <= y && y < w.top + w.height;
-            });
-            if (lineIndex < 0) {
-                return runs[runs.length - 1]; // or?
-            }
-            let line = this.lines[lineIndex];
-            let ind = line.findIndex(run => run.left <= x && x  < run.left + run.width);
-            return [runs[ind], ind];
-        }
-
-        let ind = runs.findIndex(run => run.start <= pos && pos < run.end);
-
-        if (ind < 0) {
-            ind = runs.length - 1;
-        }
-        return [runs[ind], ind];
-    }
 
     findLine(pos, x, y) {
         // a smarty way would be to do a binary search
@@ -296,20 +481,6 @@ export class Warota {
         return [lines[lineIndex], lineIndex];
     }
 
-    splitDocAt(runIndex, sizeInRun) {
-        let runs = this.doc.doc;
-        let run = runs[runIndex];
-        let one = {start: run.start,
-                   end: run.start + sizeInRun,
-                   text: run.text.slice(0, sizeInRun),
-                   style: run.style};
-        let two = {start: run.start + sizeInRun,
-                   end: run.end,
-                   text: run.text.slice(sizeInRun, run.text.length),
-                   style: run.style};
-        runs.splice(runIndex, 1, one, two);
-    }
-
     findWord(pos, x, y) {
         let word;
         const isNewline = (str) => /[\n\r]/.test(str);
@@ -332,7 +503,7 @@ export class Warota {
 
     insert(userID, runs) {
         let evt;
-        let selection = this.selections[userID] || {start: 0, end: 0}; // or at the end?
+        let selection = this.doc.selections[userID] || {start: 0, end: 0}; // or at the end?
         if (selection.start === selection.end) {
             evt = Event.insert(userID, runs, selection.start, this.timezone);
             this.events.push(evt);
@@ -375,45 +546,17 @@ export class Warota {
     doInsert(pos, runs) {
         // runs: [{text: <string>, style: <tbd>}]
 
-        let [run, runIndex] = this.findRun(pos);
-
-        if (run.end !== pos && run.start !== pos) { // that is, pos is within the run
-            this.splitDocAt(runIndex, pos - run.start);
-            runIndex += 1;
-        }
-        this.doc.doc.splice(runIndex, 0, ...runs); // destructively adding the runs
-        this.doc.doc = this.doc.canonicalize(this.doc.doc, run.start);
+        this.doc.doInsert(pos, runs);
         this.layout();
     }
 
     doDelete(pos, end) {
-        let [run, runIndex] = this.findRun(pos);
-
-        if (run.end !== pos) { // that is, pos is within the run
-            this.splitDocAt(runIndex, pos - run.start);
-            // here, previous run ends at pos. and next one starts at pos.
-            runIndex += 1;
-        }
-
-        let endRun = run;
-        let endRunIndex;
-        do {
-            [endRun, endRunIndex] = this.findRun(endRun.end);
-        } while (endRun.end < end && endRunIndex < this.doc.length);
-
-        let reminder = end - endRun.start;
-        if (end !== endRun.end) {
-            this.splitDocAt(endRunIndex, end - endRun.start);
-            endRunIndex += 1;
-        }
-
-        this.doc.doc.splice(runIndex, endRunIndex - runIndex);
-        this.doc.doc = this.doc.canonicalize(this.doc.doc);
+        this.doc.doDelete(pos, end);
         this.layout();
     }
 
     doSelect(userID, start, end, color) {
-        this.selections[userID] = {start, end, color};
+        this.doc.doSelect(userID, start, end, color);
     }
 
     positionFromIndex(pos) {
@@ -453,10 +596,6 @@ export class Warota {
         return {left: rect.left, top: rect.top, width: 5, height: rect.height};
     }
 
-    addSelection(userID, start, end, color) {
-        this.selections[userID] = {start, end, color};
-    }
-
     mouseDown(x, y, realY, userID) {
         if (false /*this.isScrollbarClick(x, y)*/) {
             this.scrollBarClick = {
@@ -479,7 +618,7 @@ export class Warota {
     mouseUp(x,y, realY) {}
 
     backspace(userID) {
-        let selection = this.selections[userID] || {start: 0, end: 0};
+        let selection = this.doc.selections[userID] || {start: 0, end: 0};
         if (selection.start === selection.end && selection.start > 0) {
             this.delete(userID, selection.start - 1, selection.end);
         } else {
@@ -488,7 +627,7 @@ export class Warota {
     }
 
     handleKey(userID, key, selecting, ctrlKey) {
-        let selection = this.selections[userID] || {start: 0, end: 0};
+        let selection = this.doc.selections[userID] || {start: 0, end: 0};
         let start = selection.start,
             end = selection.end,
             handled = false;
@@ -505,7 +644,7 @@ export class Warota {
     }
 }
 
-class Event {
+export class Event {
     static insert(user, runs, pos, timezone) {
         return {type: "insert", user, runs, pos, length: runLength(runs), timezone};
     }
