@@ -1,0 +1,63 @@
+<html>
+    <head>
+        <meta charset=utf-8>
+        <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+        <title>croquet - many views</title>
+        <style>
+            body {
+                margin: 0;
+                display: flex;
+                flex-wrap: wrap;
+                align-content: flex-start;
+            }
+            iframe {
+                width: 100px;
+                height: 100px;
+                border: solid 1px #fff;
+            }
+            #overlay {
+                position: fixed;
+                top: 0;
+                pointer-events: none;
+                display: flex;
+                align-content: center;
+                justify-content: center;
+                width: 100%;
+                color: #fff;
+                opacity: 0.5;
+                font: 20vw sans-serif;
+                text-shadow: 2px 2px 5px  #000;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="overlay"></div>
+        <script>
+            let connectedFrames = 0;
+            let totalUsers = 0;
+            window.onmessage = evt => {
+                const { connected, users } = evt.data;
+                if (connected) connectedFrames += connected;
+                if (users) totalUsers = users;
+                overlay.innerText = `${connectedFrames}/${totalUsers}`;
+            };
+            window.onresize = () => {
+                const n = Number.parseInt(location.hash.slice(1)) ||
+                    Math.floor(window.innerWidth / 102) * Math.floor(window.innerHeight/102);
+                const iframes = Array.from(document.getElementsByTagName("iframe"));
+                while (iframes.length > n) {
+                    document.body.removeChild(iframes.pop());
+                    window.onmessage({ data: { connected: -1 } });
+                }
+                while (iframes.length < n) {
+                    const urlOptions = document.location.search.slice(1);
+                    const iframe = document.createElement("iframe");
+                    iframe.src = "/2d.html?nostats" + (urlOptions ? '&' + urlOptions : '');
+                    document.body.appendChild(iframe);
+                    iframes.push(iframe);
+                }
+            }
+            window.onresize();
+        </script>
+    </body>
+</html>

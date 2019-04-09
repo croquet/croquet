@@ -146,7 +146,7 @@ async function hashString(string) {
     return hashBuffer(buffer);
 }
 
-export const fileHashes = {};
+const fileHashes = {};
 
 hotreload.addDisposeHandler("fileHashes", () => { for (const f of (Object.keys(fileHashes))) delete fileHashes[f]; });
 

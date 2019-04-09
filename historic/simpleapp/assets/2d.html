@@ -4,25 +4,25 @@
         <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
         <title>croquet</title>
         <style>
-            #error { position: absolute; bottom: 0; right: 0; color: red; }
-            #stats { position: absolute; bottom: 0; left: 0; width: 125; background: "rgba(255,255,255,0.2)"; }
+            #error { position: absolute; z-index: 1; bottom: 0; right: 0; color: red; }
+            #stats { position: absolute; z-index: 1; bottom: 0; left: 0; width: 125; background: "rgba(255,255,255,0.2)"; opacity: 0.5; }
             body {
                 margin: 0;
                 overflow: hidden;
-                background: #333;
+                font: 12px sans-serif;
+                background: #ccc;
             }
             .root {
                 position: absolute;
                 width: 1100px;
                 height: 1100px;
-                border: solid #888 1px;
+                background: #333;
             }
             .circle {
                 position: absolute;
                 width: 100px;
                 height: 100px;
                 border-radius: 50px;
-                opacity: 0.5;
             }
         </style>
     </head>
