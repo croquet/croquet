@@ -121,6 +121,7 @@ export default class Island {
     deregisterModel(id) {
         if (CurrentIsland !== this) throw Error("Island Error");
         delete this.topLevelModelsById[id];
+        this.messages.removeMany(msg => msg.hasReceiver(id));
     }
 
     lookUpModel(id) {
@@ -931,6 +932,10 @@ class Message {
         return this.time !== other.time
             ? this.time < other.time
             : this.seq < other.seq;
+    }
+
+    hasReceiver(id) {
+        return this.payload.split('#')[0] === id;
     }
 
     asState() {
