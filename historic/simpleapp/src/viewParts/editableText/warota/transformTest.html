@@ -6,7 +6,7 @@ import {Doc, Event} from './doc.mjs';
 
 window.onload = function () {
 
-        
+    let doc;
     let content;
 
     function resetContent() {
@@ -14,14 +14,15 @@ window.onload = function () {
                    [{text: "man is much more than a tool builder."}],
                    selections: {}, timezone: 0, queue: []
                   };
+        doc = new Doc();
+        window.doc = doc;
+        doc.load(content.content);
     }
 
     function doIt(doc, edit) {
-        sendQueue = doc.receiveEditEvents([edit], content);
-        sendQueue.forEach(evt => doc.doEvent(evt));
-        let save = doc.save();
-        content.content = save.content;
-        content.selections = save.selections;
+        sendQueue = doc.receiveEditEvents([edit], content, doc);
+        let saved = doc.save();
+        content.content = saved.content;
     }
 
     let sendQueue;
@@ -31,20 +32,26 @@ window.onload = function () {
     let user2 ='020406';
 
     function case1() {
-        let doc = new Doc();
         resetContent();
-        window.doc = doc;
         doc.load([{text: "man is much more than a tool builder."}]);
 
-        edit = Event.insert(user1, [{text: 'A'}], 1, content.timezone);
+        edit = Event.select(user1, 1, 1, user1, content.timezone);
         doIt(doc, edit);
 
-        edit = Event.insert(user2, [{text: 'B'}], 3, content.timezone);
+        edit = Event.select(user2, 2, 3, user2, content.timezone);
+        doIt(doc, edit);
+
+        content.timezone++;
+
+        edit = Event.insert(user1, [{text: 'A'}], content.timezone);
+        doIt(doc, edit);
+
+        edit = Event.insert(user2, [{text: 'B'}], content.timezone);
         doIt(doc, edit);
    }
 
    case1();
-   console.log(window.doc.doc[0], window.doc.doc[0].text === "mAanB is much more than a tool builder.");
+   console.log(window.doc.doc[0]);
 
    function case2() {
        let doc = new Doc();

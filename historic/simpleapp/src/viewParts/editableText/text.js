@@ -111,7 +111,7 @@ export default class EditableTextViewPart extends ViewPart {
 
         const callback = () => this.onTextChanged();
         this.editor.load(this.options.content.content);
-        this.editor.doSelect(userID, 0, 0, userID);
+        this.editor.doc.setSelections(this.options.content.selections);
         this.initScrollBarMesh();
         this.editor.paint();
     }
@@ -301,23 +301,13 @@ export default class EditableTextViewPart extends ViewPart {
     }
 
     onEditEvents(eventList) {
-        let timezone;
+        let timezone = -1;
         eventList.forEach(e => {
-            timezone = e.timezone;
-            if (e.type === "insert") {
-                let editor = this.editor;
-                editor.doInsert(e.pos, e.runs);
-                editor.doSelect(e.user, e.pos, e.pos, e.user);
-            } else if (e.type === "delete") {
-                this.editor.doDelete(e.start, e.end);
-            } else if (e.type === "select") {
-                this.editor.doSelect(e.user, e.start, e.end, e.color);
-            }
+            timezone = Math.max(timezone, e.timezone);
+            this.editor.doEvent(e);
             this.editor.paint();
         });
-        if (timezone) {
-            this.editor.setTimezone(timezone);
-        }
+        this.editor.setTimezone(timezone);
     }
 
     onContentChanged(newContent) {

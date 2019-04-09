@@ -17,6 +17,10 @@ export class Doc {
         this.defaultSize = 10;
     }
 
+    length() {
+        return this.doc[this.doc.length-1].end;
+    }
+
     setDefault(font, size) {
         this.defaultFont = font;
         this.defaultSize = size;
@@ -114,32 +118,101 @@ export class Doc {
         return [runs[ind], ind];
     }
 
+    updateSelectionsInsert(user, pos, length) {
+        for (let k in this.selections) {
+            let sel = this.selections[k];
+            if (k === user) {
+                this.selections[k] = {start: pos+length, end: pos+length};
+            } else {
+                if (pos <= sel.start) {
+                    this.selections[k] = {start: sel.start + length, end: sel.end + length};
+                } else if (sel.start < pos && pos <= sel.end) {
+                    this.selections[k] = {start: sel.start, end: sel.end + length};
+                } /*else {}*/
+            }
+        }
+    }
+
+    updateSelectionsDelete(user, start, end) {
+        let len = end - start;
+        for (let k in this.selections) {
+            let sel = this.selections[k];
+            if (k === user) {
+                this.selections[k] = {start, end: start};
+            } else {
+                if (end <= sel.start) {
+                    this.selections[k] = {start: sel.start - len, end: sel.end - len};
+                } else if (sel.end <= start) {
+                    this.selections[k] = {start: sel.start - len, end: sel.end - len};
+                } else if (start <= sel.start && sel.end < end) {
+                    this.selections[k] = {start, end: start};
+                } else if (start < sel.start && end < sel.end) {
+                    this.selections[k] = {start, end: sel.end - end};
+                } else if (sel.start <= start && end < sel.end) {
+                    this.selections[k] = {start: sel.start, end: sel.end - len};
+                } else if (sel.start <= start && start < sel.end) {
+                    this.selections[k] = {start: sel.start, end: sel.end - start};
+                } /* else if (sel.end <= end) {} */
+            }
+        }
+    }
+
     doEvent(evt) {
         if (evt.type === "insert") {
-            this.doInsert(evt.pos, evt.runs);
+            this.doInsert(evt.user, evt.runs, true);
         } else if (evt.type === "delete") {
-            this.doDelete(evt.start, evt.end);
+            this.doDelete(evt.user, true, true);
         } else if (evt.type === "select") {
             this.doSelect(evt.user, evt.start, evt.end, evt.color);
         }
     }
 
-    doInsert(pos, runs) {
+    doInsert(user, runs) {
         // runs: [{text: <string>, (opt)style: {}}]
-        let [run, runIndex] = this.findRun(pos);
-        if (run.end !== pos && run.start !== pos) { // that is, pos is within the run
-            this.splitDocAt(runIndex, pos - run.start);
-            runIndex += 1;
+        let selection = this.ensureSelection(user);
+        if (selection.start === selection.end) {
+            let [run, runIndex] = this.findRun(selection.start);
+            if (run.end !== selection.start && run.start !== selection.start) {
+                // that is, pos is within the run
+                this.splitDocAt(runIndex, selection.start - run.start);
+                runIndex += 1;
+            }
+            this.doc.splice(runIndex, 0, ...runs); // destructively adding the runs
+            this.doc = this.canonicalize(this.doc, run.start);
+            this.updateSelectionsInsert(user, selection.start, runLength(runs));
+        } else {
+            this.doDelete(user, true);
+            this.doInsert(user, runs);
         }
-        this.doc.splice(runIndex, 0, ...runs); // destructively adding the runs
-        this.doc = this.canonicalize(this.doc, run.start);
     }
 
-    doDelete(pos, end) {
-        let [run, runIndex] = this.findRun(pos);
+    doDelete(user, isBackspace) {
+        let selection = this.ensureSelection(user);
+        let start, end;
 
-        if (run.end !== pos) { // that is, pos is within the run
-            this.splitDocAt(runIndex, pos - run.start);
+        if (selection.start === selection.end) {
+            let length = this.length();
+            if ((!isBackspace && selection.start === length)
+               || (isBackspace && selection.start === 0)) {
+                return;
+            }
+
+            if (isBackspace) {
+                start = selection.start -1;
+                end = selection.end;
+            } else {
+                start = selection.start;
+                end = selection.end + 1;
+            }
+        } else {
+            start = selection.start;
+            end = selection.end;
+        }
+
+        let [run, runIndex] = this.findRun(start);
+
+        if (run.end !== start) { // that is, pos is within the run
+            this.splitDocAt(runIndex, start - run.start);
             // here, previous run ends at pos. and next one starts at pos.
             runIndex += 1;
         }
@@ -158,12 +231,26 @@ export class Doc {
 
         this.doc.splice(runIndex, endRunIndex - runIndex);
         this.doc = this.canonicalize(this.doc);
+        this.updateSelectionsDelete(user, start, end);
     }
 
     doSelect(userID, start, end, color) {
         if (start === undefined || end === undefined) {debugger;}
         if (isNaN(start) || isNaN(end)) {debugger;}
         this.selections[userID] = {start, end, color};
+    }
+
+    setSelections(selections) {
+        this.selections = selections;
+    }
+
+    ensureSelection(user) {
+        let sel = this.selections[user];
+        if (!sel) {
+            sel = {start: 0, end: 0};
+            this.selections[user] = sel;
+        }
+        return sel;
     }
 
     performUndo() {
@@ -175,21 +262,21 @@ export class Doc {
         this.doc = this.canonicalize(this.doc);
     }
 
-    receiveEditEvents(events, content) {
+    receiveEditEvents(events, content, doc) {
         // What this method assumes, and what this method does are:
         // - edit events from a client who lagged badly won't be processed.
-        // - The model maintains the timezone ID, which is incremented once for a series
+        // - The model maintains the timezone counter, which is incremented once for a series
         //   of edit commands from a client (effectively, once in the invocation of
         //   this method).
-        // - AN event sent to the model (to this method) has a timezone value,
+        // - An event sent to the model (to this method) has a timezone value,
         //   which is the value the model sent to the view as the last view update.
         //   That is, the view commands are generated in that logical timezone.
         // - When an event arrives, first the timezone of the event is checcked to see
         //   if it is still considered recent enough.
         //   -- Then, starting from the first events with the same timezone,
-        //      the event will be inclusively transformed repeatedly until the last event,
+        //      the event will be exclusively (I think) transformed repeatedly until the last event,
         //      and it will be pushed to the list.
-        //   -- And also, the event will be pushed to the list of events that needs
+        //   -- Also, the event will be pushed to the list of events that needs
         //      to be sent to the view.
         // - Then, the early elements in the list are dropped as they are deemed to be
         //   past their life.
@@ -197,6 +284,14 @@ export class Doc {
         // Things are all destructively updated in content,
         // and somewhat arbitrarily returns sendQueue
         content.timezone++;
+        let CUTOFF = 60;
+        let queue = content.queue;
+        let user = events[0].user;
+
+        if (queue.length > 0
+            && (queue[queue.length - 1].timezone > events[0].timezone + CUTOFF)) {
+                return [Event.select(user, 0, 0, user, content.timezone)];
+        }
 
         function findFirst(queue, event) {
             if (queue.length === 0) {
@@ -216,60 +311,7 @@ export class Doc {
         function transform(n, o) {
             // it already assumes that n (for new) is newer than o (for old)
             // the first empty obj in assign is not necessary; but make it easier to debug
-            if (n.type === "insert") {
-                if (o.type === "insert") {
-                    if (n.pos > o.pos) {
-                        return Object.assign({}, n, {pos: n.pos + o.length});
-                    }
-                    return n;
-                }
-                if (o.type === "delete") {
-                    if (n.pos < o.start) {
-                        return n;
-                    }
-                    if (o.start <= n.pos && n.pos < o.end) {
-                        return Object.assign({}, n, {pos: o.start});
-                    }
-                    let len = o.end - o.start;
-                    return Object.assign({}, n, {pos: n.pos - len});
-                }
-                if (o.type === "select") {
-                    return n;
-                }
-            } else if (n.type === "delete") {
-                if (o.type === "insert") {
-                    if (n.end <= o.pos) {
-                        return n;
-                    }
-                    if (n.start < o.pos && o.pos < n.end) {
-                        // this need to create two delete events but we don't want that.
-                        return Object.assign({}, n, {end: o.pos});
-                    }
-                    return Object.assign({}, n, {start: n.start + o.length, end: n.end + o.length});
-                }
-                if (o.type === "delete") {
-                    if (n.end <= o.start) {
-                        return n;
-                    }
-                    if (o.start <= n.start && n.end <= o.end) {
-                        // subsume
-                        return Object.assign({}, n, {start: n.start, end: n.start});
-                    }
-                    if (o.end <= n.start) {
-                        let len = o.end - o.start;
-                        return Object.assign({}, n, {start: n.start - len, end: n.end - len});
-                    }
-                    if (n.start <= o.start && n.end < o.end) {
-                        return Object.assign({}, n, {end: o.start});
-                    }
-                    if (o.start <= n.start && o.end < n.end) {
-                        return Object.assign({}, n, {start: o.start, end: n.end - o.end});
-                    }
-                }
-                if (o.type === "select") {
-                    return n;
-                }
-            } else if (n.type === "select") {
+            if (n.type === "select") {
                 if (o.type === "insert") {
                     if (o.pos <= n.start) {
                         return Object.assign({}, n, {start: n.start + o.length,
@@ -302,17 +344,15 @@ export class Doc {
                     return n;
                 }
             }
-            throw new Error("unknown event");
+            return n;
         }
 
-        let queue = content.queue;
         let sendQueue = [];
         let unseenIDs = Object.assign({}, content.selections);
 
         // all events in variable 'events' should be in the same timezone
         let ind = findFirst(queue, events[0]);
-        let user = events[0].user;
-        
+
         events.forEach(event => {
             let t = event;
             if (ind >= 0) {
@@ -326,50 +366,8 @@ export class Doc {
 
         queue.push(...sendQueue);
 
-        // sendQueue.forEach(e => {
-        //     if (e.type === "insert") {
-        //         for (let k in content.selections) {
-        //             if (k !== e.user) {
-        //                 let sel = content.selections[k];
-        //                 if (e.pos <= sel.start) {
-        //                     content.selections[k].start += e.length;
-        //                     content.selections[k].end += e.length;
-        //                 } else if (sel.start < e.pos && e.pos <= sel.end) {
-        //                     content.selections[k].end += e.length;
-        //                 }
-        //             }
-        //         }
-        //     } else if (e.type === "delete") {
-        //         for (let k in content.selections) {
-        //             if (k !== e.user) {
-        //                 let sel = content.selections[k];
-        //                 if (e.end <= sel.start) {
-        //                     content.selections[k].start -= e.length;
-        //                     content.selections[k].end -= e.length;
-        //                 } else if (sel.start < e.start && sel.end <= e.end) {
-        //                     content.selections[k].end = e.start;
-        //                 } else if (e.start < sel.start && sel.end <= e.end) {
-        //                     content.selections[k].start = e.start;
-        //                     content.selections[k].end = e.start;
-        //                 } else if (e.start < sel.start && e.end <= sel.end) {
-        //                     content.selections[k].start = e.start;
-        //                     content.selections[k].end = sel.end - (e.end - e.start);
-        //                 } else if (sel.start <= e.end) {
-        //                 }
-        //             }
-        //         }
-        //     }
-        // });
-
-        for (let k in content.selections) {
-            if (k !== user) {
-                let sel = content.selections[k];
-                sendQueue.push(Event.select(k, sel.start, sel.end, k, content.timezone));
-            }
-        }
-
-        ind = queue.findIndex(e => e.timezone > content.timezone - 60);
-
+        // finish up by dropping old events
+        ind = queue.findIndex(e => e.timezone > content.timezone - CUTOFF);
         for (let i = queue.length-1; i >= 0; i--) {
             let e = queue[i];
             delete unseenIDs[e.user];
@@ -378,6 +376,18 @@ export class Doc {
             delete content.selections[k];
         }
         queue.splice(0, ind);
+
+        // execute events in sendQueue, and then add selections
+
+        doc.setSelections(content.selections);
+        sendQueue.forEach(e => {
+            doc.doEvent(e);
+        });
+
+        for (let k in content.selections) {
+            let sel = content.selections[k];
+            sendQueue.push(Event.select(k, sel.start, sel.end, k, content.timezone));
+        }
         return sendQueue;
     }
 }
@@ -579,29 +589,12 @@ export class Warota {
     }
 
     insert(userID, runs) {
-        let evt;
-        let selection = this.doc.selections[userID] || {start: 0, end: 0}; // or at the end?
-        if (selection.start === selection.end) {
-            evt = Event.insert(userID, runs, selection.start, this.timezone);
-            this.events.push(evt);
-            let pos = selection.start + runLength(runs);
-            evt = Event.select(userID, pos, pos, userID, this.timezone);
-            this.events.push(evt);
-        } else {
-            evt = Event.delete(userID, selection.start, selection.end, this.timezone);
-            this.events.push(evt);
-            evt = Event.insert(userID, runs, selection.start, this.timezone);
-            this.events.push(evt);
-            let pos = selection.start + runLength(runs);
-            evt = Event.select(userID, pos, pos, userID, this.timezone);
-            this.events.push(evt);
-        }
+        let evt = Event.insert(userID, runs, this.timezone);
+        this.events.push(evt);
     }
 
     delete(userID, start, end) {
         let evt = Event.delete(userID, start, end, this.timezone);
-        this.events.push(evt);
-        evt = Event.select(userID, start, start, userID, this.timezone);
         this.events.push(evt);
     }
 
@@ -611,29 +604,8 @@ export class Warota {
     }
 
     doEvent(evt) {
-        if (evt.type === "insert") {
-            this.doInsert(evt.pos, evt.runs);
-        } else if (evt.type === "delete") {
-            this.doDelete(evt.start, evt.end);
-        } else if (evt.type === "select") {
-            this.doSelect(evt.user, evt.start, evt.end, evt.color);
-        }
-    }
-
-    doInsert(pos, runs) {
-        // runs: [{text: <string>, style: <tbd>}]
-
-        this.doc.doInsert(pos, runs);
+        this.doc.doEvent(evt);
         this.layout();
-    }
-
-    doDelete(pos, end) {
-        this.doc.doDelete(pos, end);
-        this.layout();
-    }
-
-    doSelect(userID, start, end, color) {
-        this.doc.doSelect(userID, start, end, color);
     }
 
     positionFromIndex(pos) {
@@ -831,8 +803,8 @@ export class Warota {
 }
 
 export class Event {
-    static insert(user, runs, pos, timezone) {
-        return {type: "insert", user, runs, pos, length: runLength(runs), timezone};
+    static insert(user, runs, timezone) {
+        return {type: "insert", user, runs, length: runLength(runs), timezone};
     }
 
     static doInsert(doc, insert) {
@@ -866,3 +838,43 @@ export class Event {
 
     static undoSelect(doc, select) { }
 }
+
+
+// an insert event from a view/peer
+// insert(user, runs, timezone)
+// insert(user, runs, timezone)
+
+//  model maintains the selection position for the view
+//     process insert:
+//       => change the content and move the position
+//       => change the content and move the position
+
+// // The model sends back:
+//     insert(user, runs, pos, timezone)
+//     insert(user, runs, pos, timezone)
+//     select(user, start, end, timezone);
+
+
+// an insert event from a view/peer
+// insert(user, runs, timezone)
+
+//  model maintains the selection position for the view
+//     process insert:
+//       => change the content and move the position
+
+// an insert event from a view/peer
+// insert(user, runs, timezone)
+
+// // The model sends back:
+//     insert(user, runs, pos, timezone)
+//     insert(user, runs, pos, timezone)
+//     select(user, start, end, timezone)
+
+// Doc.doEvent(insert|delete|select);
+
+// View.insert().. => {type: "insert", user, runs}
+// => Model.receive()
+//     Update doc
+//       update selection
+//
+
