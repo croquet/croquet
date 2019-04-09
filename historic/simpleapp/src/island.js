@@ -959,8 +959,21 @@ class Message {
         const { receiver, selector, args } = decode(this.payload);
         if (receiver === island.id) return; // noop
         const object = island.lookUpModel(receiver);
-        execOnIsland(island, () => {
-            inModelRealm(island, () => object[selector](...args));
+        if (!object) console.warn(`Error executing ${this}: receiver not found`);
+        else if (typeof object[selector] !== "function") console.warn(`Error executing ${this}: method not found`);
+        else execOnIsland(island, () => {
+            inModelRealm(island, () => {
+                try {
+                    object[selector](...args);
+                } catch (error) {
+                    console.error(`Error executing ${this}`, error);
+                }
+            });
         });
+    }
+
+    [Symbol.toPrimitive]() {
+        const { receiver, selector, args } = decode(this.payload);
+        return `${this.seq & 1 ? 'External' : 'Future'}Message[${this.time}:${this.seq} ${receiver}.${selector}(${args.map(JSON.stringify).join(', ')})]`;
     }
 }
