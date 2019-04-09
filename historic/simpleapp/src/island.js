@@ -892,6 +892,7 @@ const transcoders = {
     "*#onKeyDown": Identity,
     "*#updateContents": Identity,
     "*#receiveEditEvents": Identity,
+    "*#setColor": Identity,
 };
 
 export function addMessageTranscoder(pattern, encoder, decoder) {

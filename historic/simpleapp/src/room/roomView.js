@@ -7,11 +7,13 @@ import PointerViewPart, { makePointerSensitive, ignorePointer, PointerEvents } f
 import arrowsAlt from '../../assets/arrows-alt.svg';
 import arrowsAltRot from '../../assets/arrows-alt-rot.svg';
 import SVGIcon from '../util/svgIcon.js';
-import Tracking from '../viewParts/tracking.js';
+import Tracking, { Facing } from '../viewParts/tracking.js';
 import SpatialPart from '../stateParts/spatial.js';
 import Inertial from '../stateParts/inertial.js';
 import { PortalTraversing, PortalEvents, PortalTopic } from '../portal/portalModel.js';
 import { KeyboardViewPart } from './keyboard.js';
+import { ContextMenu } from '../viewParts/menu.js';
+import { ColorEvents } from '../stateParts/color.js';
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
@@ -43,6 +45,14 @@ export default class RoomView extends ViewPart {
                 affects: "cameraSpatial",
                 scenePart: this.parts.roomScene,
                 cameraPart: this.parts.camera,
+            });
+            this.parts.interactionDome = new (Tracking(InteractionDome, {source: "cameraSpatial"}))(this.viewState, {
+                scenePart: this.parts.roomScene,
+                changeColor: color => this.modelPart("color").setColor(color),
+                resetCameraPosition: () => {
+                    this.viewState.parts.cameraSpatial.moveTo(new THREE.Vector3(0, 2, 4), false);
+                    this.viewState.parts.cameraSpatial.rotateTo(new THREE.Quaternion(), false);
+                }
             });
 
             this.traversePortalToRoom = options.traversePortalToRoom;
@@ -77,17 +87,76 @@ class RoomScene extends ViewPart {
         this.light.shadow.radius = 5;
         this.light.shadow.camera.near = 0.5;    // default
         this.light.shadow.camera.far = 10;     // default
-        this.skyball = new THREE.Mesh(
+        this.skydome = new THREE.Mesh(
             new THREE.SphereGeometry(50, 10, 10),
             new THREE.MeshBasicMaterial({color: model.parts.color.value, side: THREE.DoubleSide})
         );
-        this.scene.add(this.skyball);
+        this.scene.add(this.skydome);
 
         this.scene.add(this.light);
         this.ambientLight = new THREE.HemisphereLight("#ddddff", "#ffdddd");
         this.scene.add(this.ambientLight);
         // this.scene.add(new THREE.AxesHelper(5));
         this.threeObj = this.scene;
+
+        this.subscribe(ColorEvents.changed, "colorChanged", model.parts.color.id);
+    }
+
+    colorChanged(newColor) {
+        this.skydome.material.color = new THREE.Color(newColor);
+    }
+}
+
+class InteractionDome extends ViewPart {
+    constructor(model, options) {
+        super(model, options);
+
+        this.parts = {
+            contextMenu: new (Facing(ContextMenu, {source: "cameraSpatial"}))(model, {
+                entries: [
+                    ["Change Room Color", () => {
+                        options.changeColor(new THREE.Color(`hsl(${Math.random() * 360}, 50%, 90%)`));
+                    }],
+                    ["Back to room center", () => {
+                        options.resetCameraPosition();
+                        this.parts.contextMenu.dismiss();
+                    }],
+                    ["Show/Hide Debug Info", () => {
+                        document.body.className = document.body.className === "debug" ? "" : "debug";
+                    }],
+                ]
+            })
+        };
+
+        this.escapeKeyHandler = e => {
+            if (e.key === "Escape") {
+                this.parts.contextMenu.dismiss();
+            }
+        };
+
+        document.addEventListener("keyup", this.escapeKeyHandler);
+
+        this.scenePart = options.scenePart;
+
+        this.scenePart.threeObj.add(this.parts.contextMenu.threeObj);
+
+        this.threeObj = new THREE.Mesh(
+            new THREE.SphereGeometry(15, 10, 10),
+            new THREE.MeshBasicMaterial({color: "#ffffff", visible: false, side: THREE.DoubleSide})
+        );
+
+        this.scenePart.threeObj.add(this.threeObj);
+        makePointerSensitive(this.threeObj, this, -1);
+        this.subscribe(PointerEvents.pointerUp, "onClick");
+    }
+
+    onClick({dragEndOnVerticalPlane}) {
+        this.parts.contextMenu.toggleAt(dragEndOnVerticalPlane);
+    }
+
+    detach() {
+        super.detach();
+        document.removeEventListener("keyup", this.escapeKeyHandler);
     }
 }
 

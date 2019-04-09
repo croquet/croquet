@@ -6,7 +6,7 @@ import Inertial from '../stateParts/inertial.js';
 import { StatePart, ViewPart } from '../modelView.js';
 import Tracking from '../viewParts/tracking.js';
 import { TextObject } from '../objects/text.js';
-import { LayoutRoot, LayoutContainer, LayoutSlotStretch3D, LayoutSlotText } from '../viewParts/layout.js';
+import { LayoutRoot, LayoutContainer, LayoutSlotStretch3D, LayoutSlotText, MinFromBBox } from '../viewParts/layout.js';
 import TextViewPart from '../viewParts/text.js';
 import { CarotaEditorObject } from '../objects/editableText.js';
 import Draggable from '../viewParts/draggable.js';
@@ -82,11 +82,11 @@ class LayoutTestView extends ViewPart {
                     alignItems: "stretch",
                     // padding: 0.3,
                     children: [
-                        new LayoutSlotStretch3D(model, {
+                        new (MinFromBBox(LayoutSlotStretch3D))(model, {
                             margin: 0.1,
                             inner: new BoxViewPart(model, {color: "#dd8888"}),
                         }),
-                        new LayoutSlotStretch3D(model, {
+                        new (MinFromBBox(LayoutSlotStretch3D))(model, {
                             margin: 0.1,
                             inner: new BoxViewPart(model, {color: "#88dd88"})
                         }),
@@ -96,19 +96,18 @@ class LayoutTestView extends ViewPart {
                             inner: new TextViewPart(model, {fontSize: 0.25, content: `This is an example of text in a dynamic layout: "Our first design for multiple inheritance presumed that a state variable such as ohms had a meaning independent of the individual perspectives. Hence, it was sensible for it to be owned by the node itself. All perspectives would reference this single variable when referring to resistance. This proved adequate so long as the system designer knew all of the perspectives that might be associated with a given node, and could ensure this uniformity of intended reference."`})
                         }),
                         new LayoutContainer(model, {
-                            id: "columnInRow",
                             flexDirection: "column",
                             // padding: 0.1,
                             children: [
-                                new LayoutSlotStretch3D(model, {
+                                new (MinFromBBox(LayoutSlotStretch3D))(model, {
                                     margin: 0.1,
                                     inner: new BoxViewPart(model, {id: "box3", color: "#dddd88"})
                                 }),
-                                new LayoutSlotStretch3D(model, {
+                                new (MinFromBBox(LayoutSlotStretch3D))(model, {
                                     margin: 0.1,
                                     inner: new BoxViewPart(this, {id: "box4", color: "#88dddd"})
                                 }),
-                                new LayoutSlotStretch3D(model, {
+                                new (MinFromBBox(LayoutSlotStretch3D))(model, {
                                     margin: 0.1,
                                     inner: new BoxViewPart(this, {id: "box4", color: "#dd88dd"})
                                 }),
