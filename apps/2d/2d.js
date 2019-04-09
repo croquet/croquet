@@ -5,16 +5,22 @@ import urlOptions from "../../arcos/simpleapp/src/util/urlOptions";
 const THROTTLE = 1000 / 20;     // mouse event throttling
 const STEP_MS = 1000 / 20;      // bouncing ball step time in ms
 const SPEED = 15;               // bouncing ball speed in virtual pixels / step
+const ACTIVE_MS = 500;          // send activity indicator after this (real) time
+const INACTIVE_MS = 5000;       // delete inactive users after this (sim) time
 
 const TOUCH ='ontouchstart' in document.documentElement;
+const USER = (Math.random()+'').slice(2);
 
 let SCALE = 1;                  // model uses a virtual 1000x1000 space
+let OFFSETX = 50;               // top-left corner of view, plus half shape width
+let OFFSETY = 50;               // top-left corner of view, plus half shape height
 
 
 export class Root extends Model {
 
     applyState(state={}, topLevelPartsById) {
         this.children = (state.children || []).map(id => topLevelPartsById[id]);
+        this.subscribe(this.id, 'user-added', user => this.userAdded(user));
     }
 
     toState(state) {
@@ -29,6 +35,22 @@ export class Root extends Model {
         this.publish(this.id, 'child-added', child);
     }
 
+    remove(child) {
+        const index = this.children.findIndex(c => c === child);
+        this.children.splice(index, 1);
+        this.publish(this.id, 'child-removed', child);
+        child.destroy();
+    }
+
+    userAdded(user) {
+        let shape = this.children.find(c => c.user === user);
+        if (!shape) {
+            shape = new UserShape().init({user});
+            this.add(shape);
+        }
+        shape.active = true;
+        this.publish(this.id, `user-shape-${user}`, shape.id);
+    }
 }
 
 
@@ -61,6 +83,42 @@ export class Shape extends Model {
         this.pos[0] = Math.max(0, Math.min(1000, x));
         this.pos[1] = Math.max(0, Math.min(1000, y));
         this.publish(this.id, 'pos-changed', this.pos);
+    }
+
+}
+
+
+export class UserShape extends Shape {
+    init(state) {
+        super.init(state);
+        this.future(INACTIVE_MS).step();
+        return this;
+    }
+
+    applyState(state) {
+        super.applyState(state);
+        this.user = state.user;
+        this.active = "active" in state ? state.active : true;
+        this.subscribe(this.id, "user-is-active", () => this.active = true);
+    }
+
+    toState(state) {
+        super.toState(state);
+        state.user = this.user;
+        this.active = state.active;
+    }
+
+    // non-inherited methods below
+
+    moveTo(x, y) {
+        super.moveTo(x, y);
+        this.active = true;
+    }
+
+    step() {
+        if (!this.active) { this.destroy(); return; }
+        this.active = false;
+        this.future(INACTIVE_MS).step();
     }
 
 }
@@ -127,6 +185,9 @@ class RootView extends View {
         window.onresize = () => this.resize();
         model.children.forEach(child => this.attachChild(child));
         this.subscribe(model.id, 'child-added', child => this.attachChild(child));
+        this.subscribe(model.id, 'child-removed', child => this.detachChild(child));
+        this.subscribe(model.id, `user-shape-${USER}`, id => this.gotUserShape(id));
+        this.publish(model.id, 'user-added', USER);
     }
 
     detach() {
@@ -143,15 +204,35 @@ class RootView extends View {
     attachChild(child) {
         const view = new ShapeView(child);
         this.element.appendChild(view.element);
+        view.element.view = view;
+    }
+
+    detachChild(child) {
+        debugger
+        const el = document.getElementById(child.id);
+        if (el) el.view.detach();
     }
 
     resize() {
         const size = Math.max(50, Math.min(window.innerWidth, window.innerHeight));
         SCALE = size / 1100;
-        this.element.style.transform = `translate(${(window.innerWidth - size) / 2}px,0px) scale(${SCALE})`;
+        OFFSETX = (window.innerWidth - size) / 2;
+        OFFSETY = 0;
+        this.element.style.transform = `translate(${OFFSETX}px,${OFFSETY}px) scale(${SCALE})`;
         this.element.style.transformOrigin = "0 0";
+        OFFSETX += 50 * SCALE;
+        OFFSETY += 50 * SCALE;
     }
 
+    gotUserShape(id) {
+        const el = document.getElementById(id);
+        if (!el || this.userElement === el) return;
+        el.classList.add("user");
+        el.view.enableDragging(el.id, this.element, true);
+        el.style.transform = `translate(-10px,-10px)`;  // compensate border
+        this.userElement = el;
+        setInterval(() => this.publish(id, 'user-is-active'), ACTIVE_MS);
+    }
 }
 
 
@@ -161,49 +242,68 @@ class ShapeView extends View {
         super(model);
         const el = this.element = document.createElement("div");
         el.className = model.type;
+        el.id = model.id;
         el.style.backgroundColor = model.color;
+        this.subscribe(model.id, 'pos-changed', 'move');
+        this.move(model.pos);
+    }
+
+    detach() {
+        const el = this.element;
+        el.parentElement.removeChild(el);
+    }
+
+    // non-inherited methods below
+
+    move(pos) {
+        this.element.style.left = pos[0];
+        this.element.style.top = pos[1];
+    }
+
+    enableDragging(id, el, jump) {
         if (TOUCH) el.ontouchstart = start => {
             start.preventDefault();
-            let x = start.touches[0].clientX;
-            let y = start.touches[0].clientY;
+            let x = start.touches[0].clientX - OFFSETX;
+            let y = start.touches[0].clientY - OFFSETY;
             let timeStamp = 0;
+            if (jump) {
+                this.publish(id, "move-to", [x / SCALE, y / SCALE]);
+                timeStamp = start.timeStamp;
+            }
             el.ontouchmove = evt => {
-                const dx = evt.touches[0].clientX - x;
-                const dy = evt.touches[0].clientY - y;
+                const dx = evt.touches[0].clientX - OFFSETX - x;
+                const dy = evt.touches[0].clientY - OFFSETY - y;
                 if (evt.timeStamp - timeStamp > THROTTLE) {
-                    this.publish(model.id, "move-by", [dx / SCALE, dy / SCALE]);
+                    this.publish(id, "move-by", [dx / SCALE, dy / SCALE]);
                     x += dx;
                     y += dy;
                     timeStamp = evt.timeStamp;
                 }
             };
             el.ontouchend = el.ontouchcancel = () => el.ontouchmove = null;
-        }; else el.onmousedown = () => {
+        }; else el.onmousedown = start => {
+            start.preventDefault();
             let dx = 0;
             let dy = 0;
             let timeStamp = 0;
+            if (jump) {
+                const x = start.clientX - OFFSETX;
+                const y = start.clientY - OFFSETY;
+                this.publish(id, "move-to", [x / SCALE, y / SCALE]);
+                timeStamp = start.timeStamp;
+            }
             document.onmousemove = evt => {
                 dx += evt.movementX;
                 dy += evt.movementY;
                 if (evt.timeStamp - timeStamp > THROTTLE) {
-                    this.publish(model.id, "move-by", [dx / SCALE, dy / SCALE]);
+                    this.publish(id, "move-by", [dx / SCALE, dy / SCALE]);
                     dx = dy = 0;
                     timeStamp = evt.timeStamp;
                 }
             };
-            document.onmouseup = () => document.onmousemove = null;
+            el.onmouseup = () => document.onmousemove = null;
         };
-        this.subscribe(model.id, {event: "pos-changed", oncePerFrame: true}, pos => this.setPos(pos));
-        this.setPos(model.pos);
     }
-
-    // non-inherited methods below
-
-    setPos(pos) {
-        this.element.style.left = pos[0];
-        this.element.style.top = pos[1];
-    }
-
 }
 
 
@@ -224,9 +324,7 @@ async function go() {
             snapshot,
             creatorFn() {
                 const root = new Root().init();
-                for (let i = 0; i < 99; i++) {
-                    root.add(new Shape().init());
-                }
+                // for (let i = 0; i < 99; i++) root.add(new Shape().init());
                 root.add(new BouncingShape().init({pos: [500, 500], color: "white"}));
                 return {root};
             },
