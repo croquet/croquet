@@ -19,10 +19,10 @@ export class TextObject extends StatePart {
 
 /** View for rendering a Text */
 export class TextObjectView extends ViewPart {
-    constructor(model, options) {
-        super(model, options);
+    constructor(options) {
+        super(options);
         this.parts = {
-            main: new (Tracking(TextTracking(TextViewPart)))(model, {fontSize: 0.4})
+            main: new (Tracking(TextTracking(TextViewPart)))({fontSize: 0.4, source: options.model.parts.text, ...options})
         };
     }
 }

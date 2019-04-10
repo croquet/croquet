@@ -14,11 +14,11 @@ const DEBUG_GLYPH_GEOMETRY = false;
 const DEBUG_SIZEBOX = false;
 
 export default class TextViewPart extends ViewPart {
-    constructor(model, options) {
+    constructor(options) {
+        super();
         options = {
             content: "Hello", font: "Barlow", width: 5, height: 2, fontSize: 0.3, anchor: "bottom", ...options
         };
-        super(model, options);
         this.options = options;
         const placeholder = new THREE.Mesh(new THREE.PlaneBufferGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
         this.threeObj = new LazyObject3D(placeholder, this.build());
@@ -133,15 +133,13 @@ export default class TextViewPart extends ViewPart {
 }
 
 export function TextTracking(BaseTextViewPart, textTrackingOptions={}) {
-    textTrackingOptions = {source: "text", ...textTrackingOptions};
-
     return class TrackingTextViewPart extends BaseTextViewPart {
-        constructor(model, options) {
-            super(model, options);
-            const modelPart = model.lookUp(textTrackingOptions.source);
-            this.update({content: modelPart.content, font: modelPart.font});
-            this.subscribe(TextEvents.contentChanged, "onContentChanged", modelPart.id);
-            this.subscribe(TextEvents.fontChanged, "onFontChanged", modelPart.id);
+        constructor(options) {
+            super(options);
+            const textModel = textTrackingOptions.source || (options.model && options.model.parts.text);
+            this.update({content: textModel.content, font: textModel.font});
+            this.subscribe(TextEvents.contentChanged, "onContentChanged", textModel.id);
+            this.subscribe(TextEvents.fontChanged, "onFontChanged", textModel.id);
         }
 
         onContentChanged(newContent) {

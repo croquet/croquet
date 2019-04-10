@@ -5,8 +5,8 @@ import TextViewPart from "./text.js";
 import { makePointerSensitive, PointerEvents } from "./pointer.js";
 
 export class EntryBackgroundPlane extends ViewPart {
-    constructor(model, options) {
-        super(model, options);
+    constructor(options) {
+        super();
         this.callback = options.callback;
         this.threeObj = new THREE.Mesh(
             new THREE.PlaneBufferGeometry(1, 1, 1, 1),
@@ -35,8 +35,8 @@ export class Menu extends ViewPart {
     /**
      * @arg {Object} options
      * @arg {[string, () => any][]} options.entries */
-    constructor(model, options) {
-        super(model, options);
+    constructor(options) {
+        super();
 
         this.parts = {
             layout: new LayoutRoot({}, {
@@ -65,8 +65,8 @@ export class Menu extends ViewPart {
 }
 
 export class ContextMenu extends Menu {
-    constructor(model, options) {
-        super(model, options);
+    constructor(options) {
+        super(options);
 
         this.group = new THREE.Group();
         for (const threeObj of this.parts.layout.threeObjs()) {

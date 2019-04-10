@@ -4,14 +4,13 @@ const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
 export default function Tracking(BaseViewPart, trackingOptions={}) {
-    trackingOptions = {source: "spatial", position: true, rotation: true, scale: true, ...trackingOptions};
+    trackingOptions = {position: true, rotation: true, scale: true, ...trackingOptions};
 
     return class TrackingViewPart extends BaseViewPart {
-        constructor(model, options) {
-            super(model, options);
+        constructor(options) {
+            super(options);
 
-            /** @type {import('../parts').PartPath} */
-            const source = model.lookUp(trackingOptions.source);
+            const source = trackingOptions.source || (options.model && options.model.parts.spatial);
             // TODO: what to do if the inner view has multiple threeObjs?
             if (trackingOptions.position) {
                 this.threeObj.position.copy(source.position);

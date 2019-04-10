@@ -39,7 +39,8 @@ export default class RoomViewManager {
             const room = island.get("room");
 
             inViewRealm(island, () => {
-                const roomView = new RoomView(room, {
+                const roomView = new RoomView({
+                    room,
                     activeParticipant: true,
                     width: this.viewportWidth,
                     height: this.viewportHeight,
@@ -76,7 +77,8 @@ export default class RoomViewManager {
             const room = island.get("room");
 
             inViewRealm(island, () => {
-                const roomView = new RoomView(room, {
+                const roomView = new RoomView({
+                    room,
                     activeParticipant: false,
                     width: this.viewportWidth,
                     height: this.viewportHeight,

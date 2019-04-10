@@ -12,13 +12,13 @@ const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 export default class EditableTextViewPart extends ViewPart {
-    constructor(model, options) {
+    constructor(options) {
+        super();
         options = {
             content: {content: [], selection: {start: 0, end: 0}}, glyphs: [], font: "Roboto", width: 3, height: 2, numLines: 10, drawnRects: [],
-            source: "text", editable: false, showSelection: true, ...options,
+            editable: false, showSelection: true, ...options,
         };
-        super(model, options);
-        this.modelSource = model.lookUp(options.source);
+        this.modelSource = options.source;
         this.changeInitiatedByView = true;
         this.options = options;
 
@@ -44,9 +44,9 @@ export default class EditableTextViewPart extends ViewPart {
             makePointerSensitive(boxMesh, this);
         }
 
-        if (model && model.parts.text && model.parts.text.content) {
-            this.options.content = model.parts.text.content;
-            this.subscribe(TextEvents.modelContentChanged, "onContentChanged", model.parts.text.id);
+        if (this.modelSource && this.modelSource.content) {
+            this.options.content = this.modelSource.content;
+            this.subscribe(TextEvents.modelContentChanged, "onContentChanged", this.modelSource.id);
         }
 
         this.threeObj = boxMesh;
@@ -314,7 +314,7 @@ export default class EditableTextViewPart extends ViewPart {
     changed() {
         if (this.options.editable) {
             if (this.changeInitiatedByView) {
-                this.modelPart("text").updateContents({content: this.editor.save(), selection: this.editor.selection});
+                this.modelSource.future().updateContents({content: this.editor.save(), selection: this.editor.selection});
             }
         }
     }
@@ -430,7 +430,7 @@ export default class EditableTextViewPart extends ViewPart {
     onSave() {}
 
     accept() {
-        this.owner.model["editableText"].acceptContent();
+        this.modelSource.future().acceptContent();
     }
 
     // "text access"

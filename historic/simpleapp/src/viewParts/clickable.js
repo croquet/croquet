@@ -6,22 +6,22 @@ if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); 
 export default function Clickable(BaseViewPart, clickOptions) {
     clickOptions = {
         clickHandle: "",
-        onClick: () => {},
+        onClick: _options => () => {},
         ...clickOptions
     };
 
     return class ClickableViewPart extends BaseViewPart {
-        constructor(model, options) {
-            super(model, options);
-
+        constructor(options) {
+            super(options);
             /** @type {import('./object3D').Object3D} */
             this.clickablePart = this.lookUp(clickOptions.clickHandle);
             makePointerSensitive(this.clickablePart.threeObj, this);
             this.subscribe(PointerEvents.pointerDown, "clickableOnPointerDown");
+            this.onClickCallback = clickOptions.onClick(options);
         }
 
         clickableOnPointerDown() {
-            clickOptions.onClick.apply(this);
+            this.onClickCallback();
         }
     };
 }

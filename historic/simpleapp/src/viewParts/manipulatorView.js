@@ -10,9 +10,9 @@ const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 class TranslationManipulator extends ViewPart {
-    constructor(model, options) {
-        options = {target: "spatial", ...options};
-        super(model, options);
+    /** @arg {{target: import('../stateParts/spatial.js').default}} options */
+    constructor(options) {
+        super();
 
         this.target = options.target;
         this.group = new THREE.Group();
@@ -53,17 +53,16 @@ class TranslationManipulator extends ViewPart {
     }
 
     onPointerDrag({dragStart, dragEndOnHorizontalPlane}) {
-        this.modelPart(this.target).moveTo(
+        this.target.future().moveTo(
             this.positionAtDragStart.clone().add(dragEndOnHorizontalPlane.clone().sub(dragStart))
         );
     }
 }
 
 class RotationManipulator extends ViewPart {
-    constructor(model, options) {
-        options = {target: "spatial", ...options};
-        super(model, options);
-
+    /** @arg {{target: import('../stateParts/spatial.js').default}} options */
+    constructor(options) {
+        super();
         this.target = options.target;
         this.group = new THREE.Group();
         this.rotateHandle = new SVGIcon(
@@ -105,20 +104,21 @@ class RotationManipulator extends ViewPart {
             dragStart.clone().sub(this.positionAtDragStart).setY(0).normalize(),
             dragEndOnHorizontalPlane.clone().sub(this.positionAtDragStart).setY(0).normalize(),
         );
-        this.modelPart(this.target).rotateTo(
+        this.target.future().rotateTo(
             this.quaternionAtDragStart.clone().multiply(delta)
         );
     }
 }
 
-export default function WithManipulator(BaseViewPart) {
+export default function WithManipulator(BaseViewPart, manipulatorOptions={}) {
     return class WithManipulatorView extends ViewPart {
-        constructor(model, options) {
-            super(model, {});
+        constructor(options) {
+            super(options);
+            const target = manipulatorOptions.target || (options.model && options.model.parts.spatial);
             this.parts = {
-                inner: new BaseViewPart(model, options),
-                translationManipulator: new (Tracking(TranslationManipulator, {scale: false, rotation: false}))(model, {}),
-                RotationManipulator: new (Tracking(RotationManipulator, {scale: false}))(model, {}),
+                inner: new BaseViewPart(options),
+                translationManipulator: new (Tracking(TranslationManipulator, {scale: false, rotation: false, source: target}))({target}),
+                RotationManipulator: new (Tracking(RotationManipulator, {scale: false, source: target}))({target}),
             };
         }
     };
