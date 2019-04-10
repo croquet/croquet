@@ -54,6 +54,7 @@ export class Doc {
     }
 
     copyRun(run) {
+        if (!run) {return run;}
         return Object.assign({}, run);
     }
 

@@ -6,7 +6,7 @@ import room3 from './sampleRooms/room3.js';
 import roomBounce from './sampleRooms/bounce.js';
 import RoomViewManager from './room/roomViewManager.js';
 import Renderer from './render.js';
-import { connectToReflector, Controller } from "./island.js";
+import { connectToReflector, Controller, addMessageTranscoder } from "./island.js";
 import {theKeyboardManager} from './domKeyboardManager.js';
 import Stats from "./util/stats.js";
 import urlOptions from "./util/urlOptions.js";
@@ -20,6 +20,27 @@ if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); 
 let hotState = module.hot && module.hot.data || {};
 
 const defaultRoom = window.location.hostname === "croquet.studio" ? "bounce" : "room1";
+
+
+// default message transcoders
+const XYZ = {
+    encode: a => [a[0].x, a[0].y, a[0].z],
+    decode: a => [{ x: a[0], y: a[1], z: a[2] }],
+};
+const XYZW = {
+    encode: a => [a[0].x, a[0].y, a[0].z, a[0].w],
+    decode: a => [{ x: a[0], y: a[1], z: a[2], w: a[3] }],
+};
+const Identity = {
+    encode: a => a,
+    decode: a => a,
+};
+addMessageTranscoder('*#moveTo', XYZ);
+addMessageTranscoder('*#rotateTo', XYZW);
+addMessageTranscoder('*#onKeyDown', Identity);
+addMessageTranscoder('*#updateContents', Identity);
+addMessageTranscoder('*#setColor', Identity);
+
 
 let codeHashes = null;
 
