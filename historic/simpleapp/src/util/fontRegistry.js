@@ -23,7 +23,7 @@ const fontPaths = {
     },
 };
 
-const defaultFont = "Roboto";
+export const defaultFont = "Roboto";
 
 /** @typedef {{atlas: THREE.Texture, measurer: TextLayout, info: {}, offsetY: number, cursorOffset: [number, number]}} LoadedFontEntry */
 
