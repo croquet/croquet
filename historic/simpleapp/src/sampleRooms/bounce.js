@@ -34,9 +34,9 @@ export class BouncingBox extends StatePart {
 }
 
 class BoxViewPart extends ViewPart {
-    constructor(model, options) {
+    constructor(options) {
         options = {color: "#aaaaaa", ...options};
-        super(model, options);
+        super(options);
         this.threeObj = new THREE.Mesh(
             new THREE.BoxBufferGeometry(1, 1, 1),
             new THREE.MeshStandardMaterial({color: new THREE.Color(options.color)})
@@ -45,9 +45,9 @@ class BoxViewPart extends ViewPart {
 }
 
 class BallViewPart extends ViewPart {
-    constructor(model, options) {
+    constructor(options) {
         options = {color: "#aaaaaa", ...options};
-        super(model, options);
+        super(options);
         this.threeObj = new THREE.Mesh(
             new THREE.SphereBufferGeometry(0.75, 16, 16),
             new THREE.MeshStandardMaterial({color: new THREE.Color(this.color)})
@@ -56,8 +56,8 @@ class BallViewPart extends ViewPart {
 }
 
 const ClickBoxView = Clickable(Tracking(BallViewPart), {
-    onClick() {
-        this.modelPart("spatial").toggle();
+    onClick: options => () => {
+        options.model.parts.spatial.toggle();
     }
 });
 
@@ -76,16 +76,16 @@ export class Group extends StatePart {
 }
 
 class ChildrenGroupView extends ViewPart {
-    constructor(model, options) {
-        super(model, options);
+    constructor(options) {
+        super(options);
         this.viewsForObjects = {};
 
-        this.subscribe(ChildEvents.childAdded, "onObjectAdded", model.id, "children");
-        this.subscribe(ChildEvents.childRemoved, "onObjectRemoved", model.id, "children");
+        this.subscribe(ChildEvents.childAdded, "onObjectAdded", options.model.id, "children");
+        this.subscribe(ChildEvents.childRemoved, "onObjectRemoved", options.model.id, "children");
         this.group = new THREE.Group();
         this.threeObj = this.group;
 
-        for (const object of model.parts.children.children) {
+        for (const object of options.model.parts.children.children) {
             this.onObjectAdded(object);
         }
     }
@@ -93,7 +93,7 @@ class ChildrenGroupView extends ViewPart {
     onObjectAdded(object) {
         const NaturalView = object.naturalViewClass("in-group");
         /** @type {View} */
-        const view = new NaturalView(object);
+        const view = new NaturalView({model: object});
         this.viewsForObjects[object.id] = view;
         this.group.add(...view.threeObjs());
     }

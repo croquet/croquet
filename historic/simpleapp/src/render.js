@@ -101,7 +101,7 @@ export default class Renderer {
             // stencil buffer is not changed
             gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
 
-            const portalPart = portalViewPart.viewState.parts.clonedPortal;
+            const portalPart = portalViewPart.clonedPortal;
             const portalTargetRoomView = roomViewManager.requestPassive(portalPart.there, allRooms);
 
             if (portalTargetRoomView) {

@@ -1,9 +1,9 @@
-import { StatePart, ViewPart } from "../modelView.js";
+import { Model, View } from "teatime";
 
 const COLORS = [ "#FFF", "#C00", "#0C0", "#880", "#00C", "#C0C", "#0CC", "#888" ];
 const CURSOR = "|";
 
-export class Text extends StatePart {
+export class Text extends Model {
 
     applyState(state) {
         this.text = state.text || {
@@ -81,7 +81,7 @@ export class Text extends StatePart {
 }
 
 
-export class TextView extends ViewPart {
+export class TextView extends View {
 
     constructor(model) {
         super(model);

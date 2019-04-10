@@ -25,19 +25,19 @@ export class WarotaEditorObject extends WarotaTextObject {
 
 /** View for rendering a Text */
 class WarotaTextView extends ViewPart {
-    constructor(model, options) {
-        super(model, options);
+    constructor(options) {
+        super();
         this.parts = {
-            main: new (Tracking(EditableTextViewPart))(model, {})
+            main: new (Tracking(EditableTextViewPart, {source: options.model.parts.spatial}))({textPart: options.model.parts.text})
         };
     }
 }
 
 class WarotaEditorView extends ViewPart {
-    constructor(model, options) {
-        super(model, options);
+    constructor(options) {
+        super();
         this.parts = {
-            main: new (Tracking(EditableTextViewPart))(model, {doc: model.parts['text'].doc, editable: true})
+            main: new (Tracking(EditableTextViewPart, {source: options.model.parts.spatial}))({textPart: options.model.parts.text, editable: true})
         };
     }
 }

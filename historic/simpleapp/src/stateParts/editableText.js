@@ -9,7 +9,7 @@ const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 export const TextEvents = {
-    drawRequest: 'text-drawRequest',
+    changed: 'text-changed',
 };
 
 export default class EditableTextPart extends StatePart {
@@ -37,6 +37,6 @@ export default class EditableTextPart extends StatePart {
         let timezone = this.doc.receiveEditEvents(events, this.content, this.doc);
         let saved = this.doc.save();
         this.content.content = saved.content;
-        this.publish(TextEvents.drawRequest, timezone);
+        this.publish(TextEvents.changed, timezone);
     }
 }

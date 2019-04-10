@@ -117,6 +117,7 @@ export class StatePart extends Part {
     }
 
     // FUTURE
+    /** @returns {this} */
     future(tOffset=0) {
         return this.realm.futureProxy(tOffset, this);
     }
@@ -125,6 +126,16 @@ export class StatePart extends Part {
     ensure(object, cls) {
         if (object instanceof cls) return;
         Object.setPrototypeOf(object, cls.prototype);
+    }
+
+    ensureMutationAllowed() {
+        if (!currentRealm().equal(this.realm)) {
+            throw new Error(
+`Trying to mutate StatePart from outside its realm.
+Most likely this means that you're trying to mutate a Model part from a View directly.
+Use part.future().method() to send a method call through the reflector`
+            );
+        }
     }
 
     /** @abstract */
@@ -137,25 +148,14 @@ export class StatePart extends Part {
 /** @extends {Part<ViewPart>} */
 export class ViewPart extends Part {
     /** @abstract */
-    constructor(model, _options={}) {
+    constructor() {
         super();
 
         this.realm = currentRealm();
         this.id = currentRealm().registerTopLevelPart(this);
 
-        this.modelId = model.id;
-        // if we are being passed the viewState of another ViewPart as a model
-        // store a reference to it directly, so we can manipulate it directly
-        // (as opposed to true modelStates, which are manipulated through proxies).
-        // Also see the modelPart method
-        if (model.isViewState) {
-            this.viewStateThatActsAsModelState = model;
-        }
         /** @type {import('THREE').Object3D | null} */
         this.threeObj = null;
-        this.viewState = new StatePart();
-        this.viewState.register();
-        this.viewState.isViewState = true;
     }
 
     /** @returns {import('THREE').Object3D[]} */
@@ -184,7 +184,6 @@ export class ViewPart extends Part {
             }
         }
 
-        this.viewState.destroy();
         this.realm.deregisterTopLevelPart(this);
     }
 
@@ -201,23 +200,7 @@ export class ViewPart extends Part {
         this.realm.publish(event, data, to);
     }
 
-    /** @arg {PartPath}  */
-    modelPart(partPath=null) {
-        if (this.viewStateThatActsAsModelState) {
-            return this.viewStateThatActsAsModelState.lookUp(partPath);
-        }
-        return new Proxy({}, {
-            get: (_, methodName) => {
-                const partMethodProxy = new Proxy(() => {}, {
-                    apply: (_a, _b, args) => {
-                        this.realm.callModelMethod(this.modelId, partPath, methodName, args);
-                    }
-                });
-                return partMethodProxy;
-            }
-        });
-    }
-
+    /** @returns {this} */
     future(tOffset) {
         return this.realm.futureProxy(tOffset, this);
     }
@@ -260,6 +243,10 @@ class ModelRealm {
     random() {
         return this.island.random();
     }
+
+    equal(otherRealm) {
+        return otherRealm instanceof ModelRealm && otherRealm.island === this.island;
+    }
 }
 
 class ViewRealm {
@@ -288,6 +275,9 @@ class ViewRealm {
     }
 
     futureProxy(tOffset, part) {
+        if (!tOffset) {
+            return part;
+        }
         return new Proxy(part, {
             get(_target, property) {
                 if (typeof part[property] === "function") {
@@ -309,6 +299,10 @@ class ViewRealm {
 
     random() {
         return this.island.random();
+    }
+
+    equal(otherRealm) {
+        return otherRealm instanceof ViewRealm && otherRealm.island === this.island;
     }
 }
 

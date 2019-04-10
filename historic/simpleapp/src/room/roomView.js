@@ -19,39 +19,39 @@ const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 export default class RoomView extends ViewPart {
-    constructor(model, options={}) {
-        super(model, options);
+    /** @arg {{room: import('./roomModel').default}} options */
+    constructor(options) {
+        super();
 
-        this.viewState.parts.cameraSpatial = new (PortalTraversing(Inertial(SpatialPart)))();
-        this.viewState.init({
-            cameraSpatial: {
-                position: options.cameraPosition,
-                quaternion: options.cameraQuaternion
-            }
+        this.cameraSpatial = new (PortalTraversing(Inertial(SpatialPart)))();
+        this.cameraSpatial.init({
+            position: options.cameraPosition,
+            quaternion: options.cameraQuaternion
         });
 
-        this.parts.camera = new (Tracking(CameraViewPart, {source: "cameraSpatial"}))(this.viewState, {
+        this.parts.camera = new (Tracking(CameraViewPart, {source: this.cameraSpatial}))({
             width: options.width,
             height: options.height
         });
 
-        this.parts.roomScene = new RoomScene(model);
-        this.parts.objectViewManager = new ObjectViewManager(model, {scenePart: this.parts.roomScene});
+        this.parts.roomScene = new RoomScene({room: options.room});
+        this.parts.objectViewManager = new ObjectViewManager({room: options.room, scenePart: this.parts.roomScene});
 
         if (options.activeParticipant) {
-            this.parts.pointer = new PointerViewPart(model, {cameraPart: this.parts.camera, scenePart: this.parts.roomScene});
-            this.parts.keyboard = new KeyboardViewPart(model, {});
-            this.parts.treadmill = new (Tracking(TreadmillNavigation, {source: "cameraSpatial"}))(this.viewState, {
-                affects: "cameraSpatial",
+            this.parts.pointer = new PointerViewPart({room: options.room, cameraPart: this.parts.camera, scenePart: this.parts.roomScene});
+            this.parts.keyboard = new KeyboardViewPart();
+            this.parts.treadmill = new (Tracking(TreadmillNavigation, {source: this.cameraSpatial}))({
+                affects: this.cameraSpatial,
                 scenePart: this.parts.roomScene,
                 cameraPart: this.parts.camera,
             });
-            this.parts.interactionDome = new (Tracking(InteractionDome, {source: "cameraSpatial"}))(this.viewState, {
+            this.parts.interactionDome = new (Tracking(InteractionDome, {source: this.cameraSpatial}))({
+                cameraSpatial: this.cameraSpatial,
                 scenePart: this.parts.roomScene,
-                changeColor: color => this.modelPart("color").setColor(color),
+                changeColor: color => options.room.parts.color.future().setColor(color),
                 resetCameraPosition: () => {
-                    this.viewState.parts.cameraSpatial.moveTo(new THREE.Vector3(0, 2, 4), false);
-                    this.viewState.parts.cameraSpatial.rotateTo(new THREE.Quaternion(), false);
+                    this.cameraSpatial.moveTo(new THREE.Vector3(0, 2, 4), false);
+                    this.cameraSpatial.rotateTo(new THREE.Quaternion(), false);
                 }
             });
 
@@ -61,21 +61,20 @@ export default class RoomView extends ViewPart {
     }
 
     onPortalTraversed(traverseInfo) {
-        const cameraSpatial = this.viewState.parts.cameraSpatial;
-        if (traverseInfo.traverserId === cameraSpatial.id) {
+        if (traverseInfo.traverserId === this.cameraSpatial.id) {
             this.traversePortalToRoom(traverseInfo);
             this.parts.pointer.onMouseUp();
             // take a step back in this room for when we come back
-            const stepBack = new THREE.Vector3(0, 0, 1).applyQuaternion(cameraSpatial.quaternion);
-            cameraSpatial.moveByNoPortalTraverse(stepBack);
+            const stepBack = new THREE.Vector3(0, 0, 1).applyQuaternion(this.cameraSpatial.quaternion);
+            this.cameraSpatial.moveByNoPortalTraverse(stepBack);
         }
     }
 }
 
 class RoomScene extends ViewPart {
-    /** @arg {Room} room */
-    constructor(model, options) {
-        super(model, options);
+    /** @arg {{room: import('./roomModel').default}} options */
+    constructor(options) {
+        super();
         this.scene = new THREE.Scene();
         this.grid = new THREE.GridHelper(10.0, 10, "#888888", "#aaaaaa");
         this.scene.add(this.grid);
@@ -89,7 +88,7 @@ class RoomScene extends ViewPart {
         this.light.shadow.camera.far = 10;     // default
         this.skydome = new THREE.Mesh(
             new THREE.SphereGeometry(50, 10, 10),
-            new THREE.MeshBasicMaterial({color: model.parts.color.value, side: THREE.DoubleSide})
+            new THREE.MeshBasicMaterial({color: options.room.parts.color.value, side: THREE.DoubleSide})
         );
         this.scene.add(this.skydome);
 
@@ -99,7 +98,7 @@ class RoomScene extends ViewPart {
         // this.scene.add(new THREE.AxesHelper(5));
         this.threeObj = this.scene;
 
-        this.subscribe(ColorEvents.changed, "colorChanged", model.parts.color.id);
+        this.subscribe(ColorEvents.changed, "colorChanged", options.room.parts.color.id);
     }
 
     colorChanged(newColor) {
@@ -108,11 +107,11 @@ class RoomScene extends ViewPart {
 }
 
 class InteractionDome extends ViewPart {
-    constructor(model, options) {
-        super(model, options);
+    constructor(options) {
+        super();
 
         this.parts = {
-            contextMenu: new (Facing(ContextMenu, {source: "cameraSpatial"}))(model, {
+            contextMenu: new (Facing(ContextMenu, {source: options.cameraSpatial}))({
                 entries: [
                     ["Change Room Color", () => {
                         options.changeColor(new THREE.Color(`hsl(${Math.random() * 360}, 50%, 90%)`));
@@ -161,23 +160,24 @@ class InteractionDome extends ViewPart {
 }
 
 class ObjectViewManager extends ViewPart {
-    constructor(model, options) {
-        super(model, options);
+    /** @arg {{room: import('./roomModel').default}} options */
+    constructor(options) {
+        super();
         this.scenePart = options.scenePart;
         this.viewsForObjects = {};
 
-        for (const object of model.parts.objects.children) {
+        for (const object of options.room.parts.objects.children) {
             this.onObjectAdded(object);
         }
 
-        this.subscribe(ChildEvents.childAdded, "onObjectAdded", model.parts.objects.id);
-        this.subscribe(ChildEvents.childRemoved, "onObjectRemoved", model.parts.objects.id);
+        this.subscribe(ChildEvents.childAdded, "onObjectAdded", options.room.parts.objects.id);
+        this.subscribe(ChildEvents.childRemoved, "onObjectRemoved", options.room.parts.objects.id);
     }
 
     onObjectAdded(object) {
         const NaturalView = object.naturalViewClass("in-room");
         /** @type {View} */
-        const view = new (WithManipulator(NaturalView))(object, {});
+        const view = new (WithManipulator(NaturalView))({model: object});
         this.viewsForObjects[object.id] = view;
         this.scenePart.threeObj.add(...view.threeObjs());
     }
@@ -191,8 +191,8 @@ class ObjectViewManager extends ViewPart {
 }
 
 class TreadmillNavigation extends ViewPart {
-    constructor(model, options) {
-        super(model, options);
+    constructor(options) {
+        super();
         /** @type {CameraViewPart} */
         this.cameraPart = options.cameraPart;
         /** @type {RoomScene} */
@@ -267,14 +267,14 @@ class TreadmillNavigation extends ViewPart {
 
     onDragTreadmill({dragStart, dragEndOnHorizontalPlane, dragStartThreeObj}) {
         if (dragStartThreeObj === this.treadmillForwardStrip) {
-            this.modelPart(this.affects).moveTo(this.threeObj.position.clone().sub(dragEndOnHorizontalPlane.clone().sub(dragStart)));
+            this.affects.future().moveTo(this.threeObj.position.clone().sub(dragEndOnHorizontalPlane.clone().sub(dragStart)));
             this.moveCursor.position.copy(this.threeObj.worldToLocal(dragEndOnHorizontalPlane.clone()));
         } else {
             const delta = (new THREE.Quaternion()).setFromUnitVectors(
                 dragEndOnHorizontalPlane.clone().sub(this.threeObj.position.clone().setY(dragStart.y)).normalize(),
                 dragStart.clone().sub(this.threeObj.position.clone().setY(dragStart.y)).normalize()
             );
-            this.modelPart(this.affects).rotateTo(this.threeObj.quaternion.clone().multiply(delta));
+            this.affects.future().rotateTo(this.threeObj.quaternion.clone().multiply(delta));
             this.rotateCursor.position.copy(this.threeObj.worldToLocal(dragEndOnHorizontalPlane.clone()));
             const deltaCursor = (new THREE.Quaternion()).setFromUnitVectors(
                 this.threeObj.getWorldDirection(new THREE.Vector3()),
@@ -287,6 +287,6 @@ class TreadmillNavigation extends ViewPart {
     // TODO: this and its callsite is very ad-hoc
     onWheel(event) {
         const multiplier = 0.01;
-        this.modelPart(this.affects).moveBy(new THREE.Vector3(event.deltaX * multiplier, 0, event.deltaY * multiplier).applyQuaternion(this.threeObj.quaternion), false);
+        this.affects.future().moveBy(new THREE.Vector3(event.deltaX * multiplier, 0, event.deltaY * multiplier).applyQuaternion(this.threeObj.quaternion), false);
     }
 }

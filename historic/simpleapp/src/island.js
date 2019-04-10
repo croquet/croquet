@@ -182,7 +182,6 @@ export default class Island {
     }
 
     futureSend(tOffset, receiverID, selector, args) {
-        if (CurrentIsland !== this) throw Error("Island Error");
         if (tOffset < 0) throw Error("attempt to send future message into the past");
          // Wrapping below means that if we have an overflow, messages
         // scheduled after the overflow will be executed *before* messages
@@ -202,7 +201,6 @@ export default class Island {
     // Convert model.future(tOffset).property(...args)
     // into this.futureSend(tOffset, model.id, "property", args)
     futureProxy(tOffset, model) {
-        if (CurrentIsland !== this) throw Error("Island Error");
         const island = this;
         return new Proxy(model, {
             get(_target, property) {

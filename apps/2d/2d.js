@@ -1,7 +1,6 @@
-import Island, { connectToReflector, Controller, addMessageTranscoder } from "./island.js";
-import { StatePart, ViewPart, currentRealm, inViewRealm } from "./modelView.js";
-import Stats from "./util/stats.js";
-import urlOptions from "./util/urlOptions.js";
+import { Model, View, Controller } from "teatime";
+import Stats from "../../arcos/simpleapp/src/util/stats.js";
+import urlOptions from "../../arcos/simpleapp/src/util/urlOptions.js";
 
 const THROTTLE = 1000 / 20;     // mouse event throttling
 const STEP_MS = 1000 / 20;      // bouncing ball step time in ms
@@ -11,9 +10,8 @@ const TOUCH ='ontouchstart' in document.documentElement;
 
 let SCALE = 1;                  // model uses a virtual 1000x1000 space
 
-addMessageTranscoder('*', { encode: a => a, decode: a => a });
 
-export class Root extends StatePart {
+export class Root extends Model {
 
     applyState(state={}, topLevelPartsById) {
         this.children = (state.children || []).map(id => topLevelPartsById[id]);
@@ -34,10 +32,10 @@ export class Root extends StatePart {
 }
 
 
-export class Shape extends StatePart {
+export class Shape extends Model {
 
     applyState(state={}) {
-        const r = max => Math.floor(max * currentRealm().random());
+        const r = max => Math.floor(max * this.random());
         this.type = state.type || 'circle';
         this.color = state.color || `hsla(${r(360)},${r(50)+50}%,50%,0.5)`;
         this.pos = state.pos || [r(1000), r(1000)];
@@ -62,6 +60,7 @@ export class Shape extends StatePart {
         this.pos[1] = Math.max(0, Math.min(1000, y));
         this.publish('pos-changed', this.pos);
     }
+
 }
 
 
@@ -69,18 +68,14 @@ export class BouncingShape extends Shape {
 
     init(state) {
         super.init(state);
+
         this.future(STEP_MS).step();
         return this;
     }
 
     applyState(state={}) {
         super.applyState(state);
-        this.speed = state.speed || randomSpeed();
-
-        function randomSpeed() {
-            const r = currentRealm().random() * 2 * Math.PI;
-            return [Math.cos(r) * SPEED, Math.sin(r) * SPEED];
-        }
+        this.speed = state.speed || this.randomSpeed();
     }
 
     toState(state) {
@@ -89,6 +84,11 @@ export class BouncingShape extends Shape {
     }
 
     // non-inherited methods below
+
+    randomSpeed() {
+        const r = this.random() * 2 * Math.PI;
+        return [Math.cos(r) * SPEED, Math.sin(r) * SPEED];
+    }
 
     step() {
         this.moveBy(...this.speed);
@@ -102,17 +102,18 @@ export class BouncingShape extends Shape {
         if (dx || dy) {
             if (!dx) dx = Math.sign(this.speed[0]);
             if (!dy) dy = Math.sign(this.speed[1]);
-            const r = currentRealm().random() * 2 * Math.PI;
+            const r = this.randomSpeed();
             this.speed = [
-                dx * Math.abs(Math.cos(r)) * SPEED,
-                dy * Math.abs(Math.sin(r)) * SPEED,
+                dx * Math.abs(r[0]),
+                dy * Math.abs(r[1]),
             ];
         }
     }
+
 }
 
 
-class RootView extends ViewPart {
+class RootView extends View {
 
     constructor(model) {
         super(model);
@@ -152,7 +153,7 @@ class RootView extends ViewPart {
 }
 
 
-class ShapeView extends ViewPart {
+class ShapeView extends View {
 
     constructor(model) {
         super(model);
@@ -205,43 +206,45 @@ class ShapeView extends ViewPart {
 
 
 async function go() {
+    Controller.addMessageTranscoder('*', { encode: a => a, decode: a => a });
     const reflector = window.location.hostname === 'localhost'
         ? "ws://localhost:9090/"
         : "wss://dev1.os.vision/reflector-v1";
-    connectToReflector(urlOptions.reflector || reflector);
+    Controller.connectToReflector(urlOptions.reflector || reflector);
 
     const controller = new Controller();
     let rootView = null;
 
-    async function setup(snapshot) {
-        const mainIsland = await controller.createIsland("2d", {
+    async function bootstrapModelsAndViews(snapshot) {
+        // create models on named island
+        const models = await controller.createIsland("2d", {
             moduleID: module.id,
             snapshot,
-            creatorFn(state) {
-                return new Island(state, island => {
-                    const root = new Root().init();
-                    island.set('root', root);
-                    for (let i = 0; i < 99; i++) {
-                        root.add(new Shape().init());
-                    }
-                    root.add(new BouncingShape().init({pos: [500, 500], color: "white"}));
-                });
+            creatorFn() {
+                const root = new Root().init();
+                for (let i = 0; i < 99; i++) {
+                    root.add(new Shape().init());
+                }
+                root.add(new BouncingShape().init({pos: [500, 500], color: "white"}));
+                return {root};
             },
             destroyerFn(prevSnapshot) {
                 window.top.postMessage({connected: -1}, "*");
                 if (rootView) rootView.detach();
-                setup(prevSnapshot);
+                bootstrapModelsAndViews(prevSnapshot);
             }
         });
 
-        inViewRealm(mainIsland, () => {
-            rootView = new RootView(mainIsland.get('root'));
+        // create views
+        controller.inViewRealm(() => {
+            rootView = new RootView(models.root);
         });
 
+        // tell many.html
         window.top.postMessage({connected: +1}, "*");
     }
 
-    await setup();
+    await bootstrapModelsAndViews();
 
     let users = 0;
 
@@ -260,7 +263,7 @@ async function go() {
             controller.simulate(Date.now() + 200);
 
             Stats.begin("render");
-            controller.island.processModelViewEvents();
+            controller.processModelViewEvents();
             Stats.end("render");
         }
 

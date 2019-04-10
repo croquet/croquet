@@ -8,21 +8,18 @@ const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 export default class PortalViewPart extends ViewPart {
-    constructor(model, options={}) {
-        options = {visualOffset: -0.1, source: null, ...options};
-        super(model, options);
-
-        this.viewState.parts = {
-            // maintain a view-local "copy" of the portal info to reuse the traversal logic in the view
-            // This allows spatial viewStates to traverse this cloned portal viewState and create the correct events
-            clonedPortal: new PortalPart()
-        };
+    constructor(options={}) {
+        super();
+        options = {visualOffset: -0.1, ...options};
+        const source = options.model;
+        // maintain a view-local "copy" of the portal info to reuse the traversal logic in the view
+        // This allows spatial viewStates to traverse this cloned portal viewState and create the correct events
+        this.clonedPortal = new PortalPart();
         const stateToClone = {};
-        model.lookUp(options.source).toState(stateToClone);
-        this.viewState.parts.clonedPortal.init({...stateToClone, id: null});
+        source.toState(stateToClone);
+        this.clonedPortal.init({...stateToClone, id: null});
 
         this.visualOffset = options.visualOffset;
-        const sourceSpatialPart = model.lookUp(options.source).parts.spatial;
 
         const mesh = new THREE.Mesh(
             new THREE.PlaneGeometry(1, 1, 1, 1),
@@ -33,13 +30,13 @@ export default class PortalViewPart extends ViewPart {
         mesh.position.copy(new THREE.Vector3(0, 0, this.visualOffset));
 
         // TODO: actually use something like internal "TrackSpatial" and "TrackSize" parts here
-        group.position.copy(sourceSpatialPart.position);
-        group.quaternion.copy(sourceSpatialPart.quaternion);
-        group.scale.copy(sourceSpatialPart.scale);
+        group.position.copy(source.parts.spatial.position);
+        group.quaternion.copy(source.parts.spatial.quaternion);
+        group.scale.copy(source.parts.spatial.scale);
 
-        this.subscribe(SpatialEvents.moved, "onMoved", sourceSpatialPart.id);
-        this.subscribe(SpatialEvents.rotated, "onRotated", sourceSpatialPart.id);
-        this.subscribe(SpatialEvents.scaled, "onScaled", sourceSpatialPart.id);
+        this.subscribe(SpatialEvents.moved, "onMoved", source.parts.spatial.id);
+        this.subscribe(SpatialEvents.rotated, "onRotated", source.parts.spatial.id);
+        this.subscribe(SpatialEvents.scaled, "onScaled", source.parts.spatial.id);
 
         group.children[0].layers.disable(RENDER_LAYERS.NORMAL);
         group.children[0].layers.enable(RENDER_LAYERS.ALL_PORTALS);

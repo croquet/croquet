@@ -13,9 +13,10 @@ const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 export default class EditableTextViewPart extends ViewPart {
-    constructor(model, options) {
-        super(model, options);
-        this.doc = options.doc;
+    constructor(options) {
+        super();
+        this.doc = options.textPart.doc;
+        this.textPart = options.textPart;
         options = {
             font: "Roboto", width: 3, height: 2, numLines: 10,
             editable: false, showSelection: true, ...options,
@@ -45,9 +46,7 @@ export default class EditableTextViewPart extends ViewPart {
             makePointerSensitive(boxMesh, this);
         }
 
-        if (model && model.parts.text) {
-            this.subscribe(TextEvents.drawRequest, "onDrawRequest", model.parts.text.id);
-        }
+        this.subscribe(TextEvents.changed, "onChanged", options.textPart.id);
 
         this.threeObj = boxMesh;
         window.view = this;
@@ -275,7 +274,7 @@ export default class EditableTextViewPart extends ViewPart {
         }
     }
 
-    onDrawRequest(timezone) {
+    onChanged(timezone) {
         this.editor.layout();
         this.editor.paint();
         this.editor.setTimezone(timezone);
@@ -287,7 +286,7 @@ export default class EditableTextViewPart extends ViewPart {
         let events = this.editor.events;
         this.editor.resetEvents();
         if (events.length > 0 && this.options.editable) {
-            this.modelPart("text").receiveEditEvents(events);
+            this.textPart.future().receiveEditEvents(events);
         }
     }
 
