@@ -3,10 +3,10 @@ import SpatialPart from '../stateParts/spatial.js';
 import TextPart from '../stateParts/editableText.js';
 
 import Tracking from '../viewParts/tracking.js';
-import EditableTextViewPart from '../viewParts/editableText/text.js';
+import EditableTextViewPart from '../viewParts/editableText.js';
 
 /** Model for a simple text display */
-export default class CarotaTextObject extends StatePart {
+export default class WarotaTextObject extends StatePart {
     constructor() {
         super();
         this.parts = {
@@ -15,16 +15,16 @@ export default class CarotaTextObject extends StatePart {
         };
     }
 
-    naturalViewClass() { return CarotaTextView; }
+    naturalViewClass() { return WarotaTextView; }
 }
 
 /** Model for a text editor */
-export class CarotaEditorObject extends CarotaTextObject {
-    naturalViewClass() { return CarotaEditorView; }
+export class WarotaEditorObject extends WarotaTextObject {
+    naturalViewClass() { return WarotaEditorView; }
 }
 
 /** View for rendering a Text */
-class CarotaTextView extends ViewPart {
+class WarotaTextView extends ViewPart {
     constructor(model, options) {
         super(model, options);
         this.parts = {
@@ -33,7 +33,7 @@ class CarotaTextView extends ViewPart {
     }
 }
 
-class CarotaEditorView extends ViewPart {
+class WarotaEditorView extends ViewPart {
     constructor(model, options) {
         super(model, options);
         this.parts = {

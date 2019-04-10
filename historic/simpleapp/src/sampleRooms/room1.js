@@ -8,7 +8,7 @@ import Tracking from '../viewParts/tracking.js';
 import { TextObject } from '../objects/text.js';
 import { LayoutRoot, LayoutContainer, LayoutSlotStretch3D, LayoutSlotText, MinFromBBox } from '../viewParts/layout.js';
 import TextViewPart from '../viewParts/text.js';
-import { CarotaEditorObject } from '../objects/editableText.js';
+import { WarotaEditorObject } from '../objects/editableText.js';
 import Draggable from '../viewParts/draggable.js';
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
@@ -140,12 +140,15 @@ function initRoom1(state) {
         });
         room.parts.objects.add(text2);
 
-        const editText = new CarotaEditorObject().init({
+        const editText = new WarotaEditorObject().init({
             spatial: { position: {x: -4, y: 2, z: -1.5} },
             text: { content: {
                 content: [{text: "This text can be edited"}],
-                selection: {start: 0, end: 0}
-            }, font: "Roboto", numLines: 10, width: 3, height: 2}
+                    selections: {},
+                    timezone: 0,
+                    queue: []
+            },
+            font: "Roboto", numLines: 10, width: 3, height: 2}
         });
         room.parts.objects.add(editText);
 

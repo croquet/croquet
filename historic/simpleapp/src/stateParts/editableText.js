@@ -1,7 +1,7 @@
 import { StatePart } from "../modelView.js";
 import { addMessageTranscoder } from "../island.js";
 
-import { Doc } from "../viewParts/editableText/warota/warota.js";
+import { Doc } from "../util/warota/warota.js";
 
 addMessageTranscoder('*', { encode: a => a, decode: a => a });
 
@@ -9,8 +9,7 @@ const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 export const TextEvents = {
-    viewContentChanged: 'text-viewContentChanged',
-    sequencedEvents: 'text-sequencedEvents',
+    drawRequest: 'text-drawRequest',
 };
 
 export default class EditableTextPart extends StatePart {
@@ -35,9 +34,9 @@ export default class EditableTextPart extends StatePart {
     }
 
     receiveEditEvents(events) {
-        let sendQueue = this.doc.receiveEditEvents(events, this.content, this.doc);
+        let timezone = this.doc.receiveEditEvents(events, this.content, this.doc);
         let saved = this.doc.save();
         this.content.content = saved.content;
-        this.publish(TextEvents.sequencedEvents, sendQueue);
+        this.publish(TextEvents.drawRequest, timezone);
     }
 }

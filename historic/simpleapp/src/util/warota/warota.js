@@ -284,7 +284,6 @@ export class Doc {
         //   past their life.
         // - The list is a part of the saved model. It will be saved with the string content.
         // Things are all destructively updated in content,
-        // and somewhat arbitrarily returns sendQueue
         //console.log('received:', events.length, events[0].timezone, events[0], JSON.parse(JSON.stringify(content.selections)), content.selections);
         content.timezone++;
         let CUTOFF = 60;
@@ -350,7 +349,7 @@ export class Doc {
             return n;
         }
 
-        let sendQueue = [];
+        let thisQueue = [];
         let unseenIDs = Object.assign({}, content.selections);
 
         // all events in variable 'events' should be in the same timezone
@@ -364,10 +363,10 @@ export class Doc {
                 }
             }
             t.timezone = content.timezone;
-            sendQueue.push(t);
+            thisQueue.push(t);
         });
 
-        queue.push(...sendQueue);
+        queue.push(...thisQueue);
 
         // finish up by dropping old events
         ind = queue.findIndex(e => e.timezone > content.timezone - CUTOFF);
@@ -381,11 +380,11 @@ export class Doc {
         queue.splice(0, ind);
 
         doc.setSelections(content.selections);
-        sendQueue.forEach(e => {
+        thisQueue.forEach(e => {
             doc.doEvent(e);
         });
 
-        return sendQueue;
+        return content.timezone;
     }
 }
 
