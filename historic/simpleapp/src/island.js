@@ -3,7 +3,7 @@ import PriorityQueue from "./util/priorityQueue.js";
 import AsyncQueue from './util/asyncQueue.js';
 import hotreload from "./hotreload.js";
 import { hashModelCode, baseUrl } from "./modules.js";
-import { inModelRealm, StatePart } from "./modelView.js";
+import { inModelRealm, StatePart, inViewRealm } from "./modelView.js";
 import Stats from "./util/stats.js";
 import { PATH_PART_SEPARATOR_SPLIT_REGEXP } from "./parts.js";
 
@@ -14,6 +14,7 @@ if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); 
 const DEBUG = {
     messages: false,
     ticks: false,
+    pong: false,
 };
 
 let viewID = 0;
@@ -121,6 +122,7 @@ export default class Island {
     deregisterModel(id) {
         if (CurrentIsland !== this) throw Error("Island Error");
         delete this.topLevelModelsById[id];
+        this.messages.removeMany(msg => msg.hasReceiver(id));
     }
 
     lookUpModel(id) {
@@ -152,8 +154,11 @@ export default class Island {
     // Send via reflector
     callModelMethod(modelId, subPartPath, selector, args) {
         if (CurrentIsland) throw Error("Island Error");
-        const recipient = this.lookUpModel(modelId).lookUp(subPartPath).id;
-        const message = new Message(this.time, 0, recipient, selector, args);
+        const model = this.lookUpModel(modelId);
+        if (!model) { console.error(Error(`Model not found: ${modelId}`)); return; }
+        const recipient = model.lookUp(subPartPath);
+        if (!recipient) { console.error(Error(`Model part not found: ${modelId}.${subPartPath}`)); return; }
+        const message = new Message(this.time, 0, recipient.id, selector, args);
         this.controller.sendMessage(message);
     }
 
@@ -332,25 +337,27 @@ export default class Island {
     publishFromView(scope, event, data) {
         if (CurrentIsland) throw Error("Island Error");
         const topic = scope + ":" + event;
-        this.handleViewEvents(topic, [data]);
+        hotreload.promiseResolveThen(() => this.handleViewEvents(topic, [data]));
     }
 
     handleViewEvents(topic, dataArray) {
         // Events published by views can only reach other views
-        const subscriptions = this.viewSubscriptions[topic];
-        if (subscriptions) {
-            for (const subscriber of subscriptions.queueHandlers) {
-                const [subscriberId, method] = subscriber.split(".");
-                const view = this.viewsById[subscriberId];
-                for (const data of dataArray) view[method](data);
+        inViewRealm(this, () => {
+            const subscriptions = this.viewSubscriptions[topic];
+            if (subscriptions) {
+                for (const subscriber of subscriptions.queueHandlers) {
+                    const [subscriberId, method] = subscriber.split(".");
+                    const view = this.viewsById[subscriberId];
+                    for (const data of dataArray) view[method](data);
+                }
+                const data = dataArray[dataArray.length - 1];
+                for (const subscriber of subscriptions.onceHandlers) {
+                    const [subscriberId, method] = subscriber.split(".");
+                    const view = this.viewsById[subscriberId];
+                    view[method](data);
+                }
             }
-            const data = dataArray[dataArray.length - 1];
-            for (const subscriber of subscriptions.onceHandlers) {
-                const [subscriberId, method] = subscriber.split(".");
-                const view = this.viewsById[subscriberId];
-                view[method](data);
-            }
-        }
+        });
     }
 
     asState() {
@@ -553,7 +560,8 @@ export class Controller {
         const { id, action, args } = JSON.parse(data);
         if (id) Controllers[id].receive(action, args);
         else switch (action) {
-            case 'PONG': console.log('PONG after', Date.now() - args, 'ms'); break;
+            case 'PONG': if (DEBUG.pong) console.log('PONG after', Date.now() - args, 'ms');
+                break;
             default: console.warn('Unknown action', action);
         }
     }
@@ -821,12 +829,17 @@ export class Controller {
 
     sendMessage(msg) {
         // SEND: Broadcast a message to all participants.
+        if (!this.socket) return;  // probably view sending event while connection is closing
         if (DEBUG.messages) console.log(this.id, `Controller sending SEND ${msg.asState()}`);
-        this.socket.send(JSON.stringify({
-            id: this.id,
-            action: 'SEND',
-            args: msg.asState(),
-        }));
+        try {
+            this.socket.send(JSON.stringify({
+                id: this.id,
+                action: 'SEND',
+                args: msg.asState(),
+            }));
+        } catch (e) {
+            console.error('ERROR while sending', e);
+        }
     }
 
     get backlog() { return this.island ? this.time - this.island.time : 0; }
@@ -863,37 +876,14 @@ export class Controller {
 }
 
 
-// Message encoders / decoders
-//
-// Eventually, these should be provided by the application
-// to tailor the encoding for specific scenarios.
-// (unless we find a truly efficient and general encoding scheme)
+/** Message encoders / decoders.
+ * Pattern is "receiver#selector" or "*#selector" or "*"
+ * @type { { pattern: {encoder: Function, decoder: Function} }'receiver#selector'
+ */
+const transcoders = {};
 
-const XYZ = {
-    encode: a => [a[0].x, a[0].y, a[0].z],
-    decode: a => [{ x: a[0], y: a[1], z: a[2] }],
-};
-
-const XYZW = {
-    encode: a => [a[0].x, a[0].y, a[0].z, a[0].w],
-    decode: a => [{ x: a[0], y: a[1], z: a[2], w: a[3] }],
-};
-
-const Identity = {
-    encode: a => a,
-    decode: a => a,
-};
-
-const transcoders = {
-    "*#moveTo": XYZ,
-    "*#rotateTo": XYZW,
-    "*#onKeyDown": Identity,
-    "*#updateContents": Identity,
-    "*#setColor": Identity,
-};
-
-export function addMessageTranscoder(pattern, encoder, decoder) {
-    transcoders[pattern] = {encode: encoder, decode: decoder};
+export function addMessageTranscoder(pattern, transcoder) {
+    transcoders[pattern] = transcoder;
 }
 
 function encode(receiver, selector, args) {
@@ -930,6 +920,10 @@ class Message {
             : this.seq < other.seq;
     }
 
+    hasReceiver(id) {
+        return this.payload.split('#')[0] === id;
+    }
+
     asState() {
         return [this.time, this.seq, this.payload];
     }
@@ -944,8 +938,21 @@ class Message {
         const { receiver, selector, args } = decode(this.payload);
         if (receiver === island.id) return; // noop
         const object = island.lookUpModel(receiver);
-        execOnIsland(island, () => {
-            inModelRealm(island, () => object[selector](...args));
+        if (!object) console.warn(`Error executing ${this}: receiver not found`);
+        else if (typeof object[selector] !== "function") console.warn(`Error executing ${this}: method not found`);
+        else execOnIsland(island, () => {
+            inModelRealm(island, () => {
+                try {
+                    object[selector](...args);
+                } catch (error) {
+                    console.error(`Error executing ${this}`, error);
+                }
+            });
         });
+    }
+
+    [Symbol.toPrimitive]() {
+        const { receiver, selector, args } = decode(this.payload);
+        return `${this.seq & 1 ? 'External' : 'Future'}Message[${this.time}:${this.seq} ${receiver}.${selector}(${args.map(JSON.stringify).join(', ')})]`;
     }
 }

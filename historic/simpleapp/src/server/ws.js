@@ -96,6 +96,22 @@ channel.onmessage = msg => {
                 else console.warn('Channel: cannot find socket', msg.from);
             }
             break;
+        case "ping":
+            // receive a ping if it is meant for me
+            if (msg.to === myPort) {
+                const socket = channelSockets[msg.from];
+                if (socket) socket._processPing(msg.data);
+                else console.warn('Channel: cannot find socket', msg.from);
+            }
+            break;
+        case "pong":
+            // receive a pong if it is meant for me
+            if (msg.to === myPort) {
+                const socket = channelSockets[msg.from];
+                if (socket) socket._processPong(msg.data);
+                else console.warn('Channel: cannot find socket', msg.from);
+            }
+            break;
         case "close":
             // a window was closed
             for (const socket of Object.values(channelSockets)) {
@@ -171,6 +187,13 @@ export class Socket extends CallbackHandler {
         else if (channel) channel._post("packet", { from: myPort, to: this.remotePort, data });
     }
 
+    _ping(data) {
+        // if connected to this window, send directly
+        if (this._otherEnd) this._otherEnd._processPing(data);
+        // otherwise, send via channel
+        else if (channel) channel._post("ping", { from: myPort, to: this.remotePort, data });
+    }
+
     close(code, reason) {
         if (this.readyState !== WebSocket.CLOSED) {
             this.readyState = WebSocket.CLOSED;
@@ -214,6 +237,19 @@ export class Socket extends CallbackHandler {
         this._callback('message', { data });
     }
 
+    // we got a ping, send back pong
+    _processPing(data) {
+        // if connected to this window, send directly
+        if (this._otherEnd) this._otherEnd._processPong(data);
+        // otherwise, send via channel
+        else if (channel) channel._post("pong", { from: myPort, to: this.remotePort, data });
+    }
+
+    // got a pong
+    _processPong(data) {
+        this._callback('pong', data);
+    }
+
     _connectToServerUrl(serverUrl) {
         const port = Number.parseInt(serverUrl.match(/:([0-9]+)/)[1], 10);
         if (port) { this._connectToServerPort(port); return; }
@@ -245,11 +281,16 @@ class Client extends CallbackHandler {
         this._socket.onclose = (...args) => {server.clients.delete(this); this._callback('close', ...args); };
         this._socket.onerror = (...args) => this._callback('error', ...args);
         this._socket.onmessage = ({data}) => this._callback('message', data);
+        this._socket._callbacks['pong'] = arg => this._callback('pong', arg);
         this._socket._connectTo(socket);
     }
 
     send(data) {
         this._socket.send(data);
+    }
+
+    ping(data) {
+        this._socket._ping(data);
     }
 }
 
