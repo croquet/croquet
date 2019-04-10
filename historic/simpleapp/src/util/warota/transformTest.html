@@ -5,7 +5,7 @@
 import {Doc, Event} from './warota.mjs';
 
 window.onload = function () {
-    let sendQueue;
+    let timezone;
     let edit;
 
     let user1 ='010203';
@@ -25,7 +25,7 @@ window.onload = function () {
     }
 
     function doIt(doc, edit) {
-        sendQueue = doc.receiveEditEvents([edit], content, doc);
+        timezone = doc.receiveEditEvents([edit], content, doc);
         let saved = doc.save();
         content.content = saved.content;
     }
@@ -166,8 +166,8 @@ window.onload = function () {
    case7.expected = "Aman is much more than a tool builder.";
 
 
-   //let run = [case1, case2, case3, case4, case5];
-   let run = [case7];
+   let run = [case1, case2, case3, case4, case5, case6, case7];
+   //let run = [case7];
    run.forEach(r => {
      r();
      console.log(r.name + ":", window.doc.doc[0], window.doc.doc[0].text === r.expected);

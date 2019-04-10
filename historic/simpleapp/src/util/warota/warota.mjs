@@ -1,1 +1,1 @@
-doc.js
+warota.js

@@ -305,10 +305,10 @@ export default class EditableTextViewPart extends ViewPart {
     }
 
     onPointerDown(evt) {
+        this.lastPt = evt.at;
         this.publish(KeyboardEvents.requestfocus, {requesterRef: this.id}, KeyboardTopic);
         const pt = this.textPtFromEvt(evt.at);
         this.editor.mouseDown(pt.x, pt.y, pt.realY, userID);
-        this.lastPt = evt.at;
 
         this.draggingPlane.setFromNormalAndCoplanarPoint(this.threeObj.getWorldDirection(new THREE.Vector3()), this.threeObj.position);
         this.publish(TrackPlaneEvents.requestTrackPlane, {requesterRef: this.id, plane: this.draggingPlane}, TrackPlaneTopic, null);
@@ -318,25 +318,24 @@ export default class EditableTextViewPart extends ViewPart {
     }
 
     onPointerDrag(evt) {
-        // if (!this.lastPt) {return false;}
-        // let p = evt.dragEndOnUserPlane;
-        // if (!p) {return false;}
-        // const pt = this.textPtFromEvt(p);
-        // this.editor.mouseMove(pt.x, pt.y, pt.realY);
-        // this.lastPt = pt;
-        // this.changed();
-        // return true;
+        if (!this.lastPt) {return false;}
+        let p = evt.dragEndOnUserPlane;
+        if (!p) {return false;}
+        const pt = this.textPtFromEvt(p);
+        this.editor.mouseMove(pt.x, pt.y, pt.realY, userID);
+        this.lastPt = pt;
+        this.changed();
+        return true;
     }
 
     onPointerUp(_evt) {
-        // const pt = this.lastPt;
-        // this.mouseIsDown = false;
-        // this.editor.mouseUp(pt.x, pt.y, pt.realY);
-        // this.lastPt = null;
+        const pt = this.lastPt;
+        this.editor.mouseUp(pt.x, pt.y, pt.realY, userID);
+        this.lastPt = null;
         // this.publish(TrackPlaneEvents.requestTrackPlane, {requesterRef: this.id, plane: null}, TrackPlaneTopic, null);
 
-        // this.changed();
-        // return true;
+        this.changed();
+        return true;
     }
 
     onKeyDown(cEvt) {

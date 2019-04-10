@@ -380,9 +380,7 @@ export class Doc {
         queue.splice(0, ind);
 
         doc.setSelections(content.selections);
-        thisQueue.forEach(e => {
-            doc.doEvent(e);
-        });
+        thisQueue.forEach(e => doc.doEvent(e));
 
         return content.timezone;
     }
@@ -516,8 +514,8 @@ export class Warota {
                 ctx.fillRect(caretRect.left, caretRect.top, caretRect.width, caretRect.height);
             } else {
                 ctx.fillStyle = 'boxSelection ' + k;
-                let boxRects = this.boxRects(selection);
-                boxRects.forEach(box => {
+                let rects = this.selectionRects(selection);
+                rects.forEach(box => {
                   ctx.fillRect(box.left, box.top, box.width, box.height);
                 });
             }
@@ -646,9 +644,11 @@ export class Warota {
         return {left: rect.left, top: rect.top, width: 5, height: rect.height};
     }
 
-    boxRects(selection) {
+    selectionRects(selection) {
         let [line0, line0Index] = this.findLine(selection.start);
         let [line1, line1Index] = this.findLine(selection.end);
+
+        if (line0 === undefined || line1 === undefined) {return [];}
 
         if (line0Index === line1Index) {
             // one rectangle
@@ -692,15 +692,36 @@ export class Warota {
             };
         } else {
             let index = this.indexFromPosition(x, y);
-            console.log("index:", index);
             this.extendingSelection = null;
             this.selectDragStart = index;
             this.select(userID, index, index, userID);
         }
         this.keyboardX = null;
     }
-    mouseMove(x,y, realY) {}
-    mouseUp(x,y, realY) {}
+
+    mouseMove(x, y, realY, userID) {
+        let last = this.doc.selections[userID] || {start: -1, end: -1};
+        if (this.selectDragStart !== null) {
+            let other = this.indexFromPosition(x, y);
+            let start, end;
+            if (other) {
+                this.focusChar = other;
+                if (this.selectDragStart > other) {
+                    this.extendingSelection = 'top';
+                    start = other;
+                    end = this.selectDragStart;
+                } else {
+                    this.extendingSelection = 'bottom';
+                    start = this.selectDragStart;
+                    end = other;
+                }
+                if (last.start !== start || last.end !== end) {
+                    this.select(userID, start, end, userID);
+                }
+            }
+        }
+    }
+    mouseUp(x,y , realY, userID) {}
 
     backspace(userID) {
         let selection = this.doc.selections[userID] || {start: 0, end: 0};
