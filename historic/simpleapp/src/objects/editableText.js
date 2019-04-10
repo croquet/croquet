@@ -37,7 +37,7 @@ class CarotaEditorView extends ViewPart {
     constructor(model, options) {
         super(model, options);
         this.parts = {
-            main: new (Tracking(EditableTextViewPart))(model, {editable: true})
+            main: new (Tracking(EditableTextViewPart))(model, {doc: model.parts['text'].doc, editable: true})
         };
     }
 }

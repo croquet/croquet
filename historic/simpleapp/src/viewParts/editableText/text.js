@@ -3,7 +3,7 @@ import { TextGeometry, HybridMSDFShader } from 'three-bmfont-text';
 import { rendererVersion } from '../../render.js';
 import { TextEvents } from '../../stateParts/editableText.js';
 import { PointerEvents, makePointerSensitive, TrackPlaneEvents, TrackPlaneTopic } from "../pointer.js";
-import { Warota } from './warota/doc.js';
+import { Warota } from './warota/warota.js';
 import { fontRegistry } from '../../util/fontRegistry.js';
 import { KeyboardEvents, KeyboardTopic } from '../../domKeyboardManager.js';
 import { ViewPart } from '../../modelView.js';
@@ -14,13 +14,12 @@ if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); 
 
 export default class EditableTextViewPart extends ViewPart {
     constructor(model, options) {
-        options = {
-            content: {content: [], selection: {start: 0, end: 0}}, glyphs: [], font: "Roboto", width: 3, height: 2, numLines: 10, drawnRects: [],
-            source: "text", editable: false, showSelection: true, ...options,
-        };
         super(model, options);
-        this.modelSource = model.lookUp(options.source);
-        this.changeInitiatedByView = true;
+        this.doc = options.doc;
+        options = {
+            font: "Roboto", width: 3, height: 2, numLines: 10,
+            editable: false, showSelection: true, ...options,
+        };
         this.options = options;
 
         if (this.options.editable) {
@@ -34,8 +33,6 @@ export default class EditableTextViewPart extends ViewPart {
         }
 
         this.selections = []; // For each rendering, we grab available one, change the color and size.
-        this.barSelections = {}; // {userID: threeobj}
-        this.boxSelections = {}; // {userID: [threeobj]}
 
         fontRegistry.load(this.options.font).then(entry => {
             this.initEditor();
@@ -48,9 +45,7 @@ export default class EditableTextViewPart extends ViewPart {
             makePointerSensitive(boxMesh, this);
         }
 
-        if (model && model.parts.text && model.parts.text.content) {
-            this.options.content = model.parts.text.content;
-            this.subscribe(TextEvents.modelContentChanged, "onContentChanged", model.parts.text.id);
+        if (model && model.parts.text) {
             this.subscribe(TextEvents.sequencedEvents, "onEditEvents", model.parts.text.id);
         }
 
@@ -64,12 +59,11 @@ export default class EditableTextViewPart extends ViewPart {
     }
 
     initEditor() {
-        //Carota.setCachedMeasureText(fontRegistry.measureText.bind(fontRegistry)); // ???
         this.lastPt = false;
-        this.editor = new Warota(this.options.width, this.options.height, this.options.numLines);
+        this.editor = new Warota(this.options.width, this.options.height, this.options.numLines, this.doc);
         this.editor.mockCallback = ctx => {
             const glyphs = this.processMockContext(ctx);
-            this.update({glyphs, corners: this.editor.visibleTextBounds(), scaleX: this.editor.pixelX, scrollTop: this.editor.scrollTop, frameHeight: this.editor.docHeight, drawnRects: ctx.filledRects});
+            this.update(glyphs, this.options.font, this.editor.visibleTextBounds(), this.editor.pixelX, this.editor.scrollTop, this.editor.docHeight, ctx.filledRects);
         };
     }
 
@@ -81,11 +75,9 @@ export default class EditableTextViewPart extends ViewPart {
         return layout.computeGlyphs({font: info, drawnStrings: ctx.drawnStrings, offsetY: baseLine});
     }
 
-    updateMaterial() {
+    updateMaterial(corners) {
         const text = this.text;
-
-        const bounds = this.options.corners;
-        text.material.uniforms.corners.value = new THREE.Vector4(bounds.l, bounds.t, bounds.r, bounds.b);
+        text.material.uniforms.corners.value = new THREE.Vector4(corners.l, corners.t, corners.r, corners.b);
     }
 
     initTextMesh(atlasTexture) {
@@ -112,9 +104,10 @@ export default class EditableTextViewPart extends ViewPart {
         box.add(textMesh);
 
         const callback = () => this.onTextChanged();
-        this.editor.load(this.options.content.content);
-        this.editor.doc.setSelections(this.options.content.selections);
+        //this.editor.load(this.doc.doc);
+        //this.editor.doc.setSelections(this.doc.selections);
         this.initScrollBarMesh();
+        this.editor.layout();
         this.editor.paint();
     }
 
@@ -155,13 +148,12 @@ export default class EditableTextViewPart extends ViewPart {
         this.scrollKnob = plane;
     }
 
-    updateGeometry(geometry) {
-        const font = fontRegistry.getInfo(this.options.font);
-        const meterInPixel = this.options.width / this.options.scaleX;
-        const scrollT = this.options.scrollTop;
+    updateGeometry(geometry, glyphs, fontName, pixelX, scrollTop, docHeight, drawnRects) {
+        const font = fontRegistry.getInfo(fontName);
+        const meterInPixel = this.options.width / pixelX;
+        const scrollT = scrollTop;
         const descent = font.common.lineHeight - font.common.base;
 
-        const docHeight = this.options.frameHeight;
         const docInMeter = docHeight * meterInPixel;
 
         const text = this.text;
@@ -172,9 +164,9 @@ export default class EditableTextViewPart extends ViewPart {
         text.position.y = this.options.height / 2 + (scrollT * docInMeter);
         text.position.z = 0.005;
 
-        geometry.update({font: fontRegistry.getInfo(this.options.font), glyphs: this.options.glyphs});
+        geometry.update({font: fontRegistry.getInfo(fontName), glyphs: glyphs});
 
-        this.updateScrollBarAndSelections(this.options.drawnRects, meterInPixel, docHeight, scrollT, descent);
+        this.updateScrollBarAndSelections(drawnRects, meterInPixel, docHeight, scrollT, descent);
     }
 
     updateScrollBarAndSelections(drawnRects, meterInPixel, docHeight, scrollT, _descent) {
@@ -277,12 +269,11 @@ export default class EditableTextViewPart extends ViewPart {
         material.clippingPlanes = planes;
     }
 
-    update(newOptions) {
-        this.options = Object.assign(this.options, newOptions);
+    update(glyphs, fontName, corners, pixelX, scrollTop, docHeight, drawnRects) {
         const text = this.text;
         if (text && text.geometry) {
-            this.updateMaterial();
-            this.updateGeometry(text.geometry);
+            this.updateMaterial(corners);
+            this.updateGeometry(text.geometry, glyphs, fontName, pixelX, scrollTop, docHeight, drawnRects);
         }
     }
 
@@ -292,24 +283,10 @@ export default class EditableTextViewPart extends ViewPart {
 
         eventList.forEach(e => {
             timezone = Math.max(timezone, e.timezone);
-            this.editor.doEvent(e);
-            this.editor.paint();
         });
+        this.editor.layout();
+        this.editor.paint();
         this.editor.setTimezone(timezone);
-    }
-
-    onContentChanged(newContent) {
-        try {
-            this.changeInitiatedByView = false;
-            this.editor.delayPaint = false;
-            this.editor.load(newContent.content);
-            this.editor.select(newContent.selection.start,
-                               newContent.selection.end);
-            this.editor.paint();
-        } finally {
-            this.changeInitiatedByView = true;
-            this.editor.delayPaint = true;
-        }
     }
 
     onTextChanged() {}

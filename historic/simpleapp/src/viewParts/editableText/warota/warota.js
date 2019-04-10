@@ -380,27 +380,18 @@ export class Doc {
         }
         queue.splice(0, ind);
 
-        // execute events in sendQueue, and then add selections
-
-        doc.setSelections(JSON.parse(JSON.stringify(content.selections)));
+        doc.setSelections(content.selections);
         sendQueue.forEach(e => {
             doc.doEvent(e);
         });
-
-        for (let k in doc.selections) {
-            let sel = doc.selections[k];
-            content.selections[k] = sel;
-        }
-
-        sendQueue.push(Event.selectAll(JSON.parse(JSON.stringify(content.selections)), content.timezone));
 
         return sendQueue;
     }
 }
 
 export class Warota {
-    constructor(width, height, numLines) {
-        this.doc = new Doc();
+    constructor(width, height, numLines, optDoc) {
+        this.doc = optDoc || new Doc();
         this._width = 0;
         this.margins = {left: 0, top: 0, right: 0, bottom: 0};
 
@@ -429,10 +420,6 @@ export class Warota {
         return null;
     }
 
-    setDefault(font, size) {
-        this.doc.setDefault(font, size);
-    }
-
     setTimezone(num) {
         this.timezone = num;
     }
@@ -455,13 +442,6 @@ export class Warota {
 
         this.width(this.pixelX * (1.0 - this.relativeScrollBarWidth));
         this.lineHeight = lineHeight;
-    }
-
-    load(runs) {
-        // runs does not have start and end (a human would not want to add them).
-        // The canonicalize method adds them.  What save() would do is to strip them out.
-        this.doc.load(runs);
-        this.layout();
     }
 
     layout() {
@@ -612,14 +592,7 @@ export class Warota {
     }
 
     doEvent(evt) {
-        if (evt.type === "selectAll") {
-            this.doc.selections = {};
-            for (let k in evt.selections) {
-                this.doc.selections[k] = evt.selections[k];
-            }
-        } else {
-            this.doc.doEvent(evt);
-        }
+        this.doc.doEvent(evt);
         this.layout();
     }
 
@@ -875,10 +848,6 @@ export class Event {
     }
 
     static undoSelect(doc, select) { }
-
-    static selectAll(obj, timezone) {
-        return {type: "selectAll", selections: obj, timezone: timezone};
-    }
 }
 
 
@@ -918,5 +887,4 @@ export class Event {
 // => Model.receive()
 //     Update doc
 //       update selection
-//
 

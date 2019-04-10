@@ -1,7 +1,7 @@
 import { StatePart } from "../modelView.js";
 import { addMessageTranscoder } from "../island.js";
 
-import { Doc } from "../viewParts/editableText/warota/doc.js";
+import { Doc } from "../viewParts/editableText/warota/warota.js";
 
 addMessageTranscoder('*', { encode: a => a, decode: a => a });
 
@@ -10,7 +10,6 @@ if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); 
 
 export const TextEvents = {
     viewContentChanged: 'text-viewContentChanged',
-    modelContentChanged: 'text-modelContentChanged',
     sequencedEvents: 'text-sequencedEvents',
 };
 
