@@ -288,13 +288,14 @@ export default class EditableTextViewPart extends ViewPart {
 
     onEditEvents(eventList) {
         let timezone = -1;
+        console.log('process:', eventList);
+
         eventList.forEach(e => {
             timezone = Math.max(timezone, e.timezone);
             this.editor.doEvent(e);
             this.editor.paint();
         });
         this.editor.setTimezone(timezone);
-        if (window.model.content.content[0].text !== this.editor.doc.doc[0].text) {debugger;}
     }
 
     onContentChanged(newContent) {

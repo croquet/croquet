@@ -280,6 +280,7 @@ export class Doc {
         // - The list is a part of the saved model. It will be saved with the string content.
         // Things are all destructively updated in content,
         // and somewhat arbitrarily returns sendQueue
+        console.log('received:', events.length, events[0].timezone, events[0], JSON.parse(JSON.stringify(content.selections)), content.selections);
         content.timezone++;
         let CUTOFF = 60;
         let queue = content.queue;
@@ -386,7 +387,7 @@ export class Doc {
             content.selections[k] = sel;
         }
 
-        sendQueue.push(Event.selectAll(content.selections));
+        sendQueue.push(Event.selectAll(JSON.parse(JSON.stringify(content.selections)), content.timezone));
 
         return sendQueue;
     }
@@ -581,7 +582,7 @@ export class Warota {
         }
 
         let [line, lineIndex] = this.findLine(pos, x, y);
-        if (!line) {debugger;}
+        if (!line) {return null;}
 
         let wordIndex = line.findIndex(w => w.start <= pos && pos < w.end);
         if (wordIndex < 0) {
@@ -619,6 +620,7 @@ export class Warota {
 
     positionFromIndex(pos) {
         let word = this.findWord(pos);
+        if (!word) {return {left: 0, top: 0, width: 0, height: 0};}
 
         let lp = pos - word.start;
         if (lp === 0) {
@@ -633,6 +635,7 @@ export class Warota {
 
     indexFromPosition(x, y) {
         let word = this.findWord(null, x, y);
+        if (!word) {return 0;}
         let last = 0;
         let lx = x - word.left;
         for (let i = 0; i <= word.text.length; i++) {
@@ -868,8 +871,8 @@ export class Event {
 
     static undoSelect(doc, select) { }
 
-    static selectAll(obj) {
-        return {type: "selectAll", selections: obj};
+    static selectAll(obj, timezone) {
+        return {type: "selectAll", selections: obj, timezone: timezone};
     }
 }
 

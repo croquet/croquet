@@ -133,8 +133,26 @@ window.onload = function () {
 
    case5.expected = "mBAn is much more than a tool builder.";
 
+   function case6() {
+        resetContent();
 
-   let run = [case1, case2, case3, case4, case5];
+        edit = Event.select(user1, 1, 1, user1, content.timezone);
+        doIt(doc, edit);
+
+        content.timezone++;
+
+        edit = Event.insert(user1, [{text: 'A'}], content.timezone);
+        doIt(doc, edit);
+
+        edit = Event.insert(user1, [{text: 'B'}], content.timezone);
+        doIt(doc, edit);
+   }
+
+   case6.expected = "mBAn is much more than a tool builder.";
+
+
+   //let run = [case1, case2, case3, case4, case5];
+   let run = [case6];
    run.forEach(r => {
      r();
      console.log(r.name + ":", window.doc.doc[0], window.doc.doc[0].text === r.expected);
