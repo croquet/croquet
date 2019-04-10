@@ -6,7 +6,7 @@
   "scripts": {
     "start": "parcel 2d.html -p 9009",
     "deploy": "./deploy.sh",
-    "lint": "eslint",
+    "lint": "eslint .",
     "docs": "jsdoc . -r -d docs"
   },
   "author": "",
@@ -23,9 +23,18 @@
     ]
   },
   "alias": {
-    "reflector": "../reflector/index.js",
-    "ws": "./../../arcos/simpleapp/src/server/ws.js"
+    "teatime": "../teatime/index.js"
   },
+  "eslintConfig": {
+    "settings": {
+      "import/resolver": {
+        "alias": [
+          ["teatime", "../teatime/index.js"]
+        ]
+      }
+    }
+  },
+  "eslintIgnore": [ "dist/" ],
   "dependencies": {
     "broadcast-channel": "^2.1.10",
     "fastpriorityqueue": "^0.6.1",
@@ -35,6 +44,7 @@
   "devDependencies": {
     "eslint": "^5.14.1",
     "eslint-config-airbnb-base": "^13.1.0",
+    "eslint-import-resolver-alias": "^1.1.2",
     "eslint-plugin-import": "^2.16.0",
     "jsdoc": "git+https://github.com/jsdoc3/jsdoc.git",
     "parcel": "git+https://github.com/bertfreudenberg/parcel-bundler.git"
