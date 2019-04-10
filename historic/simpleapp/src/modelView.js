@@ -233,7 +233,24 @@ class ModelRealm {
     }
 
     futureProxy(tOffset, part) {
-        return this.island.futureProxy(tOffset, part);
+        if (__currentRealm && __currentRealm.equal(this.realm)) {
+            return this.island.futureProxy(tOffset, part);
+        }
+        if (tOffset) throw new Error("tOffset not supported from cross-realm future send yet.");
+        const island = this.island;
+        return new Proxy(part, {
+            get(_target, property) {
+                if (typeof part[property] === "function") {
+                    const methodProxy = new Proxy(part[property], {
+                        apply(_method, _this, args) {
+                            island.callModelMethod(part.id, null, property, args);
+                        }
+                    });
+                    return methodProxy;
+                }
+                throw Error("Tried to call " + property + "() on future of " + Object.getPrototypeOf(part).constructor.name + " which is not a function");
+            }
+        });
     }
 
     callModelMethod(modelId, partPath, methodName, args) {
