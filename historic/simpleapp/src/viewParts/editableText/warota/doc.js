@@ -53,13 +53,17 @@ export class Doc {
             && (prev.emphasis === next.emphasis);
     }
 
+    copyRun(run) {
+        return Object.assign({}, run);
+    }
+
     canonicalize(runs) {
         let result = [];
-        let lastRun = runs[0];
+        let lastRun = this.copyRun(runs[0]);
         let start = 0;
         let end = 0;
         let i = 1;
-        let run = runs[i];
+        let run = this.copyRun(runs[i]);
         while (run) {
             if (this.equalStyle(lastRun.style, run.style)) {
                 lastRun.text += run.text;
@@ -73,7 +77,7 @@ export class Doc {
                 lastRun = run;
             }
             i++;
-            run = runs[i];
+            run = this.copyRun(runs[i]);
         }
         lastRun.start = start;
         end = start + lastRun.text.length;
@@ -280,7 +284,7 @@ export class Doc {
         // - The list is a part of the saved model. It will be saved with the string content.
         // Things are all destructively updated in content,
         // and somewhat arbitrarily returns sendQueue
-        console.log('received:', events.length, events[0].timezone, events[0], JSON.parse(JSON.stringify(content.selections)), content.selections);
+        //console.log('received:', events.length, events[0].timezone, events[0], JSON.parse(JSON.stringify(content.selections)), content.selections);
         content.timezone++;
         let CUTOFF = 60;
         let queue = content.queue;

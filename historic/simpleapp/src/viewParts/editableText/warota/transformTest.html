@@ -148,11 +148,26 @@ window.onload = function () {
         doIt(doc, edit);
    }
 
-   case6.expected = "mBAn is much more than a tool builder.";
+   case6.expected = "mABn is much more than a tool builder.";
+
+   function case7() {
+        resetContent();
+
+        edit = Event.select(user1, 0, 0, user1, content.timezone);
+        doIt(doc, edit);
+
+        content.timezone++;
+
+        edit = Event.insert(user1, [{text: 'A'}], content.timezone);
+        doIt(doc, edit);
+
+   }
+
+   case7.expected = "Aman is much more than a tool builder.";
 
 
    //let run = [case1, case2, case3, case4, case5];
-   let run = [case6];
+   let run = [case7];
    run.forEach(r => {
      r();
      console.log(r.name + ":", window.doc.doc[0], window.doc.doc[0].text === r.expected);

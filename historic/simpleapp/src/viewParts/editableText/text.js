@@ -288,7 +288,7 @@ export default class EditableTextViewPart extends ViewPart {
 
     onEditEvents(eventList) {
         let timezone = -1;
-        console.log('process:', eventList);
+        //console.log('process:', eventList);
 
         eventList.forEach(e => {
             timezone = Math.max(timezone, e.timezone);
