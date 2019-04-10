@@ -10,7 +10,6 @@ const TOUCH ='ontouchstart' in document.documentElement;
 
 let SCALE = 1;                  // model uses a virtual 1000x1000 space
 
-Controller.addMessageTranscoder('*', { encode: a => a, decode: a => a });
 
 export class Root extends Model {
 
@@ -61,6 +60,7 @@ export class Shape extends Model {
         this.pos[1] = Math.max(0, Math.min(1000, y));
         this.publish('pos-changed', this.pos);
     }
+
 }
 
 
@@ -109,6 +109,7 @@ export class BouncingShape extends Shape {
             ];
         }
     }
+
 }
 
 
@@ -205,6 +206,7 @@ class ShapeView extends View {
 
 
 async function go() {
+    Controller.addMessageTranscoder('*', { encode: a => a, decode: a => a });
     const reflector = window.location.hostname === 'localhost'
         ? "ws://localhost:9090/"
         : "wss://dev1.os.vision/reflector-v1";
@@ -213,7 +215,8 @@ async function go() {
     const controller = new Controller();
     let rootView = null;
 
-    async function setup(snapshot) {
+    async function bootstrapModelsAndViews(snapshot) {
+        // create models on named island
         const models = await controller.createIsland("2d", {
             moduleID: module.id,
             snapshot,
@@ -228,18 +231,20 @@ async function go() {
             destroyerFn(prevSnapshot) {
                 window.top.postMessage({connected: -1}, "*");
                 if (rootView) rootView.detach();
-                setup(prevSnapshot);
+                bootstrapModelsAndViews(prevSnapshot);
             }
         });
 
+        // create views
         controller.inViewRealm(() => {
             rootView = new RootView(models.root);
         });
 
+        // tell many.html
         window.top.postMessage({connected: +1}, "*");
     }
 
-    await setup();
+    await bootstrapModelsAndViews();
 
     let users = 0;
 
