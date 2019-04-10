@@ -240,25 +240,53 @@ export default class Island {
         return true;
     }
 
-    addModelSubscription(scope, event, subscriberId, methodName) {
+    addModelSubscription(scope, event, subscriberId, methodNameOrCallback) {
         if (CurrentIsland !== this) throw Error("Island Error");
         const topic = scope + ":" + event;
-        const handler = subscriberId + "." + methodName;
+        let handler;
+        if (typeof methodNameOrCallback === "string") {
+            handler = (...args) => {
+                this.lookUpModel(subscriberId)[methodNameOrCallback](...args);
+            };
+            handler.for = subscriberId + "." + methodNameOrCallback;
+        } else {
+            handler = methodNameOrCallback;
+            handler.for = subscriberId;
+        }
         if (!this.modelSubscriptions[topic]) this.modelSubscriptions[topic] = new Set();
         this.modelSubscriptions[topic].add(handler);
     }
 
-    removeModelSubscription(scope, event, subscriberId, methodName) {
+    removeModelSubscription(scope, event, subscriberId, methodNameOrCallback) {
         if (CurrentIsland !== this) throw Error("Island Error");
         const topic = scope + ":" + event;
-        const handler = subscriberId + "." + methodName;
-        if (this.modelSubscriptions[topic]) this.modelSubscriptions[topic].remove(handler);
+
+        if (this.modelSubscriptions[topic]) {
+            let handlerToRemove;
+            if (typeof methodNameOrCallback === "string") {
+                handlerToRemove = [...this.modelSubscriptions[topic]].find(
+                    handler => handler.for === subscriberId + "." + methodNameOrCallback
+                );
+            } else {
+                handlerToRemove = methodNameOrCallback;
+            }
+            this.modelSubscriptions[topic].remove(handlerToRemove);
+        }
     }
 
-    addViewSubscription(scope, event, subscriberId, methodName, oncePerFrame) {
+    addViewSubscription(scope, event, subscriberId, methodNameOrCallback, oncePerFrame) {
         if (CurrentIsland) throw Error("Island Error");
         const topic = scope + ":" + event;
-        const handler = subscriberId + "." + methodName;
+        let handler;
+        if (typeof methodNameOrCallback === "string") {
+            handler = (...args) => {
+                this.viewsById[subscriberId][methodNameOrCallback](...args);
+            };
+            handler.for = subscriberId + "." + methodNameOrCallback;
+        } else {
+            handler = methodNameOrCallback;
+            handler.for = subscriberId;
+        }
         let subs = this.viewSubscriptions[topic];
         if (!subs) subs = this.viewSubscriptions[topic] = {
             data: [],
@@ -269,14 +297,24 @@ export default class Island {
         else subs.queueHandlers.add(handler);
     }
 
-    removeViewSubscription(scope, event, subscriberId, methodName) {
+    removeViewSubscription(scope, event, subscriberId, methodNameOrCallback) {
         if (CurrentIsland) throw Error("Island Error");
         const topic = scope + ":" + event;
-        const handler = subscriberId + "." + methodName;
         const subs = this.viewSubscriptions[topic];
+        let handlerToRemove;
         if (subs) {
-            subs.onceHandlers.delete(handler);
-            subs.queueHandlers.delete(handler);
+            if (typeof methodNameOrCallback === "string") {
+                handlerToRemove = [...subs.onceHandlers].find(
+                    handler => handler.for === subscriberId + "." + methodNameOrCallback
+                );
+                handlerToRemove = handlerToRemove || [...subs.queueHandlers].find(
+                    handler => handler.for === subscriberId + "." + methodNameOrCallback
+                );
+            } else {
+                handlerToRemove = methodNameOrCallback;
+            }
+            subs.onceHandlers.delete(handlerToRemove);
+            subs.queueHandlers.delete(handlerToRemove);
             if (subs.onceHandlers.size + subs.queueHandlers.size === 0) {
                 delete this.viewSubscriptions[topic];
             }
@@ -284,12 +322,12 @@ export default class Island {
     }
 
     removeAllViewSubscriptionsFor(subscriberId) {
-        const handlerPrefix = `${subscriberId}.`;
+        const handlerPrefix = `${subscriberId}`;
         // TODO: optimize this - reverse lookup table?
         for (const [topic, subs] of Object.entries(this.viewSubscriptions)) {
             for (const kind of ["onceHandlers", "queueHandlers"]) {
                 for (const handler of subs[kind]) {
-                    if (handler.startsWith(handlerPrefix)) {
+                    if (handler.for.startsWith(handlerPrefix)) {
                         delete subs[handler];
                     }
                 }
@@ -305,8 +343,7 @@ export default class Island {
         const topic = scope + ":" + event;
         if (this.modelSubscriptions[topic]) {
             for (const handler of this.modelSubscriptions[topic]) {
-                const [subscriberId, selector] = handler.split(".");
-                this.futureSend(0, subscriberId, selector, data ? [data] : []);
+                handler(data);
             }
         }
         // To ensure model code is executed bit-identically everywhere, we have to notify views
@@ -345,16 +382,12 @@ export default class Island {
         inViewRealm(this, () => {
             const subscriptions = this.viewSubscriptions[topic];
             if (subscriptions) {
-                for (const subscriber of subscriptions.queueHandlers) {
-                    const [subscriberId, method] = subscriber.split(".");
-                    const view = this.viewsById[subscriberId];
-                    for (const data of dataArray) view[method](data);
+                for (const handler of subscriptions.queueHandlers) {
+                    for (const data of dataArray) handler(data);
                 }
                 const data = dataArray[dataArray.length - 1];
-                for (const subscriber of subscriptions.onceHandlers) {
-                    const [subscriberId, method] = subscriber.split(".");
-                    const view = this.viewsById[subscriberId];
-                    view[method](data);
+                for (const handler of subscriptions.onceHandlers) {
+                    handler(data);
                 }
             }
         });
