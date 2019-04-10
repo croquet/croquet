@@ -233,7 +233,8 @@ class ModelRealm {
     }
 
     futureProxy(tOffset, part) {
-        if (__currentRealm && __currentRealm.equal(this.realm)) {
+
+        if (__currentRealm && __currentRealm.equal(this)) {
             return this.island.futureProxy(tOffset, part);
         }
         if (tOffset) throw new Error("tOffset not supported from cross-realm future send yet.");
