@@ -157,6 +157,7 @@ class ShapeView extends View {
 
     constructor(model) {
         super(model);
+        const sendViaReflector = model.future();
         const el = this.element = document.createElement("div");
         el.className = model.type;
         el.style.backgroundColor = model.color;
@@ -169,7 +170,7 @@ class ShapeView extends View {
                 const dx = evt.touches[0].clientX - x;
                 const dy = evt.touches[0].clientY - y;
                 if (evt.timeStamp - timeStamp > THROTTLE) {
-                    this.modelPart().moveBy(dx / SCALE, dy / SCALE);
+                    sendViaReflector.moveBy(dx / SCALE, dy / SCALE);
                     x += dx;
                     y += dy;
                     timeStamp = evt.timeStamp;
@@ -184,14 +185,14 @@ class ShapeView extends View {
                 dx += evt.movementX;
                 dy += evt.movementY;
                 if (evt.timeStamp - timeStamp > THROTTLE) {
-                    this.modelPart().moveBy(dx / SCALE, dy / SCALE);
+                    sendViaReflector.moveBy(dx / SCALE, dy / SCALE);
                     dx = dy = 0;
                     timeStamp = evt.timeStamp;
                 }
             };
             document.onmouseup = () => document.onmousemove = null;
         };
-        this.subscribe('pos-changed', 'move', this.modelId, true);
+        this.subscribe('pos-changed', 'move', model.id, true);
         this.move(model.pos);
     }
 
