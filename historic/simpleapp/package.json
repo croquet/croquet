@@ -23,7 +23,7 @@
     ]
   },
   "alias": {
-    "reflector": "/../../../croquet/reflector/index.js",
+    "reflector": "./../../croquet/reflector/index.js",
     "ws": "./src/server/ws.js"
   },
   "dependencies": {

@@ -4,7 +4,7 @@
   "description": "",
   "main": "2d.js",
   "scripts": {
-    "start": "parcel 2d.html -p 9009 --host 0.0.0.0",
+    "start": "parcel 2d.html -p 9009",
     "deploy": "./deploy.sh",
     "lint": "eslint",
     "docs": "jsdoc . -r -d docs"
@@ -23,8 +23,8 @@
     ]
   },
   "alias": {
-    "reflector": "/../reflector/index.js",
-    "ws": "./server/ws.js"
+    "reflector": "../reflector/index.js",
+    "ws": "./../../arcos/simpleapp/src/server/ws.js"
   },
   "dependencies": {
     "broadcast-channel": "^2.1.10",

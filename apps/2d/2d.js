@@ -1,7 +1,7 @@
-import Island, { connectToReflector, Controller, addMessageTranscoder } from "./island.js";
-import { StatePart, ViewPart, currentRealm, inViewRealm } from "./modelView.js";
-import Stats from "./util/stats.js";
-import urlOptions from "./util/urlOptions.js";
+import Island, { connectToReflector, Controller, addMessageTranscoder } from "../../arcos/simpleapp/src/island.js";
+import { StatePart, ViewPart, currentRealm, inViewRealm } from "../../arcos/simpleapp/src/modelView.js";
+import Stats from "../../arcos/simpleapp/src/util/stats.js";
+import urlOptions from "../../arcos/simpleapp/src/util/urlOptions.js";
 
 const THROTTLE = 1000 / 20;     // mouse event throttling
 const STEP_MS = 1000 / 20;      // bouncing ball step time in ms
