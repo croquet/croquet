@@ -117,8 +117,8 @@ export default function WithManipulator(BaseViewPart, manipulatorOptions={}) {
             const target = manipulatorOptions.target || (options.model && options.model.parts.spatial);
             this.parts = {
                 inner: new BaseViewPart(options),
-                translationManipulator: new (Tracking(TranslationManipulator, {scale: false, rotation: false, source: target}))({target}),
-                RotationManipulator: new (Tracking(RotationManipulator, {scale: false, source: target}))({target}),
+                translationManipulator: new (Tracking({scale: false, rotation: false, source: target})(TranslationManipulator))({target}),
+                rotationManipulator: new (Tracking({scale: false, source: target})(RotationManipulator))({target}),
             };
         }
     };

@@ -3,10 +3,10 @@ import { SpatialEvents } from '../stateParts/spatial.js';
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
 
-export default function Tracking(BaseViewPart, trackingOptions={}) {
+export default function Tracking(trackingOptions={}) {
     trackingOptions = {position: true, rotation: true, scale: true, ...trackingOptions};
 
-    return class TrackingViewPart extends BaseViewPart {
+    return BaseViewPart => class TrackingViewPart extends BaseViewPart {
         constructor(options) {
             super(options);
 
@@ -40,6 +40,6 @@ export default function Tracking(BaseViewPart, trackingOptions={}) {
     };
 }
 
-export function Facing(BaseViewPart, trackingOptions) {
-    return Tracking(BaseViewPart, {...trackingOptions, position: false, scale: false});
+export function Facing(trackingOptions) {
+    return BaseViewPart => Tracking({...trackingOptions, position: false, scale: false})(BaseViewPart);
 }

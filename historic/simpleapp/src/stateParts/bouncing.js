@@ -8,8 +8,8 @@ if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle
 /** A spatial model with inertia, gravity, and bouncing
  * @arg {typeof import('./spatial.js').default} BaseSpatialPartClass
 */
-export default function Bouncing(BaseSpatialPartClass) {
-    return class BouncingSpatialPart extends Inertial(BaseSpatialPartClass) {
+export default function Bouncing() {
+    return BaseSpatialPartClass => class BouncingSpatialPart extends Inertial()(BaseSpatialPartClass) {
         /** @param {SpatialPart} spatialPart */
         applyState(state={}) {
             super.applyState(state);

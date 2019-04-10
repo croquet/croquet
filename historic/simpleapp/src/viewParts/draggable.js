@@ -6,14 +6,14 @@ if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); 
 /** @typedef {import("../modelView.js").StatePart} StatePart */
 /** @typedef {import("../parts.js").PartPath} PartPath */
 
-export default function Draggable(BaseViewPart, dragOptions) {
+export default function Draggable(dragOptions={}) {
     dragOptions = {
         dragHandle: "",
         dragVertically: true,
         ...dragOptions
     };
 
-    return class DraggableViewPart extends BaseViewPart {
+    return BaseViewPart => class DraggableViewPart extends BaseViewPart {
         /**
          * @arg {Object} options
          * @arg {PartPath | null} options.dragHandle - an optional path to a subpart of the inner ViewPart to use as the drag handle - otherwise uses the whole inner part

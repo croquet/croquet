@@ -28,7 +28,7 @@ class CarotaTextView extends ViewPart {
     constructor(options) {
         super(options);
         this.parts = {
-            main: new (Tracking(EditableTextViewPart))({source: options.model.parts.text, options})
+            main: new (Tracking()(EditableTextViewPart))({source: options.model.parts.text, options})
         };
     }
 }
@@ -37,7 +37,7 @@ class CarotaEditorView extends ViewPart {
     constructor(options) {
         super(options);
         this.parts = {
-            main: new (Tracking(EditableTextViewPart))({editable: true, source: options.model.parts.text, ...options})
+            main: new (Tracking()(EditableTextViewPart))({editable: true, source: options.model.parts.text, ...options})
         };
     }
 }

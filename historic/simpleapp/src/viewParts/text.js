@@ -132,8 +132,8 @@ export default class TextViewPart extends ViewPart {
     }
 }
 
-export function TextTracking(BaseTextViewPart, textTrackingOptions={}) {
-    return class TrackingTextViewPart extends BaseTextViewPart {
+export function TextTracking(textTrackingOptions={}) {
+    return BaseTextViewPart => class TrackingTextViewPart extends BaseTextViewPart {
         constructor(options) {
             super(options);
             const textModel = textTrackingOptions.source || (options.model && options.model.parts.text);
