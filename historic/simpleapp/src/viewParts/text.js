@@ -1,11 +1,11 @@
-import * as THREE from 'three';
-import { TextGeometry, HybridMSDFShader } from 'three-bmfont-text';
-import LineBreaker from 'linebreak';
-import { rendererVersion } from '../render.js';
-import LazyObject3D from "../util/lazyObject3D.js";
-import { ViewPart } from '../modelView.js';
-import { TextEvents } from '../stateParts/text.js';
-import { fontRegistry } from '../util/fontRegistry.js';
+import * as THREE from "three";
+import { TextGeometry, HybridMSDFShader } from "three-bmfont-text";
+import LineBreaker from "linebreak";
+import { rendererVersion } from "../render";
+import LazyObject3D from "../util/lazyObject3D";
+import { ViewPart } from "../modelView";
+import { TextEvents } from "../stateParts/text";
+import { fontRegistry } from "../util/fontRegistry";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }

@@ -1,6 +1,6 @@
-import * as THREE from 'three';
-import Inertial from './inertial.js';
-import { currentRealm } from '../modelView.js';
+import * as THREE from "three";
+import Inertial from "./inertial";
+import { currentRealm } from "../modelView";
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }

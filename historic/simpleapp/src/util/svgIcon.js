@@ -1,7 +1,7 @@
-import * as THREE from 'three';
+import * as THREE from "three";
 import 'array-flat-polyfill';
-import SVGLoader from 'three-svg-loader';
-import LazyObject3D from "./lazyObject3D.js";
+import SVGLoader from "three-svg-loader";
+import LazyObject3D from "./lazyObject3D";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }

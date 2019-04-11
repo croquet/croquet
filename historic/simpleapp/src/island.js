@@ -1,11 +1,11 @@
 import SeedRandom from "seedrandom";
-import PriorityQueue from "./util/priorityQueue.js";
-import AsyncQueue from './util/asyncQueue.js';
-import hotreload from "./hotreload.js";
-import { hashModelCode, baseUrl } from "./modules.js";
-import { inModelRealm, StatePart, inViewRealm } from "./modelView.js";
-import Stats from "./util/stats.js";
-import { PATH_PART_SEPARATOR_SPLIT_REGEXP } from "./parts.js";
+import PriorityQueue from "./util/priorityQueue";
+import AsyncQueue from "./util/asyncQueue";
+import hotreload from "./hotreload";
+import { hashModelCode, baseUrl } from "./modules";
+import { inModelRealm, StatePart, inViewRealm } from "./modelView";
+import Stats from "./util/stats";
+import { PATH_PART_SEPARATOR_SPLIT_REGEXP } from "./parts";
 
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;

@@ -1,16 +1,16 @@
-import * as THREE from 'three';
+import * as THREE from "three";
 import SeedRandom from "seedrandom";
-import Island from "../island.js";
-import {StatePart, ViewPart} from '../modelView.js';
-import Room from "../room/roomModel.js";
-import ChildrenPart, { ChildEvents } from '../stateParts/children.js';
-import SpatialPart from '../stateParts/spatial.js';
-import Bouncing from '../stateParts/bouncing.js';
-import Tracking from '../viewParts/tracking.js';
-import Clickable from '../viewParts/clickable.js';
-import Draggable from '../viewParts/draggable.js';
-import { TextObject } from '../objects/text.js';
-import urlOptions from '../util/urlOptions.js';
+import Island from "../island";
+import {StatePart, ViewPart} from "../modelView";
+import Room from "../room/roomModel";
+import ChildrenPart, { ChildEvents } from "../stateParts/children";
+import SpatialPart from "../stateParts/spatial";
+import Bouncing from "../stateParts/bouncing";
+import Tracking from "../viewParts/tracking";
+import Clickable from "../viewParts/clickable";
+import Draggable from "../viewParts/draggable";
+import { TextObject } from "../objects/text";
+import urlOptions from "../util/urlOptions";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }

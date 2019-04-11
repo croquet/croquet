@@ -1,5 +1,5 @@
-import { ViewPart } from '../modelView.js';
-import { KeyboardEvents, KeyboardTopic, theKeyboardManager } from '../domKeyboardManager.js';
+import { ViewPart } from "../modelView";
+import { KeyboardEvents, KeyboardTopic, theKeyboardManager } from "../domKeyboardManager";
 
 export class KeyboardViewPart extends ViewPart {
     constructor(model, options) {

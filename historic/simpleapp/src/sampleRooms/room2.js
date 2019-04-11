@@ -1,7 +1,7 @@
-import * as THREE from 'three';
-import Island from "../island.js";
-import Room from "../room/roomModel.js";
-import Portal from "../portal/portalModel.js";
+import * as THREE from "three";
+import Island from "../island";
+import Room from "../room/roomModel";
+import Portal from "../portal/portalModel";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }

@@ -1,8 +1,8 @@
 import * as THREE from "three";
-import { ViewPart } from "../modelView.js";
-import { LayoutRoot, LayoutStack, LayoutSlotStretch3D, LayoutSlotText } from "./layout.js";
-import TextViewPart from "./text.js";
-import { makePointerSensitive, PointerEvents } from "./pointer.js";
+import { ViewPart } from "../modelView";
+import { LayoutRoot, LayoutStack, LayoutSlotStretch3D, LayoutSlotText } from "./layout";
+import TextViewPart from "./text";
+import { makePointerSensitive, PointerEvents } from "./pointer";
 
 export class EntryBackgroundPlane extends ViewPart {
     constructor(options) {

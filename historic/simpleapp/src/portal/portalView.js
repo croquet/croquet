@@ -1,8 +1,8 @@
-import * as THREE from 'three';
-import { SpatialEvents } from '../stateParts/spatial.js';
-import { ViewPart } from '../modelView.js';
-import PortalPart from './portalModel.js';
-import { RENDER_LAYERS } from '../render.js';
+import * as THREE from "three";
+import { SpatialEvents } from "../stateParts/spatial";
+import { ViewPart } from "../modelView";
+import PortalPart from "./portalModel";
+import { RENDER_LAYERS } from "../render";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }

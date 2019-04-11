@@ -1,6 +1,6 @@
 import { Model, View, Controller } from "../teatime";
-import Stats from "../../arcos/simpleapp/src/util/stats.js";
-import urlOptions from "../../arcos/simpleapp/src/util/urlOptions.js";
+import Stats from "../../arcos/simpleapp/src/util/stats";
+import urlOptions from "../../arcos/simpleapp/src/util/urlOptions";
 
 const THROTTLE = 1000 / 20;     // mouse event throttling
 const STEP_MS = 1000 / 20;      // bouncing ball step time in ms
