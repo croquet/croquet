@@ -275,6 +275,44 @@ export default class Island {
         }
     }
 
+
+    removeAllSubscriptionsFor(subscriberId) {
+        const topicPrefix = `${subscriberId}:`;
+        const handlerPrefix = `${subscriberId}.`;
+        // TODO: optimize this - reverse lookup table?
+        for (const [topic, subs] of Object.entries(this.modelSubscriptions)) {
+            if (topic.startsWith(topicPrefix)) delete this.modelSubscriptions[topic];
+            else {
+                for (const handler of subs) {
+                    if (handler.for === subscriberId || handler.for.startsWith(handlerPrefix)) {
+                        subs.delete(handler);
+                    }
+                }
+                if (subs.size === 0) delete this.modelSubscriptions[topic];
+            }
+        }
+        // TODO: optimize this - reverse lookup table?
+        for (const [topic, subs] of Object.entries(this.viewSubscriptions)) {
+            if (topic.startsWith(topicPrefix)) delete this.viewSubscriptions[topic];
+            else {
+                for (const kind of ["onceHandlers", "queueHandlers"]) {
+                    for (const handler of subs[kind]) {
+                        if (handler.for === subscriberId || handler.for.startsWith(handlerPrefix)) {
+                            subs.delete(handler);
+                        }
+                    }
+                }
+                if (subs.onceHandlers.size + subs.queueHandlers.size === 0) {
+                    delete this.viewSubscriptions[topic];
+                }
+            }
+        }
+    }
+
+    removeAllModelSubscriptionsFor(subscriberId) {
+        this.removeAllSubscriptionsFor(subscriberId);
+    }
+
     addViewSubscription(scope, event, subscriberId, methodNameOrCallback, oncePerFrame) {
         if (CurrentIsland) throw Error("Island Error");
         const topic = scope + ":" + event;
@@ -323,20 +361,7 @@ export default class Island {
     }
 
     removeAllViewSubscriptionsFor(subscriberId) {
-        const handlerPrefix = `${subscriberId}`;
-        // TODO: optimize this - reverse lookup table?
-        for (const [topic, subs] of Object.entries(this.viewSubscriptions)) {
-            for (const kind of ["onceHandlers", "queueHandlers"]) {
-                for (const handler of subs[kind]) {
-                    if (handler.for.startsWith(handlerPrefix)) {
-                        delete subs[handler];
-                    }
-                }
-            }
-            if (subs.onceHandlers.size + subs.queueHandlers.size === 0) {
-                delete this.viewSubscriptions[topic];
-            }
-        }
+        this.removeAllSubscriptionsFor(subscriberId);
     }
 
     publishFromModel(scope, event, data) {
