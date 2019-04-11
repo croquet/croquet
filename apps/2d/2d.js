@@ -26,7 +26,7 @@ export class Root extends Model {
 
     add(child) {
         this.children.push(child);
-        this.publish('child-added', child.id);
+        this.publish('child-added', child);
     }
 
 }
@@ -39,8 +39,8 @@ export class Shape extends Model {
         this.type = state.type || 'circle';
         this.color = state.color || `hsla(${r(360)},${r(50)+50}%,50%,0.5)`;
         this.pos = state.pos || [r(1000), r(1000)];
-        this.subscribe("move-to", "moveTo", this.id);
-        this.subscribe("move-by", "moveBy", this.id);
+        this.subscribe("move-to", pos => this.moveTo(...pos), this.id);
+        this.subscribe("move-by", delta => this.moveBy(...delta), this.id);
     }
 
     toState(state) {
@@ -126,7 +126,7 @@ class RootView extends View {
         document.body.appendChild(this.element);
         window.onresize = () => this.resize();
         model.children.forEach(child => this.attachChild(child));
-        this.subscribe('child-added', 'attachChild', this.modelId);
+        this.subscribe('child-added', child => this.attachChild(child), this.modelId);
     }
 
     detach() {
