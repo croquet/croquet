@@ -26,7 +26,7 @@ export class Root extends Model {
 
     add(child) {
         this.children.push(child);
-        this.publish('child-added', child);
+        this.publish(this.id, 'child-added', child);
     }
 
 }
@@ -39,8 +39,8 @@ export class Shape extends Model {
         this.type = state.type || 'circle';
         this.color = state.color || `hsla(${r(360)},${r(50)+50}%,50%,0.5)`;
         this.pos = state.pos || [r(1000), r(1000)];
-        this.subscribe("move-to", pos => this.moveTo(...pos));
-        this.subscribe("move-by", delta => this.moveBy(...delta));
+        this.subscribe(this.id, "move-to", pos => this.moveTo(...pos));
+        this.subscribe(this.id, "move-by", delta => this.moveBy(...delta));
     }
 
     toState(state) {
@@ -60,7 +60,7 @@ export class Shape extends Model {
     moveTo(x, y) {
         this.pos[0] = Math.max(0, Math.min(1000, x));
         this.pos[1] = Math.max(0, Math.min(1000, y));
-        this.publish('pos-changed', this.pos);
+        this.publish(this.id, 'pos-changed', this.pos);
     }
 
 }
@@ -126,8 +126,7 @@ class RootView extends View {
         document.body.appendChild(this.element);
         window.onresize = () => this.resize();
         model.children.forEach(child => this.attachChild(child));
-        this.defaultScope = this.modelId;
-        this.subscribe('child-added', child => this.attachChild(child));
+        this.subscribe(model.id, 'child-added', child => this.attachChild(child));
     }
 
     detach() {
@@ -160,7 +159,6 @@ class ShapeView extends View {
 
     constructor(model) {
         super(model);
-        this.defaultScope = model.id;
         const el = this.element = document.createElement("div");
         el.className = model.type;
         el.style.backgroundColor = model.color;
@@ -173,7 +171,7 @@ class ShapeView extends View {
                 const dx = evt.touches[0].clientX - x;
                 const dy = evt.touches[0].clientY - y;
                 if (evt.timeStamp - timeStamp > THROTTLE) {
-                    this.publish("move-by", [dx / SCALE, dy / SCALE]);
+                    this.publish(model.id, "move-by", [dx / SCALE, dy / SCALE]);
                     x += dx;
                     y += dy;
                     timeStamp = evt.timeStamp;
@@ -188,14 +186,14 @@ class ShapeView extends View {
                 dx += evt.movementX;
                 dy += evt.movementY;
                 if (evt.timeStamp - timeStamp > THROTTLE) {
-                    this.publish("move-by", [dx / SCALE, dy / SCALE]);
+                    this.publish(model.id, "move-by", [dx / SCALE, dy / SCALE]);
                     dx = dy = 0;
                     timeStamp = evt.timeStamp;
                 }
             };
             document.onmouseup = () => document.onmousemove = null;
         };
-        this.subscribe({event: "pos-changed", oncePerFrame: true}, pos => this.setPos(pos));
+        this.subscribe(model.id, {event: "pos-changed", oncePerFrame: true}, pos => this.setPos(pos));
         this.setPos(model.pos);
     }
 
