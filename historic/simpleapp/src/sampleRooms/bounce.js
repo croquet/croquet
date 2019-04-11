@@ -27,7 +27,7 @@ export class Box extends StatePart {
 export class BouncingBox extends StatePart {
     constructor() {
         super();
-        this.parts = {spatial: new (Bouncing(SpatialPart))()};
+        this.parts = {spatial: new (Bouncing()(SpatialPart))()};
     }
 
     naturalViewClass() { return ClickBoxView; }
@@ -55,13 +55,13 @@ class BallViewPart extends ViewPart {
     }
 }
 
-const ClickBoxView = Clickable(Tracking(BallViewPart), {
+const ClickBoxView = Clickable({
     onClick: options => () => {
         options.model.parts.spatial.toggle();
     }
-});
+})(Tracking()(BallViewPart));
 
-const DragBoxView = Draggable(Tracking(BoxViewPart));
+const DragBoxView = Draggable()(Tracking()(BoxViewPart));
 
 export class Group extends StatePart {
     constructor() {
@@ -106,7 +106,7 @@ class ChildrenGroupView extends ViewPart {
     }
 }
 
-const GroupView = Tracking(ChildrenGroupView);
+const GroupView = Tracking()(ChildrenGroupView);
 
 /** A group that assigns random colors to its children's views */
 export class RandomColorGroup extends Group {
@@ -124,7 +124,7 @@ class RandomColorChildrenGroupView extends ChildrenGroupView {
     }
 }
 
-const RandomColorGroupView = Tracking(RandomColorChildrenGroupView);
+const RandomColorGroupView = Tracking()(RandomColorChildrenGroupView);
 
 function initBounce(state, options) {
     return new Island(state, island => {

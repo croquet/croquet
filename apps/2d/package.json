@@ -4,7 +4,7 @@
   "description": "",
   "main": "2d.js",
   "scripts": {
-    "start": "parcel 2d.html -p 9009",
+    "start": "parcel *.html -p 9009",
     "deploy": "./deploy.sh",
     "lint": "eslint .",
     "docs": "jsdoc . -r -d docs"

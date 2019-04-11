@@ -6,14 +6,14 @@ if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); 
 /** @typedef {import("../modelView.js").StatePart} StatePart */
 /** @typedef {import("../parts.js").PartPath} PartPath */
 
-export default function Draggable(BaseViewPart, dragOptions) {
+export default function Draggable(dragOptions={}) {
     dragOptions = {
         dragHandle: "",
         dragVertically: true,
         ...dragOptions
     };
 
-    return class DraggableViewPart extends BaseViewPart {
+    return BaseViewPart => class DraggableViewPart extends BaseViewPart {
         /**
          * @arg {Object} options
          * @arg {PartPath | null} options.dragHandle - an optional path to a subpart of the inner ViewPart to use as the drag handle - otherwise uses the whole inner part
@@ -26,19 +26,15 @@ export default function Draggable(BaseViewPart, dragOptions) {
             this.dragHandlePart = this.lookUp(dragOptions.dragHandle);
             makePointerSensitive(this.dragHandlePart.threeObj, this);
             this.dragVertically = dragOptions.dragVertically;
-            this.subscribe(PointerEvents.pointerDown, "draggableOnPointerDown");
-            this.subscribe(PointerEvents.pointerDrag, "draggableOnPointerDrag");
-        }
-
-        draggableOnPointerDown() {
-            this.positionAtDragStart = this.dragHandlePart.threeObj.position.clone();
-        }
-
-        draggableOnPointerDrag({dragStart, dragEndOnHorizontalPlane, dragEndOnVerticalPlane}) {
-            const dragEnd = this.dragVertically ? dragEndOnVerticalPlane : dragEndOnHorizontalPlane;
-            this.target.future().moveTo(
-                this.positionAtDragStart.clone().add(dragEnd.clone().sub(dragStart))
-            );
+            this.subscribe(PointerEvents.pointerDown, () => {
+                this.positionAtDragStart = this.dragHandlePart.threeObj.position.clone();
+            });
+            this.subscribe(PointerEvents.pointerDrag, ({dragStart, dragEndOnHorizontalPlane, dragEndOnVerticalPlane}) => {
+                const dragEnd = this.dragVertically ? dragEndOnVerticalPlane : dragEndOnHorizontalPlane;
+                this.target.future().moveTo(
+                    this.positionAtDragStart.clone().add(dragEnd.clone().sub(dragStart))
+                );
+            });
         }
     };
 }

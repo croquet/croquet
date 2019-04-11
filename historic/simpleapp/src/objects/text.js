@@ -22,7 +22,7 @@ export class TextObjectView extends ViewPart {
     constructor(options) {
         super(options);
         this.parts = {
-            main: new (Tracking(TextTracking(TextViewPart)))({fontSize: 0.4, source: options.model.parts.text, ...options})
+            main: new (Tracking()(TextTracking()(TextViewPart)))({fontSize: 0.4, source: options.model.parts.text, ...options})
         };
     }
 }

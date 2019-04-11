@@ -6,8 +6,8 @@ if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle
 /** A spatial model with inertia
  * @arg {typeof import('./spatial.js').default} BaseSpatialPartClass
 */
-export default function Inertial(BaseSpatialPartClass) {
-    return class InertialSpatialPart extends BaseSpatialPartClass {
+export default function Inertial() {
+    return BaseSpatialPartClass => class InertialSpatialPart extends BaseSpatialPartClass {
         /** @param {SpatialPart} spatialPart */
         applyState(state={}) {
             super.applyState(state);

@@ -90,8 +90,8 @@ export default class PortalPart extends StatePart {
     }
 }
 
-export function PortalTraversing(BaseSpatialPartClass) {
-    return class PortalTraversingSpatial extends BaseSpatialPartClass {
+export function PortalTraversing() {
+    return BaseSpatialPartClass => class PortalTraversingSpatial extends BaseSpatialPartClass {
         moveTo(...args) {
             const fromPosition = this.position.clone();
             super.moveTo(...args);

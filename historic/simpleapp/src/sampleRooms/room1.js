@@ -15,8 +15,8 @@ const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 /** @returns {typeof SpatialPart} */
-function AutoRotating(SpatialPartClass) {
-    return class extends SpatialPartClass {
+function AutoRotating() {
+    return SpatialPartClass => class extends SpatialPartClass {
         onInitialized(wasFirstInit) {
             super.onInitialized(wasFirstInit);
             if (wasFirstInit) {
@@ -38,7 +38,7 @@ export class RotatingBox extends StatePart {
     constructor() {
         super();
         this.parts = {
-            spatial: new (AutoRotating(Inertial(SpatialPart)))()
+            spatial: new (AutoRotating()(Inertial()(SpatialPart)))()
         };
     }
 
@@ -57,7 +57,7 @@ class BoxViewPart extends ViewPart {
     }
 }
 
-export const BoxView = Draggable(Tracking(BoxViewPart));
+export const BoxView = Draggable()(Tracking()(BoxViewPart));
 
 export class LayoutTestModel extends StatePart {
     constructor() {
@@ -76,7 +76,7 @@ class LayoutTestView extends ViewPart {
     constructor(options) {
         super(options);
         this.parts = {
-            layout: new (Tracking(LayoutRoot))({model: options.model, children: [
+            layout: new (Tracking()(LayoutRoot))({model: options.model, children: [
                 new LayoutContainer({
                     flexDirection: "row",
                     alignItems: "stretch",

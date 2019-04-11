@@ -23,13 +23,13 @@ export default class RoomView extends ViewPart {
     constructor(options) {
         super();
 
-        this.cameraSpatial = new (PortalTraversing(Inertial(SpatialPart)))();
+        this.cameraSpatial = new (PortalTraversing()(Inertial()(SpatialPart)))();
         this.cameraSpatial.init({
             position: options.cameraPosition,
             quaternion: options.cameraQuaternion
         });
 
-        this.parts.camera = new (Tracking(CameraViewPart, {source: this.cameraSpatial}))({
+        this.parts.camera = new (Tracking({source: this.cameraSpatial})(CameraViewPart))({
             width: options.width,
             height: options.height
         });
@@ -40,12 +40,12 @@ export default class RoomView extends ViewPart {
         if (options.activeParticipant) {
             this.parts.pointer = new PointerViewPart({room: options.room, cameraPart: this.parts.camera, scenePart: this.parts.roomScene});
             this.parts.keyboard = new KeyboardViewPart();
-            this.parts.treadmill = new (Tracking(TreadmillNavigation, {source: this.cameraSpatial}))({
+            this.parts.treadmill = new (Tracking({source: this.cameraSpatial})(TreadmillNavigation))({
                 affects: this.cameraSpatial,
                 scenePart: this.parts.roomScene,
                 cameraPart: this.parts.camera,
             });
-            this.parts.interactionDome = new (Tracking(InteractionDome, {source: this.cameraSpatial}))({
+            this.parts.interactionDome = new (Tracking({source: this.cameraSpatial})(InteractionDome))({
                 cameraSpatial: this.cameraSpatial,
                 scenePart: this.parts.roomScene,
                 changeColor: color => options.room.parts.color.future().setColor(color),
@@ -111,7 +111,7 @@ class InteractionDome extends ViewPart {
         super();
 
         this.parts = {
-            contextMenu: new (Facing(ContextMenu, {source: options.cameraSpatial}))({
+            contextMenu: new (Facing({source: options.cameraSpatial})(ContextMenu))({
                 entries: [
                     ["Change Room Color", () => {
                         options.changeColor(new THREE.Color(`hsl(${Math.random() * 360}, 50%, 90%)`));
