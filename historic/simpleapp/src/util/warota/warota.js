@@ -53,9 +53,18 @@ export class Doc {
             && (prev.emphasis === next.emphasis);
     }
 
-    copyRun(run) {
+    copyRun(run, withoutIndex) {
         if (!run) {return run;}
-        return Object.assign({}, run);
+        let obj = {};
+        obj.text = run.text;
+        if (run.style) {
+            obj.style = run.style;
+        }
+        if (!withoutIndex) {
+            obj.start = run.start;
+            obj.end = run.end;
+        }
+        return obj;
     }
 
     canonicalize(runs) {
@@ -88,16 +97,37 @@ export class Doc {
     }
 
     save(optStart, optEnd) {
-        // can I assume it is canonicalized? => yes
+        let runs = this.doc;
+        let start = optStart !== undefined ? optStart : 0;
+        let end = optEnd !== undefined ? optEnd : this.length();
+        let startRun, startRunIndex;
+        let endRun, endRunIndex;
+        let run, obj;
+        [startRun, startRunIndex] = this.findRun(start);
+        [endRun, endRunIndex] = this.findRun(end);
+
+        if (startRunIndex === endRunIndex) {
+            obj = this.copyRun({text: startRun.text.slice(start - startRun.start, end - startRun.start)}, true);
+            return [obj];
+        }
+
         let result = [];
-        this.doc.forEach(run => {
-            if (run.style) {
-                result.push({text: run.text, style: run.style});
-            } else {
-                result.push({text: run.text});
-            }
-        });
-        return {content: result, selections: this.selections};
+        run = startRun;
+        obj = this.copyRun({text: run.text.slice(start - run.start)}, true);
+        result.push(obj);
+
+        for (let i = startRunIndex + 1; i <= endRunIndex - 1; i++) {
+            obj = this.copyRun(runs[i], true);
+            result.push(obj);
+        }
+
+        obj = this.copyRun({text: endRun.text.slice(0, end - endRun.start)});
+        result.push(obj);
+        return result;
+    }
+
+    plainText(optStart, optEnd) {
+        return this.save(optStart, optEnd).map(c => c.text).join('');
     }
 
     splitDocAt(runIndex, sizeInRun) {
@@ -482,11 +512,15 @@ export class Warota {
         let r = this.visibleBounds();
         let w = r.width * (1.0 - this.relativeScrollBarWidth);
         let h = r.height;
-        return {l: r.left, t: r.top, w: r.width * (1.0 - this.relativeScrollBarWidth), h: r.height, b: r.top + h, r: r.left + w};
+        let rect ={l: r.left, t: r.top, w: r.width * (1.0 - this.relativeScrollBarWidth), h: r.height, b: r.top + h, r: r.left + w};
+        return rect;
     }
 
     draw(ctx, rect) {
+        let {left, top, width, height} = rect;
         this.words.forEach(word => {
+            if (word.left + word.width < left || word.top > top + height
+                || word.top + word.height < top || word.left > left + width) {return;}
             if (word.styles) {
                 word.styles.forEach(style => {
                     ctx.fillStyle = style.color;
@@ -523,7 +557,44 @@ export class Warota {
         ctx.restore();
     }
 
-    drawScrollbar(ctx) {}
+    drawScrollbar(ctx) {
+        let {pixelX, pixelY} = this,
+        {l, t, h, w} = this.scrollbarBounds();
+        ctx.save();
+        ctx.fillStyle = "scrollBar";
+        ctx.fillRect(l, 0, w, pixelY);
+
+        ctx.fillStyle = "scrollKnob";
+        ctx.fillRect(l+3, t, w-6, h);
+        ctx.restore();
+    }
+
+    scrollbarBounds() {
+        let {
+          pixelX,
+          pixelY,
+          scrollTop: scrollT, // ratio into area
+          relativeScrollBarWidth: relWidth,
+        } = this;
+        let docH = this.docHeight;
+        let scrollVRatio = pixelY / docH;
+        let barW = pixelX * relWidth;
+        let barLeft = pixelX - barW;
+        let barTop = scrollT * pixelY;
+        let minHeight = pixelY / 100 * 5;
+        let barH = scrollVRatio > 1.0 ? pixelY - 3 : Math.max(minHeight, pixelY * scrollVRatio - 6);
+        return {l: barLeft, t: barTop, w: barW, h: barH};
+    }
+
+    scrollBy(deltaX, deltaY) {
+        this.setScroll(this.scrollLeft = deltaX, this.scrollTop + deltaY);
+    }
+
+    setScroll(scrollLeft, scrollTop) {
+        let {pixelY, docHeight} = this;
+        let max = 1.0 - pixelY / docHeight;
+        this.scrollTop = Math.max(0, Math.min(max, scrollTop));
+    }
 
     findLine(pos, x, y) {
         // a smarty way would be to do a binary search
@@ -681,8 +752,15 @@ export class Warota {
         return rects;
     }
 
+    isScrollbarClick(x, y) {
+        if (!this.showsScrollbar) {return false;}
+        let scrollBarWidth = this.relativeScrollBarWidth * this.pixelX,
+            scrollBarLeft = this.pixelX - scrollBarWidth - 3;
+        return x >= scrollBarLeft;
+    }
+
     mouseDown(x, y, realY, userID) {
-        if (false /*this.isScrollbarClick(x, y)*/) {
+        if (this.isScrollbarClick(x, y)) {
             this.scrollBarClick = {
                 type: "clicked",
                 scrollBarVOffset: y - this.scrollbarBounds().t,
@@ -717,11 +795,38 @@ export class Warota {
                 }
                 if (last.start !== start || last.end !== end) {
                     this.select(userID, start, end, userID);
+                    return 'selectionChanged';
                 }
             }
+            return null;
         }
+
+        if (this.scrollBarClick) {
+            let {realStartY, scrollBarTopOnDown} = this.scrollBarClick;
+            let docHeight = this.docHeight;
+            let newPos = (realY - realStartY) // movement
+                          * Math.max(1, docHeight / this.pixelY) // how many pixels it means relative to doc height
+                          / docHeight   // ratio in doc height
+                          + scrollBarTopOnDown;  // make it the new value
+            this.scrollBarClick.type = "move";
+            this.setScroll(0, newPos);
+            return 'scrollChanged';
+        }
+        return null;
     }
-    mouseUp(x,y , realY, userID) {}
+
+    mouseUp(x,y , realY, userID) {
+        if (this.scrollBarClick) {
+            if (this.scrollBarClick.type === "clicked") {
+            }
+            this.scrollBarClick = null;
+            this.wasScrollBarClick = true;
+        } else {
+            this.wasScrollBarClick = false;
+        }
+        this.selectDragStart = null;
+        this.keyboardX = null;
+    }
 
     backspace(userID) {
         let selection = this.doc.selections[userID] || {start: 0, end: 0};
@@ -831,6 +936,14 @@ export class Warota {
         }
         return handled;
     }
+
+    selectionText(user) {
+        let sel = this.doc.selections[user];
+        if (!sel) {
+            return "";
+        }
+        return this.doc.plainText(sel.start, sel.end);
+    }
 }
 
 export class Event {
@@ -869,42 +982,3 @@ export class Event {
 
     static undoSelect(doc, select) { }
 }
-
-
-// an insert event from a view/peer
-// insert(user, runs, timezone)
-// insert(user, runs, timezone)
-
-//  model maintains the selection position for the view
-//     process insert:
-//       => change the content and move the position
-//       => change the content and move the position
-
-// // The model sends back:
-//     insert(user, runs, pos, timezone)
-//     insert(user, runs, pos, timezone)
-//     select(user, start, end, timezone);
-
-
-// an insert event from a view/peer
-// insert(user, runs, timezone)
-
-//  model maintains the selection position for the view
-//     process insert:
-//       => change the content and move the position
-
-// an insert event from a view/peer
-// insert(user, runs, timezone)
-
-// // The model sends back:
-//     insert(user, runs, pos, timezone)
-//     insert(user, runs, pos, timezone)
-//     select(user, start, end, timezone)
-
-// Doc.doEvent(insert|delete|select);
-
-// View.insert().. => {type: "insert", user, runs}
-// => Model.receive()
-//     Update doc
-//       update selection
-

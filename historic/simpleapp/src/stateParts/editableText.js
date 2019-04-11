@@ -25,18 +25,13 @@ export default class EditableTextPart extends StatePart {
         state.content = this.content;
     }
 
-    plaintext(content) {
-        return content.content.map(c => c.text || "").join('');
-    }
-
     acceptContent() {
-        console.log("accept");
+        console.log("accept", this.doc.plainText());
     }
 
     receiveEditEvents(events) {
         let timezone = this.doc.receiveEditEvents(events, this.content, this.doc);
-        let saved = this.doc.save();
-        this.content.content = saved.content;
+        this.content.content = this.doc.save();
         this.publish(TextEvents.changed, timezone);
     }
 }
