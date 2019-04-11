@@ -512,8 +512,7 @@ export class Warota {
         let r = this.visibleBounds();
         let w = r.width * (1.0 - this.relativeScrollBarWidth);
         let h = r.height;
-        let rect ={l: r.left, t: r.top, w: r.width * (1.0 - this.relativeScrollBarWidth), h: r.height, b: r.top + h, r: r.left + w};
-        return rect;
+        return {l: r.left, t: r.top, w: r.width * (1.0 - this.relativeScrollBarWidth), h: r.height, b: r.top + h, r: r.left + w};
     }
 
     draw(ctx, rect) {
