@@ -342,6 +342,11 @@ export default class Island {
 
     handleViewEvents(topic, dataArray) {
         // Events published by views can only reach other views
+        const modelSubscriptions = this.modelSubscriptions[topic];
+        if (modelSubscriptions) for (const subscriber of modelSubscriptions) {
+            const [modelId, method] = subscriber.split(".");
+            for (const data of dataArray) this.callModelMethod(modelId, null, method, data);
+        }
         inViewRealm(this, () => {
             const subscriptions = this.viewSubscriptions[topic];
             if (subscriptions) {
