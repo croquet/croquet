@@ -39,6 +39,8 @@ export class Shape extends Model {
         this.type = state.type || 'circle';
         this.color = state.color || `hsla(${r(360)},${r(50)+50}%,50%,0.5)`;
         this.pos = state.pos || [r(1000), r(1000)];
+        this.subscribe("move-to", "moveTo", this.id);
+        this.subscribe("move-by", "moveBy", this.id);
     }
 
     toState(state) {
@@ -169,7 +171,7 @@ class ShapeView extends View {
                 const dx = evt.touches[0].clientX - x;
                 const dy = evt.touches[0].clientY - y;
                 if (evt.timeStamp - timeStamp > THROTTLE) {
-                    this.modelPart().moveBy(dx / SCALE, dy / SCALE);
+                    this.publish("move-by", [dx / SCALE, dy / SCALE], model.id);
                     x += dx;
                     y += dy;
                     timeStamp = evt.timeStamp;
@@ -184,20 +186,20 @@ class ShapeView extends View {
                 dx += evt.movementX;
                 dy += evt.movementY;
                 if (evt.timeStamp - timeStamp > THROTTLE) {
-                    this.modelPart().moveBy(dx / SCALE, dy / SCALE);
+                    this.publish("move-by", [dx / SCALE, dy / SCALE], model.id);
                     dx = dy = 0;
                     timeStamp = evt.timeStamp;
                 }
             };
             document.onmouseup = () => document.onmousemove = null;
         };
-        this.subscribe('pos-changed', 'move', this.modelId, true);
-        this.move(model.pos);
+        this.subscribe('pos-changed', 'setPos', model.id, true);
+        this.setPos(model.pos);
     }
 
     // non-inherited methods below
 
-    move(pos) {
+    setPos(pos) {
         this.element.style.left = pos[0];
         this.element.style.top = pos[1];
     }

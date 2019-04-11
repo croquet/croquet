@@ -1,0 +1,63 @@
+<html>
+<head>
+<script type="module" src="doc.mjs"></script>
+<script type="module" src="wrap.mjs"></script>
+<script type="module">
+import {Doc, Warota} from './doc.mjs';
+
+window.onload = function () {
+    let timezone = 0;
+    let evts;
+
+    let userID ='010203';
+    let view = new Warota(3, 2, 10);
+    window.view = view;
+    view.load([{text: "man is much more than a tool builder... he is an inventor of universes..."}]);
+
+    view.select(userID, 3, 3, 0);
+    evts = view.events;
+    view.resetEvents();
+    evts.forEach(evt => view.doEvent(evt));
+
+    view.setTimezone(++timezone);
+
+    view.insert(userID, [{text: 'A'}]);
+    evts = view.events;
+    view.resetEvents();
+    evts.forEach(evt => view.doEvent(evt));
+    view.setTimezone(++timezone);
+
+    view.insert(userID, [{text: 'B'}]);
+    evts = view.events;
+    view.resetEvents();
+    evts.forEach(evt => view.doEvent(evt));
+    view.setTimezone(++timezone);
+
+    view.select(userID, 1, 2, 0);
+    evts = view.events;
+    view.resetEvents();
+    evts.forEach(evt => view.doEvent(evt));
+    view.setTimezone(++timezone);
+
+    view.insert(userID, [{text: 'CD'}]);
+    evts = view.events;
+    view.resetEvents();
+    evts.forEach(evt => view.doEvent(evt));
+    view.setTimezone(++timezone);
+
+    view.insert(userID, [{text: 'EF', style: {size: 11}}]);
+    evts = view.events;
+    view.resetEvents();
+    evts.forEach(evt => view.doEvent(evt));
+    view.setTimezone(++timezone);
+
+    let ctx = view.paint();
+    console.log(ctx.drawnStrings);
+}
+</script>
+
+</head>
+<body>
+</body>
+</html>
+

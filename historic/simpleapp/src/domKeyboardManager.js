@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { defaultCommands, defaultKeyBindings, canonicalizeEvent, lookup } from './viewParts/editableText/text-commands.js';
+import { defaultCommands, defaultKeyBindings, canonicalizeEvent, lookup } from './util/warota/text-commands.js';
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
