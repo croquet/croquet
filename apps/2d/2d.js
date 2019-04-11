@@ -1,4 +1,4 @@
-import { Model, View, Controller } from "teatime";
+import { Model, View, Controller } from "../teatime";
 import Stats from "../../arcos/simpleapp/src/util/stats.js";
 import urlOptions from "../../arcos/simpleapp/src/util/urlOptions.js";
 
