@@ -489,10 +489,12 @@ export class Warota {
 
         this.width(this.pixelX * (1.0 - this.relativeScrollBarWidth));
         this.lineHeight = lineHeight;
-        options.pixelMargins = {left: options.margins.left * heightInPixel,
+        this.pixelMargins = {left: options.margins.left * heightInPixel,
                                 right: options.margins.right * heightInPixel,
                                 top: options.margins.top * heightInPixel,
                                 bottom: options.margins.bottom * heightInPixel};
+
+        options.pixelMargins = this.pixelMargins;
     }
 
     layout() {

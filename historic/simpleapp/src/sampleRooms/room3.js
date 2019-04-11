@@ -10,12 +10,13 @@ function initRoom3(state) {
         const room = new Room().init({});
         island.set("room", room);
         const text1 = new WarotaEditorObject().init({
-            spatial: { position: {x: -3, y: 1, z: 0} },
+            spatial: { position: {x: -3, y: 1.5, z: 0} },
             text: {
                 content: {
                     runs: [{text: "man is much more than a tool builder... he is an inventor of universes... Except the real one."}],
+                    editable: true,
                 },
-                font: "Roboto", numLines: 10, width: 3, height: 3
+                font: "Roboto", numLines: 10, width: 3, height: 3,
             }
         });
         room.parts.objects.add(text1);
@@ -24,8 +25,10 @@ function initRoom3(state) {
             spatial: { position: {x: 3, y: 1, z: 0} },
             text: {
                 content: {
-                    runs: [{text: "man is much more than a tool builder... he is an inventor of universes..."}]},
-                font: "Roboto", numLines: 10, width: 2, height: 2
+                    runs: [{text: "man is much more than a tool builder... he is an inventor of universes..."}],
+                    editable: true,
+                },
+                font: "Roboto", fontSize: 0.1, width: 3, height: 2,
             }
         });
         room.parts.objects.add(text2);

@@ -14,9 +14,17 @@ export const TextEvents = {
 
 export default class EditableTextPart extends StatePart {
     applyState(state={}) {
-        let content = {...{runs: [], selections: {}, timezone: 0, queue: []}, ...{runs: state.content.runs}};
+        let content = {...{runs: [], selections: {}, timezone: 0, queue: [], editable: state.editable !== undefined ? state.editable : true}, ...state.content};
         this.content = content;
-        this.viewOptions = {font: state.font, numLines: state.numLines, width: state.width, height: state.height, editable: state.editable, showSelection: state.showSelection, showScrollBar: state.showScrollBar, margins: state.margins};
+        this.viewOptions = {font: state.font,
+                            numLines: state.numLines,
+                            fontSize: state.fontSize,
+                            width: state.width,
+                            height: state.height,
+                            editable: content.editable, // watch out
+                            showSelection: state.showSelection,
+                            showScrollBar: state.showScrollBar,
+                            margins: state.margins};
         this.doc = new Doc();
         this.doc.load(this.content.runs);
         this.doc.selections = this.content.selections;

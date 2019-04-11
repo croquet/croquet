@@ -22,14 +22,15 @@ export default class EditableTextViewPart extends ViewPart {
         myOpt.font = opt.font || "Roboto";
         myOpt.width = typeof opt.width === "number" ? opt.width : 3;
         myOpt.height = typeof opt.height === "number" ? opt.height : 2;
-        myOpt.editable = typeof opt.editable === "boolean" ? opt.editable : false;
-        myOpt.showSelection = typeof opt.showSelection === "boolean" ? opt.editable : false;
         myOpt.showScrollBar = typeof opt.showScrollBar === "boolean" ? opt.showScrollBar : true;
 
+        myOpt.editable = typeof opt.editable === "boolean" ? opt.editable : false;
+        myOpt.showSelection = myOpt.editable;
+
         // those three are modified by the editor when the font is loaded and available
-        myOpt.margins = options.margins;
-        myOpt.fontSize = options.fontSize;
-        myOpt.numLines = options.numLines;
+        myOpt.margins = opt.margins;
+        myOpt.fontSize = opt.fontSize;
+        myOpt.numLines = opt.numLines;
 
         this.options = myOpt;
 
@@ -116,7 +117,31 @@ export default class EditableTextViewPart extends ViewPart {
         //const callback = () => this.onTextChanged();
         //this.editor.load(this.doc.doc);
         //this.editor.doc.setSelections(this.doc.selections);
-        this.initScrollBarMesh();
+        this.editor.layout();
+        this.editor.paint();
+    }
+
+    resize(width, height) {
+        // it assumes the ordinally initialization has been performed.
+        // That means that options has fontSize, and numLines.
+
+        this.options.width = width;
+        this.options.height = height;
+
+        this.removeSelections();
+
+        let text = this.text;
+        const boxMesh = this.initBoxMesh();
+
+        if (this.options.editable) {
+            makePointerSensitive(boxMesh, this);
+        }
+        this.threeObj = boxMesh;
+        boxMesh.add(text);
+
+        this.editor.resize(this.options.width, this.options.height);
+        this.editor.resizeToNumLinesOrFontSize(this.options);
+
         this.editor.layout();
         this.editor.paint();
     }
@@ -126,10 +151,14 @@ export default class EditableTextViewPart extends ViewPart {
                                new THREE.Plane(new THREE.Vector3(0, -1, 0), 0),
                                new THREE.Plane(new THREE.Vector3(-1, 0, 0), 0),
                                new THREE.Plane(new THREE.Vector3(1, 0, 0), 0)];
-
-        const box = new THREE.Mesh(new THREE.PlaneBufferGeometry(this.options.width, this.options.height), new THREE.MeshBasicMaterial({ color: 0xeeeeee }));
         this.draggingPlane = new THREE.Plane();
-        return box;
+
+        if (this.threeObj) {
+            let box = this.threeObj;
+            box.geometry = new THREE.PlaneBufferGeometry(this.options.width, this.options.height);
+            return box;
+        }
+        return new THREE.Mesh(new THREE.PlaneBufferGeometry(this.options.width, this.options.height), new THREE.MeshBasicMaterial({ color: 0xeeeeee }));
     }
 
     makeSelectionMesh() {
@@ -143,19 +172,6 @@ export default class EditableTextViewPart extends ViewPart {
         box.add(plane);
         plane.onBeforeRender = this.selectionBeforeRender.bind(this);
         return plane;
-    }
-
-    initScrollBarMesh() {
-        const box = this.threeObj;
-        let plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(0.1, 0.1), new THREE.MeshBasicMaterial({ color: 0x0044ee }));
-        plane.visible = false;
-        box.add(plane);
-        this.scrollBar = plane;
-
-        plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(0.1, 0.1), new THREE.MeshBasicMaterial({ color: 0x00aaee }));
-        plane.visible = false;
-        box.add(plane);
-        this.scrollKnob = plane;
     }
 
     updateGeometry(geometry, glyphs, fontName, pixelX, scrollTop, docHeight, drawnRects) {
@@ -251,7 +267,8 @@ export default class EditableTextViewPart extends ViewPart {
     removeSelections() {
         const box = this.threeObj;
 
-        this.selections.forEach(s => box.removeChild(s));
+        this.selections.forEach(s => box.remove(s));
+        this.selections = [];
     }
 
     computeClippingPlanes(ary) {
