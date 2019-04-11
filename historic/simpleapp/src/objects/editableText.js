@@ -37,7 +37,7 @@ class WarotaEditorView extends ViewPart {
     constructor(options) {
         super();
         this.parts = {
-            main: new (Tracking({source: options.model.parts.spatial})(EditableTextViewPart))({textPart: options.model.parts.text, editable: true})
+            main: new (Tracking({source: options.model.parts.spatial})(EditableTextViewPart))({textPart: options.model.parts.text})
         };
     }
 }

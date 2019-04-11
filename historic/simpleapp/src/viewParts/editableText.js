@@ -15,14 +15,19 @@ if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); 
 export default class EditableTextViewPart extends ViewPart {
     constructor(options) {
         super();
-        this.doc = options.textPart.doc;
+        this.doc = options.textPart ? options.textPart.doc : null;
+        if (!this.doc && options.content) {
+            this.initialContent = options.content;
+        }
         this.textPart = options.textPart;
-        let opt = this.textPart.viewOptions;
+        let opt = this.textPart ? this.textPart.viewOptions : {};
         let myOpt = {};
         myOpt.font = opt.font || "Roboto";
         myOpt.width = typeof opt.width === "number" ? opt.width : 3;
         myOpt.height = typeof opt.height === "number" ? opt.height : 2;
         myOpt.showScrollBar = typeof opt.showScrollBar === "boolean" ? opt.showScrollBar : true;
+        myOpt.hideBackStop = typeof opt.hideBackStop === "boolean" ? opt.hideBackStop : false;
+        myOpt.backgroundColor = opt.backgroundColor || 'eeeeee';
 
         myOpt.editable = typeof opt.editable === "boolean" ? opt.editable : false;
         myOpt.showSelection = myOpt.editable;
@@ -44,6 +49,8 @@ export default class EditableTextViewPart extends ViewPart {
             this.subscribe(KeyboardEvents.paste, "onPaste");
         }
 
+        const boxMesh = this.initBoxMesh();
+
         this.selections = []; // [ThreeObj] For each rendering, we grab available one, and change the color and size.
 
         fontRegistry.load(this.options.font).then(entry => {
@@ -51,13 +58,10 @@ export default class EditableTextViewPart extends ViewPart {
             this.initTextMesh(entry.atlas);
         });
 
-        const boxMesh = this.initBoxMesh();
-
         if (this.options.editable) {
             makePointerSensitive(boxMesh, this);
+            this.subscribe(TextEvents.changed, "onChanged", this.textPart.id);
         }
-
-        this.subscribe(TextEvents.changed, "onChanged", this.textPart.id);
 
         this.threeObj = boxMesh;
         window.view = this;
@@ -71,7 +75,7 @@ export default class EditableTextViewPart extends ViewPart {
     initEditor() {
         this.lastPt = false;
         //this.editor = new Warota(this.options.width, this.options.height, this.options.numLines, this.doc);
-        this.editor = new Warota(this.options, this.doc); // options may be modified
+        this.editor = new Warota(this.options, this.doc); // options may be modified, doc might be null for non editable text
         this.editor.mockCallback = ctx => {
             const glyphs = this.processMockContext(ctx);
             this.update(glyphs, this.options.font, this.editor.visibleTextBounds(), this.editor.pixelX, this.editor.scrollTop, this.editor.docHeight, ctx.filledRects);
@@ -115,8 +119,16 @@ export default class EditableTextViewPart extends ViewPart {
         box.add(textMesh);
 
         //const callback = () => this.onTextChanged();
-        //this.editor.load(this.doc.doc);
-        //this.editor.doc.setSelections(this.doc.selections);
+        
+        if (this.initialContent) {
+            this.editor.doc.load(this.initialContent);
+            delete this.initialContent;
+        }
+
+        if (this.resizeRequest) {
+            this.updateExtent(this.resizeRequest);
+            delete this.resizeRequest;
+        }
         this.editor.layout();
         this.editor.paint();
     }
@@ -146,6 +158,19 @@ export default class EditableTextViewPart extends ViewPart {
         this.editor.paint();
     }
 
+    threeObjs() {
+        return [this.threeObj];
+    }
+
+    updateExtent(options) {
+        if (!this.text) {
+            this.resizeRequest = options;
+        } else {
+            let {width, height, anchor} = options;
+            this.resize(width, height);
+        }
+    }    
+
     initBoxMesh() {
         this.clippingPlanes = [new THREE.Plane(new THREE.Vector3(0, 1, 0),  0),
                                new THREE.Plane(new THREE.Vector3(0, -1, 0), 0),
@@ -158,7 +183,12 @@ export default class EditableTextViewPart extends ViewPart {
             box.geometry = new THREE.PlaneBufferGeometry(this.options.width, this.options.height);
             return box;
         }
-        return new THREE.Mesh(new THREE.PlaneBufferGeometry(this.options.width, this.options.height), new THREE.MeshBasicMaterial({ color: 0xeeeeee }));
+
+        let opt = this.options.hideBackStop
+            ? {transparent: true, opacity: 0}
+            : {color: '#' + this.options.backgroundColor};
+
+        return new THREE.Mesh(new THREE.PlaneBufferGeometry(this.options.width, this.options.height), new THREE.MeshBasicMaterial(opt));
     }
 
     makeSelectionMesh() {
@@ -224,8 +254,6 @@ export default class EditableTextViewPart extends ViewPart {
                 if (this.options.showSelection) {
                     // drawing the insertion  - line width of text cursor should relate to font
                     let id = rec.style.split(' ')[1];
-
-                    meshRect.w = 5 * meterInPixel;
                     let box = getSelectionBox();
                     this.updateSelection(box, meshRect, id);
                 }

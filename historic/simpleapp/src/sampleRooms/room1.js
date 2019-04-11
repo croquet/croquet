@@ -7,8 +7,8 @@ import { StatePart, ViewPart } from '../modelView.js';
 import Tracking from '../viewParts/tracking.js';
 import { TextObject } from '../objects/text.js';
 import { LayoutRoot, LayoutContainer, LayoutSlotStretch3D, LayoutSlotText, MinFromBBox } from '../viewParts/layout.js';
-import TextViewPart from '../viewParts/text.js';
 import { WarotaEditorObject } from '../objects/editableText.js';
+import  EditableTextViewPart from '../viewParts/editableText.js';
 import Draggable from '../viewParts/draggable.js';
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
@@ -93,7 +93,7 @@ class LayoutTestView extends ViewPart {
                         new LayoutSlotText({
                             margin: 0.1,
                             aspectRatio: 1,
-                            inner: new TextViewPart({fontSize: 0.25, content: `This is an example of text in a dynamic layout: "Our first design for multiple inheritance presumed that a state variable such as ohms had a meaning independent of the individual perspectives. Hence, it was sensible for it to be owned by the node itself. All perspectives would reference this single variable when referring to resistance. This proved adequate so long as the system designer knew all of the perspectives that might be associated with a given node, and could ensure this uniformity of intended reference."`})
+                            inner: new EditableTextViewPart({content: [{text: `This is an example of text in a dynamic layout: "Our first design for multiple inheritance presumed that a state variable such as ohms had a meaning independent of the individual perspectives. Hence, it was sensible for it to be owned by the node itself. All perspectives would reference this single variable when referring to resistance. This proved adequate so long as the system designer knew all of the perspectives that might be associated with a given node, and could ensure this uniformity of intended reference."`}], textPart: {viewOptions: {fontSize: 0.25, showScrollBar: false, hideBackStop: true}}})
                         }),
                         new LayoutContainer({
                             flexDirection: "column",

@@ -261,6 +261,8 @@ export class Doc {
         if (end !== endRun.end) {
             this.splitDocAt(endRunIndex, reminder);
             endRunIndex += 1;
+        } else if (end === endRun.end) {
+            endRunIndex += 1;
         }
 
         this.doc.splice(runIndex, endRunIndex - runIndex);
@@ -429,7 +431,7 @@ export class Warota {
         this.scrollLeft = 0;
         this.scrollTop = 0;
         this.relativeScrollBarWidth = 0.02;
-        this.showsScrollbar = true;
+        this.showsScrollbar = options.showScrollBar;
         this.isScrollable = true;
 
         this.resize(options.width, options.height);

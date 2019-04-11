@@ -193,7 +193,7 @@ export class LayoutSlotText extends LayoutSlot {
 
         // TODO: what to do if the inner view has multiple threeObjs?
         this.parts.inner.threeObjs()[0].position.copy(targetPos);
-        this.parts.inner.update({
+        this.parts.inner.updateExtent({
             width: (this.yogaNode.getComputedWidth()) / MUL,
             height: (this.yogaNode.getComputedHeight()) / MUL,
             anchor: "top"
