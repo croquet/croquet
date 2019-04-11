@@ -39,8 +39,8 @@ export class Shape extends Model {
         this.type = state.type || 'circle';
         this.color = state.color || `hsla(${r(360)},${r(50)+50}%,50%,0.5)`;
         this.pos = state.pos || [r(1000), r(1000)];
-        this.subscribe("move-to", pos => this.moveTo(...pos), this.id);
-        this.subscribe("move-by", delta => this.moveBy(...delta), this.id);
+        this.subscribe("move-to", pos => this.moveTo(...pos));
+        this.subscribe("move-by", delta => this.moveBy(...delta));
     }
 
     toState(state) {
@@ -126,7 +126,8 @@ class RootView extends View {
         document.body.appendChild(this.element);
         window.onresize = () => this.resize();
         model.children.forEach(child => this.attachChild(child));
-        this.subscribe('child-added', child => this.attachChild(child), this.modelId);
+        this.defaultScope = this.modelId;
+        this.subscribe('child-added', child => this.attachChild(child));
     }
 
     detach() {
@@ -159,6 +160,7 @@ class ShapeView extends View {
 
     constructor(model) {
         super(model);
+        this.defaultScope = model.id;
         const el = this.element = document.createElement("div");
         el.className = model.type;
         el.style.backgroundColor = model.color;
@@ -171,7 +173,7 @@ class ShapeView extends View {
                 const dx = evt.touches[0].clientX - x;
                 const dy = evt.touches[0].clientY - y;
                 if (evt.timeStamp - timeStamp > THROTTLE) {
-                    this.publish("move-by", [dx / SCALE, dy / SCALE], model.id);
+                    this.publish("move-by", [dx / SCALE, dy / SCALE]);
                     x += dx;
                     y += dy;
                     timeStamp = evt.timeStamp;
@@ -186,14 +188,14 @@ class ShapeView extends View {
                 dx += evt.movementX;
                 dy += evt.movementY;
                 if (evt.timeStamp - timeStamp > THROTTLE) {
-                    this.publish("move-by", [dx / SCALE, dy / SCALE], model.id);
+                    this.publish("move-by", [dx / SCALE, dy / SCALE]);
                     dx = dy = 0;
                     timeStamp = evt.timeStamp;
                 }
             };
             document.onmouseup = () => document.onmousemove = null;
         };
-        this.subscribe('pos-changed', 'setPos', model.id, true);
+        this.subscribe({event: "pos-changed", oncePerFrame: true}, pos => this.setPos(pos));
         this.setPos(model.pos);
     }
 
