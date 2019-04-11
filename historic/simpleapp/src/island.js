@@ -126,6 +126,7 @@ export default class Island {
     }
 
     lookUpModel(id) {
+        if (id === this.id) return this;
         const [topLevelModelId, rest] = id.split(PATH_PART_SEPARATOR_SPLIT_REGEXP);
         if (rest) {
             return this.topLevelModelsById[topLevelModelId].lookUp(rest);
@@ -378,12 +379,13 @@ export default class Island {
     }
 
     handleViewEvents(topic, dataArray) {
-        // Events published by views can only reach other views
-        const modelSubscriptions = this.modelSubscriptions[topic];
-        if (modelSubscriptions) for (const subscriber of modelSubscriptions) {
-            const [modelId, method] = subscriber.for.split(".");
-            for (const data of dataArray) this.callModelMethod(modelId, null, method, data);
+        // send model subscriptions via reflector
+        if (this.modelSubscriptions[topic]) for (const data of dataArray) {
+            const [scope, event] = topic.split(':');
+            const message = new Message(this.time, 0, this.id, "publishFromModel", [scope, event, data]);
+            this.controller.sendMessage(message);
         }
+        // handle view subscriptions directly
         inViewRealm(this, () => {
             const subscriptions = this.viewSubscriptions[topic];
             if (subscriptions) {
@@ -974,7 +976,6 @@ class Message {
 
     executeOn(island) {
         const { receiver, selector, args } = decode(this.payload);
-        if (receiver === island.id) return; // noop
         const object = island.lookUpModel(receiver);
         if (!object) console.warn(`Error executing ${this}: receiver not found`);
         else if (typeof object[selector] !== "function") console.warn(`Error executing ${this}: method not found`);
