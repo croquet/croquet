@@ -417,10 +417,14 @@ export class Doc {
 }
 
 export class Warota {
-    constructor(width, height, numLines, optDoc) {
+    constructor(options, optDoc) {
         this.doc = optDoc || new Doc();
         this._width = 0;
-        this.margins = {left: 0, top: 0, right: 0, bottom: 0};
+        if (options.margins) {
+            this.margins = options.margins;
+        } else {
+            this.margins = options.margins = {left: 0, top: 0, right: 0, bottom: 0};
+        }
 
         this.scrollLeft = 0;
         this.scrollTop = 0;
@@ -428,8 +432,8 @@ export class Warota {
         this.showsScrollbar = true;
         this.isScrollable = true;
 
-        this.resize(width, height);
-        this.resizeToNumLines(numLines);
+        this.resize(options.width, options.height);
+        this.resizeToNumLinesOrFontSize(options);
 
         this.events = [];
         this.timezone = 0;
@@ -456,9 +460,25 @@ export class Warota {
         this.screenHeight = height;
     }
 
-    resizeToNumLines(numLines) {
-        let lineHeight = new Measurer().lineHeight(this.doc.defaultFont);
-        let neededPixels = lineHeight * numLines + this.margins.top + this.margins.bottom;
+    resizeToNumLinesOrFontSize(options) {
+        let lineHeight = new Measurer().lineHeight(options.font);
+        let marginHeight = (options.margins.top + options.margins.bottom);
+        let textScreenHeight = options.height - marginHeight;
+        if (options.fontSize) {
+            options.numLines = textScreenHeight / options.fontSize;
+        } else {
+            if (options.numLines) {
+                options.fontSize = textScreenHeight / options.numLines;
+            } else {
+                options.numLines = 10;
+                options.fontSize = textScreenHeight / options.numLines;
+            }
+        }
+
+        let textScreenPixels = options.numLines * lineHeight;
+        let heightInPixel = options.fontSize / lineHeight;
+        let neededPixels = textScreenPixels + marginHeight * heightInPixel;
+
         this.pixelY = neededPixels;
         let scale = neededPixels / this.screenHeight;
         this.pixelX = this.screenWidth * scale;
@@ -469,10 +489,14 @@ export class Warota {
 
         this.width(this.pixelX * (1.0 - this.relativeScrollBarWidth));
         this.lineHeight = lineHeight;
+        options.pixelMargins = {left: options.margins.left * heightInPixel,
+                                right: options.margins.right * heightInPixel,
+                                top: options.margins.top * heightInPixel,
+                                bottom: options.margins.bottom * heightInPixel};
     }
 
     layout() {
-        let [lines, words] = new Wrap().wrap(this.doc.doc, this._width, new Measurer(), this.doc.defaultFont, this.doc.defaultSize, this.margins);
+        let [lines, words] = new Wrap().wrap(this.doc.doc, this._width, new Measurer(), this.doc.defaultFont, this.doc.defaultSize, this.pixelMargins);
         this.lines = lines;
         this.words = words;
         let lastWord = lines[lines.length-1][0]; // there should be always one
@@ -738,15 +762,15 @@ export class Warota {
             pos1 = this.positionFromIndex(this.lines[line0Index+1][0].start);
             let penultimate = this.lines[line1Index-1];
             pos2 = this.positionFromIndex(penultimate[penultimate.length-1].end);
-            rects.push({left: this.margins.left, top: pos1.top,
+            rects.push({left: this.pixelMargins.left, top: pos1.top,
                         width: this.width(),
                         height: pos2.top - pos1.top + pos2.height});
         }
 
         pos1 = this.positionFromIndex(this.lines[line1Index][0].start);
         pos2 = this.positionFromIndex(selection.end);
-        rects.push({left: this.margins.left, top: pos1.top,
-                    width: pos2.left - this.margins.left + pos2.width,
+        rects.push({left: this.pixelMargins.left, top: pos1.top,
+                    width: pos2.left - this.pixelMargins.left + pos2.width,
                     height: pos2.height});
         return rects;
     }

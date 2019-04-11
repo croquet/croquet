@@ -13,12 +13,9 @@ function initRoom3(state) {
             spatial: { position: {x: -3, y: 1, z: 0} },
             text: {
                 content: {
-                    content: [{text: "man is much more than a tool builder... he is an inventor of universes... Except the real one."}],
-                    selections: {},
-                    timezone: 0,
-                    queue: []
+                    runs: [{text: "man is much more than a tool builder... he is an inventor of universes... Except the real one."}],
                 },
-                font: "Roboto", numLines: 10, width: 3, height: 2
+                font: "Roboto", numLines: 10, width: 3, height: 3
             }
         });
         room.parts.objects.add(text1);
@@ -27,11 +24,7 @@ function initRoom3(state) {
             spatial: { position: {x: 3, y: 1, z: 0} },
             text: {
                 content: {
-                    content: [{text: "man is much more than a tool builder... he is an inventor of universes..."}],
-                    selections: {},
-                    timezone: 0,
-                    queue: []
-                },
+                    runs: [{text: "man is much more than a tool builder... he is an inventor of universes..."}]},
                 font: "Roboto", numLines: 10, width: 2, height: 2
             }
         });

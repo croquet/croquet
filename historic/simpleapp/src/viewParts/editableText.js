@@ -17,11 +17,21 @@ export default class EditableTextViewPart extends ViewPart {
         super();
         this.doc = options.textPart.doc;
         this.textPart = options.textPart;
-        options = {
-            font: "Roboto", width: 3, height: 2, numLines: 10,
-            editable: false, showSelection: true, ...options,
-        };
-        this.options = options;
+        let opt = this.textPart.viewOptions;
+        let myOpt = {};
+        myOpt.font = opt.font || "Roboto";
+        myOpt.width = typeof opt.width === "number" ? opt.width : 3;
+        myOpt.height = typeof opt.height === "number" ? opt.height : 2;
+        myOpt.editable = typeof opt.editable === "boolean" ? opt.editable : false;
+        myOpt.showSelection = typeof opt.showSelection === "boolean" ? opt.editable : false;
+        myOpt.showScrollBar = typeof opt.showScrollBar === "boolean" ? opt.showScrollBar : true;
+
+        // those three are modified by the editor when the font is loaded and available
+        myOpt.margins = options.margins;
+        myOpt.fontSize = options.fontSize;
+        myOpt.numLines = options.numLines;
+
+        this.options = myOpt;
 
         if (this.options.editable) {
             this.subscribe(PointerEvents.pointerDown, "onPointerDown");
@@ -33,7 +43,7 @@ export default class EditableTextViewPart extends ViewPart {
             this.subscribe(KeyboardEvents.paste, "onPaste");
         }
 
-        this.selections = []; // For each rendering, we grab available one, change the color and size.
+        this.selections = []; // [ThreeObj] For each rendering, we grab available one, and change the color and size.
 
         fontRegistry.load(this.options.font).then(entry => {
             this.initEditor();
@@ -46,7 +56,7 @@ export default class EditableTextViewPart extends ViewPart {
             makePointerSensitive(boxMesh, this);
         }
 
-        this.subscribe(TextEvents.changed, "onChanged", options.textPart.id);
+        this.subscribe(TextEvents.changed, "onChanged", this.textPart.id);
 
         this.threeObj = boxMesh;
         window.view = this;
@@ -59,7 +69,8 @@ export default class EditableTextViewPart extends ViewPart {
 
     initEditor() {
         this.lastPt = false;
-        this.editor = new Warota(this.options.width, this.options.height, this.options.numLines, this.doc);
+        //this.editor = new Warota(this.options.width, this.options.height, this.options.numLines, this.doc);
+        this.editor = new Warota(this.options, this.doc); // options may be modified
         this.editor.mockCallback = ctx => {
             const glyphs = this.processMockContext(ctx);
             this.update(glyphs, this.options.font, this.editor.visibleTextBounds(), this.editor.pixelX, this.editor.scrollTop, this.editor.docHeight, ctx.filledRects);

@@ -14,10 +14,12 @@ export const TextEvents = {
 
 export default class EditableTextPart extends StatePart {
     applyState(state={}) {
-        this.content = state.content || {content: [], selections: {}, timezone: 0, queue: []};
+        let content = {...{runs: [], selections: {}, timezone: 0, queue: []}, ...{runs: state.content.runs}};
+        this.content = content;
+        this.viewOptions = {font: state.font, numLines: state.numLines, width: state.width, height: state.height, editable: state.editable, showSelection: state.showSelection, showScrollBar: state.showScrollBar, margins: state.margins};
         this.doc = new Doc();
-        this.doc.load(this.content.content);
-        this.doc.selections = this.content.selections; // sharing would be bad
+        this.doc.load(this.content.runs);
+        this.doc.selections = this.content.selections;
         window.model = this;
     }
 
@@ -31,7 +33,7 @@ export default class EditableTextPart extends StatePart {
 
     receiveEditEvents(events) {
         let timezone = this.doc.receiveEditEvents(events, this.content, this.doc);
-        this.content.content = this.doc.save();
+        this.content.runs = this.doc.save();
         this.publish(TextEvents.changed, timezone);
     }
 }
