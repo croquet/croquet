@@ -102,7 +102,7 @@ export default class EditableTextViewPart extends ViewPart {
         const box = this.threeObj;
         box.add(textMesh);
 
-        const callback = () => this.onTextChanged();
+        //const callback = () => this.onTextChanged();
         //this.editor.load(this.doc.doc);
         //this.editor.doc.setSelections(this.doc.selections);
         this.initScrollBarMesh();
@@ -215,10 +215,12 @@ export default class EditableTextViewPart extends ViewPart {
                 // here. The right thing should be to fix the data in json and cursorY
                 // should be always zero for all fonts.
                 meshRect.y += (-scrollT * docHeight + cursorY) * meterInPixel;
-                this.updateSelection(this.scrollBar, meshRect);
+                let bar = getSelectionBox();
+                this.updateSelection(bar, meshRect, '0044ee');
             } else if (rec.style === 'scrollKnob') {
+                let knob = getSelectionBox();
                 meshRect.y += (-scrollT * docHeight + cursorY) * meterInPixel;
-                this.updateSelection(this.scrollKnob, meshRect, 0.004);
+                this.updateSelection(knob, meshRect, '00aaee', 0.004);
             }
         }
     }
@@ -255,7 +257,6 @@ export default class EditableTextViewPart extends ViewPart {
     }
 
     selectionBeforeRender(renderer, scene, camera, geometry, material, group) {
-        let meterInPixel = this.options.width / this.editor.scaleX;
         let scrollT = this.editor.scrollTop;
         let docHeight = this.editor.docHeight;
         let top = -scrollT * docHeight;
@@ -321,9 +322,13 @@ export default class EditableTextViewPart extends ViewPart {
         let p = evt.dragEndOnUserPlane;
         if (!p) {return false;}
         const pt = this.textPtFromEvt(p);
-        this.editor.mouseMove(pt.x, pt.y, pt.realY, userID);
+        let type = this.editor.mouseMove(pt.x, pt.y, pt.realY, userID);
         this.lastPt = pt;
-        this.changed();
+        if (type === "scrollChanged") {
+            this.editor.paint();
+        } else if (type === "selectionChanged") {
+            this.changed();
+        }
         return true;
     }
 
@@ -377,7 +382,8 @@ export default class EditableTextViewPart extends ViewPart {
     }
 
     onCopy(evt) {
-        evt.clipboardData.setData("text/plain", this.editor.selectedRange().plainText());
+        let text = this.editor.selectionText(userID);
+        evt.clipboardData.setData("text/plain", text);
         evt.preventDefault();
         return true;
     }
@@ -400,7 +406,7 @@ export default class EditableTextViewPart extends ViewPart {
     onSave() {}
 
     accept() {
-        this.owner.model["editableText"].acceptContent();
+        this.textPart.future().acceptContent();
     }
 
     // "text access"
