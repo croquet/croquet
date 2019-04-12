@@ -282,6 +282,6 @@ export async function uploadCode(entryPoint) {
     //     uploadAsset(asset);
     // }
     // prelude is the Parcel loader code, which loads the entrypoint
-    const prelude = moduleWithID(module.id)[1]["parcel/src/builtins/prelude.js"];
+    const prelude = moduleWithID(module.id)[1]["parcel/src/builtins/prelude"];
     return { base: BASE_URL, prelude: await hashFile(prelude), entry: await hashFile(entryPoint), html: await hashFile(htmlName) };
 }

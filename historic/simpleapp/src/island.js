@@ -298,7 +298,7 @@ export default class Island {
                 for (const kind of ["onceHandlers", "queueHandlers"]) {
                     for (const handler of subs[kind]) {
                         if (handler.for === subscriberId || handler.for.startsWith(handlerPrefix)) {
-                            subs.delete(handler);
+                            subs[kind].delete(handler);
                         }
                     }
                 }
