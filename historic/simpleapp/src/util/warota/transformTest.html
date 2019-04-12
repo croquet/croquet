@@ -1,6 +1,5 @@
 <html>
 <head>
-<script type="module" src="doc.mjs"></script>
 <script type="module">
 import {Doc, Event} from "./warota.mjs";
 
@@ -111,7 +110,7 @@ window.onload = function () {
    case4.expected = "mABn is much more than a tool builder.";
 
 
-//   console.log("case4:", window.doc.doc[0], window.doc.doc[0].text === );
+//   console.log("case4:", window.doc.runs[0], window.doc.runs[0].text === );
 
    function case5() {
         resetContent();
@@ -170,7 +169,7 @@ window.onload = function () {
    //let run = [case7];
    run.forEach(r => {
      r();
-     console.log(r.name + ":", window.doc.doc[0], window.doc.doc[0].text === r.expected);
+     console.log(r.name + ":", window.doc.runs[0], window.doc.runs[0].text === r.expected);
    });
 }
 </script>

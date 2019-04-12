@@ -1,14 +1,16 @@
-import {Wrap, Measurer} from "./wrap";
-import MockContext from "./MockContext";
+import {Wrap, Measurer} from "./wrap.js";
+import MockContext from "./MockContext.js";
 
 function runLength(ary) {
     return ary.map(c => c.text).reduce((s, x) => x.length + s, 0);
 }
 
+const eof = String.fromCharCode(26); // "^Z"
+
 export class Doc {
     constructor() {
-        this.doc = [{start: 0, end: 0, text: ""}]; // [{start: num, end: num, text: str, (opt)style: {font: str, size: num, color: str, emphasis: 'b' | 'i'|'bi'}}]
-
+        this.runs = [{text: ""}]; // [{text: str, (opt)style: {font: str, size: num, color: str, emphasis: 'b' | 'i'|'bi'}}]
+        this.intervals = []; // [{start: num, end: num}]
         this.selections = {}; // {user: {start: num, end: num}}
 
         this.commands = [];
@@ -17,178 +19,16 @@ export class Doc {
         this.defaultSize = 10;
     }
 
-    length() {
-        return this.doc[this.doc.length-1].end;
+    load(runs) {
+        // runs does not have start and end (human would not want to add them by hand).
+        // The canonicalize method adds them. save() strip them out.
+        this.canonicalize(runs);
+        this.commands = [];
     }
 
     setDefault(font, size) {
         this.defaultFont = font;
         this.defaultSize = size;
-    }
-
-    load(runs) {
-        // runs does not have start and end (human would not want to add them by hand).
-        // The canonicalize method adds them. save() strip them out.
-        this.doc = this.canonicalize(runs);
-        this.commands = [];
-    }
-
-    equalStyle(prev, next) {
-        let defaultFont = this.doc.defaultFont;
-        let defaultSize = this.doc.defaultSize;
-        if (!prev && !next) {return true;}
-
-        if (!prev) {
-            return next.font === defaultFont && next.size === defaultSize
-               && !next.color && !next.emphasis;
-        }
-        if (!next) {
-            return prev.font === defaultFont && prev.size === defaultSize
-               && !prev.color && !prev.emphasis;
-        }
-
-        return (prev.font || defaultFont) === (next.font || defaultFont)
-            && (prev.size || defaultSize) === (next.size || defaultSize)
-            && (prev.color === next.color)
-            && (prev.emphasis === next.emphasis);
-    }
-
-    copyRun(run, withoutIndex) {
-        if (!run) {return run;}
-        let obj = {};
-        obj.text = run.text;
-        if (run.style) {
-            obj.style = run.style;
-        }
-        if (!withoutIndex) {
-            obj.start = run.start;
-            obj.end = run.end;
-        }
-        return obj;
-    }
-
-    canonicalize(runs) {
-        let result = [];
-        let lastRun = this.copyRun(runs[0]);
-        let start = 0;
-        let end = 0;
-        let i = 1;
-        let run = this.copyRun(runs[i]);
-        while (run) {
-            if (this.equalStyle(lastRun.style, run.style)) {
-                lastRun.text += run.text;
-            } else {
-                lastRun.start = start;
-                end = start + lastRun.text.length;
-                lastRun.end = end;
-                start = end;
-
-                result.push(lastRun);
-                lastRun = run;
-            }
-            i++;
-            run = this.copyRun(runs[i]);
-        }
-        lastRun.start = start;
-        end = start + lastRun.text.length;
-        lastRun.end = end;
-        result.push(lastRun);
-        return result;
-    }
-
-    save(optStart, optEnd) {
-        let runs = this.doc;
-        let start = optStart !== undefined ? optStart : 0;
-        let end = optEnd !== undefined ? optEnd : this.length();
-        let startRun, startRunIndex;
-        let endRun, endRunIndex;
-        let run, obj;
-        [startRun, startRunIndex] = this.findRun(start);
-        [endRun, endRunIndex] = this.findRun(end);
-
-        if (startRunIndex === endRunIndex) {
-            obj = this.copyRun({text: startRun.text.slice(start - startRun.start, end - startRun.start)}, true);
-            return [obj];
-        }
-
-        let result = [];
-        run = startRun;
-        obj = this.copyRun({text: run.text.slice(start - run.start)}, true);
-        result.push(obj);
-
-        for (let i = startRunIndex + 1; i <= endRunIndex - 1; i++) {
-            obj = this.copyRun(runs[i], true);
-            result.push(obj);
-        }
-
-        obj = this.copyRun({text: endRun.text.slice(0, end - endRun.start)});
-        result.push(obj);
-        return result;
-    }
-
-    plainText(optStart, optEnd) {
-        return this.save(optStart, optEnd).map(c => c.text).join('');
-    }
-
-    splitDocAt(runIndex, sizeInRun) {
-        let runs = this.doc;
-        let run = runs[runIndex];
-        let one = {start: run.start,
-                   end: run.start + sizeInRun,
-                   text: run.text.slice(0, sizeInRun),
-                   style: run.style};
-        let two = {start: run.start + sizeInRun,
-                   end: run.end,
-                   text: run.text.slice(sizeInRun, run.text.length),
-                   style: run.style};
-        runs.splice(runIndex, 1, one, two);
-    }
-
-    findRun(pos) {
-        let runs = this.doc;
-        let ind = runs.findIndex(run => run.start <= pos && pos < run.end);
-        if (ind < 0) {
-            ind = runs.length - 1;
-        }
-        return [runs[ind], ind];
-    }
-
-    updateSelectionsInsert(user, pos, length) {
-        for (let k in this.selections) {
-            let sel = this.selections[k];
-            if (k === user) {
-                this.selections[k] = {start: pos+length, end: pos+length};
-            } else {
-                if (pos <= sel.start) {
-                    this.selections[k] = {start: sel.start + length, end: sel.end + length};
-                } else if (sel.start < pos && pos < sel.end) {
-                    this.selections[k] = {start: sel.start, end: sel.end + length};
-                } /*else {}*/
-            }
-        }
-    }
-
-    updateSelectionsDelete(user, start, end) {
-        let len = end - start;
-        for (let k in this.selections) {
-            let sel = this.selections[k];
-            if (k === user) {
-                this.selections[k] = {start, end: start};
-            } else {
-                if (end <= sel.start) {
-                    this.selections[k] = {start: sel.start - len, end: sel.end - len};
-                } else if (sel.end <= start) {
-                } else if (start <= sel.start && sel.end < end) {
-                    this.selections[k] = {start, end: start};
-                } else if (start < sel.start && end < sel.end) {
-                    this.selections[k] = {start, end: sel.end - end};
-                } else if (sel.start <= start && end < sel.end) {
-                    this.selections[k] = {start: sel.start, end: sel.end - len};
-                } else if (sel.start <= start && start < sel.end) {
-                    this.selections[k] = {start: sel.start, end: sel.end - start};
-                }
-            }
-        }
     }
 
     doEvent(evt) {
@@ -206,13 +46,16 @@ export class Doc {
         let selection = this.ensureSelection(user);
         if (selection.start === selection.end) {
             let [run, runIndex] = this.findRun(selection.start);
-            if (run.end !== selection.start && run.start !== selection.start) {
+            let interval = this.intervals[runIndex];
+            if (interval.end !== selection.start && interval.start !== selection.start) {
                 // that is, pos is within the run
-                this.splitDocAt(runIndex, selection.start - run.start);
+                this.splitRunsAt(runIndex, selection.start - interval.start);
+                runIndex += 1;
+            } else if (interval.end === selection.start) {
                 runIndex += 1;
             }
-            this.doc.splice(runIndex, 0, ...runs); // destructively adding the runs
-            this.doc = this.canonicalize(this.doc, run.start);
+            this.runs.splice(runIndex, 0, ...runs);
+            this.canonicalize(this.runs, interval.start); // this may be off
             this.updateSelectionsInsert(user, selection.start, runLength(runs));
         } else {
             this.doDelete(user, true);
@@ -244,34 +87,206 @@ export class Doc {
         }
 
         let [run, runIndex] = this.findRun(start);
+        let interval = this.intervals[runIndex];
 
-        if (run.end !== start) { // that is, pos is within the run
-            this.splitDocAt(runIndex, start - run.start);
+        if (interval.end !== start) { // that is, pos is within the run
+            this.splitRunsAt(runIndex, start - interval.start);
             // here, previous run ends at pos. and next one starts at pos.
             runIndex += 1;
         }
 
         let endRun = run;
         let endRunIndex;
-        do {
-            [endRun, endRunIndex] = this.findRun(endRun.end);
-        } while (endRun.end < end && endRunIndex < this.doc.length);
+        let endRunInterval;
+        [endRun, endRunIndex] = this.findRun(end);
+        endRunInterval = this.intervals[endRunIndex];
 
-        let reminder = end - endRun.start;
-        if (end !== endRun.end) {
-            this.splitDocAt(endRunIndex, reminder);
+        let reminder = end - endRunInterval.start;
+        if (end !== endRunInterval.end) {
+            this.splitRunsAt(endRunIndex, reminder);
             endRunIndex += 1;
-        } else if (end === endRun.end) {
+        } else if (end === endRunInterval.end) {
             endRunIndex += 1;
         }
 
-        this.doc.splice(runIndex, endRunIndex - runIndex);
-        this.doc = this.canonicalize(this.doc);
+        this.runs.splice(runIndex, endRunIndex - runIndex);
+        this.canonicalize(this.runs);
         this.updateSelectionsDelete(user, start, end);
     }
 
     doSelect(userID, start, end, color) {
         this.selections[userID] = {start, end, color};
+    }
+
+    length() {
+        return this.intervals[this.intervals.length-1].end;
+    }
+
+    equalStyle(prev, next) {
+        let defaultFont = this.defaultFont;
+        let defaultSize = this.defaultSize;
+        if (!prev && !next) {return true;}
+
+        if (!prev) {
+            return next.font === defaultFont && next.size === defaultSize
+               && !next.color && !next.emphasis;
+        }
+        if (!next) {
+            return prev.font === defaultFont && prev.size === defaultSize
+               && !prev.color && !prev.emphasis;
+        }
+
+        return (prev.font || defaultFont) === (next.font || defaultFont)
+            && (prev.size || defaultSize) === (next.size || defaultSize)
+            && (prev.color === next.color)
+            && (prev.emphasis === next.emphasis);
+    }
+
+    copyRun(run) {
+        if (!run) {return run;}
+        let obj = {};
+        obj.text = run.text;
+        if (run.style) {
+            obj.style = run.style;
+        }
+        return obj;
+    }
+
+    canonicalize(runs) {
+        let result = [];
+        let newIntervals = [];
+        let lastRun = this.copyRun(runs[0]);
+        let start = 0;
+        let i = 1;
+        let run = this.copyRun(runs[i]);
+        while (run) {
+            if (this.equalStyle(lastRun.style, run.style)) {
+                lastRun.text += run.text;
+            } else {
+                let end = start + lastRun.text.length;
+                let interval = {start, end};
+                start = end;
+                result.push(lastRun);
+                newIntervals.push(lastRun);
+                lastRun = run;
+            }
+            i++;
+            run = this.copyRun(runs[i]);
+        }
+        let end = start + lastRun.text.length;
+        let interval = {start, end};
+        result.push(lastRun);
+        newIntervals.push(interval);
+        this.runs = result;
+        this.intervals = newIntervals;
+    }
+
+    save(optStart, optEnd) {
+        // intervals is dropped as an external form
+        let runs = this.runs;
+        let intervals = this.intervals;
+        let start = optStart !== undefined ? optStart : 0;
+        let end = optEnd !== undefined ? optEnd : this.length();
+        let startRun, startRunIndex;
+        let endRun, endRunIndex;
+        let run, obj, interval;
+        [startRun, startRunIndex] = this.findRun(start);
+        [endRun, endRunIndex] = this.findRun(end);
+
+        if (startRunIndex === endRunIndex) {
+            let interval = intervals[startRunIndex];
+            let obj = this.copyRun({text: startRun.text.slice(start - interval.start, end - interval.start)});
+            return [obj];
+        }
+
+        let result = [];
+        run = startRun;
+        interval = intervals[startRunIndex];
+
+        obj = this.copyRun({text: run.text.slice(start - interval.start)}, true);
+        result.push(obj);
+
+        for (let i = startRunIndex + 1; i <= endRunIndex - 1; i++) {
+            obj = this.copyRun(runs[i]);
+            result.push(obj);
+        }
+
+        interval = intervals[endRunIndex];
+
+        obj = this.copyRun({text: endRun.text.slice(0, end - interval.start)});
+        result.push(obj);
+        return result;
+    }
+
+    plainText(optStart, optEnd) {
+        return this.save(optStart, optEnd).map(c => c.text).join('');
+    }
+
+    splitRunsAt(runIndex, sizeInRun) {
+        let run = this.runs[runIndex];
+        let interval = this.intervals[runIndex];
+
+        let one = this.copyRun({text: run.text.slice(0, sizeInRun),
+                   style: run.style});
+        let two = this.copyRun({text: run.text.slice(sizeInRun, run.text.length),
+                   style: run.style});
+        this.runs.splice(runIndex, 1, one, two);
+
+        one = {start: interval.start, end: interval.start + sizeInRun};
+        two = {start: interval.start + sizeInRun, end: interval.end};
+        this.intervals.splice(runIndex, 1, one, two);
+    }
+
+    findRun(pos) {
+        let runs = this.runs;
+        let intervals = this.intervals;
+        for (let ind = 0; ind < runs.length; ind++) {
+            let run = runs[ind];
+            let interval = intervals[ind];
+            if (interval.start <= pos && pos < interval.end) {
+                return [runs[ind], ind];
+            }
+        }
+        let ind = runs.length-1
+        return [runs[ind], ind];  // should be the eof run
+    }
+
+    updateSelectionsInsert(user, pos, length) {
+        for (let k in this.selections) {
+            let sel = this.selections[k];
+            if (k === user) {
+                this.selections[k] = {start: pos + length, end: pos + length};
+            } else {
+                if (pos <= sel.start) {
+                    this.selections[k] = {start: sel.start + length, end: sel.end + length};
+                } else if (sel.start < pos && pos < sel.end) {
+                    this.selections[k] = {start: sel.start, end: sel.end + length};
+                } /*else if (sel.end <= pos) {}*/
+            }
+        }
+    }
+
+    updateSelectionsDelete(user, start, end) {
+        let len = end - start;
+        for (let k in this.selections) {
+            let sel = this.selections[k];
+            if (k === user) {
+                this.selections[k] = {start, end: start};
+            } else {
+                if (end <= sel.start) {
+                    this.selections[k] = {start: sel.start - len, end: sel.end - len};
+                } else if (sel.end <= start) {
+                } else if (start <= sel.start && sel.end < end) {
+                    this.selections[k] = {start, end: start};
+                } else if (start < sel.start && end < sel.end) {
+                    this.selections[k] = {start, end: sel.end - end};
+                } else if (sel.start <= start && end < sel.end) {
+                    this.selections[k] = {start: sel.start, end: sel.end - len};
+                } else if (sel.start <= start && start < sel.end) {
+                    this.selections[k] = {start: sel.start, end: sel.end - start};
+                }
+            }
+        }
     }
 
     setSelections(selections) {
@@ -293,7 +308,7 @@ export class Doc {
         if (command) {
             command.undo(this);
         }
-        this.doc = this.canonicalize(this.doc);
+        this.canonicalize(this.runs);
     }
 
     receiveEditEvents(events, content, doc) {
@@ -303,20 +318,21 @@ export class Doc {
         //   of edit commands from a client (effectively, once in the invocation of
         //   this method).
         // - An event sent to the model (to this method) has a timezone value,
-        //   which is the value the model sent to the view as the last view update.
-        //   That is, the view commands are generated in that logical timezone.
+        //   which is the value the model sent to the view as the last view update. That is,
+        //   the view commands are considered to be generated in that logical timezone.
         // - When an event arrives, first the timezone of the event is checcked to see
         //   if it is still considered recent enough.
-        //   -- Then, starting from the first events with the same timezone,
-        //      the event will be exclusively (I think) transformed repeatedly until the last event,
-        //      and it will be pushed to the list.
-        //   -- Also, the event will be pushed to the list of events that needs
-        //      to be sent to the view.
+        //   -- insert and delete events use the selection value in the model;
+        //      so they don't have to be transformed.  They are puhsed into the list.
+        //   -- a select event may be off as there are edit events already processed;
+        //      so it has to be transformed against the events in the list with the same
+        //      logical time or after but already in the list.
+        // - The model executes new events, and update its data structure.
         // - Then, the early elements in the list are dropped as they are deemed to be
         //   past their life.
         // - The list is a part of the saved model. It will be saved with the string content.
         // Things are all destructively updated in content,
-        //console.log('received:', events.length, events[0].timezone, events[0], JSON.parse(JSON.stringify(content.selections)), content.selections);
+
         content.timezone++;
         let CUTOFF = 60;
         let queue = content.queue;
@@ -384,7 +400,8 @@ export class Doc {
         let thisQueue = [];
         let unseenIDs = Object.assign({}, content.selections);
 
-        // all events in variable 'events' should be in the same timezone
+        // all events in the variable 'events' should be in the same timezone;
+        // so pick the zero-th one
         let ind = findFirst(queue, events[0]);
 
         events.forEach(event => {
@@ -500,7 +517,7 @@ export class Warota {
     }
 
     layout() {
-        let [lines, words] = new Wrap().wrap(this.doc.doc, this._width, new Measurer(), this.doc.defaultFont, this.doc.defaultSize, this.pixelMargins);
+        let [lines, words] = new Wrap().wrap(this.doc.runs, this._width, new Measurer(), this.doc.defaultFont, this.doc.defaultSize, this.pixelMargins);
         this.lines = lines;
         this.words = words;
         let lastWord = lines[lines.length-1][0]; // there should be always one
