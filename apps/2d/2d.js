@@ -15,6 +15,9 @@ let SCALE = 1;                  // model uses a virtual 1000x1000 space
 let OFFSETX = 50;               // top-left corner of view, plus half shape width
 let OFFSETY = 50;               // top-left corner of view, plus half shape height
 
+const TEST = !!urlOptions.test;
+
+////// Models /////
 
 export class Root extends Model {
 
@@ -220,7 +223,7 @@ class RootView extends View {
         this.subscribe(model.id, 'child-added', child => this.attachChild(child));
         this.subscribe(model.id, 'child-removed', child => this.detachChild(child));
         this.subscribe(model.id, `user-shape-${USER}`, id => this.gotUserShape(id));
-        this.publish(model.id, 'user-added', USER);
+        if (TEST) this.publish(model.id, 'user-added', USER);
     }
 
     detach() {
@@ -355,9 +358,10 @@ async function go() {
         const models = await controller.createIsland("2d", {
             moduleID: module.id,
             snapshot,
-            creatorFn() {
+            options: {test: TEST},
+            creatorFn(options) {
                 const root = new Root().init();
-                // for (let i = 0; i < 99; i++) root.add(new Shape().init());
+                if (!options.test) for (let i = 0; i < 99; i++) root.add(new Shape().init());
                 root.add(new BouncingShape().init({pos: [500, 500], color: "white"}));
                 return {root};
             },
