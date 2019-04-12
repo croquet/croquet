@@ -5,11 +5,9 @@ import SpatialPart from "../stateParts/spatial";
 import Inertial from "../stateParts/inertial";
 import { StatePart, ViewPart } from "../modelView";
 import Tracking from "../viewParts/tracking";
-import { TextObject } from "../objects/text";
 import { LayoutRoot, LayoutContainer, LayoutSlotStretch3D, LayoutSlotText, MinFromBBox } from "../viewParts/layout";
-import TextViewPart from "../viewParts/text";
-import { WarotaEditorObject } from "../objects/editableText";
-import  EditableTextViewPart from "../viewParts/editableText";
+import TextElement from "../elements/textElement";
+import EditableTextViewPart from "../viewParts/textView";
 import Draggable from "../viewParts/draggable";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
@@ -34,8 +32,8 @@ function AutoRotating() {
     };
 }
 
-/** Model for a rotating Box */
-export class RotatingBox extends StatePart {
+/** Element for a rotating Box */
+export class RotatingBoxElement extends StatePart {
     constructor() {
         super();
         this.parts = {
@@ -43,7 +41,7 @@ export class RotatingBox extends StatePart {
         };
     }
 
-    naturalViewClass() { return BoxView; }
+    naturalViewClass() { return BoxElementView; }
 }
 
 /** View for a Box */
@@ -58,9 +56,9 @@ class BoxViewPart extends ViewPart {
     }
 }
 
-export const BoxView = Draggable()(Tracking()(BoxViewPart));
+export const BoxElementView = Draggable()(Tracking()(BoxViewPart));
 
-export class LayoutTestModel extends StatePart {
+export class LayoutTestElement extends StatePart {
     constructor() {
         super();
         this.parts = {
@@ -69,11 +67,11 @@ export class LayoutTestModel extends StatePart {
     }
 
     naturalViewClass() {
-        return LayoutTestView;
+        return LayoutTestElementView;
     }
 }
 
-class LayoutTestView extends ViewPart {
+class LayoutTestElementView extends ViewPart {
     constructor(options) {
         super(options);
         this.parts = {
@@ -94,7 +92,15 @@ class LayoutTestView extends ViewPart {
                         new LayoutSlotText({
                             margin: 0.1,
                             aspectRatio: 1,
-                            inner: new EditableTextViewPart({content: [{text: `This is an example of text in a dynamic layout: "Our first design for multiple inheritance presumed that a state variable such as ohms had a meaning independent of the individual perspectives. Hence, it was sensible for it to be owned by the node itself. All perspectives would reference this single variable when referring to resistance. This proved adequate so long as the system designer knew all of the perspectives that might be associated with a given node, and could ensure this uniformity of intended reference."`}], textPart: {viewOptions: {fontSize: 0.25, showScrollBar: false, hideBackground: true, editable: false}}})
+                            inner: new EditableTextViewPart({
+                                content: [
+                                    {text: `This is an example of text in a dynamic layout: "Our first design for multiple inheritance presumed that a state variable such as ohms had a meaning independent of the individual perspectives. Hence, it was sensible for it to be owned by the node itself. All perspectives would reference this single variable when referring to resistance. This proved adequate so long as the system designer knew all of the perspectives that might be associated with a given node, and could ensure this uniformity of intended reference."`}
+                                ],
+                                editable: false,
+                                fontSize: 0.25,
+                                showScrollBar: false,
+                                hideBackground: true
+                            })
                         }),
                         new LayoutContainer({
                             flexDirection: "column",
@@ -126,36 +132,40 @@ function initRoom1(state) {
         const room = new Room().init({});
         island.set("room", room);
 
-        const rotatingBox = new RotatingBox().init({ spatial: { position: {x: 1.5, y: 1, z: 0} } });
-        room.parts.objects.add(rotatingBox);
+        const rotatingBox = new RotatingBoxElement().init({ spatial: { position: {x: 1.5, y: 1, z: 0} } });
+        room.parts.elements.add(rotatingBox);
 
-        const text1 = new TextObject().init({
-            spatial: { position: new THREE.Vector3(-3.5, 0.7, -1) },
-            text: { content: "Man is much more than a tool builder... he is an inventor of universes." }
+        const text1 = new TextElement().init({
+            spatial: { position: new THREE.Vector3(-2, 0.7, -1.5) },
+            text: { content: {runs: [{text: "Man is much more than a tool builder... he is an inventor of universes."}]} },
+            editable: false,
         });
-        room.parts.objects.add(text1);
+        room.parts.elements.add(text1);
 
-        const text2 = new TextObject().init({
+        const text2 = new TextElement().init({
             spatial: { position: new THREE.Vector3(4, 1.0, -2) },
-            text: { content: "Chapter Eight - The Queen's Croquet Ground", font: "Lora" },
+            text: { content: {runs: [{text: "Chapter Eight - The Queen's Croquet Ground"}]} },
+            editable: false,
+            visualOptions: {font: "Lora", fontSize: 0.5, width: 5, height: 2}
         });
-        room.parts.objects.add(text2);
+        room.parts.elements.add(text2);
 
-        const editText = new WarotaEditorObject().init({
-            spatial: { position: {x: -4, y: 2, z: -1.5} },
+        const editText = new TextElement().init({
+            spatial: { position: {x: -5, y: 2, z: -1.5} },
             text: {
                 content: {
                     runs: [{text: "This text can be edited"}],
                 },
-                viewOptions: {font: "Roboto", numLines: 10, width: 3, height: 2}
-            }
+            },
+            editable: true,
+            visualOptions: {font: "Roboto", numLines: 10, width: 3, height: 2}
         });
-        room.parts.objects.add(editText);
+        room.parts.elements.add(editText);
 
-        const layoutTest = new LayoutTestModel().init({
+        const layoutTest = new LayoutTestElement().init({
             spatial: { position: {x: 0, y: 1, z: -3 } },
         });
-        room.parts.objects.add(layoutTest);
+        room.parts.elements.add(layoutTest);
     });
 }
 

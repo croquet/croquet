@@ -8,7 +8,6 @@ if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); 
 const MUL = 100;
 
 /** @typedef {import('yoga-layout').YogaNode} YogaNode */
-/** @typedef {import("../viewParts/text").default} TextViewPart */
 
 export const LayoutEvents = {
     contentChanged: "layout-content-changed",
@@ -186,8 +185,8 @@ export class LayoutSlotStretch3D extends LayoutSlotCenter3D {
 export class LayoutSlotText extends LayoutSlot {
     onLayoutChanged() {
         const targetPos = new THREE.Vector3(
-            (this.yogaNode.getComputedLeft()) / MUL,
-            -1 * (this.yogaNode.getComputedTop()) / MUL,
+            (this.yogaNode.getComputedLeft() + this.yogaNode.getComputedWidth() / 2) / MUL,
+            -1 * (this.yogaNode.getComputedTop() / 2+ this.yogaNode.getComputedHeight() / 2) / MUL,
             this.options.z || 0
         );
 
@@ -196,7 +195,6 @@ export class LayoutSlotText extends LayoutSlot {
         this.parts.inner.updateExtent({
             width: (this.yogaNode.getComputedWidth()) / MUL,
             height: (this.yogaNode.getComputedHeight()) / MUL,
-            anchor: "top"
         });
     }
 }

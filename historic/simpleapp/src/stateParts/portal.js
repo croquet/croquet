@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { StatePart } from "../modelView";
-import SpatialPart from "../stateParts/spatial";
-import PortalView from "./portalView";
+import SpatialPart from "./spatial";
+import PortalViewPart from "../viewParts/portalView";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
@@ -86,7 +86,7 @@ export default class PortalPart extends StatePart {
     }
 
     naturalViewClass() {
-        return PortalView;
+        return PortalViewPart;
     }
 }
 

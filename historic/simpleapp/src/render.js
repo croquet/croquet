@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import PortalViewPart from "./portal/portalView";
+import PortalViewPart from "./viewParts/portalView";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
@@ -55,7 +55,7 @@ export default class Renderer {
         const mainCamera = currentRoomView.parts.camera.threeObj;
 
         /** @type {PortalViewPart[]} */
-        const portalViewParts = Object.values(currentRoomView.parts.objectViewManager.viewsForObjects)
+        const portalViewParts = Object.values(currentRoomView.parts.elementViewManager.viewsForElements)
             .map(wrappingView => wrappingView.parts.inner)
             .filter(viewPart => viewPart instanceof PortalViewPart);
 
