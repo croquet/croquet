@@ -696,11 +696,6 @@ export class Warota {
         if (!word) {return {left: 0, top: 0, width: 0, height: 0};}
 
         let lp = pos - word.start;
-        if (lp === 0) {
-            let measure0 = new Measurer().measureText(word.text.slice(0, 0), word.style);
-            return {left: word.left + measure0.width, top: word.top, width: measure0.width, height: word.height};
-        }
-
         let measure0 = new Measurer().measureText(word.text.slice(0, pos-word.start), word.style);
         let measure1 = new Measurer().measureText(word.text.slice(0, pos-word.start+1), word.style);
         return {left: word.left + measure0.width, top: word.top, width: measure1.width - measure0.width, height: word.height};
@@ -753,7 +748,7 @@ export class Warota {
             let pos1 = this.positionFromIndex(selection.start);
             let pos2 = this.positionFromIndex(selection.end);
             return [{left: pos1.left, top: pos1.top,
-                    width: pos2.left - pos1.left + pos2.width,
+                    width: pos2.left - pos1.left,
                     height: pos1.height}];
         }
         let rects = [];
@@ -762,19 +757,18 @@ export class Warota {
         rects.push({left: pos1.left, top: pos1.top,
                     width: this.width() - pos1.left,
                     height: pos1.height});
-        if (line1Index - line0Index >= 1) {
+        if (line1Index - line0Index >= 2) {
             pos1 = this.positionFromIndex(this.lines[line0Index+1][0].start);
-            let penultimate = this.lines[line1Index-1];
-            pos2 = this.positionFromIndex(penultimate[penultimate.length-1].end);
+            pos2 = this.positionFromIndex(selection.end);
             rects.push({left: this.pixelMargins.left, top: pos1.top,
                         width: this.width(),
-                        height: pos2.top - pos1.top + pos2.height});
+                        height: pos2.top - pos1.top});
         }
 
         pos1 = this.positionFromIndex(this.lines[line1Index][0].start);
         pos2 = this.positionFromIndex(selection.end);
         rects.push({left: this.pixelMargins.left, top: pos1.top,
-                    width: pos2.left - this.pixelMargins.left + pos2.width,
+                    width: pos2.left - this.pixelMargins.left,
                     height: pos2.height});
         return rects;
     }
@@ -805,7 +799,6 @@ export class Warota {
     }
 
     mouseMove(x, y, realY, userID) {
-        let last = this.doc.selections[userID] || {start: -1, end: -1};
         if (this.selectDragStart !== null) {
             let other = this.indexFromPosition(x, y);
             let start, end;
@@ -820,7 +813,8 @@ export class Warota {
                     start = this.selectDragStart;
                     end = other;
                 }
-                if (last.start !== start || last.end !== end) {
+                let last = this.doc.selections[userID];
+                if (last && (last.start !== start || last.end !== end)) {
                     this.select(userID, start, end, userID);
                     return 'selectionChanged';
                 }
