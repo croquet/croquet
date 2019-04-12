@@ -1,6 +1,6 @@
-import * as THREE from 'three';
-import { ViewPart } from '../modelView.js';
-import { theKeyboardManager } from '../domKeyboardManager.js';
+import * as THREE from "three";
+import { ViewPart } from "../modelView";
+import { theKeyboardManager } from "../domKeyboardManager";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }

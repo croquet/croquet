@@ -1,5 +1,5 @@
-import {Wrap, Measurer} from './wrap.js';
-import MockContext from './MockContext.js';
+import {Wrap, Measurer} from "./wrap";
+import MockContext from "./MockContext";
 
 function runLength(ary) {
     return ary.map(c => c.text).reduce((s, x) => x.length + s, 0);

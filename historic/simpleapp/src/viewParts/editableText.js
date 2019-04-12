@@ -1,13 +1,13 @@
-import * as THREE from 'three';
-import { TextGeometry, HybridMSDFShader } from 'three-bmfont-text';
-import { rendererVersion } from '../render.js';
-import { TextEvents } from '../stateParts/editableText.js';
-import { PointerEvents, makePointerSensitive, TrackPlaneEvents, TrackPlaneTopic } from "./pointer.js";
-import { Warota } from '../util/warota/warota.js';
-import { fontRegistry } from '../util/fontRegistry.js';
-import { KeyboardEvents, KeyboardTopic } from '../domKeyboardManager.js';
-import { ViewPart } from '../modelView.js';
-import { userID } from "../util/userid.js";
+import * as THREE from "three";
+import { TextGeometry, HybridMSDFShader } from "three-bmfont-text";
+import { rendererVersion } from "../render";
+import { TextEvents } from "../stateParts/editableText";
+import { PointerEvents, makePointerSensitive, TrackPlaneEvents, TrackPlaneTopic } from "./pointer";
+import { Warota } from "../util/warota/warota";
+import { fontRegistry } from "../util/fontRegistry";
+import { KeyboardEvents, KeyboardTopic } from "../domKeyboardManager";
+import { ViewPart } from "../modelView";
+import { userID } from "../util/userid";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
@@ -180,7 +180,7 @@ export default class EditableTextViewPart extends ViewPart {
             return box;
         }
 
-        let opt = this.options.hideBackStop
+        let opt = this.options.hideBackground
             ? {transparent: true, opacity: 0}
             : {color: '#' + this.options.backgroundColor};
 

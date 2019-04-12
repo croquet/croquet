@@ -1,8 +1,8 @@
 import Hashids from "hashids";
-import hotreload from "./hotreload.js";
+import hotreload from "./hotreload";
 
 // we include the parcel prelude only so we can get at its source code
-import "parcel/src/builtins/prelude.js";    // eslint-disable-line
+import "parcel/src/builtins/prelude";    // eslint-disable-line
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
@@ -31,7 +31,7 @@ development build, but are replaced by random short identifiers in
 production. That's why we must not ascribe any meaning to those IDs.
 */
 
-const entryPointName = "entry.js";
+const entryPointName = "entry";
 const htmlName = "index.html";
 
 // grab HTML source now before the DOM gets modified

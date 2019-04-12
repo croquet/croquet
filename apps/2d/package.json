@@ -22,18 +22,6 @@
       "last 1 iOS major version"
     ]
   },
-  "alias": {
-    "teatime": "../teatime/index.js"
-  },
-  "eslintConfig": {
-    "settings": {
-      "import/resolver": {
-        "alias": [
-          ["teatime", "../teatime/index.js"]
-        ]
-      }
-    }
-  },
   "eslintIgnore": [ "dist/" ],
   "dependencies": {
     "broadcast-channel": "^2.1.10",

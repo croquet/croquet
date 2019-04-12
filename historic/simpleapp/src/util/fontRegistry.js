@@ -1,5 +1,5 @@
-import * as THREE from 'three';
-import { GlyphLayout } from './glyphLayout.js';
+import * as THREE from "three";
+import { GlyphLayout } from "./glyphLayout";
 
 const fontPaths = {
     /* eslint-disable global-require */

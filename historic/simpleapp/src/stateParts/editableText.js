@@ -1,7 +1,7 @@
-import { StatePart } from "../modelView.js";
-import { addMessageTranscoder } from "../island.js";
+import { StatePart } from "../modelView";
+import { addMessageTranscoder } from "../island";
 
-import { Doc } from "../util/warota/warota.js";
+import { Doc } from "../util/warota/warota";
 
 addMessageTranscoder('*', { encode: a => a, decode: a => a });
 

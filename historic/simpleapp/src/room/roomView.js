@@ -1,19 +1,19 @@
-import * as THREE from 'three';
-import { ViewPart } from '../modelView.js';
-import WithManipulator from '../viewParts/manipulatorView.js';
-import { ChildEvents } from '../stateParts/children.js';
-import CameraViewPart from '../viewParts/camera.js';
-import PointerViewPart, { makePointerSensitive, ignorePointer, PointerEvents } from '../viewParts/pointer.js';
-import arrowsAlt from '../../assets/arrows-alt.svg';
-import arrowsAltRot from '../../assets/arrows-alt-rot.svg';
-import SVGIcon from '../util/svgIcon.js';
-import Tracking, { Facing } from '../viewParts/tracking.js';
-import SpatialPart from '../stateParts/spatial.js';
-import Inertial from '../stateParts/inertial.js';
-import { PortalTraversing, PortalEvents, PortalTopic } from '../portal/portalModel.js';
-import { KeyboardViewPart } from './keyboard.js';
-import { ContextMenu } from '../viewParts/menu.js';
-import { ColorEvents } from '../stateParts/color.js';
+import * as THREE from "three";
+import { ViewPart } from "../modelView";
+import WithManipulator from "../viewParts/manipulatorView";
+import { ChildEvents } from "../stateParts/children";
+import CameraViewPart from "../viewParts/camera";
+import PointerViewPart, { makePointerSensitive, ignorePointer, PointerEvents } from "../viewParts/pointer";
+import arrowsAlt from "../../assets/arrows-alt.svg";
+import arrowsAltRot from "../../assets/arrows-alt-rot.svg";
+import SVGIcon from "../util/svgIcon";
+import Tracking, { Facing } from "../viewParts/tracking";
+import SpatialPart from "../stateParts/spatial";
+import Inertial from "../stateParts/inertial";
+import { PortalTraversing, PortalEvents, PortalTopic } from "../portal/portalModel";
+import { KeyboardViewPart } from "./keyboard";
+import { ContextMenu } from "../viewParts/menu";
+import { ColorEvents } from "../stateParts/color";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }

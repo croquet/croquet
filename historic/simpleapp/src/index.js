@@ -1,16 +1,16 @@
 import * as THREE from "three";
-import hotreload from "./hotreload.js";
-import room1 from './sampleRooms/room1.js';
-import room2 from './sampleRooms/room2.js';
-import room3 from './sampleRooms/room3.js';
-import roomBounce from './sampleRooms/bounce.js';
-import RoomViewManager from './room/roomViewManager.js';
-import Renderer from './render.js';
-import { connectToReflector, Controller, addMessageTranscoder } from "./island.js";
-import {theKeyboardManager} from './domKeyboardManager.js';
-import Stats from "./util/stats.js";
-import urlOptions from "./util/urlOptions.js";
-import { uploadCode } from "./modules.js";
+import hotreload from "./hotreload";
+import room1 from "./sampleRooms/room1";
+import room2 from "./sampleRooms/room2";
+import room3 from "./sampleRooms/room3";
+import roomBounce from "./sampleRooms/bounce";
+import RoomViewManager from "./room/roomViewManager";
+import Renderer from "./render";
+import { connectToReflector, Controller, addMessageTranscoder } from "./island";
+import {theKeyboardManager} from "./domKeyboardManager";
+import Stats from "./util/stats";
+import urlOptions from "./util/urlOptions";
+import { uploadCode } from "./modules";
 
 const LOG_HOTRELOAD = true;
 

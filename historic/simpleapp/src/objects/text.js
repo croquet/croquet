@@ -1,8 +1,8 @@
-import {StatePart, ViewPart} from "../modelView.js";
-import TextPart from "../stateParts/text.js";
-import SpatialPart from "../stateParts/spatial.js";
-import TextViewPart, { TextTracking } from "../viewParts/text.js";
-import Tracking from "../viewParts/tracking.js";
+import {StatePart, ViewPart} from "../modelView";
+import TextPart from "../stateParts/text";
+import SpatialPart from "../stateParts/spatial";
+import TextViewPart, { TextTracking } from "../viewParts/text";
+import Tracking from "../viewParts/tracking";
 
 /** Model for a simple text display */
 export class TextObject extends StatePart {

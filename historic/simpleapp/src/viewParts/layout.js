@@ -1,6 +1,6 @@
-import * as THREE from 'three';
-import { Node, ALIGN_CENTER, ALIGN_FLEX_START, ALIGN_FLEX_END, ALIGN_STRETCH, FLEX_DIRECTION_ROW, FLEX_DIRECTION_COLUMN, EDGE_ALL, DIRECTION_LTR, POSITION_TYPE_ABSOLUTE } from 'yoga-layout-prebuilt';
-import { ViewPart } from '../modelView.js';
+import * as THREE from "three";
+import { Node, ALIGN_CENTER, ALIGN_FLEX_START, ALIGN_FLEX_END, ALIGN_STRETCH, FLEX_DIRECTION_ROW, FLEX_DIRECTION_COLUMN, EDGE_ALL, DIRECTION_LTR, POSITION_TYPE_ABSOLUTE } from "yoga-layout-prebuilt";
+import { ViewPart } from "../modelView";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }

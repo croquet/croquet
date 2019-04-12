@@ -1,11 +1,11 @@
 import SeedRandom from "seedrandom";
-import PriorityQueue from "./util/priorityQueue.js";
-import AsyncQueue from './util/asyncQueue.js';
-import hotreload from "./hotreload.js";
-import { hashModelCode, baseUrl } from "./modules.js";
-import { inModelRealm, StatePart, inViewRealm } from "./modelView.js";
-import Stats from "./util/stats.js";
-import { PATH_PART_SEPARATOR_SPLIT_REGEXP } from "./parts.js";
+import PriorityQueue from "./util/priorityQueue";
+import AsyncQueue from "./util/asyncQueue";
+import hotreload from "./hotreload";
+import { hashModelCode, baseUrl } from "./modules";
+import { inModelRealm, StatePart, inViewRealm } from "./modelView";
+import Stats from "./util/stats";
+import { PATH_PART_SEPARATOR_SPLIT_REGEXP } from "./parts";
 
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
@@ -165,11 +165,11 @@ export default class Island {
 
     sendNoop() {
         // this is only used for syncing after a snapshot
-        // noop() isn't actually implemented, sends to island id
-        // are filtered out in executeOn()
         const message = new Message(this.time, 0, this.id, "noop", []);
         this.controller.sendMessage(message);
     }
+
+    noop() {}
 
     /** decode msgData and sort it into future queue
      * @param {MessageData} msgData - encoded message
@@ -275,6 +275,44 @@ export default class Island {
         }
     }
 
+
+    removeAllSubscriptionsFor(subscriberId) {
+        const topicPrefix = `${subscriberId}:`;
+        const handlerPrefix = `${subscriberId}.`;
+        // TODO: optimize this - reverse lookup table?
+        for (const [topic, subs] of Object.entries(this.modelSubscriptions)) {
+            if (topic.startsWith(topicPrefix)) delete this.modelSubscriptions[topic];
+            else {
+                for (const handler of subs) {
+                    if (handler.for === subscriberId || handler.for.startsWith(handlerPrefix)) {
+                        subs.delete(handler);
+                    }
+                }
+                if (subs.size === 0) delete this.modelSubscriptions[topic];
+            }
+        }
+        // TODO: optimize this - reverse lookup table?
+        for (const [topic, subs] of Object.entries(this.viewSubscriptions)) {
+            if (topic.startsWith(topicPrefix)) delete this.viewSubscriptions[topic];
+            else {
+                for (const kind of ["onceHandlers", "queueHandlers"]) {
+                    for (const handler of subs[kind]) {
+                        if (handler.for === subscriberId || handler.for.startsWith(handlerPrefix)) {
+                            subs.delete(handler);
+                        }
+                    }
+                }
+                if (subs.onceHandlers.size + subs.queueHandlers.size === 0) {
+                    delete this.viewSubscriptions[topic];
+                }
+            }
+        }
+    }
+
+    removeAllModelSubscriptionsFor(subscriberId) {
+        this.removeAllSubscriptionsFor(subscriberId);
+    }
+
     addViewSubscription(scope, event, subscriberId, methodNameOrCallback, oncePerFrame) {
         if (CurrentIsland) throw Error("Island Error");
         const topic = scope + ":" + event;
@@ -323,20 +361,7 @@ export default class Island {
     }
 
     removeAllViewSubscriptionsFor(subscriberId) {
-        const handlerPrefix = `${subscriberId}`;
-        // TODO: optimize this - reverse lookup table?
-        for (const [topic, subs] of Object.entries(this.viewSubscriptions)) {
-            for (const kind of ["onceHandlers", "queueHandlers"]) {
-                for (const handler of subs[kind]) {
-                    if (handler.for.startsWith(handlerPrefix)) {
-                        delete subs[handler];
-                    }
-                }
-            }
-            if (subs.onceHandlers.size + subs.queueHandlers.size === 0) {
-                delete this.viewSubscriptions[topic];
-            }
-        }
+        this.removeAllSubscriptionsFor(subscriberId);
     }
 
     publishFromModel(scope, event, data) {

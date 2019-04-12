@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import * as THREE from "three";
 
 var X_HEIGHTS = ['x', 'e', 'a', 'o', 'n', 's', 'r', 'c', 'u', 'm', 'v', 'w', 'z']
 var M_WIDTHS = ['m', 'w']

@@ -1,15 +1,16 @@
-import * as THREE from 'three';
-import Island from '../island.js';
-import Room from "../room/roomModel.js";
-import SpatialPart from '../stateParts/spatial.js';
-import Inertial from '../stateParts/inertial.js';
-import { StatePart, ViewPart } from '../modelView.js';
-import Tracking from '../viewParts/tracking.js';
-import { TextObject } from '../objects/text.js';
-import { LayoutRoot, LayoutContainer, LayoutSlotStretch3D, LayoutSlotText, MinFromBBox } from '../viewParts/layout.js';
-import { WarotaEditorObject } from '../objects/editableText.js';
-import  EditableTextViewPart from '../viewParts/editableText.js';
-import Draggable from '../viewParts/draggable.js';
+import * as THREE from "three";
+import Island from "../island";
+import Room from "../room/roomModel";
+import SpatialPart from "../stateParts/spatial";
+import Inertial from "../stateParts/inertial";
+import { StatePart, ViewPart } from "../modelView";
+import Tracking from "../viewParts/tracking";
+import { TextObject } from "../objects/text";
+import { LayoutRoot, LayoutContainer, LayoutSlotStretch3D, LayoutSlotText, MinFromBBox } from "../viewParts/layout";
+import TextViewPart from "../viewParts/text";
+import { WarotaEditorObject } from "../objects/editableText";
+import  EditableTextViewPart from "../viewParts/editableText";
+import Draggable from "../viewParts/draggable";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }

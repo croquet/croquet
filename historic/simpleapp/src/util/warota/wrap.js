@@ -1,4 +1,4 @@
-import { fontRegistry } from '../fontRegistry.js';
+import { fontRegistry } from "../fontRegistry";
 
 // let fontRegistry = {
 //     measureText: function(str, style) {

@@ -1,9 +1,9 @@
-import {StatePart, ViewPart} from '../modelView.js';
-import SpatialPart from '../stateParts/spatial.js';
-import TextPart from '../stateParts/editableText.js';
+import {StatePart, ViewPart} from "../modelView";
+import SpatialPart from "../stateParts/spatial";
+import TextPart from "../stateParts/editableText";
 
-import Tracking from '../viewParts/tracking.js';
-import EditableTextViewPart from '../viewParts/editableText.js';
+import Tracking from "../viewParts/tracking";
+import EditableTextViewPart from "../viewParts/editableText";
 
 /** Model for a simple text display */
 export default class WarotaTextObject extends StatePart {

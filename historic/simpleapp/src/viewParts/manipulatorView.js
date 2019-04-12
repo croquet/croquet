@@ -1,10 +1,10 @@
 import * as THREE from "three";
-import SVGIcon from "../util/svgIcon.js";
+import SVGIcon from "../util/svgIcon";
 import lineHandle from "../../assets/line-handle.svg";
 import rotateHandle from "../../assets/rotate-handle.svg";
-import { PointerEvents, makePointerSensitive } from "./pointer.js";
-import { ViewPart } from "../modelView.js";
-import Tracking from "./tracking.js";
+import { PointerEvents, makePointerSensitive } from "./pointer";
+import { ViewPart } from "../modelView";
+import Tracking from "./tracking";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
