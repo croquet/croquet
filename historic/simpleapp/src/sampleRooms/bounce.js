@@ -9,28 +9,28 @@ import Bouncing from "../stateParts/bouncing";
 import Tracking from "../viewParts/tracking";
 import Clickable from "../viewParts/clickable";
 import Draggable from "../viewParts/draggable";
-import { TextObject } from "../objects/text";
+import TextElement from "../elements/textElement";
 import urlOptions from "../util/urlOptions";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
-export class Box extends StatePart {
+export class BoxElement extends StatePart {
     constructor() {
         super();
         this.parts = {spatial: new SpatialPart()};
     }
 
-    naturalViewClass() { return DragBoxView; }
+    naturalViewClass() { return BoxElementView; }
 }
 
-export class BouncingBox extends StatePart {
+export class BouncingBallElement extends StatePart {
     constructor() {
         super();
         this.parts = {spatial: new (Bouncing()(SpatialPart))()};
     }
 
-    naturalViewClass() { return ClickBoxView; }
+    naturalViewClass() { return BouncingBallElementView; }
 }
 
 class BoxViewPart extends ViewPart {
@@ -44,6 +44,8 @@ class BoxViewPart extends ViewPart {
     }
 }
 
+const BoxElementView = Draggable()(Tracking()(BoxViewPart));
+
 class BallViewPart extends ViewPart {
     constructor(options) {
         options = {color: "#aaaaaa", ...options};
@@ -55,15 +57,14 @@ class BallViewPart extends ViewPart {
     }
 }
 
-const ClickBoxView = Clickable({
+const BouncingBallElementView = Clickable({
     onClick: options => () => {
         options.model.parts.spatial.toggle();
     }
 })(Tracking()(BallViewPart));
 
-const DragBoxView = Draggable()(Tracking()(BoxViewPart));
 
-export class Group extends StatePart {
+export class GroupElement extends StatePart {
     constructor() {
         super();
         this.parts = {
@@ -72,51 +73,49 @@ export class Group extends StatePart {
         };
     }
 
-    naturalViewClass() { return GroupView; }
+    naturalViewClass() { return GroupElementView; }
 }
 
-class ChildrenGroupView extends ViewPart {
+const GroupElementView = Tracking()(class extends ViewPart {
     constructor(options) {
         super(options);
-        this.viewsForObjects = {};
+        this.viewsForChildElements = {};
 
-        this.subscribe(ChildEvents.childAdded, "onObjectAdded", options.model.id, "children");
-        this.subscribe(ChildEvents.childRemoved, "onObjectRemoved", options.model.id, "children");
+        this.subscribe(ChildEvents.childAdded, "onElementAdded", options.model.id, "children");
+        this.subscribe(ChildEvents.childRemoved, "onElementRemoved", options.model.id, "children");
         this.group = new THREE.Group();
         this.threeObj = this.group;
 
-        for (const object of options.model.parts.children.children) {
-            this.onObjectAdded(object);
+        for (const element of options.model.parts.children.children) {
+            this.onElementAdded(element);
         }
     }
 
-    onObjectAdded(object) {
-        const NaturalView = object.naturalViewClass("in-group");
+    onElementAdded(element) {
+        const NaturalView = element.naturalViewClass("in-group");
         /** @type {View} */
-        const view = new NaturalView({model: object});
-        this.viewsForObjects[object.id] = view;
+        const view = new NaturalView({model: element});
+        this.viewsForChildElements[element.id] = view;
         this.group.add(...view.threeObjs());
     }
 
-    onObjectRemoved(object) {
-        const view = this.viewsForObjects[object.id];
+    onElementRemoved(element) {
+        const view = this.viewsForChildElements[element.id];
         this.group.remove(...view.threeObjs());
         view.detach();
-        delete this.viewsForObjects[object.id];
+        delete this.viewsForChildElements[element.id];
     }
-}
-
-const GroupView = Tracking()(ChildrenGroupView);
+});
 
 /** A group that assigns random colors to its children's views */
-export class RandomColorGroup extends Group {
-    naturalViewClass() { return RandomColorGroupView; }
+export class RandomlyColoringGroupElement extends GroupElement {
+    naturalViewClass() { return RandomlyColoringGroupElementView; }
 }
 
-class RandomColorChildrenGroupView extends ChildrenGroupView {
-    onObjectAdded(object) {
-        super.onObjectAdded(object);
-        const view = this.viewsForObjects[object.id];
+class RandomlyColoringGroupElementView extends GroupElementView {
+    onElementAdded(element) {
+        super.onElementAdded(element);
+        const view = this.viewsForChildElements[element.id];
         if (!this.random) this.random = new SeedRandom(this.modelId);
         for (const threeObj of view.threeObjs()) {
             threeObj.material.color.setHSL(this.random(), 1, 0.5);
@@ -124,26 +123,25 @@ class RandomColorChildrenGroupView extends ChildrenGroupView {
     }
 }
 
-const RandomColorGroupView = Tracking()(RandomColorChildrenGroupView);
-
 function initBounce(state, options) {
     return new Island(state, island => {
         const room = new Room().init({});
         island.set("room", room);
 
         for (let x = -3; x <= 3; x += 3) {
-            const bigBox = new Box().init({ spatial: { position: { x, y: 0.5, z: -2 }}});
+            const bigBox = new BoxElement().init({ spatial: { position: { x, y: 0.5, z: -2 }}});
             room.parts.objects.add(bigBox);
         }
-        const text1 = new TextObject().init({
+        const text1 = new TextElement().init({
             spatial: { position: new THREE.Vector3(-2.25, 3, -2) },
-            text: { content: "Croquet runs identically on any platform. Load this in another page to compare. Drag the cubes." }
+            text: { content: {runs: [{text: ["Croquet runs identically on any platform. Load this in another page to compare. Drag the cubes."]}]} },
+            editable: false
         });
         room.parts.objects.add(text1);
-        const bouncingBoxes = new RandomColorGroup().init({ spatial: { scale: {x: 0.5, y: 0.5, z: 0.5 } } });
+        const bouncingBoxes = new RandomlyColoringGroupElement().init({ spatial: { scale: {x: 0.5, y: 0.5, z: 0.5 } } });
         room.parts.objects.add(bouncingBoxes);
         for (let i = 0; i < options.n; i++) {
-            bouncingBoxes.parts.children.add(new BouncingBox().init({ spatial: { scale: {x: 0.3, y: 0.3, z: 0.3 } } }));
+            bouncingBoxes.parts.children.add(new BouncingBallElement().init({ spatial: { scale: {x: 0.3, y: 0.3, z: 0.3 } } }));
         }
     });
 }

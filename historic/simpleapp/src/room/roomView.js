@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { ViewPart } from "../modelView";
-import WithManipulator from "../viewParts/manipulatorView";
+import WithManipulator from "../viewParts/manipulator";
 import { ChildEvents } from "../stateParts/children";
 import CameraViewPart from "../viewParts/camera";
 import PointerViewPart, { makePointerSensitive, ignorePointer, PointerEvents } from "../viewParts/pointer";
@@ -10,7 +10,7 @@ import SVGIcon from "../util/svgIcon";
 import Tracking, { Facing } from "../viewParts/tracking";
 import SpatialPart from "../stateParts/spatial";
 import Inertial from "../stateParts/inertial";
-import { PortalTraversing, PortalEvents, PortalTopic } from "../portal/portalModel";
+import { PortalTraversing, PortalEvents, PortalTopic } from "../stateParts/portal";
 import { KeyboardViewPart } from "./keyboard";
 import { ContextMenu } from "../viewParts/menu";
 import { ColorEvents } from "../stateParts/color";

@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { TextGeometry, HybridMSDFShader } from "three-bmfont-text";
 import { rendererVersion } from "../render";
-import { TextEvents } from "../stateParts/editableText";
+import { TextEvents } from "../stateParts/text";
 import { PointerEvents, makePointerSensitive, TrackPlaneEvents, TrackPlaneTopic } from "./pointer";
 import { Warota } from "../util/warota/warota";
 import { fontRegistry } from "../util/fontRegistry";
@@ -20,11 +20,8 @@ export default class EditableTextViewPart extends ViewPart {
             this.initialContent = options.content;
         }
         this.textPart = options.textPart;
-        let opt = this.textPart
-            ? this.textPart.viewOptions
-            : {};
 
-        this.options = {font: 'Roboto',
+        this.options = {font: 'Barlow',
                fontSize: 0.25,
                width: 3,
                height: 2,
@@ -33,7 +30,7 @@ export default class EditableTextViewPart extends ViewPart {
                showScrollBar: true,
                hideBackbackground: false,
                backgroundColor: 'eeeeee',
-               margins: {left: 0, right: 0, top: 0, bottom: 0}, ...opt};
+               margins: {left: 0, right: 0, top: 0, bottom: 0}, ...options};
 
         if (this.options.editable) {
             this.subscribe(PointerEvents.pointerDown, "onPointerDown");
@@ -115,7 +112,7 @@ export default class EditableTextViewPart extends ViewPart {
         box.add(textMesh);
 
         //const callback = () => this.onTextChanged();
-        
+
         if (this.initialContent) {
             this.editor.doc.load(this.initialContent);
             delete this.initialContent;

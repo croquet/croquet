@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { ViewPart } from "../modelView";
 import { LayoutRoot, LayoutStack, LayoutSlotStretch3D, LayoutSlotText } from "./layout";
-import TextViewPart from "./text";
+import TextViewPart from "./textView";
 import { makePointerSensitive, PointerEvents } from "./pointer";
 
 export class EntryBackgroundPlane extends ViewPart {
@@ -39,22 +39,29 @@ export class Menu extends ViewPart {
         super();
 
         this.parts = {
-            layout: new LayoutRoot({}, {
+            layout: new LayoutRoot({
                 flexDirection: "column",
                 alignItems: "stretch",
                 children: options.entries.map(([entry, callback]) => {
-                    return new LayoutStack({}, {
+                    return new LayoutStack({
                         minHeight: 1,
                         minWidth: 5.0,
                         children: [
-                            new LayoutSlotStretch3D({}, {
+                            new LayoutSlotStretch3D({
                                 margin: 0.1,
-                                inner: new EntryBackgroundPlane({}, {callback})
+                                inner: new EntryBackgroundPlane({callback})
                             }),
-                            new LayoutSlotText({}, {
+                            new LayoutSlotText({
                                 margin: 0.25,
                                 z: 0.05,
-                                inner: new TextViewPart({}, {content: entry})
+                                inner: new TextViewPart({
+                                    content: [{text: entry}],
+                                    fontSize: 0.4,
+                                    editable: false,
+                                    showSelection: false,
+                                    showScrollBar: false,
+                                    hideBackground: true
+                                })
                             })
                         ]
                     });

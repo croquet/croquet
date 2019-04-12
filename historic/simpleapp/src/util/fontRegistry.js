@@ -23,7 +23,7 @@ const fontPaths = {
     },
 };
 
-export const defaultFont = "Roboto";
+export const defaultFont = "Barlow";
 
 /** @typedef {{atlas: THREE.Texture, measurer: TextLayout, info: {}, offsetY: number, cursorOffset: [number, number]}} LoadedFontEntry */
 
@@ -31,6 +31,7 @@ class FontRegistry {
     constructor() {
         /** @type {Object<string, LoadedFontEntry>} */
         this.loadedFonts = {};
+        this.load(defaultFont);
     }
 
     /** @returns {Promise<LoadedFontEntry>} */

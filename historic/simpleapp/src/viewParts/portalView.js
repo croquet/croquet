@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { SpatialEvents } from "../stateParts/spatial";
 import { ViewPart } from "../modelView";
-import PortalPart from "./portalModel";
+import PortalPart from "../stateParts/portal";
 import { RENDER_LAYERS } from "../render";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
