@@ -9,7 +9,7 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "ws": "^6.2.0"
+    "ws": "^6.2.1"
   },
   "devDependencies": {}
 }
