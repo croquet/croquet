@@ -18,20 +18,31 @@ let OFFSETY = 50;               // top-left corner of view, plus half shape heig
 
 export class Root extends Model {
 
-    applyState(state={}, topLevelPartsById) {
-        this.children = (state.children || []).map(id => topLevelPartsById[id]);
-        this.subscribe(this.id, 'user-added', user => this.userAdded(user));
+    constructor() {
+        super();
+        this.children = [];
     }
 
-    toState(state) {
-        super.toState(state);
+    load(state, allObjects) {
+        super.load(state, allObjects);
+        state.children.forEach(id => this.add(allObjects[id]));
+    }
+
+    save(state) {
+        super.save(state);
         state.children = this.children.map(child => child.id);
+    }
+
+    start() {
+        super.start();
+        this.subscribe(this.id, 'user-added', user => this.userAdded(user));
     }
 
     // non-inherited methods below
 
     add(child) {
         this.children.push(child);
+        if (child.user) this.subscribe(child.id, "user-inactive", () => this.remove(child));
         this.publish(this.id, 'child-added', child);
     }
 
@@ -56,20 +67,33 @@ export class Root extends Model {
 
 export class Shape extends Model {
 
-    applyState(state={}) {
+    init(options={}) {
+        super.init();
         const r = max => Math.floor(max * this.random());
-        this.type = state.type || 'circle';
-        this.color = state.color || `hsla(${r(360)},${r(50)+50}%,50%,0.5)`;
-        this.pos = state.pos || [r(1000), r(1000)];
-        this.subscribe(this.id, "move-to", pos => this.moveTo(...pos));
-        this.subscribe(this.id, "move-by", delta => this.moveBy(...delta));
+        this.type = options.type || 'circle';
+        this.color = options.color || `hsla(${r(360)},${r(50)+50}%,50%,0.5)`;
+        this.pos = [r(1000), r(1000)];
+        return this;
     }
 
-    toState(state) {
-        super.toState(state);
+    load(state, allObjects) {
+        super.load(state, allObjects);
+        this.type = state.type;
+        this.color = state.color;
+        this.pos = state.pos;
+    }
+
+    save(state) {
+        super.save(state);
         state.type = this.type;
         state.color = this.color;
         state.pos = this.pos;
+    }
+
+    start() {
+        super.start();
+        this.subscribe(this.id, "move-to", pos => this.moveTo(...pos));
+        this.subscribe(this.id, "move-by", delta => this.moveBy(...delta));
     }
 
     // non-inherited methods below
@@ -89,23 +113,30 @@ export class Shape extends Model {
 
 
 export class UserShape extends Shape {
-    init(state) {
-        super.init(state);
+
+    init(options) {
+        super.init();
+        this.user = options.user;
+        this.active = true;
         this.future(INACTIVE_MS).step();
         return this;
     }
 
-    applyState(state) {
-        super.applyState(state);
+    load(state, allObjects) {
+        super.load(state, allObjects);
         this.user = state.user;
-        this.active = "active" in state ? state.active : true;
-        this.subscribe(this.id, "user-is-active", () => this.active = true);
+        this.active = state.active;
     }
 
-    toState(state) {
-        super.toState(state);
+    save(state) {
+        super.save(state);
         state.user = this.user;
-        this.active = state.active;
+        state.active = this.active;
+    }
+
+    start() {
+        super.start();
+        this.subscribe(this.id, "user-is-active", () => this.active = true);
     }
 
     // non-inherited methods below
@@ -116,7 +147,7 @@ export class UserShape extends Shape {
     }
 
     step() {
-        if (!this.active) { this.destroy(); return; }
+        if (!this.active) { this.publish(this.id, "user-inactive"); return; }
         this.active = false;
         this.future(INACTIVE_MS).step();
     }
@@ -128,18 +159,18 @@ export class BouncingShape extends Shape {
 
     init(state) {
         super.init(state);
-
+        this.speed = this.randomSpeed();
         this.future(STEP_MS).step();
         return this;
     }
 
-    applyState(state={}) {
-        super.applyState(state);
-        this.speed = state.speed || this.randomSpeed();
+    load(state, allObjects) {
+        super.load(state, allObjects);
+        this.speed = state.speed;
     }
 
-    toState(state) {
-        super.toState(state);
+    save(state) {
+        super.save(state);
         state.speed = this.speed;
     }
 
@@ -173,6 +204,8 @@ export class BouncingShape extends Shape {
 }
 
 
+////// Views /////
+
 class RootView extends View {
 
     constructor(model) {
@@ -202,13 +235,13 @@ class RootView extends View {
     // non-inherited methods below
 
     attachChild(child) {
-        const view = new ShapeView(child);
-        this.element.appendChild(view.element);
-        view.element.view = view;
+        const childView = new ShapeView(child);
+        this.element.appendChild(childView.element);
+        childView.element.view = childView;
+        if (!TEST) childView.enableDragging(child.id, childView.element, false);
     }
 
     detachChild(child) {
-        debugger
         const el = document.getElementById(child.id);
         if (el) el.view.detach();
     }

@@ -10,7 +10,7 @@ export default class Controller extends OldController {
         return (await super.createIsland(name, {
             ...creator,
             creatorFn: snapshot => new Island(snapshot, island => {
-                const namedModels = creator.creatorFn();
+                const namedModels = creator.creatorFn(creator.options);
                 for (const [key, model] of Object.entries(namedModels)) {
                     island.set(key, model);
                 }
