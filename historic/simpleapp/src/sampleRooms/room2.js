@@ -19,7 +19,7 @@ function initRoom2(state) {
             },
             there: "room1"
         });
-        room.parts.objects.add(portalRoom1);
+        room.parts.elements.add(portalRoom1);
 
         const portalBounce = new PortalElement().init({
             spatial: {
@@ -32,7 +32,7 @@ function initRoom2(state) {
             },
             there: "bounce"
         });
-        room.parts.objects.add(portalBounce);
+        room.parts.elements.add(portalBounce);
     });
 }
 

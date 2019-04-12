@@ -10,7 +10,7 @@ export default class Room extends StatePart {
         super();
         this.parts = {
             color: new ColorPart(),
-            objects: new ChildrenPart()
+            elements: new ChildrenPart()
         };
     }
 }

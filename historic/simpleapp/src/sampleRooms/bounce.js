@@ -130,16 +130,16 @@ function initBounce(state, options) {
 
         for (let x = -3; x <= 3; x += 3) {
             const bigBox = new BoxElement().init({ spatial: { position: { x, y: 0.5, z: -2 }}});
-            room.parts.objects.add(bigBox);
+            room.parts.elements.add(bigBox);
         }
         const text1 = new TextElement().init({
             spatial: { position: new THREE.Vector3(-2.25, 3, -2) },
             text: { content: {runs: [{text: ["Croquet runs identically on any platform. Load this in another page to compare. Drag the cubes."]}]} },
             editable: false
         });
-        room.parts.objects.add(text1);
+        room.parts.elements.add(text1);
         const bouncingBoxes = new RandomlyColoringGroupElement().init({ spatial: { scale: {x: 0.5, y: 0.5, z: 0.5 } } });
-        room.parts.objects.add(bouncingBoxes);
+        room.parts.elements.add(bouncingBoxes);
         for (let i = 0; i < options.n; i++) {
             bouncingBoxes.parts.children.add(new BouncingBallElement().init({ spatial: { scale: {x: 0.3, y: 0.3, z: 0.3 } } }));
         }

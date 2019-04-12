@@ -11,7 +11,7 @@ import Tracking, { Facing } from "../viewParts/tracking";
 import SpatialPart from "../stateParts/spatial";
 import Inertial from "../stateParts/inertial";
 import { PortalTraversing, PortalEvents, PortalTopic } from "../stateParts/portal";
-import { KeyboardViewPart } from "./keyboard";
+import { KeyboardViewPart } from "../viewParts/keyboard";
 import { ContextMenu } from "../viewParts/menu";
 import { ColorEvents } from "../stateParts/color";
 
@@ -35,7 +35,7 @@ export default class RoomView extends ViewPart {
         });
 
         this.parts.roomScene = new RoomScene({room: options.room});
-        this.parts.objectViewManager = new ObjectViewManager({room: options.room, scenePart: this.parts.roomScene});
+        this.parts.elementViewManager = new ElementViewManager({room: options.room, scenePart: this.parts.roomScene});
 
         if (options.activeParticipant) {
             this.parts.pointer = new PointerViewPart({room: options.room, cameraPart: this.parts.camera, scenePart: this.parts.roomScene});
@@ -159,34 +159,34 @@ class InteractionDome extends ViewPart {
     }
 }
 
-class ObjectViewManager extends ViewPart {
+class ElementViewManager extends ViewPart {
     /** @arg {{room: import('./roomModel').default}} options */
     constructor(options) {
         super();
         this.scenePart = options.scenePart;
-        this.viewsForObjects = {};
+        this.viewsForElements = {};
 
-        for (const object of options.room.parts.objects.children) {
-            this.onObjectAdded(object);
+        for (const element of options.room.parts.elements.children) {
+            this.onElementAdded(element);
         }
 
-        this.subscribe(ChildEvents.childAdded, "onObjectAdded", options.room.parts.objects.id);
-        this.subscribe(ChildEvents.childRemoved, "onObjectRemoved", options.room.parts.objects.id);
+        this.subscribe(ChildEvents.childAdded, "onElementAdded", options.room.parts.elements.id);
+        this.subscribe(ChildEvents.childRemoved, "onElementRemoved", options.room.parts.elements.id);
     }
 
-    onObjectAdded(object) {
-        const NaturalView = object.naturalViewClass("in-room");
+    onElementAdded(element) {
+        const NaturalView = element.naturalViewClass("in-room");
         /** @type {View} */
-        const view = new (WithManipulator(NaturalView))({model: object});
-        this.viewsForObjects[object.id] = view;
+        const view = new (WithManipulator(NaturalView))({model: element});
+        this.viewsForElements[element.id] = view;
         this.scenePart.threeObj.add(...view.threeObjs());
     }
 
-    onObjectRemoved(object) {
-        const view = this.viewsForObjects[object.id];
+    onElementRemoved(element) {
+        const view = this.viewsForElements[element.id];
         this.scenePart.threeObj.remove(...view.threeObjs());
         view.detach();
-        delete this.viewsForObjects[object.id];
+        delete this.viewsForElements[element.id];
     }
 }
 

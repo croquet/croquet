@@ -133,14 +133,14 @@ function initRoom1(state) {
         island.set("room", room);
 
         const rotatingBox = new RotatingBoxElement().init({ spatial: { position: {x: 1.5, y: 1, z: 0} } });
-        room.parts.objects.add(rotatingBox);
+        room.parts.elements.add(rotatingBox);
 
         const text1 = new TextElement().init({
             spatial: { position: new THREE.Vector3(-2, 0.7, -1.5) },
             text: { content: {runs: [{text: "Man is much more than a tool builder... he is an inventor of universes."}]} },
             editable: false,
         });
-        room.parts.objects.add(text1);
+        room.parts.elements.add(text1);
 
         const text2 = new TextElement().init({
             spatial: { position: new THREE.Vector3(4, 1.0, -2) },
@@ -148,7 +148,7 @@ function initRoom1(state) {
             editable: false,
             visualOptions: {font: "Lora", fontSize: 0.5, width: 5, height: 2}
         });
-        room.parts.objects.add(text2);
+        room.parts.elements.add(text2);
 
         const editText = new TextElement().init({
             spatial: { position: {x: -5, y: 2, z: -1.5} },
@@ -160,12 +160,12 @@ function initRoom1(state) {
             editable: true,
             visualOptions: {font: "Roboto", numLines: 10, width: 3, height: 2}
         });
-        room.parts.objects.add(editText);
+        room.parts.elements.add(editText);
 
         const layoutTest = new LayoutTestElement().init({
             spatial: { position: {x: 0, y: 1, z: -3 } },
         });
-        room.parts.objects.add(layoutTest);
+        room.parts.elements.add(layoutTest);
     });
 }
 

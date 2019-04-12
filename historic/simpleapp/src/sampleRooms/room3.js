@@ -19,7 +19,7 @@ function initRoom3(state) {
             editable: true,
             viewOptions: {font: "Roboto", numLines: 10, width: 3, height: 3, editable: true},
         });
-        room.parts.objects.add(text1);
+        room.parts.elements.add(text1);
 
         const text2 = new TextElement().init({
             spatial: { position: {x: 3, y: 1, z: 0} },
@@ -31,7 +31,7 @@ function initRoom3(state) {
             editable: true,
             viewOptions: {font: "Roboto", fontSize: 0.1, width: 3, height: 2, showScrollBar: false, editable: false}
         });
-        room.parts.objects.add(text2);
+        room.parts.elements.add(text2);
     });
 }
 

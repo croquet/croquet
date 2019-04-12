@@ -55,7 +55,7 @@ export default class Renderer {
         const mainCamera = currentRoomView.parts.camera.threeObj;
 
         /** @type {PortalViewPart[]} */
-        const portalViewParts = Object.values(currentRoomView.parts.objectViewManager.viewsForObjects)
+        const portalViewParts = Object.values(currentRoomView.parts.elementViewManager.viewsForElements)
             .map(wrappingView => wrappingView.parts.inner)
             .filter(viewPart => viewPart instanceof PortalViewPart);
 
