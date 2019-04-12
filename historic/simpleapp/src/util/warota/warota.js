@@ -9,7 +9,7 @@ const eof = String.fromCharCode(26); // "^Z"
 
 export class Doc {
     constructor() {
-        this.runs = [""]; // [{text: str, (opt)style: {font: str, size: num, color: str, emphasis: 'b' | 'i'|'bi'}}]
+        this.runs = [{text: ""}]; // [{text: str, (opt)style: {font: str, size: num, color: str, emphasis: 'b' | 'i'|'bi'}}]
         this.intervals = []; // [{start: num, end: num}]
         this.selections = {}; // {user: {start: num, end: num}}
 
