@@ -1,58 +1,47 @@
 <html>
 <head>
-<script type="module" src="doc.mjs"></script>
-<script type="module" src="wrap.mjs"></script>
+<script type="module" src="./warota.mjs"></script>
+<script type="module" src="./wrap.mjs"></script>
+<script type="module" src="./MockContext.mjs"></script>
 <script type="module">
-import {Doc, Warota} from "./doc.mjs";
+import {Doc} from "./warota.mjs";
 
 window.onload = function () {
-    let timezone = 0;
-    let evts;
+    let doc = new Doc();
+    let user1 = '010203';
+    window.doc = doc;
 
-    let userID ='010203';
-    let view = new Warota(3, 2, 10);
-    window.view = view;
-    view.load([{text: "man is much more than a tool builder... he is an inventor of universes..."}]);
+    doc.load([{text: "man"}]);
+    doc.doSelect(user1, 1, 1);
+    doc.doInsert(user1, [{text: 'A'}]);
 
-    view.select(userID, 3, 3, 0);
-    evts = view.events;
-    view.resetEvents();
-    evts.forEach(evt => view.doEvent(evt));
+    console.log(doc.plainText(), doc.plainText() === "mAan");
+    doc.doInsert(user1, [{text: 'B'}]);
 
-    view.setTimezone(++timezone);
+    console.log(doc.plainText(), doc.plainText() === "mABan");
 
-    view.insert(userID, [{text: 'A'}]);
-    evts = view.events;
-    view.resetEvents();
-    evts.forEach(evt => view.doEvent(evt));
-    view.setTimezone(++timezone);
+    doc.doSelect(user1, 5, 5);
+    doc.doInsert(user1, [{text: 'C'}]);
+    console.log(doc.plainText(), doc.plainText() === "mABanC");
 
-    view.insert(userID, [{text: 'B'}]);
-    evts = view.events;
-    view.resetEvents();
-    evts.forEach(evt => view.doEvent(evt));
-    view.setTimezone(++timezone);
+    doc.doSelect(user1, 1, 3);
+    doc.doInsert(user1, [{text: 'D'}]);
+    console.log(doc.plainText(), doc.plainText() === "mDanC");
 
-    view.select(userID, 1, 2, 0);
-    evts = view.events;
-    view.resetEvents();
-    evts.forEach(evt => view.doEvent(evt));
-    view.setTimezone(++timezone);
+    doc.doSelect(user1, 5, 5);
+    doc.doDelete(user1, true);
+    console.log(doc.plainText(), doc.plainText() === "mDan");
 
-    view.insert(userID, [{text: 'CD'}]);
-    evts = view.events;
-    view.resetEvents();
-    evts.forEach(evt => view.doEvent(evt));
-    view.setTimezone(++timezone);
+    doc.doSelect(user1, 0, 4);
+    doc.doDelete(user1, true);
+    console.log(doc.plainText(), doc.plainText() === "");
 
-    view.insert(userID, [{text: 'EF', style: {size: 11}}]);
-    evts = view.events;
-    view.resetEvents();
-    evts.forEach(evt => view.doEvent(evt));
-    view.setTimezone(++timezone);
+    doc.doInsert(user1, [{text: 'A'}]);
+    console.log(doc.plainText(), doc.plainText() === "A");
 
-    let ctx = view.paint();
-    console.log(ctx.drawnStrings);
+    doc.doInsert(user1, [{text: 'B'}]);
+    console.log(doc.plainText(), doc.plainText() === "AB");
+
 }
 </script>
 
