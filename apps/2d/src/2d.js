@@ -59,7 +59,7 @@ export class Root extends Model {
     userAdded(user) {
         let shape = this.children.find(c => c.user === user);
         if (!shape) {
-            shape = new UserShape().init({user});
+            shape = UserShape.create({user});
             this.add(shape);
         }
         shape.active = true;
@@ -360,9 +360,9 @@ async function go() {
             snapshot,
             options: {test: TEST},
             creatorFn(options) {
-                const root = new Root().init();
-                if (!options.test) for (let i = 0; i < 99; i++) root.add(new Shape().init());
-                root.add(new BouncingShape().init({pos: [500, 500], color: "white"}));
+                const root = Root.create();
+                if (!options.test) for (let i = 0; i < 99; i++) root.add(Shape.create());
+                root.add(BouncingShape.create({pos: [500, 500], color: "white"}));
                 return {root};
             },
             destroyerFn(prevSnapshot) {

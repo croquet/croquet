@@ -1,6 +1,15 @@
 import { StatePart, currentRealm } from "../../arcos/simpleapp/src/modelView";
 
 export default class Model extends StatePart {
+
+    static create(options) {
+        const ModelClass = this;
+        const model = new ModelClass();
+        model.init(options);
+        model.start();
+        return model;
+    }
+
     random() { return currentRealm().random(); }
 
     load(state, allObjects) {
@@ -11,8 +20,7 @@ export default class Model extends StatePart {
         super.toState(state);
     }
 
-    start() {
-    }
+    start() { }
 
     publish(scope, event, data) {
         this.realm.publish(event, data, scope);
@@ -37,7 +45,7 @@ export default class Model extends StatePart {
         this.load(state, allObjects);
     }
 
-    onInitialized() {
-        this.start();
+    onInitialized(is_new) {
+        if (!is_new) this.start();
     }
 }
