@@ -14,9 +14,8 @@ function initRoom3(state) {
             text: {
                 content: {
                     runs: [{text: "man is much more than a tool builder... he is an inventor of universes... Except the real one."}],
-                    editable: true,
                 },
-                font: "Roboto", numLines: 10, width: 3, height: 3,
+                viewOptions: {font: "Roboto", numLines: 10, width: 3, height: 3, editable: true},
             }
         });
         room.parts.objects.add(text1);
@@ -26,10 +25,8 @@ function initRoom3(state) {
             text: {
                 content: {
                     runs: [{text: "man is much more than a tool builder... he is an inventor of universes..."}],
-                    editable: false,
                 },
-                font: "Roboto", fontSize: 0.1, width: 3, height: 2, showScrollBar: false,
-
+                viewOptions: {font: "Roboto", fontSize: 0.1, width: 3, height: 2, showScrollBar: false, editable: false}
             }
         });
         room.parts.objects.add(text2);

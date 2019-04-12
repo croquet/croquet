@@ -20,24 +20,20 @@ export default class EditableTextViewPart extends ViewPart {
             this.initialContent = options.content;
         }
         this.textPart = options.textPart;
-        let opt = this.textPart ? this.textPart.viewOptions : {};
-        let myOpt = {};
-        myOpt.font = opt.font || "Roboto";
-        myOpt.width = typeof opt.width === "number" ? opt.width : 3;
-        myOpt.height = typeof opt.height === "number" ? opt.height : 2;
-        myOpt.showScrollBar = typeof opt.showScrollBar === "boolean" ? opt.showScrollBar : true;
-        myOpt.hideBackStop = typeof opt.hideBackStop === "boolean" ? opt.hideBackStop : false;
-        myOpt.backgroundColor = opt.backgroundColor || 'eeeeee';
+        let opt = this.textPart
+            ? this.textPart.viewOptions
+            : {};
 
-        myOpt.editable = typeof opt.editable === "boolean" ? opt.editable : false;
-        myOpt.showSelection = myOpt.editable;
-
-        // those three are modified by the editor when the font is loaded and available
-        myOpt.margins = opt.margins;
-        myOpt.fontSize = opt.fontSize;
-        myOpt.numLines = opt.numLines;
-
-        this.options = myOpt;
+        this.options = {font: 'Roboto',
+               fontSize: 0.25,
+               width: 3,
+               height: 2,
+               editable: true,
+               showSelection: true,
+               showScrollBar: true,
+               hideBackbackground: false,
+               backgroundColor: 'eeeeee',
+               margins: {left: 0, right: 0, top: 0, bottom: 0}, ...opt};
 
         if (this.options.editable) {
             this.subscribe(PointerEvents.pointerDown, "onPointerDown");
@@ -166,10 +162,10 @@ export default class EditableTextViewPart extends ViewPart {
         if (!this.text) {
             this.resizeRequest = options;
         } else {
-            let {width, height, anchor} = options;
+            let {width, height, _anchor} = options;
             this.resize(width, height);
         }
-    }    
+    }
 
     initBoxMesh() {
         this.clippingPlanes = [new THREE.Plane(new THREE.Vector3(0, 1, 0),  0),

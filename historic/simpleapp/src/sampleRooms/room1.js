@@ -93,7 +93,7 @@ class LayoutTestView extends ViewPart {
                         new LayoutSlotText({
                             margin: 0.1,
                             aspectRatio: 1,
-                            inner: new EditableTextViewPart({content: [{text: `This is an example of text in a dynamic layout: "Our first design for multiple inheritance presumed that a state variable such as ohms had a meaning independent of the individual perspectives. Hence, it was sensible for it to be owned by the node itself. All perspectives would reference this single variable when referring to resistance. This proved adequate so long as the system designer knew all of the perspectives that might be associated with a given node, and could ensure this uniformity of intended reference."`}], textPart: {viewOptions: {fontSize: 0.25, showScrollBar: false, hideBackStop: true}}})
+                            inner: new EditableTextViewPart({content: [{text: `This is an example of text in a dynamic layout: "Our first design for multiple inheritance presumed that a state variable such as ohms had a meaning independent of the individual perspectives. Hence, it was sensible for it to be owned by the node itself. All perspectives would reference this single variable when referring to resistance. This proved adequate so long as the system designer knew all of the perspectives that might be associated with a given node, and could ensure this uniformity of intended reference."`}], textPart: {viewOptions: {fontSize: 0.25, showScrollBar: false, hideBackground: true, editable: false}}})
                         }),
                         new LayoutContainer({
                             flexDirection: "column",
@@ -146,7 +146,8 @@ function initRoom1(state) {
                 content: {
                     runs: [{text: "This text can be edited"}],
                 },
-                font: "Roboto", numLines: 10, width: 3, height: 2}
+                viewOptions: {font: "Roboto", numLines: 10, width: 3, height: 2}
+            }
         });
         room.parts.objects.add(editText);
 
