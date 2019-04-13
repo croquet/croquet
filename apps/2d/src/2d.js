@@ -280,7 +280,7 @@ class ShapeView extends View {
         el.className = model.type;
         el.id = model.id;
         el.style.backgroundColor = model.color;
-        this.subscribe(model.id, 'pos-changed', 'move');
+        this.subscribe(model.id, {event: 'pos-changed', oncePerFrame: true}, 'move');
         this.move(model.pos);
     }
 
