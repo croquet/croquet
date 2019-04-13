@@ -367,13 +367,47 @@ export default class Island {
     publishFromModel(scope, event, data) {
         if (CurrentIsland !== this) throw Error("Island Error");
         const topic = scope + ":" + event;
+        this.handleModelEventInModel(topic, data);
+        this.handleModelEventInView(topic, data);
+    }
+
+    publishFromView(scope, event, data) {
+        if (CurrentIsland) throw Error("Island Error");
+        const topic = scope + ":" + event;
+        this.handleViewEventInModel(topic, data);
+        this.handleViewEventsInView(topic, [data]);
+    }
+
+    publishFromReflector(topic, data) {
+        if (CurrentIsland !== this) throw Error("Island Error");
+        this.handleModelEventInModel(topic, data);
+        this.handleModelEventInView(topic, data);
+    }
+
+    handleModelEventInModel(topic, data) {
+        // model=>model events are always handled synchronously
+        // because making them async would mean having to use future messages
+        if (CurrentIsland !== this) throw Error("Island Error");
         if (this.modelSubscriptions[topic]) {
             for (const handler of this.modelSubscriptions[topic]) {
                 handler(data);
             }
         }
-        // To ensure model code is executed bit-identically everywhere, we have to notify views
-        // later, since different views might be subscribed in different island replicas
+    }
+
+    handleViewEventInModel(topic, data) {
+        // view=>model events are converted to model=>model events via reflector
+        if (this.modelSubscriptions[topic]) {
+            const message = new Message(this.time, 0, this.id, "publishFromReflector", [topic, data]);
+            this.controller.sendMessage(message);
+        }
+    }
+
+    handleModelEventInView(topic, data) {
+        // model=>view events are typically queued for later execution from the main loop
+        // The subscriber is encouraged to request batch handling, which only invokes the handler
+        // for the latest event per render frame (e.g. to batch multiple position updates into one)
+        // TODO: The subscriber may request immediate handling, but it must not modify model state!
         const topicSubscribers = this.viewSubscriptions[topic];
         if (topicSubscribers) {
             this.frameTopics.add(topic);
@@ -384,33 +418,8 @@ export default class Island {
         }
     }
 
-    processModelViewEvents() {
-        if (CurrentIsland) throw Error("Island Error");
-        // handle subscriptions for all new topics
-        for (const topic of this.frameTopics) {
-            const subscriptions = this.viewSubscriptions[topic];
-            if (subscriptions) {
-                this.handleViewEvents(topic, subscriptions.data);
-                subscriptions.data.length = 0;
-            }
-        }
-        this.frameTopics.clear();
-    }
-
-    publishFromView(scope, event, data) {
-        if (CurrentIsland) throw Error("Island Error");
-        const topic = scope + ":" + event;
-        hotreload.promiseResolveThen(() => this.handleViewEvents(topic, [data]));
-    }
-
-    handleViewEvents(topic, dataArray) {
-        // send model subscriptions via reflector
-        if (this.modelSubscriptions[topic]) for (const data of dataArray) {
-            const [scope, event] = topic.split(':');
-            const message = new Message(this.time, 0, this.id, "publishFromModel", [scope, event, data]);
-            this.controller.sendMessage(message);
-        }
-        // handle view subscriptions directly
+    handleViewEventsInView(topic, dataArray) {
+        // view=>view events are handled immediately
         inViewRealm(this, () => {
             const subscriptions = this.viewSubscriptions[topic];
             if (subscriptions) {
@@ -423,6 +432,20 @@ export default class Island {
                 }
             }
         });
+    }
+
+    // this is called from main loop to process queued model=>view events
+    processModelViewEvents() {
+        if (CurrentIsland) throw Error("Island Error");
+        // handle subscriptions for all topics generated during last frame
+        for (const topic of this.frameTopics) {
+            const subscriptions = this.viewSubscriptions[topic];
+            if (subscriptions) {
+                this.handleViewEventsInView(topic, subscriptions.data);
+                subscriptions.data.length = 0;
+            }
+        }
+        this.frameTopics.clear();
     }
 
     asState() {
