@@ -378,12 +378,6 @@ export default class Island {
         this.handleViewEventsInView(topic, [data]);
     }
 
-    publishFromReflector(topic, data) {
-        if (CurrentIsland !== this) throw Error("Island Error");
-        this.handleModelEventInModel(topic, data);
-        this.handleModelEventInView(topic, data);
-    }
-
     handleModelEventInModel(topic, data) {
         // model=>model events are always handled synchronously
         // because making them async would mean having to use future messages
@@ -398,7 +392,7 @@ export default class Island {
     handleViewEventInModel(topic, data) {
         // view=>model events are converted to model=>model events via reflector
         if (this.modelSubscriptions[topic]) {
-            const message = new Message(this.time, 0, this.id, "publishFromReflector", [topic, data]);
+            const message = new Message(this.time, 0, this.id, "handleModelEventInModel", [topic, data]);
             this.controller.sendMessage(message);
         }
     }
