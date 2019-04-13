@@ -414,32 +414,32 @@ export default class Island {
 
     handleViewEventsInView(topic, dataArray) {
         // view=>view events are handled immediately
-        inViewRealm(this, () => {
-            const subscriptions = this.viewSubscriptions[topic];
-            if (subscriptions) {
-                for (const handler of subscriptions.queueHandlers) {
-                    for (const data of dataArray) handler(data);
-                }
-                const data = dataArray[dataArray.length - 1];
-                for (const handler of subscriptions.onceHandlers) {
-                    handler(data);
-                }
+        const subscriptions = this.viewSubscriptions[topic];
+        if (subscriptions) {
+            for (const handler of subscriptions.queueHandlers) {
+                for (const data of dataArray) handler(data);
             }
-        });
+            const data = dataArray[dataArray.length - 1];
+            for (const handler of subscriptions.onceHandlers) {
+                handler(data);
+            }
+        }
     }
 
     // this is called from main loop to process queued model=>view events
     processModelViewEvents() {
         if (CurrentIsland) throw Error("Island Error");
-        // handle subscriptions for all topics generated during last frame
-        for (const topic of this.frameTopics) {
-            const subscriptions = this.viewSubscriptions[topic];
-            if (subscriptions) {
-                this.handleViewEventsInView(topic, subscriptions.data);
-                subscriptions.data.length = 0;
+        inViewRealm(this, () => {
+            // handle subscriptions for all topics generated during last frame
+            for (const topic of this.frameTopics) {
+                const subscriptions = this.viewSubscriptions[topic];
+                if (subscriptions) {
+                    this.handleViewEventsInView(topic, subscriptions.data);
+                    subscriptions.data.length = 0;
+                }
             }
-        }
-        this.frameTopics.clear();
+            this.frameTopics.clear();
+        });
     }
 
     asState() {
