@@ -2,11 +2,13 @@ import { Model, View, Controller } from "../../teatime";
 import Stats from "../../../arcos/simpleapp/src/util/stats";
 import urlOptions from "../../../arcos/simpleapp/src/util/urlOptions";
 
+const TESTING = window.location.hostname === 'localhost';
+
 const THROTTLE = 1000 / 20;     // mouse event throttling
 const STEP_MS = 1000 / 20;      // bouncing ball step time in ms
 const SPEED = 15;               // bouncing ball speed in virtual pixels / step
-const ACTIVE_MS = 500;          // send activity indicator after this (real) time
-const INACTIVE_MS = 5000;       // delete inactive users after this (sim) time
+const ACTIVE_MS = TESTING ? 50 : 500; // send activity indicator after this (real) time
+const INACTIVE_MS = TESTING ? 500 : 5000;  // delete inactive users after this (sim) time
 
 const TOUCH ='ontouchstart' in document.documentElement;
 const USER = (Math.random()+'').slice(2);
@@ -345,7 +347,7 @@ class ShapeView extends View {
 
 async function go() {
     Controller.addMessageTranscoder('*', { encode: a => a, decode: a => a });
-    const reflector = window.location.hostname === 'localhost'
+    const reflector = TESTING
         ? "ws://localhost:9090/"
         : "wss://dev1.os.vision/reflector-v1";
     Controller.connectToReflector(urlOptions.reflector || reflector);
