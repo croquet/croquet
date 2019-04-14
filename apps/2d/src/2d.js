@@ -7,17 +7,13 @@ const LOCALHOST = window.location.hostname === 'localhost';
 const THROTTLE = 1000 / 20;     // mouse event throttling
 const STEP_MS = 1000 / 20;      // bouncing ball step time in ms
 const SPEED = 15;               // bouncing ball speed in virtual pixels / step
-const ACTIVE_MS = 500;          // send activity indicator after this (real) time
-const INACTIVE_MS = 5000;       // delete inactive users after this (sim) time
 
 const TOUCH ='ontouchstart' in document.documentElement;
-const USER = (Math.random()+'').slice(2);
 
 let SCALE = 1;                  // model uses a virtual 1000x1000 space
 let OFFSETX = 50;               // top-left corner of view, plus half shape width
 let OFFSETY = 50;               // top-left corner of view, plus half shape height
 
-const AVATARS = !!urlOptions.avatars;
 
 ////// Models /////
 
@@ -38,10 +34,6 @@ export class Root extends Model {
         state.children = this.children.map(child => child.id);
     }
 
-    start() {
-        super.start();
-        this.subscribe(this.id, "user-is-active", user => this.ensureUser(user));
-      }
 
     // non-inherited methods below
 
@@ -55,16 +47,6 @@ export class Root extends Model {
         this.children.splice(index, 1);
         this.publish(this.id, 'child-removed', child);
         child.destroy();
-    }
-
-    ensureUser(user) {
-        let shape = this.children.find(c => c.user === user);
-        if (!shape) {
-            shape = UserShape.create({user, parent: this});
-            this.add(shape);
-        }
-        shape.active = true;
-        this.publish(this.id, `user-shape-${user}`, shape.id);
     }
 }
 
@@ -111,52 +93,6 @@ export class Shape extends Model {
         this.pos[0] = Math.max(0, Math.min(1000, x));
         this.pos[1] = Math.max(0, Math.min(1000, y));
         this.publish(this.id, 'pos-changed', this.pos);
-    }
-
-}
-
-
-export class UserShape extends Shape {
-
-    init(options) {
-        super.init();
-        this.parent = options.parent;
-        this.user = options.user;
-        this.active = true;
-        this.future(INACTIVE_MS).step();
-        return this;
-    }
-
-    load(state, allModels) {
-        super.load(state, allModels);
-        this.parent = allModels[state.parent];
-        this.user = state.user;
-        this.active = state.active;
-    }
-
-    save(state) {
-        super.save(state);
-        state.parent = this.parent.id;
-        state.user = this.user;
-        state.active = this.active;
-    }
-
-    start() {
-        super.start();
-        this.subscribe(this.id, "user-inactive", () => this.parent.remove(this));
-    }
-
-    // non-inherited methods below
-
-    moveTo(x, y) {
-        super.moveTo(x, y);
-        this.active = true;
-    }
-
-    step() {
-        if (!this.active) { this.publish(this.id, "user-inactive"); return; }
-        this.active = false;
-        this.future(INACTIVE_MS).step();
     }
 
 }
@@ -226,11 +162,6 @@ class RootView extends View {
         model.children.forEach(child => this.attachChild(child));
         this.subscribe(model.id, 'child-added', child => this.attachChild(child));
         this.subscribe(model.id, 'child-removed', child => this.detachChild(child));
-        if (AVATARS) {
-            this.subscribe(model.id, `user-shape-${USER}`, id => this.gotUserShape(id));
-            this.publish(model.id, 'user-is-active', USER);
-            setInterval(() => this.publish(model.id, 'user-is-active', USER), ACTIVE_MS);
-        }
     }
 
     detach() {
@@ -248,7 +179,6 @@ class RootView extends View {
         const childView = new ShapeView(child);
         this.element.appendChild(childView.element);
         childView.element.view = childView;
-        if (!AVATARS) childView.enableDragging(child.id, childView.element, false);
     }
 
     detachChild(child) {
@@ -266,15 +196,6 @@ class RootView extends View {
         OFFSETX += 50 * SCALE;
         OFFSETY += 50 * SCALE;
     }
-
-    gotUserShape(id) {
-        const el = document.getElementById(id);
-        if (!el || this.userElement === el) return;
-        el.classList.add("user");
-        el.view.enableDragging(el.id, this.element, true);
-        el.style.transform = `translate(-10px,-10px)`;  // compensate border
-        this.userElement = el;
-    }
 }
 
 
@@ -288,6 +209,7 @@ class ShapeView extends View {
         el.style.backgroundColor = model.color;
         this.subscribe(model.id, {event: 'pos-changed', oncePerFrame: true}, 'move');
         this.move(model.pos);
+        this.enableDragging();
     }
 
     detach() {
@@ -302,21 +224,18 @@ class ShapeView extends View {
         this.element.style.top = pos[1];
     }
 
-    enableDragging(id, el, jump) {
+    enableDragging() {
+        const el = this.element;
         if (TOUCH) el.ontouchstart = start => {
             start.preventDefault();
             let x = start.touches[0].clientX - OFFSETX;
             let y = start.touches[0].clientY - OFFSETY;
             let timeStamp = 0;
-            if (jump) {
-                this.publish(id, "move-to", [x / SCALE, y / SCALE]);
-                timeStamp = start.timeStamp;
-            }
             el.ontouchmove = evt => {
                 const dx = evt.touches[0].clientX - OFFSETX - x;
                 const dy = evt.touches[0].clientY - OFFSETY - y;
                 if (evt.timeStamp - timeStamp > THROTTLE) {
-                    this.publish(id, "move-by", [dx / SCALE, dy / SCALE]);
+                    this.publish(el.id, "move-by", [dx / SCALE, dy / SCALE]);
                     x += dx;
                     y += dy;
                     timeStamp = evt.timeStamp;
@@ -328,22 +247,16 @@ class ShapeView extends View {
             let dx = 0;
             let dy = 0;
             let timeStamp = 0;
-            if (jump) {
-                const x = start.clientX - OFFSETX;
-                const y = start.clientY - OFFSETY;
-                this.publish(id, "move-to", [x / SCALE, y / SCALE]);
-                timeStamp = start.timeStamp;
-            }
             document.onmousemove = evt => {
                 dx += evt.movementX;
                 dy += evt.movementY;
                 if (evt.timeStamp - timeStamp > THROTTLE) {
-                    this.publish(id, "move-by", [dx / SCALE, dy / SCALE]);
+                    this.publish(el.id, "move-by", [dx / SCALE, dy / SCALE]);
                     dx = dy = 0;
                     timeStamp = evt.timeStamp;
                 }
             };
-            el.onmouseup = () => document.onmousemove = null;
+            document.onmouseup = () => document.onmousemove = null;
         };
     }
 }
@@ -364,10 +277,9 @@ async function go() {
         const models = await controller.createIsland("2d", {
             moduleID: module.id,
             snapshot,
-            options: {avatars: AVATARS},
-            creatorFn(options) {
+            creatorFn() {
                 const root = Root.create();
-                if (!options.avatars) for (let i = 0; i < 99; i++) root.add(Shape.create());
+                for (let i = 0; i < 99; i++) root.add(Shape.create());
                 root.add(BouncingShape.create({pos: [500, 500], color: "white"}));
                 return {root};
             },
