@@ -28,9 +28,9 @@ export class Root extends Model {
         this.children = [];
     }
 
-    load(state, allObjects) {
-        super.load(state, allObjects);
-        state.children.forEach(id => this.add(allObjects[id]));
+    load(state, allModels) {
+        super.load(state, allModels);
+        state.children.forEach(id => this.add(allModels[id]));
     }
 
     save(state) {
@@ -47,7 +47,6 @@ export class Root extends Model {
 
     add(child) {
         this.children.push(child);
-        if (child.user) this.subscribe(child.id, "user-inactive", () => this.remove(child));
         this.publish(this.id, 'child-added', child);
     }
 
@@ -61,7 +60,7 @@ export class Root extends Model {
     userAdded(user) {
         let shape = this.children.find(c => c.user === user);
         if (!shape) {
-            shape = UserShape.create({user});
+            shape = UserShape.create({user, parent: this});
             this.add(shape);
         }
         shape.active = true;
@@ -81,8 +80,8 @@ export class Shape extends Model {
         return this;
     }
 
-    load(state, allObjects) {
-        super.load(state, allObjects);
+    load(state, allModels) {
+        super.load(state, allModels);
         this.type = state.type;
         this.color = state.color;
         this.pos = state.pos;
@@ -121,20 +120,23 @@ export class UserShape extends Shape {
 
     init(options) {
         super.init();
+        this.parent = options.parent;
         this.user = options.user;
         this.active = true;
         this.future(INACTIVE_MS).step();
         return this;
     }
 
-    load(state, allObjects) {
-        super.load(state, allObjects);
+    load(state, allModels) {
+        super.load(state, allModels);
+        this.parent = allModels[state.parent];
         this.user = state.user;
         this.active = state.active;
     }
 
     save(state) {
         super.save(state);
+        state.parent = this.parent.id;
         state.user = this.user;
         state.active = this.active;
     }
@@ -142,6 +144,7 @@ export class UserShape extends Shape {
     start() {
         super.start();
         this.subscribe(this.id, "user-is-active", () => this.active = true);
+        this.subscribe(this.id, "user-inactive", () => this.parent.remove(this));
     }
 
     // non-inherited methods below
@@ -169,8 +172,8 @@ export class BouncingShape extends Shape {
         return this;
     }
 
-    load(state, allObjects) {
-        super.load(state, allObjects);
+    load(state, allModels) {
+        super.load(state, allModels);
         this.speed = state.speed;
     }
 
