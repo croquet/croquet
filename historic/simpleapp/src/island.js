@@ -642,12 +642,21 @@ export class Controller {
     // dispatch to right controller
     static receive(data) {
         const { id, action, args } = JSON.parse(data);
-        if (id) Controllers[id].receive(action, args);
-        else switch (action) {
+        if (id) {
+            try { Controllers[id].receive(action, args); }
+            catch (e) { this.closeConnectionWithError('receive', e); }
+        } else switch (action) {
             case 'PONG': if (DEBUG.pong) console.log('PONG after', Date.now() - args, 'ms');
                 break;
             default: console.warn('Unknown action', action);
         }
+    }
+
+    static closeConnectionWithError(caller, error) {
+        console.error(error);
+        console.warn('closing socket');
+        TheSocket.close(4000, 'Error in ' + caller);
+        // closing with error code will force reconnect
     }
 
     /**
@@ -935,21 +944,26 @@ export class Controller {
      */
     simulate(deadline) {
         if (!this.island) return true;     // we are probably still sync-ing
-        Stats.begin("simulate");
-        let weHaveTime = true;
-        while (weHaveTime) {
-            // Get the next message from the (concurrent) network queue
-            const msgData = this.networkQueue.nextNonBlocking();
-            if (!msgData) break;
-            // have the island decode and schedule that message
-            const msg = this.island.processExternalMessage(msgData);
-            // simulate up to that message
-            weHaveTime = this.island.advanceTo(msg.time, deadline);
+        try {
+            Stats.begin("simulate");
+            let weHaveTime = true;
+            while (weHaveTime) {
+                // Get the next message from the (concurrent) network queue
+                const msgData = this.networkQueue.nextNonBlocking();
+                if (!msgData) break;
+                // have the island decode and schedule that message
+                const msg = this.island.processExternalMessage(msgData);
+                // simulate up to that message
+                weHaveTime = this.island.advanceTo(msg.time, deadline);
+            }
+            if (weHaveTime) weHaveTime = this.island.advanceTo(this.time, deadline);
+            Stats.end("simulate");
+            Stats.backlog(this.backlog);
+            return weHaveTime;
+        } catch (e) {
+            Controller.closeConnectionWithError('simulate', e);
+            return "error";
         }
-        if (weHaveTime) weHaveTime = this.island.advanceTo(this.time, deadline);
-        Stats.end("simulate");
-        Stats.backlog(this.backlog);
-        return weHaveTime;
     }
 
     /** Got the official time from reflector server */
