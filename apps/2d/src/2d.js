@@ -197,10 +197,11 @@ class RootView extends View {
         OFFSETY += 50 * SCALE;
     }
 
-    showStatus(className, show) {
-        const showing = this.element.classList.contains(className);
-        if (showing === show) return;
-        this.element.classList[show ? "add" : "remove"](className);
+    showStatus(backlog, starvation, min, max) {
+        const color = backlog > starvation ? '#f00' : '#ccc'
+        const value = Math.max(backlog, starvation) - min;
+        const size = Math.min(value, max) * 500 / max;
+        this.element.style.boxShadow = value < 0 ? "" : `inset 0 0 ${size}px ${color}`;
     }
 }
 
@@ -313,8 +314,7 @@ async function go() {
     function frame(timestamp) {
         const starvation = Date.now() - controller.lastReceived;
         const backlog = controller.backlog;
-        rootView.showStatus("backlog", backlog > starvation && backlog > 200);
-        rootView.showStatus("starvation", starvation > backlog && starvation > 200);
+        rootView.showStatus(backlog, starvation, 200, 3000);
         Stats.animationFrame(timestamp);
         Stats.users(controller.users);
         Stats.network(starvation);
