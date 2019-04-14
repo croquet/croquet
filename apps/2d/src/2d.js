@@ -197,10 +197,10 @@ class RootView extends View {
         OFFSETY += 50 * SCALE;
     }
 
-    showBacklog(show) {
-        const showing = this.element.classList.contains("backlog");
+    showStatus(className, show) {
+        const showing = this.element.classList.contains(className);
         if (showing === show) return;
-        this.element.classList[show ? "add" : "remove"]("backlog");
+        this.element.classList[show ? "add" : "remove"](className);
     }
 }
 
@@ -311,16 +311,18 @@ async function go() {
 
     window.requestAnimationFrame(frame);
     function frame(timestamp) {
+        const starvation = Date.now() - controller.lastReceived;
+        const backlog = controller.backlog;
+        rootView.showStatus("backlog", backlog > starvation && backlog > 200);
+        rootView.showStatus("starvation", starvation > backlog && starvation > 200);
         Stats.animationFrame(timestamp);
         Stats.users(controller.users);
-        Stats.network(Date.now() - controller.lastReceived);
+        Stats.network(starvation);
 
         if (users !== controller.users) {
             users = controller.users;
             window.top.postMessage({ users }, "*");
         }
-
-        rootView.showBacklog(controller.backlog > 200);
 
         if (controller.island) {
             controller.simulate(Date.now() + 200);
