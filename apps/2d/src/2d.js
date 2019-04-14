@@ -2,13 +2,13 @@ import { Model, View, Controller } from "../../teatime";
 import Stats from "../../../arcos/simpleapp/src/util/stats";
 import urlOptions from "../../../arcos/simpleapp/src/util/urlOptions";
 
-const TESTING = window.location.hostname === 'localhost';
+const LOCALHOST = window.location.hostname === 'localhost';
 
 const THROTTLE = 1000 / 20;     // mouse event throttling
 const STEP_MS = 1000 / 20;      // bouncing ball step time in ms
 const SPEED = 15;               // bouncing ball speed in virtual pixels / step
-const ACTIVE_MS = TESTING ? 50 : 500; // send activity indicator after this (real) time
-const INACTIVE_MS = TESTING ? 500 : 5000;  // delete inactive users after this (sim) time
+const ACTIVE_MS = 500;          // send activity indicator after this (real) time
+const INACTIVE_MS = 5000;       // delete inactive users after this (sim) time
 
 const TOUCH ='ontouchstart' in document.documentElement;
 const USER = (Math.random()+'').slice(2);
@@ -17,7 +17,7 @@ let SCALE = 1;                  // model uses a virtual 1000x1000 space
 let OFFSETX = 50;               // top-left corner of view, plus half shape width
 let OFFSETY = 50;               // top-left corner of view, plus half shape height
 
-const TEST = !!urlOptions.test;
+const AVATARS = !!urlOptions.avatars;
 
 ////// Models /////
 
@@ -40,8 +40,8 @@ export class Root extends Model {
 
     start() {
         super.start();
-        this.subscribe(this.id, 'user-added', user => this.userAdded(user));
-    }
+        this.subscribe(this.id, "user-is-active", user => this.ensureUser(user));
+      }
 
     // non-inherited methods below
 
@@ -57,7 +57,7 @@ export class Root extends Model {
         child.destroy();
     }
 
-    userAdded(user) {
+    ensureUser(user) {
         let shape = this.children.find(c => c.user === user);
         if (!shape) {
             shape = UserShape.create({user, parent: this});
@@ -143,7 +143,6 @@ export class UserShape extends Shape {
 
     start() {
         super.start();
-        this.subscribe(this.id, "user-is-active", () => this.active = true);
         this.subscribe(this.id, "user-inactive", () => this.parent.remove(this));
     }
 
@@ -227,8 +226,11 @@ class RootView extends View {
         model.children.forEach(child => this.attachChild(child));
         this.subscribe(model.id, 'child-added', child => this.attachChild(child));
         this.subscribe(model.id, 'child-removed', child => this.detachChild(child));
-        this.subscribe(model.id, `user-shape-${USER}`, id => this.gotUserShape(id));
-        if (TEST) this.publish(model.id, 'user-added', USER);
+        if (AVATARS) {
+            this.subscribe(model.id, `user-shape-${USER}`, id => this.gotUserShape(id));
+            this.publish(model.id, 'user-is-active', USER);
+            setInterval(() => this.publish(model.id, 'user-is-active', USER), ACTIVE_MS);
+        }
     }
 
     detach() {
@@ -246,7 +248,7 @@ class RootView extends View {
         const childView = new ShapeView(child);
         this.element.appendChild(childView.element);
         childView.element.view = childView;
-        if (!TEST) childView.enableDragging(child.id, childView.element, false);
+        if (!AVATARS) childView.enableDragging(child.id, childView.element, false);
     }
 
     detachChild(child) {
@@ -272,7 +274,6 @@ class RootView extends View {
         el.view.enableDragging(el.id, this.element, true);
         el.style.transform = `translate(-10px,-10px)`;  // compensate border
         this.userElement = el;
-        setInterval(() => this.publish(id, 'user-is-active'), ACTIVE_MS);
     }
 }
 
@@ -350,7 +351,7 @@ class ShapeView extends View {
 
 async function go() {
     Controller.addMessageTranscoder('*', { encode: a => a, decode: a => a });
-    const reflector = TESTING
+    const reflector = LOCALHOST
         ? "ws://localhost:9090/"
         : "wss://dev1.os.vision/reflector-v1";
     Controller.connectToReflector(urlOptions.reflector || reflector);
@@ -363,10 +364,10 @@ async function go() {
         const models = await controller.createIsland("2d", {
             moduleID: module.id,
             snapshot,
-            options: {test: TEST},
+            options: {avatars: AVATARS},
             creatorFn(options) {
                 const root = Root.create();
-                if (!options.test) for (let i = 0; i < 99; i++) root.add(Shape.create());
+                if (!options.avatars) for (let i = 0; i < 99; i++) root.add(Shape.create());
                 root.add(BouncingShape.create({pos: [500, 500], color: "white"}));
                 return {root};
             },
