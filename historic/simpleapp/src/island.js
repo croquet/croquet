@@ -179,6 +179,7 @@ export default class Island {
      */
     processExternalMessage(msgData) {
         const message = Message.fromState(msgData);
+        if (message.time < this.time) throw Error("past message from reflector " + msgData);
         this.messages.add(message);
         this.externalTime = message.time; // we have all external messages up to this time
         return message;
