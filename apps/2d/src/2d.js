@@ -196,6 +196,12 @@ class RootView extends View {
         OFFSETX += 50 * SCALE;
         OFFSETY += 50 * SCALE;
     }
+
+    showBacklog(show) {
+        const showing = this.element.classList.contains("backlog");
+        if (showing === show) return;
+        this.element.classList[show ? "add" : "remove"]("backlog");
+    }
 }
 
 
@@ -313,6 +319,8 @@ async function go() {
             users = controller.users;
             window.top.postMessage({ users }, "*");
         }
+
+        rootView.showBacklog(controller.backlog > 200);
 
         if (controller.island) {
             controller.simulate(Date.now() + 200);
