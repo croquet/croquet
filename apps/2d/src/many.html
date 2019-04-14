@@ -1,8 +1,8 @@
 <html>
     <head>
-        <meta charset=utf-8>
+        <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-        <title>croquet - many views</title>
+        <title>croquet - many clients</title>
         <style>
             body {
                 margin: 0;
@@ -51,8 +51,9 @@
                 }
                 while (iframes.length < n) {
                     const urlOptions = document.location.search.slice(1);
+                    const page = urlOptions.startsWith('avatars') ? 'avatars' : '2d';
                     const iframe = document.createElement("iframe");
-                    iframe.src = "/2d.html?nostats" + (urlOptions ? '&' + urlOptions : '');
+                    iframe.src = `${page}.html?nostats${urlOptions ? '&' + urlOptions : ''}`;
                     document.body.appendChild(iframe);
                     iframes.push(iframe);
                 }
