@@ -300,6 +300,13 @@ class RootView extends View {
             }
         }
     }
+
+    showStatus(backlog, starvation, min, max) {
+        const color = backlog > starvation ? '#f00' : '#fff';
+        const value = Math.max(backlog, starvation) - min;
+        const size = Math.min(value, max) * 500 / max;
+        this.canvas.style.boxShadow = value < 0 ? "" : `inset 0 0 ${size}px ${color}`;
+    }
 }
 
 
@@ -345,9 +352,12 @@ async function go() {
 
     window.requestAnimationFrame(frame);
     function frame(timestamp) {
+        const starvation = Date.now() - controller.lastReceived;
+        const backlog = controller.backlog;
+        rootView.showStatus(backlog, starvation, 200, 3000);
         Stats.animationFrame(timestamp);
         Stats.users(controller.users);
-        Stats.network(Date.now() - controller.lastReceived);
+        Stats.network(starvation);
 
         if (users !== controller.users) {
             users = controller.users;
