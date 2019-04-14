@@ -198,7 +198,7 @@ class RootView extends View {
     }
 
     showStatus(backlog, starvation, min, max) {
-        const color = backlog > starvation ? '#f00' : '#ccc'
+        const color = backlog > starvation ? '#f00' : '#fff';
         const value = Math.max(backlog, starvation) - min;
         const size = Math.min(value, max) * 500 / max;
         this.element.style.boxShadow = value < 0 ? "" : `inset 0 0 ${size}px ${color}`;
