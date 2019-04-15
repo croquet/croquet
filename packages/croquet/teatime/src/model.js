@@ -1,4 +1,4 @@
-import { StatePart, currentRealm } from "../../../arcos/simpleapp/src/modelView";
+import { StatePart, currentRealm } from "./modelView";
 
 export default class Model extends StatePart {
 

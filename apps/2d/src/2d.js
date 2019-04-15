@@ -1,6 +1,6 @@
 import { Model, View, Controller } from "../../teatime";
-import Stats from "../../../arcos/simpleapp/src/util/stats";
-import urlOptions from "../../../arcos/simpleapp/src/util/urlOptions";
+import Stats from "../../util/stats";
+import urlOptions from "../../util/urlOptions";
 
 const LOCALHOST = window.location.hostname === 'localhost';
 
