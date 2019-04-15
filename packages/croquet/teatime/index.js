@@ -1,3 +1,3 @@
-export {default as Model} from "./model";
-export {default as View} from "./view";
-export {default as Controller} from "./controller";
+export { default as Model } from "./src/model";
+export { default as View } from "./src/view";
+export { default as Controller } from "./src/controller";
