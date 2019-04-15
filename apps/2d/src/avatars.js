@@ -1,6 +1,6 @@
-import { Model, View, Controller } from "../../teatime";
-import Stats from "../../util/stats";
-import urlOptions from "../../util/urlOptions";
+import { Model, View, Controller } from "teatime";
+import Stats from "util/stats";
+import urlOptions from "util/urlOptions";
 
 const LOCALHOST = window.location.hostname === 'localhost';
 

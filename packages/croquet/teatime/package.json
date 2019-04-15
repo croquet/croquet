@@ -1,0 +1,16 @@
+{
+  "name": "@croquet/teatime",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "author": "",
+  "license": "ISC",
+  "alias": {
+    "ws": "./src/ws.js"
+  },
+  "dependencies": {
+    "@croquet/util": "file:../util",
+    "broadcast-channel": "^2.1.10",
+    "seedrandom": "^2.4.4"
+  }
+}

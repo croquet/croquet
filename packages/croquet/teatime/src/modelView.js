@@ -1,5 +1,5 @@
+import hotreload from "util/hotreload";
 import Part, { PART_PATH_SEPARATOR } from "./parts";
-import hotreload from "../../util/hotreload";
 
 const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }

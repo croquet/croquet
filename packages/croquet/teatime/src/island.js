@@ -1,9 +1,9 @@
 import SeedRandom from "seedrandom";
-import PriorityQueue from "../../util/priorityQueue";
-import AsyncQueue from "../../util/asyncQueue";
-import hotreload from "../../util/hotreload";
-import Stats from "../../util/stats";
-import { hashModelCode, baseUrl } from "../../util/modules";
+import PriorityQueue from "util/priorityQueue";
+import AsyncQueue from "util/asyncQueue";
+import hotreload from "util/hotreload";
+import Stats from "util/stats";
+import { hashModelCode, baseUrl } from "util/modules";
 import { inModelRealm, StatePart, inViewRealm } from "./modelView";
 import { PATH_PART_SEPARATOR_SPLIT_REGEXP } from "./parts";
 
