@@ -6,6 +6,7 @@
   "author": "",
   "license": "ISC",
   "alias": {
+    "reflector": "/../../reflector/index.js",
     "ws": "./src/ws.js"
   },
   "dependencies": {

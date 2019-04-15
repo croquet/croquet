@@ -1,4 +1,4 @@
-import hotreload from "util/hotreload";
+import hotreload from "@croquet/util/hotreload";
 import Part, { PART_PATH_SEPARATOR } from "./parts";
 
 const moduleVersion = `${module.id}#${module.bundle.v || 0}`;
