@@ -32,6 +32,6 @@
     "eslint-import-resolver-parcel": "^1.8.4",
     "eslint-plugin-import": "^2.16.0",
     "jsdoc": "git+https://github.com/jsdoc3/jsdoc.git",
-    "parcel-bundler": "git+https://github.com/bertfreudenberg/parcel-bundler.git"
+    "parcel": "git+https://github.com/bertfreudenberg/parcel-bundler.git"
   }
 }
