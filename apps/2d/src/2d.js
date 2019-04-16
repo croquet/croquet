@@ -202,7 +202,7 @@ class RootView extends View {
         const value = Math.max(backlog, starvation) - min;
         const size = Math.min(value, max) * 100 / max;
         const alpha = size / 100;
-        this.canvas.style.boxShadow = alpha < 0.2 ? "" : `inset 0 0 ${size}px rgba(${color},${alpha})`;
+        this.element.style.boxShadow = alpha < 0.2 ? "" : `inset 0 0 ${size}px rgba(${color},${alpha})`;
     }
 }
 
