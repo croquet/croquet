@@ -1,6 +1,6 @@
-import { Model, View, Controller } from "../../teatime";
-import Stats from "../../../arcos/simpleapp/src/util/stats";
-import urlOptions from "../../../arcos/simpleapp/src/util/urlOptions";
+import { Model, View, Controller } from "@croquet/teatime";
+import Stats from "@croquet/util/stats";
+import urlOptions from "@croquet/util/urlOptions";
 
 const LOCALHOST = window.location.hostname === 'localhost';
 
@@ -53,6 +53,7 @@ export class Root extends Model {
         this.children.splice(index, 1);
         this.publish(this.id, 'child-removed', child);
         child.destroy();
+        this.random(); // force random to diverge if we have a sync bug
     }
 
     ensureUser(user) {
@@ -63,6 +64,7 @@ export class Root extends Model {
         }
         shape.active = true;
         this.publish(this.id, `user-shape-${user}`, shape);
+        this.random(); // force random to diverge if we have a sync bug
     }
 }
 
@@ -302,10 +304,11 @@ class RootView extends View {
     }
 
     showStatus(backlog, starvation, min, max) {
-        const color = backlog > starvation ? '#f00' : '#fff';
+        const color = backlog > starvation ? '255,0,0' : '255,255,255';
         const value = Math.max(backlog, starvation) - min;
-        const size = Math.min(value, max) * 500 / max;
-        this.canvas.style.boxShadow = value < 0 ? "" : `inset 0 0 ${size}px ${color}`;
+        const size = Math.min(value, max) * 100 / max;
+        const alpha = size / 100;
+        this.canvas.style.boxShadow = alpha < 0.2 ? "" : `inset 0 0 ${size}px rgba(${color},${alpha})`;
     }
 }
 
@@ -354,7 +357,7 @@ async function go() {
     function frame(timestamp) {
         const starvation = Date.now() - controller.lastReceived;
         const backlog = controller.backlog;
-        rootView.showStatus(backlog, starvation, 200, 3000);
+        rootView.showStatus(backlog, starvation, 100, 3000);
         Stats.animationFrame(timestamp);
         Stats.users(controller.users);
         Stats.network(starvation);

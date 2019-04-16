@@ -1,5 +1,5 @@
-import { inViewRealm } from "../../arcos/simpleapp/src/modelView";
-import Island, { connectToReflector, Controller as OldController, addMessageTranscoder } from "../../arcos/simpleapp/src/island";
+import { inViewRealm } from "./modelView";
+import Island, { connectToReflector, Controller as OldController, addMessageTranscoder } from "./island";
 
 export default class Controller extends OldController {
     static addMessageTranscoder(...args) { addMessageTranscoder(...args); }

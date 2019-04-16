@@ -1,4 +1,4 @@
-import { Model, View } from "../../../teatime";
+import { Model, View } from "teatime";
 
 const COLORS = [ "#FFF", "#C00", "#0C0", "#880", "#00C", "#C0C", "#0CC", "#888" ];
 const CURSOR = "|";

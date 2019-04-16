@@ -1,4 +1,4 @@
-import { ViewPart } from "../../arcos/simpleapp/src/modelView";
+import { ViewPart } from "./modelView";
 
 export default class View extends ViewPart {
     random() { return Math.random(); }

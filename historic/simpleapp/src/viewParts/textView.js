@@ -246,17 +246,17 @@ export default class EditableTextViewPart extends ViewPart {
             if (rec.style.startsWith('barSelection')) {
                 if (this.options.showSelection) {
                     // drawing the insertion  - line width of text cursor should relate to font
-                    let id = rec.style.split(' ')[1];
+                    let color = rec.style.split(' ')[1];
                     let box = getSelectionBox();
-                    this.updateSelection(box, meshRect, id);
+                    this.updateSelection(box, meshRect, color);
                 }
             } else if (rec.style.startsWith('boxSelection')) {
-                //rec.style === 'boxSelectionUnfocus' ||'boxSelectionFocus'
-                let id = rec.style.split(' ')[1];
-                // boxes of selections
+                // rec.style === 'boxSelectionUnfocus' || 'boxSelectionFocus'
                 if (this.options.showSelection) {
+                    let color = rec.style.split(' ')[1];
+                    // boxes of selections
                     let box = getSelectionBox();
-                    this.updateSelection(box, meshRect, id);
+                    this.updateSelection(box, meshRect, color);
                 }
             } else if (rec.style === 'scrollBar') {
                 // oh, boy.  we are compensating it with fudge factor and recompensationg

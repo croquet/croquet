@@ -1,0 +1,15 @@
+{
+  "name": "@croquet/util",
+  "version": "0.0.1",
+  "description": "misc utilities",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "fastpriorityqueue": "^0.6.1",
+    "hashids": "^1.2.2"
+  }
+}
