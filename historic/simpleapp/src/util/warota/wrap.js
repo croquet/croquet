@@ -9,6 +9,8 @@ import { fontRegistry } from "../fontRegistry";
 //     }
 // };
 
+const eof = String.fromCharCode(26); // "^Z"
+
 export class Measurer {
     measureText(str, style) {
         let m = fontRegistry.measureText(str, style);
@@ -180,8 +182,12 @@ export class Wrap {
 
             if (isNewline(word.text)) {
                 rect = measurer.measureText(' ', word.style);
-                currentHeight = Math.max(currentHeight, rect.height);
-                currentAscent = Math.max(currentAscent, rect.ascent);
+                if (w === words.length - 1) {
+                    pushLine();
+                } else {
+                    currentHeight = Math.max(currentHeight, rect.height);
+                    currentAscent = Math.max(currentAscent, rect.ascent);
+                }
                 rect.left = left;
                 rect.top = top;
                 Object.assign(word, rect);
@@ -216,6 +222,16 @@ export class Wrap {
             currentLine.push(word);
         }
 
+        pushLine();
+
+        let rect = measurer.measureText(' ');
+        let word = {text: eof};
+        currentHeight = Math.max(currentHeight, rect.height);
+        currentAscent = Math.max(currentAscent, rect.ascent);
+        rect.left = 0;
+        rect.top = top;
+        Object.assign(word, rect);
+        currentLine.push(word);
         pushLine();
         return [lines, words];
     }
