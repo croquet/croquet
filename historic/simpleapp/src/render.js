@@ -1,5 +1,11 @@
 import * as THREE from "three";
 import PortalViewPart from "./viewParts/portalView";
+import THREEx_imports from "../thirdparty-patched/ARjs/ar";
+import cameraData from "../thirdparty-patched/ARjs/data/camera_para.dat";
+import patternData from "../thirdparty-patched/ARjs/data/croquet.patt";
+import urlOptions from "./util/urlOptions";
+
+const THREEx = THREEx_imports && THREEx_imports.THREEx;
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
@@ -14,8 +20,9 @@ export const rendererVersion = {renderingContextVersion: '2', shaderLanguageVers
 
 export default class Renderer {
     constructor(width, height) {
+        this.inAR = urlOptions.ar;
         const contextAttributes = {
-            alpha: false,
+            alpha: this.inAR, //false,
             depth: true,
             stencil: true,
             antialias: true,
@@ -41,18 +48,77 @@ export default class Renderer {
                 rendererVersion.shaderLanguageVersion = '100';
             }
         }
+
+        if (this.inAR) this.initAR();
+    }
+
+    initAR() {
+        this.arCamera = new THREE.Camera();
+        this.arToolkitSource = new THREEx.ArToolkitSource({
+            // to read from the webcam
+            sourceType: 'webcam'
+            });
+        this.arToolkitSource.init(() => {
+            this.onResize();
+            });
+        // create atToolkitContext
+        this.arToolkitContext = new THREEx.ArToolkitContext({
+            cameraParametersUrl: cameraData,
+            detectionMode: 'mono',
+            });
+        // initialize it
+        this.arToolkitContext.init(() => {
+            // copy projection matrix to camera
+            this.arCamera.projectionMatrix.copy(this.arToolkitContext.getProjectionMatrix());
+            });
+        // update artoolkit on every frame
+        this.onRenderFcts = [];
+        this.onRenderFcts.push(() => {
+            if (this.arToolkitSource.ready === false) return;
+
+            this.arToolkitContext.update(this.arToolkitSource.domElement);
+
+            // update scene.visible if the marker is seen
+//            scene.visible = camera.visible
+            });
+
+        // init controls for camera
+        this.markerControls = new THREEx.ArMarkerControls(this.arToolkitContext, this.arCamera, {
+            type: 'pattern',
+            patternUrl: patternData,
+            // as we controls the camera, set changeMatrixMode: 'cameraTransformMatrix'
+            changeMatrixMode: 'cameraTransformMatrix'
+            });
+    }
+
+    onResize() {
+        if (!this.arToolkitSource) return;
+
+        this.arToolkitSource.onResizeElement();
+        this.arToolkitSource.copyElementSizeTo(this.renderer.domElement);
+        if (this.arToolkitContext.arController !== null) {
+            this.arToolkitSource.copyElementSizeTo(this.arToolkitContext.arController.canvas);
+        }
     }
 
     changeViewportSize(width, height) {
         this.renderer.setSize(width, height);
+        this.onResize();
     }
 
     render(room, allRooms, roomViewManager) {
+        const inAR = this.inAR;
+
         const currentRoomView = roomViewManager.expect(room);
         // Portal rendering technique inspired by https://github.com/zadvorsky/three.portals/blob/master/src/THREE.PortalController.js
         const mainScene = currentRoomView.parts.roomScene.threeObj;
         /** @type {THREE.Camera} */
-        const mainCamera = currentRoomView.parts.camera.threeObj;
+        const mainCamera = inAR ? this.arCamera : currentRoomView.parts.camera.threeObj;
+        if (inAR) {
+            mainScene.add(mainCamera);
+            this.renderer.setClearColor(0xffffff, 0);
+            this.onRenderFcts.forEach(fn => fn());
+        }
 
         /** @type {PortalViewPart[]} */
         const portalViewParts = Object.values(currentRoomView.parts.elementViewManager.viewsForElements)

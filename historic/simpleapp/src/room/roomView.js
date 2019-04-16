@@ -14,6 +14,7 @@ import { PortalTraversing, PortalEvents, PortalTopic } from "../stateParts/porta
 import { KeyboardViewPart } from "../viewParts/keyboard";
 import { ContextMenu } from "../viewParts/menu";
 import { ColorEvents } from "../stateParts/color";
+import urlOptions from "../util/urlOptions";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
@@ -90,7 +91,7 @@ class RoomScene extends ViewPart {
             new THREE.SphereGeometry(50, 10, 10),
             new THREE.MeshBasicMaterial({color: options.room.parts.color.value, side: THREE.DoubleSide})
         );
-        this.scene.add(this.skydome);
+        if (!urlOptions.ar) this.scene.add(this.skydome);
 
         this.scene.add(this.light);
         this.ambientLight = new THREE.HemisphereLight("#ddddff", "#ffdddd");
