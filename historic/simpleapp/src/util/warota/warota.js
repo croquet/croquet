@@ -796,21 +796,25 @@ export class Warota {
 
         let rects = [];
         let pos1 = this.positionFromIndex(selection.start);
-        let pos2 = this.positionFromIndex(line0[line0.length-1].end);
+        let pos2;
+        if (selection.end !== this.doc.length()) {
+            pos2 = this.positionFromIndex(selection.end);
+        } else {
+            let word = this.findWord(selection.end-1);
+            pos2 = {left: word.left+word.width, top: word.top, width: 0, height: word.height};
+        }
         rects.push({left: pos1.left, top: pos1.top,
                     width: this.width() - pos1.left,
                     height: pos1.height});
         if (line1Index - line0Index >= 2) {
-            pos1 = this.positionFromIndex(this.lines[line0Index+1][0].start);
-            pos2 = this.positionFromIndex(selection.end);
+            pos1 = this.lines[line0Index+1][0];
             rects.push({left: this.pixelMargins.left, top: pos1.top,
                         width: this.width(),
                         height: pos2.top - pos1.top});
         }
 
-        pos1 = this.positionFromIndex(this.lines[line1Index][0].start);
-        pos2 = this.positionFromIndex(selection.end);
-        rects.push({left: this.pixelMargins.left, top: pos1.top,
+        pos1 = this.lines[line1Index][0];
+        rects.push({left: this.pixelMargins.left, top: pos2.top,
                     width: pos2.left - this.pixelMargins.left,
                     height: pos2.height});
         return rects;
@@ -1001,6 +1005,7 @@ export class Warota {
             switch(key) {
             case 65:
                 this.select(user, 0, length);
+                window.editor = this;
                 handled = true;
                 break;
             }

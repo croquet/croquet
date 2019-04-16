@@ -167,6 +167,7 @@ export class Wrap {
         let words = this.splitWords(runs);
 
         let pushLine = () => {
+            if (currentLine.length === 0) {return;}
             currentLine.forEach(c => {
                 c.ascent = currentAscent;
             });
