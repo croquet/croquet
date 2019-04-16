@@ -31,6 +31,7 @@
     "broadcast-channel": "^2.1.10",
     "fastpriorityqueue": "^0.6.1",
     "hashids": "^1.2.2",
+    "kiwi.js": "^1.1.1",
     "seedrandom": "^2.4.4",
     "three": "^0.101.1",
     "three-bmfont-text": "git+https://github.com/yoshikiohshima/three-bmfont-text.git",

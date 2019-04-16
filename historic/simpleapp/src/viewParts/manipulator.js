@@ -4,7 +4,7 @@ import lineHandle from "../../assets/line-handle.svg";
 import rotateHandle from "../../assets/rotate-handle.svg";
 import { PointerEvents, makePointerSensitive } from "./pointer";
 import { ViewPart } from "../modelView";
-import Tracking from "./tracking";
+import Tracking, { Facing } from "./tracking";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
@@ -117,7 +117,7 @@ export default function WithManipulator(BaseViewPart, manipulatorOptions={}) {
             const target = manipulatorOptions.target || (options.model && options.model.parts.spatial);
             this.parts = {
                 inner: new BaseViewPart(options),
-                translationManipulator: new (Tracking({scale: false, rotation: false, source: target})(TranslationManipulator))({target}),
+                translationManipulator: new (Facing({source: options.cameraSpatial})(Tracking({scale: false, rotation: false, source: target})(TranslationManipulator)))({target}),
                 rotationManipulator: new (Tracking({scale: false, source: target})(RotationManipulator))({target}),
             };
         }

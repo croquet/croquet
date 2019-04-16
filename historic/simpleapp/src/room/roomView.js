@@ -35,7 +35,7 @@ export default class RoomView extends ViewPart {
         });
 
         this.parts.roomScene = new RoomScene({room: options.room});
-        this.parts.elementViewManager = new ElementViewManager({room: options.room, scenePart: this.parts.roomScene});
+        this.parts.elementViewManager = new ElementViewManager({room: options.room, scenePart: this.parts.roomScene, cameraSpatial: this.cameraSpatial});
 
         if (options.activeParticipant) {
             this.parts.pointer = new PointerViewPart({room: options.room, cameraPart: this.parts.camera, scenePart: this.parts.roomScene});
@@ -164,6 +164,7 @@ class ElementViewManager extends ViewPart {
     constructor(options) {
         super();
         this.scenePart = options.scenePart;
+        this.cameraSpatial = options.cameraSpatial;
         this.viewsForElements = {};
 
         for (const element of options.room.parts.elements.children) {
@@ -177,7 +178,7 @@ class ElementViewManager extends ViewPart {
     onElementAdded(element) {
         const NaturalView = element.naturalViewClass("in-room");
         /** @type {View} */
-        const view = new (WithManipulator(NaturalView))({model: element});
+        const view = new (WithManipulator(NaturalView))({model: element, cameraSpatial: this.cameraSpatial});
         this.viewsForElements[element.id] = view;
         this.scenePart.threeObj.add(...view.threeObjs());
     }
