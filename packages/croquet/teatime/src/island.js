@@ -4,8 +4,8 @@ import AsyncQueue from "@croquet/util/asyncQueue";
 import hotreload from "@croquet/util/hotreload";
 import Stats from "@croquet/util/stats";
 import { hashModelCode, baseUrl } from "@croquet/util/modules";
-import { inModelRealm, StatePart, inViewRealm } from "./modelView";
-import { PATH_PART_SEPARATOR_SPLIT_REGEXP } from "./parts";
+import Model from "./model";
+import { inModelRealm, inViewRealm } from "./realms";
 
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
@@ -84,8 +84,9 @@ export default class Island {
                 if (snapshot.models) {
                     // create all models, uninitialized, but already registered
                     for (const modelState of snapshot.models || []) {
-                        const model = StatePart.constructFromState(modelState);
-                        model.registerRecursively(modelState, true);
+                        const ModelClass = Model.classFromState(modelState);
+                        const model = new ModelClass();
+                        this.registerModel(model, modelState.id);
                     }
 
                     for (const [modelName, modelId] of Object.entries(snapshot.namedModels)) {
@@ -95,8 +96,7 @@ export default class Island {
                     // restore model snapshot, allow resolving object references
                     for (const modelState of snapshot.models || []) {
                         const model = this.topLevelModelsById[modelState.id];
-                        model.restore(modelState, this.topLevelModelsById);
-                        model.restoreDone();
+                        model.load(modelState, this.topLevelModelsById);
                     }
                     // restore messages
                     for (const messageState of snapshot.messages || []) {
@@ -105,6 +105,10 @@ export default class Island {
                     }
                     // now it's safe to use stored random
                     this._random = new SeedRandom(null, { state: snapshot.random });
+                    // start all models
+                    for (const model of Object.values(this.topLevelModelsById)) {
+                        model.start();
+                    }
                 } else {
                     // create new random, it is okay to use in init code
                     this._random = new SeedRandom(null, { state: true });
@@ -129,11 +133,7 @@ export default class Island {
 
     lookUpModel(id) {
         if (id === this.id) return this;
-        const [topLevelModelId, rest] = id.split(PATH_PART_SEPARATOR_SPLIT_REGEXP);
-        if (rest) {
-            return this.topLevelModelsById[topLevelModelId].lookUp(rest);
-        }
-        return this.topLevelModelsById[topLevelModelId];
+        return this.topLevelModelsById[id];
     }
 
     registerView(view) {
@@ -459,7 +459,7 @@ export default class Island {
             random: this._random.state(),
             models: Object.values(this.topLevelModelsById).map(model => {
                 const state = {};
-                model.toState(state);
+                model.save(state);
                 return state;
             }),
             namedModels,

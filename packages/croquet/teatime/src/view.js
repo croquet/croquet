@@ -1,7 +1,16 @@
-import { ViewPart } from "./modelView";
+import { currentRealm } from "./realms";
 
-export default class View extends ViewPart {
-    random() { return Math.random(); }
+export default class View {
+
+    constructor() {
+        this.realm = currentRealm();
+        this.id = this.realm.register(this);
+    }
+
+    detach() {
+        this.realm.unsubscribeAll(this.id);
+        this.realm.deregister(this);
+    }
 
     publish(scope, event, data) {
         this.realm.publish(event, data, scope);
@@ -14,5 +23,16 @@ export default class View extends ViewPart {
 
     unsubscribe(scope, event) {
         this.realm.unsubscribe(event, this.id, null, scope);
+    }
+
+    // Misc
+
+    /** @returns {this} */
+    future(tOffset=0) {
+        return this.realm.futureProxy(tOffset, this);
+    }
+
+    random() {
+        return currentRealm().random();
     }
 }
