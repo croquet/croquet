@@ -53,6 +53,7 @@ export class Root extends Model {
         this.children.splice(index, 1);
         this.publish(this.id, 'child-removed', child);
         child.destroy();
+        this.random(); // force random to diverge if we have a sync bug
     }
 
     ensureUser(user) {
@@ -63,6 +64,7 @@ export class Root extends Model {
         }
         shape.active = true;
         this.publish(this.id, `user-shape-${user}`, shape);
+        this.random(); // force random to diverge if we have a sync bug
     }
 }
 
