@@ -113,10 +113,17 @@ export class RandomlyColoringGroupElement extends GroupElement {
 }
 
 class RandomlyColoringGroupElementView extends GroupElementView {
+    // constructor(options) {
+    //     super(options);
+    //     this.random = new SeedRandom(options.model.id);
+    // }
+
     onElementAdded(element) {
         super.onElementAdded(element);
         const view = this.viewsForChildElements[element.id];
-        if (!this.random) this.random = new SeedRandom(this.modelId);
+        // would like to use options.model.id for random (see constructor)
+        // but the super() constructor already calls onElementAdded
+        if (!this.random) this.random = new SeedRandom("VeryRandomSeed");
         for (const threeObj of view.threeObjs()) {
             threeObj.material.color.setHSL(this.random(), 1, 0.5);
         }
