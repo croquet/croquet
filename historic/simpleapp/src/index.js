@@ -338,7 +338,7 @@ async function start() {
 }
 
 if (module.hot) {
-    module.hot.accept();
+    if (urlOptions.hotreload) module.hot.accept();
     // preserve hotState
     module.hot.dispose(hotData => {
         Object.assign(hotData, hotState);
