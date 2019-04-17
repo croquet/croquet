@@ -40,4 +40,10 @@ export default class View {
     random() {
         return currentRealm().random();
     }
+
+    [Symbol.toPrimitive]() {
+        const className = this.constructor.name;
+        if (className.includes('View')) return className;
+        return `View:${className}`;
+    }
 }

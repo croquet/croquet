@@ -70,6 +70,12 @@ export default class Model {
     random() {
         return currentRealm().random();
     }
+
+    [Symbol.toPrimitive]() {
+        const className = this.constructor.name;
+        if (className.includes('Model')) return className;
+        return `Model:${className}`;
+    }
 }
 
 
