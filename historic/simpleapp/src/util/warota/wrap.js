@@ -2,24 +2,21 @@ import { fontRegistry } from "../fontRegistry";
 
 // let fontRegistry = {
 //     measureText: function(str, style) {
-//         return {width: str.length * 10, height: 20, ascent: 15};
+//         return {width: str.length * 20, height: 50, ascent: 40};
 //     },
 //     getInfo: function(font) {
-//         return {common: {lineHeight: 20}};
+//         return {common: {lineHeight: 50}};
 //     }
 // };
 
-const eof = String.fromCharCode(26); // "^Z"
-
 export class Measurer {
-    measureText(str, style) {
-        let m = fontRegistry.measureText(str, style);
+    measureText(str, style, font) {
+        let m = fontRegistry.measureText(str, style, font);
         return m;
-        //return {width: str.length * 10, height: 20, ascent: 15};
     }
 
     lineHeight(font) {
-        if (!font) {return 20;}
+        if (!font) {return 50;}
         return fontRegistry.getInfo(font).common.lineHeight;
     }
 }
@@ -167,6 +164,7 @@ export class Wrap {
         let words = this.splitWords(runs);
 
         let pushLine = () => {
+            if (currentLine.length === 0) {return;}
             currentLine.forEach(c => {
                 c.ascent = currentAscent;
             });
@@ -181,7 +179,7 @@ export class Wrap {
             let rect;
 
             if (isNewline(word.text)) {
-                rect = measurer.measureText(' ', word.style);
+                rect = measurer.measureText(' ', word.style, defaultFont);
                 if (w === words.length - 1) {
                     pushLine();
                 } else {
@@ -201,11 +199,11 @@ export class Wrap {
             if (word.styles) {
                 // a word with multiple styles
                 for (let i = 0; i < word.styles.length; i++) {
-                    let m = measurer.measureText(word.text.slice(word.styles[i].start, word.styles[i].end), word.styles[i]);
+                    let m = measurer.measureText(word.text.slice(word.styles[i].start, word.styles[i].end), word.styles[i], defaultFont);
                     rect = this.mergeRect(rect, m);
                 }
             } else {
-                rect = measurer.measureText(word.text, word.style);
+                rect = measurer.measureText(word.text, word.style, defaultFont);
             }
             currentHeight = Math.max(currentHeight, rect.height);
             currentAscent = Math.max(currentAscent, rect.ascent);
@@ -224,7 +222,8 @@ export class Wrap {
 
         pushLine();
 
-        let rect = measurer.measureText(' ');
+        const eof = String.fromCharCode(26); // "^Z"
+        let rect = measurer.measureText(' ', null, defaultFont);
         let word = {text: eof};
         currentHeight = Math.max(currentHeight, rect.height);
         currentAscent = Math.max(currentAscent, rect.ascent);

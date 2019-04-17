@@ -141,7 +141,7 @@ function initBounce(state, options) {
         }
         const text1 = new TextElement().init({
             spatial: { position: new THREE.Vector3(-2.25, 3, -2) },
-            text: { content: {runs: [{text: ["Croquet runs identically on any platform. Load this in another page to compare. Drag the cubes."]}]} },
+            text: { content: {runs: [{text: "Croquet runs identically on any platform. Load this in another page to compare. Drag the cubes."}]} },
             editable: false
         });
         room.parts.elements.add(text1);

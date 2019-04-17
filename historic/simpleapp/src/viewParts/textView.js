@@ -57,7 +57,6 @@ export default class EditableTextViewPart extends ViewPart {
         }
 
         this.threeObj = boxMesh;
-        window.view = this;
     }
 
     onGetFocus() {
@@ -66,8 +65,6 @@ export default class EditableTextViewPart extends ViewPart {
     }
 
     initEditor() {
-        this.lastPt = false;
-        //this.editor = new Warota(this.options.width, this.options.height, this.options.numLines, this.doc);
         this.editor = new Warota(this.options, this.doc); // options may be modified, doc might be null for non editable text
         this.editor.mockCallback = ctx => {
             const glyphs = this.processMockContext(ctx);
@@ -398,8 +395,13 @@ export default class EditableTextViewPart extends ViewPart {
         // through, and the kinds that the editor handles are different.
         // We need to separated them, and for the latter, the text commands list has
         // to be tested here.
-        if (cEvt.keyCombo === "Meta-S") {
+        if (cEvt.keyCombo === "Meta-S" || cEvt.keyCombo === "Ctrl-S") {
             this.accept();
+            return true;
+        }
+
+        if (cEvt.keyCombo === "Meta-Z" || cEvt.keyCombo === "Ctrl-Z") {
+            this.undo();
             return true;
         }
 
@@ -456,6 +458,10 @@ export default class EditableTextViewPart extends ViewPart {
 
     accept() {
         this.textPart.future().acceptContent();
+    }
+
+    undo() {
+        this.textPart.future().undoRequest(userID);
     }
 
     // "text access"

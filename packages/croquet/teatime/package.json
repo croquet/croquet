@@ -3,15 +3,22 @@
   "version": "0.0.1",
   "description": "",
   "main": "index.js",
+  "scripts": {
+    "lint": "eslint src",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
   "author": "",
   "license": "ISC",
-  "alias": {
-    "reflector": "/../../reflector/index.js",
-    "ws": "./src/ws.js"
-  },
   "dependencies": {
+    "@croquet/reflector": "file:../reflector",
     "@croquet/util": "file:../util",
     "broadcast-channel": "^2.1.10",
     "seedrandom": "^2.4.4"
+  },
+  "devDependencies": {
+    "eslint": "^5.14.1",
+    "eslint-config-airbnb-base": "^13.1.0",
+    "eslint-import-resolver-parcel": "^1.8.4",
+    "eslint-plugin-import": "^2.16.0"
   }
 }

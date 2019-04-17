@@ -5,15 +5,11 @@ function runLength(ary) {
     return ary.map(c => c.text).reduce((s, x) => x.length + s, 0);
 }
 
-const eof = String.fromCharCode(26); // "^Z"
-
 export class Doc {
     constructor() {
         this.runs = [{text: ""}]; // [{text: str, (opt)style: {font: str, size: num, color: str, emphasis: 'b' | 'i'|'bi'}}]
         this.intervals = []; // [{start: num, end: num}]
         this.selections = {}; // {user: {start: num, end: num, color: string}}
-
-        this.commands = [];
 
         this.defaultFont = "Roboto";
         this.defaultSize = 10;
@@ -23,19 +19,18 @@ export class Doc {
         // runs does not have start and end (human would not want to add them by hand).
         // The canonicalize method adds them. save() strip them out.
         this.canonicalize(runs);
-        this.commands = [];
     }
 
     setDefault(font, size) {
-        this.defaultFont = font;
-        this.defaultSize = size;
+        this.defaultFont = font || this.defaultFont;
+        this.defaultSize = size || this.defaultSize;
     }
 
     doEvent(evt) {
         if (evt.type === "insert") {
-            this.doInsert(evt.user, evt.runs, true);
+            this.doInsert(evt.user, evt.runs);
         } else if (evt.type === "delete") {
-            this.doDelete(evt.user, true, true);
+            this.doDelete(evt.user, true);
         } else if (evt.type === "select") {
             this.doSelect(evt.user, evt.start, evt.end);
         }
@@ -87,7 +82,7 @@ export class Doc {
         }
 
         let [run, runIndex] = this.findRun(start);
-        //if (!run) {throw new Error("can't delete eof");}
+        //if (!run) {throw Error("can't delete eof");}
         let interval = this.intervals[runIndex];
 
         if (interval.end !== start) { // that is, pos is within the run
@@ -249,6 +244,7 @@ export class Doc {
         if (pos === interval.end) {
             return [runs[runs.length-1], runs.length-1];
         }
+        if (pos > this.length()) { debugger;}
     }
 
     updateSelectionsInsert(user, pos, length) {
@@ -290,7 +286,11 @@ export class Doc {
     }
 
     setSelections(selections) {
-        this.selections = selections;
+        this.selections = JSON.parse(JSON.stringify(selections));
+    }
+
+    getSelections() {
+        return JSON.parse(JSON.stringify(this.selections));
     }
 
     ensureSelection(user) {
@@ -302,13 +302,76 @@ export class Doc {
         return sel;
     }
 
-    performUndo() {
-        let command = this.commands.pop();
+    snapshotFrom(content, user, timezone) {
+        return {type: "snapshot",
+                user: user,
+                content: {runs: content.runs,
+                          selections: JSON.parse(JSON.stringify(content.selections))},
+                timezone: timezone};
+    }
 
-        if (command) {
-            command.undo(this);
+    undoEvent(evt, content, doc) {
+        let queue = content.queue;
+        let user = evt.user; // {id, color}
+
+        function findLast(q, event) {
+            for (let i = q.length - 1; i >= 0; i--) {
+                if (q[i].user.id === event.user.id && q[i].timezone === evt.timezone && q[i].type !== "snapshot") {
+                    return i;
+                }
+            }
+            return -1;
         }
-        this.canonicalize(this.runs);
+
+        function findSnapshot(q, i) {
+            for (; i >= 0; i--) {
+                if (q[i].type === "snapshot") {
+                    return i;
+                }
+            }
+            return -1;
+        }
+         
+        let undoIndex = findLast(queue, evt);
+        if (undoIndex < 0) {return content.timezone;}
+
+        let undoEvent = queue[undoIndex];
+        let snapshotIndex = findSnapshot(queue, undoIndex);
+        if (snapshotIndex < 0) {return content.timezone;}
+
+        let snapshot = queue[snapshotIndex];
+        let c = snapshot.content;
+        doc.load(c.runs);
+        doc.setSelections(c.selections);
+
+        let newQueue = [];
+        for (let i = 0; i <= snapshotIndex; i++) {
+            newQueue.push(queue[i]);
+        }
+
+        for (let i = snapshotIndex + 1; i < undoIndex; i++) {
+            doc.doEvent(queue[i]);
+            newQueue.push(queue[i]);
+        }
+
+        for (let i = undoIndex + 1; i < queue.length; i++) {
+            if (queue[i].type !== "snapshot") {
+                doc.doEvent(queue[i]);
+                newQueue.push(queue[i]);
+            }
+        }
+
+        content.timezone++;
+        undoEvent.timezone = content.timezone;
+        if (!content.undoStacks[user.id]) {
+            content.undoStacks[user.id] = [];
+        }
+
+        content.undoStacks[user.id].push(undoEvent);
+        content.selections = doc.getSelections();
+        content.runs = doc.save();
+        content.queue = newQueue;
+        return content.timezone;
     }
 
     receiveEditEvents(events, content, doc) {
@@ -333,25 +396,30 @@ export class Doc {
         // - The list is a part of the saved model. It will be saved with the string content.
         // Things are all destructively updated in content,
 
-        content.timezone++;
         let CUTOFF = 60;
         let queue = content.queue;
         let user = events[0].user; // {id, color}
+
+        if (content.timezone % (CUTOFF / 6) === 0) {
+            queue.push(this.snapshotFrom(content, user, content.timezone));
+        }
+        
+        content.timezone++;
 
         if (queue.length > 0
             && (queue[queue.length - 1].timezone > events[0].timezone + CUTOFF)) {
                 return content.timezone;
         }
 
-        function findFirst(queue, event) {
-            if (queue.length === 0) {
+        function findFirst(q, event) {
+            if (q.length === 0) {
                 return 0;
             }
-            if (queue[queue.length-1].timezone < event.timezone) {
-                return queue.length;
+            if (q[queue.length-1].timezone < event.timezone) {
+                return q.length;
             }
-            for (let i = queue.length - 1; i >= 0; i--) {
-                if (queue[i].timezone < event.timezone) {
+            for (let i = q.length - 1; i >= 0; i--) {
+                if (q[i].timezone < event.timezone) {
                     return i+1;
                 }
             }
@@ -425,12 +493,15 @@ export class Doc {
         }
         for (let k in unseenIDs) {
             delete content.selections[k];
+            delete content.undoStacks[k];
         }
         queue.splice(0, ind);
 
         doc.setSelections(content.selections);
         thisQueue.forEach(e => doc.doEvent(e));
 
+        content.runs = doc.save();
+        content.selections = doc.getSelections();
         return content.timezone;
     }
 }
@@ -438,6 +509,8 @@ export class Doc {
 export class Warota {
     constructor(options, optDoc) {
         this.doc = optDoc || new Doc();
+        this.doc.setDefault(options.font);
+
         this._width = 0;
         if (options.margins) {
             this.margins = options.margins;
@@ -456,6 +529,7 @@ export class Warota {
 
         this.events = [];
         this.timezone = 0;
+
     }
 
     resetEvents() {
@@ -480,7 +554,8 @@ export class Warota {
     }
 
     resizeToNumLinesOrFontSize(options) {
-        let lineHeight = new Measurer().lineHeight(options.font);
+        this.defaultMeasurer = new Measurer();
+        let lineHeight = this.defaultMeasurer.lineHeight(options.font);
         let marginHeight = (options.margins.top + options.margins.bottom);
         let textScreenHeight = options.height - marginHeight;
         if (options.fontSize) {
@@ -517,7 +592,7 @@ export class Warota {
     }
 
     layout() {
-        let [lines, words] = new Wrap().wrap(this.doc.runs, this._width, new Measurer(), this.doc.defaultFont, this.doc.defaultSize, this.pixelMargins);
+        let [lines, words] = new Wrap().wrap(this.doc.runs, this._width, this.defaultMeasurer, this.doc.defaultFont, this.doc.defaultSize, this.pixelMargins);
         this.lines = lines;
         this.words = words;
         let lastWord = lines[lines.length-1][0]; // there should be always one
@@ -602,11 +677,10 @@ export class Warota {
     }
 
     drawScrollbar(ctx) {
-        let {pixelX, pixelY} = this,
-        {l, t, h, w} = this.scrollbarBounds();
+        let {l, t, h, w} = this.scrollbarBounds();
         ctx.save();
         ctx.fillStyle = "scrollBar";
-        ctx.fillRect(l, 0, w, pixelY);
+        ctx.fillRect(l, 0, w, this.pixelY);
 
         ctx.fillStyle = "scrollKnob";
         ctx.fillRect(l+3, t, w-6, h);
@@ -699,6 +773,7 @@ export class Warota {
 
     select(user, start, end) {
         let evt = Event.select(user, start, end, this.timezone);
+        this.lastSelect = {start: start, end: end};
         this.events.push(evt);
     }
 
@@ -712,12 +787,13 @@ export class Warota {
         if (!word) {return {left: 0, top: 0, width: 0, height: 0};}
 
         let lp = pos - word.start;
-        let measure0 = new Measurer().measureText(word.text.slice(0, pos-word.start), word.style);
-        let measure1 = new Measurer().measureText(word.text.slice(0, pos-word.start+1), word.style);
+        let measure0 = this.defaultMeasurer.measureText(word.text.slice(0, pos-word.start), word.style, this.doc.defaultFont);
+        let measure1 = this.defaultMeasurer.measureText(word.text.slice(0, pos-word.start+1), word.style, this.doc.defaultFont);
         return {left: word.left + measure0.width, top: word.top, width: measure1.width - measure0.width, height: word.height};
     }
 
     indexFromPosition(x, y) {
+        const eof = String.fromCharCode(26); // "^Z"
         let word = this.findWord(null, x, y);
         if (word.text === eof) {
             word = this.words[this.words.length - 1];
@@ -726,7 +802,7 @@ export class Warota {
         let last = 0;
         let lx = x - word.left;
         for (let i = 0; i <= word.text.length; i++) {
-            let measure = new Measurer().measureText(word.text.slice(0, i), word.style);
+            let measure = this.defaultMeasurer.measureText(word.text.slice(0, i), word.style, this.doc.defaultFont);
             let half = (measure.width - last) / 2;
             if (last <= lx && lx < last + half) {
                 return word.start + i - 1;
@@ -755,15 +831,16 @@ export class Warota {
     }
 
     barRect(selection) {
-        if (selection.start === this.doc.length()) {
-            if (selection.start === 0) {
-                let rect = this.positionFromIndex(selection.start);
-                return {left: rect.left, top: 0, width: 5, height: rect.height};
-            } else {
-                let rect = this.positionFromIndex(selection.start - 1);
-                return {left: rect.left + rect.width, top: rect.top, width: 5, height: rect.height};
-            }
+        if (selection.start === 0) {
+            let rect = this.positionFromIndex(selection.start);
+            return {left: rect.left, top: 0, width: 5, height: rect.height};
         }
+
+        if (selection.start === this.doc.length()) {
+            let rect = this.positionFromIndex(selection.start - 1);
+            return {left: rect.left + rect.width, top: rect.top, width: 5, height: rect.height};
+        }
+
         let rect = this.positionFromIndex(selection.start);
         return {left: rect.left, top: rect.top, width: 5, height: rect.height};
     }
@@ -796,21 +873,25 @@ export class Warota {
 
         let rects = [];
         let pos1 = this.positionFromIndex(selection.start);
-        let pos2 = this.positionFromIndex(line0[line0.length-1].end);
+        let pos2;
+        if (selection.end !== this.doc.length()) {
+            pos2 = this.positionFromIndex(selection.end);
+        } else {
+            let word = this.findWord(selection.end-1);
+            pos2 = {left: word.left+word.width, top: word.top, width: 0, height: word.height};
+        }
         rects.push({left: pos1.left, top: pos1.top,
                     width: this.width() - pos1.left,
                     height: pos1.height});
         if (line1Index - line0Index >= 2) {
-            pos1 = this.positionFromIndex(this.lines[line0Index+1][0].start);
-            pos2 = this.positionFromIndex(selection.end);
+            pos1 = this.lines[line0Index+1][0];
             rects.push({left: this.pixelMargins.left, top: pos1.top,
                         width: this.width(),
                         height: pos2.top - pos1.top});
         }
 
-        pos1 = this.positionFromIndex(this.lines[line1Index][0].start);
-        pos2 = this.positionFromIndex(selection.end);
-        rects.push({left: this.pixelMargins.left, top: pos1.top,
+        pos1 = this.lines[line1Index][0];
+        rects.push({left: this.pixelMargins.left, top: pos2.top,
                     width: pos2.left - this.pixelMargins.left,
                     height: pos2.height});
         return rects;
@@ -856,7 +937,7 @@ export class Warota {
                     start = this.selectDragStart;
                     end = other;
                 }
-                let last = this.doc.selections[user.id];
+                let last = this.lastSelect;
                 if (last && (last.start !== start || last.end !== end)) {
                     this.select(user, start, end);
                     return 'selectionChanged';
@@ -890,6 +971,7 @@ export class Warota {
         }
         this.selectDragStart = null;
         this.keyboardX = null;
+        this.lastSelect = null;
     }
 
     backspace(user) {
@@ -1001,11 +1083,12 @@ export class Warota {
             switch(key) {
             case 65:
                 this.select(user, 0, length);
+                window.editor = this;
                 handled = true;
                 break;
             }
         }
-                
+
         return handled;
     }
 
@@ -1023,34 +1106,11 @@ export class Event {
         return {type: "insert", user, runs, length: runLength(runs), timezone};
     }
 
-    static doInsert(doc, insert) {
-        doc.doInsert(insert.pos, insert.runs);
-    }
-
-    static undoInsert(doc, insert) {
-        doc.doDelete(insert.pos, insert.length);
-    }
-
     static delete(user, start, end, timezone) {
         return {type: "delete", user, start, end, timezone, deleted: null};
-    }
-
-    static doDelete(doc, del) {
-        del.deleted = doc.get(this.start, this.end);
-        doc.doDelete(del.start, del.end - del.start);
-    }
-
-    static undoDelete(doc, del) {
-        doc.doInsert(del.start, del.deleted);
     }
 
     static select(user, start, end, timezone) {
         return {type: "select", user, start, end, timezone};
     }
-
-    static doSelect(doc, select) {
-        doc.doSelect(select.user, select.start, select.end, select.color);
-    }
-
-    static undoSelect(doc, select) { }
 }

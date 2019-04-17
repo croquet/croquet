@@ -2,6 +2,11 @@ import { Model, View, Controller } from "@croquet/teatime";
 import Stats from "@croquet/util/stats";
 import urlOptions from "@croquet/util/urlOptions";
 
+
+const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
+
+
 const LOCALHOST = window.location.hostname === 'localhost';
 
 const THROTTLE = 1000 / 20;     // mouse event throttling
@@ -96,18 +101,20 @@ export class Shape extends Model {
 
     start() {
         super.start();
-        this.subscribe(this.id, "move-to", pos => this.moveTo(...pos));
-        this.subscribe(this.id, "move-by", delta => this.moveBy(...delta));
+        this.subscribe(this.id, "move-to", pos => this.moveTo(pos));
+        this.subscribe(this.id, "move-by", delta => this.moveBy(delta));
     }
 
     // non-inherited methods below
 
-    moveBy(dx, dy) {
+    moveBy(delta) {
+        const [dx, dy] = delta;
         const [x, y] = this.pos;
-        this.moveTo(x + dx, y + dy);
+        this.moveTo([x + dx, y + dy]);
     }
 
-    moveTo(x, y) {
+    moveTo(pos) {
+        const [x, y] = pos;
         this.pos[0] = Math.max(0, Math.min(1000, x));
         this.pos[1] = Math.max(0, Math.min(1000, y));
         this.publish(this.id, 'pos-changed', this.pos);
@@ -143,13 +150,13 @@ export class UserShape extends Shape {
 
     start() {
         super.start();
-        this.subscribe(this.id, "user-inactive", () => this.parent.remove(this));
+        this.subscribe(this.id, "user-inactive", () => this.whenInactive());
     }
 
     // non-inherited methods below
 
-    moveTo(x, y) {
-        super.moveTo(x, y);
+    moveTo(pos) {
+        super.moveTo(pos);
         this.active = true;
     }
 
@@ -157,6 +164,10 @@ export class UserShape extends Shape {
         if (!this.active) { this.publish(this.id, "user-inactive"); return; }
         this.active = false;
         this.future(INACTIVE_MS).step();
+    }
+
+    whenInactive() {
+        this.parent.remove(this);
     }
 
 }
@@ -189,12 +200,13 @@ export class BouncingShape extends Shape {
     }
 
     step() {
-        this.moveBy(...this.speed);
+        this.moveBy(this.speed);
         this.future(STEP_MS).step();
     }
 
-    moveTo(x, y) {
-        super.moveTo(x, y);
+    moveTo(pos) {
+        super.moveTo(pos);
+        const [x, y] = pos;
         let dx = x < 0 ? 1 : x >= 1000 ? -1 : 0;
         let dy = y < 0 ? 1 : y >= 1000 ? -1 : 0;
         if (dx || dy) {
