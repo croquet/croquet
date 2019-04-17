@@ -57,7 +57,6 @@ export default class EditableTextViewPart extends ViewPart {
         }
 
         this.threeObj = boxMesh;
-        window.view = this;
     }
 
     onGetFocus() {
@@ -67,7 +66,6 @@ export default class EditableTextViewPart extends ViewPart {
 
     initEditor() {
         this.lastPt = false;
-        //this.editor = new Warota(this.options.width, this.options.height, this.options.numLines, this.doc);
         this.editor = new Warota(this.options, this.doc); // options may be modified, doc might be null for non editable text
         this.editor.mockCallback = ctx => {
             const glyphs = this.processMockContext(ctx);
