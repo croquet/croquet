@@ -241,7 +241,7 @@ export default class Island {
         let methodName = methodNameOrCallback;
         if (typeof methodNameOrCallback === "function") {
             // match                   foo              =>  this .   bar               (    baz               )
-            const HANDLER_REGEX = /^ *([a-z][a-z0-9]*) *=> *this\.( *[a-z][a-z0-9]*) *\( *([a-z][a-z0-9]*)? *\) *$/i;
+            const HANDLER_REGEX = /^\(?([a-z][a-z0-9]*)?\)? *=> *this\.([a-z][a-z0-9]*) *\( *([a-z][a-z0-9]*)? *\) *$/i;
             const source = methodNameOrCallback.toString();
             const match = source.match(HANDLER_REGEX);
             if (!match || (match[3] && match[3] !== match[1])) {
