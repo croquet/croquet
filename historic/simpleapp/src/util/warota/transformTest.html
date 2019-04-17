@@ -15,7 +15,9 @@ window.onload = function () {
         content = {runs:
                    [{text: "man is much more than a tool builder."}],
                    selections: {}, timezone: 0, queue: []
+                   undoStacks: {}
                   };
+        window.content = content;
         doc = new Doc();
         window.doc = doc;
         doc.load(content.runs);
@@ -144,48 +146,8 @@ window.onload = function () {
 
    case7.expected = "Aman is much more than a tool builder.";
 
-   function case8() {
-        resetContent();
-
-        let edit1 = Event.select(user1, 1, 1, user1, content.timezone);
-        doIt(doc, edit1);
-
-        let edit2 = Event.insert(user1, [{text: 'A'}], content.timezone);
-        doIt(doc, edit2);
-
-        let edit3 = Event.insert(user1, [{text: 'B'}], content.timezone);
-        doIt(doc, edit3);
-
-        doc.undoEvent(edit3, content, doc);
-
-        let edit4 = Event.insert(user1, [{text: 'C'}], content.timezone);
-        doIt(doc, edit4);
-   }
-
-   case8.expected = "mACan is much more than a tool builder.";
-
-   function case9() {
-        resetContent();
-
-        let edit1 = Event.select(user1, 1, 1, user1, content.timezone);
-        doIt(doc, edit1);
-
-        let edit2 = Event.insert(user1, [{text: 'A'}], content.timezone);
-        doIt(doc, edit2);
-
-        let edit3 = Event.insert(user1, [{text: 'B'}], content.timezone);
-        doIt(doc, edit3);
-
-        doc.undoEvent(edit2, content, doc);
-
-        let edit4 = Event.insert(user1, [{text: 'C'}], content.timezone);
-        doIt(doc, edit4);
-   }
-
-   case9.expected = "mBCan is much more than a tool builder.";
-
    //let run = [case1, case2, case3, case4, case5, case6, case7, case8, case9];
-   let run = [case9];
+   let run = [case7];
    run.forEach(r => {
      r();
      console.log(r.name + ":", window.doc.runs[0], window.doc.runs[0].text === r.expected);

@@ -5,8 +5,6 @@ function runLength(ary) {
     return ary.map(c => c.text).reduce((s, x) => x.length + s, 0);
 }
 
-const eof = String.fromCharCode(26); // "^Z"
-
 export class Doc {
     constructor() {
         this.runs = [{text: ""}]; // [{text: str, (opt)style: {font: str, size: num, color: str, emphasis: 'b' | 'i'|'bi'}}]
@@ -30,15 +28,15 @@ export class Doc {
 
     doEvent(evt) {
         if (evt.type === "insert") {
-            this.doInsert(evt.user, evt.runs, evt.timezone);
+            this.doInsert(evt.user, evt.runs);
         } else if (evt.type === "delete") {
-            this.doDelete(evt.user, true, true);
+            this.doDelete(evt.user, true);
         } else if (evt.type === "select") {
             this.doSelect(evt.user, evt.start, evt.end);
         }
     }
 
-    doInsert(user, runs, timezone) {
+    doInsert(user, runs) {
         // runs: [{text: <string>, (opt)style: {}}]
         let selection = this.ensureSelection(user);
         if (selection.start === selection.end) {
@@ -246,6 +244,7 @@ export class Doc {
         if (pos === interval.end) {
             return [runs[runs.length-1], runs.length-1];
         }
+        if (pos > this.length()) { debugger;}
     }
 
     updateSelectionsInsert(user, pos, length) {
@@ -287,7 +286,11 @@ export class Doc {
     }
 
     setSelections(selections) {
-        this.selections = selections;
+        this.selections = JSON.parse(JSON.stringify(selections));
+    }
+
+    getSelections() {
+        return JSON.parse(JSON.stringify(this.selections));
     }
 
     ensureSelection(user) {
@@ -299,13 +302,21 @@ export class Doc {
         return sel;
     }
 
+    snapshotFrom(content, user, timezone) {
+        return {type: "snapshot",
+                user: user,
+                content: {runs: content.runs,
+                          selections: JSON.parse(JSON.stringify(content.selections))},
+                timezone: timezone};
+    }
+
     undoEvent(evt, content, doc) {
         let queue = content.queue;
         let user = evt.user; // {id, color}
 
         function findLast(q, event) {
             for (let i = q.length - 1; i >= 0; i--) {
-                if (q[i].user.id === event.user.id && q[i].timezone === evt.timezone) {
+                if (q[i].user.id === event.user.id && q[i].timezone === evt.timezone && q[i].type !== "snapshot") {
                     return i;
                 }
             }
@@ -322,15 +333,12 @@ export class Doc {
         }
          
         let undoIndex = findLast(queue, evt);
-        
-        
-        if (undoIndex < 0) {
-            return;
-        }
+        if (undoIndex < 0) {return content.timezone;}
 
         let undoEvent = queue[undoIndex];
-
         let snapshotIndex = findSnapshot(queue, undoIndex);
+        if (snapshotIndex < 0) {return content.timezone;}
+
         let snapshot = queue[snapshotIndex];
         let c = snapshot.content;
         doc.load(c.runs);
@@ -347,25 +355,23 @@ export class Doc {
         }
 
         for (let i = undoIndex + 1; i < queue.length; i++) {
-            if (queue[i].type === "snapshot") {
-                newQueue.push({type: "snapshot", user: user, content: JSON.parse(JSON.stringify(c))});
-            } else {
+            if (queue[i].type !== "snapshot") {
                 doc.doEvent(queue[i]);
                 newQueue.push(queue[i]);
             }
         }
 
+        content.timezone++;
+        undoEvent.timezone = content.timezone;
         if (!content.undoStacks[user.id]) {
             content.undoStacks[user.id] = [];
         }
 
-        content.timezone++;
-        undoEvent.timezone = content.timezone;
         content.undoStacks[user.id].push(undoEvent);
-
-        content.selections = JSON.parse(JSON.stringify(doc.selections));
+        content.selections = doc.getSelections();
         content.runs = doc.save();
         content.queue = newQueue;
+        return content.timezone;
     }
 
     receiveEditEvents(events, content, doc) {
@@ -395,7 +401,7 @@ export class Doc {
         let user = events[0].user; // {id, color}
 
         if (content.timezone % (CUTOFF / 6) === 0) {
-            queue.push({type: "snapshot", user: user, content: {runs: content.runs, selections: JSON.parse(JSON.stringify(content.selections))}, timezone: content.timezone});
+            queue.push(this.snapshotFrom(content, user, content.timezone));
         }
         
         content.timezone++;
@@ -405,15 +411,15 @@ export class Doc {
                 return content.timezone;
         }
 
-        function findFirst(queue, event) {
-            if (queue.length === 0) {
+        function findFirst(q, event) {
+            if (q.length === 0) {
                 return 0;
             }
-            if (queue[queue.length-1].timezone < event.timezone) {
-                return queue.length;
+            if (q[queue.length-1].timezone < event.timezone) {
+                return q.length;
             }
-            for (let i = queue.length - 1; i >= 0; i--) {
-                if (queue[i].timezone < event.timezone) {
+            for (let i = q.length - 1; i >= 0; i--) {
+                if (q[i].timezone < event.timezone) {
                     return i+1;
                 }
             }
@@ -495,7 +501,7 @@ export class Doc {
         thisQueue.forEach(e => doc.doEvent(e));
 
         content.runs = doc.save();
-
+        content.selections = doc.getSelections();
         return content.timezone;
     }
 }
@@ -667,11 +673,10 @@ export class Warota {
     }
 
     drawScrollbar(ctx) {
-        let {pixelX, pixelY} = this,
-        {l, t, h, w} = this.scrollbarBounds();
+        let {l, t, h, w} = this.scrollbarBounds();
         ctx.save();
         ctx.fillStyle = "scrollBar";
-        ctx.fillRect(l, 0, w, pixelY);
+        ctx.fillRect(l, 0, w, this.pixelY);
 
         ctx.fillStyle = "scrollKnob";
         ctx.fillRect(l+3, t, w-6, h);
@@ -764,6 +769,7 @@ export class Warota {
 
     select(user, start, end) {
         let evt = Event.select(user, start, end, this.timezone);
+        this.lastSelect = {start: start, end: end};
         this.events.push(evt);
     }
 
@@ -783,6 +789,7 @@ export class Warota {
     }
 
     indexFromPosition(x, y) {
+        const eof = String.fromCharCode(26); // "^Z"
         let word = this.findWord(null, x, y);
         if (word.text === eof) {
             word = this.words[this.words.length - 1];
@@ -925,7 +932,7 @@ export class Warota {
                     start = this.selectDragStart;
                     end = other;
                 }
-                let last = this.doc.selections[user.id];
+                let last = this.lastSelect;
                 if (last && (last.start !== start || last.end !== end)) {
                     this.select(user, start, end);
                     return 'selectionChanged';
@@ -959,6 +966,7 @@ export class Warota {
         }
         this.selectDragStart = null;
         this.keyboardX = null;
+        this.lastSelect = null;
     }
 
     backspace(user) {
@@ -1075,7 +1083,7 @@ export class Warota {
                 break;
             }
         }
-                
+
         return handled;
     }
 

@@ -39,7 +39,8 @@ export default class TextPart extends StatePart {
         let event;
         let queue = this.content.queue;
         for (let i = queue.length - 1; i >= 0; i--) {
-            if (queue[i].user.id === user.id && queue[i].type !== "snapshot") {
+            let e = queue[i];
+            if (e.user.id === user.id && (e.type !== "snapshot" && e.type !== "select")) {
                 event = queue[i];
                 break;
             }
