@@ -2,6 +2,11 @@ import { Model, View, Controller } from "@croquet/teatime";
 import Stats from "@croquet/util/stats";
 import urlOptions from "@croquet/util/urlOptions";
 
+
+const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
+
+
 const LOCALHOST = window.location.hostname === 'localhost';
 
 const THROTTLE = 1000 / 20;     // mouse event throttling
