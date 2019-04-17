@@ -2,14 +2,12 @@ import { fontRegistry } from "../fontRegistry";
 
 // let fontRegistry = {
 //     measureText: function(str, style) {
-//         return {width: str.length * 10, height: 20, ascent: 15};
+//         return {width: str.length * 20, height: 50, ascent: 40};
 //     },
 //     getInfo: function(font) {
-//         return {common: {lineHeight: 20}};
+//         return {common: {lineHeight: 50}};
 //     }
 // };
-
-const eof = String.fromCharCode(26); // "^Z"
 
 export class Measurer {
     measureText(str, style) {
@@ -167,6 +165,7 @@ export class Wrap {
         let words = this.splitWords(runs);
 
         let pushLine = () => {
+            if (currentLine.length === 0) {return;}
             currentLine.forEach(c => {
                 c.ascent = currentAscent;
             });
@@ -224,6 +223,7 @@ export class Wrap {
 
         pushLine();
 
+        const eof = String.fromCharCode(26); // "^Z"
         let rect = measurer.measureText(' ');
         let word = {text: eof};
         currentHeight = Math.max(currentHeight, rect.height);
