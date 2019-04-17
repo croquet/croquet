@@ -48,8 +48,8 @@ export default class Island {
     constructor(snapshot, initFn) {
         if (moduleVersion !== Island.latest()) throw Error("Hot Reload problem: Instantiating old Island v" + moduleVersion);
 
-        this.topLevelModelsById = {};
         this.viewsById = {};
+        this.modelsById = {};
         this.modelsByName = {};
         // Models can only subscribe to other model events
         // Views can subscribe to model or other view events
@@ -87,8 +87,8 @@ export default class Island {
 
                     // restore model snapshot, allow resolving object references
                     for (const modelState of snapshot.models || []) {
-                        const model = this.topLevelModelsById[modelState.id];
-                        model.load(modelState, this.topLevelModelsById);
+                        const model = this.modelsById[modelState.id];
+                        model.load(modelState, this.modelsById);
                     }
                     // restore messages
                     for (const messageState of snapshot.messages || []) {
@@ -98,7 +98,7 @@ export default class Island {
                     // now it's safe to use stored random
                     this._random = new SeedRandom(null, { state: snapshot.random });
                     // start all models
-                    for (const model of Object.values(this.topLevelModelsById)) {
+                    for (const model of Object.values(this.modelsById)) {
                         model.start();
                     }
                 } else {
@@ -113,19 +113,19 @@ export default class Island {
     registerModel(model, id) {
         if (CurrentIsland !== this) throw Error("Island Error");
         if (!id) id = "M" + this.randomID();
-        this.topLevelModelsById[id] = model;
+        this.modelsById[id] = model;
         return id;
     }
 
     deregisterModel(id) {
         if (CurrentIsland !== this) throw Error("Island Error");
-        delete this.topLevelModelsById[id];
+        delete this.modelsById[id];
         this.messages.removeMany(msg => msg.hasReceiver(id));
     }
 
     lookUpModel(id) {
         if (id === this.id) return this;
-        return this.topLevelModelsById[id];
+        return this.modelsById[id];
     }
 
     registerView(view) {
@@ -460,7 +460,7 @@ export default class Island {
             externalTime: this.externalTime,
             sequence: this.sequence,
             random: this._random.state(),
-            models: Object.values(this.topLevelModelsById).map(model => {
+            models: Object.values(this.modelsById).map(model => {
                 const state = {};
                 model.save(state);
                 return state;
@@ -491,8 +491,8 @@ export default class Island {
     // Also, reset editable text
     broadcastInitialState() {
         const cleanIsland = this.controller.createCleanIsland();
-        for (const [modelId, model] of Object.entries(this.topLevelModelsById)) {
-            const cleanModel = cleanIsland.topLevelModelsById[modelId];
+        for (const [modelId, model] of Object.entries(this.modelsById)) {
+            const cleanModel = cleanIsland.modelsById[modelId];
             if (!cleanModel) continue;
             for (const [partId, part] of Object.entries(model.parts)) {
                 const cleanPart = cleanModel.parts[partId];
