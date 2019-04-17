@@ -14,7 +14,7 @@ export const TextEvents = {
 
 export default class TextPart extends StatePart {
     applyState(state={}) {
-        let content = {runs: [], selections: {}, timezone: 0, queue: [], editable: state.editable !== undefined ? state.editable : true, ...state.content};
+        let content = {runs: [], selections: {}, undoStacks: {}, timezone: 0, queue: [], editable: state.editable !== undefined ? state.editable : true, ...state.content};
         this.content = content;
         this.doc = new Doc();
         this.doc.load(this.content.runs);
@@ -32,7 +32,21 @@ export default class TextPart extends StatePart {
 
     receiveEditEvents(events) {
         let timezone = this.doc.receiveEditEvents(events, this.content, this.doc);
-        this.content.runs = this.doc.save();
+        this.publish(TextEvents.changed, timezone);
+    }
+
+    undoRequest(user) {
+        let event;
+        let queue = this.content.queue;
+        for (let i = queue.length - 1; i >= 0; i--) {
+            if (queue[i].user.id === user.id && queue[i].type !== "snapshot") {
+                event = queue[i];
+                break;
+            }
+        }
+        if (!event) {return;}
+
+        let timezone = this.doc.undoEvent(event, this.content, this.doc);
         this.publish(TextEvents.changed, timezone);
     }
 }

@@ -13,8 +13,6 @@ export class Doc {
         this.intervals = []; // [{start: num, end: num}]
         this.selections = {}; // {user: {start: num, end: num, color: string}}
 
-        this.commands = [];
-
         this.defaultFont = "Roboto";
         this.defaultSize = 10;
     }
@@ -23,7 +21,6 @@ export class Doc {
         // runs does not have start and end (human would not want to add them by hand).
         // The canonicalize method adds them. save() strip them out.
         this.canonicalize(runs);
-        this.commands = [];
     }
 
     setDefault(font, size) {
@@ -33,7 +30,7 @@ export class Doc {
 
     doEvent(evt) {
         if (evt.type === "insert") {
-            this.doInsert(evt.user, evt.runs, true);
+            this.doInsert(evt.user, evt.runs, evt.timezone);
         } else if (evt.type === "delete") {
             this.doDelete(evt.user, true, true);
         } else if (evt.type === "select") {
@@ -41,7 +38,7 @@ export class Doc {
         }
     }
 
-    doInsert(user, runs) {
+    doInsert(user, runs, timezone) {
         // runs: [{text: <string>, (opt)style: {}}]
         let selection = this.ensureSelection(user);
         if (selection.start === selection.end) {
@@ -302,13 +299,73 @@ export class Doc {
         return sel;
     }
 
-    performUndo() {
-        let command = this.commands.pop();
+    undoEvent(evt, content, doc) {
+        let queue = content.queue;
+        let user = evt.user; // {id, color}
 
-        if (command) {
-            command.undo(this);
+        function findLast(q, event) {
+            for (let i = q.length - 1; i >= 0; i--) {
+                if (q[i].user.id === event.user.id && q[i].timezone === evt.timezone) {
+                    return i;
+                }
+            }
+            return -1;
         }
-        this.canonicalize(this.runs);
+
+        function findSnapshot(q, i) {
+            for (; i >= 0; i--) {
+                if (q[i].type === "snapshot") {
+                    return i;
+                }
+            }
+            return -1;
+        }
+         
+        let undoIndex = findLast(queue, evt);
+        
+        
+        if (undoIndex < 0) {
+            return;
+        }
+
+        let undoEvent = queue[undoIndex];
+
+        let snapshotIndex = findSnapshot(queue, undoIndex);
+        let snapshot = queue[snapshotIndex];
+        let c = snapshot.content;
+        doc.load(c.runs);
+        doc.setSelections(c.selections);
+
+        let newQueue = [];
+        for (let i = 0; i <= snapshotIndex; i++) {
+            newQueue.push(queue[i]);
+        }
+
+        for (let i = snapshotIndex + 1; i < undoIndex; i++) {
+            doc.doEvent(queue[i]);
+            newQueue.push(queue[i]);
+        }
+
+        for (let i = undoIndex + 1; i < queue.length; i++) {
+            if (queue[i].type === "snapshot") {
+                newQueue.push({type: "snapshot", user: user, content: JSON.parse(JSON.stringify(c))});
+            } else {
+                doc.doEvent(queue[i]);
+                newQueue.push(queue[i]);
+            }
+        }
+
+        if (!content.undoStacks[user.id]) {
+            content.undoStacks[user.id] = [];
+        }
+
+        content.timezone++;
+        undoEvent.timezone = content.timezone;
+        content.undoStacks[user.id].push(undoEvent);
+
+        content.selections = JSON.parse(JSON.stringify(doc.selections));
+        content.runs = doc.save();
+        content.queue = newQueue;
     }
 
     receiveEditEvents(events, content, doc) {
@@ -333,10 +390,15 @@ export class Doc {
         // - The list is a part of the saved model. It will be saved with the string content.
         // Things are all destructively updated in content,
 
-        content.timezone++;
         let CUTOFF = 60;
         let queue = content.queue;
         let user = events[0].user; // {id, color}
+
+        if (content.timezone % (CUTOFF / 6) === 0) {
+            queue.push({type: "snapshot", user: user, content: {runs: content.runs, selections: JSON.parse(JSON.stringify(content.selections))}, timezone: content.timezone});
+        }
+        
+        content.timezone++;
 
         if (queue.length > 0
             && (queue[queue.length - 1].timezone > events[0].timezone + CUTOFF)) {
@@ -425,11 +487,14 @@ export class Doc {
         }
         for (let k in unseenIDs) {
             delete content.selections[k];
+            delete content.undoStacks[k];
         }
         queue.splice(0, ind);
 
         doc.setSelections(content.selections);
         thisQueue.forEach(e => doc.doEvent(e));
+
+        content.runs = doc.save();
 
         return content.timezone;
     }
@@ -1028,34 +1093,11 @@ export class Event {
         return {type: "insert", user, runs, length: runLength(runs), timezone};
     }
 
-    static doInsert(doc, insert) {
-        doc.doInsert(insert.pos, insert.runs);
-    }
-
-    static undoInsert(doc, insert) {
-        doc.doDelete(insert.pos, insert.length);
-    }
-
     static delete(user, start, end, timezone) {
         return {type: "delete", user, start, end, timezone, deleted: null};
-    }
-
-    static doDelete(doc, del) {
-        del.deleted = doc.get(this.start, this.end);
-        doc.doDelete(del.start, del.end - del.start);
-    }
-
-    static undoDelete(doc, del) {
-        doc.doInsert(del.start, del.deleted);
     }
 
     static select(user, start, end, timezone) {
         return {type: "select", user, start, end, timezone};
     }
-
-    static doSelect(doc, select) {
-        doc.doSelect(select.user, select.start, select.end, select.color);
-    }
-
-    static undoSelect(doc, select) { }
 }

@@ -8,7 +8,7 @@ import {Doc} from "./warota.mjs";
 
 window.onload = function () {
     let doc = new Doc();
-    let user1 = '010203';
+    let user1 = {id: '010203', color: '010203'};
     window.doc = doc;
 
     doc.load([{text: "man"}]);
@@ -41,7 +41,6 @@ window.onload = function () {
 
     doc.doInsert(user1, [{text: 'B'}]);
     console.log(doc.plainText(), doc.plainText() === "AB");
-
 }
 </script>
 

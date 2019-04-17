@@ -5,46 +5,40 @@ import {Doc, Event} from "./warota.mjs";
 
 window.onload = function () {
     let timezone;
-    let edit;
-
-    let user1 ='010203';
-    let user2 ='020406';
+    let user1 ={id: '010203', color: '010203'};
+    let user2 ={id: '020406', color : '020406'};
 
     let doc;
     let content;
 
     function resetContent() {
-        content = {content:
+        content = {runs:
                    [{text: "man is much more than a tool builder."}],
                    selections: {}, timezone: 0, queue: []
                   };
         doc = new Doc();
         window.doc = doc;
-        doc.load(content.content);
+        doc.load(content.runs);
     }
 
     function doIt(doc, edit) {
         timezone = doc.receiveEditEvents([edit], content, doc);
-        let saved = doc.save();
-        content.content = saved.content;
     }
 
     function case1() {
         resetContent();
 
-        edit = Event.select(user1, 1, 1, user1, content.timezone);
-        doIt(doc, edit);
+        let edit1 = Event.select(user1, 1, 1, user1, content.timezone);
 
-        edit = Event.select(user2, 2, 3, user2, content.timezone);
-        doIt(doc, edit);
+        let edit2 = Event.select(user2, 2, 3, user2, content.timezone);
+        doIt(doc, edit1);
+        doIt(doc, edit2);
 
-        content.timezone++;
+        let edit3 = Event.insert(user1, [{text: 'A'}], content.timezone);
+        doIt(doc, edit3);
 
-        edit = Event.insert(user1, [{text: 'A'}], content.timezone);
-        doIt(doc, edit);
-
-        edit = Event.insert(user2, [{text: 'B'}], content.timezone);
-        doIt(doc, edit);
+        let edit4 = Event.insert(user2, [{text: 'B'}], content.timezone);
+        doIt(doc, edit4);
    }
 
    case1.expected = "mAaB is much more than a tool builder.";
@@ -52,19 +46,17 @@ window.onload = function () {
    function case2() {
         resetContent();
 
-        edit = Event.select(user1, 1, 1, user1, content.timezone);
-        doIt(doc, edit);
+        let edit1 = Event.select(user1, 1, 1, user1, content.timezone);
+        doIt(doc, edit1);
 
-        edit = Event.select(user2, 2, 3, user2, content.timezone);
-        doIt(doc, edit);
+        let edit2 = Event.select(user2, 2, 3, user2, content.timezone);
+        doIt(doc, edit2);
 
-        content.timezone++;
+        let edit3 = Event.insert(user2, [{text: 'B'}], content.timezone);
+        doIt(doc, edit3);
 
-        edit = Event.insert(user2, [{text: 'B'}], content.timezone);
-        doIt(doc, edit);
-
-        edit = Event.insert(user1, [{text: 'A'}], content.timezone);
-        doIt(doc, edit);
+        let edit4 = Event.insert(user1, [{text: 'A'}], content.timezone);
+        doIt(doc, edit4);
    }
 
    case2.expected = "mAaB is much more than a tool builder.";
@@ -72,19 +64,17 @@ window.onload = function () {
    function case3() {
         resetContent();
 
-        edit = Event.select(user1, 1, 2, user1, content.timezone);
-        doIt(doc, edit);
+        let edit1 = Event.select(user1, 1, 2, user1, content.timezone);
+        doIt(doc, edit1);
 
-        edit = Event.select(user2, 2, 2, user2, content.timezone);
-        doIt(doc, edit);
+        let edit2 = Event.select(user2, 2, 2, user2, content.timezone);
+        doIt(doc, edit2);
 
-        content.timezone++;
+        let edit3 = Event.insert(user2, [{text: 'B'}], content.timezone);
+        doIt(doc, edit3);
 
-        edit = Event.insert(user2, [{text: 'B'}], content.timezone);
-        doIt(doc, edit);
-
-        edit = Event.insert(user1, [{text: 'A'}], content.timezone);
-        doIt(doc, edit);
+        let edit4 = Event.insert(user1, [{text: 'A'}], content.timezone);
+        doIt(doc, edit4);
    }
 
    case3.expected = "mABn is much more than a tool builder.";
@@ -92,19 +82,17 @@ window.onload = function () {
    function case4() {
         resetContent();
 
-        edit = Event.select(user1, 1, 2, user1, content.timezone);
-        doIt(doc, edit);
+        let edit1 = Event.select(user1, 1, 2, user1, content.timezone);
+        doIt(doc, edit1);
 
-        edit = Event.select(user2, 2, 2, user2, content.timezone);
-        doIt(doc, edit);
+        let edit2 = Event.select(user2, 2, 2, user2, content.timezone);
+        doIt(doc, edit2);
 
-        content.timezone++;
+        let edit3 = Event.insert(user1, [{text: 'A'}], content.timezone);
+        doIt(doc, edit3);
 
-        edit = Event.insert(user1, [{text: 'A'}], content.timezone);
-        doIt(doc, edit);
-
-        edit = Event.insert(user2, [{text: 'B'}], content.timezone);
-        doIt(doc, edit);
+        let edit4 = Event.insert(user2, [{text: 'B'}], content.timezone);
+        doIt(doc, edit4);
    }
 
    case4.expected = "mABn is much more than a tool builder.";
@@ -115,58 +103,89 @@ window.onload = function () {
    function case5() {
         resetContent();
 
-        edit = Event.select(user1, 1, 2, user1, content.timezone);
-        doIt(doc, edit);
+        let edit1 = Event.select(user1, 1, 2, user1, content.timezone);
+        let edit2 = Event.select(user2, 1, 1, user2, content.timezone);
+        let edit3 = Event.insert(user1, [{text: 'A'}], content.timezone);
+        let edit4 = Event.insert(user2, [{text: 'B'}], content.timezone);
 
-        edit = Event.select(user2, 1, 1, user2, content.timezone);
-        doIt(doc, edit);
-
-        content.timezone++;
-
-        edit = Event.insert(user1, [{text: 'A'}], content.timezone);
-        doIt(doc, edit);
-
-        edit = Event.insert(user2, [{text: 'B'}], content.timezone);
-        doIt(doc, edit);
+        doIt(doc, edit1);
+        doIt(doc, edit2);
+        doIt(doc, edit3);
+        doIt(doc, edit4);
    }
 
-   case5.expected = "mBAn is much more than a tool builder.";
+   case5.expected = "mABn is much more than a tool builder.";
 
    function case6() {
         resetContent();
 
-        edit = Event.select(user1, 1, 1, user1, content.timezone);
-        doIt(doc, edit);
+        let edit1 = Event.select(user1, 1, 1, user1, content.timezone);
+        doIt(doc, edit1);
 
-        content.timezone++;
+        let edit2 = Event.insert(user1, [{text: 'A'}], content.timezone);
+        doIt(doc, edit2);
 
-        edit = Event.insert(user1, [{text: 'A'}], content.timezone);
-        doIt(doc, edit);
-
-        edit = Event.insert(user1, [{text: 'B'}], content.timezone);
-        doIt(doc, edit);
+        let edit3 = Event.insert(user1, [{text: 'B'}], content.timezone);
+        doIt(doc, edit3);
    }
 
-   case6.expected = "mABn is much more than a tool builder.";
+   case6.expected = "mABan is much more than a tool builder.";
 
    function case7() {
         resetContent();
 
-        edit = Event.select(user1, 0, 0, user1, content.timezone);
-        doIt(doc, edit);
+        let edit1 = Event.select(user1, 0, 0, user1, content.timezone);
+        doIt(doc, edit1);
 
-        content.timezone++;
-
-        edit = Event.insert(user1, [{text: 'A'}], content.timezone);
-        doIt(doc, edit);
+        let edit2 = Event.insert(user1, [{text: 'A'}], content.timezone);
+        doIt(doc, edit2);
 
    }
 
    case7.expected = "Aman is much more than a tool builder.";
 
+   function case8() {
+        resetContent();
 
-   let run = [case1, case2, case3, case4, case5, case6, case7];
-   //let run = [case7];
+        let edit1 = Event.select(user1, 1, 1, user1, content.timezone);
+        doIt(doc, edit1);
+
+        let edit2 = Event.insert(user1, [{text: 'A'}], content.timezone);
+        doIt(doc, edit2);
+
+        let edit3 = Event.insert(user1, [{text: 'B'}], content.timezone);
+        doIt(doc, edit3);
+
+        doc.undoEvent(edit3, content, doc);
+
+        let edit4 = Event.insert(user1, [{text: 'C'}], content.timezone);
+        doIt(doc, edit4);
+   }
+
+   case8.expected = "mACan is much more than a tool builder.";
+
+   function case9() {
+        resetContent();
+
+        let edit1 = Event.select(user1, 1, 1, user1, content.timezone);
+        doIt(doc, edit1);
+
+        let edit2 = Event.insert(user1, [{text: 'A'}], content.timezone);
+        doIt(doc, edit2);
+
+        let edit3 = Event.insert(user1, [{text: 'B'}], content.timezone);
+        doIt(doc, edit3);
+
+        doc.undoEvent(edit2, content, doc);
+
+        let edit4 = Event.insert(user1, [{text: 'C'}], content.timezone);
+        doIt(doc, edit4);
+   }
+
+   case9.expected = "mBCan is much more than a tool builder.";
+
+   //let run = [case1, case2, case3, case4, case5, case6, case7, case8, case9];
+   let run = [case9];
    run.forEach(r => {
      r();
      console.log(r.name + ":", window.doc.runs[0], window.doc.runs[0].text === r.expected);
