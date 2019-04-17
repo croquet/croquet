@@ -1,6 +1,10 @@
-import { StatePart, currentRealm } from "./modelView";
+import hotreload from "@croquet/util/hotreload";
+import { currentRealm } from "./realms";
 
-export default class Model extends StatePart {
+export default class Model {
+    // mark this and subclasses as model classes
+    // used in classToID / classFromID below
+    static __isTeatimeModelClass__() { return true; }
 
     static create(options) {
         const ModelClass = this;
@@ -10,42 +14,98 @@ export default class Model extends StatePart {
         return model;
     }
 
-    random() { return currentRealm().random(); }
+    static classFromState(state) {
+        const ModelClass = classFromID(state.class);
+        return ModelClass;
+    }
 
-    load(state, allObjects) {
-        super.applyState(state, allObjects);
+    init(_options) {
+        this.id = currentRealm().register(this);
+    }
+
+    destroy() {
+        currentRealm().unsubscribeAll(this.id);
+        currentRealm().deregister(this);
+    }
+
+    load(state, allModels) {
+        const id = state.id;
+        if (!allModels[id] === this) throw Error("Model ID mismatch");
+        this.id = state.id;
     }
 
     save(state) {
-        super.toState(state);
+        state.id = this.id;
+        state.class = classToID(this.constructor);
     }
 
     start() { }
 
+    // Pub / Sub
+
     publish(scope, event, data) {
-        this.realm.publish(event, data, scope);
+        currentRealm().publish(event, data, scope);
     }
 
     subscribe(scope, event, callback) {
-        this.realm.subscribe(event, this.id, callback, scope);
+        currentRealm().subscribe(event, this.id, callback, scope);
     }
 
     unsubscribe(scope, event) {
-        this.realm.unsubscribe(event, this.id, null, scope);
+        currentRealm().unsubscribe(event, this.id, null, scope);
     }
 
+    // Misc
 
-    // old protocol
-
-    applyState() {}
-
-    toState(state) { this.save(state); }
-
-    restore(state, allObjects) {
-        this.load(state, allObjects);
+    /** @returns {this} */
+    future(tOffset=0) {
+        return currentRealm().futureProxy(tOffset, this);
     }
 
-    onInitialized(is_new) {
-        if (!is_new) this.start();
+    random() {
+        return currentRealm().random();
     }
 }
+
+
+/// MODEL CLASS LOADING
+
+// map model class names to model classes
+let ModelClasses = {};
+
+// Symbol for storing class ID in constructors
+const CLASS_ID = Symbol('CLASS_ID');
+
+function gatherModelClasses() {
+    // HACK: go through all exports and find model subclasses
+    ModelClasses = {};
+    for (const [file, m] of Object.entries(module.bundle.cache)) {
+        for (const cls of Object.values(m.exports)) {
+            if (cls && cls.__isTeatimeModelClass__) {
+                // create a classID for this class
+                const id = `${file}:${cls.name}`;
+                const dupe = ModelClasses[id];
+                if (dupe) throw Error(`Duplicate Model subclass "${id}" in ${file} and ${dupe.file}`);
+                ModelClasses[id] = {cls, file};
+                cls[CLASS_ID] = id;
+            }
+        }
+    }
+}
+
+function classToID(cls) {
+    if (cls[CLASS_ID]) return cls[CLASS_ID];
+    gatherModelClasses();
+    if (cls[CLASS_ID]) return cls[CLASS_ID];
+    throw Error(`Class "${cls.name}" not found, is it exported?`);
+}
+
+function classFromID(classID) {
+    if (ModelClasses[classID]) return ModelClasses[classID].cls;
+    gatherModelClasses();
+    if (ModelClasses[classID]) return ModelClasses[classID].cls;
+    throw Error(`Class "${classID}" not found, is it exported?`);
+}
+
+// flush ModelClasses after hot reload
+hotreload.addDisposeHandler(module.id, () => ModelClasses = {});

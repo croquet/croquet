@@ -1,4 +1,4 @@
-import { inViewRealm } from "./modelView";
+import { inViewRealm } from "./realms";
 import Island, { connectToReflector, Controller as OldController, addMessageTranscoder } from "./island";
 
 export default class Controller extends OldController {
