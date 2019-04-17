@@ -129,18 +129,24 @@ export function currentRealm() {
 
 export function inModelRealm(island, callback) {
     if (__currentRealm !== null) {
-        throw Error("Can't switch realms from inside realm");
+        throw new Error("Can't switch realms from inside realm");
     }
-    __currentRealm = new ModelRealm(island);
-    callback();
-    __currentRealm = null;
+    try {
+        __currentRealm = new ModelRealm(island);
+        callback();
+    } finally {
+        __currentRealm = null;
+    }
 }
 
 export function inViewRealm(island, callback) {
     if (__currentRealm !== null) {
-        throw Error("Can't switch realms from inside realm");
+        throw new Error("Can't switch realms from inside realm");
     }
-    __currentRealm = new ViewRealm(island);
-    callback();
-    __currentRealm = null;
+    try {
+        __currentRealm = new ViewRealm(island);
+        callback();
+    } finally {
+        __currentRealm = null;
+    }
 }
