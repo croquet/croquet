@@ -435,9 +435,9 @@ async function startReflectorInBrowser() {
     // executing on Node normally. It imports 'ws' which now
     // comes from our own fakeWS.js
     // ESLint doesn't know about the alias in package.json:
-    // eslint-disable-next-line global-require,import/no-unresolved
-    require("reflector"); // start up local server
-    // we could return require("reflector").server._url
+    // eslint-disable-next-line global-require
+    require("@croquet/reflector"); // start up local server
+    // we could return require("@croquet/reflector").server._url
     // to connect to our server.
     // However, we want to discover servers in other tabs
     // so we use the magic port 0 to connect to that.
@@ -445,8 +445,8 @@ async function startReflectorInBrowser() {
 }
 
 function newInBrowserSocket(server) {
-    // eslint-disable-next-line global-require,import/no-extraneous-dependencies
-    const Socket = require("ws").Socket;
+    // eslint-disable-next-line global-require
+    const Socket = require("@croquet/reflector").Socket;
     return new Socket({ server });
 }
 

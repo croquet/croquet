@@ -3,6 +3,9 @@
   "version": "0.0.1",
   "description": "",
   "main": "index.js",
+  "browser": {
+    "ws": "./ws.js"
+  },
   "author": "",
   "license": "ISC",
   "scripts": {
