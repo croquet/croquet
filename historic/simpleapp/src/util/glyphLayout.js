@@ -121,7 +121,7 @@ export class GlyphLayout {
         let drawnStrings = opt.drawnStrings
 
         if (!opt.font)
-            throw new Error('must provide a valid bitmap font')
+            throw Error(('must provide a valid bitmap font')
 
         let font = opt.font
 

@@ -63,7 +63,7 @@ export default class RoomViewManager {
     expect(roomName) {
         const roomView = this.activeRoomViews[roomName];
         if (!roomView) {
-            throw new Error(`Expected RoomView for ${roomName} to already exist.`);
+            throw Error((`Expected RoomView for ${roomName} to already exist.`);
         }
         return roomView;
     }
