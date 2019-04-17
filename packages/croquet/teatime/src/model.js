@@ -25,7 +25,7 @@ export default class Model {
 
     destroy() {
         currentRealm().unsubscribeAll(this.id);
-        currentRealm().deregisterModel(this);
+        currentRealm().deregister(this);
     }
 
     load(state, allModels) {
