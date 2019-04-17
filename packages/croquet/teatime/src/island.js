@@ -238,34 +238,33 @@ export default class Island {
 
     addModelSubscription(scope, event, subscriberId, methodNameOrCallback) {
         if (CurrentIsland !== this) throw Error("Island Error");
-        const topic = scope + ":" + event;
-        let handler;
-        if (typeof methodNameOrCallback === "string") {
-            handler = (...args) => {
-                this.lookUpModel(subscriberId)[methodNameOrCallback](...args);
-            };
-            handler.for = subscriberId + "." + methodNameOrCallback;
-        } else {
-            handler = methodNameOrCallback;
-            handler.for = subscriberId;
+        let methodName = methodNameOrCallback;
+        if (typeof methodName !== "string") {
+            throw Error(`Subscription handler for "${event}" must be a method name`);
         }
-        if (!this.modelSubscriptions[topic]) this.modelSubscriptions[topic] = new Set();
-        this.modelSubscriptions[topic].add(handler);
+        const model = this.lookUpModel(subscriberId);
+        if (typeof model[methodName] !== "function") {
+            throw Error(`Subscriber method for "${event}" not found: ${model}.${methodName}()`);
+        }
+        const topic = scope + ":" + event;
+        const handler = subscriberId + "." + methodName;
+        // model subscriptions need to be ordered, so we're using an array
+        if (!this.modelSubscriptions[topic]) this.modelSubscriptions[topic] = [];
+        else if (this.modelSubscriptions[topic].indexOf(handler) !== -1) {
+            throw Error(`${model}.${methodName} already subscribed to ${event}`);
+        }
+        this.modelSubscriptions[topic].push(handler);
     }
 
-    removeModelSubscription(scope, event, subscriberId, methodNameOrCallback) {
+    removeModelSubscription(scope, event, subscriberId, methodName) {
         if (CurrentIsland !== this) throw Error("Island Error");
         const topic = scope + ":" + event;
-        if (this.modelSubscriptions[topic]) {
-            let handlerToRemove;
-            if (typeof methodNameOrCallback === "string") {
-                handlerToRemove = [...this.modelSubscriptions[topic]].find(
-                    handler => handler.for === subscriberId + "." + methodNameOrCallback
-                );
-            } else {
-                handlerToRemove = methodNameOrCallback;
-            }
-            this.modelSubscriptions[topic].remove(handlerToRemove);
+        const handler = subscriberId + "." + methodName;
+        const handlers = this.modelSubscriptions[topic];
+        if (handlers) {
+            const indexToRemove = handlers.indexOf(handler);
+            handlers.splice(indexToRemove, 1);
+            if (handlers.length === 0) delete this.modelSubscriptions[topic];
         }
     }
 
@@ -274,15 +273,15 @@ export default class Island {
         const topicPrefix = `${subscriberId}:`;
         const handlerPrefix = `${subscriberId}.`;
         // TODO: optimize this - reverse lookup table?
-        for (const [topic, subs] of Object.entries(this.modelSubscriptions)) {
+        for (const [topic, handlers] of Object.entries(this.modelSubscriptions)) {
             if (topic.startsWith(topicPrefix)) delete this.modelSubscriptions[topic];
             else {
-                for (const handler of subs) {
-                    if (handler.for === subscriberId || handler.for.startsWith(handlerPrefix)) {
-                        subs.delete(handler);
+                for (let i = handlers.length - 1; i >= 0; i--) {
+                    if (handlers[i].startsWith(handlerPrefix)) {
+                        handlers.splice(i, 1);
                     }
                 }
-                if (subs.size === 0) delete this.modelSubscriptions[topic];
+                if (handlers.size === 0) delete this.modelSubscriptions[topic];
             }
         }
         // TODO: optimize this - reverse lookup table?
@@ -378,7 +377,9 @@ export default class Island {
         if (CurrentIsland !== this) throw Error("Island Error");
         if (this.modelSubscriptions[topic]) {
             for (const handler of this.modelSubscriptions[topic]) {
-                handler(data);
+                const [id, methodName] = handler.split('.');
+                const model = this.lookUpModel(id);
+                model[methodName](data);
             }
         }
     }
