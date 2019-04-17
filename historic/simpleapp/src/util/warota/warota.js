@@ -22,8 +22,8 @@ export class Doc {
     }
 
     setDefault(font, size) {
-        this.defaultFont = font;
-        this.defaultSize = size;
+        this.defaultFont = font || this.defaultFont;
+        this.defaultSize = size || this.defaultSize;
     }
 
     doEvent(evt) {
@@ -509,6 +509,8 @@ export class Doc {
 export class Warota {
     constructor(options, optDoc) {
         this.doc = optDoc || new Doc();
+        this.doc.setDefault(options.font);
+
         this._width = 0;
         if (options.margins) {
             this.margins = options.margins;
@@ -527,6 +529,7 @@ export class Warota {
 
         this.events = [];
         this.timezone = 0;
+
     }
 
     resetEvents() {
@@ -551,7 +554,8 @@ export class Warota {
     }
 
     resizeToNumLinesOrFontSize(options) {
-        let lineHeight = new Measurer().lineHeight(options.font);
+        this.defaultMeasurer = new Measurer();
+        let lineHeight = this.defaultMeasurer.lineHeight(options.font);
         let marginHeight = (options.margins.top + options.margins.bottom);
         let textScreenHeight = options.height - marginHeight;
         if (options.fontSize) {
@@ -588,7 +592,7 @@ export class Warota {
     }
 
     layout() {
-        let [lines, words] = new Wrap().wrap(this.doc.runs, this._width, new Measurer(), this.doc.defaultFont, this.doc.defaultSize, this.pixelMargins);
+        let [lines, words] = new Wrap().wrap(this.doc.runs, this._width, this.defaultMeasurer, this.doc.defaultFont, this.doc.defaultSize, this.pixelMargins);
         this.lines = lines;
         this.words = words;
         let lastWord = lines[lines.length-1][0]; // there should be always one
@@ -783,8 +787,8 @@ export class Warota {
         if (!word) {return {left: 0, top: 0, width: 0, height: 0};}
 
         let lp = pos - word.start;
-        let measure0 = new Measurer().measureText(word.text.slice(0, pos-word.start), word.style);
-        let measure1 = new Measurer().measureText(word.text.slice(0, pos-word.start+1), word.style);
+        let measure0 = this.defaultMeasurer.measureText(word.text.slice(0, pos-word.start), word.style, this.doc.defaultFont);
+        let measure1 = this.defaultMeasurer.measureText(word.text.slice(0, pos-word.start+1), word.style, this.doc.defaultFont);
         return {left: word.left + measure0.width, top: word.top, width: measure1.width - measure0.width, height: word.height};
     }
 
@@ -798,7 +802,7 @@ export class Warota {
         let last = 0;
         let lx = x - word.left;
         for (let i = 0; i <= word.text.length; i++) {
-            let measure = new Measurer().measureText(word.text.slice(0, i), word.style);
+            let measure = this.defaultMeasurer.measureText(word.text.slice(0, i), word.style, this.doc.defaultFont);
             let half = (measure.width - last) / 2;
             if (last <= lx && lx < last + half) {
                 return word.start + i - 1;
@@ -827,15 +831,16 @@ export class Warota {
     }
 
     barRect(selection) {
-        if (selection.start === this.doc.length()) {
-            if (selection.start === 0) {
-                let rect = this.positionFromIndex(selection.start);
-                return {left: rect.left, top: 0, width: 5, height: rect.height};
-            } else {
-                let rect = this.positionFromIndex(selection.start - 1);
-                return {left: rect.left + rect.width, top: rect.top, width: 5, height: rect.height};
-            }
+        if (selection.start === 0) {
+            let rect = this.positionFromIndex(selection.start);
+            return {left: rect.left, top: 0, width: 5, height: rect.height};
         }
+
+        if (selection.start === this.doc.length()) {
+            let rect = this.positionFromIndex(selection.start - 1);
+            return {left: rect.left + rect.width, top: rect.top, width: 5, height: rect.height};
+        }
+
         let rect = this.positionFromIndex(selection.start);
         return {left: rect.left, top: rect.top, width: 5, height: rect.height};
     }
