@@ -12,7 +12,6 @@
   "dependencies": {
     "@croquet/reflector": "file:../reflector",
     "@croquet/util": "file:../util",
-    "broadcast-channel": "^2.1.10",
     "seedrandom": "^2.4.4"
   },
   "devDependencies": {
