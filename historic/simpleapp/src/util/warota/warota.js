@@ -82,7 +82,7 @@ export class Doc {
         }
 
         let [run, runIndex] = this.findRun(start);
-        //if (!run) {throw new Error("can't delete eof");}
+        //if (!run) {throw Error("can't delete eof");}
         let interval = this.intervals[runIndex];
 
         if (interval.end !== start) { // that is, pos is within the run

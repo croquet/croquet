@@ -102,17 +102,17 @@ export class StatePart extends Part {
 
     // PUB/SUB
     subscribe(event, methodName, to=this.id) {
-        if (!this.id) {throw new Error("Cant subscribe before StatePart is registered. Please do so in onInitialized()");}
+        if (!this.id) {throw Error("Cant subscribe before StatePart is registered. Please do so in onInitialized()");}
         this.realm.subscribe(event, this.id, methodName, to);
     }
 
     unsubscribe(event, methodName, to=this.id) {
-        if (!this.id) {throw new Error("Cant unsubscribe before StatePart is registered. Please do so in onInitialized()");}
+        if (!this.id) {throw Error("Cant unsubscribe before StatePart is registered. Please do so in onInitialized()");}
         this.realm.unsubscribe(event, this.id, methodName, to);
     }
 
     publish(event, data, to=this.id) {
-        if (!this.id) {throw new Error("Cant publish before StatePart is registered. Please do so in onInitialized()");}
+        if (!this.id) {throw Error("Cant publish before StatePart is registered. Please do so in onInitialized()");}
         this.realm.publish(event, data, to);
     }
 
@@ -130,7 +130,7 @@ export class StatePart extends Part {
 
     ensureMutationAllowed() {
         if (!currentRealm().equal(this.realm)) {
-            throw new Error(
+            throw Error(
 `Trying to mutate StatePart from outside its realm.
 Most likely this means that you're trying to mutate a Model part from a View directly.
 Use part.future().method() to send a method call through the reflector`
@@ -180,7 +180,7 @@ export class ViewPart extends Part {
         for (const partId of Object.keys(this.parts)) {
             this.parts[partId].detach();
             if (!this.parts[partId].superDetachedCalled) {
-                throw new Error("super.detach() wasn't called by " + Object.prototype(this.parts[partId]).constructor.name + ".detach()");
+                throw Error("super.detach() wasn't called by " + Object.prototype(this.parts[partId]).constructor.name + ".detach()");
             }
         }
 
@@ -237,7 +237,7 @@ class ModelRealm {
         if (__currentRealm && __currentRealm.equal(this)) {
             return this.island.futureProxy(tOffset, part);
         }
-        if (tOffset) throw new Error("tOffset not supported from cross-realm future send yet.");
+        if (tOffset) throw Error("tOffset not supported from cross-realm future send yet.");
         const island = this.island;
         return new Proxy(part, {
             get(_target, property) {
@@ -329,27 +329,33 @@ let __currentRealm = null;
 /** @returns {ModelRealm | ViewRealm} */
 export function currentRealm() {
     if (!__currentRealm) {
-        throw new Error("Tried to execute code that requires realm outside of realm.");
+        throw Error("Tried to execute code that requires realm outside of realm.");
     }
     return __currentRealm;
 }
 
 export function inModelRealm(island, callback) {
     if (__currentRealm !== null) {
-        throw new Error("Can't switch realms from inside realm");
+        throw Error("Can't switch realms from inside realm");
     }
-    __currentRealm = new ModelRealm(island);
-    callback();
-    __currentRealm = null;
+    try {
+        __currentRealm = new ModelRealm(island);
+        callback();
+    } finally {
+        __currentRealm = null;
+    }
 }
 
 export function inViewRealm(island, callback) {
     if (__currentRealm !== null) {
-        throw new Error("Can't switch realms from inside realm");
+        throw Error("Can't switch realms from inside realm");
     }
-    __currentRealm = new ViewRealm(island);
-    callback();
-    __currentRealm = null;
+    try {
+        __currentRealm = new ViewRealm(island);
+        callback();
+    } finally {
+        __currentRealm = null;
+    }
 }
 
 /// MODEL CLASS LOADING
