@@ -137,7 +137,7 @@ export default class Controller {
     }
 
     takeSnapshot() {
-        return this.island.asState();
+        return this.island.snapshot();
     }
 
     snapshotUrl() {
@@ -329,7 +329,7 @@ export default class Controller {
         if (!this.islandCreator) throw Error("do not discard islandCreator!");
         const {destroyerFn} = this.islandCreator;
         if (destroyerFn) {
-            const snapshot = island && island.asState();
+            const snapshot = island && island.snapshot();
             destroyerFn(snapshot);
         }
     }

@@ -329,7 +329,7 @@ export default class Island {
         inViewRealm(this, () => viewDomain.processFrameEvents());
     }
 
-    asState() {
+    snapshot() {
         const namedModels = {};
 
         for (const [modelName, model] of Object.entries(this.modelsByName)) {
