@@ -231,53 +231,62 @@ class RootView extends View {
     constructor(model) {
         super(model);
         this.model = model;
-        this.canvas = document.createElement("canvas");
-        this.canvas.className = 'root';
-        this.context = this.canvas.getContext("2d");
-        this.context.save();
-        document.body.appendChild(this.canvas);
-        if (TOUCH) this.canvas.ontouchstart = e => e.preventDefault();
+        this.element = document.createElement("div");
+        this.element.className = 'root';
+        document.body.appendChild(this.element);
+        if (TOUCH) this.element.ontouchstart = e => e.preventDefault();
         this.resize();
         window.onresize = () => this.resize();
+        this.enableDragging();
+        model.children.forEach(child => this.attachChild(child));
+        this.subscribe(model.id, 'child-added', child => this.attachChild(child));
+        this.subscribe(model.id, 'child-removed', child => this.detachChild(child));
         this.subscribe(model.id, `user-shape-${USER}`, shape => this.gotUserShape(shape));
         this.publish(model.id, 'user-is-active', USER);
         setInterval(() => this.publish(model.id, 'user-is-active', USER), ACTIVE_MS);
-        this.enableDragging();
     }
 
     detach() {
         super.detach();
         try {
-            document.body.removeChild(this.canvas);
+            document.body.removeChild(this.element);
         } catch (e) {
-            console.warn('detach() failed to remove from body:', this.canvas);
+            console.warn('detach() failed to remove from body:', this.element);
         }
     }
 
     // non-inherited methods below
 
+    attachChild(child) {
+        const childView = new ShapeView(child);
+        this.element.appendChild(childView.element);
+        childView.element.view = childView;
+    }
+
+    detachChild(child) {
+        const el = document.getElementById(child.id);
+        if (el) el.view.detach();
+    }
+
     resize() {
         const size = Math.max(50, Math.min(window.innerWidth, window.innerHeight));
-        this.canvas.width = size;
-        this.canvas.height = size;
         SCALE = size / 1100;
         OFFSETX = (window.innerWidth - size) / 2;
         OFFSETY = 0;
-        this.canvas.style.left = OFFSETX;
-        this.canvas.style.top = OFFSETY;
+        this.element.style.transform = `translate(${OFFSETX}px,${OFFSETY}px) scale(${SCALE})`;
+        this.element.style.transformOrigin = "0 0";
         OFFSETX += 50 * SCALE;
         OFFSETY += 50 * SCALE;
-        this.context.restore();
-        this.context.scale(SCALE, SCALE);
-        this.context.save();
     }
 
     gotUserShape(shape) {
         this.userShape = shape;
+        const el = document.getElementById(shape.id);
+        el.classList.add("user");
     }
 
     enableDragging() {
-        const el = this.canvas;
+        const el = this.element;
         let x, y, timeStamp = 0;
         const move = evt => {
             evt.preventDefault();
@@ -299,29 +308,38 @@ class RootView extends View {
         };
     }
 
-    render() {
-        const ctx = this.context;
-        ctx.clearRect(0, 0, 1100, 1100);
-        for (const shape of this.model.children) {
-            const [x, y] = shape.pos;
-            ctx.beginPath();
-            ctx.arc(x + 50, y + 50, 50, 0, 2 * Math.PI);
-            ctx.fillStyle = shape.color;
-            ctx.fill();
-            if (shape === this.userShape) {
-                ctx.strokeStyle = "white";
-                ctx.lineWidth = 10;
-                ctx.stroke();
-            }
-        }
-    }
-
     showStatus(backlog, starvation, min, max) {
         const color = backlog > starvation ? '255,0,0' : '255,255,255';
         const value = Math.max(backlog, starvation) - min;
         const size = Math.min(value, max) * 100 / max;
         const alpha = size / 100;
-        this.canvas.style.boxShadow = alpha < 0.2 ? "" : `inset 0 0 ${size}px rgba(${color},${alpha})`;
+        this.element.style.boxShadow = alpha < 0.2 ? "" : `inset 0 0 ${size}px rgba(${color},${alpha})`;
+    }
+}
+
+class ShapeView extends View {
+
+    constructor(model) {
+        super(model);
+        const el = this.element = document.createElement("div");
+        el.className = model.type;
+        el.id = model.id;
+        el.style.backgroundColor = model.color;
+        this.subscribe(model.id, {event: 'pos-changed', oncePerFrame: true}, pos => this.move(pos));
+        this.move(model.pos);
+    }
+
+    detach() {
+        super.detach();
+        const el = this.element;
+        el.parentElement.removeChild(el);
+    }
+
+    // non-inherited methods below
+
+    move([x,y]) {
+        this.element.style.left = x;
+        this.element.style.top = y;
     }
 }
 
@@ -384,7 +402,6 @@ async function go() {
 
             Stats.begin("render");
             controller.processModelViewEvents();
-            rootView.render();
             Stats.end("render");
         }
 
