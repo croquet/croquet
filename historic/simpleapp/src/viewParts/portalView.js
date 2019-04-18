@@ -1,7 +1,7 @@
 import * as THREE from "three";
-import { SpatialEvents } from "../stateParts/spatial";
-import { ViewPart } from "../modelView";
-import PortalPart from "../stateParts/portal";
+import { SpatialEvents } from "../modelParts/spatial";
+import { ViewPart } from "../parts";
+import PortalPart from "../modelParts/portal";
 import { RENDER_LAYERS } from "../render";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
@@ -14,10 +14,9 @@ export default class PortalViewPart extends ViewPart {
         const source = options.model;
         // maintain a view-local "copy" of the portal info to reuse the traversal logic in the view
         // This allows spatial viewStates to traverse this cloned portal viewState and create the correct events
-        this.clonedPortal = new PortalPart();
         const stateToClone = {};
-        source.toState(stateToClone);
-        this.clonedPortal.init({...stateToClone, id: null});
+        source.save(stateToClone);
+        this.clonedPortal = PortalPart.create({...stateToClone});
 
         this.visualOffset = options.visualOffset;
 
@@ -34,9 +33,9 @@ export default class PortalViewPart extends ViewPart {
         group.quaternion.copy(source.parts.spatial.quaternion);
         group.scale.copy(source.parts.spatial.scale);
 
-        this.subscribe(SpatialEvents.moved, "onMoved", source.parts.spatial.id);
-        this.subscribe(SpatialEvents.rotated, "onRotated", source.parts.spatial.id);
-        this.subscribe(SpatialEvents.scaled, "onScaled", source.parts.spatial.id);
+        this.subscribe(source.parts.spatial.id, SpatialEvents.moved, "onMoved");
+        this.subscribe(source.parts.spatial.id, SpatialEvents.rotated, "onRotated");
+        this.subscribe(source.parts.spatial.id, SpatialEvents.scaled, "onScaled");
 
         group.children[0].layers.disable(RENDER_LAYERS.NORMAL);
         group.children[0].layers.enable(RENDER_LAYERS.ALL_PORTALS);

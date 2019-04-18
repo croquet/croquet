@@ -1,21 +1,20 @@
 import * as THREE from "three";
 import SeedRandom from "seedrandom";
-import Island from "../island";
-import {StatePart, ViewPart} from "../modelView";
+import {urlOptions} from "@croquet/util";
+import {ModelPart, ViewPart} from "../parts";
 import Room from "../room/roomModel";
-import ChildrenPart, { ChildEvents } from "../stateParts/children";
-import SpatialPart from "../stateParts/spatial";
-import Bouncing from "../stateParts/bouncing";
+import ChildrenPart, { ChildEvents } from "../modelParts/children";
+import SpatialPart from "../modelParts/spatial";
+import Bouncing from "../modelParts/bouncing";
 import Tracking from "../viewParts/tracking";
 import Clickable from "../viewParts/clickable";
 import Draggable from "../viewParts/draggable";
 import TextElement from "../elements/textElement";
-import urlOptions from "../util/urlOptions";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
-export class BoxElement extends StatePart {
+export class BoxElement extends ModelPart {
     constructor() {
         super();
         this.parts = {spatial: new SpatialPart()};
@@ -24,7 +23,7 @@ export class BoxElement extends StatePart {
     naturalViewClass() { return BoxElementView; }
 }
 
-export class BouncingBallElement extends StatePart {
+export class BouncingBallElement extends ModelPart {
     constructor() {
         super();
         this.parts = {spatial: new (Bouncing()(SpatialPart))()};
@@ -59,12 +58,12 @@ class BallViewPart extends ViewPart {
 
 const BouncingBallElementView = Clickable({
     onClick: options => () => {
-        options.model.parts.spatial.toggle();
+        options.model.parts.spatial.future().toggle();
     }
 })(Tracking()(BallViewPart));
 
 
-export class GroupElement extends StatePart {
+export class GroupElement extends ModelPart {
     constructor() {
         super();
         this.parts = {
@@ -81,8 +80,8 @@ const GroupElementView = Tracking()(class extends ViewPart {
         super(options);
         this.viewsForChildElements = {};
 
-        this.subscribe(ChildEvents.childAdded, "onElementAdded", options.model.id, "children");
-        this.subscribe(ChildEvents.childRemoved, "onElementRemoved", options.model.id, "children");
+        this.subscribe(options.model.parts.children.id, ChildEvents.childAdded, "onElementAdded");
+        this.subscribe(options.model.parts.children.id, ChildEvents.childRemoved, "onElementRemoved");
         this.group = new THREE.Group();
         this.threeObj = this.group;
 
@@ -115,7 +114,7 @@ export class RandomlyColoringGroupElement extends GroupElement {
 class RandomlyColoringGroupElementView extends GroupElementView {
     // constructor(options) {
     //     super(options);
-    //     this.random = new SeedRandom(options.model.id);
+    //     this.seedRandom = new SeedRandom(options.model.id);
     // }
 
     onElementAdded(element) {
@@ -123,34 +122,33 @@ class RandomlyColoringGroupElementView extends GroupElementView {
         const view = this.viewsForChildElements[element.id];
         // would like to use options.model.id for random (see constructor)
         // but the super() constructor already calls onElementAdded
-        if (!this.random) this.random = new SeedRandom("VeryRandomSeed");
+        if (!this.seedRandom) this.seedRandom = new SeedRandom("VeryRandomSeed");
         for (const threeObj of view.threeObjs()) {
-            threeObj.material.color.setHSL(this.random(), 1, 0.5);
+            threeObj.material.color.setHSL(this.seedRandom(), 1, 0.5);
         }
     }
 }
 
-function initBounce(state, options) {
-    return new Island(state, island => {
-        const room = new Room().init({});
-        island.set("room", room);
+function initBounce(options) {
+    const room = Room.create();
 
-        for (let x = -3; x <= 3; x += 3) {
-            const bigBox = new BoxElement().init({ spatial: { position: { x, y: 0.5, z: -2 }}});
-            room.parts.elements.add(bigBox);
-        }
-        const text1 = new TextElement().init({
-            spatial: { position: new THREE.Vector3(-2.25, 3, -2) },
-            text: { content: {runs: [{text: "Croquet runs identically on any platform. Load this in another page to compare. Drag the cubes."}]} },
-            editable: false
-        });
-        room.parts.elements.add(text1);
-        const bouncingBoxes = new RandomlyColoringGroupElement().init({ spatial: { scale: {x: 0.5, y: 0.5, z: 0.5 } } });
-        room.parts.elements.add(bouncingBoxes);
-        for (let i = 0; i < options.n; i++) {
-            bouncingBoxes.parts.children.add(new BouncingBallElement().init({ spatial: { scale: {x: 0.3, y: 0.3, z: 0.3 } } }));
-        }
+    for (let x = -3; x <= 3; x += 3) {
+        const bigBox = BoxElement.create({ spatial: { position: new THREE.Vector3(x, 0.5, -2)}});
+        room.parts.elements.add(bigBox);
+    }
+    const text1 = TextElement.create({
+        spatial: { position: new THREE.Vector3(-2.25, 3, -2) },
+        text: { content: {runs: [{text: ["Croquet runs identically on any platform. Load this in another page to compare. Drag the cubes."]}]} },
+        editable: false
     });
+    room.parts.elements.add(text1);
+    const bouncingBoxes = RandomlyColoringGroupElement.create({ spatial: { scale: new THREE.Vector3(0.5, 0.5, 0.5) } });
+    room.parts.elements.add(bouncingBoxes);
+    for (let i = 0; i < options.n; i++) {
+        bouncingBoxes.parts.children.add(BouncingBallElement.create({ spatial: { scale: new THREE.Vector3(0.3, 0.3, 0.3) } }));
+    }
+
+    return {room};
 }
 
 export default {

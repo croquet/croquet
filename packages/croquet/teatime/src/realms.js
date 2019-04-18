@@ -109,7 +109,7 @@ class ViewRealm {
     }
 
     random() {
-        return this.island.random();
+        return Math.random();
     }
 
     equal(otherRealm) {

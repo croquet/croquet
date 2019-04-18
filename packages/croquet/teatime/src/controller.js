@@ -391,7 +391,9 @@ export default class Controller {
 
     /** call this from main loop to process queued model=>view events */
     processModelViewEvents() {
-        this.island.processModelViewEvents();
+        if (this.island) {
+            this.island.processModelViewEvents();
+        }
     }
 
     /** Got the official time from reflector server */

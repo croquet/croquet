@@ -3,14 +3,14 @@ import SVGIcon from "../util/svgIcon";
 import lineHandle from "../../assets/line-handle.svg";
 import rotateHandle from "../../assets/rotate-handle.svg";
 import { PointerEvents, makePointerSensitive } from "./pointer";
-import { ViewPart } from "../modelView";
+import { ViewPart } from "../parts";
 import Tracking, { Facing } from "./tracking";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 class TranslationManipulator extends ViewPart {
-    /** @arg {{target: import('../stateParts/spatial.js').default}} options */
+    /** @arg {{target: import('../modelParts/spatial.js').default}} options */
     constructor(options) {
         super();
 
@@ -29,10 +29,10 @@ class TranslationManipulator extends ViewPart {
         makePointerSensitive(this.moveHandle, this);
         this.group.add(this.moveHandle);
 
-        this.subscribe(PointerEvents.pointerEnter, "onPointerEnter");
-        this.subscribe(PointerEvents.pointerLeave, "onPointerLeave");
-        this.subscribe(PointerEvents.pointerDown, "onPointerDown");
-        this.subscribe(PointerEvents.pointerDrag, "onPointerDrag");
+        this.subscribe(this.id, PointerEvents.pointerEnter, "onPointerEnter");
+        this.subscribe(this.id, PointerEvents.pointerLeave, "onPointerLeave");
+        this.subscribe(this.id, PointerEvents.pointerDown, "onPointerDown");
+        this.subscribe(this.id, PointerEvents.pointerDrag, "onPointerDrag");
 
         this.threeObj = this.group;
     }
@@ -60,7 +60,7 @@ class TranslationManipulator extends ViewPart {
 }
 
 class RotationManipulator extends ViewPart {
-    /** @arg {{target: import('../stateParts/spatial.js').default}} options */
+    /** @arg {{target: import('../modelParts/spatial.js').default}} options */
     constructor(options) {
         super();
         this.target = options.target;
@@ -76,10 +76,10 @@ class RotationManipulator extends ViewPart {
         makePointerSensitive(this.rotateHandle, this);
         this.group.add(this.rotateHandle);
 
-        this.subscribe(PointerEvents.pointerEnter, "onPointerEnter");
-        this.subscribe(PointerEvents.pointerLeave, "onPointerLeave");
-        this.subscribe(PointerEvents.pointerDown, "onPointerDown");
-        this.subscribe(PointerEvents.pointerDrag, "onPointerDrag");
+        this.subscribe(this.id, PointerEvents.pointerEnter, "onPointerEnter");
+        this.subscribe(this.id, PointerEvents.pointerLeave, "onPointerLeave");
+        this.subscribe(this.id, PointerEvents.pointerDown, "onPointerDown");
+        this.subscribe(this.id, PointerEvents.pointerDrag, "onPointerDrag");
 
         this.threeObj = this.group;
     }

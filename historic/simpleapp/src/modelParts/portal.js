@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { StatePart } from "../modelView";
+import { ModelPart } from "../parts";
 import SpatialPart from "./spatial";
 import PortalViewPart from "../viewParts/portalView";
 
@@ -16,7 +16,7 @@ export const PortalTopic = "topic-portals";
 
 // export default clas
 
-export default class PortalPart extends StatePart {
+export default class PortalPart extends ModelPart {
     constructor() {
         super();
         this.parts = {
@@ -25,17 +25,19 @@ export default class PortalPart extends StatePart {
         };
     }
 
-    onInitialized() {
-        this.subscribe(PortalEvents.traverserMoved, "onTraverserMoved", PortalTopic);
+    init(options) {
+        super.init(options);
+        this.there = options.there;
+        this.subscribe(PortalTopic, PortalEvents.traverserMoved, "onTraverserMoved");
     }
 
-    applyState(state) {
-        super.applyState(state);
+    load(state) {
+        super.load(state);
         this.there = state.there;
     }
 
-    toState(state) {
-        super.toState(state);
+    save(state) {
+        super.save(state);
         state.there = this.there;
     }
 
@@ -75,13 +77,13 @@ export default class PortalPart extends StatePart {
     onTraverserMoved({fromPosition, toPosition, toQuaternion, traverserId}) {
         if (this.didTraverse(fromPosition, toPosition)) {
             const {targetPosition, targetQuaternion} = this.projectThroughPortal(toPosition, toQuaternion);
-            this.publish(PortalEvents.traversed, {
+            this.publish(PortalTopic, PortalEvents.traversed, {
                 portalId: this.id,
                 traverserId,
                 targetRoom: this.there,
                 targetPosition,
                 targetQuaternion
-            }, PortalTopic, null);
+            });
         }
     }
 
@@ -97,7 +99,7 @@ export function PortalTraversing() {
             super.moveTo(...args);
             const toPosition = this.position.clone();
             const toQuaternion = this.quaternion.clone();
-            this.publish(PortalEvents.traverserMoved, {fromPosition, toPosition, toQuaternion, traverserId: this.id}, PortalTopic, null);
+            this.publish(PortalTopic, PortalEvents.traverserMoved, {fromPosition, toPosition, toQuaternion, traverserId: this.id});
         }
 
         moveBy(...args) {
@@ -105,7 +107,7 @@ export function PortalTraversing() {
             super.moveBy(...args);
             const toPosition = this.position.clone();
             const toQuaternion = this.quaternion.clone();
-            this.publish(PortalEvents.traverserMoved, {fromPosition, toPosition, toQuaternion, traverserId: this.id}, PortalTopic, null);
+            this.publish(PortalTopic, PortalEvents.traverserMoved, {fromPosition, toPosition, toQuaternion, traverserId: this.id});
         }
 
         moveToNoPortalTraverse(...args) {

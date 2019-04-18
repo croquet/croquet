@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { Node, ALIGN_CENTER, ALIGN_FLEX_START, ALIGN_FLEX_END, ALIGN_STRETCH, FLEX_DIRECTION_ROW, FLEX_DIRECTION_COLUMN, EDGE_ALL, DIRECTION_LTR, POSITION_TYPE_ABSOLUTE } from "yoga-layout-prebuilt";
-import { ViewPart } from "../modelView";
+import { ViewPart } from "../parts";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
@@ -72,16 +72,16 @@ export class LayoutContainer extends LayoutViewPart {
         this.group = new THREE.Group();
         this.threeObj = this.group;
         for (const child of options.children || []) this.addChild(child, false);
-        this.publish(LayoutEvents.contentChanged, {});
-        this.subscribe(LayoutEvents.layoutChanged, "onLayoutChanged");
+        this.publish(this.id, LayoutEvents.contentChanged, {});
+        this.subscribe(this.id, LayoutEvents.layoutChanged, "onLayoutChanged");
     }
 
     /** @arg {LayoutViewPart} child */
     addChild(child, publishContentChanged=true) {
         this.children.push(child);
         this.yogaNode.insertChild(child.yogaNode, this.yogaNode.getChildCount());
-        this.subscribe(LayoutEvents.contentChanged, "onChildContentChanged", child.id);
-        if (publishContentChanged) this.publish(LayoutEvents.contentChanged, {});
+        this.subscribe(child.id, LayoutEvents.contentChanged, "onChildContentChanged");
+        if (publishContentChanged) this.publish(this.id, LayoutEvents.contentChanged, {});
         this.group.add(...child.threeObjs());
     }
 
@@ -90,18 +90,18 @@ export class LayoutContainer extends LayoutViewPart {
         const idx = this.children.indexOf(child);
         this.children.splice(idx, 1);
         this.yogaNode.removeChild(child.yogaNode);
-        this.unsubscribe(LayoutEvents.contentChanged, "onChildContentChanged", child.id);
-        if (publishContentChanged) this.publish(LayoutEvents.contentChanged, {});
+        this.unsubscribe(child.id, LayoutEvents.contentChanged);
+        if (publishContentChanged) this.publish(this.id, LayoutEvents.contentChanged, {});
         this.group.remove(...child.threeObjs());
     }
 
     onChildContentChanged() {
-        this.publish(LayoutEvents.contentChanged, {});
+        this.publish(this.id, LayoutEvents.contentChanged, {});
     }
 
     onLayoutChanged() {
         for (const child of this.children) {
-            this.publish(LayoutEvents.layoutChanged, {}, child.id);
+            this.publish(child.id, LayoutEvents.layoutChanged, {});
         }
         this.group.position.setX(this.yogaNode.getComputedLeft() / MUL);
         this.group.position.setY(-this.yogaNode.getComputedTop() / MUL);
@@ -138,7 +138,7 @@ export class LayoutSlot extends LayoutViewPart {
      */
     constructor(options) {
         super(options);
-        this.subscribe(LayoutEvents.layoutChanged, "onLayoutChanged");
+        this.subscribe(this.id, LayoutEvents.layoutChanged, "onLayoutChanged");
         this.parts = {inner: options.inner};
     }
 
@@ -217,8 +217,8 @@ export class LayoutStack extends LayoutContainer {
         this.yogaNode.insertChild(wrapperNode, this.yogaNode.getChildCount());
         if (!this.wrapperNodesForChildren) this.wrapperNodesForChildren = new Map();
         this.wrapperNodesForChildren.set(child, wrapperNode);
-        this.subscribe(LayoutEvents.contentChanged, "onChildContentChanged", child.id);
-        if (publishContentChanged) this.publish(LayoutEvents.contentChanged, {});
+        this.subscribe(child.id, LayoutEvents.contentChanged, "onChildContentChanged");
+        if (publishContentChanged) this.publish(this.id, LayoutEvents.contentChanged, {});
         this.group.add(...child.threeObjs());
     }
 
@@ -230,8 +230,8 @@ export class LayoutStack extends LayoutContainer {
         this.wrapperNodesForChildren.delete(child);
         wrapperNode.removeChild(child.yogaNode);
         this.yogaNode.removeChild(wrapperNode);
-        this.unsubscribe(LayoutEvents.contentChanged, "onChildContentChanged", child.id);
-        if (publishContentChanged) this.publish(LayoutEvents.contentChanged, {});
+        this.unsubscribe(child.id, LayoutEvents.contentChanged);
+        if (publishContentChanged) this.publish(this.id, LayoutEvents.contentChanged, {});
         this.group.remove(...child.threeObjs());
     }
 }

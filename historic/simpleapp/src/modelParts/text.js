@@ -1,9 +1,5 @@
-import { StatePart } from "../modelView";
-import { addMessageTranscoder } from "../island";
-
+import { ModelPart } from "../parts";
 import { Doc } from "../util/warota/warota";
-
-addMessageTranscoder('*', { encode: a => a, decode: a => a });
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
@@ -12,8 +8,18 @@ export const TextEvents = {
     changed: 'text-changed',
 };
 
-export default class TextPart extends StatePart {
-    applyState(state={}) {
+export default class TextPart extends ModelPart {
+    init(options) {
+        super.init();
+        let content = {runs: [], selections: {}, undoStacks: {}, timezone: 0, queue: [], editable: options.editable !== undefined ? options.editable : true, ...options.content};
+        this.content = content;
+        this.doc = new Doc();
+        this.doc.load(this.content.runs);
+        this.doc.selections = this.content.selections;
+        window.model = this;
+    }
+
+    load(state) {
         let content = {runs: [], selections: {}, undoStacks: {}, timezone: 0, queue: [], editable: state.editable !== undefined ? state.editable : true, ...state.content};
         this.content = content;
         this.doc = new Doc();
@@ -22,7 +28,7 @@ export default class TextPart extends StatePart {
         window.model = this;
     }
 
-    toState(state) {
+    save(state) {
         state.content = this.content;
     }
 
@@ -32,7 +38,7 @@ export default class TextPart extends StatePart {
 
     receiveEditEvents(events) {
         let timezone = this.doc.receiveEditEvents(events, this.content, this.doc);
-        this.publish(TextEvents.changed, timezone);
+        this.publish(this.id, TextEvents.changed, timezone);
     }
 
     undoRequest(user) {
@@ -48,6 +54,6 @@ export default class TextPart extends StatePart {
         if (!event) {return;}
 
         let timezone = this.doc.undoEvent(event, this.content, this.doc);
-        this.publish(TextEvents.changed, timezone);
+        this.publish(this.id, TextEvents.changed, timezone);
     }
 }

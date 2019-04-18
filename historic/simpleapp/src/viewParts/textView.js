@@ -1,12 +1,12 @@
 import * as THREE from "three";
 import { TextGeometry, HybridMSDFShader } from "three-bmfont-text";
 import { rendererVersion } from "../render";
-import { TextEvents } from "../stateParts/text";
+import { TextEvents } from "../modelParts/text";
 import { PointerEvents, makePointerSensitive, TrackPlaneEvents, TrackPlaneTopic } from "./pointer";
 import { Warota } from "../util/warota/warota";
 import { fontRegistry } from "../util/fontRegistry";
 import { KeyboardEvents, KeyboardTopic } from "../domKeyboardManager";
-import { ViewPart } from "../modelView";
+import { ViewPart } from "../parts";
 import { userID } from "../util/userid";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
@@ -33,13 +33,13 @@ export default class EditableTextViewPart extends ViewPart {
                margins: {left: 0, right: 0, top: 0, bottom: 0}, ...options};
 
         if (this.options.editable) {
-            this.subscribe(PointerEvents.pointerDown, "onPointerDown");
-            this.subscribe(PointerEvents.pointerDrag, "onPointerDrag");
-            this.subscribe(PointerEvents.pointerUp, "onPointerUp");
-            this.subscribe(KeyboardEvents.keydown, "onKeyDown");
-            this.subscribe(KeyboardEvents.copy, "onCopy");
-            this.subscribe(KeyboardEvents.cut, "onCut");
-            this.subscribe(KeyboardEvents.paste, "onPaste");
+            this.subscribe(this.id, PointerEvents.pointerDown, "onPointerDown");
+            this.subscribe(this.id, PointerEvents.pointerDrag, "onPointerDrag");
+            this.subscribe(this.id, PointerEvents.pointerUp, "onPointerUp");
+            this.subscribe(this.id, KeyboardEvents.keydown, "onKeyDown");
+            this.subscribe(this.id, KeyboardEvents.copy, "onCopy");
+            this.subscribe(this.id, KeyboardEvents.cut, "onCut");
+            this.subscribe(this.id, KeyboardEvents.paste, "onPaste");
         }
 
         const boxMesh = this.initBoxMesh();
@@ -53,7 +53,7 @@ export default class EditableTextViewPart extends ViewPart {
 
         if (this.options.editable) {
             makePointerSensitive(boxMesh, this);
-            this.subscribe(TextEvents.changed, "onChanged", this.textPart.id);
+            this.subscribe(this.textPart.id, TextEvents.changed, "onChanged");
         }
 
         this.threeObj = boxMesh;
@@ -352,12 +352,12 @@ export default class EditableTextViewPart extends ViewPart {
 
     onPointerDown(evt) {
         this.lastPt = evt.at;
-        this.publish(KeyboardEvents.requestfocus, {requesterRef: this.id}, KeyboardTopic);
+        this.publish(KeyboardTopic, KeyboardEvents.requestfocus, {requesterRef: this.id});
         const pt = this.textPtFromEvt(evt.at);
         this.editor.mouseDown(pt.x, pt.y, pt.realY, userID);
 
         this.draggingPlane.setFromNormalAndCoplanarPoint(this.threeObj.getWorldDirection(new THREE.Vector3()), this.threeObj.position);
-        this.publish(TrackPlaneEvents.requestTrackPlane, {requesterRef: this.id, plane: this.draggingPlane}, TrackPlaneTopic, null);
+        this.publish(TrackPlaneTopic, TrackPlaneEvents.requestTrackPlane, {requesterRef: this.id, plane: this.draggingPlane});
 
         this.changed();
         return true;

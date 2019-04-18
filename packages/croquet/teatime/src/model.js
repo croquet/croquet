@@ -5,7 +5,6 @@ import { currentRealm } from "./realms";
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
-
 export default class Model {
     // mark this and subclasses as model classes
     // used in classToID / classFromID below
@@ -25,6 +24,7 @@ export default class Model {
     }
 
     init(_options) {
+        this.__realm = currentRealm();
         this.id = currentRealm().register(this);
     }
 
@@ -34,6 +34,7 @@ export default class Model {
     }
 
     load(state, allModels) {
+        this.__realm = currentRealm();
         const id = state.id;
         if (!allModels[id] === this) throw Error("Model ID mismatch");
         this.id = state.id;
@@ -49,22 +50,22 @@ export default class Model {
     // Pub / Sub
 
     publish(scope, event, data) {
-        currentRealm().publish(event, data, scope);
+        this.__realm.publish(event, data, scope);
     }
 
     subscribe(scope, event, callback) {
-        currentRealm().subscribe(event, this.id, callback, scope);
+        this.__realm.subscribe(event, this.id, callback, scope);
     }
 
     unsubscribe(scope, event) {
-        currentRealm().unsubscribe(event, this.id, null, scope);
+        this.__realm.unsubscribe(event, this.id, null, scope);
     }
 
     // Misc
 
     /** @returns {this} */
     future(tOffset=0) {
-        return currentRealm().futureProxy(tOffset, this);
+        return this.__realm.futureProxy(tOffset, this);
     }
 
     random() {

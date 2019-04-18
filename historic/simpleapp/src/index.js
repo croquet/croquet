@@ -1,16 +1,13 @@
 import * as THREE from "three";
-import hotreload from "./hotreload";
+import { Controller } from "@croquet/teatime";
+import { hotreload, urlOptions, Stats, uploadCode } from "@croquet/util";
 import room1 from "./sampleRooms/room1";
 import room2 from "./sampleRooms/room2";
 import room3 from "./sampleRooms/room3";
 import roomBounce from "./sampleRooms/bounce";
 import RoomViewManager from "./room/roomViewManager";
 import Renderer from "./render";
-import { connectToReflector, Controller, addMessageTranscoder } from "./island";
 import {theKeyboardManager} from "./domKeyboardManager";
-import Stats from "./util/stats";
-import urlOptions from "./util/urlOptions";
-import { uploadCode } from "./modules";
 
 const LOG_HOTRELOAD = true;
 
@@ -35,17 +32,19 @@ const Identity = {
     encode: a => a,
     decode: a => a,
 };
-addMessageTranscoder('*#moveTo', XYZ);
-addMessageTranscoder('*#rotateTo', XYZW);
-addMessageTranscoder('*#onKeyDown', Identity);
-addMessageTranscoder('*#updateContents', Identity);
-addMessageTranscoder('*#setColor', Identity);
-
 
 let codeHashes = null;
 
 /** The main function. */
 async function start() {
+    Controller.addMessageTranscoder('*#moveTo', XYZ);
+    Controller.addMessageTranscoder('*#rotateTo', XYZW);
+    Controller.addMessageTranscoder('*#onKeyDown', Identity);
+    Controller.addMessageTranscoder('*#updateContents', Identity);
+    Controller.addMessageTranscoder('*#setColor', Identity);
+    Controller.addMessageTranscoder('*#handleModelEventInModel', Identity);
+    Controller.addMessageTranscoder('*#receiveEditEvents', Identity);
+
     let reflector = "wss://dev1.os.vision/reflector-v1";
     if ("reflector" in urlOptions) reflector = urlOptions.reflector;
 
@@ -62,7 +61,7 @@ async function start() {
     }
 
     // start websocket connection
-    connectToReflector(reflector);
+    Controller.connectToReflector(reflector);
 
     // upload changed code files
     if (!urlOptions.noupload) uploadCode(module.id).then(hashes => codeHashes = hashes);
@@ -87,7 +86,7 @@ async function start() {
         value: async function getIsland(roomName) {
             const ROOM = ALL_ROOMS[roomName];
             if (!ROOM) throw Error("Unknown room: " + roomName);
-            if (ROOM.islandPromise) return ROOM.islandPromise;
+            if (ROOM.namedModelsPromise) return ROOM.namedModelsPromise;
             const creator = ROOM.creator;
             creator.room = roomName;
             if (!creator.options) creator.options = {};
@@ -96,8 +95,8 @@ async function start() {
             }
             creator.destroyerFn = snapshot => {
                 console.log("destroyer: detaching view for " + roomName);
-                delete ROOM.island;
-                delete ROOM.islandPromise;
+                delete ROOM.namedModels;
+                delete ROOM.namedModelsPromise;
                 roomViewManager.detach(roomName);
                 creator.snapshot = snapshot;
                 if (currentRoomName === roomName) {
@@ -108,8 +107,9 @@ async function start() {
             };
             const controller = new Controller();
             controller.fetchUpdatedSnapshot = !urlOptions.nodownload;
-            ROOM.islandPromise = controller.createIsland(roomName, creator);
-            return ROOM.island = await ROOM.islandPromise;
+            ROOM.namedModelsPromise = controller.createIsland(roomName, creator);
+            ROOM.controller = controller;
+            return ROOM.namedModels = await ROOM.namedModelsPromise;
         }
     });
 
@@ -147,13 +147,13 @@ async function start() {
     function simulate(deadline) {
         // simulate current room first
         const currentRoom = ALL_ROOMS[currentRoomName];
-        const currentIsland = currentRoom && ALL_ROOMS[currentRoomName].island;
-        const weHaveMoreTime = !currentIsland || currentIsland.controller.simulate(deadline);
+        const namedModels = currentRoom && currentRoom.namedModels;
+        const weHaveMoreTime = !namedModels || currentRoom.controller.simulate(deadline);
         if (!weHaveMoreTime) return;
         // if we have time, simulate other rooms
-        const liveRooms = Object.values(ALL_ROOMS).filter(room => room.island);
-        for (const {island} of liveRooms) {
-            island.controller.simulate(deadline);
+        const liveRooms = Object.values(ALL_ROOMS).filter(room => room.namedModels);
+        for (const {controller} of liveRooms) {
+            controller.simulate(deadline);
         }
     }
 
@@ -173,27 +173,27 @@ async function start() {
         hotreload.requestAnimationFrame(frame);
         Stats.animationFrame(timestamp);
         if (currentRoomName) {
-            const currentIsland = ALL_ROOMS[currentRoomName].island;
-            if (currentIsland) {
+            const namedModels = ALL_ROOMS[currentRoomName].namedModels;
+            if (namedModels) {
                 const simStart = Date.now();
                 const simBudget = simLoad.reduce((a,b) => a + b, 0) / simLoad.length;
                 // simulate about as long as in the prev frame to distribute load
                 simulate(simStart + Math.min(simBudget, 200));
                 // if backlogged, use all CPU time for simulation, but render at least at 5 fps
-                if (currentIsland.controller.backlog > balanceMS) simulate(simStart + 200 - simBudget);
+                if (ALL_ROOMS[currentRoomName].controller.backlog > balanceMS) simulate(simStart + 200 - simBudget);
                 // keep log of sim times
                 simLoad.push(Date.now() - simStart);
                 if (simLoad.length > loadBalance) simLoad.shift();
                 // update stats
-                Stats.users(currentIsland.controller.users);
-                Stats.network(Date.now() - currentIsland.controller.lastReceived);
+                Stats.users(ALL_ROOMS[currentRoomName].controller.users);
+                Stats.network(Date.now() - ALL_ROOMS[currentRoomName].controller.lastReceived);
                 // remember lastFrame for setInterval()
                 lastFrame = Date.now();
             }
 
             // update views from model
             Stats.begin("update");
-            Object.values(ALL_ROOMS).forEach(({island}) => island && island.processModelViewEvents());
+            Object.values(ALL_ROOMS).forEach(({controller}) => controller && controller.processModelViewEvents());
             Stats.end("update");
 
             // update view state
@@ -301,13 +301,6 @@ async function start() {
     hotreload.addEventListener(window, "resize", () => {
         renderer.changeViewportSize(window.innerWidth, window.innerHeight);
         roomViewManager.changeViewportSize(window.innerWidth, window.innerHeight);
-    });
-
-    hotreload.addEventListener(document.getElementById('reset'), "click", () => {
-        if (currentRoomName) {
-            const currentIsland = ALL_ROOMS[currentRoomName].island;
-            if (currentIsland) currentIsland.broadcastInitialState();
-        }
     });
 
     hotreload.addEventListener(window, "hashchange", () => joinRoom(window.location.hash.slice(1)));

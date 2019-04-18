@@ -1,7 +1,7 @@
 /** THIS WILL REPLACE THE YOGA-BASED LAYOUT.JS SOON-ISH */
 
 import kiwi, { Operator, Constraint } from 'kiwi.js';
-import { ViewPart } from "../modelView";
+import { ViewPart } from "../parts";
 
 export const KiwiLayoutEvents = {
     contentChanged: "layout-content-changed",
@@ -42,8 +42,8 @@ export class KiwiLayoutContainer extends KiwiLayoutNode {
     /** @arg {KiwiLayoutNode} child */
     addChild(child, publishContentChanged=true) {
         this.children.push(child);
-        this.subscribe(KiwiLayoutEvents.contentChanged, "onChildContentChanged", child.id);
-        if (publishContentChanged) this.publish(KiwiLayoutEvents.contentChanged, {});
+        this.subscribe(child.id, KiwiLayoutEvents.contentChanged, "onChildContentChanged");
+        if (publishContentChanged) this.publish(this.id, KiwiLayoutEvents.contentChanged, {});
         this.group.add(...child.threeObjs());
     }
 
@@ -52,18 +52,18 @@ export class KiwiLayoutContainer extends KiwiLayoutNode {
         const idx = this.children.indexOf(child);
         this.children.splice(idx, 1);
         this.yogaNode.removeChild(child.yogaNode);
-        this.unsubscribe(KiwiLayoutEvents.contentChanged, "onChildContentChanged", child.id);
-        if (publishContentChanged) this.publish(KiwiLayoutEvents.contentChanged, {});
+        this.unsubscribe(child.id, KiwiLayoutEvents.contentChanged);
+        if (publishContentChanged) this.publish(this.id, KiwiLayoutEvents.contentChanged, {});
         this.group.remove(...child.threeObjs());
     }
 
     onChildContentChanged() {
-        this.publish(KiwiLayoutEvents.contentChanged, {});
+        this.publish(this.id, KiwiLayoutEvents.contentChanged, {});
     }
 
     onLayoutChanged() {
         for (const child of this.children) {
-            this.publish(KiwiLayoutEvents.layoutChanged, {}, child.id);
+            this.publish(child.id, KiwiLayoutEvents.layoutChanged, {});
         }
     }
 }

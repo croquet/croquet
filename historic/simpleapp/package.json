@@ -1,5 +1,5 @@
 {
-  "name": "croquet-simpleapp",
+  "name": "@croquet/simpleapp",
   "version": "0.0.1",
   "description": "",
   "main": "index.js",
@@ -22,17 +22,12 @@
       "last 1 iOS major version"
     ]
   },
-  "alias": {
-    "reflector": "./../../croquet/reflector/index.js",
-    "ws": "./src/server/ws.js"
-  },
   "dependencies": {
+    "@croquet/teatime": "file:../../croquet/teatime",
+    "@croquet/util": "file:../../croquet/util",
     "array-flat-polyfill": "^1.0.0",
-    "broadcast-channel": "^2.1.10",
-    "fastpriorityqueue": "^0.6.1",
-    "hashids": "^1.2.2",
     "kiwi.js": "^1.1.1",
-    "seedrandom": "^2.4.4",
+    "seedrandom": "^3.0.1",
     "three": "^0.101.1",
     "three-bmfont-text": "git+https://github.com/yoshikiohshima/three-bmfont-text.git",
     "three-buffer-vertex-data": "git+https://github.com/aeickhoff/three-buffer-vertex-data.git",
