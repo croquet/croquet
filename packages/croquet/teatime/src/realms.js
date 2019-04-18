@@ -25,13 +25,13 @@ class ModelRealm {
     publish(event, data, scope) {
         this.island.publishFromModel(scope, event, data);
     }
-    subscribe(event, modelId, methodName, scope) {
-        if (DEBUG.subscribe) console.log(`Model.subscribe(${scope}:${event}) ${modelId}.${methodName}`);
-        this.island.addSubscription(scope, event, modelId, methodName);
+    subscribe(event, modelId, callback, scope) {
+        if (DEBUG.subscribe) console.log(`Model.subscribe(${scope}:${event}) ${modelId} ${callback}`);
+        this.island.addSubscription(scope, event, modelId, callback);
     }
-    unsubscribe(event, modelId, methodName, scope) {
-        if (DEBUG.subscribe) console.log(`Model.unsubscribe(${scope}:${event}) ${modelId}.${methodName}`);
-        this.island.removeSubscription(scope, event, modelId, methodName);
+    unsubscribe(event, modelId, callback, scope) {
+        if (DEBUG.subscribe) console.log(`Model.unsubscribe(${scope}:${event}) ${modelId} ${callback}`);
+        this.island.removeSubscription(scope, event, modelId, callback);
     }
     unsubscribeAll(modelId) {
         if (DEBUG.subscribe) console.log(`View.unsubscribeAll(${modelId}`);
@@ -89,15 +89,15 @@ class ViewRealm {
     }
     subscribe(event, viewId, callback, scope, oncePerFrame) {
         const handling = oncePerFrame ? "oncePerFrame" : "queued";
-        if (DEBUG.subscribe) console.log(`View.subscribe(${scope}:${event}) ${viewId}.${callback} [${handling}]`);
+        if (DEBUG.subscribe) console.log(`View.subscribe(${scope}:${event}) ${viewId} ${callback} [${handling}]`);
         viewDomain.addSubscription(scope, event, viewId, callback, handling);
     }
     unsubscribe(event, viewId, callback, scope) {
-        if (DEBUG.subscribe) console.log(`View.unsubscribe(${scope}:${event}) ${viewId}.${callback}`);
+        if (DEBUG.subscribe) console.log(`View.unsubscribe(${scope}:${event}) ${viewId} ${callback}`);
         viewDomain.removeSubscription(scope, event, viewId, callback);
     }
     unsubscribeAll(viewId) {
-        if (DEBUG.subscribe) console.log(`View.unsubscribeAll(${viewId}`);
+        if (DEBUG.subscribe) console.log(`View.unsubscribeAll(${viewId})`);
         viewDomain.removeAllSubscriptionsFor(viewId);
     }
 
