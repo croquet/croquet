@@ -32,6 +32,7 @@ export default class Renderer {
         };
 
         const canvas = document.createElement('canvas');
+        canvas.id = 'qanvas';
         let context = canvas.getContext("webgl2", contextAttributes);
         if (!context) {
             // fallback to webgl1
@@ -54,6 +55,7 @@ export default class Renderer {
 
     initAR() {
         this.arCamera = new THREE.Camera();
+
         this.arToolkitSource = new THREEx.ArToolkitSource({
             // to read from the webcam
             sourceType: 'webcam'
@@ -71,17 +73,6 @@ export default class Renderer {
             // copy projection matrix to camera
             this.arCamera.projectionMatrix.copy(this.arToolkitContext.getProjectionMatrix());
             });
-        // update artoolkit on every frame
-        this.onRenderFcts = [];
-        this.onRenderFcts.push(() => {
-            if (this.arToolkitSource.ready === false) return;
-
-            this.arToolkitContext.update(this.arToolkitSource.domElement);
-
-            // update scene.visible if the marker is seen
-//            scene.visible = camera.visible
-            });
-
         // init controls for camera
         this.markerControls = new THREEx.ArMarkerControls(this.arToolkitContext, this.arCamera, {
             type: 'pattern',
@@ -113,11 +104,41 @@ export default class Renderer {
         // Portal rendering technique inspired by https://github.com/zadvorsky/three.portals/blob/master/src/THREE.PortalController.js
         const mainScene = currentRoomView.parts.roomScene.threeObj;
         /** @type {THREE.Camera} */
-        const mainCamera = inAR ? this.arCamera : currentRoomView.parts.camera.threeObj;
+        const mainCamera = currentRoomView.parts.camera.threeObj;
+
         if (inAR) {
-            mainScene.add(mainCamera);
+            if (this.arToolkitSource.ready === false) return;
+
+            this.arToolkitContext.update(this.arToolkitSource.domElement);
+            mainScene.visible = this.arCamera.visible;
+
+            if (mainScene.visible) {
+                // transfer camera settings and position from dedicated AR camera to the one being used to render the scene
+                const pmArray = this.arCamera.projectionMatrix.elements,
+                    //a = pmArray[10],
+                    //b = pmArray[14],
+                    //near = b / (a - 1),
+                    //far = b / (a + 1),
+                    tanHalfVFOV = 1 / pmArray[5],
+                    vFOV = Math.atan(tanHalfVFOV)*2*180/Math.PI,
+                    renderWidth = parseInt(this.renderer.domElement.style.width, 10),
+                    renderHeight = parseInt(this.renderer.domElement.style.height, 10),
+                    aspect = renderWidth / renderHeight;
+                    //tanHalfHFOV = tanHalfVFOV * aspect,
+
+                //mainCamera.near = near;
+                //mainCamera.far = far;
+                mainCamera.aspect = aspect;
+                mainCamera.fov = vFOV;
+                mainCamera.updateProjectionMatrix();
+
+                const cameraSpatial = currentRoomView.cameraSpatial;
+                cameraSpatial.moveTo(this.arCamera.position);
+                cameraSpatial.rotateTo(this.arCamera.quaternion);
+                mainCamera.updateMatrixWorld(true);
+            }
+
             this.renderer.setClearColor(0xffffff, 0);
-            this.onRenderFcts.forEach(fn => fn());
         }
 
         /** @type {PortalViewPart[]} */

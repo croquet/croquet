@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { ViewPart } from "../modelView";
 import { theKeyboardManager } from "../domKeyboardManager";
+import urlOptions from "../util/urlOptions";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
@@ -55,8 +56,17 @@ export default class PointerViewPart extends ViewPart {
     onMouseMove(clientX, clientY) {
         // calculate mouse position in normalized device coordinates
         // (-1 to +1) for both parts
+        // in at least the AR case, we can have a render element of different
+        // size from the window.  but we assume it's centred in the window.
+        /*
         this.mouse.x = (clientX / window.innerWidth) * 2 - 1;
         this.mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+        */
+        const centerX = window.innerWidth / 2, centerY = window.innerHeight / 2;
+        const canvas = document.getElementById('qanvas');
+        const canvW = parseInt(canvas.style.width, 10), canvH = parseInt(canvas.style.height, 10);
+        this.mouse.x = (clientX - centerX) / canvW * 2;
+        this.mouse.y = -(clientY - centerY) / canvH * 2;
     }
 
     onMouseDown() {
@@ -93,7 +103,7 @@ export default class PointerViewPart extends ViewPart {
         }
     }
 
-    updatePointer() {
+    updatePointer(withTouch) {
         this.raycaster.setFromCamera(this.mouse, this.cameraPart.threeObj);
         if (this.draggedViewPart) {
             const newVerticalDragPoint = this.raycaster.ray.intersectPlane(this.draggingVerticalPlane, new THREE.Vector3()) || this.dragStartPoint;
@@ -122,52 +132,55 @@ export default class PointerViewPart extends ViewPart {
             );
         }
         else {
-            const intersects = this.raycaster.intersectObject(this.scenePart.threeObj, true);
-            // look up effective THREE userData by traversing each intersected
-            // object's parent chain until we find one
-            for (const intersect of intersects) {
-                let currentObjInTree = intersect.object;
-                while (currentObjInTree) {
-                    if (currentObjInTree.userData.pointerSensitiveFor) {
-                        intersect.effectiveUserData = currentObjInTree.userData;
-                        intersect.effectiveObject = currentObjInTree;
-                        break;
-                    }
-                    else if (currentObjInTree.userData.ignorePointer) {
-                        break;
-                    }
-                    currentObjInTree = currentObjInTree.parent;
-                }
-            }
-            // sort intersects by
-            // 1) pointer layer as an overriding "priority"
-            // 2) distance from viewer for objects within one layer
-            intersects.sort((a, b) => {
-                const pointerLayerA = a.effectiveUserData ? a.effectiveUserData.pointerLayer : -1000;
-                const pointerLayerB = b.effectiveUserData ? b.effectiveUserData.pointerLayer : -1000;
-                const byPointerLayer = pointerLayerB - pointerLayerA;
-                const byDistance = a.distance - b.distance;
-                return byPointerLayer || byDistance;
-            });
             let newlyHoveredViewPart = null;
             let hoverPoint = null;
             let hoverNormal = null;
             let hoverThreeObj = null;
-            for (const intersect of intersects) {
-                const { point, effectiveUserData, effectiveObject, face } = intersect;
-                /** @type {ViewPartReference} */
-                const associatedViewPart = effectiveUserData && effectiveUserData.pointerSensitiveFor;
-                if (associatedViewPart) {
-                    newlyHoveredViewPart = associatedViewPart;
-                    hoverPoint = point;
-                    hoverNormal = face.normal;
-                    hoverThreeObj = effectiveObject;
-                    break;
+            if (!urlOptions.ar || withTouch) {
+                const intersects = this.raycaster.intersectObject(this.scenePart.threeObj, true);
+                // look up effective THREE userData by traversing each intersected
+                // object's parent chain until we find one
+                for (const intersect of intersects) {
+                    let currentObjInTree = intersect.object;
+                    while (currentObjInTree) {
+                        if (currentObjInTree.userData.pointerSensitiveFor) {
+                            intersect.effectiveUserData = currentObjInTree.userData;
+                            intersect.effectiveObject = currentObjInTree;
+                            break;
+                        }
+                        else if (currentObjInTree.userData.ignorePointer) {
+                            break;
+                        }
+                        currentObjInTree = currentObjInTree.parent;
+                    }
                 }
+                // sort intersects by
+                // 1) pointer layer as an overriding "priority"
+                // 2) distance from viewer for objects within one layer
+                intersects.sort((a, b) => {
+                    const pointerLayerA = a.effectiveUserData ? a.effectiveUserData.pointerLayer : -1000;
+                    const pointerLayerB = b.effectiveUserData ? b.effectiveUserData.pointerLayer : -1000;
+                    const byPointerLayer = pointerLayerB - pointerLayerA;
+                    const byDistance = a.distance - b.distance;
+                    return byPointerLayer || byDistance;
+                });
+                for (const intersect of intersects) {
+                    const { point, effectiveUserData, effectiveObject, face } = intersect;
+                    /** @type {ViewPartReference} */
+                    const associatedViewPart = effectiveUserData && effectiveUserData.pointerSensitiveFor;
+                    if (associatedViewPart) {
+                        newlyHoveredViewPart = associatedViewPart;
+                        hoverPoint = point;
+                        hoverNormal = face.normal;
+                        hoverThreeObj = effectiveObject;
+                        break;
+                    }
+                }
+                this.hoverPoint = hoverPoint;
+                this.hoverNormal = hoverNormal;
+                this.hoverThreeObj = hoverThreeObj;
             }
-            this.hoverPoint = hoverPoint;
-            this.hoverNormal = hoverNormal;
-            this.hoverThreeObj = hoverThreeObj;
+
             if (this.hoveredViewPart !== newlyHoveredViewPart) {
                 if (this.hoveredViewPart) {
                     this.publish(

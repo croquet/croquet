@@ -21,7 +21,6 @@ let hotState = module.hot && module.hot.data || {};
 
 const defaultRoom = window.location.hostname === "croquet.studio" ? "bounce" : "room1";
 
-
 // default message transcoders
 const XYZ = {
     encode: a => [a[0].x, a[0].y, a[0].z],
@@ -140,6 +139,10 @@ async function start() {
     const renderer = hotState.renderer || new Renderer(window.innerWidth, window.innerHeight);
     const keyboardManager = theKeyboardManager; //new KeyboardManager();
     window.keyboardManager = keyboardManager;
+
+    if (urlOptions.ar) hotreload.addDisposeHandler('ar', () => {
+        renderer.arToolkitContext.arController.dispose();
+        });
 
     hotState = null; // free memory, and prevent accidental access below
 
@@ -264,7 +267,7 @@ async function start() {
         const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
         if (currentRoomView) {
             currentRoomView.parts.pointer.onMouseMove(event.touches[0].clientX, event.touches[0].clientY);
-            currentRoomView.parts.pointer.updatePointer();
+            currentRoomView.parts.pointer.updatePointer(true); // force to handle the touch
             currentRoomView.parts.pointer.onMouseDown();
         }
         event.preventDefault();

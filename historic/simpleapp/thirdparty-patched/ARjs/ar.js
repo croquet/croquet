@@ -101,6 +101,13 @@ var Qb=[Ik,Zh,_h,Qj,Qi,Pi,Ri,Ag,sg,qg,rg,yg,kh,jh,Oi,Mj];var Rb=[Jk,ki,ji,gi];va
 		for (var t in this) {
 			this[t] = null;
 		}
+
+		delete window._a; // ael - I dunno; found in Chrome memory diagnostics...
+		delete window.artoolkit;
+		delete window.ARController;
+		delete window.ARCameraParam;
+		delete window.THREE;
+		delete window.Module; // ?? defined below
 	};
 
 	/**
@@ -6106,7 +6113,7 @@ ARjs.Source.prototype.domElementHeight = function(){
 
 ARjs.Source.prototype.onResizeElement = function(){
 	var _this = this
-	var screenWidth = window.innerWidth
+	var screenWidth = window.innerWidth // e.g. (for Chrome on Pixel 2) 412x691
 	var screenHeight = window.innerHeight
 
 	// sanity check
@@ -6117,7 +6124,7 @@ ARjs.Source.prototype.onResizeElement = function(){
 		var sourceWidth = this.domElement.naturalWidth
 		var sourceHeight = this.domElement.naturalHeight
 	}else if( this.domElement.nodeName === "VIDEO" ){
-		var sourceWidth = this.domElement.videoWidth
+		var sourceWidth = this.domElement.videoWidth // size of video source - e.g., 480x640
 		var sourceHeight = this.domElement.videoHeight
 	}else{
 		console.assert(false)
@@ -6149,6 +6156,7 @@ ARjs.Source.prototype.onResizeElement = function(){
 		this.domElement.style.marginLeft = '0px'
 	}
 }
+
 /*
 ARjs.Source.prototype.copyElementSizeTo = function(otherElement){
 	otherElement.style.width = this.domElement.style.width
@@ -6175,7 +6183,6 @@ ARjs.Source.prototype.copyElementSizeTo = function(otherElement){
 		otherElement.style.marginLeft = ((window.innerWidth- parseInt(otherElement.style.width))/2)+"px";
 		otherElement.style.marginTop = 0;
 	}
-
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -6399,6 +6406,7 @@ THREEx.HitTestingPlane.prototype.update = function(camera, pickingRoot, changeMa
 		var pickingCamera = this._pickingCamera
 		camera.updateMatrixWorld()
 		pickingCamera.matrix.copy(camera.matrixWorld)
+
 		// set position/quaternion/scale from pickingCamera.matrix
 		pickingCamera.matrix.decompose(pickingCamera.position, pickingCamera.quaternion, pickingCamera.scale)
 	}else console.assert(false)

@@ -59,7 +59,7 @@ class BallViewPart extends ViewPart {
 
 const BouncingBallElementView = Clickable({
     onClick: options => () => {
-        options.model.parts.spatial.toggle();
+        options.model.parts.spatial.future().toggle();
     }
 })(Tracking()(BallViewPart));
 
