@@ -66,6 +66,8 @@ export default class Island {
                 this.externalTime = snapshot.externalTime || 0;
                 /** @type {Number} sequence number for disambiguating messages with same timestamp */
                 this.sequence = snapshot.sequence || 0;
+                /** @type {Number} number for giving ids to model */
+                this.modelsId = snapshot.modelsId || 0;
                 if (snapshot.models) {
                     // create all models, uninitialized, but already registered
                     for (const modelState of snapshot.models || []) {
@@ -105,7 +107,7 @@ export default class Island {
 
     registerModel(model, id) {
         if (CurrentIsland !== this) throw Error("Island Error");
-        if (!id) id = "M" + this.randomID();
+        if (!id) id = "M" + ++this.modelsId;
         this.modelsById[id] = model;
         return id;
     }
@@ -340,6 +342,7 @@ export default class Island {
             externalTime: this.externalTime,
             sequence: this.sequence,
             random: this._random.state(),
+            modelsId: this.modelsId,
             models: Object.values(this.modelsById).map(model => {
                 const state = {};
                 model.save(state);
