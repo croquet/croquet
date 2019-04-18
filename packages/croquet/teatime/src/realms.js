@@ -69,9 +69,10 @@ class ViewRealm {
         this.island = island;
     }
 
-    register(view) {
+    register(_view) {
+        return viewDomain.createId();
     }
-    deregister(view) {
+    deregister(_view) {
     }
     publish(event, data, to) {
         this.island.publishFromView(to, event, data);
