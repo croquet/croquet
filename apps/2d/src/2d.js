@@ -223,7 +223,7 @@ class ShapeView extends View {
         el.className = model.type;
         el.id = model.id;
         el.style.backgroundColor = model.color;
-        this.subscribe(model.id, {event: 'pos-changed', oncePerFrame: true}, 'move');
+        this.subscribe(model.id, {event: 'pos-changed', oncePerFrame: true}, pos => this.move(pos));
         this.move(model.pos);
         this.enableDragging();
     }
@@ -324,9 +324,7 @@ async function go() {
         const starvation = Date.now() - controller.lastReceived;
         const backlog = controller.backlog;
         rootView.showStatus(backlog, starvation, 100, 3000);
-        Stats.animationFrame(timestamp);
-        Stats.users(controller.users);
-        Stats.network(starvation);
+        Stats.animationFrame(timestamp, {backlog, starvation, users: controller.users});
 
         if (users !== controller.users) {
             users = controller.users;

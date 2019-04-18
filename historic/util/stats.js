@@ -76,6 +76,7 @@ function endCurrentFrame(timestamp) {
     while (frames.length > Math.min(120, window.innerWidth)) frames.shift();
 
     // show average framerate
+    if (!fps.parentElement) { console.warn("who broke the stats div and canvas?"); div.appendChild(fps); div.appendChild(canvas); }
     fps.innerText = `${currentFrame.users} users, ${Math.round(1000/avgMS)} fps,
         backlog: ${currentFrame.backlog < 100 ? '0.0' : (currentFrame.backlog/1000).toFixed(1)} s`;
 
@@ -151,9 +152,10 @@ function endCurrentFrame(timestamp) {
 }
 
 const Stats = {
-    animationFrame(timestamp) {
+    animationFrame(timestamp, stats={}) {
         endCurrentFrame(timestamp);
         currentFrame = newFrame(timestamp);
+        for (const [key, value] of Object.entries(stats)) this[key](value);
     },
     begin(item) {
         const now = performance.now();
@@ -167,6 +169,9 @@ const Stats = {
         currentFrame.backlog = Math.max(ms, currentFrame.backlog);
     },
     network(ms) {
+        currentFrame.network = ms;
+    },
+    starvation(ms) {
         currentFrame.network = ms;
     },
     users(users) {

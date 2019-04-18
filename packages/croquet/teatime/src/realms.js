@@ -1,5 +1,8 @@
+import { viewDomain } from "./domain";
+
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
+
 
 class ModelRealm {
     constructor(island) {
@@ -16,13 +19,13 @@ class ModelRealm {
         this.island.publishFromModel(to, event, data);
     }
     subscribe(event, modelId, methodName, to) {
-        this.island.addModelSubscription(to, event, modelId, methodName);
+        this.island.addSubscription(to, event, modelId, methodName);
     }
     unsubscribe(event, modelId, methodName, to) {
-        this.island.removeModelSubscription(to, event, modelId, methodName);
+        this.island.removeSubscription(to, event, modelId, methodName);
     }
     unsubscribeAll(id) {
-        this.island.removeAllModelSubscriptionsFor(id);
+        this.island.removeAllSubscriptionsFor(id);
     }
 
     futureProxy(tOffset, model) {
@@ -67,22 +70,21 @@ class ViewRealm {
     }
 
     register(view) {
-        return this.island.registerView(view);
     }
     deregister(view) {
-        this.island.deregisterView(view.id);
     }
     publish(event, data, to) {
         this.island.publishFromView(to, event, data);
     }
     subscribe(event, viewId, methodName, to, oncePerFrame) {
-        this.island.addViewSubscription(to, event, viewId, methodName, oncePerFrame);
+        const handling = oncePerFrame ? "oncePerFrame" : "queued";
+        viewDomain.addSubscription(to, event, viewId, methodName, handling);
     }
     unsubscribe(event, viewId, methodName, to) {
-        this.island.removeViewSubscription(to, event, viewId, methodName);
+        viewDomain.removeSubscription(to, event, viewId, methodName);
     }
     unsubscribeAll(id) {
-        this.island.removeAllViewSubscriptionsFor(id);
+        viewDomain.removeAllSubscriptionsFor(id);
     }
 
     futureProxy(tOffset, view) {
