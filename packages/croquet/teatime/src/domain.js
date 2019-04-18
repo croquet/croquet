@@ -116,7 +116,7 @@ function _removeSubscriber(subscriptions, subscriber) {
     removeHandler(subscriptions.immediate);
     removeHandler(subscriptions.oncePerFrame);
     removeHandler(subscriptions.queued);
-    return subs.immediate.size + subs.queued.size + subs.oncePerFrame.size;
+    return subscriptions.immediate.size + subscriptions.queued.size + subscriptions.oncePerFrame.size;
 }
 
 export const viewDomain = new Domain();
