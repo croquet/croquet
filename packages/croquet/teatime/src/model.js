@@ -15,6 +15,7 @@ export default class Model {
         const model = new ModelClass();
         model.init(options);
         model.start();
+        if (!model.id) throw Error(`${model} has no ID, did you call super.init(options)?`);
         return model;
     }
 
@@ -36,6 +37,7 @@ export default class Model {
     load(state, allModels) {
         this.__realm = currentRealm();
         const id = state.id;
+        if (!allModels) throw Error("Please call super.init(state, allModels)");
         if (!allModels[id] === this) throw Error("Model ID mismatch");
         this.id = state.id;
     }

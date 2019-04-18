@@ -84,6 +84,7 @@ export default class Island {
                     for (const modelState of snapshot.models || []) {
                         const model = this.modelsById[modelState.id];
                         model.load(modelState, this.modelsById);
+                        if (!model.id) throw Error(`${model} has no ID, did you call super.load(state, allObjects)?`);
                     }
                     // restore messages
                     for (const messageState of snapshot.messages || []) {
@@ -109,6 +110,7 @@ export default class Island {
         if (CurrentIsland !== this) throw Error("Island Error");
         if (!id) id = "M" + ++this.modelsId;
         this.modelsById[id] = model;
+        // not assigning the id here catches missing super calls in init() and load()
         return id;
     }
 
