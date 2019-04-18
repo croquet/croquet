@@ -15,7 +15,7 @@ let CurrentIsland = null;
 
 const Math_random = Math.random.bind(Math);
 Math.random = () => {
-    if (CurrentIsland) throw Error("You must use this.island.random() in model code!");
+    if (CurrentIsland) return CurrentIsland.random();
     return Math_random();
 };
 hotreload.addDisposeHandler("math-random", () => Math.random = Math_random);
