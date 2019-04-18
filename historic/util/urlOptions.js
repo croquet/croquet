@@ -30,4 +30,15 @@ function parseUrlOptionString(optionString) {
 
 parseUrl();
 
+// has('debug', 'recv') matches debug=recv and debug=send,recv
+urlOptions.has = (key, optVal) => {
+    const val = urlOptions[key];
+    if (!val || !optVal) return val;
+    if (val === optVal) return true;
+    if (typeof val !== "string") return false;
+    const vals = string.split(',');
+    return vals.includes(optVal);
+}
+
+
 export default urlOptions;

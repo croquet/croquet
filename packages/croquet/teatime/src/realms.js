@@ -1,7 +1,14 @@
+import urlOptions from "@croquet/util/urlOptions";
 import { viewDomain } from "./domain";
+
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
+
+
+const DEBUG = {
+    subscribe: urlOptions.has("debug", "subscribe"),
+}
 
 
 class ModelRealm {
@@ -15,17 +22,20 @@ class ModelRealm {
     deregister(model) {
         this.island.deregisterModel(model.id);
     }
-    publish(event, data, to) {
-        this.island.publishFromModel(to, event, data);
+    publish(event, data, scope) {
+        this.island.publishFromModel(scope, event, data);
     }
-    subscribe(event, modelId, methodName, to) {
-        this.island.addSubscription(to, event, modelId, methodName);
+    subscribe(event, modelId, methodName, scope) {
+        if (DEBUG.subscribe) console.log(`Model.subscribe(${scope}:${event}) ${modelId}.${methodName}`);
+        this.island.addSubscription(scope, event, modelId, methodName);
     }
-    unsubscribe(event, modelId, methodName, to) {
-        this.island.removeSubscription(to, event, modelId, methodName);
+    unsubscribe(event, modelId, methodName, scope) {
+        if (DEBUG.subscribe) console.log(`Model.unsubscribe(${scope}:${event}) ${modelId}.${methodName}`);
+        this.island.removeSubscription(scope, event, modelId, methodName);
     }
-    unsubscribeAll(id) {
-        this.island.removeAllSubscriptionsFor(id);
+    unsubscribeAll(modelId) {
+        if (DEBUG.subscribe) console.log(`View.unsubscribeAll(${modelId}`);
+        this.island.removeAllSubscriptionsFor(modelId);
     }
 
     futureProxy(tOffset, model) {
@@ -74,18 +84,21 @@ class ViewRealm {
     }
     deregister(_view) {
     }
-    publish(event, data, to) {
-        this.island.publishFromView(to, event, data);
+    publish(event, data, scope) {
+        this.island.publishFromView(scope, event, data);
     }
-    subscribe(event, viewId, methodName, to, oncePerFrame) {
+    subscribe(event, viewId, callback, scope, oncePerFrame) {
         const handling = oncePerFrame ? "oncePerFrame" : "queued";
-        viewDomain.addSubscription(to, event, viewId, methodName, handling);
+        if (DEBUG.subscribe) console.log(`View.subscribe(${scope}:${event}) ${viewId}.${callback} [${handling}]`);
+        viewDomain.addSubscription(scope, event, viewId, callback, handling);
     }
-    unsubscribe(event, viewId, methodName, to) {
-        viewDomain.removeSubscription(to, event, viewId, methodName);
+    unsubscribe(event, viewId, callback, scope) {
+        if (DEBUG.subscribe) console.log(`View.unsubscribe(${scope}:${event}) ${viewId}.${callback}`);
+        viewDomain.removeSubscription(scope, event, viewId, callback);
     }
-    unsubscribeAll(id) {
-        viewDomain.removeAllSubscriptionsFor(id);
+    unsubscribeAll(viewId) {
+        if (DEBUG.subscribe) console.log(`View.unsubscribeAll(${viewId}`);
+        viewDomain.removeAllSubscriptionsFor(viewId);
     }
 
     futureProxy(tOffset, view) {
