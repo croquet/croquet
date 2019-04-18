@@ -17,6 +17,13 @@ export class Domain {
         this.lastId = 0;
     }
 
+    register(_object) {
+        return "V" + ++this.lastId;
+    }
+
+    deregister(_object) {
+    }
+
     /** Add a subscription
      *
      * @param {String} scope - a string that publishers and subscribers agree on
@@ -103,11 +110,6 @@ export class Domain {
             }
         }
         this.frameEventMap.clear();
-    }
-
-    createId() {
-        this.lastId += 1;
-        return "V" + this.lastId;
     }
 
 }
