@@ -324,9 +324,7 @@ async function go() {
         const starvation = Date.now() - controller.lastReceived;
         const backlog = controller.backlog;
         rootView.showStatus(backlog, starvation, 100, 3000);
-        Stats.animationFrame(timestamp);
-        Stats.users(controller.users);
-        Stats.network(starvation);
+        Stats.animationFrame(timestamp, {backlog, starvation, users: controller.users});
 
         if (users !== controller.users) {
             users = controller.users;

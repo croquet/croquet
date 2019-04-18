@@ -151,9 +151,10 @@ function endCurrentFrame(timestamp) {
 }
 
 const Stats = {
-    animationFrame(timestamp) {
+    animationFrame(timestamp, stats={}) {
         endCurrentFrame(timestamp);
         currentFrame = newFrame(timestamp);
+        for (const [key, value] of Object.entries(stats)) this[key](value);
     },
     begin(item) {
         const now = performance.now();
@@ -167,6 +168,9 @@ const Stats = {
         currentFrame.backlog = Math.max(ms, currentFrame.backlog);
     },
     network(ms) {
+        currentFrame.network = ms;
+    },
+    starvation(ms) {
         currentFrame.network = ms;
     },
     users(users) {
