@@ -109,12 +109,13 @@ export class Domain {
 
 function _removeSubscriber(subscriptions, subscriber) {
     function removeHandler(handlers) {
-        const handler = handlers.find(handler => handler.for === subscriber);
-        if (handler) handlers.delete(handler);
+        for (const handler of handlers) {
+            if (handler.for === subscriber) handlers.delete(handler);
+        }
     };
-    removeHandler(subs.immediate);
-    removeHandler(subs.oncePerFrame);
-    removeHandler(subs.queued);
+    removeHandler(subscriptions.immediate);
+    removeHandler(subscriptions.oncePerFrame);
+    removeHandler(subscriptions.queued);
     return subs.immediate.size + subs.queued.size + subs.oncePerFrame.size;
 }
 
