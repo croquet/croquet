@@ -20,13 +20,13 @@ const defaultRoom = window.location.hostname === "croquet.studio" ? "bounce" : "
 
 
 // default message transcoders
-const XYZ = {
+const Vec3 = {
     encode: a => [a[0].x, a[0].y, a[0].z],
-    decode: a => [{ x: a[0], y: a[1], z: a[2] }],
+    decode: a => [new THREE.Vector3(a[0], a[1], a[2])],
 };
-const XYZW = {
+const Quat = {
     encode: a => [a[0].x, a[0].y, a[0].z, a[0].w],
-    decode: a => [{ x: a[0], y: a[1], z: a[2], w: a[3] }],
+    decode: a => [new THREE.Quaternion(a[0], a[1], a[2], a[3])],
 };
 const Identity = {
     encode: a => a,
@@ -37,8 +37,8 @@ let codeHashes = null;
 
 /** The main function. */
 async function start() {
-    Controller.addMessageTranscoder('*#moveTo', XYZ);
-    Controller.addMessageTranscoder('*#rotateTo', XYZW);
+    Controller.addMessageTranscoder('*#moveTo', Vec3);
+    Controller.addMessageTranscoder('*#rotateTo', Quat);
     Controller.addMessageTranscoder('*#onKeyDown', Identity);
     Controller.addMessageTranscoder('*#updateContents', Identity);
     Controller.addMessageTranscoder('*#setColor', Identity);

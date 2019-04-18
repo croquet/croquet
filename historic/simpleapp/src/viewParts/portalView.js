@@ -33,9 +33,9 @@ export default class PortalViewPart extends ViewPart {
         group.quaternion.copy(source.parts.spatial.quaternion);
         group.scale.copy(source.parts.spatial.scale);
 
-        this.subscribe(source.parts.spatial.id, SpatialEvents.moved, "onMoved");
-        this.subscribe(source.parts.spatial.id, SpatialEvents.rotated, "onRotated");
-        this.subscribe(source.parts.spatial.id, SpatialEvents.scaled, "onScaled");
+        this.subscribe(source.parts.spatial.id, SpatialEvents.moved, data => this.onMoved(data));
+        this.subscribe(source.parts.spatial.id, SpatialEvents.rotated, data => this.onRotated(data));
+        this.subscribe(source.parts.spatial.id, SpatialEvents.scaled, data => this.onScaled(data));
 
         group.children[0].layers.disable(RENDER_LAYERS.NORMAL);
         group.children[0].layers.enable(RENDER_LAYERS.ALL_PORTALS);

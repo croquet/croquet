@@ -33,13 +33,13 @@ export default class EditableTextViewPart extends ViewPart {
                margins: {left: 0, right: 0, top: 0, bottom: 0}, ...options};
 
         if (this.options.editable) {
-            this.subscribe(this.id, PointerEvents.pointerDown, "onPointerDown");
-            this.subscribe(this.id, PointerEvents.pointerDrag, "onPointerDrag");
-            this.subscribe(this.id, PointerEvents.pointerUp, "onPointerUp");
-            this.subscribe(this.id, KeyboardEvents.keydown, "onKeyDown");
-            this.subscribe(this.id, KeyboardEvents.copy, "onCopy");
-            this.subscribe(this.id, KeyboardEvents.cut, "onCut");
-            this.subscribe(this.id, KeyboardEvents.paste, "onPaste");
+            this.subscribe(this.id, PointerEvents.pointerDown, data => this.onPointerDown(data));
+            this.subscribe(this.id, PointerEvents.pointerDrag, data => this.onPointerDrag(data));
+            this.subscribe(this.id, PointerEvents.pointerUp, data => this.onPointerUp(data));
+            this.subscribe(this.id, KeyboardEvents.keydown, data => this.onKeyDown(data));
+            this.subscribe(this.id, KeyboardEvents.copy, data => this.onCopy(data));
+            this.subscribe(this.id, KeyboardEvents.cut, data => this.onCut(data));
+            this.subscribe(this.id, KeyboardEvents.paste, data => this.onPaste(data));
         }
 
         const boxMesh = this.initBoxMesh();
@@ -53,7 +53,7 @@ export default class EditableTextViewPart extends ViewPart {
 
         if (this.options.editable) {
             makePointerSensitive(boxMesh, this);
-            this.subscribe(this.textPart.id, TextEvents.changed, "onChanged");
+            this.subscribe(this.textPart.id, TextEvents.changed, data => this.onChanged(data));
         }
 
         this.threeObj = boxMesh;

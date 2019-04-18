@@ -42,7 +42,7 @@ export class KiwiLayoutContainer extends KiwiLayoutNode {
     /** @arg {KiwiLayoutNode} child */
     addChild(child, publishContentChanged=true) {
         this.children.push(child);
-        this.subscribe(child.id, KiwiLayoutEvents.contentChanged, "onChildContentChanged");
+        this.subscribe(child.id, KiwiLayoutEvents.contentChanged, data => this.onChildContentChanged(data));
         if (publishContentChanged) this.publish(this.id, KiwiLayoutEvents.contentChanged, {});
         this.group.add(...child.threeObjs());
     }

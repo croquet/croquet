@@ -13,9 +13,9 @@ export class EntryBackgroundPlane extends ViewPart {
             new THREE.MeshBasicMaterial({color: options.color || "#ffffff"})
         );
         makePointerSensitive(this.threeObj, this, 2);
-        this.subscribe(this.id, PointerEvents.pointerEnter, "onStartHover");
-        this.subscribe(this.id, PointerEvents.pointerLeave, "onEndHover");
-        this.subscribe(this.id, PointerEvents.pointerUp, "onClick");
+        this.subscribe(this.id, PointerEvents.pointerEnter, data => this.onStartHover(data));
+        this.subscribe(this.id, PointerEvents.pointerLeave, data => this.onEndHover(data));
+        this.subscribe(this.id, PointerEvents.pointerUp, data => this.onClick(data));
     }
 
     onStartHover() {

@@ -57,7 +57,7 @@ export default class RoomView extends ViewPart {
             });
 
             this.traversePortalToRoom = options.traversePortalToRoom;
-            this.subscribe(PortalTopic, PortalEvents.traversed, "onPortalTraversed");
+            this.subscribe(PortalTopic, PortalEvents.traversed, data => this.onPortalTraversed(data));
         }
     }
 
@@ -99,7 +99,7 @@ class RoomScene extends ViewPart {
         // this.scene.add(new THREE.AxesHelper(5));
         this.threeObj = this.scene;
 
-        this.subscribe(options.room.parts.color.id, ColorEvents.changed, "colorChanged");
+        this.subscribe(options.room.parts.color.id, ColorEvents.changed, data => this.colorChanged(data));
     }
 
     colorChanged(newColor) {
@@ -147,7 +147,7 @@ class InteractionDome extends ViewPart {
 
         this.scenePart.threeObj.add(this.threeObj);
         makePointerSensitive(this.threeObj, this, -1);
-        this.subscribe(this.id, PointerEvents.pointerUp, "onClick");
+        this.subscribe(this.id, PointerEvents.pointerUp, data => this.onClick(data));
     }
 
     onClick({dragEndOnVerticalPlane}) {
@@ -172,8 +172,8 @@ class ElementViewManager extends ViewPart {
             this.onElementAdded(element);
         }
 
-        this.subscribe(options.room.parts.elements.id, ChildEvents.childAdded, "onElementAdded");
-        this.subscribe(options.room.parts.elements.id, ChildEvents.childRemoved, "onElementRemoved");
+        this.subscribe(options.room.parts.elements.id, ChildEvents.childAdded, data => this.onElementAdded(data));
+        this.subscribe(options.room.parts.elements.id, ChildEvents.childRemoved, data => this.onElementRemoved(data));
     }
 
     onElementAdded(element) {
@@ -232,10 +232,10 @@ class TreadmillNavigation extends ViewPart {
         group.add(this.moveCursor);
         group.add(this.rotateCursor);
 
-        this.subscribe(this.id, PointerEvents.pointerMove, "onHoverTreadmillMove");
-        this.subscribe(this.id, PointerEvents.pointerLeave, "onHoverTreadmillLeave");
-        this.subscribe(this.id, PointerEvents.pointerDown, "onDragTreadmillStart");
-        this.subscribe(this.id, PointerEvents.pointerDrag, "onDragTreadmill");
+        this.subscribe(this.id, PointerEvents.pointerMove, data => this.onHoverTreadmillMove(data));
+        this.subscribe(this.id, PointerEvents.pointerLeave, data => this.onHoverTreadmillLeave(data));
+        this.subscribe(this.id, PointerEvents.pointerDown, data => this.onDragTreadmillStart(data));
+        this.subscribe(this.id, PointerEvents.pointerDrag, data => this.onDragTreadmill(data));
         this.threeObj = group;
         this.scenePart.threeObj.add(group);
     }

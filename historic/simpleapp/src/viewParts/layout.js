@@ -73,14 +73,14 @@ export class LayoutContainer extends LayoutViewPart {
         this.threeObj = this.group;
         for (const child of options.children || []) this.addChild(child, false);
         this.publish(this.id, LayoutEvents.contentChanged, {});
-        this.subscribe(this.id, LayoutEvents.layoutChanged, "onLayoutChanged");
+        this.subscribe(this.id, LayoutEvents.layoutChanged, data => this.onLayoutChanged(data));
     }
 
     /** @arg {LayoutViewPart} child */
     addChild(child, publishContentChanged=true) {
         this.children.push(child);
         this.yogaNode.insertChild(child.yogaNode, this.yogaNode.getChildCount());
-        this.subscribe(child.id, LayoutEvents.contentChanged, "onChildContentChanged");
+        this.subscribe(child.id, LayoutEvents.contentChanged, data => this.onChildContentChanged(data));
         if (publishContentChanged) this.publish(this.id, LayoutEvents.contentChanged, {});
         this.group.add(...child.threeObjs());
     }
@@ -138,7 +138,7 @@ export class LayoutSlot extends LayoutViewPart {
      */
     constructor(options) {
         super(options);
-        this.subscribe(this.id, LayoutEvents.layoutChanged, "onLayoutChanged");
+        this.subscribe(this.id, LayoutEvents.layoutChanged, data => this.onLayoutChanged(data));
         this.parts = {inner: options.inner};
     }
 
@@ -217,7 +217,7 @@ export class LayoutStack extends LayoutContainer {
         this.yogaNode.insertChild(wrapperNode, this.yogaNode.getChildCount());
         if (!this.wrapperNodesForChildren) this.wrapperNodesForChildren = new Map();
         this.wrapperNodesForChildren.set(child, wrapperNode);
-        this.subscribe(child.id, LayoutEvents.contentChanged, "onChildContentChanged");
+        this.subscribe(child.id, LayoutEvents.contentChanged, data => this.onChildContentChanged(data));
         if (publishContentChanged) this.publish(this.id, LayoutEvents.contentChanged, {});
         this.group.add(...child.threeObjs());
     }

@@ -4,7 +4,7 @@ import { KeyboardEvents, KeyboardTopic, theKeyboardManager } from "../domKeyboar
 export class KeyboardViewPart extends ViewPart {
     constructor(model, options) {
         super(model, options);
-        this.subscribe(KeyboardTopic, KeyboardEvents.requestfocus, "onRequestFocus");
+        this.subscribe(KeyboardTopic, KeyboardEvents.requestfocus, data => this.onRequestFocus(data));
         this.focus = null;
     }
 

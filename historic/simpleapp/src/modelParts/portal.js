@@ -28,7 +28,7 @@ export default class PortalPart extends ModelPart {
     init(options) {
         super.init(options);
         this.there = options.there;
-        this.subscribe(PortalTopic, PortalEvents.traverserMoved, "onTraverserMoved");
+        this.subscribe(PortalTopic, PortalEvents.traverserMoved, data => this.onTraverserMoved(data));
     }
 
     load(state) {

@@ -14,15 +14,15 @@ export default function Tracking(trackingOptions={}) {
             // TODO: what to do if the inner view has multiple threeObjs?
             if (trackingOptions.position) {
                 this.threeObj.position.copy(source.position);
-                this.subscribe(source.id, SpatialEvents.moved, "onMoved");
+                this.subscribe(source.id, SpatialEvents.moved, data => this.onMoved(data));
             }
             if (trackingOptions.scale) {
                 this.threeObj.scale.copy(source.scale);
-                this.subscribe(source.id, SpatialEvents.scaled, "onScaled");
+                this.subscribe(source.id, SpatialEvents.scaled, data => this.onScaled(data));
             }
             if (trackingOptions.rotation) {
                 this.threeObj.quaternion.copy(source.quaternion);
-                this.subscribe(source.id, SpatialEvents.rotated, "onRotated");
+                this.subscribe(source.id, SpatialEvents.rotated, data => this.onRotated(data));
             }
         }
 

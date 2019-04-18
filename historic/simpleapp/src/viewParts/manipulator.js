@@ -29,10 +29,10 @@ class TranslationManipulator extends ViewPart {
         makePointerSensitive(this.moveHandle, this);
         this.group.add(this.moveHandle);
 
-        this.subscribe(this.id, PointerEvents.pointerEnter, "onPointerEnter");
-        this.subscribe(this.id, PointerEvents.pointerLeave, "onPointerLeave");
-        this.subscribe(this.id, PointerEvents.pointerDown, "onPointerDown");
-        this.subscribe(this.id, PointerEvents.pointerDrag, "onPointerDrag");
+        this.subscribe(this.id, PointerEvents.pointerEnter, data => this.onPointerEnter(data));
+        this.subscribe(this.id, PointerEvents.pointerLeave, data => this.onPointerLeave(data));
+        this.subscribe(this.id, PointerEvents.pointerDown, data => this.onPointerDown(data));
+        this.subscribe(this.id, PointerEvents.pointerDrag, data => this.onPointerDrag(data));
 
         this.threeObj = this.group;
     }
@@ -76,10 +76,10 @@ class RotationManipulator extends ViewPart {
         makePointerSensitive(this.rotateHandle, this);
         this.group.add(this.rotateHandle);
 
-        this.subscribe(this.id, PointerEvents.pointerEnter, "onPointerEnter");
-        this.subscribe(this.id, PointerEvents.pointerLeave, "onPointerLeave");
-        this.subscribe(this.id, PointerEvents.pointerDown, "onPointerDown");
-        this.subscribe(this.id, PointerEvents.pointerDrag, "onPointerDrag");
+        this.subscribe(this.id, PointerEvents.pointerEnter, data => this.onPointerEnter(data));
+        this.subscribe(this.id, PointerEvents.pointerLeave, data => this.onPointerLeave(data));
+        this.subscribe(this.id, PointerEvents.pointerDown, data => this.onPointerDown(data));
+        this.subscribe(this.id, PointerEvents.pointerDrag, data => this.onPointerDrag(data));
 
         this.threeObj = this.group;
     }

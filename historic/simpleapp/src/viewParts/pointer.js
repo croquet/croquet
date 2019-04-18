@@ -49,7 +49,7 @@ export default class PointerViewPart extends ViewPart {
         this.dragEndOnHorizontalPlane = new THREE.Vector3();
         this.dragEndOnUserPlane = new THREE.Vector3();
 
-        this.subscribe(TrackPlaneTopic, TrackPlaneEvents.requestTrackPlane, "onRequestTrackPlane");
+        this.subscribe(TrackPlaneTopic, TrackPlaneEvents.requestTrackPlane, data => this.onRequestTrackPlane(data));
     }
 
     onMouseMove(clientX, clientY) {

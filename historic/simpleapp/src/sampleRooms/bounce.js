@@ -80,8 +80,8 @@ const GroupElementView = Tracking()(class extends ViewPart {
         super(options);
         this.viewsForChildElements = {};
 
-        this.subscribe(options.model.parts.children.id, ChildEvents.childAdded, "onElementAdded");
-        this.subscribe(options.model.parts.children.id, ChildEvents.childRemoved, "onElementRemoved");
+        this.subscribe(options.model.parts.children.id, ChildEvents.childAdded, data => this.onElementAdded(data));
+        this.subscribe(options.model.parts.children.id, ChildEvents.childRemoved, data => this.onElementRemoved(data));
         this.group = new THREE.Group();
         this.threeObj = this.group;
 
@@ -138,7 +138,7 @@ function initBounce(options) {
     }
     const text1 = TextElement.create({
         spatial: { position: new THREE.Vector3(-2.25, 3, -2) },
-        text: { content: {runs: [{text: ["Croquet runs identically on any platform. Load this in another page to compare. Drag the cubes."]}]} },
+        text: { content: {runs: [{text: "Croquet runs identically on any platform. Load this in another page to compare. Drag the cubes."}]} },
         editable: false
     });
     room.parts.elements.add(text1);
