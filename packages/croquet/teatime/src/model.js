@@ -107,10 +107,14 @@ function gatherModelClasses() {
     }
 }
 
+function hasID(cls) {
+    return Object.prototype.hasOwnProperty.call(cls, CLASS_ID);
+}
+
 function classToID(cls) {
-    if (cls.hasOwnProperty(CLASS_ID)) return cls[CLASS_ID];
+    if (hasID(cls)) return cls[CLASS_ID];
     gatherModelClasses();
-    if (cls.hasOwnProperty(CLASS_ID)) return cls[CLASS_ID];
+    if (hasID(cls)) return cls[CLASS_ID];
     throw Error(`Class "${cls.name}" not found, is it exported?`);
 }
 
@@ -129,7 +133,7 @@ function registerClass(file, cls, warnAboutDupes) {
         if (warnAboutDupes) console.warn(`deduplicating class ${cls.name} from ${file}`);
         return cls;
     }
-    if (cls.hasOwnProperty(CLASS_ID)) {
+    if (hasID(cls)) {
         console.warn(`ignoring re-exported class ${cls.name} from ${file}`);
     } else {
         console.log(`registering class ${cls.name} from ${file}`);
