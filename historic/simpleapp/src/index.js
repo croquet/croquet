@@ -141,7 +141,8 @@ async function start() {
     window.keyboardManager = keyboardManager;
 
     if (urlOptions.ar) hotreload.addDisposeHandler('ar', () => {
-        renderer.arToolkitContext.arController.dispose();
+        try { renderer.arToolkitContext.arController.dispose(); }
+        catch(e) { /* empty */ }
         });
 
     hotState = null; // free memory, and prevent accidental access below
