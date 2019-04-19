@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "browser": {
-    "ws": "./ws.js"
+    "ws": "./ws.js",
+    "fs": "./fs.js"
   },
   "author": "",
   "license": "ISC",
