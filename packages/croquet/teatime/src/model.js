@@ -9,7 +9,7 @@ export default class Model {
     // mark this and subclasses as model classes
     // used in classToID / classFromID below
     static __isTeatimeModelClass__() { return true; }
-    static registerClass(file, cls) { return registerClass(file, cls); }
+    static registerClass(file, cls) { return registerClass(file, cls, true); }
 
     static create(options) {
         const ModelClass = this;
@@ -101,7 +101,7 @@ function gatherModelClasses() {
     for (const [file, m] of Object.entries(module.bundle.cache)) {
         for (const cls of Object.values(m.exports)) {
             if (cls && cls.__isTeatimeModelClass__) {
-                registerClass(file, cls);
+                registerClass(file, cls, false);
             }
         }
     }
@@ -121,16 +121,21 @@ function classFromID(classID) {
     throw Error(`Class "${classID}" not found, is it exported?`);
 }
 
-function registerClass(file, cls) {
+function registerClass(file, cls, warnAboutDupes) {
     // create a classID for this class
     const id = `${file}:${cls.name}`;
     const dupe = ModelClasses[id];
     if (dupe) {
-        console.warn(`deduplicating Model subclass "${id}" in ${file}`);
+        if (warnAboutDupes) console.warn(`deduplicating class ${cls.name} from ${file}`);
         return cls;
     }
+    if (cls.hasOwnProperty(CLASS_ID)) {
+        console.warn(`ignoring re-exported class ${cls.name} from ${file}`);
+    } else {
+        console.log(`registering class ${cls.name} from ${file}`);
+        cls[CLASS_ID] = id;
+    }
     ModelClasses[id] = {cls, file};
-    cls[CLASS_ID] = id;
     return cls;
 }
 
