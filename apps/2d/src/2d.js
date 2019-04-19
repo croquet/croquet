@@ -65,6 +65,8 @@ export class Shape extends Model {
         this.type = options.type || 'circle';
         this.color = options.color || `hsla(${r(360)},${r(50)+50}%,50%,0.5)`;
         this.pos = [r(1000), r(1000)];
+        this.subscribe(this.id, "move-to", pos => this.moveTo(pos));
+        this.subscribe(this.id, "move-by", delta => this.moveBy(delta));
         return this;
     }
 
@@ -80,12 +82,6 @@ export class Shape extends Model {
         state.type = this.type;
         state.color = this.color;
         state.pos = this.pos;
-    }
-
-    start() {
-        super.start();
-        this.subscribe(this.id, "move-to", pos => this.moveTo(pos));
-        this.subscribe(this.id, "move-by", delta => this.moveBy(delta));
     }
 
     // non-inherited methods below

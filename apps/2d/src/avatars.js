@@ -32,6 +32,11 @@ export class Root extends Model {
         this.children = [];
     }
 
+    init() {
+        super.init();
+        this.subscribe(this.id, "user-is-active", user => this.ensureUser(user));
+    }
+
     load(state, allModels) {
         super.load(state, allModels);
         state.children.forEach(id => this.add(allModels[id]));
@@ -40,11 +45,6 @@ export class Root extends Model {
     save(state) {
         super.save(state);
         state.children = this.children.map(child => child.id);
-    }
-
-    start() {
-        super.start();
-        this.subscribe(this.id, "user-is-active", user => this.ensureUser(user));
     }
 
     // non-inherited methods below
@@ -83,6 +83,8 @@ export class Shape extends Model {
         this.type = options.type || 'circle';
         this.color = options.color || `hsla(${r(360)},${r(50)+50}%,50%,0.5)`;
         this.pos = [r(1000), r(1000)];
+        this.subscribe(this.id, "move-to", pos => this.moveTo(pos));
+        this.subscribe(this.id, "move-by", delta => this.moveBy(delta));
         return this;
     }
 
@@ -98,12 +100,6 @@ export class Shape extends Model {
         state.type = this.type;
         state.color = this.color;
         state.pos = this.pos;
-    }
-
-    start() {
-        super.start();
-        this.subscribe(this.id, "move-to", pos => this.moveTo(pos));
-        this.subscribe(this.id, "move-by", delta => this.moveBy(delta));
     }
 
     // non-inherited methods below
@@ -132,6 +128,7 @@ export class UserShape extends Shape {
         this.user = options.user;
         this.active = true;
         this.future(INACTIVE_MS).step();
+        this.subscribe(this.id, "user-inactive", () => this.whenInactive());
         return this;
     }
 
@@ -147,11 +144,6 @@ export class UserShape extends Shape {
         state.parent = this.parent.id;
         state.user = this.user;
         state.active = this.active;
-    }
-
-    start() {
-        super.start();
-        this.subscribe(this.id, "user-inactive", () => this.whenInactive());
     }
 
     // non-inherited methods below

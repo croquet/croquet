@@ -14,7 +14,6 @@ export default class Model {
         const ModelClass = this;
         const model = new ModelClass();
         model.init(options);
-        model.start();
         if (!model.id) throw Error(`${model} has no ID, did you call super.init(options)?`);
         return model;
     }
@@ -46,8 +45,6 @@ export default class Model {
         state.id = this.id;
         state.class = classToID(this.constructor);
     }
-
-    start() { }
 
     // Pub / Sub
 

@@ -94,10 +94,6 @@ export default class Island {
                     }
                     // now it's safe to use stored random
                     this._random = new SeedRandom(null, { state: snapshot.random });
-                    // start all models
-                    for (const model of Object.values(this.modelsById)) {
-                        model.start();
-                    }
                 } else {
                     // create new random, it is okay to use in init code
                     this._random = new SeedRandom(null, { state: true });

@@ -64,10 +64,6 @@ export class ModelPart extends WithParts(Model) {
             part.save(state[name]);
         });
     }
-
-    start() {
-        this.forEachPart(part => part.start());
-    }
 }
 
 export class ViewPart extends WithParts(View) {
