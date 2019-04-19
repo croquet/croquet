@@ -350,6 +350,7 @@ export default class Island {
             models: Object.values(this.modelsById).map(model => {
                 const state = {};
                 model.save(state);
+                if (!state.class) throw Error(`Did ${model} forget to call super.save(state)?`);
                 return state;
             }),
             namedModels,

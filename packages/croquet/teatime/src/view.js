@@ -44,6 +44,6 @@ export default class View {
     [Symbol.toPrimitive]() {
         const className = this.constructor.name;
         if (className.includes('View')) return className;
-        return `View:${className}`;
+        return `${className}[View]`;
     }
 }

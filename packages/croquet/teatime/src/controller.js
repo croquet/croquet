@@ -115,11 +115,7 @@ export default class Controller {
         if (options) name += JSON.stringify(Object.values(options)); // include options in hash
         const id = await Controller.versionIDFor(name, moduleID);
         console.log(`ID for ${name}: ${id}`);
-        this.islandCreator = {
-            name,
-            ...creator,
-            creatorFn: snapshot => new Island(snapshot, () => creator.creatorFn(creator.options)),
-        };
+        this.islandCreator = { name, ...creator };
         if (!this.islandCreator.snapshot) {
             this.islandCreator.snapshot = { id, time: 0, meta: { created: (new Date()).toISOString() } };
         }
@@ -274,7 +270,7 @@ export default class Controller {
 
     async install(drainQueue=false) {
         const {snapshot, creatorFn, options, callbackFn} = this.islandCreator;
-        const newIsland = creatorFn(snapshot, options);
+        let newIsland = new Island(snapshot, () => creatorFn(options));
         const snapshotTime = newIsland.time;
         this.time = snapshotTime;
         // eslint-disable-next-line no-constant-condition
@@ -301,7 +297,7 @@ export default class Controller {
     createCleanIsland() {
         const { options, creatorFn } = this.islandCreator;
         const snapshot = { id: this.id };
-        return creatorFn(snapshot, options);
+        return new Island(snapshot, () => creatorFn(options));
     }
 
     // network queue

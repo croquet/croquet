@@ -36,7 +36,7 @@ export default class Model {
     load(state, allModels) {
         this.__realm = currentRealm();
         const id = state.id;
-        if (!allModels) throw Error("Please call super.init(state, allModels)");
+        if (!allModels) throw Error(`Did ${this}.load() forget to pass allModels as super.load(state, allModels)?`);
         if (!allModels[id] === this) throw Error("Model ID mismatch");
         this.id = state.id;
     }
@@ -82,7 +82,7 @@ export default class Model {
     [Symbol.toPrimitive]() {
         const className = this.constructor.name;
         if (className.includes('Model')) return className;
-        return `Model:${className}`;
+        return `${className}[Model]`;
     }
 }
 
@@ -113,9 +113,9 @@ function gatherModelClasses() {
 }
 
 function classToID(cls) {
-    if (cls[CLASS_ID]) return cls[CLASS_ID];
+    if (cls.hasOwnProperty(CLASS_ID)) return cls[CLASS_ID];
     gatherModelClasses();
-    if (cls[CLASS_ID]) return cls[CLASS_ID];
+    if (cls.hasOwnProperty(CLASS_ID)) return cls[CLASS_ID];
     throw Error(`Class "${cls.name}" not found, is it exported?`);
 }
 
