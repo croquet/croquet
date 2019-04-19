@@ -28,12 +28,14 @@ function AutoRotating() {
     };
 }
 
+export const AutoRotatingInertialSpatialPart = AutoRotating()(Inertial()(SpatialPart));
+
 /** Element for a rotating Box */
 export class RotatingBoxElement extends ModelPart {
     constructor() {
         super();
         this.parts = {
-            spatial: new (AutoRotating()(Inertial()(SpatialPart)))()
+            spatial: new AutoRotatingInertialSpatialPart(),
         };
     }
 

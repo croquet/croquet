@@ -23,10 +23,12 @@ export class BoxElement extends ModelPart {
     naturalViewClass() { return BoxElementView; }
 }
 
+export const BouncingSpatialPart = Bouncing()(SpatialPart);
+
 export class BouncingBallElement extends ModelPart {
     constructor() {
         super();
-        this.parts = {spatial: new (Bouncing()(SpatialPart))()};
+        this.parts = { spatial: new BouncingSpatialPart() };
     }
 
     naturalViewClass() { return BouncingBallElementView; }
