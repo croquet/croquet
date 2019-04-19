@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { Model } from "@croquet/teatime";
 import Inertial from "./inertial";
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
@@ -8,7 +9,7 @@ if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle
  * @arg {typeof import('./spatial.js').default} BaseSpatialPartClass
 */
 export default function Bouncing() {
-    return BaseSpatialPartClass => class BouncingSpatialPart extends Inertial()(BaseSpatialPartClass) {
+    return BaseSpatialPartClass => Model.registerClass(module.id, class BouncingSpatialPart extends Inertial()(BaseSpatialPartClass) {
         init(options={}) {
             super.init(options);
             this.gravity = options.gravity || new THREE.Vector3(0, -0.001, 0);
@@ -55,5 +56,5 @@ export default function Bouncing() {
             if (this.inInertiaPhase) this.stop();
             else this.startInertiaPhase();
         }
-    };
+    });
 }

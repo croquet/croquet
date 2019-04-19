@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { Model } from "@croquet/teatime";
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
@@ -7,7 +8,7 @@ if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle
  * @arg {typeof import('./spatial.js').default} BaseSpatialPartClass
 */
 export default function Inertial() {
-    return BaseSpatialPartClass => class InertialSpatialPart extends BaseSpatialPartClass {
+    return BaseSpatialPartClass => Model.registerClass(module.id, class InertialSpatialPart extends BaseSpatialPartClass {
         init(options={}) {
             super.init(options);
             this.estimatedVelocity = new THREE.Vector3(0, 0, 0);
@@ -86,7 +87,7 @@ export default function Inertial() {
             return this.estimatedVelocity.manhattanLength() +
                 this.estimatedRotationalVelocity.manhattanLength() - 1 < 0.00001;
         }
-    };
+    });
 }
 
 if (!THREE.Quaternion.prototype.manhattanLength) THREE.Quaternion.prototype.manhattanLength = function() {
