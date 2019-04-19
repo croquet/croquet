@@ -7,7 +7,7 @@ if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); 
 
 
 const DEBUG = {
-    subscribe: urlOptions.has("debug", "subscribe"),
+    subscribe: urlOptions.has("debug", "subscribe", false),
 }
 
 

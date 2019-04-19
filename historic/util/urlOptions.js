@@ -30,14 +30,24 @@ function parseUrlOptionString(optionString) {
 
 parseUrl();
 
-// has('debug', 'recv') matches debug=recv and debug=send,recv
-urlOptions.has = (key, optVal) => {
-    const val = urlOptions[key];
-    if (!val || !optVal) return val;
-    if (val === optVal) return true;
-    if (typeof val !== "string") return false;
-    const vals = string.split(',');
-    return vals.includes(optVal);
+/**
+ * has("debug", "recv", false) matches debug=recv and debug=send,recv
+ *
+ * has("debug", "recv", true) matches debug=norecv and debug=send,norecv
+ *
+ * has("debug", "recv", "localhost") defaults to true on localhost, false otherwise
+ *
+ * @param {String} key - key for list of items
+ * @param {String} item - value to look for in list of items
+ * @param {Boolean|String} defaultValue - if string, true on that hostname, false otherwise
+ */
+urlOptions.has = (key, item, defaultValue) => {
+    if (typeof defaultValue !== "boolean") defaultValue = window.location.hostname === defaultValue;
+    if (defaultValue === true) item =`no${item}`;
+    const urlItems = urlOptions[key];
+    if (typeof urlItems !== "string") return defaultValue;
+    if (urlItems.split(',').includes(item)) return !defaultValue;
+    return defaultValue;
 }
 
 
