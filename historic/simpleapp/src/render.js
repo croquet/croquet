@@ -2,7 +2,8 @@ import * as THREE from "three";
 import PortalViewPart from "./viewParts/portalView";
 import THREEx_imports from "../thirdparty-patched/ARjs/ar";
 import cameraData from "../thirdparty-patched/ARjs/data/camera_para.dat";
-import patternData from "../thirdparty-patched/ARjs/data/croquet.patt";
+import croquetPatternData from "../thirdparty-patched/ARjs/data/croquet.patt";
+import hiroPatternData from "../thirdparty-patched/ARjs/data/patt.hiro";
 import urlOptions from "./util/urlOptions";
 
 const THREEx = THREEx_imports && THREEx_imports.THREEx;
@@ -76,7 +77,7 @@ export default class Renderer {
         // init controls for camera
         this.markerControls = new THREEx.ArMarkerControls(this.arToolkitContext, this.arCamera, {
             type: 'pattern',
-            patternUrl: patternData,
+            patternUrl: croquetPatternData, //hiroPatternData,
             // as we controls the camera, set changeMatrixMode: 'cameraTransformMatrix'
             changeMatrixMode: 'cameraTransformMatrix'
             });
@@ -138,7 +139,7 @@ function smoother() {
             quat: new THREE.Quaternion(),
             stepSpec: { posDelta: new THREE.Vector3(), angleDelta: 0, remainingSteps: 0 },
             rotation: new THREE.Matrix4().makeRotationX(Math.PI / 2),
-            translation: new THREE.Matrix4().makeTranslation(0, 1, -2),
+            translation: new THREE.Matrix4().makeTranslation(0, 0.5, -2.5),
             matW: new THREE.Matrix4(),
             posW: new THREE.Vector3(),
             quatW: new THREE.Quaternion(),
@@ -199,34 +200,39 @@ function smoother() {
 
                 const { pos, quat, stepSpec, rotation, translation, matW, posW, quatW, scaleW } = this.positioning;
                 const camPos = this.arCamera.position, camQuat = this.arCamera.quaternion;
-                if (!this.stablePos) {
-                    this.stablePos = new THREE.Vector3().copy(camPos);
-                    this.stableQuat = new THREE.Quaternion().copy(camQuat);
-                    // jump the current position to the camera
+                if (window.nostable) { // @@ DEBUG HOOK
                     pos.copy(camPos);
                     quat.copy(camQuat);
                 } else {
-                    const changed = this.checkWithinEpsilon({ pos: camPos, quat: camQuat }, { pos: this.stablePos, quat: this.stableQuat });
-                    // if changed is non-null, it indicates that either pos or quat (or both)
-                    // is out of range of the current stable value.  if there's a new, stable
-                    // value for the one(s) that have changed, adopt the new pos/quat pair.
-                    if (changed && this.checkStability(changed)) {
-                        // set up posDelta to add to changing pos; angleDelta to edge towards new quat
-                        const numSteps = window.steps || 4; // @@ DEBUG HOOK
-                        stepSpec.posDelta.subVectors(camPos, pos).divideScalar(numSteps);
-                        stepSpec.angleDelta = quat.angleTo(camQuat) / numSteps;
-                        stepSpec.remainingSteps = numSteps;
-                        // set up the camera's position as the new "stable" state, that we'll now be moving towards
-                        this.stablePos.copy(camPos);
-                        this.stableQuat.copy(camQuat);
+                    if (!this.stablePos) {
+                        this.stablePos = new THREE.Vector3().copy(camPos);
+                        this.stableQuat = new THREE.Quaternion().copy(camQuat);
+                        // jump the current position to the camera
+                        pos.copy(camPos);
+                        quat.copy(camQuat);
+                    } else {
+                        const changed = this.checkWithinEpsilon({ pos: camPos, quat: camQuat }, { pos: this.stablePos, quat: this.stableQuat });
+                        // if changed is non-null, it indicates that either pos or quat (or both)
+                        // is out of range of the current stable value.  if there's a new, stable
+                        // value for the one(s) that have changed, adopt the new pos/quat pair.
+                        if (changed && this.checkStability(changed)) {
+                            // set up posDelta to add to changing pos; angleDelta to edge towards new quat
+                            const numSteps = window.steps || 4; // @@ DEBUG HOOK
+                            stepSpec.posDelta.subVectors(camPos, pos).divideScalar(numSteps);
+                            stepSpec.angleDelta = quat.angleTo(camQuat) / numSteps;
+                            stepSpec.remainingSteps = numSteps;
+                            // set up the camera's position as the new "stable" state, that we'll now be moving towards
+                            this.stablePos.copy(camPos);
+                            this.stableQuat.copy(camQuat);
+                        }
                     }
-                }
-                this.addToHistory(camPos, camQuat);
+                    this.addToHistory(camPos, camQuat);
 
-                if (stepSpec.remainingSteps) {
-                    pos.add(stepSpec.posDelta);
-                    quat.rotateTowards(this.stableQuat, stepSpec.angleDelta);
-                    stepSpec.remainingSteps--;
+                    if (stepSpec.remainingSteps) {
+                        pos.add(stepSpec.posDelta);
+                        quat.rotateTowards(this.stableQuat, stepSpec.angleDelta);
+                        stepSpec.remainingSteps--;
+                    }
                 }
 
                 matW.makeRotationFromQuaternion(quat);
