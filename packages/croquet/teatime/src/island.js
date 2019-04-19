@@ -47,15 +47,16 @@ export default class Island {
 
     constructor(snapshot, initFn) {
         if (moduleVersion !== Island.latest()) throw Error("Hot Reload problem: Instantiating old Island v" + moduleVersion);
-
-        this.modelsById = {};
-        this.modelsByName = {};
-        /** pending messages, sorted by time and sequence number */
-        this.messages = new PriorityQueue((a, b) => a.before(b));
-        /** model subscriptions (stored in snapshot) */
-        this.subscriptions = {};
         execOnIsland(this, () => {
             inModelRealm(this, () => {
+                /** all the models in this island */
+                this.modelsById = {};
+                /** named entry points to models (so a view can attach to it) */
+                this.modelsByName = {};
+                /** pending messages, sorted by time and sequence number */
+                this.messages = new PriorityQueue((a, b) => a.before(b));
+                /** @type {{"scope:event": Array<String>}} model subscriptions */
+                this.subscriptions = snapshot.subscriptions || {};
                 /** @type {SeedRandom} our synced pseudo random stream */
                 this._random = () => { throw Error("You must not use random when applying state!"); };
                 /** @type {String} island ID */
@@ -352,6 +353,7 @@ export default class Island {
             }),
             namedModels,
             messages: this.messages.asUnsortedArray().map(message => message.asState()),
+            subscriptions: this.subscriptions,
         };
     }
 
