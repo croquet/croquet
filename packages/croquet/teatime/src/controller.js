@@ -1,6 +1,7 @@
 import AsyncQueue from "@croquet/util/asyncQueue";
 import Stats from "@croquet/util/stats";
 import hotreload from "@croquet/util/hotreload";
+import urlOptions from "@croquet/util/urlOptions";
 import { baseUrl, hashModelCode } from "@croquet/util/modules";
 import { inViewRealm } from "./realms";
 import Island, { addMessageTranscoder } from "./island";
@@ -11,9 +12,10 @@ if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); 
 
 
 const DEBUG = {
-    messages: false,
-    ticks: false,
-    pong: false,
+    messages: urlOptions.has("debug", "messages", false),
+    ticks: urlOptions.has("debug", "ticks", false),
+    pong: urlOptions.has("debug", "pong", false),
+    snapshot: urlOptions.has("debug", "snapshot", "localhost"),
 };
 
 const Controllers = {};
@@ -271,6 +273,10 @@ export default class Controller {
     async install(drainQueue=false) {
         const {snapshot, creatorFn, options, callbackFn} = this.islandCreator;
         let newIsland = new Island(snapshot, () => creatorFn(options));
+        if (DEBUG.snapshot && !snapshot.models) {
+            // exercise save & load if we came from init
+            newIsland = new Island(newIsland.snapshot(), () => creatorFn(options));
+        }
         const snapshotTime = newIsland.time;
         this.time = snapshotTime;
         // eslint-disable-next-line no-constant-condition
