@@ -55,10 +55,12 @@ export class ModelPart extends WithParts(Model) {
     }
 
     load(state, allObjects) {
+        super.load(state, allObjects);
         this.forEachPart((part, name) => part.load(state[name], allObjects));
     }
 
     save(state) {
+        super.save(state);
         this.forEachPart((part, name) => {
             state[name] = {};
             part.save(state[name]);

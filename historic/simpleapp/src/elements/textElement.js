@@ -27,8 +27,8 @@ export default class TextElement extends ModelPart {
         };
     }
 
-    load(state) {
-        super.load(state);
+    load(state, allModels) {
+        super.load(state, allModels);
         this.editable = state.editable;
         this.visualOptions = state.visualOptions;
     }

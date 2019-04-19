@@ -15,8 +15,8 @@ export default function Inertial() {
             this.dampening = options.dampening || 0.01;
         }
 
-        load(state) {
-            super.load(state);
+        load(state, allModels) {
+            super.load(state, allModels);
             this.estimatedVelocity = new THREE.Vector3(state.estimatedVelocity);
             this.estimatedRotationalVelocity = new THREE.Quaternion(state.estimatedRotationalVelocity);
             this.dampening = state.dampening;

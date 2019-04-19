@@ -26,7 +26,8 @@ export default class SpatialPart extends ModelPart {
         this.scale = options.scale || new THREE.Vector3(1, 1, 1);
     }
 
-    load(state) {
+    load(state, allModels) {
+        super.load(state, allModels);
         /** @type {THREE.Vector3} */
         this.position = new THREE.Vector3(state.position);
         /** @type {THREE.Quaternion} */

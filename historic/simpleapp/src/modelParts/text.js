@@ -19,7 +19,8 @@ export default class TextPart extends ModelPart {
         window.model = this;
     }
 
-    load(state) {
+    load(state, allModels) {
+        super.load(state, allModels);
         let content = {runs: [], selections: {}, undoStacks: {}, timezone: 0, queue: [], editable: state.editable !== undefined ? state.editable : true, ...state.content};
         this.content = content;
         this.doc = new Doc();
@@ -29,6 +30,7 @@ export default class TextPart extends ModelPart {
     }
 
     save(state) {
+        super.save(state);
         state.content = this.content;
     }
 
