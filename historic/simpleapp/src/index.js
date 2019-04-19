@@ -24,15 +24,15 @@ const defaultRoom = window.location.hostname === "croquet.studio" ? "bounce" : "
 // default message transcoders
 const Vec3 = {
     encode: a => [a[0].x, a[0].y, a[0].z],
-    decode: a => [new THREE.Vector3(a[0], a[1], a[2])],
+    decode: a => [new THREE.Vector3(...a)],
 };
 const Quat = {
     encode: a => [a[0].x, a[0].y, a[0].z, a[0].w],
-    decode: a => [new THREE.Quaternion(a[0], a[1], a[2], a[3])],
+    decode: a => [new THREE.Quaternion(...a)],
 };
 const Identity = {
-    encode: a => a,
-    decode: a => a,
+    encode: args => args,
+    decode: args => args,
 };
 
 let codeHashes = null;
@@ -305,7 +305,7 @@ async function start() {
         roomViewManager.changeViewportSize(window.innerWidth, window.innerHeight);
     });
 
-    hotreload.addEventListener(window, "hashchange", () => joinRoom(window.location.hash.slice(1)));
+    hotreload.addEventListener(window, "hashchange", () => joinRoom(urlOptions.firstInHash()));
 
     keyboardManager.install(hotreload);
 
