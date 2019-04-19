@@ -235,11 +235,12 @@ class RootView extends View {
         this.subscribe(model.id, 'child-removed', child => this.detachChild(child));
         this.subscribe(model.id, `user-shape-${USER}`, shape => this.gotUserShape(shape));
         this.publish(model.id, 'user-is-active', USER);
-        setInterval(() => this.publish(model.id, 'user-is-active', USER), ACTIVE_MS);
+        this.ticker = setInterval(() => this.publish(model.id, 'user-is-active', USER), ACTIVE_MS);
     }
 
     detach() {
         super.detach();
+        clearInterval(this.ticker);
         try {
             document.body.removeChild(this.element);
         } catch (e) {
