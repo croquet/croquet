@@ -48,7 +48,10 @@ urlOptions.has = (key, item, defaultValue) => {
     if (typeof urlItems !== "string") return defaultValue;
     if (urlItems.split(',').includes(item)) return !defaultValue;
     return defaultValue;
-}
+};
 
+urlOptions.firstInHash = () => {
+    return document.location.hash.slice(1).split("&")[0];
+};
 
 export default urlOptions;

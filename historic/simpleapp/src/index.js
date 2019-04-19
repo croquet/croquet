@@ -128,12 +128,12 @@ async function start() {
         // request ahead of render, set initial camera position if necessary
         roomViewManager.request(roomName, ALL_ROOMS, {cameraPosition, cameraQuaternion, overrideCamera}, traversePortalToRoom);
         const desiredHash = roomName === defaultRoom ? "" : roomName;
-        if (window.location.hash.slice(1) !== desiredHash) {
+        if (urlOptions.firstInHash() !== desiredHash) {
             window.history.pushState({}, "", "#" + desiredHash);
         }
     }
 
-    const startRoom = hotState.currentRoomName || window.location.hash.slice(1) || defaultRoom;
+    const startRoom = hotState.currentRoomName || urlOptions.firstInHash() || defaultRoom;
     joinRoom(startRoom);
 
     /** @type {Renderer} */
