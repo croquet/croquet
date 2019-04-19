@@ -71,6 +71,14 @@ export default class Model {
         return currentRealm().random();
     }
 
+    beWellKnownAs(name) {
+        currentRealm().island.set(name, this);
+    }
+
+    wellKnownModel(name) {
+        return this.__realm.island.get(name);
+    }
+
     [Symbol.toPrimitive]() {
         const className = this.constructor.name;
         if (className.includes('Model')) return className;

@@ -78,7 +78,7 @@ export default class Island {
                     }
 
                     for (const [modelName, modelId] of Object.entries(snapshot.namedModels)) {
-                        this.set(modelName, this.lookUpModel(modelId));
+                        this.modelsByName[modelName] = this.modelsById[modelId];
                     }
 
                     // restore model snapshot, allow resolving object references
@@ -97,7 +97,8 @@ export default class Island {
                 } else {
                     // create new random, it is okay to use in init code
                     this._random = new SeedRandom(null, { state: true });
-                    initFn(this);
+                    const namedModels = initFn(this) || {};
+                    Object.assign(this.modelsByName, namedModels);
                 }
             });
         });
@@ -113,7 +114,11 @@ export default class Island {
 
     deregisterModel(id) {
         if (CurrentIsland !== this) throw Error("Island Error");
+        const model = this.modelsById;
         delete this.modelsById[id];
+        for (const [name, value] of Object.entries(this.modelsByName)) {
+            if (model === value) delete this.modelsByName[name];
+        }
         this.messages.removeMany(msg => msg.hasReceiver(id));
     }
 
