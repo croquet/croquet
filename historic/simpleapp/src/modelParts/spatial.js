@@ -21,18 +21,17 @@ export default class SpatialPart extends ModelPart {
         super.init();
         /** @type {THREE.Vector3} */
         this.position = options.position || new THREE.Vector3(0, 0, 0);
+        /** @type {THREE.Vector3} */
+        this.scale = options.scale || new THREE.Vector3(1, 1, 1);
         /** @type {THREE.Quaternion} */
         this.quaternion = options.quaternion || new THREE.Quaternion();
-        this.scale = options.scale || new THREE.Vector3(1, 1, 1);
     }
 
     load(state, allModels) {
         super.load(state, allModels);
-        /** @type {THREE.Vector3} */
-        this.position = new THREE.Vector3(state.position);
-        /** @type {THREE.Quaternion} */
-        this.quaternion = new THREE.Quaternion(state.quaternion);
-        this.scale = new THREE.Vector3(state.scale);
+        this.position = new THREE.Vector3().fromArray(state.spatial, 0);
+        this.scale = new THREE.Vector3().fromArray(state.spatial, 3);
+        this.quaternion = new THREE.Quaternion().fromArray(state.spatial, 6);
     }
 
     /** @arg {THREE.Vector3} position */
@@ -80,8 +79,9 @@ export default class SpatialPart extends ModelPart {
 
     save(state) {
         super.save(state);
-        state.position = this.position;
-        state.quaternion = this.quaternion;
-        state.scale = this.scale;
+        state.spatial = [];
+        this.position.toArray(state.spatial, 0);
+        this.scale.toArray(state.spatial, 3);
+        this.quaternion.toArray(state.spatial, 6);
     }
 }
