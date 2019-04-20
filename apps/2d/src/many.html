@@ -42,10 +42,10 @@
                 if (users) totalUsers = users;
                 overlay.innerText = `${connectedFrames}/${totalUsers}`;
             };
-            window.onresize = () => {
-                const n = Number.parseInt(location.hash.slice(1)) ||
-                    Math.floor(window.innerWidth / 102) * Math.floor(window.innerHeight/102);
+            function setCount(n, delta) {
                 const iframes = Array.from(document.getElementsByTagName("iframe"));
+                if (delta) n = iframes.length + delta;
+                if (n <= 0) return;
                 while (iframes.length > n) {
                     document.body.removeChild(iframes.pop());
                     window.onmessage({ data: { connected: -1 } });
@@ -58,8 +58,16 @@
                     document.body.appendChild(iframe);
                     iframes.push(iframe);
                 }
+                document.location.hash = n;
             }
-            window.onresize();
+            window.onresize = () => setCount(Math.floor(window.innerWidth / 102) * Math.floor(window.innerHeight/102));
+            window.onhashchange = () => setCount(+window.location.hash.slice(1));
+            window.onkeydown = evt => {
+                if (evt.key === '=') setCount(0, +1);
+                if (evt.key === '-') setCount(0, -1);
+            }
+            if (window.location.hash) window.onhashchange();
+            else window.onresize();
         </script>
     </body>
 </html>
