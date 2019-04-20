@@ -276,7 +276,7 @@ export default class Controller {
         let newIsland = new Island(snapshot, () => creatorFn(options));
         if (DEBUG.snapshot && !snapshot.models) {
             // exercise save & load if we came from init
-            newIsland = new Island(newIsland.snapshot(), () => creatorFn(options));
+            newIsland = new Island(JSON.parse(JSON.stringify(newIsland.snapshot())), () => creatorFn(options));
         }
         const snapshotTime = newIsland.time;
         this.time = snapshotTime;
