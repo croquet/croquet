@@ -114,7 +114,8 @@ export default class Controller {
      */
     async createIsland(name, creator) {
         const {moduleID, options} = creator;
-        if (options) name += JSON.stringify(Object.values(options)); // include options in hash
+        // include options in name & hash
+        if (options) name += '?' + Object.entries(options).map(([k,v])=>`${k}=${v}`).join('&');
         const id = await Controller.versionIDFor(name, moduleID);
         console.log(`ID for ${name}: ${id}`);
         this.islandCreator = { name, ...creator };
@@ -313,10 +314,11 @@ export default class Controller {
         console.log(this.id, 'Controller sending JOIN');
         this.socket = socket;
         const time = this.islandCreator.snapshot.time || 0;
+        const name = this.islandCreator.name;
         socket.send(JSON.stringify({
             id: this.id,
             action: 'JOIN',
-            args: time,
+            args: {time, name},
         }));
     }
 
