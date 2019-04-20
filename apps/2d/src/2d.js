@@ -290,9 +290,11 @@ async function go() {
         const models = await controller.createIsland("2d", {
             moduleID: module.id,
             snapshot,
-            creatorFn() {
+            options: urlOptions.n && {n: urlOptions.n},     // null if no option given
+            creatorFn(options) {
                 const root = Root.create();
-                for (let i = 0; i < 99; i++) root.add(Shape.create());
+                const n = options && options.n || 99;
+                for (let i = 0; i < n; i++) root.add(Shape.create());
                 root.add(BouncingShape.create({pos: [500, 500], color: "white"}));
                 return {root};
             },
