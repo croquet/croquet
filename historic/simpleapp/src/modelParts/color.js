@@ -9,8 +9,8 @@ export const ColorEvents = {
 };
 
 export default class ColorPart extends ModelPart {
-    init(color) {
-        super.init();
+    init(color, id) {
+        super.init(null, id);
         this.value = color || new THREE.Color("#dddddd");
     }
 

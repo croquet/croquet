@@ -9,8 +9,8 @@ if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle
 */
 export default function Bouncing() {
     return BaseSpatialPartClass => class BouncingSpatialPart extends Inertial()(BaseSpatialPartClass) {
-        init(options={}) {
-            super.init(options);
+        init(options={}, id) {
+            super.init(options, id);
             this.gravity = options.gravity || new THREE.Vector3(0, -0.001, 0);
             this.bounce = options.bounce || 0.1;
             this.startInertiaPhase();

@@ -17,8 +17,8 @@ export const SpatialEvents = {
  * @extends ModelPart
  */
 export default class SpatialPart extends ModelPart {
-    init(options={}) {
-        super.init();
+    init(options={}, id) {
+        super.init(options, id);
         /** @type {THREE.Vector3} */
         this.position = options.position || new THREE.Vector3(0, 0, 0);
         /** @type {THREE.Vector3} */

@@ -9,8 +9,8 @@ export const TextEvents = {
 };
 
 export default class TextPart extends ModelPart {
-    init(options) {
-        super.init();
+    init(options, id) {
+        super.init(options, id);
         let content = {runs: [], selections: {}, undoStacks: {}, timezone: 0, queue: [], editable: options.editable !== undefined ? options.editable : true, ...options.content};
         this.content = content;
         this.doc = new Doc();

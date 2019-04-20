@@ -15,8 +15,8 @@ if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); 
 /** @returns {typeof SpatialPart} */
 function AutoRotating() {
     return SpatialPartClass => class extends SpatialPartClass {
-        init(options) {
-            super.init(options);
+        init(options, id) {
+            super.init(options, id);
             // kick off rotation
             this.doRotation();
         }

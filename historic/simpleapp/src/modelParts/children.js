@@ -9,8 +9,8 @@ export const ChildEvents = {
 };
 
 export default class ChildrenPart extends ModelPart {
-    init() {
-        super.init();
+    init(options, id) {
+        super.init(options, id);
         this.children = new Set();
     }
 

@@ -9,8 +9,8 @@ if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle
 */
 export default function Inertial() {
     return BaseSpatialPartClass => class InertialSpatialPart extends BaseSpatialPartClass {
-        init(options={}) {
-            super.init(options);
+        init(options={}, id) {
+            super.init(options, id);
             this.estimatedVelocity = new THREE.Vector3(0, 0, 0);
             this.estimatedRotationalVelocity = new THREE.Quaternion();
             this.dampening = options.dampening || 0.01;

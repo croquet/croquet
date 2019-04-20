@@ -15,8 +15,8 @@ export default class TextElement extends ModelPart {
         };
     }
 
-    init(options) {
-        super.init(options);
+    init(options, id) {
+        super.init(options, id);
         this.editable = options.editable;
         this.visualOptions = {
             font: "Barlow",
