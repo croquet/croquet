@@ -45,18 +45,24 @@ const WithParts = BaseClass => class Part extends BaseClass {
 };
 
 export class ModelPart extends WithParts(Model) {
-    init(options={}, id) {
-        if (id) {
-            this.id = id;
+    init(options={}, idForPart) {
+        if (idForPart) {
+            // act a part
+            this.id = idForPart;
         } else {
+            // act as model
             super.init();
         }
-        this.forEachPart((part, name) => part.init(options[name], this.id + PART_PATH_SEPARATOR + name));
+        this.forEachPart((part, name) => {
+            const partID = this.id + PART_PATH_SEPARATOR + name;
+            part.init(options[name], partID);
+            if (part.id !== partID) throw Error(`Did ${part} forget to call super.init(options, id)?`);
+        });
     }
 
-    load(state, allObjects) {
-        super.load(state, allObjects);
-        this.forEachPart((part, name) => part.load(state[name], allObjects));
+    load(state, allModels) {
+        super.load(state, allModels);
+        this.forEachPart((part, name) => part.load(state[name], allModels));
     }
 
     save(state) {
