@@ -128,7 +128,6 @@ export class UserShape extends Shape {
         this.user = options.user;
         this.active = true;
         this.future(INACTIVE_MS).step();
-        this.subscribe(this.id, "user-inactive", () => this.whenInactive());
         return this;
     }
 
@@ -154,13 +153,11 @@ export class UserShape extends Shape {
     }
 
     step() {
-        if (!this.active) { this.publish(this.id, "user-inactive"); return; }
-        this.active = false;
-        this.future(INACTIVE_MS).step();
-    }
-
-    whenInactive() {
-        this.parent.remove(this);
+        if (!this.active) this.parent.remove(this);
+        else {
+            this.active = false;
+            this.future(INACTIVE_MS).step();
+        }
     }
 
 }
