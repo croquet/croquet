@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { urlOptions } from "@croquet/util";
 import { ViewPart } from "../parts";
 import WithManipulator from "../viewParts/manipulator";
 import { ChildEvents } from "../modelParts/children";
@@ -14,7 +15,6 @@ import { PortalTraversing, PortalEvents, PortalTopic } from "../modelParts/porta
 import { KeyboardViewPart } from "../viewParts/keyboard";
 import { ContextMenu } from "../viewParts/menu";
 import { ColorEvents } from "../modelParts/color";
-import { urlOptions } from "@croquet/util";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
