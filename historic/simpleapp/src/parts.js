@@ -1,4 +1,4 @@
-import { Model, View } from "@croquet/teatime";
+import { Model, View, currentRealm } from "@croquet/teatime";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
@@ -49,6 +49,7 @@ export class ModelPart extends WithParts(Model) {
         if (idForPart) {
             // act a part
             this.id = idForPart;
+            this.__realm = currentRealm();
         } else {
             // act as model
             super.init();

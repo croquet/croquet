@@ -124,7 +124,11 @@ export default class Island {
 
     lookUpModel(id) {
         if (id === this.id) return this;
-        return this.modelsById[id];
+        const model = this.modelsById[id];
+        if (model) return model;
+        const [_, prefix, part] = id.match(/(.*)\.(.+)/);
+        if (!part) return null;
+        return this.lookUpModel(prefix).parts[part];
     }
 
     get(modelName) { return this.modelsByName[modelName]; }
