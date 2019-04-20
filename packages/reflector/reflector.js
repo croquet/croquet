@@ -311,7 +311,7 @@ const replies = {};
 
 server.on('connection', (client, req) => {
     client.addr = `${req.connection.remoteAddress}:${req.connection.remotePort}`;
-    if (req.headers['x-forwarded-for']) client.addr = req.headers['x-forwarded-for'].split(/\s*,\s*/)[0];
+    if (req.headers['x-forwarded-for']) client.addr += ` (${req.headers['x-forwarded-for'].split(/\s*,\s*/).join(', ')})`;
     client.safeSend = data => {
         if (client.readyState === WebSocket.OPEN) client.send(data);
         STATS.OUT += data.length;
