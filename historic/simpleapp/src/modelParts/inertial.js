@@ -18,16 +18,16 @@ export default function Inertial() {
 
         load(state, allModels) {
             super.load(state, allModels);
-            this.estimatedVelocity = new THREE.Vector3(state.estimatedVelocity);
-            this.estimatedRotationalVelocity = new THREE.Quaternion(state.estimatedRotationalVelocity);
+            this.estimatedVelocity = new THREE.Vector3().fromArray(state.estimatedVelocity);
+            this.estimatedRotationalVelocity = new THREE.Quaternion().fromArray(state.estimatedRotationalVelocity);
             this.dampening = state.dampening;
             this.inInertiaPhase = state.inInertiaPhase;
         }
 
         save(state) {
             super.save(state);
-            state.estimatedVelocity = this.estimatedVelocity;
-            state.estimatedRotationalVelocity = this.estimatedRotationalVelocity;
+            state.estimatedVelocity = this.estimatedVelocity.toArray();
+            state.estimatedRotationalVelocity = this.estimatedRotationalVelocity.toArray();
             state.dampening = this.dampening;
             state.inInertiaPhase = this.inInertiaPhase;
         }
