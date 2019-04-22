@@ -18,13 +18,14 @@ export default function Bouncing() {
 
         load(state, allModels) {
             super.load(state, allModels);
-            this.gravity = new THREE.Vector3(state.gravity);
+            this.gravity = new THREE.Vector3().fromArray(state.gravity, 0);
             this.bounce = state.bounce;
         }
 
         save(state) {
             super.save(state);
-            state.gravity = this.gravity;
+            state.gravity = [];
+            this.gravity.toArray(state.gravity, 0);
             state.bounce = this.bounce;
         }
 
