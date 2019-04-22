@@ -162,6 +162,7 @@ export class Socket extends CallbackHandler {
         this.readyState = WebSocket.CONNECTING;
         this.remoteAddress = options.host || 'channel';
         this.remotePort = options.port || myPort;
+        this.bufferedAmount = 0;    // https://github.com/websockets/ws/blob/master/doc/ws.md#websocketbufferedamount
         /** @type {Socket} if connecting directly to myServer, the server's socket */
         this._otherEnd = null;
         // if we were given a server, connect to it

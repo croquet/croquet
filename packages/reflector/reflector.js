@@ -292,13 +292,17 @@ function PONG(client, args) {
  */
 function TICK() {
     for (const [id, island] of ALL_ISLANDS) {
+        if (island.users !== island.clients.size) USERS(id);
         const time = getTime(id);
         if (time - island.lastMessageTime < TICK_RATE) continue;
         const msg = JSON.stringify({ id, action: 'TICK', args: time });
         // LOG('broadcasting', msg);
-        STATS.TICK += island.clients.size;
-        island.clients.forEach(each => each.safeSend(msg));
-        if (island.users !== island.clients.size) USERS(id);
+        island.clients.forEach(client => {
+            // only send ticks if not back-logged
+            if (client.bufferedAmount) return;
+            client.safeSend(msg);
+            STATS.TICK++;
+        });
     }
 }
 
