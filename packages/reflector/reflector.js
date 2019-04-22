@@ -15,38 +15,42 @@ function LOG(...args) {
 const server = new WebSocket.Server({ port });
 LOG(`starting ${server.constructor.name} ws://localhost:${server.address().port}/`);
 
+const STATS_TO_AVG = [ "RECV", "SEND", "TICK", "IN", "OUT" ];
+const STATS_TO_MAX = [ "USERS", "BUFFER" ];
+const STATS_KEYS = [...STATS_TO_AVG, ...STATS_TO_MAX];
 const STATS = {
-    RECV: 0,
-    SEND: 0,
-    TICK: 0,
-    IN: 0,
-    OUT: 0,
+    time: Date.now(),
 }
-let lastStats = Date.now();
+for (const key of STATS_KEYS) STATS[key] = 0;
 
 setInterval(showStats, 10000);
 
 // if running on node, log stats to file
 let appendFile = (typeof process !== 'undefined') && require("fs").appendFile;
-const fileName = `${lastStats}.txt`;
+const fileName = "stats.txt";
 
 function showStats() {
-    const now = Date.now();
-    const delta = now - lastStats;
-    lastStats = now;
+    const time = Date.now();
+    const delta = time - STATS.time;
+    STATS.time = time;
+    STATS.USERS = Math.max(STATS.USERS, server.clients.size);
     let out = [];
     let sum = 0;
-    for (const [key, value] of Object.entries(STATS)) {
-        out.push(`${key}/s: ${(value * 1000 / delta).toFixed(0).padStart(6)}`);
-        sum += value;
+    for (const key of STATS_TO_MAX) {
+        out.push(`${key}: ${STATS[key]}`);
+        sum += STATS[key];
+    }
+    for (const key of STATS_TO_AVG) {
+        out.push(`${key}/s: ${Math.round(STATS[key] * 1000 / delta)}`);
+        sum += STATS[key];
     }
     if (sum === 0) return;
     LOG(out.join(', '));
     if (appendFile) {
-        const line = `${(new Date()).toISOString().slice(0, 19)}Z ${[ "RECV", "SEND", "TICK", "IN", "OUT" ].map(key => STATS[key]).join(' ')}\n`;
-        appendFile("stats.txt", line, err => {});
+        const line = `${(new Date(time)).toISOString().slice(0, 19)}Z ${STATS_KEYS.map(key => STATS[key]).join(' ')}\n`;
+        appendFile(fileName, line, err => {});
     }
-    for (const key of Object.keys(STATS)) STATS[key] = 0;
+    for (const key of STATS_KEYS) STATS[key] = 0;
 }
 
 /**
@@ -317,10 +321,13 @@ server.on('connection', (client, req) => {
     client.addr = `${req.connection.remoteAddress}:${req.connection.remotePort}`;
     if (req.headers['x-forwarded-for']) client.addr += ` (${req.headers['x-forwarded-for'].split(/\s*,\s*/).join(', ')})`;
     client.safeSend = data => {
-        if (client.readyState === WebSocket.OPEN) client.send(data);
+        if (client.readyState !== WebSocket.OPEN) return;
+        STATS.BUFFER = Math.max(STATS.BUFFER, client.bufferedAmount);
+        client.send(data);
         STATS.OUT += data.length;
     }
     LOG(`connection #${server.clients.size} from ${client.addr}`);
+    STATS.USERS = Math.max(STATS.USERS, server.clients.size);
     startTicker();
 
     client.on('pong', time => LOG('PONG from', client.addr, 'after', Date.now() - time, 'ms'));
