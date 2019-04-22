@@ -10,6 +10,7 @@
                 flex-wrap: wrap;
                 align-content: flex-start;
                 background: #999;
+                color: #fff;
             }
             iframe {
                 width: 100px;
@@ -24,11 +25,11 @@
                 align-content: center;
                 justify-content: center;
                 width: 100%;
-                color: #fff;
                 opacity: 0.5;
                 font: 20vw sans-serif;
                 text-shadow: 2px 2px 5px  #000;
             }
+            .auto { color: yellow }
         </style>
     </head>
     <body>
@@ -61,7 +62,17 @@
                 document.location.hash = n;
             }
             window.onresize = () => setCount(Math.floor(window.innerWidth / 102) * Math.floor(window.innerHeight/102));
-            window.onhashchange = () => setCount(+window.location.hash.slice(1));
+            window.onhashchange = () => {
+                const hash = window.location.hash.slice(1);
+                if (hash.startsWith('+') && !overlay.className) {
+                    overlay.className = 'auto';
+                    setInterval(() => {
+                        const n = document.getElementsByTagName("iframe").length;
+                        setCount(0, n < 20 ? 1 : n < 50 ? 2 : n < 100 ? 5 : 10);
+                    }, 30000);
+                }
+                setCount(+hash);
+            }
             window.onkeydown = evt => {
                 if (evt.key === '=') setCount(0, +1);
                 if (evt.key === '-') setCount(0, -1);
