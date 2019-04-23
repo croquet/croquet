@@ -94,6 +94,7 @@ async function start() {
             for (const opt of ["owner","session"]) {
                 if (urlOptions[opt]) creator.options[opt] = urlOptions[opt];
             }
+            creator.ticks = { tick: 1000 / 10, local: 2 };  // 30 fps
             creator.destroyerFn = snapshot => {
                 console.log("destroyer: detaching view for " + roomName);
                 delete ROOM.namedModels;
