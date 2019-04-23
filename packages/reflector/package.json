@@ -1,14 +1,19 @@
 {
-  "name": "croquet-reflector",
+  "name": "@croquet/reflector",
   "version": "0.0.1",
   "description": "",
-  "main": "index.js",
+  "main": "reflector.js",
+  "browser": {
+    "ws": "./ws.js",
+    "fs": "./fs.js"
+  },
   "author": "",
   "license": "ISC",
   "scripts": {
-    "start": "node index.js"
+    "start": "node reflector.js"
   },
   "dependencies": {
+    "broadcast-channel": "^2.1.12",
     "ws": "^6.2.1"
   },
   "devDependencies": {}

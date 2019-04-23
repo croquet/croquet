@@ -5,15 +5,11 @@ function runLength(ary) {
     return ary.map(c => c.text).reduce((s, x) => x.length + s, 0);
 }
 
-const eof = String.fromCharCode(26); // "^Z"
-
 export class Doc {
     constructor() {
         this.runs = [{text: ""}]; // [{text: str, (opt)style: {font: str, size: num, color: str, emphasis: 'b' | 'i'|'bi'}}]
         this.intervals = []; // [{start: num, end: num}]
-        this.selections = {}; // {user: {start: num, end: num}}
-
-        this.commands = [];
+        this.selections = {}; // {user: {start: num, end: num, color: string}}
 
         this.defaultFont = "Roboto";
         this.defaultSize = 10;
@@ -23,21 +19,20 @@ export class Doc {
         // runs does not have start and end (human would not want to add them by hand).
         // The canonicalize method adds them. save() strip them out.
         this.canonicalize(runs);
-        this.commands = [];
     }
 
     setDefault(font, size) {
-        this.defaultFont = font;
-        this.defaultSize = size;
+        this.defaultFont = font || this.defaultFont;
+        this.defaultSize = size || this.defaultSize;
     }
 
     doEvent(evt) {
         if (evt.type === "insert") {
-            this.doInsert(evt.user, evt.runs, true);
+            this.doInsert(evt.user, evt.runs);
         } else if (evt.type === "delete") {
-            this.doDelete(evt.user, true, true);
+            this.doDelete(evt.user, true);
         } else if (evt.type === "select") {
-            this.doSelect(evt.user, evt.start, evt.end, evt.color);
+            this.doSelect(evt.user, evt.start, evt.end);
         }
     }
 
@@ -66,16 +61,16 @@ export class Doc {
     doDelete(user, isBackspace) {
         let selection = this.ensureSelection(user);
         let start, end;
+        let length = this.length();
 
         if (selection.start === selection.end) {
-            let length = this.length();
             if ((!isBackspace && selection.start === length)
                || (isBackspace && selection.start === 0)) {
                 return;
             }
 
             if (isBackspace) {
-                start = selection.start -1;
+                start = selection.start - 1;
                 end = selection.end;
             } else {
                 start = selection.start;
@@ -87,6 +82,7 @@ export class Doc {
         }
 
         let [run, runIndex] = this.findRun(start);
+        //if (!run) {throw Error("can't delete eof");}
         let interval = this.intervals[runIndex];
 
         if (interval.end !== start) { // that is, pos is within the run
@@ -95,11 +91,8 @@ export class Doc {
             runIndex += 1;
         }
 
-        let endRun = run;
-        let endRunIndex;
-        let endRunInterval;
-        [endRun, endRunIndex] = this.findRun(end);
-        endRunInterval = this.intervals[endRunIndex];
+        let [endRun, endRunIndex] = this.findRun(end);
+        let endRunInterval = this.intervals[endRunIndex];
 
         let reminder = end - endRunInterval.start;
         if (end !== endRunInterval.end) {
@@ -114,8 +107,8 @@ export class Doc {
         this.updateSelectionsDelete(user, start, end);
     }
 
-    doSelect(userID, start, end, color) {
-        this.selections[userID] = {start, end, color};
+    doSelect(user, start, end) {
+        this.selections[user.id] = {start, end, color: user.color};
     }
 
     length() {
@@ -240,27 +233,30 @@ export class Doc {
     findRun(pos) {
         let runs = this.runs;
         let intervals = this.intervals;
+        let run, interval;
         for (let ind = 0; ind < runs.length; ind++) {
-            let run = runs[ind];
-            let interval = intervals[ind];
+            run = runs[ind];
+            interval = intervals[ind];
             if (interval.start <= pos && pos < interval.end) {
                 return [runs[ind], ind];
             }
         }
-        let ind = runs.length-1
-        return [runs[ind], ind];  // should be the eof run
+        if (pos === interval.end) {
+            return [runs[runs.length-1], runs.length-1];
+        }
+        if (pos > this.length()) { debugger;}
     }
 
     updateSelectionsInsert(user, pos, length) {
         for (let k in this.selections) {
             let sel = this.selections[k];
-            if (k === user) {
-                this.selections[k] = {start: pos + length, end: pos + length};
+            if (k === user.id) {
+                this.selections[k] = {start: pos + length, end: pos + length, color: user.color};
             } else {
                 if (pos <= sel.start) {
-                    this.selections[k] = {start: sel.start + length, end: sel.end + length};
+                    this.selections[k] = {start: sel.start + length, end: sel.end + length, color: sel.color};
                 } else if (sel.start < pos && pos < sel.end) {
-                    this.selections[k] = {start: sel.start, end: sel.end + length};
+                    this.selections[k] = {start: sel.start, end: sel.end + length, color: sel.color};
                 } /*else if (sel.end <= pos) {}*/
             }
         }
@@ -270,45 +266,112 @@ export class Doc {
         let len = end - start;
         for (let k in this.selections) {
             let sel = this.selections[k];
-            if (k === user) {
-                this.selections[k] = {start, end: start};
+            if (k === user.id) {
+                this.selections[k] = {start, end: start, color: user.color};
             } else {
                 if (end <= sel.start) {
-                    this.selections[k] = {start: sel.start - len, end: sel.end - len};
+                    this.selections[k] = {start: sel.start - len, end: sel.end - len, color: sel.color};
                 } else if (sel.end <= start) {
                 } else if (start <= sel.start && sel.end < end) {
-                    this.selections[k] = {start, end: start};
+                    this.selections[k] = {start, end: start, color: sel.color};
                 } else if (start < sel.start && end < sel.end) {
-                    this.selections[k] = {start, end: sel.end - end};
+                    this.selections[k] = {start, end: sel.end - end, color: sel.color};
                 } else if (sel.start <= start && end < sel.end) {
-                    this.selections[k] = {start: sel.start, end: sel.end - len};
+                    this.selections[k] = {start: sel.start, end: sel.end - len, color: sel.color};
                 } else if (sel.start <= start && start < sel.end) {
-                    this.selections[k] = {start: sel.start, end: sel.end - start};
+                    this.selections[k] = {start: sel.start, end: sel.end - start, color: sel.color};
                 }
             }
         }
     }
 
     setSelections(selections) {
-        this.selections = selections;
+        this.selections = JSON.parse(JSON.stringify(selections));
+    }
+
+    getSelections() {
+        return JSON.parse(JSON.stringify(this.selections));
     }
 
     ensureSelection(user) {
-        let sel = this.selections[user];
+        let sel = this.selections[user.id];
         if (!sel) {
-            sel = {start: 0, end: 0};
-            this.selections[user] = sel;
+            sel = {start: 0, end: 0, color: user.id};
+            this.selections[user.id] = sel;
         }
         return sel;
     }
 
-    performUndo() {
-        let command = this.commands.pop();
+    snapshotFrom(content, user, timezone) {
+        return {type: "snapshot",
+                user: user,
+                content: {runs: content.runs,
+                          selections: JSON.parse(JSON.stringify(content.selections))},
+                timezone: timezone};
+    }
 
-        if (command) {
-            command.undo(this);
+    undoEvent(evt, content, doc) {
+        let queue = content.queue;
+        let user = evt.user; // {id, color}
+
+        function findLast(q, event) {
+            for (let i = q.length - 1; i >= 0; i--) {
+                if (q[i].user.id === event.user.id && q[i].timezone === evt.timezone && q[i].type !== "snapshot") {
+                    return i;
+                }
+            }
+            return -1;
         }
-        this.canonicalize(this.runs);
+
+        function findSnapshot(q, i) {
+            for (; i >= 0; i--) {
+                if (q[i].type === "snapshot") {
+                    return i;
+                }
+            }
+            return -1;
+        }
+         
+        let undoIndex = findLast(queue, evt);
+        if (undoIndex < 0) {return content.timezone;}
+
+        let undoEvent = queue[undoIndex];
+        let snapshotIndex = findSnapshot(queue, undoIndex);
+        if (snapshotIndex < 0) {return content.timezone;}
+
+        let snapshot = queue[snapshotIndex];
+        let c = snapshot.content;
+        doc.load(c.runs);
+        doc.setSelections(c.selections);
+
+        let newQueue = [];
+        for (let i = 0; i <= snapshotIndex; i++) {
+            newQueue.push(queue[i]);
+        }
+
+        for (let i = snapshotIndex + 1; i < undoIndex; i++) {
+            doc.doEvent(queue[i]);
+            newQueue.push(queue[i]);
+        }
+
+        for (let i = undoIndex + 1; i < queue.length; i++) {
+            if (queue[i].type !== "snapshot") {
+                doc.doEvent(queue[i]);
+                newQueue.push(queue[i]);
+            }
+        }
+
+        content.timezone++;
+        undoEvent.timezone = content.timezone;
+        if (!content.undoStacks[user.id]) {
+            content.undoStacks[user.id] = [];
+        }
+
+        content.undoStacks[user.id].push(undoEvent);
+        content.selections = doc.getSelections();
+        content.runs = doc.save();
+        content.queue = newQueue;
+        return content.timezone;
     }
 
     receiveEditEvents(events, content, doc) {
@@ -333,25 +396,30 @@ export class Doc {
         // - The list is a part of the saved model. It will be saved with the string content.
         // Things are all destructively updated in content,
 
-        content.timezone++;
         let CUTOFF = 60;
         let queue = content.queue;
-        let user = events[0].user;
+        let user = events[0].user; // {id, color}
+
+        if (content.timezone % (CUTOFF / 6) === 0) {
+            queue.push(this.snapshotFrom(content, user, content.timezone));
+        }
+        
+        content.timezone++;
 
         if (queue.length > 0
             && (queue[queue.length - 1].timezone > events[0].timezone + CUTOFF)) {
-                return [Event.select(user, 0, 0, user, content.timezone)];
+                return content.timezone;
         }
 
-        function findFirst(queue, event) {
-            if (queue.length === 0) {
+        function findFirst(q, event) {
+            if (q.length === 0) {
                 return 0;
             }
-            if (queue[queue.length-1].timezone < event.timezone) {
-                return queue.length;
+            if (q[queue.length-1].timezone < event.timezone) {
+                return q.length;
             }
-            for (let i = queue.length - 1; i >= 0; i--) {
-                if (queue[i].timezone < event.timezone) {
+            for (let i = q.length - 1; i >= 0; i--) {
+                if (q[i].timezone < event.timezone) {
                     return i+1;
                 }
             }
@@ -421,16 +489,19 @@ export class Doc {
         ind = queue.findIndex(e => e.timezone > content.timezone - CUTOFF);
         for (let i = queue.length-1; i >= 0; i--) {
             let e = queue[i];
-            delete unseenIDs[e.user];
+            delete unseenIDs[e.user.id];
         }
         for (let k in unseenIDs) {
             delete content.selections[k];
+            delete content.undoStacks[k];
         }
         queue.splice(0, ind);
 
         doc.setSelections(content.selections);
         thisQueue.forEach(e => doc.doEvent(e));
 
+        content.runs = doc.save();
+        content.selections = doc.getSelections();
         return content.timezone;
     }
 }
@@ -438,6 +509,8 @@ export class Doc {
 export class Warota {
     constructor(options, optDoc) {
         this.doc = optDoc || new Doc();
+        this.doc.setDefault(options.font);
+
         this._width = 0;
         if (options.margins) {
             this.margins = options.margins;
@@ -456,6 +529,7 @@ export class Warota {
 
         this.events = [];
         this.timezone = 0;
+
     }
 
     resetEvents() {
@@ -480,7 +554,8 @@ export class Warota {
     }
 
     resizeToNumLinesOrFontSize(options) {
-        let lineHeight = new Measurer().lineHeight(options.font);
+        this.defaultMeasurer = new Measurer();
+        let lineHeight = this.defaultMeasurer.lineHeight(options.font);
         let marginHeight = (options.margins.top + options.margins.bottom);
         let textScreenHeight = options.height - marginHeight;
         if (options.fontSize) {
@@ -517,7 +592,7 @@ export class Warota {
     }
 
     layout() {
-        let [lines, words] = new Wrap().wrap(this.doc.runs, this._width, new Measurer(), this.doc.defaultFont, this.doc.defaultSize, this.pixelMargins);
+        let [lines, words] = new Wrap().wrap(this.doc.runs, this._width, this.defaultMeasurer, this.doc.defaultFont, this.doc.defaultSize, this.pixelMargins);
         this.lines = lines;
         this.words = words;
         let lastWord = lines[lines.length-1][0]; // there should be always one
@@ -587,11 +662,11 @@ export class Warota {
         for (let k in this.doc.selections) {
             let selection = this.doc.selections[k];
             if (selection.end === selection.start) {
-                ctx.fillStyle = 'barSelection ' + k;
+                ctx.fillStyle = 'barSelection ' + selection.color;
                 let caretRect = this.barRect(selection);
                 ctx.fillRect(caretRect.left, caretRect.top, caretRect.width, caretRect.height);
             } else {
-                ctx.fillStyle = 'boxSelection ' + k;
+                ctx.fillStyle = 'boxSelection ' + selection.color;
                 let rects = this.selectionRects(selection);
                 rects.forEach(box => {
                   ctx.fillRect(box.left, box.top, box.width, box.height);
@@ -602,11 +677,10 @@ export class Warota {
     }
 
     drawScrollbar(ctx) {
-        let {pixelX, pixelY} = this,
-        {l, t, h, w} = this.scrollbarBounds();
+        let {l, t, h, w} = this.scrollbarBounds();
         ctx.save();
         ctx.fillStyle = "scrollBar";
-        ctx.fillRect(l, 0, w, pixelY);
+        ctx.fillRect(l, 0, w, this.pixelY);
 
         ctx.fillStyle = "scrollKnob";
         ctx.fillRect(l+3, t, w-6, h);
@@ -648,7 +722,7 @@ export class Warota {
                 let w = line[0]; // should be always one
                 return w.top <= y && y < w.top + w.height;
             });
-            if (lineIndex < 0) {
+            if (lineIndex < 0) { // should always be the past end of line.
                 lineIndex = lines.length - 1;
             }
             return [lines[lineIndex], lineIndex];
@@ -657,18 +731,18 @@ export class Warota {
         let lineIndex = lines.findIndex(line => {
             let start = line[0];
             let end = line[line.length-1];
+            if (!start || !end) {debugger;}
             return start.start <= pos && pos < end.end;
         });
 
-        if (lineIndex < 0) {
-            lineIndex = lines.length;
+        if (lineIndex < 0) { // falls back on the last eof line
+            lineIndex = lines.length - 1;
         }
         return [lines[lineIndex], lineIndex];
     }
 
     findWord(pos, x, y) {
         let word;
-        const isNewline = (str) => /[\n\r]/.test(str);
         if (x !== undefined && y !== undefined) {
             let [line, lineIndex] = this.findLine(pos, x, y);
             let wordIndex = line.findIndex(w => w.left <= x && x < w.left + w.width);
@@ -679,7 +753,6 @@ export class Warota {
         }
 
         let [line, lineIndex] = this.findLine(pos, x, y);
-        if (!line) {return null;}
 
         let wordIndex = line.findIndex(w => w.start <= pos && pos < w.end);
         if (wordIndex < 0) {
@@ -688,18 +761,19 @@ export class Warota {
         return line[wordIndex];
     }
 
-    insert(userID, runs) {
-        let evt = Event.insert(userID, runs, this.timezone);
+    insert(user, runs) {
+        let evt = Event.insert(user, runs, this.timezone);
         this.events.push(evt);
     }
 
-    delete(userID, start, end) {
-        let evt = Event.delete(userID, start, end, this.timezone);
+    delete(user, start, end) {
+        let evt = Event.delete(user, start, end, this.timezone);
         this.events.push(evt);
     }
 
-    select(userID, start, end, color) {
-        let evt = Event.select(userID, start, end, color, this.timezone);
+    select(user, start, end) {
+        let evt = Event.select(user, start, end, this.timezone);
+        this.lastSelect = {start: start, end: end};
         this.events.push(evt);
     }
 
@@ -713,18 +787,22 @@ export class Warota {
         if (!word) {return {left: 0, top: 0, width: 0, height: 0};}
 
         let lp = pos - word.start;
-        let measure0 = new Measurer().measureText(word.text.slice(0, pos-word.start), word.style);
-        let measure1 = new Measurer().measureText(word.text.slice(0, pos-word.start+1), word.style);
+        let measure0 = this.defaultMeasurer.measureText(word.text.slice(0, pos-word.start), word.style, this.doc.defaultFont);
+        let measure1 = this.defaultMeasurer.measureText(word.text.slice(0, pos-word.start+1), word.style, this.doc.defaultFont);
         return {left: word.left + measure0.width, top: word.top, width: measure1.width - measure0.width, height: word.height};
     }
 
     indexFromPosition(x, y) {
+        const eof = String.fromCharCode(26); // "^Z"
         let word = this.findWord(null, x, y);
-        if (!word) {return 0;}
+        if (word.text === eof) {
+            word = this.words[this.words.length - 1];
+            return word.end;
+        }
         let last = 0;
         let lx = x - word.left;
         for (let i = 0; i <= word.text.length; i++) {
-            let measure = new Measurer().measureText(word.text.slice(0, i), word.style);
+            let measure = this.defaultMeasurer.measureText(word.text.slice(0, i), word.style, this.doc.defaultFont);
             let half = (measure.width - last) / 2;
             if (last <= lx && lx < last + half) {
                 return word.start + i - 1;
@@ -739,6 +817,9 @@ export class Warota {
 
     changeLine(user, pos, dir) {
         let [line, lineIndex] = this.findLine(pos);
+        if (lineIndex === this.lines.length - 1) {
+            return pos;
+        }
         let rect = this.positionFromIndex(pos);
         let newLineIndex = lineIndex + dir;
         if (newLineIndex < 0) {return 0;}
@@ -750,6 +831,16 @@ export class Warota {
     }
 
     barRect(selection) {
+        if (selection.start === 0) {
+            let rect = this.positionFromIndex(selection.start);
+            return {left: rect.left, top: 0, width: 5, height: rect.height};
+        }
+
+        if (selection.start === this.doc.length()) {
+            let rect = this.positionFromIndex(selection.start - 1);
+            return {left: rect.left + rect.width, top: rect.top, width: 5, height: rect.height};
+        }
+
         let rect = this.positionFromIndex(selection.start);
         return {left: rect.left, top: rect.top, width: 5, height: rect.height};
     }
@@ -760,6 +851,8 @@ export class Warota {
 
         if (line0 === undefined || line1 === undefined) {return [];}
 
+        let isSpecalEOF = () => line1Index === this.lines.length - 1 && line1Index -1 === line0Index;
+
         if (line0Index === line1Index) {
             // one rectangle
             let pos1 = this.positionFromIndex(selection.start);
@@ -768,23 +861,37 @@ export class Warota {
                     width: pos2.left - pos1.left,
                     height: pos1.height}];
         }
+
+         if (isSpecalEOF()) {
+             // also one rectangle;
+             let pos1 = this.positionFromIndex(selection.start);
+             let pos2 = this.positionFromIndex(selection.end - 1);
+             return [{left: pos1.left, top: pos1.top,
+                      width: pos2.left + pos2.width - pos1.left,
+                      height: pos1.height}];
+         }
+
         let rects = [];
         let pos1 = this.positionFromIndex(selection.start);
-        let pos2 = this.positionFromIndex(line0[line0.length-1].end);
+        let pos2;
+        if (selection.end !== this.doc.length()) {
+            pos2 = this.positionFromIndex(selection.end);
+        } else {
+            let word = this.findWord(selection.end-1);
+            pos2 = {left: word.left+word.width, top: word.top, width: 0, height: word.height};
+        }
         rects.push({left: pos1.left, top: pos1.top,
                     width: this.width() - pos1.left,
                     height: pos1.height});
         if (line1Index - line0Index >= 2) {
-            pos1 = this.positionFromIndex(this.lines[line0Index+1][0].start);
-            pos2 = this.positionFromIndex(selection.end);
+            pos1 = this.lines[line0Index+1][0];
             rects.push({left: this.pixelMargins.left, top: pos1.top,
                         width: this.width(),
                         height: pos2.top - pos1.top});
         }
 
-        pos1 = this.positionFromIndex(this.lines[line1Index][0].start);
-        pos2 = this.positionFromIndex(selection.end);
-        rects.push({left: this.pixelMargins.left, top: pos1.top,
+        pos1 = this.lines[line1Index][0];
+        rects.push({left: this.pixelMargins.left, top: pos2.top,
                     width: pos2.left - this.pixelMargins.left,
                     height: pos2.height});
         return rects;
@@ -797,7 +904,7 @@ export class Warota {
         return x >= scrollBarLeft;
     }
 
-    mouseDown(x, y, realY, userID) {
+    mouseDown(x, y, realY, user) {
         if (this.isScrollbarClick(x, y)) {
             this.scrollBarClick = {
                 type: "clicked",
@@ -810,12 +917,12 @@ export class Warota {
             let index = this.indexFromPosition(x, y);
             this.extendingSelection = null;
             this.selectDragStart = index;
-            this.select(userID, index, index, userID);
+            this.select(user, index, index);
         }
         this.keyboardX = null;
     }
 
-    mouseMove(x, y, realY, userID) {
+    mouseMove(x, y, realY, user) {
         if (this.selectDragStart !== null) {
             let other = this.indexFromPosition(x, y);
             let start, end;
@@ -830,9 +937,9 @@ export class Warota {
                     start = this.selectDragStart;
                     end = other;
                 }
-                let last = this.doc.selections[userID];
+                let last = this.lastSelect;
                 if (last && (last.start !== start || last.end !== end)) {
-                    this.select(userID, start, end, userID);
+                    this.select(user, start, end);
                     return 'selectionChanged';
                 }
             }
@@ -853,7 +960,7 @@ export class Warota {
         return null;
     }
 
-    mouseUp(x,y , realY, userID) {
+    mouseUp(x,y , realY, user) {
         if (this.scrollBarClick) {
             if (this.scrollBarClick.type === "clicked") {
             }
@@ -864,24 +971,23 @@ export class Warota {
         }
         this.selectDragStart = null;
         this.keyboardX = null;
+        this.lastSelect = null;
     }
 
-    backspace(userID) {
-        let selection = this.doc.selections[userID] || {start: 0, end: 0};
+    backspace(user) {
+        let selection = this.doc.selections[user.id] || {start: 0, end: 0, color: user.color};
         if (selection.start === selection.end && selection.start > 0) {
-            this.delete(userID, selection.start - 1, selection.end);
+            this.delete(user, selection.start - 1, selection.end);
         } else {
-            this.delete(userID, selection.start, selection.end);
+            this.delete(user, selection.start, selection.end);
         }
     }
 
-    handleKey(userID, key, selecting, ctrlKey) {
-        let selection = this.doc.selections[userID] || {start: 0, end: 0};
-        let lastLine = this.lines[this.lines.length-1];
-        let lastWord = lastLine[lastLine.length-1];
+    handleKey(user, key, selecting, ctrlKey) {
+        let selection = this.doc.selections[user.id] || {start: 0, end: 0, color: user.color};
         let start = selection.start,
             end = selection.end,
-            length = lastWord.end,
+            length = this.doc.intervals[this.doc.intervals.length-1].end,
             handled = false;
 
         if (!selecting) {
@@ -930,16 +1036,16 @@ export class Warota {
             break;
 
         case 40: // down arrow - find character below
-          pos = this.changeLine(userID, pos, 1);
-          changingCaret = true;
-          break;
+            pos = this.changeLine(user, pos, 1);
+                changingCaret = true;
+            break;
         case 38: // up - find character above
-          pos = this.changeLine(userID, pos, -1);
+          pos = this.changeLine(user, pos, -1);
           changingCaret = true;
           break;
 
         case 8: // backspace
-            this.backspace(userID);
+            this.backspace(user);
             handled = true;
             break;
         default:
@@ -969,14 +1075,25 @@ export class Warota {
                     start = t;
                 }
             }
-            this.select(userID, start, end, userID);
+            this.select(user, start, end);
             handled = true;
         }
+
+        if (ctrlKey) {
+            switch(key) {
+            case 65:
+                this.select(user, 0, length);
+                window.editor = this;
+                handled = true;
+                break;
+            }
+        }
+
         return handled;
     }
 
     selectionText(user) {
-        let sel = this.doc.selections[user];
+        let sel = this.doc.selections[user.id];
         if (!sel) {
             return "";
         }
@@ -989,34 +1106,11 @@ export class Event {
         return {type: "insert", user, runs, length: runLength(runs), timezone};
     }
 
-    static doInsert(doc, insert) {
-        doc.doInsert(insert.pos, insert.runs);
-    }
-
-    static undoInsert(doc, insert) {
-        doc.doDelete(insert.pos, insert.length);
-    }
-
     static delete(user, start, end, timezone) {
         return {type: "delete", user, start, end, timezone, deleted: null};
     }
 
-    static doDelete(doc, del) {
-        del.deleted = doc.get(this.start, this.end);
-        doc.doDelete(del.start, del.end - del.start);
+    static select(user, start, end, timezone) {
+        return {type: "select", user, start, end, timezone};
     }
-
-    static undoDelete(doc, del) {
-        doc.doInsert(del.start, del.deleted);
-    }
-
-    static select(user, start, end, color, timezone) {
-        return {type: "select", user, start, end, color, timezone};
-    }
-
-    static doSelect(doc, select) {
-        doc.doSelect(select.user, select.start, select.end, select.color);
-    }
-
-    static undoSelect(doc, select) { }
 }

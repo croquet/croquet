@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { ViewPart } from "../modelView";
+import { ViewPart } from "../parts";
 import { LayoutRoot, LayoutStack, LayoutSlotStretch3D, LayoutSlotText } from "./layout";
 import TextViewPart from "./textView";
 import { makePointerSensitive, PointerEvents } from "./pointer";
@@ -13,9 +13,9 @@ export class EntryBackgroundPlane extends ViewPart {
             new THREE.MeshBasicMaterial({color: options.color || "#ffffff"})
         );
         makePointerSensitive(this.threeObj, this, 2);
-        this.subscribe(PointerEvents.pointerEnter, "onStartHover");
-        this.subscribe(PointerEvents.pointerLeave, "onEndHover");
-        this.subscribe(PointerEvents.pointerUp, "onClick");
+        this.subscribe(this.id, PointerEvents.pointerEnter, data => this.onStartHover(data));
+        this.subscribe(this.id, PointerEvents.pointerLeave, data => this.onEndHover(data));
+        this.subscribe(this.id, PointerEvents.pointerUp, data => this.onClick(data));
     }
 
     onStartHover() {

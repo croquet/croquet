@@ -82,11 +82,13 @@ class FontRegistry {
         return this.expect(font).measurer;
     }
 
-    measureText(text, formatting) {
+    measureText(text, formatting, font) {
         if (formatting === undefined) formatting = {};
-        const fontName = formatting.font || defaultFont;
-        const scale = (formatting.size || 10) / 10;
-        return this.expect(fontName).measurer.measureText(text, scale);
+        const fontName = (formatting && formatting.font) || font || defaultFont;
+        const scale = ((formatting &&formatting.size) || 10) / 10;
+        let m = this.expect(fontName);
+        if (!m) {debugger;}
+        return m.measurer.measureText(text, scale);
     }
 }
 

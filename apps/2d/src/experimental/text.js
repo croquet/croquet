@@ -1,4 +1,7 @@
-import { Model, View } from "../../../teatime";
+import { Model, View } from "@croquet/teatime";
+
+const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 const COLORS = [ "#FFF", "#C00", "#0C0", "#880", "#00C", "#C0C", "#0CC", "#888" ];
 const CURSOR = "|";

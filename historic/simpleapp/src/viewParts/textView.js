@@ -1,12 +1,12 @@
 import * as THREE from "three";
 import { TextGeometry, HybridMSDFShader } from "three-bmfont-text";
 import { rendererVersion } from "../render";
-import { TextEvents } from "../stateParts/text";
+import { TextEvents } from "../modelParts/text";
 import { PointerEvents, makePointerSensitive, TrackPlaneEvents, TrackPlaneTopic } from "./pointer";
 import { Warota } from "../util/warota/warota";
 import { fontRegistry } from "../util/fontRegistry";
 import { KeyboardEvents, KeyboardTopic } from "../domKeyboardManager";
-import { ViewPart } from "../modelView";
+import { ViewPart } from "../parts";
 import { userID } from "../util/userid";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
@@ -33,13 +33,13 @@ export default class EditableTextViewPart extends ViewPart {
                margins: {left: 0, right: 0, top: 0, bottom: 0}, ...options};
 
         if (this.options.editable) {
-            this.subscribe(PointerEvents.pointerDown, "onPointerDown");
-            this.subscribe(PointerEvents.pointerDrag, "onPointerDrag");
-            this.subscribe(PointerEvents.pointerUp, "onPointerUp");
-            this.subscribe(KeyboardEvents.keydown, "onKeyDown");
-            this.subscribe(KeyboardEvents.copy, "onCopy");
-            this.subscribe(KeyboardEvents.cut, "onCut");
-            this.subscribe(KeyboardEvents.paste, "onPaste");
+            this.subscribe(this.id, PointerEvents.pointerDown, data => this.onPointerDown(data));
+            this.subscribe(this.id, PointerEvents.pointerDrag, data => this.onPointerDrag(data));
+            this.subscribe(this.id, PointerEvents.pointerUp, data => this.onPointerUp(data));
+            this.subscribe(this.id, KeyboardEvents.keydown, data => this.onKeyDown(data));
+            this.subscribe(this.id, KeyboardEvents.copy, data => this.onCopy(data));
+            this.subscribe(this.id, KeyboardEvents.cut, data => this.onCut(data));
+            this.subscribe(this.id, KeyboardEvents.paste, data => this.onPaste(data));
         }
 
         const boxMesh = this.initBoxMesh();
@@ -53,11 +53,10 @@ export default class EditableTextViewPart extends ViewPart {
 
         if (this.options.editable) {
             makePointerSensitive(boxMesh, this);
-            this.subscribe(TextEvents.changed, "onChanged", this.textPart.id);
+            this.subscribe(this.textPart.id, TextEvents.changed, data => this.onChanged(data));
         }
 
         this.threeObj = boxMesh;
-        window.view = this;
     }
 
     onGetFocus() {
@@ -66,8 +65,6 @@ export default class EditableTextViewPart extends ViewPart {
     }
 
     initEditor() {
-        this.lastPt = false;
-        //this.editor = new Warota(this.options.width, this.options.height, this.options.numLines, this.doc);
         this.editor = new Warota(this.options, this.doc); // options may be modified, doc might be null for non editable text
         this.editor.mockCallback = ctx => {
             const glyphs = this.processMockContext(ctx);
@@ -246,17 +243,17 @@ export default class EditableTextViewPart extends ViewPart {
             if (rec.style.startsWith('barSelection')) {
                 if (this.options.showSelection) {
                     // drawing the insertion  - line width of text cursor should relate to font
-                    let id = rec.style.split(' ')[1];
+                    let color = rec.style.split(' ')[1];
                     let box = getSelectionBox();
-                    this.updateSelection(box, meshRect, id);
+                    this.updateSelection(box, meshRect, color);
                 }
             } else if (rec.style.startsWith('boxSelection')) {
-                //rec.style === 'boxSelectionUnfocus' ||'boxSelectionFocus'
-                let id = rec.style.split(' ')[1];
-                // boxes of selections
+                // rec.style === 'boxSelectionUnfocus' || 'boxSelectionFocus'
                 if (this.options.showSelection) {
+                    let color = rec.style.split(' ')[1];
+                    // boxes of selections
                     let box = getSelectionBox();
-                    this.updateSelection(box, meshRect, id);
+                    this.updateSelection(box, meshRect, color);
                 }
             } else if (rec.style === 'scrollBar') {
                 // oh, boy.  we are compensating it with fudge factor and recompensationg
@@ -355,12 +352,12 @@ export default class EditableTextViewPart extends ViewPart {
 
     onPointerDown(evt) {
         this.lastPt = evt.at;
-        this.publish(KeyboardEvents.requestfocus, {requesterRef: this.id}, KeyboardTopic);
+        this.publish(KeyboardTopic, KeyboardEvents.requestfocus, {requesterRef: this.id});
         const pt = this.textPtFromEvt(evt.at);
         this.editor.mouseDown(pt.x, pt.y, pt.realY, userID);
 
         this.draggingPlane.setFromNormalAndCoplanarPoint(this.threeObj.getWorldDirection(new THREE.Vector3()), this.threeObj.position);
-        this.publish(TrackPlaneEvents.requestTrackPlane, {requesterRef: this.id, plane: this.draggingPlane}, TrackPlaneTopic, null);
+        this.publish(TrackPlaneTopic, TrackPlaneEvents.requestTrackPlane, {requesterRef: this.id, plane: this.draggingPlane});
 
         this.changed();
         return true;
@@ -398,8 +395,13 @@ export default class EditableTextViewPart extends ViewPart {
         // through, and the kinds that the editor handles are different.
         // We need to separated them, and for the latter, the text commands list has
         // to be tested here.
-        if (cEvt.keyCombo === "Meta-S") {
+        if (cEvt.keyCombo === "Meta-S" || cEvt.keyCombo === "Ctrl-S") {
             this.accept();
+            return true;
+        }
+
+        if (cEvt.keyCombo === "Meta-Z" || cEvt.keyCombo === "Ctrl-Z") {
+            this.undo();
             return true;
         }
 
@@ -456,6 +458,10 @@ export default class EditableTextViewPart extends ViewPart {
 
     accept() {
         this.textPart.future().acceptContent();
+    }
+
+    undo() {
+        this.textPart.future().undoRequest(userID);
     }
 
     // "text access"

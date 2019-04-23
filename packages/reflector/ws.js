@@ -10,7 +10,7 @@
 
 
 import BroadcastChannel from "broadcast-channel";
-import hotreload from "../hotreload";
+import hotreload from "@croquet/util/hotreload";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
@@ -162,6 +162,7 @@ export class Socket extends CallbackHandler {
         this.readyState = WebSocket.CONNECTING;
         this.remoteAddress = options.host || 'channel';
         this.remotePort = options.port || myPort;
+        this.bufferedAmount = 0;    // https://github.com/websockets/ws/blob/master/doc/ws.md#websocketbufferedamount
         /** @type {Socket} if connecting directly to myServer, the server's socket */
         this._otherEnd = null;
         // if we were given a server, connect to it

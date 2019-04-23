@@ -1,6 +1,12 @@
-import { Model, View, Controller } from "../../teatime";
-import Stats from "../../../arcos/simpleapp/src/util/stats";
-import urlOptions from "../../../arcos/simpleapp/src/util/urlOptions";
+// work around https://github.com/parcel-bundler/parcel/issues/1838
+import Stats from "@croquet/teatime/node_modules/@croquet/util/stats";
+import { Model, View, Controller } from "@croquet/teatime";
+import urlOptions from "@croquet/util/urlOptions";
+
+
+const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
+
 
 const LOCALHOST = window.location.hostname === 'localhost';
 
@@ -59,6 +65,8 @@ export class Shape extends Model {
         this.type = options.type || 'circle';
         this.color = options.color || `hsla(${r(360)},${r(50)+50}%,50%,0.5)`;
         this.pos = [r(1000), r(1000)];
+        this.subscribe(this.id, "move-to", pos => this.moveTo(pos));
+        this.subscribe(this.id, "move-by", delta => this.moveBy(delta));
         return this;
     }
 
@@ -76,20 +84,16 @@ export class Shape extends Model {
         state.pos = this.pos;
     }
 
-    start() {
-        super.start();
-        this.subscribe(this.id, "move-to", pos => this.moveTo(...pos));
-        this.subscribe(this.id, "move-by", delta => this.moveBy(...delta));
-    }
-
     // non-inherited methods below
 
-    moveBy(dx, dy) {
+    moveBy(delta) {
+        const [dx, dy] = delta;
         const [x, y] = this.pos;
-        this.moveTo(x + dx, y + dy);
+        this.moveTo([x + dx, y + dy]);
     }
 
-    moveTo(x, y) {
+    moveTo(pos) {
+        const [x, y] = pos;
         this.pos[0] = Math.max(0, Math.min(1000, x));
         this.pos[1] = Math.max(0, Math.min(1000, y));
         this.publish(this.id, 'pos-changed', this.pos);
@@ -125,12 +129,13 @@ export class BouncingShape extends Shape {
     }
 
     step() {
-        this.moveBy(...this.speed);
+        this.moveBy(this.speed);
         this.future(STEP_MS).step();
     }
 
-    moveTo(x, y) {
-        super.moveTo(x, y);
+    moveTo(pos) {
+        super.moveTo(pos);
+        const [x, y] = pos;
         let dx = x < 0 ? 1 : x >= 1000 ? -1 : 0;
         let dy = y < 0 ? 1 : y >= 1000 ? -1 : 0;
         if (dx || dy) {
@@ -198,10 +203,11 @@ class RootView extends View {
     }
 
     showStatus(backlog, starvation, min, max) {
-        const color = backlog > starvation ? '#f00' : '#fff';
+        const color = backlog > starvation ? '255,0,0' : '255,255,255';
         const value = Math.max(backlog, starvation) - min;
-        const size = Math.min(value, max) * 500 / max;
-        this.element.style.boxShadow = value < 0 ? "" : `inset 0 0 ${size}px ${color}`;
+        const size = Math.min(value, max) * 100 / max;
+        const alpha = size / 100;
+        this.element.style.boxShadow = alpha < 0.2 ? "" : `inset 0 0 ${size}px rgba(${color},${alpha})`;
     }
 }
 
@@ -214,7 +220,7 @@ class ShapeView extends View {
         el.className = model.type;
         el.id = model.id;
         el.style.backgroundColor = model.color;
-        this.subscribe(model.id, {event: 'pos-changed', oncePerFrame: true}, 'move');
+        this.subscribe(model.id, {event: 'pos-changed', oncePerFrame: true}, pos => this.move(pos));
         this.move(model.pos);
         this.enableDragging();
     }
@@ -284,9 +290,11 @@ async function go() {
         const models = await controller.createIsland("2d", {
             moduleID: module.id,
             snapshot,
-            creatorFn() {
+            options: urlOptions.n && {n: urlOptions.n},     // null if no option given
+            creatorFn(options) {
                 const root = Root.create();
-                for (let i = 0; i < 99; i++) root.add(Shape.create());
+                const n = options && options.n || 99;
+                for (let i = 0; i < n; i++) root.add(Shape.create());
                 root.add(BouncingShape.create({pos: [500, 500], color: "white"}));
                 return {root};
             },
@@ -314,10 +322,8 @@ async function go() {
     function frame(timestamp) {
         const starvation = Date.now() - controller.lastReceived;
         const backlog = controller.backlog;
-        rootView.showStatus(backlog, starvation, 200, 3000);
-        Stats.animationFrame(timestamp);
-        Stats.users(controller.users);
-        Stats.network(starvation);
+        rootView.showStatus(backlog, starvation, 100, 3000);
+        Stats.animationFrame(timestamp, {backlog, starvation, users: controller.users});
 
         if (users !== controller.users) {
             users = controller.users;
@@ -334,6 +340,10 @@ async function go() {
 
         window.requestAnimationFrame(frame);
     }
+
+    window.onbeforeunload = () => {
+        if (controller.island) window.top.postMessage({connected: -1}, "*");
+    };
 }
 
 

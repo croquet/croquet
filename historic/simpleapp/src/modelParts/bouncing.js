@@ -1,6 +1,5 @@
 import * as THREE from "three";
 import Inertial from "./inertial";
-import { currentRealm } from "../modelView";
 
 const moduleVersion = `${module.id}#${module.bundle.v||0}`;
 if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle.v++; }
@@ -10,21 +9,23 @@ if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle
 */
 export default function Bouncing() {
     return BaseSpatialPartClass => class BouncingSpatialPart extends Inertial()(BaseSpatialPartClass) {
-        /** @param {SpatialPart} spatialPart */
-        applyState(state={}) {
-            super.applyState(state);
-            this.dampening = state.dampening || 0.01;
-            this.gravity = state.gravity || new THREE.Vector3(0, -0.001, 0);
-            this.bounce = state.bounce || 0.1;
-            this.ensure(this.gravity, THREE.Vector3);
-            // kick off animation only (!) if created from scratch
-            if (!("inInertiaPhase" in state)) this.startInertiaPhase();
-            // otherwise, future message is still scheduled
+        init(options={}, id) {
+            super.init(options, id);
+            this.gravity = options.gravity || new THREE.Vector3(0, -0.001, 0);
+            this.bounce = options.bounce || 0.1;
+            this.startInertiaPhase();
         }
 
-        toState(state) {
-            super.toState(state);
-            state.gravity = this.gravity;
+        load(state, allModels) {
+            super.load(state, allModels);
+            this.gravity = new THREE.Vector3().fromArray(state.gravity, 0);
+            this.bounce = state.bounce;
+        }
+
+        save(state) {
+            super.save(state);
+            state.gravity = [];
+            this.gravity.toArray(state.gravity, 0);
             state.bounce = this.bounce;
         }
 
@@ -38,7 +39,7 @@ export default function Bouncing() {
                 if (this.position.z < -10) { this.estimatedVelocity.z = Math.abs(this.estimatedVelocity.z); this.position.z = -10; bounce = true; }
                 if (this.position.z > 10) { this.estimatedVelocity.z = -Math.abs(this.estimatedVelocity.z); this.position.z =  10; bounce = true; }
                 if (bounce) {
-                    const random = axis => currentRealm().random() * this.bounce * (Math.sign(this.estimatedVelocity[axis]) || currentRealm().random() - 0.5);
+                    const random = axis => this.random() * this.bounce * (Math.sign(this.estimatedVelocity[axis]) || this.random() - 0.5);
                     this.estimatedVelocity.x += random('x');
                     this.estimatedVelocity.y += random('y');
                     this.estimatedVelocity.z += random('z');

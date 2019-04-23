@@ -1,19 +1,20 @@
 import * as THREE from "three";
-import { ViewPart } from "../modelView";
+import { urlOptions } from "@croquet/util";
+import { ViewPart } from "../parts";
 import WithManipulator from "../viewParts/manipulator";
-import { ChildEvents } from "../stateParts/children";
+import { ChildEvents } from "../modelParts/children";
 import CameraViewPart from "../viewParts/camera";
 import PointerViewPart, { makePointerSensitive, ignorePointer, PointerEvents } from "../viewParts/pointer";
 import arrowsAlt from "../../assets/arrows-alt.svg";
 import arrowsAltRot from "../../assets/arrows-alt-rot.svg";
 import SVGIcon from "../util/svgIcon";
 import Tracking, { Facing } from "../viewParts/tracking";
-import SpatialPart from "../stateParts/spatial";
-import Inertial from "../stateParts/inertial";
-import { PortalTraversing, PortalEvents, PortalTopic } from "../stateParts/portal";
+import SpatialPart from "../modelParts/spatial";
+import Inertial from "../modelParts/inertial";
+import { PortalTraversing, PortalEvents, PortalTopic } from "../modelParts/portal";
 import { KeyboardViewPart } from "../viewParts/keyboard";
 import { ContextMenu } from "../viewParts/menu";
-import { ColorEvents } from "../stateParts/color";
+import { ColorEvents } from "../modelParts/color";
 import urlOptions from "../util/urlOptions";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
@@ -24,10 +25,11 @@ export default class RoomView extends ViewPart {
     constructor(options) {
         super();
 
-        this.cameraSpatial = new (PortalTraversing()(Inertial()(SpatialPart)))();
+        this.cameraSpatial = PortalTraversing()(Inertial()(SpatialPart)).create();
         this.cameraSpatial.init({
             position: options.cameraPosition,
-            quaternion: options.cameraQuaternion
+            quaternion: options.cameraQuaternion,
+            dampening: 0.05
         });
 
         this.parts.camera = new (Tracking({source: this.cameraSpatial})(CameraViewPart))({
@@ -36,7 +38,7 @@ export default class RoomView extends ViewPart {
         });
 
         this.parts.roomScene = new RoomScene({room: options.room});
-        this.parts.elementViewManager = new ElementViewManager({room: options.room, scenePart: this.parts.roomScene});
+        this.parts.elementViewManager = new ElementViewManager({room: options.room, scenePart: this.parts.roomScene, cameraSpatial: this.cameraSpatial});
 
         if (options.activeParticipant) {
             this.parts.pointer = new PointerViewPart({room: options.room, cameraPart: this.parts.camera, scenePart: this.parts.roomScene});
@@ -57,7 +59,7 @@ export default class RoomView extends ViewPart {
             });
 
             this.traversePortalToRoom = options.traversePortalToRoom;
-            this.subscribe(PortalEvents.traversed, "onPortalTraversed", PortalTopic);
+            this.subscribe(PortalTopic, PortalEvents.traversed, data => this.onPortalTraversed(data));
         }
     }
 
@@ -99,7 +101,7 @@ class RoomScene extends ViewPart {
         // this.scene.add(new THREE.AxesHelper(5));
         this.threeObj = this.scene;
 
-        this.subscribe(ColorEvents.changed, "colorChanged", options.room.parts.color.id);
+        this.subscribe(options.room.parts.color.id, ColorEvents.changed, data => this.colorChanged(data));
     }
 
     colorChanged(newColor) {
@@ -128,6 +130,8 @@ class InteractionDome extends ViewPart {
             })
         };
 
+        if (urlOptions.debug) document.body.className = "debug";
+
         this.escapeKeyHandler = e => {
             if (e.key === "Escape") {
                 this.parts.contextMenu.dismiss();
@@ -147,7 +151,7 @@ class InteractionDome extends ViewPart {
 
         this.scenePart.threeObj.add(this.threeObj);
         makePointerSensitive(this.threeObj, this, -1);
-        this.subscribe(PointerEvents.pointerUp, "onClick");
+        this.subscribe(this.id, PointerEvents.pointerUp, data => this.onClick(data));
     }
 
     onClick({dragEndOnVerticalPlane}) {
@@ -165,20 +169,21 @@ class ElementViewManager extends ViewPart {
     constructor(options) {
         super();
         this.scenePart = options.scenePart;
+        this.cameraSpatial = options.cameraSpatial;
         this.viewsForElements = {};
 
         for (const element of options.room.parts.elements.children) {
             this.onElementAdded(element);
         }
 
-        this.subscribe(ChildEvents.childAdded, "onElementAdded", options.room.parts.elements.id);
-        this.subscribe(ChildEvents.childRemoved, "onElementRemoved", options.room.parts.elements.id);
+        this.subscribe(options.room.parts.elements.id, ChildEvents.childAdded, data => this.onElementAdded(data));
+        this.subscribe(options.room.parts.elements.id, ChildEvents.childRemoved, data => this.onElementRemoved(data));
     }
 
     onElementAdded(element) {
         const NaturalView = element.naturalViewClass("in-room");
         /** @type {View} */
-        const view = new (WithManipulator(NaturalView))({model: element});
+        const view = new (WithManipulator(NaturalView))({model: element, cameraSpatial: this.cameraSpatial});
         this.viewsForElements[element.id] = view;
         this.scenePart.threeObj.add(...view.threeObjs());
     }
@@ -231,10 +236,10 @@ class TreadmillNavigation extends ViewPart {
         group.add(this.moveCursor);
         group.add(this.rotateCursor);
 
-        this.subscribe(PointerEvents.pointerMove, "onHoverTreadmillMove");
-        this.subscribe(PointerEvents.pointerLeave, "onHoverTreadmillLeave");
-        this.subscribe(PointerEvents.pointerDown, "onDragTreadmillStart");
-        this.subscribe(PointerEvents.pointerDrag, "onDragTreadmill");
+        this.subscribe(this.id, PointerEvents.pointerMove, data => this.onHoverTreadmillMove(data));
+        this.subscribe(this.id, PointerEvents.pointerLeave, data => this.onHoverTreadmillLeave(data));
+        this.subscribe(this.id, PointerEvents.pointerDown, data => this.onDragTreadmillStart(data));
+        this.subscribe(this.id, PointerEvents.pointerDrag, data => this.onDragTreadmill(data));
         this.threeObj = group;
         this.scenePart.threeObj.add(group);
     }

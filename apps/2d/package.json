@@ -1,5 +1,5 @@
 {
-  "name": "croquet-2d",
+  "name": "@croquet/2d",
   "version": "0.0.1",
   "description": "",
   "main": "src/2d.js",
@@ -23,14 +23,13 @@
     ]
   },
   "dependencies": {
-    "broadcast-channel": "^2.1.10",
-    "fastpriorityqueue": "^0.6.1",
-    "hashids": "^1.2.2",
-    "seedrandom": "^2.4.4"
+    "@croquet/teatime": "file:../teatime",
+    "@croquet/util": "file:../util"
   },
   "devDependencies": {
     "eslint": "^5.14.1",
     "eslint-config-airbnb-base": "^13.1.0",
+    "eslint-import-resolver-parcel": "^1.8.4",
     "eslint-plugin-import": "^2.16.0",
     "jsdoc": "git+https://github.com/jsdoc3/jsdoc.git",
     "parcel": "git+https://github.com/bertfreudenberg/parcel-bundler.git"

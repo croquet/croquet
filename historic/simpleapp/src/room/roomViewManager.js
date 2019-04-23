@@ -1,5 +1,4 @@
 import RoomView from "./roomView";
-import { inViewRealm } from "../modelView";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
@@ -23,7 +22,7 @@ export default class RoomViewManager {
     }
 
     moveCamera(roomName, cameraPosition, cameraQuaternion) {
-        const cameraSpatialPart = this.activeRoomViews[roomName].viewState.parts.cameraSpatial;
+        const cameraSpatialPart = this.activeRoomViews[roomName].cameraSpatial;
         cameraSpatialPart.moveToNoPortalTraverse(cameraPosition, false);
         cameraSpatialPart.rotateTo(cameraQuaternion, false);
         cameraSpatialPart.stop();
@@ -35,10 +34,9 @@ export default class RoomViewManager {
                 this.moveCamera(roomName, cameraPosition, cameraQuaternion);
             }
         } else {
-            const island = allRooms[roomName].island;
-            const room = island.get("room");
+            const room = allRooms[roomName].namedModels.room;
 
-            inViewRealm(island, () => {
+            allRooms[roomName].controller.inViewRealm(() => {
                 const roomView = new RoomView({
                     room,
                     activeParticipant: true,
@@ -63,20 +61,20 @@ export default class RoomViewManager {
     expect(roomName) {
         const roomView = this.activeRoomViews[roomName];
         if (!roomView) {
-            throw new Error(`Expected RoomView for ${roomName} to already exist.`);
+            throw Error(`Expected RoomView for ${roomName} to already exist.`);
         }
         return roomView;
     }
 
     requestPassive(roomName, allRooms, initialCameraPosition) {
         if (!this.passiveRoomViews[roomName]) {
-            const island = allRooms[roomName].island;
+            if (!allRooms[roomName].namedModels) {
+                allRooms.getIsland(roomName);
+                return null;
+            }
+            const room = allRooms[roomName].namedModels.room;
 
-            if (!island) { allRooms.getIsland(roomName); return null; }
-
-            const room = island.get("room");
-
-            inViewRealm(island, () => {
+            allRooms[roomName].controller.inViewRealm(() => {
                 const roomView = new RoomView({
                     room,
                     activeParticipant: false,

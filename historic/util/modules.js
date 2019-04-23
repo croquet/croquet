@@ -1,9 +1,6 @@
 import Hashids from "hashids";
 import hotreload from "./hotreload";
 
-// we include the parcel prelude only so we can get at its source code
-import "parcel/src/builtins/prelude";    // eslint-disable-line
-
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
@@ -281,7 +278,5 @@ export async function uploadCode(entryPoint) {
     // for (const asset of assets) {
     //     uploadAsset(asset);
     // }
-    // prelude is the Parcel loader code, which loads the entrypoint
-    const prelude = moduleWithID(module.id)[1]["parcel/src/builtins/prelude"];
-    return { base: BASE_URL, prelude: await hashFile(prelude), entry: await hashFile(entryPoint), html: await hashFile(htmlName) };
+    return { base: BASE_URL, entry: await hashFile(entryPoint), html: await hashFile(htmlName) };
 }

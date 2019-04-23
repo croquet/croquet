@@ -1,12 +1,12 @@
-import {StatePart, ViewPart} from "../modelView";
-import SpatialPart from "../stateParts/spatial";
-import TextPart from "../stateParts/text";
+import {ModelPart, ViewPart} from "../parts";
+import SpatialPart from "../modelParts/spatial";
+import TextPart from "../modelParts/text";
 
 import Tracking from "../viewParts/tracking";
 import EditableTextViewPart from "../viewParts/textView";
 
 /** Model for a simple text display */
-export default class TextElement extends StatePart {
+export default class TextElement extends ModelPart {
     constructor() {
         super();
         this.parts = {
@@ -15,20 +15,26 @@ export default class TextElement extends StatePart {
         };
     }
 
-    applyState(state={}) {
-        super.applyState(state);
-        this.editable = state.editable;
+    init(options, id) {
+        super.init(options, id);
+        this.editable = options.editable;
         this.visualOptions = {
             font: "Barlow",
             fontSize: 0.25,
             width: 3,
             height: 2,
-            ...state.visualOptions
+            ...options.visualOptions
         };
     }
 
-    toState(state) {
-        super.toState(state);
+    load(state, allModels) {
+        super.load(state, allModels);
+        this.editable = state.editable;
+        this.visualOptions = state.visualOptions;
+    }
+
+    save(state) {
+        super.save(state);
         state.editable = this.editable;
         state.visualOptions = this.visualOptions;
     }

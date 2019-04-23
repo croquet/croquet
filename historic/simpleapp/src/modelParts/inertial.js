@@ -8,21 +8,25 @@ if (module.bundle.v) { console.log(`Hot reload ${moduleVersion}`); module.bundle
 */
 export default function Inertial() {
     return BaseSpatialPartClass => class InertialSpatialPart extends BaseSpatialPartClass {
-        /** @param {SpatialPart} spatialPart */
-        applyState(state={}) {
-            super.applyState(state);
-            this.estimatedVelocity = state.estimatedVelocity || new THREE.Vector3(0, 0, 0);
-            this.estimatedRotationalVelocity = state.estimatedRotationalVelocity || new THREE.Quaternion();
-            this.dampening = state.dampening || 0.1;
-            this.inInertiaPhase = state.inInertiaPhase || false;
-            this.ensure(this.estimatedVelocity, THREE.Vector3);
-            this.ensure(this.estimatedRotationalVelocity, THREE.Quaternion);
+        init(options={}, id) {
+            super.init(options, id);
+            this.estimatedVelocity = new THREE.Vector3(0, 0, 0);
+            this.estimatedRotationalVelocity = new THREE.Quaternion();
+            this.dampening = options.dampening || 0.01;
         }
 
-        toState(state) {
-            super.toState(state);
-            state.estimatedVelocity = this.estimatedVelocity;
-            state.estimatedRotationalVelocity = this.estimatedRotationalVelocity;
+        load(state, allModels) {
+            super.load(state, allModels);
+            this.estimatedVelocity = new THREE.Vector3().fromArray(state.estimatedVelocity);
+            this.estimatedRotationalVelocity = new THREE.Quaternion().fromArray(state.estimatedRotationalVelocity);
+            this.dampening = state.dampening;
+            this.inInertiaPhase = state.inInertiaPhase;
+        }
+
+        save(state) {
+            super.save(state);
+            state.estimatedVelocity = this.estimatedVelocity.toArray();
+            state.estimatedRotationalVelocity = this.estimatedRotationalVelocity.toArray();
             state.dampening = this.dampening;
             state.inInertiaPhase = this.inInertiaPhase;
         }
@@ -34,7 +38,6 @@ export default function Inertial() {
         }
 
         moveTo(newPosition, addInertia=true) {
-            this.ensure(newPosition, THREE.Vector3); // HACK for future message
             const positionBefore = this.position.clone();
             super.moveTo(newPosition);
             const delta = newPosition.sub(positionBefore);
@@ -49,7 +52,6 @@ export default function Inertial() {
         }
 
         rotateTo(quaternion, addInertia=true) {
-            this.ensure(quaternion, THREE.Quaternion); // HACK for future message
             const deltaQuaternion = quaternion.clone().multiply(this.quaternion.clone().inverse());
             super.rotateTo(quaternion);
             if (addInertia) this.estimatedRotationalVelocity.copy(this.estimatedRotationalVelocity.clone().slerp(deltaQuaternion, 0.3));

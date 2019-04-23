@@ -1,9 +1,8 @@
 import * as THREE from "three";
-import Island from "../island";
 import Room from "../room/roomModel";
-import SpatialPart from "../stateParts/spatial";
-import Inertial from "../stateParts/inertial";
-import { StatePart, ViewPart } from "../modelView";
+import SpatialPart from "../modelParts/spatial";
+import Inertial from "../modelParts/inertial";
+import { ModelPart, ViewPart } from "../parts";
 import Tracking from "../viewParts/tracking";
 import { LayoutRoot, LayoutContainer, LayoutSlotStretch3D, LayoutSlotText, MinFromBBox } from "../viewParts/layout";
 import TextElement from "../elements/textElement";
@@ -16,13 +15,10 @@ if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); 
 /** @returns {typeof SpatialPart} */
 function AutoRotating() {
     return SpatialPartClass => class extends SpatialPartClass {
-        onInitialized(wasFirstInit) {
-            super.onInitialized(wasFirstInit);
-            if (wasFirstInit) {
-                // kick off rotation only (!) if created from scratch
-                // otherwise, future message is still scheduled
-                this.doRotation();
-            }
+        init(options, id) {
+            super.init(options, id);
+            // kick off rotation
+            this.doRotation();
         }
 
         doRotation() {
@@ -32,12 +28,14 @@ function AutoRotating() {
     };
 }
 
+export const AutoRotatingInertialSpatialPart = AutoRotating()(Inertial()(SpatialPart));
+
 /** Element for a rotating Box */
-export class RotatingBoxElement extends StatePart {
+export class RotatingBoxElement extends ModelPart {
     constructor() {
         super();
         this.parts = {
-            spatial: new (AutoRotating()(Inertial()(SpatialPart)))()
+            spatial: new AutoRotatingInertialSpatialPart(),
         };
     }
 
@@ -58,7 +56,7 @@ class BoxViewPart extends ViewPart {
 
 export const BoxElementView = Draggable()(Tracking()(BoxViewPart));
 
-export class LayoutTestElement extends StatePart {
+export class LayoutTestElement extends ModelPart {
     constructor() {
         super();
         this.parts = {
@@ -127,46 +125,45 @@ class LayoutTestElementView extends ViewPart {
     }
 }
 
-function initRoom1(state) {
-    return new Island(state, island => {
-        const room = new Room().init({});
-        island.set("room", room);
+function initRoom1() {
+    const room = Room.create({});
 
-        const rotatingBox = new RotatingBoxElement().init({ spatial: { position: {x: 1.5, y: 1, z: 0} } });
-        room.parts.elements.add(rotatingBox);
+    const rotatingBox = RotatingBoxElement.create({ spatial: { position: new THREE.Vector3(1.5, 1, 0) } });
+    room.parts.elements.add(rotatingBox);
 
-        const text1 = new TextElement().init({
-            spatial: { position: new THREE.Vector3(-2, 0.7, -1.5) },
-            text: { content: {runs: [{text: "Man is much more than a tool builder... he is an inventor of universes."}]} },
-            editable: false,
-        });
-        room.parts.elements.add(text1);
-
-        const text2 = new TextElement().init({
-            spatial: { position: new THREE.Vector3(4, 1.0, -2) },
-            text: { content: {runs: [{text: "Chapter Eight - The Queen's Croquet Ground"}]} },
-            editable: false,
-            visualOptions: {font: "Lora", fontSize: 0.5, width: 5, height: 2}
-        });
-        room.parts.elements.add(text2);
-
-        const editText = new TextElement().init({
-            spatial: { position: {x: -5, y: 2, z: -1.5} },
-            text: {
-                content: {
-                    runs: [{text: "This text can be edited"}],
-                },
-            },
-            editable: true,
-            visualOptions: {font: "Roboto", numLines: 10, width: 3, height: 2}
-        });
-        room.parts.elements.add(editText);
-
-        const layoutTest = new LayoutTestElement().init({
-            spatial: { position: {x: 0, y: 1, z: -3 } },
-        });
-        room.parts.elements.add(layoutTest);
+    const text1 = TextElement.create({
+        spatial: { position: new THREE.Vector3(-2, 0.7, -1.5) },
+        text: { content: {runs: [{text: "Man is much more than a tool builder... he is an inventor of universes."}]} },
+        editable: false,
     });
+    room.parts.elements.add(text1);
+
+    const text2 = TextElement.create({
+        spatial: { position: new THREE.Vector3(4, 1.0, -2) },
+        text: { content: {runs: [{text: "Chapter Eight - The Queen's Croquet Ground"}]} },
+        editable: false,
+        visualOptions: {font: "Lora", fontSize: 0.5, width: 5, height: 2}
+    });
+    room.parts.elements.add(text2);
+
+    const editText = TextElement.create({
+        spatial: { position: new THREE.Vector3(-5, 2, -1.5) },
+        text: {
+            content: {
+                runs: [{text: "This text can be edited"}],
+            },
+        },
+        editable: true,
+        visualOptions: {font: "Roboto", numLines: 10, width: 3, height: 2}
+    });
+    room.parts.elements.add(editText);
+
+    const layoutTest = LayoutTestElement.create({
+        spatial: { position: new THREE.Vector3(0, 1, -3) },
+    });
+    room.parts.elements.add(layoutTest);
+
+    return {room};
 }
 
 export default {
