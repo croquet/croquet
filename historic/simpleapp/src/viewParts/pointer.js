@@ -1,7 +1,7 @@
 import * as THREE from "three";
+import { urlOptions } from "@croquet/util";
 import { ViewPart } from "../parts";
 import { theKeyboardManager } from "../domKeyboardManager";
-import urlOptions from "../util/urlOptions";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }

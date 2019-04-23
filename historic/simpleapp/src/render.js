@@ -1,10 +1,10 @@
 import * as THREE from "three";
+import { urlOptions } from "@croquet/util";
 import PortalViewPart from "./viewParts/portalView";
 import THREEx_imports from "../thirdparty-patched/ARjs/ar";
 import cameraData from "../thirdparty-patched/ARjs/data/camera_para.dat";
 import croquetPatternData from "../thirdparty-patched/ARjs/data/croquet.patt";
 //import hiroPatternData from "../thirdparty-patched/ARjs/data/patt.hiro";
-import urlOptions from "./util/urlOptions";
 
 const THREEx = THREEx_imports && THREEx_imports.THREEx;
 
