@@ -3,7 +3,7 @@
 const WebSocket = require('ws');
 
 const port = 9090;
-const TICK_RATE = 1000 / 20;  // default tick rate
+const TICK_MS = 1000 / 5;     // default tick interval
 const ARTIFICAL_DELAY = 0;    // delay messages randomly by 50% to 150% of this
 const MAX_MESSAGES = 10000;   // messages per island to retain since last snapshot
 const MAX_SNAPSHOT_MS = 5000; // time in ms before a snapshot is considered too "old" to serve
@@ -124,6 +124,7 @@ function JOIN(client, id, args) {
         sequence: 0,         // sequence number for messages with same time
         scale: 1,            // ratio of island time to wallclock time
         tick: TICK_MS,       // default tick rate
+        delay: 0,            // hold messages until this many ms after last tick/msg
         clients: new Set(),  // connected web sockets
         users: 0,            // number of clients already reported
         providers: new Set(),// clients that are running
@@ -259,15 +260,20 @@ function JOIN(client, id, args) {
     }
 }
 
-/** reflect a message to all participants
- * after time stamping it
+/** reflect a message to all participants after time stamping it
+ * @param {?Client} client - we received from this client
  * @param {ID} id - island ID
- * @param {Message} message
+ * @param {Array<Message>} messages
  */
-function SEND(client, id, message) {
+function SEND(client, id, messages) {
     const island = ALL_ISLANDS.get(id);
     if (!island) { if (client && client.readyState === WebSocket.OPEN) client.close(5000, "unknown island"); return; };
     const time = getTime(island);
+    if (island.delay) {
+        const delay = island.lastTick + island.delay - time;
+        if (island.delayed || delay > 0) { DELAY_SEND(island, delay, messages); return; }
+    }
+    for (const message of messages) {
         // message = [time, seq, payload]
         message[0] = time;
         message[1] = ++island.sequence;
@@ -277,6 +283,7 @@ function SEND(client, id, message) {
         STATS.SEND += island.clients.size;
         island.clients.forEach(each => each.safeSend(msg));
         island.messages.push(msg); // raw message sent again in SYNC
+    }
     island.lastMsgTime = time;
     island.lastTick = time;
     if (island.messages.length > MAX_MESSAGES) {
@@ -284,6 +291,25 @@ function SEND(client, id, message) {
         island.snapshot = null;
     }
     startTicker(island, island.tick);
+}
+
+// delay for the client to generate local ticks
+function DELAY_SEND(island, delay, messages) {
+    if (!island.delayed) {
+        stopTicker(island);
+        island.delayed = [];
+        setTimeout(() => DELAYED_SEND(island), delay);
+        //console.log(">>>>>>>>>>>>>> Delaying for", delay, "ms");
+    }
+    island.delayed.push(...messages);
+    //console.log(">>>>>>>>>>>>>> Delaying", ...args);
+}
+
+function DELAYED_SEND(island) {
+    const { id, delayed } = island;
+    island.delayed = null;
+    //console.log(">>>>>>>>>>>>>> Sending delayed messages", delayed);
+    SEND(null, id, delayed);
 }
 
 /** broadcast the number of users to other clients of an island when a client joins or leaves
@@ -334,6 +360,7 @@ function TICKS(client, id, args) {
     if (!island.time) {
         // only accept time and delay if new island
         island.time = typeof time === "number" ? time : 0;
+        if (delay > 0) island.delay = delay;
     }
     if (scale > 0) island.scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale));
     if (tick > 0) startTicker(island, tick);
