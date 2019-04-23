@@ -18,7 +18,7 @@ if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); 
 
 let hotState = module.hot && module.hot.data || {};
 
-const defaultRoom = window.location.hostname === "croquet.studio" ? "bounce" : "room1";
+const defaultRoom = "bounce"; //window.location.hostname === "croquet.studio" ? "bounce" : "room1";
 
 // default message transcoders
 const Vec3 = {
@@ -68,9 +68,9 @@ async function start() {
     if (!urlOptions.noupload) uploadCode(module.id).then(hashes => codeHashes = hashes);
 
     const ALL_ROOMS = {
-        room1: {creator: room1},
-        room2: {creator: room2},
-        room3: {creator: room3},
+        //room1: {creator: room1},
+        //room2: {creator: room2},
+        //room3: {creator: room3},
         bounce: {creator: roomBounce},
     };
 

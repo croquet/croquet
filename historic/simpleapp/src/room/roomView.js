@@ -92,7 +92,7 @@ class RoomScene extends ViewPart {
             new THREE.SphereGeometry(50, 10, 10),
             new THREE.MeshBasicMaterial({color: options.room.parts.color.value, side: THREE.DoubleSide})
         );
-        this.scene.add(this.skydome);
+        if (!urlOptions.ar) this.scene.add(this.skydome);
 
         this.scene.add(this.light);
         this.ambientLight = new THREE.HemisphereLight("#ddddff", "#ffdddd");
