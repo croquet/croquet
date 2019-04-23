@@ -10,14 +10,17 @@ if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); 
 
 const LOCALHOST = window.location.hostname === 'localhost';
 
+const TICK = 1000 / 10;         // ms per tick from reflector
+const LOCAL_TICKS = 2;          // number of locally generated ticks per reflector tick
 const THROTTLE = 1000 / 20;     // mouse event throttling
-const STEP_MS = 1000 / 20;      // bouncing ball step time in ms
-const SPEED = 15;               // bouncing ball speed in virtual pixels / step
-const ACTIVE_MS = 500;          // send activity indicator after this (real) time
+const STEP_MS = 1000 / 30;      // bouncing ball step time in ms
+const SPEED = 10;               // bouncing ball speed in virtual pixels / step
+const ACTIVE_MS = 1000;         // send activity indicator after this (real) time
 const INACTIVE_MS = 5000;       // delete inactive users after this (sim) time
 
 const TOUCH ='ontouchstart' in document.documentElement;
 const USER = (Math.random()+'').slice(2);
+//const USER = new Array(53).fill(0).map(() => (Math.random()+'').slice(2)).join('');
 
 let SCALE = 1;                  // model uses a virtual 1000x1000 space
 let OFFSETX = 50;               // top-left corner of view, plus half shape width
@@ -226,7 +229,6 @@ class RootView extends View {
         if (TOUCH) this.element.ontouchstart = e => e.preventDefault();
         this.resize();
         window.onresize = () => this.resize();
-        this.enableDragging();
         model.children.forEach(child => this.attachChild(child));
         this.subscribe(model.id, 'child-added', child => this.attachChild(child));
         this.subscribe(model.id, 'child-removed', child => this.detachChild(child));
@@ -273,6 +275,7 @@ class RootView extends View {
         this.userShape = shape;
         const el = document.getElementById(shape.id);
         el.classList.add("user");
+        this.enableDragging();
     }
 
     enableDragging() {
@@ -349,6 +352,7 @@ async function go() {
         const models = await controller.createIsland("2d", {
             moduleID: module.id,
             snapshot,
+            ticks: { tick: TICK, local: LOCAL_TICKS },
             creatorFn() {
                 const root = Root.create();
                 root.add(BouncingShape.create({pos: [500, 500], color: "white"}));

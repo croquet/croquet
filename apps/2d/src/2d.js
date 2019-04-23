@@ -10,9 +10,11 @@ if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); 
 
 const LOCALHOST = window.location.hostname === 'localhost';
 
+const TICK = 1000 / 10;         // ms per tick from reflector
+const LOCAL_TICKS = 1;          // number of locally generated ticks per reflector tick
 const THROTTLE = 1000 / 20;     // mouse event throttling
-const STEP_MS = 1000 / 20;      // bouncing ball step time in ms
-const SPEED = 15;               // bouncing ball speed in virtual pixels / step
+const STEP_MS = 1000 / 60;      // bouncing ball step time in ms
+const SPEED = 5;                // bouncing ball speed in virtual pixels / step
 
 const TOUCH ='ontouchstart' in document.documentElement;
 
@@ -171,11 +173,8 @@ class RootView extends View {
 
     detach() {
         super.detach();
-        try {
-            document.body.removeChild(this.element);
-        } catch (e) {
-            console.warn('detach() failed to remove from body:', this.element);
-        }
+        if (!this.element.parentNode) return;
+        this.element.parentNode.removeChild(this.element);
     }
 
     // non-inherited methods below
@@ -290,6 +289,7 @@ async function go() {
         const models = await controller.createIsland("2d", {
             moduleID: module.id,
             snapshot,
+            ticks: { tick: TICK, local: LOCAL_TICKS },
             options: urlOptions.n && {n: urlOptions.n},     // null if no option given
             creatorFn(options) {
                 const root = Root.create();
