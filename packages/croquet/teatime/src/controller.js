@@ -138,6 +138,11 @@ export default class Controller {
     }
 
     takeSnapshot() {
+        if (!this.island) return null;
+        // ensure all messages up to this point are in the snapshot
+        for (let msg = this.networkQueue.nextNonBlocking(); msg; msg = this.networkQueue.nextNonBlocking()) {
+           this.island.processExternalMessage(msg);
+        }
         return this.island.snapshot();
     }
 
@@ -286,9 +291,8 @@ export default class Controller {
             // exercise save & load if we came from init
             newIsland = new Island(JSON.parse(JSON.stringify(newIsland.snapshot())), () => creatorFn(options));
         }
-        const snapshotTime = newIsland.time;
+        const snapshotTime = Math.max(newIsland.time, newIsland.externalTime);
         this.time = snapshotTime;
-        // eslint-disable-next-line no-constant-condition
         while (drainQueue) {
             // eslint-disable-next-line no-await-in-loop
             const nextMsg = await this.networkQueue.next();
@@ -335,7 +339,7 @@ export default class Controller {
         if (!this.islandCreator) throw Error("do not discard islandCreator!");
         const {destroyerFn} = this.islandCreator;
         if (destroyerFn) {
-            const snapshot = island && island.snapshot();
+            const snapshot = this.takeSnapshot();
             destroyerFn(snapshot);
         }
     }
