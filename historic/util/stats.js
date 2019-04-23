@@ -111,12 +111,14 @@ function endCurrentFrame(timestamp) {
         }
 
         if (frame.network) {
+            ctx.beginPath();
             ctx.moveTo(x, mapBacklog(0));
             ctx.lineTo(x, mapBacklog(frame.network));
             ctx.strokeStyle = colors["network"];
             ctx.stroke();
         }
         if (frame.backlog) {
+            ctx.beginPath();
             ctx.moveTo(x, mapBacklog(0));
             ctx.lineTo(x, mapBacklog(frame.backlog));
             ctx.strokeStyle = colors["backlog"];
