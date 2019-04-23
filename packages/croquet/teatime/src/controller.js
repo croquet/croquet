@@ -213,6 +213,7 @@ export default class Controller {
                 // We are starting a new island session.
                 console.log(this.id, 'Controller received START - creating island');
                 this.install(false);
+                this.requestTicks();
                 break;
             }
             case 'SYNC': {
@@ -313,12 +314,11 @@ export default class Controller {
         if (this.fetchUpdatedSnapshot) await this.updateSnapshot();
         console.log(this.id, 'Controller sending JOIN');
         this.socket = socket;
-        const time = this.islandCreator.snapshot.time || 0;
         const name = this.islandCreator.name;
         socket.send(JSON.stringify({
             id: this.id,
             action: 'JOIN',
-            args: {time, name},
+            args: {name},
         }));
     }
 
@@ -345,6 +345,29 @@ export default class Controller {
                 id: this.id,
                 action: 'SEND',
                 args: msg.asState(),
+            }));
+        } catch (e) {
+            console.error('ERROR while sending', e);
+        }
+    }
+
+    /** request ticks from the server */
+    requestTicks() {
+        if (!this.socket || !this.island) return;
+        const args = {
+            time: this.island.time,     // ignored by reflector unless this is sent right after START
+        };
+        const { ticks } = this.islandCreator;
+        if (ticks) {
+            args.tick = ticks.tick || 100;
+            if (ticks.scale) args.scale = ticks.scale;
+        }
+        console.log(this.id, 'Controller requesting TICKS', args);
+        try {
+            this.socket.send(JSON.stringify({
+                id: this.id,
+                action: 'TICKS',
+                args,
             }));
         } catch (e) {
             console.error('ERROR while sending', e);
