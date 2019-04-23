@@ -1,7 +1,7 @@
 // work around https://github.com/parcel-bundler/parcel/issues/1838
 import Stats from "@croquet/teatime/node_modules/@croquet/util/stats";
+import urlOptions from "@croquet/teatime/node_modules/@croquet/util/urlOptions";
 import { Model, View, Controller } from "@croquet/teatime";
-import urlOptions from "@croquet/util/urlOptions";
 
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;

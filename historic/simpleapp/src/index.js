@@ -1,8 +1,7 @@
 import * as THREE from "three";
 import { Controller } from "@croquet/teatime";
 // work around https://github.com/parcel-bundler/parcel/issues/1838
-import Stats from "@croquet/teatime/node_modules/@croquet/util/stats";
-import { hotreload, urlOptions, uploadCode } from "@croquet/util";
+import { hotreload, urlOptions, uploadCode, Stats } from "@croquet/teatime/node_modules/@croquet/util";
 import room1 from "./sampleRooms/room1";
 import room2 from "./sampleRooms/room2";
 import room3 from "./sampleRooms/room3";
