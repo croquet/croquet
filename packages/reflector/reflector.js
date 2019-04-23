@@ -1,5 +1,5 @@
 // when running on node, 'ws' is the actual web socket module
-// when running in browser, 'ws' is our own 'src/server/ws.js'
+// when running in browser, 'ws' is our own './ws.js'
 const WebSocket = require('ws');
 
 const port = 9090;
@@ -379,6 +379,32 @@ function stopTicker(island) {
     //console.log("STOPPED TICKS");
 }
 
+// map island ids to session ids
+const SESSIONS = {};
+
+function currentSession(id) {
+    return `${id}-${SESSIONS[id] || 0}`;
+}
+
+function newSession(id) {
+    SESSIONS[id] = (SESSIONS[id] || 0) + 1;
+    currentSession(id);
+}
+
+/** client is requesting a session for an island
+ * @param {Client} client - we received from this client
+ * @param {ID} id - island ID
+ * @param {*} args
+ */
+function SESSION(client, id, args) {
+    if (!args) args = {};
+    const session = args.new ? newSession(id) : currentSession(id);
+    const response = JSON.stringify({ action: 'SESSION', args: {id, session} });
+    LOG(`Session ${client.addr} session for ${id} is ${session}`);
+    client.safeSend(response);
+}
+
+
 const replies = {};
 
 server.on('connection', (client, req) => {
@@ -408,6 +434,7 @@ server.on('connection', (client, req) => {
                 case 'SEND': SEND(client, id, [args]); break;
                 case 'TICKS': TICKS(client, id, args); break;
                 case 'PING': PONG(client, args); break;
+                case 'SESSION': SESSION(client, id, args); break;
                 default: console.warn("Reflector: unknown action:", action);
             }
         };

@@ -21,6 +21,7 @@ const DEBUG = {
 const OPTIONS_FROM_URL = [ 'session', 'user', 'tps' ];
 
 const Controllers = {};
+const SessionCallbacks = {};
 
 export default class Controller {
     static addMessageTranscoder(...args) { addMessageTranscoder(...args); }
@@ -63,6 +64,8 @@ export default class Controller {
             try { Controllers[id].receive(action, args); }
             catch (e) { this.closeConnectionWithError('receive', e); }
         } else switch (action) {
+            case 'SESSION': SessionCallbacks[args.id](args.session);
+                break;
             case 'PONG': if (DEBUG.pong) console.log('PONG after', Date.now() - args, 'ms');
                 break;
             default: console.warn('Unknown action', action);
@@ -81,10 +84,9 @@ export default class Controller {
      *
      * Two participants running the same code will generate the same ID
      * for the same name.
-     * @param {String} name a name for the room.
-     * @returns {String} ID
+     * @param {String} name a name identifying the room.
      */
-    static versionIDFor(name) {
+    static islandIDFor(name) {
         return hashNameAndCode(name);
     }
 
@@ -120,7 +122,7 @@ export default class Controller {
      * @returns {Promise<Island>}
      */
     async createIsland(name, creator) {
-        const { moduleID, optionsFromUrl } = creator;
+        const { optionsFromUrl } = creator;
         const options = {...creator.options};
         for (const key of [...OPTIONS_FROM_URL, ...optionsFromUrl||[]]) {
             if (key in urlOptions) options[key] = urlOptions[key];
@@ -129,7 +131,7 @@ export default class Controller {
         if (Object.keys(options).length) {
             name += '?' + Object.entries(options).map(([k,v])=>`${k}=${v}`).join('&');
         }
-        const id = await Controller.versionIDFor(name, moduleID);
+        const id = await this.sessionIDFor(name);
         console.log(`ID for ${name}: ${id}`);
         this.islandCreator = { name, ...creator, options };
         if (!this.islandCreator.snapshot) {
@@ -221,7 +223,23 @@ export default class Controller {
     }
 
     /** @type String: this controller's island id */
-    get id() {return this.island ? this.island.id : this.islandCreator.snapshot.id; }
+    get id() { return this.island ? this.island.id : this.islandCreator.snapshot.id; }
+
+    async sessionIDFor(name) {
+        const islandID = await Controller.islandIDFor(name);
+        return new Promise(resolve => {
+            SessionCallbacks[islandID] = sessionId => {
+                delete SessionCallbacks[islandID];
+                resolve(sessionId);
+            };
+            Controller.withSocketDo(socket => {
+                socket.send(JSON.stringify({
+                    id: islandID,
+                    action: 'SESSION'
+                }));
+            });
+        });
+    }
 
     // handle messages from reflector
     async receive(action, args) {
@@ -340,7 +358,6 @@ export default class Controller {
     }
 
     leave() {
-        const island = this.island;
         this.reset();
         if (!this.islandCreator) throw Error("do not discard islandCreator!");
         const {destroyerFn} = this.islandCreator;

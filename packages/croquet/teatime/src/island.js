@@ -436,7 +436,7 @@ function encode(receiver, selector, args) {
 }
 
 function decode(payload) {
-    const [_, msg, argString] = payload.match(/^([a-z0-9.#/]+)(.*)$/i);
+    const [_, msg, argString] = payload.match(/^([-a-z0-9.#/]+)(.*)$/i);
     const [receiver, selector] = msg.split('#');
     let args = [];
     if (argString) {
