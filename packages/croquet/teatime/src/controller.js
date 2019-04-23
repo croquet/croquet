@@ -361,6 +361,7 @@ export default class Controller {
         if (ticks) {
             args.tick = ticks.tick || 100;
             if (ticks.scale) args.scale = ticks.scale;
+            if (ticks.local) args.delay = args.tick * ticks.local / (ticks.local + 1);
         }
         console.log(this.id, 'Controller requesting TICKS', args);
         try {
@@ -419,10 +420,22 @@ export default class Controller {
     }
 
     /** Got the official time from reflector server */
-    timeFromReflector(time) {
+    timeFromReflector(time, isLocalTick) {
         this.time = time;
         if (this.island) Stats.backlog(this.backlog);
-    }
+        if (isLocalTick) return;
+        if (this.localTicker) window.clearInterval(this.localTicker);
+        const { tick, local } = this.islandCreator.ticks || {};
+        if (local) {
+            const ms = tick / (local + 1);
+            let n = 1;
+            this.localTicker = hotreload.setInterval(() => {
+                this.timeFromReflector(time + n * ms, "local");
+                if (DEBUG.ticks) console.log(this.id, 'Controller generate TICK ' + this.time, n);
+                if (++n > local) window.clearInterval(this.localTicker);
+            }, ms);
+        }
+}
 }
 
 
