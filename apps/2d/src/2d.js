@@ -286,7 +286,6 @@ async function go() {
     async function bootstrapModelsAndViews(snapshot) {
         // create models on named island
         const models = await controller.createIsland("2d", {
-            moduleID: module.id,
             snapshot,
             tps: TPS,
             optionsFromUrl: ['n'],

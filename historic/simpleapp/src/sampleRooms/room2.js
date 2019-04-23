@@ -34,7 +34,4 @@ function initRoom2() {
     return {room};
 }
 
-export default {
-    moduleID: module.id,
-    creatorFn: initRoom2,
-};
+export default { creatorFn: initRoom2 };

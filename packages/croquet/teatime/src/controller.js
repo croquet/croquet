@@ -2,7 +2,7 @@ import AsyncQueue from "@croquet/util/asyncQueue";
 import Stats from "@croquet/util/stats";
 import hotreload from "@croquet/util/hotreload";
 import urlOptions from "@croquet/util/urlOptions";
-import { baseUrl, hashModelCode } from "@croquet/util/modules";
+import { baseUrl, hashNameAndCode } from "@croquet/util/modules";
 import { inViewRealm } from "./realms";
 import Island, { addMessageTranscoder } from "./island";
 
@@ -76,11 +76,10 @@ export default class Controller {
      * Two participants running the same code will generate the same ID
      * for the same name.
      * @param {String} name a name for the room.
-     * @param {String} moduleID the ID of the module defining the room.
      * @returns {String} ID
      */
-    static versionIDFor(name, moduleID) {
-        return hashModelCode(name, moduleID);
+    static versionIDFor(name) {
+        return hashNameAndCode(name);
     }
 
     constructor() {

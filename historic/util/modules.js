@@ -52,10 +52,6 @@ export function baseUrl(what='code') {
     return `https://db.croquet.studio/files-v1/${host}/${what}/${prefix}`;
 }
 
-// This exclude list only works for unmangled moduleIDs during development.
-// In production, moduleIDs are mangled so essentially all files will be hashed.
-const exclude = /(index.js|hotreload.js|modules.js|server\/|util\/|view|node_modules)/i;
-
 function allModules() {
     return module.bundle.modules;
 }
@@ -154,11 +150,8 @@ export async function hashFile(mod) {
 }
 
 
-export async function hashModelCode(name, moduleID) {
-    if (!moduleWithID(moduleID)) throw Error("Module not found: " + moduleID);
-    // console.time("Hashing " + name);
-    const filter = id => !id.match(exclude);
-    const mods = Array.from(allImportsOf(moduleID, filter)).sort();
+export async function hashNameAndCode(name) {
+    const mods = allModuleIDs().sort();
     // console.log(`${name} Hashing ${moduleID}: ${mods.join(' ')}`);
     const hashes = await Promise.all(mods.map(hashFile));
     const hash = await hashString([name, ...hashes].join('|'));
