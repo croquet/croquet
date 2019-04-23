@@ -357,20 +357,34 @@ export default class Controller {
         }
     }
 
+    /** parse tps "target tick rate:local ticks"
+     *
+     * default taken from `islandCreator.tps` unless `islandCreator.options.tps`` is present
+     *
+     * @returns {{tick: Number, local: Number}}
+     *          reflector tick period in ms and number of local ticks per reflector tick
+     */
+    getTickAndLocal() {
+        const options = this.islandCreator.options;
+        const tps = options.tps ? options.tps
+            : this.islandCreator.tps ? this.islandCreator.tps
+            : 20;
+        const [rate, local] = (tps + ":").split(':').map(n => Number(n));
+        const reflectorRate = rate / (local + 1);
+        const tick = 1000 / reflectorRate;
+        return { tick, local };
+    }
+
     /** request ticks from the server */
-    requestTicks() {
+    requestTicks(args = {}) {
         if (!this.socket || !this.island) return;
-        const args = {
-            time: this.island.time,     // ignored by reflector unless this is sent right after START
-            tick: 1000 / 10,            // default rate
-        };
-        const { ticks } = this.islandCreator;
-        if (ticks) {
-            if (ticks.tick) args.tick = ticks.tick;
-            if (ticks.scale) args.scale = ticks.scale;
-            if (ticks.local) args.delay = args.tick * ticks.local / (ticks.local + 1);
-        }
+        const { tick, local } = this.getTickAndLocal();
+        const delay = tick * local / (local + 1);
+        if (delay) { args.delay = delay; args.tick = tick; }
+        else if (!args.tick) args.tick = tick;
+        if (!args.time) args.time = this.island.time;    // ignored by reflector unless this is sent right after START
         console.log(this.id, 'Controller requesting TICKS', args);
+        // args: {time, tick, delay, scale}
         try {
             this.socket.send(JSON.stringify({
                 id: this.id,
@@ -432,7 +446,7 @@ export default class Controller {
         if (this.island) Stats.backlog(this.backlog);
         if (isLocalTick) return;
         if (this.localTicker) window.clearInterval(this.localTicker);
-        const { tick, local } = this.islandCreator.ticks || {};
+        const { tick, local } = this.getTickAndLocal();
         if (tick && local) {
             const ms = tick / (local + 1);
             let n = 1;
