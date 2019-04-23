@@ -18,6 +18,8 @@ const DEBUG = {
     snapshot: urlOptions.has("debug", "snapshot", "localhost"),
 };
 
+const OPTIONS_FROM_URL = [ 'session', 'user', 'tps' ];
+
 const Controllers = {};
 
 export default class Controller {
@@ -113,9 +115,9 @@ export default class Controller {
      * @returns {Promise<Island>}
      */
     async createIsland(name, creator) {
-        const { moduleID, useUrlOptions } = creator;
+        const { moduleID, optionsFromUrl } = creator;
         const options = {...creator.options};
-        for (const key of useUrlOptions || []) {
+        for (const key of [...OPTIONS_FROM_URL, ...optionsFromUrl||[]]) {
             if (key in urlOptions) options[key] = urlOptions[key];
         }
         // include options in name & hash
