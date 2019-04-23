@@ -113,12 +113,18 @@ export default class Controller {
      * @returns {Promise<Island>}
      */
     async createIsland(name, creator) {
-        const {moduleID, options} = creator;
+        const { moduleID, useUrlOptions } = creator;
+        const options = {...creator.options};
+        for (const key of useUrlOptions || []) {
+            if (key in urlOptions) options[key] = urlOptions[key];
+        }
         // include options in name & hash
-        if (options) name += '?' + Object.entries(options).map(([k,v])=>`${k}=${v}`).join('&');
+        if (Object.keys(options).length) {
+            name += '?' + Object.entries(options).map(([k,v])=>`${k}=${v}`).join('&');
+        }
         const id = await Controller.versionIDFor(name, moduleID);
         console.log(`ID for ${name}: ${id}`);
-        this.islandCreator = { name, ...creator };
+        this.islandCreator = { name, ...creator, options };
         if (!this.islandCreator.snapshot) {
             this.islandCreator.snapshot = { id, time: 0, meta: { created: (new Date()).toISOString() } };
         }
