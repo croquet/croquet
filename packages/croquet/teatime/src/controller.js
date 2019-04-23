@@ -30,14 +30,20 @@ export default class Controller {
     // socket was connected, join session for all islands
     static join(controller) {
         Controllers[controller.id] = controller;
-        if (TheSocket) controller.join(TheSocket);
+        this.withSocketDo(socket => controller.join(socket));
     }
 
-    static joinAll(socket) {
+    static withSocketDo(callback) {
+        if (TheSocket) callback(TheSocket);
+        else TheSocketWaitList.push(callback);
+    }
+
+    static setSocket(socket) {
         if (TheSocket) throw Error("TheSocket already set?");
         TheSocket = socket;
-        for (const controller of Object.values(Controllers)) {
-            if (!controller.socket) controller.join(socket);
+        while (TheSocketWaitList.length > 0) {
+            const callback = TheSocketWaitList.shift();
+            callback(socket);
         }
     }
 
@@ -469,6 +475,7 @@ export default class Controller {
 // Socket
 
 let TheSocket = null;
+const TheSocketWaitList = [];
 let LastReceived = 0;
 
 /** start sending PINGs to server after not receiving anything for this timeout */
@@ -529,7 +536,7 @@ function socketSetup(socket, reflectorUrl) {
         onopen: _event => {
             if (socket.constructor === WebSocket) document.getElementById("error").innerText = '';
             console.log(socket.constructor.name, "connected to", socket.url);
-            Controller.joinAll(socket);
+            Controller.setSocket(socket);
             Stats.connected(true);
             hotreload.setTimeout(PING, 0);
         },
