@@ -92,11 +92,7 @@ async function start() {
             if (ROOM.namedModelsPromise) return ROOM.namedModelsPromise;
             const creator = ROOM.creator;
             creator.room = roomName;
-            if (!creator.options) creator.options = {};
-            for (const opt of ["owner","session"]) {
-                if (urlOptions[opt]) creator.options[opt] = urlOptions[opt];
-            }
-            creator.ticks = { tick: 1000 / 10, local: 2 };  // 30 fps
+            creator.tps = "30:2";
             creator.destroyerFn = snapshot => {
                 console.log("destroyer: detaching view for " + roomName);
                 delete ROOM.namedModels;

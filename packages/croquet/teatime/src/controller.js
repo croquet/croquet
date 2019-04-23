@@ -2,7 +2,7 @@ import AsyncQueue from "@croquet/util/asyncQueue";
 import Stats from "@croquet/util/stats";
 import hotreload from "@croquet/util/hotreload";
 import urlOptions from "@croquet/util/urlOptions";
-import { baseUrl, hashModelCode } from "@croquet/util/modules";
+import { baseUrl, hashNameAndCode } from "@croquet/util/modules";
 import { inViewRealm } from "./realms";
 import Island, { addMessageTranscoder } from "./island";
 
@@ -17,6 +17,8 @@ const DEBUG = {
     pong: urlOptions.has("debug", "pong", false),
     snapshot: urlOptions.has("debug", "snapshot", "localhost"),
 };
+
+const OPTIONS_FROM_URL = [ 'session', 'user', 'tps' ];
 
 const Controllers = {};
 
@@ -74,11 +76,10 @@ export default class Controller {
      * Two participants running the same code will generate the same ID
      * for the same name.
      * @param {String} name a name for the room.
-     * @param {String} moduleID the ID of the module defining the room.
      * @returns {String} ID
      */
-    static versionIDFor(name, moduleID) {
-        return hashModelCode(name, moduleID);
+    static versionIDFor(name) {
+        return hashNameAndCode(name);
     }
 
     constructor() {
@@ -113,12 +114,18 @@ export default class Controller {
      * @returns {Promise<Island>}
      */
     async createIsland(name, creator) {
-        const {moduleID, options} = creator;
+        const { moduleID, optionsFromUrl } = creator;
+        const options = {...creator.options};
+        for (const key of [...OPTIONS_FROM_URL, ...optionsFromUrl||[]]) {
+            if (key in urlOptions) options[key] = urlOptions[key];
+        }
         // include options in name & hash
-        if (options) name += '?' + Object.entries(options).map(([k,v])=>`${k}=${v}`).join('&');
+        if (Object.keys(options).length) {
+            name += '?' + Object.entries(options).map(([k,v])=>`${k}=${v}`).join('&');
+        }
         const id = await Controller.versionIDFor(name, moduleID);
         console.log(`ID for ${name}: ${id}`);
-        this.islandCreator = { name, ...creator };
+        this.islandCreator = { name, ...creator, options };
         if (!this.islandCreator.snapshot) {
             this.islandCreator.snapshot = { id, time: 0, meta: { created: (new Date()).toISOString() } };
         }
@@ -351,20 +358,34 @@ export default class Controller {
         }
     }
 
+    /** parse tps "target tick rate:local ticks"
+     *
+     * default taken from `islandCreator.tps` unless `islandCreator.options.tps`` is present
+     *
+     * @returns {{tick: Number, local: Number}}
+     *          reflector tick period in ms and number of local ticks per reflector tick
+     */
+    getTickAndLocal() {
+        const options = this.islandCreator.options;
+        const tps = options.tps ? options.tps
+            : this.islandCreator.tps ? this.islandCreator.tps
+            : 20;
+        const [rate, local] = (tps + ":").split(':').map(n => Number(n));
+        const reflectorRate = rate / (local + 1);
+        const tick = 1000 / reflectorRate;
+        return { tick, local };
+    }
+
     /** request ticks from the server */
-    requestTicks() {
+    requestTicks(args = {}) {
         if (!this.socket || !this.island) return;
-        const args = {
-            time: this.island.time,     // ignored by reflector unless this is sent right after START
-            tick: 1000 / 10,            // default rate
-        };
-        const { ticks } = this.islandCreator;
-        if (ticks) {
-            if (ticks.tick) args.tick = ticks.tick;
-            if (ticks.scale) args.scale = ticks.scale;
-            if (ticks.local) args.delay = args.tick * ticks.local / (ticks.local + 1);
-        }
+        const { tick, local } = this.getTickAndLocal();
+        const delay = tick * local / (local + 1);
+        if (delay) { args.delay = delay; args.tick = tick; }
+        else if (!args.tick) args.tick = tick;
+        if (!args.time) args.time = this.island.time;    // ignored by reflector unless this is sent right after START
         console.log(this.id, 'Controller requesting TICKS', args);
+        // args: {time, tick, delay, scale}
         try {
             this.socket.send(JSON.stringify({
                 id: this.id,
@@ -426,7 +447,7 @@ export default class Controller {
         if (this.island) Stats.backlog(this.backlog);
         if (isLocalTick) return;
         if (this.localTicker) window.clearInterval(this.localTicker);
-        const { tick, local } = this.islandCreator.ticks || {};
+        const { tick, local } = this.getTickAndLocal();
         if (tick && local) {
             const ms = tick / (local + 1);
             let n = 1;

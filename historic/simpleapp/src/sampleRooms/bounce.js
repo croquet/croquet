@@ -154,7 +154,6 @@ function initBounce(options) {
 }
 
 export default {
-    moduleID: module.id,
     creatorFn: initBounce,
     options: { n: urlOptions.n || 100 }
 };

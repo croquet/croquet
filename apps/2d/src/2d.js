@@ -10,11 +10,10 @@ if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); 
 
 const LOCALHOST = window.location.hostname === 'localhost';
 
-const TICK = 1000 / 10;         // ms per tick from reflector
-const LOCAL_TICKS = 1;          // number of locally generated ticks per reflector tick
+const TPS = "30:1";             // ticks per sec : insert local
 const THROTTLE = 1000 / 20;     // mouse event throttling
-const STEP_MS = 1000 / 60;      // bouncing ball step time in ms
-const SPEED = 5;                // bouncing ball speed in virtual pixels / step
+const STEP_MS = 1000 / 30;      // bouncing ball step time in ms
+const SPEED = 10;               // bouncing ball speed in virtual pixels / step
 
 const TOUCH ='ontouchstart' in document.documentElement;
 
@@ -287,13 +286,12 @@ async function go() {
     async function bootstrapModelsAndViews(snapshot) {
         // create models on named island
         const models = await controller.createIsland("2d", {
-            moduleID: module.id,
             snapshot,
-            ticks: { tick: TICK, local: LOCAL_TICKS },
-            options: urlOptions.n && {n: urlOptions.n},     // null if no option given
+            tps: TPS,
+            optionsFromUrl: ['n'],
             creatorFn(options) {
                 const root = Root.create();
-                const n = options && options.n || 99;
+                const n = options.n || 99;
                 for (let i = 0; i < n; i++) root.add(Shape.create());
                 root.add(BouncingShape.create({pos: [500, 500], color: "white"}));
                 return {root};
