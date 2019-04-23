@@ -11,7 +11,7 @@ import SVGIcon from "../util/svgIcon";
 import Tracking, { Facing } from "../viewParts/tracking";
 import SpatialPart from "../modelParts/spatial";
 import Inertial from "../modelParts/inertial";
-import { PortalTraversing, PortalEvents, PortalTopic } from "../modelParts/portal";
+import { PortalTraversing, PortalEvents, PortalTopicPrefix } from "../modelParts/portal";
 import { KeyboardViewPart } from "../viewParts/keyboard";
 import { ContextMenu } from "../viewParts/menu";
 import { ColorEvents } from "../modelParts/color";
@@ -24,7 +24,7 @@ export default class RoomView extends ViewPart {
     constructor(options) {
         super();
 
-        this.cameraSpatial = PortalTraversing()(Inertial()(SpatialPart)).create();
+        this.cameraSpatial = Inertial()(PortalTraversing({roomId: options.room.id})(SpatialPart)).create();
         this.cameraSpatial.init({
             position: options.cameraPosition,
             quaternion: options.cameraQuaternion,
@@ -58,17 +58,21 @@ export default class RoomView extends ViewPart {
             });
 
             this.traversePortalToRoom = options.traversePortalToRoom;
-            this.subscribe(PortalTopic, PortalEvents.traversed, data => this.onPortalTraversed(data));
+            this.subscribe(PortalTopicPrefix + options.room.id, PortalEvents.traversed, data => this.onPortalTraversed(data));
         }
     }
 
     onPortalTraversed(traverseInfo) {
-        if (traverseInfo.traverserId === this.cameraSpatial.id) {
+        // only listen to clonedPortals in the view domain to prevent portal traversal lag
+        if ((traverseInfo.traverserId === this.cameraSpatial.id) && traverseInfo.portalId.includes("/V")) {
             this.traversePortalToRoom(traverseInfo);
             this.parts.pointer.onMouseUp();
-            // take a step back in this room for when we come back
-            const stepBack = new THREE.Vector3(0, 0, 1).applyQuaternion(this.cameraSpatial.quaternion);
-            this.cameraSpatial.moveByNoPortalTraverse(stepBack);
+            this.cameraSpatial.stop();
+            window.requestAnimationFrame(() => {
+                // take a step back in this room for when we come back
+                const stepBack = new THREE.Vector3(0, 0, 2).applyQuaternion(this.cameraSpatial.quaternion);
+                this.cameraSpatial.moveByNoPortalTraverse(stepBack, false);
+            });
         }
     }
 }

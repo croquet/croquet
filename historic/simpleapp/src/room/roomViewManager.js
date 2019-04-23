@@ -21,17 +21,18 @@ export default class RoomViewManager {
         }
     }
 
-    moveCamera(roomName, cameraPosition, cameraQuaternion) {
+    moveCamera(roomName, cameraPosition, cameraQuaternion, cameraVelocity) {
         const cameraSpatialPart = this.activeRoomViews[roomName].cameraSpatial;
         cameraSpatialPart.moveToNoPortalTraverse(cameraPosition, false);
         cameraSpatialPart.rotateTo(cameraQuaternion, false);
         cameraSpatialPart.stop();
+        if (cameraVelocity) cameraSpatialPart.setVelocity(cameraVelocity);
     }
 
-    request(roomName, allRooms, {cameraPosition, cameraQuaternion, overrideCamera}, traversePortalToRoom) {
+    request(roomName, allRooms, {cameraPosition, cameraQuaternion, overrideCamera, cameraVelocity}, traversePortalToRoom) {
         if (this.activeRoomViews[roomName]) {
             if (overrideCamera) {
-                this.moveCamera(roomName, cameraPosition, cameraQuaternion);
+                this.moveCamera(roomName, cameraPosition, cameraQuaternion, cameraVelocity);
             }
         } else {
             const room = allRooms[roomName].namedModels.room;

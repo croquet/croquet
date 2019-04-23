@@ -64,6 +64,11 @@ export default function Inertial() {
             this.inInertiaPhase = false;
         }
 
+        setVelocity(velocity) {
+            this.estimatedVelocity.copy(velocity);
+            this.startInertiaPhase();
+        }
+
         startInertiaPhase() {
             if (!this.inInertiaPhase) {
                 this.inInertiaPhase = true;

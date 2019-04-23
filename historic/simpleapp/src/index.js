@@ -7,6 +7,7 @@ import room1 from "./sampleRooms/room1";
 import room2 from "./sampleRooms/room2";
 import room3 from "./sampleRooms/room3";
 import roomBounce from "./sampleRooms/bounce";
+import roomsJump from "./sampleRooms/jump";
 import RoomViewManager from "./room/roomViewManager";
 import Renderer from "./render";
 import {theKeyboardManager} from "./domKeyboardManager";
@@ -72,6 +73,7 @@ async function start() {
         room2: {creator: room2},
         room3: {creator: room3},
         bounce: {creator: roomBounce},
+        ...roomsJump
     };
 
     // if hot-reloading, store the island snapshots in the room creators
@@ -118,17 +120,17 @@ async function start() {
     let currentRoomName = null;
     const roomViewManager = new RoomViewManager(window.innerWidth, window.innerHeight);
 
-    function traversePortalToRoom({targetRoom, targetPosition, targetQuaternion}) {
-        joinRoom(targetRoom, targetPosition, targetQuaternion, true);
+    function traversePortalToRoom({targetRoom, targetPosition, targetQuaternion, targetVelocity}) {
+        joinRoom(targetRoom, targetPosition, targetQuaternion, true, targetVelocity);
     }
 
-    async function joinRoom(roomName, cameraPosition=new THREE.Vector3(0, 2, 4), cameraQuaternion=new THREE.Quaternion(), overrideCamera) {
+    async function joinRoom(roomName, cameraPosition=new THREE.Vector3(0, 2, 4), cameraQuaternion=new THREE.Quaternion(), overrideCamera, cameraVelocity) {
         if (!ALL_ROOMS[roomName]) roomName = defaultRoom;
         if (currentRoomName === roomName) return;
         await ALL_ROOMS.getIsland(roomName);
         currentRoomName = roomName;
         // request ahead of render, set initial camera position if necessary
-        roomViewManager.request(roomName, ALL_ROOMS, {cameraPosition, cameraQuaternion, overrideCamera}, traversePortalToRoom);
+        roomViewManager.request(roomName, ALL_ROOMS, {cameraPosition, cameraQuaternion, overrideCamera, cameraVelocity}, traversePortalToRoom);
         const desiredHash = roomName === defaultRoom ? "" : roomName;
         if (urlOptions.firstInHash() !== desiredHash) {
             window.history.pushState({}, "", "#" + desiredHash);

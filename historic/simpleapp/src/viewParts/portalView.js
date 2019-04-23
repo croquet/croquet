@@ -1,8 +1,8 @@
 import * as THREE from "three";
 import { SpatialEvents } from "../modelParts/spatial";
 import { ViewPart } from "../parts";
-import PortalPart from "../modelParts/portal";
 import { RENDER_LAYERS } from "../render";
+import PortalPart from "../modelParts/portal";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
@@ -10,13 +10,21 @@ if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); 
 export default class PortalViewPart extends ViewPart {
     constructor(options={}) {
         super();
-        options = {visualOffset: -0.1, ...options};
         const source = options.model;
         // maintain a view-local "copy" of the portal info to reuse the traversal logic in the view
         // This allows spatial viewStates to traverse this cloned portal viewState and create the correct events
-        const stateToClone = {};
-        source.save(stateToClone);
-        this.clonedPortal = PortalPart.create({...stateToClone});
+        this.clonedPortal = PortalPart.create({
+            spatial: {
+                position: source.parts.spatial.position.clone(),
+                quaternion: source.parts.spatial.quaternion.clone(),
+            },
+            spatialThere: {
+                position: source.parts.spatialThere.position.clone(),
+                quaternion: source.parts.spatialThere.quaternion.clone(),
+            },
+            there: source.there,
+            roomId: source.roomId
+        });
 
         this.visualOffset = options.visualOffset;
 
@@ -26,7 +34,6 @@ export default class PortalViewPart extends ViewPart {
         );
         const group = new THREE.Group();
         group.add(mesh);
-        mesh.position.copy(new THREE.Vector3(0, 0, this.visualOffset));
 
         // TODO: actually use something like internal "TrackSpatial" and "TrackSize" parts here
         group.position.copy(source.parts.spatial.position);
@@ -52,16 +59,16 @@ export default class PortalViewPart extends ViewPart {
 
     onMoved(newPosition) {
         this.threeObj.position.copy(newPosition);
-        this.viewState.parts.clonedPortal.parts.spatial.moveTo(newPosition);
+        this.clonedPortal.parts.spatial.moveTo(newPosition);
     }
 
     onRotated(newQuaternion) {
         this.threeObj.quaternion.copy(newQuaternion);
-        this.viewState.parts.clonedPortal.parts.spatial.rotateTo(newQuaternion);
+        this.clonedPortal.parts.spatial.rotateTo(newQuaternion);
     }
 
     onScaled(newScale) {
         this.threeObj.scale.copy(newScale);
-        this.viewState.parts.clonedPortal.parts.spatial.scaleTo(newScale);
+        this.clonedPortal.parts.spatial.scaleTo(newScale);
     }
 }

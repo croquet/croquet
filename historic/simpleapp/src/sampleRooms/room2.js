@@ -11,10 +11,11 @@ function initRoom2() {
     const portalRoom1 = PortalElement.create({
         spatial: { position: new THREE.Vector3(0, 2, 0), scale: new THREE.Vector3(1.5, 2.5, 1.0) },
         spatialThere: {
-            position: new THREE.Vector3(-4, 1.25, 4),
+            position: new THREE.Vector3(-4, 1, 4),
             quaternion: new THREE.Quaternion().setFromAxisAngle({x: 0, y: 1, z: 0}, -Math.PI / 4)
         },
-        there: "room1"
+        there: "room1",
+        roomId: room.id
     });
     room.parts.elements.add(portalRoom1);
 
@@ -25,11 +26,25 @@ function initRoom2() {
             scale: new THREE.Vector3(1.5, 2.5, 1.0)
         },
         spatialThere: {
-            position: new THREE.Vector3(0, 1.25, 2),
+            position: new THREE.Vector3(0, 1, 2),
         },
-        there: "bounce"
+        there: "bounce",
+        roomId: room.id
     });
     room.parts.elements.add(portalBounce);
+
+    const portalJump = PortalElement.create({
+        spatial: {
+            position: new THREE.Vector3(3, 2, 0),
+            scale: new THREE.Vector3(1.5, 2.5, 1.0)
+        },
+        spatialThere: {
+            position: new THREE.Vector3(0, 1, 4),
+        },
+        there: "jump1",
+        roomId: room.id
+    });
+    room.parts.elements.add(portalJump);
 
     return {room};
 }

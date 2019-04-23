@@ -265,39 +265,54 @@ function smoother() {
         // disable stencil mask
         gl.stencilMask(0xFF);
 
+        let closeToAnyPortal = false;
+
         for (const portalViewPart of portalViewParts) {
-            portalViewPart.enableLayersAsIndividual();
-            mainCamera.layers.disable(RENDER_LAYERS.NORMAL);
-            mainCamera.layers.enable(RENDER_LAYERS.INDIVIDUAL_PORTAL);
-
-            // disable color + depth
-            // only the stencil buffer will be drawn into
-            gl.colorMask(false, false, false, false);
-            gl.depthMask(false);
-
-            // the stencil test will always fail (this is cheaper to compute)
-            gl.stencilFunc(gl.NEVER, 1, 0xFF);
-            // fragments where the portal is drawn will have a stencil value of 1
-            // other fragments will retain a stencil value of 0
-            gl.stencilOp(gl.REPLACE, gl.KEEP, gl.KEEP);
-
-            // render the portal shape using the settings above
-            this.renderer.render(mainScene, mainCamera);
-
-            portalViewPart.disableLayersAsIndividual();
-            mainCamera.layers.enable(RENDER_LAYERS.NORMAL);
-            mainCamera.layers.disable(RENDER_LAYERS.INDIVIDUAL_PORTAL);
-
-            // enable color + depth
-            gl.colorMask(true, true, true, true);
-            gl.depthMask(true);
-
-            // fragments with a stencil value of 1 will be rendered
-            gl.stencilFunc(gl.EQUAL, 1, 0xff);
-            // stencil buffer is not changed
-            gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
 
             const portalPart = portalViewPart.clonedPortal;
+            const cameraFromPortal = portalPart.worldToLocal(mainCamera.position);
+            const closeToThisPortal = cameraFromPortal.length() < 1.0 && cameraFromPortal.z < 0.1;
+
+            if (closeToThisPortal) {
+                // we are very close to or inside the portal, ignore stenciling and
+                // show the whole other room to work around model/view delay caused flicker
+                closeToAnyPortal = true;
+                gl.stencilFunc(gl.ALWAYS, 0, 1);
+                gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+            } else {
+                portalViewPart.enableLayersAsIndividual();
+                mainCamera.layers.disable(RENDER_LAYERS.NORMAL);
+                mainCamera.layers.enable(RENDER_LAYERS.INDIVIDUAL_PORTAL);
+
+                // disable color + depth
+                // only the stencil buffer will be drawn into
+                gl.colorMask(false, false, false, false);
+                gl.depthMask(false);
+
+                // the stencil test will always fail (this is cheaper to compute)
+                gl.stencilFunc(gl.NEVER, 1, 0xFF);
+                // fragments where the portal is drawn will have a stencil value of 1
+                // other fragments will retain a stencil value of 0
+                gl.stencilOp(gl.REPLACE, gl.KEEP, gl.KEEP);
+
+                // render the portal shape using the settings above
+                this.renderer.render(mainScene, mainCamera);
+
+                portalViewPart.disableLayersAsIndividual();
+                mainCamera.layers.enable(RENDER_LAYERS.NORMAL);
+                mainCamera.layers.disable(RENDER_LAYERS.INDIVIDUAL_PORTAL);
+
+                // enable color + depth
+                gl.colorMask(true, true, true, true);
+                gl.depthMask(true);
+
+
+                // fragments with a stencil value of 1 will be rendered
+                gl.stencilFunc(gl.EQUAL, 1, 0xff);
+                // stencil buffer is not changed
+                gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+            }
+
             const portalTargetRoomView = roomViewManager.requestPassive(portalPart.there, allRooms);
 
             if (portalTargetRoomView) {
@@ -315,31 +330,35 @@ function smoother() {
 
             // clear the stencil buffer for the next portal
             this.renderer.clear(false, false, true);
+
+            if (closeToThisPortal) break;
         }
 
         // after all portals have been drawn, we can disable the stencil test
         gl.disable(gl.STENCIL_TEST);
 
-        // clear the depth buffer to remove the portal views' depth from the current scene
-        this.renderer.clear(false, true, false);
+        if (!closeToAnyPortal) {
+            // clear the depth buffer to remove the portal views' depth from the current scene
+            this.renderer.clear(false, true, false);
 
-        // all the current scene portals will be drawn this time
-        mainCamera.layers.disable(RENDER_LAYERS.NORMAL);
-        mainCamera.layers.enable(RENDER_LAYERS.ALL_PORTALS);
+            // all the current scene portals will be drawn this time
+            mainCamera.layers.disable(RENDER_LAYERS.NORMAL);
+            mainCamera.layers.enable(RENDER_LAYERS.ALL_PORTALS);
 
-        // disable color
-        gl.colorMask(false, false, false, false);
-        // draw the portal shapes into the depth buffer
-        // this will make the portals appear as flat shapes
-        this.renderer.render(mainScene, mainCamera);
+            // disable color
+            gl.colorMask(false, false, false, false);
+            // draw the portal shapes into the depth buffer
+            // this will make the portals appear as flat shapes
+            this.renderer.render(mainScene, mainCamera);
 
-        mainCamera.layers.enable(RENDER_LAYERS.NORMAL);
-        mainCamera.layers.disable(RENDER_LAYERS.ALL_PORTALS);
+            mainCamera.layers.enable(RENDER_LAYERS.NORMAL);
+            mainCamera.layers.disable(RENDER_LAYERS.ALL_PORTALS);
 
-        // enable color
-        gl.colorMask(true, true, true, true);
+            // enable color
+            gl.colorMask(true, true, true, true);
 
-        // finally, render the current scene
-        this.renderer.render(mainScene, mainCamera);
+            // finally, render the current scene
+            this.renderer.render(mainScene, mainCamera);
+        }
     }
 }
