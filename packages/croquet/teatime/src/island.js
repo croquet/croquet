@@ -106,7 +106,7 @@ export default class Island {
 
     registerModel(model, id) {
         if (CurrentIsland !== this) throw Error("Island Error");
-        if (!id) id = "M" + ++this.modelsId;
+        if (!id) id = this.id + "/M" + ++this.modelsId;
         this.modelsById[id] = model;
         // not assigning the id here catches missing super calls in init() and load()
         return id;
@@ -436,7 +436,7 @@ function encode(receiver, selector, args) {
 }
 
 function decode(payload) {
-    const [_, msg, argString] = payload.match(/^([a-z0-9.#]+)(.*)$/i);
+    const [_, msg, argString] = payload.match(/^([a-z0-9.#/]+)(.*)$/i);
     const [receiver, selector] = msg.split('#');
     let args = [];
     if (argString) {
