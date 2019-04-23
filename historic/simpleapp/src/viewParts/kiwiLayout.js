@@ -3,6 +3,9 @@
 import kiwi, { Operator, Constraint } from 'kiwi.js';
 import { ViewPart } from "../parts";
 
+const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
+
 export const KiwiLayoutEvents = {
     contentChanged: "layout-content-changed",
     layoutChanged: "layout-layout-changed"

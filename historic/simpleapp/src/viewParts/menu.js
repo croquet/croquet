@@ -4,6 +4,9 @@ import { LayoutRoot, LayoutStack, LayoutSlotStretch3D, LayoutSlotText } from "./
 import TextViewPart from "./textView";
 import { makePointerSensitive, PointerEvents } from "./pointer";
 
+const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
+
 export class EntryBackgroundPlane extends ViewPart {
     constructor(options) {
         super();

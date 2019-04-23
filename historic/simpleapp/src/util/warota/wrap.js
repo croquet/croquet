@@ -1,5 +1,8 @@
 import { fontRegistry } from "../fontRegistry";
 
+const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
+
 // let fontRegistry = {
 //     measureText: function(str, style) {
 //         return {width: str.length * 20, height: 50, ascent: 40};

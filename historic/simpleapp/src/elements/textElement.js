@@ -5,6 +5,9 @@ import TextPart from "../modelParts/text";
 import Tracking from "../viewParts/tracking";
 import EditableTextViewPart from "../viewParts/textView";
 
+const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
+
 /** Model for a simple text display */
 export default class TextElement extends ModelPart {
     constructor() {

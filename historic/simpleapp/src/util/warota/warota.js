@@ -1,6 +1,9 @@
 import {Wrap, Measurer} from "./wrap.js";
 import MockContext from "./MockContext.js";
 
+const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
+
 function runLength(ary) {
     return ary.map(c => c.text).reduce((s, x) => x.length + s, 0);
 }
@@ -331,7 +334,7 @@ export class Doc {
             }
             return -1;
         }
-         
+
         let undoIndex = findLast(queue, evt);
         if (undoIndex < 0) {return content.timezone;}
 
@@ -403,7 +406,7 @@ export class Doc {
         if (content.timezone % (CUTOFF / 6) === 0) {
             queue.push(this.snapshotFrom(content, user, content.timezone));
         }
-        
+
         content.timezone++;
 
         if (queue.length > 0
