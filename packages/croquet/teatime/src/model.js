@@ -1,9 +1,14 @@
 import hotreload from "@croquet/util/hotreload";
+import urlOptions from "@croquet/util/urlOptions";
 import { currentRealm } from "./realms";
 
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
+
+const DEBUG = {
+    classes: urlOptions.has("debug", "classes", false),
+}
 
 export default class Model {
     // mark this and subclasses as model classes
@@ -130,9 +135,9 @@ function registerClass(file, name, cls) {
     const dupe = ModelClasses[id];
     if (dupe) throw Error(`Duplicate class ${name} in ${file}`);
     if (hasID(cls)) {
-        console.warn(`ignoring re-exported class ${name} from ${file}`);
+        if (DEBUG.classes) console.warn(`ignoring re-exported class ${name} from ${file}`);
     } else {
-        console.log(`registering class ${name} from ${file}`);
+        if (DEBUG.classes) console.log(`registering class ${name} from ${file}`);
         cls[CLASS_ID] = id;
     }
     ModelClasses[id] = {cls, file};
