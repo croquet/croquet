@@ -346,6 +346,7 @@ export default class Controller {
     sendMessage(msg) {
         // SEND: Broadcast a message to all participants.
         if (!this.socket) return;  // probably view sending event while connection is closing
+        if (this.socket.readyState !== WebSocket.OPEN) return;
         if (DEBUG.messages) console.log(this.id, `Controller sending SEND ${msg.asState()}`);
         try {
             this.socket.send(JSON.stringify({
