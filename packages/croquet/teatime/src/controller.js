@@ -282,6 +282,7 @@ export default class Controller {
                 const time = args;
                 if (DEBUG.ticks) console.log(this.id, 'Controller received TICK ' + time);
                 this.timeFromReflector(time);
+                if (this.tickMultiplier) this.multiplyTick(time);
                 break;
             }
             case 'SERVE': {
@@ -392,29 +393,30 @@ export default class Controller {
         }
     }
 
-    /** parse tps "ticks x multiplier" ticks are from server,multiplied by locally generated ticks
+    /** parse tps `ticks x multiplier` ticks are from server, multiplied by locally generated ticks
      *
-     * default taken from `islandCreator.tps` unless `islandCreator.options.tps`` is present
+     * default taken from `islandCreator.tps` unless `islandCreator.options.tps` is present
      *
-     * @returns {{tick: Number, local: Number}}
-     *          reflector tick period in ms and number of local ticks per reflector tick
+     * @returns {{tick: Number, multiplier: Number}}
+     *          reflector tick period in ms and local multiplier
      */
-    getTickAndLocal() {
+    getTickAndMultiplier() {
         const options = this.islandCreator.options;
         const tps = options.tps ? options.tps
             : this.islandCreator.tps ? this.islandCreator.tps
             : 20;
         const [rate, mult] = (tps + "x").split('x').map(n => Number.parseInt("0" + n, 10));
-        const tick = 1000 / Math.max(1, rate);     // minimum one tick per second
-        const local = Math.max(1, mult|0) - 1;     // default multiplier is 1 (no local ticks)
-        return { tick, local };
+        const tick = 1000 / Math.max(1, rate);     // minimum 1 tick per second
+        const multiplier = Math.max(1, mult);      // default multiplier is 1 (no local ticks)
+        if (multiplier > 1) this.tickMultiplier = { tick, multiplier };
+        return { tick, multiplier };
     }
 
     /** request ticks from the server */
     requestTicks(args = {}) {
         if (!this.socket || !this.island) return;
-        const { tick, local } = this.getTickAndLocal();
-        const delay = tick * local / (local + 1);
+        const { tick, multiplier } = this.getTickAndMultiplier();
+        const delay = tick * (multiplier - 1) / multiplier;
         if (delay) { args.delay = delay; args.tick = tick; }
         else if (!args.tick) args.tick = tick;
         if (!args.time) args.time = this.island.time;    // ignored by reflector unless this is sent right after START
@@ -475,23 +477,24 @@ export default class Controller {
         }
     }
 
-    /** Got the official time from reflector server */
-    timeFromReflector(time, isLocalTick) {
+    /** Got the official time from reflector server, or local multiplier */
+    timeFromReflector(time) {
         this.time = time;
         if (this.island) Stats.backlog(this.backlog);
-        if (isLocalTick) return;
+    }
+
+    /** we received a tick from reflector, generate local ticks */
+    multiplyTick(time) {
         if (this.localTicker) window.clearInterval(this.localTicker);
-        const { tick, local } = this.getTickAndLocal();
-        if (tick && local) {
-            const ms = tick / (local + 1);
-            let n = 1;
-            this.localTicker = hotreload.setInterval(() => {
-                this.timeFromReflector(time + n * ms, "local");
-                if (DEBUG.ticks) console.log(this.id, 'Controller generate TICK ' + this.time, n);
-                if (++n > local) window.clearInterval(this.localTicker);
-            }, ms);
-        }
-}
+        const { tick, multiplier } = this.tickMultiplier;
+        const ms = tick / multiplier;
+        let n = 1;
+        this.localTicker = hotreload.setInterval(() => {
+            this.timeFromReflector(time + n * ms);
+            if (DEBUG.ticks) console.log(this.id, 'Controller generate TICK ' + this.time, n);
+            if (++n >= multiplier) { window.clearInterval(this.localTicker); this.localTicker = 0; }
+        }, ms);
+    }
 }
 
 

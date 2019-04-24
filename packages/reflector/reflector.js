@@ -124,15 +124,15 @@ function JOIN(client, id, args) {
         sequence: 0,         // sequence number for messages with same time
         scale: 1,            // ratio of island time to wallclock time
         tick: TICK_MS,       // default tick rate
-        delay: 0,            // hold messages until this many ms after last tick/msg
+        delay: 0,            // hold messages until this many ms after last tick
         clients: new Set(),  // connected web sockets
         users: 0,            // number of clients already reported
         providers: new Set(),// clients that are running
         snapshot: null,      // a current snapshot or null
         messages: [],        // messages since last snapshot
         before: Date.now(),  // last getTime() call
-        lastTick: 0,         // time of last TICK or Message sent
-        lastMsgTime: 0,  // time of last message reflected
+        lastTick: 0,         // time of last TICK sent
+        lastMsgTime: 0,      // time of last message reflected
         ticker: null,        // interval for serving TICKs
         serveTimeout: null,  // pending SERVE request timeout
         syncClients: [],     // clients waiting to SYNC
@@ -270,7 +270,7 @@ function SEND(client, id, messages) {
     if (!island) { if (client && client.readyState === WebSocket.OPEN) client.close(5000, "unknown island"); return; };
     const time = getTime(island);
     if (island.delay) {
-        const delay = island.lastTick + island.delay - time;
+        const delay = island.lastTick + island.delay + 0.1 - time;    // add 0.1 ms to combat rounding errors
         if (island.delayed || delay > 0) { DELAY_SEND(island, delay, messages); return; }
     }
     for (const message of messages) {
@@ -285,7 +285,6 @@ function SEND(client, id, messages) {
         island.messages.push(msg); // raw message sent again in SYNC
     }
     island.lastMsgTime = time;
-    island.lastTick = time;
     if (island.messages.length > MAX_MESSAGES) {
         island.messages.splice(0, MAX_MESSAGES - island.messages.length);
         island.snapshot = null;
