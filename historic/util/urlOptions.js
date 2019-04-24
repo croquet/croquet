@@ -60,7 +60,7 @@ export default urlOptions;
 
 /*
  * The following code is completely unrelated. It's only in here because urlOptions.js
- * has no imports, so it will be loaded very early.
+ * has no imports, so it will be loaded before modules with imports.
  */
 
 // work around https://github.com/parcel-bundler/parcel/issues/1838

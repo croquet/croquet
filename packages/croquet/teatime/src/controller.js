@@ -392,7 +392,7 @@ export default class Controller {
         }
     }
 
-    /** parse tps "target tick rate:local ticks"
+    /** parse tps "ticks x multiplier" ticks are from server,multiplied by locally generated ticks
      *
      * default taken from `islandCreator.tps` unless `islandCreator.options.tps`` is present
      *
@@ -404,9 +404,9 @@ export default class Controller {
         const tps = options.tps ? options.tps
             : this.islandCreator.tps ? this.islandCreator.tps
             : 20;
-        const [rate, local] = (tps + ":").split(':').map(n => Number(n));
-        const reflectorRate = rate / (local + 1);
-        const tick = 1000 / reflectorRate;
+        const [rate, mult] = (tps + "x").split('x').map(n => Number.parseInt("0" + n, 10));
+        const tick = 1000 / Math.max(1, rate);     // minimum one tick per second
+        const local = Math.max(1, mult|0) - 1;     // default multiplier is 1 (no local ticks)
         return { tick, local };
     }
 
