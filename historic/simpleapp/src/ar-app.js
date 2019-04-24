@@ -1,7 +1,6 @@
 import * as THREE from "three";
 import { Controller } from "@croquet/teatime";
-// work around https://github.com/parcel-bundler/parcel/issues/1838
-import { hotreload, urlOptions, uploadCode, Stats } from "@croquet/teatime/node_modules/@croquet/util";
+import { hotreload, urlOptions, uploadCode, Stats } from "@croquet/util";
 import roomBounce from "./sampleRooms/bounce";
 import RoomViewManager from "./room/roomViewManager";
 import Renderer from "./render";
