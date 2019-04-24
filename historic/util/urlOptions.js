@@ -56,3 +56,41 @@ urlOptions.firstInHash = () => {
 };
 
 export default urlOptions;
+
+
+/*
+ * The following code is completely unrelated. It's only in here because urlOptions.js
+ * has no imports, so it will be loaded very early.
+ */
+
+// work around https://github.com/parcel-bundler/parcel/issues/1838
+deduplicateModules();
+function deduplicateModules() {
+    const b = module.bundle;
+    const later = new Map();
+    const fixed = new Set();
+    for (const [k, m] of Object.entries(b.modules)) {
+        for (const [n, long] of Object.entries(m[1])) {
+            const short = long.replace("/teatime/node_modules/@croquet/util/", "/util/");
+            if (long !== short && b.modules[short]) {
+                if (b.cache[long]) later.set(short, long);   // longer name already loaded
+                else {
+                    m[1][n] = short;                         // use shortened name
+                    delete b.modules[long];                  // delete duplicate
+                    fixed.add(long);
+                }
+            }
+        }
+    }
+    for (const [k, m] of Object.entries(b.modules)) {
+        for (const [n, short] of Object.entries(m[1])) {
+            const long = later.get(short);
+            if (long && b.modules[long]) {
+                m[1][n] = long;                              // use longer name
+                delete b.modules[short];                     // delete duplicate
+                fixed.add(long);
+            }
+        }
+    }
+    for (const fix of fixed) console.log("Deduplicating import of", fix);
+}
