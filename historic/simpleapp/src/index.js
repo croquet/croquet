@@ -245,7 +245,9 @@ async function start() {
         return false;
     };
 
-    hotreload.addEventListener(window, "mousemove", event => {
+    const canvas = renderer.renderer.context.canvas;
+
+    hotreload.addEventListener(canvas, "mousemove", event => {
         if (!throttle(event)) {
             const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
             if (currentRoomView) currentRoomView.parts.pointer.onMouseMove(event.clientX, event.clientY);
@@ -253,17 +255,17 @@ async function start() {
         event.preventDefault();
 
     });
-    hotreload.addEventListener(window, "mousedown", event => {
+    hotreload.addEventListener(canvas, "mousedown", event => {
         const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
         if (currentRoomView) currentRoomView.parts.pointer.onMouseDown(event);
         event.preventDefault();
     });
-    hotreload.addEventListener(window, "mouseup", event => {
+    hotreload.addEventListener(canvas, "mouseup", event => {
         const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
         if (currentRoomView) currentRoomView.parts.pointer.onMouseUp();
         event.preventDefault();
     });
-    const canvas = renderer.renderer.context.canvas;
+
     hotreload.addEventListener(canvas, "touchstart", event => {
         const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
         if (currentRoomView) {
@@ -308,6 +310,13 @@ async function start() {
     });
 
     hotreload.addEventListener(window, "hashchange", () => joinRoom(urlOptions.firstInHash()));
+
+    hotreload.addEventListener(document.getElementById('reset'), "click", () => {
+        if (currentRoomName) {
+            const { controller } = ALL_ROOMS[currentRoomName];
+            if (controller) controller.requestNewSession();
+        }
+    });
 
     keyboardManager.install(hotreload);
 

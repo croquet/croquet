@@ -79,17 +79,6 @@ export default class Controller {
         // closing with error code will force reconnect
     }
 
-    /**
-     * Generate an ID from a name and file versions.
-     *
-     * Two participants running the same code will generate the same ID
-     * for the same name.
-     * @param {String} name a name identifying the room.
-     */
-    static islandIDFor(name) {
-        return hashNameAndCode(name);
-    }
-
     constructor() {
         this.reset();
     }
@@ -131,9 +120,10 @@ export default class Controller {
         if (Object.keys(options).length) {
             name += '?' + Object.entries(options).map(([k,v])=>`${k}=${v}`).join('&');
         }
-        const id = await this.sessionIDFor(name);
+        const hash = await hashNameAndCode(name);
+        const id = await this.sessionIDFor(hash);
         console.log(`ID for ${name}: ${id}`);
-        this.islandCreator = { name, ...creator, options };
+        this.islandCreator = { name, ...creator, options, hash };
         if (!this.islandCreator.snapshot) {
             this.islandCreator.snapshot = { id, time: 0, meta: { created: (new Date()).toISOString() } };
         }
@@ -225,8 +215,7 @@ export default class Controller {
     /** @type String: this controller's island id */
     get id() { return this.island ? this.island.id : this.islandCreator.snapshot.id; }
 
-    async sessionIDFor(name) {
-        const islandID = await Controller.islandIDFor(name);
+    async sessionIDFor(islandID) {
         return new Promise(resolve => {
             SessionCallbacks[islandID] = sessionId => {
                 delete SessionCallbacks[islandID];
@@ -238,6 +227,19 @@ export default class Controller {
                     action: 'SESSION'
                 }));
             });
+        });
+    }
+
+    requestNewSession() {
+        const { hash } = this.islandCreator;
+        if (SessionCallbacks[hash]) return;
+        SessionCallbacks[hash] = () => this.leave();
+        Controller.withSocketDo(socket => {
+            socket.send(JSON.stringify({
+                id: hash,
+                action: 'SESSION',
+                args: { new: true },
+            }));
         });
     }
 
@@ -302,6 +304,12 @@ export default class Controller {
                 // a user joined or left this island
                 console.log(this.id, 'Controller received USERS', args);
                 this.users = args;
+                break;
+            }
+            case 'LEAVE': {
+                // the server wants us to leave this session and rejoin
+                console.log(this.id, 'Controller received LEAVE', args);
+                this.leave();
                 break;
             }
             default: console.warn("Unknown action:", action, args);

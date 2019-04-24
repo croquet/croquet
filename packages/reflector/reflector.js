@@ -379,29 +379,38 @@ function stopTicker(island) {
     //console.log("STOPPED TICKS");
 }
 
-// map island ids to session ids
+// map island hashes to island/session ids
 const SESSIONS = {};
 
-function currentSession(id) {
-    return `${id}-${SESSIONS[id] || 0}`;
+function currentSession(hash) {
+    return `${hash}-${SESSIONS[hash] || 0}`;
 }
 
-function newSession(id) {
-    SESSIONS[id] = (SESSIONS[id] || 0) + 1;
-    currentSession(id);
+function newSession(hash) {
+    SESSIONS[hash] = (SESSIONS[hash] || 0) + 1;
+    currentSession(hash);
 }
 
 /** client is requesting a session for an island
  * @param {Client} client - we received from this client
- * @param {ID} id - island ID
+ * @param {ID} hash - island hash
  * @param {*} args
  */
-function SESSION(client, id, args) {
+function SESSION(client, hash, args) {
     if (!args) args = {};
-    const session = args.new ? newSession(id) : currentSession(id);
-    const response = JSON.stringify({ action: 'SESSION', args: {id, session} });
-    LOG(`Session ${client.addr} session for ${id} is ${session}`);
+    const island = ALL_ISLANDS.get(currentSession(hash));
+    const id = args.new ? newSession(hash) : currentSession(hash);
+
+    const response = JSON.stringify({ action: 'SESSION', args: {id: hash, session: id} });
+    LOG(`Session ${client.addr} for ${hash} is ${id}`);
     client.safeSend(response);
+
+    if (args.new && island) {
+        const msg = JSON.stringify({id: island.id, action: 'LEAVE', args: { id }});
+        for (const other of island.clients) {
+            if (client !== other) other.safeSend(msg);
+        }
+    }
 }
 
 
