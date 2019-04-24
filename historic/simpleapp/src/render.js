@@ -1,10 +1,13 @@
 import * as THREE from "three";
 import { urlOptions } from "@croquet/util";
 import PortalViewPart from "./viewParts/portalView";
-import THREEx_imports from "../thirdparty-patched/ARjs/ar";
-import cameraData from "../thirdparty-patched/ARjs/data/camera_para.dat";
-import croquetPatternData from "../thirdparty-patched/ARjs/data/croquet.patt";
-//import hiroPatternData from "../thirdparty-patched/ARjs/data/patt.hiro";
+
+/* eslint-disable global-require */
+const THREEx_imports = urlOptions.ar && require("../thirdparty-patched/ARjs/ar");
+const cameraData = urlOptions.ar && require("../thirdparty-patched/ARjs/data/camera_para.dat");
+const croquetPatternData = urlOptions.ar && require("../thirdparty-patched/ARjs/data/croquet.patt");
+//const hiroPatternData = urlOptions.ar && require("../thirdparty-patched/ARjs/data/patt.hiro");
+/* eslint-enable global-require */
 
 const THREEx = THREEx_imports && THREEx_imports.THREEx;
 
