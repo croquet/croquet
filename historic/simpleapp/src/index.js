@@ -90,7 +90,7 @@ async function start() {
             if (ROOM.namedModelsPromise) return ROOM.namedModelsPromise;
             const creator = ROOM.creator;
             creator.room = roomName;
-            creator.tps = "30:2";
+            creator.tps = "20x3";
             creator.destroyerFn = snapshot => {
                 console.log("destroyer: detaching view for " + roomName);
                 delete ROOM.namedModels;

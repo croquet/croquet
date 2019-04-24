@@ -9,7 +9,7 @@ if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); 
 
 const LOCALHOST = window.location.hostname === 'localhost';
 
-const TPS = "30:1";             // ticks per sec : insert local
+const TPS = "10x3";             // reflector ticks per sec x local multiplier
 const THROTTLE = 1000 / 20;     // mouse event throttling
 const STEP_MS = 1000 / 30;      // bouncing ball step time in ms
 const SPEED = 10;               // bouncing ball speed in virtual pixels / step
