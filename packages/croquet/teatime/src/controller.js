@@ -49,11 +49,11 @@ export default class Controller {
     }
 
     // socket was disconnected, destroy all islands
-    static leaveAll() {
+    static leaveAll(preserveSnapshot) {
         if (!TheSocket) return;
         TheSocket = null;
         for (const controller of Object.values(Controllers)) {
-            controller.leave();
+            controller.leave(preserveSnapshot);
         }
     }
 
@@ -64,7 +64,7 @@ export default class Controller {
             try { Controllers[id].receive(action, args); }
             catch (e) { this.closeConnectionWithError('receive', e); }
         } else switch (action) {
-            case 'SESSION': SessionCallbacks[args.id](args.session);
+            case 'SESSION': SessionCallbacks[args.hash](args.id);
                 break;
             case 'PONG': if (DEBUG.pong) console.log('PONG after', Date.now() - args, 'ms');
                 break;
@@ -233,7 +233,7 @@ export default class Controller {
     requestNewSession() {
         const { hash } = this.islandCreator;
         if (SessionCallbacks[hash]) return;
-        SessionCallbacks[hash] = () => this.leave();
+        SessionCallbacks[hash] = newSession => console.log(this.id, 'new session:', newSession);
         Controller.withSocketDo(socket => {
             socket.send(JSON.stringify({
                 id: hash,
@@ -309,7 +309,7 @@ export default class Controller {
             case 'LEAVE': {
                 // the server wants us to leave this session and rejoin
                 console.log(this.id, 'Controller received LEAVE', args);
-                this.leave();
+                this.leave(false);
                 break;
             }
             default: console.warn("Unknown action:", action, args);
@@ -365,14 +365,12 @@ export default class Controller {
         }));
     }
 
-    leave() {
+    leave(preserveSnapshot) {
+        const {destroyerFn} = this.islandCreator;
+        const snapshot = preserveSnapshot && destroyerFn && this.takeSnapshot();
         this.reset();
         if (!this.islandCreator) throw Error("do not discard islandCreator!");
-        const {destroyerFn} = this.islandCreator;
-        if (destroyerFn) {
-            const snapshot = this.takeSnapshot();
-            destroyerFn(snapshot);
-        }
+        if (destroyerFn) destroyerFn(snapshot);
     }
 
     /** send a Message to all island replicas via reflector
@@ -573,7 +571,7 @@ function socketSetup(socket, reflectorUrl) {
             document.getElementById("error").innerText = 'Connection closed:' + event.code + ' ' + event.reason;
             console.log(socket.constructor.name, "closed:", event.code, event.reason);
             Stats.connected(false);
-            Controller.leaveAll();
+            Controller.leaveAll(true);
             if (event.code !== 1000) {
                 // if abnormal close, try to connect again
                 document.getElementById("error").innerText = 'Reconnecting ...';

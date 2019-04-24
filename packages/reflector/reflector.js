@@ -401,16 +401,21 @@ function SESSION(client, hash, args) {
     const island = ALL_ISLANDS.get(currentSession(hash));
     const id = args.new ? newSession(hash) : currentSession(hash);
 
-    const response = JSON.stringify({ action: 'SESSION', args: {id: hash, session: id} });
+    const response = JSON.stringify({ action: 'SESSION', args: {hash, id} });
     LOG(`Session ${client.addr} for ${hash} is ${id}`);
     client.safeSend(response);
 
-    if (args.new && island) {
-        const msg = JSON.stringify({id: island.id, action: 'LEAVE', args: { id }});
-        for (const other of island.clients) {
-            if (client !== other) other.safeSend(msg);
-        }
+    if (args.new && island) deleteIsland(island);
+}
+
+function deleteIsland(island) {
+    const { id } = island;
+    const msg = JSON.stringify({id, action: 'LEAVE'});
+    for (const client of island.clients) {
+       client.safeSend(msg);
     }
+    stopTicker(island);
+    ALL_ISLANDS.delete(id);
 }
 
 
@@ -461,10 +466,7 @@ server.on('connection', (client, req) => {
         for (const [id, island] of ALL_ISLANDS) {
             island.clients.delete(client);
             island.providers.delete(client);
-            if (island.clients.size === 0) {
-                stopTicker(island);
-                ALL_ISLANDS.delete(id);
-            }
+            if (island.clients.size === 0) deleteIsland(island);
         }
     });
 });
