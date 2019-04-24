@@ -18,6 +18,8 @@ const DEBUG = {
     snapshot: urlOptions.has("debug", "snapshot", "localhost"),
 };
 
+const NOCHEAT = urlOptions.nocheat;
+
 const OPTIONS_FROM_URL = [ 'session', 'user', 'tps' ];
 
 const Controllers = {};
@@ -259,6 +261,7 @@ export default class Controller {
                 this.islandCreator.snapshot = args;    // set snapshot
                 console.log(this.id, 'Controller received SYNC - resuming snapshot');
                 this.install(true);
+                this.getTickAndMultiplier();
                 break;
             }
             case 'RECV': {
@@ -408,7 +411,7 @@ export default class Controller {
         const [rate, mult] = (tps + "x").split('x').map(n => Number.parseInt("0" + n, 10));
         const tick = 1000 / Math.max(1, rate);     // minimum 1 tick per second
         const multiplier = Math.max(1, mult);      // default multiplier is 1 (no local ticks)
-        if (multiplier > 1) this.tickMultiplier = { tick, multiplier };
+        if (multiplier > 1 && !NOCHEAT) this.tickMultiplier = { tick, multiplier };
         return { tick, multiplier };
     }
 
