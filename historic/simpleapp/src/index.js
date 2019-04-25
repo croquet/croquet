@@ -10,6 +10,7 @@ import RoomViewManager from "./room/roomViewManager";
 import Renderer from "./render";
 import {theKeyboardManager} from "./domKeyboardManager";
 
+const TPS = "20x3"; // 20 ticks/s from server, 60 t/s total
 const LOG_HOTRELOAD = true;
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
@@ -90,7 +91,7 @@ async function start() {
             if (ROOM.namedModelsPromise) return ROOM.namedModelsPromise;
             const creator = ROOM.creator;
             creator.room = roomName;
-            creator.tps = "20x3";
+            creator.tps = TPS;
             creator.destroyerFn = snapshot => {
                 console.log("destroyer: detaching view for " + roomName);
                 delete ROOM.namedModels;
