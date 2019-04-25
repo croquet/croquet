@@ -39,7 +39,7 @@ function discover(ms, callback) {
     channel._post("discover", {from: myPort});
     if (timeout) clearTimeout(timeout);
     timeout = hotreload.setTimeout(() => {
-        if (ms < 500) discover(ms * 1.5);
+        if (ms < 100) discover(ms * 1.5);
         else {
             console.log("Channel: TIMEOUT for discover");
             discovered(myPort);
@@ -277,21 +277,21 @@ export class Socket extends CallbackHandler {
 class Client extends CallbackHandler {
     constructor(socket, options, server) {
         super();
-        this._socket = new Socket({ host: options.host, port: options.port});
-        this._socket.onopen = (...args) => this._callback('open', ...args);
-        this._socket.onclose = (...args) => {server.clients.delete(this); this._callback('close', ...args); };
-        this._socket.onerror = (...args) => this._callback('error', ...args);
-        this._socket.onmessage = ({data}) => this._callback('message', data);
-        this._socket._callbacks['pong'] = arg => this._callback('pong', arg);
-        this._socket._connectTo(socket);
+        this.connection = new Socket({ host: options.host, port: options.port});
+        this.connection.onopen = (...args) => this._callback('open', ...args);
+        this.connection.onclose = (...args) => {server.clients.delete(this); this._callback('close', ...args); };
+        this.connection.onerror = (...args) => this._callback('error', ...args);
+        this.connection.onmessage = ({data}) => this._callback('message', data);
+        this.connection._callbacks['pong'] = arg => this._callback('pong', arg);
+        this.connection._connectTo(socket);
     }
 
     send(data) {
-        this._socket.send(data);
+        this.connection.send(data);
     }
 
     ping(data) {
-        this._socket._ping(data);
+        this.connection._ping(data);
     }
 }
 
@@ -319,7 +319,7 @@ export class Server extends CallbackHandler {
         socket.url = this._url;
         const client = new Client(socket, this.options, this);
         this.clients.add(client);
-        const request = { connection: socket };
+        const request = { connection: client.connection, headers: [] };
         this._callback('connection', client, request);
     }
 
