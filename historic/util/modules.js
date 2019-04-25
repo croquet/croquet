@@ -69,6 +69,10 @@ function moduleWithID(id) {
     return allModules()[id];
 }
 
+function resolveImport(id, name) {
+    return moduleWithID(id)[1][name] || name;
+}
+
 function functionSource(fn) {
     // strip the Function(args) { ...source ... } to just the source
     const str = "" + fn;
@@ -105,7 +109,7 @@ function importsOf(mod) {
     return Object.values(namedImportsOf(mod));
 }
 
-/** find all files that are (transitively) imported by a given module */
+/** find all modules that are (transitively) imported by a given module */
 function allImportsOf(mod, filter, result = new Set([mod])) {
     for (const imp of importsOf(mod).filter(filter)) {
         if (!result.has(imp)) {
@@ -116,6 +120,10 @@ function allImportsOf(mod, filter, result = new Set([mod])) {
     return result;
 }
 
+/** find all modules that directly import a given module */
+function allImportersOf(mod) {
+    return allModuleIDs().filter(m => importsOf(m).includes(mod));
+}
 
 // hashing
 const hashIds = new Hashids('croquet');
@@ -272,4 +280,53 @@ export async function uploadCode(entryPoint) {
     //     uploadAsset(asset);
     // }
     return { base: BASE_URL, entry: await hashFile(entryPoint), html: await hashFile(htmlName) };
+}
+
+
+
+// work around https://github.com/parcel-bundler/parcel/issues/1838
+
+// deduplicate every module that directly imports this one,
+// plus "hotreload" which cannot import this because that would be cyclic
+deduplicateImports([...allImportersOf(module.id), resolveImport(module.id, "./hotreload")]);
+
+export function deduplicateImports(mods) {
+    const modSources = mods.map(m => [m, sourceCodeOf(m)]);
+    const dupes = new Map();
+    // find duplicates of given modules by comparing source code
+    for (const dupe of allModuleIDs()) {
+        const dupeSource = sourceCodeOf(dupe);
+        for (const [mod, modSource] of modSources) {
+            if (dupeSource === modSource && dupe !== mod) dupes.set(dupe, mod);
+        }
+    }
+    //for (const [dupe, mod] of dupes) console.log("Found dupe of", mod, dupe);
+    // replace references to dupes with the actual modules
+    const b = module.bundle;
+    const later = new Map();
+    const fixed = new Set();
+    for (const [k, m] of Object.entries(b.modules)) {
+        for (const [n, dupe] of Object.entries(m[1])) {
+            const mod = dupes.get(dupe);
+            if (mod && b.modules[mod]) {
+                if (b.cache[dupe]) later.set(mod, dupe);   // dupe already loaded
+                else {
+                    m[1][n] = mod;                         // use mod
+                    delete b.modules[dupe];                // delete dupe
+                    fixed.add(dupe);
+                }
+            }
+        }
+    }
+    for (const [k, m] of Object.entries(b.modules)) {
+        for (const [n, mod] of Object.entries(m[1])) {
+            const dupe = later.get(mod);
+            if (dupe && b.modules[dupe]) {
+                m[1][n] = dupe;                             // use dupe
+                delete b.modules[mod];                      // delete mod
+                fixed.add(dupe);
+            }
+        }
+    }
+    for (const fix of fixed) console.log("Deduplicating import of", fix);
 }
