@@ -238,7 +238,7 @@ export default class Renderer {
                 const effectiveDivergence = Math.min(Math.abs(rawSight.x), Math.abs(rawSight.z));
                 // smoothing ratio is smallest close to an axis, rising to max at 30 degrees
                 const proportion = Math.max(0, Math.min(1, (effectiveDivergence - thresholdDivergence) / (maxRelevantDivergence - thresholdDivergence))); // 0 to 1
-                const minSmooth = 0.15, maxSmooth = 0.5; // low minSmooth means a hesitant response to each new value; now that we use smoothing in obtaining those values, we can bump it up
+                const minSmooth = 0.1, maxSmooth = 0.5; // low minSmooth means a gradual blending in of each new value
                 const rawSmooth = minSmooth + proportion * (maxSmooth - minSmooth);
                 const smooth = this.smoothnessSmoother(rawSmooth); // we don't want the smoothness to be jumpy
                 const sight = this.sightSmoother(rawSight, smooth);
