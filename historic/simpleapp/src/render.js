@@ -161,7 +161,7 @@ export default class Renderer {
             if (this.arToolkitSource.ready === false) return;
 
             this.arToolkitContext.update(this.arToolkitSource.domElement);
-            mainScene.visible = this.arCamera.visible;
+            mainScene.visible = this.mvmHolder.visible;
 
             if (mainScene.visible) {
                 // copy fov and aspect ratio of the AR camera
@@ -185,17 +185,40 @@ export default class Renderer {
                 // matrix reported by the marker detector
                 const mvm = this.mvmHolder.matrix;
                 function smoother(fixedProp) {
-                    let last = null;
+                    let smoothed = null;
+                    const history = [];
+                    const maxHistory = 7;
+                    const samplePoint = (maxHistory-1)/2; // middle value
+                    let total = 0;
                     return (newVal, prop) => {
                         const propNow = fixedProp || prop;
-                        if (last === null) last = newVal;
-                        else last = propNow * newVal + (1-propNow) * last;
-                        return last;
-                    }
+                        history.push(newVal);
+                        total += newVal;
+                        if (smoothed === null) smoothed = newVal;
+                        else {
+                            if (history.length > maxHistory) {
+                                total -= history.shift();
+                                if (!window.noavg) newVal = total/history.length;
+                                else {
+                                    // don't use the average - unless the candidate is completely out of whack with all other values, in which case use the average of those others
+                                    const cand = history[samplePoint];
+                                    const avg = (total-cand) / (maxHistory-1); // average of all others
+                                    if (avg!==0 && Math.abs((cand-avg)/avg) > (window.thresh || 10)) { // @@ DEBUG HOOK
+                                        //console.log("!", cand/avg);
+                                        newVal = history[samplePoint] = avg; // replace it
+                                        total += avg - cand;
+                                    } else newVal = cand;
+                                }
+                            }
+                            smoothed = propNow * newVal + (1-propNow) * smoothed;
+                        }
+                        return smoothed;
+                        };
                 }
                 function vecSmoother(normalize) {
                     const x = smoother(), y = smoother(), z = smoother();
                     return (newVec, prop) => {
+                        //if (newVec.length() > 1000) debugger;
                         newVec.set(x(newVec.x, prop), y(newVec.y, prop), z(newVec.z, prop));
                         if (normalize) newVec.normalize();
                         return newVec;
@@ -215,7 +238,7 @@ export default class Renderer {
                 const effectiveDivergence = Math.min(Math.abs(rawSight.x), Math.abs(rawSight.z));
                 // smoothing ratio is smallest close to an axis, rising to max at 30 degrees
                 const proportion = Math.max(0, Math.min(1, (effectiveDivergence - thresholdDivergence) / (maxRelevantDivergence - thresholdDivergence))); // 0 to 1
-                const minSmooth = 0.05, maxSmooth = 0.5;
+                const minSmooth = 0.15, maxSmooth = 0.5; // low minSmooth means a hesitant response to each new value; now that we use smoothing in obtaining those values, we can bump it up
                 const rawSmooth = minSmooth + proportion * (maxSmooth - minSmooth);
                 const smooth = this.smoothnessSmoother(rawSmooth); // we don't want the smoothness to be jumpy
                 const sight = this.sightSmoother(rawSight, smooth);
@@ -226,7 +249,7 @@ export default class Renderer {
                 matW.lookAt(eye, new THREE.Vector3().subVectors(eye, sight), up);
                 matW.setPosition(eye);
 
-                const dbg = Math.random()<0.02;
+                const dbg = false; // Math.random()<0.02;
                 const rnd = v => v.toArray().map(val => val.toFixed(3));
                 if (dbg) console.log(rnd(eye), rnd(sight), rnd(up), { rawSmooth: rawSmooth.toFixed(3), smooth: smooth.toFixed(3)}); // rnd(eye), rnd(sight), rnd(up));
 
