@@ -74,29 +74,14 @@ export default class Renderer {
             });
         // initialize it
         this.arToolkitContext.init(() => {
-            // copy projection matrix to camera
-            this.arCamera.projectionMatrix.copy(this.arToolkitContext.getProjectionMatrix());
             });
         // init controls for camera
-        this.markerControls = new THREEx.ArMarkerControls(this.arToolkitContext, this.arCamera, {
+        this.mvmHolder = new THREE.Object3D();
+        this.markerControls = new THREEx.ArMarkerControls(this.arToolkitContext, this.mvmHolder, {
             type: 'pattern',
             patternUrl: croquetPatternData, //hiroPatternData,
-            // as we controls the camera, set changeMatrixMode: 'cameraTransformMatrix'
-            changeMatrixMode: 'cameraTransformMatrix'
+            changeMatrixMode: 'modelViewMatrix'
             });
-
-// NOT USED
-function smoother() {
-    const samples = 10;
-    let total = 0;
-    let array = [];
-    return newVal => {
-        array.push(newVal);
-        total += newVal;
-        if (array.length > samples) total -= array.shift();
-        return total / array.length;
-        };
-}
 
         this.posQuatHistory = [];
         const maxHistory = 10;
@@ -179,11 +164,11 @@ function smoother() {
             if (this.arToolkitSource.ready === false) return;
 
             this.arToolkitContext.update(this.arToolkitSource.domElement);
-            mainScene.visible = this.arCamera.visible;
+            mainScene.visible = this.mvmHolder.visible;
 
             if (mainScene.visible) {
-                // transfer camera settings and position from dedicated AR camera to the one being used to render the scene
-                const pmArray = this.arCamera.projectionMatrix.elements,
+                // copy fov and aspect ratio of the AR camera
+                const pmArray = this.arToolkitContext.getProjectionMatrix().elements,
                     //a = pmArray[10],
                     //b = pmArray[14],
                     //near = b / (a - 1),
@@ -195,51 +180,85 @@ function smoother() {
                     aspect = renderWidth / renderHeight;
                     //tanHalfHFOV = tanHalfVFOV * aspect,
 
-                //mainCamera.near = near;
-                //mainCamera.far = far;
                 mainCamera.aspect = aspect;
                 mainCamera.fov = vFOV;
                 mainCamera.updateProjectionMatrix();
 
-                const { pos, quat, stepSpec, rotation, translation, matW, posW, quatW, scaleW } = this.positioning;
-                const camPos = this.arCamera.position, camQuat = this.arCamera.quaternion;
-                if (window.nostable) { // @@ DEBUG HOOK
-                    pos.copy(camPos);
-                    quat.copy(camQuat);
-                } else {
-                    if (!this.stablePos) {
-                        this.stablePos = new THREE.Vector3().copy(camPos);
-                        this.stableQuat = new THREE.Quaternion().copy(camQuat);
-                        // jump the current position to the camera
-                        pos.copy(camPos);
-                        quat.copy(camQuat);
-                    } else {
-                        const changed = this.checkWithinEpsilon({ pos: camPos, quat: camQuat }, { pos: this.stablePos, quat: this.stableQuat });
-                        // if changed is non-null, it indicates that either pos or quat (or both)
-                        // is out of range of the current stable value.  if there's a new, stable
-                        // value for the one(s) that have changed, adopt the new pos/quat pair.
-                        if (changed && this.checkStability(changed)) {
-                            // set up posDelta to add to changing pos; angleDelta to edge towards new quat
-                            const numSteps = window.steps || 4; // @@ DEBUG HOOK
-                            stepSpec.posDelta.subVectors(camPos, pos).divideScalar(numSteps);
-                            stepSpec.angleDelta = quat.angleTo(camQuat) / numSteps;
-                            stepSpec.remainingSteps = numSteps;
-                            // set up the camera's position as the new "stable" state, that we'll now be moving towards
-                            this.stablePos.copy(camPos);
-                            this.stableQuat.copy(camQuat);
+                // the mvmHolder will have had its matrix set to the model-view
+                // matrix reported by the marker detector
+                const mvm = this.mvmHolder.matrix;
+                function smoother(fixedProp) {
+                    let smoothed = null;
+                    const history = [];
+                    const maxHistory = 7;
+                    const samplePoint = (maxHistory-1)/2; // middle value
+                    let total = 0;
+                    return (newVal, prop) => {
+                        const propNow = fixedProp || prop;
+                        history.push(newVal);
+                        total += newVal;
+                        if (smoothed === null) smoothed = newVal;
+                        else {
+                            if (history.length > maxHistory) {
+                                total -= history.shift();
+                                if (!window.noavg) newVal = total/history.length;
+                                else {
+                                    // don't use the average - unless the candidate is completely out of whack with all other values, in which case use the average of those others
+                                    const cand = history[samplePoint];
+                                    const avg = (total-cand) / (maxHistory-1); // average of all others
+                                    if (avg!==0 && Math.abs((cand-avg)/avg) > (window.thresh || 10)) { // @@ DEBUG HOOK
+                                        //console.log("!", cand/avg);
+                                        newVal = history[samplePoint] = avg; // replace it
+                                        total += avg - cand;
+                                    } else newVal = cand;
+                                }
+                            }
+                            smoothed = propNow * newVal + (1-propNow) * smoothed;
                         }
-                    }
-                    this.addToHistory(camPos, camQuat);
-
-                    if (stepSpec.remainingSteps) {
-                        pos.add(stepSpec.posDelta);
-                        quat.rotateTowards(this.stableQuat, stepSpec.angleDelta);
-                        stepSpec.remainingSteps--;
-                    }
+                        return smoothed;
+                        };
                 }
+                function vecSmoother(normalize) {
+                    const x = smoother(), y = smoother(), z = smoother();
+                    return (newVec, prop) => {
+                        //if (newVec.length() > 1000) debugger;
+                        newVec.set(x(newVec.x, prop), y(newVec.y, prop), z(newVec.z, prop));
+                        if (normalize) newVec.normalize();
+                        return newVec;
+                        };
+                }
+                if (!this.smoothnessSmoother) this.smoothnessSmoother = smoother(0.2);
+                if (!this.eyeSmoother) this.eyeSmoother = vecSmoother();
+                if (!this.sightSmoother) this.sightSmoother = vecSmoother(true);
+                if (!this.upSmoother) this.upSmoother = vecSmoother(true);
 
-                matW.makeRotationFromQuaternion(quat);
-                matW.setPosition(pos);
+                const mat3 = new THREE.Matrix3().setFromMatrix4(mvm);
+                mat3.transpose();
+                const rawSight = new THREE.Vector3(0, 0, 1).applyMatrix3(mat3);
+                const thresholdAngle = (window.ang || 10) * Math.PI / 180;
+                const thresholdDivergence = Math.sin(thresholdAngle);
+                const maxRelevantDivergence = Math.sin(Math.PI / 6);
+                const effectiveDivergence = Math.min(Math.abs(rawSight.x), Math.abs(rawSight.z));
+                // smoothing ratio is smallest close to an axis, rising to max at 30 degrees
+                const proportion = Math.max(0, Math.min(1, (effectiveDivergence - thresholdDivergence) / (maxRelevantDivergence - thresholdDivergence))); // 0 to 1
+                const minSmooth = 0.1, maxSmooth = 0.5; // low minSmooth means a gradual blending in of each new value
+                const rawSmooth = minSmooth + proportion * (maxSmooth - minSmooth);
+                const smooth = this.smoothnessSmoother(rawSmooth); // we don't want the smoothness to be jumpy
+                const sight = this.sightSmoother(rawSight, smooth);
+                const up = this.upSmoother(new THREE.Vector3(0, 1, 0).applyMatrix3(mat3), smooth);
+                const { pos, quat, stepSpec, rotation, translation, matW, posW, quatW, scaleW } = this.positioning;
+                matW.getInverse(mvm);
+                const eye = this.eyeSmoother(new THREE.Vector3().setFromMatrixPosition(matW), smooth);
+                matW.lookAt(eye, new THREE.Vector3().subVectors(eye, sight), up);
+                matW.setPosition(eye);
+
+                const dbg = false; // Math.random()<0.02;
+                const rnd = v => v.toArray().map(val => val.toFixed(3));
+                if (dbg) console.log(rnd(eye), rnd(sight), rnd(up), { rawSmooth: rawSmooth.toFixed(3), smooth: smooth.toFixed(3)}); // rnd(eye), rnd(sight), rnd(up));
+
+                let red = smooth, green = 0.1, blue = 0.1;
+                window.boxColor = new THREE.Color(red, green, blue);
+
                 matW.premultiply(rotation);
                 matW.premultiply(translation);
                 matW.decompose(posW, quatW, scaleW);
@@ -249,7 +268,6 @@ function smoother() {
                 cameraSpatial.rotateTo(quatW);
                 mainCamera.updateMatrixWorld(true);
             }
-
             this.renderer.setClearColor(0xffffff, 0);
         }
 
