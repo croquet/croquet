@@ -150,7 +150,7 @@ export function inModelRealm(island, callback) {
     }
     try {
         __currentRealm = new ModelRealm(island);
-        callback();
+        return callback();
     } finally {
         __currentRealm = null;
     }
@@ -162,7 +162,7 @@ export function inViewRealm(island, callback) {
     }
     try {
         __currentRealm = new ViewRealm(island);
-        callback();
+        return callback();
     } finally {
         __currentRealm = null;
     }
