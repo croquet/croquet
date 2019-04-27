@@ -417,7 +417,7 @@ export default class Island {
 
 
 /** Message encoders / decoders.
- * Pattern is "receiver#selector" or "*#selector" or "*"
+ * Pattern is "receiver>selector" or "*>selector" or "*"
  * @type { { pattern: {encoder: Function, decoder: Function} }'receiver#selector'
  */
 const transcoders = {};
@@ -428,20 +428,20 @@ export function addMessageTranscoder(pattern, transcoder) {
 
 function encode(receiver, selector, args) {
     if (args.length > 0) {
-        const transcoder = transcoders[`${receiver}#${selector}`] || transcoders[`*#${selector}`] || transcoders['*'];
-        if (!transcoder) throw Error(`No transcoder defined for ${receiver}#${selector}`);
+        const transcoder = transcoders[`${receiver}>${selector}`] || transcoders[`*>${selector}`] || transcoders['*'];
+        if (!transcoder) throw Error(`No transcoder defined for ${receiver}>${selector}`);
         args = transcoder.encode(args);
     }
-    return `${receiver}#${selector}${args.length > 0 ? JSON.stringify(args):""}`;
+    return `${receiver}>${selector}${args.length > 0 ? JSON.stringify(args):""}`;
 }
 
 function decode(payload) {
-    const [_, msg, argString] = payload.match(/^([-a-z0-9.#/]+)(.*)$/i);
-    const [receiver, selector] = msg.split('#');
+    const [_, msg, argString] = payload.match(/^([^[]+)(\[.*)?$/i);
+    const [receiver, selector] = msg.split('>');
     let args = [];
     if (argString) {
-        const transcoder = transcoders[`${receiver}#${selector}`] || transcoders[`*#${selector}`] || transcoders['*'];
-        if (!transcoder) throw Error(`No transcoder defined for ${receiver}#${selector}`);
+        const transcoder = transcoders[`${receiver}>${selector}`] || transcoders[`*>${selector}`] || transcoders['*'];
+        if (!transcoder) throw Error(`No transcoder defined for ${receiver}>${selector}`);
         args = transcoder.decode(JSON.parse(argString));
     }
     return {receiver, selector, args};
