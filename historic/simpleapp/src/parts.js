@@ -3,6 +3,7 @@ import { Model, View, currentRealm } from "@croquet/teatime";
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
+export const MODEL_PATH_SEPARATOR = "#";
 export const PART_PATH_SEPARATOR = ".";
 export const PATH_PART_SEPARATOR_SPLIT_REGEXP = /\.(.+)/;
 
@@ -46,16 +47,15 @@ const WithParts = BaseClass => class Part extends BaseClass {
 
 export class ModelPart extends WithParts(Model) {
     init(options={}, idForPart) {
-        if (idForPart) {
-            // act a part
+        const isModel = !idForPart;
+        if (isModel) {
+            super.init();
+        } else {
             this.id = idForPart;
             this.__realm = currentRealm();
-        } else {
-            // act as model
-            super.init();
         }
         this.forEachPart((part, name) => {
-            const partID = this.id + PART_PATH_SEPARATOR + name;
+            const partID = this.id + (isModel ? MODEL_PATH_SEPARATOR : PART_PATH_SEPARATOR) + name;
             part.init(options[name], partID);
             if (part.id !== partID) throw Error(`Did ${part} forget to call super.init(options, id)?`);
         });
