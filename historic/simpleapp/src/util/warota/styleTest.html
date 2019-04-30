@@ -67,8 +67,30 @@ window.onload = function () {
 
    case3.expected = {text: "man", styles: [{start: 0, end: 2, style: {color: "blue"}},
                                            {start: 2, end: 3, style: {color: "green"}}]};
+
+   function case4() {
+        content = {runs:
+                   [{text: "ab cd", style: {color: "blue"}},
+                    {text: " ef gh", style: {color: "green"}},
+                   ],
+                   selections: {}, timezone: 0, queue: [],
+                   undoStacks: {}
+                  };
+        window.content = content;
+        doc = new Doc();
+        window.doc = doc;
+        doc.load(content.runs);
+
+        editor = new Warota({width: 3, height: 2, numLines: 10}, doc);
+        editor.layout();
+   }
+
+   case4.expected = {text: "ma ni", styles: [{start: 0, end: 2, style: {color: "blue"}},
+                                           {start: 2, end: 3, style: {color: "green"}}]};
+
+
    //let run = [case1, case2, case3, case4, case5, case6, case7, case8, case9];
-   let run = [case3];
+   let run = [case4];
    run.forEach(r => {
      r();
      console.log(r.name + ":", window.doc.runs[0], window.doc.runs[0].text === r.expected);
