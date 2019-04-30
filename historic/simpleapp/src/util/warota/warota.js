@@ -652,7 +652,7 @@ export class Warota {
         let r = this.visibleBounds();
         let w = r.width * (1.0 - (this.showsScrollbar ? this.relativeScrollBarWidth : 0));
         let h = r.height;
-        return {l: r.left, t: r.top, w: r.width * (1.0 - this.relativeScrollBarWidth), h: r.height, b: r.top + h, r: r.left + w};
+        return {l: r.left, t: r.top, w: w, h: r.height, b: r.top + h, r: r.left + w};
     }
 
     draw(ctx, rect) {
@@ -714,7 +714,7 @@ export class Warota {
         } = this;
         let docH = this.docHeight;
         let scrollVRatio = pixelY / docH;
-        let barW = pixelX * relWidth;
+        let barW = pixelX * (this.showsScrollbar ? relWidth : 0);
         let barLeft = pixelX - barW;
         let barTop = scrollT * pixelY;
         let minHeight = pixelY / 100 * 5;
