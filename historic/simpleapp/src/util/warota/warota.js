@@ -278,11 +278,11 @@ export class Doc {
                 } else if (start <= sel.start && sel.end < end) {
                     this.selections[k] = {start, end: start, color: sel.color};
                 } else if (start < sel.start && end < sel.end) {
-                    this.selections[k] = {start, end: sel.end - end, color: sel.color};
+                    this.selections[k] = {start, end: sel.end - len, color: sel.color};
                 } else if (sel.start <= start && end < sel.end) {
                     this.selections[k] = {start: sel.start, end: sel.end - len, color: sel.color};
                 } else if (sel.start <= start && start < sel.end) {
-                    this.selections[k] = {start: sel.start, end: sel.end - start, color: sel.color};
+                    this.selections[k] = {start: sel.start, end: start, color: sel.color};
                 }
             }
         }

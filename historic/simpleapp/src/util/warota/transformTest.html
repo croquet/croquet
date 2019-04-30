@@ -14,7 +14,7 @@ window.onload = function () {
     function resetContent() {
         content = {runs:
                    [{text: "man is much more than a tool builder."}],
-                   selections: {}, timezone: 0, queue: []
+                   selections: {}, timezone: 0, queue: [],
                    undoStacks: {}
                   };
         window.content = content;
@@ -30,9 +30,9 @@ window.onload = function () {
     function case1() {
         resetContent();
 
-        let edit1 = Event.select(user1, 1, 1, user1, content.timezone);
+        let edit1 = Event.select(user1, 1, 1, content.timezone);
 
-        let edit2 = Event.select(user2, 2, 3, user2, content.timezone);
+        let edit2 = Event.select(user2, 2, 3, content.timezone);
         doIt(doc, edit1);
         doIt(doc, edit2);
 
@@ -48,10 +48,10 @@ window.onload = function () {
    function case2() {
         resetContent();
 
-        let edit1 = Event.select(user1, 1, 1, user1, content.timezone);
+        let edit1 = Event.select(user1, 1, 1, content.timezone);
         doIt(doc, edit1);
 
-        let edit2 = Event.select(user2, 2, 3, user2, content.timezone);
+        let edit2 = Event.select(user2, 2, 3, content.timezone);
         doIt(doc, edit2);
 
         let edit3 = Event.insert(user2, [{text: 'B'}], content.timezone);
@@ -66,10 +66,10 @@ window.onload = function () {
    function case3() {
         resetContent();
 
-        let edit1 = Event.select(user1, 1, 2, user1, content.timezone);
+        let edit1 = Event.select(user1, 1, 2, content.timezone);
         doIt(doc, edit1);
 
-        let edit2 = Event.select(user2, 2, 2, user2, content.timezone);
+        let edit2 = Event.select(user2, 2, 2, content.timezone);
         doIt(doc, edit2);
 
         let edit3 = Event.insert(user2, [{text: 'B'}], content.timezone);
@@ -84,10 +84,10 @@ window.onload = function () {
    function case4() {
         resetContent();
 
-        let edit1 = Event.select(user1, 1, 2, user1, content.timezone);
+        let edit1 = Event.select(user1, 1, 2, content.timezone);
         doIt(doc, edit1);
 
-        let edit2 = Event.select(user2, 2, 2, user2, content.timezone);
+        let edit2 = Event.select(user2, 2, 2, content.timezone);
         doIt(doc, edit2);
 
         let edit3 = Event.insert(user1, [{text: 'A'}], content.timezone);
@@ -105,8 +105,8 @@ window.onload = function () {
    function case5() {
         resetContent();
 
-        let edit1 = Event.select(user1, 1, 2, user1, content.timezone);
-        let edit2 = Event.select(user2, 1, 1, user2, content.timezone);
+        let edit1 = Event.select(user1, 1, 2, content.timezone);
+        let edit2 = Event.select(user2, 1, 1, content.timezone);
         let edit3 = Event.insert(user1, [{text: 'A'}], content.timezone);
         let edit4 = Event.insert(user2, [{text: 'B'}], content.timezone);
 
@@ -121,7 +121,7 @@ window.onload = function () {
    function case6() {
         resetContent();
 
-        let edit1 = Event.select(user1, 1, 1, user1, content.timezone);
+        let edit1 = Event.select(user1, 1, 1, content.timezone);
         doIt(doc, edit1);
 
         let edit2 = Event.insert(user1, [{text: 'A'}], content.timezone);
@@ -136,7 +136,7 @@ window.onload = function () {
    function case7() {
         resetContent();
 
-        let edit1 = Event.select(user1, 0, 0, user1, content.timezone);
+        let edit1 = Event.select(user1, 0, 0, content.timezone);
         doIt(doc, edit1);
 
         let edit2 = Event.insert(user1, [{text: 'A'}], content.timezone);
@@ -146,11 +146,82 @@ window.onload = function () {
 
    case7.expected = "Aman is much more than a tool builder.";
 
-   //let run = [case1, case2, case3, case4, case5, case6, case7, case8, case9];
-   let run = [case7];
+   function case8() {
+        resetContent();
+
+        let edit1 = Event.select(user1, 1, 4, content.timezone);
+        doIt(doc, edit1);
+
+        let edit2 = Event.select(user2, 2, 3, content.timezone);
+        doIt(doc, edit2);
+
+        let edit3 = Event.delete(user2, 2, 3, content.timezone);
+        doIt(doc, edit3);
+   }
+
+   case8.expected = "ma is much more than a tool builder.";
+   case8.selections = {[user1.id]: {start: 1, end: 3}, [user2.id]: {start: 2, end: 2}};
+
+   function case9() {
+        resetContent();
+
+        let edit1 = Event.select(user1, 1, 3, content.timezone);
+        doIt(doc, edit1);
+
+        let edit2 = Event.select(user2, 2, 4, content.timezone);
+        doIt(doc, edit2);
+
+        let edit3 = Event.delete(user1, 1, 3, content.timezone);
+        doIt(doc, edit3);
+   }
+
+   case9.expected = "m is much more than a tool builder.";
+   case9.selections = {[user1.id]: {start: 1, end: 1}, [user2.id]: {start: 1, end: 2}};
+
+   function case10() {
+        resetContent();
+
+        let edit1 = Event.select(user1, 1, 3, content.timezone);
+        doIt(doc, edit1);
+
+        let edit2 = Event.select(user2, 2, 4, content.timezone);
+        doIt(doc, edit2);
+
+        let edit3 = Event.delete(user2, 2, 4, content.timezone);
+        doIt(doc, edit3);
+   }
+
+   case10.expected = "mais much more than a tool builder.";
+   case10.selections = {[user1.id]: {start: 1, end: 2}, [user2.id]: {start: 2, end: 2}};
+
+   function case11() {
+        resetContent();
+
+        let edit1 = Event.select(user1, 1, 4, content.timezone);
+        doIt(doc, edit1);
+
+        let edit2 = Event.select(user2, 2, 3, content.timezone);
+        doIt(doc, edit2);
+
+        let edit3 = Event.delete(user1, 1, 4, content.timezone);
+        doIt(doc, edit3);
+   }
+
+   case11.expected = "mis much more than a tool builder.";
+   case11.selections = {[user1.id]: {start: 1, end: 1}, [user2.id]: {start: 1, end: 1}};
+
+   //let run = [case1, case2, case3, case4, case5, case6, case7, case8];
+   let run = [case11];
    run.forEach(r => {
      r();
      console.log(r.name + ":", window.doc.runs[0], window.doc.runs[0].text === r.expected);
+     let result = true;
+     if (!r.selections) {return;}
+     for (let k in r.selections) {
+       result = result && (r.selections[k].start === content.selections[k].start);
+       result = result && (r.selections[k].end === content.selections[k].end);
+     }
+     console.log('selections:', content.selections, result);
    });
 }
 </script>
