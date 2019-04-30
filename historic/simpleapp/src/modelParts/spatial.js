@@ -17,6 +17,13 @@ export const SpatialEvents = {
  * @extends ModelPart
  */
 export default class SpatialPart extends ModelPart {
+    static types() {
+        return {
+            "THREE.Vector3": { cls: THREE.Vector3, write: vec3 => vec3.toArray(), read: state => new THREE.Vector3().fromArray(state) },
+            "THREE.Quaternion": { cls: THREE.Quaternion, write: quat => quat.toArray(), read: state => new THREE.Quaternion().fromArray(state) },
+        };
+    }
+
     init(options={}, id) {
         super.init(options, id);
         /** @type {THREE.Vector3} */

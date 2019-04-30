@@ -9,6 +9,12 @@ export const ColorEvents = {
 };
 
 export default class ColorPart extends ModelPart {
+    static types() {
+        return {
+            "THREE.Color": { cls: THREE.Color, write: color => '#' + color.getHexString(), read: state => new THREE.Color(state) },
+        };
+    }
+
     init(color, id) {
         super.init(null, id);
         this.value = color || new THREE.Color("#dddddd");
