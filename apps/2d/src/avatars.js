@@ -135,16 +135,6 @@ export class BouncingShape extends Shape {
         return this;
     }
 
-    load(state, allModels) {
-        super.load(state, allModels);
-        this.speed = state.speed;
-    }
-
-    save(state) {
-        super.save(state);
-        state.speed = this.speed;
-    }
-
     // non-inherited methods below
 
     randomSpeed() {
