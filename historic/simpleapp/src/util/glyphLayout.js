@@ -167,12 +167,12 @@ export class GlyphLayout {
                     if (lastGlyph)
                         x += getKerning(font, lastGlyph.id, glyph.id)
 
-                    if (style === 'black') {
+                    if (style.color === 'black') {
                         color = null
                         lastStyle = 'black'
-                    } else if (lastStyle !== style) {
-                        color = THREE.Color(style);
-                        lastStyle == style
+                    } else if (lastStyle !== style.color) {
+                        color = new THREE.Color(style.color);
+                        lastStyle = style.color;
                     }
                     glyphs.push({
                         position: [x, y],
