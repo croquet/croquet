@@ -490,7 +490,7 @@ class IslandWriter {
                 $class: Model.classToID(model.constructor),
             };
             models.push(state);
-            this.refs.set(model, state);
+            this.refs.set(model, state);    // register ref before recursing
         }
         for (const state of models) {
             const { id } = state;
@@ -509,7 +509,7 @@ class IslandWriter {
             $class: "Model",
             $model: Model.classToID(model.constructor),
         };
-        this.refs.set(model, state);
+        this.refs.set(model, state);      // register ref before recursing
         for (const [key, value] of Object.entries(model)) {
             if (key === "id" || key === "__realm") continue;
             this.addToState(state, key, value, `$[${model.id}]`);
@@ -520,26 +520,30 @@ class IslandWriter {
     writeObject(object, path) {
         if (this.refs.has(object)) return this.writeRef(object, path);
         const state = {};
+        this.refs.set(object, state);      // register ref before recursing
         for (const [key, value] of Object.entries(object)) {
             this.addToState(state, key, value, path);
         }
-        this.refs.set(object, state);
         return state;
     }
 
     writeArray(array, path) {
         if (this.refs.has(array)) return this.writeRef(array, path);
-        const state = array.map((each, i) => this.write(each, `${path}[${i}]`));
-        this.refs.set(array, state);
+        const state = [];
+        this.refs.set(array, state);       // register ref before recursing
+        for (let i = 0; i < array.length; i++) {
+            state.push(this.write(array[i], `${path}[${i}]`));
+        }
         return state;
     }
 
     writeAs(classID, object, value, path) {
         if (this.refs.has(object)) return this.writeRef(object, path);
-        let state = this.write(value, path);
-        if (typeof state === "object" && !Array.isArray(state)) state.$class = classID;
-        else state = { $class: classID, $value: state };
-        this.refs.set(object, state);
+        const state = { $class: classID };
+        this.refs.set(object, state);      // register ref before recursing
+        const written = this.write(value, path);
+        if (typeof written !== "object" || Array.isArray(written)) state.$value = written;
+        else Object.assign(state, written);
         return state;
     }
 
