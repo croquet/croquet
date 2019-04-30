@@ -10,9 +10,7 @@ export const TextEvents = {
 
 export default class TextPart extends ModelPart {
     static types() {
-        return {
-            "Warota.Doc": { cls: Doc, write: doc => Object.assign({}, doc), read: state => Object.assign(new Doc(), state)},
-        };
+        return { "Warota.Doc": Doc };
     }
 
     init(options, id) {
