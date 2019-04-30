@@ -572,6 +572,7 @@ class IslandReader {
     constructor(island) {
         this.island = island;
         this.refs = new Map();
+        this.deferred = [];
         this.readers = new Map();
         for (const modelClass of Model.allClasses()) {
             if (!Object.prototype.hasOwnProperty.call(modelClass, "types")) continue;
@@ -597,7 +598,7 @@ class IslandReader {
                     case "Array": return this.readArray(value, path);
                     case "Object": {
                         const { $class, $ref } = value;
-                        if ($ref) return this.readRef($ref, path);
+                        if ($ref) throw Error("refs should have been handled in readInto()");
                         if ($class) return this.readAs($class, value, path);
                         return this.readObject(value, path);
                     }
@@ -608,15 +609,22 @@ class IslandReader {
         }
     }
 
-    readIsland(snapshot, path) {
-        if (path !== "$") throw Error("Island must be root object");
+    readIsland(snapshot, root) {
+        if (root !== "$") throw Error("Island must be root object");
         const islandData = {
             modelsById: this.readModels(snapshot.modelsById),
             messages: snapshot.messages.map(state => Message.fromState(state)),
             _random: new SeedRandom(null, { state: snapshot._random }),
         };
         for (const [key, value] of Object.entries(snapshot)) {
-            if (!islandData[key]) this.addToObject(islandData, key, value, path);
+            if (!islandData[key]) this.readInto(islandData, key, value, root);
+        }
+        for (const {object, key, ref, path} of this.deferred) {
+            if (this.refs.has(ref)) {
+                object[key] = this.refs.get(ref);
+            } else {
+                throw Error(`Unresolved ref: ${ref} at ${path}[${JSON.stringify(key)}]`);
+            }
         }
         return islandData;
     }
@@ -633,7 +641,7 @@ class IslandReader {
             const model = modelsById[state.id];
             for (const [key, value] of Object.entries(state)) {
                 if (key[0] === "$") continue;
-                this.addToObject(model, key, value, `$[${state.id}]`);
+                this.readInto(model, key, value, `$["${state.id}"]`);
             }
             model.__realm = currentRealm();
         }
@@ -646,7 +654,7 @@ class IslandReader {
         this.refs.set(state.id, model);
         for (const [key, value] of Object.entries(state)) {
             if (key[0] === "$") continue;
-            this.addToObject(model, key, value, path);
+            this.readInto(model, key, value, path);
         }
         model.__realm = currentRealm();
         return model;
@@ -654,15 +662,20 @@ class IslandReader {
 
     readObject(state, path) {
         const object = {};
+        if (state.$id) this.refs.set(state.$id, object)
         for (const [key, value] of Object.entries(state)) {
-            if (key === "$id") { this.refs.set(value, object); continue; }
-            this.addToObject(object, key, value, path);
+            if (key[0] === "$") continue;
+            this.readInto(object, key, value, path);
         }
         return object;
     }
 
     readArray(array, path) {
-        return array.map((each, i) => this.read(each, `${path}[${i}]`));
+        const result = [];
+        for (let i = 0; i < array.length; i++) {
+            this.readInto(result, i, array[i], path);
+        }
+        return result;
     }
 
     readAs(classID, state, path) {
@@ -673,16 +686,22 @@ class IslandReader {
         return value;
     }
 
-    readRef(ref, path) {
-        const value = this.refs.get(ref);
-        if (!value) throw Error("object ref not found: " + ref);
-        return value;
+    readRef(object, key, value, path) {
+        if (typeof value !== "object" || !value.$ref) return false;
+        const ref = value.$ref;
+        if (this.refs.has(ref)) {
+            object[key] = this.refs.get(ref);
+        } else {
+            object[key] = 0;        // placeholder
+            this.deferred.push({object, key, ref, path});
+        }
+        return true;
     }
 
-    addToObject(object, key, value, basePath) {
+    readInto(object, key, value, path) {
+        if (this.readRef(object, key, value, path)) return;
         const simpleKey = typeof key === "string" && key.match(/^[_a-z][_a-z0-9]*$/i);
-        const path = basePath + (simpleKey ? `.${key}` : `[${JSON.stringify(key)}]`);
-        const parsed = this.read(value, path);
-        object[key] = parsed;
+        const newPath = path + (simpleKey ? `.${key}` : `[${JSON.stringify(key)}]`);
+        object[key] = this.read(value, newPath);
     }
 }
