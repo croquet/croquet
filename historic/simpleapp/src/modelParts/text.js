@@ -11,18 +11,14 @@ export const TextEvents = {
 export default class TextPart extends ModelPart {
     static types() {
         return {
-            "Warota.Doc": { cls: Doc },  // no writer func -> not serialized
+            "Warota.Doc": { cls: Doc, write: doc => Object.assign({}, doc), read: state => Object.assign(new Doc(), state)},
         };
-    }
-
-    constructor() {
-        super();
-        this.content = { runs: [], selections: {}, undoStacks: {}, timezone: 0, queue: [], editable: true };
     }
 
     init(options, id) {
         super.init(options, id);
-        this.content = { ...this.content, editable: options.editable !== undefined ? options.editable : true, ...options.content};
+        const content = {runs: [], selections: {}, undoStacks: {}, timezone: 0, queue: [], editable: options.editable !== undefined ? options.editable : true, ...options.content};
+        this.content = content;
         this.doc = new Doc();
         this.doc.load(this.content.runs);
         this.doc.selections = this.content.selections;
