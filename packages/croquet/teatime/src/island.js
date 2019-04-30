@@ -430,8 +430,10 @@ class IslandWriter {
         this.writers = new Map();
         for (const modelClass of Model.allClasses()) {
             if (!Object.prototype.hasOwnProperty.call(modelClass, "types")) continue;
-            for (const [clsId, {cls, write}] of Object.entries(modelClass.types())) {
-                this.writers.set(cls, (object, path) => write && this.writeAs(clsId, object, write(object), path));
+            for (const [classId, ClassOrSpec] of Object.entries(modelClass.types())) {
+                const {cls, write} = (typeof ClassOrSpec === "object") ? ClassOrSpec
+                    : {cls: ClassOrSpec, write: obj => Object.assign({}, obj)};
+                this.writers.set(cls, (obj, path) => this.writeAs(classId, obj, write(obj), path));
             }
         }
     }
@@ -478,13 +480,14 @@ class IslandWriter {
                         if (value.constructor === Object) return this.writeObject(value, path, defer);
                         const writer = this.writers.get(value.constructor);
                         if (writer) return writer(value, path);
-                        throw Error("Don't know how to write " + value.constructor.name);
+                        throw Error(`Don't know how to write ${value.constructor.name} at ${path}`);
                     }
+                    case "Null": return value;
                     case "Function":
                         if (path === "$._random") return this.writeAs("Random", value, value.state(), path);
                         // fall through
                     default:
-                        throw Error("Don't know how to write " + type);
+                        throw Error(`Don't know how to write ${type} at ${path}`);
                 }
             }
         }
@@ -543,6 +546,7 @@ class IslandWriter {
     }
 
     writeAs(classID, object, value, path) {
+        if (value === undefined) return value;
         if (this.refs.has(object)) return this.writeRef(object, path);
         const state = { $class: classID };
         this.refs.set(object, state);      // register ref before recursing
@@ -586,8 +590,10 @@ class IslandReader {
         this.readers = new Map();
         for (const modelClass of Model.allClasses()) {
             if (!Object.prototype.hasOwnProperty.call(modelClass, "types")) continue;
-            for (const [clsId, {read}] of Object.entries(modelClass.types())) {
-                if (read) this.readers.set(clsId, read);
+            for (const [classId, ClassOrSpec] of Object.entries(modelClass.types())) {
+                const read = (typeof ClassOrSpec === "object") ? ClassOrSpec.read
+                    : state => Object.assign(new ClassOrSpec(), state);
+                this.readers.set(classId, read);
             }
         }
         this.readers.set("Set", array => new Set(array));
