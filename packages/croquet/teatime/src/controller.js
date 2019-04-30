@@ -482,7 +482,7 @@ export default class Controller {
 
     /** Got the official time from reflector server, or local multiplier */
     timeFromReflector(time, src="reflector") {
-        if (time < this.time) { console.error(`time is ${this.time}, ignoring time ${time} from ${src}`); return; }
+        if (time < this.time) { console.warn(`time is ${this.time}, ignoring time ${time} from ${src}`); return; }
         this.time = time;
         if (this.island) Stats.backlog(this.backlog);
     }
