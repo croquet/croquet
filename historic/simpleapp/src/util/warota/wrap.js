@@ -1,7 +1,7 @@
 import { fontRegistry } from "../fontRegistry";
 
-const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
-if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
+// const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+// if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 // let fontRegistry = {
 //     measureText: function(str, style) {
@@ -55,7 +55,7 @@ export class Wrap {
             if (ss && ss.length > 1) {
                 words.push(Object.assign(obj, {styles: ss}));
             } else if (ss && ss.length === 1) {
-                words.push(Object.assign(obj, {style: ss[0]}));
+                words.push(Object.assign(obj, {style: ss[0].style}));
             } else if (style) {
                 words.push(Object.assign(obj, {style}));
             } else {
@@ -102,6 +102,7 @@ export class Wrap {
                 if (isInWord) {
                     if (isSpace(text[j])) {
                         thisWord = text.slice(wordStart, j);
+                        let spaceAtHead = leftOver.length > 0 && thisWord.length === 0;
                         if (leftOver.length > 0) {
                             if (thisWord.length > 0) {
                                 let newOne = {start: leftOver.length, end: leftOver.length + thisWord.length, style: style};
@@ -110,7 +111,7 @@ export class Wrap {
                             thisWord = leftOver + thisWord;
                             leftOver = "";
                         }
-                        push({start, end: start + thisWord.length, text: thisWord}, style, styles);
+                        push({start, end: start + thisWord.length, text: thisWord}, spaceAtHead ? null : style, styles);
                         start += thisWord.length;
                         wordStart = j;
                         isInWord = false;

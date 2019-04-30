@@ -1,8 +1,8 @@
 import {Wrap, Measurer} from "./wrap.js";
 import MockContext from "./MockContext.js";
 
-const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
-if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
+// const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+// if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 function runLength(ary) {
     return ary.map(c => c.text).reduce((s, x) => x.length + s, 0);
