@@ -30,18 +30,6 @@ export default class TextElement extends ModelPart {
         };
     }
 
-    load(state, allModels) {
-        super.load(state, allModels);
-        this.editable = state.editable;
-        this.visualOptions = state.visualOptions;
-    }
-
-    save(state) {
-        super.save(state);
-        state.editable = this.editable;
-        state.visualOptions = this.visualOptions;
-    }
-
     naturalViewClass() { return TextElementView; }
 }
 /** View for rendering a Text */

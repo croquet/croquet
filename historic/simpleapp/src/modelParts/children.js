@@ -14,16 +14,6 @@ export default class ChildrenPart extends ModelPart {
         this.children = new Set();
     }
 
-    load(state, allModels) {
-        super.load(state, allModels);
-        this.children = new Set(state.children.map(id => allModels[id]));
-    }
-
-    save(state) {
-        super.save(state);
-        state.children = [...this.children].map(childModel => childModel.id);
-    }
-
     add(childModel) {
         this.children.add(childModel);
         this.publish(this.id, ChildEvents.childAdded, childModel);

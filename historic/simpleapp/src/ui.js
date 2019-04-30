@@ -13,16 +13,6 @@ export class SpeedSlider extends Model {
         this.subscribe(this.id, "changed", value => this.changed(value));
     }
 
-    load(state, allModels) {
-        super.load(state, allModels);
-        this.value = state.value;
-    }
-
-    save(state) {
-        super.save(state);
-        state.value = this.value;
-    }
-
     changed(value) {
         if (this.value === value) return;
         this.value = value;

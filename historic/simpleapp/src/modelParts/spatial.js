@@ -17,6 +17,13 @@ export const SpatialEvents = {
  * @extends ModelPart
  */
 export default class SpatialPart extends ModelPart {
+    static types() {
+        return {
+            "THREE.Vector3": { cls: THREE.Vector3, write: vec3 => vec3.toArray(), read: state => new THREE.Vector3().fromArray(state) },
+            "THREE.Quaternion": { cls: THREE.Quaternion, write: quat => quat.toArray(), read: state => new THREE.Quaternion().fromArray(state) },
+        };
+    }
+
     init(options={}, id) {
         super.init(options, id);
         /** @type {THREE.Vector3} */
@@ -25,13 +32,6 @@ export default class SpatialPart extends ModelPart {
         this.scale = options.scale || new THREE.Vector3(1, 1, 1);
         /** @type {THREE.Quaternion} */
         this.quaternion = options.quaternion || new THREE.Quaternion();
-    }
-
-    load(state, allModels) {
-        super.load(state, allModels);
-        this.position = new THREE.Vector3().fromArray(state.spatial, 0);
-        this.scale = new THREE.Vector3().fromArray(state.spatial, 3);
-        this.quaternion = new THREE.Quaternion().fromArray(state.spatial, 6);
     }
 
     /** @arg {THREE.Vector3} position */
@@ -75,13 +75,5 @@ export default class SpatialPart extends ModelPart {
         // accrued multiplications or they get out of hand.
         this.quaternion.normalize();
         this.publish(this.id, SpatialEvents.rotated, this.quaternion.clone());
-    }
-
-    save(state) {
-        super.save(state);
-        state.spatial = [];
-        this.position.toArray(state.spatial, 0);
-        this.scale.toArray(state.spatial, 3);
-        this.quaternion.toArray(state.spatial, 6);
     }
 }

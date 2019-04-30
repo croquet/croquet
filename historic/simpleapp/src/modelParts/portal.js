@@ -32,18 +32,6 @@ export default class PortalPart extends ModelPart {
         this.subscribe(PortalTopicPrefix + this.roomId, PortalEvents.traverserMoved, data => this.onTraverserMoved(data));
     }
 
-    load(state, allModels) {
-        super.load(state, allModels);
-        this.there = state.there;
-        this.roomId = state.roomId;
-    }
-
-    save(state) {
-        super.save(state);
-        state.there = this.there;
-        state.roomId = this.roomId;
-    }
-
     worldToLocal(position) {
         const matrixHere = new THREE.Matrix4().makeRotationFromQuaternion(this.parts.spatial.quaternion).setPosition(this.parts.spatial.position);
         const inverseMatrixHere = new THREE.Matrix4().getInverse(matrixHere);
