@@ -30,6 +30,8 @@ export default class EditableTextViewPart extends ViewPart {
                showScrollBar: true,
                hideBackbackground: false,
                backgroundColor: 'eeeeee',
+               singleLine: false,
+               autoResize: false,
                margins: {left: 0, right: 0, top: 0, bottom: 0}, ...options};
 
         if (this.options.editable) {
@@ -119,11 +121,14 @@ export default class EditableTextViewPart extends ViewPart {
             this.updateExtent(this.resizeRequest);
             delete this.resizeRequest;
         }
-        this.editor.layout();
+        this.editor.layout(this.options);
+        if (this.options.autoResize) {
+            this.resize(this.editor.newWidth, this.editor.newHeight, true);
+        }
         this.editor.paint();
     }
 
-    resize(width, height) {
+    resize(width, height, dontLayout) {
         // it assumes the ordinally initialization has been performed.
         // That means that options has fontSize, and numLines.
 
@@ -144,7 +149,9 @@ export default class EditableTextViewPart extends ViewPart {
         this.editor.resize(this.options.width, this.options.height);
         this.editor.resizeToNumLinesOrFontSize(this.options);
 
-        this.editor.layout();
+        if (!dontLayout) {
+            this.editor.layout(this.options);
+        }
         this.editor.paint();
     }
 
@@ -322,7 +329,10 @@ export default class EditableTextViewPart extends ViewPart {
     }
 
     onChanged(timezone) {
-        this.editor.layout();
+        this.editor.layout(this.options);
+        if (this.options.autoReisze) {
+            this.resize(this.editor.newWidth, this.editor.newHeight, true);
+        }
         this.editor.paint();
         this.editor.setTimezone(timezone);
     }
