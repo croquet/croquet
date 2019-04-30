@@ -224,7 +224,7 @@ export default class Renderer {
                 cameraSpatial.moveTo(posW);
                 cameraSpatial.rotateTo(quatW);
                 mainCamera.updateMatrixWorld(true);
-            }
+            } else currentRoomView.cameraSpatial.moveTo(new THREE.Vector3(10000, 10000, 10000));
             this.renderer.setClearColor(0xffffff, 0);
         }
 

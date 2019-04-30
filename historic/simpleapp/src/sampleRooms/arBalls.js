@@ -4,53 +4,60 @@ import {urlOptions} from "@croquet/util";
 import {ModelPart, ViewPart} from "../parts";
 import Room from "../room/roomModel";
 import ChildrenPart, { ChildEvents } from "../modelParts/children";
-import SpatialPart from "../modelParts/spatial";
+import SpatialPart, { SpatialEvents } from "../modelParts/spatial";
 import Flying from "../modelParts/flying";
 import Tracking from "../viewParts/tracking";
+import ColorPart from "../modelParts/color";
+
 //import Clickable from "../viewParts/clickable";
 //import Draggable from "../viewParts/draggable";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
+const TOTAL_BALLS = 100;
+const USER = Math.random();
+
 export const FlyingSpatialPart = Flying()(SpatialPart);
 
 export class FlyingBallElement extends ModelPart {
     constructor() {
         super();
-        this.parts = { spatial: new FlyingSpatialPart() };
+        this.parts = {
+            color: new ColorPart(),
+            spatial: new FlyingSpatialPart()
+            };
     }
 
     init(options) {
-        const startPos = new THREE.Vector3(0, 0, -0.2); //0, 5, -40);
-        const startVelocity = new THREE.Vector3(0, 0.1, 0); //0, 0, 0.1); //this.random());
+        const startPos = new THREE.Vector3(0, 0, 1000); // out of sight
+        const startVelocity = new THREE.Vector3(0, 0, 0);
         options.spatial.position = startPos;
         options.spatial.velocity = startVelocity;
         options.spatial.gravity = new THREE.Vector3(0, 0, 0.001);
         super.init(options);
     }
-/*
-    applyVelocity() {
-        super.applyVelocity();
-        if ()
-    }
-*/
+
     naturalViewClass() { return FlyingBallElementView; }
 }
 
-class BallViewPart extends ViewPart {
+const FlyingBallElementView = Tracking()(class extends ViewPart {
     constructor(options) {
         options = {color: "#aaaaaa", ...options};
         super(options);
+        const source = options.model && options.model.parts.spatial;
+        this.subscribe(source.id, "recolor", data => this.recolor(data));
+
         this.threeObj = new THREE.Mesh(
             new THREE.SphereBufferGeometry(0.75, 16, 16),
             new THREE.MeshStandardMaterial({color: new THREE.Color(this.color)})
         );
     }
-}
 
-const FlyingBallElementView = Tracking({ position: true, rotation: false, scale: true })(BallViewPart);
-
+    recolor(data) {
+        this.threeObj.material.color.setHSL(data.colorH, 1, 0.5);
+    }
+});
 
 export class GroupElement extends ModelPart {
     constructor() {
@@ -59,17 +66,37 @@ export class GroupElement extends ModelPart {
             spatial: new SpatialPart(),
             children: new ChildrenPart()
             };
-        this.count = 0;
     }
 
     init(options) {
         super.init(options);
-        this.future(250).addBall();
+        this.launchIndex = -1;
+        for (let i = 0; i < TOTAL_BALLS; i++) {
+            const ball = FlyingBallElement.create({ spatial: { scale: new THREE.Vector3(0.2, 0.2, 0.2) } });
+            this.parts.children.add(ball);
+        }
+        this.subscribe("arBalls", "launch", data => this.launchBall(data));
     }
 
-    addBall() {
-        this.parts.children.add(FlyingBallElement.create({ spatial: { scale: new THREE.Vector3(0.2, 0.2, 0.2) } }));
-        if (++this.count < 100) this.future(250).addBall();
+    load(state, allModels) {
+        super.load(state, allModels);
+        this.launchIndex = state.launchIndex;
+    }
+
+    save(state) {
+        super.save(state);
+        state.launchIndex = this.launchIndex;
+    }
+
+    launchBall(data) {
+        this.launchIndex++;
+        if (this.launchIndex === TOTAL_BALLS) this.launchIndex = 0;
+        // HACK
+        const balls = Array.from(this.parts.children.children);
+        const ballSpatial = balls[this.launchIndex].parts.spatial;
+        ballSpatial.position = new THREE.Vector3(0, 0, -0.2);
+        ballSpatial.estimatedVelocity = new THREE.Vector3(...data.direction).multiplyScalar(0.1);
+        this.publish(ballSpatial.id, "recolor", { colorH: data.colorH });
     }
 
     naturalViewClass() { return GroupElementView; }
@@ -78,6 +105,7 @@ export class GroupElement extends ModelPart {
 const GroupElementView = Tracking()(class extends ViewPart {
     constructor(options) {
         super(options);
+        const cameraSpatial = options.cameraSpatial;
 
         this.viewsForChildElements = {};
 
@@ -100,6 +128,13 @@ const GroupElementView = Tracking()(class extends ViewPart {
         for (const element of options.model.parts.children.children) {
             this.onElementAdded(element);
         }
+
+        const viewColorH = USER; // a suitable random number
+        const camPos = new THREE.Vector3();
+        setInterval(() => {
+            const pos = cameraSpatial.position;
+            if (pos.x !== 10000) this.publish("arBalls", "launch", { direction: camPos.copy(cameraSpatial.position).normalize().toArray(), colorH: viewColorH });
+            }, 200);
     }
 
     onElementAdded(element) {
@@ -142,10 +177,11 @@ class RandomlyColoringGroupElementView extends GroupElementView {
 }
 
 function initARBalls(_options) {
+    // called as part of installing the initial Island
     const room = Room.create();
     room.addElementManipulators = false;
 
-    const flyingBalls = RandomlyColoringGroupElement.create({ spatial: { scale: new THREE.Vector3(0.5, 0.5, 0.5) } });
+    const flyingBalls = GroupElement.create({ spatial: { scale: new THREE.Vector3(0.5, 0.5, 0.5) } });
     room.parts.elements.add(flyingBalls);
 
     return {room};
