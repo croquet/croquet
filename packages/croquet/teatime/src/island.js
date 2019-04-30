@@ -598,6 +598,30 @@ class IslandReader {
         this.readers.set("Uint16Array", (array, path) => new Uint16Array(this.readArray(array, path)));
     }
 
+    readIsland(snapshot, root) {
+        if (root !== "$") throw Error("Island must be root object");
+        const islandData = {
+            modelsById: this.readModels(snapshot.modelsById),
+            messages: snapshot.messages.map(state => Message.fromState(state)),
+            _random: new SeedRandom(null, { state: snapshot._random }),
+        };
+        for (const [key, value] of Object.entries(snapshot)) {
+            if (!islandData[key]) this.readInto(islandData, key, value, root);
+        }
+        this.readDeferred();
+        return islandData;
+    }
+
+    readDeferred() {
+        for (const {object, key, ref, path} of this.deferred) {
+            if (this.refs.has(ref)) {
+                object[key] = this.refs.get(ref);
+            } else {
+                throw Error(`Unresolved ref: ${ref} at ${path}[${JSON.stringify(key)}]`);
+            }
+        }
+    }
+
     read(value, path) {
         switch (typeof value) {
             case "number":
@@ -608,6 +632,7 @@ class IslandReader {
                 const type = Object.prototype.toString.call(value).slice(8, -1);
                 switch (type) {
                     case "Array": return this.readArray(value, path);
+                    case "Null": return null;
                     case "Object": {
                         const { $class, $ref } = value;
                         if ($ref) throw Error("refs should have been handled in readInto()");
@@ -619,26 +644,6 @@ class IslandReader {
                 }
             }
         }
-    }
-
-    readIsland(snapshot, root) {
-        if (root !== "$") throw Error("Island must be root object");
-        const islandData = {
-            modelsById: this.readModels(snapshot.modelsById),
-            messages: snapshot.messages.map(state => Message.fromState(state)),
-            _random: new SeedRandom(null, { state: snapshot._random }),
-        };
-        for (const [key, value] of Object.entries(snapshot)) {
-            if (!islandData[key]) this.readInto(islandData, key, value, root);
-        }
-        for (const {object, key, ref, path} of this.deferred) {
-            if (this.refs.has(ref)) {
-                object[key] = this.refs.get(ref);
-            } else {
-                throw Error(`Unresolved ref: ${ref} at ${path}[${JSON.stringify(key)}]`);
-            }
-        }
-        return islandData;
     }
 
     readModels(states) {
@@ -674,7 +679,7 @@ class IslandReader {
 
     readObject(state, path) {
         const object = {};
-        if (state.$id) this.refs.set(state.$id, object)
+        if (state.$id) this.refs.set(state.$id, object);
         for (const [key, value] of Object.entries(state)) {
             if (key[0] === "$") continue;
             this.readInto(object, key, value, path);
@@ -692,19 +697,39 @@ class IslandReader {
 
     readAs(classID, state, path) {
         if (classID === "Model") return this.readModelPart(state, path);
+        let temp = {};
+        const unresolved = {};
+        if ("$value" in state) temp = this.read(state.$value);
+        else for (const [key, value] of Object.entries(state)) {
+            if (key[0] === "$") continue;
+            const ref = value && value.$ref;
+            if (ref) {
+                if (this.refs.has(ref)) temp[key] = this.refs.get(ref);
+                else {
+                    temp[key] = "placeholder";
+                    unresolved[ref] = key;
+                }
+            } else {
+                this.readInto(temp, key, value, path);
+            }
+        }
         const reader = this.readers.get(classID);
-        const value = reader(state.$value || state, path);
-        if (state.$id) this.refs.set(state.$id, value);
-        return value;
+        const object = reader(temp, path);
+        if (state.$id) this.refs.set(state.$id, object);
+        for (const [ref, key] of Object.entries(unresolved)) {
+            debugger
+            this.deferred.push({object, key, ref, path});
+        }
+        return object;
     }
 
     readRef(object, key, value, path) {
-        if (typeof value !== "object" || !value.$ref) return false;
+        if (!value || !value.$ref) return false;
         const ref = value.$ref;
         if (this.refs.has(ref)) {
             object[key] = this.refs.get(ref);
         } else {
-            object[key] = 0;        // placeholder
+            object[key] = "placeholder";
             this.deferred.push({object, key, ref, path});
         }
         return true;
