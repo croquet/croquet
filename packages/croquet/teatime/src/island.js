@@ -589,10 +589,10 @@ class IslandReader {
                 if (read) this.readers.set(clsId, read);
             }
         }
-        this.readers.set("Set", (array, path) => new Set(this.readArray(array, path)));
-        this.readers.set("Map", (array, path) => new Map(this.readArray(array, path)));
-        this.readers.set("Uint8Array", (array, path) => new Uint8Array(this.readArray(array, path)));
-        this.readers.set("Uint16Array", (array, path) => new Uint16Array(this.readArray(array, path)));
+        this.readers.set("Set", array => new Set(array));
+        this.readers.set("Map", array => new Map(array));
+        this.readers.set("Uint8Array", array => new Uint8Array(array));
+        this.readers.set("Uint16Array", array => new Uint16Array(array));
     }
 
     readIsland(snapshot, root) {
