@@ -581,7 +581,8 @@ class IslandReader {
     constructor(island) {
         this.island = island;
         this.refs = new Map();
-        this.deferred = [];
+        this.todo = [];   // we use breadth-first reading to limit stack depth
+        this.unresolved = [];
         this.readers = new Map();
         for (const modelClass of Model.allClasses()) {
             if (!Object.prototype.hasOwnProperty.call(modelClass, "types")) continue;
@@ -610,7 +611,11 @@ class IslandReader {
     }
 
     readDeferred() {
-        for (const {object, key, ref, path} of this.deferred) {
+        while (this.todo.length > 0) {
+            const {object, key, value, path} = this.todo.shift();
+            this.readInto(object, key, value, path, 1);
+        }
+        for (const {object, key, ref, path} of this.unresolved) {
             if (this.refs.has(ref)) {
                 object[key] = this.refs.get(ref);
             } else {
@@ -619,7 +624,7 @@ class IslandReader {
         }
     }
 
-    read(value, path) {
+    read(value, path, nodefer=0) {
         switch (typeof value) {
             case "number":
             case "string":
@@ -628,16 +633,16 @@ class IslandReader {
             default: {
                 const type = Object.prototype.toString.call(value).slice(8, -1);
                 switch (type) {
-                    case "Array": return this.readArray(value, path);
+                    case "Array": return this.readArray(value, path, nodefer);
                     case "Null": return null;
                     case "Object": {
                         const { $class, $ref } = value;
                         if ($ref) throw Error("refs should have been handled in readInto()");
                         if ($class) return this.readAs($class, value, path);
-                        return this.readObject(value, path);
+                        return this.readObject(value, path, nodefer);
                     }
                     default:
-                        throw Error("Don't know how to read " + type);
+                        throw Error(`Don't know how to read ${type} at ${path}`);
                 }
             }
         }
@@ -674,20 +679,20 @@ class IslandReader {
         return model;
     }
 
-    readObject(state, path) {
+    readObject(state, path, nodefer=0) {
         const object = {};
         if (state.$id) this.refs.set(state.$id, object);
         for (const [key, value] of Object.entries(state)) {
             if (key[0] === "$") continue;
-            this.readInto(object, key, value, path);
+            this.readInto(object, key, value, path, nodefer);
         }
         return object;
     }
 
-    readArray(array, path) {
+    readArray(array, path, nodefer=0) {
         const result = [];
         for (let i = 0; i < array.length; i++) {
-            this.readInto(result, i, array[i], path);
+            this.readInto(result, i, array[i], path, nodefer);
         }
         return result;
     }
@@ -696,7 +701,7 @@ class IslandReader {
         if (classID === "Model") return this.readModelPart(state, path);
         let temp = {};
         const unresolved = {};
-        if ("$value" in state) temp = this.read(state.$value);
+        if ("$value" in state) temp = this.read(state.$value, path, 2);     // Map needs to resolve array of arrays, so 2
         else for (const [key, value] of Object.entries(state)) {
             if (key[0] === "$") continue;
             const ref = value && value.$ref;
@@ -707,15 +712,14 @@ class IslandReader {
                     unresolved[ref] = key;
                 }
             } else {
-                this.readInto(temp, key, value, path);
+                this.readInto(temp, key, value, path, 1);
             }
         }
         const reader = this.readers.get(classID);
         const object = reader(temp, path);
         if (state.$id) this.refs.set(state.$id, object);
         for (const [ref, key] of Object.entries(unresolved)) {
-            debugger
-            this.deferred.push({object, key, ref, path});
+            this.unresolved.push({object, key, ref, path});
         }
         return object;
     }
@@ -727,15 +731,19 @@ class IslandReader {
             object[key] = this.refs.get(ref);
         } else {
             object[key] = "placeholder";
-            this.deferred.push({object, key, ref, path});
+            this.unresolved.push({object, key, ref, path});
         }
         return true;
     }
 
-    readInto(object, key, value, path) {
+    readInto(object, key, value, path, nodefer=0) {
         if (this.readRef(object, key, value, path)) return;
+        if (nodefer === 0 && typeof value === "object") {
+            this.todo.push({object, key, value, path});
+            return;
+        }
         const simpleKey = typeof key === "string" && key.match(/^[_a-z][_a-z0-9]*$/i);
         const newPath = path + (simpleKey ? `.${key}` : `[${JSON.stringify(key)}]`);
-        object[key] = this.read(value, newPath);
+        object[key] = this.read(value, newPath, nodefer > 0 ? nodefer - 1 : 0);
     }
 }

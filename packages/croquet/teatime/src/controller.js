@@ -323,7 +323,7 @@ export default class Controller {
     async install(drainQueue=false) {
         const {snapshot, creatorFn, options, callbackFn} = this.islandCreator;
         let newIsland = new Island(snapshot, () => creatorFn(options));
-        if (DEBUG.snapshot && !snapshot.models) {
+        if (DEBUG.snapshot && !snapshot.modelsById) {
             // exercise save & load if we came from init
             newIsland = new Island(JSON.parse(JSON.stringify(newIsland.snapshot())), () => creatorFn(options));
         }
