@@ -8,7 +8,7 @@ if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); 
 
 const DEBUG = {
     classes: urlOptions.has("debug", "classes", false),
-}
+};
 
 export default class Model {
     // mark this and subclasses as model classes
@@ -23,9 +23,16 @@ export default class Model {
         return model;
     }
 
-    static classFromState(state) {
-        const ModelClass = classFromID(state.class);
-        return ModelClass;
+    static classToID(cls) {
+        return classToID(cls);
+    }
+
+    static classFromID(id) {
+        return classFromID(id);
+    }
+
+    static allClasses() {
+        return allClasses();
     }
 
     init(_options) {
@@ -36,19 +43,6 @@ export default class Model {
     destroy() {
         currentRealm().unsubscribeAll(this.id);
         currentRealm().deregister(this);
-    }
-
-    load(state, allModels) {
-        this.__realm = currentRealm();
-        const id = state.id;
-        if (!allModels) throw Error(`Did ${this}.load() forget to pass allModels as super.load(state, allModels)?`);
-        if (!allModels[id] === this) throw Error("Model ID mismatch");
-        this.id = state.id;
-    }
-
-    save(state) {
-        state.id = this.id;
-        state.class = classToID(this.constructor);
     }
 
     // Pub / Sub
@@ -109,6 +103,11 @@ function gatherModelClasses() {
             }
         }
     }
+}
+
+function allClasses() {
+    if (Object.keys(ModelClasses).length === 0) gatherModelClasses();
+    return Object.values(ModelClasses).map(entry => entry.cls);
 }
 
 function hasID(cls) {

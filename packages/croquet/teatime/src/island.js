@@ -2,7 +2,7 @@ import SeedRandom from "seedrandom";
 import PriorityQueue from "@croquet/util/priorityQueue";
 import hotreload from "@croquet/util/hotreload";
 import Model from "./model";
-import { inModelRealm, inViewRealm } from "./realms";
+import { inModelRealm, inViewRealm, currentRealm } from "./realms";
 import { viewDomain } from "./domain";
 
 
@@ -56,44 +56,27 @@ export default class Island {
                 /** pending messages, sorted by time and sequence number */
                 this.messages = new PriorityQueue((a, b) => a.before(b));
                 /** @type {{"scope:event": Array<String>}} model subscriptions */
-                this.subscriptions = snapshot.subscriptions || {};
+                this.subscriptions = {};
                 /** @type {SeedRandom} our synced pseudo random stream */
                 this._random = () => { throw Error("You must not use random when applying state!"); };
                 /** @type {String} island ID */
                 this.id = snapshot.id; // the controller always provides an ID
                 /** @type {Number} how far simulation has progressed */
-                this.time = snapshot.time || 0;
+                this.time = 0;
                 /** @type {Number} timestamp of last external message */
-                this.externalTime = snapshot.externalTime || 0;
+                this.externalTime = 0;
                 /** @type {Number} sequence number for disambiguating messages with same timestamp */
-                this.sequence = snapshot.sequence || 0;
+                this.sequence = 0;
                 /** @type {Number} number for giving ids to model */
-                this.modelsId = snapshot.modelsId || 0;
-                if (snapshot.models) {
-                    // create all models, uninitialized, but already registered
-                    for (const modelState of snapshot.models || []) {
-                        const ModelClass = Model.classFromState(modelState);
-                        const model = new ModelClass();
-                        this.registerModel(model, modelState.id);
+                this.modelsId = 0;
+                if (snapshot.modelsById) {
+                    // read island from snapshot
+                    const reader = new IslandReader(this);
+                    const islandData = reader.readIsland(snapshot, "$");
+                    for (const key of Object.keys(this)) {
+                        if (key === "messages") for (const msg of islandData.messages) this.messages.add(msg);
+                        else this[key] = islandData[key];
                     }
-
-                    for (const [modelName, modelId] of Object.entries(snapshot.namedModels)) {
-                        this.modelsByName[modelName] = this.modelsById[modelId];
-                    }
-
-                    // restore model snapshot, allow resolving object references
-                    for (const modelState of snapshot.models || []) {
-                        const model = this.modelsById[modelState.id];
-                        model.load(modelState, this.modelsById);
-                        if (!model.id) throw Error(`${model} has no ID, did you call super.load(state, allObjects)?`);
-                    }
-                    // restore messages
-                    for (const messageState of snapshot.messages || []) {
-                        const message = Message.fromState(messageState);
-                        this.messages.add(message);
-                    }
-                    // now it's safe to use stored random
-                    this._random = new SeedRandom(null, { state: snapshot.random });
                 } else {
                     // create new random, it is okay to use in init code
                     this._random = new SeedRandom(null, { state: true });
@@ -337,29 +320,8 @@ export default class Island {
     }
 
     snapshot() {
-        const namedModels = {};
-
-        for (const [modelName, model] of Object.entries(this.modelsByName)) {
-            namedModels[modelName] = model.id;
-        }
-
-        return {
-            id: this.id,
-            time: this.time,
-            externalTime: this.externalTime,
-            sequence: this.sequence,
-            random: this._random.state(),
-            modelsId: this.modelsId,
-            models: Object.values(this.modelsById).map(model => {
-                const state = {};
-                model.save(state);
-                if (!state.class) throw Error(`Did ${model} forget to call super.save(state)?`);
-                return state;
-            }),
-            namedModels,
-            messages: this.messages.asUnsortedArray().map(message => message.asState()),
-            subscriptions: this.subscriptions,
-        };
+        const writer = new IslandWriter(this);
+        return writer.writeIsland(this, "$");
     }
 
     random() {
@@ -455,5 +417,261 @@ class Message {
     [Symbol.toPrimitive]() {
         const { receiver, selector, args } = decode(this.payload);
         return `${this.seq & 1 ? 'External' : 'Future'}Message[${this.time}:${this.seq} ${receiver}.${selector}(${args.map(JSON.stringify).join(', ')})]`;
+    }
+}
+
+
+class IslandWriter {
+    constructor(island) {
+        this.island = island;
+        this.nextRef = 1;
+        this.refs = new Map();
+        this.writers = new Map();
+        this.writers.set(Object, (object, path) => this.writeObject(object, path));
+        for (const modelClass of Model.allClasses()) {
+            if (!Object.prototype.hasOwnProperty.call(modelClass, "types")) continue;
+            for (const [clsId, {cls, write}] of Object.entries(modelClass.types())) {
+                this.writers.set(cls, (object, path) => write && this.writeAs(clsId, object, write(object), path));
+            }
+        }
+    }
+
+    write(value, path) {
+        switch (typeof value) {
+            case "number":
+            case "string":
+            case "boolean":
+            case "undefined":
+                return value;
+            default: {
+                const type = Object.prototype.toString.call(value).slice(8, -1);
+                switch (type) {
+                    case "Array": return this.writeArray(value, path);
+                    case "Set": return this.writeAs("Set", value, [...value], path);
+                    case "Object": {
+                        if (value instanceof Model) return this.writeModelPart(value, path);
+                        const writer = this.writers.get(value.constructor);
+                        if (writer) return writer(value, path);
+                        throw Error("Don't know how to write " + value.constructor.name);
+                    }
+                    case "Function":
+                        if (path === "$._random") return this.writeAs("Random", value, value.state(), path);
+                        // fall through
+                    default:
+                        throw Error("Don't know how to write " + type);
+                }
+            }
+        }
+    }
+
+    writeIsland(island, path) {
+        if (path !== "$") throw Error("Island must be root object");
+        const state = {
+            modelsById: this.writeModels(island.modelsById),
+            _random: island._random.state(),
+            messages: island.messages.asUnsortedArray().map(message => message.asState()),
+        };
+        for (const [key, value] of Object.entries(island)) {
+            if (key === "controller") continue;
+            if (!state[key]) this.addToState(state, key, value, path);
+        }
+        return state;
+    }
+
+    writeModels(modelsById) {
+        const models = [];
+        for (const model of Object.values(modelsById)) {
+            const state = {
+                id: model.id,
+                $class: Model.classToID(model.constructor),
+            };
+            models.push(state);
+            this.refs.set(model, state);
+        }
+        for (const state of models) {
+            const { id } = state;
+            for (const [key, value] of Object.entries(modelsById[id])) {
+                if (key === "id" || key === "__realm") continue;
+                this.addToState(state, key, value, `$[${id}]`);
+            }
+        }
+        return models;
+    }
+
+    writeModelPart(model, path) {
+        if (this.refs.has(model)) return this.writeModelRef(model, path);
+        const state = {
+            id: model.id,
+            $class: "Model",
+            $model: Model.classToID(model.constructor),
+        };
+        this.refs.set(model, state);
+        for (const [key, value] of Object.entries(model)) {
+            if (key === "id" || key === "__realm") continue;
+            this.addToState(state, key, value, `$[${model.id}]`);
+        }
+        return state;
+    }
+
+    writeObject(object, path) {
+        if (this.refs.has(object)) return this.writeRef(object, path);
+        const state = {};
+        for (const [key, value] of Object.entries(object)) {
+            this.addToState(state, key, value, path);
+        }
+        this.refs.set(object, state);
+        return state;
+    }
+
+    writeArray(array, path) {
+        if (this.refs.has(array)) return this.writeRef(array, path);
+        const state = array.map((each, i) => this.write(each, `${path}[${i}]`));
+        this.refs.set(array, state);
+        return state;
+    }
+
+    writeAs(classID, object, value, path) {
+        if (this.refs.has(object)) return this.writeRef(object, path);
+        let state = this.write(value, path);
+        if (typeof state === "object" && !Array.isArray(state)) state.$class = classID;
+        else state = { $class: classID, $value: state };
+        this.refs.set(object, state);
+        return state;
+    }
+
+    writeRef(object, _path) {
+        const state = this.refs.get(object);
+        if (typeof state !== "object") throw Error("Non-object in refs: " + object);
+        if (Array.isArray(state)) throw Error("need to implement array refs");
+        const $ref = state.$id || (state.$id = this.nextRef++);
+        return {$ref};
+    }
+
+    writeModelRef(model, _path) {
+        return {$ref: model.id};
+    }
+
+    addToState(state, key, value, basePath) {
+        const simpleKey = typeof key === "string" && key.match(/^[_a-z][_a-z0-9]*$/i);
+        const path = basePath + (simpleKey ? `.${key}` : `[${JSON.stringify(key)}]`);
+        const written = this.write(value, path);
+        if (written !== undefined) state[key] = written;
+    }
+}
+
+
+class IslandReader {
+    constructor(island) {
+        this.island = island;
+        this.refs = new Map();
+        this.readers = new Map();
+        for (const modelClass of Model.allClasses()) {
+            if (!Object.prototype.hasOwnProperty.call(modelClass, "types")) continue;
+            for (const [clsId, {read}] of Object.entries(modelClass.types())) {
+                if (read) this.readers.set(clsId, read);
+            }
+        }
+        this.readers.set("Set", (array, path) => new Set(this.readArray(array, path)));
+    }
+
+    read(value, path) {
+        switch (typeof value) {
+            case "number":
+            case "string":
+            case "boolean":
+                return value;
+            default: {
+                const type = Object.prototype.toString.call(value).slice(8, -1);
+                switch (type) {
+                    case "Array": return this.readArray(value, path);
+                    case "Object": {
+                        const { $class, $ref } = value;
+                        if ($ref) return this.readRef($ref, path);
+                        if ($class) return this.readAs($class, value, path);
+                        return this.readObject(value, path);
+                    }
+                    default:
+                        throw Error("Don't know how to read " + type);
+                }
+            }
+        }
+    }
+
+    readIsland(snapshot, path) {
+        if (path !== "$") throw Error("Island must be root object");
+        const islandData = {
+            modelsById: this.readModels(snapshot.modelsById),
+            messages: snapshot.messages.map(state => Message.fromState(state)),
+            _random: new SeedRandom(null, { state: snapshot._random }),
+        };
+        for (const [key, value] of Object.entries(snapshot)) {
+            if (!islandData[key]) this.addToObject(islandData, key, value, path);
+        }
+        return islandData;
+    }
+
+    readModels(states) {
+        const modelsById = {};
+        for (const state of states) {
+            const { $class, id } = state;
+            const ModelClass = Model.classFromID($class);
+            modelsById[id] = new ModelClass();
+            this.refs.set(id, modelsById[id]);
+        }
+        for (const state of states) {
+            const model = modelsById[state.id];
+            for (const [key, value] of Object.entries(state)) {
+                if (key[0] === "$") continue;
+                this.addToObject(model, key, value, `$[${state.id}]`);
+            }
+            model.__realm = currentRealm();
+        }
+        return modelsById;
+    }
+
+    readModelPart(state, path) {
+        const ModelClass = Model.classFromID(state.$model);
+        const model = new ModelClass();
+        this.refs.set(state.id, model);
+        for (const [key, value] of Object.entries(state)) {
+            if (key[0] === "$") continue;
+            this.addToObject(model, key, value, path);
+        }
+        model.__realm = currentRealm();
+        return model;
+    }
+
+    readObject(state, path) {
+        const object = {};
+        for (const [key, value] of Object.entries(state)) {
+            if (key === "$id") { this.refs.set(value, object); continue; }
+            this.addToObject(object, key, value, path);
+        }
+        return object;
+    }
+
+    readArray(array, path) {
+        return array.map((each, i) => this.read(each, `${path}[${i}]`));
+    }
+
+    readAs(classID, state, path) {
+        if (classID === "Model") return this.readModelPart(state, path);
+        const reader = this.readers.get(classID);
+        const value = reader(state.$value || state);
+        if (state.$id) this.refs.set(state.$id, value);
+        return value;
+    }
+
+    readRef(ref, path) {
+        const value = this.refs.get(ref);
+        if (!value) throw Error("object ref not found: " + ref);
+        return value;
+    }
+
+    addToObject(object, key, value, basePath) {
+        const simpleKey = typeof key === "string" && key.match(/^[_a-z][_a-z0-9]*$/i);
+        const path = basePath + (simpleKey ? `.${key}` : `[${JSON.stringify(key)}]`);
+        const parsed = this.read(value, path);
+        object[key] = parsed;
     }
 }
