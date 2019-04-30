@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { Controller } from "@croquet/teatime";
 import { hotreload, urlOptions, uploadCode, Stats } from "@croquet/util";
-import roomBounce from "./sampleRooms/bounce";
+import roomARBalls from "./sampleRooms/arBalls";
 import RoomViewManager from "./room/roomViewManager";
 import Renderer from "./render";
 import {theKeyboardManager} from "./domKeyboardManager";
@@ -13,7 +13,7 @@ if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); 
 
 let hotState = module.hot && module.hot.data || {};
 
-const defaultRoom = "bounce"; //window.location.hostname === "croquet.studio" ? "bounce" : "room1";
+const defaultRoom = "arBalls";
 
 // default message transcoders
 const Vec3 = {
@@ -66,7 +66,7 @@ async function start() {
         //room1: {creator: room1},
         //room2: {creator: room2},
         //room3: {creator: room3},
-        bounce: {creator: roomBounce},
+        arBalls: {creator: roomARBalls},
     };
 
     // if hot-reloading, store the island snapshots in the room creators
@@ -122,7 +122,7 @@ async function start() {
         await ALL_ROOMS.getIsland(roomName);
         currentRoomName = roomName;
         // request ahead of render, set initial camera position if necessary
-        roomViewManager.request(roomName, ALL_ROOMS, {cameraPosition, cameraQuaternion, overrideCamera}, traversePortalToRoom);
+        roomViewManager.request(roomName, ALL_ROOMS, {cameraPosition, cameraQuaternion, overrideCamera, addElementManipulators: false}, traversePortalToRoom);
         const desiredHash = roomName === defaultRoom ? "" : roomName;
         if (urlOptions.firstInHash() !== desiredHash) {
             window.history.pushState({}, "", "#" + desiredHash);

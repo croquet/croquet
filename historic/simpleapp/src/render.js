@@ -83,56 +83,13 @@ export default class Renderer {
             changeMatrixMode: 'modelViewMatrix'
             });
 
-        this.posQuatHistory = [];
-        const maxHistory = 10;
-        this.addToHistory = (pos, quat) => {
-            const history = this.posQuatHistory;
-            const spec = history.length > maxHistory ? history.shift() : { pos: new THREE.Vector3(), quat: new THREE.Quaternion() };
-            spec.pos.copy(pos);
-            spec.quat.copy(quat);
-            history.push(spec);
-            };
-        this.checkWithinEpsilon = (refSpec, otherSpec) => {
-            // if refSpec and otherSpec are very close, return null
-            // otherwise return the refSpec, with any property that *is* close nulled out.
-            const { pos, quat } = refSpec;
-            let someChange = false;
-            if (pos) {
-                const posEpsilon = otherSpec.pos.length() * (window.eps || 0.1); // @@ DEBUG HOOK
-                if (pos.distanceTo(otherSpec.pos) <= posEpsilon) refSpec.pos = null;
-                else someChange = true;
-            }
-            if (quat) {
-                const angleEpsilon = (window.aeps || 4) * Math.PI / 180; // @@ DEBUG HOOK
-                if (quat.angleTo(otherSpec.quat) <= angleEpsilon) refSpec.quat = null;
-                else someChange = true;
-            }
-            return someChange ? refSpec : null;
-            };
-        this.checkStability = refSpec => {
-            // refSpec can have a non-falsy pos, or quat, or both.
-            // return true iff recent history is stable wrt the properties set in refSpec.
-            const history = this.posQuatHistory;
-            const stableHistory = window.stab || 4; // @@ DEBUG HOOK
-            if (history.length < stableHistory) return false;
-            // if there is any non-null answer from checkWithinEpsilon, the state is not stable
-            return !history.slice(-stableHistory).some(spec => this.checkWithinEpsilon(Object.assign({}, refSpec), spec));
-            };
-
-        this.stablePos = null;
-        this.stableQuat = null;
-
         this.positioning = {
-            pos: new THREE.Vector3(),
-            quat: new THREE.Quaternion(),
-            stepSpec: { posDelta: new THREE.Vector3(), angleDelta: 0, remainingSteps: 0 },
             rotation: new THREE.Matrix4().makeRotationX(Math.PI / 2),
             translation: new THREE.Matrix4().makeTranslation(0, 0.5, -2.5),
             matW: new THREE.Matrix4(),
             posW: new THREE.Vector3(),
             quatW: new THREE.Quaternion(),
             scaleW: new THREE.Vector3(),
-//smoothers: { x: smoother(), y: smoother(), z: smoother() },
             };
     }
 
@@ -246,7 +203,7 @@ export default class Renderer {
                 const smooth = this.smoothnessSmoother(rawSmooth); // we don't want the smoothness to be jumpy
                 const sight = this.sightSmoother(rawSight, smooth);
                 const up = this.upSmoother(new THREE.Vector3(0, 1, 0).applyMatrix3(mat3), smooth);
-                const { pos, quat, stepSpec, rotation, translation, matW, posW, quatW, scaleW } = this.positioning;
+                const { rotation, translation, matW, posW, quatW, scaleW } = this.positioning;
                 matW.getInverse(mvm);
                 const eye = this.eyeSmoother(new THREE.Vector3().setFromMatrixPosition(matW), smooth);
                 matW.lookAt(eye, new THREE.Vector3().subVectors(eye, sight), up);
@@ -259,8 +216,8 @@ export default class Renderer {
                 let red = smooth, green = 0.1, blue = 0.1;
                 window.boxColor = new THREE.Color(red, green, blue);
 
-                matW.premultiply(rotation);
-                matW.premultiply(translation);
+//                matW.premultiply(rotation);
+//                matW.premultiply(translation);
                 matW.decompose(posW, quatW, scaleW);
 
                 const cameraSpatial = currentRoomView.cameraSpatial;

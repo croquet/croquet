@@ -29,7 +29,7 @@ export default class RoomViewManager {
         if (cameraVelocity) cameraSpatialPart.setVelocity(cameraVelocity);
     }
 
-    request(roomName, allRooms, {cameraPosition, cameraQuaternion, overrideCamera, cameraVelocity}, traversePortalToRoom) {
+    request(roomName, allRooms, {cameraPosition, cameraQuaternion, overrideCamera, cameraVelocity, addElementManipulators}, traversePortalToRoom) {
         if (this.activeRoomViews[roomName]) {
             if (overrideCamera) {
                 this.moveCamera(roomName, cameraPosition, cameraQuaternion, cameraVelocity);
@@ -45,6 +45,7 @@ export default class RoomViewManager {
                     height: this.viewportHeight,
                     cameraPosition,
                     cameraQuaternion,
+                    addElementManipulators,
                     traversePortalToRoom,
                 });
                 this.activeRoomViews[roomName] = roomView;

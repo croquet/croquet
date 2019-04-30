@@ -23,7 +23,8 @@ export default class RoomView extends ViewPart {
     /** @arg {{room: import('./roomModel').default}} options */
     constructor(options) {
         super();
-
+//console.log({roomoptions: options});
+//console.warn(options.room);
         this.cameraSpatial = Inertial()(PortalTraversing({roomId: options.room.id})(SpatialPart)).create();
         this.cameraSpatial.init({
             position: options.cameraPosition,
@@ -37,28 +38,30 @@ export default class RoomView extends ViewPart {
         });
 
         this.parts.roomScene = new RoomScene({room: options.room});
-        this.parts.elementViewManager = new ElementViewManager({room: options.room, scenePart: this.parts.roomScene, cameraSpatial: this.cameraSpatial});
+        this.parts.elementViewManager = new ElementViewManager({room: options.room, scenePart: this.parts.roomScene, cameraSpatial: this.cameraSpatial, addElementManipulators: options.addElementManipulators!==false});
 
         if (options.activeParticipant) {
             this.parts.pointer = new PointerViewPart({room: options.room, cameraPart: this.parts.camera, scenePart: this.parts.roomScene});
-            this.parts.keyboard = new KeyboardViewPart();
-            this.parts.treadmill = new (Tracking({source: this.cameraSpatial})(TreadmillNavigation))({
-                affects: this.cameraSpatial,
-                scenePart: this.parts.roomScene,
-                cameraPart: this.parts.camera,
-            });
-            this.parts.interactionDome = new (Tracking({source: this.cameraSpatial})(InteractionDome))({
-                cameraSpatial: this.cameraSpatial,
-                scenePart: this.parts.roomScene,
-                changeColor: color => options.room.parts.color.future().setColor(color),
-                resetCameraPosition: () => {
-                    this.cameraSpatial.moveTo(new THREE.Vector3(0, 2, 4), false);
-                    this.cameraSpatial.rotateTo(new THREE.Quaternion(), false);
-                }
-            });
+            if (!urlOptions.ar) {
+                this.parts.keyboard = new KeyboardViewPart();
+                this.parts.treadmill = new (Tracking({source: this.cameraSpatial})(TreadmillNavigation))({
+                    affects: this.cameraSpatial,
+                    scenePart: this.parts.roomScene,
+                    cameraPart: this.parts.camera,
+                });
+                this.parts.interactionDome = new (Tracking({source: this.cameraSpatial})(InteractionDome))({
+                    cameraSpatial: this.cameraSpatial,
+                    scenePart: this.parts.roomScene,
+                    changeColor: color => options.room.parts.color.future().setColor(color),
+                    resetCameraPosition: () => {
+                        this.cameraSpatial.moveTo(new THREE.Vector3(0, 2, 4), false);
+                        this.cameraSpatial.rotateTo(new THREE.Quaternion(), false);
+                    }
+                });
 
-            this.traversePortalToRoom = options.traversePortalToRoom;
-            this.subscribe(PortalTopicPrefix + options.room.id, PortalEvents.traversed, data => this.onPortalTraversed(data));
+                this.traversePortalToRoom = options.traversePortalToRoom;
+                this.subscribe(PortalTopicPrefix + options.room.id, PortalEvents.traversed, data => this.onPortalTraversed(data));
+            }
         }
     }
 
@@ -82,8 +85,6 @@ class RoomScene extends ViewPart {
     constructor(options) {
         super();
         this.scene = new THREE.Scene();
-        this.grid = new THREE.GridHelper(10.0, 10, "#888888", "#aaaaaa");
-        this.scene.add(this.grid);
         this.light = new THREE.DirectionalLight("#ffffdd");
         this.light.position.set(1, 2, 1);
         this.light.castShadow = true;
@@ -92,15 +93,18 @@ class RoomScene extends ViewPart {
         this.light.shadow.radius = 5;
         this.light.shadow.camera.near = 0.5;    // default
         this.light.shadow.camera.far = 10;     // default
-        this.skydome = new THREE.Mesh(
-            new THREE.SphereGeometry(50, 10, 10),
-            new THREE.MeshBasicMaterial({color: options.room.parts.color.value, side: THREE.DoubleSide})
-        );
-        if (!urlOptions.ar) this.scene.add(this.skydome);
-
         this.scene.add(this.light);
         this.ambientLight = new THREE.HemisphereLight("#ddddff", "#ffdddd");
         this.scene.add(this.ambientLight);
+        if (!urlOptions.ar) {
+            this.grid = new THREE.GridHelper(10.0, 10, "#888888", "#aaaaaa");
+            this.scene.add(this.grid);
+            this.skydome = new THREE.Mesh(
+                new THREE.SphereGeometry(50, 10, 10),
+                new THREE.MeshBasicMaterial({color: options.room.parts.color.value, side: THREE.DoubleSide})
+                );
+            this.scene.add(this.skydome);
+        }
         // this.scene.add(new THREE.AxesHelper(5));
         this.threeObj = this.scene;
 
@@ -175,6 +179,8 @@ class ElementViewManager extends ViewPart {
         this.cameraSpatial = options.cameraSpatial;
         this.viewsForElements = {};
 
+        this.addElementManipulators = !!options.addElementManipulators;
+
         for (const element of options.room.parts.elements.children) {
             this.onElementAdded(element);
         }
@@ -186,7 +192,8 @@ class ElementViewManager extends ViewPart {
     onElementAdded(element) {
         const NaturalView = element.naturalViewClass("in-room");
         /** @type {View} */
-        const view = new (WithManipulator(NaturalView))({model: element, cameraSpatial: this.cameraSpatial});
+        const ViewClass = this.addElementManipulators ? WithManipulator(NaturalView) : NaturalView;
+        const view = new ViewClass({model: element, cameraSpatial: this.cameraSpatial});
         this.viewsForElements[element.id] = view;
         this.scenePart.threeObj.add(...view.threeObjs());
     }
