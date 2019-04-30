@@ -30,16 +30,6 @@ export class Root extends Model {
         this.children = [];
     }
 
-    load(state, allModels) {
-        super.load(state, allModels);
-        state.children.forEach(id => this.add(allModels[id]));
-    }
-
-    save(state) {
-        super.save(state);
-        state.children = this.children.map(child => child.id);
-    }
-
 
     // non-inherited methods below
 
@@ -70,20 +60,6 @@ export class Shape extends Model {
         return this;
     }
 
-    load(state, allModels) {
-        super.load(state, allModels);
-        this.type = state.type;
-        this.color = state.color;
-        this.pos = state.pos;
-    }
-
-    save(state) {
-        super.save(state);
-        state.type = this.type;
-        state.color = this.color;
-        state.pos = this.pos;
-    }
-
     // non-inherited methods below
 
     moveBy(delta) {
@@ -109,16 +85,6 @@ export class BouncingShape extends Shape {
         this.speed = this.randomSpeed();
         this.future(STEP_MS).step();
         return this;
-    }
-
-    load(state, allModels) {
-        super.load(state, allModels);
-        this.speed = state.speed;
-    }
-
-    save(state) {
-        super.save(state);
-        state.speed = this.speed;
     }
 
     // non-inherited methods below

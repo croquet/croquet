@@ -38,16 +38,6 @@ export class Root extends Model {
         this.subscribe(this.id, "user-is-active", user => this.ensureUser(user));
     }
 
-    load(state, allModels) {
-        super.load(state, allModels);
-        state.children.forEach(id => this.add(allModels[id]));
-    }
-
-    save(state) {
-        super.save(state);
-        state.children = this.children.map(child => child.id);
-    }
-
     // non-inherited methods below
 
     add(child) {
@@ -89,20 +79,6 @@ export class Shape extends Model {
         return this;
     }
 
-    load(state, allModels) {
-        super.load(state, allModels);
-        this.type = state.type;
-        this.color = state.color;
-        this.pos = state.pos;
-    }
-
-    save(state) {
-        super.save(state);
-        state.type = this.type;
-        state.color = this.color;
-        state.pos = this.pos;
-    }
-
     // non-inherited methods below
 
     moveBy(delta) {
@@ -130,20 +106,6 @@ export class UserShape extends Shape {
         this.active = true;
         this.future(INACTIVE_MS).step();
         return this;
-    }
-
-    load(state, allModels) {
-        super.load(state, allModels);
-        this.parent = allModels[state.parent];
-        this.user = state.user;
-        this.active = state.active;
-    }
-
-    save(state) {
-        super.save(state);
-        state.parent = this.parent.id;
-        state.user = this.user;
-        state.active = this.active;
     }
 
     // non-inherited methods below
