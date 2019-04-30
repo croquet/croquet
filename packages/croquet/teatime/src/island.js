@@ -447,7 +447,11 @@ class IslandWriter {
                 const type = Object.prototype.toString.call(value).slice(8, -1);
                 switch (type) {
                     case "Array": return this.writeArray(value, path);
-                    case "Set": return this.writeAs("Set", value, [...value], path);
+                    case "Set":
+                    case "Map":
+                    case "Uint8Array":
+                    case "Uint16Array":
+                        return this.writeAs(type, value, [...value], path);
                     case "Object": {
                         if (value instanceof Model) return this.writeModelPart(value, path);
                         const writer = this.writers.get(value.constructor);
@@ -572,6 +576,9 @@ class IslandReader {
             }
         }
         this.readers.set("Set", (array, path) => new Set(this.readArray(array, path)));
+        this.readers.set("Map", (array, path) => new Map(this.readArray(array, path)));
+        this.readers.set("Uint8Array", (array, path) => new Uint8Array(this.readArray(array, path)));
+        this.readers.set("Uint16Array", (array, path) => new Uint16Array(this.readArray(array, path)));
     }
 
     read(value, path) {
