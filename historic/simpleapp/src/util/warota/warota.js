@@ -584,22 +584,39 @@ export class Warota {
             this.relativeScrollBarWidth = 30 / this.pixelX;
         }
 
-        this.width(this.pixelX * (1.0 - this.relativeScrollBarWidth));
+        this.width(this.pixelX * (1.0 - (this.showsScrollbar ? this.relativeScrollBarWidth : 0)));
         this.lineHeight = lineHeight;
-        this.pixelMargins = {left: options.margins.left * heightInPixel,
-                                right: options.margins.right * heightInPixel,
-                                top: options.margins.top * heightInPixel,
-                                bottom: options.margins.bottom * heightInPixel};
+        this.pixelMargins = {left: options.margins.left / heightInPixel,
+                                right: options.margins.right / heightInPixel,
+                                top: options.margins.top / heightInPixel,
+                                bottom: options.margins.bottom / heightInPixel};
 
         options.pixelMargins = this.pixelMargins;
     }
 
-    layout() {
-        let [lines, words] = new Wrap().wrap(this.doc.runs, this._width, this.defaultMeasurer, this.doc.defaultFont, this.doc.defaultSize, this.pixelMargins);
+    layout(options) {
+        options = options || {};
+        let layoutWidth = options.singleLine ? Number.Max_VALUE : this._width;
+        let hMargin = this.margins.left + this.margins.right;
+        let vMargin = this.margins.top + this.margins.bottom;
+        let [lines, words] = new Wrap().wrap(this.doc.runs, layoutWidth, this.defaultMeasurer, this.doc.defaultFont, this.doc.defaultSize, this.pixelMargins);
         this.lines = lines;
         this.words = words;
-        let lastWord = lines[lines.length-1][0]; // there should be always one
-        this.docHeight = lastWord.top + lastWord.height;
+
+        let lastWord; // there should be always one
+        if (options.singleLine) {
+            lastWord = lines[0][lines[0].length-1];
+        } else {
+            lastWord = lines[lines.length-1][0];
+        }
+        let meterInPixels = this.screenWidth / this.pixelX;
+        if (options.autoResize) {
+            this.newWidth = (lastWord.left + lastWord.width + hMargin) * meterInPixels;
+            this.newHeight = (lastWord.top + lastWord.height + vMargin) * meterInPixels;
+            this.docHeight = lastWord.top + lastWord.height;
+        } else {
+            this.docHeight = lastWord.top + lastWord.height;
+        }
     }
 
     paint() {
@@ -633,7 +650,7 @@ export class Warota {
 
     visibleTextBounds() {
         let r = this.visibleBounds();
-        let w = r.width * (1.0 - this.relativeScrollBarWidth);
+        let w = r.width * (1.0 - (this.showsScrollbar ? this.relativeScrollBarWidth : 0));
         let h = r.height;
         return {l: r.left, t: r.top, w: r.width * (1.0 - this.relativeScrollBarWidth), h: r.height, b: r.top + h, r: r.left + w};
     }
@@ -644,17 +661,15 @@ export class Warota {
             if (word.left + word.width < left || word.top > top + height
                 || word.top + word.height < top || word.left > left + width) {return;}
             if (word.styles) {
-                word.styles.forEach(style => {
-                    ctx.fillStyle = style.color;
-                    // and more styles...
-
-                    ctx.fillText(word.text.slice(style.start, style.end),
-                                 word.left, word.top + word.ascent);
+                let wLeft = word.left;
+                word.styles.forEach(partialStyle => {
+                    ctx.fillStyle = partialStyle.style ? partialStyle.style : {color: 'black'};
+                    ctx.fillText(word.text.slice(partialStyle.start, partialStyle.end),
+                                 wLeft, word.top + word.ascent);
+                    wLeft += partialStyle.width;
                 });
             } else {
                 ctx.fillStyle = word.style || 'black';
-                // and more styles...
-
                 ctx.fillText(word.text, word.left, word.top + word.ascent);
             }
         });
