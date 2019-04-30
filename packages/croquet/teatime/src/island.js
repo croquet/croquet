@@ -496,7 +496,7 @@ class IslandWriter {
             const { id } = state;
             for (const [key, value] of Object.entries(modelsById[id])) {
                 if (key === "id" || key === "__realm") continue;
-                this.addToState(state, key, value, `$[${id}]`);
+                this.addToState(state, key, value, `$["${id}"]`);
             }
         }
         return models;
@@ -512,7 +512,7 @@ class IslandWriter {
         this.refs.set(model, state);      // register ref before recursing
         for (const [key, value] of Object.entries(model)) {
             if (key === "id" || key === "__realm") continue;
-            this.addToState(state, key, value, `$[${model.id}]`);
+            this.addToState(state, key, value, `$["${model.id}"]`);
         }
         return state;
     }
@@ -668,7 +668,7 @@ class IslandReader {
     readAs(classID, state, path) {
         if (classID === "Model") return this.readModelPart(state, path);
         const reader = this.readers.get(classID);
-        const value = reader(state.$value || state);
+        const value = reader(state.$value || state, path);
         if (state.$id) this.refs.set(state.$id, value);
         return value;
     }
