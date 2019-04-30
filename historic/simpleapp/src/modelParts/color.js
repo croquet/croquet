@@ -20,16 +20,6 @@ export default class ColorPart extends ModelPart {
         this.value = color || new THREE.Color("#dddddd");
     }
 
-    load(state, allModels) {
-        super.load(state, allModels);
-        this.value = new THREE.Color(state.value);
-    }
-
-    save(state) {
-        super.save(state);
-        state.value = '#' + this.value.getHexString();
-    }
-
     setColor(newColor) {
         this.value = new THREE.Color(newColor);
         this.publish(this.id, ColorEvents.changed, this.value);

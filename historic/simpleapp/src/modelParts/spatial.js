@@ -34,13 +34,6 @@ export default class SpatialPart extends ModelPart {
         this.quaternion = options.quaternion || new THREE.Quaternion();
     }
 
-    load(state, allModels) {
-        super.load(state, allModels);
-        this.position = new THREE.Vector3().fromArray(state.spatial, 0);
-        this.scale = new THREE.Vector3().fromArray(state.spatial, 3);
-        this.quaternion = new THREE.Quaternion().fromArray(state.spatial, 6);
-    }
-
     /** @arg {THREE.Vector3} position */
     moveTo(position) {
         if (this.position.equals(position)) return;
@@ -82,13 +75,5 @@ export default class SpatialPart extends ModelPart {
         // accrued multiplications or they get out of hand.
         this.quaternion.normalize();
         this.publish(this.id, SpatialEvents.rotated, this.quaternion.clone());
-    }
-
-    save(state) {
-        super.save(state);
-        state.spatial = [];
-        this.position.toArray(state.spatial, 0);
-        this.scale.toArray(state.spatial, 3);
-        this.quaternion.toArray(state.spatial, 6);
     }
 }

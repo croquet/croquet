@@ -60,19 +60,6 @@ export class ModelPart extends WithParts(Model) {
             if (part.id !== partID) throw Error(`Did ${part} forget to call super.init(options, id)?`);
         });
     }
-
-    load(state, allModels) {
-        super.load(state, allModels);
-        this.forEachPart((part, name) => part.load(state[name], allModels));
-    }
-
-    save(state) {
-        super.save(state);
-        this.forEachPart((part, name) => {
-            state[name] = {};
-            part.save(state[name]);
-        });
-    }
 }
 
 export class ViewPart extends WithParts(View) {

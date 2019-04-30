@@ -16,18 +16,6 @@ export default function Bouncing() {
             this.startInertiaPhase();
         }
 
-        load(state, allModels) {
-            super.load(state, allModels);
-            this.gravity = new THREE.Vector3().fromArray(state.gravity);
-            this.bounce = state.bounce;
-        }
-
-        save(state) {
-            super.save(state);
-            state.gravity = this.gravity.toArray(state.gravity);
-            state.bounce = this.bounce;
-        }
-
         applyVelocity() {
             if (this.inInertiaPhase) {
                 this.estimatedVelocity.add(this.gravity);
