@@ -321,7 +321,7 @@ export default class Island {
 
     snapshot() {
         const writer = new IslandWriter(this);
-        return writer.writeIsland(this, "$");
+        return writer.snapshot(this, "$");
     }
 
     random() {
@@ -426,8 +426,8 @@ class IslandWriter {
         this.island = island;
         this.nextRef = 1;
         this.refs = new Map();
+        this.todo = []; // we use breadth-first writing to limit stack depth
         this.writers = new Map();
-        this.writers.set(Object, (object, path) => this.writeObject(object, path));
         for (const modelClass of Model.allClasses()) {
             if (!Object.prototype.hasOwnProperty.call(modelClass, "types")) continue;
             for (const [clsId, {cls, write}] of Object.entries(modelClass.types())) {
@@ -436,7 +436,28 @@ class IslandWriter {
         }
     }
 
-    write(value, path) {
+    snapshot(island) {
+        const state = {
+            modelsById: this.writeModels(island.modelsById),
+            _random: island._random.state(),
+            messages: island.messages.asUnsortedArray().map(message => message.asState()),
+        };
+        for (const [key, value] of Object.entries(island)) {
+            if (key === "controller") continue;
+            if (!state[key]) this.writeInto(state, key, value, "$");
+        }
+        this.writeDeferred();
+        return state;
+    }
+
+    writeDeferred() {
+        while (this.todo.length > 0) {
+            const {state, key, value, path} = this.todo.shift();
+            this.writeInto(state, key, value, path, false);
+        }
+    }
+
+    write(value, path, defer=true) {
         switch (typeof value) {
             case "number":
             case "string":
@@ -446,7 +467,7 @@ class IslandWriter {
             default: {
                 const type = Object.prototype.toString.call(value).slice(8, -1);
                 switch (type) {
-                    case "Array": return this.writeArray(value, path);
+                    case "Array": return this.writeArray(value, path, defer);
                     case "Set":
                     case "Map":
                     case "Uint8Array":
@@ -454,6 +475,7 @@ class IslandWriter {
                         return this.writeAs(type, value, [...value], path);
                     case "Object": {
                         if (value instanceof Model) return this.writeModelPart(value, path);
+                        if (value.constructor === Object) return this.writeObject(value, path, defer);
                         const writer = this.writers.get(value.constructor);
                         if (writer) return writer(value, path);
                         throw Error("Don't know how to write " + value.constructor.name);
@@ -466,20 +488,6 @@ class IslandWriter {
                 }
             }
         }
-    }
-
-    writeIsland(island, path) {
-        if (path !== "$") throw Error("Island must be root object");
-        const state = {
-            modelsById: this.writeModels(island.modelsById),
-            _random: island._random.state(),
-            messages: island.messages.asUnsortedArray().map(message => message.asState()),
-        };
-        for (const [key, value] of Object.entries(island)) {
-            if (key === "controller") continue;
-            if (!state[key]) this.addToState(state, key, value, path);
-        }
-        return state;
     }
 
     writeModels(modelsById) {
@@ -496,7 +504,7 @@ class IslandWriter {
             const { id } = state;
             for (const [key, value] of Object.entries(modelsById[id])) {
                 if (key === "id" || key === "__realm") continue;
-                this.addToState(state, key, value, `$["${id}"]`);
+                this.writeInto(state, key, value, `$["${id}"]`);
             }
         }
         return models;
@@ -512,27 +520,27 @@ class IslandWriter {
         this.refs.set(model, state);      // register ref before recursing
         for (const [key, value] of Object.entries(model)) {
             if (key === "id" || key === "__realm") continue;
-            this.addToState(state, key, value, `$["${model.id}"]`);
+            this.writeInto(state, key, value, `$["${model.id}"]`);
         }
         return state;
     }
 
-    writeObject(object, path) {
+    writeObject(object, path, defer=true) {
         if (this.refs.has(object)) return this.writeRef(object, path);
         const state = {};
         this.refs.set(object, state);      // register ref before recursing
         for (const [key, value] of Object.entries(object)) {
-            this.addToState(state, key, value, path);
+            this.writeInto(state, key, value, path, defer);
         }
         return state;
     }
 
-    writeArray(array, path) {
+    writeArray(array, path, defer=true) {
         if (this.refs.has(array)) return this.writeRef(array, path);
         const state = [];
         this.refs.set(array, state);       // register ref before recursing
         for (let i = 0; i < array.length; i++) {
-            state.push(this.write(array[i], `${path}[${i}]`));
+            this.writeInto(state, i, array[i], path, defer);
         }
         return state;
     }
@@ -541,7 +549,7 @@ class IslandWriter {
         if (this.refs.has(object)) return this.writeRef(object, path);
         const state = { $class: classID };
         this.refs.set(object, state);      // register ref before recursing
-        const written = this.write(value, path);
+        const written = this.write(value, path, false);
         if (typeof written !== "object" || Array.isArray(written)) state.$value = written;
         else Object.assign(state, written);
         return state;
@@ -559,10 +567,14 @@ class IslandWriter {
         return {$ref: model.id};
     }
 
-    addToState(state, key, value, basePath) {
+    writeInto(state, key, value, path, defer=true) {
+        if (defer && typeof value === "object") {
+            this.todo.push({state, key, value, path});
+            return;
+        }
         const simpleKey = typeof key === "string" && key.match(/^[_a-z][_a-z0-9]*$/i);
-        const path = basePath + (simpleKey ? `.${key}` : `[${JSON.stringify(key)}]`);
-        const written = this.write(value, path);
+        const newPath = path + (simpleKey ? `.${key}` : `[${JSON.stringify(key)}]`);
+        const written = this.write(value, newPath);
         if (written !== undefined) state[key] = written;
     }
 }
