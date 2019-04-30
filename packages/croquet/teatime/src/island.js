@@ -491,23 +491,20 @@ class IslandWriter {
     }
 
     writeModels(modelsById) {
-        const models = [];
+        const states = [];
         for (const model of Object.values(modelsById)) {
             const state = {
                 id: model.id,
                 $class: Model.classToID(model.constructor),
             };
-            models.push(state);
             this.refs.set(model, state);    // register ref before recursing
-        }
-        for (const state of models) {
-            const { id } = state;
-            for (const [key, value] of Object.entries(modelsById[id])) {
+            for (const [key, value] of Object.entries(model)) {
                 if (key === "id" || key === "__realm") continue;
-                this.writeInto(state, key, value, `$["${id}"]`);
+                this.writeInto(state, key, value, `$["${model.id}"]`);
             }
+            states.push(state);
         }
-        return models;
+        return states;
     }
 
     writeModelPart(model, path) {
