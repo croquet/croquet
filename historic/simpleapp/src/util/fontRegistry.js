@@ -10,13 +10,13 @@ const fontPaths = {
         json: require('../../assets/fonts/Barlow-Medium-msdf.json'),
         atlas: require('../../assets/fonts/Barlow-Medium.png'),
         offsetY: 0,
-        cursorOffset: [0, 8],
+        cursorOffset: [0, 4],
     },
     Lora: {
         json: require('../../assets/fonts/Lora-Regular-msdf.json'),
         atlas: require('../../assets/fonts/Lora-Regular.png'),
         offsetY: 0,
-        cursorOffset: [0, 8],
+        cursorOffset: [0, 0],
     },
     Roboto: {
         json: require('../../assets/fonts/Roboto.json'),
