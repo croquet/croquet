@@ -385,7 +385,7 @@ class Message {
     }
 
     hasReceiver(id) {
-        return this.payload.split('#')[0] === id;
+        return this.payload.split('>')[0] === id;
     }
 
     asState() {

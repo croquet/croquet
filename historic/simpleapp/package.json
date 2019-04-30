@@ -29,8 +29,8 @@
     "kiwi.js": "^1.1.1",
     "seedrandom": "^3.0.1",
     "three": "^0.101.1",
-    "three-bmfont-text": "git+https://github.com/yoshikiohshima/three-bmfont-text.git",
-    "three-buffer-vertex-data": "git+https://github.com/aeickhoff/three-buffer-vertex-data.git",
+    "three-bmfont-text": "file:./thirdparty-patched/three-bmfont-text",
+    "three-buffer-vertex-data": "file:./thirdparty-patched/three-buffer-vertex-data",
     "three-svg-loader": "git+https://github.com/bertfreudenberg/three-svg-loader.git",
     "yoga-layout-prebuilt": "^1.9.3"
   },

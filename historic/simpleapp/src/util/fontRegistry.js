@@ -46,6 +46,7 @@ class FontRegistry {
                 const atlasPath = fontPaths[font].atlas;
                 console.log("start loading " + font);
                 new THREE.TextureLoader().load(atlasPath, tex => {
+                    tex.anisotropy = 4;
                     const fontEntry = {
                         atlas: tex,
                         measurer: new GlyphLayout({font: fontPaths[font].json}),
