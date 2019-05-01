@@ -130,21 +130,20 @@ export default class EditableTextViewPart extends ViewPart {
 
     resize(width, height, dontLayout) {
         // it assumes the ordinally initialization has been performed.
-        // That means that options has fontSize, and numLines.
+        // That means that options has fontSize (and also numLines).
 
         this.options.width = width;
         this.options.height = height;
 
         this.removeSelections();
 
-        let text = this.text;
         const boxMesh = this.initBoxMesh();
 
         if (this.options.editable) {
             makePointerSensitive(boxMesh, this);
         }
         this.threeObj = boxMesh;
-        boxMesh.add(text);
+        boxMesh.add(this.text);
 
         this.editor.resize(this.options.width, this.options.height);
         this.editor.resizeToNumLinesOrFontSize(this.options);
