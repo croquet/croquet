@@ -137,6 +137,14 @@ export default class Controller {
         return island.modelsByName;
     }
 
+    // called by island every 10 sec
+    scheduledSnapshot() {
+        console.log(this.island.time, "scheduled snapshot");
+        Stats.begin("snapshot");
+        this.latestSnapshot = this.island.snapshot();
+        Stats.end("snapshot");
+    }
+
     takeSnapshot() {
         if (!this.island) return null;
         // ensure all messages up to this point are in the snapshot

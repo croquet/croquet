@@ -11,6 +11,7 @@ const order = [
     "simulate",
     "update",
     "render",
+    "snapshot",
 ];
 
 const colors = {
@@ -18,6 +19,7 @@ const colors = {
     update: "blue",
     render: "magenta",
     simulate: "yellow",
+    snapshot: "green",
     backlog: "red",
     network: "lightgray",
 };
