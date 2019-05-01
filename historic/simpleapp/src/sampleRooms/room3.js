@@ -9,7 +9,7 @@ function initRoom3() {
     const room = Room.create();
 
     const text1 = TextElement.create({
-        spatial: { position: new THREE.Vector3(-3, 1.5, 0) },
+        spatial: { position: new THREE.Vector3(-2, 1.5, 0) },
         text: {
             content: {
                 runs: [{text: "man is much more than a tool builder... he is an inventor of universes... Except the real one."}],
