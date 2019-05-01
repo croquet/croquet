@@ -69,10 +69,6 @@ export default class MockContext {
     }
 
     fillText(str, left, baseline) {
-        this.drawnStrings.push({x: left, y: baseline, string: str, font: this.font, style: this.fillStyle})
-    }
-
-    createLinearGradient() {
-        return {addColorStop: function(){}};
+        this.drawnStrings.push({x: left, y: baseline, string: str, font: this.font, style: this.fillStyle});
     }
 }

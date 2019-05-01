@@ -48,8 +48,7 @@ export class Wrap {
 
         if (runs.length === 0) {return [];}
 
-        const isSpace = (str) => /[ \f\n\r\t\v\u00A0\u2028\u2029]/.test(str);
-        const isNewline = (str) => /[\n\r]/.test(str);
+        const isSpace = str => /[ \f\n\r\t\v\u00A0\u2028\u2029]/.test(str);
 
         let push = (obj, style, ss) => {
             if (ss && ss.length > 1) {
@@ -77,7 +76,6 @@ export class Wrap {
         };
 
         let words = [];
-        let lines = [];
 
         let isInWord = !isSpace(runs[0].text[0]);
         let start = 0;
@@ -96,7 +94,6 @@ export class Wrap {
             }
 
             let wordStart = 0;
-            let runStart = 0;
             for (let j = 0; j < text.length; j++) {
                 if (start === 0 && i === 0 && j === 0) {continue;}
                 if (isInWord) {
@@ -105,7 +102,7 @@ export class Wrap {
                         let spaceAtHead = leftOver.length > 0 && thisWord.length === 0;
                         if (leftOver.length > 0) {
                             if (thisWord.length > 0) {
-                                let newOne = {start: leftOver.length, end: leftOver.length + thisWord.length, style: style};
+                                let newOne = {start: leftOver.length, end: leftOver.length + thisWord.length, style};
                                 styles = stylePush(styles, newOne);
                             }
                             thisWord = leftOver + thisWord;
@@ -130,7 +127,7 @@ export class Wrap {
             // end of a run. the style ends here, but a word may continue
             // when a partial word has a different style
             thisWord = text.slice(wordStart, text.length);
-            let fragment = {start: leftOver.length, end: leftOver.length + thisWord.length, style: style};
+            let fragment = {start: leftOver.length, end: leftOver.length + thisWord.length, style};
             styles = stylePush(styles, fragment);
             leftOver += thisWord;
         }
@@ -159,8 +156,7 @@ export class Wrap {
         // returns words and lines.
 
         const width = textWidth - margins.left - margins.right;
-        //const isSpace = (str) => /[ \f\n\r\t\v\u00A0\u2028\u2029]/.test(str);
-        const isNewline = (str) => /[\n\r]/.test(str);
+        const isNewline = str => /[\n\r]/.test(str);
 
         let currentLine = [];
         let currentHeight = 0;

@@ -43,7 +43,7 @@ export class Doc {
         // runs: [{text: <string>, (opt)style: {}}]
         let selection = this.ensureSelection(user);
         if (selection.start === selection.end) {
-            let [run, runIndex] = this.findRun(selection.start);
+            let [_run, runIndex] = this.findRun(selection.start);
             let interval = this.intervals[runIndex];
             if (interval.end !== selection.start && interval.start !== selection.start) {
                 // that is, pos is within the run
@@ -84,7 +84,7 @@ export class Doc {
             end = selection.end;
         }
 
-        let [run, runIndex] = this.findRun(start);
+        let [_run, runIndex] = this.findRun(start);
         let interval = this.intervals[runIndex];
 
         if (interval.end !== start) { // that is, pos is within the run
@@ -93,7 +93,7 @@ export class Doc {
             runIndex += 1;
         }
 
-        let [endRun, endRunIndex] = this.findRun(end);
+        let [_endRun, endRunIndex] = this.findRun(end);
         let endRunInterval = this.intervals[endRunIndex];
 
         let reminder = end - endRunInterval.start;
@@ -159,7 +159,6 @@ export class Doc {
                 lastRun.text += run.text;
             } else {
                 let end = start + lastRun.text.length;
-                let interval = {start, end};
                 start = end;
                 result.push(lastRun);
                 newIntervals.push(lastRun);
@@ -189,8 +188,8 @@ export class Doc {
         [endRun, endRunIndex] = this.findRun(end);
 
         if (startRunIndex === endRunIndex) {
-            let interval = intervals[startRunIndex];
-            let obj = this.copyRun({text: startRun.text.slice(start - interval.start, end - interval.start)});
+            interval = intervals[startRunIndex];
+            obj = this.copyRun({text: startRun.text.slice(start - interval.start, end - interval.start)});
             return [obj];
         }
 
@@ -235,9 +234,8 @@ export class Doc {
     findRun(pos) {
         let runs = this.runs;
         let intervals = this.intervals;
-        let run, interval;
+        let interval;
         for (let ind = 0; ind < runs.length; ind++) {
-            run = runs[ind];
             interval = intervals[ind];
             if (interval.start <= pos && pos < interval.end) {
                 return [runs[ind], ind];
@@ -246,7 +244,7 @@ export class Doc {
         if (pos === interval.end) {
             return [runs[runs.length-1], runs.length-1];
         }
-        if (pos > this.length()) { debugger;}
+        return [null, null];
     }
 
     updateSelectionsInsert(user, pos, length) {
@@ -274,7 +272,6 @@ export class Doc {
                 if (end <= sel.start) {
                     this.selections[k] = {start: sel.start - len, end: sel.end - len, color: sel.color};
                 } else if (sel.end <= start) {
-                    
                 } else if (start <= sel.start && sel.end <= end) {
                     this.selections[k] = {start, end: start, color: sel.color};
                 } else if (start < sel.start && end < sel.end) {
@@ -307,10 +304,10 @@ export class Doc {
 
     snapshotFrom(content, user, timezone) {
         return {type: "snapshot",
-                user: user,
+                user,
                 content: {runs: content.runs,
                           selections: JSON.parse(JSON.stringify(content.selections))},
-                timezone: timezone};
+                timezone};
     }
 
     undoEvent(evt, content, doc) {
@@ -749,7 +746,6 @@ export class Warota {
         let lineIndex = lines.findIndex(line => {
             let start = line[0];
             let end = line[line.length-1];
-            if (!start || !end) {debugger;}
             return start.start <= pos && pos < end.end;
         });
 
@@ -760,9 +756,8 @@ export class Warota {
     }
 
     findWord(pos, x, y) {
-        let word;
         if (x !== undefined && y !== undefined) {
-            let [line, lineIndex] = this.findLine(pos, x, y);
+            let [line, _lineIndex] = this.findLine(pos, x, y);
             let wordIndex = line.findIndex(w => w.left <= x && x < w.left + w.width);
             if (wordIndex < 0) {
                 wordIndex = line.length - 1;
@@ -770,7 +765,7 @@ export class Warota {
             return line[wordIndex];
         }
 
-        let [line, lineIndex] = this.findLine(pos, x, y);
+        let [line, _lineIndex] = this.findLine(pos, x, y);
 
         let wordIndex = line.findIndex(w => w.start <= pos && pos < w.end);
         if (wordIndex < 0) {
@@ -791,7 +786,7 @@ export class Warota {
 
     select(user, start, end) {
         let evt = Event.select(user, start, end, this.timezone);
-        this.lastSelect = {start: start, end: end};
+        this.lastSelect = {start, end};
         this.events.push(evt);
     }
 
@@ -804,9 +799,9 @@ export class Warota {
         let word = this.findWord(pos);
         if (!word) {return {left: 0, top: 0, width: 0, height: 0};}
 
-        let lp = pos - word.start;
-        let measure0 = this.defaultMeasurer.measureText(word.text.slice(0, pos-word.start), word.style, this.doc.defaultFont);
-        let measure1 = this.defaultMeasurer.measureText(word.text.slice(0, pos-word.start+1), word.style, this.doc.defaultFont);
+        let localPos = pos - word.start;
+        let measure0 = this.defaultMeasurer.measureText(word.text.slice(0, localPos), word.style, this.doc.defaultFont);
+        let measure1 = this.defaultMeasurer.measureText(word.text.slice(0, localPos + 1), word.style, this.doc.defaultFont);
         return {left: word.left + measure0.width, top: word.top, width: measure1.width - measure0.width, height: word.height};
     }
 
@@ -834,7 +829,7 @@ export class Warota {
     }
 
     changeLine(user, pos, dir) {
-        let [line, lineIndex] = this.findLine(pos);
+        let [_line, lineIndex] = this.findLine(pos);
         if (lineIndex === this.lines.length - 1) {
             return pos;
         }
@@ -978,9 +973,10 @@ export class Warota {
         return null;
     }
 
-    mouseUp(x,y , realY, user) {
+    mouseUp(x, y, realY, user) {
         if (this.scrollBarClick) {
             if (this.scrollBarClick.type === "clicked") {
+                // click to scroll behavior
             }
             this.scrollBarClick = null;
             this.wasScrollBarClick = true;
@@ -1075,7 +1071,9 @@ export class Warota {
                 break;
             case 1:
                 end = pos;
-            break;
+                break;
+            default:
+                break;
             }
 
             if (start === end) {
@@ -1098,6 +1096,8 @@ export class Warota {
                 this.select(user, 0, length);
                 window.editor = this;
                 handled = true;
+                break;
+            default:
                 break;
             }
         }
