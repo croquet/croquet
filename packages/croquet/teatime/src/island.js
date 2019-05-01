@@ -511,7 +511,7 @@ class IslandWriter {
     }
 
     writeModelPart(model, path) {
-        if (this.refs.has(model)) return this.writeModelRef(model, path);
+        if (this.refs.has(model)) return this.writeRef(model);
         const state = {
             id: model.id,
             $class: "Model",
@@ -520,13 +520,13 @@ class IslandWriter {
         this.refs.set(model, state);      // register ref before recursing
         for (const [key, value] of Object.entries(model)) {
             if (key === "id" || key === "__realm") continue;
-            this.writeInto(state, key, value, `$["${model.id}"]`);
+            this.writeInto(state, key, value, path);
         }
         return state;
     }
 
     writeObject(object, path, defer=true) {
-        if (this.refs.has(object)) return this.writeRef(object, path);
+        if (this.refs.has(object)) return this.writeRef(object);
         const state = {};
         this.refs.set(object, state);      // register ref before recursing
         for (const [key, value] of Object.entries(object)) {
@@ -536,7 +536,7 @@ class IslandWriter {
     }
 
     writeArray(array, path, defer=true) {
-        if (this.refs.has(array)) return this.writeRef(array, path);
+        if (this.refs.has(array)) return this.writeRef(array);
         const state = [];
         this.refs.set(array, state);       // register ref before recursing
         for (let i = 0; i < array.length; i++) {
@@ -547,7 +547,7 @@ class IslandWriter {
 
     writeAs(classID, object, value, path) {
         if (value === undefined) return value;
-        if (this.refs.has(object)) return this.writeRef(object, path);
+        if (this.refs.has(object)) return this.writeRef(object);
         const state = { $class: classID };
         this.refs.set(object, state);      // register ref before recursing
         const written = this.write(value, path, false);
@@ -556,16 +556,12 @@ class IslandWriter {
         return state;
     }
 
-    writeRef(object, _path) {
+    writeRef(object) {
         const state = this.refs.get(object);
         if (typeof state !== "object") throw Error("Non-object in refs: " + object);
         if (Array.isArray(state)) throw Error("need to implement array refs");
         const $ref = state.$id || (state.$id = this.nextRef++);
         return {$ref};
-    }
-
-    writeModelRef(model, _path) {
-        return {$ref: model.id};
     }
 
     writeInto(state, key, value, path, defer=true) {
@@ -657,13 +653,11 @@ class IslandReader {
     readModels(states) {
         const modelsById = {};
         for (const state of states) {
-            const { $class, id } = state;
+            const { $class, id, $id } = state;
             const ModelClass = Model.classFromID($class);
-            modelsById[id] = new ModelClass();
-            this.refs.set(id, modelsById[id]);
-        }
-        for (const state of states) {
-            const model = modelsById[state.id];
+            const model = new ModelClass();
+            modelsById[id] = model;
+            if ($id) this.refs.set($id, model);
             for (const [key, value] of Object.entries(state)) {
                 if (key[0] === "$") continue;
                 this.readInto(model, key, value, `$["${state.id}"]`);
@@ -676,7 +670,7 @@ class IslandReader {
     readModelPart(state, path) {
         const ModelClass = Model.classFromID(state.$model);
         const model = new ModelClass();
-        this.refs.set(state.id, model);
+        if (state.$id) this.refs.set(state.$id, model);
         for (const [key, value] of Object.entries(state)) {
             if (key[0] === "$") continue;
             this.readInto(model, key, value, path);
