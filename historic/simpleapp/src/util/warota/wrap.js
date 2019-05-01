@@ -1,7 +1,7 @@
 import { fontRegistry } from "../fontRegistry";
 
-const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
-if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
+// const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+// if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 // let fontRegistry = {
 //     measureText: function(str, style) {
@@ -46,24 +46,16 @@ export class Wrap {
     splitWords(runs) {
         // returns words and lines.
 
+        if (runs.length === 0) {return [];}
+
         const isSpace = (str) => /[ \f\n\r\t\v\u00A0\u2028\u2029]/.test(str);
         const isNewline = (str) => /[\n\r]/.test(str);
-
-        let words = [];
-        let lines = [];
-
-        let isInWord;
-        let start = 0;
-        let leftOver = "";
-        let styles = null;
-        let style;
-        let thisWord;
 
         let push = (obj, style, ss) => {
             if (ss && ss.length > 1) {
                 words.push(Object.assign(obj, {styles: ss}));
             } else if (ss && ss.length === 1) {
-                words.push(Object.assign(obj, {style: ss[0]}));
+                words.push(Object.assign(obj, {style: ss[0].style}));
             } else if (style) {
                 words.push(Object.assign(obj, {style}));
             } else {
@@ -84,12 +76,23 @@ export class Wrap {
             return ss;
         };
 
+        let words = [];
+        let lines = [];
+
+        let isInWord = !isSpace(runs[0].text[0]);
+        let start = 0;
+        let leftOver = "";
+        let styles = null;
+        let style;
+        let thisWord;
+
         for (let i = 0; i < runs.length; i++) {
             let run = runs[i];
             let text = run.text;
             style = run.style;
-            if (start === 0  && i === 0) {
-                isInWord = !isSpace(text[start]);
+
+            if (!isInWord) {
+                isInWord = !isSpace(text[0]);
             }
 
             let wordStart = 0;
@@ -99,6 +102,7 @@ export class Wrap {
                 if (isInWord) {
                     if (isSpace(text[j])) {
                         thisWord = text.slice(wordStart, j);
+                        let spaceAtHead = leftOver.length > 0 && thisWord.length === 0;
                         if (leftOver.length > 0) {
                             if (thisWord.length > 0) {
                                 let newOne = {start: leftOver.length, end: leftOver.length + thisWord.length, style: style};
@@ -107,7 +111,7 @@ export class Wrap {
                             thisWord = leftOver + thisWord;
                             leftOver = "";
                         }
-                        push({start, end: start + thisWord.length, text: thisWord}, style, styles);
+                        push({start, end: start + thisWord.length, text: thisWord}, spaceAtHead ? null : style, styles);
                         start += thisWord.length;
                         wordStart = j;
                         isInWord = false;
@@ -204,7 +208,10 @@ export class Wrap {
             if (word.styles) {
                 // a word with multiple styles
                 for (let i = 0; i < word.styles.length; i++) {
-                    let m = measurer.measureText(word.text.slice(word.styles[i].start, word.styles[i].end), word.styles[i], defaultFont);
+                    let partialStyle = word.styles[i];
+                    let m = measurer.measureText(word.text.slice(partialStyle.start, partialStyle.end), partialStyle.style, defaultFont);
+                    partialStyle.width = m.width;
+                    partialStyle.height = m.height;
                     rect = this.mergeRect(rect, m);
                 }
             } else {

@@ -15,22 +15,6 @@ export default function Inertial() {
             this.dampening = options.dampening || 0.01;
         }
 
-        load(state, allModels) {
-            super.load(state, allModels);
-            this.estimatedVelocity = new THREE.Vector3().fromArray(state.estimatedVelocity);
-            this.estimatedRotationalVelocity = new THREE.Quaternion().fromArray(state.estimatedRotationalVelocity);
-            this.dampening = state.dampening;
-            this.inInertiaPhase = state.inInertiaPhase;
-        }
-
-        save(state) {
-            super.save(state);
-            state.estimatedVelocity = this.estimatedVelocity.toArray();
-            state.estimatedRotationalVelocity = this.estimatedRotationalVelocity.toArray();
-            state.dampening = this.dampening;
-            state.inInertiaPhase = this.inInertiaPhase;
-        }
-
         moveBy(delta, addInertia=true) {
             super.moveBy(delta);
             if (addInertia) this.estimatedVelocity.copy(this.estimatedVelocity.clone().multiplyScalar(0.7).addScaledVector(delta, 0.3));
