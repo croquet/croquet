@@ -202,6 +202,7 @@ export default class Island {
             if (message.time < this.time) throw Error("past message encountered: " + message);
             this.messages.poll();
             this.time = message.time;
+            this._random.int32();   // advance random number generator
             message.executeOn(this);
             if (++count > 100) { count = 0; if (Date.now() > deadline) return false; }
         }
