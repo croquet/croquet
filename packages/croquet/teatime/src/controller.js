@@ -323,7 +323,7 @@ export default class Controller {
     async install(drainQueue=false) {
         const {snapshot, creatorFn, options, callbackFn} = this.islandCreator;
         let newIsland = new Island(snapshot, () => creatorFn(options));
-        if (DEBUG.snapshot && !snapshot.models) {
+        if (DEBUG.snapshot && !snapshot.modelsById) {
             // exercise save & load if we came from init
             newIsland = new Island(JSON.parse(JSON.stringify(newIsland.snapshot())), () => creatorFn(options));
         }
@@ -481,7 +481,8 @@ export default class Controller {
     }
 
     /** Got the official time from reflector server, or local multiplier */
-    timeFromReflector(time) {
+    timeFromReflector(time, src="reflector") {
+        if (time < this.time) { console.warn(`time is ${this.time}, ignoring time ${time} from ${src}`); return; }
         this.time = time;
         if (this.island) Stats.backlog(this.backlog);
     }
@@ -493,7 +494,7 @@ export default class Controller {
         const ms = tick / multiplier;
         let n = 1;
         this.localTicker = hotreload.setInterval(() => {
-            this.timeFromReflector(time + n * ms);
+            this.timeFromReflector(time + n * ms, "controller");
             if (DEBUG.ticks) console.log(this.id, 'Controller generate TICK ' + this.time, n);
             if (++n >= multiplier) { window.clearInterval(this.localTicker); this.localTicker = 0; }
         }, ms);

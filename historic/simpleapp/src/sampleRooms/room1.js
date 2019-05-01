@@ -122,6 +122,8 @@ class LayoutTestElementView extends ViewPart {
                 })
             ]})
         };
+
+        this.forwardDimensionChange();
     }
 }
 

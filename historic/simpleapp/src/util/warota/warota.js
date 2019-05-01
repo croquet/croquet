@@ -1,8 +1,8 @@
 import {Wrap, Measurer} from "./wrap.js";
 import MockContext from "./MockContext.js";
 
-const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
-if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
+// const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+// if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 function runLength(ary) {
     return ary.map(c => c.text).reduce((s, x) => x.length + s, 0);
@@ -33,7 +33,7 @@ export class Doc {
         if (evt.type === "insert") {
             this.doInsert(evt.user, evt.runs);
         } else if (evt.type === "delete") {
-            this.doDelete(evt.user, true);
+            this.doDelete(evt.user, evt.backspace);
         } else if (evt.type === "select") {
             this.doSelect(evt.user, evt.start, evt.end);
         }
@@ -53,7 +53,7 @@ export class Doc {
                 runIndex += 1;
             }
             this.runs.splice(runIndex, 0, ...runs);
-            this.canonicalize(this.runs, interval.start); // this may be off
+            this.canonicalize(this.runs, interval.start);
             this.updateSelectionsInsert(user, selection.start, runLength(runs));
         } else {
             this.doDelete(user, true);
@@ -85,7 +85,6 @@ export class Doc {
         }
 
         let [run, runIndex] = this.findRun(start);
-        //if (!run) {throw Error("can't delete eof");}
         let interval = this.intervals[runIndex];
 
         if (interval.end !== start) { // that is, pos is within the run
@@ -256,7 +255,7 @@ export class Doc {
             if (k === user.id) {
                 this.selections[k] = {start: pos + length, end: pos + length, color: user.color};
             } else {
-                if (pos <= sel.start) {
+                if (pos < sel.start) {
                     this.selections[k] = {start: sel.start + length, end: sel.end + length, color: sel.color};
                 } else if (sel.start < pos && pos < sel.end) {
                     this.selections[k] = {start: sel.start, end: sel.end + length, color: sel.color};
@@ -275,14 +274,15 @@ export class Doc {
                 if (end <= sel.start) {
                     this.selections[k] = {start: sel.start - len, end: sel.end - len, color: sel.color};
                 } else if (sel.end <= start) {
-                } else if (start <= sel.start && sel.end < end) {
+                    
+                } else if (start <= sel.start && sel.end <= end) {
                     this.selections[k] = {start, end: start, color: sel.color};
                 } else if (start < sel.start && end < sel.end) {
-                    this.selections[k] = {start, end: sel.end - end, color: sel.color};
+                    this.selections[k] = {start, end: sel.end - len, color: sel.color};
                 } else if (sel.start <= start && end < sel.end) {
                     this.selections[k] = {start: sel.start, end: sel.end - len, color: sel.color};
                 } else if (sel.start <= start && start < sel.end) {
-                    this.selections[k] = {start: sel.start, end: sel.end - start, color: sel.color};
+                    this.selections[k] = {start: sel.start, end: start, color: sel.color};
                 }
             }
         }
@@ -584,22 +584,39 @@ export class Warota {
             this.relativeScrollBarWidth = 30 / this.pixelX;
         }
 
-        this.width(this.pixelX * (1.0 - this.relativeScrollBarWidth));
+        this.width(this.pixelX * (1.0 - (this.showsScrollbar ? this.relativeScrollBarWidth : 0)));
         this.lineHeight = lineHeight;
-        this.pixelMargins = {left: options.margins.left * heightInPixel,
-                                right: options.margins.right * heightInPixel,
-                                top: options.margins.top * heightInPixel,
-                                bottom: options.margins.bottom * heightInPixel};
+        this.pixelMargins = {left: options.margins.left / heightInPixel,
+                                right: options.margins.right / heightInPixel,
+                                top: options.margins.top / heightInPixel,
+                                bottom: options.margins.bottom / heightInPixel};
 
         options.pixelMargins = this.pixelMargins;
     }
 
-    layout() {
-        let [lines, words] = new Wrap().wrap(this.doc.runs, this._width, this.defaultMeasurer, this.doc.defaultFont, this.doc.defaultSize, this.pixelMargins);
+    layout(options) {
+        options = options || {};
+        let layoutWidth = options.singleLine ? Number.Max_VALUE : this._width;
+        let hMargin = this.margins.left + this.margins.right;
+        let vMargin = this.margins.top + this.margins.bottom;
+        let [lines, words] = new Wrap().wrap(this.doc.runs, layoutWidth, this.defaultMeasurer, this.doc.defaultFont, this.doc.defaultSize, this.pixelMargins);
         this.lines = lines;
         this.words = words;
-        let lastWord = lines[lines.length-1][0]; // there should be always one
-        this.docHeight = lastWord.top + lastWord.height;
+
+        let lastWord; // there should be always one
+        if (options.singleLine) {
+            lastWord = lines[0][lines[0].length-1];
+        } else {
+            lastWord = lines[lines.length-1][0];
+        }
+        let meterInPixels = this.screenWidth / this.pixelX;
+        if (options.autoResize) {
+            this.newWidth = (lastWord.left + lastWord.width + hMargin) * meterInPixels;
+            this.newHeight = (lastWord.top + lastWord.height + vMargin) * meterInPixels;
+            this.docHeight = lastWord.top + lastWord.height;
+        } else {
+            this.docHeight = lastWord.top + lastWord.height;
+        }
     }
 
     paint() {
@@ -633,9 +650,9 @@ export class Warota {
 
     visibleTextBounds() {
         let r = this.visibleBounds();
-        let w = r.width * (1.0 - this.relativeScrollBarWidth);
+        let w = r.width * (1.0 - (this.showsScrollbar ? this.relativeScrollBarWidth : 0));
         let h = r.height;
-        return {l: r.left, t: r.top, w: r.width * (1.0 - this.relativeScrollBarWidth), h: r.height, b: r.top + h, r: r.left + w};
+        return {l: r.left, t: r.top, w: w, h: r.height, b: r.top + h, r: r.left + w};
     }
 
     draw(ctx, rect) {
@@ -644,17 +661,15 @@ export class Warota {
             if (word.left + word.width < left || word.top > top + height
                 || word.top + word.height < top || word.left > left + width) {return;}
             if (word.styles) {
-                word.styles.forEach(style => {
-                    ctx.fillStyle = style.color;
-                    // and more styles...
-
-                    ctx.fillText(word.text.slice(style.start, style.end),
-                                 word.left, word.top + word.ascent);
+                let wLeft = word.left;
+                word.styles.forEach(partialStyle => {
+                    ctx.fillStyle = partialStyle.style ? partialStyle.style : {color: 'black'};
+                    ctx.fillText(word.text.slice(partialStyle.start, partialStyle.end),
+                                 wLeft, word.top + word.ascent);
+                    wLeft += partialStyle.width;
                 });
             } else {
                 ctx.fillStyle = word.style || 'black';
-                // and more styles...
-
                 ctx.fillText(word.text, word.left, word.top + word.ascent);
             }
         });
@@ -699,7 +714,7 @@ export class Warota {
         } = this;
         let docH = this.docHeight;
         let scrollVRatio = pixelY / docH;
-        let barW = pixelX * relWidth;
+        let barW = pixelX * (this.showsScrollbar ? relWidth : 0);
         let barLeft = pixelX - barW;
         let barTop = scrollT * pixelY;
         let minHeight = pixelY / 100 * 5;
@@ -769,8 +784,8 @@ export class Warota {
         this.events.push(evt);
     }
 
-    delete(user, start, end) {
-        let evt = Event.delete(user, start, end, this.timezone);
+    delete(user, backspace) {
+        let evt = Event.delete(user, backspace, this.timezone);
         this.events.push(evt);
     }
 
@@ -978,12 +993,7 @@ export class Warota {
     }
 
     backspace(user) {
-        let selection = this.doc.selections[user.id] || {start: 0, end: 0, color: user.color};
-        if (selection.start === selection.end && selection.start > 0) {
-            this.delete(user, selection.start - 1, selection.end);
-        } else {
-            this.delete(user, selection.start, selection.end);
-        }
+        this.delete(user, true);
     }
 
     handleKey(user, key, selecting, ctrlKey) {
@@ -1109,8 +1119,8 @@ export class Event {
         return {type: "insert", user, runs, length: runLength(runs), timezone};
     }
 
-    static delete(user, start, end, timezone) {
-        return {type: "delete", user, start, end, timezone, deleted: null};
+    static delete(user, backspace, timezone) {
+        return {type: "delete", backspace, user, timezone};
     }
 
     static select(user, start, end, timezone) {

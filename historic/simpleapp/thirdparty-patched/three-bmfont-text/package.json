@@ -1,0 +1,60 @@
+{
+  "name": "three-bmfont-text",
+  "version": "2.3.3",
+  "description": "renders BMFont files in ThreeJS with word-wrapping",
+  "main": "index.js",
+  "license": "MIT",
+  "author": {
+    "name": "Matt DesLauriers",
+    "email": "dave.des@gmail.com",
+    "url": "https://github.com/mattdesl"
+  },
+  "dependencies": {
+    "array-shuffle": "^1.0.1",
+    "inherits": "^2.0.1",
+    "quad-indices": "^2.0.1",
+    "three-buffer-vertex-data": "git+https://github.com/aeickhoff/three-buffer-vertex-data.git"
+  },
+  "devDependencies": {
+    "bluebird": "^2.9.14",
+    "browserify": "^12.0.1",
+    "budo": "^7.0.2",
+    "glsl-aastep": "^1.0.1",
+    "glsl-noise": "0.0.0",
+    "glslify": "^4.0.0",
+    "load-bmfont": "^1.0.0",
+    "three": "^0.101.1"
+  },
+  "scripts": {
+    "build": "browserify index.js > bundle.js"
+  },
+  "keywords": [
+    "bmfont",
+    "bitmap",
+    "font",
+    "text",
+    "three",
+    "threejs",
+    "quad",
+    "quads",
+    "batch",
+    "render",
+    "fonts",
+    "layout",
+    "word",
+    "wrap",
+    "word-wrap",
+    "word-wrapping",
+    "wrapping",
+    "glyph",
+    "glyphs"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/yoshikiohshima/three-bmfont-text.git"
+  },
+  "homepage": "https://github.com/yoshikiohshima/three-bmfont-text",
+  "bugs": {
+    "url": "https://github.com/Jam3/three-bmfont-text/issues"
+  }
+}

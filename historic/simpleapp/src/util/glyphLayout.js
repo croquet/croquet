@@ -135,7 +135,6 @@ export class GlyphLayout {
         var letterSpacing = opt.letterSpacing || 0
         var height = lineHeight - descender
         var align = getAlignType(this._opt.align)
-        var offsetY = opt.offsetY || 0
 
         //the metrics for this text layout
         this._height = height
@@ -153,7 +152,7 @@ export class GlyphLayout {
             var style = drawnString.style
 
             //draw text along baseline
-            y -= height - offsetY
+            y -= height + descender
 
             //layout each glyph
             var lastGlyph
@@ -167,12 +166,12 @@ export class GlyphLayout {
                     if (lastGlyph)
                         x += getKerning(font, lastGlyph.id, glyph.id)
 
-                    if (style === 'black') {
+                    if (style.color === 'black') {
                         color = null
                         lastStyle = 'black'
-                    } else if (lastStyle !== style) {
-                        color = THREE.Color(style);
-                        lastStyle == style
+                    } else if (lastStyle !== style.color) {
+                        color = new THREE.Color(style.color);
+                        lastStyle = style.color;
                     }
                     glyphs.push({
                         position: [x, y],

@@ -1,0 +1,104 @@
+<html>
+<head>
+<script type="module">
+import {Doc, Warota, Event} from "./warota.mjs";
+
+window.onload = function () {
+    let timezone;
+    let user1 = {id: '010203', color: '010203'};
+    let user2 = {id: '020406', color : '020406'};
+
+    let doc;
+    let content;
+
+    let editor;
+
+    function case1() {
+        content = {runs:
+                   [{text: "man is", style: {color: "blue"}}],
+                   selections: {}, timezone: 0, queue: [],
+                   undoStacks: {}
+                  };
+        window.content = content;
+        doc = new Doc();
+        window.doc = doc;
+        doc.load(content.runs);
+
+        editor = new Warota({width: 3, height: 2, numLines: 10}, doc);
+        editor.layout();
+   }
+
+   function case2() {
+        content = {runs:
+                   [{text: "ma", style: {color: "blue"}},
+                    {text: "n", style: {color: "green"}}],
+                   selections: {}, timezone: 0, queue: [],
+                   undoStacks: {}
+                  };
+        window.content = content;
+        doc = new Doc();
+        window.doc = doc;
+        doc.load(content.runs);
+
+        editor = new Warota({width: 3, height: 2, numLines: 10}, doc);
+        editor.layout();
+   }
+
+   case2.expected = {text: "man", styles: [{start: 0, end: 2, style: {color: "blue"}},
+                                           {start: 2, end: 3, style: {color: "green"}}]};
+
+   function case3() {
+        content = {runs:
+                   [{text: "ma", style: {color: "blue"}},
+                    {text: "n", style: {color: "green"}},
+                    {text: " is"}
+                   ],
+                   selections: {}, timezone: 0, queue: [],
+                   undoStacks: {}
+                  };
+        window.content = content;
+        doc = new Doc();
+        window.doc = doc;
+        doc.load(content.runs);
+
+        editor = new Warota({width: 3, height: 2, numLines: 10}, doc);
+        editor.layout();
+   }
+
+   case3.expected = {text: "man", styles: [{start: 0, end: 2, style: {color: "blue"}},
+                                           {start: 2, end: 3, style: {color: "green"}}]};
+
+   function case4() {
+        content = {runs:
+                   [{text: "ab cd", style: {color: "blue"}},
+                    {text: " ef gh", style: {color: "green"}},
+                   ],
+                   selections: {}, timezone: 0, queue: [],
+                   undoStacks: {}
+                  };
+        window.content = content;
+        doc = new Doc();
+        window.doc = doc;
+        doc.load(content.runs);
+
+        editor = new Warota({width: 3, height: 2, numLines: 10}, doc);
+        editor.layout();
+   }
+
+   case4.expected = {text: "ma ni", styles: [{start: 0, end: 2, style: {color: "blue"}},
+                                           {start: 2, end: 3, style: {color: "green"}}]};
+
+
+   //let run = [case1, case2, case3, case4, case5, case6, case7, case8, case9];
+   let run = [case4];
+   run.forEach(r => {
+     r();
+     console.log(r.name + ":", window.doc.runs[0], window.doc.runs[0].text === r.expected);
+   });
+}
+</script>
+
+</head>
+<body>
+</body>
+</html>

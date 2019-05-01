@@ -30,18 +30,6 @@ export default class TextElement extends ModelPart {
         };
     }
 
-    load(state, allModels) {
-        super.load(state, allModels);
-        this.editable = state.editable;
-        this.visualOptions = state.visualOptions;
-    }
-
-    save(state) {
-        super.save(state);
-        state.editable = this.editable;
-        state.visualOptions = this.visualOptions;
-    }
-
     naturalViewClass() { return TextElementView; }
 }
 /** View for rendering a Text */
@@ -49,8 +37,11 @@ class TextElementView extends ViewPart {
     constructor(options) {
         super();
         const editable = options.model.editable;
+        this.editable = editable;
         this.parts = {
-            main: new (Tracking({source: options.model.parts.spatial})(EditableTextViewPart))({
+            main: new (Tracking({
+                source: options.model.parts.spatial,
+            })(EditableTextViewPart))({
                 textPart: options.model.parts.text,
                 ...options.model.visualOptions,
                 editable,
@@ -59,5 +50,10 @@ class TextElementView extends ViewPart {
                 hideBackground: !editable,
             })
         };
+        this.forwardDimensionChange();
+    }
+
+    get label() {
+        return this.editable ? "Editable Text" : "Text";
     }
 }

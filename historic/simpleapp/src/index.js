@@ -8,8 +8,10 @@ import roomBounce from "./sampleRooms/bounce";
 import roomsJump from "./sampleRooms/jump";
 import RoomViewManager from "./room/roomViewManager";
 import Renderer from "./render";
+import { SpeedSlider, SpeedSliderView } from "./ui";
 import {theKeyboardManager} from "./domKeyboardManager";
 
+const TPS = "20x3"; // 20 ticks/s from server, 60 t/s total
 const LOG_HOTRELOAD = true;
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
@@ -37,13 +39,13 @@ let codeHashes = null;
 
 /** The main function. */
 async function start() {
-    Controller.addMessageTranscoder('*#moveTo', Vec3);
-    Controller.addMessageTranscoder('*#rotateTo', Quat);
-    Controller.addMessageTranscoder('*#onKeyDown', Identity);
-    Controller.addMessageTranscoder('*#updateContents', Identity);
-    Controller.addMessageTranscoder('*#setColor', Identity);
-    Controller.addMessageTranscoder('*#handleModelEventInModel', Identity);
-    Controller.addMessageTranscoder('*#receiveEditEvents', Identity);
+    Controller.addMessageTranscoder('*>moveTo', Vec3);
+    Controller.addMessageTranscoder('*>rotateTo', Quat);
+    Controller.addMessageTranscoder('*>onKeyDown', Identity);
+    Controller.addMessageTranscoder('*>updateContents', Identity);
+    Controller.addMessageTranscoder('*>setColor', Identity);
+    Controller.addMessageTranscoder('*>handleModelEventInModel', Identity);
+    Controller.addMessageTranscoder('*>receiveEditEvents', Identity);
 
     let reflector = "wss://dev1.os.vision/reflector-v1";
     if ("reflector" in urlOptions) reflector = urlOptions.reflector;
@@ -82,15 +84,21 @@ async function start() {
         }
     }
 
+    let speedSlider = null;
+
     Object.defineProperty(ALL_ROOMS, 'getIsland', {
         enumerable: false,
         value: async function getIsland(roomName) {
             const ROOM = ALL_ROOMS[roomName];
             if (!ROOM) throw Error("Unknown room: " + roomName);
             if (ROOM.namedModelsPromise) return ROOM.namedModelsPromise;
-            const creator = ROOM.creator;
-            creator.room = roomName;
-            creator.tps = "20x3";
+            const creatorFn = ROOM.creator.creatorFn;
+            const creator = {...ROOM.creator, room: roomName, tps: TPS };
+            creator.creatorFn = options => {
+                const models = creatorFn(options);
+                models.speedSlider = SpeedSlider.create();
+                return models;
+            };
             creator.destroyerFn = snapshot => {
                 console.log("destroyer: detaching view for " + roomName);
                 delete ROOM.namedModels;
@@ -107,7 +115,10 @@ async function start() {
             controller.fetchUpdatedSnapshot = !urlOptions.nodownload;
             ROOM.namedModelsPromise = controller.createIsland(roomName, creator);
             ROOM.controller = controller;
-            return ROOM.namedModels = await ROOM.namedModelsPromise;
+            ROOM.namedModels = await ROOM.namedModelsPromise;
+            if (!speedSlider) speedSlider = controller.inViewRealm(() => new SpeedSliderView());
+            speedSlider.attach(ROOM.namedModels.speedSlider, controller);
+            return ROOM.namedModels;
         }
     });
 

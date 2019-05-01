@@ -1,11 +1,11 @@
 import * as THREE from "three";
-import { Node, ALIGN_CENTER, ALIGN_FLEX_START, ALIGN_FLEX_END, ALIGN_STRETCH, FLEX_DIRECTION_ROW, FLEX_DIRECTION_COLUMN, EDGE_ALL, DIRECTION_LTR, POSITION_TYPE_ABSOLUTE } from "yoga-layout-prebuilt";
-import { ViewPart } from "../parts";
+import { Node, ALIGN_CENTER, ALIGN_FLEX_START, ALIGN_FLEX_END, ALIGN_STRETCH, FLEX_DIRECTION_ROW, FLEX_DIRECTION_COLUMN, EDGE_ALL, EDGE_LEFT, EDGE_RIGHT, EDGE_TOP, EDGE_BOTTOM, DIRECTION_LTR, POSITION_TYPE_ABSOLUTE } from "yoga-layout-prebuilt";
+import { ViewPart, ViewEvents } from "../parts";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
-const MUL = 100;
+export const MUL = 100;
 
 /** @typedef {import('yoga-layout').YogaNode} YogaNode */
 
@@ -24,9 +24,15 @@ export class LayoutViewPart extends ViewPart {
         );
         if (this.options.flexGrow) this.yogaNode.setFlexGrow(this.options.flexGrow);
         if (this.options.margin) this.yogaNode.setMargin(EDGE_ALL, this.options.margin * MUL);
+        if (this.options.marginLeft) this.yogaNode.setMargin(EDGE_LEFT, this.options.marginLeft * MUL);
+        if (this.options.marginRight) this.yogaNode.setMargin(EDGE_RIGHT, this.options.marginRight * MUL);
+        if (this.options.marginTop) this.yogaNode.setMargin(EDGE_TOP, this.options.marginTop * MUL);
+        if (this.options.marginBottom) this.yogaNode.setMargin(EDGE_BOTTOM, this.options.marginBottom * MUL);
         if (this.options.padding) this.yogaNode.setPadding(EDGE_ALL, this.options.padding * MUL);
         if (this.options.minHeight) this.yogaNode.setMinHeight(this.options.minHeight * MUL);
         if (this.options.minWidth) this.yogaNode.setMinWidth(this.options.minWidth * MUL);
+        if (this.options.maxHeight) this.yogaNode.setMaxHeight(this.options.maxHeight * MUL);
+        if (this.options.maxWidth) this.yogaNode.setMaxWidth(this.options.maxWidth * MUL);
         if (this.options.aspectRatio) this.yogaNode.setAspectRatio(this.options.aspectRatio);
         if (this.options.alignItems) {
             switch (this.options.alignItems) {
@@ -62,6 +68,26 @@ export class LayoutViewPart extends ViewPart {
         this.yogaNode.free();
         super.detach();
     }
+
+    absoluteLeft() {
+        let left = 0;
+        let current = this.yogaNode;
+        while (current) {
+            left += current.getComputedLeft();
+            current = current.getParent();
+        }
+        return left;
+    }
+
+    absoluteTop() {
+        let top = 0;
+        let current = this.yogaNode;
+        while (current) {
+            top += current.getComputedTop();
+            current = current.getParent();
+        }
+        return top;
+    }
 }
 
 export class LayoutContainer extends LayoutViewPart {
@@ -80,7 +106,7 @@ export class LayoutContainer extends LayoutViewPart {
     addChild(child, publishContentChanged=true) {
         this.children.push(child);
         this.yogaNode.insertChild(child.yogaNode, this.yogaNode.getChildCount());
-        this.subscribe(child.id, LayoutEvents.contentChanged, data => this.onChildContentChanged(data));
+        this.subscribe(child.id, {event: LayoutEvents.contentChanged, oncePerFrame: true}, data => this.onChildContentChanged(data));
         if (publishContentChanged) this.publish(this.id, LayoutEvents.contentChanged, {});
         this.group.add(...child.threeObjs());
     }
@@ -105,6 +131,7 @@ export class LayoutContainer extends LayoutViewPart {
         }
         this.group.position.setX(this.yogaNode.getComputedLeft() / MUL);
         this.group.position.setY(-this.yogaNode.getComputedTop() / MUL);
+        this.publish(this, ViewEvents.changedDimensions);
         // console.log(this.id, this.yogaNode.getComputedLeft(), this.yogaNode.getComputedTop(), this.yogaNode.getComputedWidth(), this.yogaNode.getComputedHeight());
     }
 }
@@ -112,11 +139,11 @@ export class LayoutContainer extends LayoutViewPart {
 export class LayoutRoot extends LayoutContainer {
     constructor(options) {
         super(options);
-        // cause and propagate first layout calculation
-        this.onChildContentChanged();
         this.outerGroup = new THREE.Group();
         this.outerGroup.add(this.group);
         this.threeObj = this.outerGroup;
+        // cause and propagate first layout calculation
+        this.onChildContentChanged();
     }
 
     onChildContentChanged() {
@@ -150,12 +177,18 @@ export function MinFromBBox(BaseLayoutSlotClass) {
     return class MinFromBBoxLayoutSlot extends BaseLayoutSlotClass {
         constructor(options) {
             super(options);
+            this.subscribe(this.parts.inner, ViewEvents.changedDimensions, data => this.onChangedDimensions(data));
+            this.onChangedDimensions();
+        }
+
+        onChangedDimensions() {
             // TODO: what to do if the inner view has multiple threeObjs?
             const bbox = (new THREE.Box3()).setFromObject(this.parts.inner.threeObjs()[0]);
             this.yogaNode.setMinWidth((bbox.max.x - bbox.min.x) * MUL);
             this.yogaNode.setMinHeight((bbox.max.y - bbox.min.y) * MUL);
             this.yogaNode.setWidthAuto();
             this.yogaNode.setHeightAuto();
+            this.publish(this.id, LayoutEvents.contentChanged);
         }
     };
 }

@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { SpatialEvents } from "../modelParts/spatial";
-import { ViewPart } from "../parts";
+import { ViewPart, ViewEvents } from "../parts";
 import { RENDER_LAYERS } from "../render";
 import PortalPart from "../modelParts/portal";
 
@@ -60,15 +60,22 @@ export default class PortalViewPart extends ViewPart {
     onMoved(newPosition) {
         this.threeObj.position.copy(newPosition);
         this.clonedPortal.parts.spatial.moveTo(newPosition);
+        this.publish(this, ViewEvents.changedDimensions);
     }
 
     onRotated(newQuaternion) {
         this.threeObj.quaternion.copy(newQuaternion);
         this.clonedPortal.parts.spatial.rotateTo(newQuaternion);
+        this.publish(this, ViewEvents.changedDimensions);
     }
 
     onScaled(newScale) {
         this.threeObj.scale.copy(newScale);
         this.clonedPortal.parts.spatial.scaleTo(newScale);
+        this.publish(this, ViewEvents.changedDimensions);
+    }
+
+    get label() {
+        return "Portal to " + this.clonedPortal.there;
     }
 }

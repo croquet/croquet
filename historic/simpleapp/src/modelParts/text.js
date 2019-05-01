@@ -9,29 +9,18 @@ export const TextEvents = {
 };
 
 export default class TextPart extends ModelPart {
+    static types() {
+        return { "Warota.Doc": Doc };
+    }
+
     init(options, id) {
         super.init(options, id);
-        let content = {runs: [], selections: {}, undoStacks: {}, timezone: 0, queue: [], editable: options.editable !== undefined ? options.editable : true, ...options.content};
+        const content = {runs: [], selections: {}, undoStacks: {}, timezone: 0, queue: [], editable: options.editable !== undefined ? options.editable : true, ...options.content};
         this.content = content;
         this.doc = new Doc();
         this.doc.load(this.content.runs);
         this.doc.selections = this.content.selections;
         window.model = this;
-    }
-
-    load(state, allModels) {
-        super.load(state, allModels);
-        let content = {runs: [], selections: {}, undoStacks: {}, timezone: 0, queue: [], editable: state.editable !== undefined ? state.editable : true, ...state.content};
-        this.content = content;
-        this.doc = new Doc();
-        this.doc.load(this.content.runs);
-        this.doc.selections = this.content.selections;
-        window.model = this;
-    }
-
-    save(state) {
-        super.save(state);
-        state.content = this.content;
     }
 
     acceptContent() {
