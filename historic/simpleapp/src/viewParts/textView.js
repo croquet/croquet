@@ -6,7 +6,7 @@ import { PointerEvents, makePointerSensitive, TrackPlaneEvents, TrackPlaneTopic 
 import { Warota } from "../util/warota/warota";
 import { fontRegistry } from "../util/fontRegistry";
 import { KeyboardEvents, KeyboardTopic } from "../domKeyboardManager";
-import { ViewPart } from "../parts";
+import { ViewPart, ViewEvents } from "../parts";
 import { userID } from "../util/userid";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
@@ -153,6 +153,7 @@ export default class EditableTextViewPart extends ViewPart {
             this.editor.layout(this.options);
         }
         this.editor.paint();
+        this.publish(this, ViewEvents.changedDimensions);
     }
 
     threeObjs() {

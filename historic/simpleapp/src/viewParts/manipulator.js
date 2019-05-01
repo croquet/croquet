@@ -159,7 +159,7 @@ class FramingLayoutRoot extends LayoutContainer {
     }
 }
 
-const framedViewMargin = 0.3;
+const framedViewMargin = 0.2;
 const transparentFrameWidth = 0.2;
 const solidFrameWidth = 0.05;
 const solidFrameMargin = (transparentFrameWidth - solidFrameWidth) / 2;
@@ -226,16 +226,17 @@ class Frame extends ViewPart {
                         flexDirection: "row",
                         alignItems: "flexEnd",
                         children: [
-                            makeHorizontalBorder({flexGrow: 1, marginBottom: -solidFrameMargin, maxWidth: 0.35}),
+                            makeHorizontalBorder({flexGrow: 1, marginBottom: -solidFrameMargin}),
                             new LayoutSlotText({
-                                minHeight: 0.25,
                                 marginBottom: -0.10,
-                                minWidth: 0.5,
-                                flexGrow: 2,
+                                marginLeft: solidFrameMargin,
+                                marginRight: solidFrameMargin,
                                 inner: new EditableTextViewPart({
                                     editable: false,
                                     content: [{text: options.framed.label || Object.getPrototypeOf(options.framed).constructor.name, style: {color: 0xffffff}}],
                                     fontSize: 0.2,
+                                    singleLine: true,
+                                    autoResize: true,
                                     showSelection: false,
                                     showScrollBar: false,
                                     hideBackground: true
