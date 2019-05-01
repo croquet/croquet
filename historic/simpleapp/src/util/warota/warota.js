@@ -33,7 +33,7 @@ export class Doc {
         if (evt.type === "insert") {
             this.doInsert(evt.user, evt.runs);
         } else if (evt.type === "delete") {
-            this.doDelete(evt.user, true);
+            this.doDelete(evt.user, evt.backspace);
         } else if (evt.type === "select") {
             this.doSelect(evt.user, evt.start, evt.end);
         }
@@ -53,7 +53,7 @@ export class Doc {
                 runIndex += 1;
             }
             this.runs.splice(runIndex, 0, ...runs);
-            this.canonicalize(this.runs, interval.start); // this may be off
+            this.canonicalize(this.runs, interval.start);
             this.updateSelectionsInsert(user, selection.start, runLength(runs));
         } else {
             this.doDelete(user, true);
@@ -85,7 +85,6 @@ export class Doc {
         }
 
         let [run, runIndex] = this.findRun(start);
-        //if (!run) {throw Error("can't delete eof");}
         let interval = this.intervals[runIndex];
 
         if (interval.end !== start) { // that is, pos is within the run
@@ -256,7 +255,7 @@ export class Doc {
             if (k === user.id) {
                 this.selections[k] = {start: pos + length, end: pos + length, color: user.color};
             } else {
-                if (pos <= sel.start) {
+                if (pos < sel.start) {
                     this.selections[k] = {start: sel.start + length, end: sel.end + length, color: sel.color};
                 } else if (sel.start < pos && pos < sel.end) {
                     this.selections[k] = {start: sel.start, end: sel.end + length, color: sel.color};
@@ -275,7 +274,8 @@ export class Doc {
                 if (end <= sel.start) {
                     this.selections[k] = {start: sel.start - len, end: sel.end - len, color: sel.color};
                 } else if (sel.end <= start) {
-                } else if (start <= sel.start && sel.end < end) {
+                    
+                } else if (start <= sel.start && sel.end <= end) {
                     this.selections[k] = {start, end: start, color: sel.color};
                 } else if (start < sel.start && end < sel.end) {
                     this.selections[k] = {start, end: sel.end - len, color: sel.color};
@@ -784,8 +784,8 @@ export class Warota {
         this.events.push(evt);
     }
 
-    delete(user, start, end) {
-        let evt = Event.delete(user, start, end, this.timezone);
+    delete(user, backspace) {
+        let evt = Event.delete(user, backspace, this.timezone);
         this.events.push(evt);
     }
 
@@ -993,12 +993,7 @@ export class Warota {
     }
 
     backspace(user) {
-        let selection = this.doc.selections[user.id] || {start: 0, end: 0, color: user.color};
-        if (selection.start === selection.end && selection.start > 0) {
-            this.delete(user, selection.start - 1, selection.end);
-        } else {
-            this.delete(user, selection.start, selection.end);
-        }
+        this.delete(user, true);
     }
 
     handleKey(user, key, selecting, ctrlKey) {
@@ -1124,8 +1119,8 @@ export class Event {
         return {type: "insert", user, runs, length: runLength(runs), timezone};
     }
 
-    static delete(user, start, end, timezone) {
-        return {type: "delete", user, start, end, timezone, deleted: null};
+    static delete(user, backspace, timezone) {
+        return {type: "delete", backspace, user, timezone};
     }
 
     static select(user, start, end, timezone) {
