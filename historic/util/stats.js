@@ -154,6 +154,8 @@ function endCurrentFrame(timestamp) {
     div.style.bottom = mapBacklog(Math.max(1000, maxBacklog)) - 350;
 }
 
+const stack = [];
+
 const Stats = {
     animationFrame(timestamp, stats={}) {
         endCurrentFrame(timestamp);
@@ -161,12 +163,22 @@ const Stats = {
         for (const [key, value] of Object.entries(stats)) this[key](value);
     },
     begin(item) {
+        // start inner measurement
         const now = performance.now();
         currentFrame.items[item] = (currentFrame.items[item] || 0) - now;
+        // stop outer measurement
+        const outer = stack[stack.length - 1];
+        if (outer) currentFrame.items[outer] += now;
+        stack.push(item);
     },
     end(item) {
+        // stop inner measurement
         const now = performance.now();
         currentFrame.items[item] += now;
+        // start outer measurement
+        if (stack.pop() !== item) throw Error("Unmatched stats calls for " + item);
+        const outer = stack[stack.length - 1];
+        if (outer) currentFrame.items[outer] -= now;
     },
     backlog(ms) {
         currentFrame.backlog = Math.max(ms, currentFrame.backlog);
