@@ -10,6 +10,7 @@ export default function Draggable(dragOptions={}) {
     dragOptions = {
         dragHandle: "",
         dragVertically: true,
+        hoverMaterialUpdate: () => {},
         ...dragOptions
     };
 
@@ -26,8 +27,14 @@ export default function Draggable(dragOptions={}) {
             this.dragHandlePart = this.lookUp(dragOptions.dragHandle);
             makePointerSensitive(this.dragHandlePart.threeObj, this);
             this.dragVertically = dragOptions.dragVertically;
+            this.subscribe(this.id, PointerEvents.pointerEnter, () => {
+                dragOptions.hoverMaterialUpdate(true, this.dragHandlePart.threeObj.material);
+            });
+            this.subscribe(this.id, PointerEvents.pointerLeave, () => {
+                dragOptions.hoverMaterialUpdate(false, this.dragHandlePart.threeObj.material);
+            });
             this.subscribe(this.id, PointerEvents.pointerDown, () => {
-                this.positionAtDragStart = this.dragHandlePart.threeObj.position.clone();
+                this.positionAtDragStart = this.target.position.clone();
             });
             this.subscribe(this.id, PointerEvents.pointerDrag, ({dragStart, dragEndOnHorizontalPlane, dragEndOnVerticalPlane}) => {
                 const dragEnd = this.dragVertically ? dragEndOnVerticalPlane : dragEndOnHorizontalPlane;

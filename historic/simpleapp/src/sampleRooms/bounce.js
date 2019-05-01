@@ -48,7 +48,11 @@ class BoxViewPart extends ViewPart {
     }
 }
 
-const BoxElementView = Draggable()(Tracking()(BoxViewPart));
+class BoxElementView extends Draggable()(Tracking()(BoxViewPart)) {
+    get label() {
+        return "Draggable Box";
+    }
+}
 
 class BallViewPart extends ViewPart {
     constructor(options) {
@@ -56,7 +60,7 @@ class BallViewPart extends ViewPart {
         super(options);
         this.threeObj = new THREE.Mesh(
             new THREE.SphereBufferGeometry(0.75, 16, 16),
-            new THREE.MeshStandardMaterial({color: new THREE.Color(this.color)})
+            new THREE.MeshStandardMaterial({color: new THREE.Color(this.color), metalness: 0.2, roughness: 0.8})
         );
     }
 }
@@ -129,7 +133,7 @@ class RandomlyColoringGroupElementView extends GroupElementView {
         // but the super() constructor already calls onElementAdded
         if (!this.seedRandom) this.seedRandom = new SeedRandom("VeryRandomSeed");
         for (const threeObj of view.threeObjs()) {
-            threeObj.material.color.setHSL(this.seedRandom(), 1, 0.5);
+            threeObj.material.color.setHSL(this.seedRandom(), 0.7, 0.5);
         }
     }
 }

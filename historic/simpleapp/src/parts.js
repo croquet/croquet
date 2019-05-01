@@ -83,6 +83,12 @@ export class ViewPart extends WithParts(View) {
         this.threeObj = null;
     }
 
+    forwardDimensionChange() {
+        for (const part of Object.values(this.parts)) {
+            this.subscribe(part, {event: ViewEvents.changedDimensions, oncePerFrame: true}, () => this.publish(this, ViewEvents.changedDimensions));
+        }
+    }
+
     /** @returns {import('THREE').Object3D[]} */
     threeObjs() {
         if (this.threeObj) {
@@ -98,3 +104,7 @@ export class ViewPart extends WithParts(View) {
         return threeObjs;
     }
 }
+
+export const ViewEvents = {
+    changedDimensions: "view-changedDimensions"
+};
