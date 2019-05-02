@@ -83,8 +83,6 @@ export default class Island {
                     this._random = new SeedRandom(null, { state: true });
                     const namedModels = initFn(this) || {};
                     Object.assign(this.modelsByName, namedModels);
-                    // schedule snapshots
-                    this.futureSend(SCHEDULED_SNAPSHOT, this.id, "scheduledSnapshot", []);
                 }
             });
         });

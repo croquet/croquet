@@ -276,6 +276,7 @@ export default class Controller {
                 console.log(this.id, 'Controller received START - creating island');
                 this.install(false);
                 this.requestTicks();
+                this.island.scheduledSnapshot(); // kick off scheduled snapshots
                 break;
             }
             case 'SYNC': {
