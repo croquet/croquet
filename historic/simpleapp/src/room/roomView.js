@@ -137,7 +137,7 @@ class InteractionDome extends ViewPart {
             })
         };
 
-        if (urlOptions.debug) document.body.className = "debug";
+        if (urlOptions.debug || window.location.hostname === "localhost") document.body.className = "debug";
 
         this.escapeKeyHandler = e => {
             if (e.key === "Escape") {
