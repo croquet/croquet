@@ -14,6 +14,7 @@
                      font: normal 13px sans-serif; text-align: center;
                      outline: none; z-index: 999;
             }
+            #speed { display: none; position: absolute; bottom: 6px; left: 6px; }
             body.debug #stats {
                 display: block;
             }
@@ -23,6 +24,7 @@
         <div id="error"></div>
         <div id="stats"></div>
         <button id="reset">RESET</button>
-        <script src="../src/ar-app.js"></script>
+        <input id="speed" type="range" value="50">
+        <script src="../src/index.js"></script>
     </body>
 </html>

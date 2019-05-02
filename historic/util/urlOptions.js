@@ -7,7 +7,7 @@ function parseUrl() {
     if (typeof document === "undefined" || !document.location) return;
     parseUrlOptionString(document.location.search.slice(1));
     parseUrlOptionString(document.location.hash.slice(1));
-    if (document.location.pathname.indexOf('ar.html') >= 0) urlOptions.ar = true;
+    if (document.location.pathname.indexOf('/ar.html') >= 0) urlOptions.ar = true;
 }
 
 function parseUrlOptionString(optionString) {

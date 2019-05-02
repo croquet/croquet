@@ -30,6 +30,17 @@ export default function Flying() {
 
         applyVelocity() {
             super.moveBy(this.estimatedVelocity.clone());
+
+            // somewhat hacky way to decide when to terminate a flight
+            if (this.targetPoint) {
+                const dist = this.position.distanceTo(this.targetPoint);
+                if (dist > this.distanceToTarget) {
+//console.log(`closest: ${this.distanceToTarget} for alpha ${this.targetAlpha}`);
+                    delete this.targetPoint;
+                    this.publish(this.id, "recolor", { colorH: null });
+                } else this.distanceToTarget = dist;
+            }
+
             this.estimatedVelocity.add(this.gravity);
             const speed = this.estimatedVelocity.length();
             if (speed > 1) this.estimatedVelocity.multiplyScalar(0.5);
