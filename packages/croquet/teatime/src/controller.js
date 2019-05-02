@@ -2,7 +2,7 @@ import AsyncQueue from "@croquet/util/asyncQueue";
 import Stats from "@croquet/util/stats";
 import hotreload from "@croquet/util/hotreload";
 import urlOptions from "@croquet/util/urlOptions";
-import { baseUrl, hashNameAndCode } from "@croquet/util/modules";
+import { baseUrl, hashNameAndCode, uploadCode } from "@croquet/util/modules";
 import { inViewRealm } from "./realms";
 import Island, { addMessageTranscoder } from "./island";
 
@@ -10,6 +10,7 @@ import Island, { addMessageTranscoder } from "./island";
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
+let codeHashes = null;
 
 const DEBUG = {
     messages: urlOptions.has("debug", "messages", false),
@@ -27,8 +28,10 @@ const SessionCallbacks = {};
 
 export default class Controller {
     static addMessageTranscoder(...args) { addMessageTranscoder(...args); }
-    static connectToReflector(...args) { connectToReflector(...args); }
-
+    static connectToReflector(mainModuleID, reflectorUrl) {
+        if (!urlOptions.noupload) uploadCode(mainModuleID).then(hashes => codeHashes = hashes);
+        connectToReflector(reflectorUrl);
+    }
 
     // socket was connected, join session for all islands
     static join(controller) {
@@ -174,7 +177,7 @@ export default class Controller {
     }
 
     /** upload a snapshot to the asset server */
-    async uploadSnapshot(hashes) {
+    async uploadSnapshot() {
         if (!this.island) return false;
         if (this.lastSnapshotTime === this.island.time) return false;
         this.lastSnapshotTime = this.island.time;
@@ -187,7 +190,7 @@ export default class Controller {
             date: (new Date()).toISOString(),
             host: window.location.hostname,
         };
-        if (hashes) snapshot.meta.code = hashes;
+        if (codeHashes) snapshot.meta.code = codeHashes;
         const string = JSON.stringify(snapshot);
         const url = this.snapshotUrl();
         console.log(this.id, `Controller uploading snapshot (${string.length} bytes) to ${url}`);

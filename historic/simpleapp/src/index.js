@@ -61,7 +61,7 @@ async function start() {
     }
 
     // start websocket connection
-    Controller.connectToReflector(reflector);
+    Controller.connectToReflector(module.id, reflector);
 
     const ALL_ROOMS = {
         room1: {creator: room1},

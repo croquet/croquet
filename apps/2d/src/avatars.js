@@ -292,7 +292,7 @@ async function go() {
     const reflector = LOCALHOST
         ? "ws://localhost:9090/"
         : "wss://dev1.os.vision/reflector-v1";
-    Controller.connectToReflector(urlOptions.reflector || reflector);
+    Controller.connectToReflector(module.id, urlOptions.reflector || reflector);
 
     const controller = new Controller();
     let rootView = null;
