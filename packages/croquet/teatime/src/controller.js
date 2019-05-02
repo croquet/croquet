@@ -163,7 +163,7 @@ export default class Controller {
         if (!this.island) return null;
         // ensure all messages up to this point are in the snapshot
         for (let msg = this.networkQueue.nextNonBlocking(); msg; msg = this.networkQueue.nextNonBlocking()) {
-           this.island.processExternalMessage(msg);
+           this.island.scheduleExternalMessage(msg);
         }
         return this.island.snapshot();
     }
@@ -356,7 +356,7 @@ export default class Controller {
             const nextMsg = await this.networkQueue.next();
             if (nextMsg[0] > snapshotTime) {
                 // This is the first 'real' message arriving.
-                newIsland.processExternalMessage(nextMsg);
+                newIsland.scheduleExternalMessage(nextMsg);
                 drainQueue = false;
             }
             // otherwise, silently skip the message
@@ -477,7 +477,7 @@ export default class Controller {
                 if (!msgData) break;
                 this.newMessages.push(msgData);
                 // have the island decode and schedule that message
-                const msg = this.island.processExternalMessage(msgData);
+                const msg = this.island.scheduleExternalMessage(msgData);
                 // simulate up to that message
                 weHaveTime = this.island.advanceTo(msg.time, deadline);
             }

@@ -145,7 +145,7 @@ export default class Island {
      * @param {MessageData} msgData - encoded message
      * @return {Message} decoded message
      */
-    processExternalMessage(msgData) {
+    scheduleExternalMessage(msgData) {
         const message = Message.fromState(msgData);
         if (message.time < this.time) throw Error("past message from reflector " + msgData);
         this.messages.add(message);
