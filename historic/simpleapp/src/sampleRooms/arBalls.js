@@ -16,7 +16,42 @@ const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 const TOTAL_BALLS = 100;
+const GRAVITY = 0.001;
 const USER = Math.random();
+
+export class BoxElement extends ModelPart {
+    constructor() {
+        super();
+        this.parts = {spatial: new SpatialPart()};
+        this.subscribe("arBalls", "launch", data => this.adjustCamera(data));
+    }
+
+    adjustCamera(data) {
+        if (data.USER !== this.USER) return; // @@ fix me
+
+        const camPos = new THREE.Vector3(...data.cameraPos);
+        this.parts.spatialPart.moveTo(camPos);
+    }
+
+    naturalViewClass() { return BoxElementView; }
+}
+
+class BoxViewPart extends ViewPart {
+    constructor(options) {
+        options = {color: "#aaaaaa", ...options};
+        super(options);
+        this.threeObj = new THREE.Mesh(
+            new THREE.BoxBufferGeometry(1, 0.1, 1),
+            new THREE.MeshStandardMaterial({color: new THREE.Color(options.color)})
+        );
+    }
+}
+
+class BoxElementView extends (Tracking()(BoxViewPart)) {
+    get label() {
+        return "Camera Box";
+    }
+}
 
 export const FlyingSpatialPart = Flying()(SpatialPart);
 
@@ -34,7 +69,7 @@ export class FlyingBallElement extends ModelPart {
         const startVelocity = new THREE.Vector3(0, 0, 0);
         options.spatial.position = startPos;
         options.spatial.velocity = startVelocity;
-        options.spatial.gravity = new THREE.Vector3(0, 0, 0.001);
+        options.spatial.gravity = new THREE.Vector3(0, 0, GRAVITY);
         super.init(options);
     }
 
@@ -59,7 +94,8 @@ const FlyingBallElementView = Tracking()(class extends ViewPart {
     }
 
     recolor(data) {
-        this.threeObj.material.color.setHSL(data.colorH, 1, 0.5);
+        this.threeObj.visible = !!data.colorH;
+        if (data.colorH) this.threeObj.material.color.setHSL(data.colorH, 1, 0.5);
     }
 });
 
@@ -95,11 +131,46 @@ export class GroupElement extends ModelPart {
     launchBall(data) {
         this.launchIndex++;
         if (this.launchIndex === TOTAL_BALLS) this.launchIndex = 0;
+
+        const camPos = new THREE.Vector3(...data.cameraPos);
+        // const camQuat = new THREE.Quaternion(...data.camQuat);
+
         // HACK
         const balls = Array.from(this.parts.children.children);
+
         const ballSpatial = balls[this.launchIndex].parts.spatial;
+        const height = -camPos.z;// - 0.25; // height of camera above ar code
+        const camDirOnPlane = new THREE.Vector3().copy(camPos);
+        camDirOnPlane.z = 0;
+        const hDistance = camDirOnPlane.length(); // horizontal distance
+        camDirOnPlane.normalize();
+        let alpha = 0.3; // slope we'd like the ball to curve in at
+        if (hDistance * alpha + height <= 0) {
+            const newAlpha = Math.min(0.7, -height / hDistance * 1.1);
+//console.log(`dist = ${hDistance.toFixed(2)}, height = ${height}; alpha ${alpha} not steep enough; using ${newAlpha.toFixed(2)}`);
+            alpha = newAlpha;
+        }
+
         ballSpatial.position = new THREE.Vector3(0, 0, -0.2);
-        ballSpatial.estimatedVelocity = new THREE.Vector3(...data.direction).multiplyScalar(0.1);
+
+        let uStart, vStart;
+        if (alpha===0) {
+            const t = Math.sqrt(2 * height / GRAVITY);
+            vStart = GRAVITY * t; // +ve up (i.e., -ve z)
+            uStart = hDistance / t;
+        } else {
+            // v is the initial upward speed for the backward journey from camera to target
+            const v = hDistance * alpha / Math.sqrt(2 / GRAVITY * (hDistance * alpha + height));
+            const u = v / alpha; // +ve whether v is +ve or -ve
+            const t = hDistance / u;
+            vStart = -(v - GRAVITY * t); // find v at the target, and reverse it
+            uStart = u;
+        }
+//console.log({ height: height.toFixed(2), alpha, uStart: uStart.toFixed(2), vStart: vStart.toFixed(2) });
+        ballSpatial.estimatedVelocity = new THREE.Vector3(0, 0, -vStart).addScaledVector(camDirOnPlane, uStart);
+        ballSpatial.targetPoint = new THREE.Vector3(...data.cameraPos);
+        ballSpatial.distanceToTarget = ballSpatial.targetPoint.length();
+        ballSpatial.targetAlpha = alpha;
         this.publish(ballSpatial.id, "recolor", { colorH: data.colorH });
     }
 
@@ -134,10 +205,9 @@ const GroupElementView = Tracking()(class extends ViewPart {
         }
 
         const viewColorH = USER; // a suitable random number
-        const camPos = new THREE.Vector3();
         setInterval(() => {
             const pos = cameraSpatial.position;
-            if (pos.x !== 10000) this.publish("arBalls", "launch", { direction: camPos.copy(cameraSpatial.position).normalize().toArray(), colorH: viewColorH });
+            if (pos.length() <= 1000) this.publish("arBalls", "launch", { cameraPos: pos.toArray(), colorH: viewColorH });
             }, 200);
     }
 
@@ -192,10 +262,15 @@ function initARBalls(_options) {
     const flyingBalls = GroupElement.create({ spatial: { scale: new THREE.Vector3(0.5, 0.5, 0.5) } });
     room.parts.elements.add(flyingBalls);
 
+    /* NOT READY
+    const cameraBox = BoxElement.create({ spatial: { position: new THREE.Vector3(x, 0.5, -2)}});
+    room.parts.elements.add(cameraBox);
+    */
+
     return {room};
 }
 
 export default {
     creatorFn: initARBalls,
-    options: { n: urlOptions.n || 100 }
+    options: { tps: "20x1" },
 };

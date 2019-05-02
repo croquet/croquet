@@ -311,7 +311,7 @@ async function start() {
     hotreload.addEventListener(document.body, "wheel", event => {
         if (!throttle(event)) {
             const currentRoomView = currentRoomName && roomViewManager.getIfLoaded(currentRoomName);
-            if (currentRoomView) {currentRoomView.parts.treadmill.onWheel(event);}
+            if (currentRoomView && currentRoomView.parts.treadmill) {currentRoomView.parts.treadmill.onWheel(event);}
         }
         event.stopPropagation();
         event.preventDefault();
