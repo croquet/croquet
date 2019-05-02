@@ -98,6 +98,12 @@ export default class Controller {
         this.users = 0;
         /** wallclock time we last heard from reflector */
         this.lastReceived = Date.now();
+        /** last snapshot taken of the island */
+        this.lastSnapshot = null;
+        /** external messages processed before last snapshot */
+        this.lastMessages = [];
+        /** externalMessages processed after last snapshot*/
+        this.newMessages = [];
     }
 
     /**
@@ -139,9 +145,14 @@ export default class Controller {
 
     // called by island every 10 sec
     scheduledSnapshot() {
-        console.log(this.island.time, "scheduled snapshot");
         Stats.begin("snapshot");
-        this.latestSnapshot = this.island.snapshot();
+        // keep snapshot
+        this.lastSnapshot = this.island.snapshot();
+        // keep messages from last 10 snapshots
+        this.lastMessages.push(this.newMessages);
+        while (this.lastMessages.length > 10) this.lastMessages.shift();
+        // start collecting new messages
+        this.newMessages = [];
         Stats.end("snapshot");
     }
 
@@ -461,6 +472,7 @@ export default class Controller {
                 // Get the next message from the (concurrent) network queue
                 const msgData = this.networkQueue.nextNonBlocking();
                 if (!msgData) break;
+                this.newMessages.push(msgData);
                 // have the island decode and schedule that message
                 const msg = this.island.processExternalMessage(msgData);
                 // simulate up to that message
