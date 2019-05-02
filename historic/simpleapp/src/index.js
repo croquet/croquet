@@ -6,6 +6,7 @@ import room2 from "./sampleRooms/room2";
 import room3 from "./sampleRooms/room3";
 import roomBounce from "./sampleRooms/bounce";
 import roomsJump from "./sampleRooms/jump";
+import roomARBalls from "./sampleRooms/arBalls";
 import RoomViewManager from "./room/roomViewManager";
 import Renderer from "./render";
 import { SpeedSlider, SpeedSliderView } from "./ui";
@@ -19,7 +20,8 @@ if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); 
 
 let hotState = module.hot && module.hot.data || {};
 
-const defaultRoom = window.location.hostname === "croquet.studio" ? "bounce" : "room1";
+const defaultRoom = urlOptions.ar ? "arBalls" :
+                    window.location.hostname === "croquet.studio" ? "bounce" : "room1";
 
 // default message transcoders
 const Vec3 = {
@@ -73,6 +75,7 @@ async function start() {
         room2: {creator: room2},
         room3: {creator: room3},
         bounce: {creator: roomBounce},
+        arBalls: {creator: roomARBalls},
         ...roomsJump
     };
 

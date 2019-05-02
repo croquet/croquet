@@ -54,6 +54,10 @@ const FlyingBallElementView = Tracking()(class extends ViewPart {
         );
     }
 
+    get label() {
+        return "Flying Ball";
+    }
+
     recolor(data) {
         this.threeObj.material.color.setHSL(data.colorH, 1, 0.5);
     }
@@ -150,6 +154,10 @@ const GroupElementView = Tracking()(class extends ViewPart {
         this.group.remove(...view.threeObjs());
         view.detach();
         delete this.viewsForChildElements[element.id];
+    }
+
+    get label() {
+        return "Flying Balls";
     }
 });
 
