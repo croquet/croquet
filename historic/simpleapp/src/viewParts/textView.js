@@ -6,7 +6,7 @@ import { PointerEvents, makePointerSensitive, TrackPlaneEvents, TrackPlaneTopic 
 import { Warota } from "../util/warota/warota";
 import { fontRegistry } from "../util/fontRegistry";
 import { KeyboardEvents, KeyboardTopic } from "../domKeyboardManager";
-import { ViewPart } from "../parts";
+import { ViewPart, ViewEvents } from "../parts";
 import { userID } from "../util/userid";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
@@ -130,21 +130,20 @@ export default class EditableTextViewPart extends ViewPart {
 
     resize(width, height, dontLayout) {
         // it assumes the ordinally initialization has been performed.
-        // That means that options has fontSize, and numLines.
+        // That means that options has fontSize (and also numLines).
 
         this.options.width = width;
         this.options.height = height;
 
         this.removeSelections();
 
-        let text = this.text;
         const boxMesh = this.initBoxMesh();
 
         if (this.options.editable) {
             makePointerSensitive(boxMesh, this);
         }
         this.threeObj = boxMesh;
-        boxMesh.add(text);
+        boxMesh.add(this.text);
 
         this.editor.resize(this.options.width, this.options.height);
         this.editor.resizeToNumLinesOrFontSize(this.options);
@@ -153,6 +152,7 @@ export default class EditableTextViewPart extends ViewPart {
             this.editor.layout(this.options);
         }
         this.editor.paint();
+        this.publish(this, ViewEvents.changedDimensions);
     }
 
     threeObjs() {

@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import SeedRandom from "seedrandom";
 import {urlOptions} from "@croquet/util";
-import {ModelPart, ViewPart} from "../parts";
+import {ModelPart, ViewPart, ViewEvents} from "../parts";
 import Room from "../room/roomModel";
 import ChildrenPart, { ChildEvents } from "../modelParts/children";
 import SpatialPart from "../modelParts/spatial";
@@ -104,12 +104,14 @@ const GroupElementView = Tracking()(class extends ViewPart {
         /** @type {View} */
         const view = new NaturalView({model: element});
         this.viewsForChildElements[element.id] = view;
+        this.subscribe(view, {event: ViewEvents.changedDimensions, oncePerFrame: true}, () => this.publish(this, ViewEvents.changedDimensions));
         this.group.add(...view.threeObjs());
     }
 
     onElementRemoved(element) {
         const view = this.viewsForChildElements[element.id];
         this.group.remove(...view.threeObjs());
+        this.unsubscribe(view, ViewEvents.changedDimensions);
         view.detach();
         delete this.viewsForChildElements[element.id];
     }
@@ -135,6 +137,10 @@ class RandomlyColoringGroupElementView extends GroupElementView {
         for (const threeObj of view.threeObjs()) {
             threeObj.material.color.setHSL(this.seedRandom(), 0.7, 0.5);
         }
+    }
+
+    get label() {
+        return "Bouncing Balls";
     }
 }
 

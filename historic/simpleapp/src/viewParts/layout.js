@@ -177,7 +177,7 @@ export function MinFromBBox(BaseLayoutSlotClass) {
     return class MinFromBBoxLayoutSlot extends BaseLayoutSlotClass {
         constructor(options) {
             super(options);
-            this.subscribe(this.parts.inner, ViewEvents.changedDimensions, data => this.onChangedDimensions(data));
+            this.subscribe(this.parts.inner, {event: ViewEvents.changedDimensions, oncePerFrame: true}, data => this.onChangedDimensions(data));
             this.onChangedDimensions();
         }
 
@@ -216,6 +216,16 @@ export class LayoutSlotStretch3D extends LayoutSlotCenter3D {
 }
 
 export class LayoutSlotText extends LayoutSlot {
+    constructor(options) {
+        super(options);
+        if (this.parts.inner.options.autoResize) {
+            this.subscribe(this.parts.inner, ViewEvents.changedDimensions, () => {
+                this.yogaNode.setMinWidth(this.parts.inner.options.width * MUL);
+                this.yogaNode.setMinHeight(this.parts.inner.options.height * MUL);
+                this.publish(this.id, LayoutEvents.contentChanged);
+            });
+        }
+    }
     onLayoutChanged() {
         const targetPos = new THREE.Vector3(
             (this.yogaNode.getComputedLeft() + this.yogaNode.getComputedWidth() / 2) / MUL,
@@ -225,10 +235,12 @@ export class LayoutSlotText extends LayoutSlot {
 
         // TODO: what to do if the inner view has multiple threeObjs?
         this.parts.inner.threeObjs()[0].position.copy(targetPos);
-        this.parts.inner.updateExtent({
-            width: (this.yogaNode.getComputedWidth()) / MUL,
-            height: (this.yogaNode.getComputedHeight()) / MUL,
-        });
+        if (!this.parts.inner.options.autoResize) {
+            this.parts.inner.updateExtent({
+                width: (this.yogaNode.getComputedWidth()) / MUL,
+                height: (this.yogaNode.getComputedHeight()) / MUL,
+            });
+        }
     }
 }
 

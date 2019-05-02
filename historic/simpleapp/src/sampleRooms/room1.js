@@ -54,7 +54,11 @@ class BoxViewPart extends ViewPart {
     }
 }
 
-export const BoxElementView = Draggable()(Tracking()(BoxViewPart));
+export class BoxElementView extends Draggable()(Tracking()(BoxViewPart)) {
+    get label() {
+        return "Rotating Box";
+    }
+}
 
 export class LayoutTestElement extends ModelPart {
     constructor() {
@@ -125,6 +129,10 @@ class LayoutTestElementView extends ViewPart {
 
         this.forwardDimensionChange();
     }
+
+    get label() {
+        return "Layout Test";
+    }
 }
 
 function initRoom1() {
@@ -156,7 +164,7 @@ function initRoom1() {
             },
         },
         editable: true,
-        visualOptions: {font: "Roboto", numLines: 10, width: 3, height: 2}
+        visualOptions: {numLines: 10, width: 3, height: 2}
     });
     room.parts.elements.add(editText);
 
