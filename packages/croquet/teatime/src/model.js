@@ -59,6 +59,10 @@ export default class Model {
         this.__realm.unsubscribe(event, this.id, null, scope);
     }
 
+    unsubscribeAll() {
+        this.__realm.unsubscribeAll(this.id);
+    }
+
     // Misc
 
     /** @returns {this} */
