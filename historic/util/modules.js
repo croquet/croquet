@@ -274,9 +274,9 @@ export async function uploadCode(entryPoint) {
 
 // work around https://github.com/parcel-bundler/parcel/issues/1838
 
-// deduplicate every module that directly imports this one,
+// deduplicate this, every module that directly imports this one,
 // plus "hotreload" which cannot import this because that would be cyclic
-deduplicateImports([...allImportersOf(module.id), resolveImport(module.id, "./hotreload")]);
+deduplicateImports([module.id, ...allImportersOf(module.id), resolveImport(module.id, "./hotreload")]);
 
 export function deduplicateImports(mods) {
     const modSources = mods.map(m => [m, sourceCodeOf(m)]);
