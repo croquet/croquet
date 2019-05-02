@@ -109,17 +109,6 @@ function importsOf(mod) {
     return Object.values(namedImportsOf(mod));
 }
 
-/** find all modules that are (transitively) imported by a given module */
-function allImportsOf(mod, filter, result = new Set([mod])) {
-    for (const imp of importsOf(mod).filter(filter)) {
-        if (!result.has(imp)) {
-            result.add(imp, result);
-            allImportsOf(imp, filter, result);
-        }
-    }
-    return result;
-}
-
 /** find all modules that directly import a given module */
 function allImportersOf(mod) {
     return allModuleIDs().filter(m => importsOf(m).includes(mod));
@@ -283,7 +272,6 @@ export async function uploadCode(entryPoint) {
 }
 
 
-
 // work around https://github.com/parcel-bundler/parcel/issues/1838
 
 // deduplicate every module that directly imports this one,
@@ -305,7 +293,7 @@ export function deduplicateImports(mods) {
     const b = module.bundle;
     const later = new Map();
     const fixed = new Set();
-    for (const [k, m] of Object.entries(b.modules)) {
+    for (const m of Object.values(b.modules)) {
         for (const [n, dupe] of Object.entries(m[1])) {
             const mod = dupes.get(dupe);
             if (mod && b.modules[mod]) {
@@ -313,20 +301,20 @@ export function deduplicateImports(mods) {
                 else {
                     m[1][n] = mod;                         // use mod
                     delete b.modules[dupe];                // delete dupe
-                    fixed.add(dupe);
+                    fixed.add(n);
                 }
             }
         }
     }
-    for (const [k, m] of Object.entries(b.modules)) {
+    for (const m of Object.values(b.modules)) {
         for (const [n, mod] of Object.entries(m[1])) {
             const dupe = later.get(mod);
             if (dupe && b.modules[dupe]) {
                 m[1][n] = dupe;                             // use dupe
                 delete b.modules[mod];                      // delete mod
-                fixed.add(dupe);
+                fixed.add(n);
             }
         }
     }
-    for (const fix of fixed) console.log("Deduplicating import of", fix);
+    for (const fix of [...fixed].sort()) console.log("Deduplicating import of", fix);
 }
