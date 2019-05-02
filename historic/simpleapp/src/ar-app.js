@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { Controller } from "@croquet/teatime";
-import { hotreload, urlOptions, uploadCode, Stats } from "@croquet/util";
+import { hotreload, urlOptions, Stats } from "@croquet/util";
 import roomARBalls from "./sampleRooms/arBalls";
 import RoomViewManager from "./room/roomViewManager";
 import Renderer from "./render";
@@ -29,8 +29,6 @@ const Identity = {
     decode: args => args,
 };
 
-let codeHashes = null;
-
 /** The main function. */
 async function start() {
     Controller.addMessageTranscoder('*>moveTo', Vec3);
@@ -58,9 +56,6 @@ async function start() {
 
     // start websocket connection
     Controller.connectToReflector(reflector);
-
-    // upload changed code files
-    if (!urlOptions.noupload) uploadCode(module.id).then(hashes => codeHashes = hashes);
 
     const ALL_ROOMS = {
         //room1: {creator: room1},
@@ -139,7 +134,7 @@ async function start() {
 
     if (urlOptions.ar) hotreload.addDisposeHandler('ar', () => {
         try { renderer.arToolkitContext.arController.dispose(); }
-        catch(e) { /* empty */ }
+        catch (e) { /* empty */ }
         });
 
     hotState = null; // free memory, and prevent accidental access below
@@ -217,21 +212,6 @@ async function start() {
         // otherwise, simulate a bit
         simulate(10);
     }, 10);
-
-    if (!urlOptions.noupload) {
-        // upload snapshots every 30 seconds
-        function uploadSnapshots() {
-            const liveRooms = Object.values(ALL_ROOMS).filter(room => room.island);
-            for (const {island: {controller}} of liveRooms) {
-                if (controller.backlog < balanceMS) controller.uploadSnapshot(codeHashes);
-            }
-        }
-        hotreload.setInterval(uploadSnapshots, 30000);
-        // also upload when the page gets unloaded
-        hotreload.addEventListener(document.body, "unload", uploadSnapshots);
-        // ... and on hotreload
-        hotreload.addDisposeHandler('snapshots', uploadSnapshots);
-    }
 
     // set up event handlers
     const eventTimes = {};
