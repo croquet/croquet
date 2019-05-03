@@ -123,10 +123,16 @@ export class RandomlyColoringGroupElement extends GroupElement {
 }
 
 class RandomlyColoringGroupElementView extends GroupElementView {
-    // constructor(options) {
-    //     super(options);
-    //     this.seedRandom = new SeedRandom(options.model.id);
-    // }
+    constructor(options) {
+        super(options);
+        // TODO: this is just a hack to give this a more stable bounding box and thus frame
+        const sizingBox = new THREE.Mesh(
+            new THREE.BoxBufferGeometry(30, 30, 30),
+            new THREE.MeshBasicMaterial({visible: false})
+        );
+        sizingBox.position.setY(10);
+        this.group.add(sizingBox);
+    }
 
     onElementAdded(element) {
         super.onElementAdded(element);
@@ -140,6 +146,7 @@ class RandomlyColoringGroupElementView extends GroupElementView {
     }
 
     get label() {
+        // TODO: this doesn't really belong here if this is supposed to be generic
         return "Bouncing Balls";
     }
 }

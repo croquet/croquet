@@ -172,14 +172,17 @@ class Frame extends ViewPart {
             inner: options.framed
         });
 
-        const sharedHoverMaterial = new THREE.MeshBasicMaterial({color: "#ffffff", transparent: true, opacity: 0.3});
+        const sharedHoverMaterial = new THREE.MeshBasicMaterial({color: "#ffffff", transparent: true, opacity: 0.1});
+        const sharedSolidHoverMaterial = new THREE.MeshBasicMaterial({color: "#ffffff", transparent: true, opacity: 0.2});
 
         const DraggableFrameBorderPlane = Draggable({
             target: options.target,
-            hoverMaterialUpdate: (hovered, material) => {
-                material.color = new THREE.Color(hovered ? "#A1DCD4" : "#ffffff");
-                material.transparent = !hovered;
-                material.opacity = hovered ? 1.0 : 0.3;
+            hoverMaterialUpdate: (hovered, _) => {
+                sharedHoverMaterial.color = new THREE.Color(hovered ? "#A1DCD4" : "#ffffff");
+                sharedHoverMaterial.transparent = !hovered;
+                sharedHoverMaterial.opacity = hovered ? 1.0 : 0.1;
+                sharedSolidHoverMaterial.transparent = !hovered;
+                sharedSolidHoverMaterial.opacity = hovered ? 1.0 : 0.2;
             }
         })(FrameBorderPlane);
 
@@ -197,7 +200,7 @@ class Frame extends ViewPart {
                     marginLeft: solidFrameMargin,
                     marginRight: solidFrameMargin,
                     z: 0.01,
-                    inner: new FrameBorderPlane()
+                    inner: new FrameBorderPlane({material: sharedSolidHoverMaterial})
                 }),
             ]
         });
@@ -212,7 +215,7 @@ class Frame extends ViewPart {
                     maxHeight: solidFrameWidth,
                     margin: solidFrameMargin,
                     z: 0.01,
-                    inner: new FrameBorderPlane()
+                    inner: new FrameBorderPlane({material: sharedSolidHoverMaterial})
                 }),
             ]
         });
