@@ -10,6 +10,12 @@ import Island from "./island";
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
+
+// when reflector has a new feature, we increment this value
+// only newer clients get to use it
+const VERSION = 1;
+
+
 let codeHashes = null;
 
 const DEBUG = {
@@ -452,7 +458,7 @@ export default class Controller {
     async join(socket) {
         console.log(this.id, 'Controller sending JOIN');
         this.socket = socket;
-        const args = { name: this.islandCreator.name };
+        const args = { name: this.islandCreator.name, version: VERSION };
         const user = urlOptions.user || croquetDev("user");
         if (user) args.user = user;
         socket.send(JSON.stringify({
