@@ -221,10 +221,11 @@ export default class Controller {
         }
     }
 
-    // upload snapshot and message history
+    // upload snapshot and message history, and inform reflector
     async uploadLatest() {
         const snapshotUrl = await this.uploadSnapshot(this.lastSnapshot);
         if (!snapshotUrl) { console.error("Failed to upload snapshot"); return; }
+        this.sendSnapshotToReflector(this.lastSnapshot.time, snapshotUrl);
         if (!this.prevSnapshot) return;
         const lastTime = this.lastSnapshot.time;
         const prevTime = this.prevSnapshot.time;
@@ -248,6 +249,19 @@ export default class Controller {
                 body,
             });
         } catch (e) { /*ignore */ }
+    }
+
+    sendSnapshotToReflector(time, url) {
+        console.log(this.id, `Controller sending snapshot url to reflector (time: ${time})`);
+        try {
+            this.socket.send(JSON.stringify({
+                id: this.id,
+                action: 'SNAP',
+                args: {time, url},
+            }));
+        } catch (e) {
+            console.error('ERROR while sending', e);
+        }
     }
 
     /*
