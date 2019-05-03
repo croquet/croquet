@@ -172,6 +172,7 @@ const Stats = {
         const outer = stack[stack.length - 1];
         if (outer) currentFrame.items[outer] += now;
         stack.push(item);
+        return now;
     },
     end(item) {
         // stop inner measurement
@@ -181,6 +182,7 @@ const Stats = {
         if (stack.pop() !== item) throw Error("Unmatched stats calls for " + item);
         const outer = stack[stack.length - 1];
         if (outer) currentFrame.items[outer] -= now;
+        return now;
     },
     backlog(ms) {
         currentFrame.backlog = Math.max(ms, currentFrame.backlog);
