@@ -164,6 +164,7 @@ export default class Island {
         this.sequence = (this.sequence + 2) % (Number.MAX_SAFE_INTEGER + 1);
         const message = new Message(this.time + tOffset, this.sequence, receiverID, selector, args);
         this.messages.add(message);
+        return message;
     }
 
     // Convert model.future(tOffset).property(...args)
@@ -202,7 +203,8 @@ export default class Island {
             this.messages.poll();
             if (this.time !== message.time) {
                 this.time = message.time;
-                this._random.int32();   // advance random number generator
+                // advance random number generator, unless it's a meta message
+                if (message !== this.noRandomCheck) this._random.int32();
             }
             message.executeOn(this);
             if (++count > 100) { count = 0; if (Date.now() > deadline) return false; }
@@ -322,7 +324,8 @@ export default class Island {
     }
 
     scheduleSnapshot(delta) {
-        this.futureSend(delta, this.id, "scheduledSnapshot", []);
+        const message = this.futureSend(delta, this.id, "scheduledSnapshot", []);
+        this.noRandomCheck = message;   // do not advance RNG for this message
     }
 
     scheduledSnapshot() {
