@@ -244,7 +244,7 @@ function JOIN(client, id, args) {
         // kill clients that did not respond to SERVE request
         for (const unresponsive of island.providers) {
             LOG(">>> killing unresponsive ", unresponsive.addr);
-            if (unresponsive.readyState === WebSocket.OPEN) unresponsive.close();
+            if (unresponsive.readyState === WebSocket.OPEN) unresponsive.close(4000, "client unresponsive");
         }
         island.providers.clear();
         clearTimeout(island.serveTimeout);
@@ -268,7 +268,7 @@ function JOIN(client, id, args) {
  */
 function SEND(client, id, messages) {
     const island = ALL_ISLANDS.get(id);
-    if (!island) { if (client && client.readyState === WebSocket.OPEN) client.close(5000, "unknown island"); return; };
+    if (!island) { if (client && client.readyState === WebSocket.OPEN) client.close(4000, "unknown island"); return; }
     const time = getTime(island);
     if (island.delay) {
         const delay = island.lastTick + island.delay + 0.1 - time;    // add 0.1 ms to combat rounding errors
@@ -356,7 +356,7 @@ function TICK(island) {
 function TICKS(client, id, args) {
     const {time, tick, delay, scale} = args;
     const island = ALL_ISLANDS.get(id);
-    if (!island) { if (client.readyState === WebSocket.OPEN) client.close(5000, "unknown island"); return; };
+    if (!island) { if (client.readyState === WebSocket.OPEN) client.close(4000, "unknown island"); return; };
     if (!island.time) {
         // only accept time and delay if new island
         island.time = typeof time === "number" ? time : 0;
