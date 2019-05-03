@@ -27,6 +27,7 @@
     "@croquet/util": "file:../../croquet/util",
     "array-flat-polyfill": "^1.0.0",
     "kiwi.js": "^1.1.1",
+    "oimo": "^1.0.9",
     "seedrandom": "^3.0.1",
     "three": "^0.101.1",
     "three-bmfont-text": "file:./thirdparty-patched/three-bmfont-text",

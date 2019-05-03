@@ -5,6 +5,7 @@ import room1 from "./sampleRooms/room1";
 import room2 from "./sampleRooms/room2";
 import room3 from "./sampleRooms/room3";
 import roomBounce from "./sampleRooms/bounce";
+import roomPhysics from "./sampleRooms/physics";
 import roomsJump from "./sampleRooms/jump";
 import roomARBalls from "./sampleRooms/arBalls";
 import RoomViewManager from "./room/roomViewManager";
@@ -46,6 +47,7 @@ async function start() {
     Controller.addMessageTranscoder('*>setColor', Identity);
     Controller.addMessageTranscoder('*>handleModelEventInModel', Identity);
     Controller.addMessageTranscoder('*>receiveEditEvents', Identity);
+    Controller.addMessageTranscoder('*>movePaddleTo', Vec3);
 
     let reflector = "wss://dev1.os.vision/reflector-v1";
     if ("reflector" in urlOptions) reflector = urlOptions.reflector;
@@ -71,6 +73,7 @@ async function start() {
         room3: {creator: room3},
         bounce: {creator: roomBounce},
         arBalls: {creator: roomARBalls},
+        physics: {creator: roomPhysics},
         ...roomsJump
     };
 

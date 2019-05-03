@@ -38,7 +38,11 @@ export default class RoomView extends ViewPart {
         });
 
         this.parts.roomScene = new RoomScene({room: options.room});
-        this.parts.elementViewManager = new ElementViewManager({room: options.room, scenePart: this.parts.roomScene, cameraSpatial: this.cameraSpatial, addElementManipulators: options.addElementManipulators!==false});
+        this.parts.elementViewManager = new ElementViewManager({
+            room: options.room,
+            scenePart: this.parts.roomScene,
+            cameraSpatial: this.cameraSpatial,
+            addElementManipulators: options.room.addElementManipulators!==false && options.addElementManipulators!==false});
 
         if (options.activeParticipant) {
             this.parts.pointer = new PointerViewPart({room: options.room, cameraPart: this.parts.camera, scenePart: this.parts.roomScene});

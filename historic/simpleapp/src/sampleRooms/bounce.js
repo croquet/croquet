@@ -135,7 +135,7 @@ class RandomlyColoringGroupElementView extends GroupElementView {
         // but the super() constructor already calls onElementAdded
         if (!this.seedRandom) this.seedRandom = new SeedRandom("VeryRandomSeed");
         for (const threeObj of view.threeObjs()) {
-            threeObj.material.color.setHSL(this.seedRandom(), 0.7, 0.5);
+            threeObj.material.color.setHSL(this.seedRandom(), 0.5, 0.6);
         }
     }
 

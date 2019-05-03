@@ -442,7 +442,7 @@ class IslandWriter {
         for (const modelClass of Model.allClasses()) {
             if (!Object.prototype.hasOwnProperty.call(modelClass, "types")) continue;
             for (const [classId, ClassOrSpec] of Object.entries(modelClass.types())) {
-                const {cls, write} = (typeof ClassOrSpec === "object") ? ClassOrSpec
+                const {cls, write} = (Object.getPrototypeOf(ClassOrSpec) === Object.prototype) ? ClassOrSpec
                     : {cls: ClassOrSpec, write: obj => Object.assign({}, obj)};
                 this.writers.set(cls, (obj, path) => this.writeAs(classId, obj, write(obj), path));
             }
@@ -485,6 +485,7 @@ class IslandWriter {
                     case "Map":
                     case "Uint8Array":
                     case "Uint16Array":
+                    case "Float32Array":
                         return this.writeAs(type, value, [...value], path);
                     case "Object": {
                         if (value instanceof Model) return this.writeModelPart(value, path);
@@ -540,8 +541,10 @@ class IslandWriter {
         if (this.refs.has(object)) return this.writeRef(object);
         const state = {};
         this.refs.set(object, state);      // register ref before recursing
-        for (const [key, value] of Object.entries(object)) {
-            this.writeInto(state, key, value, path, defer);
+        for (const [key, descriptor] of Object.entries(Object.getOwnPropertyDescriptors(object))) {
+            if (descriptor.value !== undefined) {
+                this.writeInto(state, key, descriptor.value, path, defer);
+            }
         }
         return state;
     }
@@ -570,7 +573,19 @@ class IslandWriter {
     writeRef(object) {
         const state = this.refs.get(object);
         if (typeof state !== "object") throw Error("Non-object in refs: " + object);
-        if (Array.isArray(state)) throw Error("need to implement array refs");
+        if (Array.isArray(state)) {
+            // usually, extra proeprties on arrays don't get serialised to JSON
+            // so we use this hack that does a one-time replacement of toJSON
+            // on this particular array
+            state.toJSON = function () {
+                delete this.toJSON;
+                return {
+                    $id: this.$id,
+                    $class: "Array",
+                    $value: this
+                };
+            };
+        }
         const $ref = state.$id || (state.$id = this.nextRef++);
         return {$ref};
     }
@@ -587,7 +602,6 @@ class IslandWriter {
     }
 }
 
-
 class IslandReader {
     constructor(island) {
         this.island = island;
@@ -599,14 +613,16 @@ class IslandReader {
             if (!Object.prototype.hasOwnProperty.call(modelClass, "types")) continue;
             for (const [classId, ClassOrSpec] of Object.entries(modelClass.types())) {
                 const read = (typeof ClassOrSpec === "object") ? ClassOrSpec.read
-                    : state => Object.assign(new ClassOrSpec(), state);
+                    : state => Object.assign(Object.create(ClassOrSpec.prototype), state);
                 this.readers.set(classId, read);
             }
         }
         this.readers.set("Set", array => new Set(array));
         this.readers.set("Map", array => new Map(array));
+        this.readers.set("Array", array => array.slice(0));
         this.readers.set("Uint8Array", array => new Uint8Array(array));
         this.readers.set("Uint16Array", array => new Uint16Array(array));
+        this.readers.set("Float32Array", array => new Float32Array(array));
     }
 
     readIsland(snapshot, root) {
@@ -711,7 +727,7 @@ class IslandReader {
     readAs(classID, state, path) {
         if (classID === "Model") return this.readModelPart(state, path);
         let temp = {};
-        const unresolved = {};
+        const unresolved = new Map();
         if ("$value" in state) temp = this.read(state.$value, path, 2);     // Map needs to resolve array of arrays, so 2
         else for (const [key, value] of Object.entries(state)) {
             if (key[0] === "$") continue;
@@ -720,7 +736,7 @@ class IslandReader {
                 if (this.refs.has(ref)) temp[key] = this.refs.get(ref);
                 else {
                     temp[key] = "placeholder";
-                    unresolved[ref] = key;
+                    unresolved.set(ref, key);
                 }
             } else {
                 this.readInto(temp, key, value, path, 1);
@@ -729,7 +745,7 @@ class IslandReader {
         const reader = this.readers.get(classID);
         const object = reader(temp, path);
         if (state.$id) this.refs.set(state.$id, object);
-        for (const [ref, key] of Object.entries(unresolved)) {
+        for (const [ref, key] of unresolved.entries()) {
             this.unresolved.push({object, key, ref, path});
         }
         return object;
