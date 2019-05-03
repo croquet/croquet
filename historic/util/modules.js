@@ -39,17 +39,38 @@ const rawHTML = document.getElementsByTagName('html')[0].outerHTML;
 const htmlSource = rawHTML.replace(scripts[0], `<script src="${entryPointName}"></script>`);
 if (!htmlSource.includes(entryPointName)) console.error("Entry point substitution failed!");
 
+// persistent storage of developer settings
+export function croquetDev(key, defaultValue=undefined, initFn=null) {
+    const dev = JSON.parse(localStorage.croquetDev || "{}");
+    if (key in dev) return dev[key];
+    if (initFn) {
+        dev[key] = initFn();
+        if (dev[key] !== defaultValue) localStorage.croquetDev = JSON.stringify(dev);
+        return dev[key];
+    }
+    return defaultValue;
+}
+
+// developer user name
+if (window.location.hostname === "localhost") {
+    croquetDev("user", "", () => {
+        // eslint-disable-next-line no-alert
+        return (window.prompt("Please enter developer name (localStorage.croquetDev.user)") || "").toLowerCase();
+    });
+}
 
 const BASE_URL = baseUrl('code');
 
 // we special-case 'croquet.studio' and 'localhost' which have their own server directories
 // all others share a directory but prefix the file name wth the host name
 export function baseUrl(what='code') {
+    const user = croquetDev("user");
     const hostname = window.location.hostname;
     const isSpecial = ['croquet.studio', 'localhost'].includes(hostname);
     const host = isSpecial ? hostname : "other";
+    const suffix = user ? `-${user}` : "";
     const prefix = isSpecial ? "" : `${hostname}/`;
-    return `https://db.croquet.studio/files-v1/${host}/${what}/${prefix}`;
+    return `https://db.croquet.studio/files-v1/${host}/${what}${suffix}/${prefix}`;
 }
 
 function allModules() {
@@ -184,11 +205,13 @@ function nameOf(mod) {
 // uploading
 
 function createMetadata(name) {
-    return {
+    const meta = {
         name,
         date: (new Date()).toISOString(),
         host: window.location.hostname,
     };
+    if (croquetDev("user")) meta.devUser = croquetDev("user");
+    return meta;
 }
 
 async function metadataFor(mod, includeAllFiles=false) {
@@ -274,9 +297,9 @@ export async function uploadCode(entryPoint) {
 
 // work around https://github.com/parcel-bundler/parcel/issues/1838
 
-// deduplicate every module that directly imports this one,
+// deduplicate this, every module that directly imports this one,
 // plus "hotreload" which cannot import this because that would be cyclic
-deduplicateImports([...allImportersOf(module.id), resolveImport(module.id, "./hotreload")]);
+deduplicateImports([module.id, ...allImportersOf(module.id), resolveImport(module.id, "./hotreload")]);
 
 export function deduplicateImports(mods) {
     const modSources = mods.map(m => [m, sourceCodeOf(m)]);

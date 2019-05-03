@@ -23,6 +23,9 @@ const NOCHEAT = urlOptions.nocheat;
 
 const OPTIONS_FROM_URL = [ 'session', 'user', 'tps' ];
 
+// schedule a snapshot after this amount of CPU time has been used for simulation
+const SNAPSHOT_EVERY = 5000;
+
 const Controllers = {};
 const SessionCallbacks = {};
 
@@ -101,12 +104,12 @@ export default class Controller {
         this.users = 0;
         /** wallclock time we last heard from reflector */
         this.lastReceived = Date.now();
-        /** last snapshot taken of the island */
-        this.lastSnapshot = null;
-        /** external messages processed before last snapshot */
-        this.lastMessages = [];
-        /** externalMessages processed after last snapshot*/
-        this.newMessages = [];
+        /** old snapshots */
+        this.snapshots = [];
+        /** external messages already scheduled in the island */
+        this.oldMessages = [];
+        /** CPU time spent simulating since last snapshot */
+        this.cpuTime = 0;
     }
 
     /**
@@ -146,16 +149,18 @@ export default class Controller {
         return island.modelsByName;
     }
 
-    // called by island every 10 sec
-    scheduledSnapshot() {
+    // keep a snapshot in case we need to upload it or for replay
+    keepSnapshot(snapshot=null) {
         Stats.begin("snapshot");
-        // keep snapshot
-        this.lastSnapshot = this.island.snapshot();
-        // keep messages from last 10 snapshots
-        this.lastMessages.push(this.newMessages);
-        while (this.lastMessages.length > 10) this.lastMessages.shift();
-        // start collecting new messages
-        this.newMessages = [];
+        if (!snapshot) snapshot = this.island.snapshot();
+        // keep history
+        this.snapshots.push(snapshot);
+        // limit storage for old snapshots
+        while (this.snapshots.length > 2) this.snapshots.shift();
+        // keep only messages newer than the oldest snapshot
+        const keep = this.snapshots[0].time;
+        const keepIndex = this.oldMessages.findIndex(msg => msg[0] >= keep);
+        this.oldMessages.splice(0, keepIndex);
         Stats.end("snapshot");
     }
 
@@ -163,26 +168,34 @@ export default class Controller {
         if (!this.island) return null;
         // ensure all messages up to this point are in the snapshot
         for (let msg = this.networkQueue.nextNonBlocking(); msg; msg = this.networkQueue.nextNonBlocking()) {
-           this.island.processExternalMessage(msg);
+           this.island.scheduleExternalMessage(msg);
         }
         return this.island.snapshot();
     }
 
-    snapshotUrl() {
+    // we have spent a certain amount of CPU time on simulating, schedule a snapshot
+    scheduleSnapshot() {
+        // round up to next ms to make URLs shorter
+        const time = Math.ceil(this.island.time + 0.0000001);
+        this.island.scheduleSnapshot(time - this.island.time);
+    }
+
+    scheduledSnapshot() {
+        this.keepSnapshot();
+        // for now, just upload every snapshot - later, reflector will tell us when we should upload
+        this.uploadLatest();
+    }
+
+    snapshotUrl(suffix) {
         // name includes JSON options
         const options = this.islandCreator.name.split(/[^A-Z0-9]+/i);
-        const snapshotName = `${options.filter(_=>_).join('-')}-${this.id}`;
+        const snapshotName = `${options.filter(_=>_).join('-')}-${this.id}_${suffix}`;
         const base = baseUrl('snapshots');
         return `${base}${snapshotName}.json`;
     }
 
     /** upload a snapshot to the asset server */
-    async uploadSnapshot() {
-        if (!this.island) return false;
-        if (this.lastSnapshotTime === this.island.time) return false;
-        this.lastSnapshotTime = this.island.time;
-        // take snapshot
-        const snapshot = this.takeSnapshot();
+    async uploadSnapshot(snapshot) {
         snapshot.meta = {
             ...this.islandCreator.snapshot.meta,
             room: this.islandCreator.room,
@@ -191,24 +204,54 @@ export default class Controller {
             host: window.location.hostname,
         };
         if (codeHashes) snapshot.meta.code = codeHashes;
-        const string = JSON.stringify(snapshot);
-        const url = this.snapshotUrl();
-        console.log(this.id, `Controller uploading snapshot (${string.length} bytes) to ${url}`);
+        const body = JSON.stringify(snapshot);
+        const url = this.snapshotUrl(`${snapshot.time}-snap`);
+        console.log(this.id, `Controller uploading snapshot (${body.length} bytes) to ${url}`);
         try {
             await fetch(url, {
                 method: "PUT",
                 mode: "cors",
                 headers: { "Content-Type": "application/json" },
-                body: string,
+                body,
             });
-            return true;
+            return url;
         } catch (e) {
             return false;
         }
     }
 
-    async fetchSnapshot() {
-        const url = this.snapshotUrl();
+    // upload snapshot and message history
+    async uploadLatest() {
+        const snapshotUrl = await this.uploadSnapshot(this.lastSnapshot);
+        if (!snapshotUrl) { console.error("Failed to upload snapshot"); return; }
+        if (!this.prevSnapshot) return;
+        const lastTime = this.lastSnapshot.time;
+        const prevTime = this.prevSnapshot.time;
+        const prevIndex = this.oldMessages.findIndex(msg => msg[0] >= prevTime);
+        const lastIndex = this.oldMessages.findIndex(msg => msg[0] >= lastTime);
+        const messages = {
+            start: this.snapshotUrl(`${prevTime}-snap`),
+            end: snapshotUrl,
+            time: [prevTime, lastTime],
+            messages: this.oldMessages.slice(prevIndex, lastIndex),
+        };
+        const messagesUrl = this.snapshotUrl(`${prevTime}-msgs`);
+
+        const body = JSON.stringify(messages);
+        console.log(this.id, `Controller uploading latest messages (${body.length} bytes) to ${messagesUrl}`);
+        try {
+            await fetch(messagesUrl, {
+                method: "PUT",
+                mode: "cors",
+                headers: { "Content-Type": "application/json" },
+                body,
+            });
+        } catch (e) { /*ignore */ }
+    }
+
+    /*
+    async fetchSnapshot(time) {
+        const url = this.snapshotUrl(time);
         const response = await fetch(url, {
             mode: "cors",
         });
@@ -235,6 +278,13 @@ export default class Controller {
             console.log(this.id, 'Controller got no snapshot');
         }
     }
+    */
+
+    /** the latest snapshot of this island */
+    get lastSnapshot() { return this.snapshots[this.snapshots.length - 1]; }
+
+    /** the snapshot before latest snapshot */
+    get prevSnapshot() { return this.snapshots[this.snapshots.length - 2]; }
 
     /** @type String: this controller's island id */
     get id() { return this.island ? this.island.id : this.islandCreator.snapshot.id; }
@@ -276,6 +326,8 @@ export default class Controller {
                 console.log(this.id, 'Controller received START - creating island');
                 this.install(false);
                 this.requestTicks();
+                this.keepSnapshot();
+                this.uploadLatest(); // upload initial snapshot
                 break;
             }
             case 'SYNC': {
@@ -284,6 +336,7 @@ export default class Controller {
                 console.log(this.id, 'Controller received SYNC - resuming snapshot');
                 this.install(true);
                 this.getTickAndMultiplier();
+                this.keepSnapshot(args);
                 break;
             }
             case 'RECV': {
@@ -356,7 +409,7 @@ export default class Controller {
             const nextMsg = await this.networkQueue.next();
             if (nextMsg[0] > snapshotTime) {
                 // This is the first 'real' message arriving.
-                newIsland.processExternalMessage(nextMsg);
+                newIsland.scheduleExternalMessage(nextMsg);
                 drainQueue = false;
             }
             // otherwise, silently skip the message
@@ -380,7 +433,6 @@ export default class Controller {
     // network queue
 
     async join(socket) {
-        if (this.fetchUpdatedSnapshot) await this.updateSnapshot();
         console.log(this.id, 'Controller sending JOIN');
         this.socket = socket;
         const name = this.islandCreator.name;
@@ -392,6 +444,7 @@ export default class Controller {
     }
 
     leave(preserveSnapshot) {
+        delete Controllers[this.id];
         const {destroyerFn} = this.islandCreator;
         const snapshot = preserveSnapshot && destroyerFn && this.takeSnapshot();
         this.reset();
@@ -469,21 +522,23 @@ export default class Controller {
     simulate(deadline) {
         if (!this.island) return true;     // we are probably still sync-ing
         try {
-            Stats.begin("simulate");
+            this.cpuTime -= Stats.begin("simulate");
             let weHaveTime = true;
             while (weHaveTime) {
                 // Get the next message from the (concurrent) network queue
                 const msgData = this.networkQueue.nextNonBlocking();
                 if (!msgData) break;
-                this.newMessages.push(msgData);
                 // have the island decode and schedule that message
-                const msg = this.island.processExternalMessage(msgData);
+                const msg = this.island.scheduleExternalMessage(msgData);
+                // remember msgData for upload / replay
+                this.oldMessages.push(msgData);
                 // simulate up to that message
                 weHaveTime = this.island.advanceTo(msg.time, deadline);
             }
             if (weHaveTime) weHaveTime = this.island.advanceTo(this.time, deadline);
-            Stats.end("simulate");
+            this.cpuTime += Stats.end("simulate");
             Stats.backlog(this.backlog);
+            if (weHaveTime && this.cpuTime > SNAPSHOT_EVERY) { this.cpuTime = 0; this.scheduleSnapshot(); }
             return weHaveTime;
         } catch (e) {
             Controller.closeConnectionWithError('simulate', e);
