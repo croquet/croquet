@@ -9,8 +9,6 @@ import { viewDomain } from "./domain";
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
-const SCHEDULED_SNAPSHOT = 10000;
-
 /** @type {Island} */
 let CurrentIsland = null;
 
@@ -323,9 +321,12 @@ export default class Island {
         inViewRealm(this, () => viewDomain.processFrameEvents());
     }
 
+    scheduleSnapshot(delta) {
+        this.futureSend(delta, this.id, "scheduledSnapshot", []);
+    }
+
     scheduledSnapshot() {
         this.controller.scheduledSnapshot();
-        this.futureSend(SCHEDULED_SNAPSHOT, this.id, "scheduledSnapshot", []);
     }
 
     snapshot() {
