@@ -113,6 +113,8 @@ class RoomScene extends ViewPart {
         this.threeObj = this.scene;
 
         this.subscribe(options.room.parts.color.id, ColorEvents.changed, data => this.colorChanged(data));
+
+        if (urlOptions.debug || window.location.hostname === "localhost") document.body.className = "debug";
     }
 
     colorChanged(newColor) {
@@ -140,8 +142,6 @@ class InteractionDome extends ViewPart {
                 ]
             })
         };
-
-        if (urlOptions.debug || window.location.hostname === "localhost") document.body.className = "debug";
 
         this.escapeKeyHandler = e => {
             if (e.key === "Escape") {
