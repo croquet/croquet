@@ -70,7 +70,7 @@ export function baseUrl(what='code') {
     const host = isSpecial ? hostname : "other";
     const suffix = user ? `-${user}` : "";
     const prefix = isSpecial ? "" : `${hostname}/`;
-    return `https://db.croquet.studio/files-v1/${host}${suffix}/${what}/${prefix}`;
+    return `https://db.croquet.studio/files-v1/${host}/${what}${suffix}/${prefix}`;
 }
 
 function allModules() {
