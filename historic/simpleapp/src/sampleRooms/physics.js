@@ -47,7 +47,7 @@ export class OimoWorld extends ModelPart {
         const dummyWorld = new OIMO.World({
             timestep: 1/60,
             iterations: 16,
-            broadphase: 2,
+            broadphase: 3,
             worldscale: 1,
             random: true,
             info: false,
@@ -89,7 +89,7 @@ export class OimoWorld extends ModelPart {
         this.world = new OIMO.World({
             timestep: 1/60,
             iterations: 8,
-            broadphase: 2, // 1 brute force, 2 sweep and prune, 3 volume tree
+            broadphase: 3, // 1 brute force, 2 sweep and prune, 3 volume tree
             worldscale: 1, // scale full world
             random: true,  // randomize sample
             info: false,   // calculate statistic or not
