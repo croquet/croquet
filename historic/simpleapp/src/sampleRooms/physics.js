@@ -49,7 +49,7 @@ export class OimoWorld extends ModelPart {
             iterations: 16,
             broadphase: 3,
             worldscale: 1,
-            random: true,
+            random: false,
             info: false,
             gravity: [0, -9.82, 0]
         });
@@ -91,7 +91,7 @@ export class OimoWorld extends ModelPart {
             iterations: 8,
             broadphase: 3, // 1 brute force, 2 sweep and prune, 3 volume tree
             worldscale: 1, // scale full world
-            random: true,  // randomize sample
+            random: false,  // randomize sample
             info: false,   // calculate statistic or not
             gravity: [0, -9.82, 0]
         });
