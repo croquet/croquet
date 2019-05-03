@@ -3,6 +3,7 @@
 const WebSocket = require('ws');
 
 const port = 9090;
+const SERVE_TIMEOUT = 10000;  // time in ms to wait for SERVE
 const TICK_MS = 1000 / 5;     // default tick interval
 const ARTIFICAL_DELAY = 0;    // delay messages randomly by 50% to 150% of this
 const MAX_MESSAGES = 10000;   // messages per island to retain since last snapshot
@@ -226,7 +227,7 @@ function JOIN(client, id, args) {
             LOG('sending', provider.addr, msg);
             provider.safeSend(msg);
             clearTimeout(island.serveTimeout);
-            island.serveTimeout = setTimeout(() => sendServeRequest("SERVE timeout from " + provider.addr), 1000);
+            island.serveTimeout = setTimeout(() => sendServeRequest("SERVE timeout from " + provider.addr), SERVE_TIMEOUT);
             return;
         }
 
