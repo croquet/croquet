@@ -441,14 +441,19 @@ class IslandWriter {
         this.refs = new Map();
         this.todo = []; // we use breadth-first writing to limit stack depth
         this.writers = new Map();
+        this.addWriter(module.id + ":Message", Message);
         for (const modelClass of Model.allClasses()) {
             if (!Object.prototype.hasOwnProperty.call(modelClass, "types")) continue;
             for (const [classId, ClassOrSpec] of Object.entries(modelClass.types())) {
-                const {cls, write} = (Object.getPrototypeOf(ClassOrSpec) === Object.prototype) ? ClassOrSpec
-                    : {cls: ClassOrSpec, write: obj => Object.assign({}, obj)};
-                this.writers.set(cls, (obj, path) => this.writeAs(classId, obj, write(obj), path));
+                this.addWriter(classId, ClassOrSpec);
             }
         }
+    }
+
+    addWriter(classId, ClassOrSpec) {
+        const {cls, write} = (Object.getPrototypeOf(ClassOrSpec) === Object.prototype) ? ClassOrSpec
+            : {cls: ClassOrSpec, write: obj => Object.assign({}, obj)};
+        this.writers.set(cls, (obj, path) => this.writeAs(classId, obj, write(obj), path));
     }
 
     snapshot(island) {
@@ -611,12 +616,11 @@ class IslandReader {
         this.todo = [];   // we use breadth-first reading to limit stack depth
         this.unresolved = [];
         this.readers = new Map();
+        this.addReader(module.id + ":Message", Message);
         for (const modelClass of Model.allClasses()) {
             if (!Object.prototype.hasOwnProperty.call(modelClass, "types")) continue;
             for (const [classId, ClassOrSpec] of Object.entries(modelClass.types())) {
-                const read = (typeof ClassOrSpec === "object") ? ClassOrSpec.read
-                    : state => Object.assign(Object.create(ClassOrSpec.prototype), state);
-                this.readers.set(classId, read);
+                this.addReader(classId, ClassOrSpec);
             }
         }
         this.readers.set("Set", array => new Set(array));
@@ -625,6 +629,12 @@ class IslandReader {
         this.readers.set("Uint8Array", array => new Uint8Array(array));
         this.readers.set("Uint16Array", array => new Uint16Array(array));
         this.readers.set("Float32Array", array => new Float32Array(array));
+    }
+
+    addReader(classId, ClassOrSpec) {
+        const read = (typeof ClassOrSpec === "object") ? ClassOrSpec.read
+            : state => Object.assign(Object.create(ClassOrSpec.prototype), state);
+        this.readers.set(classId, read);
     }
 
     readIsland(snapshot, root) {
