@@ -176,8 +176,6 @@ export default class PointerViewPart extends ViewPart {
                         break;
                     }
                 }
-                this.hoverPoint = hoverPoint;
-                this.hoverNormal = hoverNormal;
                 this.hoverThreeObj = hoverThreeObj;
             }
 
@@ -201,7 +199,9 @@ export default class PointerViewPart extends ViewPart {
                     this.hoverPoint = null;
                 }
             }
-            else if (this.hoveredViewPart && this.hoveredViewPart === newlyHoveredViewPart) {
+            if (this.hoveredViewPart && this.hoveredViewPart === newlyHoveredViewPart && !(this.hoverPoint && hoverPoint.equals(this.hoverPoint) && hoverNormal.equals(this.hoverNormal))) {
+                this.hoverPoint = hoverPoint;
+                this.hoverNormal = hoverNormal;
                 this.publish(
                     newlyHoveredViewPart.id,
                     PointerEvents.pointerMove,
