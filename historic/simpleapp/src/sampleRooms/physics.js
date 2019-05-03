@@ -8,6 +8,8 @@ import Tracking from '../viewParts/tracking';
 import { PointerEvents, makePointerSensitive } from '../viewParts/pointer';
 import { RandomlyColoringGroupElement } from './bounce';
 
+const USER = Math.random() + "";
+
 export const PhysicsEvents = {
     worldStepped: "physics-worldStepped"
 };
@@ -258,11 +260,14 @@ export class OimoGround extends ModelPart {
         });
         this.parts.spatial.moveTo(options.position);
         this.parts.spatial.scaleTo(options.size);
-        this.paddle = this.world.world.add({ type:'cylinder', size:[0.3, 0.6, 0.3], pos:[0,0.15,0], density:1, move:true, kinematic:true, material:'kinematic' });
+        this.paddles = {};
     }
 
-    movePaddleTo(newPos) {
-        this.paddle.setPosition(newPos);
+    movePaddleTo(newPos, user) {
+        if (!this.paddles[user]) {
+            this.paddles[user] = this.world.world.add({ type:'cylinder', size:[0.3, 0.6, 0.3], pos:[0,-100,0], density:1, move:true, kinematic:true, material:'kinematic' });
+        }
+        this.paddles[user].setPosition(newPos);
     }
 
     naturalViewClass() {
@@ -281,31 +286,38 @@ export class OimoGroundView extends ViewPart {
             new THREE.MeshStandardMaterial({color: "#888888"})
         );
 
-        const paddleShape = options.model.paddle.shapes;
-
-        this.paddleBox = new THREE.Mesh(
-            new THREE.CylinderBufferGeometry(1, 1, 1, 20),
-            new THREE.MeshStandardMaterial({color: "#ffffff", opacity: 0.6, transparent: true, metalness: 0.2, roughness: 0.8})
-        );
-
-        this.paddleBox.scale.set(paddleShape.radius, paddleShape.height, paddleShape.radius);
+        this.paddleTubes = {};
+        this.paddleTubesGroup = new THREE.Group();
 
         this.groundBox.position.copy(options.model.ground.getPosition());
 
         makePointerSensitive(this.groundBox, this);
         this.subscribe(this.id, PointerEvents.pointerMove, ({hoverPoint}) => {
-            const targetPoint = hoverPoint.clone().add(new THREE.Vector3(0, paddleShape.height / 2, 0));
-            options.model.future(0).movePaddleTo(targetPoint);
-            this.paddleBox.position.copy(targetPoint);
+            const targetPoint = hoverPoint.clone().add(new THREE.Vector3(0, 0.3, 0));
+            options.model.future(0).movePaddleTo(targetPoint, USER);
         });
 
         this.subscribe(options.model.world, PhysicsEvents.worldStepped, () => {
-            this.paddleBox.position.copy(options.model.paddle.getPosition());
+            for (const [user, paddle] of Object.entries(options.model.paddles)) {
+                if (!this.paddleTubes[user]) {
+                    const paddleShape = paddle.shapes;
+
+                    this.paddleTubes[user] = new THREE.Mesh(
+                        new THREE.CylinderBufferGeometry(1, 1, 1, 20),
+                        new THREE.MeshStandardMaterial({color: "#ffffff", opacity: 0.6, transparent: true, metalness: 0.2, roughness: 0.8})
+                    );
+
+                    this.paddleTubes[user].scale.set(paddleShape.radius, paddleShape.height, paddleShape.radius);
+
+                    this.paddleTubesGroup.add(this.paddleTubes[user]);
+                }
+                this.paddleTubes[user].position.copy(paddle.getPosition());
+            }
         });
     }
 
     threeObjs() {
-        return [this.groundBox, this.paddleBox];
+        return [this.groundBox, this.paddleTubesGroup];
     }
 }
 

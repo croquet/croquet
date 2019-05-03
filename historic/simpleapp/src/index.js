@@ -47,7 +47,7 @@ async function start() {
     Controller.addMessageTranscoder('*>setColor', Identity);
     Controller.addMessageTranscoder('*>handleModelEventInModel', Identity);
     Controller.addMessageTranscoder('*>receiveEditEvents', Identity);
-    Controller.addMessageTranscoder('*>movePaddleTo', Vec3);
+    Controller.addMessageTranscoder('*>movePaddleTo', Identity);
 
     let reflector = "wss://dev1.os.vision/reflector-v1";
     if ("reflector" in urlOptions) reflector = urlOptions.reflector;
