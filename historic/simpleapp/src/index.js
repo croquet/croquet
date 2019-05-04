@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { Controller } from "@croquet/teatime";
-import { hotreload, urlOptions, Stats } from "@croquet/util";
+import { hotreload, urlOptions, Stats, displaySessionMoniker } from "@croquet/util";
 import room1 from "./sampleRooms/room1";
 import room2 from "./sampleRooms/room2";
 import room3 from "./sampleRooms/room3";
@@ -107,6 +107,7 @@ async function start() {
                 roomViewManager.detach(roomName);
                 creator.snapshot = snapshot;
                 if (currentRoomName === roomName) {
+                    displaySessionMoniker('', 'reset');
                     console.log("destroyer: re-joining " + roomName);
                     currentRoomName = null;
                     joinRoom(roomName);
@@ -117,6 +118,7 @@ async function start() {
             ROOM.namedModelsPromise = controller.createIsland(roomName, creator);
             ROOM.controller = controller;
             ROOM.namedModels = await ROOM.namedModelsPromise;
+            displaySessionMoniker(controller.id, 'reset');
             if (!speedSlider) speedSlider = controller.inViewRealm(() => new SpeedSliderView());
             speedSlider.attach(ROOM.namedModels.speedSlider, controller);
             return ROOM.namedModels;

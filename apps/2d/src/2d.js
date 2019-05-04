@@ -1,5 +1,6 @@
 import Stats from "@croquet/util/stats";
 import urlOptions from "@croquet/util/urlOptions";
+import { displaySessionMoniker } from "@croquet/util/html";
 import { Model, View, Controller } from "@croquet/teatime";
 
 
@@ -263,10 +264,12 @@ async function go() {
             },
             destroyerFn(prevSnapshot) {
                 window.top.postMessage({connected: -1}, "*");
+                displaySessionMoniker('');
                 if (rootView) rootView.detach();
                 bootstrapModelsAndViews(prevSnapshot);
             }
         });
+        displaySessionMoniker(controller.id);
 
         // create views
         controller.inViewRealm(() => {

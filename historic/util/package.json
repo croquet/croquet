@@ -11,7 +11,8 @@
   "license": "ISC",
   "dependencies": {
     "fastpriorityqueue": "^0.6.1",
-    "hashids": "^1.2.2"
+    "hashids": "^1.2.2",
+    "seedrandom": "^2.4.4"
   },
   "devDependencies": {
     "eslint": "^5.14.1",
