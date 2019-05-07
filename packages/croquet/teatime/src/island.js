@@ -503,9 +503,6 @@ class IslandWriter {
                         throw Error(`Don't know how to write ${value.constructor.name} at ${path}`);
                     }
                     case "Null": return value;
-                    case "Function":
-                        if (path === "$._random") return this.writeAs("Random", value, value.state(), path);
-                        // fall through
                     default:
                         throw Error(`Don't know how to write ${type} at ${path}`);
                 }
