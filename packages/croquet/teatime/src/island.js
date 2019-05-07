@@ -362,33 +362,23 @@ export default class Island {
 }
 
 
-/** Message encoders / decoders.
- * Pattern is "receiver>selector" or "*>selector" or "*"
- * @type { { pattern: {encoder: Function, decoder: Function} }'receiver#selector'
- */
-const transcoders = {};
-
-export function addMessageTranscoder(pattern, transcoder) {
-    transcoders[pattern] = transcoder;
-}
+export function addMessageTranscoder() {}
 
 function encode(receiver, selector, args) {
     if (args.length > 0) {
-        const transcoder = transcoders[`${receiver}>${selector}`] || transcoders[`*>${selector}`] || transcoders['*'];
-        if (!transcoder) throw Error(`No transcoder defined for ${receiver}>${selector}`);
-        args = transcoder.encode(args);
+        const encoder = new MessageArgumentEncoder();
+        args = encoder.encode(args);
     }
     return `${receiver}>${selector}${args.length > 0 ? JSON.stringify(args):""}`;
 }
 
-function decode(payload) {
+function decode(payload, island) {
     const [_, msg, argString] = payload.match(/^([^[]+)(\[.*)?$/i);
     const [receiver, selector] = msg.split('>');
     let args = [];
     if (argString) {
-        const transcoder = transcoders[`${receiver}>${selector}`] || transcoders[`*>${selector}`] || transcoders['*'];
-        if (!transcoder) throw Error(`No transcoder defined for ${receiver}>${selector}`);
-        args = transcoder.decode(JSON.parse(argString));
+        const decoder = new MessageArgumentDecoder(island);
+        args = decoder.decode(JSON.parse(argString));
     }
     return {receiver, selector, args};
 }
@@ -425,7 +415,7 @@ class Message {
     }
 
     executeOn(island) {
-        const { receiver, selector, args } = decode(this.payload);
+        const { receiver, selector, args } = decode(this.payload, island);
         const object = island.lookUpModel(receiver);
         if (!object) console.warn(`Error executing ${this}: receiver not found`);
         else if (typeof object[selector] !== "function") console.warn(`Error executing ${this}: method not found`);
@@ -639,6 +629,7 @@ class IslandReader {
             if (!islandData[key]) this.readInto(islandData, key, value, root);
         }
         this.readDeferred();
+        this.resolveRefs();
         return islandData;
     }
 
@@ -647,6 +638,9 @@ class IslandReader {
             const {object, key, value, path} = this.todo.shift();
             this.readInto(object, key, value, path, 1);
         }
+    }
+
+    resolveRefs() {
         for (const {object, key, ref, path} of this.unresolved) {
             if (this.refs.has(ref)) {
                 object[key] = this.refs.get(ref);
@@ -757,14 +751,34 @@ class IslandReader {
 }
 
 
-class MessageWriter extends IslandWriter {
-    serializeMessage(message) {
-        const state = this.writeObject(message, '$');
+class MessageArgumentEncoder extends IslandWriter {
+    encode(args) {
+        const encoded = this.writeArray(args, '$');
         this.writeDeferred();
-        return state;
+        return encoded;
     }
 
-    writeModel(model, path) {
+    writeModel(model) {
         return { $ref: model.id };
+    }
+}
+
+class MessageArgumentDecoder extends IslandReader {
+    decode(args) {
+        const decoded = this.readArray(args, '$');
+        this.readDeferred();
+        return decoded;
+    }
+
+    resolveRefs() {
+        for (const {object, key, ref, path} of this.unresolved) {
+            if (this.refs.has(ref)) {
+                object[key] = this.refs.get(ref);
+            } else {
+                const model = this.island.lookUp(ref);
+                if (model) object[key] = model;
+                else throw Error(`Unresolved ref: ${ref} at ${path}[${JSON.stringify(key)}]`);
+            }
+        }
     }
 }
