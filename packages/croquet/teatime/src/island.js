@@ -362,8 +362,6 @@ export default class Island {
 }
 
 
-export function addMessageTranscoder() {}
-
 function encode(receiver, selector, args) {
     if (args.length > 0) {
         const encoder = new MessageArgumentEncoder();

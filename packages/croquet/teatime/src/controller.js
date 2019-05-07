@@ -4,7 +4,7 @@ import hotreload from "@croquet/util/hotreload";
 import urlOptions from "@croquet/util/urlOptions";
 import { baseUrl, hashNameAndCode, uploadCode, croquetDev } from "@croquet/util/modules";
 import { inViewRealm } from "./realms";
-import Island, { addMessageTranscoder } from "./island";
+import Island from "./island";
 
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
@@ -30,7 +30,6 @@ const Controllers = {};
 const SessionCallbacks = {};
 
 export default class Controller {
-    static addMessageTranscoder(...args) { addMessageTranscoder(...args); }
     static connectToReflector(mainModuleID, reflectorUrl) {
         if (!urlOptions.noupload) uploadCode(mainModuleID).then(hashes => codeHashes = hashes);
         connectToReflector(reflectorUrl);
