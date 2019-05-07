@@ -459,7 +459,6 @@ class IslandWriter {
 
     snapshot(island) {
         const state = {
-            modelsById: this.writeModels(island.modelsById),
             _random: island._random.state(),
             messages: this.write(island.messages.asUnsortedArray()),
         };
@@ -496,7 +495,7 @@ class IslandWriter {
                     case "Float32Array":
                         return this.writeAs(type, value, [...value], path);
                     case "Object": {
-                        if (value instanceof Model) return this.writeModelPart(value, path);
+                        if (value instanceof Model) return this.writeModel(value, path);
                         if (value.constructor === Object) return this.writeObject(value, path, defer);
                         const writer = this.writers.get(value.constructor);
                         if (writer) return writer(value, path);
@@ -510,33 +509,14 @@ class IslandWriter {
         }
     }
 
-    writeModels(modelsById) {
-        const states = [];
-        for (const model of Object.values(modelsById)) {
-            const state = {
-                id: model.id,
-                $class: Model.classToID(model.constructor),
-            };
-            this.refs.set(model, state);    // register ref before recursing
-            for (const [key, value] of Object.entries(model)) {
-                if (key === "id" || key === "__realm") continue;
-                this.writeInto(state, key, value, `$["${model.id}"]`);
-            }
-            states.push(state);
-        }
-        return states;
-    }
-
-    writeModelPart(model, path) {
+    writeModel(model, path) {
         if (this.refs.has(model)) return this.writeRef(model);
         const state = {
-            id: model.id,
-            $class: "Model",
             $model: Model.classToID(model.constructor),
         };
         this.refs.set(model, state);      // register ref before recursing
         for (const [key, value] of Object.entries(model)) {
-            if (key === "id" || key === "__realm") continue;
+            if (key === "__realm") continue;
             this.writeInto(state, key, value, path);
         }
         return state;
@@ -596,6 +576,7 @@ class IslandWriter {
     }
 
     writeInto(state, key, value, path, defer=true) {
+        if (key[0] === '$') { console.warn(`ignoring property ${path}`); return; }
         if (defer && typeof value === "object") {
             this.todo.push({state, key, value, path});
             return;
@@ -638,7 +619,6 @@ class IslandReader {
     readIsland(snapshot, root) {
         if (root !== "$") throw Error("Island must be root object");
         const islandData = {
-            modelsById: this.readModels(snapshot.modelsById),
             _random: new SeedRandom(null, { state: snapshot._random }),
         };
         for (const [key, value] of Object.entries(snapshot)) {
@@ -674,10 +654,11 @@ class IslandReader {
                     case "Array": return this.readArray(value, path, nodefer);
                     case "Null": return null;
                     case "Object": {
-                        const { $class, $ref } = value;
+                        const { $class, $model, $ref } = value;
                         if ($ref) throw Error("refs should have been handled in readInto()");
+                        if ($model) return this.readModel(value, path);
                         if ($class) return this.readAs($class, value, path);
-                        return this.readObject(value, path, nodefer);
+                        return this.readObject(Object, value, path, nodefer);
                     }
                     default:
                         throw Error(`Don't know how to read ${type} at ${path}`);
@@ -686,37 +667,15 @@ class IslandReader {
         }
     }
 
-    readModels(states) {
-        const modelsById = {};
-        for (const state of states) {
-            const { $class, id, $id } = state;
-            const ModelClass = Model.classFromID($class);
-            const model = new ModelClass();
-            modelsById[id] = model;
-            if ($id) this.refs.set($id, model);
-            for (const [key, value] of Object.entries(state)) {
-                if (key[0] === "$") continue;
-                this.readInto(model, key, value, `$["${state.id}"]`);
-            }
-            model.__realm = currentRealm();
-        }
-        return modelsById;
-    }
-
-    readModelPart(state, path) {
+    readModel(state, path) {
         const ModelClass = Model.classFromID(state.$model);
-        const model = new ModelClass();
-        if (state.$id) this.refs.set(state.$id, model);
-        for (const [key, value] of Object.entries(state)) {
-            if (key[0] === "$") continue;
-            this.readInto(model, key, value, path);
-        }
+        const model = this.readObject(ModelClass, state, path);
         model.__realm = currentRealm();
         return model;
     }
 
-    readObject(state, path, nodefer=0) {
-        const object = {};
+    readObject(Class, state, path, nodefer=0) {
+        const object = new Class();
         if (state.$id) this.refs.set(state.$id, object);
         for (const [key, value] of Object.entries(state)) {
             if (key[0] === "$") continue;
@@ -734,7 +693,6 @@ class IslandReader {
     }
 
     readAs(classID, state, path) {
-        if (classID === "Model") return this.readModelPart(state, path);
         let temp = {};
         const unresolved = new Map();
         if ("$value" in state) temp = this.read(state.$value, path, 2);     // Map needs to resolve array of arrays, so 2
