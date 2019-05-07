@@ -182,8 +182,10 @@ export async function hashNameAndCode(name) {
 const names = {};
 const assets = [];
 
-function resolveNames(entry) {
-    names[entry] = entryPointName;
+// resolve names now, before deduplicating below
+resolveNames();
+
+function resolveNames() {
     // get all path names
     for (const m of allModuleIDs()) {
         for (const [name, id] of Object.entries(namedImportsOf(m))) {
@@ -283,7 +285,7 @@ async function uploadAsset(asset) {
 
 /** upload code for all modules */
 export async function uploadCode(entryPoint) {
-    resolveNames(entryPoint);
+    names[entryPoint] = entryPointName;
     uploadHTML();
     for (const mod of allModuleIDs()) {
         uploadModule(mod, mod === entryPoint);
