@@ -62,9 +62,11 @@ export default class Island {
                 this.id = snapshot.id; // the controller always provides an ID
                 /** @type {Number} how far simulation has progressed */
                 this.time = 0;
-                /** @type {Number} timestamp of last external message */
+                /** @type {Number} timestamp of last scheduled external message */
                 this.externalTime = 0;
-                /** @type {Number} sequence number for disambiguating messages with same timestamp */
+                /** @type {Number} sequence number of last executed external message */
+                this.externalSeq = 0xFFFFFFF0;
+                /** @type {Number} sequence number for disambiguating future messages with same timestamp */
                 this.sequence = 0;
                 /** @type {Number} number for giving ids to model */
                 this.modelsId = 0;
@@ -192,16 +194,21 @@ export default class Island {
     /**
      * Process pending messages for this island and advance simulation.
      * Must only be sent by controller!
-     * @param {Number} time - simulate up to this time
+     * @param {Number} newTime - simulate at most up to this time
      * @param {Number} deadline - CPU time deadline for interrupting simulation
      * @returns {Boolean} true if finished simulation before deadline
      */
-    advanceTo(time, deadline) {
+    advanceTo(newTime, deadline) {
         if (CurrentIsland) throw Error("Island Error");
         let count = 0;
         let message;
-        while ((message = this.messages.peek()) && message.time <= time) {
-            if (message.time < this.time) throw Error("past message encountered: " + message);
+        while ((message = this.messages.peek()) && message.time <= newTime) {
+            const { time, seq } = message;
+            if (time < this.time) throw Error("past message encountered: " + message);
+            if (seq & 1) {
+                this.externalSeq = (this.externalSeq + 1) & 0xFFFFFFFF;
+                if (seq >> 1 !== this.externalSeq) throw Error(`Sequence error: expected ${this.externalSeq} got ${seq >> 1} in ${message}`);
+            }
             this.messages.poll();
             if (this.time !== message.time) {
                 this.time = message.time;
@@ -211,7 +218,7 @@ export default class Island {
             message.executeOn(this);
             if (++count > 100) { count = 0; if (Date.now() > deadline) return false; }
         }
-        this.time = time;
+        this.time = newTime;
         return true;
     }
 

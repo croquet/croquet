@@ -122,7 +122,7 @@ function JOIN(client, id, args) {
         id,                  // the island id
         name,                // the island name (might be null)
         time,                // the current simulation time
-        sequence: 0,         // sequence number for messages with same time
+        sequence: 0xFFFFFFF0,// sequence number for messages with same time
         scale: 1,            // ratio of island time to wallclock time
         tick: TICK_MS,       // default tick rate
         delay: 0,            // hold messages until this many ms after last tick
