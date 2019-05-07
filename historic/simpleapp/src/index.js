@@ -40,14 +40,6 @@ const Identity = {
 
 /** The main function. */
 async function start() {
-    Controller.addMessageTranscoder('*>moveTo', Vec3);
-    Controller.addMessageTranscoder('*>rotateTo', Quat);
-    Controller.addMessageTranscoder('*>onKeyDown', Identity);
-    Controller.addMessageTranscoder('*>updateContents', Identity);
-    Controller.addMessageTranscoder('*>setColor', Identity);
-    Controller.addMessageTranscoder('*>handleModelEventInModel', Identity);
-    Controller.addMessageTranscoder('*>receiveEditEvents', Identity);
-    Controller.addMessageTranscoder('*>movePaddleTo', Identity);
 
     let reflector = "wss://dev1.os.vision/reflector-v1";
     if ("reflector" in urlOptions) reflector = urlOptions.reflector;
