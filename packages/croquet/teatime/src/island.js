@@ -73,8 +73,9 @@ export default class Island {
                     const reader = new IslandReader(this);
                     const islandData = reader.readIsland(snapshot, "$");
                     // only read keys declared above
-                    for (const key of Object.keys(this)) {
-                        if (key === "messages") for (const msg of islandData.messages) this.messages.add(msg);
+                    for (const key of Object.keys(islandData)) {
+                        if (!(key in this)) console.warn(`Ignoring unknown property snapshot.${key}`);
+                        else if (key === "messages") for (const msg of islandData.messages) this.messages.add(msg);
                         else this[key] = islandData[key];
                     }
                 } else {
