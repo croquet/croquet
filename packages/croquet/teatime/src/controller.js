@@ -598,7 +598,8 @@ const PING_INTERVAL = 1000 / 5;
 
 function PING() {
     if (!TheSocket || TheSocket.readyState !== WebSocket.OPEN) return;
-    TheSocket.send(JSON.stringify({ action: 'PING', args: Date.now()}));
+    if (TheSocket.bufferedAmount) console.log(`Stalled: ${TheSocket.bufferedAmount} bytes unsent`);
+    else TheSocket.send(JSON.stringify({ action: 'PING', args: Date.now()}));
 }
 
 // one reason for having this is to prevent the connection from going idle,
