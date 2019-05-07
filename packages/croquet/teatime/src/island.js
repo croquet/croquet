@@ -741,3 +741,16 @@ class IslandReader {
         object[key] = this.read(value, newPath, nodefer > 0 ? nodefer - 1 : 0);
     }
 }
+
+
+class MessageWriter extends IslandWriter {
+    serializeMessage(message) {
+        const state = this.writeObject(message, '$');
+        this.writeDeferred();
+        return state;
+    }
+
+    writeModel(model, path) {
+        return { $ref: model.id };
+    }
+}
