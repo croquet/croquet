@@ -100,6 +100,8 @@ export default class Controller {
         this.networkQueue = new AsyncQueue();
         /** the time of last message received from reflector */
         this.time = 0;
+        /** sequence number of last message received from reflector */
+        this.sequence = 0;
         /** the number of concurrent users in our island */
         this.users = 0;
         /** wallclock time we last heard from reflector */
@@ -347,6 +349,8 @@ export default class Controller {
                 const msg = args;   // [time, seq, payload]
                 const time = msg[0];
                 const seq = msg[1];
+                this.sequence = (this.sequence ? this.sequence + 1 : seq) & 0xFFFFFFFF;
+                if (this.sequence !== seq) throw Error(`Out of sequence message from reflector (expected ${this.sequence} got ${seq})`);
                 msg[1] = seq * 2 + 1;  // make odd sequence from controller
                 //if (msg.sender === this.senderID) this.addToStatistics(msg);
                 this.networkQueue.put(msg);

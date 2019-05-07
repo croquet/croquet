@@ -88,7 +88,6 @@ function getTime(island) {
     if (delta > 0) {
         island.time += island.scale * Math.min(island.tick, delta); // advance clock at most by a TICK
         island.before = now;
-        island.sequence = 0;
     }
     return island.time;
 }
@@ -277,7 +276,7 @@ function SEND(client, id, messages) {
     for (const message of messages) {
         // message = [time, seq, payload]
         message[0] = time;
-        message[1] = ++island.sequence;
+        message[1] = island.sequence = (island.sequence + 1) & 0xFFFFFFFF;
         const msg = JSON.stringify({ id, action: 'RECV', args: message });
         //LOG("broadcasting RECV", message);
         STATS.RECV++;
