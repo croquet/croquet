@@ -410,6 +410,10 @@ class Message {
         return this.payload.split('>')[0] === id;
     }
 
+    isExternal() {
+        return this.seq & 1;
+    }
+
     asState() {
         return [this.time, this.seq, this.payload];
     }
@@ -436,10 +440,12 @@ class Message {
         });
     }
 
-    [Symbol.toPrimitive]() {
+    toString() {
         const { receiver, selector, args } = decode(this.payload);
-        return `${this.seq & 1 ? 'External' : 'Future'}Message[${this.time}:${this.seq} ${receiver}.${selector}(${args.map(JSON.stringify).join(', ')})]`;
+        return `${this.isExternal() ? 'External' : 'Future'}Message[${this.time}:${this.seq} ${receiver}.${selector}(${args.map(JSON.stringify).join(', ')})]`;
     }
+
+    [Symbol.toPrimitive]() { return this.toString(); }
 }
 
 
