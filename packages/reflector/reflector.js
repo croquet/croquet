@@ -115,7 +115,8 @@ function removeRandomElement(array) {
 function JOIN(client, id, args) {
     if (typeof args === "number") args = {time: args};    // old clients send time
     LOG('received', client.addr, 'JOIN', id, args);
-    const {time, name} = args;
+    const {time, name, user} = args;
+    if (user) client.addr += ` [${user}]`;
     // create island data if this is the first client
     const island = ALL_ISLANDS.get(id) || {
         id,                  // the island id

@@ -2,7 +2,7 @@ import AsyncQueue from "@croquet/util/asyncQueue";
 import Stats from "@croquet/util/stats";
 import hotreload from "@croquet/util/hotreload";
 import urlOptions from "@croquet/util/urlOptions";
-import { baseUrl, hashNameAndCode, uploadCode } from "@croquet/util/modules";
+import { baseUrl, hashNameAndCode, uploadCode, croquetDev } from "@croquet/util/modules";
 import { inViewRealm } from "./realms";
 import Island, { addMessageTranscoder } from "./island";
 
@@ -439,11 +439,13 @@ export default class Controller {
     async join(socket) {
         console.log(this.id, 'Controller sending JOIN');
         this.socket = socket;
-        const name = this.islandCreator.name;
+        const args = { name: this.islandCreator.name };
+        const user = urlOptions.user || croquetDev("user");
+        if (user) args.user = user;
         socket.send(JSON.stringify({
             id: this.id,
             action: 'JOIN',
-            args: {name},
+            args,
         }));
     }
 
