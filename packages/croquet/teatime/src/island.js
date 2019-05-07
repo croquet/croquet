@@ -72,6 +72,7 @@ export default class Island {
                     // read island from snapshot
                     const reader = new IslandReader(this);
                     const islandData = reader.readIsland(snapshot, "$");
+                    // only read keys declared above
                     for (const key of Object.keys(this)) {
                         if (key === "messages") for (const msg of islandData.messages) this.messages.add(msg);
                         else this[key] = islandData[key];
@@ -460,7 +461,7 @@ class IslandWriter {
         const state = {
             modelsById: this.writeModels(island.modelsById),
             _random: island._random.state(),
-            messages: island.messages.asUnsortedArray().map(message => message.asState()),
+            messages: this.write(island.messages.asUnsortedArray()),
         };
         for (const [key, value] of Object.entries(island)) {
             if (key === "controller") continue;
@@ -641,7 +642,6 @@ class IslandReader {
         if (root !== "$") throw Error("Island must be root object");
         const islandData = {
             modelsById: this.readModels(snapshot.modelsById),
-            messages: snapshot.messages.map(state => Message.fromState(state)),
             _random: new SeedRandom(null, { state: snapshot._random }),
         };
         for (const [key, value] of Object.entries(snapshot)) {
