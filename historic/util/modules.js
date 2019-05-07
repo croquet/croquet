@@ -326,7 +326,7 @@ export function deduplicateImports(mods) {
                 else {
                     m[1][n] = mod;                         // use mod
                     delete b.modules[dupe];                // delete dupe
-                    fixed.add(n);
+                    fixed.add(`${nameOf(mod)} vs. ${nameOf(dupe)} (${n})`);
                 }
             }
         }
@@ -337,7 +337,7 @@ export function deduplicateImports(mods) {
             if (dupe && b.modules[dupe]) {
                 m[1][n] = dupe;                             // use dupe
                 delete b.modules[mod];                      // delete mod
-                fixed.add(n);
+                fixed.add(`${nameOf(dupe)} vs. ${nameOf(mod)} (${n})`);
             }
         }
     }
