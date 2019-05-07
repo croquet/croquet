@@ -240,7 +240,6 @@ class ShapeView extends View {
 
 
 async function go() {
-    Controller.addMessageTranscoder('*', { encode: a => a, decode: a => a });
     const reflector = LOCALHOST
         ? "ws://localhost:9090/"
         : "wss://dev1.os.vision/reflector-v1";
