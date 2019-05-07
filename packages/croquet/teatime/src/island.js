@@ -67,7 +67,7 @@ export default class Island {
                 /** @type {Number} sequence number of last executed external message */
                 this.externalSeq = 0xFFFFFFF0;
                 /** @type {Number} sequence number for disambiguating future messages with same timestamp */
-                this.sequence = 0;
+                this.futureSeq = 0;
                 /** @type {Number} number for giving ids to model */
                 this.modelsId = 0;
                 if (snapshot.modelsById) {
@@ -165,8 +165,8 @@ export default class Island {
         // To have a defined ordering between future messages generated on island
         // and messages from the reflector, we create even sequence numbers here and
         // the reflector's sequence numbers are made odd on arrival
-        this.sequence = (this.sequence + 2) % (Number.MAX_SAFE_INTEGER + 1);
-        const message = new Message(this.time + tOffset, this.sequence, receiverID, selector, args);
+        this.futureSeq = (this.futureSeq + 2) % (Number.MAX_SAFE_INTEGER + 1);
+        const message = new Message(this.time + tOffset, this.futureSeq, receiverID, selector, args);
         this.messages.add(message);
         return message;
     }
