@@ -190,11 +190,8 @@ class RootView extends View {
     detach() {
         super.detach();
         clearInterval(this.ticker);
-        try {
-            document.body.removeChild(this.element);
-        } catch (e) {
-            console.warn('detach() failed to remove from body:', this.element);
-        }
+        if (!this.element.parentNode) return;
+        this.element.parentNode.removeChild(this.element);
     }
 
     // non-inherited methods below
