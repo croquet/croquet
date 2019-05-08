@@ -2,7 +2,7 @@ import AsyncQueue from "@croquet/util/asyncQueue";
 import Stats from "@croquet/util/stats";
 import hotreload from "@croquet/util/hotreload";
 import urlOptions from "@croquet/util/urlOptions";
-import { baseUrl, hashNameAndCode, uploadCode, croquetDev } from "@croquet/util/modules";
+import { baseUrl, hashNameAndCode, uploadCode, croquetDev, hashString } from "@croquet/util/modules";
 import { inViewRealm } from "./realms";
 import Island from "./island";
 
@@ -17,6 +17,7 @@ const DEBUG = {
     ticks: urlOptions.has("debug", "ticks", false),
     pong: urlOptions.has("debug", "pong", false),
     snapshot: urlOptions.has("debug", "snapshot", "localhost"),
+    consistency: urlOptions.has("debug", "consistency", false),
 };
 
 const NOCHEAT = urlOptions.nocheat;
@@ -325,7 +326,7 @@ export default class Controller {
             case 'START': {
                 // We are starting a new island session.
                 console.log(this.id, 'Controller received START - creating island');
-                this.install(false);
+                await this.install(false);
                 this.requestTicks();
                 this.keepSnapshot();
                 this.uploadLatest(); // upload initial snapshot
@@ -333,9 +334,18 @@ export default class Controller {
             }
             case 'SYNC': {
                 // We are joining an island session.
-                this.islandCreator.snapshot = args;    // set snapshot
+                const snapshot = JSON.parse(args);
+                if (DEBUG.consistency) console.log(`Received snapshot hash: ${await hashString(args)}`);
+                if (DEBUG.consistency) console.log(`Parsed snapshot hash: ${await hashString(JSON.stringify(snapshot))}`);
+                this.islandCreator.snapshot = snapshot;    // set snapshot
                 console.log(this.id, 'Controller received SYNC - resuming snapshot');
-                this.install(true);
+                await this.install(true, async islandBeforeDrain => {
+                    if (DEBUG.consistency) {
+                        const restoredStateSnapshot = islandBeforeDrain.snapshot();
+                        const restoredStateSnapshotHash = await hashString(JSON.stringify(restoredStateSnapshot));
+                        console.log(`Restored state snapshot hash: ${restoredStateSnapshotHash}`);
+                    }
+                });
                 this.getTickAndMultiplier();
                 this.keepSnapshot(args);
                 break;
@@ -372,10 +382,12 @@ export default class Controller {
                 // We received a request to serve a current snapshot
                 console.log(this.id, 'Controller received SERVE - replying with snapshot');
                 const snapshot = this.takeSnapshot();
+                const snapshotString = JSON.stringify(snapshot);
+                if (DEBUG.consistency) console.log(this.id, `Snapshot hash in SERVE: ${await hashString(snapshotString)}`);
                 // send the snapshot
                 this.socket.send(JSON.stringify({
                     action: args, // reply action
-                    args: snapshot,
+                    args: snapshotString,
                 }));
                 // and send a dummy message so that the other guy can drop
                 // old messages in their controller.install()
@@ -398,15 +410,24 @@ export default class Controller {
         }
     }
 
-    async install(drainQueue=false) {
+    async install(drainQueue=false, beforeDrainCallback) {
         const {snapshot, creatorFn, options, callbackFn} = this.islandCreator;
         let newIsland = new Island(snapshot, () => creatorFn(options));
         if (DEBUG.snapshot && !snapshot.modelsById) {
             // exercise save & load if we came from init
-            newIsland = new Island(JSON.parse(JSON.stringify(newIsland.snapshot())), () => creatorFn(options));
+            const initialIslandSnap = JSON.stringify(newIsland.snapshot());
+            newIsland = new Island(JSON.parse(initialIslandSnap), () => creatorFn(options));
+            const restoredIslandSnap = JSON.stringify(newIsland.snapshot());
+            const hashes = [(await hashString(initialIslandSnap)), (await hashString(restoredIslandSnap))];
+            if (hashes[0] !== hashes[1]) {
+                throw new Error("Initial save/load cycle hash inconsistency!");
+            }
         }
         const snapshotTime = Math.max(newIsland.time, newIsland.externalTime);
         this.time = snapshotTime;
+        if (beforeDrainCallback) {
+            await beforeDrainCallback(newIsland);
+        }
         while (drainQueue) {
             // eslint-disable-next-line no-await-in-loop
             const nextMsg = await this.networkQueue.next();

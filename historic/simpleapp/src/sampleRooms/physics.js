@@ -97,6 +97,7 @@ export class OimoWorld extends ModelPart {
             info: false,   // calculate statistic or not
             gravity: [0, -9.82, 0]
         });
+        this.nSteps = 0;
         this.future(1000/60).step();
     }
 
@@ -104,6 +105,12 @@ export class OimoWorld extends ModelPart {
         this.world.step();
         this.publish(this, PhysicsEvents.worldStepped);
         this.future(1000/60).step();
+        this.nSteps += 1;
+        // if (this.nSteps > 300 && this.nSteps % 60 === 0) {
+        //     const snap = window.ISLAND.snapshot();
+        //     const steps = this.nSteps;
+        //     hashString(JSON.stringify(snap)).then(hash => console.log(`State hash, step ${steps}: ${hash}`));
+        // }
     }
 }
 
@@ -261,13 +268,14 @@ export class OimoGround extends ModelPart {
         this.parts.spatial.moveTo(options.position);
         this.parts.spatial.scaleTo(options.size);
         this.paddles = {};
+        this.subscribe(this, "movePaddle", data => this.movePaddleTo(data));
     }
 
-    movePaddleTo(newPos, user) {
+    movePaddleTo({position, user}) {
         if (!this.paddles[user]) {
             this.paddles[user] = this.world.world.add({ type:'cylinder', size:[0.3, 0.6, 0.3], pos:[0,-100,0], density:1, move:true, kinematic:true, material:'kinematic' });
         }
-        this.paddles[user].setPosition(newPos);
+        this.paddles[user].setPosition(position);
     }
 
     naturalViewClass() {
@@ -294,7 +302,7 @@ export class OimoGroundView extends ViewPart {
         makePointerSensitive(this.groundBox, this);
         this.subscribe(this.id, PointerEvents.pointerMove, ({hoverPoint}) => {
             const targetPoint = hoverPoint.clone().add(new THREE.Vector3(0, 0.3, 0));
-            options.model.future(0).movePaddleTo(targetPoint, USER);
+            this.publish(options.model, "movePaddle", {position: targetPoint, user: USER});
         });
 
         this.subscribe(options.model.world, PhysicsEvents.worldStepped, () => {
