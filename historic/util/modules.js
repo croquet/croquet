@@ -245,7 +245,7 @@ async function uploadFile(mod, meta, ext=".js") {
     } catch (ex) { /* ignore */ }
     // not found, so try to upload it
     try {
-        console.log(`uploading "${meta.name}" (${hash}): ${body.length} bytes`);
+        console.log(`uploading "${meta.name}${ext}" (${hash}): ${body.length} bytes`);
         await fetch(`${BASE_URL}${hash}${ext}`, {
             method: "PUT",
             mode: "cors",
