@@ -444,7 +444,7 @@ class IslandWriter {
         this.refs = new Map();
         this.todo = []; // we use breadth-first writing to limit stack depth
         this.writers = new Map();
-        this.addWriter(module.id + ":Message", Message);
+        this.addWriter("Teatime:Message", Message);
         for (const modelClass of Model.allClasses()) {
             if (!Object.prototype.hasOwnProperty.call(modelClass, "types")) continue;
             for (const [classId, ClassOrSpec] of Object.entries(modelClass.types())) {
@@ -597,7 +597,7 @@ class IslandReader {
         this.todo = [];   // we use breadth-first reading to limit stack depth
         this.unresolved = [];
         this.readers = new Map();
-        this.addReader(module.id + ":Message", Message);
+        this.addReader("Teatime:Message", Message);
         for (const modelClass of Model.allClasses()) {
             if (!Object.prototype.hasOwnProperty.call(modelClass, "types")) continue;
             for (const [classId, ClassOrSpec] of Object.entries(modelClass.types())) {
