@@ -482,6 +482,8 @@ class IslandWriter {
     write(value, path, defer=true) {
         switch (typeof value) {
             case "number":
+                if (Number.isNaN(value)) return {$class: 'NaN'};
+                // fall through
             case "string":
             case "boolean":
             case "undefined":
@@ -604,6 +606,7 @@ class IslandReader {
                 this.addReader(classId, ClassOrSpec);
             }
         }
+        this.readers.set("NaN", () => NaN);
         this.readers.set("Set", array => new Set(array));
         this.readers.set("Map", array => new Map(array));
         this.readers.set("Array", array => array.slice(0));
