@@ -62,10 +62,12 @@ export default class Island {
                 this.id = snapshot.id; // the controller always provides an ID
                 /** @type {Number} how far simulation has progressed */
                 this.time = 0;
+                /** @type {Number} sequence number of last executed external message */
+                this.seq = 0xFFFFFFF0;
                 /** @type {Number} timestamp of last scheduled external message */
                 this.externalTime = 0;
-                /** @type {Number} sequence number of last executed external message */
-                this.externalSeq = 0xFFFFFFF0;
+                /** @type {Number} sequence number of last scheduled external message */
+                this.externalSeq = 0;
                 /** @type {Number} sequence number for disambiguating future messages with same timestamp */
                 this.futureSeq = 0;
                 /** @type {Number} number for giving ids to model */
@@ -148,8 +150,10 @@ export default class Island {
     scheduleExternalMessage(msgData) {
         const message = Message.fromState(msgData);
         if (message.time < this.time) throw Error("past message from reflector " + msgData);
-        this.messages.add(message);
         this.externalTime = message.time; // we have all external messages up to this time
+        this.externalSeq = message.seq; // we have all external messages up to this sequence number
+        message.seq = message.seq * 2 + 1;  // make odd sequence for external messages
+        this.messages.add(message);
         return message;
     }
 
@@ -206,8 +210,8 @@ export default class Island {
             const { time, seq } = message;
             if (time < this.time) throw Error("past message encountered: " + message);
             if (seq & 1) {
-                this.externalSeq = (this.externalSeq + 1) & 0xFFFFFFFF;
-                if (seq >> 1 !== this.externalSeq) throw Error(`Sequence error: expected ${this.externalSeq} got ${seq >> 1} in ${message}`);
+                this.seq = (this.seq + 1) & 0xFFFFFFFF;
+                if (seq >> 1 !== this.seq) throw Error(`Sequence error: expected ${this.seq} got ${seq >> 1} in ${message}`);
             }
             this.messages.poll();
             if (this.time !== message.time) {

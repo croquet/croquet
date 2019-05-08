@@ -175,7 +175,8 @@ function JOIN(client, id, args) {
                 syncClient.safeSend(response);
                 LOG('sending', syncClient.addr, 'SYNC', response.length, 'bytes, time:', snapshot.time);
                 island.providers.add(client);
-                if (firstMessage) syncClient.safeSend(firstMessage);
+                const msg = JSON.stringify({ id, action: 'RECV', args: firstMessage });
+                if (firstMessage) syncClient.safeSend(msg);
             } else {
                 LOG('cannot send SYNC to', syncClient.addr);
             }
@@ -300,10 +301,24 @@ function JOIN1(client, id, args) {
     // start broadcasting messages to client
     island.clients.add(client);
 
+    // we need to SYNC
+    island.syncClients.push(client);
+
+    // if we have a current snapshot, reply with that
+    if (island.snapshotUrl) { SYNC1(island); return; }
+
     // if first client, start it
-    if (!island.startTimeout) { START1(); return; }
+    if (island.syncClients.length === 1) { START1(); return; }
+
+    // otherwise, the first client has not started yet (not provided a snapshot via SNAP)
+    console.log(`>>> client ${client.addr} waiting for snapshot`);
 
     function START1() {
+        // find next client
+        do {
+            client = island.syncClients.shift();
+            if (!client) return; // no client waiting
+        } while (client.readyState !== WebSocket.OPEN);
         const msg = JSON.stringify({id, action: 'START'});
         client.safeSend(msg);
         LOG('sending', client.addr, msg);
@@ -313,33 +328,19 @@ function JOIN1(client, id, args) {
             // kill client
             LOG(">>> killing unresponsive ", client.addr);
             if (client.readyState === WebSocket.OPEN) client.close(4000, "client unresponsive");
-            // find a listening client
-            do {
-                client = island.syncClients.shift();
-                if (!client) return; // no client waiting
-            } while (client.readyState !== WebSocket.OPEN);
-            // start it
+            // start next client
             START1();
         }, SERVE_TIMEOUT);
     }
-
-    // otherwise, we need to SYNC
-    island.syncClients.push(client);
-
-    // if we have a current snapshot, reply with that
-    if (island.snapshotUrl) { SYNC1(island); return; }
-
-    // if we get here, the first client has not started yet (not provided a snapshot via SNAP)
-    console.log(`>>> client ${client} waiting for snapshot`);
 }
 
 function SYNC1(island) {
-    const {snapshotUrl, messages} = island;
-    const response = JSON.stringify({ id: island.id, action: 'SYNC', args: {snapshotUrl, messages}});
+    const {snapshotUrl: url, messages} = island;
+    const response = JSON.stringify({ id: island.id, action: 'SYNC', args: {url, messages}});
     for (const syncClient of island.syncClients) {
         if (syncClient.readyState === WebSocket.OPEN) {
             syncClient.safeSend(response);
-            LOG(`sending ${syncClient.addr} SYNC ${response.length} bytes, ${messages.length} messages, snapshot: ${snapshotUrl}`);
+            LOG(`sending ${syncClient.addr} SYNC ${response.length} bytes, ${messages.length} messages, snapshot: ${url}`);
         } else {
             LOG('cannot send SYNC to', syncClient.addr);
         }
@@ -361,6 +362,7 @@ function SNAP(client, id, args) {
     if (!island) { if (client.readyState === WebSocket.OPEN) client.close(4000, "unknown island"); return; }
     const {time, url} = args;
     if (time < island.snapshotTime) return;
+    LOG(`${island} got snapshot time ${time}: ${url}`);
     // keep snapshot
     island.snapshotTime = time;
     island.snapshotUrl = url;
@@ -394,7 +396,7 @@ function SEND(client, id, messages) {
         STATS.RECV++;
         STATS.SEND += island.clients.size;
         island.clients.forEach(each => each.safeSend(msg));
-        island.messages.push(msg); // raw message sent again in SYNC
+        island.messages.push(message); // raw message sent again in SYNC
     }
     island.lastMsgTime = time;
     if (island.messages.length > MAX_MESSAGES) {

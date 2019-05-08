@@ -105,8 +105,6 @@ export default class Controller {
         this.networkQueue = new AsyncQueue();
         /** the time of last message received from reflector */
         this.time = 0;
-        /** sequence number of last message received from reflector */
-        this.sequence = 0;
         /** the number of concurrent users in our island */
         this.users = 0;
         /** wallclock time we last heard from reflector */
@@ -270,6 +268,13 @@ export default class Controller {
         }
     }
 
+    async fetchSnapshot(url) {
+        const response = await fetch(url, {
+            mode: "cors",
+        });
+        return response.json();
+    }
+
     /*
     async fetchSnapshot(time) {
         const url = this.snapshotUrl(time);
@@ -353,9 +358,11 @@ export default class Controller {
             }
             case 'SYNC': {
                 // We are joining an island session.
-                this.islandCreator.snapshot = args;    // set snapshot
-                console.log(this.id, 'Controller received SYNC - resuming snapshot');
-                this.install(true);
+                const {messages, url} = args;
+                console.log(this.id, `Controller received SYNC: ${messages.length} messages, ${url}`);
+                const snapshot = await this.fetchSnapshot(url);
+                this.islandCreator.snapshot = snapshot;  // set snapshot
+                this.install(true, messages);
                 this.getTickAndMultiplier();
                 this.keepSnapshot(args);
                 break;
@@ -367,10 +374,6 @@ export default class Controller {
                 if (DEBUG.messages) console.log(this.id, 'Controller received RECV ' + args);
                 const msg = args;   // [time, seq, payload]
                 const time = msg[0];
-                const seq = msg[1];
-                this.sequence = (this.sequence ? this.sequence + 1 : seq) & 0xFFFFFFFF;
-                if (this.sequence !== seq) throw Error(`Out of sequence message from reflector (expected ${this.sequence} got ${seq})`);
-                msg[1] = seq * 2 + 1;  // make odd sequence from controller
                 //if (msg.sender === this.senderID) this.addToStatistics(msg);
                 this.networkQueue.put(msg);
                 this.timeFromReflector(time);
@@ -384,22 +387,6 @@ export default class Controller {
                 if (DEBUG.ticks) console.log(this.id, 'Controller received TICK ' + time);
                 this.timeFromReflector(time);
                 if (this.tickMultiplier) this.multiplyTick(time);
-                break;
-            }
-            case 'SERVE': {
-                if (!this.island) { console.log("SERVE received but no island"); break; } // can't serve if we don't have an island
-                if (this.backlog > 1000) { console.log("SERVE received but backlog", this.backlog); break; } // don't serve if we're not up-to-date
-                // We received a request to serve a current snapshot
-                console.log(this.id, 'Controller received SERVE - replying with snapshot');
-                const snapshot = this.takeSnapshot();
-                // send the snapshot
-                this.socket.send(JSON.stringify({
-                    action: args, // reply action
-                    args: snapshot,
-                }));
-                // and send a dummy message so that the other guy can drop
-                // old messages in their controller.install()
-                this.island.sendNoop();
                 break;
             }
             case 'USERS': {
@@ -418,20 +405,22 @@ export default class Controller {
         }
     }
 
-    async install(drainQueue=false) {
+    async install(drainQueue=false, messages=[]) {
         const {snapshot, creatorFn, options, callbackFn} = this.islandCreator;
         let newIsland = new Island(snapshot, () => creatorFn(options));
         if (DEBUG.snapshot && !snapshot.modelsById) {
             // exercise save & load if we came from init
             newIsland = new Island(JSON.parse(JSON.stringify(newIsland.snapshot())), () => creatorFn(options));
         }
+        for (const msg of messages) newIsland.scheduleExternalMessage(msg);
         const snapshotTime = Math.max(newIsland.time, newIsland.externalTime);
         this.time = snapshotTime;
         while (drainQueue) {
             // eslint-disable-next-line no-await-in-loop
             const nextMsg = await this.networkQueue.next();
-            if (nextMsg[0] > snapshotTime) {
+            if (nextMsg[1] > newIsland.externalSeq) {
                 // This is the first 'real' message arriving.
+                if (nextMsg[1] !== (newIsland.externalSeq + 1) & 0xFFFFFFFF) throw Error();
                 newIsland.scheduleExternalMessage(nextMsg);
                 drainQueue = false;
             }
