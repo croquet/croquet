@@ -486,6 +486,7 @@ class IslandWriter {
             case "number":
                 if (Number.isSafeInteger(value)) return value;
                 if (Number.isNaN(value)) return {$class: 'NaN'};
+                if (!Number.isFinite(value)) return {$class: 'Infinity', $value: Math.sign(value)};
                 return this.writeFloat(value);
             case "string":
             case "boolean":
@@ -617,6 +618,7 @@ class IslandReader {
             }
         }
         this.readers.set("NaN", () => NaN);
+        this.readers.set("Infinity", sign => sign * Infinity);
         this.readers.set("Set", array => new Set(array));
         this.readers.set("Map", array => new Map(array));
         this.readers.set("Array", array => array.slice(0));
