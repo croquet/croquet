@@ -23,13 +23,14 @@ const STATS_TO_MAX = [ "USERS", "BUFFER" ];
 const STATS_KEYS = [...STATS_TO_MAX, ...STATS_TO_AVG];
 const STATS = {
     time: Date.now(),
-}
+};
 for (const key of STATS_KEYS) STATS[key] = 0;
 
 setInterval(showStats, 10000);
 
 // if running on node, log stats to file
-let appendFile = (typeof process !== 'undefined') && require("fs").appendFile;
+const appendFile = (typeof process !== 'undefined') && require("fs").appendFile; // eslint-disable-line global-require
+
 const fileName = "stats.txt";
 
 function showStats() {
@@ -37,7 +38,7 @@ function showStats() {
     const delta = time - STATS.time;
     STATS.time = time;
     STATS.USERS = Math.max(STATS.USERS, server.clients.size);
-    let out = [];
+    const out = [];
     let sum = 0;
     for (const key of STATS_TO_MAX) {
         out.push(`${key}: ${STATS[key]}`);
@@ -51,7 +52,7 @@ function showStats() {
     LOG(out.join(', '));
     if (appendFile) {
         const line = `${(new Date(time)).toISOString().slice(0, 19)}Z ${STATS_KEYS.map(key => STATS[key]).join(' ')}\n`;
-        appendFile(fileName, line, err => {});
+        appendFile(fileName, line, _err => {});
     }
     for (const key of STATS_KEYS) STATS[key] = 0;
 }
@@ -356,7 +357,7 @@ function TICK(island) {
 function TICKS(client, id, args) {
     const {time, tick, delay, scale} = args;
     const island = ALL_ISLANDS.get(id);
-    if (!island) { if (client.readyState === WebSocket.OPEN) client.close(4000, "unknown island"); return; };
+    if (!island) { if (client.readyState === WebSocket.OPEN) client.close(4000, "unknown island"); return; }
     if (!island.time) {
         // only accept time and delay if new island
         island.time = typeof time === "number" ? time : 0;
@@ -429,7 +430,7 @@ server.on('connection', (client, req) => {
         STATS.BUFFER = Math.max(STATS.BUFFER, client.bufferedAmount);
         client.send(data);
         STATS.OUT += data.length;
-    }
+    };
     LOG(`connection #${server.clients.size} from ${client.addr}`);
     STATS.USERS = Math.max(STATS.USERS, server.clients.size);
 
@@ -449,7 +450,7 @@ server.on('connection', (client, req) => {
                 case 'TICKS': TICKS(client, id, args); break;
                 case 'PING': PONG(client, args); break;
                 case 'SESSION': SESSION(client, id, args); break;
-                default: console.warn("Reflector: unknown action:", action);
+                default: console.warn("Reflector: unknown action", action);
             }
         };
 
@@ -463,7 +464,7 @@ server.on('connection', (client, req) => {
 
     client.on('close', () => {
         LOG(`closing connection from ${client.addr}`);
-        for (const [id, island] of ALL_ISLANDS) {
+        for (const island of ALL_ISLANDS.values()) {
             island.clients.delete(client);
             island.providers.delete(client);
             if (island.clients.size === 0) deleteIsland(island);
