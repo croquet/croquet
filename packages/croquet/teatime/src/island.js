@@ -521,9 +521,13 @@ class IslandWriter {
             $model: Model.classToID(model.constructor),
         };
         this.refs.set(model, state);      // register ref before recursing
-        for (const [key, value] of Object.entries(model)) {
+        const descriptors = Object.getOwnPropertyDescriptors(model);
+        for (const key of Object.keys(descriptors).sort()) {
             if (key === "__realm") continue;
-            this.writeInto(state, key, value, path);
+            const descriptor = descriptors[key];
+            if (descriptor.value !== undefined) {
+                this.writeInto(state, key, descriptor.value, path);
+            }
         }
         return state;
     }
@@ -532,7 +536,9 @@ class IslandWriter {
         if (this.refs.has(object)) return this.writeRef(object);
         const state = {};
         this.refs.set(object, state);      // register ref before recursing
-        for (const [key, descriptor] of Object.entries(Object.getOwnPropertyDescriptors(object))) {
+        const descriptors = Object.getOwnPropertyDescriptors(object);
+        for (const key of Object.keys(descriptors).sort()) {
+            const descriptor = descriptors[key];
             if (descriptor.value !== undefined) {
                 this.writeInto(state, key, descriptor.value, path, defer);
             }
@@ -565,7 +571,7 @@ class IslandWriter {
         const state = this.refs.get(object);
         if (typeof state !== "object") throw Error("Non-object in refs: " + object);
         if (Array.isArray(state)) {
-            // usually, extra proeprties on arrays don't get serialised to JSON
+            // usually, extra properties on arrays don't get serialized to JSON
             // so we use this hack that does a one-time replacement of toJSON
             // on this particular array
             state.toJSON = function () {
