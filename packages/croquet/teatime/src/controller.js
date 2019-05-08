@@ -229,7 +229,7 @@ export default class Controller {
     async uploadLatest() {
         const snapshotUrl = await this.uploadSnapshot(this.lastSnapshot);
         if (!snapshotUrl) { console.error("Failed to upload snapshot"); return; }
-        this.sendSnapshotToReflector(this.lastSnapshot.time, snapshotUrl);
+        this.sendSnapshotToReflector(this.lastSnapshot.time, this.lastSnapshot.seq, snapshotUrl);
         if (!this.prevSnapshot) return;
         const lastTime = this.lastSnapshot.time;
         const prevTime = this.prevSnapshot.time;
@@ -255,13 +255,13 @@ export default class Controller {
         } catch (e) { /*ignore */ }
     }
 
-    sendSnapshotToReflector(time, url) {
+    sendSnapshotToReflector(time, seq, url) {
         console.log(this.id, `Controller sending snapshot url to reflector (time: ${time})`);
         try {
             this.socket.send(JSON.stringify({
                 id: this.id,
                 action: 'SNAP',
-                args: {time, url},
+                args: {time, seq, url},
             }));
         } catch (e) {
             console.error('ERROR while sending', e);
@@ -420,7 +420,7 @@ export default class Controller {
             const nextMsg = await this.networkQueue.next();
             if (nextMsg[1] > newIsland.externalSeq) {
                 // This is the first 'real' message arriving.
-                if (nextMsg[1] !== (newIsland.externalSeq + 1) & 0xFFFFFFFF) throw Error();
+                if (nextMsg[1] !== (newIsland.externalSeq + 1) | 0) throw Error();
                 newIsland.scheduleExternalMessage(nextMsg);
                 drainQueue = false;
             }
@@ -511,7 +511,11 @@ export default class Controller {
         const delay = tick * (multiplier - 1) / multiplier;
         if (delay) { args.delay = delay; args.tick = tick; }
         else if (!args.tick) args.tick = tick;
-        if (!args.time) args.time = this.island.time;    // ignored by reflector unless this is sent right after START
+        if (!args.time) {
+            // ignored by reflector unless this is sent right after START
+            args.time = this.island.time;
+            args.seq = this.island.seq;
+        }
         console.log(this.id, 'Controller requesting TICKS', args);
         // args: {time, tick, delay, scale}
         try {

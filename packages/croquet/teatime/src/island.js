@@ -63,7 +63,7 @@ export default class Island {
                 /** @type {Number} how far simulation has progressed */
                 this.time = 0;
                 /** @type {Number} sequence number of last executed external message */
-                this.seq = 0xFFFFFFF0;
+                this.seq = 0xFFFFFFF0 | 0;       // start value provokes 32 bit rollover soon
                 /** @type {Number} timestamp of last scheduled external message */
                 this.externalTime = 0;
                 /** @type {Number} sequence number of last scheduled external message */
@@ -210,7 +210,7 @@ export default class Island {
             const { time, seq } = message;
             if (time < this.time) throw Error("past message encountered: " + message);
             if (seq & 1) {
-                this.seq = (this.seq + 1) & 0xFFFFFFFF;
+                this.seq = (this.seq + 1) | 0;  // 32 bit rollover
                 if (seq >> 1 !== this.seq) throw Error(`Sequence error: expected ${this.seq} got ${seq >> 1} in ${message}`);
             }
             this.messages.poll();

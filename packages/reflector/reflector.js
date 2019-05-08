@@ -124,7 +124,7 @@ function JOIN(client, id, args) {
         id,                  // the island id
         name,                // the island name (might be null)
         time,                // the current simulation time
-        sequence: 0xFFFFFFF0,// sequence number for messages with same time
+        seq: 0,              // sequence number for messages with same time
         scale: 1,            // ratio of island time to wallclock time
         tick: TICK_MS,       // default tick rate
         delay: 0,            // hold messages until this many ms after last tick
@@ -279,7 +279,7 @@ function JOIN1(client, id, args) {
         name,                // the island name (might be null)
         version,             // the client version
         time,                // the current simulation time
-        sequence: 0xFFFFFFF0,// sequence number for messages with same time
+        seq: 0,              // sequence number for messages (32 bits)
         scale: 1,            // ratio of island time to wallclock time
         tick: TICK_MS,       // default tick rate
         delay: 0,            // hold messages until this many ms after last tick
@@ -360,7 +360,7 @@ function SYNC1(island) {
 function SNAP(client, id, args) {
     const island = ALL_ISLANDS.get(id);
     if (!island) { if (client.readyState === WebSocket.OPEN) client.close(4000, "unknown island"); return; }
-    const {time, url} = args;
+    const {time, seq, url} = args;
     if (time < island.snapshotTime) return;
     LOG(`${island} got snapshot time ${time}: ${url}`);
     // keep snapshot
@@ -390,7 +390,7 @@ function SEND(client, id, messages) {
     for (const message of messages) {
         // message = [time, seq, payload]
         message[0] = time;
-        message[1] = island.sequence = (island.sequence + 1) & 0xFFFFFFFF;
+        message[1] = island.seq = (island.seq + 1) | 0;
         const msg = JSON.stringify({ id, action: 'RECV', args: message });
         //LOG("broadcasting RECV", message);
         STATS.RECV++;
@@ -467,12 +467,13 @@ function TICK(island) {
  * @param {*} args
  */
 function TICKS(client, id, args) {
-    const {time, tick, delay, scale} = args;
+    const {time, seq, tick, delay, scale} = args;
     const island = ALL_ISLANDS.get(id);
     if (!island) { if (client.readyState === WebSocket.OPEN) client.close(4000, "unknown island"); return; }
     if (!island.time) {
-        // only accept time and delay if new island
+        // only accept time, sequence, and delay if new island
         island.time = typeof time === "number" ? time : 0;
+        island.seq = typeof seq === "number" ? seq : 0;
         if (delay > 0) island.delay = delay;
     }
     if (scale > 0) island.scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale));
