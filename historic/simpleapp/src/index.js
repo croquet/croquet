@@ -24,20 +24,6 @@ let hotState = module.hot && module.hot.data || {};
 const defaultRoom = urlOptions.ar ? "arBalls" :
                     window.location.hostname === "croquet.studio" ? "bounce" : "room1";
 
-// default message transcoders
-const Vec3 = {
-    encode: a => [a[0].x, a[0].y, a[0].z],
-    decode: a => [new THREE.Vector3(...a)],
-};
-const Quat = {
-    encode: a => [a[0].x, a[0].y, a[0].z, a[0].w],
-    decode: a => [new THREE.Quaternion(...a)],
-};
-const Identity = {
-    encode: args => args,
-    decode: args => args,
-};
-
 /** The main function. */
 async function start() {
 
