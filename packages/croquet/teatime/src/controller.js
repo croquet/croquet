@@ -231,15 +231,19 @@ export default class Controller {
         if (!snapshotUrl) { console.error("Failed to upload snapshot"); return; }
         this.sendSnapshotToReflector(this.lastSnapshot.time, this.lastSnapshot.seq, snapshotUrl);
         if (!this.prevSnapshot) return;
-        const lastTime = this.lastSnapshot.time;
         const prevTime = this.prevSnapshot.time;
-        const prevIndex = this.oldMessages.findIndex(msg => msg[0] >= prevTime);
-        const lastIndex = this.oldMessages.findIndex(msg => msg[0] >= lastTime);
+        const lastTime = this.lastSnapshot.time;
+        const prevSeq = (this.prevSnapshot.seq + 1) | 0;
+        const lastSeq = this.lastSnapshot.seq;
+        const prevIndex = this.oldMessages.findIndex(msg => msg[1] === prevSeq);
+        const lastIndex = this.oldMessages.findIndex(msg => msg[1] === lastSeq);
         const messages = {
             start: this.snapshotUrl(`${prevTime}-snap`),
             end: snapshotUrl,
             time: [prevTime, lastTime],
-            messages: this.oldMessages.slice(prevIndex, lastIndex),
+            seq: [prevSeq, lastSeq],
+            messages: prevIndex === -1 ? []
+                : this.oldMessages.slice(prevIndex, lastIndex === -1 ? this.oldMessages.length : lastIndex),
         };
         const messagesUrl = this.snapshotUrl(`${prevTime}-msgs`);
 
