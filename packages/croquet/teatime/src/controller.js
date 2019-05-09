@@ -417,11 +417,11 @@ export default class Controller {
             // exercise save & load if we came from init
             const initialIslandSnap = JSON.stringify(newIsland.snapshot());
             newIsland = new Island(JSON.parse(initialIslandSnap), () => creatorFn(options));
-            const restoredIslandSnap = JSON.stringify(newIsland.snapshot());
-            const hashes = [(await hashString(initialIslandSnap)), (await hashString(restoredIslandSnap))];
-            if (hashes[0] !== hashes[1]) {
-                throw new Error("Initial save/load cycle hash inconsistency!");
-            }
+            // const restoredIslandSnap = JSON.stringify(newIsland.snapshot());
+            // const hashes = [(await hashString(initialIslandSnap)), (await hashString(restoredIslandSnap))];
+            // if (hashes[0] !== hashes[1]) {
+            //     throw new Error("Initial save/load cycle hash inconsistency!");
+            // }
         }
         const snapshotTime = Math.max(newIsland.time, newIsland.externalTime);
         this.time = snapshotTime;
