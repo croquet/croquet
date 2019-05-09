@@ -191,7 +191,7 @@ export default class Controller {
         // exclude snapshot time from cpu time
         this.cpuTime -= this.keepSnapshot();
         // for now, just upload every snapshot - later, reflector will tell us when we should upload
-        this.uploadLatest();
+        this.uploadLatest(true);
     }
 
     snapshotUrl(time_seq) {
@@ -217,21 +217,23 @@ export default class Controller {
         const body = JSON.stringify(snapshot);
         const url = this.snapshotUrl(`${time}_${seq}-snap`);
         console.log(this.id, `Controller uploading snapshot (${body.length} bytes) to ${url}`);
-        try {
-            await fetch(url, {
-                method: "PUT",
-                mode: "cors",
-                headers: { "Content-Type": "application/json" },
-                body,
-            });
-            return url;
-        } catch (e) {
-            return false;
-        }
+        return this.uploadJSON(url, body);
+    }
+
+    async isOlderThanLatest(snapshot) {
+        const latest = await this.fetchJSON(this.snapshotUrl('latest'));
+        if (!latest) return false;
+        const time = Math.max(snapshot.time, snapshot.externalTime);
+        const timeDelta = latest.time - time;
+        if (timeDelta !== 0) return timeDelta > 0;
+        const seq = snapshot.externalSeq;
+        const seqDelta = (latest.seq - seq) >>> 0; // make unsigned
+        return seqDelta < 0x8000000;
     }
 
     // upload snapshot and message history, and inform reflector
-    async uploadLatest() {
+    async uploadLatest(checkLatest) {
+        if (checkLatest && await this.isOlderThanLatest(this.lastSnapshot)) return;
         const snapshotUrl = await this.uploadSnapshot(this.lastSnapshot);
         if (!snapshotUrl) { console.error("Failed to upload snapshot"); return; }
         const last = this.lastSnapshot.meta;
@@ -251,20 +253,14 @@ export default class Controller {
             seq: [prev.seq, last.seq],
             messages,
         };
-        const messagesUrl = this.snapshotUrl(`${prev.time}_${prev.seq}-msgs`);
+        const url = this.snapshotUrl(`${prev.time}_${prev.seq}-msgs`);
         const body = JSON.stringify(messageLog);
-        console.log(this.id, `Controller uploading latest messages (${body.length} bytes) to ${messagesUrl}`);
-        try {
-            await fetch(messagesUrl, {
-                method: "PUT",
-                mode: "cors",
-                headers: { "Content-Type": "application/json" },
-                body,
-            });
-        } catch (e) { /*ignore */ }
+        console.log(this.id, `Controller uploading latest messages (${body.length} bytes) to ${url}`);
+        this.uploadJSON(url, body);
     }
 
     sendSnapshotToReflector(time, seq, url) {
+        this.uploadJSON(this.snapshotUrl('latest'), JSON.stringify({time, seq, url}));
         console.log(this.id, `Controller sending snapshot url to reflector (time: ${time})`);
         try {
             this.socket.send(JSON.stringify({
@@ -277,22 +273,28 @@ export default class Controller {
         }
     }
 
-    async fetchSnapshot(url) {
-        const response = await fetch(url, {
-            mode: "cors",
-        });
-        return response.json();
+    async fetchJSON(url, defaultValue) {
+        try {
+            const response = await fetch(url, { mode: "cors" });
+            return response.json();
+        } catch (err) { /* ignore */}
+        return defaultValue;
+    }
+
+    async uploadJSON(url, body) {
+        try {
+            await fetch(url, {
+                method: "PUT",
+                mode: "cors",
+                headers: { "Content-Type": "application/json" },
+                body,
+            });
+            return url;
+        } catch (e) { /*ignore */ }
+        return false;
     }
 
     /*
-    async fetchSnapshot(time) {
-        const url = this.snapshotUrl(time);
-        const response = await fetch(url, {
-            mode: "cors",
-        });
-        return response.json();
-    }
-
     async updateSnapshot() {
         // try to fetch latest snapshot
         try {
@@ -362,18 +364,18 @@ export default class Controller {
                 this.install(false);
                 this.requestTicks();
                 this.keepSnapshot();
-                this.uploadLatest(); // upload initial snapshot
+                this.uploadLatest(false); // upload initial snapshot
                 break;
             }
             case 'SYNC': {
                 // We are joining an island session.
                 const {messages, url} = args;
                 console.log(this.id, `Controller received SYNC: ${messages.length} messages, ${url}`);
-                const snapshot = await this.fetchSnapshot(url);
+                const snapshot = await this.fetchJSON(url);
                 this.islandCreator.snapshot = snapshot;  // set snapshot
                 this.install(true, messages);
                 this.getTickAndMultiplier();
-                this.keepSnapshot(args);
+                this.keepSnapshot(snapshot);
                 break;
             }
             case 'RECV': {
