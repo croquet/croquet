@@ -268,7 +268,7 @@ export class OimoGround extends ModelPart {
         this.parts.spatial.moveTo(options.position);
         this.parts.spatial.scaleTo(options.size);
         this.paddles = {};
-        this.subscribe(this, "movePaddle", data => this.movePaddleTo(data));
+        this.subscribe(this.id, "movePaddle", data => this.movePaddleTo(data));
     }
 
     movePaddleTo({position, user}) {
@@ -300,10 +300,12 @@ export class OimoGroundView extends ViewPart {
         this.groundBox.position.copy(options.model.ground.getPosition());
 
         makePointerSensitive(this.groundBox, this);
-        this.subscribe(this.id, PointerEvents.pointerMove, ({hoverPoint}) => {
+        const movePaddleCallback = ({hoverPoint}) => {
             const targetPoint = hoverPoint.clone().add(new THREE.Vector3(0, 0.3, 0));
-            this.publish(options.model, "movePaddle", {position: targetPoint, user: USER});
-        });
+            this.publish(options.model.id, "movePaddle", {position: targetPoint, user: USER});
+        };
+        this.subscribe(this.id, PointerEvents.pointerEnter, movePaddleCallback);
+        this.subscribe(this.id, PointerEvents.pointerMove, movePaddleCallback);
 
         this.subscribe(options.model.world, PhysicsEvents.worldStepped, () => {
             for (const [user, paddle] of Object.entries(options.model.paddles)) {
