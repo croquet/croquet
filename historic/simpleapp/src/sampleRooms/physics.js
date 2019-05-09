@@ -300,8 +300,8 @@ export class OimoGroundView extends ViewPart {
         this.groundBox.position.copy(options.model.ground.getPosition());
 
         makePointerSensitive(this.groundBox, this);
-        const movePaddleCallback = ({hoverPoint}) => {
-            const targetPoint = hoverPoint.clone().add(new THREE.Vector3(0, 0.3, 0));
+        const movePaddleCallback = ({hoverPoint, dragEndOnHorizontalPlane}) => {
+            const targetPoint = (hoverPoint || dragEndOnHorizontalPlane).clone().add(new THREE.Vector3(0, 0.3, 0));
             this.publish(options.model.id, "movePaddle", {position: targetPoint, user: USER});
         };
         this.subscribe(this.id, PointerEvents.pointerEnter, movePaddleCallback);
