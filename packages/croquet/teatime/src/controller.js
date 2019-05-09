@@ -163,8 +163,9 @@ export default class Controller {
         // limit storage for old snapshots
         while (this.snapshots.length > 2) this.snapshots.shift();
         // keep only messages newer than the oldest snapshot
-        const keep = this.snapshots[0].time;
-        const keepIndex = this.oldMessages.findIndex(msg => msg[0] >= keep);
+        const keep = this.snapshots[0].externalSeq;
+        const keepIndex = this.oldMessages.findIndex(msg => msg[1] > keep);
+        if (keepIndex > 0) console.warn(`Deleting old messages from ${this.oldMessages[0][1]} to ${this.oldMessages[keepIndex - 1][1]}`);
         this.oldMessages.splice(0, keepIndex);
         Stats.end("snapshot");
     }
@@ -186,6 +187,7 @@ export default class Controller {
     }
 
     scheduledSnapshot() {
+        if (this.lastSnapshot && this.lastSnapshot.time === this.island.time) return;
         this.keepSnapshot();
         // for now, just upload every snapshot - later, reflector will tell us when we should upload
         this.uploadLatest();
@@ -229,25 +231,27 @@ export default class Controller {
     async uploadLatest() {
         const snapshotUrl = await this.uploadSnapshot(this.lastSnapshot);
         if (!snapshotUrl) { console.error("Failed to upload snapshot"); return; }
-        this.sendSnapshotToReflector(this.lastSnapshot.time, this.lastSnapshot.seq, snapshotUrl);
+        const lastTime = Math.max(this.lastSnapshot.time, this.lastSnapshot.externalTime);
+        const lastSeq = this.lastSnapshot.externalSeq;
+        this.sendSnapshotToReflector(lastTime, lastSeq, snapshotUrl);
         if (!this.prevSnapshot) return;
-        const prevTime = this.prevSnapshot.time;
-        const lastTime = this.lastSnapshot.time;
-        const prevSeq = (this.prevSnapshot.seq + 1) | 0;
-        const lastSeq = this.lastSnapshot.seq;
-        const prevIndex = this.oldMessages.findIndex(msg => msg[1] === prevSeq);
-        const lastIndex = this.oldMessages.findIndex(msg => msg[1] === lastSeq);
-        const messages = {
+        const prevTime = Math.max(this.prevSnapshot.time, this.prevSnapshot.externalTime);
+        const prevSeq = this.prevSnapshot.externalSeq;
+        let messages = [];
+        if (prevSeq !== lastSeq) {
+            const prevIndex = this.oldMessages.findIndex(msg => msg[1] >= prevSeq);
+            const lastIndex = this.oldMessages.findIndex(msg => msg[1] >= lastSeq);
+            messages = this.oldMessages.slice(prevIndex, lastIndex + 1);
+        }
+        const messageLog = {
             start: this.snapshotUrl(`${prevTime}-snap`),
             end: snapshotUrl,
             time: [prevTime, lastTime],
             seq: [prevSeq, lastSeq],
-            messages: prevIndex === -1 ? []
-                : this.oldMessages.slice(prevIndex, lastIndex === -1 ? this.oldMessages.length : lastIndex),
+            messages,
         };
         const messagesUrl = this.snapshotUrl(`${prevTime}-msgs`);
-
-        const body = JSON.stringify(messages);
+        const body = JSON.stringify(messageLog);
         console.log(this.id, `Controller uploading latest messages (${body.length} bytes) to ${messagesUrl}`);
         try {
             await fetch(messagesUrl, {
@@ -417,18 +421,19 @@ export default class Controller {
             newIsland = new Island(JSON.parse(JSON.stringify(newIsland.snapshot())), () => creatorFn(options));
         }
         for (const msg of messages) newIsland.scheduleExternalMessage(msg);
-        const snapshotTime = Math.max(newIsland.time, newIsland.externalTime);
-        this.time = snapshotTime;
+        const nextSeq = (newIsland.externalSeq + 1) | 0;
+        this.time = Math.max(newIsland.time, newIsland.externalTime);
         while (drainQueue) {
-            // eslint-disable-next-line no-await-in-loop
-            const nextMsg = await this.networkQueue.next();
-            if (nextMsg[1] > newIsland.externalSeq) {
-                // This is the first 'real' message arriving.
-                if (nextMsg[1] !== (newIsland.externalSeq + 1) | 0) throw Error();
-                newIsland.scheduleExternalMessage(nextMsg);
-                drainQueue = false;
+            const nextMsg = this.networkQueue.peek();
+            if (!nextMsg) break;
+            if (nextMsg[1] < nextSeq) {
+                // silently skip old messages
+            } else if (nextMsg[1] === nextSeq ) {
+                // this is the next message
+                break;
+            } else {
+                console.warn(`Skipping message #${nextMsg[1]} while looking for #${nextSeq}`);
             }
-            // otherwise, silently skip the message
         }
         this.setIsland(newIsland); // install island
         callbackFn(this.island);

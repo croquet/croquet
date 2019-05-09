@@ -63,11 +63,11 @@ export default class Island {
                 /** @type {Number} how far simulation has progressed */
                 this.time = 0;
                 /** @type {Number} sequence number of last executed external message */
-                this.seq = 0xFFFFFFF0 | 0;       // start value provokes 32 bit rollover soon
+                this.seq = 100000 | 0;       // start value provokes 32 bit rollover soon
                 /** @type {Number} timestamp of last scheduled external message */
                 this.externalTime = 0;
                 /** @type {Number} sequence number of last scheduled external message */
-                this.externalSeq = 0;
+                this.externalSeq = this.seq;
                 /** @type {Number} sequence number for disambiguating future messages with same timestamp */
                 this.futureSeq = 0;
                 /** @type {Number} number for giving ids to model */
@@ -434,7 +434,8 @@ class Message {
 
     toString() {
         const { receiver, selector, args } = decode(this.payload);
-        return `${this.isExternal() ? 'External' : 'Future'}Message[${this.time}:${this.seq} ${receiver}.${selector}(${args.map(JSON.stringify).join(', ')})]`;
+        const ext = this.isExternal();
+        return `${ext ? 'External' : 'Future'}Message[${this.time}${':#'[+ext]}${this.seq} ${receiver}.${selector}(${args.map(JSON.stringify).join(', ')})]`;
     }
 
     [Symbol.toPrimitive]() { return this.toString(); }

@@ -362,13 +362,22 @@ function SNAP(client, id, args) {
     if (!island) { if (client.readyState === WebSocket.OPEN) client.close(4000, "unknown island"); return; }
     const {time, seq, url} = args;
     if (time < island.snapshotTime) return;
-    LOG(`${island} got snapshot time ${time}: ${url}`);
+    LOG(`${island} got snapshot time ${time}#${seq}: ${url}`);
     // keep snapshot
     island.snapshotTime = time;
     island.snapshotUrl = url;
     // forget older messages
-    const keepIndex = island.messages.findIndex(msg => msg[0] > time);
-    island.messages.splice(0, keepIndex);
+    if (island.messages.length > 0) {
+        const msgs = island.messages;
+        const keep = msgs.findIndex(msg => msg[1] > seq);
+        if (keep > 0) {
+            LOG(`${island} forgetting messages #${msgs[0][1]} to #${msgs[keep - 1][1]} (keeping #${msgs[keep][1]})`);
+            msgs.splice(0, keep);
+        } if (keep === -1) {
+            LOG(`${island} forgetting all messages (#${msgs[0][1]} to #${msgs[msgs.length - 1][1]})`);
+            msgs.length = 0;
+        }
+    }
     // start waiting clients
     if (island.startTimeout) { clearTimeout(island.startTimeout); island.startTimeout = null; }
     if (island.syncClients.size > 0) SYNC1(island);
