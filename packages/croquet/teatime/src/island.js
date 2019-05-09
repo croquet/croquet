@@ -795,3 +795,36 @@ class MessageArgumentDecoder extends IslandReader {
         }
     }
 }
+
+/** helper that traverses a dummy object and gathers all object classes,
+ * including otherwise inaccessible ones. Returns a mapping that can be returned in
+ * a Model's static types() method */
+export function gatherInternalClassTypes(dummyObject, prefix) {
+    const gatheredClasses = {};
+    const seen = new Set();
+    gatherInternalClassTypesRec({root: dummyObject}, prefix, gatheredClasses, seen);
+    return gatheredClasses;
+}
+
+function gatherInternalClassTypesRec(dummyObject, prefix="", gatheredClasses={}, seen=new Set()) {
+    const newObjects = Object.values(dummyObject)
+        .filter(prop => {
+            const type = Object.prototype.toString.call(prop).slice(8, -1);
+            return (type === "Object" || type === "Array") && !seen.has(prop);
+        });
+    for (const obj of newObjects) {
+        seen.add(obj);
+        const className = prefix + "." + obj.constructor.name;
+        if (gatheredClasses[className]) {
+            if (gatheredClasses[className] !== obj.constructor) {
+                throw new Error("Class with name " + className + " already gathered, but new one has different identity");
+            }
+        } else {
+            gatheredClasses[className] = obj.constructor;
+        }
+    }
+    // we did breadth-first
+    for (const obj of newObjects) {
+        gatherInternalClassTypesRec(obj, prefix, gatheredClasses, seen);
+    }
+}

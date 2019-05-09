@@ -6,6 +6,7 @@ import room2 from "./sampleRooms/room2";
 import room3 from "./sampleRooms/room3";
 import roomBounce from "./sampleRooms/bounce";
 import roomPhysics from "./sampleRooms/physics";
+import roomJenga from "./sampleRooms/jenga";
 import roomsJump from "./sampleRooms/jump";
 import roomARBalls from "./sampleRooms/arBalls";
 import RoomViewManager from "./room/roomViewManager";
@@ -52,6 +53,7 @@ async function start() {
         bounce: {creator: roomBounce},
         arBalls: {creator: roomARBalls},
         physics: {creator: roomPhysics},
+        jenga: {creator: roomJenga},
         ...roomsJump
     };
 
