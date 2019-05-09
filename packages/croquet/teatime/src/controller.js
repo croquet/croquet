@@ -156,7 +156,7 @@ export default class Controller {
 
     // keep a snapshot in case we need to upload it or for replay
     keepSnapshot(snapshot=null) {
-        Stats.begin("snapshot");
+        const start = Stats.begin("snapshot");
         if (!snapshot) snapshot = this.island.snapshot();
         // keep history
         this.snapshots.push(snapshot);
@@ -167,7 +167,7 @@ export default class Controller {
         const keepIndex = this.oldMessages.findIndex(msg => msg[1] > keep);
         if (keepIndex > 0) console.warn(`Deleting old messages from ${this.oldMessages[0][1]} to ${this.oldMessages[keepIndex - 1][1]}`);
         this.oldMessages.splice(0, keepIndex);
-        Stats.end("snapshot");
+        return Stats.end("snapshot") - start;
     }
 
     takeSnapshot() {
@@ -186,9 +186,10 @@ export default class Controller {
         this.island.scheduleSnapshot(time - this.island.time);
     }
 
+    // this is called from inside the simulation loop
     scheduledSnapshot() {
-        if (this.lastSnapshot && this.lastSnapshot.time === this.island.time) return;
-        this.keepSnapshot();
+        // exclude snapshot time from cpu time
+        this.cpuTime -= this.keepSnapshot();
         // for now, just upload every snapshot - later, reflector will tell us when we should upload
         this.uploadLatest();
     }
