@@ -46,14 +46,28 @@ export function croquetDev(key, defaultValue=undefined, initFn=null) {
     if (key in dev) return dev[key];
     if (initFn) {
         dev[key] = initFn();
-        if (dev[key] !== defaultValue) localStorage.croquetDev = JSON.stringify(dev);
+        if (dev[key] !== defaultValue) {
+            localStorage.croquetDev = JSON.stringify(dev);
+            // store as cookie for subdomain sharing
+            const hostname = window.location.hostname;
+            const subdomain = hostname.replace(/(.*)\./, host => `${host.replace(/.*\.(.*\.)/, '$1')}`);
+            document.cookie = `croquetdev=${localStorage.croquetDev};domain=${subdomain}`;
+        }
         return dev[key];
     }
     return defaultValue;
 }
 
-// developer user name
+// set developer user name if running on localhost (or equivalent)
 if (urlOptions.has("debug", "user", "localhost")) {
+    // try to fetch from cookie (to not have to type in on each ngrok host)
+    if (!localStorage.croquetDev) {
+        const devCookie = document.cookie.split(/\s*;\s*/).find(cookie => cookie.match(/^croquetdev=/));
+        if (devCookie) try {
+            const dev = JSON.parse(devCookie.replace(/^croquetdev=/, ''));
+            localStorage.croquetDev = JSON.stringify(dev);
+        } catch (ex) { /* ignore */}
+    }
     croquetDev("user", "", () => {
         // eslint-disable-next-line no-alert
         return (window.prompt("Please enter developer name (localStorage.croquetDev.user)") || "").toLowerCase();
