@@ -290,6 +290,7 @@ async function start() {
     hotreload.addEventListener(document.getElementById('reset'), "click", () => {
         if (currentRoomName) {
             const { controller } = ALL_ROOMS[currentRoomName];
+            roomViewManager.detachAll();
             if (controller) controller.requestNewSession();
         }
     });

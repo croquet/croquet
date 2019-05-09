@@ -361,7 +361,7 @@ export default class Controller {
             case 'START': {
                 // We are starting a new island session.
                 console.log(this.id, 'Controller received START - creating island');
-                this.install(false);
+                await this.install(false);
                 this.requestTicks();
                 this.keepSnapshot();
                 this.uploadLatest(false); // upload initial snapshot
@@ -421,7 +421,13 @@ export default class Controller {
         let newIsland = new Island(snapshot, () => creatorFn(options));
         if (DEBUG.snapshot && !snapshot.modelsById) {
             // exercise save & load if we came from init
-            newIsland = new Island(JSON.parse(JSON.stringify(newIsland.snapshot())), () => creatorFn(options));
+            const initialIslandSnap = JSON.stringify(newIsland.snapshot());
+            newIsland = new Island(JSON.parse(initialIslandSnap), () => creatorFn(options));
+            // const restoredIslandSnap = JSON.stringify(newIsland.snapshot());
+            // const hashes = [(await hashString(initialIslandSnap)), (await hashString(restoredIslandSnap))];
+            // if (hashes[0] !== hashes[1]) {
+            //     throw new Error("Initial save/load cycle hash inconsistency!");
+            // }
         }
         for (const msg of messages) newIsland.scheduleExternalMessage(msg);
         const nextSeq = (newIsland.externalSeq + 1) >>> 0;

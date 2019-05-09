@@ -163,7 +163,7 @@ async function hashBuffer(buffer) {
 
 const encoder = new TextEncoder();
 
-async function hashString(string) {
+export async function hashString(string) {
     const buffer = encoder.encode(string);
     return hashBuffer(buffer);
 }

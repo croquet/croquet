@@ -161,7 +161,7 @@ class InteractionDome extends ViewPart {
         );
 
         this.scenePart.threeObj.add(this.threeObj);
-        makePointerSensitive(this.threeObj, this, -1);
+        makePointerSensitive(this.threeObj, this, -2);
         this.subscribe(this.id, PointerEvents.pointerUp, data => this.onClick(data));
     }
 

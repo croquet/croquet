@@ -441,6 +441,8 @@ class Message {
     [Symbol.toPrimitive]() { return this.toString(); }
 }
 
+const floats = new Float64Array(2);
+const ints = new Uint32Array(floats.buffer);
 
 class IslandWriter {
     constructor(island) {
@@ -487,6 +489,10 @@ class IslandWriter {
     write(value, path, defer=true) {
         switch (typeof value) {
             case "number":
+                if (Number.isSafeInteger(value)) return value;
+                if (Number.isNaN(value)) return {$class: 'NaN'};
+                if (!Number.isFinite(value)) return {$class: 'Infinity', $value: Math.sign(value)};
+                return this.writeFloat(value);
             case "string":
             case "boolean":
             case "undefined":
@@ -557,6 +563,13 @@ class IslandWriter {
         return state;
     }
 
+    writeFloat(value) {
+        floats[0] = value;
+        floats[1] = JSON.parse(JSON.stringify(value));
+        if (ints[0] !== ints[2] || ints[1] !== ints[3]) throw Error("Float serialization error");
+        return value;
+    }
+
     writeAs(classID, object, value, path) {
         if (value === undefined) return value;
         if (this.refs.has(object)) return this.writeRef(object);
@@ -615,6 +628,8 @@ class IslandReader {
                 this.addReader(classId, ClassOrSpec);
             }
         }
+        this.readers.set("NaN", () => NaN);
+        this.readers.set("Infinity", sign => sign * Infinity);
         this.readers.set("Set", array => new Set(array));
         this.readers.set("Map", array => new Map(array));
         this.readers.set("Array", array => array.slice(0));
