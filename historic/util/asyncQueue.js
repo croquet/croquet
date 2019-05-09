@@ -8,8 +8,7 @@ export default class AsyncQueue {
     }
 
     async next() {
-        const value = this.values.shift();
-        if (value) return value;
+        if (this.values.length > 0) this.values.shift();
         return new Promise(resolve => this.resolves.push(resolve));
     }
 
@@ -17,6 +16,10 @@ export default class AsyncQueue {
         const resolve = this.resolves.shift();
         if (resolve) resolve(value);
         else this.values.push(value);
+    }
+
+    peek() {
+        return this.values[0];
     }
 
     nextNonBlocking() {
