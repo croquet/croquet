@@ -1,5 +1,6 @@
 import Hashids from "hashids";
 import hotreload from "./hotreload";
+import urlOptions from "./urlOptions";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
@@ -52,7 +53,7 @@ export function croquetDev(key, defaultValue=undefined, initFn=null) {
 }
 
 // developer user name
-if (window.location.hostname === "localhost") {
+if (urlOptions.has("debug", "user", "localhost")) {
     croquetDev("user", "", () => {
         // eslint-disable-next-line no-alert
         return (window.prompt("Please enter developer name (localStorage.croquetDev.user)") || "").toLowerCase();
@@ -65,12 +66,8 @@ const BASE_URL = baseUrl('code');
 // all others share a directory but prefix the file name wth the host name
 export function baseUrl(what='code') {
     const user = croquetDev("user");
-    const hostname = window.location.hostname;
-    const isSpecial = ['croquet.studio', 'localhost'].includes(hostname);
-    const host = isSpecial ? hostname : "other";
-    const suffix = user ? `-${user}` : "";
-    const prefix = isSpecial ? "" : `${hostname}/`;
-    return `https://db.croquet.studio/files-v1/${host}/${what}${suffix}/${prefix}`;
+    const host = user ? `dev/${user}` : window.location.hostname;
+    return `https://db.croquet.studio/files-v1/${host}/${what}/`;
 }
 
 function allModules() {
