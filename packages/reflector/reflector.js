@@ -308,7 +308,7 @@ function JOIN1(client, id, args) {
     if (island.snapshotUrl) { SYNC1(island); return; }
 
     // if first client, start it
-    if (island.syncClients.length === 1) { START1(); return; }
+    if (!island.startTimeout) { START1(); return; }
 
     // otherwise, the first client has not started yet (not provided a snapshot via SNAP)
     console.log(`>>> client ${client.addr} waiting for snapshot`);
