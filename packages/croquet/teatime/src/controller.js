@@ -194,26 +194,28 @@ export default class Controller {
         this.uploadLatest();
     }
 
-    snapshotUrl(suffix) {
+    snapshotUrl(time_seq) {
         // name includes JSON options
         const options = this.islandCreator.name.split(/[^A-Z0-9]+/i);
-        const snapshotName = `${options.filter(_=>_).join('-')}-${this.id}_${suffix}`;
-        const base = baseUrl('snapshots');
-        return `${base}${snapshotName}.json`;
+        const sessionName = `${options.filter(_=>_).join('-')}-${this.id}`;
+        return `${baseUrl('snapshots')}${sessionName}/${time_seq}.json`;
     }
 
     /** upload a snapshot to the asset server */
     async uploadSnapshot(snapshot) {
+        const time = Math.max(snapshot.time, snapshot.externalTime);
+        const seq = snapshot.externalSeq;
         snapshot.meta = {
             ...this.islandCreator.snapshot.meta,
-            room: this.islandCreator.room,
             options: this.islandCreator.options,
+            time,
+            seq,
             date: (new Date()).toISOString(),
             host: window.location.hostname,
         };
         if (codeHashes) snapshot.meta.code = codeHashes;
         const body = JSON.stringify(snapshot);
-        const url = this.snapshotUrl(`${snapshot.time}-snap`);
+        const url = this.snapshotUrl(`${time}_${seq}-snap`);
         console.log(this.id, `Controller uploading snapshot (${body.length} bytes) to ${url}`);
         try {
             await fetch(url, {
@@ -232,26 +234,24 @@ export default class Controller {
     async uploadLatest() {
         const snapshotUrl = await this.uploadSnapshot(this.lastSnapshot);
         if (!snapshotUrl) { console.error("Failed to upload snapshot"); return; }
-        const lastTime = Math.max(this.lastSnapshot.time, this.lastSnapshot.externalTime);
-        const lastSeq = this.lastSnapshot.externalSeq;
-        this.sendSnapshotToReflector(lastTime, lastSeq, snapshotUrl);
+        const last = this.lastSnapshot.meta;
+        this.sendSnapshotToReflector(last.time, last.seq, snapshotUrl);
         if (!this.prevSnapshot) return;
-        const prevTime = Math.max(this.prevSnapshot.time, this.prevSnapshot.externalTime);
-        const prevSeq = this.prevSnapshot.externalSeq;
+        const prev = this.prevSnapshot.meta;
         let messages = [];
-        if (prevSeq !== lastSeq) {
-            const prevIndex = this.oldMessages.findIndex(msg => msg[1] >= prevSeq);
-            const lastIndex = this.oldMessages.findIndex(msg => msg[1] >= lastSeq);
+        if (prev.seq !== last.seq) {
+            const prevIndex = this.oldMessages.findIndex(msg => msg[1] >= prev.seq);
+            const lastIndex = this.oldMessages.findIndex(msg => msg[1] >= last.seq);
             messages = this.oldMessages.slice(prevIndex, lastIndex + 1);
         }
         const messageLog = {
-            start: this.snapshotUrl(`${prevTime}-snap`),
+            start: this.snapshotUrl(`${prev.time}_${prev.seq}-snap`),
             end: snapshotUrl,
-            time: [prevTime, lastTime],
-            seq: [prevSeq, lastSeq],
+            time: [prev.time, last.time],
+            seq: [prev.seq, last.seq],
             messages,
         };
-        const messagesUrl = this.snapshotUrl(`${prevTime}-msgs`);
+        const messagesUrl = this.snapshotUrl(`${prev.time}_${prev.seq}-msgs`);
         const body = JSON.stringify(messageLog);
         console.log(this.id, `Controller uploading latest messages (${body.length} bytes) to ${messagesUrl}`);
         try {
