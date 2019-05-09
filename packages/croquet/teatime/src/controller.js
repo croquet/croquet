@@ -424,7 +424,7 @@ export default class Controller {
             newIsland = new Island(JSON.parse(JSON.stringify(newIsland.snapshot())), () => creatorFn(options));
         }
         for (const msg of messages) newIsland.scheduleExternalMessage(msg);
-        const nextSeq = (newIsland.externalSeq + 1) | 0;
+        const nextSeq = (newIsland.externalSeq + 1) >>> 0;
         this.time = Math.max(newIsland.time, newIsland.externalTime);
         while (drainQueue) {
             const nextMsg = this.networkQueue.peek();

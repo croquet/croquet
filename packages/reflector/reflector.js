@@ -279,7 +279,7 @@ function JOIN1(client, id, args) {
         name,                // the island name (might be null)
         version,             // the client version
         time,                // the current simulation time
-        seq: 0,              // sequence number for messages (32 bits)
+        seq: 0,              // sequence number for messages (uint32, wraps around)
         scale: 1,            // ratio of island time to wallclock time
         tick: TICK_MS,       // default tick rate
         delay: 0,            // hold messages until this many ms after last tick
@@ -399,7 +399,7 @@ function SEND(client, id, messages) {
     for (const message of messages) {
         // message = [time, seq, payload]
         message[0] = time;
-        message[1] = island.seq = (island.seq + 1) | 0;
+        message[1] = island.seq = (island.seq + 1) >>> 0;
         const msg = JSON.stringify({ id, action: 'RECV', args: message });
         //LOG("broadcasting RECV", message);
         STATS.RECV++;
