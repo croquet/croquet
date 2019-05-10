@@ -91,7 +91,7 @@ function allModules() {
 function allModuleIDs() {
     // ignore parcel runtime which is only used in dev builds and
     // changes constantly (because it contains a dynamic port number)
-    return Object.keys(allModules()).filter(id => id.endsWith('hmr-runtime.js'));
+    return Object.keys(allModules()).filter(id => !id.endsWith('hmr-runtime.js'));
 }
 
 /**
