@@ -371,11 +371,17 @@ export default class Controller {
         switch (action) {
             case 'START': {
                 // We are starting a new island session.
-                console.log(this.id, 'Controller received START - creating island');
-                await this.install(false);
+                console.log(this.id, 'Controller received START');
+                // see if there is an old snapshot
+                const latest = await this.fetchJSON(this.snapshotUrl('latest'));
+                if (latest) console.log(this.id, `fetching latest snapshot ${latest.url}`);
+                const snapshot = latest && this.fetchJSON(latest.url);
+                if (latest) this.islandCreator.snapshot = snapshot;
+                this.install();
                 this.requestTicks();
-                this.keepSnapshot();
-                this.uploadLatest(false); // upload initial snapshot
+                this.keepSnapshot(snapshot);
+                if (latest) this.sendSnapshotToReflector(latest.time, latest.seq, latest.url);
+                else this.uploadLatest(false); // upload initial snapshot
                 break;
             }
             case 'SYNC': {
@@ -384,7 +390,7 @@ export default class Controller {
                 console.log(this.id, `Controller received SYNC: ${messages.length} messages, ${url}`);
                 const snapshot = await this.fetchJSON(url);
                 this.islandCreator.snapshot = snapshot;  // set snapshot
-                this.install(true, messages);
+                this.install(messages);
                 this.getTickAndMultiplier();
                 this.keepSnapshot(snapshot);
                 break;
@@ -427,33 +433,24 @@ export default class Controller {
         }
     }
 
-    async install(drainQueue=false, messages=[]) {
+    install(messagesSinceSnapshot=[]) {
         const {snapshot, creatorFn, options, callbackFn} = this.islandCreator;
         let newIsland = new Island(snapshot, () => creatorFn(options));
         if (DEBUG.snapshot && !snapshot.modelsById) {
             // exercise save & load if we came from init
             const initialIslandSnap = JSON.stringify(newIsland.snapshot());
             newIsland = new Island(JSON.parse(initialIslandSnap), () => creatorFn(options));
-            // const restoredIslandSnap = JSON.stringify(newIsland.snapshot());
-            // const hashes = [(await hashString(initialIslandSnap)), (await hashString(restoredIslandSnap))];
-            // if (hashes[0] !== hashes[1]) {
-            //     throw new Error("Initial save/load cycle hash inconsistency!");
-            // }
         }
-        for (const msg of messages) newIsland.scheduleExternalMessage(msg);
-        const nextSeq = (newIsland.externalSeq + 1) >>> 0;
+        for (const msg of messagesSinceSnapshot) newIsland.scheduleExternalMessage(msg);
         this.time = Math.max(newIsland.time, newIsland.externalTime);
-        while (drainQueue) {
-            const nextMsg = this.networkQueue.peek();
-            if (!nextMsg) break;
-            if (nextMsg[1] < nextSeq) {
-                // silently skip old messages
-            } else if (nextMsg[1] === nextSeq ) {
-                // this is the next message
-                break;
-            } else {
-                console.warn(`Skipping message #${nextMsg[1]} while looking for #${nextSeq}`);
-            }
+        // drain message queue
+        const nextSeq = (newIsland.externalSeq + 1) >>> 0;
+        for (let msg = this.networkQueue.peek(); msg; msg = this.networkQueue.peek()) {
+            if (!inSequence(msg[1], nextSeq)) throw Error(`Missing message (expected ${nextSeq} got ${msg[1]})`);
+            // found the next message
+            if (msg[1] === nextSeq) break;
+            // silently skip old messages
+            this.networkQueue.nextNonBlocking();
         }
         this.setIsland(newIsland); // install island
         callbackFn(this.island);
@@ -640,7 +637,7 @@ const PING_INTERVAL = 1000 / 5;
 
 function PING() {
     if (!TheSocket || TheSocket.readyState !== WebSocket.OPEN) return;
-    if (TheSocket.bufferedAmount) console.log(`Stalled: ${TheSocket.bufferedAmount} bytes unsent`);
+    if (TheSocket.bufferedAmount) console.log(`Reflector connection stalled: ${TheSocket.bufferedAmount} bytes unsent`);
     else TheSocket.send(JSON.stringify({ action: 'PING', args: Date.now()}));
 }
 
