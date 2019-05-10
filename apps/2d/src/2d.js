@@ -306,9 +306,9 @@ async function go() {
         window.requestAnimationFrame(frame);
     }
 
-    window.onbeforeunload = () => {
+    window.addEventListener("beforeunload", () => {
         if (controller.island) window.top.postMessage({connected: -1}, "*");
-    };
+    });
 }
 
 

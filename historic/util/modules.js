@@ -1,5 +1,6 @@
 import Hashids from "hashids";
 import hotreload from "./hotreload";
+import urlOptions from "./urlOptions";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
@@ -45,14 +46,28 @@ export function croquetDev(key, defaultValue=undefined, initFn=null) {
     if (key in dev) return dev[key];
     if (initFn) {
         dev[key] = initFn();
-        if (dev[key] !== defaultValue) localStorage.croquetDev = JSON.stringify(dev);
+        if (dev[key] !== defaultValue) {
+            localStorage.croquetDev = JSON.stringify(dev);
+            // store as cookie for subdomain sharing
+            const hostname = window.location.hostname;
+            const subdomain = hostname.replace(/(.*)\./, host => `${host.replace(/.*\.(.*\.)/, '$1')}`);
+            document.cookie = `croquetdev=${localStorage.croquetDev};domain=${subdomain}`;
+        }
         return dev[key];
     }
     return defaultValue;
 }
 
-// developer user name
-if (window.location.hostname === "localhost") {
+// set developer user name if running on localhost (or equivalent)
+if (urlOptions.has("debug", "user", "localhost")) {
+    // try to fetch from cookie (to not have to type in on each ngrok host)
+    if (!localStorage.croquetDev) {
+        const devCookie = document.cookie.split(/\s*;\s*/).find(cookie => cookie.match(/^croquetdev=/));
+        if (devCookie) try {
+            const dev = JSON.parse(devCookie.replace(/^croquetdev=/, ''));
+            localStorage.croquetDev = JSON.stringify(dev);
+        } catch (ex) { /* ignore */}
+    }
     croquetDev("user", "", () => {
         // eslint-disable-next-line no-alert
         return (window.prompt("Please enter developer name (localStorage.croquetDev.user)") || "").toLowerCase();
@@ -65,12 +80,8 @@ const BASE_URL = baseUrl('code');
 // all others share a directory but prefix the file name wth the host name
 export function baseUrl(what='code') {
     const user = croquetDev("user");
-    const hostname = window.location.hostname;
-    const isSpecial = ['croquet.studio', 'localhost'].includes(hostname);
-    const host = isSpecial ? hostname : "other";
-    const suffix = user ? `-${user}` : "";
-    const prefix = isSpecial ? "" : `${hostname}/`;
-    return `https://db.croquet.studio/files-v1/${host}/${what}${suffix}/${prefix}`;
+    const host = user ? `dev/${user}` : window.location.hostname;
+    return `https://db.croquet.studio/files-v1/${host}/${what}/`;
 }
 
 function allModules() {
@@ -78,7 +89,9 @@ function allModules() {
 }
 
 function allModuleIDs() {
-    return Object.keys(allModules());
+    // ignore parcel runtime which is only used in dev builds and
+    // changes constantly (because it contains a dynamic port number)
+    return Object.keys(allModules()).filter(id => !id.endsWith('hmr-runtime.js'));
 }
 
 /**
@@ -199,8 +212,7 @@ function resolveNames() {
 
 function nameOf(mod) {
     if (names[mod]) return names[mod];
-    // "hmr-runtime.js" is injected by parcel in dev builds
-    if (!mod.endsWith("hmr-runtime.js")) console.warn('No name for ' + mod);
+    console.warn('No name for ' + mod);
     return mod;
 }
 

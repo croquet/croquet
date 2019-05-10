@@ -23,13 +23,14 @@ const STATS_TO_MAX = [ "USERS", "BUFFER" ];
 const STATS_KEYS = [...STATS_TO_MAX, ...STATS_TO_AVG];
 const STATS = {
     time: Date.now(),
-}
+};
 for (const key of STATS_KEYS) STATS[key] = 0;
 
 setInterval(showStats, 10000);
 
 // if running on node, log stats to file
-let appendFile = (typeof process !== 'undefined') && require("fs").appendFile;
+const appendFile = (typeof process !== 'undefined') && require("fs").appendFile; // eslint-disable-line global-require
+
 const fileName = "stats.txt";
 
 function showStats() {
@@ -37,7 +38,7 @@ function showStats() {
     const delta = time - STATS.time;
     STATS.time = time;
     STATS.USERS = Math.max(STATS.USERS, server.clients.size);
-    let out = [];
+    const out = [];
     let sum = 0;
     for (const key of STATS_TO_MAX) {
         out.push(`${key}: ${STATS[key]}`);
@@ -51,7 +52,7 @@ function showStats() {
     LOG(out.join(', '));
     if (appendFile) {
         const line = `${(new Date(time)).toISOString().slice(0, 19)}Z ${STATS_KEYS.map(key => STATS[key]).join(' ')}\n`;
-        appendFile(fileName, line, err => {});
+        appendFile(fileName, line, _err => {});
     }
     for (const key of STATS_KEYS) STATS[key] = 0;
 }
@@ -113,7 +114,9 @@ function removeRandomElement(array) {
  * @param {number} time
  */
 function JOIN(client, id, args) {
-    if (typeof args === "number") args = {time: args};    // old clients send time
+    if (typeof args === "number") args = {time: args};    // very old clients send just time
+    if (!args.version) args.version = 0;                  // clients before V1 send no version
+    if (args.version >= 1) { JOIN1(client, id, args); return; }
     LOG('received', client.addr, 'JOIN', id, args);
     const {time, name, user} = args;
     if (user) client.addr += ` [${user}]`;
@@ -122,7 +125,7 @@ function JOIN(client, id, args) {
         id,                  // the island id
         name,                // the island name (might be null)
         time,                // the current simulation time
-        sequence: 0xFFFFFFF0,// sequence number for messages with same time
+        seq: 0xFFFFFFF0,     // sequence number for messages with same time
         scale: 1,            // ratio of island time to wallclock time
         tick: TICK_MS,       // default tick rate
         delay: 0,            // hold messages until this many ms after last tick
@@ -173,7 +176,8 @@ function JOIN(client, id, args) {
                 syncClient.safeSend(response);
                 LOG('sending', syncClient.addr, 'SYNC', response.length, 'bytes, time:', snapshot.time);
                 island.providers.add(client);
-                if (firstMessage) syncClient.safeSend(firstMessage);
+                const msg = JSON.stringify({ id, action: 'RECV', args: firstMessage });
+                if (firstMessage) syncClient.safeSend(msg);
             } else {
                 LOG('cannot send SYNC to', syncClient.addr);
             }
@@ -261,6 +265,126 @@ function JOIN(client, id, args) {
     }
 }
 
+/** A new island controller is joining
+ * @param {Client} client - we received from this client
+ * @param {ID} id - island ID
+ * @param {{name: String, version: Number}} args
+ */
+function JOIN1(client, id, args) {
+    LOG('received', client.addr, 'JOIN', id, args);
+    const {time, name, version, user} = args;
+    if (user) client.addr += ` [${user}]`;
+    // create island data if this is the first client
+    const island = ALL_ISLANDS.get(id) || {
+        id,                  // the island id
+        name,                // the island name (might be null)
+        version,             // the client version
+        time,                // the current simulation time
+        seq: 0,              // sequence number for messages (uint32, wraps around)
+        scale: 1,            // ratio of island time to wallclock time
+        tick: TICK_MS,       // default tick rate
+        delay: 0,            // hold messages until this many ms after last tick
+        clients: new Set(),  // connected web sockets
+        users: 0,            // number of clients already reported
+        snapshotTime: -1,    // time of last snapshot
+        snapshotUrl: '',     // url of last snapshot
+        messages: [],        // messages since last snapshot
+        before: Date.now(),  // last getTime() call
+        lastTick: 0,         // time of last TICK sent
+        lastMsgTime: 0,      // time of last message reflected
+        ticker: null,        // interval for serving TICKs
+        startTimeout: null,   // pending START request timeout (should send SNAP)
+        syncClients: [],     // clients waiting to SYNC
+        [Symbol.toPrimitive]: () => `${name} ${id}`,
+    };
+    ALL_ISLANDS.set(id, island);
+
+    // start broadcasting messages to client
+    island.clients.add(client);
+
+    // we need to SYNC
+    island.syncClients.push(client);
+
+    // if we have a current snapshot, reply with that
+    if (island.snapshotUrl) { SYNC1(island); return; }
+
+    // if first client, start it
+    if (!island.startTimeout) { START1(); return; }
+
+    // otherwise, the first client has not started yet (not provided a snapshot via SNAP)
+    console.log(`>>> client ${client.addr} waiting for snapshot`);
+
+    function START1() {
+        // find next client
+        do {
+            client = island.syncClients.shift();
+            if (!client) return; // no client waiting
+        } while (client.readyState !== WebSocket.OPEN);
+        const msg = JSON.stringify({id, action: 'START'});
+        client.safeSend(msg);
+        LOG('sending', client.addr, msg);
+        // if the client does not provide a snapshot in time, we need to start over
+        island.startTimeout = setTimeout(() => {
+            island.startTimeout = null;
+            // kill client
+            LOG(">>> killing unresponsive ", client.addr);
+            if (client.readyState === WebSocket.OPEN) client.close(4000, "client unresponsive");
+            // start next client
+            START1();
+        }, SERVE_TIMEOUT);
+    }
+}
+
+function SYNC1(island) {
+    const {snapshotUrl: url, messages} = island;
+    const response = JSON.stringify({ id: island.id, action: 'SYNC', args: {url, messages}});
+    const range = !messages.length ? '' : ` (#${messages[0][1]}...${messages[messages.length-1][1]})`;
+    for (const syncClient of island.syncClients) {
+        if (syncClient.readyState === WebSocket.OPEN) {
+            syncClient.safeSend(response);
+            LOG(`sending ${syncClient.addr} SYNC ${response.length} bytes, ${messages.length} messages${range}, snapshot: ${url}`);
+        } else {
+            LOG('cannot send SYNC to', syncClient.addr);
+        }
+    }
+    // synced all that were waiting
+    island.syncClients.length = 0;
+    // force reporting on next TICK even if same number joins and leaves
+    island.users = 0;
+}
+
+
+/** client uploaded a snapshot
+ * @param {Client} client - we received from this client
+ * @param {ID} id - island ID
+ * @param {{time: Number, url: String}} args - the time and url of the snapshot
+ */
+function SNAP(client, id, args) {
+    const island = ALL_ISLANDS.get(id);
+    if (!island) { if (client.readyState === WebSocket.OPEN) client.close(4000, "unknown island"); return; }
+    const {time, seq, url} = args;
+    if (time < island.snapshotTime) return;
+    LOG(`${island} got snapshot time ${time}#${seq}: ${url}`);
+    // keep snapshot
+    island.snapshotTime = time;
+    island.snapshotUrl = url;
+    // forget older messages
+    if (island.messages.length > 0) {
+        const msgs = island.messages;
+        const keep = msgs.findIndex(msg => msg[1] > seq);
+        if (keep > 0) {
+            LOG(`${island} forgetting messages #${msgs[0][1]} to #${msgs[keep - 1][1]} (keeping #${msgs[keep][1]})`);
+            msgs.splice(0, keep);
+        } if (keep === -1) {
+            LOG(`${island} forgetting all messages (#${msgs[0][1]} to #${msgs[msgs.length - 1][1]})`);
+            msgs.length = 0;
+        }
+    }
+    // start waiting clients
+    if (island.startTimeout) { clearTimeout(island.startTimeout); island.startTimeout = null; }
+    if (island.syncClients.length > 0) SYNC1(island);
+}
+
 /** reflect a message to all participants after time stamping it
  * @param {?Client} client - we received from this client
  * @param {ID} id - island ID
@@ -277,13 +401,13 @@ function SEND(client, id, messages) {
     for (const message of messages) {
         // message = [time, seq, payload]
         message[0] = time;
-        message[1] = island.sequence = (island.sequence + 1) & 0xFFFFFFFF;
+        message[1] = island.seq = (island.seq + 1) | 0;               // clients before V1 expect int32
         const msg = JSON.stringify({ id, action: 'RECV', args: message });
         //LOG("broadcasting RECV", message);
         STATS.RECV++;
         STATS.SEND += island.clients.size;
         island.clients.forEach(each => each.safeSend(msg));
-        island.messages.push(msg); // raw message sent again in SYNC
+        island.messages.push(message); // raw message sent again in SYNC
     }
     island.lastMsgTime = time;
     if (island.messages.length > MAX_MESSAGES) {
@@ -354,12 +478,13 @@ function TICK(island) {
  * @param {*} args
  */
 function TICKS(client, id, args) {
-    const {time, tick, delay, scale} = args;
+    const {time, seq, tick, delay, scale} = args;
     const island = ALL_ISLANDS.get(id);
-    if (!island) { if (client.readyState === WebSocket.OPEN) client.close(4000, "unknown island"); return; };
+    if (!island) { if (client.readyState === WebSocket.OPEN) client.close(4000, "unknown island"); return; }
     if (!island.time) {
-        // only accept time and delay if new island
+        // only accept time, sequence, and delay if new island
         island.time = typeof time === "number" ? time : 0;
+        island.seq = typeof seq === "number" ? seq : 0xFFFFFFF0;    // v0 clients expect this value
         if (delay > 0) island.delay = delay;
     }
     if (scale > 0) island.scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale));
@@ -429,7 +554,7 @@ server.on('connection', (client, req) => {
         STATS.BUFFER = Math.max(STATS.BUFFER, client.bufferedAmount);
         client.send(data);
         STATS.OUT += data.length;
-    }
+    };
     LOG(`connection #${server.clients.size} from ${client.addr}`);
     STATS.USERS = Math.max(STATS.USERS, server.clients.size);
 
@@ -447,9 +572,10 @@ server.on('connection', (client, req) => {
                 case 'JOIN': JOIN(client, id, args); break;
                 case 'SEND': SEND(client, id, [args]); break;
                 case 'TICKS': TICKS(client, id, args); break;
+                case 'SNAP': SNAP(client, id, args); break;
                 case 'PING': PONG(client, args); break;
                 case 'SESSION': SESSION(client, id, args); break;
-                default: console.warn("Reflector: unknown action:", action);
+                default: console.warn("Reflector: unknown action", action);
             }
         };
 
@@ -463,9 +589,9 @@ server.on('connection', (client, req) => {
 
     client.on('close', () => {
         LOG(`closing connection from ${client.addr}`);
-        for (const [id, island] of ALL_ISLANDS) {
+        for (const island of ALL_ISLANDS.values()) {
             island.clients.delete(client);
-            island.providers.delete(client);
+            if (island.providers) island.providers.delete(client);  // only in v0
             if (island.clients.size === 0) deleteIsland(island);
         }
     });

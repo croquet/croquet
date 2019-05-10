@@ -62,10 +62,12 @@ export default class Island {
                 this.id = snapshot.id; // the controller always provides an ID
                 /** @type {Number} how far simulation has progressed */
                 this.time = 0;
+                /** @type {Number} sequence number of last executed external message */
+                this.seq = 0xFFFFFFF0;       // start value provokes 32 bit rollover soon
                 /** @type {Number} timestamp of last scheduled external message */
                 this.externalTime = 0;
-                /** @type {Number} sequence number of last executed external message */
-                this.externalSeq = 0xFFFFFFF0;
+                /** @type {Number} sequence number of last scheduled external message */
+                this.externalSeq = this.seq;
                 /** @type {Number} sequence number for disambiguating future messages with same timestamp */
                 this.futureSeq = 0;
                 /** @type {Number} number for giving ids to model */
@@ -148,8 +150,10 @@ export default class Island {
     scheduleExternalMessage(msgData) {
         const message = Message.fromState(msgData);
         if (message.time < this.time) throw Error("past message from reflector " + msgData);
-        this.messages.add(message);
         this.externalTime = message.time; // we have all external messages up to this time
+        this.externalSeq = message.seq; // we have all external messages up to this sequence number
+        message.seq = message.seq * 2 + 1;  // make odd sequence for external messages
+        this.messages.add(message);
         return message;
     }
 
@@ -206,8 +210,8 @@ export default class Island {
             const { time, seq } = message;
             if (time < this.time) throw Error("past message encountered: " + message);
             if (seq & 1) {
-                this.externalSeq = (this.externalSeq + 1) & 0xFFFFFFFF;
-                if (seq >> 1 !== this.externalSeq) throw Error(`Sequence error: expected ${this.externalSeq} got ${seq >> 1} in ${message}`);
+                this.seq = (this.seq + 1) >>> 0;  // 32 bit rollover
+                if ((seq/2) >>> 0 !== this.seq) throw Error(`Sequence error: expected ${this.seq} got ${(seq/2) >>> 0} in ${message}`);
             }
             this.messages.poll();
             if (this.time !== message.time) {
@@ -430,7 +434,8 @@ class Message {
 
     toString() {
         const { receiver, selector, args } = decode(this.payload);
-        return `${this.isExternal() ? 'External' : 'Future'}Message[${this.time}:${this.seq} ${receiver}.${selector}(${args.map(JSON.stringify).join(', ')})]`;
+        const ext = this.isExternal();
+        return `${ext ? 'External' : 'Future'}Message[${this.time}${':#'[+ext]}${this.seq} ${receiver}.${selector}(${args.map(JSON.stringify).join(', ')})]`;
     }
 
     [Symbol.toPrimitive]() { return this.toString(); }
@@ -523,9 +528,13 @@ class IslandWriter {
             $model: Model.classToID(model.constructor),
         };
         this.refs.set(model, state);      // register ref before recursing
-        for (const [key, value] of Object.entries(model)) {
+        const descriptors = Object.getOwnPropertyDescriptors(model);
+        for (const key of Object.keys(descriptors).sort()) {
             if (key === "__realm") continue;
-            this.writeInto(state, key, value, path);
+            const descriptor = descriptors[key];
+            if (descriptor.value !== undefined) {
+                this.writeInto(state, key, descriptor.value, path);
+            }
         }
         return state;
     }
@@ -534,7 +543,9 @@ class IslandWriter {
         if (this.refs.has(object)) return this.writeRef(object);
         const state = {};
         this.refs.set(object, state);      // register ref before recursing
-        for (const [key, descriptor] of Object.entries(Object.getOwnPropertyDescriptors(object))) {
+        const descriptors = Object.getOwnPropertyDescriptors(object);
+        for (const key of Object.keys(descriptors).sort()) {
+            const descriptor = descriptors[key];
             if (descriptor.value !== undefined) {
                 this.writeInto(state, key, descriptor.value, path, defer);
             }
@@ -574,7 +585,7 @@ class IslandWriter {
         const state = this.refs.get(object);
         if (typeof state !== "object") throw Error("Non-object in refs: " + object);
         if (Array.isArray(state)) {
-            // usually, extra proeprties on arrays don't get serialised to JSON
+            // usually, extra properties on arrays don't get serialized to JSON
             // so we use this hack that does a one-time replacement of toJSON
             // on this particular array
             state.toJSON = function () {

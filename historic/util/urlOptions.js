@@ -43,7 +43,7 @@ parseUrl();
  * @param {Boolean|String} defaultValue - if string, true on that hostname, false otherwise
  */
 urlOptions.has = (key, item, defaultValue) => {
-    if (typeof defaultValue !== "boolean") defaultValue = window.location.hostname === defaultValue;
+    if (typeof defaultValue !== "boolean") defaultValue = hostIs(defaultValue);
     if (defaultValue === true) item =`no${item}`;
     const urlItems = urlOptions[key];
     if (typeof urlItems !== "string") return defaultValue;
@@ -54,5 +54,14 @@ urlOptions.has = (key, item, defaultValue) => {
 urlOptions.firstInHash = () => {
     return document.location.hash.slice(1).split("&")[0];
 };
+
+function hostIs(hostname) {
+    const actualHostname = window.location.hostname;
+    if (actualHostname === hostname) return true;
+    if (hostname !== "localhost") return false;
+    // answer true for a variety of localhost equivalents
+    if (actualHostname.endsWith(".ngrok.io")) return true;
+    return ["127.0.0.1", "::1"].includes(actualHostname);
+}
 
 export default urlOptions;

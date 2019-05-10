@@ -2,7 +2,7 @@ import AsyncQueue from "@croquet/util/asyncQueue";
 import Stats from "@croquet/util/stats";
 import hotreload from "@croquet/util/hotreload";
 import urlOptions from "@croquet/util/urlOptions";
-import { baseUrl, hashNameAndCode, uploadCode, croquetDev, hashString } from "@croquet/util/modules";
+import { baseUrl, hashNameAndCode, uploadCode, croquetDev } from "@croquet/util/modules";
 import { inViewRealm } from "./realms";
 import Island from "./island";
 
@@ -10,14 +10,20 @@ import Island from "./island";
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
+
+// when reflector has a new feature, we increment this value
+// only newer clients get to use it
+const VERSION = 1;
+
+
 let codeHashes = null;
 
 const DEBUG = {
-    messages: urlOptions.has("debug", "messages", false),
-    ticks: urlOptions.has("debug", "ticks", false),
-    pong: urlOptions.has("debug", "pong", false),
-    snapshot: urlOptions.has("debug", "snapshot", "localhost"),
-    consistency: urlOptions.has("debug", "consistency", false),
+    messages: urlOptions.has("debug", "messages", false),           // received messages
+    sends: urlOptions.has("debug", "sends", false),                 // sent messages
+    ticks: urlOptions.has("debug", "ticks", false),                 // received ticks
+    pong: urlOptions.has("debug", "pong", false),                   // received PONGs
+    snapshot: urlOptions.has("debug", "snapshot", "localhost"),     // check snapshotting after init
 };
 
 const NOCHEAT = urlOptions.nocheat;
@@ -29,6 +35,13 @@ const SNAPSHOT_EVERY = 5000;
 
 const Controllers = {};
 const SessionCallbacks = {};
+
+/** answer true if seqA comes before seqB */
+function inSequence(seqA, seqB) {
+    const seqDelta = (seqB - seqA) >>> 0; // make unsigned
+    return seqDelta < 0x8000000;
+}
+
 
 export default class Controller {
     static connectToReflector(mainModuleID, reflectorUrl) {
@@ -87,6 +100,12 @@ export default class Controller {
         // closing with error code will force reconnect
     }
 
+    static uploadOnPageClose() {
+        for (const controller of Object.values(Controllers)) {
+            controller.uploadOnPageClose();
+        }
+    }
+
     constructor() {
         this.reset();
     }
@@ -100,8 +119,6 @@ export default class Controller {
         this.networkQueue = new AsyncQueue();
         /** the time of last message received from reflector */
         this.time = 0;
-        /** sequence number of last message received from reflector */
-        this.sequence = 0;
         /** the number of concurrent users in our island */
         this.users = 0;
         /** wallclock time we last heard from reflector */
@@ -138,7 +155,7 @@ export default class Controller {
         }
         const hash = await hashNameAndCode(name);
         const id = await this.sessionIDFor(hash);
-        console.log(`ID for ${name}: ${id}`);
+        console.log(`Session ID for ${name}: ${id}`);
         this.islandCreator = { name, ...creator, options, hash };
         if (!this.islandCreator.snapshot) {
             this.islandCreator.snapshot = { id, time: 0, meta: { created: (new Date()).toISOString() } };
@@ -153,26 +170,43 @@ export default class Controller {
 
     // keep a snapshot in case we need to upload it or for replay
     keepSnapshot(snapshot=null) {
-        Stats.begin("snapshot");
-        if (!snapshot) snapshot = this.island.snapshot();
+        const start = Stats.begin("snapshot");
+        if (!snapshot) snapshot = this.takeSnapshot();
         // keep history
         this.snapshots.push(snapshot);
         // limit storage for old snapshots
         while (this.snapshots.length > 2) this.snapshots.shift();
         // keep only messages newer than the oldest snapshot
-        const keep = this.snapshots[0].time;
-        const keepIndex = this.oldMessages.findIndex(msg => msg[0] >= keep);
+        const keep = this.snapshots[0].externalSeq;
+        const keepIndex = this.oldMessages.findIndex(msg => msg[1] > keep);
+        if (keepIndex > 0) console.warn(`Deleting old messages from ${this.oldMessages[0][1]} to ${this.oldMessages[keepIndex - 1][1]}`);
         this.oldMessages.splice(0, keepIndex);
-        Stats.end("snapshot");
+        return Stats.end("snapshot") - start;
     }
 
     takeSnapshot() {
+        const snapshot = this.island.snapshot();
+        const time = Math.max(snapshot.time, snapshot.externalTime);
+        const seq = snapshot.externalSeq;
+        snapshot.meta = {
+            ...this.islandCreator.snapshot.meta,
+            options: this.islandCreator.options,
+            time,
+            seq,
+            date: (new Date()).toISOString(),
+            host: window.location.hostname,
+        };
+        if (codeHashes) snapshot.meta.code = codeHashes;
+        return snapshot;
+    }
+
+    finalSnapshot() {
         if (!this.island) return null;
         // ensure all messages up to this point are in the snapshot
         for (let msg = this.networkQueue.nextNonBlocking(); msg; msg = this.networkQueue.nextNonBlocking()) {
            this.island.scheduleExternalMessage(msg);
         }
-        return this.island.snapshot();
+        return this.takeSnapshot();
     }
 
     // we have spent a certain amount of CPU time on simulating, schedule a snapshot
@@ -182,33 +216,101 @@ export default class Controller {
         this.island.scheduleSnapshot(time - this.island.time);
     }
 
+    // this is called from inside the simulation loop
     scheduledSnapshot() {
-        this.keepSnapshot();
+        // exclude snapshot time from cpu time
+        this.cpuTime -= this.keepSnapshot();
         // for now, just upload every snapshot - later, reflector will tell us when we should upload
-        this.uploadLatest();
+        this.uploadLatest(true);
     }
 
-    snapshotUrl(suffix) {
+    snapshotUrl(time_seq) {
         // name includes JSON options
         const options = this.islandCreator.name.split(/[^A-Z0-9]+/i);
-        const snapshotName = `${options.filter(_=>_).join('-')}-${this.id}_${suffix}`;
-        const base = baseUrl('snapshots');
-        return `${base}${snapshotName}.json`;
+        const sessionName = `${options.filter(_=>_).join('-')}-${this.id}`;
+        return `${baseUrl('snapshots')}${sessionName}/${time_seq}.json`;
     }
 
     /** upload a snapshot to the asset server */
     async uploadSnapshot(snapshot) {
-        snapshot.meta = {
-            ...this.islandCreator.snapshot.meta,
-            room: this.islandCreator.room,
-            options: this.islandCreator.options,
-            date: (new Date()).toISOString(),
-            host: window.location.hostname,
-        };
-        if (codeHashes) snapshot.meta.code = codeHashes;
         const body = JSON.stringify(snapshot);
-        const url = this.snapshotUrl(`${snapshot.time}-snap`);
+        const url = this.snapshotUrl(`${snapshot.meta.time}_${snapshot.meta.seq}-snap`);
         console.log(this.id, `Controller uploading snapshot (${body.length} bytes) to ${url}`);
+        return this.uploadJSON(url, body);
+    }
+
+    async isOlderThanLatest(snapshot) {
+        const latest = await this.fetchJSON(this.snapshotUrl('latest'));
+        if (!latest) return false;
+        const {time, seq} = snapshot.meta;
+        const timeDelta = latest.time - time;
+        if (timeDelta !== 0) return timeDelta > 0;
+        return inSequence(seq, latest.seq);
+    }
+
+    // upload snapshot and message history, and inform reflector
+    async uploadLatest(checkLatest) {
+        if (checkLatest && await this.isOlderThanLatest(this.lastSnapshot)) return;
+        const snapshotUrl = await this.uploadSnapshot(this.lastSnapshot);
+        if (!snapshotUrl) { console.error("Failed to upload snapshot"); return; }
+        const last = this.lastSnapshot.meta;
+        this.sendSnapshotToReflector(last.time, last.seq, snapshotUrl);
+        if (!this.prevSnapshot) return;
+        const prev = this.prevSnapshot.meta;
+        let messages = [];
+        if (prev.seq !== last.seq) {
+            const prevIndex = this.oldMessages.findIndex(msg => msg[1] >= prev.seq);
+            const lastIndex = this.oldMessages.findIndex(msg => msg[1] >= last.seq);
+            messages = this.oldMessages.slice(prevIndex, lastIndex + 1);
+        }
+        const messageLog = {
+            start: this.snapshotUrl(`${prev.time}_${prev.seq}-snap`),
+            end: snapshotUrl,
+            time: [prev.time, last.time],
+            seq: [prev.seq, last.seq],
+            messages,
+        };
+        const url = this.snapshotUrl(`${prev.time}_${prev.seq}-msgs`);
+        const body = JSON.stringify(messageLog);
+        console.log(this.id, `Controller uploading latest messages (${body.length} bytes) to ${url}`);
+        this.uploadJSON(url, body);
+    }
+
+    uploadOnPageClose() {
+        // cannot use await, page is closing
+        if (!this.island || this.lastSnapshot.meta.seq === this.island.externalSeq) return;
+        const url = this.snapshotUrl('latest');
+        const snapshot = this.finalSnapshot();
+        const {time, seq} = snapshot.meta;
+        const body = JSON.stringify({time, seq, snapshot});
+        console.log(this.id, `page is closing, uploading snapshot (${time}#${seq}, ${body.length} bytes):`, url);
+        this.uploadJSON(url, body);
+    }
+
+    sendSnapshotToReflector(time, seq, url) {
+        console.log(this.id, `Controller updating ${this.snapshotUrl('latest')})`);
+        this.uploadJSON(this.snapshotUrl('latest'), JSON.stringify({time, seq, url}));
+        console.log(this.id, `Controller sending snapshot url to reflector (time: ${time}, seq: ${seq})`);
+        try {
+            this.socket.send(JSON.stringify({
+                id: this.id,
+                action: 'SNAP',
+                args: {time, seq, url},
+            }));
+        } catch (e) {
+            console.error('ERROR while sending', e);
+        }
+    }
+
+    async fetchJSON(url, defaultValue) {
+        try {
+            const response = await fetch(url, { mode: "cors" });
+            return response.json();
+        } catch (err) { /* ignore */}
+        return defaultValue;
+    }
+
+    async uploadJSON(url, body) {
         try {
             await fetch(url, {
                 method: "PUT",
@@ -217,70 +319,9 @@ export default class Controller {
                 body,
             });
             return url;
-        } catch (e) {
-            return false;
-        }
-    }
-
-    // upload snapshot and message history
-    async uploadLatest() {
-        const snapshotUrl = await this.uploadSnapshot(this.lastSnapshot);
-        if (!snapshotUrl) { console.error("Failed to upload snapshot"); return; }
-        if (!this.prevSnapshot) return;
-        const lastTime = this.lastSnapshot.time;
-        const prevTime = this.prevSnapshot.time;
-        const prevIndex = this.oldMessages.findIndex(msg => msg[0] >= prevTime);
-        const lastIndex = this.oldMessages.findIndex(msg => msg[0] >= lastTime);
-        const messages = {
-            start: this.snapshotUrl(`${prevTime}-snap`),
-            end: snapshotUrl,
-            time: [prevTime, lastTime],
-            messages: this.oldMessages.slice(prevIndex, lastIndex),
-        };
-        const messagesUrl = this.snapshotUrl(`${prevTime}-msgs`);
-
-        const body = JSON.stringify(messages);
-        console.log(this.id, `Controller uploading latest messages (${body.length} bytes) to ${messagesUrl}`);
-        try {
-            await fetch(messagesUrl, {
-                method: "PUT",
-                mode: "cors",
-                headers: { "Content-Type": "application/json" },
-                body,
-            });
         } catch (e) { /*ignore */ }
+        return false;
     }
-
-    /*
-    async fetchSnapshot(time) {
-        const url = this.snapshotUrl(time);
-        const response = await fetch(url, {
-            mode: "cors",
-        });
-        return response.json();
-    }
-
-    async updateSnapshot() {
-        // try to fetch latest snapshot
-        try {
-            const snapshot = await this.fetchSnapshot();
-            if (snapshot.id !== this.id) {
-                console.warn(this.id ,'fetched snapshot of different version!');
-                snapshot.originalID = snapshot.id;
-                snapshot.id = this.id;
-            }
-            if (snapshot.time >= this.islandCreator.snapshot.time) {
-                this.islandCreator.snapshot = snapshot;
-                console.log(this.id, `Controller fetched snapshot (time: ${Math.floor(snapshot.time)})`);
-            } else {
-                console.log(this.id, "Controller fetched snapshot but older than local" +
-                    ` (remote: ${snapshot.time}, local: ${this.islandCreator.snapshot.time})`);
-            }
-        } catch (e) {
-            console.log(this.id, 'Controller got no snapshot');
-        }
-    }
-    */
 
     /** the latest snapshot of this island */
     get lastSnapshot() { return this.snapshots[this.snapshots.length - 1]; }
@@ -291,21 +332,26 @@ export default class Controller {
     /** @type String: this controller's island id */
     get id() { return this.island ? this.island.id : this.islandCreator.snapshot.id; }
 
-    async sessionIDFor(islandID) {
+    /** Ask reflector for a session
+     * @param {String} hash - hashed island name, options, and code base
+     */
+    async sessionIDFor(hash) {
         return new Promise(resolve => {
-            SessionCallbacks[islandID] = sessionId => {
-                delete SessionCallbacks[islandID];
+            SessionCallbacks[hash] = sessionId => {
+                delete SessionCallbacks[hash];
                 resolve(sessionId);
             };
+            console.log(hash, 'Controller asking reflector for session ID');
             Controller.withSocketDo(socket => {
                 socket.send(JSON.stringify({
-                    id: islandID,
+                    id: hash,
                     action: 'SESSION'
                 }));
             });
         });
     }
 
+    /** Ask reflector for a new session. Everyone will be kicked out and rejoin, including us. */
     requestNewSession() {
         const { hash } = this.islandCreator;
         if (SessionCallbacks[hash]) return;
@@ -325,30 +371,47 @@ export default class Controller {
         switch (action) {
             case 'START': {
                 // We are starting a new island session.
-                console.log(this.id, 'Controller received START - creating island');
-                await this.install(false);
+                console.log(this.id, 'Controller received START');
+                // we may have a snapshot from hot reload or reconnect
+                let snapshot = this.islandCreator.snapshot;
+                const local = snapshot.modelsById && {
+                    time: snapshot.meta.time,
+                    seq: snapshot.meta.seq,
+                    snapshot,
+                };
+                // see if there is a remote snapshot
+                let latest = await this.fetchJSON(this.snapshotUrl('latest'));
+                // which one's newer?
+                if (!latest || (local && local.time > latest.time)) latest = local;
+                // fetch snapshot
+                if (latest) {
+                    console.log(this.id, `fetching latest snapshot ${latest.snapshot ? '(embedded)' :  latest.url}`);
+                    snapshot = latest.snapshot ||await this.fetchJSON(latest.url);
+                } else snapshot = null;
+                if (!this.socket) { console.log(this.id, 'socket went away during START'); return; }
+                if (snapshot) this.islandCreator.snapshot = snapshot;
+                this.install();
                 this.requestTicks();
-                this.keepSnapshot();
-                this.uploadLatest(); // upload initial snapshot
-                break;
+                this.keepSnapshot(snapshot);
+                if (latest && latest.url) this.sendSnapshotToReflector(latest.time, latest.seq, latest.url);
+                else this.uploadLatest(false); // upload initial snapshot
+                return;
             }
             case 'SYNC': {
                 // We are joining an island session.
-                const snapshot = JSON.parse(args);
-                if (DEBUG.consistency) console.log(`Received snapshot hash: ${await hashString(args)}`);
-                if (DEBUG.consistency) console.log(`Parsed snapshot hash: ${await hashString(JSON.stringify(snapshot))}`);
-                this.islandCreator.snapshot = snapshot;    // set snapshot
-                console.log(this.id, 'Controller received SYNC - resuming snapshot');
-                await this.install(true, async islandBeforeDrain => {
-                    if (DEBUG.consistency) {
-                        const restoredStateSnapshot = islandBeforeDrain.snapshot();
-                        const restoredStateSnapshotHash = await hashString(JSON.stringify(restoredStateSnapshot));
-                        console.log(`Restored state snapshot hash: ${restoredStateSnapshotHash}`);
-                    }
-                });
+                const {messages, url} = args;
+                console.log(this.id, `Controller received SYNC: ${messages.length} messages, ${url}`);
+                const snapshot = await this.fetchJSON(url);
+                this.islandCreator.snapshot = snapshot;  // set snapshot
+                if (!this.socket) { console.log(this.id, 'socket went away during SYNC'); return; }
+                for (const msg of messages) {
+                    if (DEBUG.messages) console.log(this.id, 'Controller got message in SYNC ' + msg);
+                    msg[1] >>>= 0;      // reflector sends int32, we want uint32
+                }
+                this.install(messages);
                 this.getTickAndMultiplier();
-                this.keepSnapshot(args);
-                break;
+                this.keepSnapshot(snapshot);
+                return;
             }
             case 'RECV': {
                 // We received a message from reflector.
@@ -357,86 +420,56 @@ export default class Controller {
                 if (DEBUG.messages) console.log(this.id, 'Controller received RECV ' + args);
                 const msg = args;   // [time, seq, payload]
                 const time = msg[0];
-                const seq = msg[1];
-                this.sequence = (this.sequence ? this.sequence + 1 : seq) & 0xFFFFFFFF;
-                if (this.sequence !== seq) throw Error(`Out of sequence message from reflector (expected ${this.sequence} got ${seq})`);
-                msg[1] = seq * 2 + 1;  // make odd sequence from controller
+                msg[1] >>>= 0;      // reflector sends int32, we want uint32
                 //if (msg.sender === this.senderID) this.addToStatistics(msg);
                 this.networkQueue.put(msg);
                 this.timeFromReflector(time);
-                break;
+                return;
             }
             case 'TICK': {
                 // We received a tick from reflector.
                 // Just set time so main loop knows how far it can advance.
-                if (!this.island) break; // ignore ticks before we are simulating
+                if (!this.island) return; // ignore ticks before we are simulating
                 const time = args;
                 if (DEBUG.ticks) console.log(this.id, 'Controller received TICK ' + time);
                 this.timeFromReflector(time);
                 if (this.tickMultiplier) this.multiplyTick(time);
-                break;
-            }
-            case 'SERVE': {
-                if (!this.island) { console.log("SERVE received but no island"); break; } // can't serve if we don't have an island
-                if (this.backlog > 1000) { console.log("SERVE received but backlog", this.backlog); break; } // don't serve if we're not up-to-date
-                // We received a request to serve a current snapshot
-                console.log(this.id, 'Controller received SERVE - replying with snapshot');
-                const snapshot = this.takeSnapshot();
-                const snapshotString = JSON.stringify(snapshot);
-                if (DEBUG.consistency) console.log(this.id, `Snapshot hash in SERVE: ${await hashString(snapshotString)}`);
-                // send the snapshot
-                this.socket.send(JSON.stringify({
-                    action: args, // reply action
-                    args: snapshotString,
-                }));
-                // and send a dummy message so that the other guy can drop
-                // old messages in their controller.install()
-                this.island.sendNoop();
-                break;
+                return;
             }
             case 'USERS': {
                 // a user joined or left this island
                 console.log(this.id, 'Controller received USERS', args);
                 this.users = args;
-                break;
+                return;
             }
             case 'LEAVE': {
                 // the server wants us to leave this session and rejoin
                 console.log(this.id, 'Controller received LEAVE', args);
                 this.leave(false);
-                break;
+                return;
             }
             default: console.warn("Unknown action:", action, args);
         }
     }
 
-    async install(drainQueue=false, beforeDrainCallback) {
+    install(messagesSinceSnapshot=[]) {
         const {snapshot, creatorFn, options, callbackFn} = this.islandCreator;
         let newIsland = new Island(snapshot, () => creatorFn(options));
         if (DEBUG.snapshot && !snapshot.modelsById) {
             // exercise save & load if we came from init
             const initialIslandSnap = JSON.stringify(newIsland.snapshot());
             newIsland = new Island(JSON.parse(initialIslandSnap), () => creatorFn(options));
-            // const restoredIslandSnap = JSON.stringify(newIsland.snapshot());
-            // const hashes = [(await hashString(initialIslandSnap)), (await hashString(restoredIslandSnap))];
-            // if (hashes[0] !== hashes[1]) {
-            //     throw new Error("Initial save/load cycle hash inconsistency!");
-            // }
         }
-        const snapshotTime = Math.max(newIsland.time, newIsland.externalTime);
-        this.time = snapshotTime;
-        if (beforeDrainCallback) {
-            await beforeDrainCallback(newIsland);
-        }
-        while (drainQueue) {
-            // eslint-disable-next-line no-await-in-loop
-            const nextMsg = await this.networkQueue.next();
-            if (nextMsg[0] > snapshotTime) {
-                // This is the first 'real' message arriving.
-                newIsland.scheduleExternalMessage(nextMsg);
-                drainQueue = false;
-            }
-            // otherwise, silently skip the message
+        for (const msg of messagesSinceSnapshot) newIsland.scheduleExternalMessage(msg);
+        this.time = Math.max(newIsland.time, newIsland.externalTime);
+        // drain message queue
+        const nextSeq = (newIsland.externalSeq + 1) >>> 0;
+        for (let msg = this.networkQueue.peek(); msg; msg = this.networkQueue.peek()) {
+            if (!inSequence(msg[1], nextSeq)) throw Error(`Missing message (expected ${nextSeq} got ${msg[1]})`);
+            // found the next message
+            if (msg[1] === nextSeq) break;
+            // silently skip old messages
+            this.networkQueue.nextNonBlocking();
         }
         this.setIsland(newIsland); // install island
         callbackFn(this.island);
@@ -459,7 +492,7 @@ export default class Controller {
     async join(socket) {
         console.log(this.id, 'Controller sending JOIN');
         this.socket = socket;
-        const args = { name: this.islandCreator.name };
+        const args = { name: this.islandCreator.name, version: VERSION };
         const user = urlOptions.user || croquetDev("user");
         if (user) args.user = user;
         socket.send(JSON.stringify({
@@ -472,7 +505,7 @@ export default class Controller {
     leave(preserveSnapshot) {
         delete Controllers[this.id];
         const {destroyerFn} = this.islandCreator;
-        const snapshot = preserveSnapshot && destroyerFn && this.takeSnapshot();
+        const snapshot = preserveSnapshot && destroyerFn && this.finalSnapshot();
         this.reset();
         if (!this.islandCreator) throw Error("do not discard islandCreator!");
         if (destroyerFn) destroyerFn(snapshot);
@@ -485,7 +518,7 @@ export default class Controller {
         // SEND: Broadcast a message to all participants.
         if (!this.socket) return;  // probably view sending event while connection is closing
         if (this.socket.readyState !== WebSocket.OPEN) return;
-        if (DEBUG.messages) console.log(this.id, `Controller sending SEND ${msg.asState()}`);
+        if (DEBUG.sends) console.log(this.id, `Controller sending SEND ${msg.asState()}`);
         try {
             this.socket.send(JSON.stringify({
                 id: this.id,
@@ -523,7 +556,11 @@ export default class Controller {
         const delay = tick * (multiplier - 1) / multiplier;
         if (delay) { args.delay = delay; args.tick = tick; }
         else if (!args.tick) args.tick = tick;
-        if (!args.time) args.time = this.island.time;    // ignored by reflector unless this is sent right after START
+        if (!args.time) {
+            // ignored by reflector unless this is sent right after START
+            args.time = this.island.time;
+            args.seq = this.island.seq;
+        }
         console.log(this.id, 'Controller requesting TICKS', args);
         // args: {time, tick, delay, scale}
         try {
@@ -605,6 +642,11 @@ export default class Controller {
     }
 }
 
+// upload snapshot when the page gets unloaded
+hotreload.addEventListener(document.body, "unload", Controller.uploadOnPageClose);
+// ... and on hotreload
+hotreload.addDisposeHandler('snapshots', Controller.uploadOnPageClose);
+
 
 // Socket
 
@@ -619,7 +661,7 @@ const PING_INTERVAL = 1000 / 5;
 
 function PING() {
     if (!TheSocket || TheSocket.readyState !== WebSocket.OPEN) return;
-    if (TheSocket.bufferedAmount) console.log(`Stalled: ${TheSocket.bufferedAmount} bytes unsent`);
+    if (TheSocket.bufferedAmount) console.log(`Reflector connection stalled: ${TheSocket.bufferedAmount} bytes unsent`);
     else TheSocket.send(JSON.stringify({ action: 'PING', args: Date.now()}));
 }
 
