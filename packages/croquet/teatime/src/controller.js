@@ -164,7 +164,7 @@ export default class Controller {
     // keep a snapshot in case we need to upload it or for replay
     keepSnapshot(snapshot=null) {
         const start = Stats.begin("snapshot");
-        if (!snapshot) snapshot = this.island.snapshot();
+        if (!snapshot) snapshot = this.takeSnapshot();
         // keep history
         this.snapshots.push(snapshot);
         // limit storage for old snapshots
@@ -178,12 +178,28 @@ export default class Controller {
     }
 
     takeSnapshot() {
+        const snapshot = this.island.snapshot();
+        const time = Math.max(snapshot.time, snapshot.externalTime);
+        const seq = snapshot.externalSeq;
+        snapshot.meta = {
+            ...this.islandCreator.snapshot.meta,
+            options: this.islandCreator.options,
+            time,
+            seq,
+            date: (new Date()).toISOString(),
+            host: window.location.hostname,
+        };
+        if (codeHashes) snapshot.meta.code = codeHashes;
+        return snapshot;
+    }
+
+    finalSnapshot() {
         if (!this.island) return null;
         // ensure all messages up to this point are in the snapshot
         for (let msg = this.networkQueue.nextNonBlocking(); msg; msg = this.networkQueue.nextNonBlocking()) {
            this.island.scheduleExternalMessage(msg);
         }
-        return this.island.snapshot();
+        return this.takeSnapshot();
     }
 
     // we have spent a certain amount of CPU time on simulating, schedule a snapshot
@@ -210,19 +226,8 @@ export default class Controller {
 
     /** upload a snapshot to the asset server */
     async uploadSnapshot(snapshot) {
-        const time = Math.max(snapshot.time, snapshot.externalTime);
-        const seq = snapshot.externalSeq;
-        snapshot.meta = {
-            ...this.islandCreator.snapshot.meta,
-            options: this.islandCreator.options,
-            time,
-            seq,
-            date: (new Date()).toISOString(),
-            host: window.location.hostname,
-        };
-        if (codeHashes) snapshot.meta.code = codeHashes;
         const body = JSON.stringify(snapshot);
-        const url = this.snapshotUrl(`${time}_${seq}-snap`);
+        const url = this.snapshotUrl(`${snapshot.meta.time}_${snapshot.meta.seq}-snap`);
         console.log(this.id, `Controller uploading snapshot (${body.length} bytes) to ${url}`);
         return this.uploadJSON(url, body);
     }
@@ -230,10 +235,9 @@ export default class Controller {
     async isOlderThanLatest(snapshot) {
         const latest = await this.fetchJSON(this.snapshotUrl('latest'));
         if (!latest) return false;
-        const time = Math.max(snapshot.time, snapshot.externalTime);
+        const {time, seq} = snapshot.meta;
         const timeDelta = latest.time - time;
         if (timeDelta !== 0) return timeDelta > 0;
-        const seq = snapshot.externalSeq;
         return inSequence(seq, latest.seq);
     }
 
@@ -488,7 +492,7 @@ export default class Controller {
     leave(preserveSnapshot) {
         delete Controllers[this.id];
         const {destroyerFn} = this.islandCreator;
-        const snapshot = preserveSnapshot && destroyerFn && this.takeSnapshot();
+        const snapshot = preserveSnapshot && destroyerFn && this.finalSnapshot();
         this.reset();
         if (!this.islandCreator) throw Error("do not discard islandCreator!");
         if (destroyerFn) destroyerFn(snapshot);
