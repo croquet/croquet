@@ -150,6 +150,8 @@ export default class Island {
     scheduleExternalMessage(msgData) {
         const message = Message.fromState(msgData);
         if (message.time < this.time) throw Error("past message from reflector " + msgData);
+        const nextSeq = (this.externalSeq + 1) >>> 0;
+        if (message.seq !== nextSeq) throw Error(`External message error. Expected message #${nextSeq} got #${message.seq}`);
         this.externalTime = message.time; // we have all external messages up to this time
         this.externalSeq = message.seq; // we have all external messages up to this sequence number
         message.seq = message.seq * 2 + 1;  // make odd sequence for external messages
@@ -210,7 +212,7 @@ export default class Island {
             const { time, seq } = message;
             if (time < this.time) throw Error("past message encountered: " + message);
             if (seq & 1) {
-                this.seq = (this.seq + 1) >>> 0;  // 32 bit rollover
+                this.seq = (this.seq + 1) >>> 0;  // uint32 rollover
                 if ((seq/2) >>> 0 !== this.seq) throw Error(`Sequence error: expected ${this.seq} got ${(seq/2) >>> 0} in ${message}`);
             }
             this.messages.poll();
