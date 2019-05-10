@@ -35,6 +35,13 @@ const SNAPSHOT_EVERY = 5000;
 const Controllers = {};
 const SessionCallbacks = {};
 
+/** answer true if seqA comes before seqB */
+function inSequence(seqA, seqB) {
+    const seqDelta = (seqB - seqA) >>> 0; // make unsigned
+    return seqDelta < 0x8000000;
+}
+
+
 export default class Controller {
     static connectToReflector(mainModuleID, reflectorUrl) {
         if (!urlOptions.noupload) uploadCode(mainModuleID).then(hashes => codeHashes = hashes);
@@ -227,8 +234,7 @@ export default class Controller {
         const timeDelta = latest.time - time;
         if (timeDelta !== 0) return timeDelta > 0;
         const seq = snapshot.externalSeq;
-        const seqDelta = (latest.seq - seq) >>> 0; // make unsigned
-        return seqDelta < 0x8000000;
+        return inSequence(seq, latest.seq);
     }
 
     // upload snapshot and message history, and inform reflector
