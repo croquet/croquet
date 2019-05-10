@@ -20,6 +20,7 @@ let codeHashes = null;
 
 const DEBUG = {
     messages: urlOptions.has("debug", "messages", false),           // received messages
+    sends: urlOptions.has("debug", "sends", false),                 // sent messages
     ticks: urlOptions.has("debug", "ticks", false),                 // received ticks
     pong: urlOptions.has("debug", "pong", false),                   // received PONGs
     snapshot: urlOptions.has("debug", "snapshot", "localhost"),     // check snapshotting after init
@@ -413,6 +414,10 @@ export default class Controller {
                 const snapshot = await this.fetchJSON(url);
                 this.islandCreator.snapshot = snapshot;  // set snapshot
                 if (!this.socket) { console.log(this.id, 'socket went away during SYNC'); return; }
+                for (const msg of messages) {
+                    if (DEBUG.messages) console.log(this.id, 'Controller got message in SYNC ' + msg);
+                    msg[1] >>>= 0;      // reflector sends int32, we want uint32
+                }
                 this.install(messages);
                 this.getTickAndMultiplier();
                 this.keepSnapshot(snapshot);
@@ -523,7 +528,7 @@ export default class Controller {
         // SEND: Broadcast a message to all participants.
         if (!this.socket) return;  // probably view sending event while connection is closing
         if (this.socket.readyState !== WebSocket.OPEN) return;
-        if (DEBUG.messages) console.log(this.id, `Controller sending SEND ${msg.asState()}`);
+        if (DEBUG.sends) console.log(this.id, `Controller sending SEND ${msg.asState()}`);
         try {
             this.socket.send(JSON.stringify({
                 id: this.id,
