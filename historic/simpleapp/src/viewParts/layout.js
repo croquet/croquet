@@ -210,8 +210,8 @@ export class LayoutSlotStretch3D extends LayoutSlotCenter3D {
     onLayoutChanged() {
         super.onLayoutChanged();
         // TODO: what to do if the inner view has multiple threeObjs?
-        this.parts.inner.threeObjs()[0].scale.setX(this.yogaNode.getComputedWidth() / MUL);
-        this.parts.inner.threeObjs()[0].scale.setY(this.yogaNode.getComputedHeight() / MUL);
+        this.parts.inner.threeObjs()[0].scale.setX(Math.max(this.yogaNode.getComputedWidth() / MUL, 0.001));
+        this.parts.inner.threeObjs()[0].scale.setY(Math.max(this.yogaNode.getComputedHeight() / MUL));
     }
 }
 
