@@ -375,14 +375,15 @@ export default class Controller {
                 // see if there is an old snapshot
                 const latest = await this.fetchJSON(this.snapshotUrl('latest'));
                 if (latest) console.log(this.id, `fetching latest snapshot ${latest.url}`);
-                const snapshot = latest && this.fetchJSON(latest.url);
-                if (latest) this.islandCreator.snapshot = snapshot;
+                const snapshot = latest && await this.fetchJSON(latest.url);
+                if (snapshot) this.islandCreator.snapshot = snapshot;
+                if (!this.socket) { console.log(this.id, 'socket went away during START'); return; }
                 this.install();
                 this.requestTicks();
                 this.keepSnapshot(snapshot);
                 if (latest) this.sendSnapshotToReflector(latest.time, latest.seq, latest.url);
                 else this.uploadLatest(false); // upload initial snapshot
-                break;
+                return;
             }
             case 'SYNC': {
                 // We are joining an island session.
@@ -390,10 +391,11 @@ export default class Controller {
                 console.log(this.id, `Controller received SYNC: ${messages.length} messages, ${url}`);
                 const snapshot = await this.fetchJSON(url);
                 this.islandCreator.snapshot = snapshot;  // set snapshot
+                if (!this.socket) { console.log(this.id, 'socket went away during SYNC'); return; }
                 this.install(messages);
                 this.getTickAndMultiplier();
                 this.keepSnapshot(snapshot);
-                break;
+                return;
             }
             case 'RECV': {
                 // We received a message from reflector.
@@ -405,29 +407,29 @@ export default class Controller {
                 //if (msg.sender === this.senderID) this.addToStatistics(msg);
                 this.networkQueue.put(msg);
                 this.timeFromReflector(time);
-                break;
+                return;
             }
             case 'TICK': {
                 // We received a tick from reflector.
                 // Just set time so main loop knows how far it can advance.
-                if (!this.island) break; // ignore ticks before we are simulating
+                if (!this.island) return; // ignore ticks before we are simulating
                 const time = args;
                 if (DEBUG.ticks) console.log(this.id, 'Controller received TICK ' + time);
                 this.timeFromReflector(time);
                 if (this.tickMultiplier) this.multiplyTick(time);
-                break;
+                return;
             }
             case 'USERS': {
                 // a user joined or left this island
                 console.log(this.id, 'Controller received USERS', args);
                 this.users = args;
-                break;
+                return;
             }
             case 'LEAVE': {
                 // the server wants us to leave this session and rejoin
                 console.log(this.id, 'Controller received LEAVE', args);
                 this.leave(false);
-                break;
+                return;
             }
             default: console.warn("Unknown action:", action, args);
         }
