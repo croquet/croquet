@@ -425,6 +425,7 @@ export default class Controller {
                 if (DEBUG.messages) console.log(this.id, 'Controller received RECV ' + args);
                 const msg = args;   // [time, seq, payload]
                 const time = msg[0];
+                msg[1] >>>= 0;      // reflector sends int32, we want uint32
                 //if (msg.sender === this.senderID) this.addToStatistics(msg);
                 this.networkQueue.put(msg);
                 this.timeFromReflector(time);

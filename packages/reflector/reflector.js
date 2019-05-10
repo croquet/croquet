@@ -114,7 +114,8 @@ function removeRandomElement(array) {
  * @param {number} time
  */
 function JOIN(client, id, args) {
-    if (!args.version) args.version = 0;                  // old clients send no version
+    if (typeof args === "number") args = {time: args};    // very old clients send just time
+    if (!args.version) args.version = 0;                  // clients before V1 send no version
     if (args.version >= 1) { JOIN1(client, id, args); return; }
     LOG('received', client.addr, 'JOIN', id, args);
     const {time, name, user} = args;
@@ -124,7 +125,7 @@ function JOIN(client, id, args) {
         id,                  // the island id
         name,                // the island name (might be null)
         time,                // the current simulation time
-        seq: 0,              // sequence number for messages with same time
+        seq: 0xFFFFFFF0,     // sequence number for messages with same time
         scale: 1,            // ratio of island time to wallclock time
         tick: TICK_MS,       // default tick rate
         delay: 0,            // hold messages until this many ms after last tick
@@ -399,7 +400,7 @@ function SEND(client, id, messages) {
     for (const message of messages) {
         // message = [time, seq, payload]
         message[0] = time;
-        message[1] = island.seq = (island.seq + 1) >>> 0;
+        message[1] = island.seq = (island.seq + 1) | 0;               // clients before V1 expect int32
         const msg = JSON.stringify({ id, action: 'RECV', args: message });
         //LOG("broadcasting RECV", message);
         STATS.RECV++;
