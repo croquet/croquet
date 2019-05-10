@@ -50,7 +50,7 @@ export default class PhysicalPart extends ModelPart {
     }
 
     moveTo(position) {
-        if (this.body.kinematic) this.body.setPosition(position);
+        if (this.body.isKinematic) this.body.setPosition(position);
         else this.body.resetPosition(position.x, position.y, position.z);
     }
     moveBy(_delta) {}
@@ -105,12 +105,6 @@ export class PhysicalWorld extends ModelPart {
         for (let i = 0; i < this.stepMultiplier; i++) {
             this.world.step();
             this.nSteps += 1;
-            console.log("physics step " + this.nSteps);
-            // if (this.nSteps > 300 && this.nSteps % 60 === 0) {
-            //     const snap = window.ISLAND.snapshot();
-            //     const steps = this.nSteps;
-            //     hashString(JSON.stringify(snap)).then(hash => console.log(`State hash, step ${steps}: ${hash}`));
-            // }
         }
         this.publish(this, PhysicsEvents.worldStepped);
         this.future(1000/60).step();

@@ -6,6 +6,7 @@ import { PhysicalElement, PhysicalWorld } from '../modelParts/physical';
 import Draggable from '../viewParts/draggable';
 import { PhysicalShape } from '../viewParts/physicalShape';
 import Tracking from '../viewParts/tracking';
+import TextElement from '../elements/textElement';
 
 export class Piece extends PhysicalElement {
     naturalViewClass() {
@@ -56,6 +57,17 @@ function initPhysics(options) {
         }
     });
     room.parts.elements.add(ground);
+
+    const chat = TextElement.create({
+        editable: true,
+        spatial: { position: new THREE.Vector3(-5, 2, -1.5) },
+        text: {
+            content: {
+                runs: [{text: "Rudimentary chat here:"}],
+            },
+        },
+    });
+    room.parts.elements.add(chat);
 
     return {room};
 }
