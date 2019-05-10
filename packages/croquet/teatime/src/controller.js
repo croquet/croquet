@@ -141,7 +141,7 @@ export default class Controller {
         }
         const hash = await hashNameAndCode(name);
         const id = await this.sessionIDFor(hash);
-        console.log(`ID for ${name}: ${id}`);
+        console.log(`Session ID for ${name}: ${id}`);
         this.islandCreator = { name, ...creator, options, hash };
         if (!this.islandCreator.snapshot) {
             this.islandCreator.snapshot = { id, time: 0, meta: { created: (new Date()).toISOString() } };
@@ -326,21 +326,26 @@ export default class Controller {
     /** @type String: this controller's island id */
     get id() { return this.island ? this.island.id : this.islandCreator.snapshot.id; }
 
-    async sessionIDFor(islandID) {
+    /** Ask reflector for a session
+     * @param {String} hash - hashed island name, options, and code base
+     */
+    async sessionIDFor(hash) {
         return new Promise(resolve => {
-            SessionCallbacks[islandID] = sessionId => {
-                delete SessionCallbacks[islandID];
+            SessionCallbacks[hash] = sessionId => {
+                delete SessionCallbacks[hash];
                 resolve(sessionId);
             };
+            console.log(hash, 'Controller asking reflector for session ID');
             Controller.withSocketDo(socket => {
                 socket.send(JSON.stringify({
-                    id: islandID,
+                    id: hash,
                     action: 'SESSION'
                 }));
             });
         });
     }
 
+    /** Ask reflector for a new session. Everyone will be kicked out and rejoin, including us. */
     requestNewSession() {
         const { hash } = this.islandCreator;
         if (SessionCallbacks[hash]) return;
