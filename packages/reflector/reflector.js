@@ -380,7 +380,7 @@ function SNAP(client, id, args) {
     }
     // start waiting clients
     if (island.startTimeout) { clearTimeout(island.startTimeout); island.startTimeout = null; }
-    if (island.syncClients.size > 0) SYNC1(island);
+    if (island.syncClients.length > 0) SYNC1(island);
 }
 
 /** reflect a message to all participants after time stamping it
