@@ -483,7 +483,7 @@ function TICKS(client, id, args) {
     if (!island.time) {
         // only accept time, sequence, and delay if new island
         island.time = typeof time === "number" ? time : 0;
-        island.seq = typeof seq === "number" ? seq : 0;
+        island.seq = typeof seq === "number" ? seq : 0xFFFFFFF0;    // v0 clients expect this value
         if (delay > 0) island.delay = delay;
     }
     if (scale > 0) island.scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale));
