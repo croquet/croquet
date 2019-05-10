@@ -338,10 +338,11 @@ function JOIN1(client, id, args) {
 function SYNC1(island) {
     const {snapshotUrl: url, messages} = island;
     const response = JSON.stringify({ id: island.id, action: 'SYNC', args: {url, messages}});
+    const range = !messages.length ? '' : ` (#${messages[0][1]}...${messages[messages.length-1][1]})`;
     for (const syncClient of island.syncClients) {
         if (syncClient.readyState === WebSocket.OPEN) {
             syncClient.safeSend(response);
-            LOG(`sending ${syncClient.addr} SYNC ${response.length} bytes, ${messages.length} messages, snapshot: ${url}`);
+            LOG(`sending ${syncClient.addr} SYNC ${response.length} bytes, ${messages.length} messages${range}, snapshot: ${url}`);
         } else {
             LOG('cannot send SYNC to', syncClient.addr);
         }
