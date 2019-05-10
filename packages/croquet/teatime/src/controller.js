@@ -99,6 +99,12 @@ export default class Controller {
         // closing with error code will force reconnect
     }
 
+    static uploadOnPageClose() {
+        for (const controller of Object.values(Controllers)) {
+            controller.uploadOnPageClose();
+        }
+    }
+
     constructor() {
         this.reset();
     }
@@ -269,7 +275,18 @@ export default class Controller {
         this.uploadJSON(url, body);
     }
 
+    uploadOnPageClose() {
+        // cannot use await, page is closing
+        if (!this.island || this.lastSnapshot.meta.seq === this.island.externalSeq) return;
+        const url = this.snapshotUrl('latest');
+        console.log(this.id, "uploading snapshot because page is closing:", url);
+        const snapshot = this.takeSnapshot();
+        const {time, seq} = snapshot.meta;
+        this.uploadJSON(url, JSON.stringify({time, seq, snapshot}));
+    }
+
     sendSnapshotToReflector(time, seq, url) {
+        console.log(this.id, `Controller updating ${this.snapshotUrl('latest')})`);
         this.uploadJSON(this.snapshotUrl('latest'), JSON.stringify({time, seq, url}));
         console.log(this.id, `Controller sending snapshot url to reflector (time: ${time})`);
         try {
@@ -378,14 +395,14 @@ export default class Controller {
                 console.log(this.id, 'Controller received START');
                 // see if there is an old snapshot
                 const latest = await this.fetchJSON(this.snapshotUrl('latest'));
-                if (latest) console.log(this.id, `fetching latest snapshot ${latest.url}`);
-                const snapshot = latest && await this.fetchJSON(latest.url);
+                if (latest) console.log(this.id, `fetching latest snapshot ${latest.url ? latest.url : '(embedded)'}`);
+                const snapshot = latest && (latest.snapshot || await this.fetchJSON(latest.url));
                 if (snapshot) this.islandCreator.snapshot = snapshot;
                 if (!this.socket) { console.log(this.id, 'socket went away during START'); return; }
                 this.install();
                 this.requestTicks();
                 this.keepSnapshot(snapshot);
-                if (latest) this.sendSnapshotToReflector(latest.time, latest.seq, latest.url);
+                if (latest && latest.url) this.sendSnapshotToReflector(latest.time, latest.seq, latest.url);
                 else this.uploadLatest(false); // upload initial snapshot
                 return;
             }
@@ -628,6 +645,11 @@ export default class Controller {
         }, ms);
     }
 }
+
+// upload snapshot when the page gets unloaded
+hotreload.addEventListener(document.body, "unload", Controller.uploadOnPageClose);
+// ... and on hotreload
+hotreload.addDisposeHandler('snapshots', Controller.uploadOnPageClose);
 
 
 // Socket
