@@ -19,10 +19,10 @@ const VERSION = 1;
 let codeHashes = null;
 
 const DEBUG = {
-    messages: urlOptions.has("debug", "messages", false),
-    ticks: urlOptions.has("debug", "ticks", false),
-    pong: urlOptions.has("debug", "pong", false),
-    snapshot: urlOptions.has("debug", "snapshot", "localhost"),
+    messages: urlOptions.has("debug", "messages", false),           // received messages
+    ticks: urlOptions.has("debug", "ticks", false),                 // received ticks
+    pong: urlOptions.has("debug", "pong", false),                   // received PONGs
+    snapshot: urlOptions.has("debug", "snapshot", "localhost"),     // check snapshotting after init
 };
 
 const NOCHEAT = urlOptions.nocheat;
