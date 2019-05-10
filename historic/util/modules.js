@@ -89,7 +89,9 @@ function allModules() {
 }
 
 function allModuleIDs() {
-    return Object.keys(allModules());
+    // ignore parcel runtime which is only used in dev builds and
+    // changes constantly (because it contains a dynamic port number)
+    return Object.keys(allModules()).filter(id => id.endsWith('hmr-runtime.js'));
 }
 
 /**
@@ -210,8 +212,7 @@ function resolveNames() {
 
 function nameOf(mod) {
     if (names[mod]) return names[mod];
-    // "hmr-runtime.js" is injected by parcel in dev builds
-    if (!mod.endsWith("hmr-runtime.js")) console.warn('No name for ' + mod);
+    console.warn('No name for ' + mod);
     return mod;
 }
 
