@@ -353,6 +353,11 @@ function SYNC1(island) {
     island.users = 0;
 }
 
+/** answer true if seqB comes after seqA */
+function after(seqA, seqB) {
+    const seqDelta = (seqB - seqA) >>> 0; // make unsigned
+    return seqDelta > 0 && seqDelta < 0x8000000;
+}
 
 /** client uploaded a snapshot
  * @param {Client} client - we received from this client
@@ -371,12 +376,12 @@ function SNAP(client, id, args) {
     // forget older messages
     if (island.messages.length > 0) {
         const msgs = island.messages;
-        const keep = msgs.findIndex(msg => msg[1] > seq);
+        const keep = msgs.findIndex(msg => after(seq, msg[1]));
         if (keep > 0) {
-            LOG(`${island} forgetting messages #${msgs[0][1]} to #${msgs[keep - 1][1]} (keeping #${msgs[keep][1]})`);
+            LOG(`${island} forgetting messages #${msgs[0][1]>>>0} to #${msgs[keep - 1][1]>>>0} (keeping #${msgs[keep][1]>>>0})`);
             msgs.splice(0, keep);
         } if (keep === -1) {
-            LOG(`${island} forgetting all messages (#${msgs[0][1]} to #${msgs[msgs.length - 1][1]})`);
+            LOG(`${island} forgetting all messages (#${msgs[0][1]>>>0} to #${msgs[msgs.length - 1][1]>>>0})`);
             msgs.length = 0;
         }
     }
