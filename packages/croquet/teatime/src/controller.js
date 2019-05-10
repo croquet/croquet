@@ -280,16 +280,17 @@ export default class Controller {
         // cannot use await, page is closing
         if (!this.island || this.lastSnapshot.meta.seq === this.island.externalSeq) return;
         const url = this.snapshotUrl('latest');
-        console.log(this.id, "uploading snapshot because page is closing:", url);
-        const snapshot = this.takeSnapshot();
+        const snapshot = this.finalSnapshot();
         const {time, seq} = snapshot.meta;
-        this.uploadJSON(url, JSON.stringify({time, seq, snapshot}));
+        const body = JSON.stringify({time, seq, snapshot});
+        console.log(this.id, `page is closing, uploading snapshot (${time}#${seq}, ${body.length} bytes):`, url);
+        this.uploadJSON(url, body);
     }
 
     sendSnapshotToReflector(time, seq, url) {
         console.log(this.id, `Controller updating ${this.snapshotUrl('latest')})`);
         this.uploadJSON(this.snapshotUrl('latest'), JSON.stringify({time, seq, url}));
-        console.log(this.id, `Controller sending snapshot url to reflector (time: ${time})`);
+        console.log(this.id, `Controller sending snapshot url to reflector (time: ${time}, seq: ${seq})`);
         try {
             this.socket.send(JSON.stringify({
                 id: this.id,
@@ -321,29 +322,6 @@ export default class Controller {
         } catch (e) { /*ignore */ }
         return false;
     }
-
-    /*
-    async updateSnapshot() {
-        // try to fetch latest snapshot
-        try {
-            const snapshot = await this.fetchSnapshot();
-            if (snapshot.id !== this.id) {
-                console.warn(this.id ,'fetched snapshot of different version!');
-                snapshot.originalID = snapshot.id;
-                snapshot.id = this.id;
-            }
-            if (snapshot.time >= this.islandCreator.snapshot.time) {
-                this.islandCreator.snapshot = snapshot;
-                console.log(this.id, `Controller fetched snapshot (time: ${Math.floor(snapshot.time)})`);
-            } else {
-                console.log(this.id, "Controller fetched snapshot but older than local" +
-                    ` (remote: ${snapshot.time}, local: ${this.islandCreator.snapshot.time})`);
-            }
-        } catch (e) {
-            console.log(this.id, 'Controller got no snapshot');
-        }
-    }
-    */
 
     /** the latest snapshot of this island */
     get lastSnapshot() { return this.snapshots[this.snapshots.length - 1]; }
@@ -394,12 +372,24 @@ export default class Controller {
             case 'START': {
                 // We are starting a new island session.
                 console.log(this.id, 'Controller received START');
-                // see if there is an old snapshot
-                const latest = await this.fetchJSON(this.snapshotUrl('latest'));
-                if (latest) console.log(this.id, `fetching latest snapshot ${latest.url ? latest.url : '(embedded)'}`);
-                const snapshot = latest && (latest.snapshot || await this.fetchJSON(latest.url));
-                if (snapshot) this.islandCreator.snapshot = snapshot;
+                // we may have a snapshot from hot reload or reconnect
+                let snapshot = this.islandCreator.snapshot;
+                const local = snapshot.modelsById && {
+                    time: snapshot.meta.time,
+                    seq: snapshot.meta.seq,
+                    snapshot,
+                };
+                // see if there is a remote snapshot
+                let latest = await this.fetchJSON(this.snapshotUrl('latest'));
+                // which one's newer?
+                if (!latest || (local && local.time > latest.time)) latest = local;
+                // fetch snapshot
+                if (latest) {
+                    console.log(this.id, `fetching latest snapshot ${latest.snapshot ? '(embedded)' :  latest.url}`);
+                    snapshot = latest.snapshot ||await this.fetchJSON(latest.url);
+                } else snapshot = null;
                 if (!this.socket) { console.log(this.id, 'socket went away during START'); return; }
+                if (snapshot) this.islandCreator.snapshot = snapshot;
                 this.install();
                 this.requestTicks();
                 this.keepSnapshot(snapshot);
