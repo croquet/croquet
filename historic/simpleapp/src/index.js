@@ -98,7 +98,6 @@ async function start() {
             ROOM.namedModelsPromise = controller.createIsland(roomName, creator);
             ROOM.controller = controller;
             ROOM.namedModels = await ROOM.namedModelsPromise;
-            displaySessionMoniker(controller.id, 'reset');
             if (!speedSlider) speedSlider = controller.inViewRealm(() => new SpeedSliderView());
             speedSlider.attach(ROOM.namedModels.speedSlider, controller);
             return ROOM.namedModels;
@@ -116,6 +115,7 @@ async function start() {
         if (!ALL_ROOMS[roomName]) roomName = defaultRoom;
         if (currentRoomName === roomName) return;
         await ALL_ROOMS.getIsland(roomName);
+        displaySessionMoniker(ALL_ROOMS[roomName].controller.id, 'reset');
         currentRoomName = roomName;
         // request ahead of render, set initial camera position if necessary
         roomViewManager.request(roomName, ALL_ROOMS, {cameraPosition, cameraQuaternion, overrideCamera, cameraVelocity}, traversePortalToRoom);
