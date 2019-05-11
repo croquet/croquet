@@ -82,7 +82,7 @@ export default class Controller {
     static receive(data) {
         const { id, action, args } = JSON.parse(data);
         if (id) {
-            try { Controllers[id].receive(action, args); }
+            try { if (Controllers[id]) Controllers[id].receive(action, args); }
             catch (e) { this.closeConnectionWithError('receive', e); }
         } else switch (action) {
             case 'SESSION': SessionCallbacks[args.hash](args.id);
@@ -503,6 +503,10 @@ export default class Controller {
     }
 
     leave(preserveSnapshot) {
+        if (this.socket.readyState === WebSocket.OPEN) {
+            console.log(this.id, `Controller LEAVING session`);
+            this.socket.send(JSON.stringify({ id: this.id, action: 'LEAVING' }));
+        }
         delete Controllers[this.id];
         const {destroyerFn} = this.islandCreator;
         const snapshot = preserveSnapshot && destroyerFn && this.finalSnapshot();
@@ -519,15 +523,11 @@ export default class Controller {
         if (!this.socket) return;  // probably view sending event while connection is closing
         if (this.socket.readyState !== WebSocket.OPEN) return;
         if (DEBUG.sends) console.log(this.id, `Controller sending SEND ${msg.asState()}`);
-        try {
-            this.socket.send(JSON.stringify({
-                id: this.id,
-                action: 'SEND',
-                args: msg.asState(),
-            }));
-        } catch (e) {
-            console.error('ERROR while sending', e);
-        }
+        this.socket.send(JSON.stringify({
+            id: this.id,
+            action: 'SEND',
+            args: msg.asState(),
+        }));
     }
 
     /** parse tps `ticks x multiplier` ticks are from server, multiplied by locally generated ticks

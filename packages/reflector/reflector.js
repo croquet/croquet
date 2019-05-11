@@ -11,9 +11,8 @@ const MAX_SNAPSHOT_MS = 5000; // time in ms before a snapshot is considered too 
 const MIN_SCALE = 1 / 64;     // minimum ratio of island time to wallclock time
 const MAX_SCALE = 64;         // maximum ratio of island time to wallclock time
 
-function LOG(...args) {
-    console.log((new Date()).toISOString(), "Reflector:", ...args);
-}
+function LOG(...args) { console.log((new Date()).toISOString(), "Reflector:", ...args); }
+function WARN(...args) { console.warn((new Date()).toISOString(), "Reflector:", ...args); }
 
 const server = new WebSocket.Server({ port });
 LOG(`starting ${server.constructor.name} ws://localhost:${server.address().port}/`);
@@ -353,6 +352,19 @@ function SYNC1(island) {
     island.users = 0;
 }
 
+/** An island controller is leaving
+ * @param {Client} client - we received from this client
+ * @param {ID} id - island ID
+ */
+function LEAVING(client, id) {
+    LOG('received', client.addr, 'LEAVING', id);
+    const island = ALL_ISLANDS.get(id);
+    if (!island) return;
+    island.clients.delete(client);
+    if (island.clients.size === 0) deleteIsland(island);
+    else island.users = 0; // force reporting on next TICK even if same number joins and leaves
+}
+
 /** answer true if seqB comes after seqA */
 function after(seqA, seqB) {
     const seqDelta = (seqB - seqA) >>> 0; // make unsigned
@@ -578,9 +590,10 @@ server.on('connection', (client, req) => {
                 case 'SEND': SEND(client, id, [args]); break;
                 case 'TICKS': TICKS(client, id, args); break;
                 case 'SNAP': SNAP(client, id, args); break;
+                case 'LEAVING': LEAVING(client, id); break;
                 case 'PING': PONG(client, args); break;
                 case 'SESSION': SESSION(client, id, args); break;
-                default: console.warn("Reflector: unknown action", action);
+                default: WARN("unknown action", action);
             }
         };
 
