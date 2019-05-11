@@ -115,8 +115,11 @@ async function start() {
         if (!ALL_ROOMS[roomName]) roomName = defaultRoom;
         if (currentRoomName === roomName) return;
         await ALL_ROOMS.getIsland(roomName);
+        const prevRoomName = currentRoomName;
         displaySessionMoniker(ALL_ROOMS[roomName].controller.id, 'reset');
         currentRoomName = roomName;
+        // leave old room after changing current room (see destroyerFn above)
+        roomViewManager.leave(prevRoomName, ALL_ROOMS);
         // request ahead of render, set initial camera position if necessary
         roomViewManager.request(roomName, ALL_ROOMS, {cameraPosition, cameraQuaternion, overrideCamera, cameraVelocity}, traversePortalToRoom);
         const desiredHash = roomName === defaultRoom ? "" : roomName;

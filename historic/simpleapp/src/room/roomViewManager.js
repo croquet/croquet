@@ -5,7 +5,9 @@ if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); 
 
 export default class RoomViewManager {
     constructor(width, height) {
+        /** @type { { String: RoomView } } rooms we are actively participating in */
         this.activeRoomViews = {};
+        /** @type { { String: RoomView } } rooms we see through a portal */
         this.passiveRoomViews = {};
         this.changeViewportSize(width, height);
     }
@@ -49,6 +51,7 @@ export default class RoomViewManager {
                     traversePortalToRoom,
                 });
                 this.activeRoomViews[roomName] = roomView;
+                console.log(`ROOMVIEWS active: [${Object.keys(this.activeRoomViews).join(', ')}], passive: [${Object.keys(this.passiveRoomViews).join(',')}]`);
             });
         }
 
@@ -56,10 +59,23 @@ export default class RoomViewManager {
         return this.activeRoomViews[roomName];
     }
 
+    leave(roomName, allRooms) {
+        if (this.activeRoomViews[roomName]) {
+            this.activeRoomViews[roomName].detach();
+            delete this.activeRoomViews[roomName];
+        }
+        if (!this.passiveRoomViews[roomName] && allRooms[roomName]) {
+            const controller = allRooms[roomName].controller;
+            if (controller) controller.leave(true);
+        }
+        console.log(`ROOMVIEWS active: [${Object.keys(this.activeRoomViews).join(', ')}], passive: [${Object.keys(this.passiveRoomViews).join(',')}]`);
+    }
+
     getIfLoaded(roomName) {
         return this.activeRoomViews[roomName];
     }
 
+    /** @param {String} roomName */
     expect(roomName) {
         const roomView = this.activeRoomViews[roomName];
         if (!roomView) {
@@ -85,6 +101,7 @@ export default class RoomViewManager {
                     cameraPosition: initialCameraPosition
                 });
                 this.passiveRoomViews[roomName] = roomView;
+                console.log(`ROOMVIEWS active: [${Object.keys(this.activeRoomViews).join(', ')}], passive: [${Object.keys(this.passiveRoomViews).join(',')}]`);
             });
         }
 
@@ -100,6 +117,7 @@ export default class RoomViewManager {
             this.passiveRoomViews[roomName].detach();
             delete this.passiveRoomViews[roomName];
         }
+        console.log(`ROOMVIEWS active: [${Object.keys(this.activeRoomViews).join(', ')}], passive: [${Object.keys(this.passiveRoomViews).join(',')}]`);
     }
 
     detachAll() {
@@ -111,5 +129,6 @@ export default class RoomViewManager {
         }
         this.activeRoomViews = {};
         this.passiveRoomViews = {};
+        console.log(`ROOMVIEWS active: [], passive: []`);
     }
 }

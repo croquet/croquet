@@ -504,7 +504,7 @@ export default class Controller {
 
     leave(preserveSnapshot) {
         if (this.socket.readyState === WebSocket.OPEN) {
-            console.log(this.id, `Controller LEAVING session`);
+            console.log(this.id, `Controller LEAVING session for ${this.islandCreator.name}`);
             this.socket.send(JSON.stringify({ id: this.id, action: 'LEAVING' }));
         }
         delete Controllers[this.id];
