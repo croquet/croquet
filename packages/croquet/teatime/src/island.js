@@ -374,7 +374,23 @@ function decode(payload, island) {
     return {receiver, selector, args};
 }
 
-class Message {
+function hasReceiver(payload, id) {
+    return payload.match(new RegExp(`^${id}>`));
+}
+
+function hasSelector(payload, selector) {
+    return payload.match(new RegExp(`>${selector}\\b`));
+}
+
+function hasReceiverAndSelector(payload, id, selector) {
+    return payload.match(new RegExp(`^${id}>${selector}\\b`));
+}
+
+export class Message {
+    static hasReceiver(msgData, id) { return hasReceiver(msgData[2], id); }
+    static hasSelector(msgData, sel) { return hasSelector(msgData[2], sel); }
+    static hasReceiverAndSelector(msgData, id, sel) { return hasReceiverAndSelector(msgData[2], id, sel); }
+
     constructor(time, seq, receiver, selector, args) {
         this.time = time;
         this.seq = seq;
@@ -387,9 +403,9 @@ class Message {
             : this.seq < other.seq;
     }
 
-    hasReceiver(id) {
-        return this.payload.split('>')[0] === id;
-    }
+    hasReceiver(id) { return hasReceiver(this.payload, id); }
+    hasSelector(sel) { return hasSelector(this.payload, sel); }
+    hasReceiverAndSelector(id, sel) { return hasReceiverAndSelector(this.payload, id, sel); }
 
     isExternal() {
         return this.seq & 1;
