@@ -2,7 +2,7 @@ import AsyncQueue from "@croquet/util/asyncQueue";
 import Stats from "@croquet/util/stats";
 import hotreload from "@croquet/util/hotreload";
 import urlOptions from "@croquet/util/urlOptions";
-import { baseUrl, hashNameAndCode, uploadCode, croquetDev } from "@croquet/util/modules";
+import { baseUrl, hashNameAndCode, hashString, uploadCode, croquetDev } from "@croquet/util/modules";
 import { inViewRealm } from "./realms";
 import Island, { Message } from "./island";
 
@@ -232,10 +232,20 @@ export default class Controller {
         return `${baseUrl('snapshots')}${sessionName}/${time_seq}.json`;
     }
 
+    async hashSnapshot(snapshot) {
+        if (snapshot.meta.hash) return snapshot.meta.hash;
+        // exclude meta data, which has the current (real-world) time in it
+        const snapshotWithoutMeta = {...snapshot};
+        delete snapshotWithoutMeta.meta;
+        return snapshot.meta.hash = await hashString(JSON.stringify(snapshotWithoutMeta));
+    }
+
     /** upload a snapshot to the asset server */
     async uploadSnapshot(snapshot) {
+        await this.hashSnapshot(snapshot);
         const body = JSON.stringify(snapshot);
-        const url = this.snapshotUrl(`${snapshot.meta.time}_${snapshot.meta.seq}-snap`);
+        const {time, seq, hash} = snapshot.meta;
+        const url = this.snapshotUrl(`${time}_${seq}-snap-${hash}`);
         console.log(this.id, `Controller uploading snapshot (${body.length} bytes) to ${url}`);
         return this.uploadJSON(url, body);
     }
@@ -265,13 +275,13 @@ export default class Controller {
             messages = this.oldMessages.slice(prevIndex, lastIndex + 1);
         }
         const messageLog = {
-            start: this.snapshotUrl(`${prev.time}_${prev.seq}-snap`),
+            start: this.snapshotUrl(`${prev.time}_${prev.seq}-snap-${prev.hash}`),
             end: snapshotUrl,
             time: [prev.time, last.time],
             seq: [prev.seq, last.seq],
             messages,
         };
-        const url = this.snapshotUrl(`${prev.time}_${prev.seq}-msgs`);
+        const url = this.snapshotUrl(`${prev.time}_${prev.seq}-msgs-${prev.hash}`);
         const body = JSON.stringify(messageLog);
         console.log(this.id, `Controller uploading latest messages (${body.length} bytes) to ${url}`);
         this.uploadJSON(url, body);
