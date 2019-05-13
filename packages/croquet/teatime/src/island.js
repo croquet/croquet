@@ -210,8 +210,8 @@ export default class Island {
             this.messages.poll();
             if (this.time !== message.time) {
                 this.time = message.time;
-                // advance random number generator, unless it's a meta message
-                if (message !== this.noRandomCheck) this._random.int32();
+                // advance random number generator
+                this._random.int32();
             }
             message.executeOn(this);
             if (++count > 100) { count = 0; if (Date.now() > deadline) return false; }
@@ -328,11 +328,6 @@ export default class Island {
     processModelViewEvents() {
         if (CurrentIsland) throw Error("Island Error");
         inViewRealm(this, () => viewDomain.processFrameEvents());
-    }
-
-    scheduleSnapshot(delta) {
-        const message = this.futureSend(delta, this.id, "scheduledSnapshot", []);
-        this.noRandomCheck = message;   // do not advance RNG for this message
     }
 
     scheduledSnapshot() {
