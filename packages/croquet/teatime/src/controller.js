@@ -4,7 +4,7 @@ import hotreload from "@croquet/util/hotreload";
 import urlOptions from "@croquet/util/urlOptions";
 import { baseUrl, hashNameAndCode, uploadCode, croquetDev } from "@croquet/util/modules";
 import { inViewRealm } from "./realms";
-import Island from "./island";
+import Island, { Message } from "./island";
 
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
@@ -211,14 +211,15 @@ export default class Controller {
 
     // we have spent a certain amount of CPU time on simulating, schedule a snapshot
     scheduleSnapshot() {
-        // round up to next ms to make URLs shorter
-        const time = Math.ceil(this.island.time + 0.0000001);
-        this.island.scheduleSnapshot(time - this.island.time);
+        const message = new Message(this.island.time, 0, this.island.id, "scheduledSnapshot", []);
+        this.sendMessage(message);
+        console.log(this.id, 'Controller scheduling snapshot via reflector');
     }
 
     // this is called from inside the simulation loop
     scheduledSnapshot() {
-        // exclude snapshot time from cpu time
+        console.log(this.id, 'Controller taking scheduled snapshot');
+        // exclude snapshot time from cpu time (see logic in this.simulate)
         this.cpuTime -= this.keepSnapshot();
         // for now, just upload every snapshot - later, reflector will tell us when we should upload
         this.uploadLatest(true);
@@ -365,6 +366,15 @@ export default class Controller {
         });
     }
 
+    checkMetaMessage(msgData) {
+        if (Message.hasReceiverAndSelector(msgData, this.island.id, "scheduledSnapshot")) {
+            // some client has scheduled a snapshot, so reset our own estimate
+            // now, even before we actually execute that message
+            console.log(this.id, `Controller resetting CPU time (was ${this.cpuTime|0} ms) because snapshot was scheduled for ${msgData[0]}#${msgData[1]}`);
+            this.cpuTime = 0;
+        }
+    }
+
     // handle messages from reflector
     async receive(action, args) {
         this.lastReceived = LastReceived;
@@ -424,6 +434,7 @@ export default class Controller {
                 //if (msg.sender === this.senderID) this.addToStatistics(msg);
                 this.networkQueue.put(msg);
                 this.timeFromReflector(time);
+                this.checkMetaMessage(msg);
                 return;
             }
             case 'TICK': {
