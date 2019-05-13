@@ -471,10 +471,11 @@ class IslandWriter {
         this.writers.set(cls, (obj, path) => this.writeAs(classId, obj, write(obj), path));
     }
 
+    /** @param {Island} island */
     snapshot(island) {
         const state = {
             _random: island._random.state(),
-            messages: this.write(island.messages.asUnsortedArray()),
+            messages: this.write(island.messages.asArray()),
         };
         for (const [key, value] of Object.entries(island)) {
             if (key === "controller") continue;

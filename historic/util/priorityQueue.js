@@ -10,6 +10,12 @@ export default class PriorityQueue extends FastPriorityQueue {
         return result;
     }
 
+    asArray() {
+        const array = [];
+        this.forEach(item => array.push(item));
+        return array;
+    }
+
     asUnsortedArray() {
         return this.array.slice(0, this.size);
     }
