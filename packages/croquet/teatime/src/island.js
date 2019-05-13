@@ -135,14 +135,6 @@ export default class Island {
         this.controller.sendMessage(message);
     }
 
-    sendNoop() {
-        // this is only used for syncing after a snapshot
-        const message = new Message(this.time, 0, this.id, "noop", []);
-        this.controller.sendMessage(message);
-    }
-
-    noop() {}
-
     /** decode msgData and sort it into future queue
      * @param {MessageData} msgData - encoded message
      * @return {Message} decoded message
