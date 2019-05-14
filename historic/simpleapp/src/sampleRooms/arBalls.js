@@ -1,13 +1,7 @@
 import * as THREE from "three";
 import SeedRandom from "seedrandom";
 import {urlOptions} from "@croquet/util";
-import {ModelPart, ViewPart} from "../parts";
-import Room from "../room/roomModel";
-import ChildrenPart, { ChildEvents } from "../modelParts/children";
-import SpatialPart, { SpatialEvents } from "../modelParts/spatial";
-import Flying from "../modelParts/flying";
-import Tracking from "../viewParts/tracking";
-import ColorPart from "../modelParts/color";
+import { ModelPart, ViewPart, Room, ChildrenPart, ChildEvents, SpatialPart, Flying, Tracking, ColorPart } from "@croquet/kit";
 
 //import Clickable from "../viewParts/clickable";
 //import Draggable from "../viewParts/draggable";

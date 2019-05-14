@@ -1,11 +1,7 @@
 import * as THREE from 'three';
 import { urlOptions } from '@croquet/util';
-import Room from "../room/roomModel";
+import { Room, Draggable, Tracking, PhysicalElement, PhysicalWorld, PhysicalShape } from '@croquet/kit';
 import { RandomlyColoringGroupElement } from './bounce';
-import { PhysicalElement, PhysicalWorld } from '../modelParts/physical';
-import Draggable from '../viewParts/draggable';
-import { PhysicalShape } from '../viewParts/physicalShape';
-import Tracking from '../viewParts/tracking';
 
 export class Puck extends PhysicalElement {
     naturalViewClass() {

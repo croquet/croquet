@@ -2,7 +2,7 @@
   "name": "@croquet/simpleapp",
   "version": "0.0.1",
   "description": "",
-  "main": "index.js",
+  "main": "src/index.js",
   "scripts": {
     "start": "parcel ./assets/*.html -p 9000",
     "deploy": "./deploy.sh",
@@ -25,15 +25,9 @@
   "dependencies": {
     "@croquet/teatime": "file:../../croquet/teatime",
     "@croquet/util": "file:../../croquet/util",
-    "array-flat-polyfill": "^1.0.0",
-    "kiwi.js": "^1.1.1",
-    "oimo": "git+https://github.com/croquet/Oimo.js.git",
-    "seedrandom": "^3.0.1",
+    "@croquet/kit": "file:../../croquet/kit",
     "three": "^0.101.1",
-    "three-bmfont-text": "file:./thirdparty-patched/three-bmfont-text",
-    "three-buffer-vertex-data": "file:./thirdparty-patched/three-buffer-vertex-data",
-    "three-svg-loader": "git+https://github.com/bertfreudenberg/three-svg-loader.git",
-    "yoga-layout-prebuilt": "^1.9.3"
+    "seedrandom": "^3.0.1"
   },
   "devDependencies": {
     "eslint": "^5.14.1",

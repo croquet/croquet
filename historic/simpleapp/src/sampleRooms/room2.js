@@ -1,6 +1,5 @@
 import * as THREE from "three";
-import Room from "../room/roomModel";
-import PortalElement from "../elements/portalElement";
+import { Room, PortalElement } from "@croquet/kit";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }

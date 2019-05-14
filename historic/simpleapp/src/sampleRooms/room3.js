@@ -1,6 +1,5 @@
 import * as THREE from "three";
-import Room from "../room/roomModel";
-import TextElement from "../elements/textElement";
+import { Room, TextElement } from "@croquet/kit";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
@@ -20,15 +19,15 @@ function initRoom3() {
     });
     room.parts.elements.add(text1);
 
-    let runs = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(i => {
-        return {text: 'Croquet is awesome ', style: {color: `hsl(${i * 30}, 100%, 50%)`}}
+    const runs = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(i => {
+        return {text: 'Croquet is awesome ', style: {color: `hsl(${i * 30}, 100%, 50%)`}};
     });
 
     const text2 = TextElement.create({
         spatial: { position: new THREE.Vector3(3, 1, 0) },
         text: {
             content: {
-                runs: runs,
+                runs,
             }
         },
         editable: false,

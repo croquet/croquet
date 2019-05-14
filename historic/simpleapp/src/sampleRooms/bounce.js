@@ -1,15 +1,7 @@
 import * as THREE from "three";
 import SeedRandom from "seedrandom";
-import {urlOptions} from "@croquet/util";
-import {ModelPart, ViewPart, ViewEvents} from "../parts";
-import Room from "../room/roomModel";
-import ChildrenPart, { ChildEvents } from "../modelParts/children";
-import SpatialPart from "../modelParts/spatial";
-import Bouncing from "../modelParts/bouncing";
-import Tracking from "../viewParts/tracking";
-import Clickable from "../viewParts/clickable";
-import Draggable from "../viewParts/draggable";
-import TextElement from "../elements/textElement";
+import { urlOptions } from "@croquet/util";
+import { ModelPart, ViewPart, Room, ChildrenPart, ChildEvents, SpatialPart, Bouncing, Tracking, Clickable, Draggable, TextElement } from "@croquet/kit";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }

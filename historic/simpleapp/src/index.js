@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { RoomViewManager, Renderer, theKeyboardManager } from "@croquet/kit";
 import { Controller } from "@croquet/teatime";
 import { hotreload, urlOptions, Stats, displaySessionMoniker } from "@croquet/util";
 import room1 from "./sampleRooms/room1";
@@ -9,10 +10,7 @@ import roomPhysics from "./sampleRooms/physics";
 import roomJenga from "./sampleRooms/jenga";
 import roomsJump from "./sampleRooms/jump";
 import roomARBalls from "./sampleRooms/arBalls";
-import RoomViewManager from "./room/roomViewManager";
-import Renderer from "./render";
 import { SpeedSlider, SpeedSliderView } from "./ui";
-import {theKeyboardManager} from "./domKeyboardManager";
 
 const TPS = "20x3"; // 20 ticks/s from server, 60 t/s total
 const LOG_HOTRELOAD = true;
