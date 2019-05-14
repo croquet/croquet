@@ -184,6 +184,18 @@ export default class Controller {
         return Stats.end("snapshot") - start;
     }
 
+    findSnapshot(time, seq, hash='') {
+        for (let i = this.snapshots.length - 1; i >= 0; i--) {
+            const snapshot = this.snapshots[i];
+            const meta = snapshot.meta;
+            if (meta.time === time && meta.seq === seq) {
+                if (hash && meta.hash !== hash) throw Error('wrong hash in snapshot');
+                return snapshot;
+            }
+        }
+        return null;
+    }
+
     takeSnapshot() {
         const snapshot = this.island.snapshot();
         const time = Math.max(snapshot.time, snapshot.externalTime);
@@ -217,12 +229,28 @@ export default class Controller {
     }
 
     // this is called from inside the simulation loop
-    scheduledSnapshot() {
-        console.log(this.id, 'Controller taking scheduled snapshot');
-        // exclude snapshot time from cpu time (see logic in this.simulate)
-        this.cpuTime -= this.keepSnapshot();
-        // for now, just upload every snapshot - later, reflector will tell us when we should upload
-        this.uploadLatest(true);
+    async scheduledSnapshot() {
+        // bail out if backlog is too large (e.g. we're just starting up)
+        if (this.backlog > 300) { console.warn(`Controller not doing scheduled snapshot because backlog is ${this.backlog} ms`); return; }
+        // otherwise, do snapshot
+        const ms = this.keepSnapshot();
+        // exclude snapshot time from cpu time for logic in this.simulate()
+        this.cpuTime -= ms;
+        console.log(this.id, `Controller snapshotting took ${Math.ceil(ms)} ms`);
+        // taking the snapshot needed to be synchronous, now we can go async
+        await this.hashSnapshot(this.lastSnapshot);
+        // inform reflector that we have a snapshot
+        const {time, seq, hash} = this.lastSnapshot.meta;
+        console.log(this.id, `Controller sending hash for ${time}#${seq} to reflector: ${hash}`);
+        try {
+            this.socket.send(JSON.stringify({
+                id: this.id,
+                action: 'SNAP',
+                args: {time, seq, hash},
+            }));
+        } catch (e) {
+            console.error('ERROR while sending', e);
+        }
     }
 
     snapshotUrl(time_seq) {
@@ -254,18 +282,41 @@ export default class Controller {
         const latest = await this.fetchJSON(this.snapshotUrl('latest'));
         if (!latest) return false;
         const {time, seq} = snapshot.meta;
-        const timeDelta = latest.time - time;
-        if (timeDelta !== 0) return timeDelta > 0;
+        if (time !== latest.time) return time < latest.time;
         return inSequence(seq, latest.seq);
     }
 
+    // we sent a snapshot hash to the reflector, it elected us to upload
+    async uploadSnapshotAndSendToReflector(time, seq, hash) {
+        const snapshot = this.findSnapshot(time, seq, hash);
+        const last = this.lastSnapshot.meta;
+        if (snapshot !== this.lastSnapshot) {
+            console.error(this.id, `snapshot is not last (expected ${time}#${seq}, have ${last.time}#${last.seq})`);
+            return;
+        }
+        this.uploadLatest(true);
+    }
+
+    // a snapshot hash came from the reflector, compare to ours
+    compareHash(time, seq, hash) {
+        const snapshot = this.findSnapshot(time, seq);
+        const last = this.lastSnapshot.meta;
+        if (snapshot !== this.lastSnapshot) {
+            console.warn(this.id, `snapshot is not last (expected ${time}#${seq}, have ${last.time}#${last.seq})`);
+            return;
+        }
+        if (last.hash !== hash) {
+            console.warn(this.id, `local snapshot hash ${time}#${seq} is ${last.hash} (got ${hash} from reflector)`);
+            this.uploadLatest(false); // upload but do not send to reflector
+        }
+    }
+
     // upload snapshot and message history, and inform reflector
-    async uploadLatest(checkLatest) {
-        if (checkLatest && await this.isOlderThanLatest(this.lastSnapshot)) return;
+    async uploadLatest(sendToReflector=true) {
         const snapshotUrl = await this.uploadSnapshot(this.lastSnapshot);
         if (!snapshotUrl) { console.error("Failed to upload snapshot"); return; }
         const last = this.lastSnapshot.meta;
-        this.sendSnapshotToReflector(last.time, last.seq, snapshotUrl);
+        if (sendToReflector) this.sendSnapshotToReflector(last.time, last.seq, last.hash, snapshotUrl);
         if (!this.prevSnapshot) return;
         const prev = this.prevSnapshot.meta;
         let messages = [];
@@ -298,15 +349,15 @@ export default class Controller {
         this.uploadJSON(url, body);
     }
 
-    sendSnapshotToReflector(time, seq, url) {
+    sendSnapshotToReflector(time, seq, hash, url) {
         console.log(this.id, `Controller updating ${this.snapshotUrl('latest')})`);
-        this.uploadJSON(this.snapshotUrl('latest'), JSON.stringify({time, seq, url}));
-        console.log(this.id, `Controller sending snapshot url to reflector (time: ${time}, seq: ${seq})`);
+        this.uploadJSON(this.snapshotUrl('latest'), JSON.stringify({time, seq, hash, url}));
+        console.log(this.id, `Controller sending snapshot url to reflector (time: ${time}, seq: ${seq}, hash: ${hash}): ${url}`);
         try {
             this.socket.send(JSON.stringify({
                 id: this.id,
                 action: 'SNAP',
-                args: {time, seq, url},
+                args: {time, seq, hash, url},
             }));
         } catch (e) {
             console.error('ERROR while sending', e);
@@ -413,8 +464,8 @@ export default class Controller {
                 this.install();
                 this.requestTicks();
                 this.keepSnapshot(snapshot);
-                if (latest && latest.url) this.sendSnapshotToReflector(latest.time, latest.seq, latest.url);
-                else this.uploadLatest(false); // upload initial snapshot
+                if (latest && latest.url) this.sendSnapshotToReflector(latest.time, latest.seq, latest.hash, latest.url);
+                else this.uploadLatest(true); // upload initial snapshot
                 return;
             }
             case 'SYNC': {
@@ -455,6 +506,13 @@ export default class Controller {
                 if (DEBUG.ticks) console.log(this.id, 'Controller received TICK ' + time);
                 this.timeFromReflector(time);
                 if (this.tickMultiplier) this.multiplyTick(time);
+                return;
+            }
+            case 'HASH': {
+                // we received a snapshot hash from reflector
+                const {time, seq, hash, serve} = args;
+                if (serve) this.uploadSnapshotAndSendToReflector(time, seq, hash);
+                else this.compareHash(time, seq, hash);
                 return;
             }
             case 'USERS': {
