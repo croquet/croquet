@@ -428,7 +428,7 @@ export default class Controller {
     }
 
     checkMetaMessage(msgData) {
-        if (Message.hasReceiverAndSelector(msgData, this.island.id, "scheduledSnapshot")) {
+        if (Message.hasReceiverAndSelector(msgData, this.id, "scheduledSnapshot")) {
             // some client has scheduled a snapshot, so reset our own estimate
             // now, even before we actually execute that message
             console.log(this.id, `Controller resetting CPU time (was ${this.cpuTime|0} ms) because snapshot was scheduled for ${msgData[0]}#${msgData[1]}`);
