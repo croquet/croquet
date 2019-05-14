@@ -579,8 +579,8 @@ export default class Controller {
         else if (!args.tick) args.tick = tick;
         if (!args.time) {
             // ignored by reflector unless this is sent right after START
-            args.time = this.island.time;
-            args.seq = this.island.seq;
+            args.time = Math.max(this.island.time, this.island.externalTime);
+            args.seq = this.island.externalSeq;
         }
         console.log(this.id, 'Controller requesting TICKS', args);
         // args: {time, tick, delay, scale}
