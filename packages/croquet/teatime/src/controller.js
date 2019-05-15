@@ -181,7 +181,7 @@ export default class Controller {
         // keep only messages newer than the oldest snapshot
         const keep = this.snapshots[0].externalSeq;
         const keepIndex = this.oldMessages.findIndex(msg => msg[1] > keep);
-        if (keepIndex > 0) console.warn(`Deleting old messages from ${this.oldMessages[0][1]} to ${this.oldMessages[keepIndex - 1][1]}`);
+        if (DEBUG.snapshot && keepIndex > 0) console.log(`Deleting old messages from ${this.oldMessages[0][1]} to ${this.oldMessages[keepIndex - 1][1]}`);
         this.oldMessages.splice(0, keepIndex);
         return Stats.end("snapshot") - start;
     }
@@ -704,7 +704,7 @@ export default class Controller {
 
     /** Got the official time from reflector server, or local multiplier */
     timeFromReflector(time, src="reflector") {
-        if (time < this.time) { console.warn(`time is ${this.time}, ignoring time ${time} from ${src}`); return; }
+        if (time < this.time) { if (src !== "controller" || DEBUG.ticks) console.warn(`time is ${this.time}, ignoring time ${time} from ${src}`); return; }
         this.time = time;
         if (this.island) Stats.backlog(this.backlog);
     }
