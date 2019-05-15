@@ -99,4 +99,13 @@ if (!getUser("name") && DEBUG.user) {
         display:flex; align-items:center; justify-content:center`);
     overlay.appendChild(dialog);
     document.body.appendChild(overlay);
+
+    const [name, email, password] = dialog.getElementsByTagName("input");
+    const [create, guest] = dialog.getElementsByTagName("button");
+    console.log({name, email, password, create, guest});
+
+    // after a small timeout, check if username available
+    name.oninput = () => {
+        console.log(name.value);
+    };
 }
