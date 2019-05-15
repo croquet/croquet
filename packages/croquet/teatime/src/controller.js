@@ -336,7 +336,7 @@ export default class Controller {
         };
         const url = this.snapshotUrl(`${prev.time}_${prev.seq}-msgs-${prev.hash}`);
         const body = JSON.stringify(messageLog);
-        if (DEBUG.snapshot) (this.id, `Controller uploading latest messages (${body.length} bytes) to ${url}`);
+        if (DEBUG.snapshot) console.log(this.id, `Controller uploading latest messages (${body.length} bytes) to ${url}`);
         this.uploadJSON(url, body);
     }
 
