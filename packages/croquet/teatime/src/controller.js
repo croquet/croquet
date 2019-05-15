@@ -20,11 +20,12 @@ const VERSION = 1;
 let codeHashes = null;
 
 const DEBUG = {
-    messages: urlOptions.has("debug", "messages", false),           // received messages
-    sends: urlOptions.has("debug", "sends", false),                 // sent messages
-    ticks: urlOptions.has("debug", "ticks", false),                 // received ticks
-    pong: urlOptions.has("debug", "pong", false),                   // received PONGs
-    snapshot: urlOptions.has("debug", "snapshot", "localhost"),     // check snapshotting after init
+    messages: urlOptions.has("debug", "messages", false),               // received messages
+    sends: urlOptions.has("debug", "sends", false),                     // sent messages
+    ticks: urlOptions.has("debug", "ticks", false),                     // received ticks
+    pong: urlOptions.has("debug", "pong", false),                       // received PONGs
+    snapshot: urlOptions.has("debug", "snapshot", false),               // snapshotting, uploading etc
+    initsnapshot: urlOptions.has("debug", "initsnapshot", "localhost"), // check snapshotting after init
 };
 
 const NOCHEAT = urlOptions.nocheat;
@@ -226,7 +227,7 @@ export default class Controller {
     scheduleSnapshot() {
         const message = new Message(this.island.time, 0, this.island.id, "scheduledSnapshot", []);
         this.sendMessage(message);
-        console.log(this.id, 'Controller scheduling snapshot via reflector');
+        if (DEBUG.snapshot) console.log(this.id, 'Controller scheduling snapshot via reflector');
     }
 
     // this is called from inside the simulation loop
@@ -237,12 +238,12 @@ export default class Controller {
         const ms = this.keepSnapshot();
         // exclude snapshot time from cpu time for logic in this.simulate()
         this.cpuTime -= ms;
-        console.log(this.id, `Controller snapshotting took ${Math.ceil(ms)} ms`);
+        if (DEBUG.snapshot) console.log(this.id, `Controller snapshotting took ${Math.ceil(ms)} ms`);
         // taking the snapshot needed to be synchronous, now we can go async
         await this.hashSnapshot(this.lastSnapshot);
         // inform reflector that we have a snapshot
         const {time, seq, hash} = this.lastSnapshot.meta;
-        console.log(this.id, `Controller sending hash for ${time}#${seq} to reflector: ${hash}`);
+        if (DEBUG.snapshot) console.log(this.id, `Controller sending hash for ${time}#${seq} to reflector: ${hash}`);
         try {
             this.socket.send(JSON.stringify({
                 id: this.id,
@@ -275,7 +276,7 @@ export default class Controller {
         const body = JSON.stringify(snapshot);
         const {time, seq, hash} = snapshot.meta;
         const url = this.snapshotUrl(`${time}_${seq}-snap-${hash}`);
-        console.log(this.id, `Controller uploading snapshot (${body.length} bytes) to ${url}`);
+        if (DEBUG.snapshot) console.log(this.id, `Controller uploading snapshot (${body.length} bytes) to ${url}`);
         return this.uploadJSON(url, body);
     }
 
@@ -335,7 +336,7 @@ export default class Controller {
         };
         const url = this.snapshotUrl(`${prev.time}_${prev.seq}-msgs-${prev.hash}`);
         const body = JSON.stringify(messageLog);
-        console.log(this.id, `Controller uploading latest messages (${body.length} bytes) to ${url}`);
+        if (DEBUG.snapshot) (this.id, `Controller uploading latest messages (${body.length} bytes) to ${url}`);
         this.uploadJSON(url, body);
     }
 
@@ -346,14 +347,14 @@ export default class Controller {
         const snapshot = this.finalSnapshot();
         const {time, seq} = snapshot.meta;
         const body = JSON.stringify({time, seq, snapshot});
-        console.log(this.id, `page is closing, uploading snapshot (${time}#${seq}, ${body.length} bytes):`, url);
+        if (DEBUG.snapshot) console.log(this.id, `page is closing, uploading snapshot (${time}#${seq}, ${body.length} bytes):`, url);
         this.uploadJSON(url, body);
     }
 
     sendSnapshotToReflector(time, seq, hash, url) {
-        console.log(this.id, `Controller updating ${this.snapshotUrl('latest')})`);
+        if (DEBUG.snapshot) console.log(this.id, `Controller updating ${this.snapshotUrl('latest')})`);
         this.uploadJSON(this.snapshotUrl('latest'), JSON.stringify({time, seq, hash, url}));
-        console.log(this.id, `Controller sending snapshot url to reflector (time: ${time}, seq: ${seq}, hash: ${hash}): ${url}`);
+        if (DEBUG.snapshot) console.log(this.id, `Controller sending snapshot url to reflector (time: ${time}, seq: ${seq}, hash: ${hash}): ${url}`);
         try {
             this.socket.send(JSON.stringify({
                 id: this.id,
@@ -432,7 +433,7 @@ export default class Controller {
         if (Message.hasReceiverAndSelector(msgData, this.id, "scheduledSnapshot")) {
             // some client has scheduled a snapshot, so reset our own estimate
             // now, even before we actually execute that message
-            console.log(this.id, `Controller resetting CPU time (was ${this.cpuTime|0} ms) because snapshot was scheduled for ${msgData[0]}#${msgData[1]}`);
+            if (DEBUG.snapshot) console.log(this.id, `Controller resetting CPU time (was ${this.cpuTime|0} ms) because snapshot was scheduled for ${msgData[0]}#${msgData[1]}`);
             this.cpuTime = 0;
         }
     }
@@ -535,7 +536,7 @@ export default class Controller {
     install(messagesSinceSnapshot=[]) {
         const {snapshot, creatorFn, options, callbackFn} = this.islandCreator;
         let newIsland = new Island(snapshot, () => creatorFn(options));
-        if (DEBUG.snapshot && !snapshot.modelsById) {
+        if (DEBUG.initsnapshot && !snapshot.modelsById) {
             // exercise save & load if we came from init
             const initialIslandSnap = JSON.stringify(newIsland.snapshot());
             newIsland = new Island(JSON.parse(initialIslandSnap), () => creatorFn(options));
