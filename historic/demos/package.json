@@ -1,5 +1,5 @@
 {
-  "name": "@croquet/simpleapp",
+  "name": "@croquet/demos",
   "version": "0.0.1",
   "description": "",
   "main": "src/index.js",
@@ -23,8 +23,8 @@
     ]
   },
   "dependencies": {
-    "@croquet/kit": "file:../../croquet/kit",
-    "@croquet/util": "file:../../croquet/util",
+    "@croquet/kit": "file:../kit",
+    "@croquet/util": "file:../util",
     "seedrandom": "^3.0.1"
   },
   "devDependencies": {
