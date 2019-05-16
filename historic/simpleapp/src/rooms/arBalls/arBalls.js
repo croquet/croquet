@@ -264,6 +264,6 @@ function initARBalls(_options) {
 }
 
 export default {
-    creatorFn: initARBalls,
+    init: initARBalls,
     options: { tps: "20x1" },
 };

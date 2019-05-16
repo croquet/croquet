@@ -28,16 +28,16 @@ function initJump(nextRoomName, color) {
 }
 
 export default {
-    jump1: {creator: {
+    jump1: {
         moduleID: module.id,
-        creatorFn: initJump("jump2", "#008800"),
-    }},
-    jump2: {creator: {
+        init: initJump("jump2", "#008800"),
+    },
+    jump2: {
         moduleID: module.id,
-        creatorFn: initJump("jump3", "#880088"),
-    }},
-    jump3: {creator: {
+        init: initJump("jump3", "#880088"),
+    },
+    jump3: {
         moduleID: module.id,
-        creatorFn: initJump("jump1", "#880000"),
-    }}
+        init: initJump("jump1", "#880000"),
+    }
 };

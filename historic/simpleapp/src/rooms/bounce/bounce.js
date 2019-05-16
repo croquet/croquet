@@ -166,6 +166,6 @@ function initBounce(options) {
 }
 
 export default {
-    creatorFn: initBounce,
+    init: initBounce,
     options: { n: urlOptions.n || 100 }
 };

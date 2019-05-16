@@ -47,4 +47,4 @@ function initRoom2() {
     return {room};
 }
 
-export default { creatorFn: initRoom2 };
+export default { init: initRoom2 };

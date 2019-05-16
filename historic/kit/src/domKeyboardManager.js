@@ -61,7 +61,7 @@ export class KeyboardManager {
         return keyboardView.handleEvent(evt);
     }
 
-    install(hotreload) {
+    install(eventManager) {
         let doc = window.document,
             rootNode = this.rootNode,
             newRootNode = doc.body;
@@ -124,7 +124,7 @@ export class KeyboardManager {
               fn: evt => this.onTextareaInput(evt), capturing: false }];
         this.eventHandlers.forEach((ref) => {
             let {type, node, fn, capturing} = ref;
-            hotreload.addEventListener(node, type, fn, capturing);
+            eventManager.addEventListener(node, type, fn, capturing);
         });
         return this;
     }

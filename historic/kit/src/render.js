@@ -23,7 +23,7 @@ export const RENDER_LAYERS = {
 export const rendererVersion = {renderingContextVersion: '2', shaderLanguageVersion: '300'};
 
 export default class Renderer {
-    constructor(width, height) {
+    constructor(width, height, canvas) {
         this.inAR = urlOptions.ar;
         const contextAttributes = {
             alpha: this.inAR, //false,
@@ -35,8 +35,6 @@ export default class Renderer {
             powerPreference: "default"
         };
 
-        const canvas = document.createElement('canvas');
-        canvas.id = 'qanvas';
         let context = canvas.getContext("webgl2", contextAttributes);
         if (!context) {
             // fallback to webgl1
@@ -52,7 +50,6 @@ export default class Renderer {
         this.renderer.localClippingEnabled = true;
         //this.renderer.setPixelRatio(window.devicePixelRatio);
         this.changeViewportSize(width, height);
-        document.body.appendChild(this.renderer.domElement);
 
         if (this.inAR) this.initAR();
     }
@@ -108,7 +105,7 @@ export default class Renderer {
         this.onResize();
     }
 
-    render(room, allRooms, roomViewManager) {
+    render(room, allRooms, loadRoom, roomViewManager) {
         const inAR = this.inAR;
 
         const currentRoomView = roomViewManager.expect(room);
@@ -291,7 +288,7 @@ export default class Renderer {
                 gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
             }
 
-            const portalTargetRoomView = roomViewManager.requestPassive(portalPart.there, allRooms);
+            const portalTargetRoomView = roomViewManager.requestPassive(portalPart.there, allRooms, loadRoom);
 
             if (portalTargetRoomView) {
                 const portalTargetScene = portalTargetRoomView.parts.roomScene.threeObj;

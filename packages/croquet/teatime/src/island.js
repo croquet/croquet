@@ -1,6 +1,6 @@
 import SeedRandom from "seedrandom";
 import PriorityQueue from "@croquet/util/priorityQueue";
-import hotreload from "@croquet/util/hotreload";
+import hotreloadEventManger from "@croquet/util/hotreloadEventManager";
 import Model from "./model";
 import { inModelRealm, inViewRealm, currentRealm } from "./realms";
 import { viewDomain } from "./domain";
@@ -17,7 +17,7 @@ Math.random = () => {
     if (CurrentIsland) return CurrentIsland.random();
     return Math_random();
 };
-hotreload.addDisposeHandler("math-random", () => Math.random = Math_random);
+hotreloadEventManger.addDisposeHandler("math-random", () => Math.random = Math_random);
 
 // this is the only place allowed to change CurrentIsland
 function execOnIsland(island, fn) {

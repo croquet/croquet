@@ -67,6 +67,6 @@ function initPhysics(options) {
 }
 
 export default {
-    creatorFn: initPhysics,
+    init: initPhysics,
     options: { height: urlOptions.height || 10 }
 };

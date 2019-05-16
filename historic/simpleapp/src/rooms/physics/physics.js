@@ -90,6 +90,6 @@ function initPhysics(options) {
 }
 
 export default {
-    creatorFn: initPhysics,
+    init: initPhysics,
     options: { n: urlOptions.n || 100 }
 };

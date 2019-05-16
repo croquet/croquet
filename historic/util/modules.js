@@ -1,5 +1,5 @@
 import Hashids from "hashids";
-import hotreload from "./hotreload";
+import hotreloadEventManager from "./hotreloadEventManager";
 import urlOptions from "./urlOptions";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
@@ -158,7 +158,7 @@ export async function hashString(string) {
 
 const fileHashes = {};
 
-hotreload.addDisposeHandler("fileHashes", () => { for (const f of (Object.keys(fileHashes))) delete fileHashes[f]; });
+hotreloadEventManager.addDisposeHandler("fileHashes", () => { for (const f of (Object.keys(fileHashes))) delete fileHashes[f]; });
 
 export async function hashFile(mod) {
     if (fileHashes[mod]) return fileHashes[mod];
@@ -298,8 +298,8 @@ export async function uploadCode(entryPoint) {
 // work around https://github.com/parcel-bundler/parcel/issues/1838
 
 // deduplicate this, every module that directly imports this one,
-// plus "hotreload" which cannot import this because that would be cyclic
-deduplicateImports([module.id, ...allImportersOf(module.id), resolveImport(module.id, "./hotreload")]);
+// plus "hotreloadEventManager" which cannot import this because that would be cyclic
+deduplicateImports([module.id, ...allImportersOf(module.id), resolveImport(module.id, "./hotreloadEventManager")]);
 
 export function deduplicateImports(mods) {
     const modSources = mods.map(m => [m, sourceCodeOf(m)]);

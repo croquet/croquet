@@ -1,4 +1,4 @@
-import hotreload from "@croquet/util/hotreload";
+import hotreloadEventManger from "@croquet/util/hotreloadEventManager";
 import urlOptions from "@croquet/util/urlOptions";
 import { currentRealm } from "./realms";
 
@@ -148,4 +148,4 @@ function registerClass(file, name, cls) {
 }
 
 // flush ModelClasses after hot reload
-hotreload.addDisposeHandler(module.id, () => ModelClasses = {});
+hotreloadEventManger.addDisposeHandler(module.id, () => ModelClasses = {});

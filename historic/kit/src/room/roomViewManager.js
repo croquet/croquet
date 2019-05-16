@@ -84,10 +84,10 @@ export default class RoomViewManager {
         return roomView;
     }
 
-    requestPassive(roomName, allRooms, initialCameraPosition) {
+    requestPassive(roomName, allRooms, loadRoom, initialCameraPosition) {
         if (!this.passiveRoomViews[roomName]) {
             if (!allRooms[roomName].namedModels) {
-                allRooms.getIsland(roomName);
+                loadRoom(roomName);
                 return null;
             }
             const room = allRooms[roomName].namedModels.room;

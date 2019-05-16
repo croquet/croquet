@@ -1,6 +1,6 @@
 import AsyncQueue from "@croquet/util/asyncQueue";
 import Stats from "@croquet/util/stats";
-import hotreload from "@croquet/util/hotreload";
+import hotreloadEventManger from "@croquet/util/hotreloadEventManager";
 import urlOptions from "@croquet/util/urlOptions";
 import { baseUrl, hashNameAndCode, hashString, uploadCode, croquetDev } from "@croquet/util/modules";
 import { inViewRealm } from "./realms";
@@ -141,7 +141,7 @@ export default class Controller {
      *
      * TODO: convert callback to promise
      * @param {String} name A (human-readable) name for the room
-     * @param {{moduleID:String, creatorFn:Function}} creator The moduleID and function creating the island
+     * @param {{moduleID:String, init:Function}} creator The moduleID and function creating the island
      * @param {{}} snapshot The island's initial state (if hot-reloading)
      * @returns {Promise<Island>}
      */
@@ -534,12 +534,12 @@ export default class Controller {
     }
 
     install(messagesSinceSnapshot=[]) {
-        const {snapshot, creatorFn, options, callbackFn} = this.islandCreator;
-        let newIsland = new Island(snapshot, () => creatorFn(options));
+        const {snapshot, init, options, callbackFn} = this.islandCreator;
+        let newIsland = new Island(snapshot, () => init(options));
         if (DEBUG.initsnapshot && !snapshot.modelsById) {
             // exercise save & load if we came from init
             const initialIslandSnap = JSON.stringify(newIsland.snapshot());
-            newIsland = new Island(JSON.parse(initialIslandSnap), () => creatorFn(options));
+            newIsland = new Island(JSON.parse(initialIslandSnap), () => init(options));
         }
         for (const msg of messagesSinceSnapshot) newIsland.scheduleExternalMessage(msg);
         this.time = Math.max(newIsland.time, newIsland.externalTime);
@@ -563,9 +563,9 @@ export default class Controller {
 
     // create an island in its initial state
     createCleanIsland() {
-        const { options, creatorFn } = this.islandCreator;
+        const { options, init } = this.islandCreator;
         const snapshot = { id: this.id };
-        return new Island(snapshot, () => creatorFn(options));
+        return new Island(snapshot, () => init(options));
     }
 
     // network queue
@@ -715,7 +715,7 @@ export default class Controller {
         const { tick, multiplier } = this.tickMultiplier;
         const ms = tick / multiplier;
         let n = 1;
-        this.localTicker = hotreload.setInterval(() => {
+        this.localTicker = hotreloadEventManger.setInterval(() => {
             this.timeFromReflector(time + n * ms, "controller");
             if (DEBUG.ticks) console.log(this.id, 'Controller generate TICK ' + this.time, n);
             if (++n >= multiplier) { window.clearInterval(this.localTicker); this.localTicker = 0; }
@@ -724,9 +724,9 @@ export default class Controller {
 }
 
 // upload snapshot when the page gets unloaded
-hotreload.addEventListener(document.body, "unload", Controller.uploadOnPageClose);
+hotreloadEventManger.addEventListener(document.body, "unload", Controller.uploadOnPageClose);
 // ... and on hotreload
-hotreload.addDisposeHandler('snapshots', Controller.uploadOnPageClose);
+hotreloadEventManger.addDisposeHandler('snapshots', Controller.uploadOnPageClose);
 
 
 // Socket
@@ -749,7 +749,7 @@ function PING() {
 // one reason for having this is to prevent the connection from going idle,
 // which caused some router/computer combinations to buffer packets instead
 // of delivering them immediately (observed on AT&T Fiber + Mac)
-hotreload.setInterval(() => {
+hotreloadEventManger.setInterval(() => {
     if (Date.now() - LastReceived < PING_TIMEOUT) return;
     PING();
 }, PING_INTERVAL);
@@ -759,7 +759,7 @@ async function startReflectorInBrowser() {
     console.log("Starting in-browser reflector");
     // we defer starting the server until hotreload has finished
     // loading all new modules
-    await hotreload.waitTimeout(0);
+    await hotreloadEventManger.waitTimeout(0);
     // The following import runs the exact same code that's
     // executing on Node normally. It imports 'ws' which now
     // comes from our own fakeWS.js
@@ -796,7 +796,7 @@ function socketSetup(socket, reflectorUrl) {
             console.log(socket.constructor.name, "connected to", socket.url);
             Controller.setSocket(socket);
             Stats.connected(true);
-            hotreload.setTimeout(PING, 0);
+            hotreloadEventManger.setTimeout(PING, 0);
         },
         onerror: _event => {
             document.getElementById("error").innerText = 'Connection error';
@@ -810,7 +810,7 @@ function socketSetup(socket, reflectorUrl) {
             if (event.code !== 1000) {
                 // if abnormal close, try to connect again
                 document.getElementById("error").innerText = 'Reconnecting ...';
-                hotreload.setTimeout(() => connectToReflector(reflectorUrl), 1000);
+                hotreloadEventManger.setTimeout(() => connectToReflector(reflectorUrl), 1000);
             }
         },
         onmessage: event => {
@@ -818,5 +818,5 @@ function socketSetup(socket, reflectorUrl) {
             Controller.receive(event.data);
         }
     });
-    hotreload.addDisposeHandler("socket", () => socket.readyState !== WebSocket.CLOSED && socket.close(1000, "hotreload "+moduleVersion));
+    hotreloadEventManger.addDisposeHandler("socket", () => socket.readyState !== WebSocket.CLOSED && socket.close(1000, "hotreload "+moduleVersion));
 }

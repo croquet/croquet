@@ -1,6 +1,5 @@
 import { Model, View } from "@croquet/kit";
-import hotreload from "@croquet/util/hotreload";
-
+import { hotreloadEventManger } from "@croquet/util";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
@@ -26,7 +25,7 @@ export class SpeedSliderView extends View {
         super();
         this.controllers = new Map();
         this.element = document.getElementById("speed");
-        hotreload.addEventListener(this.element, "input", evt => {
+        hotreloadEventManger.addEventListener(this.element, "input", evt => {
             let value = evt.target.value;
             if (Math.abs(value - 50) < 5) value = 50;
             const scale = 2 ** ((value - 50) / 50 * 2);        // 1/4 to 4x
