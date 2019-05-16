@@ -1,4 +1,3 @@
-import "./modules"; // to fix imports
 import urlOptions from "./urlOptions";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
