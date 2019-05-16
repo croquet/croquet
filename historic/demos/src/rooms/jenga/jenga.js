@@ -1,4 +1,3 @@
-import { urlOptions } from '@croquet/util';
 import { Room, Draggable, Tracking, TextElement, PhysicalElement, PhysicalWorld, PhysicalShape, THREE } from '@croquet/kit';
 import { RandomlyColoringGroupElement } from '../bounce/bounce';
 
@@ -10,7 +9,7 @@ export class Piece extends PhysicalElement {
 
 const PieceView = Draggable({dragVertically: false})(Tracking()(PhysicalShape));
 
-export default function initPhysics() {
+export default function initPhysics(options) {
     // called as part of installing the initial Island
     const room = Room.create();
     room.addElementManipulators = false;
@@ -20,7 +19,7 @@ export default function initPhysics() {
     const coloring = RandomlyColoringGroupElement.create();
     room.parts.elements.add(coloring);
 
-    const stackingHeight = urlOptions.height || 10;
+    const stackingHeight = options.height || 10;
 
     for (let l = 0; l < stackingHeight; l++) {
         const [width, depth] = l % 2 === 0 ? [1, 1/3] : [1/3, 1];

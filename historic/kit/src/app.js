@@ -26,6 +26,7 @@ export default class App {
         this.currentRoomName = this.defaultRoom;
         this.roomViewManager = new RoomViewManager(width, height);
         this.tps = options.tps || "20x3";
+        this.roomInitOptions = options.roomInitOptions || {};
 
         this.canvas = canvas;
         this.renderer = options.recycleRenderer || new Renderer(width, height, canvas);
@@ -72,6 +73,7 @@ export default class App {
                 this.joinRoom(roomName);
             }
         };
+        roomState.creator.options = this.roomInitOptions;
 
         const controller = new Controller();
         controller.fetchUpdatedSnapshot = this.doDownload;

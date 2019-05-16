@@ -1,4 +1,3 @@
-import { urlOptions } from '@croquet/util';
 import { Room, Draggable, Tracking, PhysicalElement, PhysicalWorld, PhysicalShape, THREE } from '@croquet/kit';
 import { RandomlyColoringGroupElement } from '../bounce/bounce';
 
@@ -16,7 +15,7 @@ class PuckView extends Draggable({dragVertically: false})(Tracking()(PhysicalSha
     }
 }
 
-export default function initPhysics() {
+export default function initPhysics(options) {
     // called as part of installing the initial Island
     const room = Room.create();
     room.addElementManipulators = false;
@@ -26,7 +25,7 @@ export default function initPhysics() {
     const coloring = RandomlyColoringGroupElement.create();
     room.parts.elements.add(coloring);
 
-    const nElements = urlOptions.n || 100;
+    const nElements = options.n || 100;
 
     for (let i = 0; i < nElements/3; i++) {
         const size = 0.1 + 0.2 * room.random();

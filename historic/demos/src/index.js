@@ -40,7 +40,8 @@ const app = new App(
         initialSnapshots: urlOptions.hotreload && hotState.roomSnapshots,
         recycleRenderer: urlOptions.hotreload && hotState.renderer,
         domEventManager: urlOptions.hotreload && hotreloadEventManager,
-        tps
+        tps,
+        roomInitOptions: {...urlOptions}
     }
 );
 

@@ -1,5 +1,4 @@
 import SeedRandom from "seedrandom";
-import { urlOptions } from "@croquet/util";
 import { ModelPart, ViewPart, Room, ChildrenPart, ChildEvents, SpatialPart, Tracking, Clickable, Draggable, TextElement, THREE } from "@croquet/kit";
 import Bouncing from './bouncing';
 
@@ -143,7 +142,7 @@ class RandomlyColoringGroupElementView extends GroupElementView {
     }
 }
 
-export default function initBounce() {
+export default function initBounce(options) {
     const room = Room.create();
 
     for (let x = -3; x <= 3; x += 3) {
@@ -159,7 +158,7 @@ export default function initBounce() {
     const bouncingBoxes = RandomlyColoringGroupElement.create({ spatial: { scale: new THREE.Vector3(0.5, 0.5, 0.5) } });
     room.parts.elements.add(bouncingBoxes);
 
-    const n = urlOptions.n || 100;
+    const n = options.n || 100;
 
     for (let i = 0; i < n; i++) {
         bouncingBoxes.parts.children.add(BouncingBallElement.create({ spatial: { scale: new THREE.Vector3(0.3, 0.3, 0.3) } }));
