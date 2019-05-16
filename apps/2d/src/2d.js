@@ -254,7 +254,7 @@ async function go() {
             snapshot,
             tps: TPS,
             optionsFromUrl: ['n'],
-            creatorFn(options) {
+            init(options) {
                 const root = Root.create();
                 const n = options.n || 99;
                 for (let i = 0; i < n; i++) root.add(Shape.create());

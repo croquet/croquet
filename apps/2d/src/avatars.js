@@ -298,7 +298,7 @@ async function go() {
         const models = await controller.createIsland("avatars", {
             snapshot,
             tps: TPS,
-            creatorFn() {
+            init() {
                 const root = Root.create();
                 root.add(BouncingShape.create({pos: [500, 500], color: "white"}));
                 return {root};
