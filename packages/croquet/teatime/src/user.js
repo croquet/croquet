@@ -86,26 +86,23 @@ if (!getUser("name") && DEBUG.user) {
         <dl>
             <dt><label for="user[name]">Username</label></dt>
             <dd>
-                <input type="text" pattern="^[a-zA-Z0-9_]*$" name="user[name]" id="user[name]" placeholder="Pick a username" autocomplete="off" spellcheck="false"></input>
+                <input type="text" required pattern="^[a-zA-Z0-9_]*$" minlength="2" maxlength="15" name="user[name]" id="user[name]" placeholder="Pick a username" autocomplete="off" spellcheck="false"></input>
             </dd>
-            <dd class="error">
-                error message
-            </dd>
+            <dd class="error"></dd>
         </dl>
         <dl>
             <dt><label for="user[email]">Email</label></dt>
             <dd>
-                <input type="email" id="user[email]" placeholder="you@example.com" autocomplete="off" spellcheck="false"></input>
+                <input type="email" required id="user[email]" placeholder="you@example.com" autocomplete="off" spellcheck="false"></input>
             </dd>
-            <dd class="error">
-                error message
-            </dd>
+            <dd class="error"></dd>
         </dl>
         <dl>
             <dt><label for="user[password]">Password</label></dt>
             <dd>
-                <input type="password" id="user[password]" placeholder="Create a password" autocomplete="off" spellcheck="false"></input>
+                <input type="password" required minlength="8" id="user[password]" placeholder="Create a password" autocomplete="off" spellcheck="false"></input>
             </dd>
+            <dd class="error"></dd>
         </dl>
         <button id="user[create]">Create Croquet Credentials</button>
         <div style="max-width:280px;text-align: center;font-size:11px;margin:4px auto">
@@ -127,43 +124,133 @@ if (!getUser("name") && DEBUG.user) {
     overlay.appendChild(dialog);
     document.body.appendChild(overlay);
 
-    const [name, email, password] = dialog.getElementsByTagName("input");
-    const [nameError, emailError] = dialog.getElementsByClassName("error");
-    const [create, guest] = dialog.getElementsByTagName("button");
-    console.log({name, nameError, email, emailError, password, create, guest});
+    const [nameInput, emailInput, passwordInput] = dialog.getElementsByTagName("input");
+    const [nameError, emailError, passwordError] = dialog.getElementsByClassName("error");
+    const [createButton, guestButton] = dialog.getElementsByTagName("button");
 
     // after a small timeout, check if username available
     let nameTimeout = 0;
-    name.oninput = () => {
+    nameInput.oninput = () => {
         clearTimeout(nameTimeout);
         nameTimeout = setTimeout(() => checkName(), 300);
     };
 
-    async function checkName() {
-        console.log("Checking", name.value);
+    // after a small timeout, check if email valid
+    let emailTimeout = 0;
+    emailInput.oninput = () => {
+        clearTimeout(emailTimeout);
+        emailTimeout = setTimeout(() => checkEmail(), 300);
+    };
+
+    // after a small timeout, check if password valid
+    let passwordTimeout = 0;
+    passwordInput.oninput = () => {
+        clearTimeout(passwordTimeout);
+        passwordTimeout = setTimeout(() => checkPassword(), 300);
+    };
+
+    createButton.onclick = async evt => {
+        evt.preventDefault();
+        const name = await checkName(true);
+        const email = checkEmail(true);
+        const password = checkPassword(true);
+        if (!name || !email || !password) return;
+
+        // store salt in a known location (username/salt.json)
+        // this "reserves" the username
+        const salt = crypto.getRandomValues(new Uint8Array(8));
+        fetch(userURL(name, "salt"), {
+            method: 'PUT',
+            mode: "cors",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ salt: [...salt] }),
+        });
+
+        // do 500,000 rounds of SHA-256 with PBKDF2 using our 64 bit salt
+        const keyMaterial = await window.crypto.subtle.importKey("raw", new TextEncoder().encode(password), {name: "PBKDF2"}, false, ["deriveBits", "deriveKey"]);
+        const bits = await window.crypto.subtle.deriveBits({ "name": "PBKDF2", salt, "iterations": 500000, "hash": "SHA-256" }, keyMaterial, 256);
+        const hash = [...new Uint32Array(bits)].map(w => w.toString(16).padStart(8, '0')).join('');
+
+        // store user record as CREDENTIALS/hash.json
+        fetch(credentialsURL(hash), {
+            method: 'PUT',
+            mode: "cors",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, email}),
+        });
+
+        // close dialog
+        document.body.removeChild(overlay);
+    };
+
+    guestButton.onclick = evt => {
+        evt.preventDefault();
+    };
+
+    checkName();
+
+    function userURL(username, file, ext=".json") {
+        return `https://db.croquet.studio/files-v1/user/${username.toLowerCase()}/${file}${ext}`;
+    }
+
+    function credentialsURL(file, ext=".json") {
+        return `https://db.croquet.studio/files-v1/user/CREDENTIALS/${file}${ext}`;
+    }
+
+
+    async function checkName(final=false) {
+        console.log("Checking", nameInput.value, nameInput.validity);
         nameError.style.visibility = "hidden";
-        const userName = name.value.trim();
-        if (!userName) return false;
-        if (!userName.match(/^[a-z0-9_]*$/i)) {
-            nameError.innerHTML = "Your username can only contain alphanumeric characters (letters A-Z, numbers 0-9) with the exception of underscores.";
+        const name = nameInput.value.trim();
+        if (!name && !final) return false;
+        if (name.length < 2|| name.length > 15) {
+            nameError.innerHTML = "Your username must be between 2 and 15 characters long.";
             nameError.style.visibility = "visible";
             return false;
         }
-        if (userName.length < 2|| userName.length > 15) {
-            nameError.innerHTML = "Your username must be between 2 and 15 characters long.";
+        if (!name.match(/^[a-z0-9_]+$/i)) {
+            nameError.innerHTML = "Your username can only contain alphanumeric characters (letters A-Z, numbers 0-9) and underscores.";
             nameError.style.visibility = "visible";
             return false;
         }
         try {
             const timeout = nameTimeout;
-            const saltUrl = `https://db.croquet.studio/files-v1/user/${userName.toLowerCase()}/salt.json`;
-            const response = await fetch(saltUrl, {mode: "cors"}); if (timeout !== nameTimeout) return false;
+            const response = await fetch(userURL(name, "salt"), {mode: "cors"}); if (timeout !== nameTimeout && !final) return false;
             if (response.ok) {
                 nameError.innerHTML = "This username is already taken";
                 nameError.style.visibility = "visible";
+                createButton.innerHTML = `Continue as “${name}”`;
                 return false;
             }
         } catch (e) { /* ignore */ }
-        return true;
+        createButton.innerHTML = `Create Croquet Credentials`;
+        return name;
     }
+
+    function checkEmail(final=false) {
+        console.log("Checking", emailInput.value, emailInput.validity);
+        emailError.style.visibility = "hidden";
+        const email = emailInput.value.trim();
+        if (!email && !final) return false;
+        if (!emailInput.validity.valid) {
+            emailError.innerHTML = "Please enter a valid email address.";
+            emailError.style.visibility = "visible";
+            return false;
+        }
+        return email;
+    }
+
+    function checkPassword(final=false) {
+        console.log("Checking password", passwordInput.validity);
+        passwordError.style.visibility = "hidden";
+        const password = passwordInput.value;
+        if (!password && !final) return false;
+        if (password.length < 8) {
+            passwordError.innerHTML = "Your password must be at least 8 characters long.";
+            passwordError.style.visibility = "visible";
+            return false;
+        }
+        return password;
+    }
+
 }
