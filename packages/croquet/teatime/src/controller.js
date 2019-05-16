@@ -1,3 +1,4 @@
+import "@croquet/util/deduplicate";
 import AsyncQueue from "@croquet/util/asyncQueue";
 import Stats from "@croquet/util/stats";
 import hotreloadEventManger from "@croquet/util/hotreloadEventManager";
