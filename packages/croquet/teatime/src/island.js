@@ -78,7 +78,7 @@ export default class Island {
                     const islandData = reader.readIsland(snapshot, "$");
                     // only read keys declared above
                     for (const key of Object.keys(islandData)) {
-                        if (!(key in this)) console.warn(`Ignoring unknown property snapshot.${key}`);
+                        if (!(key in this)) console.warn(`Ignoring property snapshot.${key}`);
                         else if (key === "messages") for (const msg of islandData.messages) this.messages.add(msg);
                         else this[key] = islandData[key];
                     }
@@ -134,14 +134,6 @@ export default class Island {
         const message = new Message(this.time, 0, recipient.id, selector, args);
         this.controller.sendMessage(message);
     }
-
-    sendNoop() {
-        // this is only used for syncing after a snapshot
-        const message = new Message(this.time, 0, this.id, "noop", []);
-        this.controller.sendMessage(message);
-    }
-
-    noop() {}
 
     /** decode msgData and sort it into future queue
      * @param {MessageData} msgData - encoded message
@@ -218,8 +210,8 @@ export default class Island {
             this.messages.poll();
             if (this.time !== message.time) {
                 this.time = message.time;
-                // advance random number generator, unless it's a meta message
-                if (message !== this.noRandomCheck) this._random.int32();
+                // advance random number generator
+                this._random.int32();
             }
             message.executeOn(this);
             if (++count > 100) { count = 0; if (Date.now() > deadline) return false; }
@@ -338,11 +330,6 @@ export default class Island {
         inViewRealm(this, () => viewDomain.processFrameEvents());
     }
 
-    scheduleSnapshot(delta) {
-        const message = this.futureSend(delta, this.id, "scheduledSnapshot", []);
-        this.noRandomCheck = message;   // do not advance RNG for this message
-    }
-
     scheduledSnapshot() {
         this.controller.scheduledSnapshot();
     }
@@ -387,7 +374,23 @@ function decode(payload, island) {
     return {receiver, selector, args};
 }
 
-class Message {
+function hasReceiver(payload, id) {
+    return payload.match(new RegExp(`^${id}>`));
+}
+
+function hasSelector(payload, selector) {
+    return payload.match(new RegExp(`>${selector}\\b`));
+}
+
+function hasReceiverAndSelector(payload, id, selector) {
+    return payload.match(new RegExp(`^${id}>${selector}\\b`));
+}
+
+export class Message {
+    static hasReceiver(msgData, id) { return hasReceiver(msgData[2], id); }
+    static hasSelector(msgData, sel) { return hasSelector(msgData[2], sel); }
+    static hasReceiverAndSelector(msgData, id, sel) { return hasReceiverAndSelector(msgData[2], id, sel); }
+
     constructor(time, seq, receiver, selector, args) {
         this.time = time;
         this.seq = seq;
@@ -400,9 +403,9 @@ class Message {
             : this.seq < other.seq;
     }
 
-    hasReceiver(id) {
-        return this.payload.split('>')[0] === id;
-    }
+    hasReceiver(id) { return hasReceiver(this.payload, id); }
+    hasSelector(sel) { return hasSelector(this.payload, sel); }
+    hasReceiverAndSelector(id, sel) { return hasReceiverAndSelector(this.payload, id, sel); }
 
     isExternal() {
         return this.seq & 1;
@@ -468,10 +471,11 @@ class IslandWriter {
         this.writers.set(cls, (obj, path) => this.writeAs(classId, obj, write(obj), path));
     }
 
+    /** @param {Island} island */
     snapshot(island) {
         const state = {
             _random: island._random.state(),
-            messages: this.write(island.messages.asUnsortedArray()),
+            messages: this.write(island.messages.asArray()),
         };
         for (const [key, value] of Object.entries(island)) {
             if (key === "controller") continue;

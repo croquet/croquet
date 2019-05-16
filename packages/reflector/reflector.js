@@ -287,6 +287,7 @@ function JOIN1(client, id, args) {
         users: 0,            // number of clients already reported
         snapshotTime: -1,    // time of last snapshot
         snapshotUrl: '',     // url of last snapshot
+        pendingSnapshotTime: -1, // time of pending snapshot
         messages: [],        // messages since last snapshot
         before: Date.now(),  // last getTime() call
         lastTick: 0,         // time of last TICK sent
@@ -379,9 +380,26 @@ function after(seqA, seqB) {
 function SNAP(client, id, args) {
     const island = ALL_ISLANDS.get(id);
     if (!island) { if (client.readyState === WebSocket.OPEN) client.close(4000, "unknown island"); return; }
-    const {time, seq, url} = args;
-    if (time < island.snapshotTime) return;
-    LOG(`${island} got snapshot time ${time}#${seq}: ${url}`);
+    const {time, seq, hash, url} = args;
+    if (time <= island.snapshotTime) return;
+    LOG(`${island} got snapshot ${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'}`);
+    if (!url) {
+        // if another client was faster, ignore
+        if (time <= island.pendingSnapshotTime) return;
+        island.pendingSnapshotTime = time;
+        // if no url, tell that client (the fastest one) to upload it
+        const serveMsg = JSON.stringify({ id, action: 'HASH', args: {...args, serve: true}});
+        LOG('sending', client.addr, serveMsg);
+        client.safeSend(serveMsg);
+        // and tell everyone else the hash
+        const others = [...island.clients].filter(each => each !== client);
+        if (others.length > 0) {
+            const hashMsg = JSON.stringify({ id, action: 'HASH', args: {...args, serve: false}});
+            LOG('sending to', others.length, 'other clients:', hashMsg);
+            others.forEach(each => each.safeSend(hashMsg));
+        }
+        return;
+    }
     // keep snapshot
     island.snapshotTime = time;
     island.snapshotUrl = url;
