@@ -15,7 +15,7 @@ function deduplicateImports() {
         else sources[source] = dupe;
         for (const [n, d] of Object.entries(m[1])) names[d] = n.replace(/.*\//, '');
     }
-    const nameOf = k => names[k] || `index.js (${k})`;
+    const nameOf = k => names[k] || `top-level (${k})`;
     // replace references to duplicates with the actual modules
     const later = {};
     const fixed = [];
@@ -47,5 +47,5 @@ function deduplicateImports() {
             }
         }
     }
-    for (const fix of [...fixed].sort()) console.log("Deduplicated import", fix);
+    for (const fix of fixed.sort()) console.log("Deduplicated import", fix);
 }
