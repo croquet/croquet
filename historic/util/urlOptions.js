@@ -42,18 +42,24 @@ parseUrl();
  * @param {String} item - value to look for in list of items
  * @param {Boolean|String} defaultValue - if string, true on that hostname, false otherwise
  */
-urlOptions.has = (key, item, defaultValue) => {
-    if (typeof defaultValue !== "boolean") defaultValue = hostIs(defaultValue);
-    if (defaultValue === true) item =`no${item}`;
-    const urlItems = urlOptions[key];
-    if (typeof urlItems !== "string") return defaultValue;
-    if (urlItems.split(',').includes(item)) return !defaultValue;
-    return defaultValue;
-};
+Object.defineProperty(urlOptions, "has", {
+    enumerable: false,
+    value: (key, item, defaultValue) => {
+        if (typeof defaultValue !== "boolean") defaultValue = hostIs(defaultValue);
+        if (defaultValue === true) item =`no${item}`;
+        const urlItems = urlOptions[key];
+        if (typeof urlItems !== "string") return defaultValue;
+        if (urlItems.split(',').includes(item)) return !defaultValue;
+        return defaultValue;
+    }
+});
 
-urlOptions.firstInHash = () => {
-    return document.location.hash.slice(1).split("&")[0];
-};
+Object.defineProperty(urlOptions, "firstInHash", {
+    enumerable: false,
+    value: () => {
+        return document.location.hash.slice(1).split("&")[0];
+    }
+});
 
 function hostIs(hostname) {
     const actualHostname = window.location.hostname;
