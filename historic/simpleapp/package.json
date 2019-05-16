@@ -23,10 +23,8 @@
     ]
   },
   "dependencies": {
-    "@croquet/teatime": "file:../../croquet/teatime",
-    "@croquet/util": "file:../../croquet/util",
     "@croquet/kit": "file:../../croquet/kit",
-    "three": "^0.101.1",
+    "@croquet/util": "file:../../croquet/util",
     "seedrandom": "^3.0.1"
   },
   "devDependencies": {

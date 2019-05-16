@@ -1,15 +1,13 @@
-import * as THREE from "three";
-import { RoomViewManager, Renderer, theKeyboardManager } from "@croquet/kit";
-import { Controller } from "@croquet/teatime";
+import { RoomViewManager, Renderer, theKeyboardManager, THREE, Controller } from "@croquet/kit";
 import { hotreload, urlOptions, Stats, displaySessionMoniker } from "@croquet/util";
-import room1 from "./sampleRooms/room1";
-import room2 from "./sampleRooms/room2";
-import room3 from "./sampleRooms/room3";
-import roomBounce from "./sampleRooms/bounce";
-import roomPhysics from "./sampleRooms/physics";
-import roomJenga from "./sampleRooms/jenga";
-import roomsJump from "./sampleRooms/jump";
-import roomARBalls from "./sampleRooms/arBalls";
+import kitchenSink from "./rooms/kitchenSink/kitchenSink";
+import portals from "./rooms/portals/portals";
+import text from "./rooms/text/text";
+import bounce from "./rooms/bounce/bounce";
+import physics from "./rooms/physics/physics";
+import jenga from "./rooms/jenga/jenga";
+import jump from "./rooms/jump/jump";
+import arBalls from "./rooms/arBalls/arBalls";
 import { SpeedSlider, SpeedSliderView } from "./ui";
 
 const TPS = "20x3"; // 20 ticks/s from server, 60 t/s total
@@ -45,14 +43,14 @@ async function start() {
     Controller.connectToReflector(module.id, reflector);
 
     const ALL_ROOMS = {
-        room1: {creator: room1},
-        room2: {creator: room2},
-        room3: {creator: room3},
-        bounce: {creator: roomBounce},
-        arBalls: {creator: roomARBalls},
-        physics: {creator: roomPhysics},
-        jenga: {creator: roomJenga},
-        ...roomsJump
+        kitchenSink: {creator: kitchenSink},
+        portals: {creator: portals},
+        text: {creator: text},
+        bounce: {creator: bounce},
+        arBalls: {creator: arBalls},
+        physics: {creator: physics},
+        jenga: {creator: jenga},
+        ...jump
     };
 
     // if hot-reloading, store the island snapshots in the room creators

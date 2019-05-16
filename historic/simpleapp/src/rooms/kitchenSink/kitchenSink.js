@@ -1,5 +1,4 @@
-import * as THREE from "three";
-import { Room, SpatialPart, Inertial, ModelPart, ViewPart, Tracking, Draggable, LayoutRoot, LayoutContainer, LayoutSlotStretch3D, LayoutSlotText, MinFromBBox, TextElement, EditableTextViewPart } from '@croquet/kit';
+import { Room, SpatialPart, Inertial, ModelPart, ViewPart, Tracking, Draggable, LayoutRoot, LayoutContainer, LayoutSlotStretch3D, LayoutSlotText, MinFromBBox, TextElement, EditableTextViewPart, THREE } from '@croquet/kit';
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }

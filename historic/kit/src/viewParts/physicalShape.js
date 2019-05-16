@@ -2,8 +2,7 @@ import * as THREE from 'three';
 import { SHAPE_BOX, SHAPE_SPHERE } from "oimo";
 import { ViewPart } from '../parts';
 
-
-export class PhysicalShape extends ViewPart {
+export default class PhysicalShape extends ViewPart {
     constructor(options) {
         super(options);
 

@@ -1,11 +1,10 @@
-import * as THREE from "three";
-import Inertial from "./inertial";
+import { Inertial, THREE } from "@croquet/kit";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 /** A spatial model with inertia, gravity, and bouncing
- * @arg {typeof import('./spatial.js').default} BaseSpatialPartClass
+ * @arg {typeof import('@croquet/kit/src/modelParts/spatial').default} BaseSpatialPartClass
 */
 export default function Bouncing() {
     return BaseSpatialPartClass => class BouncingSpatialPart extends Inertial()(BaseSpatialPartClass) {

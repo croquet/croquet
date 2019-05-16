@@ -1,4 +1,4 @@
-import { Model, View } from "@croquet/teatime";
+import { Model, View } from "@croquet/kit";
 import hotreload from "@croquet/util/hotreload";
 
 

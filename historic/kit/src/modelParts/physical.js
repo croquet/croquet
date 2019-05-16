@@ -3,8 +3,6 @@ import * as OIMO from 'oimo';
 import { gatherInternalClassTypes } from '@croquet/teatime/src/island';
 import { SpatialEvents } from "./spatial";
 import { ModelPart } from "../parts";
-import Tracking from "../viewParts/tracking";
-import { PhysicalShape } from "../viewParts/physicalShape";
 
 export const PhysicsEvents = {
     worldStepped: "physics-worldStepped"
@@ -58,20 +56,6 @@ export default class PhysicalPart extends ModelPart {
     scaleBy(_factor) {}
     rotateTo(_quaternion) {}
     rotateBy(_delta) {}
-}
-
-export class PhysicalElement extends ModelPart {
-    constructor() {
-        super();
-
-        this.parts = {
-            spatial: new PhysicalPart()
-        };
-    }
-
-    naturalViewClass() {
-        return Tracking()(PhysicalShape);
-    }
 }
 
 export class PhysicalWorld extends ModelPart {
