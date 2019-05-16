@@ -3,7 +3,7 @@ import { Room, PortalElement, THREE } from "@croquet/kit";
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
-function initRoom2() {
+export default function initPortals() {
     const room = Room.create({color: new THREE.Color("#000088")});
 
     const portalToKitchenSink = PortalElement.create({
@@ -46,5 +46,3 @@ function initRoom2() {
 
     return {room};
 }
-
-export default { init: initRoom2 };

@@ -3,7 +3,7 @@ import { Room, TextElement, THREE } from "@croquet/kit";
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
-function initRoom3() {
+export default function initText() {
     const room = Room.create();
 
     const text1 = TextElement.create({
@@ -36,5 +36,3 @@ function initRoom3() {
 
     return {room};
 }
-
-export default { init: initRoom3 };

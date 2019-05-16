@@ -16,7 +16,7 @@ class PuckView extends Draggable({dragVertically: false})(Tracking()(PhysicalSha
     }
 }
 
-function initPhysics(options) {
+export default function initPhysics() {
     // called as part of installing the initial Island
     const room = Room.create();
     room.addElementManipulators = false;
@@ -26,7 +26,9 @@ function initPhysics(options) {
     const coloring = RandomlyColoringGroupElement.create();
     room.parts.elements.add(coloring);
 
-    for (let i = 0; i < options.n/3; i++) {
+    const nElements = urlOptions.n || 100;
+
+    for (let i = 0; i < nElements/3; i++) {
         const size = 0.1 + 0.2 * room.random();
         const sphere = PhysicalElement.create({
             spatial: {
@@ -88,8 +90,3 @@ function initPhysics(options) {
 
     return {room};
 }
-
-export default {
-    init: initPhysics,
-    options: { n: urlOptions.n || 100 }
-};

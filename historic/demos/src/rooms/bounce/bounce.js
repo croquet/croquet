@@ -143,7 +143,7 @@ class RandomlyColoringGroupElementView extends GroupElementView {
     }
 }
 
-function initBounce(options) {
+export default function initBounce() {
     const room = Room.create();
 
     for (let x = -3; x <= 3; x += 3) {
@@ -158,14 +158,12 @@ function initBounce(options) {
     room.parts.elements.add(text1);
     const bouncingBoxes = RandomlyColoringGroupElement.create({ spatial: { scale: new THREE.Vector3(0.5, 0.5, 0.5) } });
     room.parts.elements.add(bouncingBoxes);
-    for (let i = 0; i < options.n; i++) {
+
+    const n = urlOptions.n || 100;
+
+    for (let i = 0; i < n; i++) {
         bouncingBoxes.parts.children.add(BouncingBallElement.create({ spatial: { scale: new THREE.Vector3(0.3, 0.3, 0.3) } }));
     }
 
     return {room};
 }
-
-export default {
-    init: initBounce,
-    options: { n: urlOptions.n || 100 }
-};

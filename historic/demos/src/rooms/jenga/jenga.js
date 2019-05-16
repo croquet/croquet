@@ -10,7 +10,7 @@ export class Piece extends PhysicalElement {
 
 const PieceView = Draggable({dragVertically: false})(Tracking()(PhysicalShape));
 
-function initPhysics(options) {
+export default function initPhysics() {
     // called as part of installing the initial Island
     const room = Room.create();
     room.addElementManipulators = false;
@@ -20,7 +20,9 @@ function initPhysics(options) {
     const coloring = RandomlyColoringGroupElement.create();
     room.parts.elements.add(coloring);
 
-    for (let l = 0; l < options.height; l++) {
+    const stackingHeight = urlOptions.height || 10;
+
+    for (let l = 0; l < stackingHeight; l++) {
         const [width, depth] = l % 2 === 0 ? [1, 1/3] : [1/3, 1];
         const height = 1/6;
 
@@ -65,8 +67,3 @@ function initPhysics(options) {
 
     return {room};
 }
-
-export default {
-    init: initPhysics,
-    options: { height: urlOptions.height || 10 }
-};

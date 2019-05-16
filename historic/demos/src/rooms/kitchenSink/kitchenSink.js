@@ -126,7 +126,7 @@ class LayoutTestElementView extends ViewPart {
     }
 }
 
-function initRoom1() {
+export default function initKitchenSink() {
     const room = Room.create({});
 
     const rotatingBox = RotatingBoxElement.create({ spatial: { position: new THREE.Vector3(1.5, 1, 0) } });
@@ -166,5 +166,3 @@ function initRoom1() {
 
     return {room};
 }
-
-export default { init: initRoom1 };

@@ -12,8 +12,8 @@ export default class App {
 
         this.roomStates = {};
 
-        for (const [roomName, roomCreator] of Object.entries(rooms)) {
-            this.roomStates[roomName] = {creator: roomCreator};
+        for (const [roomName, roomInit] of Object.entries(rooms)) {
+            this.roomStates[roomName] = {creator: {init: roomInit}};
         }
 
         if (options.initialSnapshots) for (const [roomName, snapshot] of options.initialSnapshots) {

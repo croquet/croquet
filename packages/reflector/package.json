@@ -14,7 +14,8 @@
   },
   "dependencies": {
     "broadcast-channel": "^2.1.12",
-    "ws": "^6.2.1"
+    "ws": "^6.2.1",
+    "@croquet/util": "file:../util"
   },
   "devDependencies": {
     "eslint": "^5.14.1",
