@@ -89,7 +89,7 @@ function moduleWithID(id) {
     return allModules()[id];
 }
 
-function resolveImport(id, name) {
+function _resolveImport(id, name) {
     return moduleWithID(id)[1][name] || name;
 }
 
@@ -130,7 +130,7 @@ function importsOf(mod) {
 }
 
 /** find all modules that directly import a given module */
-function allImportersOf(mod) {
+function _allImportersOf(mod) {
     return allModuleIDs().filter(m => importsOf(m).includes(mod));
 }
 
@@ -297,47 +297,44 @@ export async function uploadCode(entryPoint) {
 
 // work around https://github.com/parcel-bundler/parcel/issues/1838
 
-// deduplicate this, every module that directly imports this one,
-// plus "hotreload" which cannot import this because that would be cyclic
-deduplicateImports([module.id, ...allImportersOf(module.id), resolveImport(module.id, "./hotreload")]);
+deduplicateImports();
 
-export function deduplicateImports(mods) {
-    const modSources = mods.map(m => [m, sourceCodeOf(m)]);
-    const dupes = new Map();
-    // find duplicates of given modules by comparing source code
-    for (const dupe of allModuleIDs()) {
-        const dupeSource = sourceCodeOf(dupe);
-        for (const [mod, modSource] of modSources) {
-            if (dupeSource === modSource && dupe !== mod) dupes.set(dupe, mod);
-        }
+function deduplicateImports() {
+    // find duplicates of modules by comparing source code
+    const parcel = module.bundle;
+    const sources = {};
+    const duplicates = {};
+    for (const dupe of Object.keys(parcel.modules)) {
+        const source = "" + parcel.modules[dupe][0];
+        const id = sources[source];
+        if (id) duplicates[dupe] = id;
+        else sources[source] = dupe;
     }
-    //for (const [dupe, mod] of dupes) console.log("Found dupe of", mod, dupe);
-    // replace references to dupes with the actual modules
-    const b = module.bundle;
-    const later = new Map();
+    // replace references to duplicates with the actual modules
+    const later = {};
     const fixed = new Set();
-    for (const m of Object.values(b.modules)) {
+    for (const m of Object.values(parcel.modules)) {
         for (const [n, dupe] of Object.entries(m[1])) {
-            const mod = dupes.get(dupe);
-            if (mod && b.modules[mod]) {
-                if (b.cache[dupe]) later.set(mod, dupe);   // dupe already loaded
+            const id = duplicates[dupe];
+            if (id) {
+                if (parcel.cache[dupe]) later[id] = dupe;      // dupe already loaded
                 else {
-                    m[1][n] = mod;                         // use mod
-                    delete b.modules[dupe];                // delete dupe
-                    fixed.add(`${nameOf(mod)} vs. ${nameOf(dupe)} (${n})`);
+                    m[1][n] = id;                              // use id
+                    delete parcel.modules[dupe];               // delete dupe
+                    fixed.add(n);
                 }
             }
         }
     }
-    for (const m of Object.values(b.modules)) {
-        for (const [n, mod] of Object.entries(m[1])) {
-            const dupe = later.get(mod);
-            if (dupe && b.modules[dupe]) {
-                m[1][n] = dupe;                             // use dupe
-                delete b.modules[mod];                      // delete mod
-                fixed.add(`${nameOf(dupe)} vs. ${nameOf(mod)} (${n})`);
+    for (const m of Object.values(parcel.modules)) {
+        for (const [n, id] of Object.entries(m[1])) {
+            const dupe = later[id];
+            if (dupe) {
+                m[1][n] = dupe;                                 // use dupe
+                delete parcel.modules[id];                      // delete id
+                fixed.add(n);
             }
         }
     }
-    for (const fix of [...fixed].sort()) console.log("Deduplicating import of", fix);
+    for (const fix of [...fixed].sort()) console.log("Deduplicated import of", fix);
 }
