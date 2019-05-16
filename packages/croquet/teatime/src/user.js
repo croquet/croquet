@@ -78,6 +78,16 @@ if (!getUser("name") && DEBUG.user) {
             border-style: solid;
             border-color: transparent transparent #c99 transparent;
           }
+        .notice {
+            visibility: hidden;
+            width: 270px;
+            height: 70px;
+            background-color: #fff;
+            padding: 5px;
+            position: absolute;
+            margin-top: 5px;
+            font-size: 12px;
+        }
     `;
     document.head.appendChild(style);
 
@@ -89,6 +99,7 @@ if (!getUser("name") && DEBUG.user) {
                 <input type="text" required pattern="^[a-zA-Z0-9_]*$" minlength="2" maxlength="15" name="user[name]" id="user[name]" placeholder="Pick a username" autocomplete="off" spellcheck="false"></input>
             </dd>
             <dd class="error"></dd>
+            <dd class="notice"></dd>
         </dl>
         <dl>
             <dt><label for="user[email]">Email</label></dt>
@@ -106,8 +117,7 @@ if (!getUser("name") && DEBUG.user) {
         </dl>
         <button id="user[create]">Create Croquet Credentials</button>
         <div style="max-width:280px;text-align: center;font-size:11px;margin:4px auto">
-            By clicking “Create Croquet Credentials”,<br>
-            you agree to our
+            By clicking the button above, you agree to our
             <a href="/terms" target="_blank" style="color:#36c;text-decoration:none">terms of service</a>
             and
             <a href="/privacy" target="_blank" style="color:#36c;text-decoration:none">privacy statement</a>.
@@ -126,7 +136,8 @@ if (!getUser("name") && DEBUG.user) {
 
     const [nameInput, emailInput, passwordInput] = dialog.getElementsByTagName("input");
     const [nameError, emailError, passwordError] = dialog.getElementsByClassName("error");
-    const [createButton, guestButton] = dialog.getElementsByTagName("button");
+    const [nameNotice] = dialog.getElementsByClassName("notice");
+    const [submitButton, guestButton] = dialog.getElementsByTagName("button");
 
     // after a small timeout, check if username available
     let nameTimeout = 0;
@@ -134,6 +145,9 @@ if (!getUser("name") && DEBUG.user) {
         clearTimeout(nameTimeout);
         nameTimeout = setTimeout(() => checkName(), 300);
     };
+
+    setNewUser(true);
+    nameInput.oninput(); // check new user on startup
 
     // after a small timeout, check if email valid
     let emailTimeout = 0;
@@ -149,35 +163,54 @@ if (!getUser("name") && DEBUG.user) {
         passwordTimeout = setTimeout(() => checkPassword(), 300);
     };
 
-    createButton.onclick = async evt => {
+    submitButton.onclick = async evt => {
         evt.preventDefault();
-        const name = await checkName(true);
-        const email = checkEmail(true);
+        const { name, salt: existing } = await checkName(true);
+        const email = !!existing || checkEmail(true);
         const password = checkPassword(true);
         if (!name || !email || !password) return;
 
-        // store salt in a known location (username/salt.json)
-        // this "reserves" the username
-        const salt = crypto.getRandomValues(new Uint8Array(8));
-        fetch(userURL(name, "salt"), {
-            method: 'PUT',
-            mode: "cors",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ salt: [...salt] }),
-        });
+        let salt = existing;
+        if (!salt) {
+            // store new salt in a known location (username/salt.json)
+            // this "reserves" the username
+            salt = crypto.getRandomValues(new Uint8Array(8));
+            fetch(userURL(name, "salt"), {
+                method: 'PUT',
+                mode: "cors",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ salt: [...salt] }),
+            });
+        }
 
         // do 500,000 rounds of SHA-256 with PBKDF2 using our 64 bit salt
         const keyMaterial = await window.crypto.subtle.importKey("raw", new TextEncoder().encode(password), {name: "PBKDF2"}, false, ["deriveBits", "deriveKey"]);
         const bits = await window.crypto.subtle.deriveBits({ "name": "PBKDF2", salt, "iterations": 500000, "hash": "SHA-256" }, keyMaterial, 256);
         const hash = [...new Uint32Array(bits)].map(w => w.toString(16).padStart(8, '0')).join('');
 
-        // store user record as CREDENTIALS/hash.json
-        fetch(credentialsURL(hash), {
-            method: 'PUT',
-            mode: "cors",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, email}),
-        });
+        if (existing) {
+            // check that user record exists
+            try {
+                const response = await fetch(credentialsURL(hash), { mode: "cors" });
+                if (!response.ok) throw Error("wrong password");
+                const userRecord = await response.json();
+                console.log(`Logged in as ${userRecord.name} <${userRecord.email}>`);
+            } catch (e) {
+                passwordError.innerHTML = `Wrong password for “${name}“`;
+                passwordError.style.visibility = "visible";
+                return;
+            }
+        } else {
+            // store user record as CREDENTIALS/hash.json
+            const userRecord = { name, email };
+            fetch(credentialsURL(hash), {
+                method: 'PUT',
+                mode: "cors",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(userRecord),
+            });
+            console.log(`Signed up as ${userRecord.name} <${userRecord.email}>`);
+        }
 
         // close dialog
         document.body.removeChild(overlay);
@@ -185,9 +218,9 @@ if (!getUser("name") && DEBUG.user) {
 
     guestButton.onclick = evt => {
         evt.preventDefault();
+        // close dialog
+        document.body.removeChild(overlay);
     };
-
-    checkName();
 
     function userURL(username, file, ext=".json") {
         return `https://db.croquet.studio/files-v1/user/${username.toLowerCase()}/${file}${ext}`;
@@ -201,6 +234,7 @@ if (!getUser("name") && DEBUG.user) {
     async function checkName(final=false) {
         console.log("Checking", nameInput.value, nameInput.validity);
         nameError.style.visibility = "hidden";
+        if (!final) setNewUser(true);
         const name = nameInput.value.trim();
         if (!name && !final) return false;
         if (name.length < 2|| name.length > 15) {
@@ -217,14 +251,12 @@ if (!getUser("name") && DEBUG.user) {
             const timeout = nameTimeout;
             const response = await fetch(userURL(name, "salt"), {mode: "cors"}); if (timeout !== nameTimeout && !final) return false;
             if (response.ok) {
-                nameError.innerHTML = "This username is already taken";
-                nameError.style.visibility = "visible";
-                createButton.innerHTML = `Continue as “${name}”`;
-                return false;
+                if (!final) setNewUser(false);
+                const json = await response.json();
+                return  {name, salt: new Uint8Array(json.salt)};
             }
         } catch (e) { /* ignore */ }
-        createButton.innerHTML = `Create Croquet Credentials`;
-        return name;
+        return {name};
     }
 
     function checkEmail(final=false) {
@@ -253,4 +285,14 @@ if (!getUser("name") && DEBUG.user) {
         return password;
     }
 
+    function setNewUser(isNewUser) {
+        const name = nameInput.value.trim();
+        nameNotice.innerHTML = `“${name}” is already registered as a user.<br><br>
+            If this is you, please enter your password below to continue.
+            Otherwise, please pick a different name.`;
+        nameNotice.style.visibility = isNewUser ? "hidden" : "visible";
+        emailInput.disabled = !isNewUser;
+        passwordInput.placeholder = isNewUser ? "Create a password" : `Enter password for “${name}”`;
+        submitButton.innerHTML = isNewUser ? "Create Croquet Credentials" : `Continue as “${name}”`;
+    }
 }
