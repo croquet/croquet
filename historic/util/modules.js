@@ -1,6 +1,5 @@
-import Hashids from "hashids";
-import hotreload from "./hotreload";
-import urlOptions from "./urlOptions";
+import hotreloadEventManager from "./hotreloadEventManager";
+import { getUser } from "./user";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
@@ -40,32 +39,12 @@ const rawHTML = document.getElementsByTagName('html')[0].outerHTML;
 const htmlSource = rawHTML.replace(scripts[0], `<script src="${entryPointName}"></script>`);
 if (!htmlSource.includes(entryPointName)) console.error("Entry point substitution failed!");
 
-// persistent storage of developer settings
-export function croquetDev(key, defaultValue=undefined, initFn=null) {
-    const dev = JSON.parse(localStorage.croquetDev || "{}");
-    if (key in dev) return dev[key];
-    if (initFn) {
-        dev[key] = initFn();
-        if (dev[key] !== defaultValue) localStorage.croquetDev = JSON.stringify(dev);
-        return dev[key];
-    }
-    return defaultValue;
-}
-
-// developer user name
-if (urlOptions.has("debug", "user", "localhost")) {
-    croquetDev("user", "", () => {
-        // eslint-disable-next-line no-alert
-        return (window.prompt("Please enter developer name (localStorage.croquetDev.user)") || "").toLowerCase();
-    });
-}
-
 const BASE_URL = baseUrl('code');
 
 // we special-case 'croquet.studio' and 'localhost' which have their own server directories
 // all others share a directory but prefix the file name wth the host name
 export function baseUrl(what='code') {
-    const user = croquetDev("user");
+    const user = getUser("name");
     const host = user ? `dev/${user}` : window.location.hostname;
     return `https://db.croquet.studio/files-v1/${host}/${what}/`;
 }
@@ -89,7 +68,7 @@ function moduleWithID(id) {
     return allModules()[id];
 }
 
-function resolveImport(id, name) {
+function _resolveImport(id, name) {
     return moduleWithID(id)[1][name] || name;
 }
 
@@ -130,23 +109,28 @@ function importsOf(mod) {
 }
 
 /** find all modules that directly import a given module */
-function allImportersOf(mod) {
+function _allImportersOf(mod) {
     return allModuleIDs().filter(m => importsOf(m).includes(mod));
 }
 
-// hashing
-const hashIds = new Hashids('croquet');
 
+export function fromBase64url(base64) {
+    return new Uint8Array(atob(base64.padEnd((base64.length + 3) & ~3, "=")
+        .replace(/-/g, "+")
+        .replace(/_/g, "/")).split('').map(c => c.charCodeAt(0)));
+}
+
+export function toBase64url(bits) {
+    return btoa(String.fromCharCode(...new Uint8Array(bits)))
+        .replace(/=/g, "")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_");
+}
+
+/** return buffer hashed into 256 bits encoded using base64 (suitable in URL) */
 async function hashBuffer(buffer) {
     const bits = await window.crypto.subtle.digest("SHA-256", buffer);
-    const data = new DataView(bits);
-    // condense 256 bit hash into 128 bit hash by XORing first half and last half
-    const words = [];
-    for (let i = 0; i < 16; i += 4) {
-        words.push((data.getUint32(i) ^ data.getUint32(i + 16)) >>> 0);
-    }
-    // use hashIds to generate a shorter encoding than hex
-    return hashIds.encode(words);
+    return toBase64url(bits);
 }
 
 const encoder = new TextEncoder();
@@ -158,7 +142,7 @@ export async function hashString(string) {
 
 const fileHashes = {};
 
-hotreload.addDisposeHandler("fileHashes", () => { for (const f of (Object.keys(fileHashes))) delete fileHashes[f]; });
+hotreloadEventManager.addDisposeHandler("fileHashes", () => { for (const f of (Object.keys(fileHashes))) delete fileHashes[f]; });
 
 export async function hashFile(mod) {
     if (fileHashes[mod]) return fileHashes[mod];
@@ -210,7 +194,6 @@ function createMetadata(name) {
         date: (new Date()).toISOString(),
         host: window.location.hostname,
     };
-    if (croquetDev("user")) meta.devUser = croquetDev("user");
     return meta;
 }
 
@@ -292,52 +275,4 @@ export async function uploadCode(entryPoint) {
     //     uploadAsset(asset);
     // }
     return { base: BASE_URL, entry: await hashFile(entryPoint), html: await hashFile(htmlName) };
-}
-
-
-// work around https://github.com/parcel-bundler/parcel/issues/1838
-
-// deduplicate this, every module that directly imports this one,
-// plus "hotreload" which cannot import this because that would be cyclic
-deduplicateImports([module.id, ...allImportersOf(module.id), resolveImport(module.id, "./hotreload")]);
-
-export function deduplicateImports(mods) {
-    const modSources = mods.map(m => [m, sourceCodeOf(m)]);
-    const dupes = new Map();
-    // find duplicates of given modules by comparing source code
-    for (const dupe of allModuleIDs()) {
-        const dupeSource = sourceCodeOf(dupe);
-        for (const [mod, modSource] of modSources) {
-            if (dupeSource === modSource && dupe !== mod) dupes.set(dupe, mod);
-        }
-    }
-    //for (const [dupe, mod] of dupes) console.log("Found dupe of", mod, dupe);
-    // replace references to dupes with the actual modules
-    const b = module.bundle;
-    const later = new Map();
-    const fixed = new Set();
-    for (const m of Object.values(b.modules)) {
-        for (const [n, dupe] of Object.entries(m[1])) {
-            const mod = dupes.get(dupe);
-            if (mod && b.modules[mod]) {
-                if (b.cache[dupe]) later.set(mod, dupe);   // dupe already loaded
-                else {
-                    m[1][n] = mod;                         // use mod
-                    delete b.modules[dupe];                // delete dupe
-                    fixed.add(`${nameOf(mod)} vs. ${nameOf(dupe)} (${n})`);
-                }
-            }
-        }
-    }
-    for (const m of Object.values(b.modules)) {
-        for (const [n, mod] of Object.entries(m[1])) {
-            const dupe = later.get(mod);
-            if (dupe && b.modules[dupe]) {
-                m[1][n] = dupe;                             // use dupe
-                delete b.modules[mod];                      // delete mod
-                fixed.add(`${nameOf(dupe)} vs. ${nameOf(mod)} (${n})`);
-            }
-        }
-    }
-    for (const fix of [...fixed].sort()) console.log("Deduplicating import of", fix);
 }
