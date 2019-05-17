@@ -135,10 +135,9 @@ function _allImportersOf(mod) {
 
 
 export function fromBase64url(base64) {
-    return new Uint8Array(atob(base64
-        .replace(/=/g, "")
-        .replace(/\+/g, "-")
-        .replace(/\//g, "_")).split('').map(c => c.charCodeAt(0)));
+    return new Uint8Array(atob(base64.padEnd((base64.length + 3) & ~3, "=")
+        .replace(/-/g, "+")
+        .replace(/_/g, "/")).split('').map(c => c.charCodeAt(0)));
 }
 
 export function toBase64url(bits) {
