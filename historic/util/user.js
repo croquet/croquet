@@ -5,12 +5,6 @@ import { toBase64url, fromBase64url } from "./modules";
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
-
-const DEBUG = {
-    user: urlOptions.has("debug", "user", false),
-};
-
-
 // persistent storage of user settings
 export function getUser(key, defaultValue=undefined, initFn=null) {
     let user = {};
@@ -26,7 +20,7 @@ export function getUser(key, defaultValue=undefined, initFn=null) {
 
 
 // login user
-if (!getUser("name")) {
+if (!getUser("name") || urlOptions.user) {
     const style = document.createElement("style");
     style.innerHTML = `
         form {
@@ -141,6 +135,9 @@ if (!getUser("name")) {
     const [nameNotice] = dialog.getElementsByClassName("notice");
     const [submitButton, guestButton] = dialog.getElementsByTagName("button");
 
+    if (typeof urlOptions.user === "string") nameInput.value = urlOptions.user;
+    else if (getUser("name")) nameInput.value = getUser("name");
+
     // after a small timeout, check if username available
     let nameTimeout = 0;
     nameInput.oninput = () => {
@@ -224,6 +221,8 @@ if (!getUser("name")) {
 
     guestButton.onclick = evt => {
         evt.preventDefault();
+        // log out
+        delete localStorage.croquetUser;
         // close dialog
         dialog.reset(); // clear fields
         document.body.removeChild(overlay);
