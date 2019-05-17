@@ -13,9 +13,9 @@
     "start": "node reflector.js"
   },
   "dependencies": {
+    "@croquet/util": "file:../util",
     "broadcast-channel": "^2.1.12",
-    "ws": "^6.2.1",
-    "@croquet/util": "file:../util"
+    "ws": "^6.2.1"
   },
   "devDependencies": {
     "eslint": "^5.14.1",

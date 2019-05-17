@@ -1,4 +1,3 @@
-import Hashids from "hashids";
 import hotreloadEventManager from "./hotreloadEventManager";
 import urlOptions from "./urlOptions";
 
@@ -134,19 +133,25 @@ function _allImportersOf(mod) {
     return allModuleIDs().filter(m => importsOf(m).includes(mod));
 }
 
-// hashing
-const hashIds = new Hashids('croquet');
 
+export function fromBase64url(base64) {
+    return new Uint8Array(atob(base64
+        .replace(/=/g, "")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")).split('').map(c => c.charCodeAt(0)));
+}
+
+export function toBase64url(bits) {
+    return btoa(String.fromCharCode(...new Uint8Array(bits)))
+        .replace(/=/g, "")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_");
+}
+
+/** return buffer hashed into 256 bits encoded using base64 (suitable in URL) */
 async function hashBuffer(buffer) {
     const bits = await window.crypto.subtle.digest("SHA-256", buffer);
-    const data = new DataView(bits);
-    // condense 256 bit hash into 128 bit hash by XORing first half and last half
-    const words = [];
-    for (let i = 0; i < 16; i += 4) {
-        words.push((data.getUint32(i) ^ data.getUint32(i + 16)) >>> 0);
-    }
-    // use hashIds to generate a shorter encoding than hex
-    return hashIds.encode(words);
+    return toBase64url(bits);
 }
 
 const encoder = new TextEncoder();
