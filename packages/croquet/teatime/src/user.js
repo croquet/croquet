@@ -1,4 +1,5 @@
 import urlOptions from "@croquet/util/urlOptions";
+import { toBase64url, fromBase64url } from "@croquet/util/modules";
 
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
@@ -179,14 +180,14 @@ if (!getUser("name") && DEBUG.user) {
                 method: 'PUT',
                 mode: "cors",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ salt: [...salt] }),
+                body: JSON.stringify({ salt: toBase64url(salt) }),
             });
         }
 
         // do 500,000 rounds of SHA-256 with PBKDF2 using our 64 bit salt
         const keyMaterial = await window.crypto.subtle.importKey("raw", new TextEncoder().encode(password), {name: "PBKDF2"}, false, ["deriveBits", "deriveKey"]);
-        const bits = await window.crypto.subtle.deriveBits({ "name": "PBKDF2", salt, "iterations": 500000, "hash": "SHA-256" }, keyMaterial, 256);
-        const hash = [...new Uint32Array(bits)].map(w => w.toString(16).padStart(8, '0')).join('');
+        const bits = await window.crypto.subtle.deriveBits({ "name": "PBKDF2", salt, "iterations": 100000, "hash": "SHA-256" }, keyMaterial, 256);
+        const hash = toBase64url(bits);
 
         if (existing) {
             // check that user record exists
@@ -202,7 +203,8 @@ if (!getUser("name") && DEBUG.user) {
             }
         } else {
             // store user record as CREDENTIALS/hash.json
-            const userRecord = { name, email };
+            const secret = crypto.getRandomValues(new Uint8Array(12));
+            const userRecord = { name, email, salt: toBase64url(salt), secret: toBase64url(secret) };
             fetch(credentialsURL(hash), {
                 method: 'PUT',
                 mode: "cors",
@@ -253,7 +255,7 @@ if (!getUser("name") && DEBUG.user) {
             if (response.ok) {
                 if (!final) setNewUser(false);
                 const json = await response.json();
-                return  {name, salt: new Uint8Array(json.salt)};
+                return  {name, salt: fromBase64url(json.salt)};
             }
         } catch (e) { /* ignore */ }
         return {name};
