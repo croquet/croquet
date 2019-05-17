@@ -1,10 +1,10 @@
 import "@croquet/util/deduplicate";
-import "@croquet/util/user";
 import AsyncQueue from "@croquet/util/asyncQueue";
 import Stats from "@croquet/util/stats";
 import hotreloadEventManger from "@croquet/util/hotreloadEventManager";
 import urlOptions from "@croquet/util/urlOptions";
-import { baseUrl, hashNameAndCode, hashString, uploadCode, croquetDev } from "@croquet/util/modules";
+import { getUser } from "@croquet/util/user";
+import { baseUrl, hashNameAndCode, hashString, uploadCode } from "@croquet/util/modules";
 import { inViewRealm } from "./realms";
 import Island, { Message } from "./island";
 
@@ -575,7 +575,7 @@ export default class Controller {
         console.log(this.id, 'Controller sending JOIN');
         this.socket = socket;
         const args = { name: this.islandCreator.name, version: VERSION };
-        const user = urlOptions.user || croquetDev("user");
+        const user = getUser("name");
         if (user) args.user = user;
         socket.send(JSON.stringify({
             id: this.id,

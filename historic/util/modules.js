@@ -1,4 +1,5 @@
 import hotreloadEventManager from "./hotreloadEventManager";
+import urlOptions from "./urlOptions";
 import { getUser } from "./user";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
@@ -41,11 +42,11 @@ if (!htmlSource.includes(entryPointName)) console.error("Entry point substitutio
 
 const BASE_URL = baseUrl('code');
 
-// we special-case 'croquet.studio' and 'localhost' which have their own server directories
-// all others share a directory but prefix the file name wth the host name
+// we use a separate directory for each host (e.g. "croquet.studio")
+// but replace 'localhost' and '*.ngrok.io' by 'dev/username' for developers
 export function baseUrl(what='code') {
-    const user = getUser("name");
-    const host = user ? `dev/${user}` : window.location.hostname;
+    const dev = urlOptions.has("dev", "host", "localhost");
+    const host = dev ? `dev/${getUser("name", "GUEST")}` : window.location.hostname;
     return `https://db.croquet.studio/files-v1/${host}/${what}/`;
 }
 
