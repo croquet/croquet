@@ -97,7 +97,7 @@ if (!getUser("name") && DEBUG.user) {
         <dl>
             <dt><label for="user[name]">Username</label></dt>
             <dd>
-                <input type="text" required pattern="^[a-zA-Z0-9_]*$" minlength="2" maxlength="15" name="user[name]" id="user[name]" placeholder="Pick a username" autocomplete="off" spellcheck="false"></input>
+                <input type="text" required pattern="^[a-zA-Z0-9_]*$" minlength="2" maxlength="15" name="user[name]" id="user[name]" placeholder="Enter a username" autocomplete="off" spellcheck="false"></input>
             </dd>
             <dd class="error"></dd>
             <dd class="notice"></dd>
@@ -116,7 +116,7 @@ if (!getUser("name") && DEBUG.user) {
             </dd>
             <dd class="error"></dd>
         </dl>
-        <button id="user[create]">Create Croquet Credentials</button>
+        <button id="user[create]">Sign up / Log in</button>
         <div style="max-width:280px;text-align: center;font-size:11px;margin:4px auto">
             By clicking the button above, you agree to our
             <a href="/terms" target="_blank" style="color:#36c;text-decoration:none">terms of service</a>
@@ -234,17 +234,16 @@ if (!getUser("name") && DEBUG.user) {
 
 
     async function checkName(final=false) {
-        console.log("Checking", nameInput.value, nameInput.validity);
         nameError.style.visibility = "hidden";
         if (!final) setNewUser(true);
         const name = nameInput.value.trim();
         if (!name && !final) return false;
-        if (name.length < 2|| name.length > 15) {
-            nameError.innerHTML = "Your username must be between 2 and 15 characters long.";
+        if (nameInput.validity.tooShort || nameInput.validity.tooLong) {
+            nameError.innerHTML = `Your username must be between ${nameInput.minLength} and ${nameInput.maxLength} characters long.`;
             nameError.style.visibility = "visible";
             return false;
         }
-        if (!name.match(/^[a-z0-9_]+$/i)) {
+        if (nameInput.validity.patternMismatch) {
             nameError.innerHTML = "Your username can only contain alphanumeric characters (letters A-Z, numbers 0-9) and underscores.";
             nameError.style.visibility = "visible";
             return false;
@@ -262,7 +261,6 @@ if (!getUser("name") && DEBUG.user) {
     }
 
     function checkEmail(final=false) {
-        console.log("Checking", emailInput.value, emailInput.validity);
         emailError.style.visibility = "hidden";
         const email = emailInput.value.trim();
         if (!email && !final) return false;
@@ -275,12 +273,11 @@ if (!getUser("name") && DEBUG.user) {
     }
 
     function checkPassword(final=false) {
-        console.log("Checking password", passwordInput.validity);
         passwordError.style.visibility = "hidden";
         const password = passwordInput.value;
         if (!password && !final) return false;
-        if (password.length < 8) {
-            passwordError.innerHTML = "Your password must be at least 8 characters long.";
+        if (passwordInput.validity.tooShort) {
+            passwordError.innerHTML = `Your password must be at least ${passwordInput.minLength} characters long.`;
             passwordError.style.visibility = "visible";
             return false;
         }
@@ -294,7 +291,7 @@ if (!getUser("name") && DEBUG.user) {
             Otherwise, please pick a different name.`;
         nameNotice.style.visibility = isNewUser ? "hidden" : "visible";
         emailInput.disabled = !isNewUser;
-        passwordInput.placeholder = isNewUser ? "Create a password" : `Enter password for “${name}”`;
-        submitButton.innerHTML = isNewUser ? "Create Croquet Credentials" : `Continue as “${name}”`;
+        passwordInput.placeholder = !name ? "Enter a password" : isNewUser ? `Create a password for “${name}”` : `Enter password for “${name}”`;
+        submitButton.innerHTML = !name ? "Sign up / Log in" : isNewUser ? `Sign up as “${name}”` : `Log in as “${name}”`;
     }
 }
