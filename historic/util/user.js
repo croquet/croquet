@@ -190,7 +190,7 @@ if (!getUser("name") || urlOptions.user) {
         if (existing) {
             // check that user record exists
             try {
-                const response = await fetch(credentialsURL(hash), { mode: "cors" });
+                const response = await fetch(userURL(name, hash), { mode: "cors" });
                 if (!response.ok) throw Error("wrong password");
                 const userRecord = await response.json();
                 console.log(`Logged in as ${userRecord.name} <${userRecord.email}>`);
@@ -201,11 +201,11 @@ if (!getUser("name") || urlOptions.user) {
                 return;
             }
         } else {
-            // store user record as CREDENTIALS/hash.json
+            // store user record as <user>/<hash>.json
             const secret = crypto.getRandomValues(new Uint8Array(16));
             const userRecord = { name, email, salt: toBase64url(salt), secret: toBase64url(secret) };
             localStorage.croquetUser = JSON.stringify(userRecord);
-            fetch(credentialsURL(hash), {
+            fetch(userURL(name, hash), {
                 method: 'PUT',
                 mode: "cors",
                 headers: { "Content-Type": "application/json" },
@@ -231,11 +231,6 @@ if (!getUser("name") || urlOptions.user) {
     function userURL(username, file, ext=".json") {
         return `https://db.croquet.studio/files-v1/user/${username.toLowerCase()}/${file}${ext}`;
     }
-
-    function credentialsURL(file, ext=".json") {
-        return `https://db.croquet.studio/files-v1/user/CREDENTIALS/${file}${ext}`;
-    }
-
 
     async function checkName(final=false) {
         nameError.style.visibility = "hidden";
