@@ -211,6 +211,7 @@ export default class Controller {
             date: (new Date()).toISOString(),
             host: window.location.hostname,
         };
+        delete snapshot.meta.hash; // old hash is invalid
         if (codeHashes) snapshot.meta.code = codeHashes;
         return snapshot;
     }
