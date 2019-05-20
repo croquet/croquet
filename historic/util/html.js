@@ -35,5 +35,5 @@ export function displayQRCode(url, div='qrcode') {
         correctLevel : QRCode.CorrectLevel.L,   // L, M, Q, H
     });
     else qrcode.makeCode(url);
-    div.href = url; // if div is an <a> tag, make it work
+    if (!("ontouchstart" in div)) div.href = url; // open url in new window, but only on desktop
 }
