@@ -1,6 +1,6 @@
 import Stats from "@croquet/util/stats";
 import urlOptions from "@croquet/util/urlOptions";
-import { displaySessionMoniker } from "@croquet/util/html";
+import { displaySessionMoniker, displayQRCode } from "@croquet/util/html";
 import { Model, View, Controller } from "@croquet/teatime";
 
 
@@ -254,7 +254,7 @@ async function go() {
             snapshot,
             tps: TPS,
             optionsFromUrl: ['n'],
-            creatorFn(options) {
+            init(options) {
                 const root = Root.create();
                 const n = options.n || 99;
                 for (let i = 0; i < n; i++) root.add(Shape.create());
@@ -269,6 +269,7 @@ async function go() {
             }
         });
         displaySessionMoniker(controller.id);
+        displayQRCode();
 
         // create views
         controller.inViewRealm(() => {

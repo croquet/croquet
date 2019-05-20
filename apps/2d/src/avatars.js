@@ -1,5 +1,6 @@
 import Stats from "@croquet/util/stats";
 import urlOptions from "@croquet/util/urlOptions";
+import { displaySessionMoniker, displayQRCode } from "@croquet/util/html";
 import { Model, View, Controller } from "@croquet/teatime";
 
 
@@ -298,7 +299,7 @@ async function go() {
         const models = await controller.createIsland("avatars", {
             snapshot,
             tps: TPS,
-            creatorFn() {
+            init() {
                 const root = Root.create();
                 root.add(BouncingShape.create({pos: [500, 500], color: "white"}));
                 return {root};
@@ -309,6 +310,8 @@ async function go() {
                 bootstrapModelsAndViews(prevSnapshot);
             }
         });
+        displaySessionMoniker(controller.id);
+        displayQRCode();
 
         // create views
         controller.inViewRealm(() => {
