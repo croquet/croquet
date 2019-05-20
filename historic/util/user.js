@@ -23,6 +23,19 @@ export function getUser(key, defaultValue=undefined, initFn=null) {
 if (!getUser("name") || urlOptions.user) {
     const style = document.createElement("style");
     style.innerHTML = `
+        .overlay {
+            z-index:10000;
+            position:absolute;
+            left: 0;
+            top: 0;
+            width:100vw;
+            height:100vh;
+            background-color:#333;
+            opacity:0.9;
+            display:flex;
+            align-items:center;
+            justify-content:center
+        }
         form {
             background-color: #fff;
             color: #666;
@@ -123,10 +136,7 @@ if (!getUser("name") || urlOptions.user) {
         <div style="max-width:250px;text-align: center;font-size:11px;margin:4px auto">Your stuff will disappear eventually.</div>
     `;
     const overlay = document.createElement("div");
-    overlay.setAttribute("style", `
-        z-index:10000; position:absolute; width:100vw; height:100vh;
-        background-color:#333; opacity:0.9;
-        display:flex; align-items:center; justify-content:center`);
+    overlay.classList.add("overlay");
     overlay.appendChild(dialog);
     document.body.appendChild(overlay);
 
