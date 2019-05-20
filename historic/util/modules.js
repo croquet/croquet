@@ -175,7 +175,7 @@ function resolveNames() {
         for (const [name, id] of Object.entries(namedImportsOf(m))) {
             const existing = names[id] || '';
             const clean = name.replace(/^[./]*/, '');
-            if (clean.length > existing) names[id] = clean;
+            if (clean.length > existing.length) names[id] = clean;
             if (clean.match(/^assets\//)) assets.push({id, code: sourceCodeOf(id)});
         }
     }
