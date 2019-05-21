@@ -269,7 +269,7 @@ async function go() {
             }
         });
         displaySessionMoniker(controller.id);
-        displayQRCode();
+        if (!urlOptions.noqr) displayQRCode();
 
         // create views
         controller.inViewRealm(() => {

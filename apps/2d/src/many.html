@@ -52,10 +52,11 @@
                     window.onmessage({ data: { connected: -1 } });
                 }
                 while (iframes.length < n) {
-                    const urlOptions = document.location.search.slice(1);
-                    const page = urlOptions.startsWith('avatars') ? 'avatars' : '2d';
+                    const urlOptions = document.location.search.slice(1).split('&');
+                    const app = urlOptions.shift();
+                    const rest = urlOptions.join('&');
                     const iframe = document.createElement("iframe");
-                    iframe.src = `${page}.html?nostats${urlOptions ? '&' + urlOptions : ''}`;
+                    iframe.src = `${app || "../2d"}?nostats&noqr${rest ? '&' + rest : ''}`;
                     document.body.appendChild(iframe);
                     iframes.push(iframe);
                 }
