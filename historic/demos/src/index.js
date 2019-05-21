@@ -6,6 +6,7 @@ import text from "./rooms/text/text";
 import bounce from "./rooms/bounce/bounce";
 import physics from "./rooms/physics/physics";
 import jenga from "./rooms/jenga/jenga";
+import minipool from "./rooms/minipool/minipool";
 import knockdown from "./rooms/knockdown/knockdown";
 import jumpRooms from "./rooms/jump/jump";
 import arBalls from "./rooms/arBalls/arBalls";
@@ -29,6 +30,7 @@ const rooms = {
     physics,
     jenga,
     knockdown,
+    minipool,
     ...jumpRooms
 };
 
