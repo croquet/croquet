@@ -1,4 +1,3 @@
-import "./modules"; // to fix imports
 import urlOptions from "./urlOptions";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
@@ -24,7 +23,8 @@ const colors = {
     network: "lightgray",
 };
 
-const div = !urlOptions.nostats && document.getElementById("stats");
+let div = document.getElementById("stats");
+if (urlOptions.nostats && div) { div.style.visibility = "hidden"; div = null; }
 let fps = null;
 let canvas = null;
 let ctx = null;
