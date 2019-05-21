@@ -48,7 +48,7 @@ export class ShootingWall extends ModelPart {
         this.world = options.world;
     }
 
-    shootBall(position, orientation, color) {
+    shootBall(position, direction, color) {
         const ball = Ball.create({
             spatial: {
                 world: this.world,
@@ -62,10 +62,10 @@ export class ShootingWall extends ModelPart {
             color
         });
 
-        const direction = new THREE.Vector3(0, 0, -5).applyQuaternion(orientation);
+        const force = direction.multiplyScalar(5);
 
         const body = ball.parts.spatial.body;
-        body.applyImpulse(body.getPosition(), direction);
+        body.applyImpulse(body.getPosition(), force);
 
         this.room.parts.elements.add(ball);
     }
@@ -92,8 +92,8 @@ export class ShootingWallViewGeo extends ViewPart {
 const userColor = new THREE.Color().setHSL(Math.random(), 0.8, 0.5);
 
 const ShootingWallView = Clickable({
-    onClick: options => () => {
-        options.model.future().shootBall(options.cameraSpatial.position, options.cameraSpatial.quaternion, userColor);
+    onClick: options => at => {
+        options.model.future().shootBall(options.cameraSpatial.position, at.clone().sub(options.cameraSpatial.position).normalize(), userColor);
     }
 })(ShootingWallViewGeo);
 
