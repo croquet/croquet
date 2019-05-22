@@ -6,7 +6,7 @@
         <style>
             #error { position: absolute; z-index: 2; top: 0; left: 0; color: red; }
             #stats { position: absolute; z-index: 2; top: 0; right: 0; width: 125px; height: 150px; background: white; opacity: 0.5; }
-            #qrcode { position: absolute; z-index: 2; bottom: 6px; left: 6px; width: 30px; height: 30px; overflow: hidden; opacity: 0.5; transition: all 0.3s ease; }
+            #qrcode { position: absolute; z-index: 2; bottom: 6px; left: 6px; width: 30px; height: 30px; overflow: hidden; opacity: 0.5; cursor: none; transition: all 0.3s ease; }
             #qrcode:hover { width: 128px; height: 128px; opacity: 1; }
             body {
                 margin: 0;
@@ -36,7 +36,7 @@
     <body>
         <div id="error"></div>
         <div id="stats"></div>
-        <a id="qrcode" target="_blank"></a>
+        <div id="qrcode"></div>
         <script src="avatars.js"></script>
     </body>
 </html>
