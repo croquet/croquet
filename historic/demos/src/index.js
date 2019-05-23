@@ -49,7 +49,8 @@ const app = new App(
     }
 );
 
-const startRoom = hotState.currentRoomName || urlOptions.firstInHash() || defaultRoom;
+const roomFromSession = () => urlOptions.getSession().split("/")[0];
+const startRoom = hotState.currentRoomName || roomFromSession() || defaultRoom;
 app.joinRoom(startRoom);
 
 if (urlOptions.ar) hotreloadEventManager.addDisposeHandler('ar', () => {

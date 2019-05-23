@@ -103,9 +103,10 @@ export default class App {
             {cameraPosition, cameraQuaternion, overrideCamera, cameraVelocity},
             info => this.traversePortalToRoom(info)
         );
-        const desiredHash = roomName === this.defaultRoom ? "" : roomName;
-        if (urlOptions.firstInHash() !== desiredHash) {
-            window.history.pushState({}, "", "#" + desiredHash);
+        const desiredSessionRoom = roomName === this.defaultRoom ? "" : roomName;
+        const session = urlOptions.getSession().split("/");
+        if (session[0] !== desiredSessionRoom) {
+            urlOptions.setSession([desiredSessionRoom, ...session.slice(1)].join('/'));
         }
         displayQRCode(window.location.href, 'qrcode');
     }
@@ -248,7 +249,8 @@ export default class App {
             this.roomViewManager.changeViewportSize(window.innerWidth, window.innerHeight);
         });
 
-        this.domEventManager.addEventListener(window, "hashchange", () => this.joinRoom(urlOptions.firstInHash()));
+        const roomFromSession = () => urlOptions.getSession().split("/")[0];
+        this.domEventManager.addEventListener(window, "hashchange", () => this.joinRoom(roomFromSession()));
 
         this.domEventManager.addEventListener(document.getElementById('reset'), "click", () => {
             if (this.currentRoomName) {
