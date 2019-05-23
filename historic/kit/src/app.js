@@ -59,6 +59,7 @@ export default class App {
         if (roomState.namedModelsPromise) return roomState.namedModelsPromise;
 
         roomState.creator.room = roomName;
+        roomState.creator.multiRoom = true;
         roomState.creator.tps = this.tps;
         roomState.creator.destroyerFn = snapshot => {
             console.log("destroyer: detaching view for " + roomName);

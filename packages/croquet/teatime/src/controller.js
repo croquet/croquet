@@ -31,7 +31,7 @@ const DEBUG = {
 
 const NOCHEAT = urlOptions.nocheat;
 
-const OPTIONS_FROM_URL = [ 'session', 'user', 'tps' ];
+const OPTIONS_FROM_URL = [ 'tps' ];
 
 // schedule a snapshot after this amount of CPU time has been used for simulation
 const SNAPSHOT_EVERY = 5000;
@@ -148,21 +148,22 @@ export default class Controller {
      */
     async createIsland(name, creator) {
         await login();
+        const { optionsFromUrl, multiRoom } = creator;
+        const options = {...creator.options};
+        for (const key of [...OPTIONS_FROM_URL, ...optionsFromUrl||[]]) {
+            if (key in urlOptions) options[key] = urlOptions[key];
+        }
         let session = urlOptions.getSession();
         if (!session.includes("/")) {
             if (session) session += "/";
             const user = getUser("name") || "GUEST";
             let random = '';
             for (let i = 0; i < 10; i++) random += '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.random() * 36|0];
-            session += `${user}/${random}`;
+            session = `${user}/${random}`;
+            if (multiRoom) session = `${name}/${session}`;
             urlOptions.setSession(session);
         }
-        name += "/" + session;
-        const { optionsFromUrl } = creator;
-        const options = {...creator.options};
-        for (const key of [...OPTIONS_FROM_URL, ...optionsFromUrl||[]]) {
-            if (key in urlOptions) options[key] = urlOptions[key];
-        }
+        name = multiRoom ? session : `${name}/${session}`;
         // include options in name & hash
         if (Object.keys(options).length) {
             name += '?' + Object.entries(options).map(([k,v])=>`${k}=${v}`).join('&');
