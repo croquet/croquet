@@ -4,12 +4,16 @@ import "./deduplicate";
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
+let sessionFromPath = false;
+let sessionApp = "";
+let sessionArgs = "";
 
 class UrlOptions {
     constructor() {
         if (typeof document === "undefined" || !document.location) return;
+        this.getSession();
         parseUrlOptionString(this, document.location.search.slice(1));
-        parseUrlOptionString(this, document.location.hash.slice(1));
+        parseUrlOptionString(this, sessionFromPath ? document.location.hash.slice(1) : sessionArgs);
         if (document.location.pathname.indexOf('/ar.html') >= 0) this.ar = true;
     }
 
@@ -41,21 +45,21 @@ class UrlOptions {
         const PATH_REGEX = /^\/([^/]+)\/(.*)$/;
         const pathMatch = document.location.pathname.match(PATH_REGEX);
         if (pathMatch) {
-            this.sessionFromPath = true;
-            this.sessionApp = pathMatch[1];     // used in setSession()
+            sessionFromPath = true;
+            sessionApp = pathMatch[1];     // used in setSession()
             return pathMatch[2];
         }
         // extract session and args from #(session)&(arg=val&arg)
         const HASH_REGEX = /^#([^&]+)&?(.*)$/;
         const hashMatch = document.location.hash.match(HASH_REGEX);
         if (hashMatch) {
-            this.sessionFromPath = false;
+            sessionFromPath = false;
             // if first match includes "=" it's not a session
             if (hashMatch[1].includes("=")) {
-                this.sessionArgs = `${hashMatch[1]}&${hashMatch[2]}`;
+                sessionArgs = `${hashMatch[1]}&${hashMatch[2]}`;
                 return "";
             }
-            this.sessionArgs = hashMatch[2];    // used in setSession()
+            sessionArgs = hashMatch[2];    // used in setSession()
             return hashMatch[1];
         }
         // no session
@@ -64,10 +68,10 @@ class UrlOptions {
 
     setSession(session) {
         const {search, hash} = window.location;
-        if (this.sessionFromPath) {
-            window.history.pushState({}, "", `/${this.sessionApp}/${session}${search}${hash}`);
+        if (sessionFromPath) {
+            window.history.pushState({}, "", `/${sessionApp}/${session}${search}${hash}`);
         } else {
-            window.history.pushState({}, "", `#${session}${this.sessionArgs ? "&" + this.sessionArgs: ""}`);
+            window.history.pushState({}, "", `#${session}${sessionArgs ? "&" + sessionArgs: ""}`);
         }
     }
 
