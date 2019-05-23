@@ -1,7 +1,9 @@
 import "./deduplicate";
 
+
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
+
 
 class UrlOptions {
     constructor() {
@@ -12,11 +14,9 @@ class UrlOptions {
     }
 
     /**
-     * has("debug", "recv", false) matches debug=recv and debug=send,recv
-     *
-     * has("debug", "recv", true) matches debug=norecv and debug=send,norecv
-     *
-     * has("debug", "recv", "localhost") defaults to true on localhost, false otherwise
+     * - has("debug", "recv", false) matches debug=recv and debug=send,recv
+     * - has("debug", "recv", true) matches debug=norecv and debug=send,norecv
+     * - has("debug", "recv", "localhost") defaults to true on localhost, false otherwise
      *
      * @param {String} key - key for list of items
      * @param {String} item - value to look for in list of items
@@ -31,8 +31,44 @@ class UrlOptions {
         return defaultValue;
     }
 
-    firstInHash() {
-        return document.location.hash.slice(1).split("&")[0];
+    /** Extract session from either path or hash
+     * - in deploy mode, path is "/app/session/with/slashes"
+     * - in dev mode, path is either "/#session/with/slashes" or "/app.html#session/with/slashes"
+     * @return {String} "" or "session/with/slashes"
+     */
+    getSession() {
+        // extract app and session from /(app)/(session)
+        const PATH_REGEX = /^\/([^/]+)\/(.*)$/;
+        const pathMatch = document.location.pathname.match(PATH_REGEX);
+        if (pathMatch) {
+            this.sessionFromPath = true;
+            this.sessionApp = pathMatch[1];     // used in setSession()
+            return pathMatch[2];
+        }
+        // extract session and args from #(session)&(arg=val&arg)
+        const HASH_REGEX = /^#([^&]+)&?(.*)$/;
+        const hashMatch = document.location.hash.match(HASH_REGEX);
+        if (hashMatch) {
+            this.sessionFromPath = false;
+            // if first match includes "=" it's not a session
+            if (hashMatch[1].includes("=")) {
+                this.sessionArgs = `${hashMatch[1]}&${hashMatch[2]}`;
+                return "";
+            }
+            this.sessionArgs = hashMatch[2];    // used in setSession()
+            return hashMatch[1];
+        }
+        // no session
+        return "";
+    }
+
+    setSession(session) {
+        const {search, hash} = window.location;
+        if (this.sessionFromPath) {
+            window.history.pushState({}, "", `/${this.sessionApp}/${session}${search}${hash}`);
+        } else {
+            window.history.pushState({}, "", `#${session}${this.sessionArgs ? "&" + this.sessionArgs: ""}`);
+        }
     }
 
     isHost(hostname) {
