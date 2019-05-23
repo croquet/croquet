@@ -127,15 +127,14 @@ export async function login() {
                 <dd class="error"></dd>
             </dl>
             <button id="user[create]">Sign up / Log in</button>
-            <div style="max-width:280px;text-align: center;font-size:11px;margin:4px auto">
-                By clicking the button above, you agree to our
-                <a href="/terms" target="_blank" style="color:#36c;text-decoration:none">terms of service</a>
-                and
-                <a href="/privacy" target="_blank" style="color:#36c;text-decoration:none">privacy statement</a>.
-            </div>
             <div style="margin:16px auto;text-align: center">— OR —</div>
             <button id="user[guest]" style="background-color: #999">Continue as Croquet Guest</button>
-            <div style="max-width:250px;text-align: center;font-size:11px;margin:4px auto">Your stuff will disappear eventually.</div>
+            <div style="max-width:280px;text-align: center;font-size:11px;margin:4px auto">
+                Continuing from this screen to our website indicates that you agree to our
+                <a href="/terms.html" target="_blank" style="color:#36c;text-decoration:none">terms of service</a>
+                and
+                <a href="/privacy.html" target="_blank" style="color:#36c;text-decoration:none">privacy statement</a>.
+            </div>
         `;
         const overlay = document.createElement("div");
         overlay.classList.add("overlay");
