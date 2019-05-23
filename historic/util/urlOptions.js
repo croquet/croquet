@@ -1,16 +1,55 @@
+import "./deduplicate";
+
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
-const urlOptions = {};
+class UrlOptions {
+    constructor() {
+        if (typeof document === "undefined" || !document.location) return;
+        parseUrlOptionString(this, document.location.search.slice(1));
+        parseUrlOptionString(this, document.location.hash.slice(1));
+        if (document.location.pathname.indexOf('/ar.html') >= 0) this.ar = true;
+    }
 
-function parseUrl() {
-    if (typeof document === "undefined" || !document.location) return;
-    parseUrlOptionString(document.location.search.slice(1));
-    parseUrlOptionString(document.location.hash.slice(1));
-    if (document.location.pathname.indexOf('/ar.html') >= 0) urlOptions.ar = true;
+    /**
+     * has("debug", "recv", false) matches debug=recv and debug=send,recv
+     *
+     * has("debug", "recv", true) matches debug=norecv and debug=send,norecv
+     *
+     * has("debug", "recv", "localhost") defaults to true on localhost, false otherwise
+     *
+     * @param {String} key - key for list of items
+     * @param {String} item - value to look for in list of items
+     * @param {Boolean|String} defaultValue - if string, true on that hostname, false otherwise
+     */
+    has(key, item, defaultValue) {
+        if (typeof defaultValue !== "boolean") defaultValue = this.isHost(defaultValue);
+        if (defaultValue === true) item =`no${item}`;
+        const urlItems = this[key];
+        if (typeof urlItems !== "string") return defaultValue;
+        if (urlItems.split(',').includes(item)) return !defaultValue;
+        return defaultValue;
+    }
+
+    firstInHash() {
+        return document.location.hash.slice(1).split("&")[0];
+    }
+
+    isHost(hostname) {
+        const actualHostname = window.location.hostname;
+        if (actualHostname === hostname) return true;
+        if (hostname !== "localhost") return false;
+        // answer true for a variety of localhost equivalents
+        if (actualHostname.endsWith(".ngrok.io")) return true;
+        return ["127.0.0.1", "::1"].includes(actualHostname);
+    }
+
+    isLocalhost() {
+        return this.isHost("localhost");
+    }
 }
 
-function parseUrlOptionString(optionString) {
+function parseUrlOptionString(target, optionString) {
     if (!optionString) return;
     for (const arg of optionString.split("&")) {
         const keyAndVal = arg.split("=");
@@ -25,43 +64,9 @@ function parseUrlOptionString(optionString) {
                 }
             }
         }
-        urlOptions[key] = val;
+        target[key] = val;
     }
 }
 
-parseUrl();
-
-/**
- * has("debug", "recv", false) matches debug=recv and debug=send,recv
- *
- * has("debug", "recv", true) matches debug=norecv and debug=send,norecv
- *
- * has("debug", "recv", "localhost") defaults to true on localhost, false otherwise
- *
- * @param {String} key - key for list of items
- * @param {String} item - value to look for in list of items
- * @param {Boolean|String} defaultValue - if string, true on that hostname, false otherwise
- */
-urlOptions.has = (key, item, defaultValue) => {
-    if (typeof defaultValue !== "boolean") defaultValue = hostIs(defaultValue);
-    if (defaultValue === true) item =`no${item}`;
-    const urlItems = urlOptions[key];
-    if (typeof urlItems !== "string") return defaultValue;
-    if (urlItems.split(',').includes(item)) return !defaultValue;
-    return defaultValue;
-};
-
-urlOptions.firstInHash = () => {
-    return document.location.hash.slice(1).split("&")[0];
-};
-
-function hostIs(hostname) {
-    const actualHostname = window.location.hostname;
-    if (actualHostname === hostname) return true;
-    if (hostname !== "localhost") return false;
-    // answer true for a variety of localhost equivalents
-    if (actualHostname.endsWith(".ngrok.io")) return true;
-    return ["127.0.0.1", "::1"].includes(actualHostname);
-}
-
+const urlOptions = new UrlOptions();
 export default urlOptions;
