@@ -3,7 +3,7 @@ import AsyncQueue from "@croquet/util/asyncQueue";
 import Stats from "@croquet/util/stats";
 import hotreloadEventManger from "@croquet/util/hotreloadEventManager";
 import urlOptions from "@croquet/util/urlOptions";
-import { getUser } from "@croquet/util/user";
+import { login, getUser } from "@croquet/util/user";
 import { baseUrl, hashNameAndCode, hashString, uploadCode } from "@croquet/util/modules";
 import { inViewRealm } from "./realms";
 import Island, { Message } from "./island";
@@ -147,6 +147,7 @@ export default class Controller {
      * @returns {Promise<Island>}
      */
     async createIsland(name, creator) {
+        await login();
         const { optionsFromUrl } = creator;
         const options = {...creator.options};
         for (const key of [...OPTIONS_FROM_URL, ...optionsFromUrl||[]]) {
