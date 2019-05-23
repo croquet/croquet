@@ -93,6 +93,7 @@ export default class App {
         await this.loadRoom(roomName);
         const prevRoomName = this.currentRoomName;
         displaySessionMoniker(this.roomStates[roomName].controller.id, 'reset');
+        displayQRCode(window.location.href, 'qrcode');
         this.currentRoomName = roomName;
         // leave old room after changing current room (see destroyerFn above)
         this.roomViewManager.leave(prevRoomName, this.roomStates);
@@ -103,12 +104,6 @@ export default class App {
             {cameraPosition, cameraQuaternion, overrideCamera, cameraVelocity},
             info => this.traversePortalToRoom(info)
         );
-        const desiredSessionRoom = roomName === this.defaultRoom ? "" : roomName;
-        const session = urlOptions.getSession().split("/");
-        if (session[0] !== desiredSessionRoom) {
-            urlOptions.setSession([desiredSessionRoom, ...session.slice(1)].join('/'));
-        }
-        displayQRCode(window.location.href, 'qrcode');
     }
 
     /** simulate for a given time budget */
