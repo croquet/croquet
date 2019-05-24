@@ -1,4 +1,4 @@
-import SeedRandom from "seedrandom";
+import SeedRandom from "seedrandom/seedrandom";
 import QRCode from "./thirdparty-patched/qrcodejs/qrcode";
 import { urlOptions } from ".";
 

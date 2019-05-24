@@ -1,4 +1,4 @@
-import SeedRandom from "seedrandom";
+import SeedRandom from "seedrandom/seedrandom";
 import PriorityQueue from "@croquet/util/priorityQueue";
 import hotreloadEventManger from "@croquet/util/hotreloadEventManager";
 import Model from "./model";
