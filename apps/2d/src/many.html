@@ -52,12 +52,10 @@
                     document.body.removeChild(iframes.pop());
                     window.onmessage({ data: { connected: -1 } });
                 }
+                const src = document.location.search.slice(1) || "../2d/GUEST/MANY?nostats&noqr";
                 while (iframes.length < n) {
-                    const urlOptions = document.location.search.slice(1).split('&');
-                    const app = urlOptions.shift();
-                    const rest = urlOptions.join('&');
                     const iframe = document.createElement("iframe");
-                    iframe.src = `${app || "../2d"}/GUEST/MANY?nostats&noqr${rest ? '&' + rest : ''}`;
+                    iframe.src = src;
                     document.body.appendChild(iframe);
                     iframes.push(iframe);
                 }
