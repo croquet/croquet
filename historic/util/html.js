@@ -1,5 +1,6 @@
 import SeedRandom from "seedrandom";
 import QRCode from "./thirdparty-patched/qrcodejs/qrcode";
+import { urlOptions } from ".";
 
 export function displaySessionMoniker(id='', element='session') {
     const button = document.getElementById(element);
@@ -25,6 +26,8 @@ let qrcode;
 export function displayQRCode(url, div='qrcode') {
     if (typeof div === "string") div = document.getElementById(div);
     if (!div) return;
+    div.onclick = () => {};
+    if (urlOptions.noqr) return;
     if (!url) url = window.location.href;
     if (!qrcode) qrcode = new QRCode(div, {
         text: url,
