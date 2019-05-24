@@ -161,7 +161,7 @@ export default class Controller {
             for (let i = 0; i < 10; i++) random += '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.random() * 36|0];
             session = `${user}/${random}`;
             if (multiRoom) session = `${name}/${session}`;
-            urlOptions.setSession(session);
+            urlOptions.setSession(session, true);
         }
         name = multiRoom ? session : `${name}/${session}`;
         // include options in name & hash

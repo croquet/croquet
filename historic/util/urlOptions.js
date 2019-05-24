@@ -4,7 +4,7 @@ import "./deduplicate";
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
-let sessionFromPath = false;
+let sessionFromPath = null;
 let sessionApp = "";
 let sessionArgs = "";
 
@@ -66,13 +66,16 @@ class UrlOptions {
         return "";
     }
 
-    setSession(session) {
+    setSession(session, replace=false) {
+        // make sure sessionFromPath, sessionApp and sessionArgs
+        // are initialized
+        if (sessionFromPath == null) this.getSession();
         const {search, hash} = window.location;
-        if (sessionFromPath) {
-            window.history.pushState({}, "", `/${sessionApp}/${session}${search}${hash}`);
-        } else {
-            window.history.pushState({}, "", `#${session}${sessionArgs ? "&" + sessionArgs: ""}`);
-        }
+        const url = sessionFromPath
+            ? `/${sessionApp}/${session}${search}${hash}`
+            : `#${session}${sessionArgs ? "&" + sessionArgs: ""}`;
+        if (replace) window.history.replaceState({}, "", url);
+        else window.history.pushState({}, "", url);
     }
 
     isHost(hostname) {
