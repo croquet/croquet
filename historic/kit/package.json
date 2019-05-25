@@ -1,0 +1,31 @@
+{
+  "name": "@croquet/kit",
+  "version": "0.0.1",
+  "description": "",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@croquet/teatime": "file:../teatime",
+    "@croquet/util": "file:../util",
+    "array-flat-polyfill": "^1.0.0",
+    "jszip": "^3.2.1",
+    "kiwi.js": "^1.1.1",
+    "oimo": "git+https://github.com/croquet/Oimo.js.git",
+    "seedrandom": "^3.0.1",
+    "three": "^0.101.1",
+    "three-bmfont-text": "file:./thirdparty-patched/three-bmfont-text",
+    "three-buffer-vertex-data": "file:./thirdparty-patched/three-buffer-vertex-data",
+    "three-svg-loader": "git+https://github.com/bertfreudenberg/three-svg-loader.git",
+    "yoga-layout-prebuilt": "^1.9.3"
+  },
+  "devDependencies": {
+    "eslint": "^5.14.1",
+    "eslint-config-airbnb-base": "^13.1.0",
+    "eslint-import-resolver-parcel": "^1.8.4",
+    "eslint-plugin-import": "^2.16.0"
+  }
+}

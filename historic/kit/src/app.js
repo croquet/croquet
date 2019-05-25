@@ -4,6 +4,8 @@ import { urlOptions, Stats, displaySessionMoniker, displayQRCode } from "@croque
 import RoomViewManager from "./room/roomViewManager";
 import Renderer from "./render";
 import { theKeyboardManager } from "./domKeyboardManager";
+import { theDragDropHandler } from "./domDragDrop";
+import { theAssetManager } from "./userAssets";
 
 export default class App {
     constructor(rooms, reflectorUrl, canvas, width, height, options={}) {
@@ -31,6 +33,7 @@ export default class App {
         this.canvas = canvas;
         this.renderer = options.recycleRenderer || new Renderer(width, height, canvas);
         this.keyboardManager = theKeyboardManager;
+        this.dragDropHandler = theDragDropHandler;
 
         this.domEventManager = options.domEventManager || {
             requestAnimationFrame(...args) { return window.requestAnimationFrame(...args);},
@@ -159,6 +162,7 @@ export default class App {
                 Stats.end("render");
                 currentRoomView.parts.pointer.updatePointer();
                 this.keyboardManager.setCurrentRoomView(currentRoomView);
+                this.dragDropHandler.setCurrentRoomView(currentRoomView);
             }
         }
     }
@@ -254,6 +258,27 @@ export default class App {
                 this.roomViewManager.detachAll();
                 if (controller) controller.requestNewSession();
             }
+        });
+
+        // NB: per https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API/Drag_operations, one must cancel (e.g., preventDefault()) on dragenter and dragover events to indicate willingness to receive drop.
+        this.domEventManager.addEventListener(this.canvas, "dragenter", event => {
+            //console.log("ENTER");
+            event.preventDefault();
+        });
+
+        this.domEventManager.addEventListener(this.canvas, "dragover", event => {
+            //console.log("OVER");
+            event.preventDefault();
+        });
+
+        this.domEventManager.addEventListener(this.canvas, "dragleave", event => {
+            //console.log("LEAVE");
+            event.preventDefault();
+        });
+
+        this.domEventManager.addEventListener(this.canvas, "drop", event => {
+            event.preventDefault();
+            this.dragDropHandler.onDrop(event);
         });
 
         this.keyboardManager.install(this.domEventManager);

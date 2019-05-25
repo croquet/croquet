@@ -129,7 +129,7 @@ export function toBase64url(bits) {
 }
 
 /** return buffer hashed into 256 bits encoded using base64 (suitable in URL) */
-async function hashBuffer(buffer) {
+export async function hashBuffer(buffer) {
     const bits = await window.crypto.subtle.digest("SHA-256", buffer);
     return toBase64url(bits);
 }
