@@ -166,6 +166,7 @@ export default class Controller {
             urlOptions.setSession(session, true);
         }
         name = multiRoom ? session : `${name}/${session}`;
+        if (name.includes("/DEMO/")) this.viewOnly = getUser("demoViewOnly", true);
         // include options in name & hash
         if (Object.keys(options).length) {
             name += '?' + Object.entries(options).map(([k,v])=>`${k}=${v}`).join('&');
@@ -627,6 +628,7 @@ export default class Controller {
         // SEND: Broadcast a message to all participants.
         if (!this.socket) return;  // probably view sending event while connection is closing
         if (this.socket.readyState !== WebSocket.OPEN) return;
+        if (this.viewOnly) return;
         if (DEBUG.sends) console.log(this.id, `Controller sending SEND ${msg.asState()}`);
         this.socket.send(JSON.stringify({
             id: this.id,
