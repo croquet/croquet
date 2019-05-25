@@ -156,7 +156,7 @@ export default class Controller {
         let session = urlOptions.getSession();
         if (!session.includes("/")) {
             if (session) session += "/";
-            const user = getUser("name") || "GUEST";
+            const user = getUser("name", "").toLowerCase() || "GUEST";
             let random = '';
             for (let i = 0; i < 10; i++) random += '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.random() * 36|0];
             session = `${user}/${random}`;
