@@ -62,6 +62,12 @@ class UrlOptions {
             sessionArgs = hashMatch[2];    // used in setSession()
             return hashMatch[1];
         }
+        // check session arg
+        if (typeof this.session === "string") {
+            sessionFromPath = false;
+            sessionArgs = document.location.hash.slice(1);
+            return this.session;
+        }
         // no session
         return "";
     }
