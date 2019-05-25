@@ -13,6 +13,9 @@ const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 
+/** @typedef { import('./model').default } Model */
+
+
 // when reflector has a new feature, we increment this value
 // only newer clients get to use it
 const VERSION = 1;
@@ -135,18 +138,17 @@ export default class Controller {
     }
 
     /**
-     * Create a new Island by requesting to join the reflector
+     * Join or create a session by connecting to the reflector
+     * - the island/session id is created from the session name (found in the URL)
+     *   and a hash of all source code that is imported by that file
+     * - if no session name is in the URL, a random session is created
      *
-     * Detail: the island/session id is created from fileName and a hash of
-     *         all source code that is imported by that file
+     * @param {String} name - A (human-readable) name for the room
+     * @param {{moduleID:String, init:Function}} creator - The moduleID and function creating the island
      *
-     * TODO: convert callback to promise
-     * @param {String} name A (human-readable) name for the room
-     * @param {{moduleID:String, init:Function}} creator The moduleID and function creating the island
-     * @param {{}} snapshot The island's initial state (if hot-reloading)
-     * @returns {Promise<Island>}
+     * @returns {Promise<{modelName:Model}>} list of named models (as returned by init function)
      */
-    async createIsland(name, creator) {
+    async establishSession(name, creator) {
         await login();
         const { optionsFromUrl, multiRoom } = creator;
         const options = {...creator.options};

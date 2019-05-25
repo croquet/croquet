@@ -250,7 +250,7 @@ async function go() {
 
     async function bootstrapModelsAndViews(snapshot) {
         // create models on named island
-        const models = await controller.createIsland("2d", {
+        const models = await controller.establishSession("2d", {
             snapshot,
             tps: TPS,
             optionsFromUrl: ['n'],

@@ -78,7 +78,7 @@ export default class App {
 
         const controller = new Controller();
         controller.fetchUpdatedSnapshot = this.doDownload;
-        roomState.namedModelsPromise = controller.createIsland(roomName, roomState.creator);
+        roomState.namedModelsPromise = controller.establishSession(roomName, roomState.creator);
         roomState.controller = controller;
         roomState.namedModels = await roomState.namedModelsPromise;
         return roomState.namedModels;
