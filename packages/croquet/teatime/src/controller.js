@@ -762,9 +762,9 @@ const TheSocketWaitList = [];
 let LastReceived = 0;
 
 /** start sending PINGs to server after not receiving anything for this timeout */
-const PING_TIMEOUT = 500;
+const PING_TIMEOUT = 100;
 /** send PINGs using this interval until hearing back from server */
-const PING_INTERVAL = 1000 / 5;
+const PING_INTERVAL = 100;
 
 function PING() {
     if (!TheSocket || TheSocket.readyState !== WebSocket.OPEN) return;
