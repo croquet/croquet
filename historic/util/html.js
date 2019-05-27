@@ -1,4 +1,4 @@
-import SeedRandom from "seedrandom/seedrandom";
+import SeedRandom from "seedrandom";
 import QRCode from "./thirdparty-patched/qrcodejs/qrcode";
 import { urlOptions } from ".";
 
@@ -39,5 +39,15 @@ export function displayQRCode(url, div='qrcode') {
     });
     else qrcode.makeCode(url);
     // open url in new window, but only on desktop
-    if (!("ontouchstart" in div)) div.onclick = () => window.open(url);
+    if (!("ontouchstart" in div)) {
+        let size = 256;
+        div.onclick = () => window.open(url);
+        div.onwheel = ({deltaY}) => {
+            const max = Math.min(window.innerWidth, window.innerHeight) - 2 * div.offsetLeft;
+            size = Math.max(64, Math.min(max, div.offsetWidth * 1.5 ** deltaY));
+            div.style.width = div.style.height = `${size}px`;
+        };
+        div.onmouseenter = () => div.style.width = div.style.height = `${size}px`;
+        div.onmouseleave = () => div.style.width = div.style.height = "";
+    }
 }
