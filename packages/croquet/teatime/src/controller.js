@@ -125,6 +125,8 @@ export default class Controller {
         this.networkQueue = new AsyncQueue();
         /** the time of last message received from reflector */
         this.time = 0;
+        /** the human-readable session (e.g. "room/user/random") */
+        this.session = '';
         /** the number of concurrent users in our island */
         this.users = 0;
         /** wallclock time we last heard from reflector */
@@ -143,30 +145,36 @@ export default class Controller {
      *   and a hash of all source code that is imported by that file
      * - if no session name is in the URL, a random session is created
      *
-     * @param {String} name - A (human-readable) name for the room
+     * @param {String} room - A (human-readable) name for the room
      * @param {{moduleID:String, init:Function}} creator - The moduleID and function creating the island
      *
      * @returns {Promise<{modelName:Model}>} list of named models (as returned by init function)
      */
-    async establishSession(name, creator) {
+    async establishSession(room, creator) {
         await login();
         const { optionsFromUrl, multiRoom } = creator;
         const options = {...creator.options};
         for (const key of [...OPTIONS_FROM_URL, ...optionsFromUrl||[]]) {
             if (key in urlOptions) options[key] = urlOptions[key];
         }
-        let session = urlOptions.getSession();
-        if (!session.includes("/")) {
-            if (session) session += "/";
-            const user = getUser("name", "").toLowerCase() || "GUEST";
-            let random = '';
-            for (let i = 0; i < 10; i++) random += '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.random() * 36|0];
-            session = `${user}/${random}`;
-            if (multiRoom) session = `${name}/${session}`;
-            urlOptions.setSession(session, true);
+        // session is either "user/random" or "room/user/random" (for multi-room)
+        const session = urlOptions.getSession().split('/');
+        let user = multiRoom ? session[1] : session[0];
+        let random = multiRoom ? session[2] : session[1];
+        const newSession = !user || !random;
+        if (newSession) {
+            // incomplete session: create a new session id
+            if (!user) user = getUser("name", "").toLowerCase() || "GUEST";
+            if (!random) {
+                random = '';
+                for (let i = 0; i < 10; i++) random += '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.random() * 36|0];
+            }
         }
-        name = multiRoom ? session : `${name}/${session}`;
-        if (name.includes("/DEMO/")) this.viewOnly = getUser("demoViewOnly", true);
+        this.session = multiRoom ? `${room}/${user}/${random}` : `${user}/${random}`;
+        if (!multiRoom) urlOptions.setSession(this.session, newSession);   // multiRoom handles this elsewhere
+        // the island id (name) is "room/user/random?opt=val&opt=val"
+        let name = `${room}/${user}/${random}`;
+        if (user === 'DEMO') this.viewOnly = getUser("demoViewOnly", true);
         // include options in name & hash
         if (Object.keys(options).length) {
             name += '?' + Object.entries(options).map(([k,v])=>`${k}=${v}`).join('&');

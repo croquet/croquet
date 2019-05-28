@@ -91,9 +91,12 @@ export default class App {
     async joinRoom(roomName, cameraPosition=new THREE.Vector3(0, 2, 4), cameraQuaternion=new THREE.Quaternion(), overrideCamera, cameraVelocity) {
         if (!this.roomStates[roomName]) throw Error("Unknown room: " + roomName);
         if (this.currentRoomName === roomName) return;
+        const hadSession = urlOptions.getSession().includes('/');
         await this.loadRoom(roomName);
         const prevRoomName = this.currentRoomName;
-        displaySessionMoniker(this.roomStates[roomName].controller.id, 'reset');
+        const {controller} = this.roomStates[roomName];
+        urlOptions.setSession(controller.session, !hadSession);
+        displaySessionMoniker(controller.id, 'reset');
         displayQRCode(window.location.href, 'qrcode');
         this.currentRoomName = roomName;
         // leave old room after changing current room (see destroyerFn above)
