@@ -44,7 +44,7 @@ export function displayQRCode(url, div='qrcode') {
         div.onclick = () => window.open(url);
         div.onwheel = ({deltaY}) => {
             const max = Math.min(window.innerWidth, window.innerHeight) - 2 * div.offsetLeft;
-            size = Math.max(64, Math.min(max, div.offsetWidth * 1.5 ** deltaY));
+            size = Math.max(64, Math.min(max, div.offsetWidth * 1.05 ** deltaY));
             div.style.width = div.style.height = `${size}px`;
         };
         div.onmouseenter = () => div.style.width = div.style.height = `${size}px`;
