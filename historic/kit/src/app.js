@@ -142,8 +142,11 @@ export default class App {
                 this.simLoad.push(Date.now() - simStart);
                 if (this.simLoad.length > this.loadBalance) this.simLoad.shift();
                 // update stats
-                Stats.users(this.roomStates[this.currentRoomName].controller.users);
-                Stats.network(Date.now() - this.roomStates[this.currentRoomName].controller.lastReceived);
+                const {latency, users, lastReceived, lastSent} = this.roomStates[this.currentRoomName].controller;
+                Stats.users(users);
+                Stats.network(Date.now() - lastReceived);
+                Stats.latency(latency);
+                Stats.active(Date.now() - lastSent);
                 // remember lastFrame for setInterval()
                 this.lastFrame = Date.now();
             }
