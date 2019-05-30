@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { theAssetManager } from "./userAssets";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
@@ -8,7 +9,8 @@ export class DragDropHandler {
         this.assetManager = options.assetManager;
     }
 
-    setCurrentRoomView(roomView) {
+    setCurrentRoom(roomModel, roomView) {
+        this.currentRoomModel = roomModel;
         this.currentRoomView = roomView;
     }
 
@@ -47,11 +49,11 @@ export class DragDropHandler {
     onDrop(evt) {
         if (!this.currentRoomView) return;
 
-        if (this.isFileDrop(evt)) console.log("file", evt.dataTransfer.items);
+        if (this.isFileDrop(evt)) this.assetManager.handleFileDrop(evt.dataTransfer.items, this.currentRoomModel, this.currentRoomView);
         else if (this.isStringDrop(evt)) this.extractString(evt).then(str => console.log("string", str));
         else console.log("unknown drop type");
     }
 
 }
 
-export const theDragDropHandler = new DragDropHandler();
+export const theDragDropHandler = new DragDropHandler({ assetManager: theAssetManager });

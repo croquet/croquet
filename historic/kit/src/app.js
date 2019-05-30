@@ -5,13 +5,12 @@ import RoomViewManager from "./room/roomViewManager";
 import Renderer from "./render";
 import { theKeyboardManager } from "./domKeyboardManager";
 import { theDragDropHandler } from "./domDragDrop";
-import { theAssetManager } from "./userAssets";
 
 export default class App {
     constructor(rooms, reflectorUrl, canvas, width, height, options={}) {
         // start websocket connection
         Controller.connectToReflector(module.id, reflectorUrl);
-
+console.warn(this);
         this.roomStates = {};
 
         for (const [roomName, roomInit] of Object.entries(rooms)) {
@@ -162,7 +161,7 @@ export default class App {
                 Stats.end("render");
                 currentRoomView.parts.pointer.updatePointer();
                 this.keyboardManager.setCurrentRoomView(currentRoomView);
-                this.dragDropHandler.setCurrentRoomView(currentRoomView);
+                if (namedModels) this.dragDropHandler.setCurrentRoom(namedModels.room, currentRoomView);
             }
         }
     }

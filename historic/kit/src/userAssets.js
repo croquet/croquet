@@ -1,9 +1,12 @@
-import * as THREE from "three";
+import { ModelPart, ViewPart, SpatialPart, Tracking, THREE } from "@croquet/kit";
 import { JSZip } from "jszip";
-import { hashBuffer } from "@croquet/util/modules";
+import { baseUrl, hashBuffer } from "@croquet/util/modules";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
+
+const BASE_URL = baseUrl('assets');
+const makeBlobUrl = blobHash => `${BASE_URL}${blobHash}.blob`;
 
 const MAX_IMPORT_FILES = 100; // reject any drop over this number
 const MAX_IMPORT_MB = 100; // aggregate
@@ -27,7 +30,7 @@ export class AssetManager {
         this.knownAssetIDs = {};
     }
 
-    // @@ NOT USED YET (what urls might we want to let users drag into croquet?)
+    // ### NOT USED YET (what urls might we want to let users drag into croquet?)
     async handleStringDrop(string, overTObject) {
         const frame = this.frame;
         let urlObj;
@@ -56,7 +59,7 @@ export class AssetManager {
         }
     }
 
-    async handleFileDrop(items) {
+    async handleFileDrop(items, roomModel, roomView) {
         // build one or more assetDescriptors: each an object { displayName, fileDict, loadType,
         // loadPaths } where fileDict is a dictionary mapping file paths (relative to the drop)
         // to file specs with blobs and hashes; loadType is a string that directs loading
@@ -102,9 +105,10 @@ export class AssetManager {
         }
 
         const specArrays = (await Promise.all(specPromises)).filter(Boolean); // filter out any nulls.
-        this.displayAssets(specArrays, importSizeChecker);
+        this.displayAssets(specArrays, importSizeChecker, { roomModel, roomView });
     }
 
+    // ###
     async simulateFileDrop(urls, options={}) {
         const importSizeChecker = this.makeImportChecker();
         const specPromises = [];
@@ -123,7 +127,8 @@ export class AssetManager {
             specPromises.push(specArrayPromise);
             });
         const specArrays = (await Promise.all(specPromises)).filter(Boolean); // filter out any nulls.
-        this.displayAssets(specArrays, importSizeChecker, options);
+        const loadOptions = Object.assign({}, options, { roomModel, roomView }); // ###
+        this.displayAssets(specArrays, importSizeChecker, loadOptions);
     }
 
     async displayAssets(specArrays, importSizeChecker, options={}) {
@@ -415,7 +420,7 @@ console.log(assetDescriptors.map(loadSpec => loadSpec.displayName));
         if (fileSpec.type !== ".zip") {
             const hash = await hashBuffer(buffer);
             fileSpec.hash = hash;
-            this.ensureBlobInDB(hash, fileSpec.blob, fileSpec.name); // async, but we don't need to wait
+            this.ensureBlobIsShared(hash, fileSpec.blob, fileSpec.name); // async, but we don't need to wait
         }
         return fileSpec;
     }
@@ -475,7 +480,7 @@ console.log(assetDescriptors.map(loadSpec => loadSpec.displayName));
             case "zip":
                 return this.unpackZip(assetDescriptor).then(assetDescriptor2 => assetDescriptor2 ? this.prepareMakerFunctions(assetDescriptor2) : null);
             default:
-                return [ options => this.makeSharedComposite(TImportedObject.compositionSpec({ loadType, containment: options.containment }), assetDescriptor, options).readyPromise ];
+                return [ options => this.makeImportedModel(assetDescriptor, options)/*.readyPromise*/ ];
         }
     }
 // ###
@@ -484,45 +489,74 @@ console.log(assetDescriptors.map(loadSpec => loadSpec.displayName));
         return new ShareableComposite(this.frame, null, spec, scOptions);
     }
 
+    makeImportedModel(assetDescriptor, options) {
+        const { roomModel, roomView } = options;
+        const roomElementsID = roomModel.parts.elements.id;
+        roomView.publish(roomElementsID, "addAsset", { assetDescriptor: this.makeShareableDescriptor(assetDescriptor) });
+    }
+
     makeDescriptor(loadType, loadPaths) {
         return { fileDict: {}, loadType, loadPaths };
     }
 
-    ensureBlobInDB(blobDocID, blob, name="") {
-        if (this.knownAssetIDs[blobDocID]) return;
-
-        this.knownAssetIDs[blobDocID] = true;
-        console.warn(`storing attachment doc for content of ${name}`);
-        const contentType = "application/octet-stream";
-// ###
-        this.frame.db.ensureDoc(blobDocID, {
-            _attachments: {
-                "blob": {
-                    content_type: contentType,
-                    data: blob
-                }
-            }
-            });
+    makeShareableDescriptor(assetDescriptor) {
+        // need to strip the supplied assetDescriptor of any blobs
+        const { displayName, fileDict, loadType, loadPaths } = assetDescriptor;
+        const newFileDict = {};
+        Object.keys(fileDict).forEach(path => {
+            const fileSpec = fileDict[path];
+            const newFileSpec = Object.assign({}, fileSpec);
+            delete newFileSpec.blob;
+            delete newFileSpec.depth;
+            newFileDict[path] = newFileSpec;
+        });
+        return { displayName, fileDict: newFileDict, loadType, loadPaths };
     }
 
-    getBlobFromDB(blobDocID) {
+    async ensureBlobIsShared(blobHash, blob, name="") {
+        if (this.knownAssetIDs[blobHash]) return;
+
+        this.knownAssetIDs[blobHash] = true;
+        const blobUrl = makeBlobUrl(blobHash);
+        try {
+            // see if it's already there
+            const response = await fetch(blobUrl, { method: 'HEAD' });
+            // if successful, return
+            if (response.ok) return;
+        } catch (ex) { /* ignore */ }
+        // not found, so try to upload it
+        try {
+            console.warn(`storing attachment doc for content of ${name}`);
+            await fetch(blobUrl, {
+                method: "PUT",
+                mode: "cors",
+                body: blob,
+            });
+        } catch (error) { /* ignore */ }
+    }
+
+    fetchSharedBlob(blobHash) {
         // it turns out that even if the document has appeared in the db, the blob
         // can take a while longer to turn up.
+        const blobUrl = makeBlobUrl(blobHash);
         const retryDelay = 1000;
         let retries = 60;
         return new Promise(resolved => {
-// ###
-            const getAttachment = () => this.frame.db._pouch.getAttachment(blobDocID, "blob")
-                .then(blob => { this.knownAssetIDs[blobDocID] = true; resolved(blob); })
+            const getBlob = () => fetch(blobUrl, { mode: "cors" })
+                .then(response => {
+                    if (response.ok) return response.blob();
+                    throw new Error('Network response was not ok.');
+                    })
+                .then(blob => { this.knownAssetIDs[blobHash] = true; resolved(blob); })
                 .catch(() => {
-                    if (retries === 0) console.error(`blob never arrived: ${blobDocID}`);
+                    if (retries === 0) console.error(`blob never arrived: ${blobHash}`);
                     else {
-                        console.log(`waiting for blob: ${blobDocID}`);
+                        console.log(`waiting for blob: ${blobHash}`);
                         retries--;
-                        setTimeout(getAttachment, retryDelay);
+                        setTimeout(getBlob, retryDelay);
                     }
                     });
-            getAttachment();
+            getBlob();
             });
     }
 
@@ -560,7 +594,7 @@ console.log(assetDescriptors.map(loadSpec => loadSpec.displayName));
         // currently we don't create a hash for zip files.
         if (fileSpec.hash) {
             const cacheKey = fileSpec.hash;
-            const promiseFn = () => fileSpec.blob || this.getBlobFromDB(fileSpec.hash);
+            const promiseFn = () => fileSpec.blob || this.fetchSharedBlob(fileSpec.hash);
             blob = await this.loadThroughCache(cacheKey, promiseFn);
         } else blob = fileSpec.blob; // assuming it's there.
         return blob;
@@ -635,18 +669,46 @@ console.warn(`recording fetch of ${urlStr}`);
     }
 
     ensureAssetsAvailable(assetDescriptor) {
-        const blobIDDict = {};
-        Object.values(assetDescriptor.fileDict).forEach(fileSpec => blobIDDict[fileSpec.hash] = true);
+        const blobHashDict = {};
+        Object.values(assetDescriptor.fileDict).forEach(fileSpec => blobHashDict[fileSpec.hash] = true);
         // ids, retryMessage, retryDelay, maxRetries
-// ###
-        return this.frame.db.ensureDocIDsAvailable(Object.keys(blobIDDict),
+        return this.ensureBlobsAvailable(Object.keys(blobHashDict),
             "waiting for asset docs to appear in db...",
             1000, 60).then(status => {
                 if (status === 'ok') {
-                    Object.keys(blobIDDict).forEach(id => this.knownAssetIDs[id] = true);
+                    Object.keys(blobHashDict).forEach(hash => this.knownAssetIDs[hash] = true);
                 }
                 return status;
                 });
+    }
+
+    ensureBlobsAvailable(hashes, retryMessage, retryDelay, maxRetries) {
+        let retries = maxRetries;
+        const waitingFor = {};
+        hashes.forEach(hash => waitingFor[hash] = true);
+        const runAssetCheck = whenReady => {
+            const blobHashes = Object.keys(waitingFor);
+            Promise.all(blobHashes.map(hash => fetch(makeBlobUrl(hash), { method: 'HEAD' })
+                .then(response => {
+                    // if successful, remove from list
+                    if (response.ok) delete waitingFor[hash];
+                }).catch(_err => { /* ignore */ })
+            )).then(() => {
+                if (Object.keys(waitingFor).length === 0) whenReady("ok");
+                else {
+                    // still some hashes to process
+
+                    /* eslint-disable-next-line no-lonely-if */
+                    if (retries === 0) whenReady(null);
+                    else {
+                        if (retryMessage) console.log(retryMessage);
+                        retries--;
+                        setTimeout(() => runAssetCheck(whenReady), retryDelay);
+                    }
+                }
+            });
+            };
+        return new Promise(runAssetCheck);
     }
 
 /*  @@ NO DYNAMIC IMPORT OF JS IS SUPPORTED YET
@@ -774,15 +836,15 @@ console.warn(`recording fetch of ${urlStr}`);
             const textureLoader = new THREE.TextureLoader(new THREE.LoadingManager());
             textureLoader.load(urlObj.url, texture=>{
                 urlObj.revoke();
-                // w, h, wsegs, hsegs, options
-                const rect = new TRectangle(this.frame, null,
-                    1, texture.image.height/texture.image.width,
-                    1, 1,
-                    { materialClass: THREE.MeshBasicMaterial, materialParams: {} }
-                    );
                 this.ensurePowerOfTwo(texture);
-                rect.material.map = texture;
-                resolve(rect.object3D);
+                /*
+                const geometry = new THREE.PlaneBufferGeometry(1, texture.image.height / texture.image.width, 1, 1);
+                const material = new THREE.MeshBasicMaterial({ map: texture });
+                */
+                const geometry = new THREE.PlaneBufferGeometry(10, 5, 1, 1);
+                const material = new THREE.MeshBasicMaterial({ color: new THREE.Color(0xff0000) });
+                const mesh = new THREE.Mesh(geometry, material);
+                resolve(mesh);
                 },
                    // Function called when download progresses
                 _xhr=>{ },
@@ -1009,49 +1071,52 @@ function onProgress(xhr) {
 
 function onError( xhr ) { console.log('file load fail', xhr); }
 
-// ###
+export const theAssetManager = new AssetManager();
 
-// TImportedObject replaces TImportedModel.  a TImportedObject is created from an
-// object (a non-TObject - such as a picture or OBJ model) that has been loaded
-// either by drag and drop from the file system, or by programmatic specification
-// of a load URL.  the TImportedObject has minimal behaviours such as supporting
-// option-click to turn it into a customisable button.
-export class TImportedObject extends TObject {
-    initialize(options) {
-        const { compositeObject, componentBeingBuilt } = options;
-        // ### might need to rethink this, now that objects loaded from db
-        // are typically placed in a room using a setRoom action.
-        let viewpointObject = options.viewpointObject;
-        if (!viewpointObject) viewpointObject = this.frame.tScene;
+export class ImportedElement extends ModelPart {
+    constructor() {
+        super();
+        this.parts = { spatial: new SpatialPart() };
+    }
 
-        this.readyPromiseHandle = lively.lang.promise.deferred();
-        this.readyPromise = this.readyPromiseHandle.promise;
+    init(options, id) {
+        super.init(options, id);
+        this.assetDescriptor = options.assetDescriptor;
+    }
 
-        if (options.loadFromDB) {
-            this.setComposite(compositeObject, componentBeingBuilt);
-        } else {
-            compositeObject.bindComponent(this, componentBeingBuilt);
-        }
+    naturalViewClass() { return ImportedElementView; }
+}
 
-        const assetDescriptor = compositeObject.assetDescriptor;
+class ImportedViewPart extends ViewPart {
+    constructor(options) {
+        super(options);
+
+        // @@ assuming anyone's going to care...
+        this.readyPromise = new Promise(resolved => {
+            this._ready = () => resolved(this);
+            });
+
+        const assetDescriptor = options.model.assetDescriptor;
         const loadType = this.loadType = assetDescriptor.loadType;
-        const assetManager = this.frame.assetManager;
-        const firstLoad = !options.loadFromDB;
+        const assetManager = theAssetManager;
+        const firstLoad = true; // ####
+        this.threeObj = new THREE.Mesh(new THREE.PlaneBufferGeometry(1, 1), new THREE.MeshBasicMaterial({ color: new THREE.Color(0x00ff00)}));
+//        this.threeObj = new THREE.Object3D(); // @@ until we have our custom-built one
 
-        const objectReady = obj=>{
-            this.setObject3D(obj);
-            this.auraHere = true;
-            this.auraIsShared = true;
-            this.castShadow = true;
-            this.receiveShadow = true;
+        const objectReady = obj => {
+            obj.position.copy(this.threeObj.position);
+            obj.quaternion.copy(this.threeObj.quaternion);
+            obj.scale.copy(this.threeObj.scale);
+            this.threeObj = obj;
             this.name = this.fileName;
-            this.readyPromiseHandle.resolve(this);
+            this._ready();
             };
 
         switch (loadType) {
             case "texture":
                 assetManager.importTexture(assetDescriptor).then(objectReady);
                 break;
+            // ###
             case "texture360":
                 assetManager.importTexture360(assetDescriptor).then(mesh => {
                     this.setObject3D(mesh);
@@ -1083,34 +1148,21 @@ export class TImportedObject extends TObject {
                 assetManager.importGLTF(assetDescriptor, firstLoad).then(objectReady);
                 break;
             case ".obj":
-               assetManager.importOBJ(assetDescriptor, firstLoad).then(objectReady);
+                assetManager.importOBJ(assetDescriptor, firstLoad).then(objectReady);
                 break;
             default:
-                this.frame.alert(`unknown TImportedObject loadType: ${loadType}.`, 5000);
+                console.warn(`unknown imported-object loadType: ${loadType}.`);
         }
     }
+}
 
-    onDoubleClick(_pEvt) {
-        if (this.loadType===".svg") {
-            const frame = this.frame;
-            new TColorWheel(frame,
-                tObj=>{
-                    tObj.position.set(0.5, 0, -0.75);
-                    frame.tAvatar.addChild(tObj);
-                    tObj.release();
-                    tObj.addChild(new TPoser(frame));
-                    },
-                col=>this.replicated_setColor(col),
-                this.color);
-        }
-
-        return true;
+// @@ adding the Tracking separately appears to be essential for the initialisation sequence
+class ImportedElementView extends Tracking()(ImportedViewPart) {
+    get label() {
+        return "Imported Element";
     }
 
-    auraOversize() {
-        return this.loadType===".svg" ? 1 : 1.1;
-    }
-
+    // ###
     loadInWindow(context) {
         const title = context.compositeObject.assetDescriptor.displayName;
         // unless context declares otherwise, place the object in front of the avatar
@@ -1118,57 +1170,6 @@ export class TImportedObject extends TObject {
         const componentInit = context.componentInit;
         if (componentInit.viewpointRelativePos===undefined) componentInit.viewpointRelativePos = [0, 0, -2*this.frame.world.demoLauncher.standardDistance];
         return super.loadInWindow(context, title);
-    }
-
-    initialDBDoc() {
-        return {
-            type: "importedObject"
-            // nothing else?
-            };
-    }
-
-    replicated_setColor(color) {
-        this.addAction("color", { color }, true);
-    }
-
-    action_color(action) {
-        this.setColor(new THREE.Color(action.color));
-    }
-
-    // a composite that specifies no buildFn for the asset will be directed here.
-    // newOrExisting thus expects arguments as supplied during construction of a component.
-    static newOrExisting(frame, options) {
-        return new TImportedObject(frame, null, options).readyPromise;
-    }
-
-    static compositionSpec(options) {
-        if (options.loadType === "texture360") {
-            // a texture360 never gets a container, whatever the load context
-            return {
-                compositionType: "importedObject",
-                components: [
-                    [ "contents", "importedObject" ],
-                    ],
-                contentComponent: "contents"
-                };
-        }
-
-        return {
-            compositionType: "importedObject",
-            components: [
-                [ "contents", "importedObject" ],
-                [ "window", "option.containment.window", "return context.contents.loadInWindow(context)" ]
-                ],
-            contentComponent: "contents"
-            };
-    }
-
-    static actionTypes() {
-        return [
-            { type: "color" }, // color (number)
-            { type: "aura" }, // present (bool)
-            { type: "clickScript" } // source (string)
-            ];
     }
 
 }

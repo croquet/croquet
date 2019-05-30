@@ -33,9 +33,6 @@ class BoxViewPart extends ViewPart {
             new THREE.BoxBufferGeometry(1, 1, 1),
             new THREE.MeshStandardMaterial({color: new THREE.Color(options.color)})
         );
-        this.threeObj.onBeforeRender = function() {
-            if (window.boxColor) this.material.color.copy(new THREE.Color(window.boxColor));
-            };
     }
 }
 

@@ -3,11 +3,13 @@ import * as three from 'three';
 export const THREE = three;
 
 export { ModelPart, ViewPart } from './parts';
-export { default as Room } from './room/roomModel';
-export { default as RoomView } from './room/roomView';
+
+// @@ these and App are moved below, to resolve import-order issue
+//export { default as Room } from './room/roomModel';
+//export { default as RoomView } from './room/roomView';
 
 export { default as PortalElement } from './elements/portalElement';
-export { default as App } from './app';
+//export { default as App } from './app'; // @@ see comment above
 
 export { default as TextElement } from './elements/textElement';
 export { default as PhysicalElement } from './elements/physicalElement';
@@ -27,3 +29,8 @@ export { default as PhysicalShape } from './viewParts/physicalShape';
 export { LayoutRoot, LayoutContainer, LayoutSlotStretch3D, LayoutSlotText, MinFromBBox } from './viewParts/layout';
 
 export { Model, View } from '@croquet/teatime';
+
+ // @@ moved here because otherwise they were before the behaviour classes needed for asset import
+ export { default as Room } from './room/roomModel';
+export { default as RoomView } from './room/roomView';
+export { default as App } from './app';

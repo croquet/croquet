@@ -1,4 +1,4 @@
-import { App } from "@croquet/kit";
+import { App /*, theDragDropHandler */ } from "@croquet/kit";
 import { hotreloadEventManager, urlOptions } from "@croquet/util";
 import kitchenSink from "./rooms/kitchenSink/kitchenSink";
 import portals from "./rooms/portals/portals";
@@ -45,7 +45,7 @@ const app = new App(
         recycleRenderer: urlOptions.hotreload && hotState.renderer,
         domEventManager: urlOptions.hotreload && hotreloadEventManager,
         tps,
-        roomInitOptions: {...urlOptions}
+        roomInitOptions: {...urlOptions},
     }
 );
 
