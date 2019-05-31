@@ -1,5 +1,5 @@
 import urlOptions from "./urlOptions";
-import { toBase64url, fromBase64url } from "./modules";
+import { toBase64url, fromBase64url, fileServer } from "./modules";
 
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
@@ -246,7 +246,7 @@ export async function login() {
         };
 
         function userURL(username, file, ext=".json") {
-            return `https://db.croquet.studio/files-v1/user/${username.toLowerCase()}/${file}${ext}`;
+            return `${fileServer()}/files-v1/user/${username.toLowerCase()}/${file}${ext}`;
         }
 
         async function checkName(final=false) {
