@@ -20,7 +20,8 @@
     "three-bmfont-text": "file:./thirdparty-patched/three-bmfont-text",
     "three-buffer-vertex-data": "file:./thirdparty-patched/three-buffer-vertex-data",
     "three-svg-loader": "git+https://github.com/bertfreudenberg/three-svg-loader.git",
-    "yoga-layout-prebuilt": "^1.9.3"
+    "yoga-layout-prebuilt": "^1.9.3",
+    "zlib": "^1.0.5"
   },
   "devDependencies": {
     "eslint": "^5.14.1",

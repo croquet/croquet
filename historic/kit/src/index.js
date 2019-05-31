@@ -2,7 +2,7 @@ import * as three from 'three';
 
 export const THREE = three;
 
-export { ModelPart, ViewPart } from './parts';
+export { ModelPart, ViewPart, ViewEvents } from './parts';
 
 // @@ these and App are moved below, to resolve import-order issue
 //export { default as Room } from './room/roomModel';

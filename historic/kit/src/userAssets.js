@@ -1,6 +1,22 @@
-import { ModelPart, ViewPart, SpatialPart, Tracking, THREE } from "@croquet/kit";
+import { ModelPart, ViewPart, SpatialPart, Tracking, ViewEvents /*, THREE*/ } from "@croquet/kit";
 import { JSZip } from "jszip";
 import { baseUrl, hashBuffer } from "@croquet/util/modules";
+
+// @@ some contortions needed to get the imports working.  inflate is needed for FBXLoader.  the version installed from https://github.com/imaya/zlib.js doesn't behave as the loader expects.
+import * as THREE from "three";
+window.THREE = THREE;
+//import * as Zlib from "zlib";
+const Zlib = require("../thirdparty/inflate.min").Zlib;
+window.Zlib = Zlib;
+require("../thirdparty/OBJLoader");
+require("../thirdparty/ColladaLoader");
+require("../thirdparty/OBJLoader");
+require("../thirdparty/MTLLoader");
+require("../thirdparty/GLTFLoader");
+require("../thirdparty/DRACOLoader");
+require("../thirdparty/LegacyGLTFLoader");
+require("../thirdparty/FBXLoader");
+require("../thirdparty/STLLoader");
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
@@ -492,6 +508,7 @@ console.log(assetDescriptors.map(loadSpec => loadSpec.displayName));
     makeImportedModel(assetDescriptor, options) {
         const { roomModel, roomView } = options;
         const roomElementsID = roomModel.parts.elements.id;
+//roomView.parts.elementViewManager.addElementManipulators = false;
         roomView.publish(roomElementsID, "addAsset", { assetDescriptor: this.makeShareableDescriptor(assetDescriptor) });
     }
 
@@ -837,12 +854,12 @@ console.warn(`recording fetch of ${urlStr}`);
             textureLoader.load(urlObj.url, texture=>{
                 urlObj.revoke();
                 this.ensurePowerOfTwo(texture);
-                /*
                 const geometry = new THREE.PlaneBufferGeometry(1, texture.image.height / texture.image.width, 1, 1);
                 const material = new THREE.MeshBasicMaterial({ map: texture });
-                */
-                const geometry = new THREE.PlaneBufferGeometry(10, 5, 1, 1);
+/*
+                const geometry = new THREE.PlaneBufferGeometry(1.5, 1, 1, 1);
                 const material = new THREE.MeshBasicMaterial({ color: new THREE.Color(0xff0000) });
+*/
                 const mesh = new THREE.Mesh(geometry, material);
                 resolve(mesh);
                 },
@@ -1090,7 +1107,7 @@ export class ImportedElement extends ModelPart {
 class ImportedViewPart extends ViewPart {
     constructor(options) {
         super(options);
-
+console.warn(this);
         // @@ assuming anyone's going to care...
         this.readyPromise = new Promise(resolved => {
             this._ready = () => resolved(this);
@@ -1100,14 +1117,15 @@ class ImportedViewPart extends ViewPart {
         const loadType = this.loadType = assetDescriptor.loadType;
         const assetManager = theAssetManager;
         const firstLoad = true; // ####
-        this.threeObj = new THREE.Mesh(new THREE.PlaneBufferGeometry(1, 1), new THREE.MeshBasicMaterial({ color: new THREE.Color(0x00ff00)}));
-//        this.threeObj = new THREE.Object3D(); // @@ until we have our custom-built one
+        this.threeObj = new THREE.Group();
 
         const objectReady = obj => {
-            obj.position.copy(this.threeObj.position);
-            obj.quaternion.copy(this.threeObj.quaternion);
-            obj.scale.copy(this.threeObj.scale);
-            this.threeObj = obj;
+            const bbox = (new THREE.Box3()).setFromObject(obj);
+            const rawHeight = bbox.max.y - bbox.min.y;
+            const scale = 2/rawHeight;
+            this.threeObj.add(obj);
+            this.threeObj.scale.set(scale, scale, scale);
+            this.publish(this, ViewEvents.changedDimensions, {});
             this.name = this.fileName;
             this._ready();
             };

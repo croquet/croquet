@@ -16,12 +16,12 @@ export default class Room extends ModelPart {
         };
     }
 
-    init(options) { console.warn("room init");
+    init(options) {
         super.init(options);
         this.subscribe(this.parts.elements.id, "addAsset", data => this.addAsset(data));
     }
 
     addAsset(data) {
-        this.parts.elements.add(ImportedElement.create({ spatial: { position: new THREE.Vector3(-2.25, 0, -2) }, assetDescriptor: data.assetDescriptor }));
+        this.parts.elements.add(ImportedElement.create({ spatial: { position: new THREE.Vector3(-1, 1, -1) }, assetDescriptor: data.assetDescriptor }));
     }
 }
