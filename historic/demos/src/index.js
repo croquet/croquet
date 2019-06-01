@@ -8,6 +8,7 @@ import physics from "./rooms/physics/physics";
 import jenga from "./rooms/jenga/jenga";
 import minipool from "./rooms/minipool/minipool";
 import knockdown from "./rooms/knockdown/knockdown";
+import blockfall from "./rooms/blockfall/blockfall";
 import jumpRooms from "./rooms/jump/jump";
 import arBalls from "./rooms/arBalls/arBalls";
 
@@ -31,6 +32,7 @@ const rooms = {
     jenga,
     knockdown,
     minipool,
+    blockfall,
     ...jumpRooms
 };
 

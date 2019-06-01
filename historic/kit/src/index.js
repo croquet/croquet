@@ -16,7 +16,7 @@ export { default as SpatialPart } from './modelParts/spatial';
 export { default as Inertial } from './modelParts/inertial';
 export { default as ColorPart } from './modelParts/color';
 export { default as ChildrenPart, ChildEvents } from './modelParts/children';
-export { PhysicalWorld } from './modelParts/physical';
+export { PhysicalWorld, PhysicsEvents, SpaceWrapping } from './modelParts/physical';
 
 export { default as Tracking, Facing } from './viewParts/tracking';
 export { default as Colored } from './viewParts/colored';
