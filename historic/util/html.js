@@ -38,16 +38,20 @@ export function displayQRCode(url, div='qrcode') {
         correctLevel : QRCode.CorrectLevel.L,   // L, M, Q, H
     });
     else qrcode.makeCode(url);
-    // open url in new window, but only on desktop
-    if (!("ontouchstart" in div)) {
-        let size = 256;
+    const active = () => div.classList.contains("active");
+    const activate = () => div.classList.add("active");
+    const deactivate = () => div.classList.remove("active");
+    if ("ontouchstart" in div) {
+        div.ontouchstart = () => active() ? deactivate() : activate();
+    } else {
         div.onclick = () => window.open(url);
+        let size = 256;
         div.onwheel = ({deltaY}) => {
             const max = Math.min(window.innerWidth, window.innerHeight) - 2 * div.offsetLeft;
             size = Math.max(64, Math.min(max, div.offsetWidth * 1.05 ** deltaY));
             div.style.width = div.style.height = `${size}px`;
         };
-        div.onmouseenter = () => div.style.width = div.style.height = `${size}px`;
-        div.onmouseleave = () => div.style.width = div.style.height = "";
+        div.onmouseenter = () => { activate(); div.style.width = div.style.height = `${size}px`; };
+        div.onmouseleave = () => { deactivate(); div.style.width = div.style.height = ""; };
     }
 }
