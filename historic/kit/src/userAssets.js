@@ -1,11 +1,16 @@
-import { ModelPart, ViewPart, SpatialPart, Tracking, ViewEvents /*, THREE*/ } from "@croquet/kit";
+import * as THREE from 'three';
 import { JSZip } from "jszip";
 import { baseUrl, hashBuffer } from "@croquet/util/modules";
+import SpatialPart from './modelParts/spatial';
+import Tracking from './viewParts/tracking';
+import Clickable from './viewParts/clickable';
+import { ModelPart, ViewPart, ViewEvents } from './parts';
 
-// @@ some contortions needed to get the imports working.  inflate is needed for FBXLoader.  the version installed from https://github.com/imaya/zlib.js doesn't behave as the loader expects.
-import * as THREE from "three";
+const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
+if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
+
+// @@ some (Bert-sanctioned) contortions needed to get the imports working.  inflate is needed for FBXLoader.  the version installed from https://github.com/imaya/zlib.js doesn't behave as the loader expects.
 window.THREE = THREE;
-//import * as Zlib from "zlib";
 const Zlib = require("../thirdparty/inflate.min").Zlib;
 window.Zlib = Zlib;
 require("../thirdparty/OBJLoader");
@@ -17,9 +22,6 @@ require("../thirdparty/DRACOLoader");
 require("../thirdparty/LegacyGLTFLoader");
 require("../thirdparty/FBXLoader");
 require("../thirdparty/STLLoader");
-
-const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
-if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 const BASE_URL = baseUrl('assets');
 const makeBlobUrl = blobHash => `${BASE_URL}${blobHash}.blob`;
@@ -490,19 +492,12 @@ console.log(assetDescriptors.map(loadSpec => loadSpec.displayName));
                             };
                         });
                     });
-            case ".mp4":
-                return [ options => this.makeSharedComposite(TVideoRectangle.compositionSpec({ containment: options.containment }), assetDescriptor, options).readyPromise ];
             */
             case "zip":
                 return this.unpackZip(assetDescriptor).then(assetDescriptor2 => assetDescriptor2 ? this.prepareMakerFunctions(assetDescriptor2) : null);
             default:
                 return [ options => this.makeImportedModel(assetDescriptor, options)/*.readyPromise*/ ];
         }
-    }
-// ###
-    makeSharedComposite(spec, assetDescriptor, options={}) {
-        const scOptions = Object.assign({}, options, { assetDescriptor });
-        return new ShareableComposite(this.frame, null, spec, scOptions);
     }
 
     makeImportedModel(assetDescriptor, options) {
@@ -893,10 +888,9 @@ console.warn(`recording fetch of ${urlStr}`);
         });
     }
 
-// ###
     async importVideo(assetDescriptor) {
         const urlObj = await this.objectURLForName(assetDescriptor, "source");
-        return new Promise(resolved => new TVideo2D(this.frame, urlObj.url, resolved)); // must hold off from revoking URL until object is destroyed; see TVideo2D.dispose()
+        return (new Video2DView(urlObj.url)).readyPromise; // must hold off from revoking URL until object is destroyed; see Video2DView.dispose()
     }
 
     async importOBJ(assetDescriptor, firstLoad) {
@@ -1126,7 +1120,6 @@ console.warn(this);
             this.threeObj.add(obj);
             this.threeObj.scale.set(scale, scale, scale);
             this.publish(this, ViewEvents.changedDimensions, {});
-            this.name = this.fileName;
             this._ready();
             };
 
@@ -1138,7 +1131,6 @@ console.warn(this);
             case "texture360":
                 assetManager.importTexture360(assetDescriptor).then(mesh => {
                     this.setObject3D(mesh);
-                    this.name = this.fileName;
                     compositeObject.registerOnSceneTeam(this); // this is the only TObject that will be built
 
                     const tScene = viewpointObject;
@@ -1174,7 +1166,7 @@ console.warn(this);
     }
 }
 
-// @@ adding the Tracking separately appears to be essential for the initialisation sequence
+// essential to add Tracking separately, so it specialises a class whose constructor will already have created this.threeObj
 class ImportedElementView extends Tracking()(ImportedViewPart) {
     get label() {
         return "Imported Element";
@@ -1191,3 +1183,142 @@ class ImportedElementView extends Tracking()(ImportedViewPart) {
     }
 
 }
+
+class Video2DView {
+    constructor(url) {
+console.log(this);
+        this.url = url;
+        this.video = document.createElement("video");
+        this.video.autoplay = false;
+        this.video.loop = true;
+        this.isPlaying = false;
+
+        this.readyPromise = new Promise(resolved => {
+            this._ready = () => resolved(this);
+        });
+
+        this.video.oncanplay = () => this._ready();
+
+        this.video.onerror = () => {
+            let err;
+            const errCode = this.video.error.code;
+            switch (errCode) {
+                case 1: err = "video loading aborted"; break;
+                case 2: err = "network loading error"; break;
+                case 3: err = "video decoding failed / corrupted data or unsupported codec"; break;
+                case 4: err = "video not supported"; break;
+                default: err = "unknown video error";
+            }
+            console.log(`Error: ${err} (errorcode=${errCode})`);
+        };
+
+        this.video.crossOrigin = "anonymous";
+
+        if (!this.video.canPlayType("video/mp4").match(/maybe|probably/i) && this.video.canPlayType("video/theora").match(/maybe|probably/i)) {
+            // try webm if mp4 isn't supported
+            console.log("can't play video");
+        }
+
+        this.video.src = this.url;
+        this.video.load(); //start it
+
+        this.texture = new THREE.VideoTexture(this.video);
+        this.texture.minFilter = THREE.LinearFilter;
+        this.texture.magFilter = THREE.LinearFilter;
+        this.texture.format = THREE.RGBFormat;
+        this.texture.generateMipmaps = false;
+    }
+
+    width() { return this.video.videoWidth; }
+    height() { return this.video.videoHeight; }
+
+    play() { this.video.play(); this.isPlaying = true; }
+    pause() { this.video.pause(); this.isPlaying = false; }
+    startStop() { if (this.isPlaying) this.pause(); else this.play(); }
+
+    // ### need to hook this into... something
+    dispose() {
+        try {
+            URL.revokeObjectURL(this.url);
+            this.texture.dispose();
+            delete this.texture;
+            delete this.video;
+        } catch (e) { console.warn(`error in Video2DView cleanup: ${e}`); }
+    }
+}
+
+export class ImportedVideoElement extends ModelPart {
+    constructor() {
+        super();
+        this.parts = { spatial: new SpatialPart() };
+    }
+
+    init(options, id) {
+        super.init(options, id);
+        this.assetDescriptor = options.assetDescriptor;
+    }
+
+    togglePlay(currentTime) {
+        this.publish(this.id, "togglePlay", { currentTime });
+    }
+
+    naturalViewClass() { return ImportedVideoView; }
+}
+
+class VideoViewPart extends ViewPart {
+    constructor(options) {
+        super(options);
+        console.warn(this);
+
+        this.readyPromise = new Promise(resolved => {
+            this._ready = () => resolved(this);
+        });
+
+        const assetDescriptor = options.model.assetDescriptor;
+        const assetManager = theAssetManager;
+        this.threeObj = new THREE.Group();
+
+        assetManager.importVideo(assetDescriptor).then(videoView => {
+            this.videoView = videoView;
+            this.flip = false; // true means rendered picture acts like a mirror (suitable for local webcam)
+            const h = this.height = videoView.height();
+            const w = videoView.width();
+            const segs = 1;
+
+            const geom = new THREE.PlaneBufferGeometry(w, h, segs, segs);
+            const mat = new THREE.MeshBasicMaterial({ map: videoView.texture });
+            const rect = new THREE.Mesh(geom, mat);
+            rect.name = "videoView";
+            if (this.flip) {
+                mat.side = THREE.BackSide;
+                rect.rotation.y = Math.PI;
+            }
+            const scale = 2 / h;
+            this.threeObj.add(rect);
+            this.threeObj.scale.set(scale, scale, scale);
+            this.publish(this, ViewEvents.changedDimensions, {});
+            this._ready();
+            });
+
+        this.subscribe(options.model.id, "togglePlay", data => this.togglePlay(data));
+    }
+
+    get label() {
+        return "Imported Video";
+    }
+
+    togglePlay(data) {
+        if (!this.videoView) return;
+
+        this.videoView.video.currentTime = data.currentTime;
+        this.videoView.startStop();
+    }
+}
+
+const ImportedVideoView = Clickable({
+    onClick: options => (at, view) => {
+        if (!view.videoView) return;
+        options.model.future().togglePlay(view.videoView.video.currentTime);
+    }
+})(Tracking()(VideoViewPart));
+

@@ -30,7 +30,7 @@ export { LayoutRoot, LayoutContainer, LayoutSlotStretch3D, LayoutSlotText, MinFr
 
 export { Model, View } from '@croquet/teatime';
 
- // @@ moved here because otherwise they were before the behaviour classes needed for asset import
- export { default as Room } from './room/roomModel';
+ // @@ moved here because otherwise they were before the behaviour classes (e.g., Tracking) needed for asset import
+export { default as Room } from './room/roomModel';
 export { default as RoomView } from './room/roomView';
 export { default as App } from './app';

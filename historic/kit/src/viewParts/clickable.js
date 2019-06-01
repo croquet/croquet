@@ -21,7 +21,7 @@ export default function Clickable(clickOptions={}) {
         }
 
         clickableOnPointerDown({at}) {
-            this.onClickCallback(at);
+            this.onClickCallback(at, this); // @@ ael - added "this", used by video player
         }
     };
 }
