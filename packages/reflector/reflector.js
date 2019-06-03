@@ -337,7 +337,8 @@ function JOIN1(client, id, args) {
 
 function SYNC1(island) {
     const {snapshotUrl: url, messages} = island;
-    const response = JSON.stringify({ id: island.id, action: 'SYNC', args: {url, messages}});
+    const time = getTime(island);
+    const response = JSON.stringify({ id: island.id, action: 'SYNC', args: {url, messages, time}});
     const range = !messages.length ? '' : ` (#${messages[0][1]}...${messages[messages.length-1][1]})`;
     for (const syncClient of island.syncClients) {
         if (syncClient.readyState === WebSocket.OPEN) {
