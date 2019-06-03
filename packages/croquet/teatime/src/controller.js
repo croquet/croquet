@@ -510,8 +510,8 @@ export default class Controller {
             }
             case 'SYNC': {
                 // We are joining an island session.
-                const {messages, url} = args;
-                console.log(this.id, `Controller received SYNC: ${messages.length} messages, ${url}`);
+                const {messages, url, time} = args;
+                console.log(this.id, `Controller received SYNC: time ${time}, ${messages.length} messages, ${url}`);
                 const snapshot = await this.fetchJSON(url);
                 this.islandCreator.snapshot = snapshot;  // set snapshot
                 if (!this.socket) { console.log(this.id, 'socket went away during SYNC'); return; }
@@ -519,7 +519,7 @@ export default class Controller {
                     if (DEBUG.messages) console.log(this.id, 'Controller got message in SYNC ' + msg);
                     msg[1] >>>= 0;      // reflector sends int32, we want uint32
                 }
-                this.install(messages);
+                this.install(messages, time);
                 this.getTickAndMultiplier();
                 this.keepSnapshot(snapshot);
                 return;
@@ -572,7 +572,7 @@ export default class Controller {
         }
     }
 
-    install(messagesSinceSnapshot=[]) {
+    install(messagesSinceSnapshot=[], syncTime=0) {
         const {snapshot, init, options, callbackFn} = this.islandCreator;
         let newIsland = new Island(snapshot, () => init(options));
         if (DEBUG.initsnapshot && !snapshot.modelsById) {
@@ -589,7 +589,6 @@ export default class Controller {
             console.log(this.id, `Controller scheduling ${messagesSinceSnapshot.length} messages after snapshot`, messagesSinceSnapshot);
             for (const msg of messagesSinceSnapshot) newIsland.scheduleExternalMessage(msg);
         }
-        this.time = Math.max(newIsland.time, newIsland.externalTime);
         // drain message queue
         const nextSeq = (newIsland.externalSeq + 1) >>> 0;
         for (let msg = this.networkQueue.peek(); msg; msg = this.networkQueue.peek()) {
@@ -599,6 +598,10 @@ export default class Controller {
             // silently skip old messages
             this.networkQueue.nextNonBlocking();
         }
+        // our time is the latest of this.time (we may have received a tick already), the island time in the snapshot, and the reflector time at SYNC
+        const islandTime = Math.max(newIsland.time, newIsland.externalTime);
+        if (syncTime && syncTime < islandTime) console.warn(`ignoring SYNC time from reflector (time was ${islandTime.time}, received ${syncTime})`);
+        this.time = Math.max(this.time, islandTime, syncTime);
         this.setIsland(newIsland); // install island
         callbackFn(this.island);
     }
