@@ -40,6 +40,10 @@ const OPTIONS_FROM_URL = [ 'tps' ];
 // schedule a snapshot after this amount of CPU time has been used for simulation
 const SNAPSHOT_EVERY = 5000;
 
+// backlog threshold in ms to publish "synced(true|false)" event (to start/stop rendering)
+const SYNCED_MIN = 100;
+const SYNCED_MAX = 1000;
+
 const Controllers = {};
 const SessionCallbacks = {};
 
@@ -140,6 +144,8 @@ export default class Controller {
         this.oldMessages = [];
         /** CPU time spent simulating since last snapshot */
         this.cpuTime = 0;
+        /** backlog was below SYNCED_MIN */
+        this.synced = false;
         /** latency statistics */
         this.statistics = {
             /** for identifying our own messages */
@@ -741,8 +747,12 @@ export default class Controller {
             }
             if (weHaveTime) weHaveTime = this.island.advanceTo(this.time, deadline);
             this.cpuTime += Stats.end("simulate");
-            Stats.backlog(this.backlog);
-            displaySpinner(this.backlog > 1000);
+            const backlog = this.backlog;
+            Stats.backlog(backlog);
+            if (this.synced && backlog > SYNCED_MAX || !this.synced && backlog < SYNCED_MIN) {
+                this.synced = !this.synced;
+                displaySpinner(!this.synced);
+            }
             if (weHaveTime && this.cpuTime > SNAPSHOT_EVERY) { this.cpuTime = 0; this.scheduleSnapshot(); }
             return weHaveTime;
         } catch (e) {
