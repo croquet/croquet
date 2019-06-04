@@ -144,8 +144,8 @@ export default class Controller {
         this.oldMessages = [];
         /** CPU time spent simulating since last snapshot */
         this.cpuTime = 0;
-        /** backlog was below SYNCED_MIN */
-        this.synced = false;
+        /** @type {Boolean} backlog was below SYNCED_MIN */
+        this.synced = null; // indicates never synced before
         /** latency statistics */
         this.statistics = {
             /** for identifying our own messages */
@@ -749,7 +749,7 @@ export default class Controller {
             this.cpuTime += Stats.end("simulate");
             const backlog = this.backlog;
             Stats.backlog(backlog);
-            if (this.synced && backlog > SYNCED_MAX || !this.synced && backlog < SYNCED_MIN) {
+            if (typeof this.synced === "boolean" && (this.synced && backlog > SYNCED_MAX || !this.synced && backlog < SYNCED_MIN)) {
                 this.synced = !this.synced;
                 displaySpinner(!this.synced);
                 this.island.publishFromView(this.id, "synced", this.synced);
@@ -777,6 +777,7 @@ export default class Controller {
     /** Got the official time from reflector server, or local multiplier */
     timeFromReflector(time, src="reflector") {
         if (time < this.time) { if (src !== "controller" || DEBUG.ticks) console.warn(`time is ${this.time}, ignoring time ${time} from ${src}`); return; }
+        if (typeof this.synced !== "boolean") this.synced = false;
         this.time = time;
         if (this.island) Stats.backlog(this.backlog);
     }
