@@ -4,6 +4,7 @@ import Stats from "@croquet/util/stats";
 import hotreloadEventManger from "@croquet/util/hotreloadEventManager";
 import urlOptions from "@croquet/util/urlOptions";
 import { login, getUser } from "@croquet/util/user";
+import { displaySpinner } from "@croquet/util/html";
 import { baseUrl, hashNameAndCode, hashString, uploadCode } from "@croquet/util/modules";
 import { inViewRealm } from "./realms";
 import Island, { Message } from "./island";
@@ -741,6 +742,7 @@ export default class Controller {
             if (weHaveTime) weHaveTime = this.island.advanceTo(this.time, deadline);
             this.cpuTime += Stats.end("simulate");
             Stats.backlog(this.backlog);
+            displaySpinner(this.backlog > 1000);
             if (weHaveTime && this.cpuTime > SNAPSHOT_EVERY) { this.cpuTime = 0; this.scheduleSnapshot(); }
             return weHaveTime;
         } catch (e) {
