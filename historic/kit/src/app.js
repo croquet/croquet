@@ -135,9 +135,8 @@ export default class App {
                 // simulate about as long as in the prev frame to distribute load
                 this.simulate(simStart + Math.min(simBudget, 200));
                 // if backlogged, use all CPU time for simulation, but render at least at 5 fps
-                if (this.roomStates[this.currentRoomName].controller.backlog > this.balanceMS) {
-                    this.simulate(simStart + 200 - simBudget);
-                }
+                const { backlog } = this.roomStates[this.currentRoomName].controller;
+                if (backlog > this.balanceMS) this.simulate(simStart + 200 - simBudget);
                 // keep log of sim times
                 this.simLoad.push(Date.now() - simStart);
                 if (this.simLoad.length > this.loadBalance) this.simLoad.shift();
@@ -149,6 +148,8 @@ export default class App {
                 Stats.active(Date.now() - lastSent);
                 // remember lastFrame for setInterval()
                 this.lastFrame = Date.now();
+                // no view updates / render if backlogged
+                if (backlog > 1000) return;
             }
 
             // update views from model
