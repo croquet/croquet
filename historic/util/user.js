@@ -27,11 +27,11 @@ export async function login() {
         style.innerHTML = `
             .overlay {
                 z-index:10000;
-                position:absolute;
+                position: fixed;
                 left: 0;
                 top: 0;
-                width:100vw;
-                height:100vh;
+                width: 100%;
+                height: 100%;
                 background-color:#333;
                 opacity:0.9;
                 display:flex;
@@ -226,9 +226,7 @@ export async function login() {
             }
 
             // close dialog
-            dialog.reset(); // clear fields
-            document.body.removeChild(overlay);
-
+            closeDialog();
             // resolve promise
             resolve(true);
         };
@@ -238,12 +236,16 @@ export async function login() {
             // log out
             delete localStorage.croquetUser;
             // close dialog
-            dialog.reset(); // clear fields
-            document.body.removeChild(overlay);
-
+            closeDialog();
             // resolve promise
             resolve(false);
         };
+
+        function closeDialog() {
+            dialog.reset(); // clear fields
+            document.head.removeChild(style);
+            document.body.removeChild(overlay);
+        }
 
         function userURL(username, file, ext=".json") {
             return `${fileServer()}/files-v1/user/${username.toLowerCase()}/${file}${ext}`;
