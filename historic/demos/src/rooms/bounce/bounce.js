@@ -149,7 +149,7 @@ export default function initBounce(options) {
     const text1 = TextElement.create({
         spatial: { position: new THREE.Vector3(-2.25, 3, -2) },
         text: { content: {runs: [{text: "Croquet runs identically on any platform. Load this in another page to compare. Drag the cubes."}]} },
-        editable: false
+        editable: true
     });
     room.parts.elements.add(text1);
     const bouncingBoxes = RandomlyColoringGroupElement.create({ spatial: { scale: new THREE.Vector3(0.5, 0.5, 0.5) } });

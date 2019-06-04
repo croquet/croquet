@@ -4,6 +4,7 @@ import Stats from "@croquet/util/stats";
 import hotreloadEventManger from "@croquet/util/hotreloadEventManager";
 import urlOptions from "@croquet/util/urlOptions";
 import { login, getUser } from "@croquet/util/user";
+import { displaySpinner } from "@croquet/util/html";
 import { baseUrl, hashNameAndCode, hashString, uploadCode } from "@croquet/util/modules";
 import { inViewRealm } from "./realms";
 import Island, { Message } from "./island";
@@ -11,6 +12,9 @@ import Island, { Message } from "./island";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
+
+
+/** @typedef { import('./model').default } Model */
 
 
 // when reflector has a new feature, we increment this value
@@ -122,48 +126,69 @@ export default class Controller {
         this.networkQueue = new AsyncQueue();
         /** the time of last message received from reflector */
         this.time = 0;
+        /** the human-readable session (e.g. "room/user/random") */
+        this.session = '';
         /** the number of concurrent users in our island */
         this.users = 0;
-        /** wallclock time we last heard from reflector */
+        /** wallclock time we last received from reflector */
         this.lastReceived = Date.now();
+        /** wallclock time we last sent a message to reflector */
+        this.lastSent = Date.now();
         /** old snapshots */
         this.snapshots = [];
         /** external messages already scheduled in the island */
         this.oldMessages = [];
         /** CPU time spent simulating since last snapshot */
         this.cpuTime = 0;
+        /** latency statistics */
+        this.statistics = {
+            /** for identifying our own messages */
+            id: Math.floor(Math.random() * 0x100000000),
+            /** for identifying each message we sent */
+            seq: 0,
+            /** time when message was sent */
+            sent: {},
+        };
+        /** last measured latency in ms */
+        this.latency = 0;
     }
 
     /**
-     * Create a new Island by requesting to join the reflector
+     * Join or create a session by connecting to the reflector
+     * - the island/session id is created from the session name (found in the URL)
+     *   and a hash of all source code that is imported by that file
+     * - if no session name is in the URL, a random session is created
      *
-     * Detail: the island/session id is created from fileName and a hash of
-     *         all source code that is imported by that file
+     * @param {String} room - A (human-readable) name for the room
+     * @param {{moduleID:String, init:Function}} creator - The moduleID and function creating the island
      *
-     * TODO: convert callback to promise
-     * @param {String} name A (human-readable) name for the room
-     * @param {{moduleID:String, init:Function}} creator The moduleID and function creating the island
-     * @param {{}} snapshot The island's initial state (if hot-reloading)
-     * @returns {Promise<Island>}
+     * @returns {Promise<{modelName:Model}>} list of named models (as returned by init function)
      */
-    async createIsland(name, creator) {
+    async establishSession(room, creator) {
         await login();
         const { optionsFromUrl, multiRoom } = creator;
         const options = {...creator.options};
         for (const key of [...OPTIONS_FROM_URL, ...optionsFromUrl||[]]) {
             if (key in urlOptions) options[key] = urlOptions[key];
         }
-        let session = urlOptions.getSession();
-        if (!session.includes("/")) {
-            if (session) session += "/";
-            const user = getUser("name") || "GUEST";
-            let random = '';
-            for (let i = 0; i < 10; i++) random += '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.random() * 36|0];
-            session = `${user}/${random}`;
-            if (multiRoom) session = `${name}/${session}`;
-            urlOptions.setSession(session, true);
+        // session is either "user/random" or "room/user/random" (for multi-room)
+        const session = urlOptions.getSession().split('/');
+        let user = multiRoom ? session[1] : session[0];
+        let random = multiRoom ? session[2] : session[1];
+        const newSession = !user || !random;
+        if (newSession) {
+            // incomplete session: create a new session id
+            if (!user) user = getUser("name", "").toLowerCase() || "GUEST";
+            if (!random) {
+                random = '';
+                for (let i = 0; i < 10; i++) random += '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.random() * 36|0];
+            }
         }
-        name = multiRoom ? session : `${name}/${session}`;
+        this.session = multiRoom ? `${room}/${user}/${random}` : `${user}/${random}`;
+        if (!multiRoom) urlOptions.setSession(this.session, newSession);   // multiRoom handles this elsewhere
+        // the island id (name) is "room/user/random?opt=val&opt=val"
+        let name = `${room}/${user}/${random}`;
+        if (user === 'DEMO') this.viewOnly = getUser("demoViewOnly", true);
         // include options in name & hash
         if (Object.keys(options).length) {
             name += '?' + Object.entries(options).map(([k,v])=>`${k}=${v}`).join('&');
@@ -486,8 +511,8 @@ export default class Controller {
             }
             case 'SYNC': {
                 // We are joining an island session.
-                const {messages, url} = args;
-                console.log(this.id, `Controller received SYNC: ${messages.length} messages, ${url}`);
+                const {messages, url, time} = args;
+                console.log(this.id, `Controller received SYNC: time ${time}, ${messages.length} messages, ${url}`);
                 const snapshot = await this.fetchJSON(url);
                 this.islandCreator.snapshot = snapshot;  // set snapshot
                 if (!this.socket) { console.log(this.id, 'socket went away during SYNC'); return; }
@@ -495,7 +520,7 @@ export default class Controller {
                     if (DEBUG.messages) console.log(this.id, 'Controller got message in SYNC ' + msg);
                     msg[1] >>>= 0;      // reflector sends int32, we want uint32
                 }
-                this.install(messages);
+                this.install(messages, time);
                 this.getTickAndMultiplier();
                 this.keepSnapshot(snapshot);
                 return;
@@ -505,10 +530,11 @@ export default class Controller {
                 // Put it in the queue, and set time.
                 // Actual processing happens in main loop.
                 if (DEBUG.messages) console.log(this.id, 'Controller received RECV ' + args);
-                const msg = args;   // [time, seq, payload]
+                const msg = args;   // [time, seq, payload, senderId, senderSeq]
                 const time = msg[0];
                 msg[1] >>>= 0;      // reflector sends int32, we want uint32
-                //if (msg.sender === this.senderID) this.addToStatistics(msg);
+                // if we sent this message, add it to latency statistics
+                if (msg[3] === this.statistics.id) this.addToStatistics(msg[4]);
                 this.networkQueue.put(msg);
                 this.timeFromReflector(time);
                 this.checkMetaMessage(msg);
@@ -547,7 +573,7 @@ export default class Controller {
         }
     }
 
-    install(messagesSinceSnapshot=[]) {
+    install(messagesSinceSnapshot=[], syncTime=0) {
         const {snapshot, init, options, callbackFn} = this.islandCreator;
         let newIsland = new Island(snapshot, () => init(options));
         if (DEBUG.initsnapshot && !snapshot.modelsById) {
@@ -555,8 +581,15 @@ export default class Controller {
             const initialIslandSnap = JSON.stringify(newIsland.snapshot());
             newIsland = new Island(JSON.parse(initialIslandSnap), () => init(options));
         }
-        for (const msg of messagesSinceSnapshot) newIsland.scheduleExternalMessage(msg);
-        this.time = Math.max(newIsland.time, newIsland.externalTime);
+        // trying to debug https://github.com/croquet/ARCOS/issues/223
+        const expected = (newIsland.externalSeq - newIsland.seq) >>> 0;
+        console.log(this.id, `Controller expected ${expected} unsimulated external messages in snapshot (${newIsland.seq}-${newIsland.externalSeq})`);
+        const external = newIsland.messages.asArray().filter(m => m.isExternal());
+        console.log(this.id, `Controller found ${external.length} unsimulated external messages in snapshot`, external);
+        if (messagesSinceSnapshot.length > 0) {
+            console.log(this.id, `Controller scheduling ${messagesSinceSnapshot.length} messages after snapshot`, messagesSinceSnapshot);
+            for (const msg of messagesSinceSnapshot) newIsland.scheduleExternalMessage(msg);
+        }
         // drain message queue
         const nextSeq = (newIsland.externalSeq + 1) >>> 0;
         for (let msg = this.networkQueue.peek(); msg; msg = this.networkQueue.peek()) {
@@ -566,6 +599,10 @@ export default class Controller {
             // silently skip old messages
             this.networkQueue.nextNonBlocking();
         }
+        // our time is the latest of this.time (we may have received a tick already), the island time in the snapshot, and the reflector time at SYNC
+        const islandTime = Math.max(newIsland.time, newIsland.externalTime);
+        if (syncTime && syncTime < islandTime) console.warn(`ignoring SYNC time from reflector (time was ${islandTime.time}, received ${syncTime})`);
+        this.time = Math.max(this.time, islandTime, syncTime);
         this.setIsland(newIsland); // install island
         callbackFn(this.island);
     }
@@ -617,12 +654,21 @@ export default class Controller {
         // SEND: Broadcast a message to all participants.
         if (!this.socket) return;  // probably view sending event while connection is closing
         if (this.socket.readyState !== WebSocket.OPEN) return;
+        if (this.viewOnly) return;
         if (DEBUG.sends) console.log(this.id, `Controller sending SEND ${msg.asState()}`);
+        this.lastSent = Date.now();
+        this.statistics.sent[++this.statistics.seq] = this.lastSent;
         this.socket.send(JSON.stringify({
             id: this.id,
             action: 'SEND',
-            args: msg.asState(),
+            args: [...msg.asState(), this.statistics.id, this.statistics.seq],
         }));
+    }
+
+    addToStatistics(statSeq) {
+        const {sent} = this.statistics;
+        this.latency = Date.now() - sent[statSeq];
+        delete sent[statSeq];
     }
 
     /** parse tps `ticks x multiplier` ticks are from server, multiplied by locally generated ticks
@@ -696,6 +742,7 @@ export default class Controller {
             if (weHaveTime) weHaveTime = this.island.advanceTo(this.time, deadline);
             this.cpuTime += Stats.end("simulate");
             Stats.backlog(this.backlog);
+            displaySpinner(this.backlog > 1000);
             if (weHaveTime && this.cpuTime > SNAPSHOT_EVERY) { this.cpuTime = 0; this.scheduleSnapshot(); }
             return weHaveTime;
         } catch (e) {
@@ -750,9 +797,9 @@ const TheSocketWaitList = [];
 let LastReceived = 0;
 
 /** start sending PINGs to server after not receiving anything for this timeout */
-const PING_TIMEOUT = 500;
+const PING_TIMEOUT = 100;
 /** send PINGs using this interval until hearing back from server */
-const PING_INTERVAL = 1000 / 5;
+const PING_INTERVAL = 100;
 
 function PING() {
     if (!TheSocket || TheSocket.readyState !== WebSocket.OPEN) return;

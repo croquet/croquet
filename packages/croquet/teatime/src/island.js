@@ -407,9 +407,11 @@ export class Message {
     hasSelector(sel) { return hasSelector(this.payload, sel); }
     hasReceiverAndSelector(id, sel) { return hasReceiverAndSelector(this.payload, id, sel); }
 
-    isExternal() {
-        return this.seq & 1;
-    }
+    isExternal() { return this.seq & 1; }
+    get externalSeq() { return (this.seq / 2) >>> 0; }
+    set externalSeq(seq) { this.seq = seq * 2 + 1; }
+    get internalSeq() { return (this.seq / 2) >>> 0; }
+    set internalSeq(seq) { this.seq = seq * 2; }
 
     asState() {
         return [this.time, this.seq, this.payload];
@@ -440,7 +442,8 @@ export class Message {
     toString() {
         const { receiver, selector, args } = decode(this.payload);
         const ext = this.isExternal();
-        return `${ext ? 'External' : 'Future'}Message[${this.time}${':#'[+ext]}${this.seq} ${receiver}.${selector}(${args.map(JSON.stringify).join(', ')})]`;
+        const seq = ext ? this.externalSeq : this.internalSeq;
+        return `${ext ? 'External' : 'Future'}Message[${this.time}${':#'[+ext]}${seq} ${receiver}.${selector}(${args.map(JSON.stringify).join(', ')})]`;
     }
 
     [Symbol.toPrimitive]() { return this.toString(); }

@@ -80,7 +80,7 @@ console.warn(this);
 
         const controller = new Controller();
         controller.fetchUpdatedSnapshot = this.doDownload;
-        roomState.namedModelsPromise = controller.createIsland(roomName, roomState.creator);
+        roomState.namedModelsPromise = controller.establishSession(roomName, roomState.creator);
         roomState.controller = controller;
         roomState.namedModels = await roomState.namedModelsPromise;
         return roomState.namedModels;
@@ -93,9 +93,12 @@ console.warn(this);
     async joinRoom(roomName, cameraPosition=new THREE.Vector3(0, 2, 4), cameraQuaternion=new THREE.Quaternion(), overrideCamera, cameraVelocity) {
         if (!this.roomStates[roomName]) throw Error("Unknown room: " + roomName);
         if (this.currentRoomName === roomName) return;
+        const hadSession = urlOptions.getSession().includes('/');
         await this.loadRoom(roomName);
         const prevRoomName = this.currentRoomName;
-        displaySessionMoniker(this.roomStates[roomName].controller.id, 'reset');
+        const {controller} = this.roomStates[roomName];
+        urlOptions.setSession(controller.session, !hadSession);
+        displaySessionMoniker(controller.id, 'reset');
         displayQRCode(window.location.href, 'qrcode');
         this.currentRoomName = roomName;
         // leave old room after changing current room (see destroyerFn above)
@@ -134,17 +137,21 @@ console.warn(this);
                 // simulate about as long as in the prev frame to distribute load
                 this.simulate(simStart + Math.min(simBudget, 200));
                 // if backlogged, use all CPU time for simulation, but render at least at 5 fps
-                if (this.roomStates[this.currentRoomName].controller.backlog > this.balanceMS) {
-                    this.simulate(simStart + 200 - simBudget);
-                }
+                const { backlog } = this.roomStates[this.currentRoomName].controller;
+                if (backlog > this.balanceMS) this.simulate(simStart + 200 - simBudget);
                 // keep log of sim times
                 this.simLoad.push(Date.now() - simStart);
                 if (this.simLoad.length > this.loadBalance) this.simLoad.shift();
                 // update stats
-                Stats.users(this.roomStates[this.currentRoomName].controller.users);
-                Stats.network(Date.now() - this.roomStates[this.currentRoomName].controller.lastReceived);
+                const {latency, users, lastReceived, lastSent} = this.roomStates[this.currentRoomName].controller;
+                Stats.users(users);
+                Stats.network(Date.now() - lastReceived);
+                Stats.latency(latency);
+                Stats.active(Date.now() - lastSent);
                 // remember lastFrame for setInterval()
                 this.lastFrame = Date.now();
+                // no view updates / render if backlogged
+                if (backlog > 1000) return;
             }
 
             // update views from model

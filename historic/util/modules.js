@@ -42,12 +42,19 @@ if (!htmlSource.includes(entryPointName)) console.error("Entry point substitutio
 
 const BASE_URL = baseUrl('code');
 
+export function fileServer() {
+    const server = typeof urlOptions.files === "string" ? urlOptions.files : 'https://db.croquet.studio';
+    if (server.endsWith('/')) return server.slice(0, -1);
+    return server;
+}
+
 // we use a separate directory for each host (e.g. "croquet.studio")
 // but replace 'localhost' and '*.ngrok.io' by 'dev/username' for developers
 export function baseUrl(what='code') {
     const dev = urlOptions.has("dev", "host", "localhost");
     const host = dev ? `dev/${getUser("name", "GUEST")}` : window.location.hostname;
-    return `https://db.croquet.studio/files-v1/${host}/${what}/`;
+    const server = fileServer();
+    return `${server}/files-v1/${host}/${what}/`;
 }
 
 function allModules() {

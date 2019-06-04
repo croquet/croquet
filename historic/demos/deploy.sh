@@ -23,7 +23,7 @@ git commit --no-verify -m "deploy croquet.studio/old/$DATE/"
 
 APP=$DIR/demos
 rm -f $APP/*
-npx parcel build ./assets/*.html -d $APP/ --public-url . --no-source-maps || exit
+npx parcel build ./assets/*.html -d $APP/ --public-url . || exit
 
 if [ "$old_stash" != "$new_stash" ]; then
     echo "restoring dirty files"
