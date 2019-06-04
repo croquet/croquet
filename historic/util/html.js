@@ -61,8 +61,13 @@ const spinnerOverlay = addSpinner();
 export function displaySpinner(enabled) {
     const wasEnabled = !!spinnerOverlay.parentElement;
     if (wasEnabled === enabled) return;
-    if (enabled) document.body.appendChild(spinnerOverlay);
-    else document.body.removeChild(spinnerOverlay);
+    if (enabled) {
+        document.body.appendChild(spinnerOverlay);
+        spinnerOverlay.style.opacity = 0.9; // animate
+    } else {
+        spinnerOverlay.style.opacity = 0.0; // animate
+        setTimeout(() => spinnerOverlay.parentElement && document.body.removeChild(spinnerOverlay), 1000);
+    }
 }
 
 function addSpinner() {
@@ -79,7 +84,8 @@ function addSpinner() {
             opacity:0.9;
             display:flex;
             align-items:center;
-            justify-content:center
+            justify-content:center;
+            transition: opacity 1.0s ease-out;
         }
         /* https://github.com/lukehaas/css-loaders */
         @keyframes dots {
