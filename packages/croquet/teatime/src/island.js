@@ -153,18 +153,12 @@ export default class Island {
 
     futureSend(tOffset, receiverID, selector, args) {
         if (tOffset < 0) throw Error("attempt to send future message into the past");
-         // Wrapping below means that if we have an overflow, messages
-        // scheduled after the overflow will be executed *before* messages
-        // scheduled earlier. It won't lead to any collisions (this would require
-        // wrap-around within a time slot) but it still is a problem since it
-        // may cause unpredictable effects on the code.
-        // Then again, if we produced 1000 messages at 60 fps it would still take
-        // over 1000 years to wrap around. 2^53 is big.
+        // Wrapping below is fine because the message comparison function deals with it.
         // To have a defined ordering between future messages generated on island
         // and messages from the reflector, we create even sequence numbers here and
         // the reflector's sequence numbers are made odd on arrival
-        this.futureSeq = (this.futureSeq + 2) % (Number.MAX_SAFE_INTEGER + 1);
-        const message = new Message(this.time + tOffset, this.futureSeq, receiverID, selector, args);
+        this.futureSeq = (this.futureSeq + 1) >>> 0;
+        const message = new Message(this.time + tOffset, 2 * this.futureSeq, receiverID, selector, args);
         this.messages.add(message);
         return message;
     }
