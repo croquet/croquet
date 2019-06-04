@@ -386,6 +386,12 @@ function hasReceiverAndSelector(payload, id, selector) {
     return payload.match(new RegExp(`^${id}>${selector}\\b`));
 }
 
+/** answer true if seqA comes before seqB */
+function inSequence(seqA, seqB) {
+    const seqDelta = (seqB - seqA) >>> 0; // make unsigned
+    return seqDelta < 0x8000000;
+}
+
 export class Message {
     static hasReceiver(msgData, id) { return hasReceiver(msgData[2], id); }
     static hasSelector(msgData, sel) { return hasSelector(msgData[2], sel); }
@@ -398,9 +404,13 @@ export class Message {
     }
 
     before(other) {
-        return this.time !== other.time
-            ? this.time < other.time
-            : this.seq < other.seq;
+        // sort by time
+        if (this.time !== other.time) return this.time < other.time;
+        // internal before external
+        if (this.isExternal() !== other.isExternal()) return other.isExternal();
+        return this.isExternal()
+            ? inSequence(this.externalSeq, other.externalSeq)
+            : inSequence(this.internalSeq, other.internalSeq);
     }
 
     hasReceiver(id) { return hasReceiver(this.payload, id); }
