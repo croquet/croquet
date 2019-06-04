@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { JSZip } from "jszip";
+import JSZip from "jszip";
 import { baseUrl, hashBuffer } from "@croquet/util/modules";
 import SpatialPart from './modelParts/spatial';
 import Tracking from './viewParts/tracking';
@@ -9,7 +9,7 @@ import { ModelPart, ViewPart, ViewEvents } from './parts';
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
-// @@ some (Bert-sanctioned) contortions needed to get the imports working.  inflate is needed for FBXLoader.  the version installed from https://github.com/imaya/zlib.js doesn't behave as the loader expects.
+// @@ some (Bert-sanctioned) contortions needed to get the imports working.  inflate is needed for FBXLoader.  the version installed from https://github.com/imaya/zlib.js turned out not to behave as [our downloaded version of] the loader expects.
 window.THREE = THREE;
 const Zlib = require("../thirdparty/inflate.min").Zlib;
 window.Zlib = Zlib;
@@ -22,6 +22,8 @@ require("../thirdparty/DRACOLoader");
 require("../thirdparty/LegacyGLTFLoader");
 require("../thirdparty/FBXLoader");
 require("../thirdparty/STLLoader");
+
+// THREE.DRACOLoader.setDecoderPath("../thirdparty/draco/gltf/"); // ### NOPE (not very surprisingly)
 
 const BASE_URL = baseUrl('assets');
 const makeBlobUrl = blobHash => `${BASE_URL}${blobHash}.blob`;
@@ -45,7 +47,7 @@ export class AssetManager {
     constructor(frame) {
         this.frame = frame;
         this.assetCache = {};
-        this.knownAssetIDs = {};
+        this.knownAssetURLs = {};
     }
 
     // ### NOT USED YET (what urls might we want to let users drag into croquet?)
@@ -209,8 +211,8 @@ console.log(assetDescriptors.map(loadSpec => loadSpec.displayName));
                 reader.onerror = reject;
                 reader.readAsArrayBuffer(file);
                 });
-
-            return { name: file.name, type: fileType, blob: file, buffer };
+            const mimeType = fileType === ".mp4" ? "video/mp4" : null; // so far, mp4 is the only case that seems to matter (in Safari); see fetchSharedBlob()
+            return { name: file.name, type: fileType, blob: file, buffer, mimeType };
         } catch (e) {
             console.error(e);
             return null;
@@ -437,8 +439,10 @@ console.log(assetDescriptors.map(loadSpec => loadSpec.displayName));
         if (!fileSpec.blob) fileSpec.blob = new Blob([buffer], { type: 'application/octet-stream' });
         if (fileSpec.type !== ".zip") {
             const hash = await hashBuffer(buffer);
+            this.assetCache[hash] = fileSpec.blob;
             fileSpec.hash = hash;
-            this.ensureBlobIsShared(hash, fileSpec.blob, fileSpec.name); // async, but we don't need to wait
+            fileSpec.blobURL = makeBlobUrl(hash);
+            this.ensureBlobIsShared(fileSpec.blobURL, fileSpec.blob, fileSpec.name); // async, but we don't need to wait
         }
         return fileSpec;
     }
@@ -525,21 +529,20 @@ console.log(assetDescriptors.map(loadSpec => loadSpec.displayName));
         return { displayName, fileDict: newFileDict, loadType, loadPaths };
     }
 
-    async ensureBlobIsShared(blobHash, blob, name="") {
-        if (this.knownAssetIDs[blobHash]) return;
+    async ensureBlobIsShared(blobURL, blob, name="") {
+        if (this.knownAssetURLs[blobURL]) return;
 
-        this.knownAssetIDs[blobHash] = true;
-        const blobUrl = makeBlobUrl(blobHash);
+        this.knownAssetURLs[blobURL] = true;
         try {
             // see if it's already there
-            const response = await fetch(blobUrl, { method: 'HEAD' });
+            const response = await fetch(blobURL, { method: 'HEAD' });
             // if successful, return
             if (response.ok) return;
         } catch (ex) { /* ignore */ }
         // not found, so try to upload it
         try {
             console.warn(`storing attachment doc for content of ${name}`);
-            await fetch(blobUrl, {
+            await fetch(blobURL, {
                 method: "PUT",
                 mode: "cors",
                 body: blob,
@@ -547,23 +550,28 @@ console.log(assetDescriptors.map(loadSpec => loadSpec.displayName));
         } catch (error) { /* ignore */ }
     }
 
-    fetchSharedBlob(blobHash) {
-        // it turns out that even if the document has appeared in the db, the blob
-        // can take a while longer to turn up.
-        const blobUrl = makeBlobUrl(blobHash);
+    fetchSharedBlob(blobURL, optionalType) {
         const retryDelay = 1000;
         let retries = 60;
         return new Promise(resolved => {
-            const getBlob = () => fetch(blobUrl, { mode: "cors" })
+            const getBlob = () => fetch(blobURL, { mode: "cors" })
                 .then(response => {
-                    if (response.ok) return response.blob();
+                    // build the Blob ourselves, so we can set its type (introduced as a workaround to Safari refusing to play an untyped mp4 blob)
+                    //if (response.ok) return response.blob();
+                    if (response.ok) return response.arrayBuffer();
                     throw new Error('Network response was not ok.');
                     })
-                .then(blob => { this.knownAssetIDs[blobHash] = true; resolved(blob); })
+//                .then(blob => { this.knownAssetURLs[blobURL] = true; resolved(blob); })
+                .then(arrayBuffer => {
+                    this.knownAssetURLs[blobURL] = true;
+                    const options = optionalType ? { type: optionalType } : {};
+                    const blob = new Blob([arrayBuffer], options);
+                    resolved(blob);
+                    })
                 .catch(() => {
-                    if (retries === 0) console.error(`blob never arrived: ${blobHash}`);
+                    if (retries === 0) console.error(`blob never arrived: ${blobURL}`);
                     else {
-                        console.log(`waiting for blob: ${blobHash}`);
+                        console.log(`waiting for blob: ${blobURL}`);
                         retries--;
                         setTimeout(getBlob, retryDelay);
                     }
@@ -606,7 +614,7 @@ console.log(assetDescriptors.map(loadSpec => loadSpec.displayName));
         // currently we don't create a hash for zip files.
         if (fileSpec.hash) {
             const cacheKey = fileSpec.hash;
-            const promiseFn = () => fileSpec.blob || this.fetchSharedBlob(fileSpec.hash);
+            const promiseFn = () => fileSpec.blob || this.fetchSharedBlob(fileSpec.blobURL, fileSpec.mimeType);
             blob = await this.loadThroughCache(cacheKey, promiseFn);
         } else blob = fileSpec.blob; // assuming it's there.
         return blob;
@@ -681,34 +689,34 @@ console.warn(`recording fetch of ${urlStr}`);
     }
 
     ensureAssetsAvailable(assetDescriptor) {
-        const blobHashDict = {};
-        Object.values(assetDescriptor.fileDict).forEach(fileSpec => blobHashDict[fileSpec.hash] = true);
+        const blobURLDict = {};
+        Object.values(assetDescriptor.fileDict).forEach(fileSpec => blobURLDict[fileSpec.blobURL] = true);
         // ids, retryMessage, retryDelay, maxRetries
-        return this.ensureBlobsAvailable(Object.keys(blobHashDict),
+        return this.ensureBlobsAvailable(Object.keys(blobURLDict),
             "waiting for asset docs to appear in db...",
             1000, 60).then(status => {
                 if (status === 'ok') {
-                    Object.keys(blobHashDict).forEach(hash => this.knownAssetIDs[hash] = true);
+                    Object.keys(blobURLDict).forEach(blobURL => this.knownAssetURLs[blobURL] = true);
                 }
                 return status;
                 });
     }
 
-    ensureBlobsAvailable(hashes, retryMessage, retryDelay, maxRetries) {
+    ensureBlobsAvailable(blobURLs, retryMessage, retryDelay, maxRetries) {
         let retries = maxRetries;
         const waitingFor = {};
-        hashes.forEach(hash => waitingFor[hash] = true);
+        blobURLs.forEach(blobURL => waitingFor[blobURL] = true);
         const runAssetCheck = whenReady => {
-            const blobHashes = Object.keys(waitingFor);
-            Promise.all(blobHashes.map(hash => fetch(makeBlobUrl(hash), { method: 'HEAD' })
+            const urls = Object.keys(waitingFor);
+            Promise.all(urls.map(blobURL => fetch(blobURL, { method: 'HEAD' })
                 .then(response => {
                     // if successful, remove from list
-                    if (response.ok) delete waitingFor[hash];
+                    if (response.ok) delete waitingFor[blobURL];
                 }).catch(_err => { /* ignore */ })
             )).then(() => {
                 if (Object.keys(waitingFor).length === 0) whenReady("ok");
                 else {
-                    // still some hashes to process
+                    // still some URLs to process
 
                     /* eslint-disable-next-line no-lonely-if */
                     if (retries === 0) whenReady(null);
@@ -1184,6 +1192,10 @@ class ImportedElementView extends Tracking()(ImportedViewPart) {
 
 }
 
+
+// Video2DView is an interface over an HTML video element.
+// its readyPromise resolves once the video is available to play.
+// when a play() request arrives other than  is requested,
 class Video2DView {
     constructor(url) {
 console.log(this);
@@ -1192,12 +1204,17 @@ console.log(this);
         this.video.autoplay = false;
         this.video.loop = true;
         this.isPlaying = false;
+        this.playOffset = null;
+        this.isBlocked = false; // unless we find out to the contrary, on trying to play
 
         this.readyPromise = new Promise(resolved => {
             this._ready = () => resolved(this);
-        });
+            });
 
-        this.video.oncanplay = () => this._ready();
+        this.video.oncanplay = () => {
+            this.duration = this.video.duration; // ondurationchange is (apparently) always ahead of this
+            this._ready();
+            };
 
         this.video.onerror = () => {
             let err;
@@ -1220,7 +1237,7 @@ console.log(this);
         }
 
         this.video.src = this.url;
-        this.video.load(); //start it
+        this.video.load();
 
         this.texture = new THREE.VideoTexture(this.video);
         this.texture.minFilter = THREE.LinearFilter;
@@ -1232,9 +1249,26 @@ console.log(this);
     width() { return this.video.videoWidth; }
     height() { return this.video.videoHeight; }
 
-    play() { this.video.play(); this.isPlaying = true; }
-    pause() { this.video.pause(); this.isPlaying = false; }
-    startStop() { if (this.isPlaying) this.pause(); else this.play(); }
+    async play(videoTime) {
+        while (videoTime > this.duration) videoTime -= this.duration; // assume it's looping, with no gap between plays
+        this.video.currentTime = videoTime;
+        this.isPlaying = true; // even if it turns out to be blocked by the browser
+        // following guidelines from https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/play
+        try {
+            await this.video.play(); // will throw exception if blocked
+            this.isBlocked = false;
+        } catch (err) {
+            console.warn("video play blocked");
+            this.isBlocked = true;
+        }
+        return this.isBlocked;
+    }
+
+    pause(videoTime) {
+        this.isPlaying = false;
+        if (videoTime) this.video.currentTime = videoTime; // at the originating view for a pause click, we don't supply a time but wait to read where the video stopped
+        this.video.pause(); // no return value; synchronous, instantaneous?
+    }
 
     // ### need to hook this into... something
     dispose() {
@@ -1251,15 +1285,22 @@ export class ImportedVideoElement extends ModelPart {
     constructor() {
         super();
         this.parts = { spatial: new SpatialPart() };
+        this.isPlaying = false;
+        this.startOffset = null; // only valid if playing
+        this.pausedTime = 0; // only valid if paused
     }
 
     init(options, id) {
         super.init(options, id);
+console.warn(options);
         this.assetDescriptor = options.assetDescriptor;
     }
 
-    togglePlay(currentTime) {
-        this.publish(this.id, "togglePlay", { currentTime });
+    setPlayState(isPlaying, startOffset, pausedTime) {
+        this.isPlaying = isPlaying;
+        this.startOffset = startOffset;
+        this.pausedTime = pausedTime;
+        this.publish(this.id, "setPlayState", { isPlaying, startOffset, pausedTime });
     }
 
     naturalViewClass() { return ImportedVideoView; }
@@ -1268,13 +1309,18 @@ export class ImportedVideoElement extends ModelPart {
 class VideoViewPart extends ViewPart {
     constructor(options) {
         super(options);
-        console.warn(this);
+console.warn(this);
 
+        this.videoReady = false;
         this.readyPromise = new Promise(resolved => {
-            this._ready = () => resolved(this);
-        });
+            this._ready = () => {
+                this.videoReady = true;
+                resolved(this);
+                };
+            });
 
-        const assetDescriptor = options.model.assetDescriptor;
+        const element = options.model;
+        const { assetDescriptor, isPlaying, startOffset, pausedTime } = element;
         const assetManager = theAssetManager;
         this.threeObj = new THREE.Group();
 
@@ -1298,27 +1344,50 @@ class VideoViewPart extends ViewPart {
             this.threeObj.scale.set(scale, scale, scale);
             this.publish(this, ViewEvents.changedDimensions, {});
             this._ready();
+            this.setPlayState({ isPlaying, startOffset, pausedTime });
             });
 
-        this.subscribe(options.model.id, "togglePlay", data => this.togglePlay(data));
+        this.subscribe(options.model.id, "setPlayState", data => this.setPlayState(data));
+        this.retryTimeout = null;
     }
 
     get label() {
         return "Imported Video";
     }
 
-    togglePlay(data) {
-        if (!this.videoView) return;
+    setPlayState(data) {
+        if (!this.videoReady) return;
 
-        this.videoView.video.currentTime = data.currentTime;
-        this.videoView.startStop();
+        if (this.retryTimeout) {
+            clearTimeout(this.retryTimeout);
+            this.retryTimeout = null;
+        }
+
+        const { isPlaying, startOffset, pausedTime } = data;
+console.log("setting", { isPlaying, startOffset, pausedTime });
+        if (!isPlaying) this.videoView.pause(pausedTime);
+        else {
+            const tryToPlay = async () => {
+                const sessionNow = this.now(); // rather than externalNow(), which we might be somewhat behind (i.e., there might be a backlog)
+                const isBlocked = await this.videoView.play((sessionNow - startOffset) / 1000);
+                this.retryTimeout = isBlocked ? setTimeout(tryToPlay, 1000) : null;
+                };
+            tryToPlay();
+        }
     }
 }
 
 const ImportedVideoView = Clickable({
     onClick: options => (at, view) => {
         if (!view.videoView) return;
-        options.model.future().togglePlay(view.videoView.video.currentTime);
+
+        const isPlaying = !view.videoView.isPlaying;
+        if (!isPlaying) view.videoView.pause();
+        const videoTime = view.videoView.video.currentTime;
+        const sessionTime = view.now(); // the session time corresponding to the video time
+        const startOffset = isPlaying ? sessionTime - 1000 * videoTime : null;
+        const pausedTime = isPlaying ? 0 : videoTime;
+        options.model.future().setPlayState(isPlaying, startOffset, pausedTime);
     }
 })(Tracking()(VideoViewPart));
 

@@ -31,7 +31,7 @@ export default class View {
     }
 
     unsubscribeAll() {
-        this.__realm.unsubscribeAll(this.id);
+        this.realm.unsubscribeAll(this.id);
     }
 
     // Misc
@@ -43,6 +43,14 @@ export default class View {
 
     random() {
         return currentRealm().random();
+    }
+
+    now() {
+        return this.realm.now();
+    }
+
+    externalNow() {
+        return this.realm.externalNow();
     }
 
     [Symbol.toPrimitive]() {

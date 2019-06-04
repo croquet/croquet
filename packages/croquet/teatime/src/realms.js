@@ -68,6 +68,10 @@ class ModelRealm {
         return this.island.random();
     }
 
+    now() {
+        return this.island.time;
+    }
+
     equal(otherRealm) {
         return otherRealm instanceof ModelRealm && otherRealm.island === this.island;
     }
@@ -127,6 +131,14 @@ class ViewRealm {
 
     random() {
         return Math.random();
+    }
+
+    now() {
+        return this.island.time;
+    }
+
+    externalNow() {
+        return this.island.controller.time;
     }
 
     equal(otherRealm) {
