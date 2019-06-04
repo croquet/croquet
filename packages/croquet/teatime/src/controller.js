@@ -752,6 +752,7 @@ export default class Controller {
             if (this.synced && backlog > SYNCED_MAX || !this.synced && backlog < SYNCED_MIN) {
                 this.synced = !this.synced;
                 displaySpinner(!this.synced);
+                this.island.publishFromView(this.id, "synced", this.synced);
             }
             if (weHaveTime && this.cpuTime > SNAPSHOT_EVERY) { this.cpuTime = 0; this.scheduleSnapshot(); }
             return weHaveTime;
