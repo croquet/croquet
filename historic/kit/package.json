@@ -16,7 +16,7 @@
     "kiwi.js": "^1.1.1",
     "oimo": "git+https://github.com/croquet/Oimo.js.git",
     "seedrandom": "^3.0.1",
-    "three": "^0.101.1",
+    "three": "^0.105.2",
     "three-bmfont-text": "file:./thirdparty-patched/three-bmfont-text",
     "three-buffer-vertex-data": "file:./thirdparty-patched/three-buffer-vertex-data",
     "three-svg-loader": "git+https://github.com/bertfreudenberg/three-svg-loader.git",

@@ -18,12 +18,16 @@ require("../thirdparty/ColladaLoader");
 require("../thirdparty/OBJLoader");
 require("../thirdparty/MTLLoader");
 require("../thirdparty/GLTFLoader");
-require("../thirdparty/DRACOLoader");
 require("../thirdparty/LegacyGLTFLoader");
 require("../thirdparty/FBXLoader");
 require("../thirdparty/STLLoader");
 
-// THREE.DRACOLoader.setDecoderPath("../thirdparty/draco/gltf/"); // ### NOPE (not very surprisingly)
+// DRACOLoader is a bit more complicated
+require("../thirdparty/DRACOLoader");
+const DracoDecoderModule = require("../thirdparty/draco/gltf/draco_decoder");
+THREE.DRACOLoader.setDecoderConfig({ type: 'js' });
+THREE.DRACOLoader.decoderModulePromise = Promise.resolve({ decoder: DracoDecoderModule(THREE.DRACOLoader.decoderConfig) });
+//THREE.DRACOLoader.setDecoderPath("http://localhost:8000/croquet/kit/thirdparty/draco/gltf/"); the standard way of pointing DRACOLoader to its decoders.  if we can figure out a way to work this in with Parcel
 
 const BASE_URL = baseUrl('assets');
 const makeBlobUrl = blobHash => `${BASE_URL}${blobHash}.blob`;
@@ -1012,6 +1016,10 @@ if (baseFileSpec && !baseFileSpec.hash) debugger;
                     onProgress,
                     onError);
                 });
+
+        // @@ gltf with skinnedMeshes (as generated from some glb files) don't clone properly - though https://github.com/mrdoob/three.js/pull/14494 suggests that there might be q fix in r102 or thereabouts...?
+        if (assetDescriptor.loadType === ".glb") return promiseFn(); // don't clone
+
         return this.loadThroughCache(cacheKey, promiseFn).then(scene => {
             const clone = scene.clone();
             if (scene.initTObject) { clone.initTObject = scene.initTObject; }
@@ -1127,7 +1135,7 @@ console.warn(this);
             const scale = 2/rawHeight;
             this.threeObj.add(obj);
             this.threeObj.scale.set(scale, scale, scale);
-            this.publish(this, ViewEvents.changedDimensions, {});
+            this.publish(this.id, ViewEvents.changedDimensions, {});
             this._ready();
             };
 
@@ -1285,15 +1293,16 @@ export class ImportedVideoElement extends ModelPart {
     constructor() {
         super();
         this.parts = { spatial: new SpatialPart() };
-        this.isPlaying = false;
-        this.startOffset = null; // only valid if playing
-        this.pausedTime = 0; // only valid if paused
     }
 
     init(options, id) {
         super.init(options, id);
 console.warn(options);
+        this.isPlaying = false;
+        this.startOffset = null; // only valid if playing
+        this.pausedTime = 0; // only valid if paused
         this.assetDescriptor = options.assetDescriptor;
+        // $$ this.subscribe(this.id, "")
     }
 
     setPlayState(isPlaying, startOffset, pausedTime) {
@@ -1342,7 +1351,7 @@ console.warn(this);
             const scale = 2 / h;
             this.threeObj.add(rect);
             this.threeObj.scale.set(scale, scale, scale);
-            this.publish(this, ViewEvents.changedDimensions, {});
+            this.publish(this.id, ViewEvents.changedDimensions, {});
             this._ready();
             this.setPlayState({ isPlaying, startOffset, pausedTime });
             });

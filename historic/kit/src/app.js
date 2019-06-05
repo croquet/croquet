@@ -10,7 +10,7 @@ export default class App {
     constructor(rooms, reflectorUrl, canvas, width, height, options={}) {
         // start websocket connection
         Controller.connectToReflector(module.id, reflectorUrl);
-console.warn(this);
+
         this.roomStates = {};
 
         for (const [roomName, roomInit] of Object.entries(rooms)) {
