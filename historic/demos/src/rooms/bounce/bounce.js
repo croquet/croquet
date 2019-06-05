@@ -92,14 +92,14 @@ const GroupElementView = Tracking()(class extends ViewPart {
         /** @type {View} */
         const view = new NaturalView({model: element});
         this.viewsForChildElements[element.id] = view;
-        // this.subscribe(view, {event: ViewEvents.changedDimensions, oncePerFrame: true}, () => this.publish(this, ViewEvents.changedDimensions));
+        // this.subscribe(view.id, {event: ViewEvents.changedDimensions, oncePerFrame: true}, () => this.publish(this.id, ViewEvents.changedDimensions));
         this.group.add(...view.threeObjs());
     }
 
     onElementRemoved(element) {
         const view = this.viewsForChildElements[element.id];
         this.group.remove(...view.threeObjs());
-        // this.unsubscribe(view, ViewEvents.changedDimensions);
+        // this.unsubscribe(view.id, ViewEvents.changedDimensions);
         view.detach();
         delete this.viewsForChildElements[element.id];
     }

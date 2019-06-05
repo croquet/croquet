@@ -9,24 +9,25 @@ import { ModelPart, ViewPart, ViewEvents } from './parts';
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
-// @@ some (Bert-sanctioned) contortions needed to get the imports working.  inflate is needed for FBXLoader.  the version installed from https://github.com/imaya/zlib.js turned out not to behave as [our downloaded version of] the loader expects.
+// @@ some (Bert-sanctioned) contortions needed to get the imports working.  all libraries (including inflate, needed for FBXLoader) were downloaded from https://github.com/mrdoob/three.js/tree/master/src/loaders and https://github.com/mrdoob/three.js/tree/master/examples/js/libs on 4 jun 2019
 window.THREE = THREE;
-const Zlib = require("../thirdparty/inflate.min").Zlib;
+const Zlib = require("../thirdparty/three/inflate.min").Zlib;
 window.Zlib = Zlib;
-require("../thirdparty/OBJLoader");
-require("../thirdparty/ColladaLoader");
-require("../thirdparty/OBJLoader");
-require("../thirdparty/MTLLoader");
-require("../thirdparty/GLTFLoader");
-require("../thirdparty/LegacyGLTFLoader");
-require("../thirdparty/FBXLoader");
-require("../thirdparty/STLLoader");
+require("../thirdparty/three/OBJLoader");
+require("../thirdparty/three/ColladaLoader");
+require("../thirdparty/three/OBJLoader");
+require("../thirdparty/three/MTLLoader");
+require("../thirdparty/three/GLTFLoader");
+require("../thirdparty/three/LegacyGLTFLoader");
+require("../thirdparty/three/FBXLoader");
+require("../thirdparty/three/STLLoader");
 
 // DRACOLoader is a bit more complicated
-require("../thirdparty/DRACOLoader");
-const DracoDecoderModule = require("../thirdparty/draco/gltf/draco_decoder");
+require("../thirdparty/three/DRACOLoader");
+const DracoDecoderModule = require("../thirdparty/three/draco/gltf/draco_decoder");
 THREE.DRACOLoader.setDecoderConfig({ type: 'js' });
 THREE.DRACOLoader.decoderModulePromise = Promise.resolve({ decoder: DracoDecoderModule(THREE.DRACOLoader.decoderConfig) });
+require("../thirdparty/three/SkeletonUtils"); // for cloning models with SkinnedMeshes
 //THREE.DRACOLoader.setDecoderPath("http://localhost:8000/croquet/kit/thirdparty/draco/gltf/"); the standard way of pointing DRACOLoader to its decoders.  if we can figure out a way to work this in with Parcel
 
 const BASE_URL = baseUrl('assets');
@@ -635,7 +636,7 @@ console.log(assetDescriptors.map(loadSpec => loadSpec.displayName));
         paths.forEach((path, i) => blobDict[path] = blobs[i]);
         const manager = new THREE.LoadingManager();
         const objectURLs = [];
-        manager._arcosRevokeURLs = () => objectURLs.forEach(url => URL.revokeObjectURL(url));
+        manager._croquetRevokeURLs = () => objectURLs.forEach(url => URL.revokeObjectURL(url));
         manager.setURLModifier(urlStr => {
             //console.log(`handling request for ${urlStr}`);
 
@@ -916,7 +917,7 @@ console.warn(`recording fetch of ${urlStr}`);
             mtlLoader.setResourcePath(path); // new API (valid in feb 2019)
             mtlLoader.crossOrigin = '';
             materials = await new Promise(resolve => mtlLoader.load(mtlURL, resolve));
-            manager._arcosRevokeURLs();
+            manager._croquetRevokeURLs();
         }
         const urlObjO = await this.objectURLForName(assetDescriptor, "objSource");
         const objLoader = new THREE.OBJLoader();
@@ -936,7 +937,7 @@ console.warn(`recording fetch of ${urlStr}`);
             loader.crossOrigin = '';
             loader.load(objectPath, resolve, onProgress, onError);
             });
-        manager._arcosRevokeURLs();
+        manager._croquetRevokeURLs();
         const mixers = [];
         object.mixer = new THREE.AnimationMixer(object);
         mixers.push(object.mixer);
@@ -992,7 +993,7 @@ if (baseFileSpec && !baseFileSpec.hash) debugger;
                 loader.crossOrigin = '';
                 loader.load(basePath,
                     ({ scene, scenes, cameras, animations }) => {
-                        manager._arcosRevokeURLs();
+                        manager._croquetRevokeURLs();
 
                         if (animations.length>0) {
                             scene.initTObject = tObj => {
@@ -1017,11 +1018,8 @@ if (baseFileSpec && !baseFileSpec.hash) debugger;
                     onError);
                 });
 
-        // @@ gltf with skinnedMeshes (as generated from some glb files) don't clone properly - though https://github.com/mrdoob/three.js/pull/14494 suggests that there might be q fix in r102 or thereabouts...?
-        if (assetDescriptor.loadType === ".glb") return promiseFn(); // don't clone
-
         return this.loadThroughCache(cacheKey, promiseFn).then(scene => {
-            const clone = scene.clone();
+            const clone = assetDescriptor.loadType === ".glb" ? THREE.SkeletonUtils.clone(scene) : scene.clone();
             if (scene.initTObject) { clone.initTObject = scene.initTObject; }
             clone.traverse(node => { // need to clone the materials
                 if (node.isMesh) node.material = node.material.clone();
