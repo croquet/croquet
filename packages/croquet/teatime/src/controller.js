@@ -587,14 +587,15 @@ export default class Controller {
             const initialIslandSnap = JSON.stringify(newIsland.snapshot());
             newIsland = new Island(JSON.parse(initialIslandSnap), () => init(options));
         }
-        // trying to debug https://github.com/croquet/ARCOS/issues/223
-        const expected = (newIsland.externalSeq - newIsland.seq) >>> 0;
-        console.log(this.id, `Controller expected ${expected} unsimulated external messages in snapshot (${newIsland.seq}-${newIsland.externalSeq})`);
-        const external = newIsland.messages.asArray().filter(m => m.isExternal());
-        console.log(this.id, `Controller found ${external.length} unsimulated external messages in snapshot`, external);
-        if (messagesSinceSnapshot.length > 0) {
-            console.log(this.id, `Controller scheduling ${messagesSinceSnapshot.length} messages after snapshot`, messagesSinceSnapshot);
-            for (const msg of messagesSinceSnapshot) newIsland.scheduleExternalMessage(msg);
+        if (DEBUG.messages) {
+            const expected = (newIsland.externalSeq - newIsland.seq) >>> 0;
+            console.log(this.id, `Controller expected ${expected} unsimulated external messages in snapshot (${newIsland.seq}-${newIsland.externalSeq})`);
+            const external = newIsland.messages.asArray().filter(m => m.isExternal());
+            console.log(this.id, `Controller found ${external.length} unsimulated external messages in snapshot`, external);
+            if (messagesSinceSnapshot.length > 0 && DEBUG.messages) {
+                console.log(this.id, `Controller scheduling ${messagesSinceSnapshot.length} messages after snapshot`, messagesSinceSnapshot);
+                for (const msg of messagesSinceSnapshot) newIsland.scheduleExternalMessage(msg);
+            }
         }
         // drain message queue
         const nextSeq = (newIsland.externalSeq + 1) >>> 0;
