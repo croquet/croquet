@@ -57,16 +57,28 @@ export function displayQRCode(url, div='qrcode') {
 }
 
 const spinnerOverlay = addSpinner();
+let spinnerEnabled = !!spinnerOverlay.parentElement;
+let spinnerTimeout = 0;
 
 export function displaySpinner(enabled) {
-    const wasEnabled = !!spinnerOverlay.parentElement;
-    if (wasEnabled === enabled) return;
+    if (spinnerEnabled === enabled) return;
+    spinnerEnabled = enabled;
     if (enabled) {
-        document.body.appendChild(spinnerOverlay);
-        spinnerOverlay.style.opacity = 0.9; // animate
+        clearTimeout(spinnerTimeout);
+        spinnerTimeout = setTimeout(() => {
+            if (!spinnerEnabled) return;
+            document.body.appendChild(spinnerOverlay);
+            spinnerOverlay.style.opacity = 0.9; // animate
+        }, 500);
     } else {
         spinnerOverlay.style.opacity = 0.0; // animate
-        setTimeout(() => spinnerOverlay.parentElement && document.body.removeChild(spinnerOverlay), 1000);
+        clearTimeout(spinnerTimeout);
+        spinnerTimeout = setTimeout(() => {
+            if (spinnerEnabled) return;
+            if (spinnerOverlay.parentElement) {
+                document.body.removeChild(spinnerOverlay);
+            }
+        }, 500);
     }
 }
 
