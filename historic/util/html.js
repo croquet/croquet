@@ -57,12 +57,29 @@ export function displayQRCode(url, div='qrcode') {
 }
 
 const spinnerOverlay = addSpinner();
+let spinnerEnabled = !!spinnerOverlay.parentElement;
+let spinnerTimeout = 0;
 
 export function displaySpinner(enabled) {
-    const wasEnabled = !!spinnerOverlay.parentElement;
-    if (wasEnabled === enabled) return;
-    if (enabled) document.body.appendChild(spinnerOverlay);
-    else document.body.removeChild(spinnerOverlay);
+    if (spinnerEnabled === enabled) return;
+    spinnerEnabled = enabled;
+    if (enabled) {
+        clearTimeout(spinnerTimeout);
+        spinnerTimeout = setTimeout(() => {
+            if (!spinnerEnabled) return;
+            document.body.appendChild(spinnerOverlay);
+            spinnerOverlay.style.opacity = 0.9; // animate
+        }, 500);
+    } else {
+        spinnerOverlay.style.opacity = 0.0; // animate
+        clearTimeout(spinnerTimeout);
+        spinnerTimeout = setTimeout(() => {
+            if (spinnerEnabled) return;
+            if (spinnerOverlay.parentElement) {
+                document.body.removeChild(spinnerOverlay);
+            }
+        }, 500);
+    }
 }
 
 function addSpinner() {
@@ -79,7 +96,8 @@ function addSpinner() {
             opacity:0.9;
             display:flex;
             align-items:center;
-            justify-content:center
+            justify-content:center;
+            transition: opacity 1.0s ease-out;
         }
         /* https://github.com/lukehaas/css-loaders */
         @keyframes dots {

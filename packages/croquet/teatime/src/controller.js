@@ -40,6 +40,10 @@ const OPTIONS_FROM_URL = [ 'tps' ];
 // schedule a snapshot after this amount of CPU time has been used for simulation
 const SNAPSHOT_EVERY = 5000;
 
+// backlog threshold in ms to publish "synced(true|false)" event (to start/stop rendering)
+const SYNCED_MIN = 100;
+const SYNCED_MAX = 1000;
+
 const Controllers = {};
 const SessionCallbacks = {};
 
@@ -140,6 +144,8 @@ export default class Controller {
         this.oldMessages = [];
         /** CPU time spent simulating since last snapshot */
         this.cpuTime = 0;
+        /** @type {Boolean} backlog was below SYNCED_MIN */
+        this.synced = null; // indicates never synced before
         /** latency statistics */
         this.statistics = {
             /** for identifying our own messages */
@@ -581,14 +587,15 @@ export default class Controller {
             const initialIslandSnap = JSON.stringify(newIsland.snapshot());
             newIsland = new Island(JSON.parse(initialIslandSnap), () => init(options));
         }
-        // trying to debug https://github.com/croquet/ARCOS/issues/223
-        const expected = (newIsland.externalSeq - newIsland.seq) >>> 0;
-        console.log(this.id, `Controller expected ${expected} unsimulated external messages in snapshot (${newIsland.seq}-${newIsland.externalSeq})`);
-        const external = newIsland.messages.asArray().filter(m => m.isExternal());
-        console.log(this.id, `Controller found ${external.length} unsimulated external messages in snapshot`, external);
-        if (messagesSinceSnapshot.length > 0) {
-            console.log(this.id, `Controller scheduling ${messagesSinceSnapshot.length} messages after snapshot`, messagesSinceSnapshot);
-            for (const msg of messagesSinceSnapshot) newIsland.scheduleExternalMessage(msg);
+        if (DEBUG.messages) {
+            const expected = (newIsland.externalSeq - newIsland.seq) >>> 0;
+            console.log(this.id, `Controller expected ${expected} unsimulated external messages in snapshot (${newIsland.seq}-${newIsland.externalSeq})`);
+            const external = newIsland.messages.asArray().filter(m => m.isExternal());
+            console.log(this.id, `Controller found ${external.length} unsimulated external messages in snapshot`, external);
+            if (messagesSinceSnapshot.length > 0 && DEBUG.messages) {
+                console.log(this.id, `Controller scheduling ${messagesSinceSnapshot.length} messages after snapshot`, messagesSinceSnapshot);
+                for (const msg of messagesSinceSnapshot) newIsland.scheduleExternalMessage(msg);
+            }
         }
         // drain message queue
         const nextSeq = (newIsland.externalSeq + 1) >>> 0;
@@ -741,8 +748,13 @@ export default class Controller {
             }
             if (weHaveTime) weHaveTime = this.island.advanceTo(this.time, deadline);
             this.cpuTime += Stats.end("simulate");
-            Stats.backlog(this.backlog);
-            displaySpinner(this.backlog > 1000);
+            const backlog = this.backlog;
+            Stats.backlog(backlog);
+            if (typeof this.synced === "boolean" && (this.synced && backlog > SYNCED_MAX || !this.synced && backlog < SYNCED_MIN)) {
+                this.synced = !this.synced;
+                displaySpinner(!this.synced);
+                this.island.publishFromView(this.id, "synced", this.synced);
+            }
             if (weHaveTime && this.cpuTime > SNAPSHOT_EVERY) { this.cpuTime = 0; this.scheduleSnapshot(); }
             return weHaveTime;
         } catch (e) {
@@ -766,6 +778,7 @@ export default class Controller {
     /** Got the official time from reflector server, or local multiplier */
     timeFromReflector(time, src="reflector") {
         if (time < this.time) { if (src !== "controller" || DEBUG.ticks) console.warn(`time is ${this.time}, ignoring time ${time} from ${src}`); return; }
+        if (typeof this.synced !== "boolean") this.synced = false;
         this.time = time;
         if (this.island) Stats.backlog(this.backlog);
     }

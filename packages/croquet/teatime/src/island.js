@@ -153,18 +153,12 @@ export default class Island {
 
     futureSend(tOffset, receiverID, selector, args) {
         if (tOffset < 0) throw Error("attempt to send future message into the past");
-         // Wrapping below means that if we have an overflow, messages
-        // scheduled after the overflow will be executed *before* messages
-        // scheduled earlier. It won't lead to any collisions (this would require
-        // wrap-around within a time slot) but it still is a problem since it
-        // may cause unpredictable effects on the code.
-        // Then again, if we produced 1000 messages at 60 fps it would still take
-        // over 1000 years to wrap around. 2^53 is big.
+        // Wrapping below is fine because the message comparison function deals with it.
         // To have a defined ordering between future messages generated on island
         // and messages from the reflector, we create even sequence numbers here and
         // the reflector's sequence numbers are made odd on arrival
-        this.futureSeq = (this.futureSeq + 2) % (Number.MAX_SAFE_INTEGER + 1);
-        const message = new Message(this.time + tOffset, this.futureSeq, receiverID, selector, args);
+        this.futureSeq = (this.futureSeq + 1) >>> 0;
+        const message = new Message(this.time + tOffset, 2 * this.futureSeq, receiverID, selector, args);
         this.messages.add(message);
         return message;
     }
@@ -386,6 +380,12 @@ function hasReceiverAndSelector(payload, id, selector) {
     return payload.match(new RegExp(`^${id}>${selector}\\b`));
 }
 
+/** answer true if seqA comes before seqB */
+function inSequence(seqA, seqB) {
+    const seqDelta = (seqB - seqA) >>> 0; // make unsigned
+    return seqDelta < 0x8000000;
+}
+
 export class Message {
     static hasReceiver(msgData, id) { return hasReceiver(msgData[2], id); }
     static hasSelector(msgData, sel) { return hasSelector(msgData[2], sel); }
@@ -398,9 +398,13 @@ export class Message {
     }
 
     before(other) {
-        return this.time !== other.time
-            ? this.time < other.time
-            : this.seq < other.seq;
+        // sort by time
+        if (this.time !== other.time) return this.time < other.time;
+        // internal before external
+        if (this.isExternal() !== other.isExternal()) return other.isExternal();
+        return this.isExternal()
+            ? inSequence(this.externalSeq, other.externalSeq)
+            : inSequence(this.internalSeq, other.internalSeq);
     }
 
     hasReceiver(id) { return hasReceiver(this.payload, id); }

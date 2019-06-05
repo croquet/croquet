@@ -22,7 +22,6 @@ export default class App {
             this.roomStates[roomName].creator.snapshot = parsedSnapshot;
         }
 
-        this.doDownload = options.doDownload === undefined ? true : options.doDownload;
         this.defaultRoom = options.defaultRoom || null;
         this.currentRoomName = this.defaultRoom;
         this.roomViewManager = new RoomViewManager(width, height);
@@ -79,7 +78,6 @@ export default class App {
         roomState.creator.options = this.roomInitOptions;
 
         const controller = new Controller();
-        controller.fetchUpdatedSnapshot = this.doDownload;
         roomState.namedModelsPromise = controller.establishSession(roomName, roomState.creator);
         roomState.controller = controller;
         roomState.namedModels = await roomState.namedModelsPromise;
