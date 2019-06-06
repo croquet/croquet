@@ -72,7 +72,7 @@ export class ViewPart extends WithParts(View) {
 
     forwardDimensionChange() {
         for (const part of Object.values(this.parts)) {
-            this.subscribe(part.id, {event: ViewEvents.changedDimensions, oncePerFrame: true}, () => this.publish(this.id, ViewEvents.changedDimensions));
+            this.subscribe(part.id, { event: ViewEvents.changedDimensions, handling: "oncePerFrame" }, () => this.publish(this.id, ViewEvents.changedDimensions));
         }
     }
 

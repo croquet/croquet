@@ -1201,7 +1201,6 @@ class ImportedElementView extends Tracking()(ImportedViewPart) {
 
 // Video2DView is an interface over an HTML video element.
 // its readyPromise resolves once the video is available to play.
-// when a play() request arrives other than  is requested,
 class Video2DView {
     constructor(url) {
 console.log(this);
@@ -1287,6 +1286,7 @@ console.log(this);
     }
 }
 
+// a video
 export class ImportedVideoElement extends ModelPart {
     constructor() {
         super();
@@ -1300,7 +1300,6 @@ console.warn(options);
         this.startOffset = null; // only valid if playing
         this.pausedTime = 0; // only valid if paused
         this.assetDescriptor = options.assetDescriptor;
-        // $$ this.subscribe(this.id, "")
     }
 
     setPlayState(isPlaying, startOffset, pausedTime) {
@@ -1318,20 +1317,18 @@ class VideoViewPart extends ViewPart {
         super(options);
 console.warn(this);
 
-        this.videoReady = false;
-        this.readyPromise = new Promise(resolved => {
-            this._ready = () => {
-                this.videoReady = true;
-                resolved(this);
-                };
-            });
+        this.videoReady = false; // this will go true just once
+        this.waitingForIslandSync = !this.realm.isSynced; // this can flip back and forth
 
         const element = options.model;
         const { assetDescriptor, isPlaying, startOffset, pausedTime } = element;
+        this.setPlayState({ isPlaying, startOffset, pausedTime }); // will be stored for now, and may be overridden by messages in a backlog by the time the video is ready
         const assetManager = theAssetManager;
         this.threeObj = new THREE.Group();
 
+        // importVideo returns a promise that resolves once the video has loaded
         assetManager.importVideo(assetDescriptor).then(videoView => {
+            this.videoReady = true;
             this.videoView = videoView;
             this.flip = false; // true means rendered picture acts like a mirror (suitable for local webcam)
             const h = this.height = videoView.height();
@@ -1350,11 +1347,11 @@ console.warn(this);
             this.threeObj.add(rect);
             this.threeObj.scale.set(scale, scale, scale);
             this.publish(this.id, ViewEvents.changedDimensions, {});
-            this._ready();
-            this.setPlayState({ isPlaying, startOffset, pausedTime });
+            this.applyPlayState();
             });
 
         this.subscribe(options.model.id, "setPlayState", data => this.setPlayState(data));
+        this.subscribe(this.realm.island.id, { event: "synced", handling: "immediate" }, isSynced => this.handleSyncState(isSynced));
         this.retryTimeout = null;
     }
 
@@ -1363,24 +1360,38 @@ console.warn(this);
     }
 
     setPlayState(data) {
-        if (!this.videoReady) return;
+        this.latestPlayState = Object.assign({}, data);
+        if (this.videoReady && !this.waitingForIslandSync) this.applyPlayState();
+        else console.log("store playState", this.latestPlayState);
+    }
 
+    applyPlayState() {
+        // if the browser is set to block video playback without a user gesture, videoView.play() will tell us we're in "blocked" state.  we keep trying, once per second, in case something happens to make the browser change its mind.  clear this timeout (if any) when a new playback state comes in.
         if (this.retryTimeout) {
             clearTimeout(this.retryTimeout);
             this.retryTimeout = null;
         }
 
-        const { isPlaying, startOffset, pausedTime } = data;
-console.log("setting", { isPlaying, startOffset, pausedTime });
+        const { isPlaying, startOffset, pausedTime } = this.latestPlayState;
+console.log("apply playState", { isPlaying, startOffset, pausedTime });
         if (!isPlaying) this.videoView.pause(pausedTime);
         else {
             const tryToPlay = async () => {
-                const sessionNow = this.now(); // rather than externalNow(), which we might be somewhat behind (i.e., there might be a backlog)
+                const sessionNow = this.externalNow(); // use the reflector time rather than now(), the simulation time, because we should only get here when any backlog is small (but not necessarily zero)
                 const isBlocked = await this.videoView.play((sessionNow - startOffset) / 1000);
                 this.retryTimeout = isBlocked ? setTimeout(tryToPlay, 1000) : null;
                 };
             tryToPlay();
         }
+    }
+
+    handleSyncState(isSynced) {
+//console.warn(`synced: ${isSynced}`);
+        const wasWaiting = this.waitingForIslandSync;
+        this.waitingForIslandSync = !isSynced;
+        if (wasWaiting && isSynced) this.applyPlayState();
+        // there was a thought of automatically pausing video if the tab goes dormant - but on Chrome, at least, a tab with a playing video simply doesn't go dormant
+        //else if (!wasWaiting && !isSynced) this.videoView.pause(); // no pausedTime; no-one's watching.
     }
 }
 

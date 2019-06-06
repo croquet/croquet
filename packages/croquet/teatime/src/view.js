@@ -22,8 +22,8 @@ export default class View {
     }
 
     subscribe(scope, eventSpec, callback) {
-        const {event, oncePerFrame} = eventSpec.event ? eventSpec : {event: eventSpec};
-        this.realm.subscribe(event, this.id, callback, scope, oncePerFrame);
+        const {event, handling} = eventSpec.event ? eventSpec : {event: eventSpec};
+        this.realm.subscribe(event, this.id, callback, scope, handling);
     }
 
     unsubscribe(scope, event) {
@@ -41,6 +41,7 @@ export default class View {
         return this.realm.futureProxy(tOffset, this);
     }
 
+    // use currentRealm() to force a check that the call is happening in an appropriate context (not, e.g., in Model code)
     random() {
         return currentRealm().random();
     }

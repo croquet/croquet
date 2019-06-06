@@ -106,7 +106,7 @@ export class LayoutContainer extends LayoutViewPart {
     addChild(child, publishContentChanged=true) {
         this.children.push(child);
         this.yogaNode.insertChild(child.yogaNode, this.yogaNode.getChildCount());
-        this.subscribe(child.id, {event: LayoutEvents.contentChanged, oncePerFrame: true}, data => this.onChildContentChanged(data));
+        this.subscribe(child.id, { event: LayoutEvents.contentChanged, handling: "oncePerFrame" }, data => this.onChildContentChanged(data));
         if (publishContentChanged) this.publish(this.id, LayoutEvents.contentChanged, {});
         this.group.add(...child.threeObjs());
     }
@@ -177,7 +177,7 @@ export function MinFromBBox(BaseLayoutSlotClass) {
     return class MinFromBBoxLayoutSlot extends BaseLayoutSlotClass {
         constructor(options) {
             super(options);
-            this.subscribe(this.parts.inner.id, {event: ViewEvents.changedDimensions, oncePerFrame: true}, data => this.onChangedDimensions(data));
+            this.subscribe(this.parts.inner.id, { event: ViewEvents.changedDimensions, handling: "oncePerFrame" }, data => this.onChangedDimensions(data));
             this.onChangedDimensions();
         }
 

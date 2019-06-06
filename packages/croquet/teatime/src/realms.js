@@ -92,8 +92,7 @@ class ViewRealm {
     publish(event, data, scope) {
         this.island.publishFromView(scope, event, data);
     }
-    subscribe(event, viewId, callback, scope, oncePerFrame) {
-        const handling = oncePerFrame ? "oncePerFrame" : "queued";
+    subscribe(event, viewId, callback, scope, handling="queued") {
         if (DEBUG.subscribe) console.log(`View.subscribe(${scope}:${event}) ${viewId} ${callback} [${handling}]`);
         viewDomain.addSubscription(scope, event, viewId, callback, handling);
     }
@@ -139,6 +138,10 @@ class ViewRealm {
 
     externalNow() {
         return this.island.controller.time;
+    }
+
+    isSynced() {
+        return !!this.island.controller.synced;
     }
 
     equal(otherRealm) {
