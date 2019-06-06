@@ -286,6 +286,8 @@ class Client extends CallbackHandler {
         this.connection._connectTo(socket);
     }
 
+    get bufferedAmount() { return this.connection.bufferedAmount; }
+
     send(data) {
         this.connection.send(data);
     }
