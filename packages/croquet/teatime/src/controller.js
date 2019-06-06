@@ -592,10 +592,10 @@ export default class Controller {
             console.log(this.id, `Controller expected ${expected} unsimulated external messages in snapshot (${newIsland.seq}-${newIsland.externalSeq})`);
             const external = newIsland.messages.asArray().filter(m => m.isExternal());
             console.log(this.id, `Controller found ${external.length} unsimulated external messages in snapshot`, external);
-            if (messagesSinceSnapshot.length > 0 && DEBUG.messages) {
-                console.log(this.id, `Controller scheduling ${messagesSinceSnapshot.length} messages after snapshot`, messagesSinceSnapshot);
-                for (const msg of messagesSinceSnapshot) newIsland.scheduleExternalMessage(msg);
-            }
+        }
+        if (messagesSinceSnapshot.length > 0) {
+            if  (DEBUG.messages) console.log(this.id, `Controller scheduling ${messagesSinceSnapshot.length} messages after snapshot`, messagesSinceSnapshot);
+            for (const msg of messagesSinceSnapshot) newIsland.scheduleExternalMessage(msg);
         }
         // drain message queue
         const nextSeq = (newIsland.externalSeq + 1) >>> 0;
