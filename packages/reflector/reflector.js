@@ -86,7 +86,22 @@ function getTime(island) {
     const now = Date.now();
     const delta = now - island.before;     // might be < 0 if system clock went backwards
     if (delta > 0) {
-        island.time += island.scale * Math.min(island.tick, delta); // advance clock at most by a TICK
+        // tick requests usually come late; sometimes tens of ms late.  keep track of such overruns, and whenever there is a net lag inject a small addition to the delta (before scaling) to help the island catch up.
+        const desiredTick = island.tick;
+        let advance = delta; // default
+        if (delta > desiredTick/2) { // don't interfere with rapid-fire message-driven requests
+            const over = delta - desiredTick;
+            if (over > 0) {
+                advance = desiredTick; // upper limit, subject to possible adjustment below
+                if (over < 100) island.lag += over; // don't try to cater for very large delays (e.g., at startup)
+            }
+            if (island.lag > 0) {
+                const boost = 4; // seems to be about the smallest that will rein things in
+                advance += boost;
+                island.lag -= boost;
+            }
+        }
+        island.time += island.scale * advance;
         island.before = now;
     }
     return island.time;
@@ -128,6 +143,7 @@ function JOIN(client, id, args) {
         scale: 1,            // ratio of island time to wallclock time
         tick: TICK_MS,       // default tick rate
         delay: 0,            // hold messages until this many ms after last tick
+        lag: 0,              // aggregate ms lag in tick requests
         clients: new Set(),  // connected web sockets
         users: 0,            // number of clients already reported
         providers: new Set(),// clients that are running
@@ -283,6 +299,7 @@ function JOIN1(client, id, args) {
         scale: 1,            // ratio of island time to wallclock time
         tick: TICK_MS,       // default tick rate
         delay: 0,            // hold messages until this many ms after last tick
+        lag: 0,              // aggregate ms lag in tick requests
         clients: new Set(),  // connected web sockets
         users: 0,            // number of clients already reported
         snapshotTime: -1,    // time of last snapshot
