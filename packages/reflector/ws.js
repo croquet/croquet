@@ -10,7 +10,7 @@
 
 
 import BroadcastChannel from "broadcast-channel";
-import hotreload from "@croquet/util/hotreload";
+import { hotreloadEventManager } from "@croquet/util";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
@@ -38,7 +38,7 @@ function discover(ms, callback) {
     if (callback) whenDiscovered.push(callback);
     channel._post("discover", {from: myPort});
     if (timeout) clearTimeout(timeout);
-    timeout = hotreload.setTimeout(() => {
+    timeout = hotreloadEventManager.setTimeout(() => {
         if (ms < 100) discover(ms * 1.5);
         else {
             console.log("Channel: TIMEOUT for discover");
@@ -149,7 +149,7 @@ class CallbackHandler {
         const callback = this._callbacks[event];
         if (callback) {
             if (event === 'close') callback(...args);  // needs to be sync for hot reload dispose
-            else hotreload.promiseResolveThen(() => callback(...args));    // async but in order
+            else hotreloadEventManager.promiseResolveThen(() => callback(...args));    // async but in order
         }
     }
 }
@@ -286,6 +286,8 @@ class Client extends CallbackHandler {
         this.connection._connectTo(socket);
     }
 
+    get bufferedAmount() { return this.connection.bufferedAmount; }
+
     send(data) {
         this.connection.send(data);
     }
@@ -330,7 +332,7 @@ export class Server extends CallbackHandler {
 }
 
 
-hotreload.addDisposeHandler("broadcast-channel", () => {
+hotreloadEventManager.addDisposeHandler("broadcast-channel", () => {
     if (channel) {
         // notify everyone with a socket to this window
         channel._post("close", {port: myPort });
