@@ -16,7 +16,7 @@ export default function Clickable(clickOptions={}) {
             /** @type {import('./object3D').Object3D} */
             this.clickablePart = this.lookUp(clickOptions.clickHandle);
             makePointerSensitive(this.clickablePart.threeObj, this);
-            this.subscribe(this.id, PointerEvents.pointerDown, data => this.clickableOnPointerDown(data));
+            this.subscribe(this.id, { event: PointerEvents.pointerDown, handling: 'immediate' }, data => this.clickableOnPointerDown(data));
             this.onClickCallback = clickOptions.onClick(options);
         }
 

@@ -5,6 +5,8 @@ import SpatialPart from './modelParts/spatial';
 import Tracking from './viewParts/tracking';
 import Clickable from './viewParts/clickable';
 import { ModelPart, ViewPart, ViewEvents } from './parts';
+import SVGIcon from "./util/svgIcon";
+import soundOn from "../assets/sound-on.svg";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
@@ -158,7 +160,7 @@ export class AssetManager {
 
     async displayAssets(specArrays, importSizeChecker, options={}) {
         if (!importSizeChecker.withinLimits) {
-            this.frame.alert(importSizeChecker.limitReason, 5000);
+            this.frame.alert(importSizeChecker.limitReason, 5000); // ### and all other alerts
             return;
         }
         if (!specArrays.length) return; // empty for some reason other than overflow
@@ -1254,9 +1256,17 @@ console.log(this);
     width() { return this.video.videoWidth; }
     height() { return this.video.videoHeight; }
 
+    wrappedTime(videoTime) {
+        if (this.duration) {
+            while (videoTime >= this.duration) videoTime -= this.duration; // assume it's looping, with no gap between plays
+            videoTime = Math.min(this.duration-0.1, videoTime); // the video element freaks out on being told to seek very close to the end
+        }
+        return videoTime;
+    }
+
     async play(videoTime) {
-        while (videoTime > this.duration) videoTime -= this.duration; // assume it's looping, with no gap between plays
-        this.video.currentTime = videoTime;
+        // return true if video play started successfully
+        this.video.currentTime = this.wrappedTime(videoTime);
         this.isPlaying = true; // even if it turns out to be blocked by the browser
         // following guidelines from https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/play
         try {
@@ -1264,14 +1274,18 @@ console.log(this);
             this.isBlocked = false;
         } catch (err) {
             console.warn("video play blocked");
-            this.isBlocked = true;
+            this.isBlocked = this.isPlaying; // just in case isPlaying was set false while we were trying
         }
-        return this.isBlocked;
+        return !this.isBlocked;
     }
 
     pause(videoTime) {
-        this.isPlaying = false;
-        if (videoTime) this.video.currentTime = videoTime; // at the originating view for a pause click, we don't supply a time but wait to read where the video stopped
+        this.isPlaying = this.isBlocked = false; // might not be blocked next time.
+        this.setStatic(videoTime);
+    }
+
+    setStatic(videoTime) {
+        if (videoTime) this.video.currentTime = this.wrappedTime(videoTime);
         this.video.pause(); // no return value; synchronous, instantaneous?
     }
 
@@ -1320,7 +1334,7 @@ console.warn(this);
         this.videoReady = false; // this will go true just once
         this.waitingForIslandSync = !this.realm.isSynced; // this can flip back and forth
 
-        const element = options.model;
+        const element = this.model = options.model;
         const { assetDescriptor, isPlaying, startOffset, pausedTime } = element;
         this.setPlayState({ isPlaying, startOffset, pausedTime }); // will be stored for now, and may be overridden by messages in a backlog by the time the video is ready
         const assetManager = theAssetManager;
@@ -1346,13 +1360,25 @@ console.warn(this);
             const scale = 2 / h;
             this.threeObj.add(rect);
             this.threeObj.scale.set(scale, scale, scale);
+
+            const icon = this.enableSoundIcon = new SVGIcon(soundOn, new THREE.MeshBasicMaterial({ color: "#888888" }));
+            icon.userData.ignorePointer = true; // @@ apparently the kosher way is to run ignorePointer exported by pointer.js
+            icon.rotateX(Math.PI / 2);
+            icon.visible = false;
+            const iconHolder = new THREE.Group();
+            iconHolder.add(icon);
+            const iconScale = 0.7/scale;
+            iconHolder.scale.set(iconScale, iconScale, iconScale);
+            iconHolder.position.set(0, 0, 0.05/scale);
+            this.threeObj.add(iconHolder);
+
             this.publish(this.id, ViewEvents.changedDimensions, {});
             this.applyPlayState();
             });
 
         this.subscribe(options.model.id, "setPlayState", data => this.setPlayState(data));
         this.subscribe(this.realm.island.id, { event: "synced", handling: "immediate" }, isSynced => this.handleSyncState(isSynced));
-        this.retryTimeout = null;
+        this.stepTimer = null;
     }
 
     get label() {
@@ -1360,29 +1386,47 @@ console.warn(this);
     }
 
     setPlayState(data) {
+        const latest = this.latestPlayState;
+        // ignore if we've heard this one before (probably because we set it locally)
+        if (latest && Object.keys(data).every(key => data[key]===latest[key])) return;
+
         this.latestPlayState = Object.assign({}, data);
         if (this.videoReady && !this.waitingForIslandSync) this.applyPlayState();
         else console.log("store playState", this.latestPlayState);
     }
 
     applyPlayState() {
-        // if the browser is set to block video playback without a user gesture, videoView.play() will tell us we're in "blocked" state.  we keep trying, once per second, in case something happens to make the browser change its mind.  clear this timeout (if any) when a new playback state comes in.
-        if (this.retryTimeout) {
-            clearTimeout(this.retryTimeout);
-            this.retryTimeout = null;
-        }
-
-        const { isPlaying, startOffset, pausedTime } = this.latestPlayState;
-console.log("apply playState", { isPlaying, startOffset, pausedTime });
-        if (!isPlaying) this.videoView.pause(pausedTime);
+console.log("apply playState", {...this.latestPlayState});
+        if (!this.latestPlayState.isPlaying) this.videoView.pause(this.latestPlayState.pausedTime);
         else {
-            const tryToPlay = async () => {
-                const sessionNow = this.externalNow(); // use the reflector time rather than now(), the simulation time, because we should only get here when any backlog is small (but not necessarily zero)
-                const isBlocked = await this.videoView.play((sessionNow - startOffset) / 1000);
-                this.retryTimeout = isBlocked ? setTimeout(tryToPlay, 1000) : null;
-                };
-            tryToPlay();
+            // if the video is blocked from playing, enter a stepping mode in which we move the video forward with successive pause() calls
+            this.videoView.play(this.calculateVideoTime()).then(playStarted => {
+                this.enableSoundIcon.visible = !playStarted;
+                if (!playStarted) {
+                    console.warn(`stepping video`);
+                    this.isStepping = true;
+                    this.future().stepWhileBlocked();
+                }
+                });
         }
+    }
+
+    calculateVideoTime() {
+        const { isPlaying, startOffset } = this.latestPlayState;
+        if (!isPlaying) debugger;
+
+        const sessionNow = this.now(); // or is this.externalNow() going to be more consistent??
+        return (sessionNow - startOffset) / 1000;
+    }
+
+    stepWhileBlocked() {
+        if (!this.isStepping) return; // we've left stepping mode
+        if (!this.videoView.isBlocked) {
+            this.isStepping = false;
+            return;
+        }
+        this.videoView.setStatic(this.calculateVideoTime());
+        this.future(50).stepWhileBlocked();
     }
 
     handleSyncState(isSynced) {
@@ -1393,19 +1437,31 @@ console.log("apply playState", { isPlaying, startOffset, pausedTime });
         // there was a thought of automatically pausing video if the tab goes dormant - but on Chrome, at least, a tab with a playing video simply doesn't go dormant
         //else if (!wasWaiting && !isSynced) this.videoView.pause(); // no pausedTime; no-one's watching.
     }
+
+    handleUserClick() {
+        if (!this.videoView) return;
+
+        // if the video is playing but blocked, this click will in theory be able to start it.
+        if (this.isStepping) {
+            console.warn(`stop video stepping`);
+            this.isStepping = false;
+            this.applyPlayState();
+            return;
+        }
+
+        const wantsToPlay = !this.latestPlayState.isPlaying; // toggle
+        if (!wantsToPlay) this.videoView.pause(); // immediately!
+        const videoTime = this.videoView.video.currentTime;
+        const sessionTime = this.now(); // the session time corresponding to the video time
+        const startOffset = wantsToPlay ? sessionTime - 1000 * videoTime : null;
+        const pausedTime = wantsToPlay ? 0 : videoTime;
+        this.setPlayState({ isPlaying: wantsToPlay, startOffset, pausedTime }); // directly from the handler, in case the browser blocks indirect play() invocations
+        this.model.future().setPlayState(wantsToPlay, startOffset, pausedTime); // then update our model, which will tell everyone else
+    }
+
 }
 
 const ImportedVideoView = Clickable({
-    onClick: options => (at, view) => {
-        if (!view.videoView) return;
-
-        const isPlaying = !view.videoView.isPlaying;
-        if (!isPlaying) view.videoView.pause();
-        const videoTime = view.videoView.video.currentTime;
-        const sessionTime = view.now(); // the session time corresponding to the video time
-        const startOffset = isPlaying ? sessionTime - 1000 * videoTime : null;
-        const pausedTime = isPlaying ? 0 : videoTime;
-        options.model.future().setPlayState(isPlaying, startOffset, pausedTime);
-    }
+    onClick: options => (at, view) => view.handleUserClick()
 })(Tracking()(VideoViewPart));
 
