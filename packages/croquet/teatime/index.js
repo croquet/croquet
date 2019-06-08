@@ -47,7 +47,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
 const MAX_SIMULATION_MS = 200;
 
 /** time spent simulating the last few frames */
-const simLoad = [];
+const simLoad = [0];
 /** number of frames to spread load */
 const loadBalance = 4;
 /** time in ms we allow sim to lag behind before increasing sim budget */
