@@ -141,6 +141,8 @@ export default class Controller {
         this.oldMessages = [];
         /** CPU time spent simulating since last snapshot */
         this.cpuTime = 0;
+        // on reconnect, show spinner
+        if (this.synced) displaySpinner(true);
         /** @type {Boolean} backlog was below SYNCED_MIN */
         this.synced = null; // indicates never synced before
         /** latency statistics */
