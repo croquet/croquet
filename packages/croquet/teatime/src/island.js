@@ -389,7 +389,7 @@ function hasReceiverAndSelector(payload, id, selector) {
  * @argument {Uint32} seqB
  */
 export function inSequence(seqA, seqB) {
-    return ((seqB - seqA) | 0) > 0;     // signed difference works with overflow
+    return ((seqB - seqA) | 0) >= 0;     // signed difference works with overflow
 }
 
 export class Message {
