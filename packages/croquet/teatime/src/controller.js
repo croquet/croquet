@@ -158,6 +158,18 @@ export default class Controller {
         this.latency = 0;
     }
 
+    /** @type {String} this controller's island id */
+    get id() { return this.island ? this.island.id : this.islandCreator.snapshot.id; }
+
+    /**  @type {Number} how many ms the simulation is lagging behind the last tick from the reflector */
+    get backlog() { return this.island ? this.time - this.island.time : 0; }
+
+    /** @type {Number} how many ms passed since we received something from reflector */
+    get starvation() { return Date.now() - this.lastReceived; }
+
+    /** @type {Number} how many ms passed since we sent a message via the reflector */
+    get activity() { return Date.now() - this.lastSent; }
+
     /**
      * Join or create a session by connecting to the reflector
      * - the island/session id is created from the session name (found in the URL)
@@ -436,9 +448,6 @@ export default class Controller {
 
     /** the snapshot before latest snapshot */
     get prevSnapshot() { return this.snapshots[this.snapshots.length - 2]; }
-
-    /** @type String: this controller's island id */
-    get id() { return this.island ? this.island.id : this.islandCreator.snapshot.id; }
 
     /** Ask reflector for a session
      * @param {String} hash - hashed island name, options, and code base
@@ -720,9 +729,6 @@ export default class Controller {
             console.error('ERROR while sending', e);
         }
     }
-
-    /** how many ms the simulation is lagging behind the last tick from the reflector */
-    get backlog() { return this.island ? this.time - this.island.time : 0; }
 
     /**
      * Process pending messages for this island and advance simulation
