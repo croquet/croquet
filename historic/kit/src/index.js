@@ -26,4 +26,4 @@ export { default as EditableTextViewPart } from './viewParts/textView';
 export { default as PhysicalShape } from './viewParts/physicalShape';
 export { LayoutRoot, LayoutContainer, LayoutSlotStretch3D, LayoutSlotText, MinFromBBox } from './viewParts/layout';
 
-export { Model, View } from '@croquet/teatime';
+export { Model, View, Controller } from '@croquet/teatime';
