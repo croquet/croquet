@@ -1,0 +1,40 @@
+{
+  "name": "hello",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "parcel index.html -p 9002",
+    "deploy": "./deploy.sh",
+    "lint": "eslint .",
+    "docs": "jsdoc . -r -d docs"
+  },
+  "author": "",
+  "license": "ISC",
+  "browserslist": {
+    "production": [
+      "> 5%"
+    ],
+    "development": [
+      "last 1 Chrome version",
+      "last 1 Firefox version",
+      "last 1 Safari version",
+      "last 1 iOS major version"
+    ]
+  },
+  "eslintIgnore": [
+    "dist/"
+  ],
+  "dependencies": {
+    "@croquet/teatime": "file:../teatime"
+  },
+  "devDependencies": {
+    "eslint": "^5.14.1",
+    "eslint-config-airbnb-base": "^13.1.0",
+    "eslint-import-resolver-alias": "^1.1.2",
+    "eslint-import-resolver-parcel": "^1.8.4",
+    "eslint-plugin-import": "^2.16.0",
+    "jsdoc": "git+https://github.com/jsdoc3/jsdoc.git",
+    "parcel": "git+https://github.com/bertfreudenberg/parcel-bundler.git"
+  }
+}
