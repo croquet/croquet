@@ -21,6 +21,8 @@ if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); 
 // only newer clients get to use it
 const VERSION = 1;
 
+const DEFAULT_REFLECTOR = "wss://dev1.os.vision/reflector-v1";
+const CROQUET_REFLECTOR = process.env.CROQUET_REFLECTOR || DEFAULT_REFLECTOR;    // replaced by parcel at build time from app's .env file
 
 let codeHashes = null;
 
@@ -50,6 +52,7 @@ const SessionCallbacks = {};
 
 export default class Controller {
     static connectToReflector(mainModuleID, reflectorUrl) {
+        if (!reflectorUrl) reflectorUrl = urlOptions.reflector || CROQUET_REFLECTOR;
         if (!urlOptions.noupload) uploadCode(mainModuleID).then(hashes => codeHashes = hashes);
         connectToReflector(reflectorUrl);
     }
