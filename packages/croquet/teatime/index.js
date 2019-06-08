@@ -13,33 +13,33 @@ if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); 
 
 
 export async function startSession(name, ModelRoot=Model, ViewRoot=View, options={}) {
-
     const controller = new Controller();
-    controller.step = frameTime => stepSession(frameTime, controller);
+    const session = { controller };
+    session.step = frameTime => stepSession(frameTime, controller);
     await bootModelView();
-    return controller;
+    return session;
 
     async function bootModelView(snapshot) {
         clear();
-        const modelRoot = (await controller.establishSession(name, {snapshot, init: spawnModel, destroyerFn: bootModelView, ...options})).model;
+        session.model = (await controller.establishSession(name, {snapshot, init: spawnModel, destroyerFn: bootModelView, ...options})).modelRoot;
         displaySessionMoniker(controller.id);
         displayQRCode();
         controller.inViewRealm(() => {
-            controller.view = new ViewRoot(modelRoot);
+            session.view = new ViewRoot(session.model);
         });
     }
 
     function clear() {
-        if (controller.view) {
-            controller.view.detach();
-            controller.view = null;
+        if (session.view) {
+            session.view.detach();
+            session.view = null;
         }
         displaySessionMoniker('');
     }
 
     function spawnModel(opts) {
         const modelRoot = ModelRoot.create(opts);
-        return { model: modelRoot };
+        return { modelRoot };
     }
 }
 
