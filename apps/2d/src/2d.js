@@ -248,15 +248,16 @@ class ShapeView extends View {
 async function go() {
     Controller.connectToReflector(module.id);
 
-    const controller = await startSession("2d", Shapes, ShapesView, {tps: TPS, optionsFromUrl: ['n']});
+    const session = await startSession("2d", Shapes, ShapesView, {tps: TPS, optionsFromUrl: ['n']});
+    const { controller } = session;
 
     let users = 0;
 
     window.requestAnimationFrame(frame);
     function frame(timestamp) {
-        controller.step(timestamp);
+        session.step(timestamp);
 
-        if (controller.view) controller.view.showStatus(controller.backlog, controller.starvation, 100, 3000);
+        if (session.view) session.view.showStatus(controller.backlog, controller.starvation, 100, 3000);
 
         if (users !== controller.users) {
             users = controller.users;
