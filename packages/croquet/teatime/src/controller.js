@@ -4,7 +4,7 @@ import Stats from "@croquet/util/stats";
 import hotreloadEventManger from "@croquet/util/hotreloadEventManager";
 import urlOptions from "@croquet/util/urlOptions";
 import { login, getUser } from "@croquet/util/user";
-import { displaySpinner } from "@croquet/util/html";
+import { displaySpinner, displayError } from "@croquet/util/html";
 import { baseUrl, hashNameAndCode, hashString, uploadCode } from "@croquet/util/modules";
 import { inViewRealm } from "./realms";
 import Island, { Message, inSequence } from "./island";
@@ -834,7 +834,7 @@ hotreloadEventManger.setInterval(() => {
 }, PING_INTERVAL);
 
 async function startReflectorInBrowser() {
-    document.getElementById("error").innerText = 'No Connection';
+    displayError('No Connection');
     console.log("Starting in-browser reflector");
     // we defer starting the server until hotreload has finished
     // loading all new modules
@@ -868,27 +868,27 @@ async function connectToReflector(reflectorUrl) {
 }
 
 function socketSetup(socket, reflectorUrl) {
-    document.getElementById("error").innerText = 'Connecting to ' + socket.url;
+    displayError('Connecting to ' + socket.url);
     Object.assign(socket, {
         onopen: _event => {
-            if (socket.constructor === WebSocket) document.getElementById("error").innerText = '';
+            if (socket.constructor === WebSocket) displayError('');
             console.log(socket.constructor.name, "connected to", socket.url);
             Controller.setSocket(socket);
             Stats.connected(true);
             hotreloadEventManger.setTimeout(PING, 0);
         },
         onerror: _event => {
-            document.getElementById("error").innerText = 'Connection error';
+            displayError('Connection error');
             console.log(socket.constructor.name, "error");
         },
         onclose: event => {
-            document.getElementById("error").innerText = 'Connection closed:' + event.code + ' ' + event.reason;
+            displayError('Connection closed:' + event.code + ' ' + event.reason);
             console.log(socket.constructor.name, "closed:", event.code, event.reason);
             Stats.connected(false);
             Controller.leaveAll(true);
             if (event.code !== 1000) {
                 // if abnormal close, try to connect again
-                document.getElementById("error").innerText = 'Reconnecting ...';
+                displayError('Reconnecting ...');
                 hotreloadEventManger.setTimeout(() => connectToReflector(reflectorUrl), 1000);
             }
         },
