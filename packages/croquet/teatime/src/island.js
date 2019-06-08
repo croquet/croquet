@@ -380,10 +380,16 @@ function hasReceiverAndSelector(payload, id, selector) {
     return payload.match(new RegExp(`^${id}>${selector}\\b`));
 }
 
-/** answer true if seqA comes before seqB */
-function inSequence(seqA, seqB) {
-    const seqDelta = (seqB - seqA) >>> 0; // make unsigned
-    return seqDelta < 0x8000000;
+/** Answer true if seqA comes before seqB:
+ * - sequence numbers are 32 bit unsigned ints with overflow
+ * - seqA comes before seqB if it takes fewer increments to
+ *    go from seqA to seqB, than going from seqB to seqA
+ * @typedef {Number} Uint32
+ * @argument {Uint32} seqA
+ * @argument {Uint32} seqB
+ */
+export function inSequence(seqA, seqB) {
+    return ((seqB - seqA) | 0) > 0;     // signed difference works with overflow
 }
 
 export class Message {

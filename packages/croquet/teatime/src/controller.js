@@ -7,7 +7,7 @@ import { login, getUser } from "@croquet/util/user";
 import { displaySpinner } from "@croquet/util/html";
 import { baseUrl, hashNameAndCode, hashString, uploadCode } from "@croquet/util/modules";
 import { inViewRealm } from "./realms";
-import Island, { Message } from "./island";
+import Island, { Message, inSequence } from "./island";
 
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
@@ -46,12 +46,6 @@ const SYNCED_MAX = 1000;
 
 const Controllers = {};
 const SessionCallbacks = {};
-
-/** answer true if seqA comes before seqB */
-function inSequence(seqA, seqB) {
-    const seqDelta = (seqB - seqA) >>> 0; // make unsigned
-    return seqDelta < 0x8000000;
-}
 
 
 export default class Controller {
