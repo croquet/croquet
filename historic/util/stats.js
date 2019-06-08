@@ -62,7 +62,7 @@ function newFrame(now) {
         backlog: 0,
         network: 0,
         latency: 0,
-        active: 1000,
+        activity: 1000,
         connected
     };
 }
@@ -83,7 +83,7 @@ function endCurrentFrame(timestamp) {
     // show average framerate
     if (!fps.parentElement) { console.warn("who broke the stats div and canvas?"); div.appendChild(fps); div.appendChild(canvas); }
     fps.innerText = `${currentFrame.users} users, ${Math.round(1000/avgMS)} fps, ` +
-        (currentFrame.backlog < 100 && currentFrame.active < 1000
+        (currentFrame.backlog < 100 && currentFrame.activity < 1000
             ? `latency: ${currentFrame.latency} ms`
             : `backlog: ${currentFrame.backlog < 100 ? '0.0' : (currentFrame.backlog/1000).toFixed(1)} s`);
 
@@ -200,8 +200,8 @@ const Stats = {
     latency(ms) {
         currentFrame.latency = ms;
     },
-    active(ms) {
-        currentFrame.active = ms;
+    activity(ms) {
+        currentFrame.activity = ms;
     },
     users(users) {
         currentFrame.users = users;

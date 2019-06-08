@@ -330,9 +330,9 @@ async function go() {
     function frame(timestamp) {
         const {backlog, latency, lastSent, lastReceived} = controller;
         const starvation = Date.now() - lastReceived;
-        const active = Date.now() - lastSent;
+        const activity = Date.now() - lastSent;
         rootView.showStatus(backlog, starvation, 100, 3000);
-        Stats.animationFrame(timestamp, {backlog, starvation, latency, active, users: controller.users});
+        Stats.animationFrame(timestamp, {backlog, starvation, latency, activity, users: controller.users});
 
 
         if (users !== controller.users) {
