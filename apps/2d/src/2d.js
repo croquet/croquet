@@ -1,6 +1,5 @@
 import Stats from "@croquet/util/stats";
-import { displaySessionMoniker, displayQRCode } from "@croquet/util/html";
-import { Model, View, Controller } from "@croquet/teatime";
+import { Model, View, Controller, startSession } from "@croquet/teatime";
 
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
@@ -21,13 +20,12 @@ let OFFSETY = 50;               // top-left corner of view, plus half shape heig
 
 ////// Models /////
 
-export class Root extends Model {
+export class ModelRoot extends Model {
 
     constructor() {
         super();
         this.children = [];
     }
-
 
     // non-inherited methods below
 
@@ -115,10 +113,18 @@ export class BouncingShape extends Shape {
 
 }
 
+export class Shapes extends ModelRoot {
+    init(options) {
+        super.init(options);
+        const n = options.n || 99;
+        for (let i = 0; i < n; i++) this.add(Shape.create());
+        this.add(BouncingShape.create({pos: [500, 500], color: "white"}));
+    }
+}
 
 ////// Views /////
 
-class RootView extends View {
+class ShapesView extends View {
 
     constructor(model) {
         super(model);
@@ -239,42 +245,11 @@ class ShapeView extends View {
 async function go() {
     Controller.connectToReflector(module.id);
 
-    const controller = new Controller();
-    let rootView = null;
+    // tell many.html
+    //window.top.postMessage({connected: +1}, "*");
+    //window.top.postMessage({connected: -1}, "*");
 
-    async function bootstrapModelsAndViews(snapshot) {
-        // create models on named island
-        const models = await controller.establishSession("2d", {
-            snapshot,
-            tps: TPS,
-            optionsFromUrl: ['n'],
-            init(options) {
-                const root = Root.create();
-                const n = options.n || 99;
-                for (let i = 0; i < n; i++) root.add(Shape.create());
-                root.add(BouncingShape.create({pos: [500, 500], color: "white"}));
-                return {root};
-            },
-            destroyerFn(prevSnapshot) {
-                window.top.postMessage({connected: -1}, "*");
-                displaySessionMoniker('');
-                if (rootView) rootView.detach();
-                bootstrapModelsAndViews(prevSnapshot);
-            }
-        });
-        displaySessionMoniker(controller.id);
-        displayQRCode();
-
-        // create views
-        controller.inViewRealm(() => {
-            rootView = new RootView(models.root);
-        });
-
-        // tell many.html
-        window.top.postMessage({connected: +1}, "*");
-    }
-
-    await bootstrapModelsAndViews();
+    const controller = await startSession("2d", Shapes, ShapesView, {tps: TPS, optionsFromUrl: ['n']});
 
     let users = 0;
 
@@ -283,7 +258,7 @@ async function go() {
         const {backlog, latency, lastSent, lastReceived} = controller;
         const starvation = Date.now() - lastReceived;
         const active = Date.now() - lastSent;
-        rootView.showStatus(backlog, starvation, 100, 3000);
+        if (controller.view) controller.view.showStatus(backlog, starvation, 100, 3000);
         Stats.animationFrame(timestamp, {backlog, starvation, latency, active, users: controller.users});
 
         if (users !== controller.users) {
