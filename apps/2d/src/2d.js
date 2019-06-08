@@ -1,5 +1,4 @@
 import Stats from "@croquet/util/stats";
-import urlOptions from "@croquet/util/urlOptions";
 import { displaySessionMoniker, displayQRCode } from "@croquet/util/html";
 import { Model, View, Controller } from "@croquet/teatime";
 
@@ -7,8 +6,6 @@ import { Model, View, Controller } from "@croquet/teatime";
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
-
-const LOCALHOST = window.location.hostname === 'localhost';
 
 const TPS = "10x3";             // reflector ticks per sec x local multiplier
 const THROTTLE = 1000 / 20;     // mouse event throttling
@@ -240,10 +237,7 @@ class ShapeView extends View {
 
 
 async function go() {
-    const reflector = LOCALHOST
-        ? "ws://localhost:9090/"
-        : "wss://dev1.os.vision/reflector-v1";
-    Controller.connectToReflector(module.id, urlOptions.reflector || reflector);
+    Controller.connectToReflector(module.id);
 
     const controller = new Controller();
     let rootView = null;
