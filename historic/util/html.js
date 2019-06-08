@@ -86,7 +86,7 @@ function addSpinner() {
     const style = document.createElement("style");
     style.innerHTML = `
         .spinnerOverlay {
-            z-index: 10000;
+            z-index: 1000;
             position: fixed;
             left: 0;
             top: 0;
