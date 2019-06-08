@@ -29,14 +29,14 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
 
     function clear() {
         if (controller.view) {
-            controller.view.destroy();
+            controller.view.detach();
             controller.view = null;
         }
         displaySessionMoniker('');
     }
 
-    function spawnModel() {
-        const modelRoot = ModelRoot.create();
+    function spawnModel(opts) {
+        const modelRoot = ModelRoot.create(opts);
         return { model: modelRoot };
     }
 }
