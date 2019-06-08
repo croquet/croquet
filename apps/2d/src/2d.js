@@ -1,4 +1,3 @@
-import Stats from "@croquet/util/stats";
 import { Model, View, Controller, startSession } from "@croquet/teatime";
 
 
@@ -242,12 +241,12 @@ class ShapeView extends View {
 }
 
 
+// tell many.html
+//window.top.postMessage({connected: +1}, "*");
+//window.top.postMessage({connected: -1}, "*");
+
 async function go() {
     Controller.connectToReflector(module.id);
-
-    // tell many.html
-    //window.top.postMessage({connected: +1}, "*");
-    //window.top.postMessage({connected: -1}, "*");
 
     const controller = await startSession("2d", Shapes, ShapesView, {tps: TPS, optionsFromUrl: ['n']});
 
@@ -255,23 +254,13 @@ async function go() {
 
     window.requestAnimationFrame(frame);
     function frame(timestamp) {
-        const {backlog, latency, lastSent, lastReceived} = controller;
-        const starvation = Date.now() - lastReceived;
-        const active = Date.now() - lastSent;
-        if (controller.view) controller.view.showStatus(backlog, starvation, 100, 3000);
-        Stats.animationFrame(timestamp, {backlog, starvation, latency, active, users: controller.users});
+        controller.step(timestamp);
+
+        if (controller.view) controller.view.showStatus(controller.backlog, controller.starvation, 100, 3000);
 
         if (users !== controller.users) {
             users = controller.users;
             window.top.postMessage({ users }, "*");
-        }
-
-        if (controller.island) {
-            controller.simulate(Date.now() + 200);
-
-            Stats.begin("render");
-            controller.processModelViewEvents();
-            Stats.end("render");
         }
 
         window.requestAnimationFrame(frame);
