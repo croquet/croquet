@@ -171,7 +171,7 @@ function JOIN(client, id, args) {
     function START() {
         // only older clients send a time on JOIN, newer ones explicitly request TICKS
         if (time !== undefined) {
-            island.time = time;
+            island.time = Math.ceil(time);
             startTicker(island, 1000 / 20);
         }
         const msg = JSON.stringify({id, action: 'START'});
@@ -536,7 +536,7 @@ function TICKS(client, id, args) {
     if (!island) { if (client.readyState === WebSocket.OPEN) client.close(4000, "unknown island"); return; }
     if (!island.time) {
         // only accept time, sequence, and delay if new island
-        island.time = typeof time === "number" ? time : 0;
+        island.time = typeof time === "number" ? Math.ceil(time) : 0;
         island.seq = typeof seq === "number" ? seq : 0xFFFFFFF0;    // v0 clients expect this value
         if (delay > 0) island.delay = delay;
     }

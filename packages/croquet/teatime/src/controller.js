@@ -4,10 +4,10 @@ import Stats from "@croquet/util/stats";
 import hotreloadEventManger from "@croquet/util/hotreloadEventManager";
 import urlOptions from "@croquet/util/urlOptions";
 import { login, getUser } from "@croquet/util/user";
-import { displaySpinner } from "@croquet/util/html";
+import { displaySpinner, displayError } from "@croquet/util/html";
 import { baseUrl, hashNameAndCode, hashString, uploadCode } from "@croquet/util/modules";
 import { inViewRealm } from "./realms";
-import Island, { Message } from "./island";
+import Island, { Message, inSequence } from "./island";
 
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
@@ -21,6 +21,8 @@ if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); 
 // only newer clients get to use it
 const VERSION = 1;
 
+const DEFAULT_REFLECTOR = "wss://dev1.os.vision/reflector-v1";
+const CROQUET_REFLECTOR = process.env.CROQUET_REFLECTOR || DEFAULT_REFLECTOR;    // replaced by parcel at build time from app's .env file
 
 let codeHashes = null;
 
@@ -47,15 +49,10 @@ const SYNCED_MAX = 1000;
 const Controllers = {};
 const SessionCallbacks = {};
 
-/** answer true if seqA comes before seqB */
-function inSequence(seqA, seqB) {
-    const seqDelta = (seqB - seqA) >>> 0; // make unsigned
-    return seqDelta < 0x8000000;
-}
-
 
 export default class Controller {
     static connectToReflector(mainModuleID, reflectorUrl) {
+        if (!reflectorUrl) reflectorUrl = urlOptions.reflector || CROQUET_REFLECTOR;
         if (!urlOptions.noupload) uploadCode(mainModuleID).then(hashes => codeHashes = hashes);
         connectToReflector(reflectorUrl);
     }
@@ -144,6 +141,8 @@ export default class Controller {
         this.oldMessages = [];
         /** CPU time spent simulating since last snapshot */
         this.cpuTime = 0;
+        // on reconnect, show spinner
+        if (this.synced) displaySpinner(true);
         /** @type {Boolean} backlog was below SYNCED_MIN */
         this.synced = null; // indicates never synced before
         /** latency statistics */
@@ -158,6 +157,18 @@ export default class Controller {
         /** last measured latency in ms */
         this.latency = 0;
     }
+
+    /** @type {String} this controller's island id */
+    get id() { return this.island ? this.island.id : this.islandCreator.snapshot.id; }
+
+    /**  @type {Number} how many ms the simulation is lagging behind the last tick from the reflector */
+    get backlog() { return this.island ? this.time - this.island.time : 0; }
+
+    /** @type {Number} how many ms passed since we received something from reflector */
+    get starvation() { return Date.now() - this.lastReceived; }
+
+    /** @type {Number} how many ms passed since we sent a message via the reflector */
+    get activity() { return Date.now() - this.lastSent; }
 
     /**
      * Join or create a session by connecting to the reflector
@@ -437,9 +448,6 @@ export default class Controller {
 
     /** the snapshot before latest snapshot */
     get prevSnapshot() { return this.snapshots[this.snapshots.length - 2]; }
-
-    /** @type String: this controller's island id */
-    get id() { return this.island ? this.island.id : this.islandCreator.snapshot.id; }
 
     /** Ask reflector for a session
      * @param {String} hash - hashed island name, options, and code base
@@ -722,9 +730,6 @@ export default class Controller {
         }
     }
 
-    /** how many ms the simulation is lagging behind the last tick from the reflector */
-    get backlog() { return this.island ? this.time - this.island.time : 0; }
-
     /**
      * Process pending messages for this island and advance simulation
      * @param {Number} deadline CPU time deadline before interrupting simulation
@@ -829,7 +834,7 @@ hotreloadEventManger.setInterval(() => {
 }, PING_INTERVAL);
 
 async function startReflectorInBrowser() {
-    document.getElementById("error").innerText = 'No Connection';
+    displayError('No Connection');
     console.log("Starting in-browser reflector");
     // we defer starting the server until hotreload has finished
     // loading all new modules
@@ -863,27 +868,27 @@ async function connectToReflector(reflectorUrl) {
 }
 
 function socketSetup(socket, reflectorUrl) {
-    document.getElementById("error").innerText = 'Connecting to ' + socket.url;
+    displayError('Connecting to ' + socket.url);
     Object.assign(socket, {
         onopen: _event => {
-            if (socket.constructor === WebSocket) document.getElementById("error").innerText = '';
+            if (socket.constructor === WebSocket) displayError('');
             console.log(socket.constructor.name, "connected to", socket.url);
             Controller.setSocket(socket);
             Stats.connected(true);
             hotreloadEventManger.setTimeout(PING, 0);
         },
         onerror: _event => {
-            document.getElementById("error").innerText = 'Connection error';
+            displayError('Connection error');
             console.log(socket.constructor.name, "error");
         },
         onclose: event => {
-            document.getElementById("error").innerText = 'Connection closed:' + event.code + ' ' + event.reason;
+            displayError('Connection closed:' + event.code + ' ' + event.reason);
             console.log(socket.constructor.name, "closed:", event.code, event.reason);
             Stats.connected(false);
             Controller.leaveAll(true);
             if (event.code !== 1000) {
                 // if abnormal close, try to connect again
-                document.getElementById("error").innerText = 'Reconnecting ...';
+                displayError('Reconnecting ...');
                 hotreloadEventManger.setTimeout(() => connectToReflector(reflectorUrl), 1000);
             }
         },

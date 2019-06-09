@@ -1,0 +1,18 @@
+{
+  "name": "@croquet/hello",
+  "version": "0.0.1",
+  "description": "Croquet Hello World",
+  "main": "hello.js",
+  "scripts": {
+    "start": "parcel hello.html"
+  },
+  "browserslist": [ "> 5%" ],
+  "author": "Croquet Studios",
+  "license": "ISC",
+  "dependencies": {
+    "@croquet/teatime": "file:../teatime"
+  },
+  "devDependencies": {
+    "parcel": "^1.12.3"
+  }
+}

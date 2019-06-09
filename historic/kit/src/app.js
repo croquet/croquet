@@ -145,7 +145,7 @@ export default class App {
                 Stats.users(users);
                 Stats.network(Date.now() - lastReceived);
                 Stats.latency(latency);
-                Stats.active(Date.now() - lastSent);
+                Stats.activity(Date.now() - lastSent);
                 // remember lastFrame for setInterval()
                 this.lastFrame = Date.now();
                 // no view updates / render if backlogged

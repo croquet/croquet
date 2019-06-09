@@ -2,6 +2,16 @@ import SeedRandom from "seedrandom";
 import QRCode from "./thirdparty-patched/qrcodejs/qrcode";
 import { urlOptions } from ".";
 
+export function displayError(msg) {
+    if (!document.getElementById("error")) {
+        const div = document.createElement("div");
+        div.id = "error";
+        div.style.cssText = "position: fixed; z-index: 1001; color: red;";
+        document.body.appendChild(div);
+    }
+    document.getElementById("error").innerText = msg;
+}
+
 export function displaySessionMoniker(id='', element='session') {
     const button = document.getElementById(element);
     document.title = document.title.replace(/:.*/, '');
@@ -77,7 +87,7 @@ export function displaySpinner(enabled) {
             if (spinnerEnabled) return;
             if (spinnerOverlay.parentElement) {
                 document.body.removeChild(spinnerOverlay);
-            }
+            } else console.error("Cannot remove spinner overlay - was body.innerHTML modified directly?!");
         }, 500);
     }
 }
@@ -86,7 +96,7 @@ function addSpinner() {
     const style = document.createElement("style");
     style.innerHTML = `
         .spinnerOverlay {
-            z-index: 10000;
+            z-index: 1000;
             position: fixed;
             left: 0;
             top: 0;

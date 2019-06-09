@@ -28,9 +28,8 @@ export { default as EditableTextViewPart } from './viewParts/textView';
 export { default as PhysicalShape } from './viewParts/physicalShape';
 export { LayoutRoot, LayoutContainer, LayoutSlotStretch3D, LayoutSlotText, MinFromBBox } from './viewParts/layout';
 
-export { Model, View } from '@croquet/teatime';
-
  // @@ moved here because otherwise they were before the behaviour classes (e.g., Tracking) needed for asset import
 export { default as Room } from './room/roomModel';
 export { default as RoomView } from './room/roomView';
 export { default as App } from './app';
+export { Model, View, Controller } from '@croquet/teatime';

@@ -48,25 +48,34 @@ export default class Model {
     // Pub / Sub
 
     publish(scope, event, data) {
+        if (!this.__realm) this.__realmError();
         this.__realm.publish(event, data, scope);
     }
 
     subscribe(scope, event, callback) {
+        if (!this.__realm) this.__realmError();
         this.__realm.subscribe(event, this.id, callback, scope);
     }
 
     unsubscribe(scope, event) {
+        if (!this.__realm) this.__realmError();
         this.__realm.unsubscribe(event, this.id, null, scope);
     }
 
     unsubscribeAll() {
+        if (!this.__realm) this.__realmError();
         this.__realm.unsubscribeAll(this.id);
+    }
+
+    __realmError() {
+        if (!this.id) throw Error(`${this} has no ID, did you call super.init(options)?`);
     }
 
     // Misc
 
     /** @returns {this} */
     future(tOffset=0) {
+        if (!this.__realm) this.__realmError();
         return this.__realm.futureProxy(tOffset, this);
     }
 
