@@ -1256,17 +1256,17 @@ console.log(this);
     width() { return this.video.videoWidth; }
     height() { return this.video.videoHeight; }
 
-    wrappedTime(videoTime) {
+    wrappedTime(videoTime, guarded) {
         if (this.duration) {
             while (videoTime >= this.duration) videoTime -= this.duration; // assume it's looping, with no gap between plays
-            videoTime = Math.min(this.duration-0.1, videoTime); // the video element freaks out on being told to seek very close to the end
+            if (guarded) videoTime = Math.min(this.duration-0.1, videoTime); // the video element freaks out on being told to seek very close to the end
         }
         return videoTime;
     }
 
     async play(videoTime) {
         // return true if video play started successfully
-        this.video.currentTime = this.wrappedTime(videoTime);
+        this.video.currentTime = this.wrappedTime(videoTime, true);
         this.isPlaying = true; // even if it turns out to be blocked by the browser
         // following guidelines from https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/play
         try {
@@ -1285,7 +1285,7 @@ console.log(this);
     }
 
     setStatic(videoTime) {
-        if (videoTime) this.video.currentTime = this.wrappedTime(videoTime);
+        if (videoTime) this.video.currentTime = this.wrappedTime(videoTime, true); // true => guarded from values too near the end
         this.video.pause(); // no return value; synchronous, instantaneous?
     }
 
@@ -1309,7 +1309,7 @@ export class ImportedVideoElement extends ModelPart {
 
     init(options, id) {
         super.init(options, id);
-console.warn(options);
+//console.warn(options);
         this.isPlaying = false;
         this.startOffset = null; // only valid if playing
         this.pausedTime = 0; // only valid if paused
@@ -1329,7 +1329,7 @@ console.warn(options);
 class VideoViewPart extends ViewPart {
     constructor(options) {
         super(options);
-console.warn(this);
+//console.warn(this);
 
         this.videoReady = false; // this will go true just once
         this.waitingForIslandSync = !this.realm.isSynced; // this can flip back and forth
@@ -1374,11 +1374,11 @@ console.warn(this);
 
             this.publish(this.id, ViewEvents.changedDimensions, {});
             this.applyPlayState();
+            this.future(1000).checkPlayStatus();
             });
 
         this.subscribe(options.model.id, "setPlayState", data => this.setPlayState(data));
         this.subscribe(this.realm.island.id, { event: "synced", handling: "immediate" }, isSynced => this.handleSyncState(isSynced));
-        this.stepTimer = null;
     }
 
     get label() {
@@ -1392,18 +1392,22 @@ console.warn(this);
 
         this.latestPlayState = Object.assign({}, data);
         if (this.videoReady && !this.waitingForIslandSync) this.applyPlayState();
-        else console.log("store playState", this.latestPlayState);
+        //else console.log("store playState", this.latestPlayState);
     }
 
     applyPlayState() {
-console.log("apply playState", {...this.latestPlayState});
+//console.log("apply playState", {...this.latestPlayState});
         if (!this.latestPlayState.isPlaying) this.videoView.pause(this.latestPlayState.pausedTime);
         else {
+            this.videoView.video.playbackRate = 1;
+            this.lastRateAdjust = this.now(); // make sure we don't adjust rate before playback has settled in, and any emergency jump we decide to do
+            this.jumpIfNeeded = false;
             // if the video is blocked from playing, enter a stepping mode in which we move the video forward with successive pause() calls
-            this.videoView.play(this.calculateVideoTime()).then(playStarted => {
+            this.videoView.play(this.calculateVideoTime()+0.1).then(playStarted => {
                 this.enableSoundIcon.visible = !playStarted;
-                if (!playStarted) {
-                    console.warn(`stepping video`);
+                if (playStarted) this.future(250).triggerJumpCheck(); // leave it a little time to stabilise
+                else {
+//console.log(`stepping video`);
                     this.isStepping = true;
                     this.future().stepWhileBlocked();
                 }
@@ -1443,7 +1447,7 @@ console.log("apply playState", {...this.latestPlayState});
 
         // if the video is playing but blocked, this click will in theory be able to start it.
         if (this.isStepping) {
-            console.warn(`stop video stepping`);
+            console.log(`stop video stepping`);
             this.isStepping = false;
             this.applyPlayState();
             return;
@@ -1457,6 +1461,50 @@ console.log("apply playState", {...this.latestPlayState});
         const pausedTime = wantsToPlay ? 0 : videoTime;
         this.setPlayState({ isPlaying: wantsToPlay, startOffset, pausedTime }); // directly from the handler, in case the browser blocks indirect play() invocations
         this.model.future().setPlayState(wantsToPlay, startOffset, pausedTime); // then update our model, which will tell everyone else
+    }
+
+    triggerJumpCheck() { this.jumpIfNeeded = true; } // on next checkPlayStatus()
+
+    checkPlayStatus() {
+        if (this.videoView && this.videoView.isPlaying && !this.videoView.isBlocked) {
+            const expectedTime = this.videoView.wrappedTime(this.calculateVideoTime());
+            const videoTime = this.videoView.video.currentTime;
+            const videoDiff = videoTime - expectedTime;
+//console.log(`video is ${Math.round(videoDiff * 1000)}ms ahead`);
+            if (videoDiff < this.videoView.duration / 2) { // otherwise presumably measured across a loop restart; just ignore.
+                if (this.jumpIfNeeded) {
+                    this.jumpIfNeeded = false;
+                    // if there's a difference greater than 500ms, try to jump the video to the right place
+                    if (Math.abs(videoDiff) > 0.5) {
+                        console.log(`jumping video by ${-Math.round(videoDiff * 1000)}ms`);
+                        this.videoView.video.currentTime = this.videoView.wrappedTime(videoTime - videoDiff + 0.1, true); // 0.1 to counteract the delay that the jump itself tends to introduce; true to ensure we're not jumping beyond the last video frame
+                    }
+                } else {
+                    // every 3s, check video lag/advance, and set the playback rate accordingly.
+                    // current adjustment settings:
+                    //   > 200ms off: set playback 2% faster/slower than normal
+                    //   > 100ms: 1% faster/slower
+                    //   < 50ms: normal (i.e., hysteresis between 100ms and 50ms in the same sense)
+                    const lastRateAdjust = this.lastRateAdjust || 0;
+                    if (this.now() - lastRateAdjust > 3000) {
+                        const oldRate = this.videoView.video.playbackRate;
+                        const oldBoostPercent = Math.round(100 * (oldRate - 1));
+                        const diffAbs = Math.abs(videoDiff), diffSign = Math.sign(videoDiff);
+                        const desiredBoostPercent = -diffSign * (diffAbs > 0.2 ? 2 : (diffAbs > 0.1 ? 1 : 0));
+                        if (desiredBoostPercent !== oldBoostPercent) {
+                            const hysteresisBlock = desiredBoostPercent === 0 && Math.sign(oldBoostPercent) === -diffSign && diffAbs >= 0.05;
+                            if (!hysteresisBlock) {
+                                const playbackRate = 1 + 0.01 * desiredBoostPercent;
+console.log(`video playback rate: ${playbackRate}`);
+                                this.videoView.video.playbackRate = playbackRate;
+                            }
+                        }
+                        this.lastRateAdjust = this.now();
+                    }
+                }
+            }
+        }
+        this.future(500).checkPlayStatus();
     }
 
 }
