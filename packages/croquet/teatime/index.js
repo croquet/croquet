@@ -32,11 +32,11 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
 
     async function bootModelView(snapshot) {
         clear();
-        session.model = (await controller.establishSession(name, {snapshot, init: spawnModel, destroyerFn: bootModelView, ...options})).modelRoot;
+        const model = (await controller.establishSession(name, {snapshot, init: spawnModel, destroyerFn: bootModelView, ...options})).modelRoot;
         displaySessionMoniker(controller.id);
         displayQRCode();
         controller.inViewRealm(() => {
-            session.view = new ViewRoot(session.model);
+            session.view = new ViewRoot(model);
         });
     }
 
