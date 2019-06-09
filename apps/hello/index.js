@@ -7,16 +7,7 @@
 // from any client connected to the same session. The state of the model is automatically saved
 // to the cloud.
 
-import { Controller, startSession, Model, View } from "@croquet/teatime";
-
-// Open a connection to a Teatime reflector.
-
-Controller.connectToReflector(module.id);
-
-// Create a global variable to hold the session information. It's initially null because
-// we haven't joined a session yet.
-
-let session = null;
+import { Model, View, Controller, startSession } from "@croquet/teatime";
 
 //------------------------------------------------------------------------------------------
 // Define our model. MyModel listens for click events from the view. If it receives one, it
@@ -61,26 +52,17 @@ export class MyView extends View {
 
 }
 
+
+// Open a connection to a Teatime reflector.
+
+Controller.connectToReflector(module.id);
+
+
 //------------------------------------------------------------------------------------------
-// Define our main loop. First we join the TeaTime session, which spawns our model and our
-// view. Then we step the session forward every time the window updates. When the
-// the session steps forward, it executes all pending events in both the model and the
+// Join the Teatime session, which spawns our model and our view.
+// We enable automatic stepping (which creates a mainloop using window.requestAnimationFrame).
+// When the session steps forward, it executes all pending events in both the model and the
 // the view.
 //------------------------------------------------------------------------------------------
 
-async function go() {
-
-    //-- Start session --
-
-    session = await startSession("hello", MyModel, MyView);
-
-    // -- Main loop --
-
-    window.requestAnimationFrame(frame);
-    function frame(now) {
-        session.step(now);
-        window.requestAnimationFrame(frame);
-    }
-}
-
-go();
+startSession("hello", MyModel, MyView, {step: "auto"});
