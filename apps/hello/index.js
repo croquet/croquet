@@ -18,15 +18,6 @@ Controller.connectToReflector(module.id);
 
 let session = null;
 
-// Set up an event listener to receive mouse clicks from the window. If we're in a session, it
-// tells the view to broadcast that we clicked.
-
-document.addEventListener('click', OnClick, false);
-
-function OnClick(event) {
-    if (session) session.view.sendClick();
-}
-
 //------------------------------------------------------------------------------------------
 // Define our model. MyModel listens for click events from the view. If it receives one, it
 // increments its internal counter and broadcasts the current value.
@@ -48,7 +39,7 @@ export class MyModel extends Model {
 }
 
 //------------------------------------------------------------------------------------------
-// Define our view. MyView listens for update events from the model. It it receives one, it
+// Define our view. MyView listens for update events from the model. If it receives one, it
 // updates the counter on the screen with the current count.
 //------------------------------------------------------------------------------------------
 
@@ -56,6 +47,7 @@ export class MyView extends View {
     constructor(model) {
         super(model);
         this.handleUpdate(model.counter); // Get the current count on start up.
+        document.addEventListener('click', evt => this.sendClick(evt), false);
         this.subscribe("simulation", "update", data => this.handleUpdate(data));
     }
 
