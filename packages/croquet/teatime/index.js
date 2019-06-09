@@ -15,17 +15,28 @@ if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); 
 export async function startSession(name, ModelRoot=Model, ViewRoot=View, options={}) {
     const controller = new Controller();
     const session = { controller };
-    session.step = frameTime => stepSession(frameTime, controller);
+    if (options.step) {
+        // auto stepping
+        const ms = 1000 / options.step;
+        const step = frameTime => {
+            stepSession(frameTime, controller);
+            window.requestAnimationFrame(step, ms);
+        };
+        window.requestAnimationFrame(step, ms);
+    } else {
+        // app-controlled stepping
+        session.step = frameTime => stepSession(frameTime, controller);
+    }
     await bootModelView();
     return session;
 
     async function bootModelView(snapshot) {
         clear();
-        session.model = (await controller.establishSession(name, {snapshot, init: spawnModel, destroyerFn: bootModelView, ...options})).modelRoot;
+        const model = (await controller.establishSession(name, {snapshot, init: spawnModel, destroyerFn: bootModelView, ...options})).modelRoot;
         displaySessionMoniker(controller.id);
         displayQRCode();
         controller.inViewRealm(() => {
-            session.view = new ViewRoot(session.model);
+            session.view = new ViewRoot(model);
         });
     }
 
@@ -47,7 +58,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
 const MAX_SIMULATION_MS = 200;
 
 /** time spent simulating the last few frames */
-const simLoad = [];
+const simLoad = [0];
 /** number of frames to spread load */
 const loadBalance = 4;
 /** time in ms we allow sim to lag behind before increasing sim budget */

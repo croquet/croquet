@@ -10,7 +10,8 @@
 
 
 import BroadcastChannel from "broadcast-channel";
-import { hotreloadEventManager } from "@croquet/util";
+import hotreloadEventManager from "@croquet/util/hotreloadEventManager";
+import { displayError } from "@croquet/util/html";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
@@ -51,7 +52,7 @@ function discovered(port) {
     if (serverPort === NO_SERVER) serverPort = port;
     const me = serverPort === myPort ? "(me)" : "(not me)";
     console.log("Channel: discovered", serverPort, me);
-    document.getElementById("error").innerText = 'Using in-browser reflector ' + me;
+    displayError('Using in-browser reflector ' + me);
     while (whenDiscovered.length) whenDiscovered.shift()(serverPort);
 }
 
