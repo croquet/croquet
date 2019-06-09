@@ -23,6 +23,10 @@ export default class Model {
         return model;
     }
 
+    static register(file="<unknown>", name=this.name) {
+        registerClass(file, name, this);
+    }
+
     static classToID(cls) {
         return classToID(cls);
     }
@@ -135,23 +139,23 @@ function classToID(cls) {
     if (hasID(cls)) return cls[CLASS_ID];
     gatherModelClasses();
     if (hasID(cls)) return cls[CLASS_ID];
-    throw Error(`Class "${cls.name}" not found, is it exported?`);
+    throw Error(`Class "${cls.name}" not found, is it registered?`);
 }
 
 function classFromID(classID) {
     if (ModelClasses[classID]) return ModelClasses[classID].cls;
     gatherModelClasses();
     if (ModelClasses[classID]) return ModelClasses[classID].cls;
-    throw Error(`Class "${classID}" not found, is it exported?`);
+    throw Error(`Class "${classID}" not found, is it registered?`);
 }
 
 function registerClass(file, name, cls) {
     // create a classID for this class
     const id = `${file}:${name}`;
     const dupe = ModelClasses[id];
-    if (dupe) throw Error(`Duplicate class ${name} in ${file}`);
+    if (dupe && dupe.cls !== cls) throw Error(`Duplicate class ${name} in ${file}`);
     if (hasID(cls)) {
-        if (DEBUG.classes) console.warn(`ignoring re-exported class ${name} from ${file}`);
+        if (DEBUG.classes && !dupe) console.warn(`ignoring re-exported class ${name} from ${file}`);
     } else {
         if (DEBUG.classes) console.log(`registering class ${name} from ${file}`);
         cls[CLASS_ID] = id;
