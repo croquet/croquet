@@ -13,6 +13,7 @@ if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); 
 
 
 export async function startSession(name, ModelRoot=Model, ViewRoot=View, options={}) {
+    Controller.connectToReflectorIfNeeded();
     const controller = new Controller();
     const session = { controller };
     if (options.step) {

@@ -7,7 +7,7 @@
 // from any client connected to the same session. The state of the model is automatically saved
 // to the cloud.
 
-import { Model, View, Controller, startSession } from "@croquet/teatime";
+import { Model, View, startSession } from "@croquet/teatime";
 
 //------------------------------------------------------------------------------------------
 // Define our model. MyModel listens for click events from the view. If it receives one, it
@@ -52,12 +52,6 @@ export class MyView extends View {
     }
 
 }
-
-
-// Open a connection to a Teatime reflector.
-
-Controller.connectToReflector(module.id);
-
 
 //------------------------------------------------------------------------------------------
 // Join the Teatime session, which spawns our model and our view.

@@ -49,11 +49,18 @@ const SYNCED_MAX = 1000;
 const Controllers = {};
 const SessionCallbacks = {};
 
+let connectToReflectorWasCalled = false;
 
 export default class Controller {
-    static connectToReflector(mainModuleID, reflectorUrl) {
+    static connectToReflectorIfNeeded() {
+        if (connectToReflectorWasCalled) return;
+        this.connectToReflector();
+    }
+
+    static connectToReflector(mainModuleID='', reflectorUrl='') {
+        connectToReflectorWasCalled = true;
         if (!reflectorUrl) reflectorUrl = urlOptions.reflector || CROQUET_REFLECTOR;
-        if (!urlOptions.noupload) uploadCode(mainModuleID).then(hashes => codeHashes = hashes);
+        if (!urlOptions.noupload && mainModuleID) uploadCode(mainModuleID).then(hashes => codeHashes = hashes);
         connectToReflector(reflectorUrl);
     }
 
