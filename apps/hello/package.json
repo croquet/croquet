@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "parcel index.html -p 9002",
+    "start": "parcel index.html -p 9001",
     "deploy": "./deploy.sh",
     "lint": "eslint .",
     "docs": "jsdoc . -r -d docs"

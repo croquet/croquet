@@ -4,15 +4,19 @@
         <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
         <title>Hello World</title>
         <style>
+            #error { position: absolute; z-index: 1001; top: 0; left: 0; color: red; }
             body {
-                margin: 0;
+                margin: 10;
                 overflow: hidden;
-                font: 12px sans-serif;
+                font: 24px sans-serif;
                 background: #ccc;
+                user-select: none
             }
         </style>
     </head>
     <body>
+        <div id="error"></div>
+        <p id="counter">0</p>
         <script src="index.js"></script>
     </body>
 </html>
