@@ -16,15 +16,15 @@ import { Model, View, Controller, startSession } from "@croquet/teatime";
 
 export class MyModel extends Model {
 
-    init() { // Note that models are initialzed with "init" instead of "constructor"!
+    init() { // Note that models are initialized with "init" instead of "constructor"!
         super.init();
         this.counter = 0;
-        this.subscribe("input", "click", () => this.handleClick());
+        this.subscribe("counter", "increment", () => this.incrementCounter());
     }
 
-    handleClick() {
+    incrementCounter() {
         this.counter++;
-        this.publish("simulation", "update", this.counter);
+        this.publish("counter", "update", this.counter);
     }
 
 }
@@ -35,15 +35,16 @@ export class MyModel extends Model {
 //------------------------------------------------------------------------------------------
 
 export class MyView extends View {
+
     constructor(model) {
         super(model);
         this.handleUpdate(model.counter); // Get the current count on start up.
-        document.addEventListener('click', evt => this.sendClick(evt), false);
-        this.subscribe("simulation", "update", data => this.handleUpdate(data));
+        document.addEventListener("click", evt => this.onclick(evt), false);
+        this.subscribe("counter", "update", data => this.handleUpdate(data));
     }
 
-    sendClick() {
-        this.publish("input", "click");
+    onclick() {
+        this.publish("counter", "increment");
     }
 
     handleUpdate(data) {
