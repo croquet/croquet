@@ -17,12 +17,11 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
     const session = { controller };
     if (options.step) {
         // auto stepping
-        const ms = 1000 / options.step;
         const step = frameTime => {
             stepSession(frameTime, controller);
-            window.requestAnimationFrame(step, ms);
+            window.requestAnimationFrame(step);
         };
-        window.requestAnimationFrame(step, ms);
+        window.requestAnimationFrame(step);
     } else {
         // app-controlled stepping
         session.step = frameTime => stepSession(frameTime, controller);
