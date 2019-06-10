@@ -5,9 +5,6 @@ import Flying from './flying';
 //import Clickable from "../viewParts/clickable";
 //import Draggable from "../viewParts/draggable";
 
-const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
-if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
-
 const TOTAL_BALLS = 100;
 const GRAVITY = 0.001;
 const USER = Math.random();

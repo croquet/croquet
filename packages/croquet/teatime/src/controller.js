@@ -10,10 +10,6 @@ import { inViewRealm } from "./realms";
 import Island, { Message, inSequence } from "./island";
 
 
-const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
-if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
-
-
 /** @typedef { import('./model').default } Model */
 
 
@@ -908,5 +904,5 @@ function socketSetup(socket, reflectorUrl) {
             Controller.receive(event.data);
         }
     });
-    hotreloadEventManger.addDisposeHandler("socket", () => socket.readyState !== WebSocket.CLOSED && socket.close(1000, "hotreload "+moduleVersion));
+    //hotreloadEventManger.addDisposeHandler("socket", () => socket.readyState !== WebSocket.CLOSED && socket.close(1000, "hotreload "+moduleVersion));
 }

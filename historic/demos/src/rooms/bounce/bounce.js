@@ -2,9 +2,6 @@ import SeedRandom from "seedrandom/seedrandom";
 import { ModelPart, ViewPart, Room, ChildrenPart, ChildEvents, SpatialPart, Tracking, Clickable, Draggable, TextElement, THREE } from "@croquet/kit";
 import Bouncing from './bouncing';
 
-const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
-if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
-
 export class BoxElement extends ModelPart {
     constructor() {
         super();

@@ -2,9 +2,6 @@ import hotreloadEventManager from "./hotreloadEventManager";
 import urlOptions from "./urlOptions";
 import { getUser } from "./user";
 
-const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
-if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
-
 /*
 We use the Parcel module system to inspect our own source code:
 

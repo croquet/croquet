@@ -9,9 +9,6 @@ import { KeyboardEvents, KeyboardTopic } from "../domKeyboardManager";
 import { ViewPart, ViewEvents } from "../parts";
 import { userID } from "../util/userid";
 
-const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
-if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
-
 export default class EditableTextViewPart extends ViewPart {
     constructor(options) {
         super();

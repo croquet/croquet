@@ -8,9 +8,6 @@ import { ModelPart, ViewPart, ViewEvents } from './parts';
 import SVGIcon from "./util/svgIcon";
 import soundOn from "../assets/sound-on.svg";
 
-const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
-if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
-
 // @@ some (Bert-sanctioned) contortions needed to get the imports working.  all libraries (including inflate, needed for FBXLoader) were downloaded from https://github.com/mrdoob/three.js/tree/master/src/loaders and https://github.com/mrdoob/three.js/tree/master/examples/js/libs on 4 jun 2019
 window.THREE = THREE;
 const Zlib = require("../thirdparty/three/inflate.min").Zlib;
@@ -1512,4 +1509,3 @@ console.log(`video playback rate: ${playbackRate}`);
 const ImportedVideoView = Clickable({
     onClick: options => (at, view) => view.handleUserClick()
 })(Tracking()(VideoViewPart));
-

@@ -14,9 +14,6 @@ import arBalls from "./rooms/arBalls/arBalls";
 const tps = "20x3"; // 20 ticks/s from server, 60 t/s total
 const LOG_HOTRELOAD = true;
 
-const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
-if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
-
 const hotState = module.hot && module.hot.data || {};
 
 const defaultRoom = urlOptions.ar ? "arBalls" : "bounce";

@@ -13,10 +13,6 @@ import BroadcastChannel from "broadcast-channel";
 import hotreloadEventManager from "@croquet/util/hotreloadEventManager";
 import { displayError } from "@croquet/util/html";
 
-const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
-if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
-
-
 // We are opening a single BroadcastChannel for communication.
 // Each window gets a random unique ID, stored as myPort.
 // Sockets referring to other windows are stored in channelSockets.

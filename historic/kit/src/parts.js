@@ -1,8 +1,5 @@
 import { Model, View, currentRealm } from "@croquet/teatime";
 
-const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
-if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
-
 export const MODEL_PATH_SEPARATOR = "#";
 export const PART_PATH_SEPARATOR = ".";
 export const PATH_PART_SEPARATOR_SPLIT_REGEXP = /\.(.+)/;
