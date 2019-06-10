@@ -88,6 +88,16 @@ function functionSource(fn) {
     return str.slice(openingBrace + 1, closingBrace).trim();
 }
 
+function classSrc(cls) {
+    // strip whitespace around head and class body
+    const str = "" + cls;
+    const openingBrace = str.indexOf('{');
+    const closingBrace = str.lastIndexOf('}');
+    const head = str.slice(0, openingBrace).replace(/\s+/g, ' ').trim();
+    const body = str.slice(openingBrace + 1, closingBrace).trim();
+    return `${head} {${body}}`;
+}
+
 /**
  * find source code of a given module (mangled by parcel.js)
  * @param {String} mod module name
@@ -161,7 +171,7 @@ export async function hashFile(mod) {
 const extraHashes = [];
 
 export function addClassHash(cls) {
-    const source = String(cls);
+    const source = classSrc(cls);
     extraHashes.push(hashString(source));
 }
 
