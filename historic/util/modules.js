@@ -158,11 +158,17 @@ export async function hashFile(mod) {
     return fileHashes[mod] = await hashString(source);
 }
 
+const extraHashes = [];
+
+export function addClassHash(cls) {
+    const source = String(cls);
+    extraHashes.push(hashString(source));
+}
 
 export async function hashNameAndCode(name) {
     const mods = allModuleIDs().sort();
     // console.log(`${name} Hashing ${moduleID}: ${mods.join(' ')}`);
-    const hashes = await Promise.all(mods.map(hashFile));
+    const hashes = await Promise.all([...mods.map(hashFile), ...extraHashes]);
     const hash = await hashString([name, ...hashes].join('|'));
     // console.timeEnd("Hashing " + name);
     return hash;

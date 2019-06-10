@@ -1,5 +1,6 @@
 import hotreloadEventManger from "@croquet/util/hotreloadEventManager";
 import urlOptions from "@croquet/util/urlOptions";
+import { addClassHash } from "@croquet/util/modules";
 import { currentRealm } from "./realms";
 
 
@@ -24,6 +25,7 @@ export default class Model {
     }
 
     static register(file="<unknown>", name=this.name) {
+        addClassHash(this);
         registerClass(file, name, this);
     }
 
