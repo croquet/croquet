@@ -89,13 +89,13 @@ function functionSource(fn) {
 }
 
 function classSrc(cls) {
-    // strip whitespace around head and class body
+    // strip whitespace around head and class body, and leading whitespace
     const str = "" + cls;
     const openingBrace = str.indexOf('{');
     const closingBrace = str.lastIndexOf('}');
     const head = str.slice(0, openingBrace).replace(/\s+/g, ' ').trim();
     const body = str.slice(openingBrace + 1, closingBrace).trim();
-    return `${head} {${body}}`;
+    return `${head} {\n${body.replace(/^\s+/gm, '')}}`;
 }
 
 /**
