@@ -1,11 +1,11 @@
 {
   "name": "croquet",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "",
   "main": "croquet.js",
   "scripts": {
     "start": "parcel watch --no-hmr --public-url . --global Croquet -o croquet.min.js croquet.js",
-    "deploy": "parcel build --public-url . --global Croquet -d ../../servers/croquet.studio/sdk/0.0.1 -o croquet.min.js croquet.js",
+    "deploy": "parcel build --public-url . --global Croquet -d ../../servers/croquet.studio/sdk/0.0.2 -o croquet.min.js croquet.js",
     "deployx": "parcel build --experimental-scope-hoisting --public-url . --global Croquet -o croquet.min.js croquet.js"
   },
   "author": "Croquet Studios",
