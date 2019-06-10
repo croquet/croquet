@@ -189,18 +189,22 @@ export default class Controller {
      * @returns {Promise<{modelName:Model}>} list of named models (as returned by init function)
      */
     async establishSession(room, creator) {
-        await login();
         const { optionsFromUrl, multiRoom } = creator;
         const options = {...creator.options};
         for (const key of [...OPTIONS_FROM_URL, ...optionsFromUrl||[]]) {
             if (key in urlOptions) options[key] = urlOptions[key];
         }
         // session is either "user/random" or "room/user/random" (for multi-room)
+        if (!options.session) await login();
         const session = urlOptions.getSession().split('/');
         let user = multiRoom ? session[1] : session[0];
         let random = multiRoom ? session[2] : session[1];
         const newSession = !user || !random;
         if (newSession) {
+            if (options.session) {
+                user = options.session.user;
+                random = options.session.random;
+            }
             // incomplete session: create a new session id
             if (!user) user = getUser("name", "").toLowerCase() || "GUEST";
             if (!random) {
