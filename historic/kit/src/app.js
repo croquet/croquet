@@ -96,6 +96,7 @@ export default class App {
         const prevRoomName = this.currentRoomName;
         const {controller} = this.roomStates[roomName];
         urlOptions.setSession(controller.session, !hadSession);
+        window.parent.postMessage({session: controller.sesssion, url: window.location + ""}, "*");
         displaySessionMoniker(controller.id, 'reset');
         displayQRCode(window.location.href, 'qrcode');
         this.currentRoomName = roomName;

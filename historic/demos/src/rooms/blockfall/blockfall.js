@@ -12,13 +12,27 @@ class PuckView extends Draggable({
 })(Tracking()(PhysicalShape)) {
     constructor(options) {
         super({...options, material: new THREE.MeshStandardMaterial({
-            color: "#dddddd", metalness: 0.2, roughness: 0.8, transparent: true, opacity: 0.8
+            color: "#EF493E", metalness: 0.2, roughness: 0.8, transparent: true, opacity: 0.9
+        })});
+    }
+}
+
+export class Ground extends PhysicalElement {
+    naturalViewClass() {
+        return GroundView;
+    }
+}
+
+class GroundView extends Tracking()(PhysicalShape) {
+    constructor(options) {
+        super({...options, material: new THREE.MeshStandardMaterial({
+            color: "#333333", metalness: 0.2, roughness: 0.8,
         })});
     }
 }
 
 export const WrappingWorld = SpaceWrapping({
-    wrapAround: pos => pos.y < -2 && new THREE.Vector3(pos.x % 2, 8, -2),
+    wrapAround: pos => pos.y < -2 && new THREE.Vector3(pos.x % 2, 8, -3),
 })(PhysicalWorld);
 
 export default function initBlockfall(options) {
@@ -35,15 +49,15 @@ export default function initBlockfall(options) {
     const coloring = RandomlyColoringGroupElement.create();
     room.parts.elements.add(coloring);
 
-    const nElements = options.n || 50;
+    const nElements = options.n || 15;
 
     for (let i = 0; i < nElements; i++) {
-        const size = 0.15;
+        const size = 0.25;
         const sphere = PhysicalElement.create({
             spatial: {
                 world,
                 type: room.random() > 0.3 ? room.random() > 0.5 ? "sphere" : "box" : "cylinder",
-                position: new THREE.Vector3(2 - 4 * room.random(), 2 + 20 * room.random(), -2),
+                position: new THREE.Vector3(2 - 4 * room.random(), 2 + 20 * room.random(), -3),
                 size: new THREE.Vector3(size, size, size),
                 density: 1,
                 friction: 0.5,
@@ -53,11 +67,11 @@ export default function initBlockfall(options) {
         coloring.parts.children.add(sphere);
     }
 
-    const ground = PhysicalElement.create({
+    const ground = Ground.create({
         spatial: {
             world,
             type: "cylinder",
-            position: new THREE.Vector3(0, -0.5, -1.8),
+            position: new THREE.Vector3(0, 0, -2.8),
             quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 8),
             size: new THREE.Vector3(3, 3, 3),
             move: false
@@ -66,13 +80,13 @@ export default function initBlockfall(options) {
     room.parts.elements.add(ground);
 
     for (let z = 0; z <= 2; z++) {
-        for (let x = -2; x <= 2 - z; x++) {
+        for (let x = -1; x <= 1 - z; x++) {
             const puck = Puck.create({
                 spatial: {
                     world,
                     type: "cylinder",
-                    size: new THREE.Vector3(0.15, 0.5, 0.15),
-                    position: new THREE.Vector3(x + 0.5 * z, 1.1 - Math.sin(Math.PI / 8) * z, -1.5 + z),
+                    size: new THREE.Vector3(0.25, 0.5, 0.25),
+                    position: new THREE.Vector3(1.5 * x + 1.5 * 0.5 * z, 1.6 - Math.sin(Math.PI / 8) * z, -2.5 + z),
                     quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 8),
                     density: 1,
                     kinematic: true

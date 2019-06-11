@@ -4,6 +4,10 @@ import { urlOptions } from ".";
 
 export function displaySessionMoniker(id='', element='session') {
     const button = document.getElementById(element);
+    if (button && urlOptions.noreset) {
+        button.style.display = "none";
+        return;
+    }
     document.title = document.title.replace(/:.*/, '');
     if (!id) {
         if (button) button.style.backgroundImage = '';
