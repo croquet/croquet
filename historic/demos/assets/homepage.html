@@ -99,11 +99,11 @@
     </head>
     <body>
         <div id="hero-container">
-            <img src="./homepage_hero_background.svg" id="hero-bg"/>
-            <img src="./homepage_hero.svg" id="hero"/>
-            <img src="./homepage_hero_overlay.svg" id="hero-overlay"/>
-            <img src="./homepage_mobile_overlay.svg" id="mobile-overlay"/>
-            <iframe id="first" src="./index.html?nostats=true&noqr=true&noreset=true#blockfall"></iframe>
+            <img src="./homepage_assets/homepage_hero_background.svg" id="hero-bg"/>
+            <img src="./homepage_assets/homepage_hero.svg" id="hero"/>
+            <img src="./homepage_assets/homepage_hero_overlay.svg" id="hero-overlay"/>
+            <img src="./homepage_assets/homepage_mobile_overlay.svg" id="mobile-overlay"/>
+            <iframe id="first"></iframe>
             <iframe id="second"></iframe>
             <iframe id="third"></iframe>
             <img id="qr" src=""/>
@@ -116,6 +116,11 @@
             <p>Croquet <em>automatically provides low-latency, low-bandwidth multi-user interaction</em> to your app.</p>
         </section>
         <script>
+            if (window.location.hostname === "localhost") {
+                document.getElementById("first").src = "./index.html?nostats=true&noqr=true&noreset=true#blockfall"
+            } else {
+                document.getElementById("first").src = "/demos/blockfall?nostats=true&noqr=true&noreset=true"
+            }
             window.addEventListener("message", event => {
                 console.log(event);
                 if (event.data.url) {
