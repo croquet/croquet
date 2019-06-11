@@ -40,7 +40,7 @@ if (!htmlSource.includes(entryPointName)) console.error("Entry point substitutio
 const BASE_URL = baseUrl('code');
 
 export function fileServer() {
-    const server = typeof urlOptions.files === "string" ? urlOptions.files : 'https://db.croquet.studio';
+    const server = typeof urlOptions.files === "string" ? urlOptions.files : 'https://croquet.studio';
     if (server.endsWith('/')) return server.slice(0, -1);
     return server;
 }
@@ -50,8 +50,7 @@ export function fileServer() {
 export function baseUrl(what='code') {
     const dev = urlOptions.has("dev", "host", "localhost");
     const host = dev ? `dev/${getUser("name", "GUEST")}` : window.location.hostname;
-    const server = fileServer();
-    return `${server}/files-v1/${host}/${what}/`;
+    return `${fileServer()}/files-v1/${host}/${what}/`;
 }
 
 function allModules() {
