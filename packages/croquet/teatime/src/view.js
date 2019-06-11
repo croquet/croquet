@@ -1,10 +1,6 @@
 import { currentRealm } from "./realms";
 
 
-const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
-if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
-
-
 export default class View {
 
     constructor() {
@@ -22,8 +18,8 @@ export default class View {
     }
 
     subscribe(scope, eventSpec, callback) {
-        const {event, oncePerFrame} = eventSpec.event ? eventSpec : {event: eventSpec};
-        this.realm.subscribe(event, this.id, callback, scope, oncePerFrame);
+        const {event, handling} = eventSpec.event ? eventSpec : {event: eventSpec};
+        this.realm.subscribe(event, this.id, callback, scope, handling);
     }
 
     unsubscribe(scope, event) {
@@ -31,7 +27,7 @@ export default class View {
     }
 
     unsubscribeAll() {
-        this.__realm.unsubscribeAll(this.id);
+        this.realm.unsubscribeAll(this.id);
     }
 
     // Misc
@@ -41,8 +37,17 @@ export default class View {
         return this.realm.futureProxy(tOffset, this);
     }
 
+    // use currentRealm() to force a check that the call is happening in an appropriate context (not, e.g., in Model code)
     random() {
         return currentRealm().random();
+    }
+
+    now() {
+        return this.realm.now();
+    }
+
+    externalNow() {
+        return this.realm.externalNow();
     }
 
     [Symbol.toPrimitive]() {

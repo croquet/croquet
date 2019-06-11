@@ -1,0 +1,20 @@
+{
+  "name": "croquet",
+  "version": "0.0.3",
+  "description": "",
+  "main": "croquet.js",
+  "scripts": {
+    "start": "parcel watch --no-hmr --public-url . --global Croquet -o croquet.min.js croquet.js",
+    "deploy": "parcel build --public-url . --global Croquet -d ../../servers/croquet.studio/sdk -o croquet-0.0.3.min.js croquet.js",
+    "deployx": "parcel build --experimental-scope-hoisting --public-url . --global Croquet -o croquet.min.js croquet.js"
+  },
+  "author": "Croquet Studios",
+  "license": "ISC",
+  "browserslist": [ "> 5%" ],
+  "dependencies": {
+    "@croquet/teatime": "file:../teatime"
+  },
+  "devDependencies": {
+    "parcel": "^1.12.3"
+  }
+}

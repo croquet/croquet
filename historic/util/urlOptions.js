@@ -1,10 +1,7 @@
 import "./deduplicate";
 
 
-const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
-if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
-
-let sessionFromPath = null;
+const sessionFromPath = window.location.hostname === "croquet.studio";
 let sessionApp = "";
 let sessionArgs = "";
 
@@ -42,29 +39,29 @@ class UrlOptions {
      */
     getSession() {
         // extract app and session from /(app)/(session)
-        const PATH_REGEX = /^\/([^/]+)\/(.*)$/;
-        const pathMatch = document.location.pathname.match(PATH_REGEX);
-        if (pathMatch) {
-            sessionFromPath = true;
-            sessionApp = pathMatch[1];     // used in setSession()
-            return pathMatch[2];
-        }
-        // extract session and args from #(session)&(arg=val&arg)
-        const HASH_REGEX = /^#([^&]+)&?(.*)$/;
-        const hashMatch = document.location.hash.match(HASH_REGEX);
-        if (hashMatch) {
-            sessionFromPath = false;
-            // if first match includes "=" it's not a session
-            if (hashMatch[1].includes("=")) {
-                sessionArgs = `${hashMatch[1]}&${hashMatch[2]}`;
-                return "";
+        if (sessionFromPath) {
+            const PATH_REGEX = /^\/([^/]+)\/(.*)$/;
+            const pathMatch = document.location.pathname.match(PATH_REGEX);
+            if (pathMatch) {
+                sessionApp = pathMatch[1];     // used in setSession()
+                return pathMatch[2];
             }
-            sessionArgs = hashMatch[2];    // used in setSession()
-            return hashMatch[1];
+        } else {
+            // extract session and args from #(session)&(arg=val&arg)
+            const HASH_REGEX = /^#([^&]+)&?(.*)$/;
+            const hashMatch = document.location.hash.match(HASH_REGEX);
+            if (hashMatch) {
+                // if first match includes "=" it's not a session
+                if (hashMatch[1].includes("=")) {
+                    sessionArgs = `${hashMatch[1]}&${hashMatch[2]}`;
+                    return "";
+                }
+                sessionArgs = hashMatch[2];    // used in setSession()
+                return hashMatch[1];
+            }
         }
         // check session arg
         if (typeof this.session === "string") {
-            sessionFromPath = false;
             sessionArgs = document.location.hash.slice(1);
             return this.session;
         }

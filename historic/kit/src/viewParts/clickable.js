@@ -1,8 +1,5 @@
 import { PointerEvents, makePointerSensitive } from "./pointer";
 
-const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
-if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
-
 export default function Clickable(clickOptions={}) {
     clickOptions = {
         clickHandle: "",
@@ -16,12 +13,12 @@ export default function Clickable(clickOptions={}) {
             /** @type {import('./object3D').Object3D} */
             this.clickablePart = this.lookUp(clickOptions.clickHandle);
             makePointerSensitive(this.clickablePart.threeObj, this);
-            this.subscribe(this.id, PointerEvents.pointerDown, data => this.clickableOnPointerDown(data));
+            this.subscribe(this.id, { event: PointerEvents.pointerDown, handling: 'immediate' }, data => this.clickableOnPointerDown(data));
             this.onClickCallback = clickOptions.onClick(options);
         }
 
         clickableOnPointerDown({at}) {
-            this.onClickCallback(at);
+            this.onClickCallback(at, this); // @@ ael - added "this", used by video player
         }
     };
 }

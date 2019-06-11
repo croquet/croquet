@@ -24,7 +24,7 @@ export default class PhysicalPart extends ModelPart {
             restitution: options.restitution || 0.2
         });
 
-        this.subscribe(options.world, PhysicsEvents.worldStepped, data => this.stepped(data));
+        this.subscribe(options.world.id, PhysicsEvents.worldStepped, data => this.stepped(data));
     }
 
     stepped() {
@@ -96,7 +96,7 @@ export class PhysicalWorld extends ModelPart {
             this.world.step();
             this.nSteps += 1;
         }
-        this.publish(this, PhysicsEvents.worldStepped, this.nSteps);
+        this.publish(this.id, PhysicsEvents.worldStepped, this.nSteps);
         this.future(1000/60).step();
     }
 }

@@ -10,11 +10,8 @@
 
 
 import BroadcastChannel from "broadcast-channel";
-import hotreload from "@croquet/util/hotreload";
-
-const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
-if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
-
+import hotreloadEventManager from "@croquet/util/hotreloadEventManager";
+import { displayError } from "@croquet/util/html";
 
 // We are opening a single BroadcastChannel for communication.
 // Each window gets a random unique ID, stored as myPort.
@@ -38,7 +35,7 @@ function discover(ms, callback) {
     if (callback) whenDiscovered.push(callback);
     channel._post("discover", {from: myPort});
     if (timeout) clearTimeout(timeout);
-    timeout = hotreload.setTimeout(() => {
+    timeout = hotreloadEventManager.setTimeout(() => {
         if (ms < 100) discover(ms * 1.5);
         else {
             console.log("Channel: TIMEOUT for discover");
@@ -51,7 +48,7 @@ function discovered(port) {
     if (serverPort === NO_SERVER) serverPort = port;
     const me = serverPort === myPort ? "(me)" : "(not me)";
     console.log("Channel: discovered", serverPort, me);
-    document.getElementById("error").innerText = 'Using in-browser reflector ' + me;
+    displayError('Using in-browser reflector ' + me);
     while (whenDiscovered.length) whenDiscovered.shift()(serverPort);
 }
 
@@ -149,7 +146,7 @@ class CallbackHandler {
         const callback = this._callbacks[event];
         if (callback) {
             if (event === 'close') callback(...args);  // needs to be sync for hot reload dispose
-            else hotreload.promiseResolveThen(() => callback(...args));    // async but in order
+            else hotreloadEventManager.promiseResolveThen(() => callback(...args));    // async but in order
         }
     }
 }
@@ -286,6 +283,8 @@ class Client extends CallbackHandler {
         this.connection._connectTo(socket);
     }
 
+    get bufferedAmount() { return this.connection.bufferedAmount; }
+
     send(data) {
         this.connection.send(data);
     }
@@ -330,7 +329,7 @@ export class Server extends CallbackHandler {
 }
 
 
-hotreload.addDisposeHandler("broadcast-channel", () => {
+hotreloadEventManager.addDisposeHandler("broadcast-channel", () => {
     if (channel) {
         // notify everyone with a socket to this window
         channel._post("close", {port: myPort });

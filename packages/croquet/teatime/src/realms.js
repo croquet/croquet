@@ -2,10 +2,6 @@ import urlOptions from "@croquet/util/urlOptions";
 import { viewDomain } from "./domain";
 
 
-const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
-if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
-
-
 const DEBUG = {
     subscribe: urlOptions.has("debug", "subscribe", false),
 };
@@ -68,6 +64,10 @@ class ModelRealm {
         return this.island.random();
     }
 
+    now() {
+        return this.island.time;
+    }
+
     equal(otherRealm) {
         return otherRealm instanceof ModelRealm && otherRealm.island === this.island;
     }
@@ -88,8 +88,7 @@ class ViewRealm {
     publish(event, data, scope) {
         this.island.publishFromView(scope, event, data);
     }
-    subscribe(event, viewId, callback, scope, oncePerFrame) {
-        const handling = oncePerFrame ? "oncePerFrame" : "queued";
+    subscribe(event, viewId, callback, scope, handling="queued") {
         if (DEBUG.subscribe) console.log(`View.subscribe(${scope}:${event}) ${viewId} ${callback} [${handling}]`);
         viewDomain.addSubscription(scope, event, viewId, callback, handling);
     }
@@ -127,6 +126,18 @@ class ViewRealm {
 
     random() {
         return Math.random();
+    }
+
+    now() {
+        return this.island.time;
+    }
+
+    externalNow() {
+        return this.island.controller.time;
+    }
+
+    isSynced() {
+        return !!this.island.controller.synced;
     }
 
     equal(otherRealm) {

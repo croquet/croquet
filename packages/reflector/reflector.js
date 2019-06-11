@@ -86,7 +86,22 @@ function getTime(island) {
     const now = Date.now();
     const delta = now - island.before;     // might be < 0 if system clock went backwards
     if (delta > 0) {
-        island.time += island.scale * Math.min(island.tick, delta); // advance clock at most by a TICK
+        // tick requests usually come late; sometimes tens of ms late.  keep track of such overruns, and whenever there is a net lag inject a small addition to the delta (before scaling) to help the island catch up.
+        const desiredTick = island.tick;
+        let advance = delta; // default
+        if (delta > desiredTick/2) { // don't interfere with rapid-fire message-driven requests
+            const over = delta - desiredTick;
+            if (over > 0) {
+                advance = desiredTick; // upper limit, subject to possible adjustment below
+                if (over < 100) island.lag += over; // don't try to cater for very large delays (e.g., at startup)
+            }
+            if (island.lag > 0) {
+                const boost = 4; // seems to be about the smallest that will rein things in
+                advance += boost;
+                island.lag -= boost;
+            }
+        }
+        island.time += island.scale * advance;
         island.before = now;
     }
     return island.time;
@@ -128,6 +143,7 @@ function JOIN(client, id, args) {
         scale: 1,            // ratio of island time to wallclock time
         tick: TICK_MS,       // default tick rate
         delay: 0,            // hold messages until this many ms after last tick
+        lag: 0,              // aggregate ms lag in tick requests
         clients: new Set(),  // connected web sockets
         users: 0,            // number of clients already reported
         providers: new Set(),// clients that are running
@@ -155,7 +171,7 @@ function JOIN(client, id, args) {
     function START() {
         // only older clients send a time on JOIN, newer ones explicitly request TICKS
         if (time !== undefined) {
-            island.time = time;
+            island.time = Math.ceil(time);
             startTicker(island, 1000 / 20);
         }
         const msg = JSON.stringify({id, action: 'START'});
@@ -283,6 +299,7 @@ function JOIN1(client, id, args) {
         scale: 1,            // ratio of island time to wallclock time
         tick: TICK_MS,       // default tick rate
         delay: 0,            // hold messages until this many ms after last tick
+        lag: 0,              // aggregate ms lag in tick requests
         clients: new Set(),  // connected web sockets
         users: 0,            // number of clients already reported
         snapshotTime: -1,    // time of last snapshot
@@ -337,7 +354,8 @@ function JOIN1(client, id, args) {
 
 function SYNC1(island) {
     const {snapshotUrl: url, messages} = island;
-    const response = JSON.stringify({ id: island.id, action: 'SYNC', args: {url, messages}});
+    const time = getTime(island);
+    const response = JSON.stringify({ id: island.id, action: 'SYNC', args: {url, messages, time}});
     const range = !messages.length ? '' : ` (#${messages[0][1]}...${messages[messages.length-1][1]})`;
     for (const syncClient of island.syncClients) {
         if (syncClient.readyState === WebSocket.OPEN) {
@@ -518,7 +536,7 @@ function TICKS(client, id, args) {
     if (!island) { if (client.readyState === WebSocket.OPEN) client.close(4000, "unknown island"); return; }
     if (!island.time) {
         // only accept time, sequence, and delay if new island
-        island.time = typeof time === "number" ? time : 0;
+        island.time = typeof time === "number" ? Math.ceil(time) : 0;
         island.seq = typeof seq === "number" ? seq : 0xFFFFFFF0;    // v0 clients expect this value
         if (delay > 0) island.delay = delay;
     }

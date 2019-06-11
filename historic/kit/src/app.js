@@ -4,6 +4,7 @@ import { urlOptions, Stats, displaySessionMoniker, displayQRCode } from "@croque
 import RoomViewManager from "./room/roomViewManager";
 import Renderer from "./render";
 import { theKeyboardManager } from "./domKeyboardManager";
+import { theDragDropHandler } from "./domDragDrop";
 
 export default class App {
     constructor(rooms, reflectorUrl, canvas, width, height, options={}) {
@@ -21,7 +22,6 @@ export default class App {
             this.roomStates[roomName].creator.snapshot = parsedSnapshot;
         }
 
-        this.doDownload = options.doDownload === undefined ? true : options.doDownload;
         this.defaultRoom = options.defaultRoom || null;
         this.currentRoomName = this.defaultRoom;
         this.roomViewManager = new RoomViewManager(width, height);
@@ -31,6 +31,7 @@ export default class App {
         this.canvas = canvas;
         this.renderer = options.recycleRenderer || new Renderer(width, height, canvas);
         this.keyboardManager = theKeyboardManager;
+        this.dragDropHandler = theDragDropHandler;
 
         this.domEventManager = options.domEventManager || {
             requestAnimationFrame(...args) { return window.requestAnimationFrame(...args);},
@@ -77,7 +78,6 @@ export default class App {
         roomState.creator.options = this.roomInitOptions;
 
         const controller = new Controller();
-        controller.fetchUpdatedSnapshot = this.doDownload;
         roomState.namedModelsPromise = controller.establishSession(roomName, roomState.creator);
         roomState.controller = controller;
         roomState.namedModels = await roomState.namedModelsPromise;
@@ -136,9 +136,8 @@ export default class App {
                 // simulate about as long as in the prev frame to distribute load
                 this.simulate(simStart + Math.min(simBudget, 200));
                 // if backlogged, use all CPU time for simulation, but render at least at 5 fps
-                if (this.roomStates[this.currentRoomName].controller.backlog > this.balanceMS) {
-                    this.simulate(simStart + 200 - simBudget);
-                }
+                const { backlog } = this.roomStates[this.currentRoomName].controller;
+                if (backlog > this.balanceMS) this.simulate(simStart + 200 - simBudget);
                 // keep log of sim times
                 this.simLoad.push(Date.now() - simStart);
                 if (this.simLoad.length > this.loadBalance) this.simLoad.shift();
@@ -147,9 +146,11 @@ export default class App {
                 Stats.users(users);
                 Stats.network(Date.now() - lastReceived);
                 Stats.latency(latency);
-                Stats.active(Date.now() - lastSent);
+                Stats.activity(Date.now() - lastSent);
                 // remember lastFrame for setInterval()
                 this.lastFrame = Date.now();
+                // no view updates / render if backlogged
+                if (backlog > 1000) return;
             }
 
             // update views from model
@@ -166,6 +167,7 @@ export default class App {
                 Stats.end("render");
                 currentRoomView.parts.pointer.updatePointer();
                 this.keyboardManager.setCurrentRoomView(currentRoomView);
+                if (namedModels) this.dragDropHandler.setCurrentRoom(namedModels.room, currentRoomView);
             }
         }
     }
@@ -261,6 +263,27 @@ export default class App {
                 this.roomViewManager.detachAll();
                 if (controller) controller.requestNewSession();
             }
+        });
+
+        // NB: per https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API/Drag_operations, one must cancel (e.g., preventDefault()) on dragenter and dragover events to indicate willingness to receive drop.
+        this.domEventManager.addEventListener(this.canvas, "dragenter", event => {
+            //console.log("ENTER");
+            event.preventDefault();
+        });
+
+        this.domEventManager.addEventListener(this.canvas, "dragover", event => {
+            //console.log("OVER");
+            event.preventDefault();
+        });
+
+        this.domEventManager.addEventListener(this.canvas, "dragleave", event => {
+            //console.log("LEAVE");
+            event.preventDefault();
+        });
+
+        this.domEventManager.addEventListener(this.canvas, "drop", event => {
+            event.preventDefault();
+            this.dragDropHandler.onDrop(event);
         });
 
         this.keyboardManager.install(this.domEventManager);

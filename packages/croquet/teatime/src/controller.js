@@ -4,13 +4,10 @@ import Stats from "@croquet/util/stats";
 import hotreloadEventManger from "@croquet/util/hotreloadEventManager";
 import urlOptions from "@croquet/util/urlOptions";
 import { login, getUser } from "@croquet/util/user";
+import { displaySpinner, displayError } from "@croquet/util/html";
 import { baseUrl, hashNameAndCode, hashString, uploadCode } from "@croquet/util/modules";
 import { inViewRealm } from "./realms";
-import Island, { Message } from "./island";
-
-
-const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
-if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
+import Island, { Message, inSequence } from "./island";
 
 
 /** @typedef { import('./model').default } Model */
@@ -20,6 +17,8 @@ if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); 
 // only newer clients get to use it
 const VERSION = 1;
 
+const FALLBACK_REFLECTOR = "wss://croquet.studio/reflector-v1";
+const DEFAULT_REFLECTOR = process.env.CROQUET_REFLECTOR || FALLBACK_REFLECTOR;    // replaced by parcel at build time from app's .env file
 
 let codeHashes = null;
 
@@ -39,19 +38,25 @@ const OPTIONS_FROM_URL = [ 'tps' ];
 // schedule a snapshot after this amount of CPU time has been used for simulation
 const SNAPSHOT_EVERY = 5000;
 
+// backlog threshold in ms to publish "synced(true|false)" event (to start/stop rendering)
+const SYNCED_MIN = 100;
+const SYNCED_MAX = 1000;
+
 const Controllers = {};
 const SessionCallbacks = {};
 
-/** answer true if seqA comes before seqB */
-function inSequence(seqA, seqB) {
-    const seqDelta = (seqB - seqA) >>> 0; // make unsigned
-    return seqDelta < 0x8000000;
-}
-
+let connectToReflectorWasCalled = false;
 
 export default class Controller {
-    static connectToReflector(mainModuleID, reflectorUrl) {
-        if (!urlOptions.noupload) uploadCode(mainModuleID).then(hashes => codeHashes = hashes);
+    static connectToReflectorIfNeeded() {
+        if (connectToReflectorWasCalled) return;
+        this.connectToReflector();
+    }
+
+    static connectToReflector(mainModuleID='', reflectorUrl='') {
+        connectToReflectorWasCalled = true;
+        if (!reflectorUrl) reflectorUrl = urlOptions.reflector || DEFAULT_REFLECTOR;
+        if (!urlOptions.noupload && mainModuleID) uploadCode(mainModuleID).then(hashes => codeHashes = hashes);
         connectToReflector(reflectorUrl);
     }
 
@@ -139,6 +144,10 @@ export default class Controller {
         this.oldMessages = [];
         /** CPU time spent simulating since last snapshot */
         this.cpuTime = 0;
+        // on reconnect, show spinner
+        if (this.synced) displaySpinner(true);
+        /** @type {Boolean} backlog was below SYNCED_MIN */
+        this.synced = null; // indicates never synced before
         /** latency statistics */
         this.statistics = {
             /** for identifying our own messages */
@@ -152,6 +161,18 @@ export default class Controller {
         this.latency = 0;
     }
 
+    /** @type {String} this controller's island id */
+    get id() { return this.island ? this.island.id : this.islandCreator.snapshot.id; }
+
+    /**  @type {Number} how many ms the simulation is lagging behind the last tick from the reflector */
+    get backlog() { return this.island ? this.time - this.island.time : 0; }
+
+    /** @type {Number} how many ms passed since we received something from reflector */
+    get starvation() { return Date.now() - this.lastReceived; }
+
+    /** @type {Number} how many ms passed since we sent a message via the reflector */
+    get activity() { return Date.now() - this.lastSent; }
+
     /**
      * Join or create a session by connecting to the reflector
      * - the island/session id is created from the session name (found in the URL)
@@ -164,18 +185,22 @@ export default class Controller {
      * @returns {Promise<{modelName:Model}>} list of named models (as returned by init function)
      */
     async establishSession(room, creator) {
-        await login();
-        const { optionsFromUrl, multiRoom } = creator;
+        const { optionsFromUrl, multiRoom, session: fixedSession } = creator;
         const options = {...creator.options};
         for (const key of [...OPTIONS_FROM_URL, ...optionsFromUrl||[]]) {
             if (key in urlOptions) options[key] = urlOptions[key];
         }
         // session is either "user/random" or "room/user/random" (for multi-room)
+        if (!fixedSession) await login();
         const session = urlOptions.getSession().split('/');
         let user = multiRoom ? session[1] : session[0];
         let random = multiRoom ? session[2] : session[1];
         const newSession = !user || !random;
         if (newSession) {
+            if (fixedSession) {
+                user = fixedSession.user;
+                random = fixedSession.random;
+            }
             // incomplete session: create a new session id
             if (!user) user = getUser("name", "").toLowerCase() || "GUEST";
             if (!random) {
@@ -431,9 +456,6 @@ export default class Controller {
     /** the snapshot before latest snapshot */
     get prevSnapshot() { return this.snapshots[this.snapshots.length - 2]; }
 
-    /** @type String: this controller's island id */
-    get id() { return this.island ? this.island.id : this.islandCreator.snapshot.id; }
-
     /** Ask reflector for a session
      * @param {String} hash - hashed island name, options, and code base
      */
@@ -510,8 +532,8 @@ export default class Controller {
             }
             case 'SYNC': {
                 // We are joining an island session.
-                const {messages, url} = args;
-                console.log(this.id, `Controller received SYNC: ${messages.length} messages, ${url}`);
+                const {messages, url, time} = args;
+                console.log(this.id, `Controller received SYNC: time ${time}, ${messages.length} messages, ${url}`);
                 const snapshot = await this.fetchJSON(url);
                 this.islandCreator.snapshot = snapshot;  // set snapshot
                 if (!this.socket) { console.log(this.id, 'socket went away during SYNC'); return; }
@@ -519,7 +541,7 @@ export default class Controller {
                     if (DEBUG.messages) console.log(this.id, 'Controller got message in SYNC ' + msg);
                     msg[1] >>>= 0;      // reflector sends int32, we want uint32
                 }
-                this.install(messages);
+                this.install(messages, time);
                 this.getTickAndMultiplier();
                 this.keepSnapshot(snapshot);
                 return;
@@ -572,7 +594,7 @@ export default class Controller {
         }
     }
 
-    install(messagesSinceSnapshot=[]) {
+    install(messagesSinceSnapshot=[], syncTime=0) {
         const {snapshot, init, options, callbackFn} = this.islandCreator;
         let newIsland = new Island(snapshot, () => init(options));
         if (DEBUG.initsnapshot && !snapshot.modelsById) {
@@ -580,16 +602,16 @@ export default class Controller {
             const initialIslandSnap = JSON.stringify(newIsland.snapshot());
             newIsland = new Island(JSON.parse(initialIslandSnap), () => init(options));
         }
-        // trying to debug https://github.com/croquet/ARCOS/issues/223
-        const expected = (newIsland.externalSeq - newIsland.seq) >>> 0;
-        console.log(this.id, `Controller expected ${expected} unsimulated external messages in snapshot (${newIsland.seq}-${newIsland.externalSeq})`);
-        const external = newIsland.messages.asArray().filter(m => m.isExternal());
-        console.log(this.id, `Controller found ${external.length} unsimulated external messages in snapshot`, external);
+        if (DEBUG.messages) {
+            const expected = (newIsland.externalSeq - newIsland.seq) >>> 0;
+            console.log(this.id, `Controller expected ${expected} unsimulated external messages in snapshot (${newIsland.seq}-${newIsland.externalSeq})`);
+            const external = newIsland.messages.asArray().filter(m => m.isExternal());
+            console.log(this.id, `Controller found ${external.length} unsimulated external messages in snapshot`, external);
+        }
         if (messagesSinceSnapshot.length > 0) {
-            console.log(this.id, `Controller scheduling ${messagesSinceSnapshot.length} messages after snapshot`, messagesSinceSnapshot);
+            if  (DEBUG.messages) console.log(this.id, `Controller scheduling ${messagesSinceSnapshot.length} messages after snapshot`, messagesSinceSnapshot);
             for (const msg of messagesSinceSnapshot) newIsland.scheduleExternalMessage(msg);
         }
-        this.time = Math.max(newIsland.time, newIsland.externalTime);
         // drain message queue
         const nextSeq = (newIsland.externalSeq + 1) >>> 0;
         for (let msg = this.networkQueue.peek(); msg; msg = this.networkQueue.peek()) {
@@ -599,6 +621,10 @@ export default class Controller {
             // silently skip old messages
             this.networkQueue.nextNonBlocking();
         }
+        // our time is the latest of this.time (we may have received a tick already), the island time in the snapshot, and the reflector time at SYNC
+        const islandTime = Math.max(newIsland.time, newIsland.externalTime);
+        if (syncTime && syncTime < islandTime) console.warn(`ignoring SYNC time from reflector (time was ${islandTime.time}, received ${syncTime})`);
+        this.time = Math.max(this.time, islandTime, syncTime);
         this.setIsland(newIsland); // install island
         callbackFn(this.island);
     }
@@ -711,9 +737,6 @@ export default class Controller {
         }
     }
 
-    /** how many ms the simulation is lagging behind the last tick from the reflector */
-    get backlog() { return this.island ? this.time - this.island.time : 0; }
-
     /**
      * Process pending messages for this island and advance simulation
      * @param {Number} deadline CPU time deadline before interrupting simulation
@@ -737,7 +760,13 @@ export default class Controller {
             }
             if (weHaveTime) weHaveTime = this.island.advanceTo(this.time, deadline);
             this.cpuTime += Stats.end("simulate");
-            Stats.backlog(this.backlog);
+            const backlog = this.backlog;
+            Stats.backlog(backlog);
+            if (typeof this.synced === "boolean" && (this.synced && backlog > SYNCED_MAX || !this.synced && backlog < SYNCED_MIN)) {
+                this.synced = !this.synced;
+                displaySpinner(!this.synced);
+                this.island.publishFromView(this.id, "synced", this.synced);
+            }
             if (weHaveTime && this.cpuTime > SNAPSHOT_EVERY) { this.cpuTime = 0; this.scheduleSnapshot(); }
             return weHaveTime;
         } catch (e) {
@@ -761,6 +790,7 @@ export default class Controller {
     /** Got the official time from reflector server, or local multiplier */
     timeFromReflector(time, src="reflector") {
         if (time < this.time) { if (src !== "controller" || DEBUG.ticks) console.warn(`time is ${this.time}, ignoring time ${time} from ${src}`); return; }
+        if (typeof this.synced !== "boolean") this.synced = false;
         this.time = time;
         if (this.island) Stats.backlog(this.backlog);
     }
@@ -811,61 +841,71 @@ hotreloadEventManger.setInterval(() => {
 }, PING_INTERVAL);
 
 async function startReflectorInBrowser() {
-    document.getElementById("error").innerText = 'No Connection';
-    console.log("Starting in-browser reflector");
-    // we defer starting the server until hotreload has finished
-    // loading all new modules
-    await hotreloadEventManger.waitTimeout(0);
-    // The following import runs the exact same code that's
-    // executing on Node normally. It imports 'ws' which now
-    // comes from our own fakeWS.js
-    // ESLint doesn't know about the alias in package.json:
-    // eslint-disable-next-line global-require
-    require("@croquet/reflector"); // start up local server
-    // we could return require("@croquet/reflector").server._url
-    // to connect to our server.
-    // However, we want to discover servers in other tabs
-    // so we use the magic port 0 to connect to that.
-    return 'channel://server:0/';
+    // parcel will ignore the require() if this is not set in .env
+    // to not have the reflector code in client-side production code
+    if (process.env.CROQUET_BUILTIN_REFLECTOR) {
+        displayError('No Connection');
+        console.log("Starting in-browser reflector");
+        // we defer starting the server until hotreload has finished
+        // loading all new modules
+        await hotreloadEventManger.waitTimeout(0);
+        // The following import runs the exact same code that's
+        // executing on Node normally. It imports 'ws' which now
+        // comes from our own fakeWS.js
+        // ESLint doesn't know about the alias in package.json:
+        // eslint-disable-next-line global-require
+        require("@croquet/reflector"); // start up local server
+        // we could return require("@croquet/reflector").server._url
+        // to connect to our server.
+        // However, we want to discover servers in other tabs
+        // so we use the magic port 0 to connect to that.
+        return 'channel://server:0/';
+    }
+    return DEFAULT_REFLECTOR;
 }
 
 function newInBrowserSocket(server) {
-    // eslint-disable-next-line global-require
-    const Socket = require("@croquet/reflector").Socket;
-    return new Socket({ server });
+    // parcel will ignore the require() if this is not set in .env
+    // to not have the reflector code in client-side production code
+    if (process.env.CROQUET_BUILTIN_REFLECTOR) {
+        // eslint-disable-next-line global-require
+        const Socket = require("@croquet/reflector").Socket;
+        return new Socket({ server });
+    }
+    return null;
 }
 
 async function connectToReflector(reflectorUrl) {
     let socket;
     if (typeof reflectorUrl !== "string") reflectorUrl = await startReflectorInBrowser();
     if (reflectorUrl.match(/^wss?:/)) socket = new WebSocket(reflectorUrl);
-    else if (reflectorUrl.match(/^channel:/)) socket = newInBrowserSocket(reflectorUrl);
+    else if (process.env.CROQUET_BUILTIN_REFLECTOR && reflectorUrl.match(/^channel:/)) socket = newInBrowserSocket(reflectorUrl);
     else throw Error('Cannot interpret reflector address ' + reflectorUrl);
     socketSetup(socket, reflectorUrl);
 }
 
 function socketSetup(socket, reflectorUrl) {
-    document.getElementById("error").innerText = 'Connecting to ' + socket.url;
+    displayError('Connecting to ' + socket.url);
     Object.assign(socket, {
         onopen: _event => {
-            if (socket.constructor === WebSocket) document.getElementById("error").innerText = '';
+            if (socket.constructor === WebSocket) displayError('');
             console.log(socket.constructor.name, "connected to", socket.url);
             Controller.setSocket(socket);
             Stats.connected(true);
             hotreloadEventManger.setTimeout(PING, 0);
         },
         onerror: _event => {
-            document.getElementById("error").innerText = 'Connection error';
+            displayError('Connection error');
             console.log(socket.constructor.name, "error");
         },
         onclose: event => {
-            document.getElementById("error").innerText = 'Connection closed:' + event.code + ' ' + event.reason;
+            displayError('Connection closed:' + event.code + ' ' + event.reason);
             console.log(socket.constructor.name, "closed:", event.code, event.reason);
             Stats.connected(false);
             Controller.leaveAll(true);
             if (event.code !== 1000) {
                 // if abnormal close, try to connect again
-                document.getElementById("error").innerText = 'Reconnecting ...';
+                displayError('Reconnecting ...');
                 hotreloadEventManger.setTimeout(() => connectToReflector(reflectorUrl), 1000);
             }
         },
@@ -874,5 +914,5 @@ function socketSetup(socket, reflectorUrl) {
             Controller.receive(event.data);
         }
     });
-    hotreloadEventManger.addDisposeHandler("socket", () => socket.readyState !== WebSocket.CLOSED && socket.close(1000, "hotreload "+moduleVersion));
+    //hotreloadEventManger.addDisposeHandler("socket", () => socket.readyState !== WebSocket.CLOSED && socket.close(1000, "hotreload "+moduleVersion));
 }

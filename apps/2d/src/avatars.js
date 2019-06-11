@@ -1,14 +1,5 @@
-import Stats from "@croquet/util/stats";
-import urlOptions from "@croquet/util/urlOptions";
-import { displaySessionMoniker, displayQRCode } from "@croquet/util/html";
-import { Model, View, Controller } from "@croquet/teatime";
+import { Model, View, Controller, startSession } from "@croquet/teatime";
 
-
-const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
-if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
-
-
-const LOCALHOST = window.location.hostname === 'localhost';
 
 const TPS = "10x3";             // reflector ticks per sec x local multiplier
 const THROTTLE = 1000 / 20;     // mouse event throttling
@@ -27,7 +18,7 @@ let OFFSETY = 50;               // top-left corner of view, plus half shape heig
 
 ////// Models /////
 
-export class Root extends Model {
+export class ModelRoot extends Model {
 
     constructor() {
         super();
@@ -166,10 +157,17 @@ export class BouncingShape extends Shape {
 
 }
 
+export class Shapes extends ModelRoot {
+    init(options) {
+        super.init(options);
+        this.add(BouncingShape.create({pos: [500, 500], color: "white"}));
+    }
+}
+
 
 ////// Views /////
 
-class RootView extends View {
+class ShapesView extends View {
 
     constructor(model) {
         super(model);
@@ -266,7 +264,7 @@ class ShapeView extends View {
         el.className = model.type;
         el.id = model.id;
         el.style.backgroundColor = model.color;
-        this.subscribe(model.id, {event: 'pos-changed', oncePerFrame: true}, pos => this.move(pos));
+        this.subscribe(model.id, { event: 'pos-changed', handling: "oncePerFrame" }, pos => this.move(pos));
         this.move(model.pos);
     }
 
@@ -285,67 +283,27 @@ class ShapeView extends View {
 }
 
 
+// tell many.html
+//window.top.postMessage({connected: +1}, "*");
+//window.top.postMessage({connected: -1}, "*");
+
 async function go() {
-    const reflector = LOCALHOST
-        ? "ws://localhost:9090/"
-        : "wss://dev1.os.vision/reflector-v1";
-    Controller.connectToReflector(module.id, urlOptions.reflector || reflector);
+    Controller.connectToReflector(module.id);
 
-    const controller = new Controller();
-    let rootView = null;
-
-    async function bootstrapModelsAndViews(snapshot) {
-        // create models on named island
-        const models = await controller.establishSession("avatars", {
-            snapshot,
-            tps: TPS,
-            init() {
-                const root = Root.create();
-                root.add(BouncingShape.create({pos: [500, 500], color: "white"}));
-                return {root};
-            },
-            destroyerFn(prevSnapshot) {
-                window.top.postMessage({connected: -1}, "*");
-                if (rootView) rootView.detach();
-                bootstrapModelsAndViews(prevSnapshot);
-            }
-        });
-        displaySessionMoniker(controller.id);
-        displayQRCode();
-
-        // create views
-        controller.inViewRealm(() => {
-            rootView = new RootView(models.root);
-        });
-
-        // tell many.html
-        window.top.postMessage({connected: +1}, "*");
-    }
-
-    await bootstrapModelsAndViews();
+    const session = await startSession("avatars", Shapes, ShapesView, {tps: TPS});
+    const { controller } = session;
 
     let users = 0;
 
     window.requestAnimationFrame(frame);
     function frame(timestamp) {
-        const {backlog, latency, lastSent, lastReceived} = controller;
-        const starvation = Date.now() - lastReceived;
-        const active = Date.now() - lastSent;
-        rootView.showStatus(backlog, starvation, 100, 3000);
-        Stats.animationFrame(timestamp, {backlog, starvation, latency, active, users: controller.users});
+        session.step(timestamp);
 
+        if (session.view) session.view.showStatus(controller.backlog, controller.starvation, 100, 3000);
 
         if (users !== controller.users) {
             users = controller.users;
             window.top.postMessage({ users }, "*");
-        }
-
-        if (controller.island) {
-            controller.simulate(Date.now() + 200);
-
-            Stats.begin("render");
-            controller.processModelViewEvents();
-            Stats.end("render");
         }
 
         window.requestAnimationFrame(frame);

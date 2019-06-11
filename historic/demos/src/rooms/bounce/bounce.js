@@ -2,9 +2,6 @@ import SeedRandom from "seedrandom/seedrandom";
 import { ModelPart, ViewPart, Room, ChildrenPart, ChildEvents, SpatialPart, Tracking, Clickable, Draggable, TextElement, THREE } from "@croquet/kit";
 import Bouncing from './bouncing';
 
-const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
-if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
-
 export class BoxElement extends ModelPart {
     constructor() {
         super();
@@ -33,9 +30,6 @@ class BoxViewPart extends ViewPart {
             new THREE.BoxBufferGeometry(1, 1, 1),
             new THREE.MeshStandardMaterial({color: new THREE.Color(options.color)})
         );
-        this.threeObj.onBeforeRender = function() {
-            if (window.boxColor) this.material.color.copy(new THREE.Color(window.boxColor));
-            };
     }
 }
 
@@ -95,14 +89,14 @@ const GroupElementView = Tracking()(class extends ViewPart {
         /** @type {View} */
         const view = new NaturalView({model: element});
         this.viewsForChildElements[element.id] = view;
-        // this.subscribe(view, {event: ViewEvents.changedDimensions, oncePerFrame: true}, () => this.publish(this, ViewEvents.changedDimensions));
+        // this.subscribe(view.id, {event: ViewEvents.changedDimensions, handling: "oncePerFrame"}, () => this.publish(this.id, ViewEvents.changedDimensions));
         this.group.add(...view.threeObjs());
     }
 
     onElementRemoved(element) {
         const view = this.viewsForChildElements[element.id];
         this.group.remove(...view.threeObjs());
-        // this.unsubscribe(view, ViewEvents.changedDimensions);
+        // this.unsubscribe(view.id, ViewEvents.changedDimensions);
         view.detach();
         delete this.viewsForChildElements[element.id];
     }
