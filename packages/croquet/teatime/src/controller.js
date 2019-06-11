@@ -432,7 +432,7 @@ export default class Controller {
     async fetchJSON(url, defaultValue) {
         try {
             const response = await fetch(url, { mode: "cors" });
-            return response.json();
+            return await response.json();
         } catch (err) { /* ignore */}
         return defaultValue;
     }
