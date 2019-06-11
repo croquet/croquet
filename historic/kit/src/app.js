@@ -7,10 +7,8 @@ import { theKeyboardManager } from "./domKeyboardManager";
 import { theDragDropHandler } from "./domDragDrop";
 
 export default class App {
-    constructor(rooms, reflectorUrl, canvas, width, height, options={}) {
-        // start websocket connection
-        Controller.connectToReflector(module.id, reflectorUrl);
-
+    constructor(rooms, canvas, width, height, options={}) {
+        Controller.connectToReflectorIfNeeded();
         this.roomStates = {};
 
         for (const [roomName, roomInit] of Object.entries(rooms)) {

@@ -35,7 +35,6 @@ const rooms = {
 
 const app = new App(
     rooms,
-    urlOptions.reflector || "wss://dev1.os.vision/reflector-v1",
     document.getElementById("qanvas"),
     window.innerWidth,
     window.innerHeight,
