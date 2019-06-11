@@ -2,7 +2,7 @@
     <head>
         <link href="https://fonts.googleapis.com/css?family=Barlow:400,600&display=swap" rel="stylesheet">
         <style>
-            body {margin: 0; padding: 0; width: 100%; font-family: 'Barlow', sans-serif; background: linear-gradient(#fff, #f0f0f0); }
+            body {margin: 0 0 2em 0; padding: 0; width: 100%; font-family: 'Barlow', sans-serif; background: linear-gradient(#fff, #f0f0f0); }
 
             #hero-container {width: 100%; position: relative; margin-bottom: -4%}
             #hero-bg {display: block; width: 100%; position: relative; z-index: 0; pointer-events: none;}
@@ -114,6 +114,7 @@
             <p>Croquet lets you build <em>perfectly synced and persistent experiences</em> for web, mobile and VR &mdash; easier than ever.</p>
             <p>Create shared worlds <em>without writing a backend</em> and <em>no error-prone manual networking and syncing.</em></p>
             <p>Croquet <em>automatically provides low-latency, low-bandwidth multi-user interaction</em> to your app.</p>
+            Contact us at <a href="mailto:info@croquet.studio">info@croquet.studio</a>
         </section>
         <script>
             if (window.location.hostname === "localhost") {
@@ -122,14 +123,16 @@
                 document.getElementById("first").src = "/demos/blockfall?nostats=true&noqr=true&noreset=true"
             }
             window.addEventListener("message", event => {
-                console.log(event);
-                if (event.data.url) {
-                    if (window.matchMedia('(min-width: 813px )').matches) {
-                        document.getElementById("second").src = event.data.url;
-                        document.getElementById("third").src = event.data.url;
+                if (event.source === document.getElementById("first").contentWindow) {
+                    console.log(event);
+                    if (event.data.url) {
+                        if (window.matchMedia('(min-width: 813px )').matches) {
+                            document.getElementById("second").src = event.data.url;
+                            document.getElementById("third").src = event.data.url;
+                        }
+                        document.getElementById("link").value = event.data.url;
+                        document.getElementById("qr").src = "http://chart.apis.google.com/chart?cht=qr&chs=300x300&chl=" + encodeURI(event.data.url);
                     }
-                    document.getElementById("link").value = event.data.url;
-                    document.getElementById("qr").src = "http://chart.apis.google.com/chart?cht=qr&chs=300x300&chl=" + encodeURI(event.data.url);
                 }
             });
         </script>
