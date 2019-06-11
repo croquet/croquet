@@ -17,7 +17,7 @@ import Island, { Message, inSequence } from "./island";
 // only newer clients get to use it
 const VERSION = 1;
 
-const FALLBACK_REFLECTOR = "wss://dev1.os.vision/reflector-v1";
+const FALLBACK_REFLECTOR = "wss://croquet.studio/reflector-v1";
 const DEFAULT_REFLECTOR = process.env.CROQUET_REFLECTOR || FALLBACK_REFLECTOR;    // replaced by parcel at build time from app's .env file
 
 let codeHashes = null;
