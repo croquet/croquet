@@ -118,9 +118,9 @@
         </section>
         <script>
             if (window.location.hostname === "localhost") {
-                document.getElementById("first").src = "./index.html?nostats=true&noqr=true&noreset=true#blockfall"
+                document.getElementById("first").src = "./index.html?nologin&nostats&noqr&noreset#blockfall"
             } else {
-                document.getElementById("first").src = "/demos/blockfall?nostats=true&noqr=true&noreset=true"
+                document.getElementById("first").src = "/demos/blockfall?nostats&noqr&noreset"
             }
             window.addEventListener("message", event => {
                 if (event.source === document.getElementById("first").contentWindow) {

@@ -16,6 +16,7 @@ export function getUser(key, defaultValue=undefined, initFn=null) {
 }
 
 export async function login() {
+    if (urlOptions.nologin) return false;
     if (getUser("name") && !urlOptions.user) return true;
     return new Promise(resolve => {
 
