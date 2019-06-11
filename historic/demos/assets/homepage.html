@@ -131,7 +131,7 @@
                             document.getElementById("third").src = event.data.url;
                         }
                         document.getElementById("link").value = event.data.url;
-                        document.getElementById("qr").src = "http://chart.apis.google.com/chart?cht=qr&chs=300x300&chl=" + encodeURI(event.data.url);
+                        document.getElementById("qr").src = "http://chart.apis.google.com/chart?cht=qr&chs=300x300&chl=" + encodeURIComponent(event.data.url);
                     }
                 }
             });
