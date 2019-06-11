@@ -120,7 +120,7 @@
             if (window.location.hostname === "localhost") {
                 document.getElementById("first").src = "./index.html?nologin&nostats&noqr&noreset#blockfall"
             } else {
-                document.getElementById("first").src = "/demos/blockfall?nostats&noqr&noreset"
+                document.getElementById("first").src = "/demos/blockfall?nologin&nostats&noqr&noreset"
             }
             window.addEventListener("message", event => {
                 if (event.source === document.getElementById("first").contentWindow) {
