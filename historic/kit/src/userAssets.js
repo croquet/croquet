@@ -4,9 +4,11 @@ import { baseUrl, hashBuffer } from "@croquet/util/modules";
 import SpatialPart from './modelParts/spatial';
 import Tracking from './viewParts/tracking';
 import Clickable from './viewParts/clickable';
+import { makePointerSensitive, ignorePointer, PointerEvents } from "./viewParts/pointer";
 import { ModelPart, ViewPart, ViewEvents } from './parts';
 import SVGIcon from "./util/svgIcon";
 import soundOn from "../assets/sound-on.svg";
+import remoteHand from "../assets/pointing-hand.svg";
 
 const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
 if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
@@ -37,6 +39,8 @@ const makeBlobUrl = blobHash => `${BASE_URL}${blobHash}.blob`;
 
 const MAX_IMPORT_FILES = 100; // reject any drop over this number
 const MAX_IMPORT_MB = 100; // aggregate
+
+const TOUCH = 'ontouchstart' in document.documentElement;
 
 // adapted from arcos TImporter.
 // handle the dragging in of one or more file or directory objects.
@@ -553,7 +557,7 @@ console.log(assetDescriptors.map(loadSpec => loadSpec.displayName));
                 method: "PUT",
                 mode: "cors",
                 body: blob,
-            });
+            }).then(() => console.warn("upload complete"));
         } catch (error) { /* ignore */ }
     }
 
@@ -1258,7 +1262,7 @@ console.log(this);
 
     wrappedTime(videoTime, guarded) {
         if (this.duration) {
-            while (videoTime >= this.duration) videoTime -= this.duration; // assume it's looping, with no gap between plays
+            while (videoTime > this.duration) videoTime -= this.duration; // assume it's looping, with no gap between plays
             if (guarded) videoTime = Math.min(this.duration-0.1, videoTime); // the video element freaks out on being told to seek very close to the end
         }
         return videoTime;
@@ -1285,7 +1289,7 @@ console.log(this);
     }
 
     setStatic(videoTime) {
-        if (videoTime) this.video.currentTime = this.wrappedTime(videoTime, true); // true => guarded from values too near the end
+        if (videoTime !== undefined) this.video.currentTime = this.wrappedTime(videoTime, true); // true => guarded from values too near the end
         this.video.pause(); // no return value; synchronous, instantaneous?
     }
 
@@ -1316,20 +1320,75 @@ export class ImportedVideoElement extends ModelPart {
         this.assetDescriptor = options.assetDescriptor;
     }
 
-    setPlayState(isPlaying, startOffset, pausedTime) {
+    setPlayState(isPlaying, startOffset, pausedTime, actionSpec) {
         this.isPlaying = isPlaying;
         this.startOffset = startOffset;
         this.pausedTime = pausedTime;
-        this.publish(this.id, "setPlayState", { isPlaying, startOffset, pausedTime });
+        this.publish(this.id, "setPlayState", { isPlaying, startOffset, pausedTime, actionSpec });
     }
 
     naturalViewClass() { return ImportedVideoView; }
 }
 
+const SCRUB_THROTTLE = 1000 / 8; // min time between scrub events
+
+class TimebarView extends ViewPart {
+    constructor(options) {
+        super(options);
+        const { width, height } = options;
+        this.videoView = options.videoView;
+        this.threeObj = new THREE.Group();
+
+        const timebarLength = this.timebarLength = width;
+        const timebar = this.timebar = new THREE.Mesh(
+            new THREE.PlaneBufferGeometry(timebarLength, height),
+            new THREE.MeshBasicMaterial({ color: new THREE.Color(0x444444) })
+            );
+        this.threeObj.add(timebar);
+        const playbar = this.playbar = new THREE.Mesh(
+            new THREE.PlaneBufferGeometry(1, height/4),
+            new THREE.MeshBasicMaterial({ color: new THREE.Color(0xcccccc) })
+            );
+        playbar.position.set(0, 0, 0.001); // floating just above
+        timebar.add(playbar);
+        this.adjustPlaybar(0);
+
+        makePointerSensitive(timebar, this);
+        this.subscribe(this.id, PointerEvents.pointerDrag, data => this.onPointerDrag(data));
+    }
+
+    onPointerDrag(data) {
+        const now = this.now();
+        if (this.lastDragTime && now - this.lastDragTime < SCRUB_THROTTLE) return;
+
+        this.lastDragTime = now;
+        const localPt = new THREE.Vector3().copy(data.dragEndOnVerticalPlane);
+        this.timebar.worldToLocal(localPt);
+        const timeProportion = Math.max(0, Math.min(1, localPt.x/this.timebarLength + 0.5));
+        if (this.lastTimeProportion === timeProportion) return;
+
+        this.lastTimeProportion = timeProportion;
+        this.videoView.handleTimebar(timeProportion);
+    }
+
+    adjustPlaybar(proportion) {
+        const playbar = this.playbar;
+        const playbarLength = this.timebarLength * proportion;
+        playbar.scale.x = Math.max(0.001, playbarLength);
+        playbar.position.x = (playbarLength - this.timebarLength) / 2;
+    }
+}
+
+const VIEW_HEIGHT = 2;
+const HAND_HEIGHT = 0.4;
+const HAND_TILT = Math.PI * 0.1;
+const TIMEBAR_HEIGHT_PROP = 0.1;
+const TIMEBAR_MARGIN_PROP = TOUCH ? 0 : 0.04;
+
 class VideoViewPart extends ViewPart {
     constructor(options) {
         super(options);
-//console.warn(this);
+console.warn(this);
 
         this.videoReady = false; // this will go true just once
         this.waitingForIslandSync = !this.realm.isSynced; // this can flip back and forth
@@ -1345,32 +1404,57 @@ class VideoViewPart extends ViewPart {
             this.videoReady = true;
             this.videoView = videoView;
             this.flip = false; // true means rendered picture acts like a mirror (suitable for local webcam)
-            const h = this.height = videoView.height();
-            const w = videoView.width();
-            const segs = 1;
+            const videoH = videoView.height(), videoW = videoView.width(); // pixels
+            const rectH = this.rectHeight = VIEW_HEIGHT, rectW = this.rectWidth = rectH * videoW/videoH; // @@ stick to a default height of 2 units, for now
 
-            const geom = new THREE.PlaneBufferGeometry(w, h, segs, segs);
-            const mat = new THREE.MeshBasicMaterial({ map: videoView.texture });
-            const rect = new THREE.Mesh(geom, mat);
-            rect.name = "videoView";
+            const videoRect = new THREE.Mesh(
+                new THREE.PlaneBufferGeometry(rectW, rectH),
+                new THREE.MeshBasicMaterial({ map: videoView.texture })
+                );
+            videoRect.name = "videoView";
             if (this.flip) {
-                mat.side = THREE.BackSide;
-                rect.rotation.y = Math.PI;
+                videoRect.material.side = THREE.BackSide;
+                videoRect.rotation.y = Math.PI;
             }
-            const scale = 2 / h;
-            this.threeObj.add(rect);
-            this.threeObj.scale.set(scale, scale, scale);
+            this.threeObj.add(videoRect);
 
-            const icon = this.enableSoundIcon = new SVGIcon(soundOn, new THREE.MeshBasicMaterial({ color: "#888888" }));
-            icon.userData.ignorePointer = true; // @@ apparently the kosher way is to run ignorePointer exported by pointer.js
-            icon.rotateX(Math.PI / 2);
-            icon.visible = false;
-            const iconHolder = new THREE.Group();
-            iconHolder.add(icon);
-            const iconScale = 0.7/scale;
+            const enableIcon = new SVGIcon(soundOn, new THREE.MeshBasicMaterial({ color: "#888888" }));
+            ignorePointer(enableIcon);
+            enableIcon.rotateX(Math.PI / 2);
+            let iconHolder = this.enableSoundIcon = new THREE.Group();
+            iconHolder.add(enableIcon);
+            iconHolder.visible = false;
+            let iconScale = 0.7;
             iconHolder.scale.set(iconScale, iconScale, iconScale);
-            iconHolder.position.set(0, 0, 0.05/scale);
+            iconHolder.position.set(0, 0, 0.01);
             this.threeObj.add(iconHolder);
+
+            // in this case it matters that SVG and THREE have opposite expectations for sense of +ve y
+            const outerHand = new SVGIcon(remoteHand, new THREE.MeshBasicMaterial({ color: "#ffffff" }), undefined, undefined, false); // a y-flipped hand (looks like the back of a left hand)
+            ignorePointer(outerHand);
+            outerHand.rotateX(Math.PI); // flip over (now looks like a right hand again, pointing up)
+            outerHand.rotateZ(Math.PI - HAND_TILT); // remembering that icon's Z is now into picture
+            const innerHand = new SVGIcon(remoteHand, new THREE.MeshBasicMaterial({ color: "#444444" }), undefined, 0.95, false);
+            ignorePointer(innerHand);
+            innerHand.rotateX(Math.PI); // flip over (now looks like a right hand again, pointing up)
+            innerHand.rotateZ(Math.PI - HAND_TILT); // remembering that icon's Z is now into picture
+            iconHolder = this.remoteHandIcon = new THREE.Group();
+            iconHolder.add(outerHand);
+            innerHand.position.set(0, 0, 0.005);
+            iconHolder.add(innerHand);
+            iconHolder.visible = false;
+            iconScale = HAND_HEIGHT;
+            iconHolder.scale.set(iconScale, iconScale, iconScale);
+            iconHolder.position.set(0, 0, 0.02);
+            this.threeObj.add(iconHolder);
+
+            // @@ seems hacky
+            this.realm.island.controller.inViewRealm(() => { // needs to run in realm so it can create a new View
+                const timebarW = rectW - 2 * rectH * TIMEBAR_MARGIN_PROP, timebarH = rectH * TIMEBAR_HEIGHT_PROP, timebarY = -rectH * (0.5 - TIMEBAR_MARGIN_PROP - TIMEBAR_HEIGHT_PROP/2);
+                const timebar = this.timebar = new TimebarView({ videoView: this, width: timebarW, height: timebarH }); // margins of 0.04 * h
+                timebar.threeObj.position.set(0, timebarY, 0.02);
+                this.threeObj.add(timebar.threeObj);
+                });
 
             this.publish(this.id, ViewEvents.changedDimensions, {});
             this.applyPlayState();
@@ -1385,17 +1469,28 @@ class VideoViewPart extends ViewPart {
         return "Imported Video";
     }
 
-    setPlayState(data) {
+    adjustPlaybar(time) {
+        if (!this.videoView || !this.timebar) return;
+
+        this.timebar.adjustPlaybar(time / this.videoView.duration);
+    }
+
+    setPlayState(rawData) {
+        const data = {...rawData}; // take a copy that we can play with
+        const actionSpec = this.latestActionSpec = data.actionSpec; // if any
+        delete data.actionSpec;
+
         const latest = this.latestPlayState;
         // ignore if we've heard this one before (probably because we set it locally)
         if (latest && Object.keys(data).every(key => data[key]===latest[key])) return;
 
         this.latestPlayState = Object.assign({}, data);
-        if (this.videoReady && !this.waitingForIslandSync) this.applyPlayState();
-        //else console.log("store playState", this.latestPlayState);
+        this.applyPlayState(); // will be ignored if we're still initialising
     }
 
     applyPlayState() {
+        if (!this.videoReady || this.waitingForIslandSync) return;
+
 //console.log("apply playState", {...this.latestPlayState});
         if (!this.latestPlayState.isPlaying) this.videoView.pause(this.latestPlayState.pausedTime);
         else {
@@ -1413,6 +1508,37 @@ class VideoViewPart extends ViewPart {
                 }
                 });
         }
+
+        if (this.latestActionSpec) this.revealAction(this.latestActionSpec);
+    }
+
+    revealAction(spec) {
+        if (spec.originViewID !== this.id) {
+            const type = spec.type;
+            if (type === "body") {
+                this.useHandToPoint(spec.x, spec.y);
+            } else if (type === "timebar") {
+                const xOnTimebar = this.timebar.timebarLength * (spec.proportion - 0.5);
+                const yOnTimebar = -this.rectHeight * (0.5 - TIMEBAR_MARGIN_PROP - TIMEBAR_HEIGHT_PROP * 0.75);
+                this.useHandToPoint(xOnTimebar, yOnTimebar);
+            }
+        }
+    }
+
+    useHandToPoint(targetX, targetY) {
+        if (!this.remoteHandIcon) return;
+
+        if (this.remoteHandTimeout) clearTimeout(this.remoteHandTimeout);
+
+        // end of finger is around (-0.1, 0.5) relative to centre
+        const xOffset = -0.1 * HAND_HEIGHT, yOffset = (0.5 + 0.05) * HAND_HEIGHT; // a bit off the finger
+        const sinTilt = Math.sin(HAND_TILT), cosTilt = Math.cos(HAND_TILT);
+        const x = xOffset * cosTilt - yOffset * sinTilt, y = xOffset * sinTilt + yOffset * cosTilt;
+        const pos = this.remoteHandIcon.position;
+        pos.x = targetX + x;
+        pos.y = targetY + y;
+        this.remoteHandIcon.visible = true;
+        this.remoteHandTimeout = setTimeout(() => this.remoteHandIcon.visible = false, 1000);
     }
 
     calculateVideoTime() {
@@ -1442,7 +1568,7 @@ class VideoViewPart extends ViewPart {
         //else if (!wasWaiting && !isSynced) this.videoView.pause(); // no pausedTime; no-one's watching.
     }
 
-    handleUserClick() {
+    handleUserClick(clickPt) {
         if (!this.videoView) return;
 
         // if the video is playing but blocked, this click will in theory be able to start it.
@@ -1460,13 +1586,32 @@ class VideoViewPart extends ViewPart {
         const startOffset = wantsToPlay ? sessionTime - 1000 * videoTime : null;
         const pausedTime = wantsToPlay ? 0 : videoTime;
         this.setPlayState({ isPlaying: wantsToPlay, startOffset, pausedTime }); // directly from the handler, in case the browser blocks indirect play() invocations
-        this.model.future().setPlayState(wantsToPlay, startOffset, pausedTime); // then update our model, which will tell everyone else
+        const actionSpec = { originViewID: this.id, type: "body", x: clickPt.x, y: clickPt.y };
+        this.model.future().setPlayState(wantsToPlay, startOffset, pausedTime, actionSpec); // then update our model, which will tell everyone else
     }
 
-    triggerJumpCheck() { this.jumpIfNeeded = true; } // on next checkPlayStatus()
+    handleTimebar(proportion) {
+        if (!this.videoView) return;
+
+        const wantsToPlay = false;
+        const videoTime = this.videoView.duration * proportion;
+        const startOffset = null;
+        const pausedTime = videoTime;
+        this.setPlayState({ isPlaying: wantsToPlay, startOffset, pausedTime });
+        const actionSpec = { originViewID: this.id, type: "timebar", proportion };
+        this.model.future().setPlayState(wantsToPlay, startOffset, pausedTime, actionSpec); // then update our model, which will tell everyone else
+    }
+
+    triggerJumpCheck() { this.jumpIfNeeded = true; } // on next checkPlayStatus() that does a timing check
 
     checkPlayStatus() {
-        if (this.videoView && this.videoView.isPlaying && !this.videoView.isBlocked) {
+        this.adjustPlaybar(this.videoView && this.videoView.isPlaying ? this.videoView.video.currentTime : (this.latestPlayState.pausedTime || 0));
+
+        const lastTimingCheck = this.lastTimingCheck || 0;
+        const now = this.now();
+        // check video timing every 0.5s
+        if (this.videoView && this.videoView.isPlaying && !this.videoView.isBlocked && (now - lastTimingCheck >= 500)) {
+            this.lastTimingCheck = now;
             const expectedTime = this.videoView.wrappedTime(this.calculateVideoTime());
             const videoTime = this.videoView.video.currentTime;
             const videoDiff = videoTime - expectedTime;
@@ -1486,7 +1631,7 @@ class VideoViewPart extends ViewPart {
                     //   > 100ms: 1% faster/slower
                     //   < 50ms: normal (i.e., hysteresis between 100ms and 50ms in the same sense)
                     const lastRateAdjust = this.lastRateAdjust || 0;
-                    if (this.now() - lastRateAdjust > 3000) {
+                    if (now - lastRateAdjust >= 3000) {
                         const oldRate = this.videoView.video.playbackRate;
                         const oldBoostPercent = Math.round(100 * (oldRate - 1));
                         const diffAbs = Math.abs(videoDiff), diffSign = Math.sign(videoDiff);
@@ -1499,17 +1644,16 @@ console.log(`video playback rate: ${playbackRate}`);
                                 this.videoView.video.playbackRate = playbackRate;
                             }
                         }
-                        this.lastRateAdjust = this.now();
+                        this.lastRateAdjust = now;
                     }
                 }
             }
         }
-        this.future(500).checkPlayStatus();
+        this.future(100).checkPlayStatus();
     }
-
 }
 
 const ImportedVideoView = Clickable({
-    onClick: options => (at, view) => view.handleUserClick()
+    onClick: options => (at, view) => view.handleUserClick(view.threeObj.worldToLocal(new THREE.Vector3().copy(at)))
 })(Tracking()(VideoViewPart));
 

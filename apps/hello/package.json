@@ -6,7 +6,9 @@
   "scripts": {
     "start": "parcel hello.html"
   },
-  "browserslist": [ "> 5%" ],
+  "browserslist": [
+    "> 5%"
+  ],
   "author": "Croquet Studios",
   "license": "ISC",
   "dependencies": {
