@@ -2,9 +2,6 @@ import hotreloadEventManager from "./hotreloadEventManager";
 import urlOptions from "./urlOptions";
 import { getUser } from "./user";
 
-const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
-if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
-
 /*
 We use the Parcel module system to inspect our own source code:
 
@@ -43,7 +40,7 @@ if (!htmlSource.includes(entryPointName)) console.error("Entry point substitutio
 const BASE_URL = baseUrl('code');
 
 export function fileServer() {
-    const server = typeof urlOptions.files === "string" ? urlOptions.files : 'https://db.croquet.studio';
+    const server = typeof urlOptions.files === "string" ? urlOptions.files : 'https://croquet.studio';
     if (server.endsWith('/')) return server.slice(0, -1);
     return server;
 }
@@ -53,8 +50,7 @@ export function fileServer() {
 export function baseUrl(what='code') {
     const dev = urlOptions.has("dev", "host", "localhost");
     const host = dev ? `dev/${getUser("name", "GUEST")}` : window.location.hostname;
-    const server = fileServer();
-    return `${server}/files-v1/${host}/${what}/`;
+    return `${fileServer()}/files-v1/${host}/${what}/`;
 }
 
 function allModules() {
@@ -86,6 +82,16 @@ function functionSource(fn) {
     const openingBrace = str.indexOf('{');
     const closingBrace = str.lastIndexOf('}');
     return str.slice(openingBrace + 1, closingBrace).trim();
+}
+
+function classSrc(cls) {
+    // strip whitespace around head and class body, and leading whitespace
+    const str = "" + cls;
+    const openingBrace = str.indexOf('{');
+    const closingBrace = str.lastIndexOf('}');
+    const head = str.slice(0, openingBrace).replace(/\s+/g, ' ').trim();
+    const body = str.slice(openingBrace + 1, closingBrace).trim();
+    return `${head} {\n${body.replace(/^\s+/gm, '')}}`;
 }
 
 /**
@@ -158,11 +164,17 @@ export async function hashFile(mod) {
     return fileHashes[mod] = await hashString(source);
 }
 
+const extraHashes = [];
+
+export function addClassHash(cls) {
+    const source = classSrc(cls);
+    extraHashes.push(hashString(source));
+}
 
 export async function hashNameAndCode(name) {
     const mods = allModuleIDs().sort();
     // console.log(`${name} Hashing ${moduleID}: ${mods.join(' ')}`);
-    const hashes = await Promise.all(mods.map(hashFile));
+    const hashes = await Promise.all([...mods.map(hashFile), ...extraHashes]);
     const hash = await hashString([name, ...hashes].join('|'));
     // console.timeEnd("Hashing " + name);
     return hash;

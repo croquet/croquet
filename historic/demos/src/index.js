@@ -8,14 +8,12 @@ import physics from "./rooms/physics/physics";
 import jenga from "./rooms/jenga/jenga";
 import minipool from "./rooms/minipool/minipool";
 import knockdown from "./rooms/knockdown/knockdown";
+import blockfall from "./rooms/blockfall/blockfall";
 import jumpRooms from "./rooms/jump/jump";
 import arBalls from "./rooms/arBalls/arBalls";
 
 const tps = "20x3"; // 20 ticks/s from server, 60 t/s total
 const LOG_HOTRELOAD = true;
-
-const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
-if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 const hotState = module.hot && module.hot.data || {};
 
@@ -31,12 +29,12 @@ const rooms = {
     jenga,
     knockdown,
     minipool,
+    blockfall,
     ...jumpRooms
 };
 
 const app = new App(
     rooms,
-    urlOptions.reflector || "wss://dev1.os.vision/reflector-v1",
     document.getElementById("qanvas"),
     window.innerWidth,
     window.innerHeight,

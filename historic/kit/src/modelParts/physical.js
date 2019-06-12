@@ -16,6 +16,7 @@ export default class PhysicalPart extends ModelPart {
             type: options.type || "box",
             size: options.size.toArray(),
             pos: options.position.toArray(),
+            rot: options.quaternion && new THREE.Euler().setFromQuaternion(options.quaternion).toArray().map(a => a * 180 / Math.PI),
             move: options.move === undefined ? true : options.move,
             kinematic: !!options.kinematic,
             density: options.density || 1,
@@ -54,7 +55,11 @@ export default class PhysicalPart extends ModelPart {
     moveBy(_delta) {}
     scaleTo(_scale) {}
     scaleBy(_factor) {}
-    rotateTo(_quaternion) {}
+
+    rotateTo(quaternion) {
+        this.body.setQuaternion(quaternion);
+    }
+
     rotateBy(_delta) {}
 }
 
@@ -83,6 +88,7 @@ export class PhysicalWorld extends ModelPart {
         this.stepMultiplier = options.stepMultiplier || 1;
         this.nSteps = 0;
         this.future(1000/60).step();
+        this.wrapAround = options.wrapAround;
     }
 
     step() {
@@ -90,7 +96,26 @@ export class PhysicalWorld extends ModelPart {
             this.world.step();
             this.nSteps += 1;
         }
-        this.publish(this.id, PhysicsEvents.worldStepped);
+        this.publish(this.id, PhysicsEvents.worldStepped, this.nSteps);
         this.future(1000/60).step();
     }
+}
+
+export function SpaceWrapping(wrappingOptions={}) {
+    const wrapAround = wrappingOptions.wrapAround || (_pos => null);
+    return BasePhysicalWorld => class SpaceWrappingPhysicalWorld extends BasePhysicalWorld {
+        step() {
+            let currentBody = this.world.rigidBodies;
+            while (currentBody) {
+                if (currentBody.isDynamic && !currentBody.isKinematic) {
+                    const mappedPosition = wrapAround(currentBody.getPosition());
+                    if (mappedPosition) {
+                        currentBody.resetPosition(mappedPosition.x, mappedPosition.y, mappedPosition.z);
+                    }
+                }
+                currentBody = currentBody.next;
+            }
+            super.step();
+        }
+    };
 }

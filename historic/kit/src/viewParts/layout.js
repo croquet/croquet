@@ -2,9 +2,6 @@ import * as THREE from "three";
 import { Node, ALIGN_CENTER, ALIGN_FLEX_START, ALIGN_FLEX_END, ALIGN_STRETCH, FLEX_DIRECTION_ROW, FLEX_DIRECTION_COLUMN, EDGE_ALL, EDGE_LEFT, EDGE_RIGHT, EDGE_TOP, EDGE_BOTTOM, DIRECTION_LTR, POSITION_TYPE_ABSOLUTE } from "yoga-layout-prebuilt";
 import { ViewPart, ViewEvents } from "../parts";
 
-const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
-if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
-
 export const MUL = 100;
 
 /** @typedef {import('yoga-layout').YogaNode} YogaNode */

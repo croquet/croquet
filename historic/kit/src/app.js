@@ -7,10 +7,8 @@ import { theKeyboardManager } from "./domKeyboardManager";
 import { theDragDropHandler } from "./domDragDrop";
 
 export default class App {
-    constructor(rooms, reflectorUrl, canvas, width, height, options={}) {
-        // start websocket connection
-        Controller.connectToReflector(module.id, reflectorUrl);
-
+    constructor(rooms, canvas, width, height, options={}) {
+        Controller.connectToReflectorIfNeeded();
         this.roomStates = {};
 
         for (const [roomName, roomInit] of Object.entries(rooms)) {
@@ -96,6 +94,7 @@ export default class App {
         const prevRoomName = this.currentRoomName;
         const {controller} = this.roomStates[roomName];
         urlOptions.setSession(controller.session, !hadSession);
+        window.parent.postMessage({session: controller.sesssion, url: window.location + ""}, "*");
         displaySessionMoniker(controller.id, 'reset');
         displayQRCode(window.location.href, 'qrcode');
         this.currentRoomName = roomName;

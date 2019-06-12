@@ -10,10 +10,6 @@ import { inViewRealm } from "./realms";
 import Island, { Message, inSequence } from "./island";
 
 
-const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
-if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
-
-
 /** @typedef { import('./model').default } Model */
 
 
@@ -21,8 +17,8 @@ if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); 
 // only newer clients get to use it
 const VERSION = 1;
 
-const DEFAULT_REFLECTOR = "wss://dev1.os.vision/reflector-v1";
-const CROQUET_REFLECTOR = process.env.CROQUET_REFLECTOR || DEFAULT_REFLECTOR;    // replaced by parcel at build time from app's .env file
+const FALLBACK_REFLECTOR = "wss://croquet.studio/reflector-v1";
+const DEFAULT_REFLECTOR = process.env.CROQUET_REFLECTOR || FALLBACK_REFLECTOR;    // replaced by parcel at build time from app's .env file
 
 let codeHashes = null;
 
@@ -49,11 +45,18 @@ const SYNCED_MAX = 1000;
 const Controllers = {};
 const SessionCallbacks = {};
 
+let connectToReflectorWasCalled = false;
 
 export default class Controller {
-    static connectToReflector(mainModuleID, reflectorUrl) {
-        if (!reflectorUrl) reflectorUrl = urlOptions.reflector || CROQUET_REFLECTOR;
-        if (!urlOptions.noupload) uploadCode(mainModuleID).then(hashes => codeHashes = hashes);
+    static connectToReflectorIfNeeded() {
+        if (connectToReflectorWasCalled) return;
+        this.connectToReflector();
+    }
+
+    static connectToReflector(mainModuleID='', reflectorUrl='') {
+        connectToReflectorWasCalled = true;
+        if (!reflectorUrl) reflectorUrl = urlOptions.reflector || DEFAULT_REFLECTOR;
+        if (!urlOptions.noupload && mainModuleID) uploadCode(mainModuleID).then(hashes => codeHashes = hashes);
         connectToReflector(reflectorUrl);
     }
 
@@ -182,18 +185,22 @@ export default class Controller {
      * @returns {Promise<{modelName:Model}>} list of named models (as returned by init function)
      */
     async establishSession(room, creator) {
-        await login();
-        const { optionsFromUrl, multiRoom } = creator;
+        const { optionsFromUrl, multiRoom, session: fixedSession } = creator;
         const options = {...creator.options};
         for (const key of [...OPTIONS_FROM_URL, ...optionsFromUrl||[]]) {
             if (key in urlOptions) options[key] = urlOptions[key];
         }
         // session is either "user/random" or "room/user/random" (for multi-room)
+        if (!fixedSession) await login();
         const session = urlOptions.getSession().split('/');
         let user = multiRoom ? session[1] : session[0];
         let random = multiRoom ? session[2] : session[1];
         const newSession = !user || !random;
         if (newSession) {
+            if (fixedSession) {
+                user = fixedSession.user;
+                random = fixedSession.random;
+            }
             // incomplete session: create a new session id
             if (!user) user = getUser("name", "").toLowerCase() || "GUEST";
             if (!random) {
@@ -425,7 +432,7 @@ export default class Controller {
     async fetchJSON(url, defaultValue) {
         try {
             const response = await fetch(url, { mode: "cors" });
-            return response.json();
+            return await response.json();
         } catch (err) { /* ignore */}
         return defaultValue;
     }
@@ -834,35 +841,45 @@ hotreloadEventManger.setInterval(() => {
 }, PING_INTERVAL);
 
 async function startReflectorInBrowser() {
-    displayError('No Connection');
-    console.log("Starting in-browser reflector");
-    // we defer starting the server until hotreload has finished
-    // loading all new modules
-    await hotreloadEventManger.waitTimeout(0);
-    // The following import runs the exact same code that's
-    // executing on Node normally. It imports 'ws' which now
-    // comes from our own fakeWS.js
-    // ESLint doesn't know about the alias in package.json:
-    // eslint-disable-next-line global-require
-    require("@croquet/reflector"); // start up local server
-    // we could return require("@croquet/reflector").server._url
-    // to connect to our server.
-    // However, we want to discover servers in other tabs
-    // so we use the magic port 0 to connect to that.
-    return 'channel://server:0/';
+    // parcel will ignore the require() if this is not set in .env
+    // to not have the reflector code in client-side production code
+    if (process.env.CROQUET_BUILTIN_REFLECTOR) {
+        displayError('No Connection');
+        console.log("Starting in-browser reflector");
+        // we defer starting the server until hotreload has finished
+        // loading all new modules
+        await hotreloadEventManger.waitTimeout(0);
+        // The following import runs the exact same code that's
+        // executing on Node normally. It imports 'ws' which now
+        // comes from our own fakeWS.js
+        // ESLint doesn't know about the alias in package.json:
+        // eslint-disable-next-line global-require
+        require("@croquet/reflector"); // start up local server
+        // we could return require("@croquet/reflector").server._url
+        // to connect to our server.
+        // However, we want to discover servers in other tabs
+        // so we use the magic port 0 to connect to that.
+        return 'channel://server:0/';
+    }
+    return DEFAULT_REFLECTOR;
 }
 
 function newInBrowserSocket(server) {
-    // eslint-disable-next-line global-require
-    const Socket = require("@croquet/reflector").Socket;
-    return new Socket({ server });
+    // parcel will ignore the require() if this is not set in .env
+    // to not have the reflector code in client-side production code
+    if (process.env.CROQUET_BUILTIN_REFLECTOR) {
+        // eslint-disable-next-line global-require
+        const Socket = require("@croquet/reflector").Socket;
+        return new Socket({ server });
+    }
+    return null;
 }
 
 async function connectToReflector(reflectorUrl) {
     let socket;
     if (typeof reflectorUrl !== "string") reflectorUrl = await startReflectorInBrowser();
     if (reflectorUrl.match(/^wss?:/)) socket = new WebSocket(reflectorUrl);
-    else if (reflectorUrl.match(/^channel:/)) socket = newInBrowserSocket(reflectorUrl);
+    else if (process.env.CROQUET_BUILTIN_REFLECTOR && reflectorUrl.match(/^channel:/)) socket = newInBrowserSocket(reflectorUrl);
     else throw Error('Cannot interpret reflector address ' + reflectorUrl);
     socketSetup(socket, reflectorUrl);
 }
@@ -897,5 +914,5 @@ function socketSetup(socket, reflectorUrl) {
             Controller.receive(event.data);
         }
     });
-    hotreloadEventManger.addDisposeHandler("socket", () => socket.readyState !== WebSocket.CLOSED && socket.close(1000, "hotreload "+moduleVersion));
+    //hotreloadEventManger.addDisposeHandler("socket", () => socket.readyState !== WebSocket.CLOSED && socket.close(1000, "hotreload "+moduleVersion));
 }

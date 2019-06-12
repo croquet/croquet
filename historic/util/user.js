@@ -2,10 +2,6 @@ import urlOptions from "./urlOptions";
 import { toBase64url, fromBase64url, fileServer } from "./modules";
 
 
-const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
-if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
-
-
 // persistent storage of user settings
 export function getUser(key, defaultValue=undefined, initFn=null) {
     let user = {};
@@ -20,6 +16,7 @@ export function getUser(key, defaultValue=undefined, initFn=null) {
 }
 
 export async function login() {
+    if (urlOptions.nologin) return false;
     if (getUser("name") && !urlOptions.user) return true;
     return new Promise(resolve => {
 

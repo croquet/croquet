@@ -15,7 +15,7 @@ export class TinCan extends PhysicalElement {
 class TinCanView extends PhysicalShape {
     constructor(options) {
         super({...options, material: new THREE.MeshStandardMaterial({
-            color: "#ffffff", metalness: 0.9, roughness: 0.5,
+            color: "#ffffff", metalness: 0.9, roughness: 0.3,
             envMap: new THREE.CubeTextureLoader().load( [px, nx, py, ny, pz, nz] ),
             envMapIntensity: 1.5
         })});

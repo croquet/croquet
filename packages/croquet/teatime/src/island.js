@@ -6,9 +6,6 @@ import { inModelRealm, inViewRealm, currentRealm } from "./realms";
 import { viewDomain } from "./domain";
 
 
-const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
-if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
-
 /** @type {Island} */
 let CurrentIsland = null;
 
@@ -37,15 +34,12 @@ function execOnIsland(island, fn) {
  * a queue of messages, plus additional bookkeeping to make
  * uniform pub/sub between models and views possible.*/
 export default class Island {
-    static latest() { return module.bundle.v && module.bundle.v[module.id] || 0; }
-    static version() { return moduleVersion; }
     static current() {
-        if (!CurrentIsland) console.warn(`No CurrentIsland in v${moduleVersion}!`);
+        if (!CurrentIsland) console.warn(`No CurrentIsland!`);
         return CurrentIsland;
     }
 
     constructor(snapshot, initFn) {
-        if (moduleVersion !== Island.latest()) throw Error("Hot Reload problem: Instantiating old Island v" + moduleVersion);
         execOnIsland(this, () => {
             inModelRealm(this, () => {
                 /** all the models in this island */

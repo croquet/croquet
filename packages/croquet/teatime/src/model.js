@@ -1,10 +1,8 @@
 import hotreloadEventManger from "@croquet/util/hotreloadEventManager";
 import urlOptions from "@croquet/util/urlOptions";
+import { addClassHash } from "@croquet/util/modules";
 import { currentRealm } from "./realms";
 
-
-const moduleVersion = module.bundle.v ? (module.bundle.v[module.id] || 0) + 1 : 0;
-if (module.bundle.v) { console.log(`Hot reload ${module.id}#${moduleVersion}`); module.bundle.v[module.id] = moduleVersion; }
 
 const DEBUG = {
     classes: urlOptions.has("debug", "classes", false),
@@ -21,6 +19,11 @@ export default class Model {
         model.init(options);
         if (!model.id) throw Error(`${model} has no ID, did you call super.init(options)?`);
         return model;
+    }
+
+    static register(file="<unknown>", name=this.name) {
+        addClassHash(this);
+        registerClass(file, name, this);
     }
 
     static classToID(cls) {
@@ -135,23 +138,23 @@ function classToID(cls) {
     if (hasID(cls)) return cls[CLASS_ID];
     gatherModelClasses();
     if (hasID(cls)) return cls[CLASS_ID];
-    throw Error(`Class "${cls.name}" not found, is it exported?`);
+    throw Error(`Class "${cls.name}" not found, is it registered?`);
 }
 
 function classFromID(classID) {
     if (ModelClasses[classID]) return ModelClasses[classID].cls;
     gatherModelClasses();
     if (ModelClasses[classID]) return ModelClasses[classID].cls;
-    throw Error(`Class "${classID}" not found, is it exported?`);
+    throw Error(`Class "${classID}" not found, is it registered?`);
 }
 
 function registerClass(file, name, cls) {
     // create a classID for this class
     const id = `${file}:${name}`;
     const dupe = ModelClasses[id];
-    if (dupe) throw Error(`Duplicate class ${name} in ${file}`);
+    if (dupe && dupe.cls !== cls) throw Error(`Duplicate class ${name} in ${file}`);
     if (hasID(cls)) {
-        if (DEBUG.classes) console.warn(`ignoring re-exported class ${name} from ${file}`);
+        if (DEBUG.classes && !dupe) console.warn(`ignoring re-exported class ${name} from ${file}`);
     } else {
         if (DEBUG.classes) console.log(`registering class ${name} from ${file}`);
         cls[CLASS_ID] = id;
