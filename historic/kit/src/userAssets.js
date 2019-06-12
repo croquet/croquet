@@ -6,9 +6,11 @@ import Tracking from './viewParts/tracking';
 import Clickable from './viewParts/clickable';
 import { makePointerSensitive, ignorePointer, PointerEvents } from "./viewParts/pointer";
 import { ModelPart, ViewPart, ViewEvents } from './parts';
+import { displayNotifier } from "../../util/html";
 import SVGIcon from "./util/svgIcon";
 import soundOn from "../assets/sound-on.svg";
 import remoteHand from "../assets/pointing-hand.svg";
+import playButton from "../assets/play-button.svg";
 
 // @@ some (Bert-sanctioned) contortions needed to get the imports working.  all libraries (including inflate, needed for FBXLoader) were downloaded from https://github.com/mrdoob/three.js/tree/master/src/loaders and https://github.com/mrdoob/three.js/tree/master/examples/js/libs on 4 jun 2019
 window.THREE = THREE;
@@ -38,6 +40,7 @@ const MAX_IMPORT_FILES = 100; // reject any drop over this number
 const MAX_IMPORT_MB = 100; // aggregate
 
 const TOUCH = 'ontouchstart' in document.documentElement;
+const USER = (Math.random() + '').slice(2);
 
 // adapted from arcos TImporter.
 // handle the dragging in of one or more file or directory objects.
@@ -435,7 +438,9 @@ console.log(assetDescriptors.map(loadSpec => loadSpec.displayName));
             return null;
         }
 
+        displayNotifier("uploading assets...");
         await Promise.all(fileSpecs.map(spec => this.hashAndStoreIfNeeded(spec)));
+        displayNotifier("");
         const fileDict = {};
         fileSpecs.forEach(spec => fileDict[spec.path] = spec);
         return { displayName, fileDict, loadType, loadPaths };
@@ -450,7 +455,7 @@ console.log(assetDescriptors.map(loadSpec => loadSpec.displayName));
             this.assetCache[hash] = fileSpec.blob;
             fileSpec.hash = hash;
             fileSpec.blobURL = makeBlobUrl(hash);
-            this.ensureBlobIsShared(fileSpec.blobURL, fileSpec.blob, fileSpec.name); // async, but we don't need to wait
+            await this.ensureBlobIsShared(fileSpec.blobURL, fileSpec.blob, fileSpec.name);
         }
         return fileSpec;
     }
@@ -537,25 +542,32 @@ console.log(assetDescriptors.map(loadSpec => loadSpec.displayName));
         return { displayName, fileDict: newFileDict, loadType, loadPaths };
     }
 
-    async ensureBlobIsShared(blobURL, blob, name="") {
-        if (this.knownAssetURLs[blobURL]) return;
-
-        this.knownAssetURLs[blobURL] = true;
-        try {
-            // see if it's already there
-            const response = await fetch(blobURL, { method: 'HEAD' });
-            // if successful, return
-            if (response.ok) return;
-        } catch (ex) { /* ignore */ }
-        // not found, so try to upload it
-        try {
-            console.warn(`storing attachment doc for content of ${name}`);
-            await fetch(blobURL, {
-                method: "PUT",
-                mode: "cors",
-                body: blob,
-            }).then(() => console.warn("upload complete"));
-        } catch (error) { /* ignore */ }
+    ensureBlobIsShared(blobURL, blob, name="") {
+        let promise = this.knownAssetURLs[blobURL];
+        if (!promise) {
+            promise = this.knownAssetURLs[blobURL] = new Promise((resolve, reject) => {
+                try {
+                    // see if it's already there
+                    fetch(blobURL, { method: 'HEAD' })
+                    .then(response => {
+                        // if successful, return
+                        if (response.ok) resolve();
+                    });
+                } catch (ex) { /* ignore */ }
+                // not found, so try to upload it
+                try {
+                    console.log(`storing attachment doc for content of ${name}`);
+                    fetch(blobURL, {
+                        method: "PUT",
+                        mode: "cors",
+                        body: blob,
+                    }).then(response => {
+                        if (response.ok) resolve();
+                    });
+                } catch (error) { reject(); }
+            });
+        }
+        return promise;
     }
 
     fetchSharedBlob(blobURL, optionalType) {
@@ -666,7 +678,7 @@ console.log(assetDescriptors.map(loadSpec => loadSpec.displayName));
                 assetDescriptor.fileDict[urlStr] = null; // will be found by ensureFetchesAreRecorded()
                 return urlStr;
             }
-            console.warn(`failed to find ${urlStr}`);
+            console.log(`failed to find ${urlStr}`);
             return ""; // we don't have a way to fetch the supplied url
             });
         return manager;
@@ -696,18 +708,17 @@ console.warn(`recording fetch of ${urlStr}`);
         return Promise.all(pendingFetches);
     }
 
-    ensureAssetsAvailable(assetDescriptor) {
+    async ensureAssetsAvailable(assetDescriptor) {
         const blobURLDict = {};
         Object.values(assetDescriptor.fileDict).forEach(fileSpec => blobURLDict[fileSpec.blobURL] = true);
         // ids, retryMessage, retryDelay, maxRetries
-        return this.ensureBlobsAvailable(Object.keys(blobURLDict),
-            "waiting for asset docs to appear in db...",
-            1000, 60).then(status => {
-                if (status === 'ok') {
-                    Object.keys(blobURLDict).forEach(blobURL => this.knownAssetURLs[blobURL] = true);
-                }
-                return status;
-                });
+        const status = await this.ensureBlobsAvailable(Object.keys(blobURLDict),
+            "waiting for asset docs to appear on server...",
+            1000, 60);
+        if (status !== 'ok') throw Error("failed to find assets");
+
+        Object.keys(blobURLDict).forEach(blobURL => this.knownAssetURLs[blobURL] = true);
+        return status;
     }
 
     ensureBlobsAvailable(blobURLs, retryMessage, retryDelay, maxRetries) {
@@ -1140,46 +1151,49 @@ console.warn(this);
             this._ready();
             };
 
-        switch (loadType) {
-            case "texture":
-                assetManager.importTexture(assetDescriptor).then(objectReady);
-                break;
-            // ###
-            case "texture360":
-                assetManager.importTexture360(assetDescriptor).then(mesh => {
-                    this.setObject3D(mesh);
-                    compositeObject.registerOnSceneTeam(this); // this is the only TObject that will be built
+        assetManager.ensureAssetsAvailable(assetDescriptor)
+        .then(() => {
+            switch (loadType) {
+                case "texture":
+                    assetManager.importTexture(assetDescriptor).then(objectReady);
+                    break;
+                // ###
+                case "texture360":
+                    assetManager.importTexture360(assetDescriptor).then(mesh => {
+                        this.setObject3D(mesh);
+                        compositeObject.registerOnSceneTeam(this); // this is the only TObject that will be built
 
-                    const tScene = viewpointObject;
-                    if (tScene.background3D) tScene.background3D.destroyComposite();
+                        const tScene = viewpointObject;
+                        if (tScene.background3D) tScene.background3D.destroyComposite();
 
-                    tScene.background3D = this;
-                    tScene.addChild(this);
+                        tScene.background3D = this;
+                        tScene.addChild(this);
 
-                    this.readyPromiseHandle.resolve(this);
-                    });
-                break;
-            case "fbx": // this also covers more than one file extension
-                assetManager.importFBX(assetDescriptor, firstLoad).then(objectReady);
-                break;
-            case "stl":
-                assetManager.importSTL(assetDescriptor).then(objectReady);
-                break;
-            case ".svg":
-                assetManager.importSVG(assetDescriptor).then(objectReady);
-                break;
-            case ".gltf":
-            case "gltf1":
-            case "gltf2":
-            case ".glb":
-                assetManager.importGLTF(assetDescriptor, firstLoad).then(objectReady);
-                break;
-            case ".obj":
-                assetManager.importOBJ(assetDescriptor, firstLoad).then(objectReady);
-                break;
-            default:
-                console.warn(`unknown imported-object loadType: ${loadType}.`);
-        }
+                        this.readyPromiseHandle.resolve(this);
+                        });
+                    break;
+                case "fbx": // this also covers more than one file extension
+                    assetManager.importFBX(assetDescriptor, firstLoad).then(objectReady);
+                    break;
+                case "stl":
+                    assetManager.importSTL(assetDescriptor).then(objectReady);
+                    break;
+                case ".svg":
+                    assetManager.importSVG(assetDescriptor).then(objectReady);
+                    break;
+                case ".gltf":
+                case "gltf1":
+                case "gltf2":
+                case ".glb":
+                    assetManager.importGLTF(assetDescriptor, firstLoad).then(objectReady);
+                    break;
+                case ".obj":
+                    assetManager.importOBJ(assetDescriptor, firstLoad).then(objectReady);
+                    break;
+                default:
+                    console.warn(`unknown imported-object loadType: ${loadType}.`);
+            }
+        }).catch(err => console.error(err));
     }
 }
 
@@ -1397,7 +1411,9 @@ console.warn(this);
         this.threeObj = new THREE.Group();
 
         // importVideo returns a promise that resolves once the video has loaded
-        assetManager.importVideo(assetDescriptor).then(videoView => {
+        assetManager.ensureAssetsAvailable(assetDescriptor)
+        .then(() => assetManager.importVideo(assetDescriptor))
+        .then(videoView => {
             this.videoReady = true;
             this.videoView = videoView;
             this.flip = false; // true means rendered picture acts like a mirror (suitable for local webcam)
@@ -1445,6 +1461,16 @@ console.warn(this);
             iconHolder.position.set(0, 0, 0.02);
             this.threeObj.add(iconHolder);
 
+            const playIcon = new SVGIcon(playButton, new THREE.MeshBasicMaterial({ color: "#888888" }));
+            ignorePointer(playIcon);
+            playIcon.rotateX(Math.PI / 2);
+            iconHolder = this.playIcon = new THREE.Group();
+            iconHolder.add(playIcon);
+            iconScale = 0.7;
+            iconHolder.scale.set(iconScale, iconScale, iconScale);
+            iconHolder.position.set(0, 0, 0.01);
+            this.threeObj.add(iconHolder);
+
             // @@ seems hacky
             this.realm.island.controller.inViewRealm(() => { // needs to run in realm so it can create a new View
                 const timebarW = rectW - 2 * rectH * TIMEBAR_MARGIN_PROP, timebarH = rectH * TIMEBAR_HEIGHT_PROP, timebarY = -rectH * (0.5 - TIMEBAR_MARGIN_PROP - TIMEBAR_HEIGHT_PROP/2);
@@ -1456,7 +1482,7 @@ console.warn(this);
             this.publish(this.id, ViewEvents.changedDimensions, {});
             this.applyPlayState();
             this.future(1000).checkPlayStatus();
-            });
+            }).catch(err => console.error(err));
 
         this.subscribe(options.model.id, "setPlayState", data => this.setPlayState(data));
         this.subscribe(this.realm.island.id, { event: "synced", handling: "immediate" }, isSynced => this.handleSyncState(isSynced));
@@ -1489,8 +1515,12 @@ console.warn(this);
         if (!this.videoReady || this.waitingForIslandSync) return;
 
 //console.log("apply playState", {...this.latestPlayState});
-        if (!this.latestPlayState.isPlaying) this.videoView.pause(this.latestPlayState.pausedTime);
-        else {
+        if (!this.latestPlayState.isPlaying) {
+            this.playIcon.visible = true;
+            this.enableSoundIcon.visible = false;
+            this.videoView.pause(this.latestPlayState.pausedTime);
+        } else {
+            this.playIcon.visible = false;
             this.videoView.video.playbackRate = 1;
             this.lastRateAdjust = this.now(); // make sure we don't adjust rate before playback has settled in, and any emergency jump we decide to do
             this.jumpIfNeeded = false;
@@ -1510,7 +1540,7 @@ console.warn(this);
     }
 
     revealAction(spec) {
-        if (spec.originViewID !== this.id) {
+        if (spec.USER !== USER) {
             const type = spec.type;
             if (type === "body") {
                 this.useHandToPoint(spec.x, spec.y);
@@ -1583,7 +1613,7 @@ console.warn(this);
         const startOffset = wantsToPlay ? sessionTime - 1000 * videoTime : null;
         const pausedTime = wantsToPlay ? 0 : videoTime;
         this.setPlayState({ isPlaying: wantsToPlay, startOffset, pausedTime }); // directly from the handler, in case the browser blocks indirect play() invocations
-        const actionSpec = { originViewID: this.id, type: "body", x: clickPt.x, y: clickPt.y };
+        const actionSpec = { USER, type: "body", x: clickPt.x, y: clickPt.y };
         this.model.future().setPlayState(wantsToPlay, startOffset, pausedTime, actionSpec); // then update our model, which will tell everyone else
     }
 
@@ -1595,7 +1625,7 @@ console.warn(this);
         const startOffset = null;
         const pausedTime = videoTime;
         this.setPlayState({ isPlaying: wantsToPlay, startOffset, pausedTime });
-        const actionSpec = { originViewID: this.id, type: "timebar", proportion };
+        const actionSpec = { USER, type: "timebar", proportion };
         this.model.future().setPlayState(wantsToPlay, startOffset, pausedTime, actionSpec); // then update our model, which will tell everyone else
     }
 
