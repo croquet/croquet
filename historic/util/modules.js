@@ -37,10 +37,10 @@ const rawHTML = document.getElementsByTagName('html')[0].outerHTML;
 const htmlSource = rawHTML.replace(scripts[0], `<script src="${entryPointName}"></script>`);
 if (!htmlSource.includes(entryPointName)) console.error("Entry point substitution failed!");
 
-const BASE_URL = baseUrl('code');
+export const CROQUET_HOST = window.location.hostname.endsWith("croquet.studio") ? window.location.hostname : "croquet.studio";
 
 export function fileServer() {
-    const server = typeof urlOptions.files === "string" ? urlOptions.files : 'https://croquet.studio';
+    const server = typeof urlOptions.files === "string" ? urlOptions.files : `https://${CROQUET_HOST}`;
     if (server.endsWith('/')) return server.slice(0, -1);
     return server;
 }
@@ -234,6 +234,8 @@ async function metadataFor(mod, includeAllFiles=false) {
     }
     return meta;
 }
+
+const BASE_URL = baseUrl('code');
 
 async function uploadFile(mod, meta, ext=".js") {
     const hash = await hashFile(mod);
