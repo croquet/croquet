@@ -68,17 +68,15 @@ function endCurrentFrame(timestamp) {
     // add current frame to end
     currentFrame.total = timestamp - currentFrame.start;
     frames.push(currentFrame);
+    while (frames.length > Math.min(120, window.innerWidth)) frames.shift();
+
+    if (document.body.className !== "debug") return;
 
     // get base framerate as minimum of all frames
     const realFrames = frames.slice(1).filter(f => f.total);
-    const avgMS = realFrames.map(f => f.total).reduce( (a,b) => a + b, 0) / realFrames.length;
+    const avgMS = realFrames.map(f => f.total).reduce((a, b) => a + b, 0) / realFrames.length;
     const newMax = Math.max(...realFrames.map(f => Math.max(f.backlog, f.network)));
     maxBacklog = Math.max(newMax, maxBacklog * 0.98); // reduce scale slowly
-
-    while (frames.length > Math.min(120, window.innerWidth)) frames.shift();
-
-// @@ uncomment this to save time when stats aren't on display
-// if (document.body.className !== "debug") return;
 
     // show average framerate
     if (!fps.parentElement) { console.warn("who broke the stats div and canvas?"); div.appendChild(fps); div.appendChild(canvas); }
