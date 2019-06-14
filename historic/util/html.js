@@ -125,7 +125,7 @@ export function displaySpinner(enabled) {
             if (spinnerEnabled) return;
             if (spinnerOverlay.parentElement) {
                 document.body.removeChild(spinnerOverlay);
-            } else console.error("Cannot remove spinner overlay - was body.innerHTML modified directly?!");
+            } else console.warn("spinner overlay already removed?!");
         }, 500);
     }
 }
@@ -191,4 +191,3 @@ function addSpinner() {
 
     return overlay;
 }
-
