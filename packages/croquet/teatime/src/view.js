@@ -50,6 +50,9 @@ export default class View {
         return this.realm.externalNow();
     }
 
+    render() {
+    }
+
     [Symbol.toPrimitive]() {
         const className = this.constructor.name;
         if (className.includes('View')) return className;

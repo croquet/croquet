@@ -15,7 +15,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
     if (options.step) {
         // auto stepping
         const step = frameTime => {
-            stepSession(frameTime, controller);
+            stepSession(frameTime, controller, session.view);
             window.requestAnimationFrame(step);
         };
         window.requestAnimationFrame(step);
@@ -60,7 +60,7 @@ const loadBalance = 4;
 /** time in ms we allow sim to lag behind before increasing sim budget */
 const balanceMS = loadBalance * (1000 / 60);
 
-function stepSession(frameTime, controller) {
+function stepSession(frameTime, controller, view) {
     const {backlog, latency, starvation, activity} = controller;
     Stats.animationFrame(frameTime, {backlog, starvation, latency, activity, users: controller.users});
 
@@ -75,5 +75,9 @@ function stepSession(frameTime, controller) {
         Stats.begin("update");
         controller.processModelViewEvents();
         Stats.end("update");
+
+        Stats.begin("render");
+        view.render();
+        Stats.end("render");
     }
 }
