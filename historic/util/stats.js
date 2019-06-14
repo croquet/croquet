@@ -77,6 +77,9 @@ function endCurrentFrame(timestamp) {
 
     while (frames.length > Math.min(120, window.innerWidth)) frames.shift();
 
+// @@ uncomment this to save time when stats aren't on display
+// if (document.body.className !== "debug") return;
+
     // show average framerate
     if (!fps.parentElement) { console.warn("who broke the stats div and canvas?"); div.appendChild(fps); div.appendChild(canvas); }
     fps.innerText = `${currentFrame.users} users, ${Math.round(1000/avgMS)} fps, ` +

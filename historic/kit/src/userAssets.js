@@ -393,7 +393,7 @@ console.log(assetDescriptors.map(loadSpec => loadSpec.displayName));
             ti++;
         }
         if (!loadType) {
-            const handledTypes = [ ".png", ".jpg", ".jpeg", ".bmp", ".gif", ".dae", ".fbx", ".stl", ".svg", ".csv", ".xlsx", ".mp4", ".zip", ".xls" ];
+            const handledTypes = [ ".png", ".jpg", ".jpeg", ".bmp", ".gif", ".dae", ".fbx", ".stl", ".svg", ".mp4", ".zip" ];
             const handlableSpecs = topSpecs.filter(spec => handledTypes.indexOf(spec.type)>=0);
             if (handlableSpecs.length) {
                 if (handlableSpecs.length > 1) this.frame.alert(`Ambiguous drop (${handlableSpecs.map(spec => spec.type).join(", ")})`, 5000);
@@ -940,7 +940,6 @@ console.warn(`recording fetch of ${urlStr}`);
     }
 
     async importFBX(assetDescriptor, firstLoad) {
-        // NB: for an FBX model, storing and reusing the parsed model is for now a headache (see https://github.com/mrdoob/three.js/issues/14647).  might become simpler around release 100.
         // we use a loadingManager, because it seems that FBX *might* be able to include
         // references to other files
         // (see https://archive.blender.org/wiki/index.php/User:Mont29/Foundation/FBX_File_Structure/)
@@ -952,26 +951,13 @@ console.warn(`recording fetch of ${urlStr}`);
             loader.load(objectPath, resolve, onProgress, onError);
             });
         manager._croquetRevokeURLs();
-        const mixers = [];
-        object.mixer = new THREE.AnimationMixer(object);
-        mixers.push(object.mixer);
-        //console.log('animations', object.animations);
-        if (object.animations.length>0) {
-            const action = object.mixer.clipAction(object.animations[0]);
-            action.play();
-        }
-        if (mixers.length>0) {
-            // initialisation code for when installed in a TObject
-            object.initTObject = tObj => {
-                tObj.mixers = mixers;
-                tObj.lastTime = 0;
-                tObj.update = function(t) {
-                    for (let i = 0; i < this.mixers.length; i++) {
-                        this.mixers[ i ].update( (t-this.lastTime)/1000);
-                    }
-                    this.lastTime = t;
-                    };
-                };
+        if (object.animations.length > 0) {
+            const mixer = new THREE.AnimationMixer(object);
+            mixer.clipAction(object.animations[0]).play();
+            object._croquetAnimation = {
+                lastTime: 0,
+                mixer
+            };
         }
         return object;
     }
@@ -1009,23 +995,18 @@ if (baseFileSpec && !baseFileSpec.hash) debugger;
                     ({ scene, scenes, cameras, animations }) => {
                         manager._croquetRevokeURLs();
 
-                        if (animations.length>0) {
-                            scene.initTObject = tObj => {
-                                var mixers = [], o3d = tObj.object3D;
-                                o3d.mixer = new  THREE.AnimationMixer(o3d);
-                                mixers.push(o3d.mixer);
-                                const action = o3d.mixer.clipAction(animations[0]);
-                                action.play();
-                                tObj.mixers = mixers;
-                                tObj.lastTime = 0;
-                                tObj.update = function(t) {
-                                    for (let i = 0; i < this.mixers.length; i++) {
-                                        this.mixers[ i ].update( (t-this.lastTime)/1000);
-                                    }
-                                    this.lastTime = t;
+                        if (animations.length > 0) {
+                            // set up a function for initialising animation on a cloned scene
+                            scene._initAnimation = sc => {
+                                const mixer = new THREE.AnimationMixer(sc);
+                                mixer.clipAction(animations[0]).play();
+                                sc._croquetAnimation = {
+                                    lastTime: 0,
+                                    mixer
                                     };
                                 };
                         }
+
                         resolved(scene); // ignoring everything but the scene for now
                         },
                     onProgress,
@@ -1034,10 +1015,10 @@ if (baseFileSpec && !baseFileSpec.hash) debugger;
 
         return this.loadThroughCache(cacheKey, promiseFn).then(scene => {
             const clone = assetDescriptor.loadType === ".glb" ? THREE.SkeletonUtils.clone(scene) : scene.clone();
-            if (scene.initTObject) { clone.initTObject = scene.initTObject; }
             clone.traverse(node => { // need to clone the materials
                 if (node.isMesh) node.material = node.material.clone();
                 });
+            if (scene._initAnimation) scene._initAnimation(clone);
             return clone;
         });
     }
@@ -1121,6 +1102,7 @@ export class ImportedElement extends ModelPart {
     init(options, id) {
         super.init(options, id);
         this.assetDescriptor = options.assetDescriptor;
+        this.creationTime = this.now();
     }
 
     naturalViewClass() { return ImportedElementView; }
@@ -1148,6 +1130,12 @@ console.warn(this);
             this.threeObj.add(obj);
             this.threeObj.scale.set(scale, scale, scale);
             this.publish(this.id, ViewEvents.changedDimensions, {});
+            if (obj._croquetAnimation) {
+                const spec = obj._croquetAnimation;
+                spec.startTime = options.model.creationTime;
+                this.animationSpec = spec;
+                this.future(500).runAnimation();
+            }
             this._ready();
             };
 
@@ -1194,6 +1182,19 @@ console.warn(this);
                     console.warn(`unknown imported-object loadType: ${loadType}.`);
             }
         }).catch(err => console.error(err));
+    }
+
+    runAnimation() {
+        const spec = this.animationSpec;
+        if (!spec) return;
+
+        const { mixer, startTime, lastTime } = spec;
+        const now = this.now();
+        const newTime = (now - startTime) / 1000, delta = newTime - lastTime;
+        mixer.update(delta);
+        spec.lastTime = newTime;
+
+        this.future(1000 / 20).runAnimation();
     }
 }
 
@@ -1500,7 +1501,7 @@ console.warn(this);
 
     setPlayState(rawData) {
         const data = {...rawData}; // take a copy that we can play with
-        const actionSpec = this.latestActionSpec = data.actionSpec; // if any
+        this.latestActionSpec = data.actionSpec; // if any
         delete data.actionSpec;
 
         const latest = this.latestPlayState;
