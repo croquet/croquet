@@ -100,14 +100,14 @@ function classSrc(cls) {
  * @returns {String} the module source code
  */
 function sourceCodeOf(mod) {
-    if (mod === htmlName) return htmlSource; //  little hack
-    const source = functionSource(moduleWithID(mod)[0]);
-    /*
+    let source = mod === htmlName ? htmlSource : functionSource(moduleWithID(mod)[0]);
+    source = source.replace(/\r\n/g, '\n'); // so Windows line terminations won't confuse our session hashing
+
     // verify that code survives stringification
     const fn = new Function('require', 'module', 'exports', source);
     const src = functionSource(fn);
     if (src !== source) throw Error("source does not match");
-    */
+
     return source;
 }
 
@@ -167,7 +167,7 @@ export async function hashFile(mod) {
 const extraHashes = [];
 
 export function addClassHash(cls) {
-    const source = classSrc(cls);
+    const source = classSrc(cls).replace(/\r\n/g, '\n'); // Windows treatment, as above
     extraHashes.push(hashString(source));
 }
 
