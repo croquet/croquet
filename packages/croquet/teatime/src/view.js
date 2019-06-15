@@ -1,13 +1,23 @@
 import { currentRealm } from "./realms";
 
-
+/**
+ * @public
+ * @class View
+ */
 export default class View {
 
-    constructor() {
+    /**
+     * @public
+     * @param {Model} model - the view's model
+     */
+    constructor(_model) {
         this.realm = currentRealm();
         this.id = this.realm.register(this);
     }
 
+    /**
+     * @public
+     */
     detach() {
         this.realm.unsubscribeAll(this.id);
         this.realm.deregister(this);
@@ -50,6 +60,7 @@ export default class View {
         return this.realm.externalNow();
     }
 
+    /**  */
     render() {
     }
 

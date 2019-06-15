@@ -8,11 +8,22 @@ const DEBUG = {
     classes: urlOptions.has("debug", "classes", false),
 };
 
+
+/**
+ * @class Model
+ * @public
+ */
 export default class Model {
     // mark this and subclasses as model classes
     // used in classToID / classFromID below
     static __isTeatimeModelClass__() { return true; }
 
+    /**
+     * Create an instance of a Model subclass. This will call {@link Model#init}
+     * @public
+     * @param {*} options? - (optional) option object to be passed to {@link Model#init}
+     * there are no system-defined options as of now, you're free to define your own
+     */
     static create(options) {
         const ModelClass = this;
         const model = new ModelClass();
@@ -21,6 +32,18 @@ export default class Model {
         return model;
     }
 
+    /**
+     * Register this model subclass with Croquet, e.g.
+     *
+     *     class MyModel {
+     *         ...
+     *     }
+     *     MyModel.register()
+     *
+     * @param {String} file? (optional) the file name this class was defined in, to distinguish between same class names in different files (default: `"<unknown>"`)
+     * @param {String} name? (optional) a name for identifying this class in a snapshot (default: `this.name`)
+     * @public
+     */
     static register(file="<unknown>", name=this.name) {
         addClassHash(this);
         registerClass(file, name, this);
@@ -38,6 +61,15 @@ export default class Model {
         return allClasses();
     }
 
+    /**
+     * This is called by `Model.create(options)` to initialize a model instance.
+     *
+     * In your Model subclass this is the place to subscribe to events, or start a future message chain.
+     *
+     * Do not forget to call `super.init(options)` in your subclass.
+     * @param {*} options? - (optional) there are no system-defined options, you're free to define your own
+     * @public
+     */
     init(_options) {
         this.__realm = currentRealm();
         this.id = currentRealm().register(this);
