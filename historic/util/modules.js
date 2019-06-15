@@ -143,7 +143,7 @@ export function toBase64url(bits) {
 /** return buffer hashed into 256 bits encoded using base64 (suitable in URL) */
 export async function hashBuffer(buffer) {
     const bits = await window.crypto.subtle.digest("SHA-256", buffer);
-    return buffer.length+":"+toBase64url(bits);
+    return toBase64url(bits);
 }
 
 const encoder = new TextEncoder();
@@ -154,7 +154,7 @@ export async function hashString(string) {
 }
 
 const fileHashes = {};
-console.warn({fileHashes});
+
 hotreloadEventManager.addDisposeHandler("fileHashes", () => { for (const f of (Object.keys(fileHashes))) delete fileHashes[f]; });
 
 export async function hashFile(mod) {
@@ -171,7 +171,13 @@ export function addClassHash(cls) {
 }
 
 export async function hashNameAndCode(name) {
-    const mods = allModuleIDs().filter(id => !id.endsWith("package.json") && !id.endsWith("ar.js")).sort(); // we don't want to be encoding any package.json, because it includes a build-specific path name.  ar.js also causes trouble, for some as yet unknown reason.
+    const mods = allModuleIDs().filter(id => {
+        // we don't want to be encoding any package.json, because it includes a build-specific path name.  ar.js also causes trouble, for some as yet unknown reason.
+        // @@ this could be switched on or off under control of a process.env setting.
+        const exclude = id.endsWith("package.json") || id.endsWith("ar.js");
+        if (exclude) console.warn(`excluding ${id} from code hash`);
+        return !exclude;
+        }).sort();
     // console.log(`${name} Hashing ${moduleID}: ${mods.join(' ')}`);
     const hashes = await Promise.all([...mods.map(hashFile), ...extraHashes]);
     const hash = await hashString([name, ...hashes].join('|'));
