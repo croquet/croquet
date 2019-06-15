@@ -100,8 +100,7 @@ function classSrc(cls) {
  * @returns {String} the module source code
  */
 function sourceCodeOf(mod) {
-    let source = mod === htmlName ? htmlSource : functionSource(moduleWithID(mod)[0]);
-    source = source.replace(/\r\n/g, '\n'); // so Windows line terminations won't confuse our session hashing
+    const source = mod === htmlName ? htmlSource : functionSource(moduleWithID(mod)[0]);
 
     // verify that code survives stringification
     const fn = new Function('require', 'module', 'exports', source);
@@ -144,7 +143,7 @@ export function toBase64url(bits) {
 /** return buffer hashed into 256 bits encoded using base64 (suitable in URL) */
 export async function hashBuffer(buffer) {
     const bits = await window.crypto.subtle.digest("SHA-256", buffer);
-    return toBase64url(bits);
+    return buffer.length+":"+toBase64url(bits);
 }
 
 const encoder = new TextEncoder();
@@ -155,24 +154,24 @@ export async function hashString(string) {
 }
 
 const fileHashes = {};
-
+console.warn({fileHashes});
 hotreloadEventManager.addDisposeHandler("fileHashes", () => { for (const f of (Object.keys(fileHashes))) delete fileHashes[f]; });
 
 export async function hashFile(mod) {
     if (fileHashes[mod]) return fileHashes[mod];
-    const source = sourceCodeOf(mod);
+    const source = sourceCodeOf(mod).replace(/\s+/gm, ''); // a side effect of parcel is some whitespace mangling that can be different on different platforms.  hash on a version with no whitespace at all.
     return fileHashes[mod] = await hashString(source);
 }
 
 const extraHashes = [];
 
 export function addClassHash(cls) {
-    const source = classSrc(cls).replace(/\r\n/g, '\n'); // Windows treatment, as above
+    const source = classSrc(cls).replace(/\s+/gm, ''); // whitespace treatment, as above
     extraHashes.push(hashString(source));
 }
 
 export async function hashNameAndCode(name) {
-    const mods = allModuleIDs().sort();
+    const mods = allModuleIDs().filter(id => !id.endsWith("package.json") && !id.endsWith("ar.js")).sort(); // we don't want to be encoding any package.json, because it includes a build-specific path name.  ar.js also causes trouble, for some as yet unknown reason.
     // console.log(`${name} Hashing ${moduleID}: ${mods.join(' ')}`);
     const hashes = await Promise.all([...mods.map(hashFile), ...extraHashes]);
     const hash = await hashString([name, ...hashes].join('|'));
