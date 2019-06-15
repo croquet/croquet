@@ -1,0 +1,54 @@
+{
+  "source": {
+    "include": [
+        "../teatime/index.js",
+        "../teatime/src/model.js",
+        "../teatime/src/view.js"
+    ]
+  },
+  "opts": {
+      "encoding": "utf8",
+      "template": "node_modules/docdash",
+      "destination": "../../servers/croquet.studio/sdk/jsdoc",
+      "recurse": false,
+      "verbose": true
+  },
+  "plugins": ["plugins/markdown"],
+  "markdown": {
+      "parser": "gfm",
+      "hardwrap": true,
+      "idInHeadings": true
+  },
+  "templates": {
+      "cleverLinks": false,
+      "monospaceLinks": false,
+      "default": {
+          "outputSourceFiles": false,
+          "includeDate": false,
+          "useLongnameInNav": true
+      }
+  },
+  "docdash": {
+    "static": true,
+    "sort": true,
+    "disqus": "",
+    "meta": {
+      "title": "Croquet SDK",
+      "description": "SDK for Croquet",
+      "keyword": "croquet"
+    },
+    "search": true,
+    "collapse": true,
+    "typedefs": true,
+    "removeQuotes": "none",
+    "scripts": [],
+    "menu": {
+      "Codepen":{
+        "href":"https://codepen.io/croquet",
+        "target":"_blank",
+        "class":"menu-item",
+        "id":"codepen"
+      }
+    }
+  }
+}
