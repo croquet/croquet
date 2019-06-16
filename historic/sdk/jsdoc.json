@@ -25,7 +25,8 @@
       "default": {
           "outputSourceFiles": false,
           "includeDate": false,
-          "useLongnameInNav": true
+          "useLongnameInNav": true,
+          "layoutFile": "jsdoc.tmpl"
       }
   },
   "docdash": {
@@ -34,7 +35,7 @@
     "disqus": "",
     "meta": {
       "title": "Croquet SDK",
-      "description": "SDK for Croquet",
+      "description": "Documentation for the Croquet SDK",
       "keyword": "croquet"
     },
     "search": true,
