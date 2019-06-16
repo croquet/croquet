@@ -59,8 +59,13 @@ class View {
         return this.realm.externalNow();
     }
 
-    /**  */
-    render() {
+    /** Called from main loop once per frame. Default implementation does nothing.
+     *
+     * Override to add your own rendering.
+     * @param {Number} time - this frame's time stamp in milliseconds
+     * @public
+    */
+    render(_time) {
     }
 
     [Symbol.toPrimitive]() {

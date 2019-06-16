@@ -35,12 +35,12 @@ class Model {
 
     /**
      * __Registers this model subclass with Croquet__, e.g.
-     *
-     *     class MyModel {
-     *         ...
-     *     }
-     *     MyModel.register()
-     *
+     *```
+     * class MyModel {
+     *     ...
+     * }
+     * MyModel.register()
+     * ```
      * @param {String?} file (optional) the file name this class was defined in, to distinguish between same class names in different files (default: `"<unknown>"`)
      * @param {String?} name (optional) a name for identifying this class in a snapshot (default: `this.name`)
      * @public
@@ -55,22 +55,22 @@ class Model {
      * The Croquet snapshot mechanism only knows about {@link Model} subclasses. If you want to store instances of non-model classes in your model, override this method.
      *
      * To use the default serializer just declare the class:
-     *
-     *     return {
-     *         "THREE.Vector3": THREE.Vector3,
-     *         "THREE.Quaternion": THREE.Quaternion,
-     *     };
-     *
+     * ```
+     * return {
+     *     "THREE.Vector3": THREE.Vector3,
+     *     "THREE.Quaternion": THREE.Quaternion,
+     * };
+     * ```
      *  To define your own serializer, declare `read()` and `write()` methods, e.g.:
-     *
-     *     return {
-     *         "THREE.Color": {
-     *             cls: THREE.Color,
-     *             write: color => '#' + color.getHexString(),
-     *             read: state => new THREE.Color(state) },
-     *         }
-     *     };
-     *
+     * ```
+     * return {
+     *     "THREE.Color": {
+     *         cls: THREE.Color,
+     *         write: color => '#' + color.getHexString(),
+     *         read: state => new THREE.Color(state) },
+     *     }
+     * };
+     * ```
      * This is currently the only way to customize serialization (e.g. to keep snapshots fast and small). The serialization of Model subclasses can not be customized.
      * @public
      */
@@ -89,6 +89,27 @@ class Model {
     static allClasses() {
         return allClasses();
     }
+
+    /**
+     * ### Do __NOT__ create a {@link Model} instance using `new` and<br>do __NOT__ override the `constructor`!
+     *
+     * To __create__ a new model instance, use {@link Model.create}, e.g.
+     * ```
+     * this.foo = FooModel.create({answer: 123});
+     * ```
+     * To __initialize__ an instance, override {@link Model#init}, e.g.
+     * ```
+     * class FooModel {
+     *     init(options={}) {
+     *         this.answer = options.answer || 42;
+     *     }
+     * }
+     * ```
+     * The reason for this is that Models are only instantiated when the first user creates a session.
+     * After that, when joining a session, the models are deserialized from the snapshot, which
+     * restores all properties automatically without calling `init()`.
+     */
+    constructor() {} // eslint-disable-line no-useless-constructor,no-empty-function
 
     /**
      * This is called by `Model.create(options)` to initialize a model instance.
