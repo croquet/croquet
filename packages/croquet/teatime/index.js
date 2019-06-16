@@ -16,17 +16,20 @@ export { currentRealm } from "./src/realms";
  * @param {String} name - a name for your app
  * @param {Model} ModelRoot - the root Model class for your app
  * @param {View} ViewRoot - the root View class for your app
- * @param { { step: "auto" | "manual", render: "auto" | "always" | "never"} } options? - (optional)
+ * @param {Object} options? - (optional)
  *  `{`
- *  `step:` `"auto"` or `"manual"`,
- *  `render:` `"auto"` or `"always"` or `"never"`,
+ *      `step:` `"auto"` or `"manual"`,
+ *      `render:` `"auto"` or `"always"` or `"never"`,
  *  `}`
- * @returns {Promise<Session>} Promise that resolves to an object describing the session:
+ * @returns {Promise} Promise that resolves to an object describing the session:
  *
  *     {
- *         view,     // the ViewRoot instance,
- *         step(),   // the step() function to call each frame if not using { step: "auto" }
+ *         view,         // the ViewRoot instance
+ *         step(time),   // for "manual" stepping
  *     }
+ *  where
+ *  - `view` is an instance of the `ViewRoot` class
+ *  - `step(time)` is a function you need to call in each frame, passing in the time in milliseconds, e.g. from `window.requestAnimationFrame(time)`
  */
 export async function startSession(name, ModelRoot=Model, ViewRoot=View, options={}) {
     Controller.connectToReflectorIfNeeded();

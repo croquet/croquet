@@ -2,9 +2,8 @@ import { currentRealm } from "./realms";
 
 /**
  * @public
- * @class View
  */
-export default class View {
+class View {
 
     /**
      * @public
@@ -70,3 +69,5 @@ export default class View {
         return `${className}[View]`;
     }
 }
+
+export default View;

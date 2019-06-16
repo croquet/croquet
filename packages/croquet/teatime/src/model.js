@@ -10,19 +10,20 @@ const DEBUG = {
 
 
 /**
- * @class Model
+ * Models are replicated objects in Croquet.
  * @public
  */
-export default class Model {
+class Model {
     // mark this and subclasses as model classes
     // used in classToID / classFromID below
     static __isTeatimeModelClass__() { return true; }
 
     /**
-     * Create an instance of a Model subclass. This will call {@link Model#init}
+     * __Create an instance of a Model subclass.__
+     * This will call {@link Model#init} on the new instance, passing the {@link options}.
      * @public
-     * @param {*} options? - (optional) option object to be passed to {@link Model#init}
-     * there are no system-defined options as of now, you're free to define your own
+     * @param {Object?} options - (optional) option object to be passed to {@link Model#init}.
+     *     There are no system-defined options as of now, you're free to define your own.
      */
     static create(options) {
         const ModelClass = this;
@@ -33,20 +34,48 @@ export default class Model {
     }
 
     /**
-     * Register this model subclass with Croquet, e.g.
+     * __Registers this model subclass with Croquet__, e.g.
      *
      *     class MyModel {
      *         ...
      *     }
      *     MyModel.register()
      *
-     * @param {String} file? (optional) the file name this class was defined in, to distinguish between same class names in different files (default: `"<unknown>"`)
-     * @param {String} name? (optional) a name for identifying this class in a snapshot (default: `this.name`)
+     * @param {String?} file (optional) the file name this class was defined in, to distinguish between same class names in different files (default: `"<unknown>"`)
+     * @param {String?} name (optional) a name for identifying this class in a snapshot (default: `this.name`)
      * @public
      */
     static register(file="<unknown>", name=this.name) {
         addClassHash(this);
         registerClass(file, name, this);
+    }
+
+    /**
+     * __Static declaration of how to serialize non-model classes.__
+     * The Croquet snapshot mechanism only knows about {@link Model} subclasses. If you want to store instances of non-model classes in your model, override this method.
+     *
+     * To use the default serializer just declare the class:
+     *
+     *     return {
+     *         "THREE.Vector3": THREE.Vector3,
+     *         "THREE.Quaternion": THREE.Quaternion,
+     *     };
+     *
+     *  To define your own serializer, declare `read()` and `write()` methods, e.g.:
+     *
+     *     return {
+     *         "THREE.Color": {
+     *             cls: THREE.Color,
+     *             write: color => '#' + color.getHexString(),
+     *             read: state => new THREE.Color(state) },
+     *         }
+     *     };
+     *
+     * This is currently the only way to customize serialization (e.g. to keep snapshots fast and small). The serialization of Model subclasses can not be customized.
+     * @public
+     */
+    static types() {
+        return {};
     }
 
     static classToID(cls) {
@@ -67,7 +96,7 @@ export default class Model {
      * In your Model subclass this is the place to subscribe to events, or start a future message chain.
      *
      * Do not forget to call `super.init(options)` in your subclass.
-     * @param {*} options? - (optional) there are no system-defined options, you're free to define your own
+     * @param {Object?} options - (optional) there are no system-defined options, you're free to define your own
      * @public
      */
     init(_options) {
@@ -197,3 +226,5 @@ function registerClass(file, name, cls) {
 
 // flush ModelClasses after hot reload
 hotreloadEventManger.addDisposeHandler(module.id, () => ModelClasses = {});
+
+export default Model;

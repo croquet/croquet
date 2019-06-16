@@ -31,7 +31,7 @@
   },
   "docdash": {
     "static": true,
-    "sort": true,
+    "sort": false,
     "disqus": "",
     "meta": {
       "title": "Croquet SDK",
