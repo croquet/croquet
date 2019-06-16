@@ -45,12 +45,12 @@
     "removeQuotes": "none",
     "scripts": [],
     "menu": {
-      "Codepen":{
-        "href":"https://codepen.io/croquet",
-        "target":"_blank",
-        "class":"menu-item",
-        "id":"codepen"
-      }
+      // "Codepen":{
+      //   "href":"https://codepen.io/croquet",
+      //   "target":"_blank",
+      //   "class":"menu-item",
+      //   "id":"codepen"
+      // }
     }
   }
 }
