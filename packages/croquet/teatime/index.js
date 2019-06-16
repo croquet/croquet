@@ -12,7 +12,7 @@ export { currentRealm } from "./src/realms";
 
 /**
  * Start a new Croquet session
- * @public
+ * @async
  * @param {String} name - a name for your app
  * @param {Model} ModelRoot - the root Model class for your app
  * @param {View} ViewRoot - the root View class for your app
@@ -31,6 +31,7 @@ export { currentRealm } from "./src/realms";
  *  - `view` is an instance of the `ViewRoot` class
  *  - `step(time)` is a function you need to call in each frame, passing in the time in milliseconds,
  *     e.g. from `window.requestAnimationFrame(time)`
+ * @public
  */
 export async function startSession(name, ModelRoot=Model, ViewRoot=View, options={}) {
     Controller.connectToReflectorIfNeeded();

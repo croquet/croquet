@@ -6,8 +6,8 @@ import { currentRealm } from "./realms";
 class View {
 
     /**
-     * @public
      * @param {Model} model - the view's model
+     * @public
      */
     constructor(_model) {
         this.realm = currentRealm();
@@ -22,39 +22,76 @@ class View {
         this.realm.deregister(this);
     }
 
+    /**
+     *
+     * @param {String} scope
+     * @param {String} event
+     * @param {Object?} data
+     * @public
+     */
     publish(scope, event, data) {
         this.realm.publish(event, data, scope);
     }
 
+    /**
+     *
+     * @param {String} scope
+     * @param {String|Object} eventSpec
+     * @param {Function} callback
+     * @public
+     */
     subscribe(scope, eventSpec, callback) {
         const {event, handling} = eventSpec.event ? eventSpec : {event: eventSpec};
         this.realm.subscribe(event, this.id, callback, scope, handling);
     }
 
+    /**
+     *
+     * @param {String} scope
+     * @param {String} event
+     * @public
+     */
     unsubscribe(scope, event) {
         this.realm.unsubscribe(event, this.id, null, scope);
     }
 
+    /**
+     * @public
+     */
     unsubscribeAll() {
         this.realm.unsubscribeAll(this.id);
     }
 
     // Misc
 
-    /** @returns {this} */
+    /**
+     *
+     * @param {Number} tOffset
+     * @returns {this}
+     * @public
+     */
     future(tOffset=0) {
         return this.realm.futureProxy(tOffset, this);
     }
 
-    // use currentRealm() to force a check that the call is happening in an appropriate context (not, e.g., in Model code)
+    /**
+     * @public
+     */
     random() {
+        // use currentRealm() to force a check that the call is happening in an appropriate context (not, e.g., in Model code)
         return currentRealm().random();
     }
 
+    /**
+     * @public
+     */
     now() {
         return this.realm.now();
     }
 
+    /**
+     * @public
+     */
     externalNow() {
         return this.realm.externalNow();
     }

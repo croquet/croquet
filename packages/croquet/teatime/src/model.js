@@ -37,7 +37,7 @@ class Model {
      * __Registers this model subclass with Croquet__, e.g.
      *```
      * class MyModel {
-     *     ...
+     *
      * }
      * MyModel.register()
      * ```
@@ -125,6 +125,10 @@ class Model {
         this.id = currentRealm().register(this);
     }
 
+    /**
+     *
+     * @public
+     */
     destroy() {
         currentRealm().unsubscribeAll(this.id);
         currentRealm().deregister(this);
@@ -132,21 +136,46 @@ class Model {
 
     // Pub / Sub
 
+    /**
+     *
+     * @param {String} scope
+     * @param {String} event
+     * @param {*?} data
+     * @public
+     */
     publish(scope, event, data) {
         if (!this.__realm) this.__realmError();
         this.__realm.publish(event, data, scope);
     }
 
+
+    /**
+     * Register an event handler for an event published to a certain scope.
+     * @param {String} scope - the event scope (to distinguish between events of the same name used by different objects)
+     * @param {String} event - the event name (user-defined or system-defined)
+     * @param {Function} callback - the function called when the event was published
+     * @public
+     */
     subscribe(scope, event, callback) {
         if (!this.__realm) this.__realmError();
         this.__realm.subscribe(event, this.id, callback, scope);
     }
 
+    /**
+     *
+     * @param {String} scope
+     * @param {String} event
+     * @public
+     */
     unsubscribe(scope, event) {
         if (!this.__realm) this.__realmError();
         this.__realm.unsubscribe(event, this.id, null, scope);
     }
 
+    /**
+     *
+     * @public
+     */
     unsubscribeAll() {
         if (!this.__realm) this.__realmError();
         this.__realm.unsubscribeAll(this.id);
@@ -158,24 +187,49 @@ class Model {
 
     // Misc
 
-    /** @returns {this} */
+    /**
+     *
+     * @returns {this}
+     * @public
+     */
     future(tOffset=0) {
         if (!this.__realm) this.__realmError();
         return this.__realm.futureProxy(tOffset, this);
     }
 
+    /**
+     *
+     * @returns {Number}
+     * @public
+     */
     random() {
         return currentRealm().random();
     }
 
+    /**
+     *
+     * @returns {Number}
+     * @public
+     */
     now() {
         return currentRealm().now();
     }
 
+    /**
+     *
+     * @param {String} name
+     * @public
+     */
     beWellKnownAs(name) {
         currentRealm().island.set(name, this);
     }
 
+    /**
+     *
+     * @param {String} name
+     * @returns {Model}
+     * @public
+     */
     wellKnownModel(name) {
         return this.__realm.island.get(name);
     }
