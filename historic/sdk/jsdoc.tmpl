@@ -32,9 +32,31 @@
         pre { background: #f4f4f4; padding: 1em; border-radius: 1em; }
         pre code { padding: 0; }
         .params td { font-size: 16px; font-family: 'Helvetica Neue', Helvetica, sans-serif; }
+        .corner-ribbon {
+            width: 200px;
+            background: #f33;
+            position: fixed;
+            top: 25px;
+            left: -50px;
+            text-align: center;
+            line-height: 50px;
+            letter-spacing: 1px;
+            color: #eee;
+            box-shadow: 0 0 5px rgba(0,0,0,.5);
+            transform: rotate(-45deg);
+            -webkit-transform: rotate(-45deg);
+        }
+        .corner-ribbon.top-right {
+            top: 25px;
+            right: -50px;
+            left: auto;
+            transform: rotate(45deg);
+            -webkit-transform: rotate(45deg);
+        }
     </style>
 </head>
 <body>
+<div class="corner-ribbon top-right">pre-alpha</div>
 
 <input type="checkbox" id="nav-trigger" class="nav-trigger" />
 <label for="nav-trigger" class="navicon-button x">
