@@ -53,11 +53,6 @@
     <h1 class="page-title"><?js= title ?></h1>
     <?js } else { ?>
     <h1 class="page-title"><?js= env.conf.docdash.meta.title || "Documentation" ?></h1>
-    <?js if (env.conf.docdash.meta.description) { ?>
-        <section>
-        <?js= env.conf.docdash.meta.description ?>
-        </section>
-    <?js } ?>
     <?js } ?>
 
     <?js= content ?>
