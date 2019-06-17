@@ -5,7 +5,7 @@ import hotreloadEventManger from "@croquet/util/hotreloadEventManager";
 import urlOptions from "@croquet/util/urlOptions";
 import { login, getUser } from "@croquet/util/user";
 import { displaySpinner, displayError } from "@croquet/util/html";
-import { baseUrl, hashNameAndCode, hashString, uploadCode } from "@croquet/util/modules";
+import { baseUrl, CROQUET_HOST, hashNameAndCode, hashString, uploadCode } from "@croquet/util/modules";
 import { inViewRealm } from "./realms";
 import Island, { Message, inSequence } from "./island";
 
@@ -17,7 +17,7 @@ import Island, { Message, inSequence } from "./island";
 // only newer clients get to use it
 const VERSION = 1;
 
-const FALLBACK_REFLECTOR = "wss://croquet.studio/reflector-v1";
+const FALLBACK_REFLECTOR = `wss://${CROQUET_HOST}/reflector-v1`;
 const DEFAULT_REFLECTOR = process.env.CROQUET_REFLECTOR || FALLBACK_REFLECTOR;    // replaced by parcel at build time from app's .env file
 
 let codeHashes = null;

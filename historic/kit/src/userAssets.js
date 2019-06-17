@@ -4,9 +4,13 @@ import { baseUrl, hashBuffer } from "@croquet/util/modules";
 import SpatialPart from './modelParts/spatial';
 import Tracking from './viewParts/tracking';
 import Clickable from './viewParts/clickable';
+import { makePointerSensitive, ignorePointer, PointerEvents } from "./viewParts/pointer";
 import { ModelPart, ViewPart, ViewEvents } from './parts';
+import { displayNotifier } from "../../util/html";
 import SVGIcon from "./util/svgIcon";
 import soundOn from "../assets/sound-on.svg";
+import remoteHand from "../assets/pointing-hand.svg";
+import playButton from "../assets/play-button.svg";
 
 // @@ some (Bert-sanctioned) contortions needed to get the imports working.  all libraries (including inflate, needed for FBXLoader) were downloaded from https://github.com/mrdoob/three.js/tree/master/src/loaders and https://github.com/mrdoob/three.js/tree/master/examples/js/libs on 4 jun 2019
 window.THREE = THREE;
@@ -34,6 +38,9 @@ const makeBlobUrl = blobHash => `${BASE_URL}${blobHash}.blob`;
 
 const MAX_IMPORT_FILES = 100; // reject any drop over this number
 const MAX_IMPORT_MB = 100; // aggregate
+
+const TOUCH = 'ontouchstart' in document.documentElement;
+const USER = (Math.random() + '').slice(2);
 
 // adapted from arcos TImporter.
 // handle the dragging in of one or more file or directory objects.
@@ -386,7 +393,7 @@ console.log(assetDescriptors.map(loadSpec => loadSpec.displayName));
             ti++;
         }
         if (!loadType) {
-            const handledTypes = [ ".png", ".jpg", ".jpeg", ".bmp", ".gif", ".dae", ".fbx", ".stl", ".svg", ".csv", ".xlsx", ".mp4", ".zip", ".xls" ];
+            const handledTypes = [ ".png", ".jpg", ".jpeg", ".bmp", ".gif", ".dae", ".fbx", ".stl", ".svg", ".mp4", ".zip" ];
             const handlableSpecs = topSpecs.filter(spec => handledTypes.indexOf(spec.type)>=0);
             if (handlableSpecs.length) {
                 if (handlableSpecs.length > 1) this.frame.alert(`Ambiguous drop (${handlableSpecs.map(spec => spec.type).join(", ")})`, 5000);
@@ -431,7 +438,9 @@ console.log(assetDescriptors.map(loadSpec => loadSpec.displayName));
             return null;
         }
 
+        displayNotifier("uploading assets...");
         await Promise.all(fileSpecs.map(spec => this.hashAndStoreIfNeeded(spec)));
+        displayNotifier("");
         const fileDict = {};
         fileSpecs.forEach(spec => fileDict[spec.path] = spec);
         return { displayName, fileDict, loadType, loadPaths };
@@ -446,7 +455,7 @@ console.log(assetDescriptors.map(loadSpec => loadSpec.displayName));
             this.assetCache[hash] = fileSpec.blob;
             fileSpec.hash = hash;
             fileSpec.blobURL = makeBlobUrl(hash);
-            this.ensureBlobIsShared(fileSpec.blobURL, fileSpec.blob, fileSpec.name); // async, but we don't need to wait
+            await this.ensureBlobIsShared(fileSpec.blobURL, fileSpec.blob, fileSpec.name);
         }
         return fileSpec;
     }
@@ -533,25 +542,32 @@ console.log(assetDescriptors.map(loadSpec => loadSpec.displayName));
         return { displayName, fileDict: newFileDict, loadType, loadPaths };
     }
 
-    async ensureBlobIsShared(blobURL, blob, name="") {
-        if (this.knownAssetURLs[blobURL]) return;
-
-        this.knownAssetURLs[blobURL] = true;
-        try {
-            // see if it's already there
-            const response = await fetch(blobURL, { method: 'HEAD' });
-            // if successful, return
-            if (response.ok) return;
-        } catch (ex) { /* ignore */ }
-        // not found, so try to upload it
-        try {
-            console.warn(`storing attachment doc for content of ${name}`);
-            await fetch(blobURL, {
-                method: "PUT",
-                mode: "cors",
-                body: blob,
+    ensureBlobIsShared(blobURL, blob, name="") {
+        let promise = this.knownAssetURLs[blobURL];
+        if (!promise) {
+            promise = this.knownAssetURLs[blobURL] = new Promise((resolve, reject) => {
+                try {
+                    // see if it's already there
+                    fetch(blobURL, { method: 'HEAD' })
+                    .then(response => {
+                        // if successful, return
+                        if (response.ok) resolve();
+                    });
+                } catch (ex) { /* ignore */ }
+                // not found, so try to upload it
+                try {
+                    console.log(`storing attachment doc for content of ${name}`);
+                    fetch(blobURL, {
+                        method: "PUT",
+                        mode: "cors",
+                        body: blob,
+                    }).then(response => {
+                        if (response.ok) resolve();
+                    });
+                } catch (error) { reject(); }
             });
-        } catch (error) { /* ignore */ }
+        }
+        return promise;
     }
 
     fetchSharedBlob(blobURL, optionalType) {
@@ -662,7 +678,7 @@ console.log(assetDescriptors.map(loadSpec => loadSpec.displayName));
                 assetDescriptor.fileDict[urlStr] = null; // will be found by ensureFetchesAreRecorded()
                 return urlStr;
             }
-            console.warn(`failed to find ${urlStr}`);
+            console.log(`failed to find ${urlStr}`);
             return ""; // we don't have a way to fetch the supplied url
             });
         return manager;
@@ -692,18 +708,17 @@ console.warn(`recording fetch of ${urlStr}`);
         return Promise.all(pendingFetches);
     }
 
-    ensureAssetsAvailable(assetDescriptor) {
+    async ensureAssetsAvailable(assetDescriptor) {
         const blobURLDict = {};
         Object.values(assetDescriptor.fileDict).forEach(fileSpec => blobURLDict[fileSpec.blobURL] = true);
         // ids, retryMessage, retryDelay, maxRetries
-        return this.ensureBlobsAvailable(Object.keys(blobURLDict),
-            "waiting for asset docs to appear in db...",
-            1000, 60).then(status => {
-                if (status === 'ok') {
-                    Object.keys(blobURLDict).forEach(blobURL => this.knownAssetURLs[blobURL] = true);
-                }
-                return status;
-                });
+        const status = await this.ensureBlobsAvailable(Object.keys(blobURLDict),
+            "waiting for asset docs to appear on server...",
+            1000, 60);
+        if (status !== 'ok') throw Error("failed to find assets");
+
+        Object.keys(blobURLDict).forEach(blobURL => this.knownAssetURLs[blobURL] = true);
+        return status;
     }
 
     ensureBlobsAvailable(blobURLs, retryMessage, retryDelay, maxRetries) {
@@ -925,7 +940,6 @@ console.warn(`recording fetch of ${urlStr}`);
     }
 
     async importFBX(assetDescriptor, firstLoad) {
-        // NB: for an FBX model, storing and reusing the parsed model is for now a headache (see https://github.com/mrdoob/three.js/issues/14647).  might become simpler around release 100.
         // we use a loadingManager, because it seems that FBX *might* be able to include
         // references to other files
         // (see https://archive.blender.org/wiki/index.php/User:Mont29/Foundation/FBX_File_Structure/)
@@ -937,26 +951,13 @@ console.warn(`recording fetch of ${urlStr}`);
             loader.load(objectPath, resolve, onProgress, onError);
             });
         manager._croquetRevokeURLs();
-        const mixers = [];
-        object.mixer = new THREE.AnimationMixer(object);
-        mixers.push(object.mixer);
-        //console.log('animations', object.animations);
-        if (object.animations.length>0) {
-            const action = object.mixer.clipAction(object.animations[0]);
-            action.play();
-        }
-        if (mixers.length>0) {
-            // initialisation code for when installed in a TObject
-            object.initTObject = tObj => {
-                tObj.mixers = mixers;
-                tObj.lastTime = 0;
-                tObj.update = function(t) {
-                    for (let i = 0; i < this.mixers.length; i++) {
-                        this.mixers[ i ].update( (t-this.lastTime)/1000);
-                    }
-                    this.lastTime = t;
-                    };
-                };
+        if (object.animations.length > 0) {
+            const mixer = new THREE.AnimationMixer(object);
+            mixer.clipAction(object.animations[0]).play();
+            object._croquetAnimation = {
+                lastTime: 0,
+                mixer
+            };
         }
         return object;
     }
@@ -994,23 +995,18 @@ if (baseFileSpec && !baseFileSpec.hash) debugger;
                     ({ scene, scenes, cameras, animations }) => {
                         manager._croquetRevokeURLs();
 
-                        if (animations.length>0) {
-                            scene.initTObject = tObj => {
-                                var mixers = [], o3d = tObj.object3D;
-                                o3d.mixer = new  THREE.AnimationMixer(o3d);
-                                mixers.push(o3d.mixer);
-                                const action = o3d.mixer.clipAction(animations[0]);
-                                action.play();
-                                tObj.mixers = mixers;
-                                tObj.lastTime = 0;
-                                tObj.update = function(t) {
-                                    for (let i = 0; i < this.mixers.length; i++) {
-                                        this.mixers[ i ].update( (t-this.lastTime)/1000);
-                                    }
-                                    this.lastTime = t;
+                        if (animations.length > 0) {
+                            // set up a function for initialising animation on a cloned scene
+                            scene._initAnimation = sc => {
+                                const mixer = new THREE.AnimationMixer(sc);
+                                mixer.clipAction(animations[0]).play();
+                                sc._croquetAnimation = {
+                                    lastTime: 0,
+                                    mixer
                                     };
                                 };
                         }
+
                         resolved(scene); // ignoring everything but the scene for now
                         },
                     onProgress,
@@ -1019,10 +1015,10 @@ if (baseFileSpec && !baseFileSpec.hash) debugger;
 
         return this.loadThroughCache(cacheKey, promiseFn).then(scene => {
             const clone = assetDescriptor.loadType === ".glb" ? THREE.SkeletonUtils.clone(scene) : scene.clone();
-            if (scene.initTObject) { clone.initTObject = scene.initTObject; }
             clone.traverse(node => { // need to clone the materials
                 if (node.isMesh) node.material = node.material.clone();
                 });
+            if (scene._initAnimation) scene._initAnimation(clone);
             return clone;
         });
     }
@@ -1106,6 +1102,7 @@ export class ImportedElement extends ModelPart {
     init(options, id) {
         super.init(options, id);
         this.assetDescriptor = options.assetDescriptor;
+        this.creationTime = this.now();
     }
 
     naturalViewClass() { return ImportedElementView; }
@@ -1133,49 +1130,71 @@ console.warn(this);
             this.threeObj.add(obj);
             this.threeObj.scale.set(scale, scale, scale);
             this.publish(this.id, ViewEvents.changedDimensions, {});
+            if (obj._croquetAnimation) {
+                const spec = obj._croquetAnimation;
+                spec.startTime = options.model.creationTime;
+                this.animationSpec = spec;
+                this.future(500).runAnimation();
+            }
             this._ready();
             };
 
-        switch (loadType) {
-            case "texture":
-                assetManager.importTexture(assetDescriptor).then(objectReady);
-                break;
-            // ###
-            case "texture360":
-                assetManager.importTexture360(assetDescriptor).then(mesh => {
-                    this.setObject3D(mesh);
-                    compositeObject.registerOnSceneTeam(this); // this is the only TObject that will be built
+        assetManager.ensureAssetsAvailable(assetDescriptor)
+        .then(() => {
+            switch (loadType) {
+                case "texture":
+                    assetManager.importTexture(assetDescriptor).then(objectReady);
+                    break;
+                // ###
+                case "texture360":
+                    assetManager.importTexture360(assetDescriptor).then(mesh => {
+                        this.setObject3D(mesh);
+                        compositeObject.registerOnSceneTeam(this); // this is the only TObject that will be built
 
-                    const tScene = viewpointObject;
-                    if (tScene.background3D) tScene.background3D.destroyComposite();
+                        const tScene = viewpointObject;
+                        if (tScene.background3D) tScene.background3D.destroyComposite();
 
-                    tScene.background3D = this;
-                    tScene.addChild(this);
+                        tScene.background3D = this;
+                        tScene.addChild(this);
 
-                    this.readyPromiseHandle.resolve(this);
-                    });
-                break;
-            case "fbx": // this also covers more than one file extension
-                assetManager.importFBX(assetDescriptor, firstLoad).then(objectReady);
-                break;
-            case "stl":
-                assetManager.importSTL(assetDescriptor).then(objectReady);
-                break;
-            case ".svg":
-                assetManager.importSVG(assetDescriptor).then(objectReady);
-                break;
-            case ".gltf":
-            case "gltf1":
-            case "gltf2":
-            case ".glb":
-                assetManager.importGLTF(assetDescriptor, firstLoad).then(objectReady);
-                break;
-            case ".obj":
-                assetManager.importOBJ(assetDescriptor, firstLoad).then(objectReady);
-                break;
-            default:
-                console.warn(`unknown imported-object loadType: ${loadType}.`);
-        }
+                        this.readyPromiseHandle.resolve(this);
+                        });
+                    break;
+                case "fbx": // this also covers more than one file extension
+                    assetManager.importFBX(assetDescriptor, firstLoad).then(objectReady);
+                    break;
+                case "stl":
+                    assetManager.importSTL(assetDescriptor).then(objectReady);
+                    break;
+                case ".svg":
+                    assetManager.importSVG(assetDescriptor).then(objectReady);
+                    break;
+                case ".gltf":
+                case "gltf1":
+                case "gltf2":
+                case ".glb":
+                    assetManager.importGLTF(assetDescriptor, firstLoad).then(objectReady);
+                    break;
+                case ".obj":
+                    assetManager.importOBJ(assetDescriptor, firstLoad).then(objectReady);
+                    break;
+                default:
+                    console.warn(`unknown imported-object loadType: ${loadType}.`);
+            }
+        }).catch(err => console.error(err));
+    }
+
+    runAnimation() {
+        const spec = this.animationSpec;
+        if (!spec) return;
+
+        const { mixer, startTime, lastTime } = spec;
+        const now = this.now();
+        const newTime = (now - startTime) / 1000, delta = newTime - lastTime;
+        mixer.update(delta);
+        spec.lastTime = newTime;
+
+        this.future(1000 / 20).runAnimation();
     }
 }
 
@@ -1255,7 +1274,7 @@ console.log(this);
 
     wrappedTime(videoTime, guarded) {
         if (this.duration) {
-            while (videoTime >= this.duration) videoTime -= this.duration; // assume it's looping, with no gap between plays
+            while (videoTime > this.duration) videoTime -= this.duration; // assume it's looping, with no gap between plays
             if (guarded) videoTime = Math.min(this.duration-0.1, videoTime); // the video element freaks out on being told to seek very close to the end
         }
         return videoTime;
@@ -1282,7 +1301,7 @@ console.log(this);
     }
 
     setStatic(videoTime) {
-        if (videoTime) this.video.currentTime = this.wrappedTime(videoTime, true); // true => guarded from values too near the end
+        if (videoTime !== undefined) this.video.currentTime = this.wrappedTime(videoTime, true); // true => guarded from values too near the end
         this.video.pause(); // no return value; synchronous, instantaneous?
     }
 
@@ -1313,20 +1332,75 @@ export class ImportedVideoElement extends ModelPart {
         this.assetDescriptor = options.assetDescriptor;
     }
 
-    setPlayState(isPlaying, startOffset, pausedTime) {
+    setPlayState(isPlaying, startOffset, pausedTime, actionSpec) {
         this.isPlaying = isPlaying;
         this.startOffset = startOffset;
         this.pausedTime = pausedTime;
-        this.publish(this.id, "setPlayState", { isPlaying, startOffset, pausedTime });
+        this.publish(this.id, "setPlayState", { isPlaying, startOffset, pausedTime, actionSpec });
     }
 
     naturalViewClass() { return ImportedVideoView; }
 }
 
+const SCRUB_THROTTLE = 1000 / 8; // min time between scrub events
+
+class TimebarView extends ViewPart {
+    constructor(options) {
+        super(options);
+        const { width, height } = options;
+        this.videoView = options.videoView;
+        this.threeObj = new THREE.Group();
+
+        const timebarLength = this.timebarLength = width;
+        const timebar = this.timebar = new THREE.Mesh(
+            new THREE.PlaneBufferGeometry(timebarLength, height),
+            new THREE.MeshBasicMaterial({ color: new THREE.Color(0x444444) })
+            );
+        this.threeObj.add(timebar);
+        const playbar = this.playbar = new THREE.Mesh(
+            new THREE.PlaneBufferGeometry(1, height/4),
+            new THREE.MeshBasicMaterial({ color: new THREE.Color(0xcccccc) })
+            );
+        playbar.position.set(0, 0, 0.001); // floating just above
+        timebar.add(playbar);
+        this.adjustPlaybar(0);
+
+        makePointerSensitive(timebar, this);
+        this.subscribe(this.id, PointerEvents.pointerDrag, data => this.onPointerDrag(data));
+    }
+
+    onPointerDrag(data) {
+        const now = this.now();
+        if (this.lastDragTime && now - this.lastDragTime < SCRUB_THROTTLE) return;
+
+        this.lastDragTime = now;
+        const localPt = new THREE.Vector3().copy(data.dragEndOnVerticalPlane);
+        this.timebar.worldToLocal(localPt);
+        const timeProportion = Math.max(0, Math.min(1, localPt.x/this.timebarLength + 0.5));
+        if (this.lastTimeProportion === timeProportion) return;
+
+        this.lastTimeProportion = timeProportion;
+        this.videoView.handleTimebar(timeProportion);
+    }
+
+    adjustPlaybar(proportion) {
+        const playbar = this.playbar;
+        const playbarLength = this.timebarLength * proportion;
+        playbar.scale.x = Math.max(0.001, playbarLength);
+        playbar.position.x = (playbarLength - this.timebarLength) / 2;
+    }
+}
+
+const VIEW_HEIGHT = 2;
+const HAND_HEIGHT = 0.4;
+const HAND_TILT = Math.PI * 0.1;
+const TIMEBAR_HEIGHT_PROP = 0.1;
+const TIMEBAR_MARGIN_PROP = TOUCH ? 0 : 0.04;
+
 class VideoViewPart extends ViewPart {
     constructor(options) {
         super(options);
-//console.warn(this);
+console.warn(this);
 
         this.videoReady = false; // this will go true just once
         this.waitingForIslandSync = !this.realm.isSynced; // this can flip back and forth
@@ -1338,41 +1412,78 @@ class VideoViewPart extends ViewPart {
         this.threeObj = new THREE.Group();
 
         // importVideo returns a promise that resolves once the video has loaded
-        assetManager.importVideo(assetDescriptor).then(videoView => {
+        assetManager.ensureAssetsAvailable(assetDescriptor)
+        .then(() => assetManager.importVideo(assetDescriptor))
+        .then(videoView => {
             this.videoReady = true;
             this.videoView = videoView;
             this.flip = false; // true means rendered picture acts like a mirror (suitable for local webcam)
-            const h = this.height = videoView.height();
-            const w = videoView.width();
-            const segs = 1;
+            const videoH = videoView.height(), videoW = videoView.width(); // pixels
+            const rectH = this.rectHeight = VIEW_HEIGHT, rectW = this.rectWidth = rectH * videoW/videoH; // @@ stick to a default height of 2 units, for now
 
-            const geom = new THREE.PlaneBufferGeometry(w, h, segs, segs);
-            const mat = new THREE.MeshBasicMaterial({ map: videoView.texture });
-            const rect = new THREE.Mesh(geom, mat);
-            rect.name = "videoView";
+            const videoRect = new THREE.Mesh(
+                new THREE.PlaneBufferGeometry(rectW, rectH),
+                new THREE.MeshBasicMaterial({ map: videoView.texture })
+                );
+            videoRect.name = "videoView";
             if (this.flip) {
-                mat.side = THREE.BackSide;
-                rect.rotation.y = Math.PI;
+                videoRect.material.side = THREE.BackSide;
+                videoRect.rotation.y = Math.PI;
             }
-            const scale = 2 / h;
-            this.threeObj.add(rect);
-            this.threeObj.scale.set(scale, scale, scale);
+            this.threeObj.add(videoRect);
 
-            const icon = this.enableSoundIcon = new SVGIcon(soundOn, new THREE.MeshBasicMaterial({ color: "#888888" }));
-            icon.userData.ignorePointer = true; // @@ apparently the kosher way is to run ignorePointer exported by pointer.js
-            icon.rotateX(Math.PI / 2);
-            icon.visible = false;
-            const iconHolder = new THREE.Group();
-            iconHolder.add(icon);
-            const iconScale = 0.7/scale;
+            const enableIcon = new SVGIcon(soundOn, new THREE.MeshBasicMaterial({ color: "#888888" }));
+            ignorePointer(enableIcon);
+            enableIcon.rotateX(Math.PI / 2);
+            let iconHolder = this.enableSoundIcon = new THREE.Group();
+            iconHolder.add(enableIcon);
+            iconHolder.visible = false;
+            let iconScale = 0.7;
             iconHolder.scale.set(iconScale, iconScale, iconScale);
-            iconHolder.position.set(0, 0, 0.05/scale);
+            iconHolder.position.set(0, 0, 0.01);
             this.threeObj.add(iconHolder);
+
+            // in this case it matters that SVG and THREE have opposite expectations for sense of +ve y
+            const outerHand = new SVGIcon(remoteHand, new THREE.MeshBasicMaterial({ color: "#ffffff" }), undefined, undefined, false); // a y-flipped hand (looks like the back of a left hand)
+            ignorePointer(outerHand);
+            outerHand.rotateX(Math.PI); // flip over (now looks like a right hand again, pointing up)
+            outerHand.rotateZ(Math.PI - HAND_TILT); // remembering that icon's Z is now into picture
+            const innerHand = new SVGIcon(remoteHand, new THREE.MeshBasicMaterial({ color: "#444444" }), undefined, 0.95, false);
+            ignorePointer(innerHand);
+            innerHand.rotateX(Math.PI); // flip over (now looks like a right hand again, pointing up)
+            innerHand.rotateZ(Math.PI - HAND_TILT); // remembering that icon's Z is now into picture
+            iconHolder = this.remoteHandIcon = new THREE.Group();
+            iconHolder.add(outerHand);
+            innerHand.position.set(0, 0, 0.005);
+            iconHolder.add(innerHand);
+            iconHolder.visible = false;
+            iconScale = HAND_HEIGHT;
+            iconHolder.scale.set(iconScale, iconScale, iconScale);
+            iconHolder.position.set(0, 0, 0.02);
+            this.threeObj.add(iconHolder);
+
+            const playIcon = new SVGIcon(playButton, new THREE.MeshBasicMaterial({ color: "#888888" }));
+            ignorePointer(playIcon);
+            playIcon.rotateX(Math.PI / 2);
+            iconHolder = this.playIcon = new THREE.Group();
+            iconHolder.add(playIcon);
+            iconScale = 0.7;
+            iconHolder.scale.set(iconScale, iconScale, iconScale);
+            iconHolder.position.set(0, 0, 0.01);
+            this.threeObj.add(iconHolder);
+
+            // @@ seems hacky
+            this.realm.island.controller.inViewRealm(() => { // needs to run in realm so it can create a new View
+                const timebarW = rectW - 2 * rectH * TIMEBAR_MARGIN_PROP, timebarH = rectH * TIMEBAR_HEIGHT_PROP, timebarY = -rectH * (0.5 - TIMEBAR_MARGIN_PROP - TIMEBAR_HEIGHT_PROP/2);
+                const timebar = this.timebar = new TimebarView({ videoView: this, width: timebarW, height: timebarH }); // margins of 0.04 * h
+                timebar.threeObj.position.set(0, timebarY, 0.02);
+                this.threeObj.add(timebar.threeObj);
+                });
 
             this.publish(this.id, ViewEvents.changedDimensions, {});
             this.applyPlayState();
             this.future(1000).checkPlayStatus();
-            });
+            }).catch(err => console.error(err));
 
         this.subscribe(options.model.id, "setPlayState", data => this.setPlayState(data));
         this.subscribe(this.realm.island.id, { event: "synced", handling: "immediate" }, isSynced => this.handleSyncState(isSynced));
@@ -1382,20 +1493,35 @@ class VideoViewPart extends ViewPart {
         return "Imported Video";
     }
 
-    setPlayState(data) {
+    adjustPlaybar(time) {
+        if (!this.videoView || !this.timebar) return;
+
+        this.timebar.adjustPlaybar(time / this.videoView.duration);
+    }
+
+    setPlayState(rawData) {
+        const data = {...rawData}; // take a copy that we can play with
+        this.latestActionSpec = data.actionSpec; // if any
+        delete data.actionSpec;
+
         const latest = this.latestPlayState;
         // ignore if we've heard this one before (probably because we set it locally)
         if (latest && Object.keys(data).every(key => data[key]===latest[key])) return;
 
         this.latestPlayState = Object.assign({}, data);
-        if (this.videoReady && !this.waitingForIslandSync) this.applyPlayState();
-        //else console.log("store playState", this.latestPlayState);
+        this.applyPlayState(); // will be ignored if we're still initialising
     }
 
     applyPlayState() {
+        if (!this.videoReady || this.waitingForIslandSync) return;
+
 //console.log("apply playState", {...this.latestPlayState});
-        if (!this.latestPlayState.isPlaying) this.videoView.pause(this.latestPlayState.pausedTime);
-        else {
+        if (!this.latestPlayState.isPlaying) {
+            this.playIcon.visible = true;
+            this.enableSoundIcon.visible = false;
+            this.videoView.pause(this.latestPlayState.pausedTime);
+        } else {
+            this.playIcon.visible = false;
             this.videoView.video.playbackRate = 1;
             this.lastRateAdjust = this.now(); // make sure we don't adjust rate before playback has settled in, and any emergency jump we decide to do
             this.jumpIfNeeded = false;
@@ -1410,6 +1536,37 @@ class VideoViewPart extends ViewPart {
                 }
                 });
         }
+
+        if (this.latestActionSpec) this.revealAction(this.latestActionSpec);
+    }
+
+    revealAction(spec) {
+        if (spec.USER !== USER) {
+            const type = spec.type;
+            if (type === "body") {
+                this.useHandToPoint(spec.x, spec.y);
+            } else if (type === "timebar") {
+                const xOnTimebar = this.timebar.timebarLength * (spec.proportion - 0.5);
+                const yOnTimebar = -this.rectHeight * (0.5 - TIMEBAR_MARGIN_PROP - TIMEBAR_HEIGHT_PROP * 0.75);
+                this.useHandToPoint(xOnTimebar, yOnTimebar);
+            }
+        }
+    }
+
+    useHandToPoint(targetX, targetY) {
+        if (!this.remoteHandIcon) return;
+
+        if (this.remoteHandTimeout) clearTimeout(this.remoteHandTimeout);
+
+        // end of finger is around (-0.1, 0.5) relative to centre
+        const xOffset = -0.1 * HAND_HEIGHT, yOffset = (0.5 + 0.05) * HAND_HEIGHT; // a bit off the finger
+        const sinTilt = Math.sin(HAND_TILT), cosTilt = Math.cos(HAND_TILT);
+        const x = xOffset * cosTilt - yOffset * sinTilt, y = xOffset * sinTilt + yOffset * cosTilt;
+        const pos = this.remoteHandIcon.position;
+        pos.x = targetX + x;
+        pos.y = targetY + y;
+        this.remoteHandIcon.visible = true;
+        this.remoteHandTimeout = setTimeout(() => this.remoteHandIcon.visible = false, 1000);
     }
 
     calculateVideoTime() {
@@ -1439,7 +1596,7 @@ class VideoViewPart extends ViewPart {
         //else if (!wasWaiting && !isSynced) this.videoView.pause(); // no pausedTime; no-one's watching.
     }
 
-    handleUserClick() {
+    handleUserClick(clickPt) {
         if (!this.videoView) return;
 
         // if the video is playing but blocked, this click will in theory be able to start it.
@@ -1457,13 +1614,32 @@ class VideoViewPart extends ViewPart {
         const startOffset = wantsToPlay ? sessionTime - 1000 * videoTime : null;
         const pausedTime = wantsToPlay ? 0 : videoTime;
         this.setPlayState({ isPlaying: wantsToPlay, startOffset, pausedTime }); // directly from the handler, in case the browser blocks indirect play() invocations
-        this.model.future().setPlayState(wantsToPlay, startOffset, pausedTime); // then update our model, which will tell everyone else
+        const actionSpec = { USER, type: "body", x: clickPt.x, y: clickPt.y };
+        this.model.future().setPlayState(wantsToPlay, startOffset, pausedTime, actionSpec); // then update our model, which will tell everyone else
     }
 
-    triggerJumpCheck() { this.jumpIfNeeded = true; } // on next checkPlayStatus()
+    handleTimebar(proportion) {
+        if (!this.videoView) return;
+
+        const wantsToPlay = false;
+        const videoTime = this.videoView.duration * proportion;
+        const startOffset = null;
+        const pausedTime = videoTime;
+        this.setPlayState({ isPlaying: wantsToPlay, startOffset, pausedTime });
+        const actionSpec = { USER, type: "timebar", proportion };
+        this.model.future().setPlayState(wantsToPlay, startOffset, pausedTime, actionSpec); // then update our model, which will tell everyone else
+    }
+
+    triggerJumpCheck() { this.jumpIfNeeded = true; } // on next checkPlayStatus() that does a timing check
 
     checkPlayStatus() {
-        if (this.videoView && this.videoView.isPlaying && !this.videoView.isBlocked) {
+        this.adjustPlaybar(this.videoView && this.videoView.isPlaying ? this.videoView.video.currentTime : (this.latestPlayState.pausedTime || 0));
+
+        const lastTimingCheck = this.lastTimingCheck || 0;
+        const now = this.now();
+        // check video timing every 0.5s
+        if (this.videoView && this.videoView.isPlaying && !this.videoView.isBlocked && (now - lastTimingCheck >= 500)) {
+            this.lastTimingCheck = now;
             const expectedTime = this.videoView.wrappedTime(this.calculateVideoTime());
             const videoTime = this.videoView.video.currentTime;
             const videoDiff = videoTime - expectedTime;
@@ -1483,7 +1659,7 @@ class VideoViewPart extends ViewPart {
                     //   > 100ms: 1% faster/slower
                     //   < 50ms: normal (i.e., hysteresis between 100ms and 50ms in the same sense)
                     const lastRateAdjust = this.lastRateAdjust || 0;
-                    if (this.now() - lastRateAdjust > 3000) {
+                    if (now - lastRateAdjust >= 3000) {
                         const oldRate = this.videoView.video.playbackRate;
                         const oldBoostPercent = Math.round(100 * (oldRate - 1));
                         const diffAbs = Math.abs(videoDiff), diffSign = Math.sign(videoDiff);
@@ -1496,16 +1672,15 @@ console.log(`video playback rate: ${playbackRate}`);
                                 this.videoView.video.playbackRate = playbackRate;
                             }
                         }
-                        this.lastRateAdjust = this.now();
+                        this.lastRateAdjust = now;
                     }
                 }
             }
         }
-        this.future(500).checkPlayStatus();
+        this.future(100).checkPlayStatus();
     }
-
 }
 
 const ImportedVideoView = Clickable({
-    onClick: options => (at, view) => view.handleUserClick()
+    onClick: options => (at, view) => view.handleUserClick(view.threeObj.worldToLocal(new THREE.Vector3().copy(at)))
 })(Tracking()(VideoViewPart));

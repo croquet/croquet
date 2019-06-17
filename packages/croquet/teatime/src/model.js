@@ -8,11 +8,23 @@ const DEBUG = {
     classes: urlOptions.has("debug", "classes", false),
 };
 
-export default class Model {
+
+/**
+ * Models are replicated objects in Croquet.
+ * @public
+ */
+class Model {
     // mark this and subclasses as model classes
     // used in classToID / classFromID below
     static __isTeatimeModelClass__() { return true; }
 
+    /**
+     * __Create an instance of a Model subclass.__
+     * This will call {@link Model#init} on the new instance, passing the {@link options}.
+     * @public
+     * @param {Object?} options - (optional) option object to be passed to {@link Model#init}.
+     *     There are no system-defined options as of now, you're free to define your own.
+     */
     static create(options) {
         const ModelClass = this;
         const model = new ModelClass();
@@ -21,9 +33,49 @@ export default class Model {
         return model;
     }
 
+    /**
+     * __Registers this model subclass with Croquet__, e.g.
+     *```
+     * class MyModel {
+     *
+     * }
+     * MyModel.register()
+     * ```
+     * @param {String?} file (optional) the file name this class was defined in, to distinguish between same class names in different files (default: `"<unknown>"`)
+     * @param {String?} name (optional) a name for identifying this class in a snapshot (default: `this.name`)
+     * @public
+     */
     static register(file="<unknown>", name=this.name) {
         addClassHash(this);
         registerClass(file, name, this);
+    }
+
+    /**
+     * __Static declaration of how to serialize non-model classes.__
+     * The Croquet snapshot mechanism only knows about {@link Model} subclasses. If you want to store instances of non-model classes in your model, override this method.
+     *
+     * To use the default serializer just declare the class:
+     * ```
+     * return {
+     *     "THREE.Vector3": THREE.Vector3,
+     *     "THREE.Quaternion": THREE.Quaternion,
+     * };
+     * ```
+     *  To define your own serializer, declare `read()` and `write()` methods, e.g.:
+     * ```
+     * return {
+     *     "THREE.Color": {
+     *         cls: THREE.Color,
+     *         write: color => '#' + color.getHexString(),
+     *         read: state => new THREE.Color(state) },
+     *     }
+     * };
+     * ```
+     * This is currently the only way to customize serialization (e.g. to keep snapshots fast and small). The serialization of Model subclasses can not be customized.
+     * @public
+     */
+    static types() {
+        return {};
     }
 
     static classToID(cls) {
@@ -38,11 +90,45 @@ export default class Model {
         return allClasses();
     }
 
+    /**
+     * ### Do __NOT__ create a {@link Model} instance using `new` and<br>do __NOT__ override the `constructor`!
+     *
+     * To __create__ a new model instance, use {@link Model.create}, e.g.
+     * ```
+     * this.foo = FooModel.create({answer: 123});
+     * ```
+     * To __initialize__ an instance, override {@link Model#init}, e.g.
+     * ```
+     * class FooModel {
+     *     init(options={}) {
+     *         this.answer = options.answer || 42;
+     *     }
+     * }
+     * ```
+     * The reason for this is that Models are only instantiated when the first user creates a session.
+     * After that, when joining a session, the models are deserialized from the snapshot, which
+     * restores all properties automatically without calling `init()`.
+     */
+    constructor() {} // eslint-disable-line no-useless-constructor,no-empty-function
+
+    /**
+     * This is called by `Model.create(options)` to initialize a model instance.
+     *
+     * In your Model subclass this is the place to subscribe to events, or start a future message chain.
+     *
+     * Do not forget to call `super.init(options)` in your subclass.
+     * @param {Object?} options - (optional) there are no system-defined options, you're free to define your own
+     * @public
+     */
     init(_options) {
         this.__realm = currentRealm();
         this.id = currentRealm().register(this);
     }
 
+    /**
+     *
+     * @public
+     */
     destroy() {
         currentRealm().unsubscribeAll(this.id);
         currentRealm().deregister(this);
@@ -50,21 +136,46 @@ export default class Model {
 
     // Pub / Sub
 
+    /**
+     *
+     * @param {String} scope
+     * @param {String} event
+     * @param {*?} data
+     * @public
+     */
     publish(scope, event, data) {
         if (!this.__realm) this.__realmError();
         this.__realm.publish(event, data, scope);
     }
 
+
+    /**
+     * Register an event handler for an event published to a certain scope.
+     * @param {String} scope - the event scope (to distinguish between events of the same name used by different objects)
+     * @param {String} event - the event name (user-defined or system-defined)
+     * @param {Function} callback - the function called when the event was published
+     * @public
+     */
     subscribe(scope, event, callback) {
         if (!this.__realm) this.__realmError();
         this.__realm.subscribe(event, this.id, callback, scope);
     }
 
+    /**
+     *
+     * @param {String} scope
+     * @param {String} event
+     * @public
+     */
     unsubscribe(scope, event) {
         if (!this.__realm) this.__realmError();
         this.__realm.unsubscribe(event, this.id, null, scope);
     }
 
+    /**
+     *
+     * @public
+     */
     unsubscribeAll() {
         if (!this.__realm) this.__realmError();
         this.__realm.unsubscribeAll(this.id);
@@ -76,24 +187,49 @@ export default class Model {
 
     // Misc
 
-    /** @returns {this} */
+    /**
+     *
+     * @returns {this}
+     * @public
+     */
     future(tOffset=0) {
         if (!this.__realm) this.__realmError();
         return this.__realm.futureProxy(tOffset, this);
     }
 
+    /**
+     *
+     * @returns {Number}
+     * @public
+     */
     random() {
         return currentRealm().random();
     }
 
+    /**
+     *
+     * @returns {Number}
+     * @public
+     */
     now() {
         return currentRealm().now();
     }
 
+    /**
+     *
+     * @param {String} name
+     * @public
+     */
     beWellKnownAs(name) {
         currentRealm().island.set(name, this);
     }
 
+    /**
+     *
+     * @param {String} name
+     * @returns {Model}
+     * @public
+     */
     wellKnownModel(name) {
         return this.__realm.island.get(name);
     }
@@ -165,3 +301,5 @@ function registerClass(file, name, cls) {
 
 // flush ModelClasses after hot reload
 hotreloadEventManger.addDisposeHandler(module.id, () => ModelClasses = {});
+
+export default Model;

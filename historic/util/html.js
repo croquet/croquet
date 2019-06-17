@@ -12,6 +12,40 @@ export function displayError(msg) {
     document.getElementById("error").innerText = msg;
 }
 
+export function displayNotifier(msg) {
+    if (!document.getElementById("notifier")) {
+        const style = document.createElement("style");
+        style.innerHTML = `
+        .notifier {
+            z-index: 1000;
+            position: absolute;
+            right: 100px;
+            bottom: 6px;
+            width: 120px;
+            padding: 8px;
+            border-radius: 8px;
+            background-color: gold;
+            opacity: 0;
+            transition: opacity 0.5s ease-out;
+            font-size: 14px;
+            font-family: sans-serif;
+            text-align: center;
+        }
+        `;
+        document.head.appendChild(style);
+
+        const div = document.createElement("div");
+        div.className = div.id = "notifier";
+        document.body.appendChild(div);
+    }
+
+    const div = document.getElementById("notifier");
+    if (msg) {
+        div.innerText = msg;
+        div.style.opacity = 0.9;
+    } else div.style.opacity = 0;
+}
+
 export function displaySessionMoniker(id='', element='session') {
     const button = document.getElementById(element);
     if (button && urlOptions.noreset) {
@@ -91,7 +125,7 @@ export function displaySpinner(enabled) {
             if (spinnerEnabled) return;
             if (spinnerOverlay.parentElement) {
                 document.body.removeChild(spinnerOverlay);
-            } else console.error("Cannot remove spinner overlay - was body.innerHTML modified directly?!");
+            } else console.warn("spinner overlay already removed?!");
         }, 500);
     }
 }
