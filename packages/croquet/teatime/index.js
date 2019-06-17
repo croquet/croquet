@@ -22,8 +22,9 @@ export { currentRealm } from "./src/realms";
  * @returns {Promise} Promise that resolves to an object describing the session:
  * ```
  * {
+ *     id,           // the session id
  *     view,         // the ViewRoot instance
- *     step(time),   // for "manual" stepping
+ *     step(time),   // function for "manual" stepping
  * }
  * ```
  *
@@ -54,6 +55,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
     async function bootModelView(snapshot) {
         clear();
         const model = (await controller.establishSession(name, {snapshot, init: spawnModel, destroyerFn: bootModelView, ...options})).modelRoot;
+        session.id = controller.id;
         displaySessionMoniker(controller.id);
         displayQRCode();
         controller.inViewRealm(() => {
@@ -107,3 +109,18 @@ function stepSession(frameTime, controller, view, render="auto") {
         }
     }
 }
+
+// putting event documentation here because JSDoc errors when parsing controller.js at the moment
+
+ /**
+ * **Published when the session backlog crosses a threshold.** (see {@link View#externalNow} for backlog)
+ *
+ * If this is the main session, also indicates that the scene was revealed (if data is `true`)
+ * or hidden behind the overlay (if data is `false`).
+ *
+ * @event synced
+ * @property {String} scope - session id as returned by {@link startSession}
+ * @property {String} event - `"synced"`
+ * @property {Boolean} data - `true` if in sync, `false` if backlogged
+ * @public
+ */
