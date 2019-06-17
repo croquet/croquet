@@ -64,7 +64,7 @@
                 z-index: 5;
                 width: 40em;
                 max-width: 80%;
-                margin:0 auto;
+                margin:0 auto 4em auto;
             }
 
             em {
@@ -84,6 +84,54 @@
                 font-size: 1.3em;
             }
 
+            a {
+                color: #0000aa;
+                text-decoration: none;
+            }
+
+            a:hover {
+                color: #EF493E;
+            }
+
+            .contact {
+                text-align: center;
+                margin-top: 2em;
+            }
+
+            #demo-grid {
+                width: 100%;
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: space-between;
+            }
+
+            .demo {
+                display: block;
+                flex: 0 0 47%;
+                margin: 0 0 2em 0;
+                opacity: 0.8;
+                transition: transform 0.2s ease-in-out, opacity 0.2s ease-in-out;
+            }
+
+            .demo:hover {
+                transform: scale(1.05, 1.05);
+                opacity: 1;
+            }
+
+            .demo .preview {
+                display: block;
+                width: 100%;
+                padding-bottom: 60%;
+                background-position: center 60%;
+                background-size: 140%;
+                border-radius: 3px;
+            }
+
+            .demo .caption {
+                text-align: center;
+                margin-top: 0.5em;
+            }
+
             @media (max-width : 1024px) {
                 #hero, #hero-overlay, #second, #third {display: none}
                 #hero-bg {position: absolute; top: 0; left: -30%; width: 160%;}
@@ -93,6 +141,7 @@
                 #mobile-overlay {display: block; width: 100%; position: absolute; top: 0; left: 0; z-index: 4; pointer-events: none;}
                 #hero-container {height: 155vw; text-align: left;}
                 h1 { font-size: 1.5em }
+                .demo { flex: 0 0 100%; }
             }
 
         </style>
@@ -115,7 +164,38 @@
             <p>Croquet lets you build <em>perfectly synced and persistent experiences</em> for web, mobile and VR &mdash; easier than ever.</p>
             <p>Create shared worlds <em>without writing a backend</em> and <em>no error-prone manual networking and syncing.</em></p>
             <p>Croquet <em>automatically provides low-latency, low-bandwidth multi-user interaction</em> to your app.</p>
-            <p>Contact us at <em><a href="mailto:info@croquet.studio">info@croquet.studio</a></em></p>
+            <p class="contact">Contact us at <em><a href="mailto:info@croquet.studio">info@croquet.studio</a></em></p>
+        </section>
+        <section>
+            <h1>Additional demos</h1>
+            <div id="demo-grid">
+                <a href="/demos/physics" class="demo">
+                    <div class="preview" style="background-image: url('./homepage_assets/demo-physics.png');"></div>
+                    <div class="caption">Multiplayer Physics</div class="caption">
+                </a>
+                <a href="/demos/jenga" class="demo">
+                    <div class="preview" style="background-image: url('./homepage_assets/demo-jenga.png');"></div>
+                    <div class="caption">Multiplayer Jenga &amp; Text Editing</div class="caption">
+                </a>
+                <a href="/demos/knockdown" class="demo">
+                    <div class="preview" style="background-image: url('./homepage_assets/demo-knockdown.png');"></div>
+                    <div class="caption">Multiplayer Tin Can Knockdown</div class="caption">
+                </a>
+                <a href="/demos/minipool" class="demo">
+                    <div class="preview" style="background-image: url('./homepage_assets/demo-minipool.png');"></div>
+                    <div class="caption">Multiplayer Pool Ball Physics</div class="caption">
+                </a>
+                <a href="/demos/bounce" class="demo">
+                    <div class="preview" style="background-image: url('./homepage_assets/demo-bounce.png');"></div>
+                    <div class="caption">Bouncing Balls &amp; Object Manipulation</div class="caption">
+                </a>
+                <a href="/demos/portals" class="demo">
+                    <div class="preview" style="background-image: url('./homepage_assets/demo-portals.png');"></div>
+                    <div class="caption">Portal Rendering &amp; Traversal</div class="caption">
+                </a>
+            </div>
+            <p>In each demo, you can use the QR code in the lower-left corner to join the same session with a additional devices.</p>
+            <p class="contact">Contact us at <em><a href="mailto:info@croquet.studio">info@croquet.studio</a></em></p>
         </section>
         <script>
             if (window.location.hostname === "localhost") {
