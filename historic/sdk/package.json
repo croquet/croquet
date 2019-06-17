@@ -8,6 +8,7 @@
     "deploy": "parcel build --public-url . --global Croquet -d ../../servers/croquet.studio/sdk -o croquet-0.0.3.min.js croquet.js",
     "deployx": "parcel build --experimental-scope-hoisting --public-url . --global Croquet -o croquet.min.js croquet.js",
     "docs": "jsdoc -c jsdoc.json -a public"
+    "watch": "fswatch -r .. | xargs -n 1 -I ^ npm run docs"
   },
   "author": "Croquet Studios",
   "license": "ISC",
