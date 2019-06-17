@@ -4,7 +4,7 @@
         <style>
             body {margin: 0 0 2em 0; padding: 0; width: 100%; font-family: 'Barlow', sans-serif; background: linear-gradient(#fff, #f0f0f0); }
 
-            #hero-container {width: 100%; position: relative; margin-bottom: -4%}
+            #hero-container {width: 100%; position: relative; margin-bottom: -4%; overflow: hidden;}
             #hero-bg {display: block; width: 100%; position: relative; z-index: 0; pointer-events: none;}
             #hero {display: block; width: 100%; position: absolute; top: 0; left: 0; z-index: 3; pointer-events: none;}
             #hero-overlay {display: block; width: 100%; position: absolute; top: 0; left: 0; z-index: 4; pointer-events: none;}
@@ -12,10 +12,10 @@
 
             #first {
                 position: absolute;
-                left: 14.9%;
-                top: 49.1%;
-                width: 27.9%;
-                height: 30.3%;
+                left: 12.9%;
+                top: 43.1%;
+                width: 31.9%;
+                height: 39.3%;
                 background: #ddd;
                 border: none;
             }
@@ -54,8 +54,8 @@
                 top: 86%;
                 width: 14.5%;
                 border: none;
-                padding: 0.5em;
-                background: transparent;
+                padding: 1em 0.5em;
+                background: #fff;
                 font-family: inherit;
                 font-size: 0.7em;
             }
@@ -84,18 +84,19 @@
                 font-size: 1.3em;
             }
 
-            @media (max-width : 812px) {
+            @media (max-width : 1024px) {
                 #hero, #hero-overlay, #second, #third {display: none}
                 #hero-bg {position: absolute; top: 0; left: -30%; width: 160%;}
                 #first { position: relative; top: 0; left: 0; margin: 30vw 10vw 10vw 10vw; width: 80vw; height: 65vw; border-radius: 3px;}
-                #qr { position: absolute; top: 120vw; left: 0; width: 30vw; border-radius: 3px; margin-left: 10vw;}
-                #link { top: 142vw; left: 45vw; width: 41vw;}
+                #qr { position: absolute; top: 98vw; left: 0; width: 30vw; border-radius: 3px; margin-left: 10vw;}
+                #link { top: 121vw; left: 47vw; width: 42vw; }
                 #mobile-overlay {display: block; width: 100%; position: absolute; top: 0; left: 0; z-index: 4; pointer-events: none;}
                 #hero-container {height: 155vw; text-align: left;}
                 h1 { font-size: 1.5em }
             }
 
         </style>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
     </head>
     <body>
         <div id="hero-container">
@@ -106,7 +107,7 @@
             <iframe id="first"></iframe>
             <iframe id="second"></iframe>
             <iframe id="third"></iframe>
-            <img id="qr" src=""/>
+            <img id="qr" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"/>
             <input type="text" id="link"/>
         </div>
         <section>
@@ -114,7 +115,7 @@
             <p>Croquet lets you build <em>perfectly synced and persistent experiences</em> for web, mobile and VR &mdash; easier than ever.</p>
             <p>Create shared worlds <em>without writing a backend</em> and <em>no error-prone manual networking and syncing.</em></p>
             <p>Croquet <em>automatically provides low-latency, low-bandwidth multi-user interaction</em> to your app.</p>
-            Contact us at <a href="mailto:info@croquet.studio">info@croquet.studio</a>
+            <p>Contact us at <em><a href="mailto:info@croquet.studio">info@croquet.studio</a></em></p>
         </section>
         <script>
             if (window.location.hostname === "localhost") {
@@ -126,7 +127,7 @@
                 if (event.source === document.getElementById("first").contentWindow) {
                     console.log(event);
                     if (event.data.url) {
-                        if (window.matchMedia('(min-width: 813px )').matches) {
+                        if (!window.matchMedia('(max-width: 1024px )').matches) {
                             document.getElementById("second").src = event.data.url;
                             document.getElementById("third").src = event.data.url;
                         }

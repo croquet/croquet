@@ -26,12 +26,15 @@ export default function Draggable(dragOptions={}) {
             this.dragVertically = dragOptions.dragVertically;
             this.subscribe(this.id, PointerEvents.pointerEnter, () => {
                 dragOptions.hoverMaterialUpdate(true, this.dragHandlePart.threeObj.material);
+                document.body.style.cursor = "grab";
             });
             this.subscribe(this.id, PointerEvents.pointerLeave, () => {
                 dragOptions.hoverMaterialUpdate(false, this.dragHandlePart.threeObj.material);
+                document.body.style.cursor = "default";
             });
             this.subscribe(this.id, PointerEvents.pointerDown, () => {
                 this.positionAtDragStart = this.target.position.clone();
+                document.body.style.cursor = "grabbing";
                 if (dragOptions.draggingPlane) {
                     this.publish(TrackPlaneTopic, TrackPlaneEvents.requestTrackPlane, {plane: dragOptions.draggingPlane});
                 }
@@ -43,6 +46,9 @@ export default function Draggable(dragOptions={}) {
                 this.target.future().moveTo(
                     this.positionAtDragStart.clone().add(dragEnd.clone().sub(dragStart))
                 );
+            });
+            this.subscribe(this.id, PointerEvents.pointerUp, () => {
+                document.body.style.cursor = "grab";
             });
         }
     };

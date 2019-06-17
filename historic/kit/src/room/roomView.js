@@ -44,11 +44,13 @@ console.warn(this);
             this.parts.pointer = new PointerViewPart({room: options.room, cameraPart: this.parts.camera, scenePart: this.parts.roomScene});
             if (!urlOptions.ar) {
                 this.parts.keyboard = new KeyboardViewPart();
-                this.parts.treadmill = new (Tracking({source: this.cameraSpatial})(TreadmillNavigation))({
-                    affects: this.cameraSpatial,
-                    scenePart: this.parts.roomScene,
-                    cameraPart: this.parts.camera,
-                });
+                if (!options.room.noNavigation) {
+                    this.parts.treadmill = new (Tracking({source: this.cameraSpatial})(TreadmillNavigation))({
+                        affects: this.cameraSpatial,
+                        scenePart: this.parts.roomScene,
+                        cameraPart: this.parts.camera,
+                    });
+                }
                 this.parts.interactionDome = new (Tracking({source: this.cameraSpatial})(InteractionDome))({
                     cameraSpatial: this.cameraSpatial,
                     scenePart: this.parts.roomScene,

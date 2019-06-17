@@ -25,6 +25,7 @@ export default function initMinipool() {
     // called as part of installing the initial Island
     const room = Room.create();
     room.addElementManipulators = false;
+    room.noNavigation = true;
 
     const world = PhysicalWorld.create();
 

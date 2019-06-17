@@ -40,11 +40,13 @@ class TranslationManipulator extends ViewPart {
     onPointerEnter() {
         this.moveHandle.altMaterial.color = new THREE.Color("#A1DCD4");
         this.moveHandle.altMaterial.opacity = 1;
+        document.body.style.cursor = "move";
     }
 
     onPointerLeave() {
         this.moveHandle.altMaterial.color = new THREE.Color("#ffffff");
         this.moveHandle.altMaterial.opacity = 0.2;
+        document.body.style.cursor = "default";
     }
 
     onPointerDown() {
@@ -86,11 +88,13 @@ class RotationManipulator extends ViewPart {
     onPointerEnter() {
         this.rotateHandle.altMaterial.color = new THREE.Color("#A1DCD4");
         this.rotateHandle.altMaterial.opacity = 1;
+        document.body.style.cursor = "grab";
     }
 
     onPointerLeave() {
         this.rotateHandle.altMaterial.color = new THREE.Color("#ffffff");
         this.rotateHandle.altMaterial.opacity = 0.2;
+        document.body.style.cursor = "grabging";
     }
 
     onPointerDown() {

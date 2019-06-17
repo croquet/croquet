@@ -100,6 +100,7 @@ const ShootingWallView = Clickable({
 export default function initKnockdown(_options) {
     const room = Room.create();
     room.addElementManipulators = false;
+    room.noNavigation = true;
 
     const world = PhysicalWorld.create({timestep: 1/320, iterations: 4, stepMultiplier: 5});
 

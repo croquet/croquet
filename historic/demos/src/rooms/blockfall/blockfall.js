@@ -1,14 +1,21 @@
 import { Room, Draggable, Tracking, PhysicalElement, PhysicalWorld, PhysicalShape, THREE, SpaceWrapping } from '@croquet/kit';
 import { RandomlyColoringGroupElement } from '../bounce/bounce';
 
-export class Puck extends PhysicalElement {
+export class Peg extends PhysicalElement {
     naturalViewClass() {
-        return PuckView;
+        return PegView;
     }
 }
 
-class PuckView extends Draggable({
-    draggingPlane: new THREE.Plane(new THREE.Vector3(0, Math.cos(Math.PI / 8), Math.sin(Math.PI / 8)), 0)
+class PegView extends Draggable({
+    draggingPlane: new THREE.Plane(new THREE.Vector3(0, Math.cos(Math.PI / 8), Math.sin(Math.PI / 8)), 0),
+    hoverMaterialUpdate: (hovered, material) => {
+        if (hovered) {
+            material.color.copy(new THREE.Color("#ffffff"));
+        } else {
+            material.color.copy(new THREE.Color("#EF493E"));
+        }
+    }
 })(Tracking()(PhysicalShape)) {
     constructor(options) {
         super({...options, material: new THREE.MeshStandardMaterial({
@@ -39,6 +46,7 @@ export default function initBlockfall(options) {
     // called as part of installing the initial Island
     const room = Room.create();
     room.addElementManipulators = false;
+    room.noNavigation = true;
 
     const world = WrappingWorld.create({
         timestep: 1/320,
@@ -52,19 +60,24 @@ export default function initBlockfall(options) {
     const nElements = options.n || 15;
 
     for (let i = 0; i < nElements; i++) {
-        const size = 0.25;
-        const sphere = PhysicalElement.create({
+        const sizeX = 0.2 + Math.random() * 0.2;
+        const sizeY = 0.2 + Math.random() * 0.2;
+        const sizeZ = 0.2 + Math.random() * 0.2;
+        const type = room.random() > 0.3 ? room.random() > 0.5 ? "sphere" : "box" : "cylinder";
+        const shape = PhysicalElement.create({
             spatial: {
                 world,
-                type: room.random() > 0.3 ? room.random() > 0.5 ? "sphere" : "box" : "cylinder",
+                type,
                 position: new THREE.Vector3(2 - 4 * room.random(), 2 + 20 * room.random(), -3),
-                size: new THREE.Vector3(size, size, size),
+                size: type === "sphere"
+                        ? new THREE.Vector3(0.5 * sizeX, 0.5 * sizeX, 0.5 * sizeX)
+                        : (type === "box" ? new THREE.Vector3(sizeX, sizeY, sizeZ) : new THREE.Vector3(0.75 * sizeX, sizeY, 0.75 * sizeX)),
                 density: 1,
                 friction: 0.5,
                 restitution: 0.2
             }
         });
-        coloring.parts.children.add(sphere);
+        coloring.parts.children.add(shape);
     }
 
     const ground = Ground.create({
@@ -79,20 +92,20 @@ export default function initBlockfall(options) {
     });
     room.parts.elements.add(ground);
 
-    for (let z = 0; z <= 2; z++) {
+    for (let z = 0; z <= 1; z++) {
         for (let x = -1; x <= 1 - z; x++) {
-            const puck = Puck.create({
+            const peg = Peg.create({
                 spatial: {
                     world,
                     type: "cylinder",
-                    size: new THREE.Vector3(0.25, 0.5, 0.25),
-                    position: new THREE.Vector3(1.5 * x + 1.5 * 0.5 * z, 1.6 - Math.sin(Math.PI / 8) * z, -2.5 + z),
+                    size: new THREE.Vector3(0.35, 0.28, 0.35),
+                    position: new THREE.Vector3(1.7 * x + 1.7 * 0.5 * z, 1.3 - Math.sin(Math.PI / 8) * 1.3 * z, -1.8 + 1.3 * z),
                     quaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 8),
                     density: 1,
                     kinematic: true
                 }
             });
-            room.parts.elements.add(puck);
+            room.parts.elements.add(peg);
         }
     }
 
