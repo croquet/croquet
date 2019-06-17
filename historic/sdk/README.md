@@ -16,9 +16,9 @@ Every _Croquet_ application consists of two parts:
 
 **The state of the model is guaranteed to always be identical across all clients.** However, the state of the view is not. Different users might be running on different hardware platforms, or might display different representations of the simulation.
 
-Internal communications between objects in the model and view are handled through **events**. Whenever an object publishes an event, all objects that have subscribed to that event will execute a handler function.
+Internal communications between the model and view are handled through **events**. Whenever an object publishes an event, all objects that have subscribed to that event will execute a handler function.
 
-When a _Croquet_ application starts up, it becomes part of a **session**. Other clients running the same application will also join the same session. The state of the model in every client in the session will be identical.
+When a _Croquet_ application starts up, it becomes part of a **session**. Other clients running the same application with the same session ID will also join the same session. The state of the model in every client in the session will be identical.
 
 The routing of application events is handled by the **controller**. If the controller determines that an event is being sent from view to model, it isn't sent directly. Instead the controller bounces the event off a reflector.
 
@@ -101,7 +101,7 @@ function frame(now) {
 
 # Writing a _Croquet_ View
 
-Croquet makes no assumptions about hw you implement the view. It operates like a normal JS application. You can directly access the DOM and instantiate whatever sub-objects or data types that you need, use any libraries etc.
+Croquet makes no assumptions about how you implement the view. It operates like a normal JS application. You can directly access the DOM and instantiate whatever sub-objects or data types that you need, use any libraries etc.
 
 The contents of the view are not replicated across clients. Because of this, you generally use the view only for handling input and output. If the user taps a button or clicks somewhere on screen, the view turns this action into an event and sends it to the model. And whenever the model changes, the view updates the visual representation that it displays on the screen. But in general, all of the actual calculation of the application should be done inside the model.
 
