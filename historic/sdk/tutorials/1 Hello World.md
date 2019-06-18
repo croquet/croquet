@@ -3,11 +3,11 @@ Copyright © 2019 Croquet Studios
 
 # Tutorial 1: Hello World
 
-We are using Codepen for our tutorials. That allows us to place a working example right in the tutorials for you to try out live. Codepen is extremely easy to use. You will certainly want to fork the tutorial code to try out your own ideas. Information for getting started is here:  
+We are using Codepen for our tutorials. That allows us to place a working example right in the tutorials for you to try out live. Codepen is extremely easy to use. You will certainly want to fork the tutorial code to try out your own ideas. Information for getting started is here:
 
-<https://codepen.io/hello>  
+{@link https://codepen.io/hello}
 
-Below is the Croquet Hello World app running live in Codepen.  
+Below is the Croquet Hello World app running live in Codepen.
 
 <p class="codepen" data-height="437" data-theme-id="37149" data-default-tab="js,result" data-user="croquet" data-slug-hash="bPNgMY" style="height: 437px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border: 2px solid; margin: 1em 0; padding: 1em;" data-pen-title="Hello World!">
   <span>See the Pen <a href="https://codepen.io/croquet/pen/bPNgMY/">
@@ -18,9 +18,9 @@ Below is the Croquet Hello World app running live in Codepen.
 <p> <br> </p>
 
 ## Try it out!
-The first thing to do is click or scan the QR code above. This will launch a new Codepen instance of this session. If you compare the two counters, you will see that they are identical. If you click in either of these panes, the counters in both will reset to 0. 
+The first thing to do is click or scan the QR code above. This will launch a new Codepen instance of this session. If you compare the two counters, you will see that they are identical. If you click in either of these panes, the counters in both will reset to 0.
 
-There are three things we will learn here. 
+There are three things we will learn here.
 1. How to access and use the Croquet.js library.
 2. Adding the QR code to your app.
 3. Writing a proper model/view application.
@@ -29,26 +29,27 @@ There are three things we will learn here.
 All of the Croquet client support code is included within the Croquet.js library. Typically, to access it within your Javascript application you simply use:
 
 ```
-<script async src="https://croquet.studio/sdk/croquet-0.0.3.min.js"></script>
-```  
-  
-When we use Codepen, we simply include the same library by adding it in the Pen Settings 
+<script src="https://croquet.studio/sdk/croquet-0.0.3.min.js"></script>
+```
 
-![Codepen Settings](/assets/images/HelloWorldCodepen.png)
+When we use Codepen, we simply include the same library by adding it in the Pen Settings
+
+![Codepen Settings](assets/images/HelloWorldCodepen.png)
 
 ## Using a QR code in Codepen
 
-Croquet uses QR codes to assist in sharing a Croquet session. When set up properly, all you need to do is scan the QR code to find and load a new instance of the current session. This is extremely convenient and makes it really easy to test and share Croquet applications.    
+Croquet uses QR codes to assist in sharing a Croquet session. When set up properly, all you need to do is scan the QR code to find and load a new instance of the current session. This is extremely convenient and makes it really easy to test and share Croquet applications.
 
-We usually have an automatically generated QR code based on the URL, but unfortunately, Codepen runs Croquet within an iFrame and that information is not available to the app. That means that we need to construct the QR code and its actions by hand. That is easily done. The HTML code below generates a new session based upon the Codepen URL. If you fork the Croquet app in Codepen, you will need to modify the links to match the URL of your new fork. In this case, the URL is:  
-<https://codepen.io/croquet/full/bPNgMY>  
-  
+We usually have an automatically generated QR code based on the URL, but unfortunately, Codepen runs Croquet within an iFrame and that information is not available to the app. That means that we need to construct the QR code and its actions by hand. That is easily done. The HTML code below generates a new session based upon the Codepen URL. If you fork the Croquet app in Codepen, you will need to modify the links to match the URL of your new fork. In this case, the URL is:
+[https://codepen.io/croquet/full/bPNgMY](https://codepen.io/croquet/full/bPNgMY)
+
 Replace this string in two places in the Codepen HTML panel.
 
 ```
 <!-- if you fork this pen, change "croquet" and "bPNgMY" below (twice) to point to your username and pen slug -->
-<a id="QR" href="https://codepen.io/croquet/full/bPNgMY" 
-target="_blank"> <img id="qr" src="https://chart.googleapis.com/chart?chs=150x150&cht=qr&chl=https://codepen.io/croquet/full/bPNgMY"></a>
+<a href="https://codepen.io/croquet/full/bPNgMY" target="_blank">
+<img id="qr" src="https://chart.googleapis.com/chart?chs=150x150&cht=qr&chl=https://codepen.io/croquet/full/bPNgMY"></a>
+
 <div id="counter"></div>
 ```
 
@@ -56,7 +57,7 @@ target="_blank"> <img id="qr" src="https://chart.googleapis.com/chart?chs=150x15
 
 
 ## Using a QR Code for Production
-[Normal QR Code generation description]  
+[Normal QR Code generation description]
 
 ## Writing a Croquet Application
 
@@ -72,7 +73,7 @@ target="_blank"> <img id="qr" src="https://chart.googleapis.com/chart?chs=150x15
 
 Instead we use messages sent via publish and subscribe.
 
-Our first **Hello World** app is very simple. It is simply a counter that increases by one every second. Any participant clicking on the document resets the counter to 0. All participants will see the exact same counter and will see it reset when any of them clicks. A new user can join at any time and will be perfectly synced with the existing users. 
+Our first **Hello World** app is very simple. It is simply a counter that increases by one every second. Any participant clicking on the document resets the counter to 0. All participants will see the exact same counter and will see it reset when any of them clicks. A new user can join at any time and will be perfectly synced with the existing users.
 
 ## Model
 
@@ -102,38 +103,38 @@ class MyModel extends Croquet.Model {
 MyModel.register();
 ```
 
-Our new class MyModel is a subclass of Croquet.Model. Croquet.Model implements the core functionality required to ensure that MyModel works as a replicated object. Our new model has three functions, init(), resetCounter() and tick(). All Croquet models must have an init function. The other two are used to run the simulation and respond to messages from the view.  
+Our new class MyModel is a subclass of [Croquet.Model]{@link Model}. Croquet.Model implements the core functionality required to ensure that MyModel works as a replicated object. Our new model has three functions, init(), resetCounter() and tick(). All Croquet models must have an init function. The other two are used to run the simulation and respond to messages from the view.
 
 ### MyModel.init(options)
-We do not define the constructor function. This is already defined in Croquet.Model and will be called automatically. The MyModel.init() function is called automatically when we start the session. MyModel.init() is only called once when a session first begins. After that, the model and its variables are automatically saved and loaded. New users joining the session do not call init().  
+We do not define the constructor function. This is already defined in Croquet.Model and will be called automatically. The MyModel.init() function is called automatically when we start the session. MyModel.init() is only called once when a session first begins. After that, the model and its variables are automatically saved and loaded. New users joining the session do not call init().
 
-```this.counter = 0;```  
-MyModel has one variable called "counter" initialized to 0. This is a very simple Croquet app, and that value contains its entire state.  
+```this.counter = 0;```
+MyModel has one variable called "counter" initialized to 0. This is a very simple Croquet app, and that value contains its entire state.
 
 ```this.subscribe("counter", "reset", () => this.resetCounter());```
-MyModel subscribes to the "counter" scope and the "reset" event sent by the view. This event is triggered when a user clicks on the page. When the model recieves the event, it triggers the resetCounter() method.  
+MyModel subscribes to the "counter" scope and the "reset" event sent by the view. This event is triggered when a user clicks on the page. When the model recieves the event, it triggers the resetCounter() method.
 
-```this.future(1000).tick();```  
-This is where the funs starts and the system comes to life. The tick function is where our simulation code lives. The future(1000) function is actually a way to delay the execution of the tick function for 1000 milliseconds - or one second. This future message is a key to how time works in Croquet - it is very simple, but extremely powerful. In this case, the first tick() function call will occur one second after the init() function is executed.  
+```this.future(1000).tick();```
+This is where the funs starts and the system comes to life. The tick function is where our simulation code lives. The future(1000) function is actually a way to delay the execution of the tick function for 1000 milliseconds - or one second. This future message is a key to how time works in Croquet - it is very simple, but extremely powerful. In this case, the first tick() function call will occur one second after the init() function is executed.
 
 ### MyModel.resetCounter()
-MyModel subscribed to the "reset" event for the "counter" scope. When that message is received (usually from the view) then this.counter is reset back to 0.  
+MyModel subscribed to the "reset" event for the "counter" scope. When that message is received (usually from the view) then this.counter is reset back to 0.
 
 
 ```this.publish("counter", "update", this.counter);```
-When the counter is changed, the model publishes the new value so the view, which is subscribed to this event can modify the value it displays.  
+When the counter is changed, the model publishes the new value so the view, which is subscribed to this event can modify the value it displays.
 
 ### MyModel.tick()
 The tick event was called 1000 milliseconds in the future in the init function when the new Croquet model was created. When it is called, all it does is increment the counter and then it publishes that event in the same way the resetCounter does so the view can update the value it displays.
 
-```this.future(1000).tick();```  
-This is exactly the same thing we saw in the init function earlier. It basically sets up the tick function to be called again in 1000 milliseconds. It does this from within the tick function itself. What is really happening, is that the model has an internal message queue that is sorted by time. This future message is inserted into the queue so that after the 1000 milliseconds have elapsed, it is executed again. When it is executed, it again generates a future message.  
+```this.future(1000).tick();```
+This is exactly the same thing we saw in the init function earlier. It basically sets up the tick function to be called again in 1000 milliseconds. It does this from within the tick function itself. What is really happening, is that the model has an internal message queue that is sorted by time. This future message is inserted into the queue so that after the 1000 milliseconds have elapsed, it is executed again. When it is executed, it again generates a future message.
 
-### register()  
-```MyModel.register();```  
+### register()
+```MyModel.register();```
 Every time you define a new model subclass, you must register() it so that Croquet knows it exists.
 
-## View  
+## View
 
 ```
 class MyView extends Croquet.View {
@@ -154,29 +155,29 @@ class MyView extends Croquet.View {
     }
 
 }
-```  
+```
 
-Our MyView class is a subclass of the Croquet.View class. It has two responsibilities. First is to receive messages, interpret and display the state of the model to the user. Second, is to recieve input from the user and publish those events so that the model can then respond to them. 
+Our MyView class is a subclass of the Croquet.View class. It has two responsibilities. First is to receive messages, interpret and display the state of the model to the user. Second, is to recieve input from the user and publish those events so that the model can then respond to them.
 
-### MyView.constructor(model)  
-Note that the model is an argument to the constructor. This access **MUST** be used only for read only access. Any modification to the model by the view here will very likely break the Croquet replication.  
+### MyView.constructor(model)
+Note that the model is an argument to the constructor. This access **MUST** be used only for read only access. Any modification to the model by the view here will very likely break the Croquet replication.
 
-```super(model);```  
+```super(model);```
 Since myView is a subclass, we need to ensure that the base-class constructor is executed.
 
-```document.addEventListener("click", event => this.onclick(event), false);```  
+```document.addEventListener("click", event => this.onclick(event), false);```
 This is a vanilla tracking of a user event and then calling the onclick function defined below.
 
-```this.subscribe("counter", "update", data => this.handleUpdate(data));```  
+```this.subscribe("counter", "update", data => this.handleUpdate(data));```
 This is where the published value of the counter reaches the view. The view subscribes to that event and when it is received from the model it calls handleUpdate(data)
 
-### MyView.onclick(event)  
-This first tests to ensure the event was not targeted at the QR code.  
+### MyView.onclick(event)
+This first tests to ensure the event was not targeted at the QR code.
 
-```this.publish("counter", "reset");```  
-If it is not, then the view publishes a reset event to anyone interested, which in this case is the view.  
+```this.publish("counter", "reset");```
+If it is not, then the view publishes a reset event to anyone interested, which in this case is the view.
 
-### MyView.handleUpdate(data)  
+### MyView.handleUpdate(data)
 This function is called whenever a new value of the data is subscribed by the model. The view then changes the innerHTML value of the "counter" object to whatever the modelhas sent.
 
 ## Croquet.startSession(sessionName, MyModel, MyView, options)
@@ -185,19 +186,20 @@ This function is called whenever a new value of the data is subscribed by the mo
 // use fixed session name instead of random so multiple codepen windows find each other
 const session = { user: 'GUEST', random: '1234567' };
 Croquet.startSession("hello", MyModel, MyView, {step: "auto", session});
-```  
+```
 
-Croquet.startSession is where the application is actually launched. The arguments are the sessionName, the MyModel class, the MyView class, and any options you may wish to include. In this case, the step: auto function means that the animation update is handled by Croquet.  
+Croquet.startSession is where the application is actually launched. The arguments are the sessionName, the MyModel class, the MyView class, and any options you may wish to include. In this case, the step: auto function means that the animation update is handled by Croquet.
 
 Starting the session will do the following things:
 
 1. Connect to a nearby public reflector
 2. Instantiate the model
-3. a) Run the initialization code in the model's init routine -or-<br>
+3. a) Run the initialization code in the model's init routine<br>
+   -or-<br>
    b) Initialize the model from a saved snapshot
 4. Instantiate the view
 5. Pass a reference to the model to the view in its constructor
 6. Create a main event loop and begin executing
 
-## Share your new world!  
+## Share your new world!
 Once your Croquet session is operational, you need only copy the web page links to add a new user/instance. Every new user will have exactly the same model state and any action by any of them on the system will update everyone elses is exactly the same way. Your Croquet application is alive and running anywhere you send the URL.
