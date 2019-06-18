@@ -14,6 +14,37 @@ const SuperInitNotCalled = new WeakSet();
 
 /**
  * Models are replicated objects in Croquet.
+ * They are automatically kept in sync on each client in the same [session]{@link startSession}.
+ * Models receive input by [subscribing]{@link Model#subscribe} to events published in a {@link View}.
+ * Their output is handled by {@link View}s subscribing to events [published]{@link Model#publish} by a model.
+ * Models advance time by sending messages into their [future]{@link Model#future}.
+ *
+ * ## Instance Creation and Initialization
+ *
+ * ### Do __NOT__ create a {@link Model} instance using `new` and<br>do __NOT__ override the `constructor`!
+ *
+ * To __create__ a new instance, use [create()]{@link Model.create}, for example:
+ * ```
+ * this.foo = FooModel.create({answer: 123});
+ * ```
+ * To __initialize__ an instance, override [init()]{@link Model#init}, for example:
+ * ```
+ * class FooModel extends Model {
+ *     init(options={}) {
+ *         this.answer = options.answer || 42;
+ *     }
+ * }
+ * ```
+ * The **reason** for this is that Models are only initialized by calling `init()`
+ * the first time the object comes into existence in the session.
+ * After that, when joining a session, the models are deserialized from the snapshot, which
+ * restores all properties automatically without calling `init()`.
+ *
+ * ### Properties
+ *
+ * `id`: each model has a id (unique within the session) which can be used to scope events
+ *
+ * @hideconstructor
  * @public
  */
 class Model {
@@ -23,9 +54,15 @@ class Model {
 
     /**
      * __Create an instance of a Model subclass.__
-     * This will call {@link Model#init} on the new instance, passing the {@link options}.
+     *
+     * This will call the user-defined [init()]{@link Model#init} method to initialize the instance,
+     * passing the {@link options}. For example:
+     * ```
+     * this.foo = FooModel.create({answer: 123});
+     * ```
+     *
      * @public
-     * @param {Object?} options - (optional) option object to be passed to {@link Model#init}.
+     * @param {Object=} options - option object to be passed to [init()]{@link Model#init}.
      *     There are no system-defined options as of now, you're free to define your own.
      */
     static create(options) {
@@ -47,34 +84,35 @@ class Model {
     }
 
     /**
-     * __Registers this model subclass with Croquet__, e.g.
+     * __Registers this model subclass with Croquet__, for example:
      *```
-     * class MyModel {
-     *
+     * class MyModel extends Model {
+     *   ...
      * }
      * MyModel.register()
      * ```
-     * @param {String?} file (optional) the file name this class was defined in, to distinguish between same class names in different files (default: `"<unknown>"`)
-     * @param {String?} name (optional) a name for identifying this class in a snapshot (default: `this.name`)
+     * It is necessary to register all Model subclasses so the serializer can recreate their instances from a snapshot.
+     *
+     * @param {String=} file the file name this class was defined in, to distinguish between same class names in different files
      * @public
      */
-    static register(file="<unknown>", name=this.name) {
+    static register(file="unknown-file") {
         addClassHash(this);
-        registerClass(file, name, this);
+        registerClass(file, this.name, this);
     }
 
     /**
      * __Static declaration of how to serialize non-model classes.__
      * The Croquet snapshot mechanism only knows about {@link Model} subclasses. If you want to store instances of non-model classes in your model, override this method.
      *
-     * To use the default serializer just declare the class:
+     * To use the default serializer just declare the class, for example:
      * ```
      * return {
      *     "THREE.Vector3": THREE.Vector3,
      *     "THREE.Quaternion": THREE.Quaternion,
      * };
      * ```
-     *  To define your own serializer, declare `read()` and `write()` methods, e.g.:
+     *  To define your own serializer, declare `read()` and `write()` methods, for example:
      * ```
      * return {
      *     "THREE.Color": {
@@ -84,52 +122,24 @@ class Model {
      *     }
      * };
      * ```
-     * This is currently the only way to customize serialization (e.g. to keep snapshots fast and small). The serialization of Model subclasses can not be customized.
+     * This is currently the only way to customize serialization (for example to keep snapshots fast and small). The serialization of Model subclasses can not be customized.
      * @public
      */
     static types() {
         return {};
     }
 
-    static classToID(cls) {
-        return classToID(cls);
-    }
-
-    static classFromID(id) {
-        return classFromID(id);
-    }
-
-    static allClasses() {
-        return allClasses();
-    }
+    // for use by serializer (see island.js)
+    static classToID(cls) {  return classToID(cls); }
+    static classFromID(id) { return classFromID(id); }
+    static allClasses() { return allClasses(); }
 
     /**
-     * ### Do __NOT__ create a {@link Model} instance using `new` and<br>do __NOT__ override the `constructor`!
+     * This is called by [create()]{@link Model.create} to initialize a model instance.
      *
-     * To __create__ a new model instance, use {@link Model.create}, e.g.
-     * ```
-     * this.foo = FooModel.create({answer: 123});
-     * ```
-     * To __initialize__ an instance, override {@link Model#init}, e.g.
-     * ```
-     * class FooModel {
-     *     init(options={}) {
-     *         this.answer = options.answer || 42;
-     *     }
-     * }
-     * ```
-     * The reason for this is that Models are only instantiated when the first user creates a session.
-     * After that, when joining a session, the models are deserialized from the snapshot, which
-     * restores all properties automatically without calling `init()`.
-     */
-    constructor() {} // eslint-disable-line no-useless-constructor,no-empty-function
-
-    /**
-     * This is called by `Model.create(options)` to initialize a model instance.
+     * In your Model subclass this is the place to [subscribe]{@link Model#subscribe} to events, or start a [future]{@link Model#future} message chain.
      *
-     * In your Model subclass this is the place to subscribe to events, or start a future message chain.
-     *
-     * @param {Object?} options - (optional) there are no system-defined options, you're free to define your own
+     * @param {Object=} options - there are no system-defined options, you're free to define your own
      * @public
      */
     init(_options) {
@@ -152,7 +162,7 @@ class Model {
      *
      * @param {String} scope
      * @param {String} event
-     * @param {*?} data
+     * @param {*=} data
      * @public
      */
     publish(scope, event, data) {
