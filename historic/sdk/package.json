@@ -7,8 +7,15 @@
     "start": "parcel watch --no-hmr --public-url . --global Croquet -o croquet.min.js croquet.js",
     "deploy": "parcel build --public-url . --global Croquet -d ../../servers/croquet.studio/sdk -o croquet-0.0.3.min.js croquet.js",
     "deployx": "parcel build --experimental-scope-hoisting --public-url . --global Croquet -o croquet.min.js croquet.js",
-    "docs": "jsdoc -c jsdoc.json -a public -u tutorials -d ../../servers/croquet.studio/sdk/jsdoc",
-    "watch": "fswatch -r .. | xargs -n 1 -I ^ npm run docs"
+    "build-docs": "jsdoc -c jsdoc.json -a public -u tutorials -d ../../servers/croquet.studio/sdk/docs",
+    "watch": "npm-watch"
+  },
+  "watch": {
+    "build-docs": {
+      "patterns": [".", "../teatime", "tutorials", "../thirdparty-patched/docdash"],
+      "extensions": "js,json,html,css,tmpl,md",
+      "quiet": false
+    }
   },
   "author": "Croquet Studios",
   "license": "ISC",
@@ -19,8 +26,8 @@
     "@croquet/teatime": "file:../teatime"
   },
   "devDependencies": {
-    "docdash": "file:../thirdparty-patched/docdash",
     "jsdoc": "^3.6.2",
+    "npm-watch": "^0.6.0",
     "parcel": "^1.12.3"
   }
 }
