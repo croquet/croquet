@@ -26,7 +26,12 @@
       "outputSourceFiles": false,
       "includeDate": false,
       "useLongnameInNav": true,
-      "layoutFile": "jsdoc.tmpl"
+      "staticFiles": {
+        "include": [
+          "./tutorials"
+        ],
+        "includePattern": "\\.(png|jpg)$"
+      }
     }
   },
   "docdash": {
