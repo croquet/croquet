@@ -34,7 +34,7 @@ All of the Croquet client support code is included within the Croquet.js library
   
 When we use Codepen, we simply include the same library by adding it in the Pen Settings 
 
-![Codepen Settings](/assets/images/HelloWorldCodepen.png)
+![Codepen Settings](./HelloWorldCodepen.png)
 
 ## Using a QR code in Codepen
 

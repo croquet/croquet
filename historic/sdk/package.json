@@ -12,7 +12,12 @@
   },
   "watch": {
     "build-docs": {
-      "patterns": [".", "../teatime", "tutorials", "../thirdparty-patched/docdash"],
+      "patterns": [
+        ".",
+        "../teatime",
+        "tutorials",
+        "../thirdparty-patched/docdash"
+      ],
       "extensions": "js,json,html,css,tmpl,md",
       "quiet": false
     }
