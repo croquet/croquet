@@ -19,7 +19,6 @@ import { Model, View, startSession } from "@croquet/teatime";
 class MyModel extends Model {
 
     init() { // Note that models are initialized with "init" instead of "constructor"!
-        super.init();
         this.counter = 0;
         this.subscribe("counter", "reset", () => this.resetCounter());
         this.future(1000).tick();
@@ -39,7 +38,7 @@ class MyModel extends Model {
 }
 
 // Register our model class with the serializer
-MyModel.register();
+//MyModel.register();
 
 //------------------------------------------------------------------------------------------
 // Define our view. MyView listens for click events on the window. If it receives one, it
