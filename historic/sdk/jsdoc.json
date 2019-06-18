@@ -9,7 +9,7 @@
   },
   "opts": {
     "encoding": "utf8",
-    "template": "../thirdparty-patched/docdash",
+    "template": "template",
     "recurse": false,
     "verbose": true
   },
