@@ -15,7 +15,7 @@ Below is the Croquet Hello World app running live in Codepen.
   on <a href="https://codepen.io">CodePen</a>.</span>
 </p>
 <script async src="https://static.codepen.io/assets/embed/ei.js"></script>
-<p> <br> </p>
+
 
 ## Try it out!
 The first thing to do is click or scan the QR code above. This will launch a new Codepen instance of this session. If you compare the two counters, you will see that they are identical. If you click in either of these panes, the counters in both will reset to 0.
@@ -26,7 +26,7 @@ There are three things we will learn here.
 3. Writing a proper model/view application.
 
 ## Using the Croquet.js library
-All of the Croquet client support code is included within the Croquet.js library. Typically, to access it within your Javascript application you simply use:
+All of the Croquet client support code is included within the Croquet.js library. Typically, to access it within your Javascript application you add it to your HTML:
 
 ```
 <script src="https://croquet.studio/sdk/croquet-0.0.3.min.js"></script>
@@ -112,7 +112,7 @@ We do not define the constructor function. This is already defined in Croquet.Mo
 MyModel has one variable called "counter" initialized to 0. This is a very simple Croquet app, and that value contains its entire state.
 
 ```this.subscribe("counter", "reset", () => this.resetCounter());```
-MyModel subscribes to the "counter" scope and the "reset" event sent by the view. This event is triggered when a user clicks on the page. When the model recieves the event, it triggers the resetCounter() method.
+MyModel subscribes to the "counter" scope and the "reset" event sent by the view. This event is triggered when a user clicks on the page. When the model receives the event, it triggers the resetCounter() method.
 
 ```this.future(1000).tick();```
 This is where the funs starts and the system comes to life. The tick function is where our simulation code lives. The future(1000) function is actually a way to delay the execution of the tick function for 1000 milliseconds - or one second. This future message is a key to how time works in Croquet - it is very simple, but extremely powerful. In this case, the first tick() function call will occur one second after the init() function is executed.
@@ -157,7 +157,7 @@ class MyView extends Croquet.View {
 }
 ```
 
-Our MyView class is a subclass of the Croquet.View class. It has two responsibilities. First is to receive messages, interpret and display the state of the model to the user. Second, is to recieve input from the user and publish those events so that the model can then respond to them.
+Our MyView class is a subclass of the Croquet.View class. It has two responsibilities. First is to receive messages, interpret and display the state of the model to the user. Second, is to receive input from the user and publish those events so that the model can then respond to them.
 
 ### MyView.constructor(model)
 Note that the model is an argument to the constructor. This access **MUST** be used only for read only access. Any modification to the model by the view here will very likely break the Croquet replication.
