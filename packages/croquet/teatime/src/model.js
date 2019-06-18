@@ -9,6 +9,9 @@ const DEBUG = {
 };
 
 
+/** For warning about model instances that have not called super.init */
+const SuperInitNotCalled = new WeakSet();
+
 /**
  * Models are replicated objects in Croquet.
  * @public
@@ -31,7 +34,15 @@ class Model {
         const model = new ModelClass();
         model.__realm = realm;
         model.id = realm.register(model);
+        SuperInitNotCalled.add(model);
         model.init(options);
+        if (SuperInitNotCalled.has(model)) {
+            SuperInitNotCalled.delete(model);
+            // only warn about deep subclasses
+            if (Object.getPrototypeOf(ModelClass) !== Model) {
+                console.warn(`${model} did not call super.init(options)`);
+            }
+        }
         return model;
     }
 
@@ -122,6 +133,8 @@ class Model {
      * @public
      */
     init(_options) {
+        // for reporting errors if user forgot to call super.init()
+        SuperInitNotCalled.delete(this);
     }
 
     /**
