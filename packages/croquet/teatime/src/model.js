@@ -27,9 +27,11 @@ class Model {
      */
     static create(options) {
         const ModelClass = this;
+        const realm = currentRealm();
         const model = new ModelClass();
+        model.__realm = realm;
+        model.id = realm.register(model);
         model.init(options);
-        if (!model.id) throw Error(`${model} has no ID, did you call super.init(options)?`);
         return model;
     }
 
@@ -116,13 +118,10 @@ class Model {
      *
      * In your Model subclass this is the place to subscribe to events, or start a future message chain.
      *
-     * Do not forget to call `super.init(options)` in your subclass.
      * @param {Object?} options - (optional) there are no system-defined options, you're free to define your own
      * @public
      */
     init(_options) {
-        this.__realm = currentRealm();
-        this.id = currentRealm().register(this);
     }
 
     /**
