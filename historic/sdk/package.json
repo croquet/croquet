@@ -16,10 +16,10 @@
     "> 5%"
   ],
   "dependencies": {
-    "@croquet/teatime": "file:../teatime",
-    "docdash": "^1.1.1"
+    "@croquet/teatime": "file:../teatime"
   },
   "devDependencies": {
+    "docdash": "file:../thirdparty-patched/docdash",
     "jsdoc": "^3.6.2",
     "parcel": "^1.12.3"
   }
