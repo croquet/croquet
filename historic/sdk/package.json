@@ -5,7 +5,7 @@
   "main": "croquet.js",
   "scripts": {
     "start": "parcel watch --no-hmr --public-url . --global Croquet -o croquet.min.js croquet.js",
-    "deploy": "parcel build --public-url . --global Croquet -d ../../servers/croquet.studio/sdk -o croquet-0.0.3.min.js croquet.js",
+    "deploy": "./deploy.sh",
     "deployx": "parcel build --experimental-scope-hoisting --public-url . --global Croquet -o croquet.min.js croquet.js",
     "build-docs": "jsdoc -c jsdoc.json -a public -u tutorials -d build",
     "watch": "npm-watch"
@@ -16,7 +16,10 @@
         ".",
         "../teatime"
       ],
-      "ignore": ["build", "dist"],
+      "ignore": [
+        "build",
+        "dist"
+      ],
       "extensions": "js,json,html,css,tmpl,md",
       "quiet": false
     }
