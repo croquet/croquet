@@ -29,6 +29,7 @@ const DEBUG = {
     pong: urlOptions.has("debug", "pong", false),                       // received PONGs
     snapshot: urlOptions.has("debug", "snapshot", false),               // snapshotting, uploading etc
     initsnapshot: urlOptions.has("debug", "initsnapshot", "localhost"), // check snapshotting after init
+    init: urlOptions.has("debug", "init", "localhost"),                 // always run init() if first user in session
 };
 
 const NOCHEAT = urlOptions.nocheat;
@@ -515,7 +516,7 @@ export default class Controller {
                     snapshot,
                 };
                 // see if there is a remote snapshot
-                let latest = await this.fetchJSON(this.snapshotUrl('latest'));
+                let latest = DEBUG.init ? null : await this.fetchJSON(this.snapshotUrl('latest'));
                 // which one's newer?
                 if (!latest || (local && local.time > latest.time)) latest = local;
                 // fetch snapshot
