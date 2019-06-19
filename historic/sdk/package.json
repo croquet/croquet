@@ -7,7 +7,7 @@
     "start": "parcel watch --no-hmr --public-url . --global Croquet -o croquet.min.js croquet.js",
     "deploy": "./deploy.sh",
     "deployx": "parcel build --experimental-scope-hoisting --public-url . --global Croquet -o croquet.min.js croquet.js",
-    "build-docs": "jsdoc -c jsdoc.json -a public -u tutorials -d build",
+    "build-docs": "rm -r build/*; jsdoc -c jsdoc.json -d build",
     "watch": "npm-watch"
   },
   "watch": {

@@ -8,8 +8,10 @@
     ]
   },
   "opts": {
-    "encoding": "utf8",
+    "access": ["public"],
     "template": "template",
+    "tutorials": "tutorials",
+    "encoding": "utf8",
     "recurse": false,
     "verbose": true
   },
@@ -39,7 +41,7 @@
     "sort": false,
     "disqus": "",
     "meta": {
-      "title": "Croquet SDK 0.0.3 (pre-alpha)",
+      "title": "Croquet SDK @CROQUET_VERSION@",
       "description": "Documentation for the Croquet SDK",
       "keyword": "croquet"
     },
