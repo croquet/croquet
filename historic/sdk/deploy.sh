@@ -6,11 +6,33 @@
 cd `dirname "$0"`
 
 RELEASE="$1"
-[ -z "$RELEASE" ] && RELEASE=prerelease
-VERSION=`npm version $RELEASE`
-[ $? -ne 0 ] && exit
 
-echo "DEPLOYING $VERSION"
+case "$RELEASE" in
+docs)
+    VERSION=`node -p "require('./package').version"`
+    MSG="docs"
+    [ $? -ne 0 ] && exit 1
+    ;;
+prerelease|prepatch|patch|preminor|minor|premajor|major)
+    VERSION=`npm version $RELEASE|sed s/^v//`
+    MSG="$VERSION"
+    [ $? -ne 0 ] && exit 1
+    ;;
+*)
+    DEPLOY=`basename $0`
+    echo "Usage: $DEPLOY docs"
+    echo "       to just deploy updated documentation and tutorials"
+    echo
+    echo "       or to bump version number (see https://gist.github.com/leonardokl/a08ee626067ee81ced66acef115e7ced)"
+    echo "       $DEPLOY prerelease (e.g. x.y.z-1)"
+    echo "       $DEPLOY prepatch   (e.g. 0.0.1-0)"
+    echo "       $DEPLOY patch      (e.g. 0.0.1)"
+    echo "       $DEPLOY preminor   (e.g. 0.1.0-0)"
+    echo "       $DEPLOY minor      (e.g. 0.1.0)"
+    exit 1
+esac
+
+echo "DEPLOYING $MSG"
 
 old_stash=`git rev-parse -q --verify refs/stash`
 git stash -q -- .
@@ -38,11 +60,13 @@ rm -r $DOCS/*
 # deploy docs
 npx parcel build --public-url . --no-source-maps -d $DOCS build/*.html
 
-# build & deploy library
-npx parcel build --public-url . --global Croquet -d $SDK -o croquet-$VERSION.min.js croquet.js
+if [ "$RELEASE" != "docs" ] ; then
+    # build & deploy library
+    npx parcel build --public-url . --global Croquet -d $SDK -o croquet-$VERSION.min.js croquet.js
 
-# link as latest
-(cd $SDK; ln -sf croquet-$VERSION.min.js croquet-latest.min.js; ln -sf croquet-$VERSION.min.js.map croquet-latest.min.js.map)
+    # link as latest
+    (cd $SDK; ln -sf croquet-$VERSION.min.js croquet-latest.min.js; ln -sf croquet-$VERSION.min.js.map croquet-latest.min.js.map)
+fi
 
 if [ "$old_stash" != "$new_stash" ]; then
     echo "restoring dirty files"
@@ -51,7 +75,7 @@ if [ "$old_stash" != "$new_stash" ]; then
 fi
 
 git add -A $SDK/ package.json package-lock.json
-git commit -m "[sdk] deploy $VERSION to croquet.studio" || exit
+git commit -m "[sdk] deploy $MSG to croquet.studio" || exit
 git show --stat
 
 echo
