@@ -56,7 +56,9 @@ export default class Controller {
     static connectToReflector(mainModuleID='', reflectorUrl='') {
         connectToReflectorWasCalled = true;
         if (!reflectorUrl) reflectorUrl = urlOptions.reflector || DEFAULT_REFLECTOR;
-        if (!urlOptions.noupload && mainModuleID) uploadCode(mainModuleID).then(hashes => codeHashes = hashes);
+        if (process.env.CROQUET_REPLAY) {
+            if (!urlOptions.noupload && mainModuleID) uploadCode(mainModuleID).then(hashes => codeHashes = hashes);
+        }
         connectToReflector(reflectorUrl);
     }
 
