@@ -17,8 +17,7 @@ let OFFSETY = 50;               // top-left corner of view, plus half shape heig
 
 export class ModelRoot extends Model {
 
-    constructor() {
-        super();
+    init() {
         this.children = [];
     }
 
@@ -245,7 +244,7 @@ async function go() {
     Controller.connectToReflector(module.id);
 
     const session = await startSession("2d", Shapes, ShapesView, {tps: TPS, optionsFromUrl: ['n']});
-    const { controller } = session;
+    const controller = session.view.realm.island.controller;
 
     let users = 0;
 
