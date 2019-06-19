@@ -1,8 +1,6 @@
 
 Copyright © 2019 Croquet Studios
 
-# Tutorial 1: Hello World
-
 We are using Codepen for our tutorials. That allows us to place a working example right in the tutorials for you to try out live. Codepen is extremely easy to use. You will certainly want to fork the tutorial code to try out your own ideas. Information for getting started is here:
 
 {@link https://codepen.io/hello}
