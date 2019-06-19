@@ -1,91 +1,16 @@
-
-.pln {
-  color: #333;
-}
-
-
-.str {
-  color: #183691;
-}
-
-/* keyword */
-
-.kwd {
-  color: #a71d5d;
-}
-
-/* comment */
-
-.com {
-  color: #969896;
-}
-
-/* type name */
-
-.typ {
-  color: #0086b3;
-}
-
-/* literal value */
-
-.lit {
-  color: #0086b3;
-}
-
-/* punctuation */
-
-.pun {
-  color: #333;
-}
-
-/* lisp open bracket */
-
-.opn {
-  color: #333;
-}
-
-/* lisp close bracket */
-
-.clo {
-  color: #333;
-}
-
-/* markup tag name */
-
-.tag {
-  color: #000080;
-}
-
-/* markup attribute name */
-
-.atn {
-  color: #795da3;
-}
-
-/* markup attribute value */
-
-.atv {
-  color: #183691;
-}
-
-/* declaration */
-
-.dec {
-  color: #333;
-}
-
-/* variable name */
-
-.var {
-  color: #008080;
-}
-
-/* function name */
-
-.fun {
-  color: #900;
-}
-
+.kwd { color: #268bd2; } /* keyword */
+.pln { color: #b58900; } /* plaintext */
+.pun { color: #839496; } /* punctuation */
+.typ { color: #657b83; } /* type */
+.com { color: #93a1a1; font-style: italic; } /* comment */
+.lit { color: #2aa198; } /* literal */
+.str { color: #2aa198; } /* string */
+.tag { color: #268bd2; } /* tag */
+.atn { color: #657b83; } /* attribute name */
+.atv { color: #2aa198; } /* attribute value */
+.opn { color: #839496; } /* Lisp open bracket */
+.clo { color: #839496; } /* Lisp close bracket */
+.dec { color: #839496; font-style: italic; } /* declaration */
 
 /* Specify class=linenums on a pre to get line numbering */
 ol.linenums {
