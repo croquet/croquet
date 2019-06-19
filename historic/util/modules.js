@@ -102,10 +102,14 @@ function classSrc(cls) {
 function sourceCodeOf(mod) {
     const source = mod === htmlName ? htmlSource : functionSource(moduleWithID(mod)[0]);
 
-    // verify that code survives stringification
-    const fn = new Function('require', 'module', 'exports', source);
-    const src = functionSource(fn);
-    if (src !== source) throw Error("source does not match");
+    /*
+    if (mod !== htmlName) {
+        // verify that code survives stringification
+        const fn = new Function('require', 'module', 'exports', source);
+        const src = functionSource(fn);
+        if (src !== source) throw Error("source does not match");
+    }
+    */
 
     return source;
 }
