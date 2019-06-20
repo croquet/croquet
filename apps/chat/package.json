@@ -1,10 +1,10 @@
 {
-  "name": "@croquet/hello",
+  "name": "@croquet/chat",
   "version": "0.0.1",
-  "description": "Hello World",
-  "main": "hello.js",
+  "description": "Croquet Chat",
+  "main": "chat.js",
   "scripts": {
-    "start": "parcel hello.html"
+    "start": "parcel chat.html"
   },
   "browserslist": [
     "> 5%"
@@ -12,7 +12,8 @@
   "author": "Croquet Studios",
   "license": "ISC",
   "dependencies": {
-    "@croquet/teatime": "file:../teatime"
+    "@croquet/teatime": "file:../teatime",
+    "@croquet/util": "file:../util"
   },
   "devDependencies": {
     "parcel": "^1.12.3"
