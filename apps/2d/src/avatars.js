@@ -8,10 +8,6 @@ const SPEED = 10;               // bouncing ball speed in virtual pixels / step
 const ACTIVE_MS = 1000;         // send activity indicator after this (real) time
 const INACTIVE_MS = 5000;       // delete inactive users after this (sim) time
 
-const TOUCH ='ontouchstart' in document.documentElement;
-const USER = (Math.random()+'').slice(2);
-//const USER = new Array(53).fill(0).map(() => (Math.random()+'').slice(2)).join('');
-
 let SCALE = 1;                  // model uses a virtual 1000x1000 space
 let OFFSETX = 50;               // top-left corner of view, plus half shape width
 let OFFSETY = 50;               // top-left corner of view, plus half shape height
@@ -23,7 +19,8 @@ export class ModelRoot extends Model {
     init() {
         super.init();
         this.children = [];
-        this.subscribe(this.id, "user-is-active", user => this.ensureUser(user));
+        this.subscribe(this.id, "user-is-active", user => this.userIsActive(user));
+        this.grimReaper();
     }
 
     // non-inherited methods below
@@ -34,22 +31,31 @@ export class ModelRoot extends Model {
     }
 
     remove(child) {
-        const index = this.children.findIndex(c => c === child);
+        const index = this.children.indexOf(child);
         this.children.splice(index, 1);
         this.publish(this.id, 'child-removed', child);
         child.destroy();
         this.random(); // force random to diverge if we have a sync bug
     }
 
-    ensureUser(user) {
+    userIsActive(user) {
         let shape = this.children.find(c => c.user === user);
         if (!shape) {
-            shape = UserShape.create({user, parent: this});
+            shape = Shape.create();
+            shape.user = user;
             this.add(shape);
         }
-        shape.active = true;
+        shape.active = this.now();
         this.publish(this.id, `user-shape-${user}`, shape);
         this.random(); // force random to diverge if we have a sync bug
+    }
+
+    grimReaper() {
+        const deadline = this.now() - INACTIVE_MS;
+        for (const child of this.children) {
+            if (child.active < deadline) this.remove(child);
+        }
+        this.future(ACTIVE_MS).grimReaper();
     }
 }
 
@@ -64,7 +70,6 @@ export class Shape extends Model {
         this.pos = [r(1000), r(1000)];
         this.subscribe(this.id, "move-to", pos => this.moveTo(pos));
         this.subscribe(this.id, "move-by", delta => this.moveBy(delta));
-        return this;
     }
 
     // non-inherited methods below
@@ -85,42 +90,12 @@ export class Shape extends Model {
 }
 
 
-export class UserShape extends Shape {
-
-    init(options) {
-        super.init();
-        this.parent = options.parent;
-        this.user = options.user;
-        this.active = true;
-        this.future(INACTIVE_MS).step();
-        return this;
-    }
-
-    // non-inherited methods below
-
-    moveTo(pos) {
-        super.moveTo(pos);
-        this.active = true;
-    }
-
-    step() {
-        if (!this.active) this.parent.remove(this);
-        else {
-            this.active = false;
-            this.future(INACTIVE_MS).step();
-        }
-    }
-
-}
-
-
 export class BouncingShape extends Shape {
 
     init(state) {
         super.init(state);
         this.speed = this.randomSpeed();
         this.future(STEP_MS).step();
-        return this;
     }
 
     // non-inherited methods below
@@ -162,6 +137,9 @@ export class Shapes extends ModelRoot {
 
 
 ////// Views /////
+
+const TOUCH ='ontouchstart' in document.documentElement;
+const USER = (Math.random()+'').slice(2);
 
 class ShapesView extends View {
 

@@ -47,7 +47,6 @@ export class Shape extends Model {
         this.pos = [r(1000), r(1000)];
         this.subscribe(this.id, "move-to", pos => this.moveTo(pos));
         this.subscribe(this.id, "move-by", delta => this.moveBy(delta));
-        return this;
     }
 
     // non-inherited methods below
@@ -74,7 +73,6 @@ export class BouncingShape extends Shape {
         super.init(state);
         this.speed = this.randomSpeed();
         this.future(STEP_MS).step();
-        return this;
     }
 
     // non-inherited methods below
