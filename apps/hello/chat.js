@@ -19,20 +19,21 @@ import { Model, View, startSession } from "@croquet/teatime";
 class MyModel extends Model {
 
     init() { // Note that models are initialized with "init" instead of "constructor"!
-        this.counter = 0;
-        this.subscribe("counter", "reset", () => this.resetCounter());
-        this.future(1000).tick();
+        this.history = "<b>Welcome to Croquet Chat!</b><br><br>";
+        this.subscribe("input", "newPost", data => this.handleNewPost(data));
     }
 
-    resetCounter() {
-        this.counter = 0;
-        this.publish("counter", "update", this.counter);
+    handleNewPost(post) {
+
+        this.history += "<b>" + this.filter(post.nick) + ": </b>" + this.filter(post.text) + "<br>";
+        this.publish("history", "update");
     }
 
-    tick() {
-        this.counter++;
-        this.publish("counter", "update", this.counter);
-        this.future(1000).tick();
+    filter(text) {
+        let result = text.replace("&", "&amp");
+        result = text.replace("<", "&lt");
+        result = result.replace(">", "&gt");
+        return result;
     }
 
 }
@@ -50,17 +51,33 @@ class MyView extends View {
 
     constructor(model) { // The view gets a reference to the model when the session starts.
         super(model);
-        this.handleUpdate(model.counter); // Get the current count on start up.
-        document.addEventListener("click", event => this.onclick(event), false);
-        this.subscribe("counter", "update", data => this.handleUpdate(data));
+        this.model = model;
+        this.nick = "UserName";
+        const sendButton = document.getElementById("sendButton");
+        sendButton.addEventListener("click", event => this.onSendClick(event), false);
+        const loginButton = document.getElementById("loginButton");
+        loginButton.addEventListener("click", event => this.onLoginClick(event), false);
+        this.subscribe("history", "update", () => this.refreshHistory());
+        this.refreshHistory();
     }
 
-    onclick() {
-        this.publish("counter", "reset");
+    onSendClick() {
+        const textIn = document.getElementById("textIn");
+        const post = {nick: this.nick, text: textIn.value};
+        this.publish("input", "newPost", post);
+        textIn.value = "";
     }
 
-    handleUpdate(data) {
-        document.getElementById("counter").innerHTML = data;
+    onLoginClick() {
+        const loginName = document.getElementById("loginName");
+        this.nick = loginName.value;
+        const loginForm = document.getElementById("loginForm");
+        loginForm.style.display = "none";
+    }
+
+    refreshHistory() {
+        const textOut = document.getElementById("textOut");
+        textOut.innerHTML = this.model.history;
     }
 
 }
@@ -71,5 +88,5 @@ class MyView extends View {
 // and executes all pending events in both the model and the view.
 //------------------------------------------------------------------------------------------
 
-const session = { user: 'brian', random: '22222' };
+const session = { user: 'brian', random: '22221' };
 startSession("hello", MyModel, MyView, {step: "auto", session});

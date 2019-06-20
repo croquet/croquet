@@ -1,10 +1,10 @@
 {
   "name": "@croquet/hello",
   "version": "0.0.1",
-  "description": "Croquet Hello World",
-  "main": "hello.js",
+  "description": "Croquet Chat",
+  "main": "chat.js",
   "scripts": {
-    "start": "parcel hello.html"
+    "start": "parcel chat.html"
   },
   "browserslist": [
     "> 5%"

@@ -1,0 +1,58 @@
+<html>
+    <head>
+        <title>Croquet Chat</title>
+        <style>
+            body {
+                display: flex;
+                user-select: none
+            }
+        </style>
+    </head>
+    <style>
+            .form-popup {
+            display: none;
+            padding: 3px;
+            position: fixed;
+            height: 30px;
+            padding-left: 20px;
+            padding-right: 20px;
+            bottom: 5px;
+            right: 5px;
+            border: 1px solid;
+            font:16px/26px Helvetica, Arial, sans-serif;
+            background-color:powderblue;
+            z-index: 9;
+            }
+    </style>
+    <body>
+
+        <div style="height:100%;width:100%">
+        <div id = "textOut"
+            style="position:absolute;top:5px;bottom:50px;left:5px;right:5px;border:1px solid;padding:5px;font:16px/26px Helvetica, Arial, sans-serif;overflow:auto;">
+            <div></div>
+        </div>
+        <div style="position:absolute;bottom:5px;left:5px;right:5px">
+                <input type="text"
+                    id = "textIn"
+                    maxlength="500"
+                    onkeydown = "if (event.keyCode == 13) document.getElementById('sendButton').click()"
+                    style="width:90%;border:1px solid;padding:5px;font:16px/26px Helvetica, Arial, sans-serif"
+                />
+                <input type="button"
+                    id = "sendButton"
+                    value = "Send"
+                />
+        </div>
+        </div>
+        <div class="form-popup" id="loginForm">
+                <form class="form-container">
+                  <label for="userName"><b>User Name    </b></label>
+                  <input type="text" placeholder="Enter User Name" name="userName" id = "loginName" required style="font:16px/26px Helvetica, Arial, sans-serif"
+                  onkeydown = "if (event.keyCode == 13) document.getElementById('loginButton').click()">
+                  <button type="submit" class="btn" id ="loginButton">Login</button>
+                </form>
+        </div>
+    <script src="chat.js">
+    </script>
+    </body>
+</html>
