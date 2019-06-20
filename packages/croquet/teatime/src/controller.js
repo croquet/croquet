@@ -468,7 +468,7 @@ export default class Controller {
                 delete SessionCallbacks[hash];
                 resolve(sessionId);
             };
-            console.log(hash, 'Controller asking reflector for session ID');
+            if (DEBUG.snapshot) console.log(hash, 'Controller asking reflector for session ID');
             Controller.withSocketDo(socket => {
                 socket.send(JSON.stringify({
                     id: hash,
