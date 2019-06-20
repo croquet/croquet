@@ -1,49 +1,34 @@
+import Toastify from 'toastify-js';
+//import "toastify-js/src/toastify.css";  // evidently not quite enough
 import SeedRandom from "seedrandom";
 import QRCode from "./thirdparty-patched/qrcodejs/qrcode";
 import { urlOptions } from ".";
 
-export function displayError(msg) {
-    if (!document.getElementById("error")) {
-        const div = document.createElement("div");
-        div.id = "error";
-        div.style.cssText = "position: fixed; z-index: 1001; color: red;";
-        document.body.appendChild(div);
-    }
-    document.getElementById("error").innerText = msg;
+//require("postcss-modules"); to see if this would jerk the css import into life.  apparently led to further issues (see https://github.com/parcel-bundler/parcel/issues/2795)
+
+export function displayError(msg, options) {
+    return msg && displayToast(msg, { backgroundColor: "red", ...options });
 }
 
-export function displayNotifier(msg) {
-    if (!document.getElementById("notifier")) {
-        const style = document.createElement("style");
-        style.innerHTML = `
-        .notifier {
-            z-index: 1000;
-            position: absolute;
-            right: 100px;
-            bottom: 6px;
-            width: 120px;
-            padding: 8px;
-            border-radius: 8px;
-            background-color: gold;
-            opacity: 0;
-            transition: opacity 0.5s ease-out;
-            font-size: 14px;
-            font-family: sans-serif;
-            text-align: center;
-        }
-        `;
-        document.head.appendChild(style);
+export function displayWarning(msg, options) {
+    return msg && displayToast(msg, { backgroundColor: "gold", ...options });
+}
 
-        const div = document.createElement("div");
-        div.className = div.id = "notifier";
-        document.body.appendChild(div);
-    }
+export function displayStatus(msg, options) {
+    return msg && displayToast(msg, { backgroundColor: "#aaa", ...options });
+}
 
-    const div = document.getElementById("notifier");
-    if (msg) {
-        div.innerText = msg;
-        div.style.opacity = 0.9;
-    } else div.style.opacity = 0;
+function displayToast(msg, options) {
+    const toastOpts = {
+        text: msg,
+        duration: 3000,
+        //close: true,
+        gravity: "bottom", // `top` or `bottom`
+        positionLeft: true, // `true` or `false`
+        backgroundColor: "linear-gradient(to right, #00b09b, #96c93d)",
+        stopOnFocus: true, // Prevents dismissing of toast on hover
+        ...options };
+    return Toastify(toastOpts).showToast();
 }
 
 export function displaySessionMoniker(id='', element='session') {

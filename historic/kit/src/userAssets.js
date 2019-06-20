@@ -6,7 +6,7 @@ import Tracking from './viewParts/tracking';
 import Clickable from './viewParts/clickable';
 import { makePointerSensitive, ignorePointer, PointerEvents } from "./viewParts/pointer";
 import { ModelPart, ViewPart, ViewEvents } from './parts';
-import { displayNotifier } from "../../util/html";
+import { displayStatus, displayWarning, displayError } from "../../util/html";
 import SVGIcon from "./util/svgIcon";
 import soundOn from "../assets/sound-on.svg";
 import remoteHand from "../assets/pointing-hand.svg";
@@ -31,7 +31,7 @@ const DracoDecoderModule = require("../thirdparty/three/draco/gltf/draco_decoder
 THREE.DRACOLoader.setDecoderConfig({ type: 'js' });
 THREE.DRACOLoader.decoderModulePromise = Promise.resolve({ decoder: DracoDecoderModule(THREE.DRACOLoader.decoderConfig) });
 require("../thirdparty/three/SkeletonUtils"); // for cloning models with SkinnedMeshes
-//THREE.DRACOLoader.setDecoderPath("http://localhost:8000/croquet/kit/thirdparty/draco/gltf/"); the standard way of pointing DRACOLoader to its decoders.  if we can figure out a way to work this in with Parcel
+//THREE.DRACOLoader.setDecoderPath("http://localhost:8000/croquet/kit/thirdparty/draco/gltf/"); the standard way of pointing DRACOLoader to its decoders.  if we can figure out a way to work this in with Parcel.
 
 const BASE_URL = baseUrl('assets');
 const makeBlobUrl = blobHash => `${BASE_URL}${blobHash}.blob`;
@@ -61,12 +61,12 @@ export class AssetManager {
         this.knownAssetURLs = {};
     }
 
-    // ### NOT USED YET (what urls might we want to let users drag into croquet?)
+    /* @@ NOT USED YET (what urls might we want to let users drag into croquet?)
     async handleStringDrop(string, overTObject) {
         const frame = this.frame;
         let urlObj;
         try { urlObj = new URL(string); }
-        catch (e) { /* ignore */ }
+        catch (e) { }
         if (urlObj) {
             const anchorDef = urlObj.searchParams.get("anchor");
             if (anchorDef) {
@@ -89,6 +89,7 @@ export class AssetManager {
             }
         }
     }
+    */
 
     async handleFileDrop(items, roomModel, roomView) {
         // build one or more assetDescriptors: each an object { displayName, fileDict, loadType,
@@ -139,7 +140,7 @@ export class AssetManager {
         this.displayAssets(specArrays, importSizeChecker, { roomModel, roomView });
     }
 
-    // ###
+    /* @@ NOT USED YET
     async simulateFileDrop(urls, options={}) {
         const importSizeChecker = this.makeImportChecker();
         const specPromises = [];
@@ -161,15 +162,16 @@ export class AssetManager {
         const loadOptions = Object.assign({}, options, { roomModel, roomView }); // ###
         this.displayAssets(specArrays, importSizeChecker, loadOptions);
     }
+    */
 
     async displayAssets(specArrays, importSizeChecker, options={}) {
         if (!importSizeChecker.withinLimits) {
-            this.frame.alert(importSizeChecker.limitReason, 5000); // ### and all other alerts
+            displayError(importSizeChecker.limitReason, { duration: 5000 });
             return;
         }
         if (!specArrays.length) return; // empty for some reason other than overflow
 
-        const assetDescriptors = (await Promise.all(specArrays.map(specs => this.deriveAssetDescriptor(specs)))).filter(Boolean); // unrecognised file type will give a null
+        const assetDescriptors = (await Promise.all(specArrays.map(specs => this.deriveAssetDescriptor(specs, importSizeChecker.totalBytes)))).filter(Boolean); // each spec will track its own upload progress.  unrecognised file type will give a null.
         if (!assetDescriptors.length) return;
 
         // sort by displayName (name of the main file that will be loaded)
@@ -185,27 +187,29 @@ console.log(assetDescriptors.map(loadSpec => loadSpec.displayName));
         makerFnArrays.forEach(arr => { if (arr) makerFns.push(...arr); });
         if (makerFns.length === 0) return;
 
-        const loadOptions = Object.assign({}, options); // @@ might want to add a loadRoomContentImmediately here??
-        if (makerFns.length === 1) { // if just one object, it goes in a regular TWindow
-            loadOptions.containment = 'window';
-            makerFns[0](loadOptions);
-        } else { // multiple objects are turned into slides in a TSlideShow
-            // @@ we don't got no SlideShow yet
-            if (false) {
-                const slideShowOptions = { init: { slideShow: { title: "dropped files" } } };
-                new ShareableComposite(this.frame, null, TSlideShow.compositionSpec(), slideShowOptions).readyPromise.then(slideShowComposite => {
-                    const slideShow = slideShowComposite.components.slideShow;
-                    loadOptions.containment = 'raw';
-                    const slidePromises = makerFns.map(fn => fn(loadOptions));
-                    Promise.all(slidePromises).then(slideComposites => {
-                        let slideIndex = 0;
-                        slideComposites.forEach(comp => {
-                            if (comp) slideShow.slideFromComposite(comp, slideIndex++);
-                            });
-                        });
-                    });
-            }
-        }
+        const loadOptions = Object.assign({}, options);
+        // @@ in arcos, multiple objects were gathered into a TSlideShow.  in croquet we don't
+        // have such a thing yet - so just open the first object, and warn the user that the
+        // remainder are being ignored (even though all their files will have been uploaded to
+        // the asset store).
+        if (makerFns.length > 1) displayWarning(`only loading first of ${makerFns.length} dropped objects`);
+        // loadOptions.containment = 'window'; // not (yet) meaningful in croquet
+        makerFns[0](loadOptions);
+
+/* arcos TSlideShow code...
+const slideShowOptions = { init: { slideShow: { title: "dropped files" } } };
+new ShareableComposite(this.frame, null, TSlideShow.compositionSpec(), slideShowOptions).readyPromise.then(slideShowComposite => {
+    const slideShow = slideShowComposite.components.slideShow;
+    loadOptions.containment = 'raw';
+    const slidePromises = makerFns.map(fn => fn(loadOptions));
+    Promise.all(slidePromises).then(slideComposites => {
+        let slideIndex = 0;
+        slideComposites.forEach(comp => {
+            if (comp) slideShow.slideFromComposite(comp, slideIndex++);
+            });
+        });
+    });
+*/
     }
 
     getFileType(fileName) {
@@ -330,10 +334,10 @@ console.log(assetDescriptors.map(loadSpec => loadSpec.displayName));
             });
         const fileSpecs = await Promise.all(fileSpecPromises);
         if (!importSizeChecker.withinLimits) {
-            this.frame.alert(importSizeChecker.limitReason + " in zip", 5000);
+            displayError(importSizeChecker.limitReason + " in zip", { duration: 5000 });
             return null;
         }
-        return this.deriveAssetDescriptor(fileSpecs);
+        return this.deriveAssetDescriptor(fileSpecs, importSizeChecker.totalBytes);
     }
 
     makeImportChecker() {
@@ -353,12 +357,13 @@ console.log(assetDescriptors.map(loadSpec => loadSpec.displayName));
                 return totalFiles > MAX_IMPORT_FILES ? `exceeded limit of ${MAX_IMPORT_FILES} files`
                     : totalSize > 1048576*MAX_IMPORT_MB ? `exceeded limit of ${MAX_IMPORT_MB}MB`
                     : "";
-            }
+            },
+            get totalBytes() { return totalSize; }
             };
         return checker;
     }
 
-    async deriveAssetDescriptor(fileSpecs) {
+    async deriveAssetDescriptor(fileSpecs, totalBytes) {
         const loadPaths = {};
         const byType = {};
         const topSpecs = fileSpecs.filter(spec => spec.depth===1);
@@ -369,7 +374,7 @@ console.log(assetDescriptors.map(loadSpec => loadSpec.displayName));
             if (!typeFiles) typeFiles = byType[type] = [];
             typeFiles.push(spec);
             });
-        const priorityTypes = [ ".js", ".obj", ".gltf", ".glb" ]; // if any of these is found, it defines the load type
+        const priorityTypes = [ /* ".js", */ ".obj", ".gltf", ".glb" ]; // if any of these is found, it defines the load type
         let ti = 0, loadType = null, displayName;
         while (!loadType && ti < priorityTypes.length) {
             const type = priorityTypes[ti];
@@ -396,7 +401,7 @@ console.log(assetDescriptors.map(loadSpec => loadSpec.displayName));
             const handledTypes = [ ".png", ".jpg", ".jpeg", ".bmp", ".gif", ".dae", ".fbx", ".stl", ".svg", ".mp4", ".zip" ];
             const handlableSpecs = topSpecs.filter(spec => handledTypes.indexOf(spec.type)>=0);
             if (handlableSpecs.length) {
-                if (handlableSpecs.length > 1) this.frame.alert(`Ambiguous drop (${handlableSpecs.map(spec => spec.type).join(", ")})`, 5000);
+                if (handlableSpecs.length > 1) displayError(`Ambiguous drop (${handlableSpecs.map(spec => spec.type).join(", ")})`, { duration: 5000 });
                 else {
                     const spec = handlableSpecs[0];
                     displayName = spec.name;
@@ -407,7 +412,9 @@ console.log(assetDescriptors.map(loadSpec => loadSpec.displayName));
                         case ".jpeg":
                         case ".bmp":
                         case ".gif":
-                            loadType = (spec.name.search("360.") >= 0) ? "texture360" : "texture";
+                            // @@ we don't yet handle texture360s (scene backgrounds) in croquet
+                            //loadType = (spec.name.search("360.") >= 0) ? "texture360" : "texture";
+                            loadType = "texture";
                             break;
                         case ".dae":
                         case ".fbx":
@@ -425,28 +432,40 @@ console.log(assetDescriptors.map(loadSpec => loadSpec.displayName));
                         case ".zip":
                             loadType = "zip";
                             break;
+                        /*
                         case ".xls":
-                            this.frame.alert("XLS not supported! Use XLSX", 5000);
+                            displayError("XLS not supported! Use XLSX", { duration: 5000 });
                             break;
+                        */
                         default:
                     }
                 }
             }
         }
         if (!loadType) {
-            this.frame.alert("No loadable file found", 5000);
+            displayError("No loadable file found", { duration: 5000 });
             return null;
         }
 
-        displayNotifier("uploading assets...");
-        await Promise.all(fileSpecs.map(spec => this.hashAndStoreIfNeeded(spec)));
-        displayNotifier("");
+        const start = Date.now();
+        let statusToast = null, bytesSoFar = 0;
+        const reportBytes = bytes => {
+            bytesSoFar += bytes;
+            const statusMsg = `uploading assets... ${Math.round(bytesSoFar / totalBytes * 100)}%`;
+            if (!statusToast && Date.now() - start > 500) {
+                statusToast = displayStatus(statusMsg, { duration: 600000 }); // stick around until we remove explicitly
+            } else if (statusToast) {
+                statusToast.toastElement.textContent = statusMsg;
+            }
+            };
+        await Promise.all(fileSpecs.map(spec => this.hashAndStoreIfNeeded(spec, reportBytes)));
+        if (statusToast) statusToast.hideToast();
         const fileDict = {};
         fileSpecs.forEach(spec => fileDict[spec.path] = spec);
         return { displayName, fileDict, loadType, loadPaths };
     }
 
-    async hashAndStoreIfNeeded(fileSpec) {
+    async hashAndStoreIfNeeded(fileSpec, reportBytes) {
         const buffer = fileSpec.buffer;
         delete fileSpec.buffer;
         if (!fileSpec.blob) fileSpec.blob = new Blob([buffer], { type: 'application/octet-stream' });
@@ -455,7 +474,7 @@ console.log(assetDescriptors.map(loadSpec => loadSpec.displayName));
             this.assetCache[hash] = fileSpec.blob;
             fileSpec.hash = hash;
             fileSpec.blobURL = makeBlobUrl(hash);
-            await this.ensureBlobIsShared(fileSpec.blobURL, fileSpec.blob, fileSpec.name);
+            await this.ensureBlobIsShared(fileSpec.blobURL, fileSpec.blob, fileSpec.name, reportBytes);
         }
         return fileSpec;
     }
@@ -463,11 +482,10 @@ console.log(assetDescriptors.map(loadSpec => loadSpec.displayName));
     prepareMakerFunctions(assetDescriptor) {
         // assetDescriptor is { displayName, fileDict, loadType, loadPaths }
         // return an array of one or more functions which, if invoked with options
-        // (that can include containment: raw, window etc),
-        // will return a ShareableComposite (which doesn't have to have resolved
-        // its readyPromise yet).
+        // (that on arcos would include containment: raw, window etc),
+        // will build a suitable shared Model.
         const loadType = assetDescriptor.loadType;
-        switch (loadType){
+        switch (loadType) {
             /*
             case ".js":
                 return new Promise(resolve => {
@@ -542,29 +560,40 @@ console.log(assetDescriptors.map(loadSpec => loadSpec.displayName));
         return { displayName, fileDict: newFileDict, loadType, loadPaths };
     }
 
-    ensureBlobIsShared(blobURL, blob, name="") {
+    ensureBlobIsShared(blobURL, blob, name="", reportBytes) {
         let promise = this.knownAssetURLs[blobURL];
         if (!promise) {
             promise = this.knownAssetURLs[blobURL] = new Promise((resolve, reject) => {
-                try {
-                    // see if it's already there
-                    fetch(blobURL, { method: 'HEAD' })
-                    .then(response => {
-                        // if successful, return
-                        if (response.ok) resolve();
-                    });
-                } catch (ex) { /* ignore */ }
-                // not found, so try to upload it
-                try {
-                    console.log(`storing attachment doc for content of ${name}`);
-                    fetch(blobURL, {
-                        method: "PUT",
-                        mode: "cors",
-                        body: blob,
-                    }).then(response => {
-                        if (response.ok) resolve();
-                    });
-                } catch (error) { reject(); }
+                const upload = () => {
+                    try {
+                        console.log(`uploading ${name} to shared asset store`);
+                        const xhr = new XMLHttpRequest();
+
+                        let bytesSoFar = 0;
+                        xhr.upload.addEventListener("progress", e => {
+                            if (e.lengthComputable && reportBytes) {
+                                const bytesNow = e.loaded;
+                                reportBytes(bytesNow - bytesSoFar);
+                                bytesSoFar = bytesNow;
+                            }
+                            });
+
+                        xhr.upload.addEventListener("load", () => {
+                            console.log(`${name} upload finished`);
+                            resolve();
+                            });
+
+                        xhr.open("PUT", blobURL);
+                        xhr.send(blob);
+                    } catch (error) { reject(); }
+                    };
+
+                // see if it's already there
+                fetch(blobURL, { method: 'HEAD' })
+                .then(response => {
+                    if (response.ok) resolve(); // apparently it is
+                    else upload();
+                }).catch(_err => upload());
             });
         }
         return promise;
@@ -577,11 +606,9 @@ console.log(assetDescriptors.map(loadSpec => loadSpec.displayName));
             const getBlob = () => fetch(blobURL, { mode: "cors" })
                 .then(response => {
                     // build the Blob ourselves, so we can set its type (introduced as a workaround to Safari refusing to play an untyped mp4 blob)
-                    //if (response.ok) return response.blob();
                     if (response.ok) return response.arrayBuffer();
                     throw new Error('Network response was not ok.');
                     })
-//                .then(blob => { this.knownAssetURLs[blobURL] = true; resolved(blob); })
                 .then(arrayBuffer => {
                     this.knownAssetURLs[blobURL] = true;
                     const options = optionalType ? { type: optionalType } : {};
@@ -834,11 +861,10 @@ console.warn(`recording fetch of ${urlStr}`);
     }
 */
 
-    // the other importXXX functions all take an assetDescriptor and return an object3D
     async importSVG(assetDescriptor) {
         const urlObj = await this.objectURLForName(assetDescriptor, "source");
         const svgLoader = new THREE.SVGLoader(new THREE.LoadingManager());
-        return new Promise(resolved => {
+        return new Promise((resolve, reject) => {
             svgLoader.load(urlObj.url, paths=>{
                 urlObj.revoke();
                 const group = new THREE.Group();
@@ -859,12 +885,12 @@ console.warn(`recording fetch of ${urlStr}`);
                 group.scale.y = -1.0; // SVG coords go in opposite sense on Y
                 const outerGroup = new THREE.Group();
                 outerGroup.add(group);
-                resolved(outerGroup);
-            },
-               // Function called when download progresses
-            _xhr=>{ },
-            // Function called when download errors
-            _xhr=>{ console.log( 'An error happened' ); } // #### relate to the promise
+                resolve(outerGroup);
+                },
+                // Function called when download progresses
+                _xhr => { },
+                // Function called when download errors
+                err => { console.error(err); reject(); }
             );
         });
     }
@@ -878,10 +904,6 @@ console.warn(`recording fetch of ${urlStr}`);
                 this.ensurePowerOfTwo(texture);
                 const geometry = new THREE.PlaneBufferGeometry(1, texture.image.height / texture.image.width, 1, 1);
                 const material = new THREE.MeshBasicMaterial({ map: texture });
-/*
-                const geometry = new THREE.PlaneBufferGeometry(1.5, 1, 1, 1);
-                const material = new THREE.MeshBasicMaterial({ color: new THREE.Color(0xff0000) });
-*/
                 const mesh = new THREE.Mesh(geometry, material);
                 resolve(mesh);
                 },
@@ -893,6 +915,7 @@ console.warn(`recording fetch of ${urlStr}`);
             });
     }
 
+    // @@ NOT USED YET
     async importTexture360(assetDescriptor) {
         const urlObj = await this.objectURLForName(assetDescriptor, "source");
         const textureLoader = new THREE.TextureLoader(new THREE.LoadingManager());
@@ -1089,7 +1112,7 @@ function onProgress(xhr) {
     }
 }
 
-function onError( xhr ) { console.log('file load fail', xhr); }
+function onError( err ) { console.log('file load fail', err); }
 
 export const theAssetManager = new AssetManager();
 
@@ -1112,7 +1135,8 @@ class ImportedViewPart extends ViewPart {
     constructor(options) {
         super(options);
 console.warn(this);
-        // @@ assuming anyone's going to care...
+
+        // assuming anyone's going to care...
         this.readyPromise = new Promise(resolved => {
             this._ready = () => resolved(this);
             });
@@ -1120,13 +1144,35 @@ console.warn(this);
         const assetDescriptor = options.model.assetDescriptor;
         const loadType = this.loadType = assetDescriptor.loadType;
         const assetManager = theAssetManager;
-        const firstLoad = true; // ####
+
+        // @@ in arcos, the first load of an object could be started without knowing all
+        // the files that would be needed; this is how Google Poly models were imported.
+        // in that case, setting firstLoad to true told the loadingManager to process
+        // unforeseen URLs by fetching their contents and adding them to the asset
+        // descriptor on the fly.  only once the first load had completed would the
+        // updated descriptor be used to create a shared composite object.
+        // for now, in croquet we assume that the assetDescriptor is immediately
+        // complete - which is reasonable, in the case of a dropped file/folder structure -
+        // so a shared Model can be created before the model has been loaded even once.
+        const firstLoad = false;
+
         this.threeObj = new THREE.Group();
+        // add a placeholder
+        const placeHolder = new THREE.Mesh(
+            new THREE.PlaneBufferGeometry(1, 1),
+            new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.1 })
+            );
+        this.threeObj.add(placeHolder);
+
+        let statusToast;
 
         const objectReady = obj => {
+            this.threeObj.remove(placeHolder);
             const bbox = (new THREE.Box3()).setFromObject(obj);
             const rawHeight = bbox.max.y - bbox.min.y;
             const scale = 2/rawHeight;
+            obj.position.addVectors(bbox.min, bbox.max);
+            obj.position.multiplyScalar(-0.5);
             this.threeObj.add(obj);
             this.threeObj.scale.set(scale, scale, scale);
             this.publish(this.id, ViewEvents.changedDimensions, {});
@@ -1136,16 +1182,20 @@ console.warn(this);
                 this.animationSpec = spec;
                 this.future(500).runAnimation();
             }
+            setTimeout(() => statusToast.hideToast(), 1000); // have it hang around even if load was instantaneous
             this._ready();
             };
 
-        assetManager.ensureAssetsAvailable(assetDescriptor)
-        .then(() => {
+        new Promise(resolve => {
+            statusToast = displayStatus(`loading ${loadType}`, { duration: 600000 });
+            setTimeout(resolve, 500); // time for the toast to appear
+        }).then(() => assetManager.ensureAssetsAvailable(assetDescriptor)
+        ).then(() => {
             switch (loadType) {
                 case "texture":
                     assetManager.importTexture(assetDescriptor).then(objectReady);
                     break;
-                // ###
+                /* @@ texture360 not supported yet
                 case "texture360":
                     assetManager.importTexture360(assetDescriptor).then(mesh => {
                         this.setObject3D(mesh);
@@ -1160,7 +1210,8 @@ console.warn(this);
                         this.readyPromiseHandle.resolve(this);
                         });
                     break;
-                case "fbx": // this also covers more than one file extension
+                */
+               case "fbx": // this also covers more than one file extension
                     assetManager.importFBX(assetDescriptor, firstLoad).then(objectReady);
                     break;
                 case "stl":
@@ -1179,7 +1230,7 @@ console.warn(this);
                     assetManager.importOBJ(assetDescriptor, firstLoad).then(objectReady);
                     break;
                 default:
-                    console.warn(`unknown imported-object loadType: ${loadType}.`);
+                    displayError(`unknown imported-object loadType: ${loadType}.`);
             }
         }).catch(err => console.error(err));
     }
@@ -1203,17 +1254,6 @@ class ImportedElementView extends Tracking()(ImportedViewPart) {
     get label() {
         return "Imported Element";
     }
-
-    // ###
-    loadInWindow(context) {
-        const title = context.compositeObject.assetDescriptor.displayName;
-        // unless context declares otherwise, place the object in front of the avatar
-        // at twice normal demo distance.
-        const componentInit = context.componentInit;
-        if (componentInit.viewpointRelativePos===undefined) componentInit.viewpointRelativePos = [0, 0, -2*this.frame.world.demoLauncher.standardDistance];
-        return super.loadInWindow(context, title);
-    }
-
 }
 
 
@@ -1221,7 +1261,7 @@ class ImportedElementView extends Tracking()(ImportedViewPart) {
 // its readyPromise resolves once the video is available to play.
 class Video2DView {
     constructor(url) {
-console.log(this);
+//console.log(this);
         this.url = url;
         this.video = document.createElement("video");
         this.video.autoplay = false;
@@ -1235,7 +1275,7 @@ console.log(this);
             });
 
         this.video.oncanplay = () => {
-            this.duration = this.video.duration; // ondurationchange is (apparently) always ahead of this
+            this.duration = this.video.duration; // ondurationchange is (apparently) always ahead of oncanplay
             this._ready();
             };
 
@@ -1305,7 +1345,7 @@ console.log(this);
         this.video.pause(); // no return value; synchronous, instantaneous?
     }
 
-    // ### need to hook this into... something
+    // @@ need to hook this into... something
     dispose() {
         try {
             URL.revokeObjectURL(this.url);
@@ -1400,7 +1440,7 @@ const TIMEBAR_MARGIN_PROP = TOUCH ? 0 : 0.04;
 class VideoViewPart extends ViewPart {
     constructor(options) {
         super(options);
-console.warn(this);
+//console.warn(this);
 
         this.videoReady = false; // this will go true just once
         this.waitingForIslandSync = !this.realm.isSynced; // this can flip back and forth

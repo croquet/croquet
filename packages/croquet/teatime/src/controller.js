@@ -4,7 +4,7 @@ import Stats from "@croquet/util/stats";
 import hotreloadEventManger from "@croquet/util/hotreloadEventManager";
 import urlOptions from "@croquet/util/urlOptions";
 import { login, getUser } from "@croquet/util/user";
-import { displaySpinner, displayError } from "@croquet/util/html";
+import { displaySpinner, displayStatus, displayWarning, displayError } from "@croquet/util/html";
 import { baseUrl, CROQUET_HOST, hashNameAndCode, hashString, uploadCode } from "@croquet/util/modules";
 import { inViewRealm } from "./realms";
 import Island, { Message, inSequence } from "./island";
@@ -888,7 +888,7 @@ async function connectToReflector(reflectorUrl) {
 }
 
 function socketSetup(socket, reflectorUrl) {
-    displayError('Connecting to ' + socket.url);
+    displayStatus('Connecting to ' + socket.url);
     Object.assign(socket, {
         onopen: _event => {
             if (socket.constructor === WebSocket) displayError('');
@@ -908,7 +908,7 @@ function socketSetup(socket, reflectorUrl) {
             Controller.leaveAll(true);
             if (event.code !== 1000) {
                 // if abnormal close, try to connect again
-                displayError('Reconnecting ...');
+                displayWarning('Reconnecting ...');
                 hotreloadEventManger.setTimeout(() => connectToReflector(reflectorUrl), 1000);
             }
         },

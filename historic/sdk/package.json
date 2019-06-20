@@ -14,11 +14,9 @@
     "build-docs": {
       "patterns": [
         ".",
-        "../teatime"
-      ],
-      "ignore": [
-        "build",
-        "dist"
+        "../teatime",
+        "tutorials",
+        "../thirdparty-patched/docdash"
       ],
       "extensions": "js,json,html,css,tmpl,md",
       "quiet": false
