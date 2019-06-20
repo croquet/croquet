@@ -11,7 +11,7 @@ This is an example of how you can create multi-user shared animations and intera
 
 
 ## **Try it out!**
-The first thing to do is click or scan the QR code above. This will launch a new Codepen instance of this session. If you compare the two sessions, you will see that the animated simulations are identical. The balls all move and bounce exactly the same. You can stop and start any ball by clicking on it, which will start or stop it in every session.
+The first thing to do is click or scan the QR code above. This will launch a new Codepen instance of this session. If you compare the two sessions, you will see that the animated simulations are identical. The balls all move and bounce exactly the same. You can stop and start any ball by clicking on it, which will start or stop it in every session. You can't stop the rounded rectangle - it is just like a regular ball but ignores user actions.
 
 There are three things we will learn here.
 1. Creating a simulation model.
