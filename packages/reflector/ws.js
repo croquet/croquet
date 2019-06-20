@@ -11,7 +11,7 @@
 
 import BroadcastChannel from "broadcast-channel";
 import hotreloadEventManager from "@croquet/util/hotreloadEventManager";
-import { displayError } from "@croquet/util/html";
+import { displayStatus } from "@croquet/util/html";
 
 // We are opening a single BroadcastChannel for communication.
 // Each window gets a random unique ID, stored as myPort.
@@ -48,7 +48,7 @@ function discovered(port) {
     if (serverPort === NO_SERVER) serverPort = port;
     const me = serverPort === myPort ? "(me)" : "(not me)";
     console.log("Channel: discovered", serverPort, me);
-    displayError('Using in-browser reflector ' + me);
+    displayStatus('Using in-browser reflector ' + me);
     while (whenDiscovered.length) whenDiscovered.shift()(serverPort);
 }
 

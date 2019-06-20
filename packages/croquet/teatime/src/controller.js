@@ -244,8 +244,8 @@ export default class Controller {
         // limit storage for old snapshots
         while (this.snapshots.length > 2) this.snapshots.shift();
         // keep only messages newer than the oldest snapshot
-        const keep = this.snapshots[0].externalSeq;
-        const keepIndex = this.oldMessages.findIndex(msg => msg[1] > keep);
+        const keep = this.snapshots[0].externalSeq + 1 >>> 0;
+        const keepIndex = this.oldMessages.findIndex(msg => inSequence(keep, msg[1]));
         if (DEBUG.snapshot && keepIndex > 0) console.log(`Deleting old messages from ${this.oldMessages[0][1]} to ${this.oldMessages[keepIndex - 1][1]}`);
         this.oldMessages.splice(0, keepIndex);
         return Stats.end("snapshot") - start;
@@ -468,7 +468,7 @@ export default class Controller {
                 delete SessionCallbacks[hash];
                 resolve(sessionId);
             };
-            console.log(hash, 'Controller asking reflector for session ID');
+            if (DEBUG.snapshot) console.log(hash, 'Controller asking reflector for session ID');
             Controller.withSocketDo(socket => {
                 socket.send(JSON.stringify({
                     id: hash,
