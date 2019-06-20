@@ -23,7 +23,7 @@ export async function login() {
         const style = document.createElement("style");
         style.innerHTML = `
             .overlay {
-                z-index:1000;
+                z-index: 1010;
                 position: fixed;
                 left: 0;
                 top: 0;

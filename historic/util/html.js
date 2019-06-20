@@ -1,10 +1,7 @@
 import Toastify from 'toastify-js';
-//import "toastify-js/src/toastify.css";  // evidently not quite enough
 import SeedRandom from "seedrandom";
 import QRCode from "./thirdparty-patched/qrcodejs/qrcode";
 import { urlOptions } from ".";
-
-//require("postcss-modules"); to see if this would jerk the css import into life.  apparently led to further issues (see https://github.com/parcel-bundler/parcel/issues/2795)
 
 export function displayError(msg, options) {
     return msg && displayToast(msg, { backgroundColor: "red", ...options });
