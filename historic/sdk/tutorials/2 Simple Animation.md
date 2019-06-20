@@ -11,19 +11,20 @@ This is an example of how you can create multi-user shared animations and intera
 
 
 ## **Try it out!**
-The first thing to do is click or scan the QR code above. This will launch a new Codepen instance of this session. If you compare the two sessions, you will see that the animated simulations are identical. The balls all move and bounce exactly the same. You can stop and start any ball by clicking on it, which will start or stop it in every session. You can't stop the rounded rectangle - it is just like a regular ball but ignores user actions.
+The first thing to do is click or scan the QR code above. This will launch a new Codepen instance of this session. If you compare the two sessions, you will see that the animated simulations are identical. The balls all move and bounce exactly the same. You can stop and start any ball by clicking on it, which will start or stop it in every session. You can't stop the rounded rectangle - it is just like a regular ball but ignores user actions. Any reader of this documentation can start or stop the balls while they are animating. You may notice that this is happening. It just means there is someone else out there working with the tutorial at the same time as you.
 
 There are three things we will learn here.
+
 1. Creating a simulation model.
 2. Creating an interactive view.
-3. Safely communicating between them.
+3. Safely communicate between them.
 
 
 ## Simple Animation Model
 
-Our application uses two model subclasses, MyModel and BallModel. The MyModel class is the container for the BallModel class objects.
+Our application uses two Croquet Model subclasses, MyModel and BallModel. The MyModel class is the container for the BallModel class objects.
 
-We must register all of the Croquet model classes that we create.
+We must register all of the Croquet model subclasses that we create.
 
 MyModel is the root model. It is what creates the BallModel ball objects and it is what we pass into Croquet.startSession. MyModel.children is an array of BallModel objects.
 
@@ -53,7 +54,7 @@ BallModel.moveBounce() {
     this.moveTo([x + this.speed[0], y + this.speed[1]]);    
 }
 ```
-BallModel.moveBounce is actually quite interesting. It updates the ball object position. But if the ball is computed to be out of bounds, it computes a new speed vector which redirects it. This new speed vector is an example of a replicated random - every instance of this world will compute exactly the same random, so when the balls bounce, they all bounce in exactly the same new direction.
+BallModel.moveBounce is actually quite interesting. It updates the ball object position. But if the ball is found to be out of bounds, it computes a new speed vector which redirects it. This new speed vector is an example of how we use a replicated random - every instance of this world will compute exactly the same random, so when the balls bounce, they all bounce in exactly the same new direction.
 
 ## Simple Animation View
 
