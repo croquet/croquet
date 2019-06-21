@@ -508,8 +508,8 @@ function USERS(island) {
     const active = clients.size;
     const total = server.clients.size;
     const payload = { what: 'users', active, total };
-    if (usersJoined.length > 0) payload.joined = usersJoined;
-    if (usersLeft.length > 0) payload.left = usersLeft;
+    if (usersJoined.length > 0) payload.joined = [...usersJoined];
+    if (usersLeft.length > 0) payload.left = [...usersLeft];
     const msg = [0, 0, payload];
     SEND(null, id, [msg]);
     LOG(`${island}: ${clients.size} users (total ${ALL_ISLANDS.size} islands, ${server.clients.size} users)`);
