@@ -6,12 +6,6 @@ const THROTTLE = 1000 / 20;     // mouse event throttling
 const STEP_MS = 1000 / 30;      // bouncing ball step time in ms
 const SPEED = 10;               // bouncing ball speed in virtual pixels / step
 
-const TOUCH ='ontouchstart' in document.documentElement;
-
-let SCALE = 1;                  // model uses a virtual 1000x1000 space
-let OFFSETX = 50;               // top-left corner of view, plus half shape width
-let OFFSETY = 50;               // top-left corner of view, plus half shape height
-
 
 ////// Models /////
 
@@ -115,6 +109,13 @@ export class Shapes extends ModelRoot {
 }
 
 ////// Views /////
+
+const TOUCH ='ontouchstart' in document.documentElement;
+
+let SCALE = 1;                  // model uses a virtual 1000x1000 space
+let OFFSETX = 50;               // top-left corner of view, plus half shape width
+let OFFSETY = 50;               // top-left corner of view, plus half shape height
+
 
 class ShapesView extends View {
 

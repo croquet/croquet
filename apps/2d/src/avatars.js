@@ -6,10 +6,6 @@ const THROTTLE = 1000 / 20;     // mouse event throttling
 const STEP_MS = 1000 / 30;      // bouncing ball step time in ms
 const SPEED = 10;               // bouncing ball speed in virtual pixels / step
 
-let SCALE = 1;                  // model uses a virtual 1000x1000 space
-let OFFSETX = 50;               // top-left corner of view, plus half shape width
-let OFFSETY = 50;               // top-left corner of view, plus half shape height
-
 ////// Models /////
 
 export class ModelRoot extends Model {
@@ -28,7 +24,7 @@ export class ModelRoot extends Model {
         console.log("=", users.active);
 
         for (const user of users.joined) {
-            if (this.shapes[user.id]) { console.log("shape already exists for user", user.id); continue; }
+            if (this.shapes[user.id]) { console.warn("shape already exists for joining user", user.id); continue; }
             const shape = Shape.create();
             this.shapes[user.id] = shape;
             this.publish(this.id, 'shape-added', shape);
@@ -36,7 +32,7 @@ export class ModelRoot extends Model {
         }
         for (const user of users.left) {
             const shape = this.shapes[user.id];
-            if (!shape) { console.warn("shape not found for user", user.id); continue; }
+            if (!shape) { console.warn("shape not found for leaving user", user.id); continue; }
             delete this.shapes[user.id];
             this.publish(this.id, 'shape-removed', shape);
         }
@@ -121,6 +117,10 @@ export class Shapes extends ModelRoot {
 
 
 ////// Views /////
+
+let SCALE = 1;                  // model uses a virtual 1000x1000 space
+let OFFSETX = 50;               // top-left corner of view, plus half shape width
+let OFFSETY = 50;               // top-left corner of view, plus half shape height
 
 const TOUCH ='ontouchstart' in document.documentElement;
 
