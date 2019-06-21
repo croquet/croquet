@@ -15,6 +15,7 @@
     "toastify-js": "^1.5.0"
   },
   "devDependencies": {
+    "cssnano": "^4.1.10",
     "eslint": "^5.14.1",
     "eslint-config-airbnb-base": "^13.1.0",
     "eslint-import-resolver-parcel": "^1.8.4",
