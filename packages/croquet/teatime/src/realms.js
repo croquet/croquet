@@ -46,7 +46,7 @@ class ModelRealm {
                 if (typeof model[property] === "function") {
                     const methodProxy = new Proxy(model[property], {
                         apply(_method, _this, args) {
-                            island.callModelMethod(model.id, null, property, args);
+                            island.callModelMethod(model.id, property, args);
                         }
                     });
                     return methodProxy;
@@ -54,10 +54,6 @@ class ModelRealm {
                 throw Error("Tried to call " + property + "() on future of " + Object.getPrototypeOf(model).constructor.name + " which is not a function");
             }
         });
-    }
-
-    callModelMethod(modelId, modelPath, methodName, args) {
-        this.island.callModelMethod(modelId, modelPath, methodName, args);
     }
 
     random() {
@@ -118,10 +114,6 @@ class ViewRealm {
                 throw Error("Tried to call " + property + "() on future of " + Object.getPrototypeOf(view).constructor.name + " which is not a function");
             }
         });
-    }
-
-    callModelMethod(modelId, viewPath, methodName, args) {
-        this.island.callModelMethod(modelId, viewPath, methodName, args);
     }
 
     random() {
