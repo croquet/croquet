@@ -588,7 +588,7 @@ export default class Controller {
                 this.islandCreator.snapshot = snapshot;  // set snapshot
                 if (!this.socket) { console.log(this.id, 'socket went away during SYNC'); return; }
                 for (const msg of messages) {
-                    if (DEBUG.messages) console.log(this.id, 'Controller got message in SYNC ' + msg);
+                    if (DEBUG.messages) console.log(this.id, 'Controller got message in SYNC ' + JSON.stringify(msg));
                     msg[1] >>>= 0;      // reflector sends int32, we want uint32
                 }
                 this.install(messages, time);
@@ -600,7 +600,7 @@ export default class Controller {
                 // We received a message from reflector.
                 // Put it in the queue, and set time.
                 // Actual processing happens in main loop.
-                if (DEBUG.messages) console.log(this.id, 'Controller received RECV ' + args);
+                if (DEBUG.messages) console.log(this.id, 'Controller received RECV ' + JSON.stringify(args));
                 const msg = args;   // [time, seq, payload, senderId, senderSeq]
                 // the reflector might insert messages on its own, indicated by a non-string payload
                 // we need to convert the payload to the message format this client is using
