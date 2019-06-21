@@ -559,14 +559,17 @@ export default class Controller {
                     seq: snapshot.meta.seq,
                     snapshot,
                 };
-                // see if there is a remote snapshot
-                let latest = DEBUG.init ? null : await this.fetchJSON(this.snapshotUrl('latest'));
-                // which one's newer?
-                if (!latest || (local && local.time > latest.time)) latest = local;
+                // see if there is a remote or in-memory snapshot
+                let latest = null;
+                if (!DEBUG.init) {
+                    latest = await this.fetchJSON(this.snapshotUrl('latest'));
+                    // which one's newer?
+                    if (!latest || (local && local.time > latest.time)) latest = local;
+                }
                 // fetch snapshot
                 if (latest) {
-                    console.log(this.id, `fetching latest snapshot ${latest.snapshot ? '(embedded)' :  latest.url}`);
-                    snapshot = latest.snapshot ||await this.fetchJSON(latest.url);
+                    console.log(this.id, latest.snapshot ? "using snapshot still in memory" : `fetching latest snapshot ${latest.url}`);
+                    snapshot = latest.snapshot || await this.fetchJSON(latest.url);
                 } else snapshot = null;
                 if (!this.socket) { console.log(this.id, 'socket went away during START'); return; }
                 if (snapshot) this.islandCreator.snapshot = snapshot;
