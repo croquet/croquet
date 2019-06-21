@@ -108,8 +108,15 @@ class View {
     /**
      * @public
      */
-    get global() {
+    get sessionId() {
         return this.realm.island.id;
+    }
+
+    /**
+     * @public
+     */
+    get clientId() {
+        return this.realm.island.controller.clientId;
     }
 
     /**

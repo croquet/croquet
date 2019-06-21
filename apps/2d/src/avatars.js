@@ -17,7 +17,7 @@ export class ModelRoot extends Model {
     init() {
         super.init();
         this.shapes = {};
-        this.subscribe(this.global, "users", data => this.users(data));
+        this.subscribe(this.sessionId, "users", data => this.users(data));
     }
 
     // non-inherited methods below

@@ -259,7 +259,7 @@ class Model {
     /**
      * @public
      */
-    get global() {
+    get sessionId() {
         return this.__realm.island.id;
     }
 

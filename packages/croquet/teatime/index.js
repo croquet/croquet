@@ -110,31 +110,48 @@ function stepSession(frameTime, controller, view, render="auto") {
     }
 }
 
+
 // putting event documentation here because JSDoc errors when parsing controller.js at the moment
-
- /**
- * **Published when the session backlog crosses a threshold.** (see {@link View#externalNow} for backlog)
- *
- * If this is the main session, also indicates that the scene was revealed (if data is `true`)
- * or hidden behind the overlay (if data is `false`).
- *
- * @event synced
- * @property {String} scope - session id as returned by {@link startSession} (also [`this.global`]{@link View#global})
- * @property {String} event - `"synced"`
- * @property {Boolean} data - `true` if in sync, `false` if backlogged
- * @public
- */
-
 
  /**
  * **Published when users join or leave.**
  *
- * The local user is [`this.user`]{@link View#user} in the view.
+ * This is a replicated event.
  *
+ * ```
+ * class MyModel extends Croquet.Model {
+ *     init() {
+ *         this.subscribe(this.sessionId, "users", data => this.handleUsers(data));
+ *     }
+ *
+ *     handleUsers(users) {
+ *         if (users.joined.length) console.log("+", users.joined.length, users.joined);
+ *         if (users.left.length) console.log("-", users.left.length, users.left);
+ *         console.log("=", users.active);
+ *     }
+ * }
+ * ```
+ * This event can be used in the model or the view. In the view, you can access the local user as [`this.user`]{@link View#user}.
  * @event users
- * @property {String} scope - session id as returned by {@link startSession} (also [`this.global`]{@link Model#global})
+ * @property {String} scope - [`this.sessionId`]{@link Model#sessionId}
  * @property {String} event - `"users"`
  * @property {Object} data - `{ joined: [], left: [], active: n, total: n }`
+ * @public
+ */
+
+ /**
+ * **Published when the session backlog crosses a threshold.** (see {@link View#externalNow} for backlog)
  *
+ * This is a non-replicated view-only event.
+ *
+ * If this is the main session, it also indicates that the scene was revealed (if data is `true`)
+ * or hidden behind the overlay (if data is `false`).
+ * ```
+ * this.subscribe(this.clientId, "synced", data => this.handleSynced(data));
+ * ```
+ * @event synced
+ * @property {String} scope - [`this.clientId`]{@link View#clientId}
+ * @property {String} event - `"synced"`
+ * @property {Boolean} data - `true` if in sync, `false` if backlogged
  * @public
  */
