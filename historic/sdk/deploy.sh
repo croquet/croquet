@@ -34,14 +34,14 @@ esac
 
 echo "DEPLOYING $MSG"
 
-old_stash=`git rev-parse -q --verify refs/stash`
-git stash -q -- .
-new_stash=`git rev-parse -q --verify refs/stash`
+# old_stash=`git rev-parse -q --verify refs/stash`
+# git stash -q -- .
+# new_stash=`git rev-parse -q --verify refs/stash`
 
-if [ "$old_stash" != "$new_stash" ]; then
-    echo "Stashing dirty files"
-    git stash show
-fi
+# if [ "$old_stash" != "$new_stash" ]; then
+#     echo "Stashing dirty files"
+#     git stash show
+# fi
 
 
 # build docs
@@ -68,11 +68,11 @@ if [ "$RELEASE" != "docs" ] ; then
     (cd $SDK; ln -sf croquet-$VERSION.min.js croquet-latest.min.js; ln -sf croquet-$VERSION.min.js.map croquet-latest.min.js.map)
 fi
 
-if [ "$old_stash" != "$new_stash" ]; then
-    echo "restoring dirty files"
-    git stash show
-    git stash pop -q
-fi
+# if [ "$old_stash" != "$new_stash" ]; then
+#     echo "restoring dirty files"
+#     git stash show
+#     git stash pop -q
+# fi
 
 git add -A $SDK/ package.json package-lock.json
 git commit -m "[sdk] deploy $MSG to croquet.studio" || exit
