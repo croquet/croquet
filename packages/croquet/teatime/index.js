@@ -119,8 +119,22 @@ function stepSession(frameTime, controller, view, render="auto") {
  * or hidden behind the overlay (if data is `false`).
  *
  * @event synced
- * @property {String} scope - session id as returned by {@link startSession}
+ * @property {String} scope - session id as returned by {@link startSession} (also [`this.global`]{@link View#global})
  * @property {String} event - `"synced"`
  * @property {Boolean} data - `true` if in sync, `false` if backlogged
+ * @public
+ */
+
+
+ /**
+ * **Published when users join or leave.**
+ *
+ * The local user is [`this.user`]{@link View#user} in the view.
+ *
+ * @event users
+ * @property {String} scope - session id as returned by {@link startSession} (also [`this.global`]{@link Model#global})
+ * @property {String} event - `"users"`
+ * @property {Object} data - `{ joined: [], left: [], active: n, total: n }`
+ *
  * @public
  */

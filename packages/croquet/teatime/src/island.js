@@ -129,6 +129,9 @@ export default class Island {
         this.controller.sendMessage(message);
     }
 
+    // used in Controller.convertReflectorMessage()
+    noop() {}
+
     /** decode msgData and sort it into future queue
      * @param {MessageData} msgData - encoded message
      * @return {Message} decoded message
@@ -268,6 +271,11 @@ export default class Island {
                 if (handlers.size === 0) delete this.subscriptions[topic];
             }
         }
+    }
+
+    // used in Controller.convertReflectorMessage
+    static makeTopic(scope, event) {
+        return scope + ":" + event;
     }
 
     publishFromModel(scope, event, data) {

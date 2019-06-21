@@ -256,6 +256,13 @@ class Model {
         return this.__realm.island.get(name);
     }
 
+    /**
+     * @public
+     */
+    get global() {
+        return this.__realm.island.id;
+    }
+
     [Symbol.toPrimitive]() {
         const className = this.constructor.name;
         if (className.includes('Model')) return className;
