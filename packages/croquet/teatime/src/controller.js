@@ -28,6 +28,7 @@ const DEBUG = {
     ticks: urlOptions.has("debug", "ticks", false),                     // received ticks
     pong: urlOptions.has("debug", "pong", false),                       // received PONGs
     snapshot: urlOptions.has("debug", "snapshot", false),               // snapshotting, uploading etc
+    session: urlOptions.has("debug", "session", false),                 // session logging
     initsnapshot: urlOptions.has("debug", "initsnapshot", "localhost"), // check snapshotting after init
     init: urlOptions.has("debug", "init", "localhost"),                 // always run init() if first user in session
 };
@@ -551,7 +552,7 @@ export default class Controller {
         switch (action) {
             case 'START': {
                 // We are starting a new island session.
-                console.log(this.id, 'Controller received START');
+                if (DEBUG.session) console.log(this.id, 'Controller received START');
                 // we may have a snapshot from hot reload or reconnect
                 let snapshot = this.islandCreator.snapshot;
                 const local = snapshot.modelsById && {
@@ -583,7 +584,7 @@ export default class Controller {
             case 'SYNC': {
                 // We are joining an island session.
                 const {messages, url, time} = args;
-                console.log(this.id, `Controller received SYNC: time ${time}, ${messages.length} messages, ${url}`);
+                if (DEBUG.session) console.log(this.id, `Controller received SYNC: time ${time}, ${messages.length} messages, ${url}`);
                 const snapshot = await this.fetchJSON(url);
                 this.islandCreator.snapshot = snapshot;  // set snapshot
                 if (!this.socket) { console.log(this.id, 'socket went away during SYNC'); return; }
@@ -694,7 +695,7 @@ export default class Controller {
     // network queue
 
     async join(socket) {
-        console.log(this.id, 'Controller sending JOIN');
+        if (DEBUG.session) console.log(this.id, 'Controller sending JOIN');
         this.socket = socket;
         const {name, id} = this.user;
         const args = {
@@ -777,7 +778,7 @@ export default class Controller {
             args.time = Math.max(this.island.time, this.island.externalTime);
             args.seq = this.island.externalSeq;
         }
-        console.log(this.id, 'Controller requesting TICKS', args);
+        if (DEBUG.session) console.log(this.id, 'Controller requesting TICKS', args);
         // args: {time, tick, delay, scale}
         try {
             this.socket.send(JSON.stringify({
@@ -941,8 +942,7 @@ function socketSetup(socket, reflectorUrl) {
     displayStatus('Connecting to ' + socket.url);
     Object.assign(socket, {
         onopen: _event => {
-            if (socket.constructor === WebSocket) displayError('');
-            console.log(socket.constructor.name, "connected to", socket.url);
+            if (DEBUG.session) console.log(socket.constructor.name, "connected to", socket.url);
             Controller.setSocket(socket);
             Stats.connected(true);
             hotreloadEventManger.setTimeout(PING, 0);
@@ -953,7 +953,7 @@ function socketSetup(socket, reflectorUrl) {
         },
         onclose: event => {
             displayError('Connection closed:' + event.code + ' ' + event.reason);
-            console.log(socket.constructor.name, "closed:", event.code, event.reason);
+            if (DEBUG.session) console.log(socket.constructor.name, "closed:", event.code, event.reason);
             Stats.connected(false);
             Controller.leaveAll(true);
             if (event.code !== 1000) {
