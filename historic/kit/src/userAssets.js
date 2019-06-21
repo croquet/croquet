@@ -1526,7 +1526,7 @@ class VideoViewPart extends ViewPart {
             }).catch(err => console.error(err));
 
         this.subscribe(options.model.id, "setPlayState", data => this.setPlayState(data));
-        this.subscribe(this.realm.island.id, { event: "synced", handling: "immediate" }, isSynced => this.handleSyncState(isSynced));
+        this.subscribe(this.clientId, { event: "synced", handling: "immediate" }, isSynced => this.handleSyncState(isSynced));
     }
 
     get label() {
