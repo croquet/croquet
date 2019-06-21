@@ -5,8 +5,6 @@ const TPS = "10x3";             // reflector ticks per sec x local multiplier
 const THROTTLE = 1000 / 20;     // mouse event throttling
 const STEP_MS = 1000 / 30;      // bouncing ball step time in ms
 const SPEED = 10;               // bouncing ball speed in virtual pixels / step
-const ACTIVE_MS = 1000;         // send activity indicator after this (real) time
-const INACTIVE_MS = 5000;       // delete inactive users after this (sim) time
 
 let SCALE = 1;                  // model uses a virtual 1000x1000 space
 let OFFSETX = 50;               // top-left corner of view, plus half shape width
@@ -18,44 +16,30 @@ export class ModelRoot extends Model {
 
     init() {
         super.init();
-        this.children = [];
-        this.subscribe(this.id, "user-is-active", user => this.userIsActive(user));
-        this.grimReaper();
+        this.shapes = {};
+        this.subscribe(this.global, "users", data => this.users(data));
     }
 
     // non-inherited methods below
 
-    add(child) {
-        this.children.push(child);
-        this.publish(this.id, 'child-added', child);
-    }
+    users(users) {
+        if (users.joined.length) console.log("+", users.joined.length, users.joined);
+        if (users.left.length) console.log("-", users.left.length, users.left);
+        console.log("=", users.active);
 
-    remove(child) {
-        const index = this.children.indexOf(child);
-        this.children.splice(index, 1);
-        this.publish(this.id, 'child-removed', child);
-        child.destroy();
-        this.random(); // force random to diverge if we have a sync bug
-    }
-
-    userIsActive(user) {
-        let shape = this.children.find(c => c.user === user);
-        if (!shape) {
-            shape = Shape.create();
-            shape.user = user;
-            this.add(shape);
+        for (const user of users.joined) {
+            if (this.shapes[user.id]) { console.log("shape already exists for user", user.id); continue; }
+            const shape = Shape.create();
+            this.shapes[user.id] = shape;
+            this.publish(this.id, 'shape-added', shape);
+            this.publish(this.id, `user-shape-${user.id}`, shape);
         }
-        shape.active = this.now();
-        this.publish(this.id, `user-shape-${user}`, shape);
-        this.random(); // force random to diverge if we have a sync bug
-    }
-
-    grimReaper() {
-        const deadline = this.now() - INACTIVE_MS;
-        for (const child of this.children) {
-            if (child.active < deadline) this.remove(child);
+        for (const user of users.left) {
+            const shape = this.shapes[user.id];
+            if (!shape) { console.warn("shape not found for user", user.id); continue; }
+            delete this.shapes[user.id];
+            this.publish(this.id, 'shape-removed', shape);
         }
-        this.future(ACTIVE_MS).grimReaper();
     }
 }
 
@@ -131,7 +115,7 @@ export class BouncingShape extends Shape {
 export class Shapes extends ModelRoot {
     init(options) {
         super.init(options);
-        this.add(BouncingShape.create({pos: [500, 500], color: "white"}));
+        this.shapes["bounce"] = BouncingShape.create({pos: [500, 500], color: "white"});
     }
 }
 
@@ -139,7 +123,6 @@ export class Shapes extends ModelRoot {
 ////// Views /////
 
 const TOUCH ='ontouchstart' in document.documentElement;
-const USER = (Math.random()+'').slice(2);
 
 class ShapesView extends View {
 
@@ -152,12 +135,10 @@ class ShapesView extends View {
         if (TOUCH) this.element.ontouchstart = e => e.preventDefault();
         this.resize();
         window.onresize = () => this.resize();
-        model.children.forEach(child => this.attachChild(child));
-        this.subscribe(model.id, 'child-added', child => this.attachChild(child));
-        this.subscribe(model.id, 'child-removed', child => this.detachChild(child));
-        this.subscribe(model.id, `user-shape-${USER}`, shape => this.gotUserShape(shape));
-        this.publish(model.id, 'user-is-active', USER);
-        this.ticker = setInterval(() => this.publish(model.id, 'user-is-active', USER), ACTIVE_MS);
+        Object.values(model.shapes).forEach(shape => this.attachShape(shape));
+        this.subscribe(model.id, 'shape-added', shape => this.attachShape(shape));
+        this.subscribe(model.id, 'shape-removed', shape => this.detachShape(shape));
+        this.subscribe(model.id, `user-shape-${this.user.id}`, shape => this.gotUserShape(shape));
     }
 
     detach() {
@@ -169,14 +150,14 @@ class ShapesView extends View {
 
     // non-inherited methods below
 
-    attachChild(child) {
-        const childView = new ShapeView(child);
-        this.element.appendChild(childView.element);
-        childView.element.view = childView;
+    attachShape(shape) {
+        const shapeView = new ShapeView(shape);
+        this.element.appendChild(shapeView.element);
+        shapeView.element.view = shapeView;
     }
 
-    detachChild(child) {
-        const el = document.getElementById(child.id);
+    detachShape(shape) {
+        const el = document.getElementById(shape.id);
         if (el) el.view.detach();
     }
 
