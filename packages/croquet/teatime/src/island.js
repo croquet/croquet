@@ -273,11 +273,6 @@ export default class Island {
         }
     }
 
-    // used in Controller.convertReflectorMessage
-    static makeTopic(scope, event) {
-        return scope + ":" + event;
-    }
-
     publishFromModel(scope, event, data) {
         if (CurrentIsland !== this) throw Error("Island Error");
         const topic = scope + ":" + event;

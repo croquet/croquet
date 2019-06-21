@@ -533,10 +533,9 @@ export default class Controller {
                     active,
                     total};
                 // create event message
-                const topic = Island.makeTopic(scope, event);
                 receiver = this.id;
-                selector = "handleModelEventInModel";
-                args = [topic, data];
+                selector = "publishFromModel";
+                args = [scope, event, data];
                 break;
             }
             // no default
