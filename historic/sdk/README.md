@@ -83,7 +83,7 @@ The main loop runs each time the window performs an animation update—usually 6
 
 **Note that the code in your model's `init()` routine only runs the first time the application launches.** If another user joins a session that's in progress, they will load the most recent snapshot of model state. The same is true if you quit a session and rejoin it later.
 
-
+**TODO:** mention how session ids are derived from code hashes and url session slugs
 
 ## Advanced Topic: Creating Your Own Main Loop
 
@@ -122,11 +122,11 @@ This is the **most important** rule of creating a stable _Croquet_ application. 
 
 **Access the model through your main view.** Your main view receives a permanent reference to the main model when it is created. This reference can be stored and used to read directly from the model.
 
-**Use the `future()` operator to create ticks.** If you want something to happen regularly in the view, use the future operator to schedule a looping tick. This is just for readability, you're free to use `setTimeout` or `setInterval` etc.
+**Use the `future()` operator to create ticks.** If you want something to happen regularly in the view, use the future operator to schedule a looping tick. This is just for readability, you're free to use `setTimeout` or `setInterval` etc. in view code.
 
 **Don't reply to the model.** Avoid having the model send an event to the view that requires the view to send a "reply" event back. This will result in large cascades of events that will choke off normal execution.
 
-**Anticipate the model for highest performance.** Latency in _Croquet_ is low, but it's not zero. If you want your application to feel extremely responsive (for example, if the player is controlling a first-person avatar) drive the output directly from the input, then correct the output when you get the official simulation state from the updated model.
+**Anticipate the model for immediate feedback.** Latency in _Croquet_ is low, but it's not zero. If you want your application to feel extremely responsive (for example, if the player is controlling a first-person avatar) drive the output directly from the input, then correct the output when you get the official simulation state from the updated model.
 
 # Writing a _Croquet_ Model
 
@@ -244,7 +244,7 @@ Models and Views communicate uing events. They use the same syntax for sending a
 
 ## Scopes
 
-_... mention `model.id`, global scopes ..._
+_TODO: ... mention `model.id`, global scopes (`sessionId`, `clientId`) ..._
 
 ## Event Handling
 
