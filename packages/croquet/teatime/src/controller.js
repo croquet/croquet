@@ -197,7 +197,7 @@ export default class Controller {
      * @returns {Promise<{modelName:Model}>} list of named models (as returned by init function)
      */
     async establishSession(room, creator) {
-        const { optionsFromUrl, multiRoom, session: fixedSession } = creator;
+        const { optionsFromUrl, multiRoom, multiSession, session: fixedSession } = creator;
         const options = {...creator.options};
         for (const key of [...OPTIONS_FROM_URL, ...optionsFromUrl||[]]) {
             if (key in urlOptions) options[key] = urlOptions[key];
@@ -230,7 +230,7 @@ export default class Controller {
             name += '?' + Object.entries(options).map(([k,v])=>`${k}=${v}`).join('&');
         }
         const hash = await hashNameAndCode(name);
-        const id = await this.sessionIDFor(hash);
+        const id = multiSession ? await this.sessionIDFor(hash) : hash;
         console.log(`Session ID for ${name}: ${id}`);
         this.islandCreator = { name, ...creator, options, hash };
         if (!this.islandCreator.snapshot) {
@@ -489,6 +489,7 @@ export default class Controller {
 
     /** Ask reflector for a new session. Everyone will be kicked out and rejoin, including us. */
     requestNewSession() {
+        if (!this.islandCreator.multiSession) { console.warn("ignoring requestNewSession() since not multiSession"); return;  }
         const { hash } = this.islandCreator;
         if (SessionCallbacks[hash]) return;
         SessionCallbacks[hash] = newSession => console.log(this.id, 'new session:', newSession);
