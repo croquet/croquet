@@ -163,9 +163,24 @@ function freezeAndHashConstants() {
  /**
  * **Published when users join or leave.**
  *
- * This is a replicated event.
+ * This is a replicated event, meaning it can be used in the model or the view.
  *
- * ```
+ * Hint: In the view, you can access the local user as [`this.user`]{@link View#user}.
+ *
+ * @example <caption>Logging of users</caption>
+ * class MyModel extends Croquet.Model {
+ *     init() {
+ *         this.subscribe(this.sessionId, "users", data => this.logUsers(data));
+ *     }
+ *
+ *     logUsers(users) {
+ *         if (users.joined.length) console.log("+", users.joined.length, users.joined);
+ *         if (users.left.length) console.log("-", users.left.length, users.left);
+ *         console.log("=", users.active, "/", users.total);
+ *     }
+ * }
+ *
+ * @example <caption>Keeping track of users</caption>
  * class MyModel extends Croquet.Model {
  *     init() {
  *         this.subscribe(this.sessionId, "users", data => this.handleUsers(data));
@@ -174,11 +189,9 @@ function freezeAndHashConstants() {
  *     handleUsers(users) {
  *         if (users.joined.length) console.log("+", users.joined.length, users.joined);
  *         if (users.left.length) console.log("-", users.left.length, users.left);
- *         console.log("=", users.active);
+ *         console.log("=", users.active, "/", users.total);
  *     }
  * }
- * ```
- * This event can be used in the model or the view. In the view, you can access the local user as [`this.user`]{@link View#user}.
  * @event users
  * @property {String} scope - [`this.sessionId`]{@link Model#sessionId}
  * @property {String} event - `"users"`

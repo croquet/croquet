@@ -29,7 +29,7 @@ const SuperInitNotCalled = new WeakSet();
  * ```
  * To __initialize__ an instance, override [init()]{@link Model#init}, for example:
  * ```
- * class FooModel extends Model {
+ * class FooModel extends Croquet.Model {
  *     init(options={}) {
  *         this.answer = options.answer || 42;
  *     }
@@ -52,11 +52,8 @@ class Model {
      * __Create an instance of a Model subclass.__
      *
      * This will call the user-defined [init()]{@link Model#init} method to initialize the instance,
-     * passing the {@link options}. For example:
-     * ```
-     * this.foo = FooModel.create({answer: 123});
-     * ```
-     *
+     * passing the {@link options}.
+     * @example this.foo = FooModel.create({answer: 123});
      * @public
      * @param {Object=} options - option object to be passed to [init()]{@link Model#init}.
      *     There are no system-defined options as of now, you're free to define your own.
@@ -80,15 +77,15 @@ class Model {
     }
 
     /**
-     * __Registers this model subclass with Croquet__, for example:
-     *```
-     * class MyModel extends Model {
+     * __Registers this model subclass with Croquet__
+     *
+     * It is necessary to register all Model subclasses so the serializer can recreate their instances from a snapshot.
+     * Also, the [session id]{@link startSession} is derived by hashing the source code of all registered classes.
+     * @example
+     * class MyModel extends Croquet.Model {
      *   ...
      * }
      * MyModel.register()
-     * ```
-     * It is necessary to register all Model subclasses so the serializer can recreate their instances from a snapshot.
-     *
      * @param {String=} file the file name this class was defined in, to distinguish between same class names in different files
      * @public
      */
@@ -99,17 +96,20 @@ class Model {
 
     /**
      * __Static declaration of how to serialize non-model classes.__
-     * The Croquet snapshot mechanism only knows about {@link Model} subclasses. If you want to store instances of non-model classes in your model, override this method.
      *
-     * To use the default serializer just declare the class, for example:
-     * ```
+     * The Croquet snapshot mechanism only knows about {@link Model} subclasses.
+     * If you want to store instances of non-model classes in your model, override this method.
+     *
+     * __NOTE:__ This is currently the only way to customize serialization (for example to keep snapshots fast and small).
+     * The serialization of Model subclasses can not be customized.
+     *
+     * @example <caption>To use the default serializer just declare the class:</caption>
      * return {
      *     "THREE.Vector3": THREE.Vector3,
      *     "THREE.Quaternion": THREE.Quaternion,
      * };
-     * ```
-     *  To define your own serializer, declare `read()` and `write()` methods, for example:
-     * ```
+     *
+     * @example <caption>To define your own serializer, declare read and write functions:</caption>
      * return {
      *     "THREE.Color": {
      *         cls: THREE.Color,
@@ -117,8 +117,6 @@ class Model {
      *         read: state => new THREE.Color(state) },
      *     }
      * };
-     * ```
-     * This is currently the only way to customize serialization (for example to keep snapshots fast and small). The serialization of Model subclasses can not be customized.
      * @public
      */
     static types() {
