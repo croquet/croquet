@@ -7,8 +7,8 @@
 // will respond to clicks from any client connected to the same session. The current value of the
 // counter is automatically saved to the cloud.
 
-import { Model, View, startSession } from "@croquet/teatime";
-//import { Model, View, startSession } from "../sdk/dist/croquet.min.js";
+// to use latest sdk: cd sdk; npm run watch
+import * as Croquet from "../sdk/dist/croquet.min.js";
 
 //------------------------------------------------------------------------------------------
 // Define our model. MyModel has a tick method that executes once per second. It updates the value
@@ -16,7 +16,7 @@ import { Model, View, startSession } from "@croquet/teatime";
 // If it receives one, it resets its counter and broadcasts the change.
 //------------------------------------------------------------------------------------------
 
-class MyModel extends Model {
+class MyModel extends Croquet.Model {
 
     init() { // Note that models are initialized with "init" instead of "constructor"!
         this.counter = 0;
@@ -30,7 +30,7 @@ class MyModel extends Model {
     }
 
     tick() {
-        this.counter++;
+        this.counter += Q.COUNT;
         this.publish("counter", "update", this.counter);
         this.future(1000).tick();
     }
@@ -46,7 +46,7 @@ MyModel.register();
 // one, it updates the counter on the screen with the current count.
 //------------------------------------------------------------------------------------------
 
-class MyView extends View {
+class MyView extends Croquet.View {
 
     constructor(model) { // The view gets a reference to the model when the session starts.
         super(model);
@@ -72,4 +72,4 @@ class MyView extends View {
 //------------------------------------------------------------------------------------------
 
 const session = { user: 'brian', random: '22222' };
-startSession("hello", MyModel, MyView, {step: "auto", session});
+Croquet.startSession("hello", MyModel, MyView, {step: "auto", session});
