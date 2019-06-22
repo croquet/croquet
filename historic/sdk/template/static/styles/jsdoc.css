@@ -356,6 +356,7 @@ footer {
   display: block;
   background-color: #fdf6e3;
   color: #1b1818;
+  border-radius: 15px;
 }
 
 .prettyprint code {
@@ -443,12 +444,11 @@ thead tr, thead tr {
 
 .params td, .params .name, .props .name, .name code {
    color: #4D4E53;
-   font-family: Consolas, Monaco, 'Andale Mono', monospace;
-   font-size: 100%;
 }
 
 .params td {
-   border-top: 1px solid #eee
+   border-top: 1px solid #eee;
+   font-size: 16px;
 }
 
 .params td.description > p:first-child, .props td.description > p:first-child {
