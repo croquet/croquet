@@ -1,5 +1,6 @@
 import { displaySessionMoniker, displayQRCode } from "@croquet/util/html";
 import Stats from "@croquet/util/stats";
+import { addConstantsHash } from "@croquet/util/modules";
 
 import Model from "./src/model";
 import View from "./src/view";
@@ -11,7 +12,12 @@ export { currentRealm } from "./src/realms";
 //@typedef { import('./src/model').default } Model
 
 /**
- * Start a new Croquet session
+ * **Start a new Croquet session.**
+ *
+ * A [session id]{@link Model#sessionId} is created from the given `name`, the url session slug,
+ * and a hash of all the [registered]{@link Model.register} Model classes and {@link Constants}.
+ * This ensures that only clients running the exact same source code end up in the same session,
+ * which is a prerequisite for perfectly replicated computation.
  * @async
  * @param {String} name - a name for your app
  * @param {Model} ModelRoot - the root Model class for your app
@@ -36,6 +42,7 @@ export { currentRealm } from "./src/realms";
  */
 export async function startSession(name, ModelRoot=Model, ViewRoot=View, options={}) {
     Controller.connectToReflectorIfNeeded();
+    freezeAndHashConstants();
     const controller = new Controller();
     const session = {};
     if (options.step === "auto") {
@@ -110,6 +117,46 @@ function stepSession(frameTime, controller, view, render="auto") {
     }
 }
 
+/**
+ * **User-defined Model Constants**
+ *
+ * To ensure that all users in a session execute the exact same Model code, the [session id]{@link startSession}
+ * is derived by [hashing]{@link Model.register} the source code of Model classes and value of constants.
+ * To hash your own constants, put them into `Croquet.Constants` object.
+ *
+ * **Note:** the Constants object is recursively
+ * [frozen]{@link https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/freeze}
+ * once a session was started, to avoid accidental modification.
+ * @example
+ * const Q = Croquet.Constants;
+ * Q.ANSWER = 42;
+ * Q.POWERLEVEL = 9000;
+ *
+ * class MyModel extends Croquet.Model {
+ *     init() {
+ *          this.answer = Q.ANSWER;
+ *          this.level = Q.POWERLEVEL;
+ *     }
+ * }
+ * @public
+ */
+export const Constants = {};
+
+function deepFreeze(object) {
+    if (Object.isFrozen(object)) return;
+    Object.freeze(object);
+    for (const value of Object.values(object)) {
+        if (value && (typeof value === "object" || typeof value === "function")) {
+            deepFreeze(value);
+        }
+    }
+}
+
+function freezeAndHashConstants() {
+    if (Object.isFrozen(Constants)) return;
+    deepFreeze(Constants);
+    addConstantsHash(Constants);
+}
 
 // putting event documentation here because JSDoc errors when parsing controller.js at the moment
 

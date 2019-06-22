@@ -1,3 +1,4 @@
+import stableStringify from "fast-json-stable-stringify";
 import hotreloadEventManager from "./hotreloadEventManager";
 import urlOptions from "./urlOptions";
 import { getUser } from "./user";
@@ -173,6 +174,11 @@ const extraHashes = [];
 
 export function addClassHash(cls) {
     const source = classSrc(cls).replace(/\s+/gm, ''); // whitespace treatment, as above
+    extraHashes.push(hashString(source));
+}
+
+export function addConstantsHash(constants) {
+    const source = stableStringify(constants);
     extraHashes.push(hashString(source));
 }
 
