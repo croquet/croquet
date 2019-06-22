@@ -28,14 +28,16 @@ production. That's why we must not ascribe any meaning to those IDs.
 
 const entryPointName = "entry";
 const htmlName = "index.html";
+let htmlSource = "";
 
-// grab HTML source now before the DOM gets modified
-const scripts = Array.from(document.getElementsByTagName('script')).map(script => script.outerHTML);
-if (scripts.length > 1) console.warn("More than one script tag!");
-const rawHTML = document.getElementsByTagName('html')[0].outerHTML;
-// replace main script tag (which changes all the time)
-const htmlSource = rawHTML.replace(scripts[0], `<script src="${entryPointName}"></script>`);
-if (!htmlSource.includes(entryPointName)) console.error("Entry point substitution failed!");
+if (process.env.CROQUET_REPLAY) {
+    const scripts = Array.from(document.getElementsByTagName('script')).map(script => script.outerHTML);
+    if (scripts.length > 1) console.warn("More than one script tag!");
+    const rawHTML = document.getElementsByTagName('html')[0].outerHTML;
+    // replace main script tag (which changes all the time)
+    htmlSource = rawHTML.replace(scripts[0], `<script src="${entryPointName}"></script>`);
+    if (!htmlSource.includes(entryPointName)) console.error("Entry point substitution failed!");
+}
 
 export const CROQUET_HOST = window.location.hostname.endsWith("croquet.studio") ? window.location.hostname : "croquet.studio";
 
