@@ -183,13 +183,15 @@ function freezeAndHashConstants() {
  * @example <caption>Keeping track of users</caption>
  * class MyModel extends Croquet.Model {
  *     init() {
- *         this.subscribe(this.sessionId, "users", data => this.handleUsers(data));
+ *         this.users = new Map();
+ *         this.subscribe(this.sessionId, "users", data => this.updateUsers(data));
  *     }
  *
- *     handleUsers(users) {
- *         if (users.joined.length) console.log("+", users.joined.length, users.joined);
- *         if (users.left.length) console.log("-", users.left.length, users.left);
- *         console.log("=", users.active, "/", users.total);
+ *     updateUsers(users) {
+ *         if (users.joined.length === users.active) this.users.clear();
+ *         for (const user of users.joined) this.users.set(user.id, user);
+ *         for (const user of users.left) this.users.delete(user.id);
+ *         console.log(JSON.stringify([...this.users.values()]));
  *     }
  * }
  * @event users
