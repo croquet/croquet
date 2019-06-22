@@ -5,12 +5,21 @@
   "main": "croquet.js",
   "scripts": {
     "start": "parcel watch --no-hmr --public-url . --global Croquet -o croquet.min.js croquet.js",
+    "build": "parcel build --public-url . --global Croquet -o croquet.min.js croquet.js",
+    "buildx": "parcel build --experimental-scope-hoisting --public-url . --global Croquet -o croquet.min.js croquet.js",
     "deploy": "./deploy.sh",
-    "deployx": "parcel build --experimental-scope-hoisting --public-url . --global Croquet -o croquet.min.js croquet.js",
     "build-docs": "jsdoc -c jsdoc.json -d build",
-    "watch": "npm-watch build-docs"
+    "watch": "npm-watch"
   },
   "watch": {
+    "build": {
+      "patterns": [
+        "../teatime",
+        "../util"
+      ],
+      "extensions": "js,json",
+      "quiet": false
+    },
     "build-docs": {
       "patterns": [
         ".",
