@@ -11,6 +11,7 @@ class View {
      */
     constructor(_model) {
         this.realm = currentRealm();
+        /** @public */
         this.id = this.realm.register(this);
     }
 

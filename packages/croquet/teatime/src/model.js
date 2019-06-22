@@ -40,10 +40,6 @@ const SuperInitNotCalled = new WeakSet();
  * After that, when joining a session, the models are deserialized from the snapshot, which
  * restores all properties automatically without calling `init()`.
  *
- * ### Properties
- *
- * `id`: each model has a id (unique within the session) which can be used to scope events
- *
  * @hideconstructor
  * @public
  */
@@ -145,6 +141,11 @@ class Model {
     init(_options) {
         // for reporting errors if user forgot to call super.init()
         SuperInitNotCalled.delete(this);
+        /** each model has an id (unique within the session) which can be used to scope events
+         * @type {String}
+         * @public
+         */
+        this.id = this.id;  // don't know how to otherwise add documentation
     }
 
     /**
@@ -257,6 +258,8 @@ class Model {
     }
 
     /**
+     * the session id is used as "global" scope for events like [`"users"`]{@link event:users}
+     * @type {String}
      * @public
      */
     get sessionId() {
