@@ -165,20 +165,13 @@ function freezeAndHashConstants() {
  *
  * This is a replicated event, meaning it can be used in the model or the view.
  *
- * Hint: In the view, you can access the local user as [`this.user`]{@link View#user}.
+ * **Note:** If you are keeping track of the users in the model, you need to reset them
+ * if the number of joining users equals the number of active users (see example below).
+ * This is because a snapshot might still refer to users that were in the session when the
+ * snapshot was taken (the reflector is stateless, it can only report users joining or leaving).
  *
- * @example <caption>Logging of users</caption>
- * class MyModel extends Croquet.Model {
- *     init() {
- *         this.subscribe(this.sessionId, "users", data => this.logUsers(data));
- *     }
- *
- *     logUsers(users) {
- *         if (users.joined.length) console.log("+", users.joined.length, users.joined);
- *         if (users.left.length) console.log("-", users.left.length, users.left);
- *         console.log("=", users.active, "/", users.total);
- *     }
- * }
+ * Hint: In the view, you can access the local user as [`this.user`]{@link View#user}, and compare
+ * its `id` to the `id` of a user in this event, to associate it with an avatar.
  *
  * @example <caption>Keeping track of users</caption>
  * class MyModel extends Croquet.Model {
@@ -189,8 +182,8 @@ function freezeAndHashConstants() {
  *
  *     updateUsers(users) {
  *         if (users.joined.length === users.active) this.users.clear();
- *         for (const user of users.joined) this.users.set(user.id, user);
- *         for (const user of users.left) this.users.delete(user.id);
+ *         else for (const user of users.left) this.users.delete(user.id);
+ *         for (const user of users.joined) this.users.set(user.id, user.name);
  *         console.log(JSON.stringify([...this.users.values()]));
  *     }
  * }
