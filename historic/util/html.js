@@ -30,25 +30,27 @@ function displayToast(msg, options) {
 
 export function displaySessionMoniker(id='', element='session') {
     const button = document.getElementById(element);
-    if (button && urlOptions.noreset) {
-        button.style.display = "none";
-        return;
-    }
     document.title = document.title.replace(/:.*/, '');
     if (!id) {
         if (button) button.style.backgroundImage = '';
-        return;
+        return '';
     }
     // random page title suffix
-    document.title += ':';
     const random = new SeedRandom(id);
     const letters = ['bcdfghjklmnpqrstvwxyz', 'aeiou'];
-    for (let i = 0; i < 10; i++) document.title += letters[i%2][random.quick() * letters[i%2].length|0];
+    let moniker = '';
+    for (let i = 0; i < 10; i++) moniker += letters[i%2][random.quick() * letters[i%2].length|0];
+    document.title += ':' + moniker;
     // image derived from id
     if (button) {
-        const hash = [0,0,0,0].map(_=>(random.int32()>>>0).toString(16).padStart(8, '0')).join('');
-        button.style.backgroundImage = `url('https://www.gravatar.com/avatar/${hash}?d=identicon&f=y')`;
+        if (button && urlOptions.noreset) {
+            button.style.display = "none";
+        } else {
+            const hash = [0,0,0,0].map(_=>(random.int32()>>>0).toString(16).padStart(8, '0')).join('');
+            button.style.backgroundImage = `url('https://www.gravatar.com/avatar/${hash}?d=identicon&f=y')`;
+        }
     }
+    return moniker;
 }
 
 let qrcode;

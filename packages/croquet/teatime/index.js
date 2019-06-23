@@ -63,7 +63,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
         clear();
         const model = (await controller.establishSession(name, {snapshot, init: spawnModel, destroyerFn: bootModelView, ...options})).modelRoot;
         session.id = controller.id;
-        displaySessionMoniker(controller.id);
+        session.moniker = displaySessionMoniker(controller.id);
         displayQRCode();
         controller.inViewRealm(() => {
             session.view = new ViewRoot(model);
@@ -75,7 +75,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
             session.view.detach();
             session.view = null;
         }
-        displaySessionMoniker('');
+        session.moniker = displaySessionMoniker('');
     }
 
     function spawnModel(opts) {
