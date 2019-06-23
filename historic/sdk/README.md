@@ -138,14 +138,13 @@ Unlike the view, there are limits to what the model can do if it is going to sta
 
 **Use `init` to initialize models.** Do not implement a constructor. Model classes only call `init` when they are instantiated for the first time. Put all initialization code in this method. If you put initialization code in the constructor, it would also run when the model is reloaded from a snapshot.
 
-**No global variables.** All variables in the model must be defined in the main model itself, or in sub-models instantiated by the main model. This way _Croquet_ can find them and save them to the snapshot. Instead, use Croquet.Constants. Croquet.Constants is a properly synced variable and any variable it contains will also be synced.
+**No global variables.** All variables in the model must be defined in the main model itself, or in sub-models instantiated by the main model. This way _Croquet_ can find them and save them to the snapshot. Instead, use Croquet.Constants. The Constants object is recursively frozen once a session has started to avoid accidental modification. Here we assign the variable Q to Croquet.Constants as a shorthand.
 
 ```
-const Q = Object.assign(Croquet.Constants, {
-    BALL_NUM: 25,              // how many balls do we want?
-    STEP_MS: 1000 / 30,       // bouncing ball speed in virtual pixels / step
-    SPEED: 10                 // max speed on a dimension, in units/s
-});
+const Q = Croquet.Constants;
+Q.BALL_NUM = 25;              // how many balls do we want?
+Q.STEP_MS = 1000 / 30;       // bouncing ball speed in virtual pixels / step
+Q.SPEED = 10;                // max speed on a dimension, in units/s
 ```
 
 This lets you use write ```this.future(Q.STEP_MS).step();``` where the STEP_MS value is registered and replicated. Just using STEP_MS will probably work, but there is no guarantee that it will be replicated and cause an accidental desyncing of the system.

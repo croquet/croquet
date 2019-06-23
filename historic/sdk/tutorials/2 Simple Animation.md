@@ -24,14 +24,13 @@ There are three things we will learn here.
 
 Our application uses two Croquet Model subclasses, MyModel and BallModel. The MyModel class is the container for the BallModel class objects.
 
-We must register all of the Croquet model subclasses that we create. Models can not use globals. Instead, you should use the Croquet.Constants value which is guaranteed to be replicated. Here was assign the variable Q to Croquet.Constants as a shorthand.
+We must register all of the Croquet model subclasses that we create. Models can not use globals. Instead, you should use the Croquet.Constants. The Constants object is recursively frozen once a session has started to avoid accidental modification. Here we assign the variable Q to Croquet.Constants as a shorthand.
 
 ```
-const Q = Object.assign(Croquet.Constants, {
-    BALL_NUM: 25,              // how many balls do we want?
-    STEP_MS: 1000 / 30,       // bouncing ball speed in virtual pixels / step
-    SPEED: 10                 // max speed on a dimension, in units/s
-    });
+const Q = Croquet.Constants;
+Q.BALL_NUM = 25;              // how many balls do we want?
+Q.STEP_MS = 1000 / 30;       // bouncing ball speed in virtual pixels / step
+Q.SPEED = 10;                 // max speed on a dimension, in units/s
 ```
 
 MyModel is the root model. It is what creates the BallModel ball objects and it is what we pass into Croquet.startSession. MyModel.children is an array of BallModel objects.
