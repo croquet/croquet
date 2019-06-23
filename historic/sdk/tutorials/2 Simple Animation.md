@@ -1,6 +1,6 @@
 Copyright © 2019 Croquet Studios
 
-This is an example of how you can create multi-user shared animations and interactions. If you click one of the bouncing objects it will stop moving. Click again and it will start bouncing again. This tutorial isn't really that much more complex than the Hello World application. It just has a few more moving parts and really demonstrates how the model is used to compute a simulation and how the view is used to display it and interact with it.
+This tutorial will teach you how to create multi-user shared animations and interactions. If you click one of the bouncing objects it will stop moving. Click again and it will start bouncing again. This tutorial isn't really that much more complex than the Hello World application. It just has a few more moving parts and really demonstrates how the model is used to compute a simulation and how the view is used to display it and interact with it.
 
 <p class="codepen" data-height="477" data-theme-id="37149" data-default-tab="js,result" data-user="croquet" data-slug-hash="NZbgGY" style="height: 477px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border: 2px solid; margin: 1em 0; padding: 1em;" data-pen-title="Simple Animation">
   <span>See the Pen <a href="https://codepen.io/croquet/pen/NZbgGY/">
@@ -17,14 +17,22 @@ There are three things we will learn here.
 
 1. Creating a simulation model.
 2. Creating an interactive view.
-3. Safely communicate between them.
+3. How to safely communicate between them.
 
 
 ## Simple Animation Model
 
 Our application uses two Croquet Model subclasses, MyModel and BallModel. The MyModel class is the container for the BallModel class objects.
 
-We must register all of the Croquet model subclasses that we create.
+We must register all of the Croquet model subclasses that we create. Models can not use globals. Instead, you should use the Croquet.Constants value which is guaranteed to be replicated. Here was assign the variable Q to Croquet.Constants as a shorthand.
+
+```
+const Q = Object.assign(Croquet.Constants, {
+    BALL_NUM: 25,              // how many balls do we want?
+    STEP_MS: 1000 / 30,       // bouncing ball speed in virtual pixels / step
+    SPEED: 10                 // max speed on a dimension, in units/s
+    });
+```
 
 MyModel is the root model. It is what creates the BallModel ball objects and it is what we pass into Croquet.startSession. MyModel.children is an array of BallModel objects.
 
@@ -39,7 +47,7 @@ The BallModel subscribes to the "touch-me" event. This event is published by the
 ```
 BallModel.step() {
     if(this.alive)this.moveBounce();
-    this.future(STEP_MS).step();
+    this.future(Q.STEP_MS).step();
 }
 ```
 
@@ -54,7 +62,16 @@ BallModel.moveBounce() {
     this.moveTo([x + this.speed[0], y + this.speed[1]]);    
 }
 ```
-BallModel.moveBounce is actually quite interesting. It updates the ball object position. But if the ball is found to be out of bounds, it computes a new speed vector which redirects it. This new speed vector is an example of how we use a replicated random - every instance of this world will compute exactly the same random, so when the balls bounce, they all bounce in exactly the same new direction.
+BallModel.moveBounce is actually quite interesting. It updates the ball object position. But if the ball is found to be out of bounds, it computes a new speed vector which redirects it using BallModel.randomSpeed(). 
+
+```
+randomSpeed() {  
+    const r = this.random() * 2 * Math.PI;
+    return [Math.cos(r) * Q.SPEED, Math.sin(r) * Q. SPEED];
+}
+```
+
+This new speed vector is an example of how we use a replicated random - every instance of this world will compute exactly the same random, so when the balls bounce, they all bounce in exactly the same new direction.
 
 ## Simple Animation View
 

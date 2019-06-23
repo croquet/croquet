@@ -138,7 +138,17 @@ Unlike the view, there are limits to what the model can do if it is going to sta
 
 **Use `init` to initialize models.** Do not implement a constructor. Model classes only call `init` when they are instantiated for the first time. Put all initialization code in this method. If you put initialization code in the constructor, it would also run when the model is reloaded from a snapshot.
 
-**No global variables.** All variables in the model must be defined in the main model itself, or in sub-models instantiated by the main model. This way _Croquet_ can find them and save them to the snapshot.
+**No global variables.** All variables in the model must be defined in the main model itself, or in sub-models instantiated by the main model. This way _Croquet_ can find them and save them to the snapshot. Instead, use Croquet.Constants. Croquet.Constants is a properly synced variable and any variable it contains will also be synced.
+
+```
+const Q = Object.assign(Croquet.Constants, {
+    BALL_NUM: 25,              // how many balls do we want?
+    STEP_MS: 1000 / 30,       // bouncing ball speed in virtual pixels / step
+    SPEED: 10                 // max speed on a dimension, in units/s
+});
+```
+
+This lets you use write ```this.future(Q.STEP_MS).step();``` where the STEP_MS value is registered and replicated. Just using STEP_MS will probably work, but there is no guarantee that it will be replicated and cause an accidental desyncing of the system.
 
 **No regular classes.** All objects in the model must be derived from the Model base class. (Mostly. See below for more information.)
 
@@ -218,7 +228,7 @@ this.future(500).destroy();
 
 # Events
 
-Models and Views communicate uing events. They use the same syntax for sending and receiving events. These functions are only available to classes that are derived from {@link Model} or {@link View}, so exposing them is one reason to define sub-models and sub-views.
+Models and Views communicate using events. They use the same syntax for sending and receiving events. These functions are only available to classes that are derived from {@link Model} or {@link View}, so exposing them is one reason to define sub-models and sub-views.
 
 - `publish(scope, event, data)`
 - `subscribe(scope, event, handler)`
