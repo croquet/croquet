@@ -18,26 +18,61 @@ export { currentRealm } from "./src/realms";
  * and a hash of all the [registered]{@link Model.register} Model classes and {@link Constants}.
  * This ensures that only clients running the exact same source code end up in the same session,
  * which is a prerequisite for perfectly replicated computation.
+ *
+ * The session id is used to connect to a reflector. If there is no ongoing session and no persistent snapshot,
+ * an instance of `ModelRoot` is [created]{@link Model.create}. Otherwise, the previously stored
+ * [modelRoot]{@link Model#beWellKnownAs} is deserialized from a snapshot.
+ *
+ * That model instance is passed to the [constructor]{@link View} of your ViewRoot class.
+ * The view root should set up the input and output operations of your application.
+ *
+ * Then the Croquet **main loop** is started (unless you pass in a `step: "manual"` option).
+ * This uses [requestAnimationFrame()]{@link https://developer.mozilla.org/en-US/docs/Web/API/window/requestAnimationFrame}
+ * for continuous updating. Each step of the main loop executes in three phases:
+ *
+ * 1. _Simulation:_ the models execute the events received via the reflector,
+ *    and the [future messages]{@link Model#future} up to the latest time stamp received from the reflector.
+ *    The [events]{@link Model#publish} generated in this phase are put in a queue for the views to consume.
+ * 2. _Updating:_ the queued events are processed by calling the view's [event handlers]{@link View#subscribe}.
+ *    The views typically use these events to modify some view state, e.g. moving a DOM element or setting some
+ *    attribute of a ThreeJS object.
+ * 3. _Rendering:_ The view root's [render()]{@link View#render} method is called after all the queued events have been processed.
+ *    In some applications, the render method will do nothing (e.g. DOM elements are rendered after returning control to the browser).
+ *    In other UI frameworks (e.g. ThreeJS), this is the place to perform the actual rendering.
+ *
+ * The return value is a Promise. Most applications do not need the returned values,
+ * so there is no need to wait for the function's completion.
+ *
+ * #### Options
+ * | option        | values        | Description
+ * | ------------- |-------------  | -----------
+ * | `step:`       | `"auto"`      | automatic stepping via [requestAnimationFrame()]{@link https://developer.mozilla.org/en-US/docs/Web/API/window/requestAnimationFrame} (this is the default)
+ * |               | `"app"`       | application-defined main loop will call the session's `step()` function
+ * | `render:`     | `"auto"`      | call `render()` only if there where events processed in the update phase (this is the default)
+ * |               | `"always"`    | call `render()` in every step, independent of events
+ * |               | `"never"`     | disable calling `render()` altogether
+ *
+ *
  * @async
  * @param {String} name - a name for your app
  * @param {Model} ModelRoot - the root Model class for your app
  * @param {View} ViewRoot - the root View class for your app
- * @param {Object?} options - (optional)<br>
- *      `step:` `"auto"` or `"manual"`,<br>
+ * @param {Object=} options -
+ *      `step:` `"auto"` or `"app"`,<br>
  *      `render:` `"auto"` or `"always"` or `"never"`,<br>
  * @returns {Promise} Promise that resolves to an object describing the session:
  * ```
  * {
  *     id,           // the session id
  *     view,         // the ViewRoot instance
- *     step(time),   // function for "manual" stepping
+ *     step(time),   // function for "app" stepping
  * }
  * ```
  *
  *   where
  *  - `view` is an instance of the `ViewRoot` class
- *  - `step(time)` is a function you need to call in each frame, passing in the time in milliseconds,
- *     e.g. from `window.requestAnimationFrame(time)`
+ *  - `step(time)` is a function you need to call in each frame if you disabled automatic stepping.
+ *     Pass in the time in milliseconds, e.g. from `window.requestAnimationFrame(time)`
  * @public
  */
 export async function startSession(name, ModelRoot=Model, ViewRoot=View, options={}) {
@@ -184,7 +219,7 @@ function freezeAndHashConstants() {
  *         if (users.joined.length === users.active) this.users.clear();
  *         else for (const user of users.left) this.users.delete(user.id);
  *         for (const user of users.joined) this.users.set(user.id, user.name);
- *         console.log(JSON.stringify([...this.users.values()]));
+ *         console.log(JSON.stringify([...this.users]));
  *     }
  * }
  * @event users

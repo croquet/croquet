@@ -237,8 +237,12 @@ class Model {
     }
 
     /**
+     * Make this model globally accessible under the given name.
+     * It can be retrieved from any other model in the same session using [wellKnownModel()]{@link Model#wellKnownModel}.
      *
-     * @param {String} name
+     * Note: The instance of your root Model class is being made well-known as `"modelRoot"`
+     * and passed to the [constructor]{@link View} of your root View during {@link startSession}.
+     * @param {String} name - a name for the model
      * @public
      */
     beWellKnownAs(name) {
@@ -246,9 +250,10 @@ class Model {
     }
 
     /**
+     * Access a model that was registered previously using  [beWellKnownAs()]{@link Model#beWellKnownAs}.
      *
-     * @param {String} name
-     * @returns {Model}
+     * @param {String} name - the name given in [beWellKnownAs()]{@link Model#beWellKnownAs}
+     * @returns {Model} the model if found, or `undefined`
      * @public
      */
     wellKnownModel(name) {
