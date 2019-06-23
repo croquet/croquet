@@ -663,6 +663,7 @@ server.on('connection', (client, req) => {
     client.on('close', () => {
         LOG(`closing connection from ${client.addr}`);
         for (const island of ALL_ISLANDS.values()) {
+            if (!island.clients.has(client)) continue;
             island.clients.delete(client);
             if (island.providers) island.providers.delete(client);  // only in v0
             if (island.clients.size === 0) deleteIsland(island);
