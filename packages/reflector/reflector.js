@@ -341,7 +341,6 @@ function JOIN1(client, id, args) {
         const msg = JSON.stringify({id, action: 'START'});
         client.safeSend(msg);
         LOG('sending', client.addr, msg);
-        userDidJoin(island, client);
         // if the client does not provide a snapshot in time, we need to start over
         island.startTimeout = setTimeout(() => {
             island.startTimeout = null;
@@ -431,6 +430,8 @@ function SNAP(client, id, args) {
         }
         return;
     }
+    // send USERS to first client
+    if (!island.snapshotUrl) userDidJoin(island, client);
     // keep snapshot
     island.snapshotTime = time;
     island.snapshotUrl = url;
