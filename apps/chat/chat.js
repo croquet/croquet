@@ -101,6 +101,7 @@ class ChatView extends View {
     refreshHistory() {
         const textOut = document.getElementById("textOut");
         textOut.innerHTML = this.model.history;
+        textOut.scrollTop = textOut.scrollHeight - textOut.clientHeight;
     }
 
     randomName() {
