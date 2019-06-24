@@ -6,10 +6,6 @@ const THROTTLE = 1000 / 20;     // mouse event throttling
 const STEP_MS = 1000 / 30;      // bouncing ball step time in ms
 const SPEED = 10;               // bouncing ball speed in virtual pixels / step
 
-let SCALE = 1;                  // model uses a virtual 1000x1000 space
-let OFFSETX = 50;               // top-left corner of view, plus half shape width
-let OFFSETY = 50;               // top-left corner of view, plus half shape height
-
 ////// Models /////
 
 export class ModelRoot extends Model {
@@ -17,29 +13,25 @@ export class ModelRoot extends Model {
     init() {
         super.init();
         this.shapes = {};
-        this.subscribe(this.global, "users", data => this.users(data));
+        this.subscribe(this.sessionId, "user-enter", userId => this.addUser(userId));
+        this.subscribe(this.sessionId, "user-exit", userId => this.removeUser(userId));
     }
 
     // non-inherited methods below
 
-    users(users) {
-        if (users.joined.length) console.log("+", users.joined.length, users.joined);
-        if (users.left.length) console.log("-", users.left.length, users.left);
-        console.log("=", users.active);
+    addUser(id) {
+        if (this.shapes[id]) { console.warn("shape already exists for joining user", id); return; }
+        const shape = Shape.create();
+        this.shapes[id] = shape;
+        this.publish(this.id, 'shape-added', shape);
+        this.publish(this.id, `user-shape-${id}`, shape);
+    }
 
-        for (const user of users.joined) {
-            if (this.shapes[user.id]) { console.log("shape already exists for user", user.id); continue; }
-            const shape = Shape.create();
-            this.shapes[user.id] = shape;
-            this.publish(this.id, 'shape-added', shape);
-            this.publish(this.id, `user-shape-${user.id}`, shape);
-        }
-        for (const user of users.left) {
-            const shape = this.shapes[user.id];
-            if (!shape) { console.warn("shape not found for user", user.id); continue; }
-            delete this.shapes[user.id];
-            this.publish(this.id, 'shape-removed', shape);
-        }
+    removeUser(id) {
+        const shape = this.shapes[id];
+        if (!shape) { console.warn("shape not found for leaving user", id); return; }
+        delete this.shapes[id];
+        this.publish(this.id, 'shape-removed', shape);
     }
 }
 
@@ -121,6 +113,10 @@ export class Shapes extends ModelRoot {
 
 
 ////// Views /////
+
+let SCALE = 1;                  // model uses a virtual 1000x1000 space
+let OFFSETX = 50;               // top-left corner of view, plus half shape width
+let OFFSETY = 50;               // top-left corner of view, plus half shape height
 
 const TOUCH ='ontouchstart' in document.documentElement;
 

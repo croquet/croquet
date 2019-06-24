@@ -1,5 +1,6 @@
 import { displaySessionMoniker, displayQRCode } from "@croquet/util/html";
 import Stats from "@croquet/util/stats";
+import { addConstantsHash } from "@croquet/util/modules";
 
 import Model from "./src/model";
 import View from "./src/view";
@@ -11,31 +12,72 @@ export { currentRealm } from "./src/realms";
 //@typedef { import('./src/model').default } Model
 
 /**
- * Start a new Croquet session
+ * **Start a new Croquet session.**
+ *
+ * A [session id]{@link Model#sessionId} is created from the given `name`, the url session slug,
+ * and a hash of all the [registered]{@link Model.register} Model classes and {@link Constants}.
+ * This ensures that only clients running the exact same source code end up in the same session,
+ * which is a prerequisite for perfectly replicated computation.
+ *
+ * The session id is used to connect to a reflector. If there is no ongoing session and no persistent snapshot,
+ * an instance of `ModelRoot` is [created]{@link Model.create}. Otherwise, the previously stored
+ * [modelRoot]{@link Model#beWellKnownAs} is deserialized from a snapshot.
+ *
+ * That model instance is passed to the [constructor]{@link View} of your ViewRoot class.
+ * The view root should set up the input and output operations of your application.
+ *
+ * Then the Croquet **main loop** is started (unless you pass in a `step: "manual"` option).
+ * This uses [requestAnimationFrame()]{@link https://developer.mozilla.org/en-US/docs/Web/API/window/requestAnimationFrame}
+ * for continuous updating. Each step of the main loop executes in three phases:
+ *
+ * 1. _Simulation:_ the models execute the events received via the reflector,
+ *    and the [future messages]{@link Model#future} up to the latest time stamp received from the reflector.
+ *    The [events]{@link Model#publish} generated in this phase are put in a queue for the views to consume.
+ * 2. _Updating:_ the queued events are processed by calling the view's [event handlers]{@link View#subscribe}.
+ *    The views typically use these events to modify some view state, e.g. moving a DOM element or setting some
+ *    attribute of a ThreeJS object.
+ * 3. _Rendering:_ The view root's [render()]{@link View#render} method is called after all the queued events have been processed.
+ *    In some applications, the render method will do nothing (e.g. DOM elements are rendered after returning control to the browser).
+ *    In other UI frameworks (e.g. ThreeJS), this is the place to perform the actual rendering.
+ *
+ * The return value is a Promise. Most applications do not need the returned values,
+ * so there is no need to wait for the function's completion.
+ *
+ * #### Options
+ * | option        | values        | Description
+ * | ------------- |-------------  | -----------
+ * | `step:`       | `"auto"`      | automatic stepping via [requestAnimationFrame()]{@link https://developer.mozilla.org/en-US/docs/Web/API/window/requestAnimationFrame} (this is the default)
+ * |               | `"app"`       | application-defined main loop will call the session's `step()` function
+ * | `render:`     | `"auto"`      | call `render()` only if there where events processed in the update phase (this is the default)
+ * |               | `"always"`    | call `render()` in every step, independent of events
+ * |               | `"never"`     | disable calling `render()` altogether
+ *
+ *
  * @async
  * @param {String} name - a name for your app
  * @param {Model} ModelRoot - the root Model class for your app
  * @param {View} ViewRoot - the root View class for your app
- * @param {Object?} options - (optional)<br>
- *      `step:` `"auto"` or `"manual"`,<br>
+ * @param {Object=} options -
+ *      `step:` `"auto"` or `"app"`,<br>
  *      `render:` `"auto"` or `"always"` or `"never"`,<br>
  * @returns {Promise} Promise that resolves to an object describing the session:
  * ```
  * {
  *     id,           // the session id
  *     view,         // the ViewRoot instance
- *     step(time),   // function for "manual" stepping
+ *     step(time),   // function for "app" stepping
  * }
  * ```
  *
  *   where
  *  - `view` is an instance of the `ViewRoot` class
- *  - `step(time)` is a function you need to call in each frame, passing in the time in milliseconds,
- *     e.g. from `window.requestAnimationFrame(time)`
+ *  - `step(time)` is a function you need to call in each frame if you disabled automatic stepping.
+ *     Pass in the time in milliseconds, e.g. from `window.requestAnimationFrame(time)`
  * @public
  */
 export async function startSession(name, ModelRoot=Model, ViewRoot=View, options={}) {
     Controller.connectToReflectorIfNeeded();
+    freezeAndHashConstants();
     const controller = new Controller();
     const session = {};
     if (options.step === "auto") {
@@ -56,7 +98,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
         clear();
         const model = (await controller.establishSession(name, {snapshot, init: spawnModel, destroyerFn: bootModelView, ...options})).modelRoot;
         session.id = controller.id;
-        displaySessionMoniker(controller.id);
+        session.moniker = displaySessionMoniker(controller.id);
         displayQRCode();
         controller.inViewRealm(() => {
             session.view = new ViewRoot(model);
@@ -68,7 +110,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
             session.view.detach();
             session.view = null;
         }
-        displaySessionMoniker('');
+        session.moniker = displaySessionMoniker('');
     }
 
     function spawnModel(opts) {
@@ -110,31 +152,117 @@ function stepSession(frameTime, controller, view, render="auto") {
     }
 }
 
+/**
+ * **User-defined Model Constants**
+ *
+ * To ensure that all users in a session execute the exact same Model code, the [session id]{@link startSession}
+ * is derived by [hashing]{@link Model.register} the source code of Model classes and value of constants.
+ * To hash your own constants, put them into `Croquet.Constants` object.
+ *
+ * **Note:** the Constants object is recursively
+ * [frozen]{@link https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/freeze}
+ * once a session was started, to avoid accidental modification.
+ * @example
+ * const Q = Croquet.Constants;
+ * Q.ANSWER = 42;
+ * Q.POWERLEVEL = 9000;
+ *
+ * class MyModel extends Croquet.Model {
+ *     init() {
+ *          this.answer = Q.ANSWER;
+ *          this.level = Q.POWERLEVEL;
+ *     }
+ * }
+ * @public
+ */
+export const Constants = {};
+
+function deepFreeze(object) {
+    if (Object.isFrozen(object)) return;
+    Object.freeze(object);
+    for (const value of Object.values(object)) {
+        if (value && (typeof value === "object" || typeof value === "function")) {
+            deepFreeze(value);
+        }
+    }
+}
+
+function freezeAndHashConstants() {
+    if (Object.isFrozen(Constants)) return;
+    deepFreeze(Constants);
+    addConstantsHash(Constants);
+}
+
 // putting event documentation here because JSDoc errors when parsing controller.js at the moment
 
- /**
- * **Published when the session backlog crosses a threshold.** (see {@link View#externalNow} for backlog)
+/**
+ * **Published when a user joins the session.**
  *
- * If this is the main session, also indicates that the scene was revealed (if data is `true`)
- * or hidden behind the overlay (if data is `false`).
+ * This is a replicated event, meaning both models and views can subscribe to it.
  *
- * @event synced
- * @property {String} scope - session id as returned by {@link startSession} (also [`this.global`]{@link View#global})
- * @property {String} event - `"synced"`
- * @property {Boolean} data - `true` if in sync, `false` if backlogged
+ * **Note:** Each `"user-enter"` event is guaranteed to be followed by a [`"user-exit"`]{@link event:user-exit}
+ * event when that user leaves the session, or when the session is started from a snapshot.
+ *
+ * Hint: In the view, you can access the local user as [`this.user`]{@link View#user}, and compare
+ * its `id` to the `id` in this event, to associate it with an avatar.
+ *
+ * @example
+ * class MyModel extends Croquet.Model {
+ *     init() {
+ *         this.userData = {};
+ *         this.subscribe(this.sessionId, "user-enter", userId => this.addUser(userId));
+ *         this.subscribe(this.sessionId, "user-exit", userId => this.deleteUser(userId));
+ *     }
+ *
+ *     addUser(id) {
+ *         this.userData[id] = { start: this.now() };
+ *         console.log(`user ${id} came in`);
+ *     }
+ *
+ *     deleteUser(id) {
+ *         const time = this.now() - this.userData[id].start;
+ *         console.log(`user ${id} left after ${time / 1000} seconds`);
+ *         delete this.userData[id];
+ *     }
+ * }
+ * @event user-enter
+ * @property {String} scope - [`this.sessionId`]{@link Model#sessionId}
+ * @property {String} event - `"user-enter"`
+ * @property {String} userId - the user's id
  * @public
  */
 
+/**
+ * **Published when a user leaves the session.**
+ *
+ * This is a replicated event, meaning both models and views can subscribe to it.
+ *
+ * **Note:** when starting a new session from a snapshot, `"user-exit"` events will be
+ * generated for all of the previous users before the first [`"user-enter"`]{@link event:user-enter}
+ * event of the new session.
+ *
+ * #### Example
+ * See [`"user-enter"`]{@link event:user-enter} event
+ * @event user-exit
+ * @property {String} scope - [`this.sessionId`]{@link Model#sessionId}
+ * @property {String} event - `"user-exit"`
+ * @property {String} userId - the user's id
+ * @public
+ */
 
- /**
- * **Published when users join or leave.**
+/**
+ * **Published when the session backlog crosses a threshold.** (see {@link View#externalNow} for backlog)
  *
- * The local user is [`this.user`]{@link View#user} in the view.
+ * This is a non-replicated view-only event.
  *
- * @event users
- * @property {String} scope - session id as returned by {@link startSession} (also [`this.global`]{@link Model#global})
- * @property {String} event - `"users"`
- * @property {Object} data - `{ joined: [], left: [], active: n, total: n }`
- *
+ * If this is the main session, it also indicates that the scene was revealed (if data is `true`)
+ * or hidden behind the overlay (if data is `false`).
+ * ```
+ * this.subscribe(this.clientId, "synced", data => this.handleSynced(data));
+ * ```
+ * @event synced
+ * @property {String} scope - [`this.clientId`]{@link View#clientId}
+ * @property {String} event - `"synced"`
+ * @property {Boolean} data - `true` if in sync, `false` if backlogged
  * @public
  */

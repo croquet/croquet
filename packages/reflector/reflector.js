@@ -341,7 +341,6 @@ function JOIN1(client, id, args) {
         const msg = JSON.stringify({id, action: 'START'});
         client.safeSend(msg);
         LOG('sending', client.addr, msg);
-        userDidJoin(island, client.user);
         // if the client does not provide a snapshot in time, we need to start over
         island.startTimeout = setTimeout(() => {
             island.startTimeout = null;
@@ -363,7 +362,7 @@ function SYNC1(island) {
         if (syncClient.readyState === WebSocket.OPEN) {
             syncClient.safeSend(response);
             LOG(`sending ${syncClient.addr} SYNC ${response.length} bytes, ${messages.length} messages${range}, snapshot: ${url}`);
-            userDidJoin(island, syncClient.user);
+            userDidJoin(island, syncClient);
         } else {
             LOG('cannot send SYNC to', syncClient.addr);
         }
@@ -382,17 +381,19 @@ function LEAVING(client, id) {
     if (!island) return;
     island.clients.delete(client);
     if (island.clients.size === 0) deleteIsland(island);
-    else userDidLeave(island, client.user);
+    else userDidLeave(island, client);
 }
 
-function userDidJoin(island, user) {
-    if (!user) return;
-    island.usersJoined.push(user);
+function userDidJoin(island, client) {
+    if (!client.user) return;
+    client.active = true;
+    island.usersJoined.push(client.user);
 }
 
-function userDidLeave(island, user) {
-    if (!user) return;
-    island.usersLeft.push(user);
+function userDidLeave(island, client) {
+    if (!client.user) return;
+    client.active = false;
+    island.usersLeft.push(client.user);
 }
 
 /** answer true if seqB comes after seqA */
@@ -505,11 +506,11 @@ function DELAYED_SEND(island) {
 */
 function USERS(island) {
     const {id, clients, usersJoined, usersLeft} = island;
-    const active = clients.size;
-    const total = server.clients.size;
+    const active = [...clients].filter(each => each.active).length;
+    const total = clients.size;
     const payload = { what: 'users', active, total };
-    if (usersJoined.length > 0) payload.joined = usersJoined;
-    if (usersLeft.length > 0) payload.left = usersLeft;
+    if (usersJoined.length > 0) payload.joined = [...usersJoined];
+    if (usersLeft.length > 0) payload.left = [...usersLeft];
     const msg = [0, 0, payload];
     SEND(null, id, [msg]);
     LOG(`${island}: ${clients.size} users (total ${ALL_ISLANDS.size} islands, ${server.clients.size} users)`);
@@ -555,6 +556,9 @@ function TICKS(client, id, args) {
         island.time = typeof time === "number" ? Math.ceil(time) : 0;
         island.seq = typeof seq === "number" ? seq : 0xFFFFFFF0;    // v0 clients expect this value
         if (delay > 0) island.delay = delay;
+        // now that we know time & seq, send USERS to first client
+        userDidJoin(island, client);
+        USERS(island);
     }
     if (scale > 0) island.scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale));
     if (tick > 0) startTicker(island, tick);
@@ -660,10 +664,11 @@ server.on('connection', (client, req) => {
     client.on('close', () => {
         LOG(`closing connection from ${client.addr}`);
         for (const island of ALL_ISLANDS.values()) {
+            if (!island.clients.has(client)) continue;
             island.clients.delete(client);
             if (island.providers) island.providers.delete(client);  // only in v0
             if (island.clients.size === 0) deleteIsland(island);
-            else userDidLeave(island, client.user);
+            else userDidLeave(island, client);
         }
     });
 });

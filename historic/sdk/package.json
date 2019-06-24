@@ -1,16 +1,25 @@
 {
   "name": "croquet",
-  "version": "0.0.4",
+  "version": "0.0.6",
   "description": "",
   "main": "croquet.js",
   "scripts": {
-    "start": "parcel watch --no-hmr --public-url . --global Croquet -o croquet.min.js croquet.js",
-    "deploy": "./deploy.sh",
-    "deployx": "parcel build --experimental-scope-hoisting --public-url . --global Croquet -o croquet.min.js croquet.js",
+    "start": "npm-watch",
+    "build-lib": "parcel build --public-url . --global Croquet -o croquet.min.js croquet.js",
     "build-docs": "jsdoc -c jsdoc.json -d build",
-    "watch": "npm-watch build-docs"
+    "buildx": "parcel build --experimental-scope-hoisting --public-url . --global Croquet -o croquet.min.js croquet.js",
+    "deploy": "./deploy.sh",
+    "watch": "npm-watch"
   },
   "watch": {
+    "build-lib": {
+      "patterns": [
+        "../teatime",
+        "../util"
+      ],
+      "extensions": "js,json",
+      "quiet": false
+    },
     "build-docs": {
       "patterns": [
         ".",

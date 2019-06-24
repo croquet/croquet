@@ -50,6 +50,8 @@ export default class Island {
                 this.messages = new PriorityQueue((a, b) => a.before(b));
                 /** @type {{"scope:event": Array<String>}} model subscriptions */
                 this.subscriptions = {};
+                /** @type {{"id": "name"}} active users */
+                this.users = {};
                 /** @type {SeedRandom} our synced pseudo random stream */
                 this._random = () => { throw Error("You must not use random when applying state!"); };
                 /** @type {String} island ID */
@@ -81,6 +83,7 @@ export default class Island {
                     this._random = new SeedRandom(null, { state: true });
                     const namedModels = initFn(this) || {};
                     Object.assign(this.modelsByName, namedModels);
+                    this.addSubscription(this.id, "__users__", this.id, "trackUsers");
                 }
             });
         });
@@ -129,6 +132,23 @@ export default class Island {
 
     // used in Controller.convertReflectorMessage()
     noop() {}
+
+    trackUsers({entered, exited, count}) {
+        if (entered.length === count) exited = Object.keys(this.users);
+        else exited = exited.map(each => each[1]); // get id
+        for (const id of exited) {
+            if (this.users[id]) {
+                delete this.users[id];
+                this.publishFromModel(this.id, "user-exit", id);
+            }
+        }
+        for (const [name, id] of entered) {
+            if (!this.users[id]) {
+                this.users[id] = name;
+                this.publishFromModel(this.id, "user-enter", id);
+            }
+        }
+    }
 
     /** decode msgData and sort it into future queue
      * @param {MessageData} msgData - encoded message
@@ -269,11 +289,6 @@ export default class Island {
                 if (handlers.size === 0) delete this.subscriptions[topic];
             }
         }
-    }
-
-    // used in Controller.convertReflectorMessage
-    static makeTopic(scope, event) {
-        return scope + ":" + event;
     }
 
     publishFromModel(scope, event, data) {
