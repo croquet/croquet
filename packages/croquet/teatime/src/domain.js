@@ -90,13 +90,16 @@ export class Domain {
         }
     }
 
-    /** Process all queued and oncePerFrame events that were generated since the last invocation */
+    /** Process all queued and oncePerFrame events that were generated since the last invocation
+     * @returns {Number} number of processed events
+     */
     processFrameEvents() {
+        let n = 0;
         // process queued events in order
         for (const {topic, data} of this.frameEventQueue) {
             const subscriptions = this.subscriptions[topic];
             if (subscriptions) {
-                for (const handler of subscriptions.queued) handler(data);
+                for (const handler of subscriptions.queued) { handler(data); n++; }
             }
         }
         this.frameEventQueue.length = 0;
@@ -104,10 +107,11 @@ export class Domain {
         for (const [topic, data] of this.frameEventMap) {
             const subscriptions = this.subscriptions[topic];
             if (subscriptions) {
-                for (const handler of subscriptions.oncePerFrame) handler(data);
+                for (const handler of subscriptions.oncePerFrame) { handler(data); n++; }
             }
         }
         this.frameEventMap.clear();
+        return n;
     }
 
 }

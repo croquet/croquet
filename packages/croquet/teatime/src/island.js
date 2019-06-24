@@ -336,7 +336,7 @@ export default class Island {
 
     processModelViewEvents() {
         if (CurrentIsland) throw Error("Island Error");
-        inViewRealm(this, () => viewDomain.processFrameEvents());
+        return inViewRealm(this, () => viewDomain.processFrameEvents());
     }
 
     scheduledSnapshot() {

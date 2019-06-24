@@ -829,11 +829,14 @@ export default class Controller {
         return inViewRealm(this.island, () => fn(this.island));
     }
 
-    /** call this from main loop to process queued model=>view events */
+    /** call this from main loop to process queued model=>view events
+     * @returns {Number} number of processed events
+     */
     processModelViewEvents() {
         if (this.island) {
-            this.island.processModelViewEvents();
+            return this.island.processModelViewEvents();
         }
+        return 0;
     }
 
     /** Got the official time from reflector server, or local multiplier */

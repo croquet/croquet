@@ -90,7 +90,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
         window.requestAnimationFrame(step);
     } else {
         // app-controlled stepping
-        session.step = frameTime => stepSession(frameTime, controller);
+        session.step = frameTime => stepSession(frameTime, controller, session.view, options.render);
     }
     await bootModelView();
     return session;
