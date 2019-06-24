@@ -33,7 +33,7 @@ function Counter() {
     const model = useModelRoot();
 
     const {count} = useObservable(model);
-    const publishReset = usePublish(publish => publish("counter", "reset"), []);
+    const publishReset = usePublish(() => ["counter", "reset"], []);
 
     return <div onClick={publishReset} style={{margin: "1em", fontSize: "3em", cursor: "pointer"}}>
         {count}

@@ -1,7 +1,7 @@
 import ReactDom from 'react-dom';
-import React, {useCallback, useEffect} from 'react';
+import React, {useEffect} from 'react';
 import {ObservableModel} from 'croquet';
-import {useUser, useModelRoot, useObservable, InCroquetSession} from 'croquet-react';
+import {useUser, usePublish, useModelRoot, useObservable, InCroquetSession} from 'croquet-react';
 
 // MODEL
 
@@ -28,6 +28,8 @@ class PongModel extends ObservableModel(INITIAL_STATE) {
         this.future(TICK_LENGTH).tick();
         this.subscribe(this.sessionId, "user-enter", userId => this.userEnter(userId));
         this.subscribe(this.sessionId, "user-exit", userId => this.userExit(userId));
+        this.subscribe("playerName", "set", data => this.setPlayerName(data));
+        this.subscribe("paddle", "move", data => this.movePaddle(data));
     }
 
     userEnter(enteringUserId) {
@@ -42,11 +44,11 @@ class PongModel extends ObservableModel(INITIAL_STATE) {
         delete this.playerNames[exitingUserId];
     }
 
-    setPlayerName(playerId, name) {
+    setPlayerName({playerId, name}) {
         this.playerNames[playerId] = name;
     }
 
-    setPaddlePos(newY, playerId) {
+    movePaddle({newY, playerId}) {
         if (this.leftPlayerId && playerId === this.leftPlayerId) {
             this.leftPaddleVelY = newY - this.leftPaddleY;
             this.leftPaddleY = newY;
@@ -111,20 +113,21 @@ function PlayingField() {
     const model = useModelRoot();
     const user = useUser();
 
-    useEffect(() => model.future().setPlayerName(user.id, user.name), []); // set our player name once
-
     const {
         leftPaddleY, rightPaddleY, ballX, ballY,
         leftPoints, rightPoints, leftPlayerId, rightPlayerId, playerNames,
     } = useObservable(model);
 
-    const setPaddlePos = useCallback(posFraction => {
+    const publishPlayerName = usePublish((playerId, name) => ["playerName", "set", {playerId, name}]);
+    useEffect(() => publishPlayerName(user.id, user.name), []); // set our player name once
+
+    const publishMovePaddle = usePublish((posFraction) => {
         if (user.id === leftPlayerId || (user.id === rightPlayerId)) {
-            model.future().setPaddlePos(posFraction * FIELD_HEIGHT, user.id);
+            return ["paddle", "move", {newY: posFraction * FIELD_HEIGHT, playerId: user.id}];
         }
     }, [leftPlayerId, rightPlayerId]);
 
-    return <PlayingFieldContainer onPaddleMove={setPaddlePos}>
+    return <PlayingFieldContainer onPaddleMove={publishMovePaddle}>
         <Paddle y={leftPaddleY} side="left"/>
         <Paddle y={rightPaddleY} side="right"/>
         <Ball x={ballX} y={ballY}/>

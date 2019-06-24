@@ -52,7 +52,13 @@ export function useModelRoot() {
 
 export function usePublish(publishCallback, deps) {
     const croquetRootView = useContext(CroquetContext).view;
-    return useCallback(() => publishCallback(croquetRootView.publish.bind(croquetRootView), croquetRootView.id), deps);
+    return useCallback((...args) => {
+        const result = publishCallback(...args);
+        if (result && result.length >= 2) {
+            const [scope, event, data] = result;
+            croquetRootView.publish(scope, event, data);
+        }
+    }, deps);
 }
 
 class ReactView extends View {
