@@ -1,0 +1,5 @@
+#qr {  position: fixed; width: 150px; height: 150px; top: 10px; right: 10px; }
+#session { position: fixed; width: 80px; height: 80px; top: 170px; right: 10px; }
+body { margin: 0 }
+.toastify { font-family: sans-serif; border-radius: 8px; }
+#three { position: fixed; }
