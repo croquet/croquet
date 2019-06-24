@@ -23,13 +23,13 @@ class HelloWorldModel extends ObservableModel({count: 0}) {
 HelloWorldModel.register();
 
 function HelloWorldApp() {
-    return <InCroquetSession name="pong" modelRoot={HelloWorldModel}>
+    return <InCroquetSession name="helloWorld" modelRoot={HelloWorldModel}>
         <Counter/>
     </InCroquetSession>;
 }
 
 function Counter() {
-    /** @type {PongModel} */
+    /** @type {HelloWorldModel} */
     const model = useModelRoot();
 
     const {count} = useObservable(model);
