@@ -41,22 +41,6 @@ When we use Codepen, we simply include the same library by adding it in the Pen 
 
 Croquet uses QR codes to assist in sharing a Croquet session. When set up properly, all you need to do is scan the QR code to find and load a new instance of the current session. This is extremely convenient and makes it really easy to test and share Croquet applications.
 
-We usually have an automatically generated QR code based on the URL, but unfortunately, Codepen runs Croquet within an iFrame and that information is not available to the app. That means that we need to construct the QR code and its actions by hand. That is easily done. The HTML code below generates a new session based upon the Codepen URL. If you fork the Croquet app in Codepen, you will need to modify the links to match the URL of your new fork. In this case, the URL is:
-[https://codepen.io/croquet/full/bPNgMY](https://codepen.io/croquet/full/bPNgMY)
-
-Replace this string in two places in the Codepen HTML panel.
-
-```
-<!-- if you fork this pen, change "croquet" and "bPNgMY" below (twice) to point to your username and pen slug -->
-<a href="https://codepen.io/croquet/full/bPNgMY" target="_blank">
-<img id="qr" src="https://chart.googleapis.com/chart?chs=150x150&cht=qr&chl=https://codepen.io/croquet/full/bPNgMY"></a>
-
-<div id="countDisplay"></div>
-```
-
-
-
-
 ## Using a QR Code for Production
 [Normal QR Code generation description]
 

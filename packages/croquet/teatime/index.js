@@ -5,8 +5,9 @@ import { addConstantsHash } from "@croquet/util/modules";
 import Model from "./src/model";
 import View from "./src/view";
 import Controller from "./src/controller";
+import ObservableModel from "./src/observable";
 
-export { Model, View, Controller };
+export { Model, View, Controller, ObservableModel };
 export { currentRealm } from "./src/realms";
 
 //@typedef { import('./src/model').default } Model
@@ -200,7 +201,7 @@ function freezeAndHashConstants() {
  *
  * This is a replicated event, meaning both models and views can subscribe to it.
  *
- * **Note:** Each `user-enter` event is guaranteed to be followed by a [`user-exit`]{@link event:user-exit}
+ * **Note:** Each `"user-enter"` event is guaranteed to be followed by a [`"user-exit"`]{@link event:user-exit}
  * event when that user leaves the session, or when the session is started from a snapshot.
  *
  * Hint: In the view, you can access the local user as [`this.user`]{@link View#user}, and compare
@@ -237,7 +238,7 @@ function freezeAndHashConstants() {
  *
  * This is a replicated event, meaning both models and views can subscribe to it.
  *
- * **Note:** when starting a new session from a snapshot, `user-exit` events will be
+ * **Note:** when starting a new session from a snapshot, `"user-exit"` events will be
  * generated for all of the previous users before the first [`"user-enter"`]{@link event:user-enter}
  * event of the new session.
  *

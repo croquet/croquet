@@ -1,0 +1,23 @@
+{
+  "name": "croquet-react-hello-world",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "parcel index.html"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "parcel": "^1.12.3"
+  },
+  "dependencies": {
+    "react": "^16.8.6",
+    "react-dom": "^16.8.6",
+    "croquet": "file:./../../../sdk",
+    "croquet-react": "file:./../../croquet-react"
+  },
+  "browserslist": [
+    "since 2017-06"
+  ]
+}

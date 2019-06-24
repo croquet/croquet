@@ -1,1 +1,1 @@
-export { Model, View, Constants, startSession } from "@croquet/teatime";
+export { Model, View, ObservableModel, Constants, startSession } from "@croquet/teatime";

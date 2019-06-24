@@ -348,6 +348,7 @@ footer {
 .prettyprint {
   font-size: 14px;
   overflow: auto;
+  background-color: #fdf6e3;
   border: 1px solid #dad4c4;
   border-radius: 1em;
   box-shadow: 0 .25em .5em rgba(0,0,0,0.1);
@@ -357,15 +358,14 @@ footer {
   width: inherit;
   line-height: 18px;
   display: block;
-  background-color: #fdf6e3;
   color: #1b1818;
 }
 
 .prettyprint code {
   line-height: 18px;
   display: block;
-  background-color: #fdf6e3;
   color: #1b1818;
+  background-color: #fdf6e3;
 }
 
 .prettyprint > code {
