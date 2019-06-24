@@ -524,16 +524,10 @@ export default class Controller {
                 const {joined, left, active, total} = msg[2];
                 this.users = active;
                 this.usersTotal = total;
-                // users are what we sent in join(), make it more useble
-                const asUser = ([name, id]) => ({name, id});
                 // create event
                 const scope = this.id;
-                const event = "users";
-                const data = {
-                    joined: (joined||[]).map(asUser),
-                    left: (left||[]).map(asUser),
-                    active,
-                    total};
+                const event = "__users__";
+                const data = {entered: joined||[], exited: left||[], count: active};
                 // create event message
                 receiver = this.id;
                 selector = "publishFromModel";

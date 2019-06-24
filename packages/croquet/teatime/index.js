@@ -195,41 +195,62 @@ function freezeAndHashConstants() {
 
 // putting event documentation here because JSDoc errors when parsing controller.js at the moment
 
- /**
- * **Published when users join or leave.**
+/**
+ * **Published when a user joins the session.**
  *
- * This is a replicated event, meaning it can be used in the model or the view.
+ * This is a replicated event, meaning both models and views can subscribe to it.
  *
- * **Note:** If you are keeping track of the users in the model, you need to reset them
- * if the number of joining users equals the number of active users (see example below).
- * This is because a snapshot might still refer to users that were in the session when the
- * snapshot was taken (the reflector is stateless, it can only report users joining or leaving).
+ * **Note:** Each `user-enter` event is guaranteed to be followed by a [`user-exit`]{@link event:user-exit}
+ * event when that user leaves the session, or when the session is started from a snapshot.
  *
  * Hint: In the view, you can access the local user as [`this.user`]{@link View#user}, and compare
- * its `id` to the `id` of a user in this event, to associate it with an avatar.
+ * its `id` to the `id` in this event, to associate it with an avatar.
  *
- * @example <caption>Keeping track of users</caption>
+ * @example
  * class MyModel extends Croquet.Model {
  *     init() {
- *         this.users = new Map();
- *         this.subscribe(this.sessionId, "users", data => this.updateUsers(data));
+ *         this.userData = {};
+ *         this.subscribe(this.sessionId, "user-enter", userId => this.addUser(userId));
+ *         this.subscribe(this.sessionId, "user-exit", userId => this.deleteUser(userId));
  *     }
  *
- *     updateUsers(users) {
- *         if (users.joined.length === users.active) this.users.clear();
- *         else for (const user of users.left) this.users.delete(user.id);
- *         for (const user of users.joined) this.users.set(user.id, user.name);
- *         console.log(JSON.stringify([...this.users]));
+ *     addUser(id) {
+ *         this.userData[id] = { start: this.now() };
+ *         console.log(`user ${id} came in`);
+ *     }
+ *
+ *     deleteUser(id) {
+ *         const time = this.now() - this.userData[id].start;
+ *         console.log(`user ${id} left after ${time / 1000} seconds`);
+ *         delete this.userData[id];
  *     }
  * }
- * @event users
+ * @event user-enter
  * @property {String} scope - [`this.sessionId`]{@link Model#sessionId}
- * @property {String} event - `"users"`
- * @property {Object} data - `{ joined: [], left: [], active: n, total: n }`
+ * @property {String} event - `"user-enter"`
+ * @property {String} userId - the user's id
  * @public
  */
 
- /**
+/**
+ * **Published when a user leaves the session.**
+ *
+ * This is a replicated event, meaning both models and views can subscribe to it.
+ *
+ * **Note:** when starting a new session from a snapshot, `user-exit` events will be
+ * generated for all of the previous users before the first [`"user-enter"`]{@link event:user-enter}
+ * event of the new session.
+ *
+ * #### Example
+ * See [`"user-enter"`]{@link event:user-enter} event
+ * @event user-exit
+ * @property {String} scope - [`this.sessionId`]{@link Model#sessionId}
+ * @property {String} event - `"user-exit"`
+ * @property {String} userId - the user's id
+ * @public
+ */
+
+/**
  * **Published when the session backlog crosses a threshold.** (see {@link View#externalNow} for backlog)
  *
  * This is a non-replicated view-only event.
