@@ -6,7 +6,7 @@
 // post messages to a shared conversation.
 
 import { Model, View, startSession } from "@croquet/teatime";
-import { GetUser, getUser } from "@croquet/util/user";
+// import { GetUser, getUser } from "@croquet/util/user";
 
 //------------------------------------------------------------------------------------------
 // ChatModel
@@ -18,21 +18,31 @@ import { GetUser, getUser } from "@croquet/util/user";
 class ChatModel extends Model {
 
     init() {
-        this.clients = new Map();
+        this.users = new Map();
         this.history = "<b>Welcome to Croquet Chat!</b><br><br>";
-        this.subscribe("input", "newClient", data => this.handleNewClient(data));
-        this.subscribe("input", "newPost", data => this.handleNewPost(data));
+
+        this.subscribe(this.sessionId, "user-enter", userID => this.userEnter(userID));
+        this.subscribe(this.sessionId, "user-exit", userID => this.userExit(userID));
+        this.subscribe("input", "newPost", post => this.newPost(post));
     }
 
-    handleNewClient(client) {
-        this.clients.set(client.id, client.name);
-        this.history += "<i>" + this.filter(client.name) + " has joined the chat room.</i><br>";
+    userEnter(userID) {
+        const userName = this.randomName();
+        this.users.set(userID, userName);
+        this.history += "<i>" + userName + " has entered the room</i><br>";
         this.publish("history", "update");
     }
 
-    handleNewPost(post) {
-        const clientName = this.clients.get(post.id);
-        this.history += "<b>" + clientName + ": </b>" + this.filter(post.text) + "<br>";
+    userExit(userID) {
+        const userName = this.users.get(userID);
+        this.users.delete(userID);
+        this.history += "<i>" + userName + " has exited the room</i><br>";
+        this.publish("history", "update");
+    }
+
+    newPost(post) {
+        const userName = this.users.get(post.userID);
+        this.history += "<b>" + userName + ": </b>" + this.filter(post.text) + "<br>";
         this.publish("history", "update");
     }
 
@@ -41,6 +51,23 @@ class ChatModel extends Model {
         result = text.replace("<", "&lt");
         result = result.replace(">", "&gt");
         return result;
+    }
+
+    randomName() {
+        const names =["Acorn","Allspice","Almond","Ancho","Anise","Aoli","Apple","Apricot","Arrowroot","Asparagus","Avocado","Baklava","Balsamic",
+            "Banana","Barbecue","Bacon","Basil","Bay Leaf","Bergamot","Blackberry","Blueberry","Broccoli",
+            "Buttermilk","Cabbage","Camphor","Canaloupe","Cappuccino","Caramel","Caraway","Cardamom","Catnip","Cauliflower","Cayenne","Celery","Cherry",
+            "Chervil","Chives","Chipotle","Chocolate","Coconut","Cookie Dough","Chicory","Chutney","Cilantro","Cinnamon","Clove",
+            "Coriander","Cranberry","Croissant","Cucumber","Cupcake","Cumin","Curry","Dandelion","Dill","Durian","Eclair","Eggplant","Espresso","Felafel","Fennel",
+            "Fenugreek","Fig","Garlic","Gelato","Gumbo","Honeydew","Hyssop","Ghost Pepper",
+            "Ginger","Ginseng","Grapefruit","Habanero","Harissa","Hazelnut","Horseradish","Jalepeno","Juniper","Ketchup","Key Lime","Kiwi","Kohlrabi","Kumquat","Latte",
+            "Lavender","Lemon Grass","Lemon Zest","Licorice","Macaron","Mango","Maple Syrup","Marjoram","Marshmallow",
+            "Matcha","Mayonnaise","Mint","Mulberry","Mustard","Nectarine","Nutmeg","Olive Oil","Orange Peel","Oregano",
+            "Papaya","Paprika","Parsley","Parsnip","Peach","Peanut","Pecan","Pennyroyal","Peppercorn","Persimmon",
+            "Pineapple","Pistachio","Plum","Pomegranate","Poppy Seed","Pumpkin","Quince","Ragout","Raspberry","Ratatouille","Rosemary","Rosewater","Saffron","Sage","Sassafras",
+            "Sea Salt","Sesame Seed","Shiitake","Sorrel","Soy Sauce","Spearmint","Strawberry","Strudel","Sunflower Seed","Sriracha","Tabasco","Tamarind","Tandoori","Tangerine",
+            "Tarragon","Thyme","Tofu","Truffle","Tumeric","Valerian","Vanilla","Vinegar","Wasabi","Walnut","Watercress","Watermelon","Wheatgrass","Yarrow","Yuzu","Zucchini"];
+        return names[Math.floor(Math.random() * names.length)];
     }
 
 }
@@ -62,13 +89,11 @@ class ChatView extends View {
         sendButton.addEventListener("click", event => this.onSendClick(event), false);
         this.subscribe("history", "update", () => this.refreshHistory());
         this.refreshHistory();
-        const client = {id: this.id, name: getUser("name", "Guest " + this.randomName())};
-        this.publish("input", "newClient", client);
     }
 
     onSendClick() {
         const textIn = document.getElementById("textIn");
-        const post = {id: this.id, text: textIn.value};
+        const post = {userID: this.user.id, text: textIn.value};
         this.publish("input", "newPost", post);
         textIn.value = "";
     }
@@ -76,6 +101,7 @@ class ChatView extends View {
     refreshHistory() {
         const textOut = document.getElementById("textOut");
         textOut.innerHTML = this.model.history;
+        textOut.scrollTop = textOut.scrollHeight - textOut.clientHeight;
     }
 
     randomName() {
@@ -101,5 +127,5 @@ class ChatView extends View {
 // Join the Teatime session and spawn our model and view.
 //------------------------------------------------------------------------------------------
 
-startSession("hello", ChatModel, ChatView, {step: "auto"});
+startSession("chat", ChatModel, ChatView, {step: "auto"});
 

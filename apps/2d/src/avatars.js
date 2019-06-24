@@ -13,29 +13,25 @@ export class ModelRoot extends Model {
     init() {
         super.init();
         this.shapes = {};
-        this.subscribe(this.sessionId, "users", data => this.users(data));
+        this.subscribe(this.sessionId, "user-enter", userId => this.addUser(userId));
+        this.subscribe(this.sessionId, "user-exit", userId => this.removeUser(userId));
     }
 
     // non-inherited methods below
 
-    users(users) {
-        if (users.joined.length) console.log("+", users.joined.length, users.joined);
-        if (users.left.length) console.log("-", users.left.length, users.left);
-        console.log("=", users.active);
+    addUser(id) {
+        if (this.shapes[id]) { console.warn("shape already exists for joining user", id); return; }
+        const shape = Shape.create();
+        this.shapes[id] = shape;
+        this.publish(this.id, 'shape-added', shape);
+        this.publish(this.id, `user-shape-${id}`, shape);
+    }
 
-        for (const user of users.joined) {
-            if (this.shapes[user.id]) { console.warn("shape already exists for joining user", user.id); continue; }
-            const shape = Shape.create();
-            this.shapes[user.id] = shape;
-            this.publish(this.id, 'shape-added', shape);
-            this.publish(this.id, `user-shape-${user.id}`, shape);
-        }
-        for (const user of users.left) {
-            const shape = this.shapes[user.id];
-            if (!shape) { console.warn("shape not found for leaving user", user.id); continue; }
-            delete this.shapes[user.id];
-            this.publish(this.id, 'shape-removed', shape);
-        }
+    removeUser(id) {
+        const shape = this.shapes[id];
+        if (!shape) { console.warn("shape not found for leaving user", id); return; }
+        delete this.shapes[id];
+        this.publish(this.id, 'shape-removed', shape);
     }
 }
 
