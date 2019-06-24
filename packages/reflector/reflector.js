@@ -430,8 +430,6 @@ function SNAP(client, id, args) {
         }
         return;
     }
-    // send USERS to first client
-    if (!island.snapshotUrl) userDidJoin(island, client);
     // keep snapshot
     island.snapshotTime = time;
     island.snapshotUrl = url;
@@ -558,6 +556,9 @@ function TICKS(client, id, args) {
         island.time = typeof time === "number" ? Math.ceil(time) : 0;
         island.seq = typeof seq === "number" ? seq : 0xFFFFFFF0;    // v0 clients expect this value
         if (delay > 0) island.delay = delay;
+        // now that we know time & seq, send USERS to first client
+        userDidJoin(island, client);
+        USERS(island);
     }
     if (scale > 0) island.scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale));
     if (tick > 0) startTicker(island, tick);
