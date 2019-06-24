@@ -1,5 +1,6 @@
 import {useState, useEffect, createContext, createElement, useContext, useMemo, useCallback} from 'react';
 import {View, startSession} from 'croquet';
+export {ObservableModel, Model} from 'croquet';
 
 const CroquetContext = createContext();
 

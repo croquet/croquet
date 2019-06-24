@@ -1,7 +1,6 @@
 import ReactDom from 'react-dom';
 import React from 'react';
-import {ObservableModel} from 'croquet';
-import {usePublish, useModelRoot, useObservable, InCroquetSession} from 'croquet-react';
+import {ObservableModel, usePublish, useModelRoot, useObservable, InCroquetSession} from 'croquet-react';
 
 class HelloWorldModel extends ObservableModel({count: 0}) {
     init() {

@@ -1,7 +1,6 @@
 import ReactDom from 'react-dom';
 import React, {useEffect} from 'react';
-import {ObservableModel} from 'croquet';
-import {useUser, usePublish, useModelRoot, useObservable, InCroquetSession} from 'croquet-react';
+import {ObservableModel, useUser, usePublish, useModelRoot, useObservable, InCroquetSession} from 'croquet-react';
 
 // MODEL
 
