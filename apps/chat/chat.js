@@ -34,8 +34,8 @@ class ChatModel extends Model {
     }
 
     userExit(userID) {
-        const userName = this.users(userID);
-        this.users.remove(userID);
+        const userName = this.users.get(userID);
+        this.users.delete(userID);
         this.history += "<i>" + userName + " has exited the room</i><br>";
         this.publish("history", "update");
     }
