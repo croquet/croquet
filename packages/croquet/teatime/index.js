@@ -5,8 +5,9 @@ import { addConstantsHash } from "@croquet/util/modules";
 import Model from "./src/model";
 import View from "./src/view";
 import Controller from "./src/controller";
+import ObservableModel from "./src/observable";
 
-export { Model, View, Controller };
+export { Model, View, Controller, ObservableModel };
 export { currentRealm } from "./src/realms";
 
 //@typedef { import('./src/model').default } Model

@@ -63,6 +63,14 @@ class View {
         this.realm.unsubscribeAll(this.id);
     }
 
+    subscribeToPropertyChange(model, property, callback, options={}) {
+        this.subscribe(model.id + "#" + property, {...options, event: "changed"}, callback);
+    }
+
+    unsubscribeFromPropertyChange(model, property) {
+        this.unsubscribe(model.id + "#" + property, "changed");
+    }
+
     // Misc
 
     /**
