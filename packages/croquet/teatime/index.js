@@ -147,7 +147,7 @@ function stepSession(frameTime, controller, view, render="auto") {
 
         if ((hadEvents || render === "always") && render !== "never") {
             Stats.begin("render");
-            view.render();
+            view.render(frameTime);
             Stats.end("render");
         }
     }
