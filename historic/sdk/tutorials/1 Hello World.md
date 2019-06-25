@@ -6,7 +6,7 @@ We are using Codepen for our tutorials. That allows us to place a working exampl
 
 Below is the Croquet Hello World app running live in Codepen. Scroll through the code to the left. You will see that a simple Croquet app is indeed very simple.
 
-<div class="codepen" data-height="265" data-theme-id="light" data-default-tab="js,result" data-user="croquet" data-slug-hash="bPNgMY" data-prefill='{"title":"Hello World!","tags":[],"stylesheets":["https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css"],"scripts":["https://croquet.studio/sdk/croquet-latest.min.js","https://codepen.io/croquet/pen/OemewR"]}'>
+<div class="codepen" data-height="512" data-theme-id="light" data-default-tab="js,result" data-user="croquet" data-slug-hash="bPNgMY" data-prefill='{"title":"Hello World!","tags":[],"stylesheets":["https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css"],"scripts":["https://croquet.studio/sdk/croquet-latest.min.js","https://codepen.io/croquet/pen/OemewR"]}'>
   <pre data-lang="html">&lt;div id="session">&lt;/div>
 &lt;div id="countDisplay">&lt;/div></pre>
   <pre data-lang="css" >
