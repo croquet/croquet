@@ -9,6 +9,9 @@ const DEBUG = {
 };
 
 
+/** passed to Model constructor to check if it was called via create */
+const SECRET = Symbol("SECRET");
+
 /** For warning about model instances that have not called super.init */
 const SuperInitNotCalled = new WeakSet();
 
@@ -61,7 +64,7 @@ class Model {
     static create(options) {
         const ModelClass = this;
         const realm = currentRealm();
-        const model = new ModelClass();
+        const model = new ModelClass(SECRET);
         model.__realm = realm;
         model.id = realm.register(model);
         SuperInitNotCalled.add(model);
@@ -127,6 +130,14 @@ class Model {
     static classToID(cls) {  return classToID(cls); }
     static classFromID(id) { return classFromID(id); }
     static allClasses() { return allClasses(); }
+    static instantiateClassID(id) {
+        const ModelClass = classFromID(id);
+        return new ModelClass(SECRET);
+    }
+
+    constructor(secret) {
+        if (secret !== SECRET) throw Error(`You must create ${this} using create() not "new"!`);
+    }
 
     /**
      * This is called by [create()]{@link Model.create} to initialize a model instance.
