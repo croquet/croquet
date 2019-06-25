@@ -6,7 +6,7 @@ We are using Codepen for our tutorials. That allows us to place a working exampl
 
 Below is the Croquet Hello World app running live in Codepen. Scroll through the code to the left. You will see that a simple Croquet app is indeed very simple.
 
-<p class="codepen" data-height="437" data-theme-id="37149" data-default-tab="js,result" data-user="croquet" data-slug-hash="bPNgMY" style="height: 437px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border: 2px solid; margin: 1em 0; padding: 1em;" data-pen-title="Hello World!">
+<p class="codepen" data-height="512" data-theme-id="37190" data-default-tab="js,result" data-user="croquet" data-slug-hash="bPNgMY" data-editable="true" style="height: 512px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border: 2px solid; margin: 1em 0; padding: 1em;" data-pen-title="Hello World!">
   <span>See the Pen <a href="https://codepen.io/croquet/pen/bPNgMY/">
   Hello World!</a> by Croquet (<a href="https://codepen.io/croquet">@croquet</a>)
   on <a href="https://codepen.io">CodePen</a>.</span>
@@ -41,8 +41,13 @@ When we use Codepen, we simply include the same library by adding it in the Pen 
 
 Croquet uses QR codes to assist in sharing a Croquet session. When set up properly, all you need to do is scan the QR code to find and load a new instance of the current session. This is extremely convenient and makes it really easy to test and share Croquet applications.
 
+If you created a new Pen from scratch (not forking one of the tutorials here) and you want the same join-by-QR functionality:
+
+* add the pen `https://codepen.io/croquet/pen/OemewR` as an additional external resource (in the same way you included the Croquet.js library above) - it will automatically add a QR code linked to your Pen.
+*  make sure to call `Croquet.startSession` with a fixed `random` session option (like in the "Hello World" example above) to make every visitor of your Pen joins the same session.
+
 ## Using a QR Code for Production
-[Normal QR Code generation description]
+[TODO: Normal QR Code generation description]
 
 ## Writing a Croquet Application
 

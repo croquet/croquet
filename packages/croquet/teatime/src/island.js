@@ -744,13 +744,12 @@ class IslandReader {
     }
 
     readModel(state, path) {
-        const model = Model.instantiateClassID(state.$model);
+        const model = Model.instantiateClassID(state.$model, state.id);
         if (state.$id) this.refs.set(state.$id, model);
         for (const [key, value] of Object.entries(state)) {
-            if (key[0] === "$") continue;
+            if (key === "id" || key[0] === "$") continue;
             this.readInto(model, key, value, path);
         }
-        model.__realm = currentRealm();
         return model;
     }
 

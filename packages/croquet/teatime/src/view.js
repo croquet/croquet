@@ -10,9 +10,9 @@ class View {
      * @public
      */
     constructor(_model) {
-        this.realm = currentRealm();
-        /** @public */
-        this.id = this.realm.register(this);
+        // read-only properties
+        Object.defineProperty(this, "realm", {  value: currentRealm() });
+        Object.defineProperty(this, "id", {  value: this.realm.register(this) });
     }
 
     /**

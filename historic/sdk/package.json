@@ -39,7 +39,8 @@
     "> 5%"
   ],
   "dependencies": {
-    "@croquet/teatime": "file:../teatime"
+    "@croquet/teatime": "file:../teatime",
+    "croquet-react": "file:../integrations/croquet-react"
   },
   "devDependencies": {
     "jsdoc": "^3.6.2",

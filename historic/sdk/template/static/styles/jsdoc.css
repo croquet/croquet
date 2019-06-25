@@ -1,4 +1,4 @@
-@import url(https://fonts.googleapis.com/css?family=Montserrat:400,700);
+@import url(https://fonts.googleapis.com/css?family=Barlow:400,700);
 
 * {
   box-sizing: border-box
@@ -46,11 +46,12 @@ article .description a {
 
 p, ul, ol, blockquote {
   margin-bottom: 1em;
-  line-height: 160%;
+  line-height: 150%;
+  max-width: 40em;
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: 'Montserrat', sans-serif;
+  font-family: 'Barlow', sans-serif;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -190,7 +191,7 @@ nav.wrap a{
 
 nav h3 {
   margin-top: 12px;
-  font-size: 13px;
+  font-size: 18px;
   text-transform: uppercase;
   letter-spacing: 1px;
   font-weight: 700;
@@ -211,11 +212,11 @@ nav ul {
 
 nav ul a,
 nav ul a:active {
-  font-family: 'Montserrat', sans-serif;
+  font-family: 'Barlow', sans-serif;
   line-height: 18px;
   padding: 0;
   display: block;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 nav a:hover,
@@ -243,7 +244,7 @@ nav ul ul a:active {
 }
 
 nav h2 {
-   font-size: 13px;
+   font-size: 16px;
    margin: 10px 0 0 0;
    padding: 0;
 }
@@ -348,10 +349,9 @@ footer {
 .prettyprint {
   font-size: 14px;
   overflow: auto;
-  background-color: #fdf6e3;
+  background-color: #f4f4f4;
   border: 1px solid #dad4c4;
-  border-radius: 1em;
-  box-shadow: 0 .25em .5em rgba(0,0,0,0.1);
+  border-radius: 0.3em;
 }
 
 .prettyprint.source {
@@ -365,7 +365,7 @@ footer {
   line-height: 18px;
   display: block;
   color: #1b1818;
-  background-color: #fdf6e3;
+  background-color: #f4f4f4;
 }
 
 .prettyprint > code {

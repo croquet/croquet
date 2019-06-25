@@ -2,7 +2,7 @@ Copyright © 2019 Croquet Studios
 
 This tutorial will teach you how to create multi-user shared animations and interactions. If you click one of the bouncing objects it will stop moving. Click again and it will start bouncing again. This tutorial isn't really that much more complex than the Hello World application. It just has a few more moving parts and really demonstrates how the model is used to compute a simulation and how the view is used to display it and interact with it.
 
-<p class="codepen" data-height="477" data-theme-id="37149" data-default-tab="js,result" data-user="croquet" data-slug-hash="NZbgGY" style="height: 477px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border: 2px solid; margin: 1em 0; padding: 1em;" data-pen-title="Simple Animation">
+<p class="codepen" data-height="512" data-theme-id="37190" data-default-tab="js,result" data-user="croquet" data-slug-hash="NZbgGY" data-editable="true" style="height: 512px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border: 2px solid; margin: 1em 0; padding: 1em;" data-pen-title="Simple Animation">
   <span>See the Pen <a href="https://codepen.io/croquet/pen/NZbgGY/">
   Simple Animation</a> by Croquet (<a href="https://codepen.io/croquet">@croquet</a>)
   on <a href="https://codepen.io">CodePen</a>.</span>
@@ -51,20 +51,20 @@ BallModel.step() {
 ```
 
 If the alive flag is set, the step() function will call the moveBounce() function.
-The BallModel computes a simple linear motion and updates that at a regular interval. If the ball goes beyond a boundary, a new direction is computed. 
+The BallModel computes a simple linear motion and updates that at a regular interval. If the ball goes beyond a boundary, a new direction is computed.
 
 ```
 BallModel.moveBounce() {
     const [x, y] = this.pos;
     if (x<=0 || x>=1000 || y<=0 || y>=1000)
-        this.speed=this.randomSpeed();     
-    this.moveTo([x + this.speed[0], y + this.speed[1]]);    
+        this.speed=this.randomSpeed();
+    this.moveTo([x + this.speed[0], y + this.speed[1]]);
 }
 ```
-BallModel.moveBounce is actually quite interesting. It updates the ball object position. But if the ball is found to be out of bounds, it computes a new speed vector which redirects it using BallModel.randomSpeed(). 
+BallModel.moveBounce is actually quite interesting. It updates the ball object position. But if the ball is found to be out of bounds, it computes a new speed vector which redirects it using BallModel.randomSpeed().
 
 ```
-randomSpeed() {  
+randomSpeed() {
     const r = this.random() * 2 * Math.PI;
     return [Math.cos(r) * Q.SPEED, Math.sin(r) * Q. SPEED];
 }
@@ -78,7 +78,7 @@ Just like the Croquet Model, the Croquet View is made up of two classes. MyView 
 
 ### MyView
 
-MyView.constructor(model) is used to construct the visual representation of the model. It is really a vanilla web-application in almost every way. It creates a new "div" element and then populates it with new elements associated with the models children (which are also models). 
+MyView.constructor(model) is used to construct the visual representation of the model. It is really a vanilla web-application in almost every way. It creates a new "div" element and then populates it with new elements associated with the models children (which are also models).
 
 ```model.children.forEach(child => this.attachChild(child));```
 
@@ -88,9 +88,9 @@ MyView.attachChild(child) {
 }
 ```
 
-We are accessing the model directly here to read its state. It is important to note that we **MUST NOT** modify the model or its parts in any way when we do this. 
+We are accessing the model directly here to read its state. It is important to note that we **MUST NOT** modify the model or its parts in any way when we do this.
 
-MyView also manages resizing of the view. This helps to keep the views consistent between multiple users. It isn't essential that the views be identical - it depends on the application. It is important if the model/view directly depend on the position of the user interaction relative to the contents. 
+MyView also manages resizing of the view. This helps to keep the views consistent between multiple users. It isn't essential that the views be identical - it depends on the application. It is important if the model/view directly depend on the position of the user interaction relative to the contents.
 
 ### BallView
 
@@ -110,12 +110,11 @@ BallView.enableTouch() {
     if (TOUCH) el.ontouchstart = start => {
         start.preventDefault();
         this.publish(el.id, "touch-me");
-    }; else el.onmousedown = start => { 
+    }; else el.onmousedown = start => {
         start.preventDefault();
-        this.publish(el.id, "touch-me"); 
+        this.publish(el.id, "touch-me");
     };
 }
 ```
-BallView.enableTouch sets up the BallView element to publish a "touch-me" event when the element is clicked on. 
+BallView.enableTouch sets up the BallView element to publish a "touch-me" event when the element is clicked on.
 The BallModel subscribes to the "touch-me" event and toggles the ball motion on and off.
-
