@@ -4,7 +4,7 @@
 //
 // This is an example of a simple Teatime applicaton. It creates a counter that counts up once
 // per second. Clicking on it resets it to zero. The counter is replicated across the network and
-// will respond to clicks from any client connected to the same session. The current value of the
+// will respond to clicks from any user in the same session. The current value of the
 // counter is automatically saved to the cloud.
 
 // to use latest sdk: cd sdk; npm run watch

@@ -25,22 +25,22 @@ class PongModel extends ObservableModel(INITIAL_STATE) {
     init() {
         super.init();
         this.future(TICK_LENGTH).tick();
-        this.subscribe(this.sessionId, "user-enter", userId => this.userEnter(userId));
-        this.subscribe(this.sessionId, "user-exit", userId => this.userExit(userId));
+        this.subscribe(this.sessionId, "view-join", viewId => this.userEnter(viewId));
+        this.subscribe(this.sessionId, "view-exit", viewId => this.userExit(viewId));
         this.subscribe("playerName", "set", data => this.setPlayerName(data));
         this.subscribe("paddle", "move", data => this.movePaddle(data));
     }
 
-    userEnter(enteringUserId) {
-        if (!this.leftPlayerId) {this.leftPlayerId = enteringUserId;}
-        else if (!this.rightPlayerId) {this.rightPlayerId = enteringUserId;}
-        else {this.spectators.push(enteringUserId)}
+    userEnter(enteringViewId) {
+        if (!this.leftPlayerId) {this.leftPlayerId = enteringViewId;}
+        else if (!this.rightPlayerId) {this.rightPlayerId = enteringViewId;}
+        else {this.spectators.push(enteringViewId)}
     }
 
-    userExit(exitingUserId) {
-        if (this.leftPlayerId === exitingUserId) this.leftPlayerId = this.spectators.shift() || null;
-        else if (this.rightPlayerId === exitingUserId) this.rightPlayerId = this.spectators.shift() || null;
-        delete this.playerNames[exitingUserId];
+    userExit(exitingViewId) {
+        if (this.leftPlayerId === exitingViewId) this.leftPlayerId = this.spectators.shift() || null;
+        else if (this.rightPlayerId === exitingViewId) this.rightPlayerId = this.spectators.shift() || null;
+        delete this.playerNames[exitingViewId];
     }
 
     setPlayerName({playerId, name}) {

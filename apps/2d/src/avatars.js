@@ -13,8 +13,8 @@ export class ModelRoot extends Model {
     init() {
         super.init();
         this.shapes = {};
-        this.subscribe(this.sessionId, "user-enter", userId => this.addUser(userId));
-        this.subscribe(this.sessionId, "user-exit", userId => this.removeUser(userId));
+        this.subscribe(this.sessionId, "view-join", viewId => this.addUser(viewId));
+        this.subscribe(this.sessionId, "view-exit", viewId => this.removeUser(viewId));
     }
 
     // non-inherited methods below
@@ -136,7 +136,7 @@ class ShapesView extends View {
         Object.values(model.shapes).forEach(shape => this.attachShape(shape));
         this.subscribe(model.id, 'shape-added', shape => this.attachShape(shape));
         this.subscribe(model.id, 'shape-removed', shape => this.detachShape(shape));
-        this.subscribe(model.id, `user-shape-${this.user.id}`, shape => this.gotUserShape(shape));
+        this.subscribe(model.id, `user-shape-${this.viewId}`, shape => this.gotUserShape(shape));
     }
 
     detach() {

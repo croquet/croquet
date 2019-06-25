@@ -10,7 +10,7 @@ import { Model, View, startSession } from "@croquet/teatime";
 //------------------------------------------------------------------------------------------
 // ChatModel
 //
-// Keeps a list of connected clients. Assigns a random name to each.
+// Keeps a list of connected users. Assigns a random name to each.
 // When a post arrives from one of them, adds it to the chat history along with their name.
 //------------------------------------------------------------------------------------------
 
@@ -20,24 +20,24 @@ class ChatModel extends Model {
         this.users = {};
         this.history = [];
         this.subscribe("input", "newPost", post => this.newPost(post));
-        this.subscribe(this.sessionId, "user-enter", userId => this.userEnter(userId));
-        this.subscribe(this.sessionId, "user-exit", userId => this.userExit(userId));
+        this.subscribe(this.sessionId, "view-join", viewId => this.userJoin(viewId));
+        this.subscribe(this.sessionId, "view-exit", viewId => this.userDrop(viewId));
     }
 
-    userEnter(userId) {
+    userJoin(viewId) {
         const userName = this.randomName();
-        this.users[userId] = userName;
+        this.users[viewId] = userName;
         this.addToHistory(`<i>${userName} has entered the room</i>`);
     }
 
-    userExit(userId) {
-        const userName = this.users[userId];
-        delete this.users[userId];
+    userDrop(viewId) {
+        const userName = this.users[viewId];
+        delete this.users[viewId];
         this.addToHistory(`<i>${userName} has exited the room</i>`);
    }
 
     newPost(post) {
-        const userName = this.users[post.userId];
+        const userName = this.users[post.viewId];
         this.addToHistory(`<b>${userName}:</b> ${this.escape(post.text)}`);
     }
 
@@ -89,7 +89,7 @@ class ChatView extends View {
 
     onSendClick() {
         const textIn = document.getElementById("textIn");
-        const post = {userId: this.user.id, text: textIn.value};
+        const post = {viewId: this.viewId, text: textIn.value};
         this.publish("input", "newPost", post);
         textIn.value = "";
     }
