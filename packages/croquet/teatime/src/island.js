@@ -1,6 +1,7 @@
 import SeedRandom from "seedrandom/seedrandom";
 import PriorityQueue from "@croquet/util/priorityQueue";
 import hotreloadEventManger from "@croquet/util/hotreloadEventManager";
+import { displayWarning, displayAppError } from "@croquet/util/html";
 import Model from "./model";
 import { inModelRealm, inViewRealm, currentRealm } from "./realms";
 import { viewDomain } from "./domain";
@@ -313,7 +314,13 @@ export default class Island {
             for (const handler of this.subscriptions[topic]) {
                 const [id, methodName] = handler.split('.');
                 const model = this.lookUpModel(id);
-                model[methodName](data);
+                if (!model) displayWarning(`event ${topic} .${methodName}(): subscriber not found`);
+                else if (typeof model[methodName] !== "function") displayWarning(`event ${topic} ${model}.${methodName}(): method not found`);
+                try {
+                    model[methodName](data);
+                } catch (error) {
+                    displayAppError(`event ${topic} ${model}.${methodName}()`, error);
+                }
             }
         }
     }
@@ -451,17 +458,21 @@ export class Message {
     executeOn(island) {
         const { receiver, selector, args } = decode(this.payload, island);
         const object = island.lookUpModel(receiver);
-        if (!object) console.warn(`Error executing ${this}: receiver not found`);
-        else if (typeof object[selector] !== "function") console.warn(`Error executing ${this}: method not found`);
+        if (!object) displayWarning(`${this.shortString()} ${selector}(): receiver not found`);
+        else if (typeof object[selector] !== "function") displayWarning(`${this.shortString()} ${object}.${selector}(): method not found`);
         else execOnIsland(island, () => {
             inModelRealm(island, () => {
                 try {
                     object[selector](...args);
                 } catch (error) {
-                    console.error(`Error executing ${this}`, error);
+                    displayAppError(`${this.shortString()} ${object}.${selector}()`, error);
                 }
             });
         });
+    }
+
+    shortString() {
+        return `${this.isExternal() ? 'External' : 'Future'}Message`;
     }
 
     toString() {

@@ -4,7 +4,7 @@ import Stats from "@croquet/util/stats";
 import hotreloadEventManger from "@croquet/util/hotreloadEventManager";
 import urlOptions from "@croquet/util/urlOptions";
 import { login, getUser } from "@croquet/util/user";
-import { displaySpinner, displayStatus, displayWarning, displayError } from "@croquet/util/html";
+import { displaySpinner, displayStatus, displayWarning, displayError, displayAppError } from "@croquet/util/html";
 import { baseUrl, CROQUET_HOST, hashNameAndCode, hashString, uploadCode } from "@croquet/util/modules";
 import { inViewRealm } from "./realms";
 import Island, { Message, inSequence } from "./island";
@@ -639,7 +639,13 @@ export default class Controller {
 
     install(messagesSinceSnapshot=[], syncTime=0) {
         const {snapshot, init, options, callbackFn} = this.islandCreator;
-        let newIsland = new Island(snapshot, () => init(options));
+        let newIsland = new Island(snapshot, () => {
+            try { return init(options); }
+            catch (error) {
+                displayAppError("init", error);
+                throw error;
+            }
+        });
         if (DEBUG.initsnapshot && !snapshot.modelsById) {
             // exercise save & load if we came from init
             const initialIslandSnap = JSON.stringify(newIsland.snapshot());
@@ -818,8 +824,9 @@ export default class Controller {
             }
             if (weHaveTime && this.cpuTime > SNAPSHOT_EVERY) { this.cpuTime = 0; this.scheduleSnapshot(); }
             return weHaveTime;
-        } catch (e) {
-            Controller.closeConnectionWithError('simulate', e);
+        } catch (error) {
+            displayAppError("simulate", error);
+            Controller.closeConnectionWithError('simulate', error);
             return "error";
         }
     }
