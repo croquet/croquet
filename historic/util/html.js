@@ -15,6 +15,14 @@ export function displayStatus(msg, options) {
     return msg && displayToast(msg, { backgroundColor: "#aaa", ...options });
 }
 
+export function displayAppError(where, error) {
+    const userStack = error.stack.split("\n").filter(l => !l.match(/croquet-.*\.min.js/)).join('\n');
+    displayError(`<b>Error during ${where}: ${error.message}</b>\n\n${userStack}`.replace(/\n/g, "<br>"),  {
+        duration: 10000,
+        stopOnFocus: true,
+    });
+}
+
 function displayToast(msg, options) {
     const toastOpts = {
         text: msg,
