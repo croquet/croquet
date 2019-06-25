@@ -125,23 +125,37 @@ class Model {
      * The Croquet snapshot mechanism only knows about {@link Model} subclasses.
      * If you want to store instances of non-model classes in your model, override this method.
      *
+     * `types()` needs to return an Object that maps _names_ to _class descriptions_:
+     * - the name can be any string, it just has to be unique within your app
+     * - the class description can either be just the class itself (if the serializer should
+     *   snapshot all its fields, see first example below), or an object with `write()` and `read()` methods to
+     *   convert instances from and to their serializable form (see second example below).
+     *
      * __NOTE:__ This is currently the only way to customize serialization (for example to keep snapshots fast and small).
-     * The serialization of Model subclasses can not be customized.
+     * The serialization of Model subclasses themselves can not be customized.
      *
      * @example <caption>To use the default serializer just declare the class:</caption>
-     * return {
-     *     "THREE.Vector3": THREE.Vector3,
-     *     "THREE.Quaternion": THREE.Quaternion,
-     * };
+     * class MyModel extends Croquet.Model {
+     *   static types() {
+     *     return {
+     *       "SomeUniqueName": MyNonModelClass,
+     *       "THREE.Vector3": THREE.Vector3,
+     *       "THREE.Quaternion": THREE.Quaternion,
+     *     };
+     *   }
+     * }
      *
      * @example <caption>To define your own serializer, declare read and write functions:</caption>
-     * return {
-     *     "THREE.Color": {
+     * class MyModel extends Croquet.Model {
+     *   static types() {
+     *     return {
+     *       "THREE.Color": {
      *         cls: THREE.Color,
      *         write: color => '#' + color.getHexString(),
      *         read: state => new THREE.Color(state) },
-     *     }
-     * };
+     *       };
+     *    }
+     * }
      * @public
      */
     static types() {
