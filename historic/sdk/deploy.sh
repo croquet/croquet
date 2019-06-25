@@ -45,7 +45,7 @@ echo "DEPLOYING $MSG"
 
 
 # build docs
-./build-docs "$VERSION (pre-alpha)" build/*.html
+./build-docs.sh "$VERSION (pre-alpha)" build/*.html
 [ $? -ne 0 ] && exit
 
 # clean old
