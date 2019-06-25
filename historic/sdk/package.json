@@ -6,7 +6,7 @@
   "scripts": {
     "start": "npm-watch",
     "build-lib": "parcel build --public-url . --global Croquet -o croquet.min.js croquet.js",
-    "build-docs": "./build-docs.sh $npm_package_version '(local build by '$USER')'",
+    "build-docs": "jsdoc -c jsdoc.json -d build",
     "buildx": "parcel build --experimental-scope-hoisting --public-url . --global Croquet -o croquet.min.js croquet.js",
     "deploy": "./deploy.sh",
     "watch": "npm-watch"

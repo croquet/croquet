@@ -45,7 +45,10 @@ echo "DEPLOYING $MSG"
 
 
 # build docs
-./build-docs "$VERSION (pre-alpha)" build/*.html
+rm -r build/*
+npx jsdoc -c jsdoc.json -d build
+[ $? -ne 0 ] && exit
+sed -i~ "s/@CROQUET_VERSION@/$VERSION (pre-alpha)/" build/*.html
 [ $? -ne 0 ] && exit
 
 # clean old
