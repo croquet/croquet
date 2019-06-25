@@ -3,7 +3,7 @@ import PriorityQueue from "@croquet/util/priorityQueue";
 import hotreloadEventManger from "@croquet/util/hotreloadEventManager";
 import { displayWarning, displayAppError } from "@croquet/util/html";
 import Model from "./model";
-import { inModelRealm, inViewRealm, currentRealm } from "./realms";
+import { inModelRealm, inViewRealm } from "./realms";
 import { viewDomain } from "./domain";
 
 

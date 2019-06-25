@@ -1,10 +1,13 @@
 import * as THREE from "three";
-import { Controller } from "@croquet/teatime";
+import { Model, Controller } from "@croquet/teatime";
 import { urlOptions, Stats, displaySessionMoniker, displayQRCode } from "@croquet/util";
 import RoomViewManager from "./room/roomViewManager";
 import Renderer from "./render";
 import { theKeyboardManager } from "./domKeyboardManager";
 import { theDragDropHandler } from "./domDragDrop";
+
+// hack for Parts that still use constructors
+Model.allowConstructors();
 
 export default class App {
     constructor(rooms, canvas, width, height, options={}) {

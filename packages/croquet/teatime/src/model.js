@@ -10,7 +10,7 @@ const DEBUG = {
 
 
 /** passed to Model constructor to check if it was called via create */
-const SECRET = Symbol("SECRET");
+let SECRET = Symbol("SECRET");
 
 /** For warning about model instances that have not called super.init */
 const SuperInitNotCalled = new WeakSet();
@@ -41,7 +41,8 @@ const SuperInitNotCalled = new WeakSet();
  * The **reason** for this is that Models are only initialized by calling `init()`
  * the first time the object comes into existence in the session.
  * After that, when joining a session, the models are deserialized from the snapshot, which
- * restores all properties automatically without calling `init()`.
+ * restores all properties automatically without calling `init()`. A constructor would
+ * be called all the time, not just when starting a session.
  *
  * @hideconstructor
  * @public
@@ -92,6 +93,12 @@ class Model {
         Object.defineProperty(model, "__realm", {  value: realm });
         Object.defineProperty(model, "id", {  value: id });
         return model;
+    }
+
+    // hack for Parts that still use constructors
+    static allowConstructors() {
+        SECRET = undefined;
+        console.warn("disabling error reporting for Model constructors");
     }
 
     /**
