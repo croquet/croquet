@@ -1,6 +1,6 @@
 Copyright © 2019 Croquet Studios
 
-Unlike the view, there are limits to what the model can do if it is going to stay synched across all the clients in the session:
+Unlike the view, there are limits to what the model can do if it is going to stay synched across all the machines in the session:
 
 **Model classes must be registered when defined.** Call `MyModel.register()` every time you define a new {@link Model} subclass.
 

@@ -4,9 +4,9 @@ The model has no concept of real-world time. All it knows about is _simulation t
 
 Simulation time is the time in milliseconds since a session began. Any model can get the current simulation time by calling `this.now()`.
 
-While a session is active, the reflector will send a steady stream of heartbeat ticks to every connected client. Simulation time only advances when a client receives a heartbeat tick.
+While a session is active, the reflector will send a steady stream of heartbeat ticks to every connected user. Simulation time only advances when a heartbeat tick is received.
 
-What this means is that if you make a rapid series of calls to `this.now()`, it will always return the same value. It will not return a different value until the client has had the opportunity to receive and process the next heartbeat tick.
+What this means is that if you make a rapid series of calls to `this.now()`, it will always return the same value. It will not return a different value until the next heartbeat tick was received and processed.
 
 If you want to schedule a process to run in the future, don't poll `this.now()`, instead use _future send_. For example:
 ```

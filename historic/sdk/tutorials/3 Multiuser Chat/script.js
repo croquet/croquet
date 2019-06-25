@@ -8,24 +8,24 @@ class ChatModel extends Croquet.Model {
     this.users = {};
     this.history = [];
     this.subscribe("input", "newPost", post => this.onNewPost(post));
-    this.subscribe(this.sessionId, "user-enter", userId => this.userEnter(userId));
-    this.subscribe(this.sessionId, "user-exit", userId => this.userExit(userId));
+    this.subscribe(this.sessionId, "view-join", viewId => this.userEnter(viewId));
+    this.subscribe(this.sessionId, "view-exit", viewId => this.userExit(viewId));
   }
 
-  userEnter(userId) {
+  userEnter(viewId) {
     const userName = this.randomName();
-    this.users[userId] = userName;
+    this.users[viewId] = userName;
     this.addToHistory(`<i>${userName} has entered the room</i>`);
   }
 
-  userExit(userId) {
-    const userName = this.users[userId];
-    delete this.users[userId];
+  userExit(viewId) {
+    const userName = this.users[viewId];
+    delete this.users[viewId];
     this.addToHistory(`<i>${userName} has exited the room</i>`);
   }
 
   onNewPost(post) {
-    const userName = this.users[post.userId];
+    const userName = this.users[post.viewId];
     this.addToHistory(`<b>${userName}:</b> ${this.escape(post.text)}`);
   }
 
@@ -70,7 +70,7 @@ class ChatView extends Croquet.View {
   }
 
   send() {
-    const post = {userId: this.user.id, text: textIn.value};
+    const post = {viewId: this.viewId, text: textIn.value};
     this.publish("input", "newPost", post);
     textIn.value = "";
   }

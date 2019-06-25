@@ -27,7 +27,7 @@ There are three things we will learn here.
 3. Writing a proper model/view application.
 
 ## Using the Croquet.js library
-All of the Croquet client support code is included within the Croquet.js library. Typically, to access it within your Javascript application you add it to your HTML:
+All of the Croquet support code is included within the Croquet.js library. Typically, to access it within your Javascript application you add it to your HTML:
 
 ```
 <script src="https://croquet.studio/sdk/croquet-latest.min.js"></script>

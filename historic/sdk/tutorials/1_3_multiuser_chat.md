@@ -14,18 +14,18 @@ The first thing to do is click or scan the QR code above. This will launch a new
 
 There are four things we will learn here:
 
-1. How to use the `"client-enter"` and `"client-exit"` events to keep track of users.
+1. How to use the `"view-join"` and `"view-exit"` events to keep track of users.
 2. How to directly access the model from the view without breaking synchronization.
 3. How to use the view's user Id to get user-specific information out of the model.
 4. How to use the replicated `random()` function in the model.
 
 ## Simple Chat Model
 
-Our Croquet application uses a single Model subclass named `ChatModel`. It does two things: It listens for `"newPost"` events coming from a view, and it listens for `"user-enter"` and `"user-exit"` events coming from the reflector itself.
+Our Croquet application uses a single Model subclass named `ChatModel`. It does two things: It listens for `"newPost"` events coming from the local view, and it listens for `"view-join"` and `"view-exit"` events coming from the reflector itself.
 
-A `"newPost"` event is sent by the view when the user enters a message. The event is reflected to all clients in the session. Each client's model adds it to its chat history, and informs its local view to update its display.
+A `"newPost"` event is sent by the local view when the user enters a message. The event is reflected to all users in the session. Each user's model adds it to its chat history, and informs its local view to update its display.
 
-The `"client-enter"` and `"client-exit"` are system-generated events. They don't originate inside your application. They come from the Teatime system itself. When a new client joins a session, a `"client-enter"` event is sent to everyone in the session (including the client who just joined). Similiarly, whenever a client leaves, a `"client-exit"` event is sent. (The client who just left will not get this event because they are already gone!)
+The `"view-join"` and `"view-exit"` are system-generated events. They don't originate inside your application. They come from the Teatime system itself. When a new user joins a session, a `"view-join"` event is sent to everyone in the session (including the user who just joined). Similiarly, whenever a user leaves, a `"view-exit"` event is sent. (The user who just left will not get this event because they are already gone!)
 
 ## ChatModel.init()
 
@@ -34,8 +34,8 @@ The `"client-enter"` and `"client-exit"` are system-generated events. They don't
     this.users = new Map();
     this.history = [];
     this.subscribe("input", "newPost", post => this.onNewPost(post));
-    this.subscribe(this.sessionId, "user-enter", userId => this.userEnter(userId));
-    this.subscribe(this.sessionId, "user-exit", userId => this.userExit(userId));
+    this.subscribe(this.sessionId, "view-join", viewId => this.userEnter(viewId));
+    this.subscribe(this.sessionId, "view-exit", viewId => this.userExit(viewId));
   }
   ```
 
@@ -48,36 +48,36 @@ this.subscribe("input", "newPost", post => this.onNewPost(post));
 
 This is the subscription to handle new chat posts. It's given the scope "input" as a way to remind us where the event is coming from. (It also means we could use `newPost` as a different event somewhere else in our application without the two events being confused with each other.)
 ```
-this.subscribe(this.sessionId, "user-enter", userId => this.userEnter(userId));
-this.subscribe(this.sessionId, "user-exit", userId => this.userExit(userId));
+this.subscribe(this.sessionId, "view-join", viewId => this.userEnter(viewId));
+this.subscribe(this.sessionId, "view-exit", viewId => this.userExit(viewId));
 ```
-This is the subscription to handle clients entering or leaving. In both cases the scope is set to `this.sessionId` which is the default scope for all system-generated events. The data passed to both events is a `userId`. It is a unique identifier for each client in the session. Even if the same user joins the session from multiple browser windows or devices, the `userId` will always be different.
+This is the subscription to handle users entering or leaving. In both cases the scope is set to `this.sessionId` which is the default scope for all system-generated events. The data passed to both events is a `viewId`. It is a unique identifier for each participant in the session. Even if the same person joins the session from multiple browser windows or devices, the `viewId` will always be different.
 
-## ChatModel.userEnter(userId)
+## ChatModel.userEnter(viewId)
 ```
-  userEnter(userId) {
+  userEnter(viewId) {
     const userName = this.randomName();
-    this.users.set(userId, userName);
+    this.users.set(viewId, userName);
     this.publish("userInfo", "update");
   }
 ```
 When a new user enters, the model generates a random nickname and stores it in the user list. It then publishes an event to the view informing it that the user list has changed. (In this case we're using "userInfo" as our scope. This allows us to use a generic word like "update" as our event.)
 
-## ChatModel.userExit(userId)
+## ChatModel.userExit(viewId)
 ```
-  userExit(userId) {
-    const userName = this.users.get(userId);
-    this.users.delete(userId);
+  userExit(viewId) {
+    const userName = this.users.get(viewId);
+    this.users.delete(viewId);
     this.publish("userInfo", "update");
   }
 ```
-When a user exits, the model removes its entry from the client list, and publishes the same upate event to the view.
+When a user exits, the model removes its entry from the user list, and publishes the same upate event to the view.
 
 ## ChatModel.onNewPost(post)
 
 
   onNewPost(post) {
-    const userName = this.users.get(post.userId);
+    const userName = this.users.get(post.viewId);
     this.addToHistory(`<b>${userName}:</b> ${this.escape(post.text)}`);
   }
 
@@ -87,7 +87,7 @@ When a user exits, the model removes its entry from the client list, and publish
     this.publish("history", "update");
   }
 
-New posts are tagged with the sender's `clientId`. When the model receives a new post, it uses this ID to look up the client's nickname from the client list. It then builds a chat line that includes the sender's nickname and their message and adds it to the chat history. If there are more that 100 entries in the history, it discards the oldest entry to prevent the history from growing too large.
+New posts are tagged with the sender's `viewId`. When the model receives a new post, it uses this ID to look up the user's nickname from the user list. It then builds a chat line that includes the sender's nickname and their message and adds it to the chat history. If there are more that 100 entries in the history, it discards the oldest entry to prevent the history from growing too large.
 
 It then publishes an event to the view informing it that the history has changed. (Note that using "history" as our scope, we can use the "update" event for a different purpose.
 
@@ -100,7 +100,7 @@ It then publishes an event to the view informing it that the history has changed
   })
   ```
 
-When a new client joins, its nickname is picked at a random from an array. This code is running in parallel on all clients. However, since it's executing in the model, each client will "randomly" pick the same name.
+When a new user joins, its nickname is picked at a random from an array. This code is running in parallel on all users. However, since it's executing in the model, each user will "randomly" pick the same name.
 
 Calls to `Math.random()` inside the model are deterministic. They will return exactly the same random number in every instance of the model, insuring that all the copies of the model are always in synch.
 
@@ -109,9 +109,7 @@ Calls to `Math.random()` inside the model are deterministic. They will return ex
 
 
 
-_Maybe we should call this `clientId`? It's not actually about users_
-
 TODO:
-* talk about user names? the island tracks them but there is no API yet - the model could provide something like `getUserName(userId)`
-* mention [this.user]{@link View#user} (or [this.clientId]{@link View#clientId}) and how to connect from view to an avatar inside the model? Or is that another tutorial?
-* explain how the [random()]{@link Model#random} call is executed independently on each client but has the exact same result
+* talk about user names? the island tracks them but there is no API yet - the model could provide something like `getUserName(viewId)`
+* mention [this.viewId]{@link View#viewId} and how to connect from view to an avatar inside the model? Or is that another tutorial?
+* explain how the [random()]{@link Model#random} call is executed independently on each user but has the exact same result

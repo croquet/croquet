@@ -2,13 +2,13 @@ Copyright © 2019 Croquet Studios
 
 Croquet makes no assumptions about how you implement the view. It operates like a normal JS application. You can directly access the DOM and instantiate whatever sub-objects or data types that you need, use any libraries etc.
 
-The contents of the view are not replicated across clients. Because of this, you generally use the view only for handling input and output. If the user taps a button or clicks somewhere on screen, the view turns this action into an event and sends it to the model. And whenever the model changes, the view updates the visual representation that it displays on the screen. But in general, all of the actual calculation of the application should be done inside the model.
+The contents of the view are not replicated across machines. Because of this, you generally use the view only for handling input and output. If the user taps a button or clicks somewhere on screen, the view turns this action into an event and sends it to the model. And whenever the model changes, the view updates the visual representation that it displays on the screen. But in general, all of the actual calculation of the application should be done inside the model.
 
 In order to update output quickly, the view has a reference to the model and can _read_ from it directly. However …
 
 ## **The view must NEVER write directly to the model!**
 
-This is the **most important** rule of creating a stable _Croquet_ application. The view is given direct access to the model for efficiency, but in order for the local copy of the model to stay in synch with the remote copies running in other clients, _all changes to the model that originate in the view must be done through **events**_. That way they will be mirrored by the reflector to every client in the session.
+This is the **most important** rule of creating a stable _Croquet_ application. The view is given direct access to the model for efficiency, but in order for the local copy of the model to stay in synch with the remote copies of other users, _all changes to the model that originate in the view must be done through **events**_. That way they will be mirrored by the reflector to every user in the session.
 
 ### Other good practices for writing views:
 

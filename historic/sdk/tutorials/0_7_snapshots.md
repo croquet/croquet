@@ -1,19 +1,19 @@
 Copyright © 2019 Croquet Studios
 
-Snapshots are copies of the model state that are saved to the cloud. When your _Croquet_ application is running, the reflector will periodically request one of the clients to perform a snapshot.
+Snapshots are copies of the model state that are saved to the cloud. When your _Croquet_ application is running, the reflector will periodically request one of the participants to perform a snapshot.
 
 Snapshots provide automatic save functionality for your application. If you quit or reload while your application is running, it will automatically reload the last snapshot when the application restarts.
 
 (When you write your initialization routine for your View, take into account that the Model may just have reloaded from a prior snapshot.)
 
-More importantly, snapshots are how new clients synchronize when they join an existing session. When you join an existing session, the following series of events will occur:
+More importantly, snapshots are how new users synchronize when they join an existing session. When you join an existing session, the following series of events will occur:
 
 1. The local model is initialized with data from the last snapshot.
 2. The reflector resends the local model all events that were transmitted after the last snapshot was taken.
 3. The local view starts executing
 4. The model simulates all the events to bring the snapshot up-to-date
 
-The combination of loading the last snapshot and replaying all the intervening events brings the new client in sync with the other clients in the session.
+The combination of loading the last snapshot and replaying all the intervening events brings the new user in sync with the other users in the session.
 
 ## Snapshot Performance
 

@@ -26,7 +26,7 @@ Models and Views communicate using events. They use the same syntax for sending 
 
 ## Scopes
 
-_TODO: ... mention `model.id`, global scopes (`sessionId`, `clientId`) ..._
+_TODO: ... mention `model.id`, global scopes (`sessionId`, `viewId`) ..._
 
 ## Event Handling
 
@@ -36,7 +36,7 @@ Depending on where the event originates and where it is handled, the controller 
 
 - _Model-to-View_ - The event is queued and will be executed by the local view when the current model simulation has finished.
 
-- _View-to-Model_ - The event is transmitted to the reflector and mirrored to all clients. It will be executed during the next model simulation.
+- _View-to-Model_ - The event is transmitted to the reflector and mirrored to all users. It will be executed during the next model simulation.
 
 Note that multiple models and views all can subscribe to the same event. The controller will take care of routing the event to each subscriber using the appropriate route.
 
