@@ -169,10 +169,28 @@ class Model {
     // Pub / Sub
 
     /**
+     * **Publish an event to a scope.**
      *
-     * @param {String} scope
-     * @param {String} event
-     * @param {*=} data
+     * Events are the main form of communication between models and views in Croquet.
+     * Both models and views can publish events, and subscribe to each other's events.
+     * Model-to-model and view-to-view subscriptions are possible, too.
+     *
+     * See [subscribe]{@link Model#subscribe}() for a discussion of **scopes** and **event names**.
+     *
+     * Optionally, you can pass some **data** along with the event.
+     * For events published by a model, this can be any arbitrary value or object.
+     * See View's [publish]{@link View#publish} method for restrictions in passing data from a view to a model.
+     *
+     * Note that there is no way of testing whether subscriptions exist or not (because that may vary from client to client).
+     * Publishing an event that has no subscriptions is about as cheap as that test would be, so feel free to always publish,
+     * there is very little overhead.
+     *
+     * @example
+     * this.publish("something", "changed");
+     * this.publish(this.id, "moved", this.pos);
+     * @param {String} scope see [subscribe]{@link Model#subscribe}()
+     * @param {String} event see [subscribe]{@link Model#subscribe}()
+     * @param {*=} data can be any value or object
      * @public
      */
     publish(scope, event, data) {
@@ -182,15 +200,67 @@ class Model {
 
 
     /**
-     * Register an event handler for an event published to a certain scope.
+     * **Register an event handler for an event published to a scope.**
+     *
+     * Both `scope` and `event` can be arbitrary strings.
+     * Typically, the scope would select the object (or groups of objects) to respond to the event,
+     * and the event name would select which operation to perform.
+     *
+     * A commonly used scope is `this.id` (in a model) and `model.id` (in a view) to establish a
+     * a communication channel between a odel and its corresponding view.
+     *
+     * You can use any literal string as a global scope, or use [`this.sessionId`]{@link Model#sessionId} for a
+     * session-global scope (if your application supports multipe sessions at the same time).
+     * The predefined events [`"user-enter"`]{@link event:user-enter} and [`"user-exit"`]{@link event:user-exit}
+     * use this session scope.
+     *
+     * The event handler **must** be a method of `this`, and you **must** call that method using a fat-arrow function:<br>
+     * `() => this.method()`<br>
+     * or<br>
+     * `arg => this.method(arg)`
+     *
+     * **No other forms are allowed.** This is because the event handler can not be actually stored as a function
+     * (because functions are not serializable in JS). Instead, the method name is extracted from the function
+     * and stored as a string. If the subscribe method cannot extract the method name, it will throw an error.
+     *
+     * If `data` was passed to the [publish]{@link Model#publish} call, it will be passed as an argument to the handler method.
+     * You can have at most one argument. To pass multiple values, pass an Object or Array containing those values.
+     * Note that views can only pass serializable data to models, because those events are routed via a reflector server
+     * (see [View.publish){@link View#publish}).
+     *
+     * @example
+     * this.subscribe("something", "changed", () => this.update());
+     * this.subscribe(this.id, "moved", pos => this.handleMove(pos));
+     * @example
+     * class MyModel extends Croquet.Model {
+     *   init() {
+     *     this.subscribe(this.id, "moved", pos => this.handleMove(pos));
+     *   }
+     *   handleMove({x,y}) {
+     *     this.x = x;
+     *     this.y = y;
+     *   }
+     * }
+     * class MyView extends Croquet.View {
+     *   constructor(model) {
+     *     this.modelId = model.id;
+     *   }
+     *   onpointermove(evt) {
+     *      const x = evt.x;
+     *      const y = evt.y;
+     *      this.publish(this.modelId, "moved", {x,y});
+     *   }
+     * }
      * @param {String} scope - the event scope (to distinguish between events of the same name used by different objects)
      * @param {String} event - the event name (user-defined or system-defined)
-     * @param {Function} callback - the function called when the event was published
+     * @param {Function} methodCall - the method to be called when the event is published.
+     *     This **must** be specified as a fat-arrow function directly calling a method on `this`,
+     *     taking zero or one arguments (see above)
      * @public
      */
-    subscribe(scope, event, callback) {
+    subscribe(scope, event, methodCall) {
         if (!this.__realm) this.__realmError();
-        this.__realm.subscribe(event, this.id, callback, scope);
+        this.__realm.subscribe(event, this.id, methodCall, scope);
     }
 
     /**
@@ -275,8 +345,19 @@ class Model {
      * Make this model globally accessible under the given name.
      * It can be retrieved from any other model in the same session using [wellKnownModel()]{@link Model#wellKnownModel}.
      *
-     * Note: The instance of your root Model class is being made well-known as `"modelRoot"`
+     * Note: The instance of your root Model class is automatically made well-known as `"modelRoot"`
      * and passed to the [constructor]{@link View} of your root View during {@link startSession}.
+     * @example
+     * class FooManager extends Croquet.Model {
+     *   init() {
+     *     this.beWellKnownAs("UberFoo");
+     *   }
+     * }
+     * class Underlings extends Croquet.Model {
+     *   reportToManager(something) {
+     *     this.wellKnownModel("UberFoo").report(something);
+     *   }
+     * }
      * @param {String} name - a name for the model
      * @public
      */
@@ -287,6 +368,10 @@ class Model {
     /**
      * Access a model that was registered previously using  [beWellKnownAs()]{@link Model#beWellKnownAs}.
      *
+     * Note: The instance of your root Model class is automatically made well-known as `"modelRoot"`
+     * and passed to the [constructor]{@link View} of your root View during {@link startSession}.
+     * @example
+     * const topModel = this.wellKnownModel("modelRoot");
      * @param {String} name - the name given in [beWellKnownAs()]{@link Model#beWellKnownAs}
      * @returns {Model} the model if found, or `undefined`
      * @public
