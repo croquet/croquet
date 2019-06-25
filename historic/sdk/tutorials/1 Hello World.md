@@ -30,7 +30,7 @@ There are three things we will learn here.
 All of the Croquet client support code is included within the Croquet.js library. Typically, to access it within your Javascript application you add it to your HTML:
 
 ```
-<script src="https://croquet.studio/sdk/croquet-0.0.3.min.js"></script>
+<script src="https://croquet.studio/sdk/croquet-latest.min.js"></script>
 ```
 
 When we use Codepen, we simply include the same library by adding it in the Pen Settings
