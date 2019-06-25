@@ -448,14 +448,14 @@ function classToID(cls) {
     if (hasID(cls)) return cls[CLASS_ID];
     gatherModelClasses();
     if (hasID(cls)) return cls[CLASS_ID];
-    throw Error(`Class "${cls.name}" not found, is it registered?`);
+    throw Error(`Class "${cls.name}" not found, did you call ${cls.name}.register()?`);
 }
 
 function classFromID(classID) {
     if (ModelClasses[classID]) return ModelClasses[classID].cls;
     gatherModelClasses();
     if (ModelClasses[classID]) return ModelClasses[classID].cls;
-    throw Error(`Class "${classID}" not found, is it registered?`);
+    throw Error(`Class "${classID}" in snapshot, but not found in current source?`);
 }
 
 function registerClass(file, name, cls) {
