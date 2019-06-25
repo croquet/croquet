@@ -2,114 +2,11 @@ Copyright © 2019 Croquet Studios
 
 This is an example of how to keep track of different users within the same session. It's a simple chat application that maintains a list of all users who are connected to the session and posts a notification whenever someone joins or leaves. New users are assigned a random nickname.
 
-<div class="codepen" data-height="512" data-theme-id="light" data-default-tab="js,result" data-user="croquet" data-slug-hash="NZjLzO" data-prefill='{"title":"Chat","tags":[],"head":"<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">","stylesheets":["https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css"],"scripts":["https://croquet.studio/sdk/croquet-latest.min.js","https://codepen.io/croquet/pen/OemewR"]}'>
-  <pre data-lang="html">&lt;div id="chat">
-  &lt;div id="textOut">&lt;/div>
-  &lt;input id="textIn" type="text" onkeydown="event.keyCode == 13 && sendButton.onclick()"/>
-  &lt;input id="sendButton" type="button" value = "Send" />
-&lt;/div></pre>
-  <pre data-lang="css" >#session { position: fixed; width: 80px; height: 80px; top: 150px; right: 40px; }
-
-html, body, #chat { height: 100%; margin: 0; }
-body,input { font: 24px sans-serif; }
-#chat { display: flex; flex-flow: row wrap; }
-#chat > * { margin: 5px 10px; padding: 10px; border: 1px solid #999; }
-#textIn,#sendButton { flex: 1 0 0; }
-#textOut { height: calc(100% - 100px); flex: 1 100%;  overflow: auto }
-#textIn { flex-grow: 100 }
-#sendButton { background-color: #fff; border: 2px solid #000 }
-</pre>
-  <pre data-lang="js">// Croquet Tutorial 3
-// Multiuser Chat
-// Croquet Studios, 2019
-
-class ChatModel extends Croquet.Model {
-
-  init() {
-    this.users = {};
-    this.history = [];
-    this.subscribe("input", "newPost", post => this.onNewPost(post));
-    this.subscribe(this.sessionId, "user-enter", userId => this.userEnter(userId));
-    this.subscribe(this.sessionId, "user-exit", userId => this.userExit(userId));
-  }
-
-  userEnter(userId) {
-    const userName = this.randomName();
-    this.users[userId] = userName;
-    this.addToHistory(`&lt;i>${userName} has entered the room&lt;/i>`);
-  }
-
-  userExit(userId) {
-    const userName = this.users[userId];
-    delete this.users[userId];
-    this.addToHistory(`&lt;i>${userName} has exited the room&lt;/i>`);
-  }
-
-  onNewPost(post) {
-    const userName = this.users[post.userId];
-    this.addToHistory(`&lt;b>${userName}:&lt;/b> ${this.escape(post.text)}`);
-  }
-
-  addToHistory(item){
-    this.history.push(item);
-    if (this.history.length > 100) this.history.shift();
-    this.publish("history", "update", this.history);
-  }
-
-  escape(text) { // Clean up text to remove html formatting characters
-    return text.replace("&", "&amp;").replace("&lt;", "&lt;").replace(">", "&gt;");
-  }
-
-  randomName() {
-    const names =["Acorn","Allspice","Almond","Ancho","Anise","Aoli","Apple","Apricot","Arrowroot","Asparagus","Avocado","Baklava","Balsamic",
-        "Banana","Barbecue","Bacon","Basil","Bay Leaf","Bergamot","Blackberry","Blueberry","Broccoli",
-        "Buttermilk","Cabbage","Camphor","Canaloupe","Cappuccino","Caramel","Caraway","Cardamom","Catnip","Cauliflower","Cayenne","Celery","Cherry",
-        "Chervil","Chives","Chipotle","Chocolate","Coconut","Cookie Dough","Chicory","Chutney","Cilantro","Cinnamon","Clove",
-        "Coriander","Cranberry","Croissant","Cucumber","Cupcake","Cumin","Curry","Dandelion","Dill","Durian","Eclair","Eggplant","Espresso","Felafel","Fennel",
-        "Fenugreek","Fig","Garlic","Gelato","Gumbo","Honeydew","Hyssop","Ghost Pepper",
-        "Ginger","Ginseng","Grapefruit","Habanero","Harissa","Hazelnut","Horseradish","Jalepeno","Juniper","Ketchup","Key Lime","Kiwi","Kohlrabi","Kumquat","Latte",
-        "Lavender","Lemon Grass","Lemon Zest","Licorice","Macaron","Mango","Maple Syrup","Marjoram","Marshmallow",
-        "Matcha","Mayonnaise","Mint","Mulberry","Mustard","Nectarine","Nutmeg","Olive Oil","Orange Peel","Oregano",
-        "Papaya","Paprika","Parsley","Parsnip","Peach","Peanut","Pecan","Pennyroyal","Peppercorn","Persimmon",
-        "Pineapple","Pistachio","Plum","Pomegranate","Poppy Seed","Pumpkin","Quince","Ragout","Raspberry","Ratatouille","Rosemary","Rosewater","Saffron","Sage","Sassafras",
-        "Sea Salt","Sesame Seed","Shiitake","Sorrel","Soy Sauce","Spearmint","Strawberry","Strudel","Sunflower Seed","Sriracha","Tabasco","Tamarind","Tandoori","Tangerine",
-                  "Tarragon","Thyme","Tofu","Truffle","Tumeric","Valerian","Vanilla","Vinegar","Wasabi","Walnut","Watercress","Watermelon","Wheatgrass","Yarrow","Yuzu","Zucchini"];
-    return names[Math.floor(Math.random() * names.length)];
-  }
-
-}
-
-ChatModel.register();
-
-class ChatView extends Croquet.View {
-
-  constructor(model) {
-    super(model);
-    sendButton.onclick = () => this.send();
-    this.subscribe("history", "update", history => this.refreshHistory(history));
-    this.refreshHistory(model.history);
-  }
-
-  send() {
-    const post = {userId: this.user.id, text: textIn.value};
-    this.publish("input", "newPost", post);
-    textIn.value = "";
-  }
-
-  refreshHistory(history) {
-    textOut.innerHTML = "&lt;b>Welcome to Croquet Chat!&lt;/b>&lt;br>&lt;br>" + history.join("&lt;br>");
-    textOut.scrollTop = Math.max(10000, textOut.scrollHeight);
-  }
-}
-
-// use fixed session name instead of random so multiple codepen windows find each other
-const session = { user: 'GUEST', random: '1234567' };
-Croquet.startSession("chat", ChatModel, ChatView, {step: "auto", session});
-
-// Note: the QR code points to our original pen. After forking,
-// change the url in the HTML tab to point to your pen so you can easily
-// join your own session on a mobile device</pre>
-</div>
+<p class="codepen" data-height="512" data-theme-id="37190" data-default-tab="js,result" data-user="croquet" data-slug-hash="NZjLzO" data-editable="true" style="height: 512px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border: 2px solid; margin: 1em 0; padding: 1em;" data-pen-title="Chat">
+  <span>See the Pen <a href="https://codepen.io/croquet/pen/NZjLzO/">
+  Chat</a> by Croquet (<a href="https://codepen.io/croquet">@croquet</a>)
+  on <a href="https://codepen.io">CodePen</a>.</span>
+</p>
 <script async src="https://static.codepen.io/assets/embed/ei.js"></script>
 
 ## **Try it out!**
