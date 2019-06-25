@@ -56,6 +56,9 @@ class Model {
      *
      * This will call the user-defined [init()]{@link Model#init} method to initialize the instance,
      * passing the {@link options}.
+     *
+     * **Note**: never create a Model instance using `new`, or override its constructor. See [above]{@link Model}.
+     *
      * @example this.foo = FooModel.create({answer: 123});
      * @public
      * @param {Object=} options - option object to be passed to [init()]{@link Model#init}.
