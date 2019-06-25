@@ -65,8 +65,9 @@ class Model {
         const ModelClass = this;
         const realm = currentRealm();
         const model = new ModelClass(SECRET);
-        model.__realm = realm;
-        model.id = realm.register(model);
+        // read-only props
+        Object.defineProperty(model, "__realm", {  value: realm });
+        Object.defineProperty(model, "id", {  value: realm.register(model) });
         SuperInitNotCalled.add(model);
         model.init(options);
         if (SuperInitNotCalled.has(model)) {
@@ -76,6 +77,17 @@ class Model {
                 console.warn(`${model} did not call super.init(options)`);
             }
         }
+        return model;
+    }
+
+    // this version is used by the serializer
+    static createNoInit(id) {
+        const ModelClass = this;
+        const realm = currentRealm();
+        const model = new ModelClass(SECRET);
+        // read-only props
+        Object.defineProperty(model, "__realm", {  value: realm });
+        Object.defineProperty(model, "id", {  value: id });
         return model;
     }
 
@@ -130,9 +142,9 @@ class Model {
     static classToID(cls) {  return classToID(cls); }
     static classFromID(id) { return classFromID(id); }
     static allClasses() { return allClasses(); }
-    static instantiateClassID(id) {
-        const ModelClass = classFromID(id);
-        return new ModelClass(SECRET);
+    static instantiateClassID(classId, id) {
+        const ModelClass = classFromID(classId);
+        return ModelClass.createNoInit(id);
     }
 
     constructor(secret) {
@@ -150,11 +162,15 @@ class Model {
     init(_options) {
         // for reporting errors if user forgot to call super.init()
         SuperInitNotCalled.delete(this);
-        /** each model has an id (unique within the session) which can be used to scope events
-         * @type {String}
-         * @public
-         */
-        this.id = this.id;  // don't know how to otherwise add documentation
+        // eslint-disable-next-line no-constant-condition
+        if (false) {
+            /** Each model has an id (unique within the session) which can be used to scope events
+             * @type {String}
+             * @public
+             */
+            this.id = "";
+            // don't know how to otherwise add documentation
+        }
     }
 
     /**
@@ -381,7 +397,7 @@ class Model {
     }
 
     /**
-     * the session id is used as "global" scope for events like [`"users"`]{@link event:users}
+     * The session id is used as "global" scope for events like [`"users"`]{@link event:users}
      * @type {String}
      * @public
      */
