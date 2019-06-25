@@ -140,13 +140,13 @@ export default class Island {
         for (const id of exited) {
             if (this.users[id]) {
                 delete this.users[id];
-                this.publishFromModel(this.id, "user-exit", id);
+                this.publishFromModel(this.id, "view-exit", id);
             }
         }
         for (const [name, id] of entered) {
             if (!this.users[id]) {
                 this.users[id] = name;
-                this.publishFromModel(this.id, "user-enter", id);
+                this.publishFromModel(this.id, "view-join", id);
             }
         }
     }

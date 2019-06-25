@@ -17,7 +17,7 @@ const SuperInitNotCalled = new WeakSet();
 
 /**
  * Models are replicated objects in Croquet.
- * They are automatically kept in sync on each client in the same [session]{@link startSession}.
+ * They are automatically kept in sync for each user in the same [session]{@link startSession}.
  * Models receive input by [subscribing]{@link Model#subscribe} to events published in a {@link View}.
  * Their output is handled by {@link View}s subscribing to events [published]{@link Model#publish} by a model.
  * Models advance time by sending messages into their [future]{@link Model#future}.
@@ -221,7 +221,7 @@ class Model {
      * For events published by a model, this can be any arbitrary value or object.
      * See View's [publish]{@link View#publish} method for restrictions in passing data from a view to a model.
      *
-     * Note that there is no way of testing whether subscriptions exist or not (because that may vary from client to client).
+     * Note that there is no way of testing whether subscriptions exist or not (because models can exist independent of views).
      * Publishing an event that has no subscriptions is about as cheap as that test would be, so feel free to always publish,
      * there is very little overhead.
      *
@@ -251,7 +251,7 @@ class Model {
      *
      * You can use any literal string as a global scope, or use [`this.sessionId`]{@link Model#sessionId} for a
      * session-global scope (if your application supports multipe sessions at the same time).
-     * The predefined events [`"user-enter"`]{@link event:user-enter} and [`"user-exit"`]{@link event:user-exit}
+     * The predefined events [`"view-join"`]{@link event:view-join} and [`"view-exit"`]{@link event:view-exit}
      * use this session scope.
      *
      * The event handler **must** be a method of `this`, and you **must** call that method using a fat-arrow function:<br>

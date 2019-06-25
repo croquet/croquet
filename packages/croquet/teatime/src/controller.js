@@ -49,6 +49,8 @@ const SessionCallbacks = {};
 
 let connectToReflectorWasCalled = false;
 
+function randomString() { return Math.floor(Math.random() * 2**53).toString(36); }
+
 export default class Controller {
     static connectToReflectorIfNeeded() {
         if (connectToReflectorWasCalled) return;
@@ -136,6 +138,8 @@ export default class Controller {
         this.time = 0;
         /** the human-readable session (e.g. "room/user/random") */
         this.session = '';
+        /** @type {String} the client id (different in each replica) */
+        this.viewId = randomString(); // todo: have reflector assign unique ids
         /** the number of concurrent users in our island (excluding spectators) */
         this.users = 0;
         /** the number of concurrent users in our island (including spectators) */
@@ -157,7 +161,7 @@ export default class Controller {
         /** latency statistics */
         this.statistics = {
             /** for identifying our own messages */
-            id: Math.floor(Math.random() * 0x100000000),
+            id: this.viewId,
             /** for identifying each message we sent */
             seq: 0,
             /** time when message was sent */
@@ -170,11 +174,8 @@ export default class Controller {
     /** @type {String} the session id (same for all replicas) */
     get id() { return this.island ? this.island.id : this.islandCreator.snapshot.id; }
 
-    /** @type {String} the client id (different in each replica) */
-    get clientId() { return this.statistics.id; } // todo: have reflector assign ids
-
     /** @type {Object} {id, name} the user id (identifying this client) and name (from login or "GUEST") */
-    get user() { return { name: getUser("name", "GUEST"), id: this.clientId}; }
+    get user() { return { name: getUser("name", "GUEST"), id: this.viewId}; }
 
     /**  @type {Number} how many ms the simulation is lagging behind the last tick from the reflector */
     get backlog() { return this.island ? this.time - this.island.time : 0; }
@@ -820,7 +821,7 @@ export default class Controller {
             if (typeof this.synced === "boolean" && (this.synced && backlog > SYNCED_MAX || !this.synced && backlog < SYNCED_MIN)) {
                 this.synced = !this.synced;
                 displaySpinner(!this.synced);
-                this.island.publishFromView(this.clientId, "synced", this.synced);
+                this.island.publishFromView(this.viewId, "synced", this.synced);
             }
             if (weHaveTime && this.cpuTime > SNAPSHOT_EVERY) { this.cpuTime = 0; this.scheduleSnapshot(); }
             return weHaveTime;

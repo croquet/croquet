@@ -132,8 +132,8 @@ class View {
     /**
      * @public
      */
-    get clientId() {
-        return this.realm.island.controller.clientId;
+    get viewId() {
+        return this.realm.island.controller.viewId;
     }
 
     /**

@@ -17,7 +17,7 @@ export { currentRealm } from "./src/realms";
  *
  * A [session id]{@link Model#sessionId} is created from the given `name`, the url session slug,
  * and a hash of all the [registered]{@link Model.register} Model classes and {@link Constants}.
- * This ensures that only clients running the exact same source code end up in the same session,
+ * This ensures that only users running the exact same source code end up in the same session,
  * which is a prerequisite for perfectly replicated computation.
  *
  * The session id is used to connect to a reflector. If there is no ongoing session and no persistent snapshot,
@@ -197,22 +197,22 @@ function freezeAndHashConstants() {
 // putting event documentation here because JSDoc errors when parsing controller.js at the moment
 
 /**
- * **Published when a user joins the session.**
+ * **Published when a new user enters the session.**
  *
  * This is a replicated event, meaning both models and views can subscribe to it.
  *
- * **Note:** Each `"user-enter"` event is guaranteed to be followed by a [`"user-exit"`]{@link event:user-exit}
- * event when that user leaves the session, or when the session is started from a snapshot.
+ * **Note:** Each `"view-join"` event is guaranteed to be followed by a [`"view-exit"`]{@link event:view-exit}
+ * event when that user leaves the session, or when the session is cold-started from a persistent snapshot.
  *
- * Hint: In the view, you can access the local user as [`this.user`]{@link View#user}, and compare
- * its `id` to the `id` in this event, to associate it with an avatar.
+ * Hint: In the view, you can access the local viewId as [`this.viewId`]{@link View#viewId}, and compare
+ * it to the argument in this event, e.g. to associate the view side with an avatar on the model side.
  *
  * @example
  * class MyModel extends Croquet.Model {
  *     init() {
  *         this.userData = {};
- *         this.subscribe(this.sessionId, "user-enter", userId => this.addUser(userId));
- *         this.subscribe(this.sessionId, "user-exit", userId => this.deleteUser(userId));
+ *         this.subscribe(this.sessionId, "view-join", viewId => this.addUser(viewId));
+ *         this.subscribe(this.sessionId, "view-exit", viewId => this.deleteUser(viewId));
  *     }
  *
  *     addUser(id) {
@@ -226,10 +226,10 @@ function freezeAndHashConstants() {
  *         delete this.userData[id];
  *     }
  * }
- * @event user-enter
+ * @event view-join
  * @property {String} scope - [`this.sessionId`]{@link Model#sessionId}
- * @property {String} event - `"user-enter"`
- * @property {String} userId - the user's id
+ * @property {String} event - `"view-join"`
+ * @property {String} viewId - the joining user's local viewId
  * @public
  */
 
@@ -238,16 +238,16 @@ function freezeAndHashConstants() {
  *
  * This is a replicated event, meaning both models and views can subscribe to it.
  *
- * **Note:** when starting a new session from a snapshot, `"user-exit"` events will be
- * generated for all of the previous users before the first [`"user-enter"`]{@link event:user-enter}
+ * **Note:** when starting a new session from a snapshot, `"view-exit"` events will be
+ * generated for all of the previous users before the first [`"view-join"`]{@link event:view-join}
  * event of the new session.
  *
  * #### Example
- * See [`"user-enter"`]{@link event:user-enter} event
- * @event user-exit
+ * See [`"view-join"`]{@link event:view-join} event
+ * @event view-exit
  * @property {String} scope - [`this.sessionId`]{@link Model#sessionId}
- * @property {String} event - `"user-exit"`
- * @property {String} userId - the user's id
+ * @property {String} event - `"view-exit"`
+ * @property {String} viewId - the user's id
  * @public
  */
 
@@ -259,10 +259,10 @@ function freezeAndHashConstants() {
  * If this is the main session, it also indicates that the scene was revealed (if data is `true`)
  * or hidden behind the overlay (if data is `false`).
  * ```
- * this.subscribe(this.clientId, "synced", data => this.handleSynced(data));
+ * this.subscribe(this.viewId, "synced", data => this.handleSynced(data));
  * ```
  * @event synced
- * @property {String} scope - [`this.clientId`]{@link View#clientId}
+ * @property {String} scope - [`this.viewId`]{@link View#viewId}
  * @property {String} event - `"synced"`
  * @property {Boolean} data - `true` if in sync, `false` if backlogged
  * @public
