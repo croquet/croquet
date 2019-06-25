@@ -55,11 +55,11 @@ DOCS=$SDK/docs
 rm -r $DOCS/*
 
 # deploy docs
-npx parcel build --public-url . --no-source-maps -d $DOCS build/*.html
+node_modules/.bin/parcel build --public-url . --no-source-maps -d $DOCS build/*.html
 
 if [ "$RELEASE" != "docs" ] ; then
     # build & deploy library
-    npx parcel build --public-url . --global Croquet -d $SDK -o croquet-$VERSION.min.js croquet.js
+    node_modules/.bin/parcel build --public-url . --global Croquet -d $SDK -o croquet-$VERSION.min.js croquet.js
 
     # link as latest
     (cd $SDK; ln -sf croquet-$VERSION.min.js croquet-latest.min.js; ln -sf croquet-$VERSION.min.js.map croquet-latest.min.js.map)
