@@ -446,10 +446,10 @@ function buildGlobalNav(items, itemHeading, itemsSeen) {
  */
 
 function buildNav(members) {
-    var nav = '<h2><a href="index.html">Home</a></h2>';
     var seen = {};
     var seenTutorials = {};
     var docdash = env && env.conf && env.conf.docdash || {};
+    var nav = '<h2><a href="index.html">' + (docdash.menuHome||'Home') + '</a></h2>';
     if(docdash.menu){
         for(var menu in docdash.menu){
             nav += '<h2><a ';

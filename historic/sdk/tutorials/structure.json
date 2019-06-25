@@ -1,0 +1,35 @@
+{
+    "0_1_model_view_reflector": {
+        "title": "💡 Model-View-Reflector"
+    },
+    "0_2_writing_a_croquet_app": {
+        "title": "💡 Writing a Croquet Application"
+    },
+    "0_3_writing_a_croquet_view": {
+        "title": "💡 Writing a Croquet View"
+    },
+    "0_4_writing_a_croquet_model": {
+        "title": "💡 Writing a Croquet Model"
+    },
+    "0_5_sim_time_and_future": {
+        "title": "💡 Simulation Time and Future Sends"
+    },
+    "0_6_events_pub_sub": {
+        "title": "💡 Events & Publish/Subscribe"
+    },
+    "0_7_snapshots": {
+        "title": "💡 Snapshots"
+    },
+    "0_8_random": {
+        "title": "💡 Randomness & Determinism"
+    },
+    "1_1_hello_world": {
+        "title": "💻 Hello World"
+    },
+    "1_2_simple_animation": {
+        "title": "💻 Simple Animation"
+    },
+    "1_3_multiuser_chat": {
+        "title": "💻 Multiuser Chat"
+    }
+}
