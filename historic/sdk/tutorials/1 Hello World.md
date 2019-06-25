@@ -6,11 +6,67 @@ We are using Codepen for our tutorials. That allows us to place a working exampl
 
 Below is the Croquet Hello World app running live in Codepen. Scroll through the code to the left. You will see that a simple Croquet app is indeed very simple.
 
-<p class="codepen" data-height="437" data-theme-id="37149" data-default-tab="js,result" data-user="croquet" data-slug-hash="bPNgMY" style="height: 437px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border: 2px solid; margin: 1em 0; padding: 1em;" data-pen-title="Hello World!">
-  <span>See the Pen <a href="https://codepen.io/croquet/pen/bPNgMY/">
-  Hello World!</a> by Croquet (<a href="https://codepen.io/croquet">@croquet</a>)
-  on <a href="https://codepen.io">CodePen</a>.</span>
-</p>
+<div class="codepen" data-height="265" data-theme-id="light" data-default-tab="js,result" data-user="croquet" data-slug-hash="bPNgMY" data-prefill='{"title":"Hello World!","tags":[],"stylesheets":["https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css"],"scripts":["https://croquet.studio/sdk/croquet-latest.min.js","https://codepen.io/croquet/pen/OemewR"]}'>
+  <pre data-lang="html">&lt;div id="session">&lt;/div>
+&lt;div id="countDisplay">&lt;/div></pre>
+  <pre data-lang="css" >
+    #session { position: fixed; width: 80px; height: 80px; top: 150px; right: 40px; }
+
+    #countDisplay {
+    font: 64px sans-serif;
+    }
+  </pre>
+  <pre data-lang="js">// Croquet Tutorial 1
+// Hello World
+// Croquet Studios, 2019
+
+class MyModel extends Croquet.Model {
+
+    init(options) {
+        super.init(options);
+        this.count = 0;
+        this.subscribe("counter", "reset", () => this.resetCounter());
+        this.future(1000).tick();
+    }
+
+    resetCounter() {
+        this.count = 0;
+        this.publish("counter", "update", this.count);
+    }
+
+    tick() {
+        this.count++;
+        this.publish("counter", "update", this.count);
+        this.future(1000).tick();
+    }
+
+}
+
+MyModel.register();
+
+class MyView extends Croquet.View {
+
+    constructor(model) {
+        super(model);
+        document.addEventListener("click", event => this.onclick(event), false);
+        this.subscribe("counter", "update", data => this.handleUpdate(data));
+    }
+
+    onclick(event) {
+      if (event.target !== document.getElementById("qr"))
+        this.publish("counter", "reset");
+    }
+
+    handleUpdate(data) {
+        document.getElementById("countDisplay").textContent = data;
+    }
+
+}
+
+// use fixed session name instead of random so multiple codepen windows find each other
+const session = { user: 'GUEST', random: '1234567' };
+Croquet.startSession("hello", MyModel, MyView, {step: "auto", session});</pre>
+</div>
 <script async src="https://static.codepen.io/assets/embed/ei.js"></script>
 
 
