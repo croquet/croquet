@@ -61,8 +61,8 @@ class View {
     }
 
     /**
-     * Unsubscribes all [subscriptions]{@link View#subscribe} this model has,
-     * and removes it from the list of views.
+     * **Unsubscribes all [subscriptions]{@link View#subscribe} this model has,
+     * and removes it from the list of views**
      *
      * This needs to be called when a view is no longer needed to prevent memory leaks.
      * @example
@@ -85,10 +85,12 @@ class View {
      * Both models and views can publish events, and subscribe to each other's events.
      * Model-to-model and view-to-view subscriptions are possible, too.
      *
-     * See [subscribe]{@link Model#subscribe}() for a discussion of **scopes** and **event names**.
+     * See [Model.subscribe]{@link Model#subscribe} for a discussion of **scopes** and **event names**.
      *
      * Optionally, you can pass some **data** along with the event.
-     * For events published by a view and received , this can be any arbitrary value or object.
+     * For events published by a view and received by a model,
+     * the data needs to be serializable, because it will be sent via the reflector to all users.
+     * For view-to-view events it can be any value or object.
      *
      * Note that there is no way of testing whether subscriptions exist or not (because models can exist independent of views).
      * Publishing an event that has no subscriptions is about as cheap as that test would be, so feel free to always publish,
@@ -105,12 +107,37 @@ class View {
     publish(scope, event, data) {
         this.realm.publish(event, data, scope);
     }
-
     /**
+     * **Register an event handler for an event published to a scope.**
      *
-     * @param {String} scope
-     * @param {String|Object} eventSpec
-     * @param {Function} callback
+     * Both `scope` and `event` can be arbitrary strings.
+     * Typically, the scope would select the object (or groups of objects) to respond to the event,
+     * and the event name would select which operation to perform.
+     *
+     * A commonly used scope is `this.id` (in a model) and `model.id` (in a view) to establish
+     * a communication channel between a model and its corresponding view.
+     *
+     * Unlike in a model's [subscribe]{@link Model#subscribe} method, you can specify when the event should be handled:
+     * - `"queued"` (this is the default) The handler will be called on the next run of the [main loop]{@link startSession},
+     *   the same number of times this event was published.
+     *   This is useful if you need each piece of data that was passed in each [publish]{@link Model#publish} call.
+     * - `"oncePerFrame"` The handler will be called only once during the next run of the [main loop]{@link startSession}.
+     *   If [publish]{@link Model#publish} was called multiple times, the handler will only be invoked once,
+     *   passing the data of only the last `publish` call.
+     * - `"immediate"`
+     *
+     * The `handler` can be any callback function.
+     * Unlike a model's [handler]{@link Model#subscribe} which must be a method of that model,
+     * a view's handler can be any function, including fat-arrow functions declared in-line.
+     * Passing a method like in the model is allowed too, it will be bound to `this` in the subscribe call.
+     *
+     * @example
+     * this.subscribe("something", "changed", this.update);
+     * this.subscribe(this.id, "moved", pos => this.sceneObject.setPosition(pos.x, pos.y, pos.z));
+     * @param {String} scope - the event scope (to distinguish between events of the same name used by different objects)
+     * @param {String|Object} eventSpec - the event name (user-defined or system-defined), or an event handling spec object
+     * @param {Function} handler - the event handler (can be any function)
+     * @return {this}
      * @public
      */
     subscribe(scope, eventSpec, callback) {
@@ -138,7 +165,7 @@ class View {
 
     /**
      *
-     * @public
+     * public
      */
     subscribeToPropertyChange(model, property, callback, options={}) {
         this.subscribe(model.id + "#" + property, {...options, event: "changed"}, callback);
@@ -146,7 +173,7 @@ class View {
 
     /**
      *
-     * @public
+     * public
      */
     unsubscribeFromPropertyChange(model, property) {
         this.unsubscribe(model.id + "#" + property, "changed");
@@ -204,7 +231,7 @@ class View {
      *
      * If your app has several sessions at the same time, each session id will be different.
      * @example
-     * this.subscribe(this.sessionId, "view-join", viewId => this.logUser(viewId));
+     * this.subscribe(this.sessionId, "view-join", this.logUser);
      * @type {String}
      * @public
      */
@@ -220,9 +247,13 @@ class View {
      * It is sent as argument in [`"view-join"`]{@link event:view-join} and [`"view-exit"`]{@link event:view-exit}
      * events.
      *
-     * **Note:** this is different from [`this.id`]{@link View#id} which identifies each individual view object
+     * The `viewId` is also used as a scope for non-replicated events, for example [`"synced"`]{@link event:synced}.
+     *
+     * **Note:** `this.viewId` is different from [`this.id`]{@link View#id} which identifies each individual view object
      * (if you create multiple views in your code). `this.viewId` identifies the local user, so it will be the same
      * in each individual view object. See [`"view-join"`]{@link event:view-join} event.
+     * @example
+     * this.subscribe(this.sessionId, "view-join", id => console.log(`${id === this.viewId ? "local" : "remote"} user ${id} joined`));
      * @type {String}
      * @public
      */

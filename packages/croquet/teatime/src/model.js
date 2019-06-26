@@ -277,11 +277,8 @@ class Model {
      * The predefined events [`"view-join"`]{@link event:view-join} and [`"view-exit"`]{@link event:view-exit}
      * use this session scope.
      *
-     * Use the form `subscribe("scope", "event", this.methodName)` to schedule the
-     * invocation of `this.methodName(data)` whenever `publish("scope", "event", data)` is executed.
-     *
-     * **Note:** the recommended form is equivalent to `this.subscribe("scope", "event", "methodName")`
-     * but makes it more clear that "methodName" is not just a string but the name of a method of this object.
+     * The handler must be a method of `this`, e.g. `subscribe("scope", "event", this.methodName)` will schedule the
+     * invocation of `this["methodName"](data)` whenever `publish("scope", "event", data)` is executed.
      *
      * If `data` was passed to the [publish]{@link Model#publish} call, it will be passed as an argument to the handler method.
      * You can have at most one argument. To pass multiple values, pass an Object or Array containing those values.
@@ -313,6 +310,7 @@ class Model {
      * }
      * @param {String} scope - the event scope (to distinguish between events of the same name used by different objects)
      * @param {String} event - the event name (user-defined or system-defined)
+     * @param {Function} handler - the event handler (must be a method of `this`)
      * @return {this}
      * @public
      */
