@@ -115,11 +115,11 @@ class View {
 
     /** Called from main loop once per frame. Default implementation does nothing.
      *
-     * Override to add your own rendering.
+     * Override to add your own view-side input polling, rendering, etc.
      * @param {Number} time - this frame's time stamp in milliseconds
      * @public
     */
-    render(_time) {
+    update(_time) {
     }
 
     /**

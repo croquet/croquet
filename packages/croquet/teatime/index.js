@@ -34,12 +34,13 @@ export { currentRealm } from "./src/realms";
  * 1. _Simulation:_ the models execute the events received via the reflector,
  *    and the [future messages]{@link Model#future} up to the latest time stamp received from the reflector.
  *    The [events]{@link Model#publish} generated in this phase are put in a queue for the views to consume.
- * 2. _Updating:_ the queued events are processed by calling the view's [event handlers]{@link View#subscribe}.
+ * 2. _Event Processing:_ the queued events are processed by calling the view's [event handlers]{@link View#subscribe}.
  *    The views typically use these events to modify some view state, e.g. moving a DOM element or setting some
  *    attribute of a ThreeJS object.
- * 3. _Rendering:_ The view root's [render()]{@link View#render} method is called after all the queued events have been processed.
- *    In some applications, the render method will do nothing (e.g. DOM elements are rendered after returning control to the browser).
+ * 3. _Updating:_ The view root's [update()]{@link View#update} method is called after all the queued events have been processed.
+ *    In some applications, the update method will do nothing (e.g. DOM elements are rendered after returning control to the browser).
  *    In other UI frameworks (e.g. ThreeJS), this is the place to perform the actual rendering.
+ *    Also, polling input and other tasks that should happen in every frame should be placed here.
  *
  * The return value is a Promise. Most applications do not need the returned values,
  * so there is no need to wait for the function's completion.
@@ -49,9 +50,9 @@ export { currentRealm } from "./src/realms";
  * | ------------- |-------------  | -----------
  * | `step:`       | `"auto"`      | automatic stepping via [requestAnimationFrame()]{@link https://developer.mozilla.org/en-US/docs/Web/API/window/requestAnimationFrame} (this is the default)
  * |               | `"app"`       | application-defined main loop will call the session's `step()` function
- * | `render:`     | `"auto"`      | call `render()` only if there where events processed in the update phase (this is the default)
- * |               | `"always"`    | call `render()` in every step, independent of events
- * |               | `"never"`     | disable calling `render()` altogether
+ * | `update:`     | `"auto"`      | call `update()` only if there where events processed in the event phase (this is the default)
+ * |               | `"always"`    | call `update()` in every step, independent of events
+ * |               | `"never"`     | disable calling `update()` altogether
  *
  *
  * @async
@@ -60,7 +61,7 @@ export { currentRealm } from "./src/realms";
  * @param {View} ViewRoot - the root View class for your app
  * @param {Object=} options -
  *      `step:` `"auto"` or `"app"`,<br>
- *      `render:` `"auto"` or `"always"` or `"never"`,<br>
+ *      `update:` `"auto"` or `"always"` or `"never"`,<br>
  * @returns {Promise} Promise that resolves to an object describing the session:
  * ```
  * {
@@ -84,13 +85,13 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
     if (options.step === "auto") {
         // auto stepping
         const step = frameTime => {
-            stepSession(frameTime, controller, session.view, options.render);
+            stepSession(frameTime, controller, session.view, options.update);
             window.requestAnimationFrame(step);
         };
         window.requestAnimationFrame(step);
     } else {
         // app-controlled stepping
-        session.step = frameTime => stepSession(frameTime, controller, session.view, options.render);
+        session.step = frameTime => stepSession(frameTime, controller, session.view, options.update);
     }
     await bootModelView();
     return session;
@@ -129,7 +130,7 @@ const loadBalance = 4;
 // time in ms we allow sim to lag behind before increasing sim budget
 const balanceMS = loadBalance * (1000 / 60);
 
-function stepSession(frameTime, controller, view, render="auto") {
+function stepSession(frameTime, controller, view, update="auto") {
     const {backlog, latency, starvation, activity} = controller;
     Stats.animationFrame(frameTime, {backlog, starvation, latency, activity, users: controller.users});
 
@@ -145,9 +146,9 @@ function stepSession(frameTime, controller, view, render="auto") {
         const hadEvents = controller.processModelViewEvents();
         Stats.end("update");
 
-        if ((hadEvents || render === "always") && render !== "never") {
+        if ((hadEvents || update === "always") && update !== "never") {
             Stats.begin("render");
-            view.render(frameTime);
+            view.update(frameTime);
             Stats.end("render");
         }
     }
