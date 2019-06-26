@@ -361,13 +361,33 @@ class Model {
     // Misc
 
     /**
+     * **Schedule a message for future execution**
      *
+     * Use a future message to automatically advance time in a model,
+     * for example for animations.
+     * The execution will be scheduled `tOffset` milliseconds into the future.
+     *
+     * Use the form `this.future(100).methodName(arg1, arg2)` to schedule the execution
+     * of `this.methodName(arg1, arg2)` at time `this.[now]{@link Model#now}() + tOffset`.
+     *
+     * **Note:** the recommended form is equivalent to `this.future(100, "methodName", arg1, arg2)`
+     * but makes it more clear that "methodName" is not just a string but the name of a method of this object.
+     *
+     * See this [tutorial]{@tutorial 1_1_hello_world} for a complete example.
+     *
+     * @example
+     * tick() {
+     *     this.n++;
+     *     this.publish(this.id, "count", {time: this.now(), count: this.n)});
+     *     this.future(100).tick();
+     * }
+     * @param {Number} tOffset - time offset in milliseconds
      * @returns {this}
      * @public
      */
-    future(tOffset=0) {
+    future(tOffset=0, methodName, ...args) {
         if (!this.__realm) this.__realmError();
-        return this.__realm.futureProxy(tOffset, this);
+        return this.__realm.future(this, tOffset, methodName, args);
     }
 
     /**
