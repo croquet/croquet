@@ -33,9 +33,9 @@ The `"view-join"` and `"view-exit"` are system-generated events. They don't orig
   init() {
     this.users = new Map();
     this.history = [];
-    this.subscribe("input", "newPost", post => this.onNewPost(post));
-    this.subscribe(this.sessionId, "view-join", viewId => this.userEnter(viewId));
-    this.subscribe(this.sessionId, "view-exit", viewId => this.userExit(viewId));
+    this.subscribe("input", "newPost").onNewPost();
+    this.subscribe(this.sessionId, "view-join").userJoin();
+    this.subscribe(this.sessionId, "view-exit").userExit();
   }
   ```
 
@@ -43,19 +43,19 @@ The `"view-join"` and `"view-exit"` are system-generated events. They don't orig
 
 `history` is an array of chat messages.
 ```
-this.subscribe("input", "newPost", post => this.onNewPost(post));
+this.subscribe("input", "newPost").onNewPost();
 ```
 
 This is the subscription to handle new chat posts. It's given the scope "input" as a way to remind us where the event is coming from. (It also means we could use `newPost` as a different event somewhere else in our application without the two events being confused with each other.)
 ```
-this.subscribe(this.sessionId, "view-join", viewId => this.userEnter(viewId));
-this.subscribe(this.sessionId, "view-exit", viewId => this.userExit(viewId));
+this.subscribe(this.sessionId, "view-join").userJoin();
+this.subscribe(this.sessionId, "view-exit").userExit();
 ```
 This is the subscription to handle users entering or leaving. In both cases the scope is set to `this.sessionId` which is the default scope for all system-generated events. The data passed to both events is a `viewId`. It is a unique identifier for each participant in the session. Even if the same person joins the session from multiple browser windows or devices, the `viewId` will always be different.
 
-## ChatModel.userEnter(viewId)
+## ChatModel.userJoin(viewId)
 ```
-  userEnter(viewId) {
+  userJoin(viewId) {
     const userName = this.randomName();
     this.users.set(viewId, userName);
     this.publish("userInfo", "update");
@@ -95,7 +95,7 @@ It then publishes an event to the view informing it that the history has changed
 
   ```
   randomName() {
-    const names =["Acorn" ..."Zucchini"];
+    const names = ["Acorn" ..."Zucchini"];
     return names[Math.floor(Math.random() * names.length)];
   })
   ```
@@ -110,6 +110,5 @@ Calls to `Math.random()` inside the model are deterministic. They will return ex
 
 
 TODO:
-* talk about user names? the island tracks them but there is no API yet - the model could provide something like `getUserName(viewId)`
 * mention [this.viewId]{@link View#viewId} and how to connect from view to an avatar inside the model? Or is that another tutorial?
-* explain how the [random()]{@link Model#random} call is executed independently on each user but has the exact same result
+* explain how the [random()]{@link Model#random} call is executed independently on each machine but has the exact same result
