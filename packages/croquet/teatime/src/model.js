@@ -55,10 +55,15 @@ class Model {
     /**
      * __Create an instance of a Model subclass.__
      *
-     * This will call the user-defined [init()]{@link Model#init} method to initialize the instance,
+     * The instance will be registered for automatical snapshotting, and is assigned an [id]{@link Model#id}.
+     *
+     * Then it will call the user-defined [init()]{@link Model#init} method to initialize the instance,
      * passing the {@link options}.
      *
-     * **Note**: never create a Model instance using `new`, or override its constructor. See [above]{@link Model}.
+     * **Note:** When your model instance is no longer needed, you must [destroy]{@link Model#destroy} it.
+     * Otherwise it will be kept in the snapshot forever.
+     *
+     * **Warning**: never create a Model instance using `new`, or override its constructor. See [above]{@link Model}.
      *
      * @example this.foo = FooModel.create({answer: 123});
      * @public
@@ -178,7 +183,10 @@ class Model {
     /**
      * This is called by [create()]{@link Model.create} to initialize a model instance.
      *
-     * In your Model subclass this is the place to [subscribe]{@link Model#subscribe} to events, or start a [future]{@link Model#future} message chain.
+     * In your Model subclass this is the place to [subscribe]{@link Model#subscribe} to events,
+     * or start a [future]{@link Model#future} message chain.
+     *
+     * **Note:** When your model instance is no longer needed, you must [destroy]{@link Model#destroy} it.
      *
      * @param {Object=} options - there are no system-defined options, you're free to define your own
      * @public
@@ -204,7 +212,9 @@ class Model {
     }
 
     /**
-     * Unsubscribes all subscriptions this model has, and removes it from future snapshots.
+     * Unsubscribes all [subscriptions]{@link Model#subscribe} this model has,
+     * unschedules all [future]{@link Model#future} messages,
+     * and removes it from future snapshots.
      * @example
      * removeChild(child) {
      *    const index = this.children.indexOf(child);
