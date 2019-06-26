@@ -15,7 +15,7 @@ myTick() {
     this.future(100).myTick();
 }
 ```
-This creates a routine that will execute `myTick` every time 100 milliseconds have elapsed. If your simulation needs to update continuously, you will want to set up a tick routine in your model. Call it once at the end of the model's `init()` code, and then it will schedule itself to be called again each time it runs.
+This creates a routine that will execute `myTick` every time 100 milliseconds have elapsed. If your simulation needs to update continuously, you will want to set up a tick routine in your model. Call it once at the end of the model's `init()` code, and ensure that it schedules itself to be called again each time it runs.
 
 The delay value passed to `future` does not need to be a whole number.  For example, if you want something to run 60 times a second, you could pass it the value `1000/60`.
 

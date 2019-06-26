@@ -40,7 +40,7 @@ Starting the session will do the following things:
 5. Pass a reference to the model to the view in its constructor
 6. Create a main event loop and begin executing
 
-The main loop runs each time the window performs an animation update—usually 60 times per second. On each iteration of the main loop, it will first process all pending events in the model, then process all pending events in the view, then call {@link View#render}.
+The main loop runs each time the window performs an animation update — commonly, 60 times per second. On each iteration of the main loop, it will first process all pending events in the model, then process all pending events in the view, then call {@link View#render}.
 
 **Note that the code in your model's `init()` routine only runs the first time the application launches.** If another user joins a session that's in progress, they will load the most recent snapshot of model state. The same is true if you quit a session and rejoin it later.
 

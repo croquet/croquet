@@ -30,7 +30,7 @@ _TODO: ... mention `model.id`, global scopes (`sessionId`, `viewId`) ..._
 
 ## Event Handling
 
-Depending on where the event originates and where it is handled, the controller routes it differently:
+Depending on where the event originates and which objects are subscribed to it, the controller routes it differently:
 
 - _View-to-View / Model-to-Model_ - The event handler is executed immediately.
 
@@ -38,7 +38,7 @@ Depending on where the event originates and where it is handled, the controller 
 
 - _View-to-Model_ - The event is transmitted to the reflector and mirrored to all users. It will be executed during the next model simulation.
 
-Note that multiple models and views all can subscribe to the same event. The controller will take care of routing the event to each subscriber using the appropriate route.
+Note that multiple models and views can subscribe to the same event. The controller will take care of routing the event to each subscriber using the appropriate route, meaning that a view subscriber and a model subscriber will receive the event at slightly different times.
 
 ## Best practices
 

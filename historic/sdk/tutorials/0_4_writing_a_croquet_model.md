@@ -17,7 +17,7 @@ Q.STEP_MS = 1000 / 30;       // bouncing ball speed in virtual pixels / step
 Q.SPEED = 10;                // max speed on a dimension, in units/s
 ```
 
-This lets you use write ```this.future(Q.STEP_MS).step();``` where the STEP_MS value is registered and replicated. Just using STEP_MS will probably work, but there is no guarantee that it will be replicated and cause an accidental desyncing of the system.
+This lets you use write ```this.future(Q.STEP_MS).step();``` where the STEP_MS value is registered and replicated. Just using a global STEP_MS could work in some cases, but there is no guarantee that the value will be replicated, so it could cause an accidental desyncing of the system.
 
 **No regular classes.** All objects in the model must be derived from the Model base class. (Mostly. See below for more information.)
 
@@ -25,7 +25,7 @@ This lets you use write ```this.future(Q.STEP_MS).step();``` where the STEP_MS v
 
 **No asynchronous functions.** Do not use _Promises_ or declare a function call with the _async_ keyword inside the model.
 
-**Do not store function references or transmit them in events.** Functions can not be serialized as part of the model state. (It's fine to use function references that exist temporarily, such as in a forEach call. You just shouldn't store them.)
+**Do not store function references or transmit them in events.** Functions cannot be serialized as part of the model state. (It's fine to use function references that exist temporarily, such as in a forEach call. You just shouldn't store them.)
 
 **Don't query the view.** Don't publish events that trigger the view to respond to the model with another event. This can create a cascade of events that clogs the system.
 

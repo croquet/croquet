@@ -13,7 +13,7 @@ Internal communications between the model and view are handled through **events*
 
 When a _Croquet_ application starts up, it becomes part of a **session**. Other users running the same application with the same session ID will also join the same session. The state of the model on every machine in the session will be identical.
 
-The routing of application events is handled by the **controller**. If the controller determines that an event is being sent from view to model, it isn't sent directly. Instead the controller bounces the event off a reflector.
+The routing of application events is handled by the **controller**. If the controller determines that some event from a view is being routed to a model, the model isn't sent the event directly. Instead the controller bounces the event off a reflector.
 
 **Reflectors** are stateless, public, message-passing services located in the cloud. When a reflector receives an event from a user, it mirrors it to all the other users in the same session.
 
