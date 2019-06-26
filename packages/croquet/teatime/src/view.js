@@ -1,11 +1,33 @@
 import { currentRealm } from "./realms";
 
 /**
+ * Views are the non-replicated part of a Croquet Application.
+ * Each device and browser window creates its own independend local view.
+ * The view [subscribes]{@link View#subscribe} to events [published]{@link Model#publish}
+ * by the replicated model, so it stays up to date in real time.
+ *
+ * What the view is showing, however, is completely up to the application developer.
+ * The view can adapt to the device it's running on and show very different things.
+ *
+ * Croquet makes no assumptions about the UI framework you use - be it plain HTML or Three.js or whatever.
+ * Croquet only provides the publish/subscribe mechanism to hook into the replicated model simulation.
+ *
+ * A common pattern is to make a hierarchy of `Croquet.View` subclasses to mimic your hierarchy of Model subclasses.
+ * However, it's also posssible for a single view instance to handle all the events, you don't event have to subclass it.
+ *
  * @public
  */
 class View {
 
     /**
+     * A View instance is created in {@link startSession}, and the root model is passed into its constructor.
+     *
+     * This inherited constructor does not use the model in any way.
+     * Your constructor should recreate the view state to exactly match what is in the model.
+     * It should also [subscribe]{@link View#subscribe} to any changes published by the model.
+     * Typically, a view would also subscribe to the browser's or framework's input events,
+     * and in response [publish]{@link View#publish} events for the model to consume.
+     *
      * @param {Model} model - the view's model
      * @public
      */

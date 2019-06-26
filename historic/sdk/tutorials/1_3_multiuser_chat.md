@@ -111,4 +111,4 @@ Calls to `Math.random()` inside the model are deterministic. They will return ex
 
 TODO:
 * mention [this.viewId]{@link View#viewId} and how to connect from view to an avatar inside the model? Or is that another tutorial?
-* explain how the [random()]{@link Model#random} call is executed independently on each machine but has the exact same result
+* explain how the [random()]{@link Model#random} call is executed independently on each device but has the exact same result
