@@ -21,23 +21,22 @@ class ModelRealm {
     publish(event, data, scope) {
         this.island.publishFromModel(scope, event, data);
     }
-    subscribe(event, modelId, callback, scope) {
-        if (DEBUG.subscribe) console.log(`Model.subscribe(${scope}:${event}) ${modelId} ${callback}`);
-        this.island.addSubscription(scope, event, modelId, callback);
+    subscribe(model, scope, event, methodName) {
+        if (DEBUG.subscribe) console.log(`Model.subscribe(${scope}:${event}) ${model} ${methodName}`);
+        return this.island.addSubscription(model, scope, event, methodName);
     }
-    unsubscribe(event, modelId, callback, scope) {
-        if (DEBUG.subscribe) console.log(`Model.unsubscribe(${scope}:${event}) ${modelId} ${callback}`);
-        this.island.removeSubscription(scope, event, modelId, callback);
+    unsubscribe(model, scope, event, methodName='*') {
+        if (DEBUG.subscribe) console.log(`Model.unsubscribe(${scope}:${event}) ${model}`);
+        this.island.removeSubscription(model, scope, event, methodName);
     }
-    unsubscribeAll(modelId) {
-        if (DEBUG.subscribe) console.log(`View.unsubscribeAll(${modelId}`);
-        this.island.removeAllSubscriptionsFor(modelId);
+    unsubscribeAll(model) {
+        if (DEBUG.subscribe) console.log(`View.unsubscribeAll(${model}`);
+        this.island.removeAllSubscriptionsFor(model);
     }
 
-    futureProxy(tOffset, model) {
-
+    future(model, tOffset, methodName, args) {
         if (__currentRealm && __currentRealm.equal(this)) {
-            return this.island.futureProxy(tOffset, model);
+            return this.island.future(model, tOffset, methodName, args);
         }
         if (tOffset) throw Error("tOffset not supported from cross-realm future send yet.");
         const island = this.island;

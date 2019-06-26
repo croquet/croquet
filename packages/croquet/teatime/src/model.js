@@ -266,14 +266,11 @@ class Model {
      * The predefined events [`"view-join"`]{@link event:view-join} and [`"view-exit"`]{@link event:view-exit}
      * use this session scope.
      *
-     * The event handler **must** be a method of `this`, and you **must** call that method using a fat-arrow function:<br>
-     * `() => this.method()`<br>
-     * or<br>
-     * `arg => this.method(arg)`
+     * Use the form `subscribe("scope", "event").methodName()` to schedule the
+     * invocation of `this.methodName(data)` whenever `publish("scope", "event", data)` is executed.
      *
-     * **No other forms are allowed.** This is because the event handler can not be actually stored as a function
-     * (because functions are not serializable in JS). Instead, the method name is extracted from the function
-     * and stored as a string. If the subscribe method cannot extract the method name, it will throw an error.
+     * **Note:** the recommended form is equivalent to `this.subscribe("scope", "event", "methodName")`
+     * but makes it more clear that "methodName" is not just a string but the name of a method of this object.
      *
      * If `data` was passed to the [publish]{@link Model#publish} call, it will be passed as an argument to the handler method.
      * You can have at most one argument. To pass multiple values, pass an Object or Array containing those values.
@@ -281,12 +278,12 @@ class Model {
      * (see [View.publish){@link View#publish}).
      *
      * @example
-     * this.subscribe("something", "changed", () => this.update());
-     * this.subscribe(this.id, "moved", pos => this.handleMove(pos));
+     * this.subscribe("something", "changed").update();
+     * this.subscribe(this.id, "moved").handleMove();
      * @example
      * class MyModel extends Croquet.Model {
      *   init() {
-     *     this.subscribe(this.id, "moved", pos => this.handleMove(pos));
+     *     this.subscribe(this.id, "moved").handleMove());
      *   }
      *   handleMove({x,y}) {
      *     this.x = x;
@@ -305,34 +302,32 @@ class Model {
      * }
      * @param {String} scope - the event scope (to distinguish between events of the same name used by different objects)
      * @param {String} event - the event name (user-defined or system-defined)
-     * @param {Function} methodCall - the method to be called when the event is published.
-     *     This **must** be specified as a fat-arrow function directly calling a method on `this`,
-     *     taking zero or one arguments (see above)
+     * @return {this}
      * @public
      */
-    subscribe(scope, event, methodCall) {
+    subscribe(scope, event, methodName) {
         if (!this.__realm) this.__realmError();
-        this.__realm.subscribe(event, this.id, methodCall, scope);
+        return this.__realm.subscribe(this, scope, event, methodName);
     }
 
     /**
-     *
-     * @param {String} scope
-     * @param {String} event
+     * Unsubscribes this model's handler for the given event in the given scope.
+     * @param {String} scope see [subscribe]{@link Model#subscribe}
+     * @param {String} event see [subscribe]{@link Model#subscribe}
      * @public
      */
     unsubscribe(scope, event) {
         if (!this.__realm) this.__realmError();
-        this.__realm.unsubscribe(event, this.id, null, scope);
+        this.__realm.unsubscribe(this, scope, event);
     }
 
     /**
-     *
+     * Unsubscribes all of this model's handlers for any event in any scope.
      * @public
      */
     unsubscribeAll() {
         if (!this.__realm) this.__realmError();
-        this.__realm.unsubscribeAll(this.id);
+        this.__realm.unsubscribeAll(this);
     }
 
     __realmError() {
@@ -341,7 +336,7 @@ class Model {
 
     /**
      *
-     * @public
+     * public
      */
     publishPropertyChange(property) {
         this.publish(this.id + "#" + property, "changed", null);
@@ -349,7 +344,7 @@ class Model {
 
     /**
      *
-     * @public
+     * public
      */
     subscribeToPropertyChange(model, property, callback) {
         this.subscribe(model.id + "#" + property, "changed", callback);
@@ -357,7 +352,7 @@ class Model {
 
     /**
      *
-     * @public
+     * public
      */
     unsubscribeFromPropertyChange(model, property) {
         this.unsubscribe(model.id + "#" + property, "changed");

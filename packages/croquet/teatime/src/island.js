@@ -84,7 +84,7 @@ export default class Island {
                     this._random = new SeedRandom(null, { state: true });
                     const namedModels = initFn(this) || {};
                     Object.assign(this.modelsByName, namedModels);
-                    this.addSubscription(this.id, "__users__", this.id, "trackUsers");
+                    this.addSubscription(this, this.id, "__users__", "trackUsers");
                 }
             });
         });
@@ -180,8 +180,12 @@ export default class Island {
     }
 
     // Convert model.future(tOffset).property(...args)
+    // or model.future(tOffset, "property",...args)
     // into this.futureSend(tOffset, model.id, "property", args)
-    futureProxy(tOffset, model) {
+    future(model, tOffset, methodName, args) {
+        if (typeof methodName === "string") {
+            return this.futureSend(tOffset, model.id, methodName, args);
+        }
         const island = this;
         return new Proxy(model, {
             get(_target, property) {
@@ -233,8 +237,19 @@ export default class Island {
 
     // Pub-sub
 
-    addSubscription(scope, event, modelId, methodNameOrCallback) {
+    addSubscription(model, scope, event, methodNameOrCallback) {
         if (CurrentIsland !== this) throw Error("Island Error");
+        if (typeof methodNameOrCallback === "undefined") {
+            const island = this;
+            return new Proxy(model, {
+                get(_target, property) {
+                    if (typeof model[property] === "function") {
+                        return island.addSubscription(model, scope, event, property);
+                    }
+                    throw Error(`Event handler ${Object.getPrototypeOf(model).constructor.name}.${property} is not a function`);
+                }
+            });
+        }
         let methodName = methodNameOrCallback;
         if (typeof methodNameOrCallback === "function") {
             // match:                (   foo             )   =>  this .  bar              (    baz               )
@@ -242,31 +257,31 @@ export default class Island {
             const source = methodNameOrCallback.toString();
             const match = source.match(HANDLER_REGEX);
             if (!match || (match[3] && match[3] !== match[1])) {
-                throw Error(`Subscription handler must look like "data => this.method(data)" not "${methodNameOrCallback}"`);
+                throw Error(`Subscription handler must look like "data => this.method(data)" not "${source}"`);
             }
             methodName = match[2];
         }
         if (typeof methodName !== "string") {
             throw Error(`Subscription handler for "${event}" must be a method name`);
         }
-        const model = this.lookUpModel(modelId);
         if (typeof model[methodName] !== "function") {
             throw Error(`Subscriber method for "${event}" not found: ${model}.${methodName}()`);
         }
         const topic = scope + ":" + event;
-        const handler = modelId + "." + methodName;
+        const handler = model.id + "." + methodName;
         // model subscriptions need to be ordered, so we're using an array
         if (!this.subscriptions[topic]) this.subscriptions[topic] = [];
         else if (this.subscriptions[topic].indexOf(handler) !== -1) {
             throw Error(`${model}.${methodName} already subscribed to ${event}`);
         }
         this.subscriptions[topic].push(handler);
+        return () => {};
     }
 
-    removeSubscription(scope, event, modelId, methodName) {
+    removeSubscription(model, scope, event, methodName) {
         if (CurrentIsland !== this) throw Error("Island Error");
         const topic = scope + ":" + event;
-        const handler = modelId + "." + methodName;
+        const handler = model.id + "." + methodName;
         const handlers = this.subscriptions[topic];
         if (handlers) {
             const indexToRemove = handlers.indexOf(handler);
@@ -275,9 +290,9 @@ export default class Island {
         }
     }
 
-    removeAllSubscriptionsFor(modelId) {
-        const topicPrefix = `${modelId}:`;
-        const handlerPrefix = `${modelId}.`;
+    removeAllSubscriptionsFor(model) {
+        const topicPrefix = `${model.id}:`;
+        const handlerPrefix = `${model.id}.`;
         // TODO: optimize this - reverse lookup table?
         for (const [topic, handlers] of Object.entries(this.subscriptions)) {
             if (topic.startsWith(topicPrefix)) delete this.subscriptions[topic];
