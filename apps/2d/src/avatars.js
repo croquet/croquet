@@ -13,8 +13,8 @@ export class ModelRoot extends Model {
     init() {
         super.init();
         this.shapes = {};
-        this.subscribe(this.sessionId, "view-join").addUser();
-        this.subscribe(this.sessionId, "view-exit").removeUser();
+        this.subscribe(this.sessionId, "view-join", this.addUser);
+        this.subscribe(this.sessionId, "view-exit", this.removeUser);
     }
 
     // non-inherited methods below
@@ -46,8 +46,8 @@ export class Shape extends Model {
         this.type = options.type || 'circle';
         this.color = options.color || `hsla(${r(360)},${r(50)+50}%,50%,0.5)`;
         this.pos = [r(1000), r(1000)];
-        this.subscribe(this.id, "move-to").moveTo();
-        this.subscribe(this.id, "move-by").moveBy();
+        this.subscribe(this.id, "move-to", this.moveTo);
+        this.subscribe(this.id, "move-by", this.moveBy);
     }
 
     // non-inherited methods below
@@ -134,9 +134,9 @@ class ShapesView extends View {
         this.resize();
         window.onresize = () => this.resize();
         Object.values(model.shapes).forEach(shape => this.attachShape(shape));
-        this.subscribe(model.id, 'shape-added', shape => this.attachShape(shape));
-        this.subscribe(model.id, 'shape-removed', shape => this.detachShape(shape));
-        this.subscribe(model.id, `user-shape-${this.viewId}`, shape => this.gotUserShape(shape));
+        this.subscribe(model.id, 'shape-added', this.attachShape);
+        this.subscribe(model.id, 'shape-removed', this.detachShape);
+        this.subscribe(model.id, `user-shape-${this.viewId}`, this.gotUserShape);
     }
 
     detach() {
@@ -218,7 +218,7 @@ class ShapeView extends View {
         el.id = model.id;
         el.style.backgroundColor = model.color;
         if (model.hash) el.style.backgroundImage = `url("https://www.gravatar.com/avatar/${model.hash}?d=robohash&f=y&s=100")`;
-        this.subscribe(model.id, { event: 'pos-changed', handling: "oncePerFrame" }, pos => this.move(pos));
+        this.subscribe(model.id, { event: 'pos-changed', handling: "oncePerFrame" }, this.move);
         this.move(model.pos);
     }
 
