@@ -136,13 +136,6 @@ class View {
         return this.realm.island.controller.viewId;
     }
 
-    /**
-     * @public
-     */
-    get user() {
-        return this.realm.island.controller.user;
-    }
-
     [Symbol.toPrimitive]() {
         const className = this.constructor.name;
         if (className.includes('View')) return className;

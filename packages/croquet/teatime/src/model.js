@@ -188,7 +188,13 @@ class Model {
         SuperInitNotCalled.delete(this);
         // eslint-disable-next-line no-constant-condition
         if (false) {
-            /** Each model has an id (unique within the session) which can be used to scope events
+            /** Each model has an id which can be used to scope [events]{@link Model#publish}. It is unique within the session.
+             *
+             * This property is read-only. There will be an error if you try to assign to it.
+             *
+             * It is assigned in {@link Model.create} before calling [init]{@link Model#init}.
+             * @example
+             * this.publish(this.id, "changed");
              * @type {String}
              * @public
              */
@@ -198,7 +204,13 @@ class Model {
     }
 
     /**
-     *
+     * Unsubscribes all subscriptions this model has, and removes it from future snapshots.
+     * @example
+     * removeChild(child) {
+     *    const index = this.children.indexOf(child);
+     *    this.children.splice(index, 1);
+     *    child.destroy();
+     * }
      * @public
      */
     destroy() {
@@ -421,7 +433,13 @@ class Model {
     }
 
     /**
-     * The session id is used as "global" scope for events like [`"users"`]{@link event:users}
+     * The session id is used as "global" scope for events like [`"view-join"`]{@link event:view-join}.
+     *
+     * See {@link startSession} for how the session id is generated.
+     *
+     * If your app has several sessions at the same time, each session id will be different.
+     * @example
+     * this.subscribe(this.sessionId, "view-join", viewId => this.addUser(viewId));
      * @type {String}
      * @public
      */
