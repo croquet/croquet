@@ -13,8 +13,8 @@ export class ModelRoot extends Model {
     init() {
         super.init();
         this.shapes = {};
-        this.subscribe(this.sessionId, "view-join", viewId => this.addUser(viewId));
-        this.subscribe(this.sessionId, "view-exit", viewId => this.removeUser(viewId));
+        this.subscribe(this.sessionId, "view-join").addUser();
+        this.subscribe(this.sessionId, "view-exit").removeUser();
     }
 
     // non-inherited methods below
@@ -46,8 +46,8 @@ export class Shape extends Model {
         this.type = options.type || 'circle';
         this.color = options.color || `hsla(${r(360)},${r(50)+50}%,50%,0.5)`;
         this.pos = [r(1000), r(1000)];
-        this.subscribe(this.id, "move-to", pos => this.moveTo(pos));
-        this.subscribe(this.id, "move-by", delta => this.moveBy(delta));
+        this.subscribe(this.id, "move-to").moveTo();
+        this.subscribe(this.id, "move-by").moveBy();
     }
 
     // non-inherited methods below
