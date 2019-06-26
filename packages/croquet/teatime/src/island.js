@@ -249,14 +249,23 @@ export default class Island {
         }
         let methodName = methodNameOrCallback;
         if (typeof methodNameOrCallback === "function") {
-            // match:                (   foo             )   =>  this .  bar              (    baz               )
-            const HANDLER_REGEX = /^\(?([a-z][a-z0-9]*)?\)? *=> *this\.([a-z][a-z0-9]*) *\( *([a-z][a-z0-9]*)? *\) *$/i;
-            const source = methodNameOrCallback.toString();
-            const match = source.match(HANDLER_REGEX);
-            if (!match || (match[3] && match[3] !== match[1])) {
-                throw Error(`Subscription handler must look like "data => this.method(data)" not "${source}"`);
+            if (model[methodNameOrCallback.name] === methodNameOrCallback) {
+                methodName = methodNameOrCallback.name;
+            } else {
+                const entry = Object.entries(model).find(each => each[1] === methodNameOrCallback);
+                if (entry) {
+                    methodName = entry[0];
+                } else {
+                    // match:                (   foo             )   =>  this .  bar              (    baz               )
+                    const HANDLER_REGEX = /^\(?([a-z][a-z0-9]*)?\)? *=> *this\.([a-z][a-z0-9]*) *\( *([a-z][a-z0-9]*)? *\) *$/i;
+                    const source = methodNameOrCallback.toString();
+                    const match = source.match(HANDLER_REGEX);
+                    if (!match || (match[3] && match[3] !== match[1])) {
+                        throw Error(`Subscription handler must look like "data => this.method(data)" not "${source}"`);
+                    }
+                    methodName = match[2];
+                }
             }
-            methodName = match[2];
         }
         if (typeof methodName !== "string") {
             throw Error(`Subscription handler for "${event}" must be a method name`);
