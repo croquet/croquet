@@ -458,13 +458,16 @@ class Model {
     }
 
     /**
+     * **Identifies the shared Model of all users**<br>
+     * (as opposed to the [viewId]{@link View#viewId} which identifies the non-shared view of each user).
+     *
      * The session id is used as "global" scope for events like [`"view-join"`]{@link event:view-join}.
      *
      * See {@link startSession} for how the session id is generated.
      *
      * If your app has several sessions at the same time, each session id will be different.
      * @example
-     * this.subscribe(this.sessionId, "view-join", viewId => this.addUser(viewId));
+     * this.subscribe(this.sessionId, "view-join").addUser(viewId);
      * @type {String}
      * @public
      */

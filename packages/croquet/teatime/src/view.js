@@ -9,11 +9,11 @@ import { currentRealm } from "./realms";
  * What the view is showing, however, is completely up to the application developer.
  * The view can adapt to the device it's running on and show very different things.
  *
- * Croquet makes no assumptions about the UI framework you use - be it plain HTML or Three.js or whatever.
+ * **Croquet makes no assumptions about the UI framework you use** - be it plain HTML or Three.js or React or whatever.
  * Croquet only provides the publish/subscribe mechanism to hook into the replicated model simulation.
+ * It's possible for a single view instance to handle all the events, you don't event have to subclass Croquet.View for that.
  *
- * A common pattern is to make a hierarchy of `Croquet.View` subclasses to mimic your hierarchy of Model subclasses.
- * However, it's also posssible for a single view instance to handle all the events, you don't event have to subclass it.
+ * That being said, a common pattern is to make a hierarchy of `Croquet.View` subclasses to mimic your hierarchy of Model subclasses.
  *
  * @public
  */
@@ -28,6 +28,11 @@ class View {
      * Typically, a view would also subscribe to the browser's or framework's input events,
      * and in response [publish]{@link View#publish} events for the model to consume.
      *
+     * The constructor will, however, register the view and assign it an [id]{@link View#id}.
+     *
+     * **Note:** When your view instance is no longer needed, you must [detach]{@link View#detach} it.
+     * Otherwise it will be kept in memory forever.
+     *
      * @param {Model} model - the view's model
      * @public
      */
@@ -35,9 +40,37 @@ class View {
         // read-only properties
         Object.defineProperty(this, "realm", {  value: currentRealm() });
         Object.defineProperty(this, "id", {  value: this.realm.register(this) });
+        // eslint-disable-next-line no-constant-condition
+        if (false) {
+            /** Each view has an id which can be used to scope [events]{@link View#publish} between views.
+             * It is unique within the session for each user.
+             *
+             * **Note:** The `id` is **not** currently guaranteed to be unique for different users.
+             * Views on multiple devices may or may not be given the same id.
+             *
+             * This property is read-only. It is assigned in the view's constructor. There will be an error if you try to assign to it.
+             *
+             * @example
+             * this.publish(this.id, "changed");
+             * @type {String}
+             * @public
+             */
+            this.id = "";
+            // don't know how to otherwise add documentation
+        }
     }
 
     /**
+     * Unsubscribes all [subscriptions]{@link View#subscribe} this model has,
+     * and removes it from the list of views.
+     *
+     * This needs to be called when a view is no longer needed to prevent memory leaks.
+     * @example
+     * removeChild(child) {
+     *    const index = this.children.indexOf(child);
+     *    this.children.splice(index, 1);
+     *    child.detach();
+     * }
      * @public
      */
     detach() {
@@ -46,10 +79,28 @@ class View {
     }
 
     /**
+     * **Publish an event to a scope.**
      *
-     * @param {String} scope
-     * @param {String} event
-     * @param {Object?} data
+     * Events are the main form of communication between models and views in Croquet.
+     * Both models and views can publish events, and subscribe to each other's events.
+     * Model-to-model and view-to-view subscriptions are possible, too.
+     *
+     * See [subscribe]{@link Model#subscribe}() for a discussion of **scopes** and **event names**.
+     *
+     * Optionally, you can pass some **data** along with the event.
+     * For events published by a model, this can be any arbitrary value or object.
+     * See View's [publish]{@link View#publish} method for restrictions in passing data from a view to a model.
+     *
+     * Note that there is no way of testing whether subscriptions exist or not (because models can exist independent of views).
+     * Publishing an event that has no subscriptions is about as cheap as that test would be, so feel free to always publish,
+     * there is very little overhead.
+     *
+     * @example
+     * this.publish("input", "keypressed", {key: 'A'});
+     * this.publish(this.model.id, "move-to", this.pos);
+     * @param {String} scope see [subscribe]{@link Model#subscribe}()
+     * @param {String} event see [subscribe]{@link Model#subscribe}()
+     * @param {*=} data can be any value or object (for view-to-model, must be serializable)
      * @public
      */
     publish(scope, event, data) {
@@ -145,6 +196,16 @@ class View {
     }
 
     /**
+     * **Identifies the shared Model of all users.**
+     *
+     * The session id is used as "global" scope for events like [`"view-join"`]{@link event:view-join}.
+     *
+     * See {@link startSession} for how the session id is generated.
+     *
+     * If your app has several sessions at the same time, each session id will be different.
+     * @example
+     * this.subscribe(this.sessionId, "view-join", viewId => this.logUser(viewId));
+     * @type {String}
      * @public
      */
     get sessionId() {
@@ -152,6 +213,17 @@ class View {
     }
 
     /**
+     * **Identifies the View of the current user.**
+     *
+     * All users in a session share the same Model (meaning all model objects) but each user has a different View
+     * (meaning all the non-model state). The `viewId` identifies each user's view.
+     * It is sent as argument in [`"view-join"`]{@link event:view-join} and [`"view-exit"`]{@link event:view-exit}
+     * events.
+     *
+     * **Note:** this is different from [`this.id`]{@link View#id} which identifies each individual view object
+     * (if you create multiple views in your code). `this.viewId` identifies the local user, so it will be the same
+     * in each individual view object. See [`"view-join"`]{@link event:view-join} event.
+     * @type {String}
      * @public
      */
     get viewId() {
