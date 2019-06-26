@@ -147,9 +147,9 @@ class View {
     }
 
     /**
-     *
-     * @param {String} scope
-     * @param {String} event
+     * Unsubscribes this view's handler for the given event in the given scope.
+     * @param {String} scope see [subscribe]{@link View#subscribe}
+     * @param {String} event see [subscribe]{@link View#subscribe}
      * @public
      */
     unsubscribe(scope, event) {
@@ -157,6 +157,7 @@ class View {
     }
 
     /**
+     * Unsubscribes all of this views's handlers for any event in any scope.
      * @public
      */
     unsubscribeAll() {
@@ -200,6 +201,16 @@ class View {
     }
 
     /**
+     * **The model's current time**
+     *
+     * This is the time of how far the model has been simulated.
+     * Normally this corresponds roughly to real-world time, since the reflector is generating time stamps
+     * based on real-world time.
+     *
+     * If there is [backlog]{@link View#externalNow} however (e.g while a newly joined user is catching up),
+     * this time will advance much faster than real time.
+     *
+     * @return {Number} the model's time in milliseconds since the first user created the session.
      * @public
      */
     now() {
@@ -207,15 +218,20 @@ class View {
     }
 
     /**
+     * @returns the latest timestamp received from the reflector
      * @public
      */
     externalNow() {
         return this.realm.externalNow();
     }
 
-    /** Called from main loop once per frame. Default implementation does nothing.
+    /** Called on the root view from [main loop]{@link startSession} once per frame. Default implementation does nothing.
      *
      * Override to add your own view-side input polling, rendering, etc.
+     *
+     * If you want this to be called for other views than the root view, you will have to call
+     * those methods from the root view's `update()`.
+     *
      * @param {Number} time - this frame's time stamp in milliseconds
      * @public
     */
