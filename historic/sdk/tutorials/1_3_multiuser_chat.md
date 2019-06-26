@@ -14,82 +14,84 @@ The first thing to do is click or scan the QR code above. This will launch a new
 
 There are four things we will learn here:
 
-1. How to use the `"view-join"` and `"view-exit"` events to keep track of users.
-2. How to directly access the model from the view without breaking synchronization.
-3. How to use the view's user Id to get user-specific information out of the model.
-4. How to use the replicated `random()` function in the model.
+1. How to use `"view-join"` and `"view-exit"` events to track connections.
+2. How to use the `viewId` to store view-specific information inside the model.
+3. How to use the replicated `random()` function in the model.
+4. How to directly access the model from the view without breaking synchronization.
 
 ## Simple Chat Model
 
-Our Croquet application uses a single Model subclass named `ChatModel`. It does two things: It listens for `"newPost"` events coming from the local view, and it listens for `"view-join"` and `"view-exit"` events coming from the reflector itself.
+  Our Croquet application uses a single Model subclass named `ChatModel`. It does two things: It listens for `"view-join"` and `"view-exit"` events coming from the reflector itself, and it listens for `"newPost"` events coming from the local view.
 
-A `"newPost"` event is sent by the local view when the user enters a message. The event is reflected to all users in the session. Each user's model adds it to its chat history, and informs its local view to update its display.
+  A `"newPost"` event is sent by the local view when the user enters a message. The event is reflected to all users in the session. Each user's model adds it to its chat history, and informs its local view to update its display.
 
-The `"view-join"` and `"view-exit"` are system-generated events. They don't originate inside your application. They come from the Teatime system itself. When a new user joins a session, a `"view-join"` event is sent to everyone in the session (including the user who just joined). Similiarly, whenever a user leaves, a `"view-exit"` event is sent. (The user who just left will not get this event because they are already gone!)
+  The `"view-join"` and `"view-exit"` are system-generated events. They don't originate inside your application. They come from the Teatime system itself. When a new user joins a session, a `"view-join"` event is sent to everyone in the session (including the user who just joined). Similiarly, whenever a user leaves, a `"view-exit"` event is sent. (The user who just left will not get this event because they are already gone!)
 
 ## ChatModel.init()
 
   ```
-  init() {
-    this.users = new Map();
-    this.history = [];
-    this.subscribe("input", "newPost").onNewPost();
-    this.subscribe(this.sessionId, "view-join").userJoin();
-    this.subscribe(this.sessionId, "view-exit").userExit();
-  }
+  this.views = new Map();
   ```
 
-`users` is a list of users stored in a map. (A map is a standard JavaScript data structure that holds key-data pairs.) The user list holds a list of user names indexed by unique user IDs.
+  `views` holds a list of nicknames indexed by unique view IDs. (A map is a standard JavaScript data structure that holds key-data pairs.)
 
-`history` is an array of chat messages.
-```
-this.subscribe("input", "newPost").onNewPost();
-```
+  ```
+  this.history = [];
+  ```
 
-This is the subscription to handle new chat posts. It's given the scope "input" as a way to remind us where the event is coming from. (It also means we could use `newPost` as a different event somewhere else in our application without the two events being confused with each other.)
-```
-this.subscribe(this.sessionId, "view-join").userJoin();
-this.subscribe(this.sessionId, "view-exit").userExit();
-```
-This is the subscription to handle users entering or leaving. In both cases the scope is set to `this.sessionId` which is the default scope for all system-generated events. The data passed to both events is a `viewId`. It is a unique identifier for each participant in the session. Even if the same person joins the session from multiple browser windows or devices, the `viewId` will always be different.
+  `history` is an array of chat messages.
 
-## ChatModel.userJoin(viewId)
+   ```
+  this.subscribe(this.sessionId, "view-join", this.viewJoin);
+  this.subscribe(this.sessionId, "view-exit", this.viewExit);
+  ```
+
+  These subscriptions handle users entering or leaving. In both cases the scope is set to `this.sessionId` which is the default scope for all system-generated events. The data passed to both events is a `viewId`, which is a unique identifier for each participant in the session. If the same user joins the session from multiple browser windows or devices, the `viewId` for each will be different.
+
+  **Inside your application you can use `viewID` as a unique identifier for each participant in a session.** You can store data about individual participants using `viewID` as the key. Or you can use `viewID` as the scope of an event to specify who sent it, or limit who receives it.
+
+  ```
+  this.subscribe("input", "newPost", this.newPost);
+  ```
+
+  This subscription handles new chat posts. It's given the scope "input" as a way to remind us where the event is coming from. (It also means we could use `newPost` as a different event somewhere else in our application without the two events being confused with each other.)
+
+
+## ChatModel.viewJoin(viewId)
 ```
-  userJoin(viewId) {
-    const userName = this.randomName();
-    this.users.set(viewId, userName);
-    this.publish("userInfo", "update");
+  viewJoin(viewId) {
+    const nickname = this.randomName();
+    this.views.set(viewId, nickname);
+    this.publish("viewInfo", "refresh");
   }
+  ```
+  When a view joins the session, the model generates a random nickname for it and stores it in the view list using the `viewID` as the access key. It then publishes an event to the view informing it that the view list has changed. (In this case we're using "viewInfo" as our scope. This allows us to use a generic word like "refresh" as our event.)
+
+## ChatModel.viewExit(viewId)
+  ```
+    viewExit(viewId) {
+      this.views.delete(viewId);
+      this.publish("viewInfo", "refresh");
+    }
+  ```
+  When a view leaves the session, the model removes its entry from the view list, and publishes the same update event.
+
+## ChatModel.newPost(post)
 ```
-When a new user enters, the model generates a random nickname and stores it in the user list. It then publishes an event to the view informing it that the user list has changed. (In this case we're using "userInfo" as our scope. This allows us to use a generic word like "update" as our event.)
-
-## ChatModel.userExit(viewId)
-```
-  userExit(viewId) {
-    const userName = this.users.get(viewId);
-    this.users.delete(viewId);
-    this.publish("userInfo", "update");
-  }
-```
-When a user exits, the model removes its entry from the user list, and publishes the same upate event to the view.
-
-## ChatModel.onNewPost(post)
-
-
-  onNewPost(post) {
-    const userName = this.users.get(post.viewId);
-    this.addToHistory(`<b>${userName}:</b> ${this.escape(post.text)}`);
+  newPost(post) {
+    const nickname = this.views.get(post.viewId);
+    this.addToHistory(`<b>${nickname}:</b> ${this.escape(post.text)}`);
   }
 
   addToHistory(item){
     this.history.push(item);
     if (this.history.length > 100) this.history.shift();
-    this.publish("history", "update");
+    this.publish("history", "refresh");
   }
+```
+  New posts are tagged with the sender's `viewId`. When the model receives a new post, it uses this ID to look up the view's nickname. It then builds a chat line that includes the nickname and the message, and adds it to the chat history. If there are more than 100 entries in the history, it discards the oldest entry to prevent the array from growing too large.
 
-New posts are tagged with the sender's `viewId`. When the model receives a new post, it uses this ID to look up the user's nickname from the user list. It then builds a chat line that includes the sender's nickname and their message and adds it to the chat history. If there are more that 100 entries in the history, it discards the oldest entry to prevent the history from growing too large.
-
-It then publishes an event to the view informing it that the history has changed. (Note that using "history" as our scope, we can use the "update" event for a different purpose.
+  `newPost` then publishes an event to the view informing it that the history has changed. (Note that beause we use "history" as our scope, this update event doesn't interfere with the "viewInfo" update event.)
 
 ## ChatModel.randomName()
 
@@ -100,15 +102,73 @@ It then publishes an event to the view informing it that the history has changed
   })
   ```
 
-When a new user joins, its nickname is picked at a random from an array. This code is running in parallel on all users. However, since it's executing in the model, each user will "randomly" pick the same name.
+When a new view joins, its nickname is picked at a random from an array. Note that even though a separate instance of this code is running locally for all users, each instance will "randomly" pick the same name. This is because **calls to `Math.random()` from inside the model are deterministic**. They will generate exactly the same sequence of random numbers in every instance of the model, insuring they all stay in synch.
 
-Calls to `Math.random()` inside the model are deterministic. They will return exactly the same random number in every instance of the model, insuring that all the copies of the model are always in synch.
+## ChatView.constructor(model)
+
+```
+  this.model = model;
+```
+
+We store a reference to the model so that we can use it later to pull data directly.
+
+(Note: This reference is only to the root model that was created during `Croquet.startSession`. If our root model contains sub-models, we can store references to them inside the root model so the view can access them as well.)
+
+```
+  sendButton.onclick = () => this.send();
+```
+This is the event handler for the HTML "Send" button. It is called when the user clicks the button.
+
+```
+    this.subscribe("history", "refresh", this.refreshHistory);
+    this.subscribe("viewInfo", "refresh", this.refreshViewInfo);
+```
+We subscribe to two different refresh events from the model. One is sent when a new chat message is added to the chat history, and the other is sent when someone joins or exits the session.
+
+    this.refreshHistory();
+
+The final thing we do when the view starts is to pull the current history from the model and post it to the screen. We do this because when a view joins an existing chat session, there may already be a history of previous chat messages. We want to show this previous history right away instead of waiting for the next new message to refresh.
+
+(We don't need to do something similar for refreshing the view info because we know that the model will send us a view info refresh event in response to us joining.)
+
+## ChatView.send()
+  ```
+  send() {
+    const post = {viewId: this.viewId, text: textIn.value};
+    this.publish("input", "newPost", post);
+    textIn.value = "";
+  }
+  ```
+
+When the user presses the send button, we build a `newPost` event to send to the model. The event contains our `viewId` so the model knows who is posting, and the text contents of the post.
+
+**Any class that inherits from `View` has `this.viewId` as a member.** It contains the unique `viewId` that was assigned to this user when they joined the session. We can use `this.viewId` whenever we want to communicate to the model that a particular view is performing some action.
+
+## ChatView.refreshViewInfo()
+```
+  refreshViewInfo() {
+    nickname.innerHTML = "<b>Nickname:</b> " + this.model.views.get(this.viewId);
+    viewCount.innerHTML = "<b>Total Views:</b> " + this.model.views.size;
+  }
+```
+
+Here the view reaches directly into the model and gets information about its nickname and the total number of views currently connected. In the view's constructor we stored a pointer to the model just for this purpose.
+
+**The view is allowed to directly read from the model at any time.** In this case, the view uses `this.viewId` to read its nickname from `this.model.views`. It then reads the size of `this.model.views` to determine how many views are currently connected.
+
+**The view must NEVER directly write to the model!** Because Croquet exposes the model to the view for read access, it is *possible* to write a Croquet application where the view directly writes to the model. However, doing so will break synchronization and prevent the application from functioning properly.
+
+If your view needs to write to the model, it must publish an event that the model subscribes to. This will make sure that the write operation is performed on all instances of the model connected to the current session.
 
 
 
+## ChatView.refreshHistory()
+```
+  refreshHistory() {
+    textOut.innerHTML = "<b>Welcome to Croquet Chat!</b><br><br>" + this.model.history.join("<br>");
+    textOut.scrollTop = Math.max(10000, textOut.scrollHeight);
+  }
+```
 
 
-
-TODO:
-* mention [this.viewId]{@link View#viewId} and how to connect from view to an avatar inside the model? Or is that another tutorial?
-* explain how the [random()]{@link Model#random} call is executed independently on each device but has the exact same result
+`Model.modelOnly()`
