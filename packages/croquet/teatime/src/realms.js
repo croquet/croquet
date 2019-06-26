@@ -34,9 +34,9 @@ class ModelRealm {
         this.island.removeAllSubscriptionsFor(model);
     }
 
-    future(model, tOffset, methodName, args) {
+    future(model, tOffset, methodName, methodArgs) {
         if (__currentRealm && __currentRealm.equal(this)) {
-            return this.island.future(model, tOffset, methodName, args);
+            return this.island.future(model, tOffset, methodName, methodArgs);
         }
         if (tOffset) throw Error("tOffset not supported from cross-realm future send yet.");
         const island = this.island;

@@ -182,21 +182,18 @@ export default class Island {
     // Convert model.future(tOffset).property(...args)
     // or model.future(tOffset, "property",...args)
     // into this.futureSend(tOffset, model.id, "property", args)
-    future(model, tOffset, methodName, args) {
+    future(model, tOffset, methodName, methodArgs) {
         if (typeof methodName === "string") {
-            return this.futureSend(tOffset, model.id, methodName, args);
+            return this.futureSend(tOffset, model.id, methodName, methodArgs);
         }
         const island = this;
         return new Proxy(model, {
             get(_target, property) {
                 if (typeof model[property] === "function") {
-                    const methodProxy = new Proxy(model[property], {
-                        apply(_method, _this, args) {
-                            if (island.lookUpModel(model.id) !== model) throw Error("future send to unregistered model");
-                            island.futureSend(tOffset, model.id, property, args);
-                        }
-                    });
-                    return methodProxy;
+                    return (...args) => {
+                        if (island.lookUpModel(model.id) !== model) throw Error("future send to unregistered model");
+                        island.futureSend(tOffset, model.id, property, args);
+                    };
                 }
                 throw Error("Tried to call " + property + "() on future of " + Object.getPrototypeOf(model).constructor.name + " which is not a function");
             }
