@@ -88,8 +88,7 @@ class View {
      * See [subscribe]{@link Model#subscribe}() for a discussion of **scopes** and **event names**.
      *
      * Optionally, you can pass some **data** along with the event.
-     * For events published by a model, this can be any arbitrary value or object.
-     * See View's [publish]{@link View#publish} method for restrictions in passing data from a view to a model.
+     * For events published by a view and received , this can be any arbitrary value or object.
      *
      * Note that there is no way of testing whether subscriptions exist or not (because models can exist independent of views).
      * Publishing an event that has no subscriptions is about as cheap as that test would be, so feel free to always publish,

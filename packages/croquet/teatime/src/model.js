@@ -268,15 +268,15 @@ class Model {
      * Typically, the scope would select the object (or groups of objects) to respond to the event,
      * and the event name would select which operation to perform.
      *
-     * A commonly used scope is `this.id` (in a model) and `model.id` (in a view) to establish a
-     * a communication channel between a odel and its corresponding view.
+     * A commonly used scope is `this.id` (in a model) and `model.id` (in a view) to establish
+     * a communication channel between a model and its corresponding view.
      *
      * You can use any literal string as a global scope, or use [`this.sessionId`]{@link Model#sessionId} for a
      * session-global scope (if your application supports multipe sessions at the same time).
      * The predefined events [`"view-join"`]{@link event:view-join} and [`"view-exit"`]{@link event:view-exit}
      * use this session scope.
      *
-     * Use the form `subscribe("scope", "event").methodName()` to schedule the
+     * Use the form `subscribe("scope", "event", this.methodName)` to schedule the
      * invocation of `this.methodName(data)` whenever `publish("scope", "event", data)` is executed.
      *
      * **Note:** the recommended form is equivalent to `this.subscribe("scope", "event", "methodName")`
@@ -288,12 +288,12 @@ class Model {
      * (see [View.publish){@link View#publish}).
      *
      * @example
-     * this.subscribe("something", "changed").update();
-     * this.subscribe(this.id, "moved").handleMove();
+     * this.subscribe("something", "changed", this.update);
+     * this.subscribe(this.id, "moved", this.handleMove);
      * @example
      * class MyModel extends Croquet.Model {
      *   init() {
-     *     this.subscribe(this.id, "moved").handleMove());
+     *     this.subscribe(this.id, "moved", this.handleMove);
      *   }
      *   handleMove({x,y}) {
      *     this.x = x;
@@ -467,7 +467,7 @@ class Model {
      *
      * If your app has several sessions at the same time, each session id will be different.
      * @example
-     * this.subscribe(this.sessionId, "view-join").addUser(viewId);
+     * this.subscribe(this.sessionId, "view-join", this.addUser);
      * @type {String}
      * @public
      */
