@@ -2,7 +2,7 @@ Copyright © 2019 Croquet Studios
 
 This tutorial will teach you how to create multi-user shared animations and interactions. If you click one of the bouncing objects it will stop moving. Click again and it will start bouncing again. This tutorial isn't really that much more complex than the Hello World application. It just has a few more moving parts and really demonstrates how the model is used to compute a simulation and how the view is used to display it and interact with it.
 
-<p class="codepen" data-height="512" data-theme-id="37190" data-default-tab="js,result" data-user="croquet" data-slug-hash="NZbgGY" data-editable="true" style="height: 512px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border: 2px solid; margin: 1em 0; padding: 1em;" data-pen-title="Simple Animation">
+<p class="codepen" data-height="512" data-theme-id="37190" data-default-tab="result" data-user="croquet" data-slug-hash="NZbgGY" data-editable="true" style="height: 512px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border: 2px solid; margin: 1em 0; padding: 1em;" data-pen-title="Simple Animation">
   <span>See the Pen <a href="https://codepen.io/croquet/pen/NZbgGY/">
   Simple Animation</a> by Croquet (<a href="https://codepen.io/croquet">@croquet</a>)
   on <a href="https://codepen.io">CodePen</a>.</span>

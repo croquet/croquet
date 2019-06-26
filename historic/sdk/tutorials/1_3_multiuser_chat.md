@@ -2,7 +2,7 @@ Copyright © 2019 Croquet Studios
 
 This is an example of how to keep track of different users within the same session. It's a simple chat application that maintains a list of all users who are connected to the session and posts a notification whenever someone joins or leaves. New users are assigned a random nickname.
 
-<p class="codepen" data-height="512" data-theme-id="37190" data-default-tab="js,result" data-user="croquet" data-slug-hash="NZjLzO" data-editable="true" style="height: 512px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border: 2px solid; margin: 1em 0; padding: 1em;" data-pen-title="Chat">
+<p class="codepen" data-height="512" data-theme-id="37190" data-default-tab="result" data-user="croquet" data-slug-hash="NZjLzO" data-editable="true" style="height: 512px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border: 2px solid; margin: 1em 0; padding: 1em;" data-pen-title="Chat">
   <span>See the Pen <a href="https://codepen.io/croquet/pen/NZjLzO/">
   Chat</a> by Croquet (<a href="https://codepen.io/croquet">@croquet</a>)
   on <a href="https://codepen.io">CodePen</a>.</span>
