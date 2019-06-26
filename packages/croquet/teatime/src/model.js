@@ -1,6 +1,7 @@
 import hotreloadEventManger from "@croquet/util/hotreloadEventManager";
 import urlOptions from "@croquet/util/urlOptions";
 import { addClassHash } from "@croquet/util/modules";
+import { displayAppError } from "@croquet/util";
 import { currentRealm } from "./realms";
 
 
@@ -455,6 +456,27 @@ class Model {
      */
     wellKnownModel(name) {
         return this.__realm.island.get(name);
+    }
+
+    /**
+     * This methods checks if it is being called from a model, and throws an Error otherwise.
+     *
+     * Use this to protect some model code against accidentally being called from a view.
+     * @example
+     * get foo() { return this._foo; }
+     * set foo(value) { this.modelOnly(); this._foo = value; }
+     * @param {String=} msg - error message to display
+     * @throws Error if called from view
+     * @returns {Boolean} true (otherwise, throws Error)
+     * @public
+     */
+    modelOnly(msg) {
+        let realm = "none";
+        try { realm = currentRealm(); } catch (e) { /* ignore */}
+        if (realm === this.__realm) return true;
+        const error = Error(msg || `${this}.modelOnly() called from outside a model!`);
+        displayAppError('view code', error);
+        throw error;
     }
 
     /**
