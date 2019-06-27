@@ -3,7 +3,7 @@ Copyright © 2019 Croquet Studios
 Models and Views communicate using events. They use the same syntax for sending and receiving events. These functions are only available to classes that are derived from {@link Model} or {@link View}, so exposing them is one reason to define sub-models and sub-views.
 
 - `publish(scope, event, data)`
-- `subscribe(scope, event).handler()`
+- `subscribe(scope, event, this.handler)`
 - `unsubscribe(scope, event)`
 - `unsubscribeAll()`
 
@@ -17,7 +17,7 @@ Models and Views communicate using events. They use the same syntax for sending 
 
 - _handler_ is a function that accepts the event data structure as its argument.
 - in a view, the handler can be any function
-- in a model, the handler *must* use the form `arg => this.someMethodName(arg)`.<br>
+- in a model, the handler *must* use the form `this.someMethodName`.<br>
   That's because functions cannot be serialized so actually only `"someMethodName"` is extracted from the function and stored.
 
 **Unsubscribe** unregisters the model or view so it will no longer receive the event.
