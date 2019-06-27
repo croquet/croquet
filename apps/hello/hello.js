@@ -30,7 +30,7 @@ class MyModel extends Croquet.Model {
     }
 
     tick() {
-        this.counter += Q.COUNT;
+        this.counter++;
         this.publish("counter", "update", this.counter);
         this.future(1000).tick();
     }
