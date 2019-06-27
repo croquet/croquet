@@ -178,7 +178,11 @@ If your view needs to write to the model, it must publish an event that the mode
 One way to guard against accidentally writing to the model is to create explicit `Get` and `Set` methods for reading and writing. For example:
 
 ```
-MyModel {
+class MyModel extends Croquet.Model {
+
+  init() {
+    this.data;
+  }
 
   getData() {
     return this.data;
@@ -190,6 +194,7 @@ MyModel {
   }
 
 }
+MyModel.register();
 
 ```
 
