@@ -644,7 +644,7 @@ html[data-search-mode] .level-hide {
 
   #main {
     width: 100%;
-    min-width: 360px;
+    min-width: 320px;
   }
 
   #main h1.page-title {
