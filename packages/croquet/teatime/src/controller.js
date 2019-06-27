@@ -198,34 +198,35 @@ export default class Controller {
      * @returns {Promise<{modelName:Model}>} list of named models (as returned by init function)
      */
     async establishSession(room, creator) {
-        const { optionsFromUrl, multiRoom, multiSession, session: fixedSession } = creator;
+        const { optionsFromUrl, multiRoom, multiSession, autoSession, login: doLogin } = creator;
         const options = {...creator.options};
         for (const key of [...OPTIONS_FROM_URL, ...optionsFromUrl||[]]) {
             if (key in urlOptions) options[key] = urlOptions[key];
         }
-        // session is either "user/random" or "room/user/random" (for multi-room)
-        if (!fixedSession) await login();
-        const session = urlOptions.getSession().split('/');
-        let user = multiRoom ? session[1] : session[0];
-        let random = multiRoom ? session[2] : session[1];
-        const newSession = !user || !random;
-        if (newSession) {
-            if (fixedSession) {
-                user = fixedSession.user;
-                random = fixedSession.random;
+        if (doLogin) await login();
+        let name = room;
+        if (autoSession) {
+            // session is either "user/random" or "room/user/random" (for multi-room)
+            const session = urlOptions.getSession().split('/');
+            let user = multiRoom ? session[1] : session[0];
+            let random = multiRoom ? session[2] : session[1];
+            const newSession = !user || !random;
+            if (newSession) {
+                if (autoSession.user) user = autoSession.user;
+                if (autoSession.random) random = autoSession.random;
+                // incomplete session: create a new session id
+                if (!user) user = getUser("name", "").toLowerCase() || "GUEST";
+                if (!random) {
+                    random = '';
+                    for (let i = 0; i < 10; i++) random += '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.random() * 36|0];
+                }
             }
-            // incomplete session: create a new session id
-            if (!user) user = getUser("name", "").toLowerCase() || "GUEST";
-            if (!random) {
-                random = '';
-                for (let i = 0; i < 10; i++) random += '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.random() * 36|0];
-            }
+            this.session = multiRoom ? `${room}/${user}/${random}` : `${user}/${random}`;
+            if (!multiRoom) urlOptions.setSession(this.session, newSession);   // multiRoom handles this elsewhere
+            // the island id (name) is "room/user/random?opt=val&opt=val"
+            name = `${room}/${user}/${random}`;
+            if (user === 'DEMO') this.viewOnly = getUser("demoViewOnly", true);
         }
-        this.session = multiRoom ? `${room}/${user}/${random}` : `${user}/${random}`;
-        if (!multiRoom) urlOptions.setSession(this.session, newSession);   // multiRoom handles this elsewhere
-        // the island id (name) is "room/user/random?opt=val&opt=val"
-        let name = `${room}/${user}/${random}`;
-        if (user === 'DEMO') this.viewOnly = getUser("demoViewOnly", true);
         // include options in name & hash
         if (Object.keys(options).length) {
             name += '?' + Object.entries(options).map(([k,v])=>`${k}=${v}`).join('&');

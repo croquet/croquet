@@ -63,6 +63,8 @@ export default class App {
         roomState.creator.room = roomName;
         roomState.creator.multiRoom = true;
         roomState.creator.multiSession = true;
+        roomState.creator.autoSession = true;
+        roomState.creator.login = true;
         roomState.creator.tps = this.tps;
         roomState.creator.destroyerFn = snapshot => {
             console.log("destroyer: detaching view for " + roomName);

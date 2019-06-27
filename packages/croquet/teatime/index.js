@@ -1,5 +1,6 @@
 import { displaySessionMoniker, displayQRCode } from "@croquet/util/html";
 import Stats from "@croquet/util/stats";
+import urlOptions from "@croquet/util/urlOptions";
 import { addConstantsHash } from "@croquet/util/modules";
 
 import Model from "./src/model";
@@ -18,7 +19,7 @@ console.log("Croquet SDK " + Version);
 /**
  * **Start a new Croquet session.**
  *
- * A [session id]{@link Model#sessionId} is created from the given `name`, the url session slug,
+ * A [session id]{@link Model#sessionId} is created from the given session `name`,
  * and a hash of all the [registered]{@link Model.register} Model classes and {@link Constants}.
  * This ensures that only users running the exact same source code end up in the same session,
  * which is a prerequisite for perfectly replicated computation.
@@ -52,7 +53,7 @@ console.log("Croquet SDK " + Version);
  * | option        | values        | Description
  * | ------------- |-------------  | -----------
  * | `step:`       | `"auto"`      | automatic stepping via [requestAnimationFrame()]{@link https://developer.mozilla.org/docs/Web/API/window/requestAnimationFrame} (this is the default)
- * |               | `"app"`       | application-defined main loop will call the session's `step()` function
+ * |               | `"manual"`       | application-defined main loop will call the session's `step()` function
  * | `update:`     | `"auto"`      | call `update()` only if there where events processed in the event phase (this is the default)
  * |               | `"always"`    | call `update()` in every step, independent of events
  * |               | `"never"`     | disable calling `update()` altogether
@@ -63,14 +64,14 @@ console.log("Croquet SDK " + Version);
  * @param {Model} ModelRoot - the root Model class for your app
  * @param {View} ViewRoot - the root View class for your app
  * @param {Object=} options -
- *      `step:` `"auto"` or `"app"`,<br>
+ *      `step:` `"auto"` or `"manual"`,<br>
  *      `update:` `"auto"` or `"always"` or `"never"`,<br>
  * @returns {Promise} Promise that resolves to an object describing the session:
  * ```
  * {
  *     id,           // the session id
  *     view,         // the ViewRoot instance
- *     step(time),   // function for "app" stepping
+ *     step(time),   // function for "manual" stepping
  * }
  * ```
  *
@@ -81,11 +82,19 @@ console.log("Croquet SDK " + Version);
  * @public
  */
 export async function startSession(name, ModelRoot=Model, ViewRoot=View, options={}) {
+    const reflector = urlOptions.reflector || options.reflector;
+    if (reflector) {
+        if (reflector.includes("://")) urlOptions.reflector = reflector;
+        else {
+            const host = reflector === "us" ? "croquet.studio" : `${reflector}.croquet.studio`;
+            urlOptions.reflector = `wss://${host}/reflector-v1`;
+        }
+    }
     Controller.connectToReflectorIfNeeded();
     freezeAndHashConstants();
     const controller = new Controller();
     const session = {};
-    if (options.step === "auto") {
+    if (options.step !== "manual") {
         // auto stepping
         const step = frameTime => {
             stepSession(frameTime, controller, session.view, options.update);
