@@ -60,6 +60,8 @@ rm -r $DOCS/*
 # deploy docs
 npx parcel build --public-url . --no-source-maps -d $DOCS build/*.html
 
+TAG=""
+
 if [ "$RELEASE" != "docs" ] ; then
     echo CROQUET_VERSION='"'$VERSION' (pre-alpha)"' > .env.production
 
@@ -68,7 +70,8 @@ if [ "$RELEASE" != "docs" ] ; then
 
     LINK=croquet-latest
     case "$RELEASE" in
-    pre*) LINK=croquet-latest-pre
+    pre*) LINK=croquet-latest-pre ;;
+    *) TAG="$RELEASE release $VERSION";;
     esac
 
     # link as latest or latest-pre
@@ -83,6 +86,11 @@ fi
 
 git add -A $SDK/ .env.production package.json package-lock.json
 git commit -m "[sdk] deploy $MSG to croquet.studio" || exit
+
+if [ -n "$TAG" ] ; then
+    git tag -a v$VERSION -m "$TAG"
+fi
+
 git show --stat
 
 echo
