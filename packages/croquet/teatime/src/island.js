@@ -236,17 +236,6 @@ export default class Island {
 
     addSubscription(model, scope, event, methodNameOrCallback) {
         if (CurrentIsland !== this) throw Error("Island Error");
-        if (typeof methodNameOrCallback === "undefined") {
-            const island = this;
-            return new Proxy(model, {
-                get(_target, property) {
-                    if (typeof model[property] === "function") {
-                        return island.addSubscription(model, scope, event, property);
-                    }
-                    throw Error(`Event handler ${Object.getPrototypeOf(model).constructor.name}.${property} is not a function`);
-                }
-            });
-        }
         let methodName = methodNameOrCallback;
         if (typeof methodNameOrCallback === "function") {
             if (model[methodNameOrCallback.name] === methodNameOrCallback) {
@@ -281,7 +270,6 @@ export default class Island {
             throw Error(`${model}.${methodName} already subscribed to ${event}`);
         }
         this.subscriptions[topic].push(handler);
-        return () => {};
     }
 
     removeSubscription(model, scope, event, methodName) {

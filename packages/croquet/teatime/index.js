@@ -212,8 +212,8 @@ function freezeAndHashConstants() {
  * class MyModel extends Croquet.Model {
  *     init() {
  *         this.userData = {};
- *         this.subscribe(this.sessionId, "view-join", viewId => this.addUser(viewId));
- *         this.subscribe(this.sessionId, "view-exit", viewId => this.deleteUser(viewId));
+ *         this.subscribe(this.sessionId, "view-join", this.addUser);
+ *         this.subscribe(this.sessionId, "view-exit", this.deleteUser);
  *     }
  *
  *     addUser(id) {
@@ -260,7 +260,7 @@ function freezeAndHashConstants() {
  * If this is the main session, it also indicates that the scene was revealed (if data is `true`)
  * or hidden behind the overlay (if data is `false`).
  * ```
- * this.subscribe(this.viewId, "synced", data => this.handleSynced(data));
+ * this.subscribe(this.viewId, "synced", this.handleSynced);
  * ```
  * @event synced
  * @property {String} scope - [`this.viewId`]{@link View#viewId}

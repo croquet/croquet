@@ -1,6 +1,7 @@
 import hotreloadEventManger from "@croquet/util/hotreloadEventManager";
 import urlOptions from "@croquet/util/urlOptions";
 import { addClassHash } from "@croquet/util/modules";
+import { displayAppError } from "@croquet/util";
 import { currentRealm } from "./realms";
 
 
@@ -276,11 +277,8 @@ class Model {
      * The predefined events [`"view-join"`]{@link event:view-join} and [`"view-exit"`]{@link event:view-exit}
      * use this session scope.
      *
-     * Use the form `subscribe("scope", "event", this.methodName)` to schedule the
-     * invocation of `this.methodName(data)` whenever `publish("scope", "event", data)` is executed.
-     *
-     * **Note:** the recommended form is equivalent to `this.subscribe("scope", "event", "methodName")`
-     * but makes it more clear that "methodName" is not just a string but the name of a method of this object.
+     * The handler must be a method of `this`, e.g. `subscribe("scope", "event", this.methodName)` will schedule the
+     * invocation of `this["methodName"](data)` whenever `publish("scope", "event", data)` is executed.
      *
      * If `data` was passed to the [publish]{@link Model#publish} call, it will be passed as an argument to the handler method.
      * You can have at most one argument. To pass multiple values, pass an Object or Array containing those values.
@@ -312,6 +310,7 @@ class Model {
      * }
      * @param {String} scope - the event scope (to distinguish between events of the same name used by different objects)
      * @param {String} event - the event name (user-defined or system-defined)
+     * @param {Function} handler - the event handler (must be a method of `this`)
      * @return {this}
      * @public
      */
@@ -455,6 +454,27 @@ class Model {
      */
     wellKnownModel(name) {
         return this.__realm.island.get(name);
+    }
+
+    /**
+     * This methods checks if it is being called from a model, and throws an Error otherwise.
+     *
+     * Use this to protect some model code against accidentally being called from a view.
+     * @example
+     * get foo() { return this._foo; }
+     * set foo(value) { this.modelOnly(); this._foo = value; }
+     * @param {String=} msg - error message to display
+     * @throws Error if called from view
+     * @returns {Boolean} true (otherwise, throws Error)
+     * @public
+     */
+    modelOnly(msg) {
+        let realm = "none";
+        try { realm = currentRealm(); } catch (e) { /* ignore */}
+        if (realm === this.__realm) return true;
+        const error = Error(msg || `${this}.modelOnly() called from outside a model!`);
+        displayAppError('view code', error);
+        throw error;
     }
 
     /**

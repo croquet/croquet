@@ -39,8 +39,8 @@ export class Shape extends Model {
         this.type = options.type || 'circle';
         this.color = options.color || `hsla(${r(360)},${r(50)+50}%,50%,0.5)`;
         this.pos = [r(1000), r(1000)];
-        this.subscribe(this.id, "move-to").moveTo();
-        this.subscribe(this.id, "move-by").moveBy();
+        this.subscribe(this.id, "move-to", this.moveTo);
+        this.subscribe(this.id, "move-by", this.moveBy);
     }
 
     // non-inherited methods below
@@ -128,8 +128,8 @@ class ShapesView extends View {
         document.body.appendChild(this.element);
         window.onresize = () => this.resize();
         model.children.forEach(child => this.attachChild(child));
-        this.subscribe(model.id, 'child-added', child => this.attachChild(child));
-        this.subscribe(model.id, 'child-removed', child => this.detachChild(child));
+        this.subscribe(model.id, 'child-added', this.attachChild);
+        this.subscribe(model.id, 'child-removed', this.detachChild);
     }
 
     detach() {
@@ -180,7 +180,7 @@ class ShapeView extends View {
         el.className = model.type;
         el.id = model.id;
         el.style.backgroundColor = model.color;
-        this.subscribe(model.id, { event: 'pos-changed', handling: "oncePerFrame" }, pos => this.move(pos));
+        this.subscribe(model.id, { event: 'pos-changed', handling: "oncePerFrame" }, this.move);
         this.move(model.pos);
         this.enableDragging();
     }
