@@ -120,18 +120,29 @@ class View {
      * Unlike in a model's [subscribe]{@link Model#subscribe} method, you can specify when the event should be handled:
      * - **Queued:** The handler will be called on the next run of the [main loop]{@link startSession},
      *   the same number of times this event was published.
-     *   This is useful if you need each piece of data that was passed in each [publish]{@link Model#publish} call.<br>
+     *   This is useful if you need each piece of data that was passed in each [publish]{@link Model#publish} call.
+     *
      *   An example would be log entries generated in the model that the view is supposed to print.
-     *   Even if more than one log event is published in one render frame, the view needs to receive each one.<br>
+     *   Even if more than one log event is published in one render frame, the view needs to receive each one.
+     *
      *   **`{ event: "name", handling: "queued" }` is the default.  Simply specify `"name"` instead.**
+     *
      * - **Once Per Frame:** The handler will be called only _once_ during the next run of the [main loop]{@link startSession}.
      *   If [publish]{@link Model#publish} was called multiple times, the handler will only be invoked once,
-     *   passing the data of only the last `publish` call.<br>
+     *   passing the data of only the last `publish` call.
+     *
+     *   For example, a view typically would only be interested in the current position of a model to render it.
+     *   Since rendering only happens once per frame, it should subscribe using the `oncePerFrame` option.
+     *   The event typically would be published only once per frame anyways, however,
+     *   while the model is catching up when joining a session, this would be fired rapidly.
+     *
      *   **`{ event: "name", handling: "oncePerFrame" }` is the most efficient option, you should use it whenever possible.**
+     *
      * - **Immediate:** The handler will be invoked _synchronously_ during the [publish]{@link Model#publish} call.
      *   This will tie the view code very closely to the model simulation, which in general is undesirable.
      *   However, if the view needs to know the exact state of the model at the time the event was published,
-     *   before execution in the model proceeds, then this is the facility to allow this without having to copy model state.<br>
+     *   before execution in the model proceeds, then this is the facility to allow this without having to copy model state.
+     *
      *   Pass `{event: "name", handling: "immediate"}` to enforce this behavior.
      *
      * The `handler` can be any callback function.
