@@ -533,6 +533,8 @@ export default class Controller {
                 receiver = this.id;
                 selector = "publishFromModel";
                 args = [scope, event, data];
+                // only show changes in user count when this view is one of those that just entered, or is already known to the island
+                if (data.entered.some(elem => elem[1] === this.viewId) || this.island && this.island.users[this.viewId]) displayStatus(`users now ${this.users}`);
                 break;
             }
             // no default
