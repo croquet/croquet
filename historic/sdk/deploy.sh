@@ -26,8 +26,8 @@ prerelease|prepatch|patch|preminor|minor|premajor|major)
     echo "       or to bump version number (see https://gist.github.com/leonardokl/a08ee626067ee81ced66acef115e7ced)"
     echo "       $DEPLOY prerelease (e.g. x.y.z-1)"
     echo "       $DEPLOY prepatch   (e.g. 0.0.1-0)"
-    echo "       $DEPLOY patch      (e.g. 0.0.1)"
     echo "       $DEPLOY preminor   (e.g. 0.1.0-0)"
+    echo "       $DEPLOY patch      (e.g. 0.0.1)"
     echo "       $DEPLOY minor      (e.g. 0.1.0)"
     exit 1
 esac
@@ -48,7 +48,7 @@ echo "DEPLOYING $MSG"
 rm -r build/*
 npx jsdoc -c jsdoc.json -d build
 [ $? -ne 0 ] && exit
-sed -i~ "s/@CROQUET_VERSION@/$VERSION (pre-alpha)/" build/*.html
+sed -i '' "s/@CROQUET_VERSION@/$VERSION (pre-alpha)/" build/*.html
 [ $? -ne 0 ] && exit
 
 # clean old
@@ -61,11 +61,18 @@ rm -r $DOCS/*
 npx parcel build --public-url . --no-source-maps -d $DOCS build/*.html
 
 if [ "$RELEASE" != "docs" ] ; then
+    echo CROQUET_VERSION='"'$VERSION' (pre-alpha)"' > .env.production
+
     # build & deploy library
     npx parcel build --public-url . --global Croquet -d $SDK -o croquet-$VERSION.min.js croquet.js
 
-    # link as latest
-    (cd $SDK; ln -sf croquet-$VERSION.min.js croquet-latest.min.js; ln -sf croquet-$VERSION.min.js.map croquet-latest.min.js.map)
+    LINK=croquet-latest
+    case "$RELEASE" in
+    pre*) LINK=croquet-latest-pre
+    esac
+
+    # link as latest or latest-pre
+    (cd $SDK; ln -sf croquet-$VERSION.min.js $LINK.min.js; ln -sf croquet-$VERSION.min.js.map $LINK.min.js.map)
 fi
 
 # if [ "$old_stash" != "$new_stash" ]; then
@@ -74,7 +81,7 @@ fi
 #     git stash pop -q
 # fi
 
-git add -A $SDK/ package.json package-lock.json
+git add -A $SDK/ .env.production package.json package-lock.json
 git commit -m "[sdk] deploy $MSG to croquet.studio" || exit
 git show --stat
 
