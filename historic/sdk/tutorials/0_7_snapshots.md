@@ -10,7 +10,7 @@ More importantly, snapshots are how new users synchronize when they join an exis
 
 1. The local model is initialized with data from the last snapshot.
 2. The reflector resends the local model all events that were transmitted after the last snapshot was taken.
-3. The local view starts executing
+3. The local view initializes itself to match the state of the model and subscribes to model events
 4. The model simulates all the events to bring the snapshot up-to-date
 
 The combination of loading the last snapshot and replaying all the intervening events brings the new user in sync with the other users in the session.
