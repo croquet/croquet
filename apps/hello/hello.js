@@ -69,4 +69,4 @@ class MyView extends Croquet.View {
 // Join the Teatime session and spawn our model and view.
 //------------------------------------------------------------------------------------------
 
-Croquet.startSession("hello", MyModel, MyView, { reflector: "" });
+Croquet.startSession("hello", MyModel, MyView);
