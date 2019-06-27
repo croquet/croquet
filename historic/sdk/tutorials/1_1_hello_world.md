@@ -44,7 +44,6 @@ Croquet uses QR codes to assist in sharing a Croquet session. When set up proper
 If you created a new Pen from scratch (not forking one of the tutorials here) and you want the same join-by-QR functionality:
 
 * add the pen `https://codepen.io/croquet/pen/OemewR` as an additional external resource (in the same way you included the Croquet.js library above) - it will automatically add a QR code linked to your Pen.
-*  make sure to call `Croquet.startSession` with a fixed `random` session option (like in the "Hello World" example above) to make every visitor of your Pen joins the same session.
 
 ## Using a QR Code for Production
 [TODO: Normal QR Code generation description]
@@ -73,7 +72,7 @@ class MyModel extends Croquet.Model {
     init(options) {
         super.init(options);
         this.count = 0;
-        this.subscribe("counter", "reset", () => this.resetCounter());
+        this.subscribe("counter", "reset", this.resetCounter);
         this.future(1000).tick();
     }
 
@@ -102,7 +101,7 @@ We do not define the constructor function. This is already defined in Croquet.Mo
 
 MyModel has one variable called "count" initialized to 0. This is a very simple Croquet app, and that value contains its entire state.
 
-```this.subscribe("counter", "reset", () => this.resetCounter());```
+```this.subscribe("counter", "reset", this.resetCounter);```
 
 MyModel subscribes to the "counter" scope and the "reset" event sent by the view. This event is triggered when a user clicks on the page. When the model receives the event, it triggers the resetCounter() method.
 
@@ -141,7 +140,7 @@ class MyView extends Croquet.View {
     constructor(model) {
         super(model);
         document.addEventListener("click", event => this.onclick(event), false);
-        this.subscribe("counter", "update", data => this.handleUpdate(data));
+        this.subscribe("counter", "update", this.handleUpdate);
     }
 
     onclick(event) {
@@ -170,7 +169,7 @@ Since myView is a subclass, we need to ensure that the base-class constructor is
 
 This is a vanilla tracking of a user event and then calling the onclick function defined below.
 
-```this.subscribe("counter", "update", data => this.handleUpdate(data));```
+```this.subscribe("counter", "update", this.handleUpdate);```
 
 This is where the published value of the counter reaches the view. The view subscribes to that event and when it is received from the model it calls handleUpdate(data).
 
@@ -189,12 +188,10 @@ This function is called whenever a new value of the data is published by the mod
 ## Croquet.startSession(sessionName, MyModel, MyView, options)
 
 ```
-// use fixed session name instead of random so multiple codepen windows find each other
-const session = { user: 'GUEST', random: '1234567' };
-Croquet.startSession("hello", MyModel, MyView, {step: "auto", session});
+Croquet.startSession("hello", MyModel, MyView);
 ```
 
-Croquet.startSession is where the application is actually launched. The arguments are the sessionName, the MyModel class, the MyView class, and any options you may wish to include. In this case, the step: auto function means that the animation update is handled by Croquet.
+Croquet.startSession is where the application is actually launched. The arguments are the sessionName, the MyModel class, the MyView class, and any options you may wish to include.
 
 Starting the session will do the following things:
 

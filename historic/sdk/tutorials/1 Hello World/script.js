@@ -45,10 +45,4 @@ class MyView extends Croquet.View {
 
 }
 
-// use fixed session name instead of random so multiple codepen windows find each other
-const session = { user: 'GUEST', random: '1234567' };
-Croquet.startSession("hello", MyModel, MyView, {step: "auto", session});
-
-// Note: the QR code points to our original pen. After forking,
-// change the url in the HTML tab to point to your pen so you can easily
-// join your own session on a mobile device
+Croquet.startSession("hello", MyModel, MyView);

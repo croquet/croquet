@@ -66,10 +66,7 @@ class MyView extends Croquet.View {
 }
 
 //------------------------------------------------------------------------------------------
-// Join the Teatime session and spawn our model and view. We also enable automatic
-// stepping. Each time the window draws an animation frame, the session steps forward
-// and executes all pending events in both the model and the view.
+// Join the Teatime session and spawn our model and view.
 //------------------------------------------------------------------------------------------
 
-const session = { user: 'brian', random: '22222' };
-Croquet.startSession("hello", MyModel, MyView, {step: "auto", session});
+Croquet.startSession("hello", MyModel, MyView, { reflector: "" });

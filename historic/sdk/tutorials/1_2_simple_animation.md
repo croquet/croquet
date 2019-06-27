@@ -37,7 +37,7 @@ MyModel is the root model. It is what creates the BallModel ball objects and it 
 
 The BallModel is where the action is. Its shape is defined in the CSS code - either a 'circle' or a 'roundRect', but the BallModel only sets the type of this element - it does not interact with the CSS or HTML code in any way. The Croquet View uses this type to create the actual visual element. The ball also computes a random color, position, and speed vector when it is initialized.
 
-```this.subscribe(this.id, "touch-me").startStop();```
+```this.subscribe(this.id, "touch-me", this.startStop);```
 
 The BallModel subscribes to the "touch-me" event. This event is published by the view when an element is touched by a user. When the BallModel recieves this message, it calls the BallModel.startStop() function.
 
@@ -98,7 +98,7 @@ The BallView tracks the associated BallModel.
 
 BallView constructs a new document element based upon the BallModel state. The type is matched to the CSS code and the color and the position of the BallModel are copied.
 
-```this.subscribe(model.id, { event: 'pos-changed', handling: "oncePerFrame" }, pos => this.move(pos));```
+```this.subscribe(model.id, { event: 'pos-changed', handling: "oncePerFrame" }, this.move);```
 
 The BallView subscribes to the BallModel 'pos-changed' event when the BallModel updates the ball position. The 'handling: "oncePerFrame' flag is used to optimize this, as the view only needs an update when a new image is rendered.
 

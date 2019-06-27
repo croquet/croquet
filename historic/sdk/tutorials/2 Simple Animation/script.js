@@ -42,7 +42,7 @@ class BallModel extends Croquet.Model {
         this.color = options.color || `hsla(${r(360)},${r(50)+50}%,50%,0.5)`;
         this.pos = options.pos || [r(1000), r(1000)];
         this.speed = this.randomSpeed();
-        this.subscribe(this.id, "touch-me", ()=>this.startStop());
+        this.subscribe(this.id, "touch-me", this.startStop);
         this.alive = true;
         this.future(Q.STEP_MS).step();
     }
@@ -122,7 +122,7 @@ class BallView extends Croquet.View {
         el.id = model.id;
         el.style.backgroundColor = model.color;
         this.move(model.pos);
-        this.subscribe(model.id, { event: 'pos-changed', handling: "oncePerFrame" }, pos => this.move(pos));
+        this.subscribe(model.id, { event: 'pos-changed', handling: "oncePerFrame" }, this.move);
          this.enableTouch();
     }
 
@@ -143,6 +143,4 @@ class BallView extends Croquet.View {
     }
 }
 
-// use fixed session name instead of random so multiple codepen windows find each other
-const session = { user: 'GUEST', random: 'animate' };
-Croquet.startSession("SimpleAnimation", MyModel, MyView, {step: "auto", session});
+Croquet.startSession("SimpleAnimation", MyModel, MyView);

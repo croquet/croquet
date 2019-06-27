@@ -7,9 +7,9 @@ class ChatModel extends Croquet.Model {
   init() {
     this.users = {};
     this.history = [];
-    this.subscribe("input", "newPost", post => this.onNewPost(post));
-    this.subscribe(this.sessionId, "view-join", viewId => this.userEnter(viewId));
-    this.subscribe(this.sessionId, "view-exit", viewId => this.userExit(viewId));
+    this.subscribe("input", "newPost", this.onNewPost);
+    this.subscribe(this.sessionId, "view-join", this.userEnter);
+    this.subscribe(this.sessionId, "view-exit", this.userExit);
   }
 
   userEnter(viewId) {
@@ -65,7 +65,7 @@ class ChatView extends Croquet.View {
   constructor(model) {
     super(model);
     sendButton.onclick = () => this.send();
-    this.subscribe("history", "update", history => this.refreshHistory(history));
+    this.subscribe("history", "update", this.refreshHistory);
     this.refreshHistory(model.history);
   }
 
@@ -81,10 +81,4 @@ class ChatView extends Croquet.View {
   }
 }
 
-// use fixed session name instead of random so multiple codepen windows find each other
-const session = { user: 'GUEST', random: '1234567' };
-Croquet.startSession("chat", ChatModel, ChatView, {step: "auto", session});
-
-// Note: the QR code points to our original pen. After forking,
-// change the url in the HTML tab to point to your pen so you can easily
-// join your own session on a mobile device
+Croquet.startSession("chat", ChatModel, ChatView);

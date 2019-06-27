@@ -32,7 +32,7 @@ class BallModel extends Croquet.Model {
         this.color = `hsl(${rand(360)},${rand(50)+50}%,50%)`;
         this.reset();
 
-        this.subscribe(options.sceneModel.id, "reset", () => this.reset());
+        this.subscribe(options.sceneModel.id, "reset", this.reset);
 
         this.future(Q.STEP_MS).step();
     }
@@ -160,7 +160,7 @@ class BallView extends Croquet.View {
           new THREE.MeshStandardMaterial({ color: model.color })
           );
         this.move(model.pos);
-        this.subscribe(model.id, { event: 'pos-changed', handling: "oncePerFrame" }, pos => this.move(pos));
+        this.subscribe(model.id, { event: 'pos-changed', handling: "oncePerFrame" }, this.move);
     }
 
     move(pos) {
@@ -168,10 +168,4 @@ class BallView extends Croquet.View {
     }
 }
 
-// use fixed session name instead of random so multiple codepen windows find each other
-const session = { user: 'GUEST', random: '1234567' };
-Croquet.startSession("3D Animation", MyModel, MyView, {step: "auto", session});
-
-// Note: the QR code points to our original pen. After forking,
-// change the url in the HTML tab to point to your pen so you can easily
-// join your own session on a mobile device
+Croquet.startSession("3D Animation", MyModel, MyView);
