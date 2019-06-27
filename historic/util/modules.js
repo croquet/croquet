@@ -52,8 +52,8 @@ export function fileServer() {
 // but replace 'localhost' and '*.ngrok.io' by 'dev/username' for developers
 export function baseUrl(what='code') {
     const dev = urlOptions.has("dev", "host", "localhost");
-    const host = dev ? `dev/${getUser("name", "GUEST")}` : window.location.hostname;
-    return `${fileServer()}/files-v1/${host}/${what}/`;
+    const host = dev ? `dev/${getUser("name", "GUEST")}/` : 'all';
+    return `${fileServer()}/files-v1/${host}${what}/`;
 }
 
 function allModules() {
