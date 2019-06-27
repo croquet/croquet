@@ -8,3 +8,9 @@ _THE CROQUET SDK IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS 
 _Croquet_ is a synchronization system for multiuser digital experiences. It allows multiple users to work or play together within a single shared distributed environment, and it guarantees that this distributed environment will remain bit-identical for every user.
 
 This synchronization using the _Teatime_ protocol is largely invisible to the developer. Creating a _Croquet_ application does not require the programmer to write separate client and server code. Applications are developed as though they are local, single-user experiences, and the _Croquet_ library takes care of the rest.
+
+# Changelog
+
+2019-06-27: corrected documentation for [View.subscribe]{@link View#subscribe} `handling` option
+
+2019-06-26: **release 0.1.0**
