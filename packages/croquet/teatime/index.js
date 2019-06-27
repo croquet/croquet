@@ -28,7 +28,7 @@ export { currentRealm } from "./src/realms";
  * The view root should set up the input and output operations of your application.
  *
  * Then the Croquet **main loop** is started (unless you pass in a `step: "manual"` option).
- * This uses [requestAnimationFrame()]{@link https://developer.mozilla.org/en-US/docs/Web/API/window/requestAnimationFrame}
+ * This uses [requestAnimationFrame()]{@link https://developer.mozilla.org/docs/Web/API/window/requestAnimationFrame}
  * for continuous updating. Each step of the main loop executes in three phases:
  *
  * 1. _Simulation:_ the models execute the events received via the reflector,
@@ -48,7 +48,7 @@ export { currentRealm } from "./src/realms";
  * #### Options
  * | option        | values        | Description
  * | ------------- |-------------  | -----------
- * | `step:`       | `"auto"`      | automatic stepping via [requestAnimationFrame()]{@link https://developer.mozilla.org/en-US/docs/Web/API/window/requestAnimationFrame} (this is the default)
+ * | `step:`       | `"auto"`      | automatic stepping via [requestAnimationFrame()]{@link https://developer.mozilla.org/docs/Web/API/window/requestAnimationFrame} (this is the default)
  * |               | `"app"`       | application-defined main loop will call the session's `step()` function
  * | `update:`     | `"auto"`      | call `update()` only if there where events processed in the event phase (this is the default)
  * |               | `"always"`    | call `update()` in every step, independent of events
@@ -162,7 +162,7 @@ function stepSession(frameTime, controller, view, update="auto") {
  * To hash your own constants, put them into `Croquet.Constants` object.
  *
  * **Note:** the Constants object is recursively
- * [frozen]{@link https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/freeze}
+ * [frozen]{@link https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object/freeze}
  * once a session was started, to avoid accidental modification.
  * @example
  * const Q = Croquet.Constants;

@@ -267,7 +267,7 @@ export default class App {
             }
         });
 
-        // NB: per https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API/Drag_operations, one must cancel (e.g., preventDefault()) on dragenter and dragover events to indicate willingness to receive drop.
+        // NB: per https://developer.mozilla.org/docs/Web/API/HTML_Drag_and_Drop_API/Drag_operations, one must cancel (e.g., preventDefault()) on dragenter and dragover events to indicate willingness to receive drop.
         this.domEventManager.addEventListener(this.canvas, "dragenter", event => {
             //console.log("ENTER");
             event.preventDefault();

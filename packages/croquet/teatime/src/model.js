@@ -261,7 +261,6 @@ class Model {
         this.__realm.publish(event, data, scope);
     }
 
-
     /**
      * **Register an event handler for an event published to a scope.**
      *
@@ -375,22 +374,32 @@ class Model {
      * Use a future message to automatically advance time in a model,
      * for example for animations.
      * The execution will be scheduled `tOffset` milliseconds into the future.
+     * It will run at precisely `[this.now()]{@link Model#now} + tOffset`.
      *
-     * Use the form `this.future(100).methodName(arg1, arg2)` to schedule the execution
-     * of `this.methodName(arg1, arg2)` at time `this.[now]{@link Model#now}() + tOffset`.
+     * Use the form `this.future(100).methodName(args)` to schedule the execution
+     * of `this.methodName(args)` at time `this.[now]{@link Model#now}() + tOffset`.
      *
-     * **Note:** the recommended form is equivalent to `this.future(100, "methodName", arg1, arg2)`
+     * **Hint**: This would be an unusual use of `future()`, but the `tOffset` given may be `0`,
+     * in which case the execution will happen asynchronously before advancing time.
+     * This is the only way for asynchronous execution in the model since you must not
+     * use Promises or async functions in model code (because a snapshot may happen at any time
+     * and it would not capture those executions).
+     *
+     * **Note:** the recommended form given above is equivalent to `this.future(100, "methodName", arg1, arg2)`
      * but makes it more clear that "methodName" is not just a string but the name of a method of this object.
+     * Technically, it answers a [Proxy]{@link https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Proxy}
+     * that captures the name and arguments of `.methodName(args)` for later execution.
      *
      * See this [tutorial]{@tutorial 1_1_hello_world} for a complete example.
-     *
-     * @example
+     * @example <caption>single invocation with two arguments</caption>
+     * this.future(3000).say("hello", "world");
+     * @example <caption>repeated invocation with no arguments</caption>
      * tick() {
      *     this.n++;
      *     this.publish(this.id, "count", {time: this.now(), count: this.n)});
      *     this.future(100).tick();
      * }
-     * @param {Number} tOffset - time offset in milliseconds
+     * @param {Number} tOffset - time offset in milliseconds, must be >= 0
      * @returns {this}
      * @public
      */
@@ -400,6 +409,13 @@ class Model {
     }
 
     /**
+     * **Generate a replicated pseudo-random number**
+     *
+     * This returns a floating-point, pseudo-random number in the range 0–1 (inclusive of 0, but not 1) with approximately uniform distribution over that range
+     * (just like [Math.random]{@link https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Math/random}).
+     *
+     * Since the model computation is replicated for every user on their device, the sequence of random numbers generated must also
+     * be exactly the same for everyone. This method provides access to such a random number generator.
      *
      * @returns {Number}
      * @public
@@ -409,8 +425,20 @@ class Model {
     }
 
     /**
+     * **The model's current time**
      *
-     * @returns {Number}
+     * Time is discreet in Croquet, meaning it advances in steps.
+     * Every user's device performs the exact same computation at the exact same virtual time.
+     * This is what allows Croquet to do perfectly replicated computation.
+     *
+     * Every [event handler]{@link Model#subscribe} and [future message]{@link Model#future}
+     * is run at a precisely defined moment in virtual model time, and time stands still while this execution is happening.
+     * That means if you were to access `this.now()` in a loop, it would never answer a different value.
+     *
+     * The unit of `now` is milliseconds (1/1000 second) but the value can be fractional, it is a floating-point value.
+     *
+     * @return {Number} the model's time in milliseconds since the first user created the session.
+     * @see [View.now()]{@link View#now}
      * @public
      */
     now() {

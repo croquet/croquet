@@ -183,8 +183,15 @@ class View {
     // Misc
 
     /**
+     * **Schedule a message for future execution**
      *
-     * @param {Number} tOffset
+     * This method is here for symmetry with [Model.future]{@link Model#future}.
+     *
+     * It simply schedules the execution using
+     * [window.setTimeout]{@link https://developer.mozilla.org/docs/Web/API/WindowOrWorkerGlobalScope/setTimeout}.
+     * The only advantage to using this over setTimeout() is consistent style.
+     *
+     * @param {Number} tOffset - time offset in milliseconds
      * @returns {this}
      * @public
      */
@@ -193,6 +200,11 @@ class View {
     }
 
     /**
+     * **Answers [Math.random()]{@link https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Math/random}**
+     *
+     * This method is here purely for symmetry with [Model.random]{@link Model#random}.
+     *
+     * @returns {Number} [Math.random()]{@link https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Math/random}
      * @public
      */
     random() {
@@ -210,7 +222,10 @@ class View {
      * If there is [backlog]{@link View#externalNow} however (e.g while a newly joined user is catching up),
      * this time will advance much faster than real time.
      *
+     * The unit is milliseconds (1/1000 second) but the value can be fractional, it is a floating-point value.
+     *
      * @return {Number} the model's time in milliseconds since the first user created the session.
+     * @see [Model.now()]{@link Model#now}
      * @public
      */
     now() {
@@ -218,7 +233,20 @@ class View {
     }
 
     /**
-     * @returns the latest timestamp received from the reflector
+     * **The latest timestamp received from reflector**
+     *
+     * Timestamps are received asynchronously from the reflector at the specified tick rate.
+     * [Model time]{@link View#now} however only advances synchronously on every iteration of the [main loop]{@link startSession}.
+     * Usually `now == externalNow`, but if the model has not caught up yet, then `now < externalNow`.
+     *
+     * We call the difference "backlog". If the backlog is too large, Croquet will put an overlay on the scene,
+     * and remove it once the model simulation has caught up.
+     * The [`"synced"`]{@link event:synced} event is sent when that happens.
+     *
+     * The `externalNow` value is rarely used by apps but may be useful if you need to synchronize views to real-time.
+     * @example
+     * const backlog = this.externalNow() - this.now();
+     * @returns {number} the latest timestamp in milliseconds received from the reflector
      * @public
      */
     externalNow() {
@@ -232,7 +260,11 @@ class View {
      * If you want this to be called for other views than the root view, you will have to call
      * those methods from the root view's `update()`.
      *
-     * @param {Number} time - this frame's time stamp in milliseconds
+     * The `time` received is related to the local real-world time. If you need to access the model's time,
+     * use [`this.now()`]{@link View#now}.
+     *
+     * @param {Number} time - this frame's time stamp in milliseconds, as received by
+     *     [requestAnimationFrame]{@link https://developer.mozilla.org/docs/Web/API/window/requestAnimationFrame}
      * @public
     */
     update(_time) {

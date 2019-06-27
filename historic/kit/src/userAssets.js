@@ -1324,7 +1324,7 @@ class Video2DView {
         // return true if video play started successfully
         this.video.currentTime = this.wrappedTime(videoTime, true);
         this.isPlaying = true; // even if it turns out to be blocked by the browser
-        // following guidelines from https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/play
+        // following guidelines from https://developer.mozilla.org/docs/Web/API/HTMLMediaElement/play
         try {
             await this.video.play(); // will throw exception if blocked
             this.isBlocked = false;
