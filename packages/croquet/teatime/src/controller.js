@@ -237,7 +237,7 @@ export default class Controller {
         }
         const hash = await hashNameAndCode(name);
         const id = multiSession ? await this.sessionIDFor(hash) : hash;
-        console.log(`Session ID for ${name}: ${id}`);
+        console.log(`Session ID for "${name}": ${id}`);
         this.islandCreator = { name, ...creator, options, hash };
         if (!this.islandCreator.snapshot) {
             this.islandCreator.snapshot = { id, time: 0, meta: { created: (new Date()).toISOString() } };
@@ -953,7 +953,7 @@ async function connectToReflector(reflectorUrl) {
 }
 
 function socketSetup(socket, reflectorUrl) {
-    displayStatus('Connecting to ' + socket.url);
+    //displayStatus('Connecting to ' + socket.url);
     Object.assign(socket, {
         onopen: _event => {
             if (DEBUG.session) console.log(socket.constructor.name, "connected to", socket.url);
