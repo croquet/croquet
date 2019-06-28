@@ -6,10 +6,10 @@
 cd `dirname "$0"`
 
 RELEASE="$1"
+DOCS_VERSION=`git describe --tags --abbrev=0`
 
 case "$RELEASE" in
 docs)
-    VERSION=`node -p "require('./package').version"`
     MSG="docs"
     [ $? -ne 0 ] && exit 1
     ;;
@@ -34,23 +34,6 @@ esac
 
 echo "DEPLOYING $MSG"
 
-# old_stash=`git rev-parse -q --verify refs/stash`
-# git stash -q -- .
-# new_stash=`git rev-parse -q --verify refs/stash`
-
-# if [ "$old_stash" != "$new_stash" ]; then
-#     echo "Stashing dirty files"
-#     git stash show
-# fi
-
-
-# build docs
-rm -r build/*
-npx jsdoc -c jsdoc.json -d build
-[ $? -ne 0 ] && exit
-sed -i '' "s/@CROQUET_VERSION@/$VERSION (pre-alpha)/" build/*.html
-[ $? -ne 0 ] && exit
-
 # clean old
 DIR=../../servers/croquet.studio
 SDK=$DIR/sdk
@@ -66,14 +49,17 @@ if [ "$RELEASE" != "docs" ] ; then
     echo CROQUET_VERSION='"'$VERSION' (pre-alpha)"' > .env.production
     echo CROQUET_VERSION='"'$VERSION'_dev (pre-alpha)"' > .env.development
 
-    # build & deploy library
-    npx parcel build --public-url . --global Croquet -d $SDK -o croquet-$VERSION.min.js croquet.js
-
     LINK=croquet-latest
     case "$RELEASE" in
-    pre*) TAG="" ;;
-    *) TAG="$RELEASE release $VERSION" ;;
+    pre*) TAG=""
+          ;;
+    *)    TAG="$RELEASE release $VERSION"
+          DOCS_VERSION=$VERSION
+          ;;
     esac
+
+    # build & deploy library
+    npx parcel build --public-url . --global Croquet -d $SDK -o croquet-$VERSION.min.js croquet.js
 
     # always link as latest-pre
     (cd $SDK; ln -sf croquet-$VERSION.min.js croquet-latest-pre.min.js; ln -sf croquet-$VERSION.min.js.map croquet-latest-pre.min.js.map)
@@ -81,11 +67,12 @@ if [ "$RELEASE" != "docs" ] ; then
     [ -n "TAG" ] && (cd $SDK; ln -sf croquet-$VERSION.min.js croquet-latest.min.js; ln -sf croquet-$VERSION.min.js.map croquet-latest.min.js.map)
 fi
 
-# if [ "$old_stash" != "$new_stash" ]; then
-#     echo "restoring dirty files"
-#     git stash show
-#     git stash pop -q
-# fi
+# build docs
+rm -r build/*
+npx jsdoc -c jsdoc.json -d build
+[ $? -ne 0 ] && exit
+sed -i '' "s/@CROQUET_VERSION@/$DOCS_VERSION/" build/*.html
+[ $? -ne 0 ] && exit
 
 git add -A $SDK/ .env.development .env.production package.json package-lock.json
 git commit -m "[sdk] deploy $MSG to croquet.studio" || exit
