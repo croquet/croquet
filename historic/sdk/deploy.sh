@@ -71,12 +71,14 @@ if [ "$RELEASE" != "docs" ] ; then
 
     LINK=croquet-latest
     case "$RELEASE" in
-    pre*) LINK=croquet-latest-pre ;;
-    *) TAG="$RELEASE release $VERSION";;
+    pre*) TAG="" ;;
+    *) TAG="$RELEASE release $VERSION" ;;
     esac
 
-    # link as latest or latest-pre
-    (cd $SDK; ln -sf croquet-$VERSION.min.js $LINK.min.js; ln -sf croquet-$VERSION.min.js.map $LINK.min.js.map)
+    # always link as latest-pre
+    (cd $SDK; ln -sf croquet-$VERSION.min.js croquet-latest-pre.min.js; ln -sf croquet-$VERSION.min.js.map croquet-latest-pre.min.js.map)
+    # link as latest if tagged
+    [ -n "TAG" ] && (cd $SDK; ln -sf croquet-$VERSION.min.js croquet-latest.min.js; ln -sf croquet-$VERSION.min.js.map croquet-latest.min.js.map)
 fi
 
 # if [ "$old_stash" != "$new_stash" ]; then
@@ -85,7 +87,7 @@ fi
 #     git stash pop -q
 # fi
 
-git add -A $SDK/ .env.production package.json package-lock.json
+git add -A $SDK/ .env.development .env.production package.json package-lock.json
 git commit -m "[sdk] deploy $MSG to croquet.studio" || exit
 
 if [ -n "$TAG" ] ; then
