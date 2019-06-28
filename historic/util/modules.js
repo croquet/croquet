@@ -43,7 +43,7 @@ if (process.env.CROQUET_REPLAY) {
 export const CROQUET_HOST = window.location.hostname.endsWith("croquet.studio") ? window.location.hostname : "croquet.studio";
 
 export function fileServer() {
-    const server = typeof urlOptions.files === "string" ? urlOptions.files : `https://${CROQUET_HOST}`;
+    const server = typeof urlOptions.files === "string" ? urlOptions.files : `https://${CROQUET_HOST}/files-v1`;
     if (server.endsWith('/')) return server.slice(0, -1);
     return server;
 }
@@ -53,7 +53,7 @@ export function fileServer() {
 export function baseUrl(what='code') {
     const dev = urlOptions.has("dev", "host", "localhost");
     const host = dev ? `dev/${getUser("name", "GUEST")}/` : 'all';
-    return `${fileServer()}/files-v1/${host}${what}/`;
+    return `${fileServer()}/${host}${what}/`;
 }
 
 function allModules() {

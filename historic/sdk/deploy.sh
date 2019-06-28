@@ -64,6 +64,7 @@ TAG=""
 
 if [ "$RELEASE" != "docs" ] ; then
     echo CROQUET_VERSION='"'$VERSION' (pre-alpha)"' > .env.production
+    echo CROQUET_VERSION='"'$VERSION'_dev (pre-alpha)"' > .env.development
 
     # build & deploy library
     npx parcel build --public-url . --global Croquet -d $SDK -o croquet-$VERSION.min.js croquet.js
