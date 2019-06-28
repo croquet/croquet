@@ -129,7 +129,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
 
     async function bootModelView(snapshot) {
         clear();
-        const model = (await controller.establishSession(name, {snapshot, init: spawnModel, destroyerFn: bootModelView, ...options})).modelRoot;
+        const model = (await controller.establishSession(name, {snapshot, init: spawnModel, destroyerFn: bootModelView})).modelRoot;
         session.id = controller.id;
         session.moniker = displaySessionMoniker(controller.id);
         displayQRCode();
