@@ -99,7 +99,24 @@ export { currentRealm } from "./src/realms";
  * });
  * @public
  */
-export async function startSession(name, ModelRoot=Model, ViewRoot=View, options={}) {
+export async function startSession(name, ModelRoot=Model, ViewRoot=View, options) {
+    // sanitize name
+    if (typeof name !== "string") name = JSON.stringify(name) || "undefined";
+    else if (!name) name = "unnamed";
+    // must pass a model
+    if (!(ModelRoot instanceof Model)) throw Error("ModelRoot must inherit from Croquet.Model");
+    // view defaults to View
+    if (!(ViewRoot instanceof View)) {
+        // if not specifying a view, allow options as 3rd argument
+        if (ViewRoot && Object.getPrototypeOf(ViewRoot) === Object.prototype && options === undefined) {
+            options = ViewRoot;
+            ViewRoot = View;
+        }
+        else throw Error("ViewRoot must inherit from Croquet.View");
+    }
+    // default options are empty
+    if (!options) options = {};
+    // put reflector option into urlOptions because that's where controller.js looks
     const reflector = urlOptions.reflector || options.reflector;
     if (reflector) {
         if (reflector.includes("://")) urlOptions.reflector = reflector;
