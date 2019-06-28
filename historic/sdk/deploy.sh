@@ -40,9 +40,6 @@ SDK=$DIR/sdk
 DOCS=$SDK/docs
 rm -r $DOCS/*
 
-# deploy docs
-npx parcel build --public-url . --no-source-maps -d $DOCS build/*.html
-
 TAG=""
 
 if [ "$RELEASE" != "docs" ] ; then
@@ -71,8 +68,11 @@ fi
 rm -r build/*
 npx jsdoc -c jsdoc.json -d build
 [ $? -ne 0 ] && exit
-sed -i '' "s/@CROQUET_VERSION@/$DOCS_VERSION/" build/*.html
+sed -i~  "s/@CROQUET_VERSION@/$DOCS_VERSION/" build/*.html
 [ $? -ne 0 ] && exit
+
+# deploy docs
+npx parcel build --public-url . --no-source-maps -d $DOCS build/*.html
 
 git add -A $SDK/ .env.development .env.production package.json package-lock.json
 git commit -m "[sdk] deploy $MSG to croquet.studio" || exit
