@@ -87,6 +87,16 @@ export { currentRealm } from "./src/realms";
  *  - `view` is an instance of the `ViewRoot` class
  *  - `step(time)` is a function you need to call in each frame if you disabled automatic stepping.
  *     Pass in the time in milliseconds, e.g. from `window.requestAnimationFrame(time)`
+ * @example <caption>requesting that MyRootView.update() is called in every frame</caption>
+ * Croquet.startSession("MyApp", MyRootModel, MyRootView, {update: "always"});
+ * @example <caption>manual main loop</caption>
+ * Croquet.startSession("MyApp", MyRootModel, MyRootView, {step: "manual"}).then(session => {
+ *     function myFrame(time) {
+ *         session.step(time);
+ *         window.requestAnimationFrame(myFrame);
+ *     }
+ *     window.requestAnimationFrame(myFrame);
+ * });
  * @public
  */
 export async function startSession(name, ModelRoot=Model, ViewRoot=View, options={}) {
