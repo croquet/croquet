@@ -57,20 +57,23 @@ export { currentRealm } from "./src/realms";
  * #### Options
  * | option        | values        | Description
  * | ------------- |-------------  | -----------
- * | `step:`       | `"auto"`      | automatic stepping via [requestAnimationFrame()]{@link https://developer.mozilla.org/docs/Web/API/window/requestAnimationFrame} (this is the default)
- * |               | `"manual"`       | application-defined main loop will call the session's `step()` function
- * | `update:`     | `"auto"`      | call `update()` only if there where events processed in the event phase (this is the default)
+ * | `step`        | **`"auto"`**  | automatic stepping via [requestAnimationFrame()]{@link https://developer.mozilla.org/docs/Web/API/window/requestAnimationFrame} (default)
+ * |               | `"manual"`    | application-defined main loop will call the session's `step()` function
+ * | `update`      | **`"auto"`**  | call `update()` only if there where events processed in the event phase (default)
  * |               | `"always"`    | call `update()` in every step, independent of events
  * |               | `"never"`     | disable calling `update()` altogether
- *
+ * | `reflector`   | **`"us"`**    | use a reflector in America (default)
+ * |               | `"eu"`        | use a reflector in Europe
+ * |               | `"jp"`        | use a reflector in Japan
  *
  * @async
  * @param {String} name - a name for your app
  * @param {Model} ModelRoot - the root Model class for your app
  * @param {View} ViewRoot - the root View class for your app
- * @param {Object=} options -
- *      `step:` `"auto"` or `"manual"`,<br>
- *      `update:` `"auto"` or `"always"` or `"never"`,<br>
+ * @param {Object} options
+ * @param {String} options.step - `"auto" | "manual"`
+ * @param {String} options.update - `"auto" | "always" | "never"`
+ * @param {String} options.reflector - `"us" | "eu" | "jp"`
  * @returns {Promise} Promise that resolves to an object describing the session:
  * ```
  * {
