@@ -11,9 +11,6 @@ import ObservableModel from "./src/observable";
 export { Model, View, Controller, ObservableModel };
 export { currentRealm } from "./src/realms";
 
-export const Version = process.env.CROQUET_VERSION || "<unknown>";
-console.log("Croquet SDK " + Version);
-
 //@typedef { import('./src/model').default } Model
 
 /**

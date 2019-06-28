@@ -17,6 +17,10 @@ import Island, { Message, inSequence } from "./island";
 // only newer clients get to use it
 const VERSION = 1;
 
+export const SDK_VERSION = process.env.CROQUET_VERSION || "<unknown>";
+console.log("Croquet SDK " + SDK_VERSION);
+
+
 const FALLBACK_REFLECTOR = `wss://${CROQUET_HOST}/reflector-v1`;
 const DEFAULT_REFLECTOR = process.env.CROQUET_REFLECTOR || FALLBACK_REFLECTOR;    // replaced by parcel at build time from app's .env file
 
@@ -285,6 +289,7 @@ export default class Controller {
             seq,
             date: (new Date()).toISOString(),
             host: window.location.hostname,
+            sdk: SDK_VERSION,
         };
         delete snapshot.meta.hash; // old hash is invalid
         if (codeHashes) snapshot.meta.code = codeHashes;
