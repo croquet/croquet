@@ -106,6 +106,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
         else {
             const host = reflector === "us" ? "croquet.studio" : `${reflector}.croquet.studio`;
             urlOptions.reflector = `wss://${host}/reflector-v1`;
+            urlOptions.files = `https://${host}/files-v1`;
         }
     }
     Controller.connectToReflectorIfNeeded();
