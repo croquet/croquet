@@ -8,6 +8,7 @@ const CroquetContext = createContext();
  * @param {M} model
  * @returns {M}
  * @template M
+ * @public
  */
 export function useObservable(model) {
     const croquetContext = useContext(CroquetContext);
