@@ -16,6 +16,14 @@ export { currentRealm } from "./src/realms";
 /**
  * **Start a new Croquet session.**
  *
+ * Creates a new session executing `ModelRoot`, then attaches a `ViewRoot` instance.
+ *
+ * The session `name` creates individual sessions.
+ * You can use it to for example to create different sessions for different users.
+ * For example, a user in session `"MyApp/A"` will not see a user in `"MyApp/B"`.
+ * If you want all users to end up in the same session, simply use a constant.
+ * This is what we do in the tutorials for simplicity, but actual apps should manage sessions.
+ *
  * A [session id]{@link Model#sessionId} is created from the given session `name`,
  * and a hash of all the [registered]{@link Model.register} Model classes and {@link Constants}.
  * This ensures that only users running the exact same source code end up in the same session,
