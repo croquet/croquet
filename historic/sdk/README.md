@@ -11,6 +11,7 @@ This synchronization using the _Teatime_ protocol is largely invisible to the de
 
 # Changelog
 
-2019-06-27: corrected documentation for [View.subscribe]{@link View#subscribe} `handling` option
-
-2019-06-26: **release 0.1.0**
+| date       | item
+|------------|---
+| 2019-06-27 | docs: [View.subscribe]{@link View#subscribe}, [startSession]{@link startSession}
+| 2019-06-26 | **release 0.1.0**
