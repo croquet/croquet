@@ -100,13 +100,14 @@ export { currentRealm } from "./src/realms";
  * @public
  */
 export async function startSession(name, ModelRoot=Model, ViewRoot=View, options) {
+    function inherits(A, B) { return A === B || A.prototype instanceof B; }
     // sanitize name
     if (typeof name !== "string") name = JSON.stringify(name) || "undefined";
     else if (!name) name = "unnamed";
     // must pass a model
-    if (!(ModelRoot instanceof Model)) throw Error("ModelRoot must inherit from Croquet.Model");
+    if (!inherits(ModelRoot, Model)) throw Error("ModelRoot must inherit from Croquet.Model");
     // view defaults to View
-    if (!(ViewRoot instanceof View)) {
+    if (!inherits(ViewRoot, View)) {
         // if not specifying a view, allow options as 3rd argument
         if (ViewRoot && Object.getPrototypeOf(ViewRoot) === Object.prototype && options === undefined) {
             options = ViewRoot;
@@ -146,7 +147,16 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
 
     async function bootModelView(snapshot) {
         clear();
-        const model = (await controller.establishSession(name, {snapshot, init: spawnModel, destroyerFn: bootModelView})).modelRoot;
+        const creator = {
+            snapshot,
+            init: spawnModel,
+            destroyerFn: bootModelView,
+            options: controllerOptions,
+        };
+        for (const [option, value] of Object.entries(options)) {
+            if (CREATOR_OPTIONS.includes(option)) creator[option] = value;
+        }
+        const model = (await controller.establishSession(name, creator)).modelRoot;
         session.id = controller.id;
         session.moniker = displaySessionMoniker(controller.id);
         displayQRCode();
