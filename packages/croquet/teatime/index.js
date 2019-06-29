@@ -132,9 +132,16 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
         function asArray(a) { return a ? (Array.isArray(a) ? a : [a]) : []; }
         urlOptions.debug = [...asArray(urlOptions.debug), ...asArray(options.debug)];
     }
+    // now start
+    const CONTROLLER_OPTIONS = ['tps'];
+    const CREATOR_OPTIONS = ['optionsFromUrl'];
     Controller.connectToReflectorIfNeeded();
     freezeAndHashConstants();
     const controller = new Controller();
+    const controllerOptions = {};
+    for (const [option, value] of Object.entries(options)) {
+        if (CONTROLLER_OPTIONS.includes(option)) controllerOptions[option] = value;
+    }
     const session = {};
     if (options.step !== "manual") {
         // auto stepping
