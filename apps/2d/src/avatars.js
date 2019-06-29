@@ -244,7 +244,7 @@ class ShapeView extends View {
 async function go() {
     Controller.connectToReflector(module.id);
 
-    const session = await startSession("avatars", Shapes, ShapesView, {tps: TPS});
+    const session = await startSession("avatars", Shapes, ShapesView, { step: "manual", tps: TPS });
     const controller = session.view.realm.island.controller;
 
     let users = 0;
