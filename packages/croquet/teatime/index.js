@@ -127,6 +127,11 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
             urlOptions.files = `https://${host}/files-v1`;
         }
     }
+    // also add debug options
+    if (options.debug) {
+        function asArray(a) { return a ? (Array.isArray(a) ? a : [a]) : []; }
+        urlOptions.debug = [...asArray(urlOptions.debug), ...asArray(options.debug)];
+    }
     Controller.connectToReflectorIfNeeded();
     freezeAndHashConstants();
     const controller = new Controller();
