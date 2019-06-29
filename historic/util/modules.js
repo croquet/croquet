@@ -88,13 +88,30 @@ function functionSource(fn) {
 }
 
 function classSrc(cls) {
-    // strip whitespace around head and class body, and leading whitespace
+    // this is used to provide the source code for hashing, and hence for generating
+    // a session ID.  we do some minimal cleanup to unify the class strings as
+    // provided by different browsers.
     const str = "" + cls;
     const openingBrace = str.indexOf('{');
     const closingBrace = str.lastIndexOf('}');
     const head = str.slice(0, openingBrace).replace(/\s+/g, ' ').trim();
     const body = str.slice(openingBrace + 1, closingBrace).trim();
-    return `${head} {\n${body.replace(/^\s+/gm, '')}}`;
+    return `${head} {\n${body}`;
+
+    // remnants of an experiment (june 2019) in deriving the same hash for code
+    // that is semantically equivalent, even if formatted differently - so that
+    // tools such as Codepen, which mess with white space depending on the
+    // requested view type (e.g., debug or not), would nonetheless generate
+    // the same session ID for all views.
+    // our white-space standardisation involved stripping space immediately
+    // inside a brace, and at the start of each line:
+
+    // .replace(/\{\s+/g, '{').replace(/\s+\}/g, '}').replace(/^\s+/gm, '')}}`;
+
+    // upon realising that Codepen also reserves the right to inject code, such
+    // as into "for" loops to allow interruption, we decided to abandon this
+    // approach.  users should just get used to different views having different
+    // session IDs.
 }
 
 /**
@@ -166,15 +183,17 @@ hotreloadEventManager.addDisposeHandler("fileHashes", () => { for (const f of (O
 
 export async function hashFile(mod) {
     if (fileHashes[mod]) return fileHashes[mod];
-    const source = sourceCodeOf(mod).replace(/\s+/gm, ''); // a side effect of parcel is some whitespace mangling that can be different on different platforms.  hash on a version with no whitespace at all.
+    const source = sourceCodeOf(mod).replace(/\s+/g, ' '); // a side effect of parcel is some whitespace mangling that can be different on different platforms.  hash on a version in which each run of whitespace is converted to a single space.
     return fileHashes[mod] = await hashString(source);
 }
 
 const extraHashes = [];
 
 export function addClassHash(cls) {
-    const source = classSrc(cls).replace(/\s+/gm, ''); // whitespace treatment, as above
-    extraHashes.push(hashString(source));
+    const source = classSrc(cls);
+    const hashPromise = hashString(source);
+    hashPromise.then(hash => console.log(`hash for ${cls.name}: ${hash}`));
+    extraHashes.push(hashPromise);
 }
 
 export function addConstantsHash(constants) {
@@ -186,7 +205,7 @@ export async function hashNameAndCode(name) {
     const mods = allModuleIDs().filter(id => {
         // we don't want to be encoding any package.json, because it includes a build-specific path name.  ar.js also causes trouble, for some as yet unknown reason.
         // @@ this could be switched on or off under control of a process.env setting.
-        const exclude = id.endsWith("package.json") || id.endsWith("ar.js");
+        const exclude = id.endsWith("/package.json") || id.endsWith("/ar.js");
         if (exclude) console.warn(`excluding ${id} from code hash`);
         return !exclude;
         }).sort();
