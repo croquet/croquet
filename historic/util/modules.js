@@ -52,7 +52,7 @@ export function fileServer() {
 // but replace 'localhost' and '*.ngrok.io' by 'dev/username' for developers
 export function baseUrl(what='code') {
     const dev = urlOptions.has("dev", "host", "localhost");
-    const host = dev ? `dev/${getUser("name", "GUEST")}/` : 'all';
+    const host = dev ? `dev/${getUser("name", "GUEST")}/` : 'all/';
     return `${fileServer()}/${host}${what}/`;
 }
 
