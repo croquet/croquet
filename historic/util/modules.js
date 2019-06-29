@@ -96,7 +96,7 @@ function classSrc(cls) {
     const closingBrace = str.lastIndexOf('}');
     const head = str.slice(0, openingBrace).replace(/\s+/g, ' ').trim();
     const body = str.slice(openingBrace + 1, closingBrace).trim();
-    return `${head} {\n${body}`;
+    return `${head} {\n${body}}`;
 
     // remnants of an experiment (june 2019) in deriving the same hash for code
     // that is semantically equivalent, even if formatted differently - so that
