@@ -215,6 +215,6 @@ for (const key of (Object.keys(Stats))) {
     NoStats[key] = Noop;
 }
 // controller.js is using this for cpuTime measurement
-Noop.begin = Noop.end = () => performance.now();
+NoStats.begin = NoStats.end = () => performance.now();
 
 export default div ? Stats : NoStats;
