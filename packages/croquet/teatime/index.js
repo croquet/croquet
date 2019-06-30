@@ -55,16 +55,13 @@ export { currentRealm } from "./src/realms";
  * so there is no need to wait for the function's completion.
  *
  * #### Options
- * | option        | values        | Description
- * | ------------- |-------------  | -----------
- * | `step`        | **`"auto"`**  | automatic stepping via [requestAnimationFrame()]{@link https://developer.mozilla.org/docs/Web/API/window/requestAnimationFrame} (default)
- * |               | `"manual"`    | application-defined main loop will call the session's `step()` function
- * | `update`      | **`"auto"`**  | call `update()` only if there where events processed in the event phase (default)
- * |               | `"always"`    | call `update()` in every step, independent of events
- * |               | `"never"`     | disable calling `update()` altogether
- * | `reflector`   | **`"us"`**    | use a reflector in America (default)
- * |               | `"eu"`        | use a reflector in Europe
- * |               | `"jp"`        | use a reflector in Japan
+ * | option        | values         | Description
+ * | ------------- |-------------   | -----------
+ * | `step`        | **`"auto"`**   | automatic stepping via [requestAnimationFrame()]{@link https://developer.mozilla.org/docs/Web/API/window/requestAnimationFrame} (default)
+ * |               | `"manual"`     | application-defined main loop will call the session's `step()` function
+ * | `reflector`   | **`"us"`**     | use a reflector in America (default)
+ * |               | `"eu"`         | use a reflector in Europe
+ * |               | `"jp"`         | use a reflector in Japan
  *
  * @async
  * @param {String} name - a name for your app
@@ -72,7 +69,6 @@ export { currentRealm } from "./src/realms";
  * @param {View} ViewRoot - the root View class for your app
  * @param {Object} options
  * @param {String} options.step - `"auto" | "manual"`
- * @param {String} options.update - `"auto" | "always" | "never"`
  * @param {String} options.reflector - `"us" | "eu" | "jp"`
  * @returns {Promise} Promise that resolves to an object describing the session:
  * ```
@@ -87,8 +83,8 @@ export { currentRealm } from "./src/realms";
  *  - `view` is an instance of the `ViewRoot` class
  *  - `step(time)` is a function you need to call in each frame if you disabled automatic stepping.
  *     Pass in the time in milliseconds, e.g. from `window.requestAnimationFrame(time)`
- * @example <caption>requesting that MyRootView.update() is called in every frame</caption>
- * Croquet.startSession("MyApp", MyRootModel, MyRootView, {update: "always"});
+ * @example <caption>auto main loop</caption>
+ * Croquet.startSession("MyApp", MyRootModel, MyRootView);
  * @example <caption>manual main loop</caption>
  * Croquet.startSession("MyApp", MyRootModel, MyRootView, {step: "manual"}).then(session => {
  *     function myFrame(time) {
@@ -146,13 +142,13 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
     if (options.step !== "manual") {
         // auto stepping
         const step = frameTime => {
-            stepSession(frameTime, controller, session.view, options.update);
+            stepSession(frameTime, controller, session.view);
             window.requestAnimationFrame(step);
         };
         window.requestAnimationFrame(step);
     } else {
         // app-controlled stepping
-        session.step = frameTime => stepSession(frameTime, controller, session.view, options.update);
+        session.step = frameTime => stepSession(frameTime, controller, session.view);
     }
     await bootModelView();
     return session;
@@ -200,7 +196,7 @@ const loadBalance = 4;
 // time in ms we allow sim to lag behind before increasing sim budget
 const balanceMS = loadBalance * (1000 / 60);
 
-function stepSession(frameTime, controller, view, update="auto") {
+function stepSession(frameTime, controller, view) {
     const {backlog, latency, starvation, activity} = controller;
     Stats.animationFrame(frameTime, {backlog, starvation, latency, activity, users: controller.users});
 
@@ -213,14 +209,12 @@ function stepSession(frameTime, controller, view, update="auto") {
         if (simLoad.length > loadBalance) simLoad.shift();
 
         Stats.begin("update");
-        const hadEvents = controller.processModelViewEvents();
+        controller.processModelViewEvents();
         Stats.end("update");
 
-        if ((hadEvents || update === "always") && update !== "never") {
-            Stats.begin("render");
-            view.update(frameTime);
-            Stats.end("render");
-        }
+        Stats.begin("render");
+        view.update(frameTime);
+        Stats.end("render");
     }
 }
 
