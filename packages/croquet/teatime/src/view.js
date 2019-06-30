@@ -155,6 +155,8 @@ class View {
      * this.subscribe(this.id, {event: "moved", handling: "oncePerFrame"}, pos => this.sceneObject.setPosition(pos.x, pos.y, pos.z));
      * @param {String} scope - the event scope (to distinguish between events of the same name used by different objects)
      * @param {String|Object} eventSpec - the event name (user-defined or system-defined), or an event handling spec object
+     * @param {String} eventSpec.event - the event name (user-defined or system-defined)
+     * @param {String} eventSpec.handling - `"queued"` (default), `"oncePerFrame"`, or `"immediate"`
      * @param {Function} handler - the event handler (can be any function)
      * @return {this}
      * @public
