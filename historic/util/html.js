@@ -56,6 +56,9 @@ export function displaySessionMoniker(id='', element='session') {
         } else {
             const hash = [0,0,0,0].map(_=>(random.int32()>>>0).toString(16).padStart(8, '0')).join('');
             button.style.backgroundImage = `url('https://www.gravatar.com/avatar/${hash}?d=identicon&f=y')`;
+
+            const monikerDiv = document.getElementById(element+'-moniker');
+            if (monikerDiv) monikerDiv.textContent = moniker.slice(0, 5);
         }
     }
     return moniker;
