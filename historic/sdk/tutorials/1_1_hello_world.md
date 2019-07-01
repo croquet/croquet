@@ -23,9 +23,8 @@ You will see that a simple Croquet app is indeed very simple.
 
 
 ## **Try it out!**
-The first thing to do is click or scan the **QR code** above.
 ![QR](https://chart.googleapis.com/chart?chs=50x50&amp;cht=qr&amp;chl=https://codepen.io/croquet/full/bPNgMY)
-<br>
+The first thing to do is click or scan the large **QR code** in the CodePen window above.
 This will launch a new CodePen instance of this session.
 If you compare the two counters, you will see that they are identical.
 If you click the counter in either of these views, the counts in both will reset to 0.
@@ -39,12 +38,11 @@ you MUST save it before you create a new instance/copy.
 Otherwise, you will have one instance in the same session running an older version,
 and they will not synchronize properly.
 
-The **geometric shape** under the QR code indicates the session you are in.
 ![Session](https://www.gravatar.com/avatar/1937d145f4d8f6db3ed28b80b28909ba?d=identicon&f=y&s=32)
-<br>
+The **session badge** (the colored geometric shape under the QR code) indicates the session you are in.
 Only users in the same session will be in sync.
 If you change the model code, a new session will be generated.
-This is indicated by a different session icon.
+This is indicated by a different session badge.
 
 ## CodePen is a live coding environment
 
@@ -69,15 +67,21 @@ All of the Croquet support code is included within the Croquet.js library. Typic
 
 When we use CodePen, we simply include the same library by adding it in the Pen Settings
 
-![CodePen Settings](images/HelloWorldCodepen.png)
+![CodePen Settings](images/HelloWorldSettings.png)
 
 ## Using a QR code in CodePen
 
-Croquet uses QR codes to assist in sharing a Croquet session. When set up properly, all you need to do is scan the QR code to find and load a new instance of the current session. This is extremely convenient and makes it really easy to test and share Croquet applications.
+Croquet uses QR codes to assist in sharing a Croquet session.
+When set up properly, all you need to do is scan the QR code to find and load a new instance of the current session.
+This is extremely convenient and makes it really easy to test and share Croquet applications.
+
+**Scanning a QR code** is built into the default camera apps on iPhones and Android phones.
 
 If you created a new Pen from scratch (not forking one of the tutorials here) and you want the same join-by-QR functionality:
 
-* add the pen `https://codepen.io/croquet/pen/OemewR` as an additional external resource (in the same way you included the Croquet.js library above) - it will automatically add a QR code linked to your Pen.
+* add the pen `https://codepen.io/croquet/pen/zVEyqj` as an additional JS resource (in the same way you included the Croquet.js library above) - it will automatically add a QR code linked to your Pen.
+* you may also add that same pen in the CSS settings for positioning of the QR code and session badge.
+  Or, just copy the pen's CSS so you can position it to fit your app.
 
 If you are not using CodePen, you should add a QR code pointing to your app's home page.
 This makes it very convenient for mobile users to join a session.
