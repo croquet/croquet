@@ -154,6 +154,16 @@ function JOIN(client, id, args) {
         ticker: null,        // interval for serving TICKs
         serveTimeout: null,  // pending SERVE request timeout
         syncClients: [],     // clients waiting to SYNC
+
+        // ========= forward compatibility (see JOIN1) =========
+        usersJoined: [],     // the users who joined since last report
+        usersLeft: [],       // the users who left since last report
+        snapshotTime: -1,    // time of last snapshot
+        snapshotUrl: '',     // url of last snapshot
+        pendingSnapshotTime: -1, // time of pending snapshot
+        startTimeout: null,   // pending START request timeout (should send SNAP)
+        // =========
+
         [Symbol.toPrimitive]: () => `${name} ${id}`,
     };
     ALL_ISLANDS.set(id, island);
