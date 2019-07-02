@@ -13,5 +13,5 @@ This is an example of how a Croquet app can call on the services of a rich, inde
 ## **Try it out!**
 As usual, clicking the QR code will launch a new Codepen instance of this session. In any instance, try clicking on or dragging the central sphere.
 
-_26 June 2019: This tutorial will be fleshed out in the coming days. Also, note that at present the pointer events are not being interpreted correctly in Safari on iOS.  We're looking into it._
+_1 July 2019: This tutorial will be fleshed out in the coming days._
 
