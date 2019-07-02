@@ -10,7 +10,7 @@ DOCS_VERSION=`git describe --tags --abbrev=0 | sed s/^v//`
 
 case "$RELEASE" in
 docs)
-    MSG="docs"
+    MSG="docs $DOCS_VERSION"
     [ $? -ne 0 ] && exit 1
     ;;
 prerelease|prepatch|patch|preminor|minor|premajor|major)
@@ -46,7 +46,6 @@ if [ "$RELEASE" != "docs" ] ; then
     echo CROQUET_VERSION='"'$VERSION' (pre-alpha)"' > .env.production
     echo CROQUET_VERSION='"'$VERSION'_dev (pre-alpha)"' > .env.development
 
-    LINK=croquet-latest
     case "$RELEASE" in
     pre*) TAG=""
           ;;
@@ -61,7 +60,7 @@ if [ "$RELEASE" != "docs" ] ; then
     # always link as latest-pre
     (cd $SDK; ln -sf croquet-$VERSION.min.js croquet-latest-pre.min.js; ln -sf croquet-$VERSION.min.js.map croquet-latest-pre.min.js.map)
     # link as latest if tagged
-    [ -n "TAG" ] && (cd $SDK; ln -sf croquet-$VERSION.min.js croquet-latest.min.js; ln -sf croquet-$VERSION.min.js.map croquet-latest.min.js.map)
+    [ -n "$TAG" ] && (cd $SDK; ln -sf croquet-$VERSION.min.js croquet-latest.min.js; ln -sf croquet-$VERSION.min.js.map croquet-latest.min.js.map)
 fi
 
 # build docs
