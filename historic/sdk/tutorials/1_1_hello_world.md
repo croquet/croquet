@@ -156,9 +156,9 @@ This is a very simple Croquet app, and that value contains its entire state.
 
 ```this.subscribe("counter", "reset", this.resetCounter);```
 
-MyModel subscribes to the "counter" scope and the "reset" event sent by the view.
-This event is triggered when a user clicks on the counter.
-When the model receives the event, it triggers the resetCounter() method.
+MyModel subscribes to all "reset" events sent in the "counter" scope.
+This is the kind of event that this app's view will publish in response to a user click.
+When the model receives such an event, it will execute its resetCounter method.
 
 ```this.future(1000).tick();```
 
@@ -170,23 +170,23 @@ In this case, the first tick() function call will occur one second after the ini
 
 ### MyModel.resetCounter()
 
-MyModel subscribed to the "reset" event for the "counter" scope.
-When that message is received (usually from the view) then this.count is reset back to 0.
+MyModel specified this method as the handler for "reset" events in the "counter" scope.
+The first job in handling the event is to reset this.count to 0.
 
 
 ```this.publish("counter", "update", this.count);```
 
-When the count is changed, the model publishes the new value so the view,
-which is subscribed to this event, can modify the value it displays.
+Now that the count has changed, the model publishes an event specifying the new count value.
+As seen below, the view subscribes to these "update" events, and handles them by modifying its display.
 
 ### MyModel.tick()
 
-The tick event was called 1000 milliseconds in the future in the init function when the new Croquet model was created.
-When it is called, all it does is increment the count and then it publishes that event in the same way the resetCounter does so the view can update the value it displays.
+The tick method was called 1000 milliseconds in the future in the init function when the new Croquet model was created.
+The main job of tick() is to increment the count and then, like in resetCounter(), to publish an "update" event specifying the new value.
 
 ```this.future(1000).tick();```
 
-This is exactly the same thing we saw in the init function earlier. It basically sets up the tick function to be called again in 1000 milliseconds. It does this from within the tick function itself.
+Finally, tick() itself schedules a tick call for 1000 milliseconds in the future, just as the init function did earlier. This is how we keep the ticks going.
 What is really happening is that the model has an internal message queue, sorted by time.
 The future call inserts a message into the queue, timed for execution after a further 1000 milliseconds.
 
@@ -239,7 +239,7 @@ This is a vanilla tracking of a user event and then calling the onclick function
 
 ```this.subscribe("counter", "update", this.handleUpdate);```
 
-This is where the published value of the counter reaches the view. The view subscribes to that event and when it is received from the model it calls handleUpdate(data).
+This is where the published value of the counter reaches the view. This subscription will cause each "update" event to invoke handleUpdate(data), supplying the data (in this case, the counter value) that was supplied with the event.
 
 ### MyView.onclick(event)
 
@@ -247,11 +247,11 @@ This first tests to ensure the event was not targeted at the QR code.
 
 ```this.publish("counter", "reset");```
 
-If it is not, then the view publishes a reset event to anyone interested, which in this case is the model.
+If it is not, then the view publishes a "reset" event in the "counter" scope. As detailed above, this is the kind of event that MyModel subscribes to. Croquet automatically ensures that every MyModel instance (i.e., the model for every user in this app session) receives the event, regardless of which user's view published it. This is crucial to how Croquet synchronization works.
 
 ### MyView.handleUpdate(data)
 
-This function is called whenever a new value of the data is published by the model. The view then changes the textContent value of the "countDisplay" element to whatever the model has sent.
+This method is called whenever a new value of the count is published by the model. The view changes the textContent value of the "countDisplay" element to whatever count the model has sent.
 
 ## Croquet.startSession(sessionName, MyModel, MyView, options)
 
