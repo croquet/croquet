@@ -1,7 +1,7 @@
 import Toastify from 'toastify-js';
 import SeedRandom from "seedrandom";
 import QRCode from "./thirdparty-patched/qrcodejs/qrcode";
-import { urlOptions } from ".";
+import urlOptions from "./urlOptions";
 
 export function displayError(msg, options) {
     return msg && displayToast(msg, { backgroundColor: "red", ...options });

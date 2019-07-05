@@ -1,15 +1,13 @@
 {
-  "name": "croquet-react",
+  "name": "@croquet/react",
   "version": "0.1.0",
   "description": "React bindings for Croquet",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "dependencies": {
-    "croquet": "file:./../../sdk"
-  },
   "peerDependencies": {
+    "croquet": "file:./../../sdk",
     "react": "^16.8.6"
   },
   "author": "",

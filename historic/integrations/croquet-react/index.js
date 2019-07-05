@@ -1,6 +1,5 @@
 import {useState, useEffect, createContext, createElement, useContext, useMemo, useCallback} from 'react';
 import {View, startSession} from 'croquet';
-export {ObservableModel, Model} from 'croquet';
 
 const CroquetContext = createContext();
 
@@ -42,9 +41,9 @@ export function useObservable(model) {
     }), [model]);
 }
 
-export function useUser() {
+export function useViewId() {
     const croquetContext = useContext(CroquetContext);
-    return croquetContext.view.user;
+    return croquetContext.view.viewId;
 }
 
 export function useModelRoot() {

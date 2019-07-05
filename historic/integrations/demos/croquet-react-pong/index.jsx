@@ -1,6 +1,7 @@
 import ReactDom from 'react-dom';
-import React, {useEffect} from 'react';
-import {ObservableModel, useUser, usePublish, useModelRoot, useObservable, InCroquetSession} from 'croquet-react';
+import React from 'react';
+import {ObservableModel} from 'croquet';
+import {useViewId, usePublish, useModelRoot, useObservable, InCroquetSession} from 'croquet-react';
 
 // MODEL
 
@@ -110,15 +111,15 @@ function PongApp() {
 function PlayingField() {
     /** @type {PongModel} */
     const model = useModelRoot();
-    const user = useUser();
+    const user = {id: useViewId(), name: null}; // TODO
 
     const {
         leftPaddleY, rightPaddleY, ballX, ballY,
         leftPoints, rightPoints, leftPlayerId, rightPlayerId, playerNames,
     } = useObservable(model);
 
-    const publishPlayerName = usePublish((playerId, name) => ["playerName", "set", {playerId, name}]);
-    useEffect(() => publishPlayerName(user.id, user.name), []); // set our player name once
+    // const publishPlayerName = usePublish((playerId, name) => ["playerName", "set", {playerId, name}]);
+    // useEffect(() => publishPlayerName(user.id, user.name), []); // set our player name once
 
     const publishMovePaddle = usePublish((posFraction) => {
         if (user.id === leftPlayerId || (user.id === rightPlayerId)) {

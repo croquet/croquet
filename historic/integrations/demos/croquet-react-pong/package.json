@@ -14,7 +14,8 @@
   "dependencies": {
     "react": "^16.8.6",
     "react-dom": "^16.8.6",
-    "croquet-react": "file:./../../croquet-react"
+    "croquet-react": "file:./../../../sdk/npm/croquet-react",
+    "croquet": "file:./../../../sdk/npm/croquet"
   },
   "browserslist": [
     "since 2017-06"
