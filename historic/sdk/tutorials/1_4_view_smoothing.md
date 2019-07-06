@@ -2,7 +2,7 @@ Copyright © 2019 Croquet Studios
 
 This is an example of how to smooth the view so that objects move continually even if the model only updates intermittantly. It's also is a good technique to use if you want your application to cleanly handle hitches in connectivity over a poor internet connection.
 
-<p class="codepen" data-height="512" data-theme-id="37190" data-default-tab="result" data-user="croquet" data-slug-hash="NZjLzO" data-editable="true" style="height: 512px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border: 2px solid; margin: 1em 0; padding: 1em;" data-pen-title="Chat">
+<p class="codepen" data-height="512" data-theme-id="37190" data-default-tab="result" data-user="croquet" data-slug-hash="agayxz" data-editable="true" style="height: 512px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border: 2px solid; margin: 1em 0; padding: 1em;" data-pen-title="Chat">
   <span>See the Pen <a href="https://codepen.io/croquet/pen/agayxz">
   Chat</a> by Croquet (<a href="https://codepen.io/croquet">@croquet</a>)
   on <a href="https://codepen.io">CodePen</a>.</span>
