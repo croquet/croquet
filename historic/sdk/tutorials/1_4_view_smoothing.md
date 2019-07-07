@@ -180,14 +180,14 @@ The "right" value for `Q.SMOOTH` depends on many factors: how fast the actor is 
 
 When the reflector doesn't have any normal events to send, it sends silent heartbeat ticks. This allows the model to keep running even if it's not receiving input from any users. These ticks don't consume much bandwidth, but they do consume some, so it can be useful to lower the tick rate to match the needs of your application.
 
-The option `tps` in `startSession` is used to set the tick rate (a.k.a. "ticks per second").
+The option `tps` in [`startSession`]{@link startSession} is used to set the tick rate (a.k.a. "ticks per second").
 
 ```
 Croquet.startSession("smooth", RootModel, RootView, { tps: 1000/Q.TICK_MS });
 ```
 
-In this tutorial `Q.TICK_MS` is 500, so the reflector will only send out heartbeat ticks twice a second. In general, you should set the heartbeat rate to match the internal tick rate of your model. If your model is only changing 10 times a second, there's no point in having a faster heartbeat tick.
+In this tutorial `Q.TICK_MS` is 500, so the reflector will generate a tick when no message from any user arrived in the last 500 milliseconds. This means it will send out heartbeat ticks twice a second at most (we could have written `tps: 2` instead of `tps: 1000/Q.TICK_MS`). In general, you should set the heartbeat rate to match the internal tick rate of your model. If your model is only changing 10 times a second, there's no point in having a faster heartbeat tick than `tps: 10`.
 
-The default setting for `tps` is 20 times per second, but the value can be set to any integer value between 1 and 60.
+The default setting for `tps` is 20 times per second, but the value can be set to any integer value between `1` and `60`.
 
 <b>Note: Increasing the heartbeat tick rate will NOT make your Croquet app more responsive.</b> User input events from the view to the model are sent as soon as they are generated, and processed as soon as they are received. If you're sending control inputs 60 times per second, your model will respond to them 60 times per second. Heartbeat ticks only affect the update frequency of the model when it's not receiving any other events.
