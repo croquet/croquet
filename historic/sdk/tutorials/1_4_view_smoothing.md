@@ -14,7 +14,7 @@ The first thing to do is click or scan the QR code above. This will launch a new
 
 You can tell your dot where to go by clicking or tapping the screen.
 
-<b>The unsmoothed position of your dot is shown in gray.</b> Note how it jumps forward every time the model peforms an update. The view uses this information to calculate each dot's smoothed position. (For clarity, we're only showing the unsmoothed position of <i>your</i> dot. All other dots are drawn at their smoothed positions.)
+<b>The unsmoothed position of your dot is shown in gray.</b> Note how it jumps forward every time the model performs an update. The view uses this information to calculate each dot's smoothed position. (For clarity, we're only showing the unsmoothed position of <i>your</i> dot. All other dots are drawn at their smoothed positions.)
 
 In this example, the model is only updating <b>twice per second.</b> Nevertheless the dots move smoothly at 60 frames per second because the view is interpolating their position between model updates.
 
@@ -22,7 +22,7 @@ There are five things we will learn here:
 
 1. How to define global constants.
 2. How to safely share code between model and view.
-3. Using `OncePerFrame` to limit view updates.
+3. Using `"oncePerFrame"` to limit view updates.
 4. How to handle infrequent model updates.
 5. How to set the rate of heartbeat ticks coming from the reflector.
 
@@ -100,9 +100,9 @@ arrived() {
     return (dotProduct(this.velocity, delta) <= 0);
 }
 ```
-Each time the actor moves, it steps forward a fixed distance. This means we'll usually overshoot our goal instead of landing right on it. So, to determine if we've arrived, we don't check to see if our postion equals our goal. Instead we check to see if the vector pointing from our position toward our goal has reversed direction.
+Each time the actor moves, it steps forward a fixed distance. This means we'll usually overshoot our goal instead of landing right on it. So, to determine if we've arrived, we don't check to see if our position equals our goal. Instead we check to see if the vector pointing from our position toward our goal has reversed direction.
 
-(The dot product of two vectors pointing in opposite directions is -1.)
+(The dot product of two vectors pointing in opposite directions is negative.)
 
  ## Actor.tick()
 
@@ -128,7 +128,7 @@ constructor(actor) {
 ```
 When `RootView` spawns a pawn, it passes a reference to the pawns's actor. The actor's id is used as scope in a subscription make sure the pawn only receives that actor's events. The pawn copies its initial position from the actor, and calls `actorMoved` to timestamp the position information.
 
-`"OncePerFrame"` is a special option for how this subscription handles events. By default every single event is passed through the subscription. <b>But when `"OncePerFrame"` is turned on, only the last event of this type during the previous frame is passed to the view.</b> Prior events are discarded.
+`"oncePerFrame"` is a special option for how this subscription handles events. By default every single event is passed through the subscription. <b>But when `"oncePerFrame"` is turned on, only the last event of this type during the previous frame is passed to the view.</b> Prior events are discarded.
 
 This can be useful when the model is running at high speed to clear out a backlog. The model may generate a large number of `moved` events in a single frame, and since the view really only cares about the last one, there's no reason to process the others.
 
@@ -140,7 +140,7 @@ actorMoved() {
     this.lastMoved = viewTime;
 }
 ```
-This is called when the actor's sends a `moved` event. All it does is save the timestamp of the current frame. This way when we want to expolate the position of the dot, we know what time the model's position was last updated.
+This is called when the actor sends a `"moved"` event. All it does is save the timestamp of the current frame. This way when we want to extrapolate the position of the dot, we know what in what frame the model's position was last updated.
 
 ## Pawn.update()
 
@@ -161,7 +161,7 @@ update() {
 
 This is called once for each pawn during the `RootView` update.
 
-<b>The first part is special-case code that only runs for our own pawn</b>—the pawn that was spawned when we joined the session. The pawn knows its belongs to us because it's actor has a stored `viewId` that matches the pawn's `viewId`. Every other pawn will have the same `viewId` (because they're running locally) but a different `actor.viewId` (because it was spawned by a different view).
+<b>The first part is special-case code that only runs for our own pawn</b>—the pawn that was spawned when we joined the session. The pawn knows it belongs to us because its actor has a stored `viewId` that matches the pawn's `viewId`. Every other pawn will have the same `viewId` (because it's running locally in our view) but a different `actor.viewId` (because it was spawned by a different view).
 
 The special-case code draws the actor's goal as a colored ring, and the actor's raw position as a light gray circle.
 
@@ -177,14 +177,14 @@ The "right" value for `Q.SMOOTH` depends on many factors: how fast the actor is 
 
 When the reflector doesn't have any normal events to send, it sends silent heartbeat ticks. This allows the model to keep running even if it's not receiving input from any users. These ticks don't consume much bandwidth, but they do consume some, so it can be useful to lower the tick rate to match the needs of your application.
 
-The option `tps` in `start.Session` is used to set the tick rate.
+The option `tps` in `startSession` is used to set the tick rate (a.k.a. "ticks per second").
 
 ```
 Croquet.startSession("smooth", RootModel, RootView, { tps: 1000/Q.TICK_MS });
 ```
 
-In this tutorial `Q.TICK_MS` is  500, so the reflector will only send out heartbeat ticks twice a second. In general, you should set the heartbeat rate to match the internal tick rate of your model. If your model is only changing 10 times a second, there's no point in having a faster heartbeat tick.
+In this tutorial `Q.TICK_MS` is 500, so the reflector will only send out heartbeat ticks twice a second. In general, you should set the heartbeat rate to match the internal tick rate of your model. If your model is only changing 10 times a second, there's no point in having a faster heartbeat tick.
 
 The default setting for `tps` is 20 times per second, but the value can be set to any integer value between 1 and 60.
 
-<b>Note: Increasing the heartbeat tick rate will NOT make your Croquet app more responsive.</b> User input events from the view to the model are sent as soon as they are generated, and processed as soon as they are received. If you're sending control inputs 60 times per second, your model will respond to them 60 times per second. Heartbeat ticks only affect the update frequency of the model when its not receiving any other events.
+<b>Note: Increasing the heartbeat tick rate will NOT make your Croquet app more responsive.</b> User input events from the view to the model are sent as soon as they are generated, and processed as soon as they are received. If you're sending control inputs 60 times per second, your model will respond to them 60 times per second. Heartbeat ticks only affect the update frequency of the model when it's not receiving any other events.
