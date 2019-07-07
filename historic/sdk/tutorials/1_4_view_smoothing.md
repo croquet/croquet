@@ -28,7 +28,7 @@ There are five things we will learn here:
 
 ## Global Constants
 
-Sometimes it's useful to declare a global constant that you can use throughout your code. However, any constants used by the model must be saved in the snapshot to make sure the model stays synchronized.
+Sometimes it's useful to declare a global constant that you can use throughout your code. However, any constants used by the model should also be included in the [code hash]{@link startSession}, to make sure the model stays synchronized. If they are included in the hash, changing the constants will create a new session. If the constants are not included in the hash, you might end up in the same session with older code and different constant values, which would lead to desynchronization.
 
 ```
 const Q = Croquet.Constants;
@@ -37,7 +37,8 @@ Q.SPEED = 0.15;     // dot movment speed in pixels per millisecond
 Q.CLOSE = 0.1;      // minimum distance in pixels to a new destination
 Q.SMOOTH = 0.05;    // weighting between old and new positions. 0 > SMOOTH >= 1
 ```
-<b>Croquet provides a data object called Croquet.Constants that can be used to store constants for the model.</b> To make your code easier to read, we recommend defining a short alias—in this case `Q`—to refer to `Croquet.Constants`.
+
+<b>Croquet provides a data object called [Croquet.Constants]{@link Constants} that can be used to store constants.</b> The value of this object will contribute to the hash used to generate a session id. To make your code easier to read, we recommend defining a short alias—in this case `Q`—to refer to `Croquet.Constants`.
 
 ## Pure Functions
 
