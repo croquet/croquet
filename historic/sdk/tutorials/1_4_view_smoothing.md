@@ -57,7 +57,9 @@ function subtract(a,b) {
 
 ...
 ```
- <b>As long as a function is <i>purely functional</i> you're free to call it from both the model and the view.</b> A pure function doesn't read any parameters other than the ones passed to it, and doesn't save any state outside the scope of its own execution.
+ <b>As long as a function is <i>purely functional</i> you're free to call it from both the model and the view.</b> A pure function doesn't read any parameters other than the ones passed to it, doesn't modify these parameters in any way, and doesn't save any state outside the scope of its own execution.
+
+ Mind that the code of these functions is not included in the session id hash—Croquet doesn't know about them. That's not a problem typically if you don't change them frequently. Just be aware that two versions of your code that don't differ in the model classes but differ in the functions used in the model will end up in the same session.
 
  ## RootModel & RootView
 
