@@ -131,7 +131,7 @@ constructor(actor) {
 ```
 When `RootView` spawns a pawn, it passes a reference to the pawns's actor. The actor's id is used as scope in a subscription make sure the pawn only receives that actor's events. The pawn copies its initial position from the actor, and calls `actorMoved` to timestamp the position information.
 
-`"oncePerFrame"` is a special option for how this subscription handles events. By default every single event is passed through the subscription. <b>But when `"oncePerFrame"` is turned on, only the last event of this type during the previous frame is passed to the view.</b> Prior events are discarded.
+`"oncePerFrame"` is a special option for how this subscription handles events (see [View.subscribe]{@link View#subscribe}). By default every single event is passed through the subscription. <b>But when `"oncePerFrame"` is turned on, only the last event of this type during the previous frame is passed to the view.</b> Prior events are discarded.
 
 This can be useful when the model is running at high speed to clear out a backlog. The model may generate a large number of `moved` events in a single frame, and since the view really only cares about the last one, there's no reason to process the others.
 
