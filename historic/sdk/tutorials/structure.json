@@ -8,7 +8,10 @@
     "1_3_multiuser_chat": {
         "title": "💻 Multiuser Chat"
     },
-    "1_4_3d_animation": {
+    "1_4_view_smoothing": {
+        "title": "💻 View Smoothing"
+    },
+    "1_5_3d_animation": {
         "title": "💻 3D Animation"
     },
     "2_1_model_view_reflector": {

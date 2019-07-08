@@ -153,6 +153,7 @@ class View {
      * @example
      * this.subscribe("something", "changed", this.update);
      * this.subscribe(this.id, {event: "moved", handling: "oncePerFrame"}, pos => this.sceneObject.setPosition(pos.x, pos.y, pos.z));
+     * @tutorial 1_4_view_smoothing
      * @param {String} scope - the event scope (to distinguish between events of the same name used by different objects)
      * @param {String|Object} eventSpec - the event name (user-defined or system-defined), or an event handling spec object
      * @param {String} eventSpec.event - the event name (user-defined or system-defined)

@@ -197,7 +197,10 @@ export function addClassHash(cls) {
 }
 
 export function addConstantsHash(constants) {
-    const source = stableStringify(constants);
+    // replace functions with their source
+    const json = JSON.parse(JSON.stringify(constants, (_, val) => typeof val === "function" ? ""+val : val));
+    // use a stable stringification
+    const source = stableStringify(json);
     extraHashes.push(hashString(source));
 }
 

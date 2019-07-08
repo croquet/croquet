@@ -22,26 +22,30 @@ There are three things we will learn here.
 
 ## Simple Animation Model
 
-Our application uses two Croquet Model subclasses, MyModel and BallModel. The MyModel class is the container for the BallModel class objects.
+Our application uses two Croquet Model subclasses, MyModel and BallModel. Both these classes need to be registered with Croquet.
 
-We must register all of the Croquet model subclasses that we create. Models can not use globals. Instead, you should use the Croquet.Constants. The Constants object is recursively frozen once a session has started to avoid accidental modification. Here we assign the variable Q to Croquet.Constants as a shorthand.
+In addition, this app makes use of Croquet.Constants. Although models cannot use global variables, they can manage any necessary constants by setting properties in the Croquet.Constants object. Croquet.Constants is recursively frozen once a session has started, to avoid accidental modification. Here we assign Croquet.Constants into the variable Q as a shorthand.
 
 ```
 const Q = Croquet.Constants;
 Q.BALL_NUM = 25;              // how many balls do we want?
-Q.STEP_MS = 1000 / 30;       // bouncing ball speed in virtual pixels / step
+Q.STEP_MS = 1000 / 30;        // bouncing ball tick interval in ms
 Q.SPEED = 10;                 // max speed on a dimension, in units/s
 ```
 
-MyModel is the root model. It is what creates the BallModel ball objects and it is what we pass into Croquet.startSession. MyModel.children is an array of BallModel objects.
+MyModel is the root model, and is therefore what will be passed into Croquet.startSession. In this app, MyModel also creates and stores the BallModel objects, holding them in the array MyModel.children.
 
-The BallModel is where the action is. Its shape is defined in the CSS code - either a 'circle' or a 'roundRect', but the BallModel only sets the type of this element - it does not interact with the CSS or HTML code in any way. The Croquet View uses this type to create the actual visual element. The ball also computes a random color, position, and speed vector when it is initialized.
+A BallModel is the model for a shaped, colored, bouncing ball. The model itself has no direct say in the HTML that will be used to display the ball. For the shape, for example, the model records just a string - either 'circle' or 'roundRect' - that the view will use to generate a visual element that (by the workings of the app's CSS) will be displayed as the appropriate shape. The BallModel also initializes itself with a random color, position, and speed vector.
 
-```this.subscribe(this.id, "touch-me", this.startStop);```
+```this.subscribe(this.id, 'touch-me', this.startStop);```
 
-The BallModel subscribes to the "touch-me" event. This event is published by the view when an element is touched by a user. When the BallModel recieves this message, it calls the BallModel.startStop() function.
+The BallModel subscribes to the 'touch-me' event, to which it will respond by stopping or restarting its motion. Each BallModel object individually subscribes to this event type, but only for events that are published using the BallModel's own ID as scope. Each ball's dedicated BallView object keeps a record of its model's ID, for use when publishing the 'touch-me' events in response to user touches.
 
-```this.future(STEP_MS).step();```
+```this.future(Q.STEP_MS).step();```
+
+Having completed its initialization, the BallModel schedules the first invocation of its own step() method. This is the same pattern as seen in the previous tutorial; step() will continue the stepping by re-scheduling itself each time.
+
+Worth noting here is that the step invocation applies just to one ball, with each BallModel taking care of its own update tick. That may seem like a lot of future messages for the system to handle (25 balls ticking at 30Hz will generate 750 messages per second) - but future messages are very efficient, involving little overhead beyond the basic method invocation.
 
 ```
 BallModel.step() {
@@ -50,8 +54,7 @@ BallModel.step() {
 }
 ```
 
-If the alive flag is set, the step() function will call the moveBounce() function.
-The BallModel computes a simple linear motion and updates that at a regular interval. If the ball goes beyond a boundary, a new direction is computed.
+If the alive flag is set, the step() function will call moveBounce(). In any case, step() schedules the next step, the appropriate number of milliseconds in the future.
 
 ```
 BallModel.moveBounce() {
@@ -61,26 +64,31 @@ BallModel.moveBounce() {
     this.moveTo([x + this.speed[0], y + this.speed[1]]);
 }
 ```
-BallModel.moveBounce is actually quite interesting. It updates the ball object position. But if the ball is found to be out of bounds, it computes a new speed vector which redirects it using BallModel.randomSpeed().
+
+BallModel.moveBounce() has the job of updating the position of a ball object, including bouncing off container walls when necessary. It embodies a simple strategy: if the ball is found to be outside the container bounds, moveBounce() replaces the ball's speed with a new speed vector BallModel.randomSpeed(). Because the new speed is random, it might turn out to take the ball a little further out of bounds - but in that case the ball will just try again, with another random speed, on the next moveBounce.
 
 ```
 randomSpeed() {
     const r = this.random() * 2 * Math.PI;
-    return [Math.cos(r) * Q.SPEED, Math.sin(r) * Q. SPEED];
+    return [Math.cos(r) * Q.SPEED, Math.sin(r) * Q.SPEED];
 }
 ```
 
-This new speed vector is an example of how we use a replicated random - every instance of this world will compute exactly the same random, so when the balls bounce, they all bounce in exactly the same new direction.
+The generation of new speed vectors is an example of our use of a replicated random-number generator. Every instance of this session will compute exactly the same sequence of random numbers. Therefore, when a ball bounces, every instance will come up with exactly the same new speed.
 
 ## Simple Animation View
 
-Just like the Croquet Model, the Croquet View is made up of two classes. MyView and BallView.
+Like the Model, the View in this app comprises two classes: MyView and BallView.
 
 ### MyView
 
-MyView.constructor(model) is used to construct the visual representation of the model. It is really a vanilla web-application in almost every way. It creates a new "div" element and then populates it with new elements associated with the models children (which are also models).
+MyView.constructor(model) will be called when an app session instance starts up. It is passed the MyModel object as an argument. The constructor's job is to build the visual representation of the model for this instance of the session. The root of that representation, in this app, is a "div" element that will serve as the balls' container.
 
 ```model.children.forEach(child => this.attachChild(child));```
+
+The MyModel has children - the BallModel objects - for which MyView must also create a visual representation. It does so by accessing the model's children collection and creating a new view object for each child.
+
+Note that although it is fine for the view to access the model directly here to read its state - in this case, the children - the view **MUST NOT** modify the model (or its child models) in any way.
 
 ```
 MyView.attachChild(child) {
@@ -88,19 +96,19 @@ MyView.attachChild(child) {
 }
 ```
 
-We are accessing the model directly here to read its state. It is important to note that we **MUST NOT** modify the model or its parts in any way when we do this.
+For each child BallModel a new BallView object is created. The BallView creates a document element to serve as the visual representation of the bouncing ball; the MyView object adds the element for each BallView as a child of its own element, the containing div.
 
-MyView also manages resizing of the view. This helps to keep the views consistent between multiple users. It isn't essential that the views be identical - it depends on the application. It is important if the model/view directly depend on the position of the user interaction relative to the contents.
+MyView also listens for "resize" events from the browser, and uses them to set a suitable size for the view by setting its scale (which also sets the scale for the children - i.e., the balls). When there are multiple users watching multiple instances of this app on browser windows of different sizes, the rescaling ensures that everyone still sees the same overall scene.
 
 ### BallView
 
 The BallView tracks the associated BallModel.
 
-BallView constructs a new document element based upon the BallModel state. The type is matched to the CSS code and the color and the position of the BallModel are copied.
+BallView constructs a document element based on the type and color properties held by the BallModel, and sets the element's initial position using the model's pos property.
 
 ```this.subscribe(model.id, { event: 'pos-changed', handling: "oncePerFrame" }, this.move);```
 
-The BallView subscribes to the BallModel 'pos-changed' event when the BallModel updates the ball position. The 'handling: "oncePerFrame' flag is used to optimize this, as the view only needs an update when a new image is rendered.
+The BallView subscribes to the 'pos-changed' event, which the BallModel publishes each time it updates the ball position. Like the 'touch-me' event, these events are sent in the scope of the individual BallModel's ID. No other ball's model or view will pay any attention to the events, which makes their distribution highly efficient. As a further efficiency consideration, the `handling: "oncePerFrame"` flag is used to ensure that even if multiple events for a given ball arrive within the same rendering frame, only one (the latest) will be passed to the subscribed handler.
 
 ```this.enableTouch();```
 
@@ -109,12 +117,12 @@ BallView.enableTouch() {
     const el = this.element;
     if (TOUCH) el.ontouchstart = start => {
         start.preventDefault();
-        this.publish(el.id, "touch-me");
+        this.publish(el.id, 'touch-me');
     }; else el.onmousedown = start => {
         start.preventDefault();
-        this.publish(el.id, "touch-me");
+        this.publish(el.id, 'touch-me');
     };
 }
 ```
-BallView.enableTouch sets up the BallView element to publish a "touch-me" event when the element is clicked on.
-The BallModel subscribes to the "touch-me" event and toggles the ball motion on and off.
+BallView.enableTouch sets up the BallView element to publish a 'touch-me' event when the element is clicked on.
+The BallModel subscribes to the 'touch-me' event and toggles the ball motion on and off.
