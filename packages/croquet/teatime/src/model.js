@@ -20,7 +20,7 @@ const SuperInitNotCalled = new WeakSet();
  * Models are replicated objects in Croquet.
  * They are automatically kept in sync for each user in the same [session]{@link startSession}.
  * Models receive input by [subscribing]{@link Model#subscribe} to events published in a {@link View}.
- * Their output is handled by {@link View}s subscribing to events [published]{@link Model#publish} by a model.
+ * Their output is handled by views subscribing to events [published]{@link Model#publish} by a model.
  * Models advance time by sending messages into their [future]{@link Model#future}.
  *
  * ## Instance Creation and Initialization

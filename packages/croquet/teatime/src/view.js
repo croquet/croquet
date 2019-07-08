@@ -11,9 +11,9 @@ import { currentRealm } from "./realms";
  *
  * **Croquet makes no assumptions about the UI framework you use** - be it plain HTML or Three.js or React or whatever.
  * Croquet only provides the publish/subscribe mechanism to hook into the replicated model simulation.
- * It's possible for a single view instance to handle all the events, you don't event have to subclass Croquet.View for that.
  *
- * That being said, a common pattern is to make a hierarchy of `Croquet.View` subclasses to mimic your hierarchy of Model subclasses.
+ * It's possible for a single view instance to handle all the events, you don't event have to subclass Croquet.View for that.
+ * That being said, a common pattern is to make a hierarchy of `Croquet.View` subclasses to mimic your hierarchy of {@link Model} subclasses.
  *
  * @public
  */
