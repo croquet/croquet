@@ -37,17 +37,18 @@ Q.STEP_MS = 1000 / 30;        // bouncing ball tick interval in ms
 Q.SPEED = 10;                 // max speed on a dimension, in units/s
 ```
 
-MyModel is the root model, and is therefore what will be passed into Croquet.startSession. In this app, MyModel also creates and stores the BallModel objects, holding them in the array MyModel.children.
+MyModel is the root model, and is therefore what will be passed into [Croquet.startSession]{@link startSession}.
+In this app, MyModel also creates and stores the BallModel objects, holding them in the array MyModel.children.
 
-A BallModel is the model for a shaped, colored, bouncing ball. The model itself has no direct say in the HTML that will be used to display the ball. For the shape, for example, the model records just a string - either 'circle' or 'roundRect' - that the view will use to generate a visual element that (by the workings of the app's CSS) will be displayed as the appropriate shape. The BallModel also initializes itself with a random color, position, and speed vector.
+A BallModel is the model for a shaped, colored, bouncing ball. The model itself has no direct say in the HTML that will be used to display the ball. For the shape, for example, the model records just a string - either `'circle'` or `'roundRect'` - that the view will use to generate a visual element that (by the workings of the app's CSS) will be displayed as the appropriate shape. The BallModel also initializes itself with a random color, position, and speed vector.
 
 ```this.subscribe(this.id, 'touch-me', this.startStop);```
 
-The BallModel subscribes to the 'touch-me' event, to which it will respond by stopping or restarting its motion. Each BallModel object individually subscribes to this event type, but only for events that are published using the BallModel's own ID as scope. Each ball's dedicated BallView object keeps a record of its model's ID, for use when publishing the 'touch-me' events in response to user touches.
+The BallModel [subscribes]{@link Model#subscribe} to the `'touch-me'` event, to which it will respond by stopping or restarting its motion. Each BallModel object individually subscribes to this event type, but only for events that are published using the BallModel's own ID as scope. Each ball's dedicated BallView object keeps a record of its model's ID, for use when publishing the `'touch-me'` events in response to user touches.
 
 ```this.future(Q.STEP_MS).step();```
 
-Having completed its initialization, the BallModel schedules the first invocation of its own step() method. This is the same pattern as seen in the previous tutorial; step() will continue the stepping by re-scheduling itself each time.
+Having completed its initialization, the BallModel [schedules]{@link Model#future} the first invocation of its own `step()` method. This is the same pattern as seen in the previous tutorial; `step()` will continue the stepping by re-scheduling itself each time.
 
 Worth noting here is that the step invocation applies just to one ball, with each BallModel taking care of its own update tick. That may seem like a lot of future messages for the system to handle (25 balls ticking at 30Hz will generate 750 messages per second) - but future messages are very efficient, involving little overhead beyond the basic method invocation.
 
@@ -58,7 +59,7 @@ BallModel.step() {
 }
 ```
 
-If the alive flag is set, the step() function will call moveBounce(). In any case, step() schedules the next step, the appropriate number of milliseconds in the future.
+If the `alive` flag is set, the `step()` function will call `moveBounce()`. In any case, `step()` schedules the next step, the appropriate number of milliseconds in the future.
 
 ```
 BallModel.moveBounce() {
@@ -69,7 +70,7 @@ BallModel.moveBounce() {
 }
 ```
 
-BallModel.moveBounce() has the job of updating the position of a ball object, including bouncing off container walls when necessary. It embodies a simple strategy: if the ball is found to be outside the container bounds, moveBounce() replaces the ball's speed with a new speed vector BallModel.randomSpeed(). Because the new speed is random, it might turn out to take the ball a little further out of bounds - but in that case the ball will just try again, with another random speed, on the next moveBounce.
+`BallModel.moveBounce()` has the job of updating the position of a ball object, including bouncing off container walls when necessary. It embodies a simple strategy: if the ball is found to be outside the container bounds, `moveBounce()` replaces the ball's speed with a new speed vector `BallModel.randomSpeed()`. Because the new speed is random, it might turn out to take the ball a little further out of bounds - but in that case the ball will just try again, with another random speed, on the next `moveBounce`.
 
 ```
 randomSpeed() {
