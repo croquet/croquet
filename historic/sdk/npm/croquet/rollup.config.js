@@ -1,6 +1,7 @@
 import resolve from 'rollup-plugin-node-resolve';
-import { terser } from 'rollup-plugin-terser';
 import license from 'rollup-plugin-license';
+import babel from 'rollup-plugin-babel';
+import { terser } from 'rollup-plugin-terser';
 
 export default {
     input: 'src.js',
@@ -11,10 +12,12 @@ export default {
     external: ['seedrandom/seedrandom', 'toastify-js', 'seedrandom', 'fast-json-stable-stringify', 'fastpriorityqueue'],
     plugins: [
         resolve({only: [/^@croquet/]}),
-        terser({
-            output: {max_line_len: 600},
-            compress: {conditionals: false} // otherwise this messes up ENV dependent require magic
+        babel({
+            externalHelpers: false, runtimeHelpers: true,
+            presets: [['@babel/env', { "targets": "> 0.25%" }]],
+            plugins: ['@babel/transform-runtime']
         }),
+        //terser(),
         license({
             banner: `Copyright Croquet Studio <%= moment().format('YYYY') %>
 Bundle of <%= pkg.name %>

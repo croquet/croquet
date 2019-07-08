@@ -1,6 +1,6 @@
 {
   "name": "croquet-react",
-  "version": "0.1.0",
+  "version": "0.1.0-transpiled",
   "description": "",
   "main": "dist/croquet-react.min.js",
   "scripts": {
@@ -14,6 +14,7 @@
   "devDependencies": {
     "@croquet/react": "file:../../../integrations/croquet-react",
     "rollup": "^1.16.4",
+    "rollup-plugin-babel": "^4.3.3",
     "rollup-plugin-license": "^0.9.0",
     "rollup-plugin-node-resolve": "^5.2.0",
     "rollup-plugin-terser": "^5.1.0"

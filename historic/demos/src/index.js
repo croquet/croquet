@@ -81,7 +81,7 @@ if (module.hot) {
         hotreloadEventManager.dispose(); // specifically, cancel our delayed start()
     });
     // start logging module loads
-    if (LOG_HOTRELOAD && !module.bundle.v) module.bundle.v = {};
+    if (module.bundle && LOG_HOTRELOAD && !module.bundle.v) module.bundle.v = {};
 }
 
 // delay start to let hotreload finish to load all modules

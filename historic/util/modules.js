@@ -57,7 +57,7 @@ export function baseUrl(what='code') {
 }
 
 function allModules() {
-    return module.bundle.modules;
+    return module.bundle ? module.bundle.modules : [];
 }
 
 function allModuleIDs() {

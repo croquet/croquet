@@ -1,23 +1,23 @@
 {
-  "name": "croquet-react-hello-world",
+  "name": "react-croquet-counter",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "index.html",
   "scripts": {
-    "start": "parcel index.html"
+    "start": "parcel index.html --open",
+    "build": "parcel build index.html"
   },
-  "author": "",
-  "license": "ISC",
+  "browserslist": [
+    "> 5%"
+  ],
+  "dependencies": {
+    "croquet": "0.1.3-transpiled",
+    "croquet-react": "0.1.0-transpiled",
+    "react": "16.8.6",
+    "react-dom": "16.8.6"
+  },
   "devDependencies": {
     "parcel-bundler": "^1.12.3"
   },
-  "dependencies": {
-    "react": "^16.8.6",
-    "react-dom": "^16.8.6",
-    "croquet-react": "file:./../../../sdk/npm/croquet-react",
-    "croquet": "file:./../../../sdk/npm/croquet"
-  },
-  "browserslist": [
-    "since 2017-06"
-  ]
+  "keywords": []
 }

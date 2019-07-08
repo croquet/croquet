@@ -917,12 +917,7 @@ async function startReflectorInBrowser() {
         // we defer starting the server until hotreload has finished
         // loading all new modules
         await hotreloadEventManger.waitTimeout(0);
-        // The following import runs the exact same code that's
-        // executing on Node normally. It imports 'ws' which now
-        // comes from our own fakeWS.js
-        // ESLint doesn't know about the alias in package.json:
-        // eslint-disable-next-line global-require
-        require("@croquet/reflector"); // start up local server
+        requireBrowserReflector();
         // we could return require("@croquet/reflector").server._url
         // to connect to our server.
         // However, we want to discover servers in other tabs
@@ -930,6 +925,17 @@ async function startReflectorInBrowser() {
         return 'channel://server:0/';
     }
     return DEFAULT_REFLECTOR;
+}
+
+function requireBrowserReflector() {
+    if (process.env.CROQUET_BUILTIN_REFLECTOR) {
+        // The following import runs the exact same code that's
+        // executing on Node normally. It imports 'ws' which now
+        // comes from our own fakeWS.js
+        // ESLint doesn't know about the alias in package.json:
+        // eslint-disable-next-line global-require
+        require("@croquet/reflector"); // start up local server
+    }
 }
 
 function newInBrowserSocket(server) {

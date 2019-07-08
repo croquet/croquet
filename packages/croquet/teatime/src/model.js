@@ -540,11 +540,13 @@ let ModelClasses = {};
 const CLASS_ID = Symbol('CLASS_ID');
 
 function gatherModelClasses() {
-    // HACK: go through all exports and find model subclasses
-    for (const [file, m] of Object.entries(module.bundle.cache)) {
-        for (const [name, cls] of Object.entries(m.exports)) {
-            if (cls && cls.__isTeatimeModelClass__) {
-                registerClass(file, name === "default" ? cls.name : name, cls);
+    if (module.bundle) {
+        // HACK: go through all exports and find model subclasses
+        for (const [file, m] of Object.entries(module.bundle.cache)) {
+            for (const [name, cls] of Object.entries(m.exports)) {
+                if (cls && cls.__isTeatimeModelClass__) {
+                    registerClass(file, name === "default" ? cls.name : name, cls);
+                }
             }
         }
     }
