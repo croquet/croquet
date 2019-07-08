@@ -221,11 +221,13 @@ function stepSession(frameTime, controller, view) {
 }
 
 /**
- * **User-defined Model Constants**
+ * **User-defined Constants**
  *
  * To ensure that all users in a session execute the exact same Model code, the [session id]{@link startSession}
  * is derived by [hashing]{@link Model.register} the source code of Model classes and value of constants.
  * To hash your own constants, put them into `Croquet.Constants` object.
+ *
+ * The constants can be used in both Model and View.
  *
  * **Note:** the Constants object is recursively
  * [frozen]{@link https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object/freeze}

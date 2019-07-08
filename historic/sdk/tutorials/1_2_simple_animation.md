@@ -24,7 +24,11 @@ There are three things we will learn here.
 
 Our application uses two Croquet Model subclasses, MyModel and BallModel. Both these classes need to be registered with Croquet.
 
-In addition, this app makes use of Croquet.Constants. Although models cannot use global variables, they can manage any necessary constants by setting properties in the Croquet.Constants object. Croquet.Constants is recursively frozen once a session has started, to avoid accidental modification. Here we assign Croquet.Constants into the variable Q as a shorthand.
+In addition, this app makes use of [Croquet.Constants]{@link Constants}.
+Although models must not use global variables, global constants are fine.
+To ensure that all users in a session use the same value of these constants, add them to the Croquet.Constants object.
+Croquet.Constants is recursively frozen once a session has started, to avoid accidental modification.
+Here we assign Croquet.Constants into the variable Q as a shorthand.
 
 ```
 const Q = Croquet.Constants;
