@@ -123,6 +123,11 @@ class Model {
     static register(file="unknown-file") {
         addClassHash(this);
         registerClass(file, this.name, this);
+        return this;
+    }
+
+    static registerIfNeeded() {
+        if (!hasID(this)) this.register();
     }
 
     /**
