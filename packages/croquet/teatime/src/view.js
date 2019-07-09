@@ -305,7 +305,7 @@ class View {
      * @public
      */
     wellKnownModel(name) {
-        return this.__realm.island.get(name);
+        return this.realm.island.get(name);
     }
 
     /**
