@@ -293,6 +293,21 @@ class View {
     }
 
     /**
+     * Access a model that was registered previously using  [beWellKnownAs()]{@link Model#beWellKnownAs}.
+     *
+     * Note: The instance of your root Model class is automatically made well-known as `"modelRoot"`
+     * and passed to the [constructor]{@link View} of your root View during {@link startSession}.
+     * @example
+     * const topModel = this.wellKnownModel("modelRoot");
+     * @param {String} name - the name given in [beWellKnownAs()]{@link Model#beWellKnownAs}
+     * @returns {Model} the model if found, or `undefined`
+     * @public
+     */
+    wellKnownModel(name) {
+        return this.__realm.island.get(name);
+    }
+
+    /**
      * **Identifies the shared Model of all users.**
      *
      * The session id is used as "global" scope for events like [`"view-join"`]{@link event:view-join}.
