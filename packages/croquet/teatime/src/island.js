@@ -26,16 +26,16 @@ const QFuncs = {};
  */
 export function QFunc(vars, fn) {
     if (typeof vars === "function") { fn = vars; vars = {}; }
-    const fnPara = Object.keys(vars).concat(["return " + fn]);
-    const fnArgs = Object.values(vars);
-    return {fnPara, fnArgs};
+    const qPara = Object.keys(vars).concat(["return " + fn]);
+    const qArgs = Object.values(vars);
+    return {qPara, qArgs};
 }
 
 function bindQFunc(qfunc, thisArg) {
-    const cacheKey = JSON.stringify(qfunc.fnPara);
+    const cacheKey = JSON.stringify(qfunc.qPara);
     // eslint-disable-next-line no-new-func
-    const compiled = QFuncs[cacheKey] || (QFuncs[cacheKey] = new Function(...qfunc.fnPara));
-    return compiled.call(thisArg, ...qfunc.fnArgs);
+    const compiled = QFuncs[cacheKey] || (QFuncs[cacheKey] = new Function(...qfunc.qPara));
+    return compiled.call(thisArg, ...qfunc.qArgs);
 }
 
 
@@ -280,7 +280,7 @@ export default class Island {
             }
         }
         if (typeof methodName === "object") {
-            if (methodName.fnArgs) methodName = JSON.stringify(methodName);
+            if (methodName.qArgs) methodName = JSON.stringify(methodName);
         }
         if (typeof methodName !== "string") {
             throw Error(`Subscription handler for "${event}" must be a method name`);
