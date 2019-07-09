@@ -137,6 +137,8 @@ class Model {
      *   snapshot all its fields, see first example below), or an object with `write()` and `read()` methods to
      *   convert instances from and to their serializable form (see second example below).
      *
+     * The types only need to be declared once, even if several different Model subclasses are using them.
+     *
      * __NOTE:__ This is currently the only way to customize serialization (for example to keep snapshots fast and small).
      * The serialization of Model subclasses themselves can not be customized.
      *
