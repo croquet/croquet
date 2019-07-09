@@ -13,6 +13,8 @@ This synchronization using the _Teatime_ protocol is largely invisible to the de
 
 | date       | item
 |------------|---
+| 2019-07-09 | **release 0.1.4** (bug fixes)
+| 2019-07-09 | tutorial fleshed out: {@tutorial 1_5_3d_animation}
 | 2019-07-06 | new tutorial: {@tutorial 1_4_view_smoothing}
 | 2019-07-01 | **release 0.1.3** (bug fixes; add 5-letter moniker to session badge)
 | 2019-06-29 | **release 0.1.2** (bug fixes)
