@@ -287,6 +287,7 @@ class View {
      *
      * @param {Number} time - this frame's time stamp in milliseconds, as received by
      *     [requestAnimationFrame]{@link https://developer.mozilla.org/docs/Web/API/window/requestAnimationFrame}
+     *     (or passed into `step(time)` if [stepping manually]{@link startSession})
      * @public
     */
     update(_time) {
