@@ -169,16 +169,17 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
         for (const [option, value] of Object.entries(options)) {
             if (CREATOR_OPTIONS.includes(option)) creator[option] = value;
         }
-        const model = (await controller.establishSession(name, creator)).modelRoot;
+        session.model = (await controller.establishSession(name, creator)).modelRoot;
         session.id = controller.id;
         session.moniker = displaySessionMoniker(controller.id);
         displayQRCode();
         controller.inViewRealm(() => {
-            session.view = new ViewRoot(model);
+            session.view = new ViewRoot(session.model);
         });
     }
 
     function clear() {
+        session.model = null;
         if (session.view) {
             session.view.detach();
             session.view = null;
