@@ -17,6 +17,28 @@ Math.random = () => {
 };
 hotreloadEventManger.addDisposeHandler("math-random", () => Math.random = Math_random);
 
+/** function cache */
+const QFuncs = {};
+
+/** to be used as callback, e.g. QFunc({foo}, bar => this.baz(foo, bar))
+ * @param {Object} vars - the captured variables
+ * @param {Function} fn - the callback function
+ */
+export function QFunc(vars, fn) {
+    if (typeof vars === "function") { fn = vars; vars = {}; }
+    const fnPara = Object.keys(vars).concat(["return " + fn]);
+    const fnArgs = Object.values(vars);
+    return {fnPara, fnArgs};
+}
+
+function bindQFunc(qfunc, thisArg) {
+    const cacheKey = JSON.stringify(qfunc.fnPara);
+    // eslint-disable-next-line no-new-func
+    const compiled = QFuncs[cacheKey] || (QFuncs[cacheKey] = new Function(...qfunc.fnPara));
+    return compiled.call(thisArg, ...qfunc.fnArgs);
+}
+
+
 // this is the only place allowed to change CurrentIsland
 function execOnIsland(island, fn) {
     if (CurrentIsland) throw Error("Island confusion");
@@ -192,7 +214,7 @@ export default class Island {
                 if (typeof model[property] === "function") {
                     return (...args) => {
                         if (island.lookUpModel(model.id) !== model) throw Error("future send to unregistered model");
-                        island.futureSend(tOffset, model.id, property, args);
+                        return island.futureSend(tOffset, model.id, property, args);
                     };
                 }
                 throw Error("Tried to call " + property + "() on future of " + Object.getPrototypeOf(model).constructor.name + " which is not a function");
@@ -249,18 +271,22 @@ export default class Island {
                     const HANDLER_REGEX = /^\(?([a-z][a-z0-9]*)?\)? *=> *this\.([a-z][a-z0-9]*) *\( *([a-z][a-z0-9]*)? *\) *$/i;
                     const source = methodNameOrCallback.toString();
                     const match = source.match(HANDLER_REGEX);
-                    if (!match || (match[3] && match[3] !== match[1])) {
-                        throw Error(`Subscription handler must look like "data => this.method(data)" not "${source}"`);
+                    if (match && (!match[3] || match[3] === match[1])) {
+                        methodName = match[2];
+                    } else {
+                        methodName = QFunc(methodName);
                     }
-                    methodName = match[2];
                 }
             }
+        }
+        if (typeof methodName === "object") {
+            if (methodName.fnArgs) methodName = JSON.stringify(methodName);
         }
         if (typeof methodName !== "string") {
             throw Error(`Subscription handler for "${event}" must be a method name`);
         }
         if (typeof model[methodName] !== "function") {
-            throw Error(`Subscriber method for "${event}" not found: ${model}.${methodName}()`);
+            if (!methodName[0]==='}') throw Error(`Subscriber method for "${event}" not found: ${model}.${methodName}()`);
         }
         const topic = scope + ":" + event;
         const handler = model.id + "." + methodName;
@@ -321,10 +347,19 @@ export default class Island {
         if (CurrentIsland !== this) throw Error("Island Error");
         if (this.subscriptions[topic]) {
             for (const handler of this.subscriptions[topic]) {
-                const [id, methodName] = handler.split('.');
+                const [id, ...rest] = handler.split('.');
+                const methodName = rest.join('.');
                 const model = this.lookUpModel(id);
                 if (!model) displayWarning(`event ${topic} .${methodName}(): subscriber not found`);
-                else if (typeof model[methodName] !== "function") displayWarning(`event ${topic} ${model}.${methodName}(): method not found`);
+                else if (methodName[0] === '{') {
+                    const fn = bindQFunc(JSON.parse(methodName), model);
+                    try {
+                        fn(data);
+                    } catch (error) {
+                        displayAppError(`event ${topic} ${model} ${fn}`, error);
+                    }
+                    return;
+                } else if (typeof model[methodName] !== "function") displayWarning(`event ${topic} ${model}.${methodName}(): method not found`);
                 try {
                     model[methodName](data);
                 } catch (error) {

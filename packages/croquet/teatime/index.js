@@ -10,6 +10,7 @@ import ObservableModel from "./src/observable";
 
 export { Model, View, Controller, ObservableModel };
 export { currentRealm } from "./src/realms";
+export { QFunc } from "./src/island";
 
 //@typedef { import('./src/model').default } Model
 
