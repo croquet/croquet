@@ -249,7 +249,6 @@ export default class Island {
             message.executeOn(this);
             if (++count > 100) { count = 0; if (Date.now() > deadline) return false; }
         }
-        this.time = newTime;
         return true;
     }
 
