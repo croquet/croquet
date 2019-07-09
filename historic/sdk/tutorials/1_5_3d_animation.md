@@ -1,7 +1,5 @@
 Copyright © 2019 Croquet Studios
 
-@@@@@@@@ _WORK IN PROGRESS_ @@@@@@@@
-
 This is an example of how a Croquet app can call on the services of a rich, independently developed JavaScript library - in this case, <a href="https://threejs.org/">Three.js</a> for 3D rendering through WebGL. The example extends into the third dimension the kind of simulation shown in the Simple Animation tutorial: in this case, balls bounce off the (invisible) walls of a container, and off a sphere that's embedded in the container's far wall. Dragging the sphere moves it, constrained to the container bounds.  Clicking on the sphere resets the balls' positions to the sphere's center.
 
 <p class="codepen" data-height="477" data-theme-id="37190" data-default-tab="result" data-user="croquet" data-slug-hash="BgWQxo" style="height: 477px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border: 2px solid; margin: 1em 0; padding: 1em;" data-pen-title="Simple Animation">
@@ -22,16 +20,19 @@ This tutorial assumes that you have worked through the Simple Animation example,
 * each BallModel calculates its position from moment to moment, including bouncing when necessary, and publishes the new position;
 * each BallView is responsible for creating a visual object for the ball, and repositions that visual object in response to position-change events published by the BallModel.
 
-There are n things we will learn here:
+The tutorial demonstrates the following:
 
-1. How to import an external library for a Croquet app to use
-1. How and when to initialize the services provided by a library
-1. How to mediate between Croquet and library code
-1. whatevs
+1. Importing an external library for a Croquet app to use
+2. Initializing the services provided by a library
+3. Pre-processing input events to determine which should be passed to Croquet
+4. Handling input events using Croquet publish/subscribe
+5. Calling an external library's rendering facilities from Croquet's update loop
 
 ## Importing an External Library
 
-  The same mechanisms can be used to incorporate a third-party library into a Croquet application as would be used for any other web app: `<script>` tags in pure HTML, `import` or `require` statements in a module-based setup, and so on. For this tutorial we are using CodePen's external-JavaScript settings to import the minified <a href="https://threejs.org/">Three.js</a> library, and also the <a href="https://github.com/jquery/PEP">Pointer Events Polyfill</a> (PEP) that provides a unified mouse/pointer event interface across a range of browsers and device types. This image shows the full set of CodePen JavaScript imports:
+  The same mechanisms can be used to incorporate a third-party library into a Croquet application as would be used for any other web app: `<script>` tags in pure HTML, `import` or `require` statements in a module-based setup, and so on.
+
+  Because our tutorials are built using CodePen, we can take advantage of CodePen's external-JavaScript settings. We import the minified <a href="https://threejs.org/">Three.js</a> library, and also the <a href="https://github.com/jquery/PEP">Pointer Events Polyfill</a> (PEP) that provides a unified mouse/pointer event interface across a range of browsers and device types. This image shows the full set of CodePen JavaScript imports:
 
   ![CodePen Settings](images/3dAnimationSettings.png)
 
@@ -84,9 +85,9 @@ There are n things we will learn here:
   }
   ```
 
-  As an example, above is an abbreviated form of the `onPointerDown` method, showing how a pointer event in the 2D browser window is analyzed, with the help of `raycaster` (an instance of `THREE.Raycaster`), to find objects that the user intended to tap - in other words, that the scene's camera will have rendered at the tap location. The raycaster returns a collection of intersections with objects (in principle there can be many, at different distances into the scene). We look for any intersected object that has the property `q_draggable` - a flag that our app sets on the central sphere object, which is the only one for which we support dragging.
+  As an example, above is an abbreviated form of the `onPointerDown` method, showing how a pointer event in the 2D browser window is analyzed, with the help of `raycaster` (an instance of `THREE.Raycaster`), to find objects that the user intended to tap - in other words, that the scene's camera will have rendered at the tap location. In principle there can be many objects, at different distances into the scene. The raycaster therefore returns a collection of object intersections, which we iterate through in search of any intersected object that has the flag `q_draggable` set to true. In this app, that is the case just for the central sphere object.
 
-  We also set up a handler for `pointermove` events.
+  We also set up a handler for `pointermove` events:
 
   ```
   function onPointerMove(event) {
@@ -135,7 +136,7 @@ There are n things we will learn here:
 
 ## Dealing with Events
 
-What has been introduced so far is the low-level code for extracting the events that are significant enough for the app to have to deal with. The app-level handling for these events is defined in the MyView initialization:
+What has been introduced so far is the low-level code for extracting the events that are significant enough for the app to have to deal with. The app-level handling for these events is defined in the MyView initialization. Because properties are being added directly to the Three.js objects, we use names prefaced with `q_` in the hope of not accidentally trampling on any existing property names:
 
 ```
 this.centerSphere.q_onClick = () => this.publish(model.id, 'reset');
@@ -174,15 +175,36 @@ posFromSphereDrag(pos) {
 }
 ```
 
-Notice that `q_onDrag` converts the position argument that it receives - an instance of `THREE.Vector3` - to an array, which it then passes to `posFromSphereDrag`.  The latter publishes a 'sphere-drag' event with the array as its argument, having first adjusted the array if needed to constrain it to within the permitted dragging bounds. It is not important at what stage the conversion from Vector3 to array happens; it _is_ important that it happen before the position is published as an event argument (because Croquet doesn't, in general, know how to serialize objects such as a Vector3, defined and used by some external library).
+Notice that `q_onDrag` converts the position argument that it receives - an instance of `THREE.Vector3` - to an array, which it then passes to `posFromSphereDrag`.  The latter publishes a 'sphere-drag' event with the array as its argument, having first adjusted the first two values (x and y) if needed to constrain it to within the permitted dragging bounds.
+
+It is not important at what stage the conversion from `Vector3` to array happens; it _is_ important that it happen before the position is published as an event argument. This is because, in general, Croquet does not know how to serialize an object of a class that is defined by some external library. Croquet does provide a mechanism for declaring such classes in an app, using the model's [types]{@link Model.types} static method, but since `Vector3` provides trivial conversions to and from arrays we decided just to go with those.
 
 Similar to the handling of the 'reset' event, 'sphere-drag' is subscribed to by MyModel, which in turn publishes a 'sphere-pos-changed' event that MyView subscribes to. All users' MyView instances get to respond by updating the positions of their center-sphere views.
 
 ## Hooking into the Update Loop
 
+  Three.js needs to be told when to render its scene. In a standalone application, this would typically be hooked directly into the browser's refresh loop by supplying a function to `window.requestAnimationFrame`. It would be possible to do the same thing when Three.js is running with Croquet, but it's preferable to give Croquet control over exactly when, during each simulation and update step, the rendering should be called.
 
+  The last action of the `setUpScene` initialization is to define a function `sceneRender` that will call the renderer. `sceneRender` is then returned to the caller:
 
-@@@ tune in tomorrow, for the next thrilling episode
+  ```
+  function sceneRender() { renderer.render(scene, camera); }
 
+  return { scene, sceneRender };
+  ```
 
+  and `MyView.init` stores this function reference as a property of the view:
 
+  ```
+  const sceneSpec = setUpScene(); // { scene, sceneRender }
+  this.scene = sceneSpec.scene;
+  this.sceneRender = sceneSpec.sceneRender;
+  ```
+
+  Whenever time advances in Croquet, the root view's [`update`]{@link View#update} method is automatically called. The root view in this app, MyView, is therefore given a simple `update` method to call the scene-rendering function:
+
+  ```
+  update(time) {
+    this.sceneRender();
+  }
+  ```
