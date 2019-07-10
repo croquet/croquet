@@ -17,6 +17,33 @@ Math.random = () => {
 };
 hotreloadEventManger.addDisposeHandler("math-random", () => Math.random = Math_random);
 
+/** function cache */
+const QFuncs = {};
+
+/** to be used as callback, e.g. QFunc({foo}, bar => this.baz(foo, bar))
+ * @param {Object} vars - the captured variables
+ * @param {Function} fn - the callback function
+ */
+export function QFunc(vars, fn) {
+    if (typeof vars === "function") { fn = vars; vars = {}; }
+    const qPara = Object.keys(vars).concat(["return " + fn]);
+    const qArgs = Object.values(vars);
+    const qFunc = {qPara, qArgs};
+    const fnIndex = qArgs.indexOf(fn);
+    if (fnIndex >= 0) { qArgs[fnIndex] = qPara[fnIndex]; qFunc.qFn = fnIndex; }
+    return `{${btoa(JSON.stringify(qFunc))}}`;
+}
+
+function bindQFunc(qfunc, thisArg) {
+    const { qPara, qArgs, qFn } = JSON.parse(atob(qfunc.slice(1, -1)));
+    const cacheKey = JSON.stringify(qPara);
+    // eslint-disable-next-line no-new-func
+    const compiled = QFuncs[cacheKey] || (QFuncs[cacheKey] = new Function(...qPara));
+    if (typeof qFn === "number") qArgs[qFn] = compiled;
+    return compiled.call(thisArg, ...qArgs);
+}
+
+
 // this is the only place allowed to change CurrentIsland
 function execOnIsland(island, fn) {
     if (CurrentIsland) throw Error("Island confusion");
@@ -182,7 +209,8 @@ export default class Island {
     // Convert model.future(tOffset).property(...args)
     // or model.future(tOffset, "property",...args)
     // into this.futureSend(tOffset, model.id, "property", args)
-    future(model, tOffset, methodName, methodArgs) {
+    future(model, tOffset, methodNameOrCallback, methodArgs) {
+        const methodName = this.asSerializableFunction(model, methodNameOrCallback);
         if (typeof methodName === "string") {
             return this.futureSend(tOffset, model.id, methodName, methodArgs);
         }
@@ -192,7 +220,7 @@ export default class Island {
                 if (typeof model[property] === "function") {
                     return (...args) => {
                         if (island.lookUpModel(model.id) !== model) throw Error("future send to unregistered model");
-                        island.futureSend(tOffset, model.id, property, args);
+                        return island.futureSend(tOffset, model.id, property, args);
                     };
                 }
                 throw Error("Tried to call " + property + "() on future of " + Object.getPrototypeOf(model).constructor.name + " which is not a function");
@@ -201,7 +229,7 @@ export default class Island {
     }
 
     /**
-     * Process pending messages for this island and advance simulation.
+     * Process pending messages for this island and advance simulation time.
      * Must only be sent by controller!
      * @param {Number} newTime - simulate at most up to this time
      * @param {Number} deadline - CPU time deadline for interrupting simulation
@@ -211,22 +239,25 @@ export default class Island {
         if (CurrentIsland) throw Error("Island Error");
         let count = 0;
         let message;
+        // process each message in queue up to newTime
         while ((message = this.messages.peek()) && message.time <= newTime) {
             const { time, seq } = message;
             if (time < this.time) throw Error("past message encountered: " + message);
+            // if external message, check seq so we don't miss any
             if (seq & 1) {
                 this.seq = (this.seq + 1) >>> 0;  // uint32 rollover
                 if ((seq/2) >>> 0 !== this.seq) throw Error(`Sequence error: expected ${this.seq} got ${(seq/2) >>> 0} in ${message}`);
             }
+            // drop first message in message queue
             this.messages.poll();
-            if (this.time !== message.time) {
-                this.time = message.time;
-                // advance random number generator
-                this._random.int32();
-            }
+            // advance time
+            this.time = message.time;
+            // execute future or external message
             message.executeOn(this);
+            // make date check cheaper by only checking every 100 messages
             if (++count > 100) { count = 0; if (Date.now() > deadline) return false; }
         }
+        // we processed all messages up to newTime
         this.time = newTime;
         return true;
     }
@@ -234,33 +265,36 @@ export default class Island {
 
     // Pub-sub
 
+    asSerializableFunction(model, func) {
+        // if a string was passed in, assume it's a method name
+        if (typeof func === "string") return func;
+        // if a function was passed in, hope it was a method
+        if (typeof func === "function") {
+            // if passing this.method
+            if (model[func.name] === func) return func.name;
+            // if passing this.foo = this.method
+            const entry = Object.entries(model).find(each => each[1] === func);
+            if (entry) return entry[0];
+            // if passing (foo) => this.bar(baz)
+            // match:                (   foo             )   =>  this .  bar              (    baz               )
+            const HANDLER_REGEX = /^\(?([a-z][a-z0-9]*)?\)? *=> *this\.([a-z][a-z0-9]*) *\( *([a-z][a-z0-9]*)? *\) *$/i;
+            const source = func.toString();
+            const match = source.match(HANDLER_REGEX);
+            if (match && (!match[3] || match[3] === match[1])) return match[2];
+            // otherwise, wrap the function in a QFunc
+            return QFunc(func);
+        }
+        return null;
+    }
+
     addSubscription(model, scope, event, methodNameOrCallback) {
         if (CurrentIsland !== this) throw Error("Island Error");
-        let methodName = methodNameOrCallback;
-        if (typeof methodNameOrCallback === "function") {
-            if (model[methodNameOrCallback.name] === methodNameOrCallback) {
-                methodName = methodNameOrCallback.name;
-            } else {
-                const entry = Object.entries(model).find(each => each[1] === methodNameOrCallback);
-                if (entry) {
-                    methodName = entry[0];
-                } else {
-                    // match:                (   foo             )   =>  this .  bar              (    baz               )
-                    const HANDLER_REGEX = /^\(?([a-z][a-z0-9]*)?\)? *=> *this\.([a-z][a-z0-9]*) *\( *([a-z][a-z0-9]*)? *\) *$/i;
-                    const source = methodNameOrCallback.toString();
-                    const match = source.match(HANDLER_REGEX);
-                    if (!match || (match[3] && match[3] !== match[1])) {
-                        throw Error(`Subscription handler must look like "data => this.method(data)" not "${source}"`);
-                    }
-                    methodName = match[2];
-                }
-            }
-        }
+        const methodName = this.asSerializableFunction(model, methodNameOrCallback);
         if (typeof methodName !== "string") {
             throw Error(`Subscription handler for "${event}" must be a method name`);
         }
         if (typeof model[methodName] !== "function") {
-            throw Error(`Subscriber method for "${event}" not found: ${model}.${methodName}()`);
+            if (!methodName[0]==='}') throw Error(`Subscriber method for "${event}" not found: ${model}.${methodName}()`);
         }
         const topic = scope + ":" + event;
         const handler = model.id + "." + methodName;
@@ -321,10 +355,19 @@ export default class Island {
         if (CurrentIsland !== this) throw Error("Island Error");
         if (this.subscriptions[topic]) {
             for (const handler of this.subscriptions[topic]) {
-                const [id, methodName] = handler.split('.');
+                const [id, ...rest] = handler.split('.');
+                const methodName = rest.join('.');
                 const model = this.lookUpModel(id);
                 if (!model) displayWarning(`event ${topic} .${methodName}(): subscriber not found`);
-                else if (typeof model[methodName] !== "function") displayWarning(`event ${topic} ${model}.${methodName}(): method not found`);
+                else if (methodName[0] === '{') {
+                    const fn = bindQFunc(methodName, model);
+                    try {
+                        fn(data);
+                    } catch (error) {
+                        displayAppError(`event ${topic} ${model} ${fn}`, error);
+                    }
+                    return;
+                } else if (typeof model[methodName] !== "function") displayWarning(`event ${topic} ${model}.${methodName}(): method not found`);
                 try {
                     model[methodName](data);
                 } catch (error) {
@@ -468,8 +511,21 @@ export class Message {
         const { receiver, selector, args } = decode(this.payload, island);
         const object = island.lookUpModel(receiver);
         if (!object) displayWarning(`${this.shortString()} ${selector}(): receiver not found`);
-        else if (typeof object[selector] !== "function") displayWarning(`${this.shortString()} ${object}.${selector}(): method not found`);
-        else execOnIsland(island, () => {
+        else if (selector[0] === '{') {
+            const fn = bindQFunc(selector, object);
+            execOnIsland(island, () => {
+                inModelRealm(island, () => {
+                    try {
+                        fn(...args);
+                    } catch (error) {
+                        displayAppError(`${this.shortString()} ${fn}`, error);
+                    }
+                })
+            });
+            return;
+        } else if (typeof object[selector] !== "function") {
+            displayWarning(`${this.shortString()} ${object}.${selector}(): method not found`);
+        } else execOnIsland(island, () => {
             inModelRealm(island, () => {
                 try {
                     object[selector](...args);

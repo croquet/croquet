@@ -11,9 +11,9 @@ import { currentRealm } from "./realms";
  *
  * **Croquet makes no assumptions about the UI framework you use** - be it plain HTML or Three.js or React or whatever.
  * Croquet only provides the publish/subscribe mechanism to hook into the replicated model simulation.
- * It's possible for a single view instance to handle all the events, you don't event have to subclass Croquet.View for that.
  *
- * That being said, a common pattern is to make a hierarchy of `Croquet.View` subclasses to mimic your hierarchy of Model subclasses.
+ * It's possible for a single view instance to handle all the events, you don't event have to subclass Croquet.View for that.
+ * That being said, a common pattern is to make a hierarchy of `Croquet.View` subclasses to mimic your hierarchy of {@link Model} subclasses.
  *
  * @public
  */
@@ -287,9 +287,25 @@ class View {
      *
      * @param {Number} time - this frame's time stamp in milliseconds, as received by
      *     [requestAnimationFrame]{@link https://developer.mozilla.org/docs/Web/API/window/requestAnimationFrame}
+     *     (or passed into `step(time)` if [stepping manually]{@link startSession})
      * @public
     */
     update(_time) {
+    }
+
+    /**
+     * Access a model that was registered previously using  [beWellKnownAs()]{@link Model#beWellKnownAs}.
+     *
+     * Note: The instance of your root Model class is automatically made well-known as `"modelRoot"`
+     * and passed to the [constructor]{@link View} of your root View during {@link startSession}.
+     * @example
+     * const topModel = this.wellKnownModel("modelRoot");
+     * @param {String} name - the name given in [beWellKnownAs()]{@link Model#beWellKnownAs}
+     * @returns {Model} the model if found, or `undefined`
+     * @public
+     */
+    wellKnownModel(name) {
+        return this.realm.island.get(name);
     }
 
     /**

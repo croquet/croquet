@@ -192,16 +192,20 @@ const extraHashes = [];
 export function addClassHash(cls) {
     const source = classSrc(cls);
     const hashPromise = hashString(source);
-    hashPromise.then(hash => console.log(`hash for ${cls.name}: ${hash}`));
+    hashPromise.then(hash => console.log(`hashing ${cls.name}: ${hash}`));
     extraHashes.push(hashPromise);
 }
 
 export function addConstantsHash(constants) {
     // replace functions with their source
-    const json = JSON.parse(JSON.stringify(constants, (_, val) => typeof val === "function" ? ""+val : val));
+    const json = JSON.stringify(constants, (_, val) => typeof val === "function" ? ""+val : val);
+    if (json === "{}") return;
     // use a stable stringification
-    const source = stableStringify(json);
-    extraHashes.push(hashString(source));
+    const obj = JSON.parse(json);
+    const string = stableStringify(obj);
+    const hashPromise = hashString(string);
+    hashPromise.then(hash => console.log(`hashing Croquet.Constants(${Object.keys(obj).join(', ')}): ${hash}`));
+    extraHashes.push(hashPromise);
 }
 
 export async function hashNameAndCode(name) {

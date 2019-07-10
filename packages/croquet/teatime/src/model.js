@@ -20,7 +20,7 @@ const SuperInitNotCalled = new WeakSet();
  * Models are replicated objects in Croquet.
  * They are automatically kept in sync for each user in the same [session]{@link startSession}.
  * Models receive input by [subscribing]{@link Model#subscribe} to events published in a {@link View}.
- * Their output is handled by {@link View}s subscribing to events [published]{@link Model#publish} by a model.
+ * Their output is handled by views subscribing to events [published]{@link Model#publish} by a model.
  * Models advance time by sending messages into their [future]{@link Model#future}.
  *
  * ## Instance Creation and Initialization
@@ -123,6 +123,11 @@ class Model {
     static register(file="unknown-file") {
         addClassHash(this);
         registerClass(file, this.name, this);
+        return this;
+    }
+
+    static registerIfNeeded() {
+        if (!hasID(this)) this.register();
     }
 
     /**
@@ -136,6 +141,8 @@ class Model {
      * - the class description can either be just the class itself (if the serializer should
      *   snapshot all its fields, see first example below), or an object with `write()` and `read()` methods to
      *   convert instances from and to their serializable form (see second example below).
+     *
+     * The types only need to be declared once, even if several different Model subclasses are using them.
      *
      * __NOTE:__ This is currently the only way to customize serialization (for example to keep snapshots fast and small).
      * The serialization of Model subclasses themselves can not be customized.
@@ -540,13 +547,12 @@ let ModelClasses = {};
 const CLASS_ID = Symbol('CLASS_ID');
 
 function gatherModelClasses() {
-    if (module.bundle) {
-        // HACK: go through all exports and find model subclasses
-        for (const [file, m] of Object.entries(module.bundle.cache)) {
-            for (const [name, cls] of Object.entries(m.exports)) {
-                if (cls && cls.__isTeatimeModelClass__) {
-                    registerClass(file, name === "default" ? cls.name : name, cls);
-                }
+    if (!module.bundle) return;
+    // HACK: go through all exports and find model subclasses
+    for (const [file, m] of Object.entries(module.bundle.cache)) {
+        for (const [name, cls] of Object.entries(m.exports)) {
+            if (cls && cls.__isTeatimeModelClass__) {
+                registerClass(file, name === "default" ? cls.name : name, cls);
             }
         }
     }

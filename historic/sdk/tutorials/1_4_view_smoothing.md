@@ -1,6 +1,6 @@
 Copyright © 2019 Croquet Studios
 
-This is an example of how to smooth the view so that objects move continually even if the model only updates intermittantly. It's also is a good technique to use if you want your application to cleanly handle hitches in connectivity over a poor internet connection.
+This is an example of how to smooth the view so that objects move continually even if the model only updates intermittently. It's also is a good technique to use if you want your application to cleanly handle hitches in connectivity over a poor internet connection.
 
 <p class="codepen" data-height="512" data-theme-id="37190" data-default-tab="result" data-user="croquet" data-slug-hash="agayxz" data-editable="true" style="height: 512px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border: 2px solid; margin: 1em 0; padding: 1em;" data-pen-title="Chat">
   <span>See the Pen <a href="https://codepen.io/croquet/pen/agayxz">
@@ -10,7 +10,7 @@ This is an example of how to smooth the view so that objects move continually ev
 <script async src="https://static.codepen.io/assets/embed/ei.js"></script>
 
 ## **Try it out!**
-The first thing to do is click or scan the QR code above. This will launch a new Codepen instance of this session. You'll see several moving colored dots. There is one dot for each device currently connected to the session. Some dots may even belong to other Croquet developers who are also reading this documentation right now.
+The first thing to do is click or scan the QR code above. This will launch a new CodePen instance of this session. You'll see several moving colored dots. There is one dot for each device currently connected to the session. Some dots may even belong to other Croquet developers who are also reading this documentation right now.
 
 You can tell your dot where to go by clicking or tapping the screen.
 
@@ -38,11 +38,11 @@ Q.CLOSE = 0.1;      // minimum distance in pixels to a new destination
 Q.SMOOTH = 0.05;    // weighting between old and new positions. 0 > SMOOTH >= 1
 ```
 
-<b>Croquet provides a data object called [Croquet.Constants]{@link Constants} that can be used to store constants.</b> The value of this object will contribute to the hash used to generate a session id. To make your code easier to read, we recommend defining a short alias—in this case `Q`—to refer to `Croquet.Constants`.
+<b>Croquet provides a data object called [Croquet.Constants]{@link Constants} that can be used to store constants.</b> The value of this object will contribute to the hash used to generate a session ID. To make your code easier to read, we recommend defining a short alias—in this case `Q`—to refer to `Croquet.Constants`.
 
 ## Pure Functions
 
-Sometimes its useful to have a common set of utility functions that you can call from both the model and the view. For example, in this tutorial we have a common set of 2-D vector operations. These functions do things like adding two vectors together, or multiplying a vector by scale factor, or finding a vector's magnitude.
+Sometimes it's useful to have a common set of utility functions that you can call from both the model and the view. For example, in this tutorial we have a common set of 2-D vector operations. These functions do things like adding two vectors together, or multiplying a vector by scale factor, or finding a vector's magnitude.
 
 ```
 ...
@@ -59,9 +59,9 @@ function subtract(a,b) {
 ```
  <b>As long as a function is <i>purely functional</i> you're free to call it from both the model and the view.</b> A pure function doesn't read any parameters other than the ones passed to it, doesn't modify these parameters in any way, and doesn't save any state outside the scope of its own execution.
 
- Mind that the code of these functions is not included in the session id hash—Croquet doesn't know about them. That's not a problem typically if you don't change them frequently. Just be aware that two versions of your code that don't differ in the model classes but differ in the functions used in the model will end up in the same session.
+ Note that the code of these functions is not included in the session ID hash—Croquet doesn't know about them. That's not a problem typically if you don't change them frequently. Just be aware that two versions of your code that don't differ in the model classes but differ in the functions used by the model will end up in the same session. If those functions produce different results, the old and new session instances will likely not synchronize correctly.
 
- ## RootModel & RootView
+## RootModel & RootView
 
 The root classes for model and view are fairly simple, and their functionality has largely been  covered in earlier tutorials. When a new user joins a session, `RootModel` spawns an `Actor` to control the movement of their dot. The new `Actor` sends an event to `RootView` telling it to spawn a corresponding `Pawn`.
 
@@ -72,7 +72,7 @@ Note, however, this line in the constructor for `RootView`:
 ```
 model.actors.forEach(actor => this.addPawn(actor));
 ```
-When the view starts up, it checks to see if there are already any active actors in the model, and if there are, it spawns pawns for them. We need to do this because the view may be joining a session that's already in progress, or restoring from a saved snapshot. <b>During initialization, the view should never make any assumptions about the current state of the model.</b> It should always read the state of the model and rebuild itself accordingly.
+When the view starts up, it checks to see if there are already any active actors in the model, and if there are, it spawns pawns for them. We need to do this because the view may be joining a session that's already in progress, or restoring from a saved snapshot. <b>During initialization, the view should never make any assumptions about the current state of the model.</b> It should always read the state of the model and build itself accordingly.
 
 
  ## Actor.goto(goal)
@@ -91,11 +91,11 @@ goto(goal) {
     }
 }
 ```
-`Goto` calculates a vector that points from the actor's current position to its new goal. If the length of this vector is shorter than the constant `Q.CLOSE` it means that we're already at the goal, and we randomly pick a new one.
+`goto` calculates a vector that points from the actor's current position to its new goal. If the length of this vector is shorter than the constant `Q.CLOSE` it means that we're already at the goal, and we randomly pick a new one.
 
 If the goal isn't too close, then we calculate the velocity vector that will move us from our current position to our destination.
 
- ## Actor.arrive()
+ ## Actor.arrived()
 
 ```
 arrived() {
@@ -111,7 +111,7 @@ Each time the actor moves, it steps forward a fixed distance. This means we'll u
 
 ```
 tick() {
-    this.position = add(this.position, scale(this.velocity,Q.TICK_MS));
+    this.position = add(this.position, scale(this.velocity, Q.TICK_MS));
     if (this.arrived()) this.goto(this.randomPosition());
     this.publish(this.id, "moved", this.now());
     this.future(Q.TICK_MS).tick();
@@ -129,7 +129,7 @@ constructor(actor) {
     this.subscribe(actor.id, {event: "moved", handling: "oncePerFrame"}, this.actorMoved);
 }
 ```
-When `RootView` spawns a pawn, it passes a reference to the pawns's actor. The actor's id is used as scope in a subscription make sure the pawn only receives that actor's events. The pawn copies its initial position from the actor, and calls `actorMoved` to timestamp the position information.
+When `RootView` spawns a pawn, it passes a reference to the pawns's actor. The actor's ID is used as scope in a subscription make sure the pawn only receives that actor's events. The pawn copies its initial position from the actor, and calls `actorMoved` to timestamp the position information.
 
 `"oncePerFrame"` is a special option for how this subscription handles events (see [View.subscribe]{@link View#subscribe}). By default every single event is passed through the subscription. <b>But when `"oncePerFrame"` is turned on, only the last event of this type during the previous frame is passed to the view.</b> Prior events are discarded.
 

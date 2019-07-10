@@ -36,9 +36,8 @@ Starting the session will do the following things:
 2. Instantiate the model
 3. a) Run the initialization code in the model's init routine -or-<br>
    b) Initialize the model from a saved snapshot
-4. Instantiate the view
-5. Pass a reference to the model to the view in its constructor
-6. Create a main event loop and begin executing
+4. Instantiate the view, passing the view constructor a reference to the model
+5. Create a main event loop and begin executing
 
 The main loop runs each time the window performs an animation update — commonly, 60 times per second. On each iteration of the main loop, it will first process all pending events in the model, then process all pending events in the view, then call {@link View#render}.
 

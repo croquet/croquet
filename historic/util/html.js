@@ -120,7 +120,7 @@ export function displaySpinner(enabled) {
             if (spinnerEnabled) return;
             if (spinnerOverlay.parentElement) {
                 document.body.removeChild(spinnerOverlay);
-            } else console.warn("spinner overlay already removed?!");
+            } // else console.warn("spinner overlay already removed?!");
         }, 500);
     }
 }
