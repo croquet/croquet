@@ -223,7 +223,7 @@ export default class Island {
     }
 
     /**
-     * Process pending messages for this island and advance simulation.
+     * Process pending messages for this island and advance simulation time.
      * Must only be sent by controller!
      * @param {Number} newTime - simulate at most up to this time
      * @param {Number} deadline - CPU time deadline for interrupting simulation
@@ -233,22 +233,26 @@ export default class Island {
         if (CurrentIsland) throw Error("Island Error");
         let count = 0;
         let message;
+        // process each message in queue up to newTime
         while ((message = this.messages.peek()) && message.time <= newTime) {
             const { time, seq } = message;
             if (time < this.time) throw Error("past message encountered: " + message);
+            // if external message, check seq so we don't miss any
             if (seq & 1) {
                 this.seq = (this.seq + 1) >>> 0;  // uint32 rollover
                 if ((seq/2) >>> 0 !== this.seq) throw Error(`Sequence error: expected ${this.seq} got ${(seq/2) >>> 0} in ${message}`);
             }
+            // drop first message in message queue
             this.messages.poll();
-            if (this.time !== message.time) {
-                this.time = message.time;
-                // advance random number generator
-                this._random.int32();
-            }
+            // advance time
+            this.time = message.time;
+            // execute future or external message
             message.executeOn(this);
+            // make date check cheaper by only checking every 100 messages
             if (++count > 100) { count = 0; if (Date.now() > deadline) return false; }
         }
+        // we processed all messages up to newTime
+        this.time = newTime;
         return true;
     }
 
