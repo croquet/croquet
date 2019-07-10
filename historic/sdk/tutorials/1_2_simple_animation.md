@@ -74,8 +74,10 @@ BallModel.moveBounce() {
 
 ```
 randomSpeed() {
-    const r = this.random() * 2 * Math.PI;
-    return [Math.cos(r) * Q.SPEED, Math.sin(r) * Q.SPEED];
+    const xs = this.random() * 2 - 1;
+    const ys = this.random() * 2 - 1;
+    const speedScale = Q.SPEED / (Math.sqrt(xs*xs + ys*ys));
+    return [xs * speedScale, ys * speedScale];
 }
 ```
 
