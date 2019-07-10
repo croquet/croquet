@@ -28,14 +28,19 @@ export function QFunc(vars, fn) {
     if (typeof vars === "function") { fn = vars; vars = {}; }
     const qPara = Object.keys(vars).concat(["return " + fn]);
     const qArgs = Object.values(vars);
-    return {qPara, qArgs};
+    const qFunc = {qPara, qArgs};
+    const fnIndex = qArgs.indexOf(fn);
+    if (fnIndex >= 0) { qArgs[fnIndex] = qPara[fnIndex]; qFunc.qFn = fnIndex; }
+    return `{${btoa(JSON.stringify(qFunc))}}`;
 }
 
 function bindQFunc(qfunc, thisArg) {
-    const cacheKey = JSON.stringify(qfunc.qPara);
+    const { qPara, qArgs, qFn } = JSON.parse(atob(qfunc.slice(1, -1)));
+    const cacheKey = JSON.stringify(qPara);
     // eslint-disable-next-line no-new-func
-    const compiled = QFuncs[cacheKey] || (QFuncs[cacheKey] = new Function(...qfunc.qPara));
-    return compiled.call(thisArg, ...qfunc.qArgs);
+    const compiled = QFuncs[cacheKey] || (QFuncs[cacheKey] = new Function(...qPara));
+    if (typeof qFn === "number") qArgs[qFn] = compiled;
+    return compiled.call(thisArg, ...qArgs);
 }
 
 
@@ -204,7 +209,8 @@ export default class Island {
     // Convert model.future(tOffset).property(...args)
     // or model.future(tOffset, "property",...args)
     // into this.futureSend(tOffset, model.id, "property", args)
-    future(model, tOffset, methodName, methodArgs) {
+    future(model, tOffset, methodNameOrCallback, methodArgs) {
+        const methodName = this.asSerializableFunction(model, methodNameOrCallback);
         if (typeof methodName === "string") {
             return this.futureSend(tOffset, model.id, methodName, methodArgs);
         }
@@ -259,32 +265,31 @@ export default class Island {
 
     // Pub-sub
 
+    asSerializableFunction(model, func) {
+        // if a string was passed in, assume it's a method name
+        if (typeof func === "string") return func;
+        // if a function was passed in, hope it was a method
+        if (typeof func === "function") {
+            // if passing this.method
+            if (model[func.name] === func) return func.name;
+            // if passing this.foo = this.method
+            const entry = Object.entries(model).find(each => each[1] === func);
+            if (entry) return entry[0];
+            // if passing (foo) => this.bar(baz)
+            // match:                (   foo             )   =>  this .  bar              (    baz               )
+            const HANDLER_REGEX = /^\(?([a-z][a-z0-9]*)?\)? *=> *this\.([a-z][a-z0-9]*) *\( *([a-z][a-z0-9]*)? *\) *$/i;
+            const source = func.toString();
+            const match = source.match(HANDLER_REGEX);
+            if (match && (!match[3] || match[3] === match[1])) return match[2];
+            // otherwise, wrap the function in a QFunc
+            return QFunc(func);
+        }
+        return null;
+    }
+
     addSubscription(model, scope, event, methodNameOrCallback) {
         if (CurrentIsland !== this) throw Error("Island Error");
-        let methodName = methodNameOrCallback;
-        if (typeof methodNameOrCallback === "function") {
-            if (model[methodNameOrCallback.name] === methodNameOrCallback) {
-                methodName = methodNameOrCallback.name;
-            } else {
-                const entry = Object.entries(model).find(each => each[1] === methodNameOrCallback);
-                if (entry) {
-                    methodName = entry[0];
-                } else {
-                    // match:                (   foo             )   =>  this .  bar              (    baz               )
-                    const HANDLER_REGEX = /^\(?([a-z][a-z0-9]*)?\)? *=> *this\.([a-z][a-z0-9]*) *\( *([a-z][a-z0-9]*)? *\) *$/i;
-                    const source = methodNameOrCallback.toString();
-                    const match = source.match(HANDLER_REGEX);
-                    if (match && (!match[3] || match[3] === match[1])) {
-                        methodName = match[2];
-                    } else {
-                        methodName = QFunc(methodName);
-                    }
-                }
-            }
-        }
-        if (typeof methodName === "object") {
-            if (methodName.qArgs) methodName = JSON.stringify(methodName);
-        }
+        const methodName = this.asSerializableFunction(model, methodNameOrCallback);
         if (typeof methodName !== "string") {
             throw Error(`Subscription handler for "${event}" must be a method name`);
         }
@@ -355,7 +360,7 @@ export default class Island {
                 const model = this.lookUpModel(id);
                 if (!model) displayWarning(`event ${topic} .${methodName}(): subscriber not found`);
                 else if (methodName[0] === '{') {
-                    const fn = bindQFunc(JSON.parse(methodName), model);
+                    const fn = bindQFunc(methodName, model);
                     try {
                         fn(data);
                     } catch (error) {
@@ -506,8 +511,21 @@ export class Message {
         const { receiver, selector, args } = decode(this.payload, island);
         const object = island.lookUpModel(receiver);
         if (!object) displayWarning(`${this.shortString()} ${selector}(): receiver not found`);
-        else if (typeof object[selector] !== "function") displayWarning(`${this.shortString()} ${object}.${selector}(): method not found`);
-        else execOnIsland(island, () => {
+        else if (selector[0] === '{') {
+            const fn = bindQFunc(selector, object);
+            execOnIsland(island, () => {
+                inModelRealm(island, () => {
+                    try {
+                        fn(...args);
+                    } catch (error) {
+                        displayAppError(`${this.shortString()} ${fn}`, error);
+                    }
+                })
+            });
+            return;
+        } else if (typeof object[selector] !== "function") {
+            displayWarning(`${this.shortString()} ${object}.${selector}(): method not found`);
+        } else execOnIsland(island, () => {
             inModelRealm(island, () => {
                 try {
                     object[selector](...args);
