@@ -195,6 +195,7 @@ export default class Island {
     }
 
     futureSend(tOffset, receiverID, selector, args) {
+        if (tOffset.repeat) return this.futureRepeat(tOffset.repeat, receiverID, selector, args);
         if (tOffset < 0) throw Error("attempt to send future message into the past");
         // Wrapping below is fine because the message comparison function deals with it.
         // To have a defined ordering between future messages generated on island
@@ -205,6 +206,30 @@ export default class Island {
         this.messages.add(message);
         return message;
     }
+
+    futureRepeat(tOffset, receiverID, selector, args) {
+        this.futureSend(tOffset, this.id, "futureExecAndRepeat", [tOffset, receiverID, selector, args]);
+    }
+
+    futureExecAndRepeat(tOffset, receiverID, selector, args) {
+        const model = this.lookUpModel(receiverID);
+        if (typeof model[selector] === "function") {
+            try {
+                model[selector](...args);
+            } catch (error) {
+                displayAppError(`future message ${model}.${selector}`, error);
+            }
+        } else {
+            const fn = bindQFunc(selector, model);
+            try {
+                fn(...args);
+            } catch (error) {
+                displayAppError(`future message ${model} ${fn}`, error);
+            }
+        }
+        this.futureRepeat(tOffset, receiverID, selector, args);
+    }
+
 
     // Convert model.future(tOffset).property(...args)
     // or model.future(tOffset, "property",...args)
