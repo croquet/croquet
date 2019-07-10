@@ -210,7 +210,7 @@ export default class Island {
     // or model.future(tOffset, "property",...args)
     // into this.futureSend(tOffset, model.id, "property", args)
     future(model, tOffset, methodNameOrCallback, methodArgs) {
-        const methodName = this.asSerializableFunction(model, methodNameOrCallback);
+        const methodName = this.asQFunc(model, methodNameOrCallback);
         if (typeof methodName === "string") {
             return this.futureSend(tOffset, model.id, methodName, methodArgs);
         }
@@ -265,7 +265,7 @@ export default class Island {
 
     // Pub-sub
 
-    asSerializableFunction(model, func) {
+    asQFunc(model, func) {
         // if a string was passed in, assume it's a method name
         if (typeof func === "string") return func;
         // if a function was passed in, hope it was a method
@@ -289,7 +289,7 @@ export default class Island {
 
     addSubscription(model, scope, event, methodNameOrCallback) {
         if (CurrentIsland !== this) throw Error("Island Error");
-        const methodName = this.asSerializableFunction(model, methodNameOrCallback);
+        const methodName = this.asQFunc(model, methodNameOrCallback);
         if (typeof methodName !== "string") {
             throw Error(`Subscription handler for "${event}" must be a method name`);
         }
@@ -520,9 +520,8 @@ export class Message {
                     } catch (error) {
                         displayAppError(`${this.shortString()} ${fn}`, error);
                     }
-                })
+                });
             });
-            return;
         } else if (typeof object[selector] !== "function") {
             displayWarning(`${this.shortString()} ${object}.${selector}(): method not found`);
         } else execOnIsland(island, () => {
