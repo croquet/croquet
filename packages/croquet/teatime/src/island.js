@@ -195,7 +195,7 @@ export default class Island {
     }
 
     futureSend(tOffset, receiverID, selector, args) {
-        if (tOffset.repeat) return this.futureRepeat(tOffset.repeat, receiverID, selector, args);
+        if (tOffset.every) return this.futureRepeat(tOffset.every, receiverID, selector, args);
         if (tOffset < 0) throw Error("attempt to send future message into the past");
         // Wrapping below is fine because the message comparison function deals with it.
         // To have a defined ordering between future messages generated on island
