@@ -56,11 +56,12 @@ function deepChangeProxy(object, onChangeAtAnyDepth) {
  * @template S */
 export default function ObservableModel(initialState) {
     const cls = class ObservableClass extends Model {
-        init() {
-            super.init();
+        static create(options) {
+            const model = super.create(options);
             for (const [prop, initialValue] of Object.entries(initialState)) {
-                this[prop] = initialValue;
+                model[prop] = initialValue;
             }
+            return model;
         }
     };
 

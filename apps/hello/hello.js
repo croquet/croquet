@@ -20,7 +20,7 @@ class MyModel extends Croquet.Model {
 
     init() { // Note that models are initialized with "init" instead of "constructor"!
         this.counter = 0;
-        this.subscribe("counter", "reset", () => this.resetCounter());
+        this.subscribe("counter", "reset", this.resetCounter);
         this.future(1000).tick();
     }
 

@@ -195,6 +195,7 @@ export default class Island {
     }
 
     futureSend(tOffset, receiverID, selector, args) {
+        if (tOffset.every) return this.futureRepeat(tOffset.every, receiverID, selector, args);
         if (tOffset < 0) throw Error("attempt to send future message into the past");
         // Wrapping below is fine because the message comparison function deals with it.
         // To have a defined ordering between future messages generated on island
@@ -206,11 +207,35 @@ export default class Island {
         return message;
     }
 
+    futureRepeat(tOffset, receiverID, selector, args) {
+        this.futureSend(tOffset, this.id, "futureExecAndRepeat", [tOffset, receiverID, selector, args]);
+    }
+
+    futureExecAndRepeat(tOffset, receiverID, selector, args) {
+        const model = this.lookUpModel(receiverID);
+        if (typeof model[selector] === "function") {
+            try {
+                model[selector](...args);
+            } catch (error) {
+                displayAppError(`future message ${model}.${selector}`, error);
+            }
+        } else {
+            const fn = bindQFunc(selector, model);
+            try {
+                fn(...args);
+            } catch (error) {
+                displayAppError(`future message ${model} ${fn}`, error);
+            }
+        }
+        this.futureRepeat(tOffset, receiverID, selector, args);
+    }
+
+
     // Convert model.future(tOffset).property(...args)
     // or model.future(tOffset, "property",...args)
     // into this.futureSend(tOffset, model.id, "property", args)
     future(model, tOffset, methodNameOrCallback, methodArgs) {
-        const methodName = this.asSerializableFunction(model, methodNameOrCallback);
+        const methodName = this.asQFunc(model, methodNameOrCallback);
         if (typeof methodName === "string") {
             return this.futureSend(tOffset, model.id, methodName, methodArgs);
         }
@@ -265,7 +290,7 @@ export default class Island {
 
     // Pub-sub
 
-    asSerializableFunction(model, func) {
+    asQFunc(model, func) {
         // if a string was passed in, assume it's a method name
         if (typeof func === "string") return func;
         // if a function was passed in, hope it was a method
@@ -289,7 +314,7 @@ export default class Island {
 
     addSubscription(model, scope, event, methodNameOrCallback) {
         if (CurrentIsland !== this) throw Error("Island Error");
-        const methodName = this.asSerializableFunction(model, methodNameOrCallback);
+        const methodName = this.asQFunc(model, methodNameOrCallback);
         if (typeof methodName !== "string") {
             throw Error(`Subscription handler for "${event}" must be a method name`);
         }
@@ -520,9 +545,8 @@ export class Message {
                     } catch (error) {
                         displayAppError(`${this.shortString()} ${fn}`, error);
                     }
-                })
+                });
             });
-            return;
         } else if (typeof object[selector] !== "function") {
             displayWarning(`${this.shortString()} ${object}.${selector}(): method not found`);
         } else execOnIsland(island, () => {
