@@ -12,7 +12,7 @@
   ],
   "dependencies": {},
   "devDependencies": {
-    "@croquet/react": "file:../../../integrations/croquet-react",
+    "@croquet/react": "file:../../../libraries/croquet-react",
     "rollup": "^1.16.4",
     "rollup-plugin-babel": "^4.3.3",
     "rollup-plugin-license": "^0.9.0",
