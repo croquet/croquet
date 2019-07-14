@@ -320,9 +320,10 @@ class Model {
      * @return {this}
      * @public
      */
-    subscribe(scope, event, methodName) {
+    subscribe(scope, eventSpec, methodName) {
         if (!this.__realm) this.__realmError();
-        return this.__realm.subscribe(this, scope, event, methodName);
+        const { event, handling } = eventSpec.event ? eventSpec : { event: eventSpec };
+        return this.__realm.subscribe(this, scope, event, methodName, handling);
     }
 
     /**

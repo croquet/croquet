@@ -162,6 +162,7 @@ function JOIN(client, id, args) {
         snapshotUrl: '',     // url of last snapshot
         pendingSnapshotTime: -1, // time of pending snapshot
         startTimeout: null,   // pending START request timeout (should send SNAP)
+        tallies: {},
         // =========
 
         [Symbol.toPrimitive]: () => `${name} ${id}`,
@@ -323,6 +324,7 @@ function JOIN1(client, id, args) {
         ticker: null,        // interval for serving TICKs
         startTimeout: null,   // pending START request timeout (should send SNAP)
         syncClients: [],     // clients waiting to SYNC
+        tallies: {},
         [Symbol.toPrimitive]: () => `${name} ${id}`,
     };
     ALL_ISLANDS.set(id, island);
@@ -415,7 +417,7 @@ function after(seqA, seqB) {
 /** client uploaded a snapshot
  * @param {Client} client - we received from this client
  * @param {ID} id - island ID
- * @param {{time: Number, url: String}} args - the time and url of the snapshot
+ * @param {{time: Number, seq: Number, hash: String, url: String}} args - the snapshot details
  */
 function SNAP(client, id, args) {
     const island = ALL_ISLANDS.get(id);
@@ -490,6 +492,37 @@ function SEND(client, id, messages) {
         island.snapshot = null;
     }
     startTicker(island, island.tick);
+}
+
+/** handle a message that all clients are expected to be sending
+ * @param {?Client} client - we received from this client
+ * @param {ID} id - island ID
+ * @param {[sendTime: Number, sendSeq: Number, payload: String, sendFirst: Bool, sendVote: Bool]} args
+ */
+function TUTTI(client, id, args) {
+    console.log("============ TUTTI ============", id);
+
+    const island = ALL_ISLANDS.get(id);
+    if (!island) { if (client && client.readyState === WebSocket.OPEN) client.close(4000, "unknown island"); return; }
+
+    const [ sendTime, sendSeq, payload, firstMsg, wantsVote, tallyTarget ] = args;
+    const tallyHash = `${sendTime}:${sendSeq}`;
+    if (!island.tallies[tallyHash]) { // first client we've heard from
+        island.tallies[tallyHash] = {};
+        if (firstMsg) SEND(client, id, [firstMsg]);
+        setTimeout(() => {
+            const tally = island.tallies[tallyHash];
+            if (wantsVote || Object.keys(tally).length > 1) {
+                const tallyPayload = { what: 'tally', tally, tallyTarget };
+                const msg = [0, 0, tallyPayload];
+                SEND(null, id, [msg]);
+            }
+            delete island.tallies[tallyHash];
+            }, 1000);
+    }
+
+    const tally = island.tallies[tallyHash];
+    tally[payload] = (tally[payload] || 0) + 1;
 }
 
 // delay for the client to generate local ticks
@@ -654,6 +687,7 @@ server.on('connection', (client, req) => {
             } else switch (action) {
                 case 'JOIN': JOIN(client, id, args); break;
                 case 'SEND': SEND(client, id, [args]); break;
+                case 'TUTTI': TUTTI(client, id, args); break;
                 case 'TICKS': TICKS(client, id, args); break;
                 case 'SNAP': SNAP(client, id, args); break;
                 case 'LEAVING': LEAVING(client, id); break;

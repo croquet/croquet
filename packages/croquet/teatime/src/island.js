@@ -312,7 +312,7 @@ export default class Island {
         return null;
     }
 
-    addSubscription(model, scope, event, methodNameOrCallback) {
+    addSubscription(model, scope, event, methodNameOrCallback, handling) {
         if (CurrentIsland !== this) throw Error("Island Error");
         const methodName = this.asQFunc(model, methodNameOrCallback);
         if (typeof methodName !== "string") {
@@ -321,7 +321,7 @@ export default class Island {
         if (typeof model[methodName] !== "function") {
             if (!methodName[0]==='}') throw Error(`Subscriber method for "${event}" not found: ${model}.${methodName}()`);
         }
-        const topic = scope + ":" + event;
+        const topic = scope + ":" + event + (handling ? "#" + handling : "");
         const handler = model.id + "." + methodName;
         // model subscriptions need to be ordered, so we're using an array
         if (!this.subscriptions[topic]) this.subscriptions[topic] = [];
@@ -332,6 +332,7 @@ export default class Island {
     }
 
     removeSubscription(model, scope, event, methodName) {
+        // @@ need to take into account handling
         if (CurrentIsland !== this) throw Error("Island Error");
         const topic = scope + ":" + event;
         const handler = model.id + "." + methodName;
@@ -344,6 +345,7 @@ export default class Island {
     }
 
     removeAllSubscriptionsFor(model) {
+        // @@ need to take into account handling
         const topicPrefix = `${model.id}:`;
         const handlerPrefix = `${model.id}.`;
         // TODO: optimize this - reverse lookup table?
@@ -362,8 +364,13 @@ export default class Island {
 
     publishFromModel(scope, event, data) {
         if (CurrentIsland !== this) throw Error("Island Error");
+        // @@ temporary hack for testing forced reflection of model-to-model messages
+        const REF_TAG = '#reflected';
+        const reflected = event.endsWith(REF_TAG);
+        if (reflected) event = event.slice(0, event.length - REF_TAG.length);
+
         const topic = scope + ":" + event;
-        this.handleModelEventInModel(topic, data);
+        this.handleModelEventInModel(topic, data, reflected);
         this.handleModelEventInView(topic, data);
     }
 
@@ -374,11 +381,24 @@ export default class Island {
         this.handleViewEventInView(topic, data);
     }
 
-    handleModelEventInModel(topic, data) {
-        // model=>model events are always handled synchronously
+    handleModelEventInModel(topic, data, reflect=false) {
+        // model=>model events are handled synchronously unless reflected
         // because making them async would mean having to use future messages
         if (CurrentIsland !== this) throw Error("Island Error");
-        if (this.subscriptions[topic]) {
+        if (reflect) {
+            const voteTopic = topic+'#vote';
+            const wantsVote = !!this.subscriptions[voteTopic], nonVoteSubs = !!this.subscriptions[topic];
+            // iff there are nonVoteSubs, build the message that should be broadcast for the first arrival of the tutti
+            const firstMessage = nonVoteSubs ? new Message(this.time, 0, this.id, "handleModelEventInModel", [topic, data]) : null;
+            const payload = JSON.stringify(data);
+            // provide the receiver, selector and topic for any eventual tally response from the reflector.
+            // if there are subscriptions to a vote, it'll be a normal handleModelEventInModel
+            // with the vote-augmented topic.  if there aren't, it'll be a handleModelEventTally.
+            const tallyTarget = wantsVote
+                ? [this.id, "handleModelEventInModel", voteTopic]
+                : [this.id, "handleModelEventTally", topic];
+            this.controller.sendTutti(this.time, this.seq, payload, firstMessage, wantsVote, tallyTarget);
+        } else if (this.subscriptions[topic]) {
             for (const handler of this.subscriptions[topic]) {
                 const [id, ...rest] = handler.split('.');
                 const methodName = rest.join('.');
@@ -416,6 +436,10 @@ export default class Island {
 
     handleViewEventInView(topic, data) {
         viewDomain.handleEvent(topic, data);
+    }
+
+    handleModelEventTally(topic, data) {
+        console.log("TALLY", data);
     }
 
     processModelViewEvents() {

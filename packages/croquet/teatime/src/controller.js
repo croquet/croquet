@@ -312,6 +312,15 @@ export default class Controller {
         if (DEBUG.snapshot) console.log(this.id, 'Controller scheduling snapshot via reflector');
     }
 
+    // island time has tripped over a multiple of the voting interval.  vote!
+    vote() {
+        if (true) return;
+        const message = new Message(this.island.time, 0, this.island.id, "voteResult", []);
+        this.sendVote(message);
+    }
+
+    async voteResult() { }
+
     // this is called from inside the simulation loop
     async scheduledSnapshot() {
         // bail out if backlog is too large (e.g. we're just starting up)
@@ -543,6 +552,14 @@ export default class Controller {
                 if (data.entered.some(elem => elem[1] === this.viewId) || this.island && this.island.users[this.viewId]) displayStatus(`users now ${this.users}`);
                 break;
             }
+            case "tally": {
+                // the message from the reflector will contain a tally, and an array containing the id, selector and topic that it was told to use
+                const { tally, tallyTarget } = msg[2];
+                let topic;
+                [ receiver, selector, topic ] = tallyTarget;
+                args = [ topic, tally ];
+                break;
+            }
             // no default
         }
         // convert to serialized state
@@ -751,6 +768,30 @@ export default class Controller {
         }));
     }
 
+    /** send a TUTTI Message
+     * @param {Message} msg
+    */
+    sendTutti(time, seq, payload, firstMessage, wantsVote, tallyTarget) {
+        // TUTTI: Send a message that multiple instances are expected to send identically.  The reflector will optionally broadcast the first received message immediately, then gather all messages up to a deadline and send a TALLY message summarising the results (whatever those results, if wantsVote is true; otherwise, only if there is some variation among them).
+        if (!this.socket) return;  // probably view sending event while connection is closing
+        if (this.socket.readyState !== WebSocket.OPEN) return;
+        if (this.viewOnly) return;
+        if (DEBUG.sends) console.log(this.id, `Controller sending TUTTI ${payload} ${firstMessage && firstMessage.asState()} ${tallyTarget}`);
+        this.lastSent = Date.now();
+        this.socket.send(JSON.stringify({
+            id: this.id,
+            action: 'TUTTI',
+            args: [time, seq, payload, firstMessage && firstMessage.asState(), wantsVote, tallyTarget],
+        }));
+    }
+
+    /** start a vote
+     * @param {Message} msg
+    */
+    sendVote(msg) {
+        // implement using this.sendTutti()
+    }
+
     addToStatistics(statSeq) {
         const {sent} = this.statistics;
         this.latency = Date.now() - sent[statSeq];
@@ -809,6 +850,7 @@ export default class Controller {
     simulate(deadline) {
         if (!this.island) return true;     // we are probably still sync-ing
         try {
+            const prevIslandTime = this.island.time;
             this.cpuTime -= Stats.begin("simulate");
             let weHaveTime = true;
             while (weHaveTime) {
@@ -832,6 +874,9 @@ export default class Controller {
                 this.island.publishFromView(this.viewId, "synced", this.synced);
             }
             if (weHaveTime && this.cpuTime > SNAPSHOT_EVERY) { this.cpuTime = 0; this.scheduleSnapshot(); }
+            const newIslandTime = this.island.time;
+            const VOTE_INTERVAL = 5000;
+            if (Math.floor(newIslandTime / VOTE_INTERVAL) > Math.floor(prevIslandTime / VOTE_INTERVAL)) this.vote();
             return weHaveTime;
         } catch (error) {
             displayAppError("simulate", error);
