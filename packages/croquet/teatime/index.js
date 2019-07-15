@@ -6,11 +6,10 @@ import { addConstantsHash } from "@croquet/util/modules";
 import Model from "./src/model";
 import View from "./src/view";
 import Controller from "./src/controller";
-import ObservableModel from "./src/observable";
 
-export { Model, View, Controller, ObservableModel };
+export { Model, View, Controller };
 export { currentRealm } from "./src/realms";
-export { QFunc } from "./src/island";
+export { QFunc, gatherInternalClassTypes } from "./src/island";
 
 //@typedef { import('./src/model').default } Model
 

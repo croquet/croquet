@@ -349,30 +349,6 @@ class Model {
         if (!this.id) throw Error(`${this} has no ID, did you call super.init(options)?`);
     }
 
-    /**
-     *
-     * public
-     */
-    publishPropertyChange(property) {
-        this.publish(this.id + "#" + property, "changed", null);
-    }
-
-    /**
-     *
-     * public
-     */
-    subscribeToPropertyChange(model, property, callback) {
-        this.subscribe(model.id + "#" + property, "changed", callback);
-    }
-
-    /**
-     *
-     * public
-     */
-    unsubscribeFromPropertyChange(model, property) {
-        this.unsubscribe(model.id + "#" + property, "changed");
-    }
-
     // Misc
 
     /**

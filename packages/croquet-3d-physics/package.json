@@ -1,0 +1,17 @@
+{
+  "name": "croquet-3d-physics",
+  "version": "0.1.0",
+  "description": "",
+  "main": "dist/index.js",
+  "types": "dist/types.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "prepublish": "tsc"
+  },
+  "author": "",
+  "dependencies": {
+    "oimo": "git+https://github.com/croquet/Oimo.js.git",
+    "croquet-observable": "0.1.0",
+    "croquet": "0.1.6"
+  }
+}

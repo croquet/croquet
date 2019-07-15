@@ -4,15 +4,21 @@
   "description": "",
   "main": "dist/croquet-react.min.js",
   "scripts": {
-    "build": "rollup -c"
+    "build": "rollup -c",
+    "prepublish": "npm run build"
   },
   "author": "",
-  "browserslist": [
-    "> 5%"
-  ],
-  "dependencies": {},
+  "dependencies": {
+    "croquet": "0.1.6",
+    "croquet-observable": "0.1.0"
+  },
+  "peerDependencies": {
+    "react": "^16.8.6"
+  },
   "devDependencies": {
-    "@croquet/react": "file:../../../libraries/croquet-react",
+    "@babel/core": "^7.5.4",
+    "@babel/plugin-transform-runtime": "^7.5.0",
+    "@babel/preset-env": "^7.5.4",
     "rollup": "^1.16.4",
     "rollup-plugin-babel": "^4.3.3",
     "rollup-plugin-license": "^0.9.0",

@@ -1,10 +1,46 @@
-import Model from './model';
+import { Model } from 'croquet';
+
+/**
+ * Create a new __observable__ model
+ * @param BaseClass
+ */
+export function Observable(BaseClass: typeof Model) {
+    return class extends BaseClass {
+        /**
+         *
+         * public
+         */
+        publishPropertyChange(property: string) {
+            this.publish(this.id + "#" + property, "changed", null);
+        }
+    };
+}
+
+export function Observing(BaseClass: typeof Model) {
+    return class extends BaseClass {
+        /**
+         *
+         * public
+         */
+        subscribeToPropertyChange(model: Model, property: string, callback: any) {
+            this.subscribe(model.id + "#" + property, "changed", callback);
+        }
+
+        /**
+         *
+         * public
+         */
+        unsubscribeFromPropertyChange(model: Model, property: string) {
+            this.unsubscribe(model.id + "#" + property, "changed");
+        }
+    };
+}
 
 const deepChangeProxyCache = new WeakMap();
 
 const MUTATING_METHODS = ["push", "pop", "splice", "unshift", "shift", "sort", "reverse", "copyWithin", "fill"];
 
-function mutatingMethodProxy(fn, onCalled) {
+function mutatingMethodProxy(fn: Function, onCalled: Function) {
     return new Proxy(fn, {
         apply(target, thisArg, argArray) {
             Reflect.apply(target, thisArg, argArray);
@@ -13,16 +49,16 @@ function mutatingMethodProxy(fn, onCalled) {
     });
 }
 
-function deepChangeProxy(object, onChangeAtAnyDepth) {
+function deepChangeProxy(object: any, onChangeAtAnyDepth: Function) {
     if (typeof object === "object" && object !== null) {
         if (deepChangeProxyCache.has(object)) {
             return deepChangeProxyCache.get(object);
         }
 
-        const proxy = new Proxy(object, {
+        const proxy: any = new Proxy(object, {
             get(target, prop, receiver) {
                 if (typeof target[prop] === "function") {
-                    if (MUTATING_METHODS.includes(prop)) {
+                    if (typeof prop == 'string' && MUTATING_METHODS.includes(prop)) {
                         return mutatingMethodProxy(target[prop], onChangeAtAnyDepth);
                     }
                 }
@@ -50,16 +86,12 @@ function deepChangeProxy(object, onChangeAtAnyDepth) {
     return object;
 }
 
-/**
- * @param {S} initialState
- * @returns {function(new:Model & S)}
- * @template S */
-export default function ObservableModel(initialState) {
+export function AutoObservableModel<S extends Object>(initialState: S): Model & S {
     const cls = class ObservableClass extends Model {
-        static create(options) {
+        static create(options: any) {
             const model = super.create(options);
             for (const [prop, initialValue] of Object.entries(initialState)) {
-                model[prop] = initialValue;
+                (model as any)[prop] = initialValue;
             }
             return model;
         }
@@ -80,5 +112,5 @@ export default function ObservableModel(initialState) {
         });
     }
 
-    return cls;
+    return cls as any as Model & S;
 }

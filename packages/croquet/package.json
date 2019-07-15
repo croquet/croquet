@@ -1,10 +1,12 @@
 {
   "name": "croquet",
-  "version": "0.1.3-mangle2",
+  "version": "0.1.6",
   "description": "",
   "main": "dist/croquet.min.js",
+  "types": "types.d.ts",
   "scripts": {
-    "build": "rollup -c"
+    "build": "rollup -c",
+    "prepublish": "npm run build"
   },
   "author": "",
   "dependencies": {
@@ -15,7 +17,9 @@
     "toastify-js": "^1.5.0"
   },
   "devDependencies": {
+    "@babel/core": "^7.5.4",
     "@babel/plugin-transform-runtime": "^7.5.0",
+    "@babel/preset-env": "^7.5.4",
     "@croquet/teatime": "file:../../../teatime",
     "rollup": "^1.16.4",
     "rollup-plugin-babel": "^4.3.3",
