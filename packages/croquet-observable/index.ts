@@ -1,11 +1,15 @@
 import { Model } from 'croquet';
 
+export interface ObservableModel {
+    publishPropertyChange(property: string): void;
+}
+
 /**
  * Create a new __observable__ model
  * @param BaseClass
  */
 export function Observable(BaseClass: typeof Model) {
-    return class extends BaseClass {
+    return class extends BaseClass implements ObservableModel {
         /**
          *
          * public
@@ -16,8 +20,13 @@ export function Observable(BaseClass: typeof Model) {
     };
 }
 
+export interface ModelObserving {
+    subscribeToPropertyChange(model: Model, property: string, callback: any): void;
+    unsubscribeFromPropertyChange(model: Model, property: string): void;
+}
+
 export function Observing(BaseClass: typeof Model) {
-    return class extends BaseClass {
+    return class extends BaseClass implements ModelObserving {
         /**
          *
          * public
@@ -86,8 +95,8 @@ function deepChangeProxy(object: any, onChangeAtAnyDepth: Function) {
     return object;
 }
 
-export function AutoObservableModel<S extends Object>(initialState: S): Model & S {
-    const cls = class ObservableClass extends Model {
+export function AutoObservableModel<S extends Object>(initialState: S): Model & ObservableModel & S {
+    const cls = class ObservableClass extends Observable(Model) {
         static create(options: any) {
             const model = super.create(options);
             for (const [prop, initialValue] of Object.entries(initialState)) {
@@ -112,5 +121,5 @@ export function AutoObservableModel<S extends Object>(initialState: S): Model & 
         });
     }
 
-    return cls as any as Model & S;
+    return cls as any as Model & ObservableModel & S;
 }
