@@ -1,6 +1,6 @@
 {
   "name": "croquet-3d-physics",
-  "version": "0.1.1-lerna.0",
+  "version": "0.1.1-lerna.1",
   "description": "",
   "main": "dist/index.js",
   "types": "dist/types.d.ts",
@@ -11,7 +11,7 @@
   "author": "",
   "dependencies": {
     "croquet": "^0.1.7-lerna.0",
-    "croquet-observable": "^0.1.1-lerna.0",
+    "croquet-observable": "^0.1.1-lerna.1",
     "oimo": "git+https://github.com/croquet/Oimo.js.git",
     "typescript": "^3.5.3"
   }
