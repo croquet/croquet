@@ -217,6 +217,7 @@ function stepSession(frameTime, controller, view) {
     controller.processModelViewEvents();
     Stats.end("update");
 
+    if (!view) return;
     Stats.begin("render");
     view.update(frameTime);
     Stats.end("render");
