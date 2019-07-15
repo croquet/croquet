@@ -205,22 +205,21 @@ function stepSession(frameTime, controller, view) {
     const {backlog, latency, starvation, activity} = controller;
     Stats.animationFrame(frameTime, {backlog, starvation, latency, activity, users: controller.users});
 
-    if (controller.island) {
-        const simStart = Date.now();
-        const simBudget = simLoad.reduce((a,b) => a + b, 0) / simLoad.length;
-        controller.simulate(simStart + Math.min(simBudget, MAX_SIMULATION_MS));
-        if (controller.backlog > balanceMS) controller.simulate(simStart + MAX_SIMULATION_MS - simBudget);
-        simLoad.push(Date.now() - simStart);
-        if (simLoad.length > loadBalance) simLoad.shift();
+    if (!controller.island) return;
+    const simStart = Date.now();
+    const simBudget = simLoad.reduce((a,b) => a + b, 0) / simLoad.length;
+    controller.simulate(simStart + Math.min(simBudget, MAX_SIMULATION_MS));
+    if (controller.backlog > balanceMS) controller.simulate(simStart + MAX_SIMULATION_MS - simBudget);
+    simLoad.push(Date.now() - simStart);
+    if (simLoad.length > loadBalance) simLoad.shift();
 
-        Stats.begin("update");
-        controller.processModelViewEvents();
-        Stats.end("update");
+    Stats.begin("update");
+    controller.processModelViewEvents();
+    Stats.end("update");
 
-        Stats.begin("render");
-        view.update(frameTime);
-        Stats.end("render");
-    }
+    Stats.begin("render");
+    view.update(frameTime);
+    Stats.end("render");
 }
 
 /**
