@@ -1,6 +1,6 @@
 import { Model } from 'croquet';
 
-export interface ObservableModel {
+export interface ObservableModel extends Model {
     publishPropertyChange(property: string): void;
 }
 
@@ -21,8 +21,8 @@ export function Observable(BaseClass: typeof Model) {
 }
 
 export interface ModelObserving {
-    subscribeToPropertyChange(model: Model, property: string, callback: any): void;
-    unsubscribeFromPropertyChange(model: Model, property: string): void;
+    subscribeToPropertyChange(model: ObservableModel, property: string, callback: any): void;
+    unsubscribeFromPropertyChange(model: ObservableModel, property: string): void;
 }
 
 export function Observing(BaseClass: typeof Model) {
@@ -31,7 +31,7 @@ export function Observing(BaseClass: typeof Model) {
          *
          * public
          */
-        subscribeToPropertyChange(model: Model, property: string, callback: any) {
+        subscribeToPropertyChange(model: ObservableModel, property: string, callback: any) {
             this.subscribe(model.id + "#" + property, "changed", callback);
         }
 
@@ -39,7 +39,7 @@ export function Observing(BaseClass: typeof Model) {
          *
          * public
          */
-        unsubscribeFromPropertyChange(model: Model, property: string) {
+        unsubscribeFromPropertyChange(model: ObservableModel, property: string) {
             this.unsubscribe(model.id + "#" + property, "changed");
         }
     };
@@ -95,7 +95,7 @@ function deepChangeProxy(object: any, onChangeAtAnyDepth: Function) {
     return object;
 }
 
-export function AutoObservableModel<S extends Object>(initialState: S): Model & ObservableModel & S {
+export function AutoObservableModel<S extends Object>(initialState: S): ObservableModel & S {
     const cls = class ObservableClass extends Observable(Model) {
         static create(options: any) {
             const model = super.create(options);
@@ -121,5 +121,5 @@ export function AutoObservableModel<S extends Object>(initialState: S): Model & 
         });
     }
 
-    return cls as any as Model & ObservableModel & S;
+    return cls as any as ObservableModel & S;
 }
