@@ -10,6 +10,7 @@ const MAX_MESSAGES = 10000;   // messages per island to retain since last snapsh
 const MAX_SNAPSHOT_MS = 5000; // time in ms before a snapshot is considered too "old" to serve
 const MIN_SCALE = 1 / 64;     // minimum ratio of island time to wallclock time
 const MAX_SCALE = 64;         // maximum ratio of island time to wallclock time
+const TALLY_INTERVAL = 1000;  // maximum time to wait to tally TUTTI contributions
 
 function LOG(...args) { console.log((new Date()).toISOString(), "Reflector:", ...args); }
 function WARN(...args) { console.warn((new Date()).toISOString(), "Reflector:", ...args); }
@@ -163,6 +164,7 @@ function JOIN(client, id, args) {
         pendingSnapshotTime: -1, // time of pending snapshot
         startTimeout: null,   // pending START request timeout (should send SNAP)
         tallies: {},
+        lastCompletedTally: null,
         // =========
 
         [Symbol.toPrimitive]: () => `${name} ${id}`,
@@ -325,6 +327,7 @@ function JOIN1(client, id, args) {
         startTimeout: null,   // pending START request timeout (should send SNAP)
         syncClients: [],     // clients waiting to SYNC
         tallies: {},
+        lastCompletedTally: null,
         [Symbol.toPrimitive]: () => `${name} ${id}`,
     };
     ALL_ISLANDS.set(id, island);
@@ -497,32 +500,42 @@ function SEND(client, id, messages) {
 /** handle a message that all clients are expected to be sending
  * @param {?Client} client - we received from this client
  * @param {ID} id - island ID
- * @param {[sendTime: Number, sendSeq: Number, payload: String, sendFirst: Bool, sendVote: Bool]} args
+ * @param {[sendTime: Number, sendSeq: Number, payload: String, firstMsg: Array, wantsVote: Boolean, tallyTarget: Array]} args
  */
 function TUTTI(client, id, args) {
-    console.log("============ TUTTI ============", id);
-
     const island = ALL_ISLANDS.get(id);
     if (!island) { if (client && client.readyState === WebSocket.OPEN) client.close(4000, "unknown island"); return; }
 
     const [ sendTime, sendSeq, payload, firstMsg, wantsVote, tallyTarget ] = args;
     const tallyHash = `${sendTime}:${sendSeq}`;
-    if (!island.tallies[tallyHash]) { // first client we've heard from
-        island.tallies[tallyHash] = {};
+
+    function tallyComplete() {
+        const tally = island.tallies[tallyHash];
+        clearTimeout(tally.timeout);
+        if (wantsVote || Object.keys(tally).length > 1) {
+            const payloads = { what: 'tally', tally: tally.payloads, tallyTarget };
+            const msg = [0, 0, payloads];
+            SEND(null, id, [msg]);
+        }
+        delete island.tallies[tallyHash];
+        island.lastCompletedTally = Math.max(sendSeq, island.lastCompletedTally);
+    }
+
+    if (!island.tallies[tallyHash]) { // either first client we've heard from, or one that's missed the party entirely
+        const lastComplete = island.lastCompletedTally;
+        if (lastComplete !== null && (sendSeq === lastComplete || after(sendSeq, lastComplete))) { console.log(`rejecting tally of ${sendSeq} cf completed ${island.lastCompletedTally}`); return; } // too late
+
         if (firstMsg) SEND(client, id, [firstMsg]);
-        setTimeout(() => {
-            const tally = island.tallies[tallyHash];
-            if (wantsVote || Object.keys(tally).length > 1) {
-                const tallyPayload = { what: 'tally', tally, tallyTarget };
-                const msg = [0, 0, tallyPayload];
-                SEND(null, id, [msg]);
-            }
-            delete island.tallies[tallyHash];
-            }, 1000);
+        island.tallies[tallyHash] = {
+            expecting: island.clients.size,
+            payloads: {},
+            timeout: setTimeout(tallyComplete, TALLY_INTERVAL)
+            };
     }
 
     const tally = island.tallies[tallyHash];
-    tally[payload] = (tally[payload] || 0) + 1;
+    tally.payloads[payload] = (tally.payloads[payload] || 0) + 1;
+    if (--tally.expecting === 0) tallyComplete();
 }
 
 // delay for the client to generate local ticks

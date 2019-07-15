@@ -386,6 +386,8 @@ export default class Island {
         // because making them async would mean having to use future messages
         if (CurrentIsland !== this) throw Error("Island Error");
         if (reflect) {
+            if (this.controller.synced !== true) { console.log(`rejecting TUTTI while synced=${this.controller.synced}`); return; }
+
             const voteTopic = topic+'#vote';
             const wantsVote = !!this.subscriptions[voteTopic], nonVoteSubs = !!this.subscriptions[topic];
             // iff there are nonVoteSubs, build the message that should be broadcast for the first arrival of the tutti
