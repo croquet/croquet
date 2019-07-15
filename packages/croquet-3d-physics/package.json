@@ -10,8 +10,9 @@
   },
   "author": "",
   "dependencies": {
-    "oimo": "git+https://github.com/croquet/Oimo.js.git",
+    "croquet": "0.1.6",
     "croquet-observable": "0.1.0",
-    "croquet": "0.1.6"
+    "oimo": "git+https://github.com/croquet/Oimo.js.git",
+    "typescript": "^3.5.3"
   }
 }
