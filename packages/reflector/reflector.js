@@ -7,7 +7,6 @@ const SERVE_TIMEOUT = 10000;  // time in ms to wait for SERVE
 const TICK_MS = 1000 / 5;     // default tick interval
 const ARTIFICAL_DELAY = 0;    // delay messages randomly by 50% to 150% of this
 const MAX_MESSAGES = 10000;   // messages per island to retain since last snapshot
-const MAX_SNAPSHOT_MS = 5000; // time in ms before a snapshot is considered too "old" to serve
 const MIN_SCALE = 1 / 64;     // minimum ratio of island time to wallclock time
 const MAX_SCALE = 64;         // maximum ratio of island time to wallclock time
 const TALLY_INTERVAL = 1000;  // maximum time to wait to tally TUTTI contributions
@@ -108,194 +107,17 @@ function getTime(island) {
     return island.time;
 }
 
-/** @returns {ID} A random 128 bit hex ID */
-function randomID() {
-    let id = '';
-    for (let i = 0; i < 4; i++) id += (Math.random() * 0x10000|0).toString(16).padStart(4, '0');
-    return id;
-}
-
-/** remove a random element, return it */
-function removeRandomElement(array) {
-    const index = Math.floor(Math.random() * array.length);
-    const element = array[index];
-    array.splice(index, 1);
-    return element;
-}
-
 /** A new island controller is joining
  * @param {Client} client - we received from this client
  * @param {ID} id - island ID
- * @param {number} time
+ * @param {{time: Number, name: String, version: Number, user: [name, id]}} args
  */
 function JOIN(client, id, args) {
-    if (typeof args === "number") args = {time: args};    // very old clients send just time
-    if (!args.version) args.version = 0;                  // clients before V1 send no version
-    if (args.version >= 1) { JOIN1(client, id, args); return; }
-    LOG('received', client.addr, 'JOIN', id, args);
-    const {time, name, user} = args;
-    if (user) client.addr += ` [${user}]`;
-    // create island data if this is the first client
-    const island = ALL_ISLANDS.get(id) || {
-        id,                  // the island id
-        name,                // the island name (might be null)
-        time,                // the current simulation time
-        seq: 0xFFFFFFF0,     // sequence number for messages with same time
-        scale: 1,            // ratio of island time to wallclock time
-        tick: TICK_MS,       // default tick rate
-        delay: 0,            // hold messages until this many ms after last tick
-        lag: 0,              // aggregate ms lag in tick requests
-        clients: new Set(),  // connected web sockets
-        providers: new Set(),// clients that are running
-        snapshot: null,      // a current snapshot or null
-        messages: [],        // messages since last snapshot
-        before: Date.now(),  // last getTime() call
-        lastTick: 0,         // time of last TICK sent
-        lastMsgTime: 0,      // time of last message reflected
-        ticker: null,        // interval for serving TICKs
-        serveTimeout: null,  // pending SERVE request timeout
-        syncClients: [],     // clients waiting to SYNC
-
-        // ========= forward compatibility (see JOIN1) =========
-        usersJoined: [],     // the users who joined since last report
-        usersLeft: [],       // the users who left since last report
-        snapshotTime: -1,    // time of last snapshot
-        snapshotUrl: '',     // url of last snapshot
-        pendingSnapshotTime: -1, // time of pending snapshot
-        startTimeout: null,   // pending START request timeout (should send SNAP)
-        tallies: {},
-        lastCompletedTally: null,
-        // =========
-
-        [Symbol.toPrimitive]: () => `${name} ${id}`,
-    };
-    ALL_ISLANDS.set(id, island);
-
-    // start broadcasting messages to client
-    island.clients.add(client);
-
-    // all other running clients can potentially provide a snapshot
-    const providers = Array.from(island.providers).filter(ea => ea.readyState === WebSocket.OPEN);
-
-    // if first client, start it
-    if (!providers.length) { START(); return; }
-
-    function START() {
-        // only older clients send a time on JOIN, newer ones explicitly request TICKS
-        if (time !== undefined) {
-            island.time = Math.ceil(time);
-            startTicker(island, 1000 / 20);
-        }
-        const msg = JSON.stringify({id, action: 'START'});
-        if (client.readyState === WebSocket.OPEN) {
-            client.safeSend(msg);
-            LOG('sending', client.addr, msg);
-            island.providers.add(client);
-        } else {
-            LOG('cannot send START to', client.addr);
-        }
-    }
-
-    function SYNC(syncClients, snapshot, firstMessage) {
-        const response = JSON.stringify({ id, action: 'SYNC', args: snapshot });
-        for (const syncClient of syncClients) {
-            if (syncClient.readyState === WebSocket.OPEN) {
-                syncClient.safeSend(response);
-                LOG('sending', syncClient.addr, 'SYNC', response.length, 'bytes, time:', snapshot.time);
-                island.providers.add(client);
-                const msg = JSON.stringify({ id, action: 'RECV', args: firstMessage });
-                if (firstMessage) syncClient.safeSend(msg);
-            } else {
-                LOG('cannot send SYNC to', syncClient.addr);
-            }
-        }
-        // synced all that were waiting
-        syncClients.length = 0;
-    }
-
-    // otherwise, we need to SYNC
-    island.syncClients.push(client);
-
-    // if we have a current snapshot, reply with that
-    // first message after snapshot is noop, so still good
-    if (island.snapshot && island.messages.length <= 1 && island.time - island.snapshot.time < MAX_SNAPSHOT_MS) {
-        SYNC(island.syncClients, island.snapshot, island.messages[0]);
-        return;
-    }
-    LOG(`>>> ${island.snapshot ? 'Have' : 'No'} snapshot, ${island.messages.length} messages${island.snapshot ? ' delta: ' + (island.time - island.snapshot.time) : ''}`);
-
-    // if SERVE request is already pending, return
-    if (island.syncClients.length > 1)  {
-        LOG(`adding ${client.addr} to sync wait list (now ${island.syncClients.length} waiting)`);
+    if (typeof args === "number" || !args.version) {
+        client.close(4100, "outdated protocol"); // in the range for errors that are unrecoverable
         return;
     }
 
-    // otherwise, send a new SERVE request
-    const reply = randomID();
-
-    // when reply comes in with the snapshot, send it back
-    replies[reply] = snapshot => {
-        LOG("received snapshot", id, snapshot.time);
-        delete replies[reply];
-        clearTimeout(island.serveTimeout);
-        island.snapshot = snapshot;
-        island.messages = [];
-        SYNC(island.syncClients, snapshot);
-    };
-
-    sendServeRequest("initial " + client.addr);
-
-    function sendServeRequest(debug) {
-        LOG(">>> sendServeRequest ", debug);
-
-        // send serve requests to all providers, waiting 200 ms inbetween
-        const provider = removeRandomElement(providers);
-        if (provider) {
-            if (provider.readyState !== WebSocket.OPEN) { sendServeRequest("provider closing " + provider.addr); return; }
-            const msg = JSON.stringify({ id, action: 'SERVE', args: reply });
-            LOG('sending', provider.addr, msg);
-            provider.safeSend(msg);
-            clearTimeout(island.serveTimeout);
-            island.serveTimeout = setTimeout(() => sendServeRequest("SERVE timeout from " + provider.addr), SERVE_TIMEOUT);
-            return;
-        }
-
-        // when no more providers left to try, START instead
-        LOG(">>> no providers left to SERVE");
-
-        // remove this client from the sync list. It should be the first one, and not started yet, right?
-        const firstToSync = island.syncClients.shift();
-        if (!firstToSync) return; // no client waiting
-        if (client !== firstToSync) { console.error('>>> sendServeRequest ERROR client not firstToSync'); }
-        client = firstToSync;
-        if (island.providers.has(client)) { console.error('>>> sendServeRequest ERROR client already started?'); }
-
-        // kill clients that did not respond to SERVE request
-        for (const unresponsive of island.providers) {
-            LOG(">>> killing unresponsive ", unresponsive.addr);
-            if (unresponsive.readyState === WebSocket.OPEN) unresponsive.close(4000, "client unresponsive");
-        }
-        island.providers.clear();
-        clearTimeout(island.serveTimeout);
-        // send this client a START - there can only be one
-        START();
-        // if there are still clients waiting to sync, request a SERVE from this one
-        if (island.syncClients.length) {
-            providers.push(client);
-            const list = island.syncClients.map(ea => ea.addr).join(' ');
-            sendServeRequest(`started ${client.addr} syncing ${list}`);
-        } else {
-            delete replies[reply];
-        }
-    }
-}
-
-/** A new island controller is joining
- * @param {Client} client - we received from this client
- * @param {ID} id - island ID
- * @param {{name: String, version: Number}} args
- */
-function JOIN1(client, id, args) {
     LOG('received', client.addr, 'JOIN', id, args);
     const {time, name, version, user} = args;
     if (user) {
@@ -339,15 +161,15 @@ function JOIN1(client, id, args) {
     island.syncClients.push(client);
 
     // if we have a current snapshot, reply with that
-    if (island.snapshotUrl) { SYNC1(island); return; }
+    if (island.snapshotUrl) { SYNC(island); return; }
 
     // if first client, start it
-    if (!island.startTimeout) { START1(); return; }
+    if (!island.startTimeout) { START(); return; }
 
     // otherwise, the first client has not started yet (not provided a snapshot via SNAP)
     console.log(`>>> client ${client.addr} waiting for snapshot`);
 
-    function START1() {
+    function START() {
         // find next client
         do {
             client = island.syncClients.shift();
@@ -361,14 +183,14 @@ function JOIN1(client, id, args) {
             island.startTimeout = null;
             // kill client
             LOG(">>> killing unresponsive ", client.addr);
-            if (client.readyState === WebSocket.OPEN) client.close(4000, "client unresponsive");
+            if (client.readyState === WebSocket.OPEN) client.close(4001, "client unresponsive");
             // start next client
-            START1();
+            START();
         }, SERVE_TIMEOUT);
     }
 }
 
-function SYNC1(island) {
+function SYNC(island) {
     const {snapshotUrl: url, messages} = island;
     const time = getTime(island);
     const response = JSON.stringify({ id: island.id, action: 'SYNC', args: {url, messages, time}});
@@ -462,7 +284,7 @@ function SNAP(client, id, args) {
     }
     // start waiting clients
     if (island.startTimeout) { clearTimeout(island.startTimeout); island.startTimeout = null; }
-    if (island.syncClients.length > 0) SYNC1(island);
+    if (island.syncClients.length > 0) SYNC(island);
 }
 
 /** reflect a message to all participants after time stamping it
