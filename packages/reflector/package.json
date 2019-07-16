@@ -13,7 +13,6 @@
     "start": "node reflector.js"
   },
   "dependencies": {
-    "broadcast-channel": "^2.1.12",
     "ws": "^6.2.1"
   },
   "devDependencies": {
