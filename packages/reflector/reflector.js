@@ -1,5 +1,9 @@
 // when running on node, 'ws' is the actual web socket module
 // when running in browser, 'ws' is our own './ws.js'
+// (in-browser mode is not supported right now)
+
+const os = require('os');
+const http = require('http');
 const WebSocket = require('ws');
 
 const port = 9090;
@@ -13,8 +17,17 @@ const MAX_SCALE = 64;         // maximum ratio of island time to wallclock time
 function LOG(...args) { console.log((new Date()).toISOString(), "Reflector:", ...args); }
 function WARN(...args) { console.warn((new Date()).toISOString(), "Reflector:", ...args); }
 
-const server = new WebSocket.Server({ port });
-LOG(`starting ${server.constructor.name} ws://localhost:${server.address().port}/`);
+const webServer = http.createServer( (req, res) => {
+    const body = `Reflector ${os.hostname()}`;
+    res.writeHead(200, {
+      'Content-Length': body.length,
+      'Content-Type': 'text/plain'
+    });
+    res.end(body);
+  });
+const server = new WebSocket.Server({ server: webServer });
+webServer.listen(port);
+LOG(`starting ${server.constructor.name} ws://${os.hostname()}:${server.address().port}/`);
 
 const STATS_TO_AVG = ["RECV", "SEND", "TICK", "IN", "OUT"];
 const STATS_TO_MAX = ["USERS", "BUFFER"];
