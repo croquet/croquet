@@ -21,5 +21,9 @@
     "eslint-config-airbnb-base": "^13.1.0",
     "eslint-import-resolver-parcel": "^1.8.4",
     "eslint-plugin-import": "^2.16.0"
+  },
+  "optionalDependencies": {
+    "bufferutil": "^4.0.1",
+    "utf-8-validate": "^5.0.2"
   }
 }
