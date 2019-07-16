@@ -17,8 +17,8 @@ function WARN(...args) { console.warn((new Date()).toISOString(), "Reflector:", 
 const server = new WebSocket.Server({ port });
 LOG(`starting ${server.constructor.name} ws://localhost:${server.address().port}/`);
 
-const STATS_TO_AVG = [ "RECV", "SEND", "TICK", "IN", "OUT" ];
-const STATS_TO_MAX = [ "USERS", "BUFFER" ];
+const STATS_TO_AVG = ["RECV", "SEND", "TICK", "IN", "OUT"];
+const STATS_TO_MAX = ["USERS", "BUFFER"];
 const STATS_KEYS = [...STATS_TO_MAX, ...STATS_TO_AVG];
 const STATS = {
     time: Date.now(),
@@ -51,7 +51,7 @@ function showStats() {
     LOG(out.join(', '));
     if (appendFile) {
         const line = `${(new Date(time)).toISOString().slice(0, 19)}Z ${STATS_KEYS.map(key => STATS[key]).join(' ')}\n`;
-        appendFile(fileName, line, _err => {});
+        appendFile(fileName, line, _err => { });
     }
     for (const key of STATS_KEYS) STATS[key] = 0;
 }
@@ -89,7 +89,7 @@ function getTime(island) {
         // tick requests usually come late; sometimes tens of ms late.  keep track of such overruns, and whenever there is a net lag inject a small addition to the delta (before scaling) to help the island catch up.
         const desiredTick = island.tick;
         let advance = delta; // default
-        if (delta > desiredTick/2) { // don't interfere with rapid-fire message-driven requests
+        if (delta > desiredTick / 2) { // don't interfere with rapid-fire message-driven requests
             const over = delta - desiredTick;
             if (over > 0) {
                 advance = desiredTick; // upper limit, subject to possible adjustment below
@@ -119,7 +119,7 @@ function JOIN(client, id, args) {
     }
 
     LOG('received', client.addr, 'JOIN', id, args);
-    const {time, name, version, user} = args;
+    const { time, name, version, user } = args;
     if (user) {
         client.addr += ` [${JSON.stringify(user)}]`;
         client.user = user;
@@ -175,7 +175,7 @@ function JOIN(client, id, args) {
             client = island.syncClients.shift();
             if (!client) return; // no client waiting
         } while (client.readyState !== WebSocket.OPEN);
-        const msg = JSON.stringify({id, action: 'START'});
+        const msg = JSON.stringify({ id, action: 'START' });
         client.safeSend(msg);
         LOG('sending', client.addr, msg);
         // if the client does not provide a snapshot in time, we need to start over
@@ -191,10 +191,10 @@ function JOIN(client, id, args) {
 }
 
 function SYNC(island) {
-    const {snapshotUrl: url, messages} = island;
+    const { snapshotUrl: url, messages } = island;
     const time = getTime(island);
-    const response = JSON.stringify({ id: island.id, action: 'SYNC', args: {url, messages, time}});
-    const range = !messages.length ? '' : ` (#${messages[0][1]}...${messages[messages.length-1][1]})`;
+    const response = JSON.stringify({ id: island.id, action: 'SYNC', args: { url, messages, time } });
+    const range = !messages.length ? '' : ` (#${messages[0][1]}...${messages[messages.length - 1][1]})`;
     for (const syncClient of island.syncClients) {
         if (syncClient.readyState === WebSocket.OPEN) {
             syncClient.safeSend(response);
@@ -247,7 +247,7 @@ function after(seqA, seqB) {
 function SNAP(client, id, args) {
     const island = ALL_ISLANDS.get(id);
     if (!island) { if (client.readyState === WebSocket.OPEN) client.close(4000, "unknown island"); return; }
-    const {time, seq, hash, url} = args;
+    const { time, seq, hash, url } = args;
     if (time <= island.snapshotTime) return;
     LOG(`${island} got snapshot ${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'}`);
     if (!url) {
@@ -255,13 +255,13 @@ function SNAP(client, id, args) {
         if (time <= island.pendingSnapshotTime) return;
         island.pendingSnapshotTime = time;
         // if no url, tell that client (the fastest one) to upload it
-        const serveMsg = JSON.stringify({ id, action: 'HASH', args: {...args, serve: true}});
+        const serveMsg = JSON.stringify({ id, action: 'HASH', args: { ...args, serve: true } });
         LOG('sending', client.addr, serveMsg);
         client.safeSend(serveMsg);
         // and tell everyone else the hash
         const others = [...island.clients].filter(each => each !== client);
         if (others.length > 0) {
-            const hashMsg = JSON.stringify({ id, action: 'HASH', args: {...args, serve: false}});
+            const hashMsg = JSON.stringify({ id, action: 'HASH', args: { ...args, serve: false } });
             LOG('sending to', others.length, 'other clients:', hashMsg);
             others.forEach(each => each.safeSend(hashMsg));
         }
@@ -275,10 +275,10 @@ function SNAP(client, id, args) {
         const msgs = island.messages;
         const keep = msgs.findIndex(msg => after(seq, msg[1]));
         if (keep > 0) {
-            LOG(`${island} forgetting messages #${msgs[0][1]>>>0} to #${msgs[keep - 1][1]>>>0} (keeping #${msgs[keep][1]>>>0})`);
+            LOG(`${island} forgetting messages #${msgs[0][1] >>> 0} to #${msgs[keep - 1][1] >>> 0} (keeping #${msgs[keep][1] >>> 0})`);
             msgs.splice(0, keep);
         } if (keep === -1) {
-            LOG(`${island} forgetting all messages (#${msgs[0][1]>>>0} to #${msgs[msgs.length - 1][1]>>>0})`);
+            LOG(`${island} forgetting all messages (#${msgs[0][1] >>> 0} to #${msgs[msgs.length - 1][1] >>> 0})`);
             msgs.length = 0;
         }
     }
@@ -383,7 +383,7 @@ function DELAYED_SEND(island) {
  * @param {IslandData} island
 */
 function USERS(island) {
-    const {id, clients, usersJoined, usersLeft} = island;
+    const { id, clients, usersJoined, usersLeft } = island;
     const active = [...clients].filter(each => each.active).length;
     const total = clients.size;
     const payload = { what: 'users', active, total };
@@ -405,7 +405,7 @@ function PONG(client, args) {
  * @param {IslandData} island
  */
 function TICK(island) {
-    const {id, usersJoined, usersLeft, lastMsgTime, tick, scale } = island;
+    const { id, usersJoined, usersLeft, lastMsgTime, tick, scale } = island;
     if (usersJoined.length + usersLeft.length > 0) { USERS(island); return; }
     const time = getTime(island);
     if (time - lastMsgTime < tick * scale) return;
@@ -426,7 +426,7 @@ function TICK(island) {
  * @param {*} args
  */
 function TICKS(client, id, args) {
-    const {time, seq, tick, delay, scale} = args;
+    const { time, seq, tick, delay, scale } = args;
     const island = ALL_ISLANDS.get(id);
     if (!island) { if (client.readyState === WebSocket.OPEN) client.close(4000, "unknown island"); return; }
     if (!island.time) {
@@ -477,7 +477,7 @@ function SESSION(client, hash, args) {
     const island = ALL_ISLANDS.get(currentSession(hash));
     const id = args.new ? newSession(hash) : currentSession(hash);
 
-    const response = JSON.stringify({ action: 'SESSION', args: {hash, id} });
+    const response = JSON.stringify({ action: 'SESSION', args: { hash, id } });
     LOG(`Session ${client.addr} for ${hash} is ${id}`);
     client.safeSend(response);
 
@@ -486,9 +486,9 @@ function SESSION(client, hash, args) {
 
 function deleteIsland(island) {
     const { id } = island;
-    const msg = JSON.stringify({id, action: 'LEAVE'});
+    const msg = JSON.stringify({ id, action: 'LEAVE' });
     for (const client of island.clients) {
-       client.safeSend(msg);
+        client.safeSend(msg);
     }
     stopTicker(island);
     ALL_ISLANDS.delete(id);
