@@ -19,5 +19,8 @@
   "devDependencies": {
     "@types/gl-matrix": "^2.4.5",
     "typescript": "^3.5.3"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

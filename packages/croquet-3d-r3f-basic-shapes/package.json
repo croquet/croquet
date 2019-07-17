@@ -17,5 +17,8 @@
     "@types/gl-matrix": "^2.4.5",
     "@types/react": "^16.8.23",
     "typescript": "^3.5.3"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
