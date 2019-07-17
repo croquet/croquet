@@ -6,7 +6,7 @@ import urlOptions from "@croquet/util/urlOptions";
 import { login, getUser } from "@croquet/util/user";
 import { displaySpinner, displayStatus, displayWarning, displayError, displayAppError } from "@croquet/util/html";
 import { baseUrl, CROQUET_HOST, hashNameAndCode, hashString, uploadCode } from "@croquet/util/modules";
-import { inViewRealm } from "./realms";
+import { inViewRealm, inModelRealm } from "./realms";
 import Island, { Message, inSequence } from "./island";
 
 
@@ -838,6 +838,11 @@ export default class Controller {
             Controller.closeConnectionWithError('simulate', error);
             return "error";
         }
+    }
+
+    /** execute something in the view realm */
+    inModelRealm(fn) {
+        return inModelRealm(this.island, () => fn(this.island));
     }
 
     /** execute something in the view realm */

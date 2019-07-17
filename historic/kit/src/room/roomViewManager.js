@@ -35,21 +35,23 @@ export default class RoomViewManager {
             }
         } else {
             const room = allRooms[roomName].namedModels.room;
-
-            allRooms[roomName].controller.inViewRealm(() => {
-                const roomView = new RoomView({
-                    room,
-                    activeParticipant: true,
-                    width: this.viewportWidth,
-                    height: this.viewportHeight,
-                    cameraPosition,
-                    cameraQuaternion,
-                    addElementManipulators,
-                    traversePortalToRoom,
-                });
-                this.activeRoomViews[roomName] = roomView;
-                console.log(`ROOMVIEWS active: [${Object.keys(this.activeRoomViews).join(', ')}], passive: [${Object.keys(this.passiveRoomViews).join(',')}]`);
-            });
+            const controller = allRooms[roomName].controller;
+            let roomView;
+            controller.inViewRealm(() => roomView = new RoomView());
+            this.activeRoomViews[roomName] = roomView;
+            console.log(`ROOMVIEWS active: [${Object.keys(this.activeRoomViews).join(', ')}], passive: [${Object.keys(this.passiveRoomViews).join(',')}]`);
+            const options = {
+                room,
+                activeParticipant: true,
+                width: this.viewportWidth,
+                height: this.viewportHeight,
+                cameraPosition,
+                cameraQuaternion,
+                addElementManipulators,
+                traversePortalToRoom,
+                };
+            controller.island.ael_exec(() => controller.inModelRealm(() => roomView.initModelAspects(options)));
+            controller.inViewRealm(() => roomView.initViewAspects(options));
         }
 
         // might return null in the future if roomViews are constructed asynchronously

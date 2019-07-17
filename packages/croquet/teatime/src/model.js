@@ -2,7 +2,7 @@ import hotreloadEventManger from "@croquet/util/hotreloadEventManager";
 import urlOptions from "@croquet/util/urlOptions";
 import { addClassHash } from "@croquet/util/modules";
 import { displayAppError } from "@croquet/util";
-import { currentRealm } from "./realms";
+import { inModelRealm, currentRealm } from "./realms";
 
 
 const DEBUG = {
@@ -87,6 +87,7 @@ class Model {
                 console.warn(`${model} did not call super.init(options)`);
             }
         }
+
         return model;
     }
 

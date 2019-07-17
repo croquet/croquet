@@ -117,6 +117,8 @@ export default class Island {
         });
     }
 
+    ael_exec(fn) { execOnIsland(this, fn); }
+
     registerModel(model, id) {
         if (CurrentIsland !== this) throw Error("Island Error");
         if (!id) id = this.id + "/M" + ++this.modelsId;
@@ -736,7 +738,11 @@ class IslandWriter {
 
     writeInto(state, key, value, path, defer=true) {
         if (key[0] === '$') { console.warn(`ignoring property ${path}`); return; }
-        if (defer && typeof value === "object") {
+
+        const isObject = typeof value === "object";
+        if (isObject && value._noSnapshot) { console.log("!"); return; }
+
+        if (defer && isObject) {
             this.todo.push({state, key, value, path});
             return;
         }
