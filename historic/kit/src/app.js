@@ -198,7 +198,7 @@ export default class App {
         const eventTimes = {};
         const throttle = event => {
             const now = Date.now();
-            if (now - eventTimes[event.type] < (1000 / 60)) return true;
+            if (now - eventTimes[event.type] < (1000 / 20)) return true;
             eventTimes[event.type] = now;
             return false;
         };

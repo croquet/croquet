@@ -87,6 +87,7 @@ class Model {
                 console.warn(`${model} did not call super.init(options)`);
             }
         }
+
         return model;
     }
 

@@ -6,7 +6,7 @@ import urlOptions from "@croquet/util/urlOptions";
 import { login, getUser } from "@croquet/util/user";
 import { displaySpinner, displayStatus, displayWarning, displayError, displayAppError } from "@croquet/util/html";
 import { baseUrl, CROQUET_HOST, hashNameAndCode, hashString, uploadCode } from "@croquet/util/modules";
-import { inViewRealm } from "./realms";
+import { inViewRealm, inModelRealm } from "./realms";
 import Island, { Message, inSequence } from "./island";
 
 
@@ -972,12 +972,14 @@ function socketSetup(socket, reflectorUrl) {
             console.log(socket.constructor.name, "error");
         },
         onclose: event => {
-            displayError('Connection closed:' + event.code + ' ' + event.reason);
+            // we reserve event codes from 4100 to mean an unrecoverable error
+            // e.g., 4100 is for out-of-date reflector protocol
+            const wantToRetry = event.code !== 1000 && event.code < 4100;
+            displayError(`Connection closed: ${event.code} ${event.reason}`, { duration: wantToRetry ? undefined : 3600000 }); // leave it there for 1 hour if unrecoverable
             if (DEBUG.session) console.log(socket.constructor.name, "closed:", event.code, event.reason);
             Stats.connected(false);
             Controller.leaveAll(true);
-            if (event.code !== 1000) {
-                // if abnormal close, try to connect again
+            if (wantToRetry) {
                 displayWarning('Reconnecting ...');
                 hotreloadEventManger.setTimeout(() => connectToReflector(reflectorUrl), 1000);
             }
