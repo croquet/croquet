@@ -104,6 +104,9 @@ export default class PointerViewPart extends ViewPart {
     }
 
     updatePointer(withTouch) {
+        if (this.lastProcessedMouse && this.lastProcessedMouse.x === this.mouse.x && this.lastProcessedMouse.y === this.mouse.y) return;
+        this.lastProcessedMouse = {...this.mouse};
+
         this.raycaster.setFromCamera(this.mouse, this.cameraPart.threeObj);
         if (this.draggedViewPart) {
             const newVerticalDragPoint = this.raycaster.ray.intersectPlane(this.draggingVerticalPlane, new THREE.Vector3()) || this.dragStartPoint;
