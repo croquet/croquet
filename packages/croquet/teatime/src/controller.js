@@ -841,11 +841,6 @@ export default class Controller {
     }
 
     /** execute something in the view realm */
-    inModelRealm(fn) {
-        return inModelRealm(this.island, () => fn(this.island));
-    }
-
-    /** execute something in the view realm */
     inViewRealm(fn) {
         return inViewRealm(this.island, () => fn(this.island));
     }

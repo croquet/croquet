@@ -2,7 +2,7 @@ import hotreloadEventManger from "@croquet/util/hotreloadEventManager";
 import urlOptions from "@croquet/util/urlOptions";
 import { addClassHash } from "@croquet/util/modules";
 import { displayAppError } from "@croquet/util";
-import { inModelRealm, currentRealm } from "./realms";
+import { currentRealm } from "./realms";
 
 
 const DEBUG = {
