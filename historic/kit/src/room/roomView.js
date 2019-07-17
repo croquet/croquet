@@ -26,15 +26,11 @@ console.warn(this);
             position: options.cameraPosition,
             quaternion: options.cameraQuaternion,
             });
-
-        this.parts.camera = new CameraViewPart({
+        this.parts.camera = new (Tracking({ source: this.cameraSpatial })(CameraViewPart))({
             width: options.width,
             height: options.height
             });
-        this.cameraSpatial.threeObj.add(this.parts.camera.threeObj);
         this.parts.roomScene = new RoomScene({ room: options.room });
-        this.parts.roomScene.threeObj.add(this.cameraSpatial.threeObj);
-
         this.parts.elementViewManager = new ElementViewManager({
             room: options.room,
             scenePart: this.parts.roomScene,
@@ -123,22 +119,17 @@ class RoomScene extends ViewPart {
     }
 }
 
-// @@ temporary hack: a spatial VIEW part - including an actual THREE.Object3D - that
+// @@ temporary hack: a spatial VIEW part that
 // publishes events (like SpatialPart) when moved
 class SpatialViewPart extends ViewPart {
     constructor(options) {
         super();
-        this.threeObj = new THREE.Object3D();
-        this.position = this.threeObj.position;
-        this.scale = this.threeObj.scale;
-        this.quaternion = this.threeObj.quaternion;
-
         /** @type {THREE.Vector3} */
-        this.position.copy(options.position || new THREE.Vector3(0, 0, 0));
+        this.position = options.position || new THREE.Vector3(0, 0, 0);
         /** @type {THREE.Vector3} */
-        this.scale.copy(options.scale || new THREE.Vector3(1, 1, 1));
+        this.scale = options.scale || new THREE.Vector3(1, 1, 1);
         /** @type {THREE.Quaternion} */
-        this.quaternion.copy(options.quaternion || new THREE.Quaternion());
+        this.quaternion = options.quaternion || new THREE.Quaternion();
     }
 
     /** @arg {THREE.Vector3} position */
