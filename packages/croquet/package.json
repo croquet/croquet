@@ -1,5 +1,5 @@
 {
-  "name": "croquet",
+  "name": "@croquet/croquet",
   "version": "0.1.7-lerna.1",
   "description": "",
   "main": "dist/croquet.min.js",

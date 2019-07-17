@@ -1,4 +1,4 @@
-import { Model, View, PubSubParticipant } from 'croquet';
+import { Model, View, PubSubParticipant } from '@croquet/croquet';
 
 export interface ObservableModel extends Model {
     publishPropertyChange(property: string): void;

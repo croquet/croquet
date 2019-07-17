@@ -1,4 +1,4 @@
-declare module "croquet" {
+declare module "@croquet/croquet" {
     export abstract class PubSubParticipant {
         publish(scope: string, event: string, data: any): void;
         subscribe(scope: string, event: string, methodName: string | ((e: any) => void)): void;

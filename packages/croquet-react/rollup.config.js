@@ -8,7 +8,7 @@ export default {
         file: 'dist/croquet-react.min.js',
         format: 'cjs'
     },
-    external: ['react', 'croquet', 'croquet-observable'],
+    external: ['react', '@croquet/croquet', '@croquet/observable'],
     plugins: [
         resolve({only: [/^@croquet/]}),
         babel({

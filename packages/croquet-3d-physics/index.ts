@@ -1,7 +1,7 @@
 import * as OIMO from 'oimo';
 import { vec3, quat } from 'gl-matrix';
-import { gatherInternalClassTypes, Model } from 'croquet';
-import { Observable, Observing } from 'croquet-observable';
+import { gatherInternalClassTypes, Model } from '@croquet/croquet';
+import { Observable, Observing } from '@croquet/observable';
 import quatToEuler from 'quaternion-to-euler';
 
 export class PhysicsWorld extends Observable(Model) {
