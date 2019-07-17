@@ -9,7 +9,7 @@ import arrowsAlt from "../../assets/arrows-alt.svg";
 import arrowsAltRot from "../../assets/arrows-alt-rot.svg";
 import SVGIcon from "../util/svgIcon";
 import Tracking, { Facing } from "../viewParts/tracking";
-import SpatialPart from "../modelParts/spatial";
+import SpatialPart, { SpatialEvents } from "../modelParts/spatial";
 import Inertial from "../modelParts/inertial";
 import { PortalTraversing, PortalEvents, PortalTopicPrefix } from "../modelParts/portal";
 import { KeyboardViewPart } from "../viewParts/keyboard";
@@ -22,34 +22,25 @@ export default class RoomView extends ViewPart {
         super();
 console.warn(this);
 
-    }
+        this.cameraSpatial = new RoomCameraMount({
+            position: options.cameraPosition,
+            quaternion: options.cameraQuaternion,
+            });
 
-    initModelAspects(options) {
-        const camSpat = this.cameraSpatial = Inertial()(PortalTraversing({roomId: options.room.id})(SpatialPart)).create({
-                position: options.cameraPosition,
-                quaternion: options.cameraQuaternion,
-                dampening: 0.05
-                }
-            );
-        camSpat._noSnapshot = true;
-        camSpat.subscribe(camSpat.id, "moveTo", data => this.moveTo(data));
-        camSpat.subscribe(camSpat.id, "moveBy", data => this.moveBy(data));
-        camSpat.subscribe(camSpat.id, "rotateTo", data => this.rotateTo(data));
-    }
-
-    initViewAspects(options) {
-        this.parts.camera = new (Tracking({ source: this.cameraSpatial })(CameraViewPart))({
+        this.parts.camera = new CameraViewPart({
             width: options.width,
             height: options.height
-        });
-
+            });
+        this.cameraSpatial.threeObj.add(this.parts.camera.threeObj);
         this.parts.roomScene = new RoomScene({ room: options.room });
+        this.parts.roomScene.threeObj.add(this.cameraSpatial.threeObj);
+
         this.parts.elementViewManager = new ElementViewManager({
             room: options.room,
             scenePart: this.parts.roomScene,
             cameraSpatial: this.cameraSpatial,
             addElementManipulators: options.room.addElementManipulators !== false && options.addElementManipulators !== false
-        });
+            });
 
         if (options.activeParticipant) {
             this.parts.pointer = new PointerViewPart({ room: options.room, cameraPart: this.parts.camera, scenePart: this.parts.roomScene });
@@ -87,7 +78,8 @@ console.warn(this);
             window.requestAnimationFrame(() => {
                 // take a step back in this room for when we come back
                 const stepBack = new THREE.Vector3(0, 0, 2).applyQuaternion(this.cameraSpatial.quaternion);
-                this.cameraSpatial.moveByNoPortalTraverse(stepBack, false);
+                //this.cameraSpatial.moveByNoPortalTraverse(stepBack, false);
+                this.cameraSpatial.moveBy(stepBack, false);
             });
         }
     }
@@ -130,6 +122,70 @@ class RoomScene extends ViewPart {
         this.skydome.material.color = new THREE.Color(newColor);
     }
 }
+
+// @@ temporary hack: a spatial VIEW part - including an actual THREE.Object3D - that
+// publishes events (like SpatialPart) when moved
+class SpatialViewPart extends ViewPart {
+    constructor(options) {
+        super();
+        this.threeObj = new THREE.Object3D();
+        this.position = this.threeObj.position;
+        this.scale = this.threeObj.scale;
+        this.quaternion = this.threeObj.quaternion;
+
+        /** @type {THREE.Vector3} */
+        this.position.copy(options.position || new THREE.Vector3(0, 0, 0));
+        /** @type {THREE.Vector3} */
+        this.scale.copy(options.scale || new THREE.Vector3(1, 1, 1));
+        /** @type {THREE.Quaternion} */
+        this.quaternion.copy(options.quaternion || new THREE.Quaternion());
+    }
+
+    /** @arg {THREE.Vector3} position */
+    moveTo(position) {
+        if (this.position.equals(position)) return;
+        this.position.copy(position);
+        this.publish(this.id, SpatialEvents.moved, this.position.clone());
+    }
+
+    /** @arg {THREE.Vector3} delta */
+    moveBy(delta) {
+        if ((delta.x === 0) && (delta.y === 0) && (delta.z === 0)) return;
+        this.position.add(delta);
+        this.publish(this.id, SpatialEvents.moved, this.position.clone());
+    }
+
+    /** @arg {THREE.Vector3} position */
+    scaleTo(scale) {
+        if (this.scale.equals(scale)) return;
+        this.scale.copy(scale);
+        this.publish(this.id, SpatialEvents.scaled, this.scale.clone());
+    }
+
+    /** @arg {THREE.Vector3} delta */
+    scaleBy(factor) {
+        if ((factor.x === 1) && (factor.y === 1) && (factor.z === 1)) return;
+        this.scale.multiply(factor);
+        this.publish(this.id, SpatialEvents.scaled, this.scale.clone());
+    }
+
+    rotateTo(quaternion) {
+        if (this.quaternion.equals(quaternion)) return;
+        this.quaternion.copy(quaternion);
+        this.publish(this.id, SpatialEvents.rotated, this.quaternion.clone());
+    }
+
+    rotateBy(delta) {
+        if ((delta.x === 0) && (delta.y === 0) && (delta.z === 0)) return;
+        this.quaternion.multiply(delta);
+        // quaternions apparently need to be normalized after
+        // accrued multiplications or they get out of hand.
+        this.quaternion.normalize();
+        this.publish(this.id, SpatialEvents.rotated, this.quaternion.clone());
+    }
+}
+
+const RoomCameraMount = SpatialViewPart;
 
 class InteractionDome extends ViewPart {
     constructor(options) {
@@ -296,14 +352,16 @@ class TreadmillNavigation extends ViewPart {
 
     onDragTreadmill({dragStart, dragEndOnHorizontalPlane, dragStartThreeObj}) {
         if (dragStartThreeObj === this.treadmillForwardStrip) {
-            this.publish(this.affects.id, "moveTo", this.threeObj.position.clone().sub(dragEndOnHorizontalPlane.clone().sub(dragStart)));
+            //this.affects.future().moveTo(this.threeObj.position.clone().sub(dragEndOnHorizontalPlane.clone().sub(dragStart)));
+            this.affects.moveTo(this.threeObj.position.clone().sub(dragEndOnHorizontalPlane.clone().sub(dragStart)));
             this.moveCursor.position.copy(this.threeObj.worldToLocal(dragEndOnHorizontalPlane.clone()));
         } else {
             const delta = (new THREE.Quaternion()).setFromUnitVectors(
                 dragEndOnHorizontalPlane.clone().sub(this.threeObj.position.clone().setY(dragStart.y)).normalize(),
                 dragStart.clone().sub(this.threeObj.position.clone().setY(dragStart.y)).normalize()
             );
-            this.publish(this.affects.id, "rotateTo", this.threeObj.quaternion.clone().multiply(delta));
+            //this.affects.future().rotateTo(this.threeObj.quaternion.clone().multiply(delta));
+            this.affects.rotateTo(this.threeObj.quaternion.clone().multiply(delta));
             this.rotateCursor.position.copy(this.threeObj.worldToLocal(dragEndOnHorizontalPlane.clone()));
             const deltaCursor = (new THREE.Quaternion()).setFromUnitVectors(
                 this.threeObj.getWorldDirection(new THREE.Vector3()),
@@ -316,6 +374,7 @@ class TreadmillNavigation extends ViewPart {
     // TODO: this and its callsite is very ad-hoc
     onWheel(event) {
         const multiplier = 0.01;
-        this.publish(this.affects.id, "moveBy", new THREE.Vector3(event.deltaX * multiplier, 0, event.deltaY * multiplier).applyQuaternion(this.threeObj.quaternion));
+        //this.affects.future().moveBy(new THREE.Vector3(event.deltaX * multiplier, 0, event.deltaY * multiplier).applyQuaternion(this.threeObj.quaternion), false);
+        this.affects.moveBy(new THREE.Vector3(event.deltaX * multiplier, 0, event.deltaY * multiplier).applyQuaternion(this.threeObj.quaternion));
     }
 }

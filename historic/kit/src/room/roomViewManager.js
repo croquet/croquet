@@ -22,7 +22,8 @@ export default class RoomViewManager {
 
     moveCamera(roomName, cameraPosition, cameraQuaternion, cameraVelocity) {
         const cameraSpatialPart = this.activeRoomViews[roomName].cameraSpatial;
-        cameraSpatialPart.moveToNoPortalTraverse(cameraPosition, false);
+        //cameraSpatialPart.moveToNoPortalTraverse(cameraPosition, false);
+        cameraSpatialPart.moveTo(cameraPosition, false);
         cameraSpatialPart.rotateTo(cameraQuaternion, false);
         cameraSpatialPart.stop();
         if (cameraVelocity) cameraSpatialPart.setVelocity(cameraVelocity);
@@ -36,10 +37,6 @@ export default class RoomViewManager {
         } else {
             const room = allRooms[roomName].namedModels.room;
             const controller = allRooms[roomName].controller;
-            let roomView;
-            controller.inViewRealm(() => roomView = new RoomView());
-            this.activeRoomViews[roomName] = roomView;
-            console.log(`ROOMVIEWS active: [${Object.keys(this.activeRoomViews).join(', ')}], passive: [${Object.keys(this.passiveRoomViews).join(',')}]`);
             const options = {
                 room,
                 activeParticipant: true,
@@ -49,9 +46,11 @@ export default class RoomViewManager {
                 cameraQuaternion,
                 addElementManipulators,
                 traversePortalToRoom,
-                };
-            controller.island.ael_exec(() => controller.inModelRealm(() => roomView.initModelAspects(options)));
-            controller.inViewRealm(() => roomView.initViewAspects(options));
+            };
+            let roomView;
+            controller.inViewRealm(() => roomView = new RoomView(options));
+            this.activeRoomViews[roomName] = roomView;
+            console.log(`ROOMVIEWS active: [${Object.keys(this.activeRoomViews).join(', ')}], passive: [${Object.keys(this.passiveRoomViews).join(',')}]`);
         }
 
         // might return null in the future if roomViews are constructed asynchronously
@@ -90,18 +89,18 @@ export default class RoomViewManager {
                 return null;
             }
             const room = allRooms[roomName].namedModels.room;
-
-            allRooms[roomName].controller.inViewRealm(() => {
-                const roomView = new RoomView({
-                    room,
-                    activeParticipant: false,
-                    width: this.viewportWidth,
-                    height: this.viewportHeight,
-                    cameraPosition: initialCameraPosition
-                });
-                this.passiveRoomViews[roomName] = roomView;
-                console.log(`ROOMVIEWS active: [${Object.keys(this.activeRoomViews).join(', ')}], passive: [${Object.keys(this.passiveRoomViews).join(',')}]`);
-            });
+            const controller = allRooms[roomName].controller;
+            const options = {
+                room,
+                activeParticipant: false,
+                width: this.viewportWidth,
+                height: this.viewportHeight,
+                cameraPosition: initialCameraPosition
+                };
+            let roomView;
+            controller.inViewRealm(() => roomView = new RoomView(options));
+            this.passiveRoomViews[roomName] = roomView;
+            console.log(`ROOMVIEWS active: [${Object.keys(this.activeRoomViews).join(', ')}], passive: [${Object.keys(this.passiveRoomViews).join(',')}]`);
         }
 
         return this.passiveRoomViews[roomName];
