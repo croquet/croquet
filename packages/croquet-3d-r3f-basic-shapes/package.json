@@ -1,0 +1,21 @@
+{
+  "name": "croquet-3d-r3f-basic-shapes",
+  "version": "0.1.0",
+  "main": "dist/index.js",
+  "types": "dist/types.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "prepublish": "tsc"
+  },
+  "dependencies": {
+    "gl-matrix": "^3.0.0",
+    "react": "^16.8.6",
+    "react-three-fiber": "^2.2.12",
+    "three": "^0.106.2"
+  },
+  "devDependencies": {
+    "@types/gl-matrix": "^2.4.5",
+    "@types/react": "^16.8.23",
+    "typescript": "^3.5.3"
+  }
+}

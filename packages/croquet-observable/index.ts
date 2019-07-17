@@ -1,4 +1,4 @@
-import { Model } from 'croquet';
+import { Model, View, PubSubParticipant } from 'croquet';
 
 export interface ObservableModel extends Model {
     publishPropertyChange(property: string): void;
@@ -25,7 +25,10 @@ export interface ModelObserving {
     unsubscribeFromPropertyChange(model: ObservableModel, property: string): void;
 }
 
-export function Observing(BaseClass: typeof Model) {
+
+export function Observing<M extends Model>(BaseClass: new (...args: any[]) => M): new (...args: any[]) => (M & ModelObserving);
+export function Observing<V extends Model>(BaseClass: new (...args: any[]) => V): new (...args: any[]) => (V & ModelObserving);
+export function Observing(BaseClass: new (...args: any[]) => PubSubParticipant): new (...args: any[]) => (PubSubParticipant & ModelObserving) {
     return class extends BaseClass implements ModelObserving {
         /**
          *
@@ -44,6 +47,8 @@ export function Observing(BaseClass: typeof Model) {
         }
     };
 }
+
+
 
 const deepChangeProxyCache = new WeakMap();
 
