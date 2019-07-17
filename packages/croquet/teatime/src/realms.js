@@ -96,7 +96,7 @@ class ViewRealm {
         viewDomain.removeAllSubscriptionsFor(viewId);
     }
 
-    futureProxy(tOffset, view) {
+    future(view, tOffset) {
         if (!tOffset) {
             return view;
         }

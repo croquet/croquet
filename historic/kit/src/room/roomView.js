@@ -9,7 +9,7 @@ import arrowsAlt from "../../assets/arrows-alt.svg";
 import arrowsAltRot from "../../assets/arrows-alt-rot.svg";
 import SVGIcon from "../util/svgIcon";
 import Tracking, { Facing } from "../viewParts/tracking";
-import SpatialPart, { SpatialEvents } from "../modelParts/spatial";
+import SpatialPart from "../modelParts/spatial";
 import Inertial from "../modelParts/inertial";
 import { PortalTraversing, PortalEvents, PortalTopicPrefix } from "../modelParts/portal";
 import { KeyboardViewPart } from "../viewParts/keyboard";
@@ -21,35 +21,40 @@ export default class RoomView extends ViewPart {
     constructor(options) {
         super();
 console.warn(this);
-
-        this.cameraSpatial = new RoomCameraMount({
+        // NB: cameraSpatial is a ModelPart, but - because it's initialised here, in
+        // viewRealm execution state - subscribes and publishes as if it's a view, and
+        // doesn't get included in a snapshot.
+        // ael - disabled Inertial, which doesn't get along well with dragging.
+        this.cameraSpatial = /*Inertial()*/(PortalTraversing({roomId: options.room.id})(SpatialPart)).create({
             position: options.cameraPosition,
             quaternion: options.cameraQuaternion,
+            //dampening: 0.05
             });
-        this.parts.camera = new (Tracking({ source: this.cameraSpatial })(CameraViewPart))({
+
+        this.parts.camera = new (Tracking({source: this.cameraSpatial})(CameraViewPart))({
             width: options.width,
             height: options.height
-            });
-        this.parts.roomScene = new RoomScene({ room: options.room });
+        });
+
+        this.parts.roomScene = new RoomScene({room: options.room});
         this.parts.elementViewManager = new ElementViewManager({
             room: options.room,
             scenePart: this.parts.roomScene,
             cameraSpatial: this.cameraSpatial,
-            addElementManipulators: options.room.addElementManipulators !== false && options.addElementManipulators !== false
-            });
+            addElementManipulators: options.room.addElementManipulators!==false && options.addElementManipulators!==false});
 
         if (options.activeParticipant) {
-            this.parts.pointer = new PointerViewPart({ room: options.room, cameraPart: this.parts.camera, scenePart: this.parts.roomScene });
+            this.parts.pointer = new PointerViewPart({room: options.room, cameraPart: this.parts.camera, scenePart: this.parts.roomScene});
             if (!urlOptions.ar) {
                 this.parts.keyboard = new KeyboardViewPart();
                 if (!options.room.noNavigation) {
-                    this.parts.treadmill = new (Tracking({ source: this.cameraSpatial })(TreadmillNavigation))({
+                    this.parts.treadmill = new (Tracking({source: this.cameraSpatial})(TreadmillNavigation))({
                         affects: this.cameraSpatial,
                         scenePart: this.parts.roomScene,
                         cameraPart: this.parts.camera,
                     });
                 }
-                this.parts.interactionDome = new (Tracking({ source: this.cameraSpatial })(InteractionDome))({
+                this.parts.interactionDome = new (Tracking({source: this.cameraSpatial})(InteractionDome))({
                     cameraSpatial: this.cameraSpatial,
                     scenePart: this.parts.roomScene,
                     changeColor: color => options.room.parts.color.future().setColor(color),
@@ -74,8 +79,7 @@ console.warn(this);
             window.requestAnimationFrame(() => {
                 // take a step back in this room for when we come back
                 const stepBack = new THREE.Vector3(0, 0, 2).applyQuaternion(this.cameraSpatial.quaternion);
-                //this.cameraSpatial.moveByNoPortalTraverse(stepBack, false);
-                this.cameraSpatial.moveBy(stepBack, false);
+                this.cameraSpatial.moveByNoPortalTraverse(stepBack, false);
             });
         }
     }
@@ -118,65 +122,6 @@ class RoomScene extends ViewPart {
         this.skydome.material.color = new THREE.Color(newColor);
     }
 }
-
-// @@ temporary hack: a spatial VIEW part that
-// publishes events (like SpatialPart) when moved
-class SpatialViewPart extends ViewPart {
-    constructor(options) {
-        super();
-        /** @type {THREE.Vector3} */
-        this.position = options.position || new THREE.Vector3(0, 0, 0);
-        /** @type {THREE.Vector3} */
-        this.scale = options.scale || new THREE.Vector3(1, 1, 1);
-        /** @type {THREE.Quaternion} */
-        this.quaternion = options.quaternion || new THREE.Quaternion();
-    }
-
-    /** @arg {THREE.Vector3} position */
-    moveTo(position) {
-        if (this.position.equals(position)) return;
-        this.position.copy(position);
-        this.publish(this.id, SpatialEvents.moved, this.position.clone());
-    }
-
-    /** @arg {THREE.Vector3} delta */
-    moveBy(delta) {
-        if ((delta.x === 0) && (delta.y === 0) && (delta.z === 0)) return;
-        this.position.add(delta);
-        this.publish(this.id, SpatialEvents.moved, this.position.clone());
-    }
-
-    /** @arg {THREE.Vector3} position */
-    scaleTo(scale) {
-        if (this.scale.equals(scale)) return;
-        this.scale.copy(scale);
-        this.publish(this.id, SpatialEvents.scaled, this.scale.clone());
-    }
-
-    /** @arg {THREE.Vector3} delta */
-    scaleBy(factor) {
-        if ((factor.x === 1) && (factor.y === 1) && (factor.z === 1)) return;
-        this.scale.multiply(factor);
-        this.publish(this.id, SpatialEvents.scaled, this.scale.clone());
-    }
-
-    rotateTo(quaternion) {
-        if (this.quaternion.equals(quaternion)) return;
-        this.quaternion.copy(quaternion);
-        this.publish(this.id, SpatialEvents.rotated, this.quaternion.clone());
-    }
-
-    rotateBy(delta) {
-        if ((delta.x === 0) && (delta.y === 0) && (delta.z === 0)) return;
-        this.quaternion.multiply(delta);
-        // quaternions apparently need to be normalized after
-        // accrued multiplications or they get out of hand.
-        this.quaternion.normalize();
-        this.publish(this.id, SpatialEvents.rotated, this.quaternion.clone());
-    }
-}
-
-const RoomCameraMount = SpatialViewPart;
 
 class InteractionDome extends ViewPart {
     constructor(options) {
@@ -343,7 +288,6 @@ class TreadmillNavigation extends ViewPart {
 
     onDragTreadmill({dragStart, dragEndOnHorizontalPlane, dragStartThreeObj}) {
         if (dragStartThreeObj === this.treadmillForwardStrip) {
-            //this.affects.future().moveTo(this.threeObj.position.clone().sub(dragEndOnHorizontalPlane.clone().sub(dragStart)));
             this.affects.moveTo(this.threeObj.position.clone().sub(dragEndOnHorizontalPlane.clone().sub(dragStart)));
             this.moveCursor.position.copy(this.threeObj.worldToLocal(dragEndOnHorizontalPlane.clone()));
         } else {
@@ -351,7 +295,6 @@ class TreadmillNavigation extends ViewPart {
                 dragEndOnHorizontalPlane.clone().sub(this.threeObj.position.clone().setY(dragStart.y)).normalize(),
                 dragStart.clone().sub(this.threeObj.position.clone().setY(dragStart.y)).normalize()
             );
-            //this.affects.future().rotateTo(this.threeObj.quaternion.clone().multiply(delta));
             this.affects.rotateTo(this.threeObj.quaternion.clone().multiply(delta));
             this.rotateCursor.position.copy(this.threeObj.worldToLocal(dragEndOnHorizontalPlane.clone()));
             const deltaCursor = (new THREE.Quaternion()).setFromUnitVectors(
@@ -365,7 +308,6 @@ class TreadmillNavigation extends ViewPart {
     // TODO: this and its callsite is very ad-hoc
     onWheel(event) {
         const multiplier = 0.01;
-        //this.affects.future().moveBy(new THREE.Vector3(event.deltaX * multiplier, 0, event.deltaY * multiplier).applyQuaternion(this.threeObj.quaternion), false);
-        this.affects.moveBy(new THREE.Vector3(event.deltaX * multiplier, 0, event.deltaY * multiplier).applyQuaternion(this.threeObj.quaternion));
+        this.affects.moveBy(new THREE.Vector3(event.deltaX * multiplier, 0, event.deltaY * multiplier).applyQuaternion(this.threeObj.quaternion), false);
     }
 }
