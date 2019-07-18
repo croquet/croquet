@@ -208,7 +208,6 @@ let lastStep = null;
 function startSleepChecker() {
     // simple mechanism for disconnecting from the reflector after a tab has been hidden for a while
     const SLEEP_TIME = urlOptions.autoSleep === false ? Infinity : 10000;
-    console.log(urlOptions, {SLEEP_TIME});
     setInterval(() => {
         if (lastStep && Date.now() - lastStep > SLEEP_TIME) {
             Controller.dormantDisconnect();

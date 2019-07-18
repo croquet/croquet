@@ -120,7 +120,10 @@ export default class Controller {
     }
 
     static dormantDisconnect() {
-        if (TheSocket) TheSocket.close(4110, 'Going dormant');
+        if (TheSocket) {
+            console.log("Dormant; disconnecting from reflector");
+            TheSocket.close(4110, 'Going dormant');
+        }
     }
 
     static closeConnectionWithError(caller, error) {

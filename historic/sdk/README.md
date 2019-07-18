@@ -156,6 +156,7 @@ Calls to `Math.random()` within the view will behave normally. Different instanc
 
 | date       | item
 |------------|---
+| 2019-07-18 | **release 0.1.6** (bug fixes; documentation updates)
 | 2019-07-10 | **release 0.1.5** (bug fixes)
 | 2019-07-09 | **release 0.1.4** (bug fixes)
 | 2019-07-09 | tutorial fleshed out: {@tutorial 1_5_3d_animation}
