@@ -84,7 +84,7 @@ class MyView extends Croquet.View {
     }
 }
 ```
-This illustrates an important feature of _Croquet_: **The view can read directly from the model at any time.** The view doesn't need to receive an events from the model to update itself. It can just pull whatever data it needs directly from the model whenever it wants.  (Of course, the view shouldn't _write_ directly to the model, because that would break synchronization.)
+This illustrates an important feature of _Croquet_: **The view can read directly from the model at any time.** The view doesn't need to receive an event from the model to update itself. It can just pull whatever data it needs directly from the model whenever it wants.  (Of course, the view shouldn't _write_ directly to the model, because that would break synchronization.)
 
 The view's `update()` method is called every time the application window requests an animation frame (usually 60 times a second). This allows the view to continually refresh itself even if the model is updating more slowly. `update()` receives the local system time at the start of the frame as its argument.
 
