@@ -53,6 +53,8 @@ export default class App {
 
         this.frameBound = this.frame.bind(this);
         this.loadRoomBound = this.loadRoom.bind(this);
+
+        this.startSleepChecker();
     }
 
     async loadRoom(roomName) {
@@ -129,7 +131,22 @@ export default class App {
         }
     }
 
+    startSleepChecker() {
+        // simple mechanism for disconnecting from the reflector after a tab has been hidden for a while
+        const SLEEP_TIME = urlOptions.autoSleep === false ? Infinity : 10000;
+        this.lastStep = null;
+        setInterval(() => {
+            if (this.lastStep && Date.now() - this.lastStep > SLEEP_TIME) {
+                Controller.dormantDisconnect();
+                this.lastStep = null;
+            }
+            }, 1000);
+    }
+
     frame(timestamp) {
+        Controller.ensureConnection();
+        this.lastStep = Date.now();
+
         this.domEventManager.requestAnimationFrame(this.frameBound);
         Stats.animationFrame(timestamp);
         if (this.currentRoomName) {

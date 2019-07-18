@@ -56,6 +56,10 @@ let connectToReflectorWasCalled = false;
 function randomString() { return Math.floor(Math.random() * 2**53).toString(36); }
 
 export default class Controller {
+    static ensureConnection() {
+        if (!TheSocket) this.connectToReflectorIfNeeded();
+    }
+
     static connectToReflectorIfNeeded() {
         if (connectToReflectorWasCalled) return;
         this.connectToReflector();
@@ -94,6 +98,7 @@ export default class Controller {
     static leaveAll(preserveSnapshot) {
         if (!TheSocket) return;
         TheSocket = null;
+        connectToReflectorWasCalled = false;
         for (const controller of Object.values(Controllers)) {
             controller.leave(preserveSnapshot);
         }
@@ -112,6 +117,10 @@ export default class Controller {
                 break;
             default: console.warn('Unknown action', action);
         }
+    }
+
+    static dormantDisconnect() {
+        if (TheSocket) TheSocket.close(4110, 'Going dormant');
     }
 
     static closeConnectionWithError(caller, error) {
@@ -972,10 +981,11 @@ function socketSetup(socket, reflectorUrl) {
             console.log(socket.constructor.name, "error");
         },
         onclose: event => {
-            // we reserve event codes from 4100 to mean an unrecoverable error
+            // event codes from 4100 and up mean a disconnection that doesn't merit auto-retry
             // e.g., 4100 is for out-of-date reflector protocol
             const wantToRetry = event.code !== 1000 && event.code < 4100;
-            displayError(`Connection closed: ${event.code} ${event.reason}`, { duration: wantToRetry ? undefined : 3600000 }); // leave it there for 1 hour if unrecoverable
+            // don't display error if going dormant
+            if (event.code !== 4110) displayError(`Connection closed: ${event.code} ${event.reason}`, { duration: wantToRetry ? undefined : 3600000 }); // leave it there for 1 hour if unrecoverable
             if (DEBUG.session) console.log(socket.constructor.name, "closed:", event.code, event.reason);
             Stats.connected(false);
             Controller.leaveAll(true);

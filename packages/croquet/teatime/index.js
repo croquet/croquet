@@ -132,6 +132,8 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
         function asArray(a) { return a ? (Array.isArray(a) ? a : [a]) : []; }
         urlOptions.debug = [...asArray(urlOptions.debug), ...asArray(options.debug)];
     }
+    if ("autoSleep" in options) urlOptions.autoSleep = options.autoSleep;
+    startSleepChecker();
     // now start
     const CONTROLLER_OPTIONS = ['tps'];
     const CREATOR_OPTIONS = ['optionsFromUrl'];
@@ -200,8 +202,25 @@ const simLoad = [0];
 const loadBalance = 4;
 // time in ms we allow sim to lag behind before increasing sim budget
 const balanceMS = loadBalance * (1000 / 60);
+// record of last session step (a sign of browser animation), for detecting dormant tabs
+let lastStep = null;
+
+function startSleepChecker() {
+    // simple mechanism for disconnecting from the reflector after a tab has been hidden for a while
+    const SLEEP_TIME = urlOptions.autoSleep === false ? Infinity : 10000;
+    console.log(urlOptions, {SLEEP_TIME});
+    setInterval(() => {
+        if (lastStep && Date.now() - lastStep > SLEEP_TIME) {
+            Controller.dormantDisconnect();
+            lastStep = null;
+        }
+        }, 1000);
+}
 
 function stepSession(frameTime, controller, view) {
+    Controller.ensureConnection();
+    lastStep = Date.now();
+
     const {backlog, latency, starvation, activity} = controller;
     Stats.animationFrame(frameTime, {backlog, starvation, latency, activity, users: controller.users});
 
