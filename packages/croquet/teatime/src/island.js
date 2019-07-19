@@ -482,7 +482,8 @@ function hasReceiverAndSelector(payload, id, selector) {
 /** Answer true if seqA comes before seqB:
  * - sequence numbers are 32 bit unsigned ints with overflow
  * - seqA comes before seqB if it takes fewer increments to
- *    go from seqA to seqB, than going from seqB to seqA
+ *    go from seqA to seqB (zero increments counts) than
+ *    going from seqB to seqA
  * @typedef {Number} Uint32
  * @argument {Uint32} seqA
  * @argument {Uint32} seqB

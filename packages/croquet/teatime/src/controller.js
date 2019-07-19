@@ -570,7 +570,7 @@ export default class Controller {
                 // We are starting a new island session.
                 if (DEBUG.session) console.log(this.id, 'Controller received START');
                 // we may have a snapshot from hot reload or reconnect
-                let snapshot = this.islandCreator.snapshot;
+                let snapshot = this.islandCreator.snapshot; // could be just the placeholder set up in establishSession (which has no modelsById property)
                 const local = snapshot.modelsById && {
                     time: snapshot.meta.time,
                     seq: snapshot.meta.seq,
@@ -578,7 +578,7 @@ export default class Controller {
                 };
                 // see if there is a remote or in-memory snapshot
                 let latest = null;
-                if (!DEBUG.init) {
+                if (!DEBUG.init) { // setting "init" option forces ignore of stored snapshots
                     latest = await this.fetchJSON(this.snapshotUrl('latest'));
                     // which one's newer?
                     if (!latest || (local && local.time > latest.time)) latest = local;
@@ -587,7 +587,7 @@ export default class Controller {
                 if (latest) {
                     console.log(this.id, latest.snapshot ? "using snapshot still in memory" : `fetching latest snapshot ${latest.url}`);
                     snapshot = latest.snapshot || await this.fetchJSON(latest.url);
-                } else snapshot = null;
+                } else snapshot = null; // we found no actual snapshot (e.g., only the placeholder)
                 if (!this.socket) { console.log(this.id, 'socket went away during START'); return; }
                 if (snapshot) this.islandCreator.snapshot = snapshot;
                 this.install();
@@ -658,6 +658,7 @@ export default class Controller {
         }
     }
 
+    // create the Island for this Controller, based on the islandCreator and optionally an array of messages that are known to post-date the islandCreator's snapshot
     install(messagesSinceSnapshot=[], syncTime=0) {
         const {snapshot, init, options, callbackFn} = this.islandCreator;
         let newIsland = new Island(snapshot, () => {
@@ -678,6 +679,7 @@ export default class Controller {
             const external = newIsland.messages.asArray().filter(m => m.isExternal());
             console.log(this.id, `Controller found ${external.length} unsimulated external messages in snapshot`, external);
         }
+        // schedule the supplied messages, if any
         if (messagesSinceSnapshot.length > 0) {
             if  (DEBUG.messages) console.log(this.id, `Controller scheduling ${messagesSinceSnapshot.length} messages after snapshot`, messagesSinceSnapshot);
             for (const msg of messagesSinceSnapshot) {
@@ -685,8 +687,8 @@ export default class Controller {
                 newIsland.scheduleExternalMessage(msg);
             }
         }
-        // drain message queue
-        const nextSeq = (newIsland.externalSeq + 1) >>> 0;
+        // drain network queue of messages that have been at least scheduled.
+        const nextSeq = (newIsland.externalSeq + 1) >>> 0; // externalSeq is last scheduled message
         for (let msg = this.networkQueue.peek(); msg; msg = this.networkQueue.peek()) {
             if (!inSequence(msg[1], nextSeq)) throw Error(`Missing message (expected ${nextSeq} got ${msg[1]})`);
             // found the next message
@@ -698,7 +700,7 @@ export default class Controller {
         const islandTime = Math.max(newIsland.time, newIsland.externalTime);
         if (syncTime && syncTime < islandTime) console.warn(`ignoring SYNC time from reflector (time was ${islandTime.time}, received ${syncTime})`);
         this.time = Math.max(this.time, islandTime, syncTime);
-        this.setIsland(newIsland); // install island
+        this.setIsland(newIsland); // make this our island
         callbackFn(this.island);
     }
 
@@ -893,7 +895,6 @@ export default class Controller {
 hotreloadEventManger.addEventListener(document.body, "unload", Controller.uploadOnPageClose);
 // ... and on hotreload
 hotreloadEventManger.addDisposeHandler('snapshots', Controller.uploadOnPageClose);
-
 
 // Socket
 
