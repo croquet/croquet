@@ -17,14 +17,24 @@ const MAX_SCALE = 64;         // maximum ratio of island time to wallclock time
 function LOG(...args) { console.log((new Date()).toISOString(), "Reflector:", ...args); }
 function WARN(...args) { console.warn((new Date()).toISOString(), "Reflector:", ...args); }
 
+// this webServer is only for http:// requests to the reflector url
+// (e.g. the load-balancer's health check),
+// not ws:// requests for an actual websocket connection
 const webServer = http.createServer( (req, res) => {
-    const body = `Reflector ${os.hostname()}`;
+    // redirect http-to-https, unless it's a health check
+    if (req.headers['x-forwarded-proto'] === 'http' && req.url !== '/healthz') {
+        res.writeHead(301, { "Location": `https://${req.headers.host}${req.url}` });
+        return res.end();
+    }
+    // otherwise, show hostname, url, and http headers
+    const body = `Reflector ${os.hostname()}\n${req.method} http://${req.headers.host}${req.url}\n${JSON.stringify(req.headers, null, 4)}`;
     res.writeHead(200, {
       'Content-Length': body.length,
       'Content-Type': 'text/plain'
     });
-    res.end(body);
+    return res.end(body);
   });
+// the WebSocket.Server will intercept the UPGRADE request made by a ws:// websocket connection
 const server = new WebSocket.Server({ server: webServer });
 webServer.listen(port);
 LOG(`starting ${server.constructor.name} ws://${os.hostname()}:${server.address().port}/`);
