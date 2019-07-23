@@ -502,6 +502,7 @@ server.on('connection', (client, req) => {
         });
     setTimeout(() => client.readyState === WebSocket.OPEN && client.ping(Date.now()), 100);
 
+    let joined = false;
     const CHECK_INTERVAL = 5000;
     const PING_THRESHOLD = 30000; // if not heard from for this long, start pinging
     const PING_INTERVAL = 5000;
@@ -518,6 +519,12 @@ server.on('connection', (client, req) => {
         }
         let nextCheck;
         if (quiescence > PING_THRESHOLD) {
+            if (!joined) {
+                LOG("client never joined: closing connection from", client.addr, "after", quiescence, "ms");
+                client.close(4121, "client never joined");
+                return;
+            }
+
             LOG("pinging client", client.addr, "inactive for", quiescence, "ms");
             client.ping(now);
             nextCheck = PING_INTERVAL;
@@ -535,7 +542,7 @@ server.on('connection', (client, req) => {
                 LOG('received', client.addr, 'reply', action, incomingMsg.length, 'bytes');
                 replies[action](args);
             } else switch (action) {
-                case 'JOIN': JOIN(client, id, args); break;
+                case 'JOIN': { joined = true; JOIN(client, id, args); break; }
                 case 'SEND': SEND(client, id, [args]); break;
                 case 'TICKS': TICKS(client, id, args); break;
                 case 'SNAP': SNAP(client, id, args); break;
