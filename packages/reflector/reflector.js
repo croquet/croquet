@@ -495,6 +495,7 @@ server.on('connection', (client, req) => {
     LOG(`connection #${server.clients.size} from ${client.addr}`);
     STATS.USERS = Math.max(STATS.USERS, server.clients.size);
 
+    let lastActivity = Date.now();
     client.on('pong', time => {
         lastActivity = Date.now();
         LOG('socket-level pong from', client.addr, 'after', Date.now() - time, 'ms');
@@ -505,7 +506,6 @@ server.on('connection', (client, req) => {
     const PING_THRESHOLD = 30000; // if not heard from for this long, start pinging
     const PING_INTERVAL = 5000;
     const DISCONNECT_THRESHOLD = 60000; // if not for this long, disconnect
-    let lastActivity = Date.now();
     function checkForActivity() {
         if (client.readyState !== WebSocket.OPEN) return;
 
@@ -527,9 +527,9 @@ server.on('connection', (client, req) => {
     setTimeout(checkForActivity, PING_THRESHOLD + 2000); // allow some time for establishing session
 
     client.on('message', incomingMsg => {
+        lastActivity = Date.now();
         STATS.IN += incomingMsg.length;
         const handleMessage = () => {
-            lastActivity = Date.now();
             const { id, action, args } = JSON.parse(incomingMsg);
             if (action in replies) {
                 LOG('received', client.addr, 'reply', action, incomingMsg.length, 'bytes');
