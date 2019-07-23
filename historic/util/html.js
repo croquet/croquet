@@ -51,7 +51,7 @@ export function displaySessionMoniker(id='', element='session') {
     document.title += ':' + moniker;
     // image derived from id
     if (button) {
-        if (button && urlOptions.noreset) {
+        if (urlOptions.noreset) {
             button.style.display = "none";
         } else {
             const hash = [0,0,0,0].map(_=>(random.int32()>>>0).toString(16).padStart(8, '0')).join('');

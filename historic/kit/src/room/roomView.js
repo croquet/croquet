@@ -20,7 +20,6 @@ export default class RoomView extends ViewPart {
     /** @arg {{room: import('./roomModel').default}} options */
     constructor(options) {
         super();
-console.warn(this);
         // NB: cameraSpatial is a ModelPart, but - because it's initialised here, in
         // viewRealm execution state - subscribes and publishes as if it's a view, and
         // doesn't get included in a snapshot.
