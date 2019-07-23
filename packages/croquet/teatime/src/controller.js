@@ -79,11 +79,11 @@ export default class Controller {
     // socket was connected, join session for all islands
     static join(controller) {
         Controllers[controller.id] = controller;
-        this.withSocketDo(socket => controller.join(socket));
+        this.whenSocketReady(() => controller.join(TheSocket));
     }
 
-    static withSocketDo(callback) {
-        if (TheSocket) callback(TheSocket);
+    static whenSocketReady(callback) {
+        if (TheSocket) callback();
         else TheSocketWaitList.push(callback);
     }
 
@@ -92,8 +92,13 @@ export default class Controller {
         TheSocket = socket;
         while (TheSocketWaitList.length > 0) {
             const callback = TheSocketWaitList.shift();
-            callback(socket);
+            callback();
         }
+    }
+
+    static socketSend(message) {
+        LastSent = Date.now();
+        TheSocket.send(message);
     }
 
     // socket was disconnected, destroy all islands.
@@ -102,6 +107,7 @@ export default class Controller {
         if (!TheSocket) return;
         TheSocket = null;
         LastReceived = 0;
+        LastSent = 0;
         for (const controller of Object.values(Controllers)) {
             controller.leave(preserveSnapshot);
         }
@@ -358,7 +364,7 @@ export default class Controller {
         const {time, seq, hash} = this.lastSnapshot.meta;
         if (DEBUG.snapshot) console.log(this.id, `Controller sending hash for ${time}#${seq} to reflector: ${hash}`);
         try {
-            this.socket.send(JSON.stringify({
+            Controller.socketSend(JSON.stringify({
                 id: this.id,
                 action: 'SNAP',
                 args: {time, seq, hash},
@@ -474,7 +480,7 @@ export default class Controller {
         this.uploadJSON(this.snapshotUrl('latest'), JSON.stringify({time, seq, hash, url}));
         if (DEBUG.snapshot) console.log(this.id, `Controller sending snapshot url to reflector (time: ${time}, seq: ${seq}, hash: ${hash}): ${url}`);
         try {
-            this.socket.send(JSON.stringify({
+            Controller.socketSend(JSON.stringify({
                 id: this.id,
                 action: 'SNAP',
                 args: {time, seq, hash, url},
@@ -521,8 +527,8 @@ export default class Controller {
                 resolve(sessionId);
             };
             if (DEBUG.snapshot) console.log(islandHash, 'Controller asking reflector for session ID');
-            Controller.withSocketDo(socket => {
-                socket.send(JSON.stringify({
+            Controller.whenSocketReady(() => {
+                Controller.socketSend(JSON.stringify({
                     id: islandHash,
                     action: 'SESSION'
                 }));
@@ -750,8 +756,8 @@ export default class Controller {
             version: VERSION,
             user: [name, id],
         };
-return;
-        socket.send(JSON.stringify({
+
+        Controller.socketSend(JSON.stringify({
             id: this.id,
             action: 'JOIN',
             args,
@@ -761,7 +767,7 @@ return;
     leave(preserveSnapshot) {
         if (this.socket.readyState === WebSocket.OPEN) {
             console.log(this.id, `Controller LEAVING session for ${this.islandCreator.name}`);
-            this.socket.send(JSON.stringify({ id: this.id, action: 'LEAVING' }));
+            Controller.socketSend(JSON.stringify({ id: this.id, action: 'LEAVING' }));
         }
         delete Controllers[this.id];
         const {destroyerFn} = this.islandCreator;
@@ -782,7 +788,7 @@ return;
         if (DEBUG.sends) console.log(this.id, `Controller sending SEND ${msg.asState()}`);
         this.lastSent = Date.now();
         this.statistics.sent[++this.statistics.seq] = this.lastSent;
-        this.socket.send(JSON.stringify({
+        Controller.socketSend(JSON.stringify({
             id: this.id,
             action: 'SEND',
             args: [...msg.asState(), this.statistics.id, this.statistics.seq],
@@ -829,7 +835,7 @@ return;
         if (DEBUG.session) console.log(this.id, 'Controller requesting TICKS', args);
         // args: {time, tick, delay, scale}
         try {
-            this.socket.send(JSON.stringify({
+            Controller.socketSend(JSON.stringify({
                 id: this.id,
                 action: 'TICKS',
                 args,
@@ -928,11 +934,14 @@ hotreloadEventManger.addDisposeHandler('snapshots', Controller.uploadOnPageClose
 let TheSocket = null;
 const TheSocketWaitList = [];
 let LastReceived = 0;
+let LastSent = 0;
 
 /** start sending PINGs to server after not receiving anything for this timeout */
 const PING_TIMEOUT = 100;
 /** send PINGs using this interval until hearing back from server */
 const PING_INTERVAL = 100;
+/** if we haven't sent anything to the reflector for this long, send a PULSE to reassure it */
+const PULSE_TIMEOUT = 20000;
 
 function PING() {
     if (!TheSocket || TheSocket.readyState !== WebSocket.OPEN) return;
@@ -940,13 +949,19 @@ function PING() {
     else TheSocket.send(JSON.stringify({ action: 'PING', args: Date.now()}));
 }
 
-// one reason for having this is to prevent the connection from going idle,
+function PULSE() {
+    if (!TheSocket || TheSocket.readyState !== WebSocket.OPEN) return;
+    Controller.socketSend(JSON.stringify({ action: 'PULSE' }));
+}
+
+// one reason for having PINGs is to prevent the connection from going idle,
 // which caused some router/computer combinations to buffer packets instead
 // of delivering them immediately (observed on AT&T Fiber + Mac)
 hotreloadEventManger.setInterval(() => {
-    if (LastReceived === 0) return;
-    if (Date.now() - LastReceived < PING_TIMEOUT) return;
-    PING();
+    if (LastReceived === 0) return; // haven't yet consummated the connection
+    if (Date.now() - LastReceived > PING_TIMEOUT) PING();
+    // if *not* sending a PING, check to see if it's time to send a PULSE
+    else if (Date.now() - LastSent > PULSE_TIMEOUT) PULSE();
 }, PING_INTERVAL);
 
 async function startReflectorInBrowser() {

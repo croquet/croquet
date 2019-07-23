@@ -549,6 +549,7 @@ server.on('connection', (client, req) => {
                 case 'PING': PONG(client, args); break;
                 case 'SESSION': SESSION(client, id, args); break;
                 case 'SESSION_RESET': SESSION_RESET(client, id); break;
+                case 'PULSE': LOG('PULSE', client.addr); break; // nothing to do
                 default: WARN("unknown action", action);
             }
         };
@@ -562,7 +563,7 @@ server.on('connection', (client, req) => {
     });
 
     client.on('close', () => {
-        LOG(`closing connection from ${client.addr}`);
+        LOG(`closed connection from ${client.addr}`);
         for (const island of ALL_ISLANDS.values()) {
             if (!island.clients.has(client)) continue;
             island.clients.delete(client);
