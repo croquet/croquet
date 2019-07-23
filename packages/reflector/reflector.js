@@ -9,7 +9,7 @@ const WebSocket = require('ws');
 const port = 9090;
 const SNAP_TIMEOUT = 10000;   // time in ms to wait for SNAP from island's first client
 const TICK_MS = 1000 / 5;     // default tick interval
-const ARTIFICAL_DELAY = 0;    // delay messages randomly by 50% to 150% of this
+const ARTIFICIAL_DELAY = 0;   // delay messages randomly by 50% to 150% of this
 const MAX_MESSAGES = 10000;   // messages per island to retain since last snapshot
 const MIN_SCALE = 1 / 64;     // minimum ratio of island time to wallclock time
 const MAX_SCALE = 64;         // maximum ratio of island time to wallclock time
@@ -547,8 +547,8 @@ server.on('connection', (client, req) => {
             }
         };
 
-        if (ARTIFICAL_DELAY) {
-            const timeout = ARTIFICAL_DELAY * (0.5 + Math.random());
+        if (ARTIFICIAL_DELAY) {
+            const timeout = ARTIFICIAL_DELAY * (0.5 + Math.random());
             setTimeout(handleMessage, timeout);
         } else {
             handleMessage();
