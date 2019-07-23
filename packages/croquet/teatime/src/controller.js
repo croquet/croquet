@@ -41,8 +41,10 @@ const NOCHEAT = urlOptions.nocheat;
 
 const OPTIONS_FROM_URL = [ 'tps' ];
 
-// schedule a snapshot after this amount of CPU time has been used for simulation
+// schedule a snapshot after this many ms of CPU time have been used for simulation
 const SNAPSHOT_EVERY = 5000;
+// add this many ms for each external message scheduled
+const EXTERNAL_MESSAGE_CPU_PENALTY = 5;
 
 // backlog threshold in ms to publish "synced(true|false)" event (to start/stop rendering)
 const SYNCED_MIN = 100;
@@ -853,6 +855,9 @@ export default class Controller {
                 const msg = this.island.scheduleExternalMessage(msgData);
                 // remember msgData for upload / replay
                 this.oldMessages.push(msgData);
+                // boost cpuTime by a fixed cost per message, to impose an upper limit on
+                // the number of messages we'll accumulate before taking a snapshot
+                this.cpuTime += EXTERNAL_MESSAGE_CPU_PENALTY;
                 // simulate up to that message
                 weHaveTime = this.island.advanceTo(msg.time, deadline);
             }
