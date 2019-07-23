@@ -133,6 +133,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
         urlOptions.debug = [...asArray(urlOptions.debug), ...asArray(options.debug)];
     }
     if ("autoSleep" in options) urlOptions.autoSleep = options.autoSleep;
+    else if (options.step === "manual") urlOptions.autoSleep = false;
     startSleepChecker();
     // now start
     const CONTROLLER_OPTIONS = ['tps'];
