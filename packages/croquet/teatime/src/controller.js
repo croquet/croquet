@@ -96,11 +96,12 @@ export default class Controller {
         }
     }
 
-    // socket was disconnected, destroy all islands
+    // socket was disconnected, destroy all islands.
+    // it's up to the sender to decide whether to set okToCallConnect
     static leaveAll(preserveSnapshot) {
         if (!TheSocket) return;
         TheSocket = null;
-        okToCallConnect = true;
+        LastReceived = 0;
         for (const controller of Object.values(Controllers)) {
             controller.leave(preserveSnapshot);
         }
@@ -749,6 +750,7 @@ export default class Controller {
             version: VERSION,
             user: [name, id],
         };
+return;
         socket.send(JSON.stringify({
             id: this.id,
             action: 'JOIN',
@@ -942,6 +944,7 @@ function PING() {
 // which caused some router/computer combinations to buffer packets instead
 // of delivering them immediately (observed on AT&T Fiber + Mac)
 hotreloadEventManger.setInterval(() => {
+    if (LastReceived === 0) return;
     if (Date.now() - LastReceived < PING_TIMEOUT) return;
     PING();
 }, PING_INTERVAL);
@@ -1010,18 +1013,23 @@ function socketSetup(socket, _reflectorUrl) {
             console.log(socket.constructor.name, "error");
         },
         onclose: event => {
-            // event codes from 4100 and up mean a disconnection that doesn't merit auto-retry
+            // event codes from 4100 and up mean a disconnection from which the client
+            // shouldn't automatically try to reconnect
             // e.g., 4100 is for out-of-date reflector protocol
-            const wantToRetry = event.code !== 1000 && event.code < 4100;
+            const autoReconnect = event.code !== 1000 && event.code < 4100;
+            const dormant = event.code === 4110;
             // don't display error if going dormant
-            if (event.code !== 4110) displayError(`Connection closed: ${event.code} ${event.reason}`, { duration: wantToRetry ? undefined : 3600000 }); // leave it there for 1 hour if unrecoverable
+            if (!dormant) displayError(`Connection closed: ${event.code} ${event.reason}`, { duration: autoReconnect ? undefined : 3600000 }); // leave it there for 1 hour if unrecoverable
             if (DEBUG.session) console.log(socket.constructor.name, "closed:", event.code, event.reason);
             Stats.connected(false);
             Controller.leaveAll(true);
-            if (wantToRetry) {
+            // leaveAll discards the socket, but doesn't presume that okToCallConnect should
+            // now be true.
+            // here we set it false except for the case of going dormant, which is allowed
+            // to reawaken as soon as the next animation frame happens.
+            okToCallConnect = dormant;
+            if (autoReconnect) {
                 displayWarning('Reconnecting ...');
-                // force a delay until we're ready to retry (animation loop might be trying to reconnect)
-                okToCallConnect = false; // leaveAll will have optimistically set to true
                 hotreloadEventManger.setTimeout(Controller.connectToReflector, 2000);
             }
         },

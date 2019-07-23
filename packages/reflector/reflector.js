@@ -509,7 +509,6 @@ server.on('connection', (client, req) => {
     const DISCONNECT_THRESHOLD = 60000; // if not for this long, disconnect
     function checkForActivity() {
         if (client.readyState !== WebSocket.OPEN) return;
-
         const now = Date.now();
         const quiescence = now - lastActivity;
         if (quiescence > DISCONNECT_THRESHOLD) {
