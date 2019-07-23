@@ -164,7 +164,7 @@ export default class Controller {
         /** the human-readable session (e.g. "room/user/random") */
         this.session = '';
         /** @type {String} the client id (different in each replica) */
-        this.viewId = randomString(); // todo: have reflector assign unique ids
+        this.viewId = this.viewId || randomString(); // todo: have reflector assign unique ids
         /** the number of concurrent users in our island (excluding spectators) */
         this.users = 0;
         /** the number of concurrent users in our island (including spectators) */
@@ -542,8 +542,8 @@ export default class Controller {
         const { islandHash } = this.islandCreator;
         if (SessionCallbacks[islandHash]) return;
         SessionCallbacks[islandHash] = newSession => console.log(this.id, 'new session:', newSession);
-        Controller.withSocketDo(socket => {
-            socket.send(JSON.stringify({
+        Controller.whenSocketReady(() => {
+            Controller.socketSend(JSON.stringify({
                 id: islandHash,
                 action: 'SESSION_RESET'
             }));
