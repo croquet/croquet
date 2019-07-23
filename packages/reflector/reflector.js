@@ -495,12 +495,41 @@ server.on('connection', (client, req) => {
     LOG(`connection #${server.clients.size} from ${client.addr}`);
     STATS.USERS = Math.max(STATS.USERS, server.clients.size);
 
-    client.on('pong', time => LOG('PONG from', client.addr, 'after', Date.now() - time, 'ms'));
+    client.on('pong', time => {
+        lastActivity = Date.now();
+        LOG('socket-level pong from', client.addr, 'after', Date.now() - time, 'ms');
+        });
     setTimeout(() => client.readyState === WebSocket.OPEN && client.ping(Date.now()), 100);
+
+    const CHECK_INTERVAL = 5000;
+    const PING_THRESHOLD = 30000; // if not heard from for this long, start pinging
+    const PING_INTERVAL = 5000;
+    const DISCONNECT_THRESHOLD = 60000; // if not for this long, disconnect
+    let lastActivity = Date.now();
+    function checkForActivity() {
+        if (client.readyState !== WebSocket.OPEN) return;
+
+        const now = Date.now();
+        const quiescence = now - lastActivity;
+        if (quiescence > DISCONNECT_THRESHOLD) {
+            LOG("inactive client: closing connection from", client.addr, "inactive for", quiescence, "ms");
+            client.close(4120, "client inactive"); // NB: close event won't arrive for a while
+            return;
+        }
+        let nextCheck;
+        if (quiescence > PING_THRESHOLD) {
+            LOG("pinging client", client.addr, "inactive for", quiescence, "ms");
+            client.ping(now);
+            nextCheck = PING_INTERVAL;
+        } else nextCheck = CHECK_INTERVAL;
+        setTimeout(checkForActivity, nextCheck);
+    }
+    setTimeout(checkForActivity, PING_THRESHOLD + 2000); // allow some time for establishing session
 
     client.on('message', incomingMsg => {
         STATS.IN += incomingMsg.length;
         const handleMessage = () => {
+            lastActivity = Date.now();
             const { id, action, args } = JSON.parse(incomingMsg);
             if (action in replies) {
                 LOG('received', client.addr, 'reply', action, incomingMsg.length, 'bytes');
