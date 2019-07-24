@@ -1014,7 +1014,7 @@ async function connectToReflector(reflectorUrl) {
     socketSetup(socket, reflectorUrl);
 }
 
-function socketSetup(socket, _reflectorUrl) {
+function socketSetup(socket, reflectorUrl) {
     //displayStatus('Connecting to ' + socket.url);
     Object.assign(socket, {
         onopen: _event => {
@@ -1045,7 +1045,7 @@ function socketSetup(socket, _reflectorUrl) {
             okToCallConnect = dormant;
             if (autoReconnect) {
                 displayWarning('Reconnecting ...');
-                hotreloadEventManger.setTimeout(Controller.connectToReflector, 2000);
+                hotreloadEventManger.setTimeout(() => Controller.connectToReflector(reflectorUrl), 2000);
             }
         },
         onmessage: event => {
