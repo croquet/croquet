@@ -157,6 +157,7 @@ Calls to `Math.random()` within the view will behave normally. Different instanc
 | date       | item
 |------------|---
 | 2019-07-24 | **release 0.1.7** (bug fixes)
+| 2019-07-23 | new US east coast reflector available in [startSession]{@link startSession}
 | 2019-07-18 | **release 0.1.6** (bug fixes; documentation updates;<br/>inactive clients will now be disconnected after 10 seconds)
 | 2019-07-10 | **release 0.1.5** (bug fixes)
 | 2019-07-09 | **release 0.1.4** (bug fixes)
