@@ -7,6 +7,7 @@ const http = require('http');
 const WebSocket = require('ws');
 
 const port = 9090;
+const SERVER_HEADER = "croquet-reflector";
 const SNAP_TIMEOUT = 10000;   // time in ms to wait for SNAP from island's first client
 const TICK_MS = 1000 / 5;     // default tick interval
 const ARTIFICIAL_DELAY = 0;   // delay messages randomly by 50% to 150% of this
@@ -23,12 +24,16 @@ function WARN(...args) { console.warn((new Date()).toISOString(), "Reflector:", 
 const webServer = http.createServer( (req, res) => {
     // redirect http-to-https, unless it's a health check
     if (req.headers['x-forwarded-proto'] === 'http' && req.url !== '/healthz') {
-        res.writeHead(301, { "Location": `https://${req.headers.host}${req.url}` });
+        res.writeHead(301, {
+            'Server': SERVER_HEADER,
+            'Location': `https://${req.headers.host}${req.url}`
+        });
         return res.end();
     }
     // otherwise, show hostname, url, and http headers
     const body = `Reflector ${os.hostname()}\n${req.method} http://${req.headers.host}${req.url}\n${JSON.stringify(req.headers, null, 4)}`;
     res.writeHead(200, {
+      'Server': SERVER_HEADER,
       'Content-Length': body.length,
       'Content-Type': 'text/plain'
     });
