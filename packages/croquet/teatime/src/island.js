@@ -163,7 +163,7 @@ export default class Island {
 
     trackUsers({entered, exited, count}) {
         if (entered.length === count) exited = Object.keys(this.users);
-        else exited = exited.map(each => each[1]); // get id
+        else exited = exited.map(each => each[0]); // get id
         for (const id of exited) {
             if (this.users[id]) {
                 delete this.users[id];

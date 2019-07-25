@@ -634,6 +634,12 @@ export default class Controller {
                 // We are joining an island session.
                 const {messages, url, time} = args;
                 if (DEBUG.session) console.log(this.id, `Controller received SYNC: time ${time}, ${messages.length} messages, ${url}`);
+                // if any conversion of custom reflector messages is to be done, do it before
+                // waiting for the snapshot to arrive (because there might be some meta-processing
+                // that happens immediately on conversion; this is the case for "users" messages)
+                for (const msg of messages) {
+                    if (typeof msg[2] !== "string") this.convertReflectorMessage(msg);
+                }
                 const snapshot = await this.fetchJSON(url);
                 this.islandCreator.snapshot = snapshot;  // set snapshot
                 if (!this.socket) { console.log(this.id, 'socket went away during SYNC'); return; }
