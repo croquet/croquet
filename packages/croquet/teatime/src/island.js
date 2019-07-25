@@ -423,7 +423,7 @@ export default class Island {
 
     processModelViewEvents() {
         if (CurrentIsland) throw Error("Island Error");
-        return inViewRealm(this, () => viewDomain.processFrameEvents());
+        return inViewRealm(this, () => viewDomain.processFrameEvents(!!this.controller.synced));
     }
 
     scheduledSnapshot() {

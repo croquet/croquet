@@ -7,6 +7,7 @@ import { login, getUser } from "@croquet/util/user";
 import { displaySpinner, displayStatus, displayWarning, displayError, displayAppError } from "@croquet/util/html";
 import { baseUrl, CROQUET_HOST, hashNameAndCode, hashString, uploadCode } from "@croquet/util/modules";
 import { inViewRealm } from "./realms";
+import { viewDomain } from "./domain";
 import Island, { Message, inSequence } from "./island";
 
 
@@ -130,7 +131,7 @@ export default class Controller {
 
     static dormantDisconnect() {
         if (TheSocket) {
-            console.log("Dormant; disconnecting from reflector");
+            console.log("dormant; disconnecting from reflector");
             TheSocket.close(4110, 'Going dormant');
         }
     }
@@ -150,6 +151,7 @@ export default class Controller {
 
     constructor() {
         this.reset();
+        viewDomain.addSubscription(this.viewId, "__users__", this, data => displayStatus(`users now ${data.count}`), "oncePerFrameWhileSynced");
     }
 
     reset() {
@@ -580,8 +582,10 @@ export default class Controller {
                 receiver = this.id;
                 selector = "publishFromModel";
                 args = [scope, event, data];
-                // only show changes in user count when this view is one of those that just entered, or is already known to the island
-                if (data.entered.some(elem => elem[1] === this.viewId) || this.island && this.island.users[this.viewId]) displayStatus(`users now ${this.users}`);
+
+                // also immediately publish as view event, which this controller will
+                // have subscribed to (in its constructor).
+                viewDomain.handleEvent(this.viewId + ":" + event, data);
                 break;
             }
             // no default
