@@ -147,6 +147,10 @@ function JOIN(client, id, args) {
         const baseAddr = client.addr.split(' [')[0];
         client.addr = `${baseAddr} ${JSON.stringify(user)}`;
         client.user = user;
+        if (client.location) {
+            if (Array.isArray(user)) user.push(client.location);
+            else if (typeof user === "object") user.location = client.location;
+        }
     }
     // create island data if this is the first client
     const island = ALL_ISLANDS.get(id) || {
@@ -486,6 +490,12 @@ const replies = {};
 server.on('connection', (client, req) => {
     client.addr = `${req.connection.remoteAddress}:${req.connection.remotePort}`;
     if (req.headers['x-forwarded-for']) client.addr += ` (${req.headers['x-forwarded-for'].split(/\s*,\s*/).join(', ')})`;
+    // location header is added by load balancer, see region-servers/apply-changes
+    if (req.headers['x-location']) try {
+        const [region, city, lat, lng] = req.headers['x-location'].split(",");
+        client.location = { region };
+        if (city) client.location.city = { name: city, lat, lng };
+    } catch (ex) { /* ignore */}
     client.safeSend = data => {
         if (client.readyState !== WebSocket.OPEN) return;
         STATS.BUFFER = Math.max(STATS.BUFFER, client.bufferedAmount);
