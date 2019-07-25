@@ -1,14 +1,14 @@
 {
   "name": "@croquet/reflector",
   "version": "0.0.1",
-  "description": "",
+  "description": "A single Croquet reflector, handling websocket conections from Croquet clients",
   "main": "reflector.js",
   "browser": {
     "ws": "./ws.js",
     "fs": "./fs.js"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "Croquet Studios",
+  "license": "Restricted",
   "scripts": {
     "start": "node reflector.js"
   },
