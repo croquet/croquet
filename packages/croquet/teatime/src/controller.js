@@ -754,7 +754,7 @@ export default class Controller {
         const args = {
             name: this.islandCreator.nameWithOptions,
             version: VERSION,
-            user: [name, id],
+            user: [id, name],
         };
 
         Controller.socketSend(JSON.stringify({

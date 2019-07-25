@@ -170,9 +170,12 @@ export default class Island {
                 this.publishFromModel(this.id, "view-exit", id);
             }
         }
-        for (const [name, id] of entered) {
+        // [id, name] was provided to reflector in controller.join()
+        // reflector may have added location as {region, city: {name, lat, lng}}
+        for (const [id, name, location] of entered) {
             if (!this.users[id]) {
-                this.users[id] = name;
+                this.users[id] = { name };
+                if (location) this.users[id].location = location;
                 this.publishFromModel(this.id, "view-join", id);
             }
         }
