@@ -494,7 +494,7 @@ server.on('connection', (client, req) => {
     if (req.headers['x-location']) try {
         const [region, city, lat, lng] = req.headers['x-location'].split(",");
         client.location = { region };
-        if (city) client.location.city = { name: city, lat, lng };
+        if (city) client.location.city = { name: city, lat: +lat, lng: +lng };
     } catch (ex) { /* ignore */}
     client.safeSend = data => {
         if (client.readyState !== WebSocket.OPEN) return;
