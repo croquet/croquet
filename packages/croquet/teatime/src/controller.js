@@ -56,10 +56,16 @@ const SessionCallbacks = {};
 
 let okToCallConnect = true;
 
+// simple mechanism for disconnecting from the reflector after a tab has been hidden for a while
+let hiddenSince = null;
+const DORMANT_THRESHOLD = 10000;
+setInterval(() => Controller.checkIfDormant(DORMANT_THRESHOLD), 1000);
+
 function randomString() { return Math.floor(Math.random() * 2**53).toString(36); }
 
 export default class Controller {
     static ensureConnection() {
+        hiddenSince = null; // assume we're not hidden
         if (!TheSocket) this.connectToReflectorIfNeeded();
     }
 
@@ -129,10 +135,20 @@ export default class Controller {
         }
     }
 
-    static dormantDisconnect() {
-        if (TheSocket) {
-            console.log("dormant; disconnecting from reflector");
-            TheSocket.close(4110, 'Going dormant');
+    static checkIfDormant(threshold) {
+        if (urlOptions.autoSleep === false) return; // dormancy checking is disabled
+        if (!TheSocket || TheSocket.readyState !== WebSocket.OPEN) return; // not connected anyway
+
+        if (document.visibilityState === "hidden") {
+            const now = Date.now();
+            if (hiddenSince) {
+                if (now - hiddenSince > threshold) {
+                    console.log("dormant; disconnecting from reflector");
+                    TheSocket.close(4110, 'Going dormant');
+                }
+            } else hiddenSince = now;
+        } else {
+            hiddenSince = null; // not hidden
         }
     }
 
