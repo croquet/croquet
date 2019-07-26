@@ -132,6 +132,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
         urlOptions.debug = [...asArray(urlOptions.debug), ...asArray(options.debug)];
     }
     if ("autoSleep" in options) urlOptions.autoSleep = options.autoSleep;
+    if (urlOptions.autoSleep !== false) startSleepChecker();
     // now start
     const CONTROLLER_OPTIONS = ['tps'];
     const CREATOR_OPTIONS = ['optionsFromUrl'];
@@ -200,9 +201,25 @@ const simLoad = [0];
 const loadBalance = 4;
 // time in ms we allow sim to lag behind before increasing sim budget
 const balanceMS = loadBalance * (1000 / 60);
+// time when we first noticed that the tab is hidden
+let hiddenSince = null;
+
+function startSleepChecker() {
+    const DORMANT_THRESHOLD = 10000;
+    setInterval(() => {
+        if (document.visibilityState === "hidden") {
+            const now = Date.now();
+            if (hiddenSince) {
+                // Controller doesn't mind being asked repeatedly to disconnect
+                if (now - hiddenSince > DORMANT_THRESHOLD) Controller.dormantDisconnectIfNeeded();
+            } else hiddenSince = now;
+        } else hiddenSince = null; // not hidden
+        }, 1000);
+}
 
 function stepSession(frameTime, controller, view) {
     Controller.ensureConnection();
+    hiddenSince = null; // evidently not hidden
 
     const {backlog, latency, starvation, activity} = controller;
     Stats.animationFrame(frameTime, {backlog, starvation, latency, activity, users: controller.users});

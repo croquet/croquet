@@ -53,6 +53,8 @@ export default class App {
 
         this.frameBound = this.frame.bind(this);
         this.loadRoomBound = this.loadRoom.bind(this);
+
+        if (urlOptions.autoSleep !== false) this.startSleepChecker();
     }
 
     async loadRoom(roomName) {
@@ -129,8 +131,23 @@ export default class App {
         }
     }
 
+    startSleepChecker() {
+        this.hiddenSince = null;
+        const DORMANT_THRESHOLD = 10000;
+        setInterval(() => {
+            if (document.visibilityState === "hidden") {
+                const now = Date.now();
+                if (this.hiddenSince) {
+                    // Controller doesn't mind being asked repeatedly to disconnect
+                    if (now - this.hiddenSince > DORMANT_THRESHOLD) Controller.dormantDisconnectIfNeeded();
+                } else this.hiddenSince = now;
+            } else this.hiddenSince = null; // not hidden
+            }, 1000);
+    }
+
     frame(timestamp) {
         Controller.ensureConnection();
+        this.hiddenSince = null; // evidently not hidden
 
         this.domEventManager.requestAnimationFrame(this.frameBound);
         Stats.animationFrame(timestamp);
