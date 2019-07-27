@@ -888,7 +888,6 @@ export default class Controller {
     simulate(deadline) {
         if (!this.island) return true;     // we are probably still sync-ing
         try {
-            const prevIslandTime = this.island.time;
             this.cpuTime -= Stats.begin("simulate");
             let weHaveTime = true;
             while (weHaveTime) {
@@ -915,9 +914,6 @@ export default class Controller {
                 this.island.publishFromView(this.viewId, "synced", this.synced);
             }
             if (weHaveTime && this.cpuTime > SNAPSHOT_EVERY) { this.cpuTime = 0; this.scheduleSnapshot(); }
-            const newIslandTime = this.island.time;
-            const VOTE_INTERVAL = 5000;
-            if (false && Math.floor(newIslandTime / VOTE_INTERVAL) > Math.floor(prevIslandTime / VOTE_INTERVAL)) this.vote(); // @@
             return weHaveTime;
         } catch (error) {
             displayAppError("simulate", error);

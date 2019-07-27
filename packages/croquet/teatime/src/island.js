@@ -58,6 +58,10 @@ function execOnIsland(island, fn) {
     }
 }
 
+const VOTE_SUFFIX = '#__vote'; // internal, for 'vote' handling; never seen by user
+const REFLECTED_SUFFIX = '#reflected';
+const DIVERGENCE_SUFFIX = '#divergence';
+
 /** An island holds the models which are replicated by teatime,
  * a queue of messages, plus additional bookkeeping to make
  * uniform pub/sub between models and views possible.*/
@@ -94,6 +98,8 @@ export default class Island {
                 this.externalSeq = this.seq;
                 /** @type {Number} sequence number for disambiguating future messages with same timestamp */
                 this.futureSeq = 0;
+                /** @type {Number} sequence number of last sent TUTTI */
+                this.tuttiSeq = 0;
                 /** @type {Number} number for giving ids to model */
                 this.modelsId = 0;
                 if (snapshot.modelsById) {
@@ -365,10 +371,9 @@ export default class Island {
 
     publishFromModel(scope, event, data) {
         if (CurrentIsland !== this) throw Error("Island Error");
-        // @@ temporary hack for testing forced reflection of model-to-model messages
-        const REF_TAG = '#reflected';
-        const reflected = event.endsWith(REF_TAG);
-        if (reflected) event = event.slice(0, event.length - REF_TAG.length);
+        // @@ hack for forcing reflection of model-to-model messages
+        const reflected = event.endsWith(REFLECTED_SUFFIX);
+        if (reflected) event = event.slice(0, event.length - REFLECTED_SUFFIX.length);
 
         const topic = scope + ":" + event;
         this.handleModelEventInModel(topic, data, reflected);
@@ -387,20 +392,27 @@ export default class Island {
         // because making them async would mean having to use future messages
         if (CurrentIsland !== this) throw Error("Island Error");
         if (reflect) {
-            if (this.controller.synced !== true) { console.log(`rejecting TUTTI while synced=${this.controller.synced}`); return; }
+            this.tuttiSeq = (this.tuttiSeq + 1) >>> 0; // increment, whether we send or not
+            if (this.controller.synced !== true) return;
 
-            const voteTopic = topic+'#vote';
-            const wantsVote = !!viewDomain.subscriptions[voteTopic], nonVoteSubs = !!this.subscriptions[topic];
-            // iff there are nonVoteSubs, build the message that should be broadcast for the first arrival of the tutti
-            const firstMessage = nonVoteSubs ? new Message(this.time, 0, this.id, "handleModelEventInModel", [topic, data]) : null;
+            const voteTopic = topic + VOTE_SUFFIX;
+            const divergenceTopic = topic + DIVERGENCE_SUFFIX;
+            const wantsVote = !!viewDomain.subscriptions[voteTopic], wantsFirst = !!this.subscriptions[topic], wantsDiverge = !!this.subscriptions[divergenceTopic];
+            if (wantsVote && wantsDiverge) console.log(`divergence subscription for ${topic} overridden by vote subscription`);
+            // iff there are subscribers to a first message, build a candidate for the message that should be broadcast
+            const firstMessage = wantsFirst ? new Message(this.time, 0, this.id, "handleModelEventInModel", [topic, data]) : null;
             const payload = JSON.stringify(data);
             // provide the receiver, selector and topic for any eventual tally response from the reflector.
             // if there are subscriptions to a vote, it'll be a handleModelEventInView with
-            // the vote-augmented topic.  if there aren't, it'll be a handleModelEventTally.
-            const tallyTarget = wantsVote
-                ? [this.id, "handleModelEventInView", voteTopic]
-                : [this.id, "handleModelEventTally", topic];
-            this.controller.sendTutti(this.time, this.seq, payload, firstMessage, wantsVote, tallyTarget);
+            // the vote-augmented topic.  if not, default to our handleModelEventTally.
+            let tallyTarget;
+            if (wantsVote) tallyTarget = [this.id, "handleModelEventInView", voteTopic];
+            else if (wantsDiverge) tallyTarget = [this.id, "handleModelEventInModel", divergenceTopic];
+            else {
+                const event = topic.split(":").slice(-1)[0];
+                tallyTarget = [this.id, "handleModelEventTally", event];
+            }
+            this.controller.sendTutti(this.time, this.tuttiSeq, payload, firstMessage, wantsVote, tallyTarget);
         } else if (this.subscriptions[topic]) {
             for (const handler of this.subscriptions[topic]) {
                 const [id, ...rest] = handler.split('.');
@@ -441,8 +453,8 @@ export default class Island {
         viewDomain.handleEvent(topic, data);
     }
 
-    handleModelEventTally(topic, data) {
-        console.log("TALLY", data);
+    handleModelEventTally(event, data) {
+        console.warn(`uncaptured divergence in ${event}:`, data);
     }
 
     processModelViewEvents() {
