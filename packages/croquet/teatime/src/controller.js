@@ -157,16 +157,16 @@ export default class Controller {
     reset() {
         /** @type {Island} */
         this.island = null;
-        /** the (shared) websocket for talking to the reflector */
-        this.socket = null;
+        /** our websocket connection for talking to the reflector */
+        this.connection = null;
         /** the messages received from reflector */
         this.networkQueue = new AsyncQueue();
-        /** the time of last message received from reflector */
+        /** the time stamp of last message received from reflector */
         this.time = 0;
-        /** the human-readable session (e.g. "room/user/random") */
+        /** the human-readable session name (e.g. "room/user/random") */
         this.session = '';
-        /** @type {String} the client id (different in each replica) */
-        this.viewId = this.viewId || randomString(); // todo: have reflector assign unique ids
+        /** @type {String} the client id (different in each replica, but stays the same on reconnect) */
+        if (!this.viewId) this.viewId = randomString(); // todo: have reflector assign unique ids
         /** the number of concurrent users in our island (excluding spectators) */
         this.users = 0;
         /** the number of concurrent users in our island (including spectators) */
@@ -184,7 +184,7 @@ export default class Controller {
         // on reconnect, show spinner
         if (this.synced) displaySpinner(true);
         /** @type {Boolean} backlog was below SYNCED_MIN */
-        this.synced = null; // indicates never synced before
+        this.synced = null; // null indicates never synced before
         /** latency statistics */
         this.statistics = {
             /** for identifying our own messages */
@@ -202,7 +202,7 @@ export default class Controller {
     get id() { return this.island ? this.island.id : this.islandCreator.snapshot.id; }
 
     /** @type {Object} {id, name} the user id (identifying this client) and name (from login or "GUEST") */
-    get user() { return { name: getUser("name", "GUEST"), id: this.viewId}; }
+    get user() { return { id: this.viewId, name: getUser("name", "GUEST") }; }
 
     /**  @type {Number} how many ms the simulation is lagging behind the last tick from the reflector */
     get backlog() { return this.island ? this.time - this.island.time : 0; }
@@ -215,25 +215,36 @@ export default class Controller {
 
     /**
      * Join or create a session by connecting to the reflector
-     * - the island/session id is created from the session name (found in the URL)
-     *   and a hash of all source code that is imported by that file
-     * - if no session name is in the URL, a random session is created
+     * - the island/session id is created from `name` and
+     *   a hash of registered options and source code
+     * - if `autoSession` is enabled then the session name is taken
+     *   from the URL, or a random session is created
      *
-     * @param {String} room - A (human-readable) name for the room
-     * @param {{moduleID:String, init:Function}} creator - The moduleID and function creating the island
+     * @param {String} name - A (human-readable) name for the session/room
+     * @param {Object} sessionSpec - Spec for the session
+     * @param {Function} sessionSpec.init - the island initializer `init(options)`
+     * @param {Function} sessionSpec.destroyerFn - optional island destroyer (called with a snapshot when disconnecting)
+     * @param {Object} sessionSpec.options - options to pass to the island initializer
+     * @param {Object} sessionSpec.snapshot - an optional snapshot to use (instead of running the island initializer if this is the first user in the session
+     * @param {Array<String>} sessionSpec.optionsFromUrl - names of additional island initializer options to take from URL
+     * @param {Number|String} sessionSpec.tps - ticks per second (can be overridden by `options.tps` or `urlOptions.tps`)
+     * @param {Boolean} sessionSpec.login - if `true` perform login
+     * @param {Boolean} sessionSpec.autoSession - if `true` take session name from URL or create new random session name
+     * @param {Boolean} sessionSpec.multiRoom - if `true` then autoSession includes the room name
+     * @param {Boolean} sessionSpec.multiSession - [HACK] if `true` does a reflector roundtrip to make RESET button work
      *
-     * @returns {Promise<{modelName:Model}>} list of named models (as returned by init function)
+     * @returns {Promise<{rootModel:Model}>} list of named models (as returned by init function)
      */
-    async establishSession(room, creator) {
-        const { optionsFromUrl, multiRoom, multiSession, autoSession, login: doLogin } = creator;
-        const options = {...creator.options};
+    async establishSession(name, sessionSpec) {
+        const { optionsFromUrl, multiRoom, multiSession, autoSession, login: doLogin } = sessionSpec;
+        const options = {...sessionSpec.options};
         for (const key of [...OPTIONS_FROM_URL, ...optionsFromUrl||[]]) {
             if (key in urlOptions) options[key] = urlOptions[key];
         }
         if (doLogin) await login();
-        let name = room;
         if (autoSession) {
             // session is either "user/random" or "room/user/random" (for multi-room)
+            const room = name;
             const session = urlOptions.getSession().split('/');
             let user = multiRoom ? session[1] : session[0];
             let random = multiRoom ? session[2] : session[1];
@@ -243,10 +254,7 @@ export default class Controller {
                 if (autoSession.random) random = autoSession.random;
                 // incomplete session: create a new session id
                 if (!user) user = getUser("name", "").toLowerCase() || "GUEST";
-                if (!random) {
-                    random = '';
-                    for (let i = 0; i < 10; i++) random += '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.random() * 36|0];
-                }
+                if (!random) random = randomString();
             }
             this.session = multiRoom ? `${room}/${user}/${random}` : `${user}/${random}`;
             if (!multiRoom) urlOptions.setSession(this.session, newSession);   // multiRoom handles this elsewhere
@@ -267,7 +275,7 @@ export default class Controller {
         // randomised reload-driven suffix.
         const id = multiSession ? await this.sessionIDFor(islandHash) : islandHash;
         console.log(`Session ID for "${nameWithOptions}": ${id}`);
-        this.islandCreator = { name, nameWithOptions, ...creator, options, islandHash };
+        this.islandCreator = { name, nameWithOptions, ...sessionSpec, options, islandHash };
 
         let initSnapshot = false;
         if (!this.islandCreator.snapshot) initSnapshot = true;
