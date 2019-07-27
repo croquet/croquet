@@ -207,7 +207,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
                 const now = Date.now();
                 if (hiddenSince) {
                     // Controller doesn't mind being asked repeatedly to disconnect
-                    if (now - hiddenSince > DORMANT_THRESHOLD) Controller.dormantDisconnectIfNeeded();
+                    if (now - hiddenSince > DORMANT_THRESHOLD) controller.dormantDisconnectIfNeeded();
                 } else hiddenSince = now;
             } else hiddenSince = null; // not hidden
             }, 1000);
