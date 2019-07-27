@@ -7,6 +7,7 @@ import { login, getUser } from "@croquet/util/user";
 import { displaySpinner, displayStatus, displayWarning, displayError, displayAppError } from "@croquet/util/html";
 import { baseUrl, CROQUET_HOST, hashNameAndCode, hashString, uploadCode } from "@croquet/util/modules";
 import { inViewRealm } from "./realms";
+import { viewDomain } from "./domain";
 import Island, { Message, inSequence } from "./island";
 
 
@@ -41,8 +42,10 @@ const NOCHEAT = urlOptions.nocheat;
 
 const OPTIONS_FROM_URL = [ 'tps' ];
 
-// schedule a snapshot after this amount of CPU time has been used for simulation
+// schedule a snapshot after this many ms of CPU time have been used for simulation
 const SNAPSHOT_EVERY = 5000;
+// add this many ms for each external message scheduled
+const EXTERNAL_MESSAGE_CPU_PENALTY = 5;
 
 // backlog threshold in ms to publish "synced(true|false)" event (to start/stop rendering)
 const SYNCED_MIN = 100;
@@ -51,18 +54,22 @@ const SYNCED_MAX = 1000;
 const Controllers = {};
 const SessionCallbacks = {};
 
-let connectToReflectorWasCalled = false;
+let okToCallConnect = true;
 
 function randomString() { return Math.floor(Math.random() * 2**53).toString(36); }
 
 export default class Controller {
+    static ensureConnection() {
+        if (!TheSocket) this.connectToReflectorIfNeeded();
+    }
+
     static connectToReflectorIfNeeded() {
-        if (connectToReflectorWasCalled) return;
+        if (!okToCallConnect) return;
         this.connectToReflector();
     }
 
     static connectToReflector(mainModuleID='', reflectorUrl='') {
-        connectToReflectorWasCalled = true;
+        okToCallConnect = false; // block further calls
         if (!reflectorUrl) reflectorUrl = urlOptions.reflector || DEFAULT_REFLECTOR;
         if (process.env.CROQUET_REPLAY) {
             if (!urlOptions.noupload && mainModuleID) uploadCode(mainModuleID).then(hashes => codeHashes = hashes);
@@ -73,11 +80,11 @@ export default class Controller {
     // socket was connected, join session for all islands
     static join(controller) {
         Controllers[controller.id] = controller;
-        this.withSocketDo(socket => controller.join(socket));
+        this.whenSocketReady(() => controller.join(TheSocket));
     }
 
-    static withSocketDo(callback) {
-        if (TheSocket) callback(TheSocket);
+    static whenSocketReady(callback) {
+        if (TheSocket) callback();
         else TheSocketWaitList.push(callback);
     }
 
@@ -86,14 +93,22 @@ export default class Controller {
         TheSocket = socket;
         while (TheSocketWaitList.length > 0) {
             const callback = TheSocketWaitList.shift();
-            callback(socket);
+            callback();
         }
     }
 
-    // socket was disconnected, destroy all islands
+    static socketSend(message) {
+        LastSent = Date.now();
+        TheSocket.send(message);
+    }
+
+    // socket was disconnected, destroy all islands.
+    // it's up to the sender to decide whether to set okToCallConnect
     static leaveAll(preserveSnapshot) {
         if (!TheSocket) return;
         TheSocket = null;
+        LastReceived = 0;
+        LastSent = 0;
         for (const controller of Object.values(Controllers)) {
             controller.leave(preserveSnapshot);
         }
@@ -114,6 +129,13 @@ export default class Controller {
         }
     }
 
+    static dormantDisconnectIfNeeded() {
+        if (!TheSocket || TheSocket.readyState !== WebSocket.OPEN) return; // not connected anyway
+
+        console.log("dormant; disconnecting from reflector");
+        TheSocket.close(4110, 'Going dormant');
+    }
+
     static closeConnectionWithError(caller, error) {
         console.error(error);
         console.warn('closing socket');
@@ -129,6 +151,7 @@ export default class Controller {
 
     constructor() {
         this.reset();
+        viewDomain.addSubscription(this.viewId, "__users__", this, data => displayStatus(`users now ${data.count}`), "oncePerFrameWhileSynced");
     }
 
     reset() {
@@ -143,7 +166,7 @@ export default class Controller {
         /** the human-readable session (e.g. "room/user/random") */
         this.session = '';
         /** @type {String} the client id (different in each replica) */
-        this.viewId = randomString(); // todo: have reflector assign unique ids
+        this.viewId = this.viewId || randomString(); // todo: have reflector assign unique ids
         /** the number of concurrent users in our island (excluding spectators) */
         this.users = 0;
         /** the number of concurrent users in our island (including spectators) */
@@ -231,18 +254,32 @@ export default class Controller {
             name = `${room}/${user}/${random}`;
             if (user === 'DEMO') this.viewOnly = getUser("demoViewOnly", true);
         }
-        // include options in name & hash
-        if (Object.keys(options).length) {
-            name += '?' + Object.entries(options).map(([k,v])=>`${k}=${v}`).join('&');
+        // include options in the island's islandHash, which must remain fixed over reloads.
+        // a snapshot includes the islandHash so we can ensure that an island only
+        // attempts to load snapshots that were generated by compatible code.  this
+        // is entirely separate from the snapshot's model-based hash.
+        const nameWithOptions = Object.keys(options).length
+            ? name + '?' + Object.entries(options).map(([k,v])=>`${k}=${v}`).join('&')
+            : name;
+        const islandHash = await hashNameAndCode(nameWithOptions);
+        // multiSession is true for sessions that provide a "reset" button,
+        // and that therefore need to ask the reflector for an id with a
+        // randomised reload-driven suffix.
+        const id = multiSession ? await this.sessionIDFor(islandHash) : islandHash;
+        console.log(`Session ID for "${nameWithOptions}": ${id}`);
+        this.islandCreator = { name, nameWithOptions, ...creator, options, islandHash };
+
+        let initSnapshot = false;
+        if (!this.islandCreator.snapshot) initSnapshot = true;
+        else if (this.islandCreator.snapshot.meta.islandHash !== islandHash) {
+            console.warn(`Existing snapshot was for different code base!`);
+            initSnapshot = true;
+        } else if (this.islandCreator.snapshot.id !== id) {
+            console.warn(`Existing snapshot was for different session!`);
+            initSnapshot = true;
         }
-        const hash = await hashNameAndCode(name);
-        const id = multiSession ? await this.sessionIDFor(hash) : hash;
-        console.log(`Session ID for "${name}": ${id}`);
-        this.islandCreator = { name, ...creator, options, hash };
-        if (!this.islandCreator.snapshot) {
-            this.islandCreator.snapshot = { id, time: 0, meta: { created: (new Date()).toISOString() } };
-        }
-        if (this.islandCreator.snapshot.id !== id) console.warn(`Resuming snapshot on different code base!`);
+        if (initSnapshot) this.islandCreator.snapshot = { id, time: 0, meta: { islandHash, created: (new Date()).toISOString() } };
+
         const island = await new Promise(resolve => {
             this.islandCreator.callbackFn = resolve;
             Controller.join(this);   // when socket is ready, join server
@@ -266,6 +303,8 @@ export default class Controller {
         return Stats.end("snapshot") - start;
     }
 
+    // look for a snapshot with the specified meta-properties (hash optional) in
+    // our old-snapshot history
     findSnapshot(time, seq, hash='') {
         for (let i = this.snapshots.length - 1; i >= 0; i--) {
             const snapshot = this.snapshots[i];
@@ -327,7 +366,7 @@ export default class Controller {
         const {time, seq, hash} = this.lastSnapshot.meta;
         if (DEBUG.snapshot) console.log(this.id, `Controller sending hash for ${time}#${seq} to reflector: ${hash}`);
         try {
-            this.socket.send(JSON.stringify({
+            Controller.socketSend(JSON.stringify({
                 id: this.id,
                 action: 'SNAP',
                 args: {time, seq, hash},
@@ -370,11 +409,12 @@ export default class Controller {
         return inSequence(seq, latest.seq);
     }
 
+    // was uploadSnapshotAndSendToReflector
     // we sent a snapshot hash to the reflector, it elected us to upload
-    async uploadSnapshotAndSendToReflector(time, seq, hash) {
+    async serveSnapshot(time, seq, hash) {
         const snapshot = this.findSnapshot(time, seq, hash);
-        const last = this.lastSnapshot.meta;
         if (snapshot !== this.lastSnapshot) {
+            const last = this.lastSnapshot.meta;
             console.error(this.id, `snapshot is not last (expected ${time}#${seq}, have ${last.time}#${last.seq})`);
             return;
         }
@@ -395,12 +435,15 @@ export default class Controller {
         }
     }
 
-    // upload snapshot and message history, and inform reflector
+    // upload snapshot and message history, and optionally inform reflector
     async uploadLatest(sendToReflector=true) {
+        const viewId = this.viewId;
         const snapshotUrl = await this.uploadSnapshot(this.lastSnapshot);
+        // if upload is slow and the reflector loses patience, controller will have been reset
+        if (this.viewId !== viewId) { console.error("Controller was reset while trying to upload snapshot"); return; }
         if (!snapshotUrl) { console.error("Failed to upload snapshot"); return; }
         const last = this.lastSnapshot.meta;
-        if (sendToReflector) this.sendSnapshotToReflector(last.time, last.seq, last.hash, snapshotUrl);
+        if (sendToReflector) this.announceSnapshotUrl(last.time, last.seq, last.hash, snapshotUrl);
         if (!this.prevSnapshot) return;
         const prev = this.prevSnapshot.meta;
         let messages = [];
@@ -433,12 +476,13 @@ export default class Controller {
         this.uploadJSON(url, body);
     }
 
-    sendSnapshotToReflector(time, seq, hash, url) {
+    // was sendSnapshotToReflector
+    announceSnapshotUrl(time, seq, hash, url) {
         if (DEBUG.snapshot) console.log(this.id, `Controller updating ${this.snapshotUrl('latest')})`);
         this.uploadJSON(this.snapshotUrl('latest'), JSON.stringify({time, seq, hash, url}));
         if (DEBUG.snapshot) console.log(this.id, `Controller sending snapshot url to reflector (time: ${time}, seq: ${seq}, hash: ${hash}): ${url}`);
         try {
-            this.socket.send(JSON.stringify({
+            Controller.socketSend(JSON.stringify({
                 id: this.id,
                 action: 'SNAP',
                 args: {time, seq, hash, url},
@@ -476,18 +520,18 @@ export default class Controller {
     get prevSnapshot() { return this.snapshots[this.snapshots.length - 2]; }
 
     /** Ask reflector for a session
-     * @param {String} hash - hashed island name, options, and code base
+     * @param {String} islandHash - hashed island name, options, and code base
      */
-    async sessionIDFor(hash) {
+    async sessionIDFor(islandHash) {
         return new Promise(resolve => {
-            SessionCallbacks[hash] = sessionId => {
-                delete SessionCallbacks[hash];
+            SessionCallbacks[islandHash] = sessionId => {
+                delete SessionCallbacks[islandHash];
                 resolve(sessionId);
             };
-            if (DEBUG.snapshot) console.log(hash, 'Controller asking reflector for session ID');
-            Controller.withSocketDo(socket => {
-                socket.send(JSON.stringify({
-                    id: hash,
+            if (DEBUG.snapshot) console.log(islandHash, 'Controller asking reflector for session ID');
+            Controller.whenSocketReady(() => {
+                Controller.socketSend(JSON.stringify({
+                    id: islandHash,
                     action: 'SESSION'
                 }));
             });
@@ -497,14 +541,13 @@ export default class Controller {
     /** Ask reflector for a new session. Everyone will be kicked out and rejoin, including us. */
     requestNewSession() {
         if (!this.islandCreator.multiSession) { console.warn("ignoring requestNewSession() since not multiSession"); return;  }
-        const { hash } = this.islandCreator;
-        if (SessionCallbacks[hash]) return;
-        SessionCallbacks[hash] = newSession => console.log(this.id, 'new session:', newSession);
-        Controller.withSocketDo(socket => {
-            socket.send(JSON.stringify({
-                id: hash,
-                action: 'SESSION',
-                args: { new: true },
+        const { islandHash } = this.islandCreator;
+        if (SessionCallbacks[islandHash]) return;
+        SessionCallbacks[islandHash] = newSession => console.log(this.id, 'new session:', newSession);
+        Controller.whenSocketReady(() => {
+            Controller.socketSend(JSON.stringify({
+                id: islandHash,
+                action: 'SESSION_RESET'
             }));
         });
     }
@@ -539,8 +582,10 @@ export default class Controller {
                 receiver = this.id;
                 selector = "publishFromModel";
                 args = [scope, event, data];
-                // only show changes in user count when this view is one of those that just entered, or is already known to the island
-                if (data.entered.some(elem => elem[1] === this.viewId) || this.island && this.island.users[this.viewId]) displayStatus(`users now ${this.users}`);
+
+                // also immediately publish as view event, which this controller will
+                // have subscribed to (in its constructor).
+                viewDomain.handleEvent(this.viewId + ":" + event, data);
                 break;
             }
             case "tally": {
@@ -566,7 +611,7 @@ export default class Controller {
                 // We are starting a new island session.
                 if (DEBUG.session) console.log(this.id, 'Controller received START');
                 // we may have a snapshot from hot reload or reconnect
-                let snapshot = this.islandCreator.snapshot;
+                let snapshot = this.islandCreator.snapshot; // could be just the placeholder set up in establishSession (which has no modelsById property)
                 const local = snapshot.modelsById && {
                     time: snapshot.meta.time,
                     seq: snapshot.meta.seq,
@@ -574,7 +619,7 @@ export default class Controller {
                 };
                 // see if there is a remote or in-memory snapshot
                 let latest = null;
-                if (!DEBUG.init) {
+                if (!DEBUG.init) { // setting "init" option forces ignore of stored snapshots
                     latest = await this.fetchJSON(this.snapshotUrl('latest'));
                     // which one's newer?
                     if (!latest || (local && local.time > latest.time)) latest = local;
@@ -583,13 +628,13 @@ export default class Controller {
                 if (latest) {
                     console.log(this.id, latest.snapshot ? "using snapshot still in memory" : `fetching latest snapshot ${latest.url}`);
                     snapshot = latest.snapshot || await this.fetchJSON(latest.url);
-                } else snapshot = null;
+                } else snapshot = null; // we found no actual snapshot (e.g., only the placeholder)
                 if (!this.socket) { console.log(this.id, 'socket went away during START'); return; }
                 if (snapshot) this.islandCreator.snapshot = snapshot;
                 this.install();
                 this.requestTicks();
                 this.keepSnapshot(snapshot);
-                if (latest && latest.url) this.sendSnapshotToReflector(latest.time, latest.seq, latest.hash, latest.url);
+                if (latest && latest.url) this.announceSnapshotUrl(latest.time, latest.seq, latest.hash, latest.url);
                 else this.uploadLatest(true); // upload initial snapshot
                 return;
             }
@@ -597,6 +642,12 @@ export default class Controller {
                 // We are joining an island session.
                 const {messages, url, time} = args;
                 if (DEBUG.session) console.log(this.id, `Controller received SYNC: time ${time}, ${messages.length} messages, ${url}`);
+                // if any conversion of custom reflector messages is to be done, do it before
+                // waiting for the snapshot to arrive (because there might be some meta-processing
+                // that happens immediately on conversion; this is the case for "users" messages)
+                for (const msg of messages) {
+                    if (typeof msg[2] !== "string") this.convertReflectorMessage(msg);
+                }
                 const snapshot = await this.fetchJSON(url);
                 this.islandCreator.snapshot = snapshot;  // set snapshot
                 if (!this.socket) { console.log(this.id, 'socket went away during SYNC'); return; }
@@ -640,13 +691,13 @@ export default class Controller {
             case 'HASH': {
                 // we received a snapshot hash from reflector
                 const {time, seq, hash, serve} = args;
-                if (serve) this.uploadSnapshotAndSendToReflector(time, seq, hash);
+                if (serve) this.serveSnapshot(time, seq, hash);
                 else this.compareHash(time, seq, hash);
                 return;
             }
             case 'LEAVE': {
                 // the server wants us to leave this session and rejoin
-                console.log(this.id, 'Controller received LEAVE', args);
+                console.log(this.id, 'Controller received LEAVE');
                 this.leave(false);
                 return;
             }
@@ -654,6 +705,7 @@ export default class Controller {
         }
     }
 
+    // create the Island for this Controller, based on the islandCreator and optionally an array of messages that are known to post-date the islandCreator's snapshot
     install(messagesSinceSnapshot=[], syncTime=0) {
         const {snapshot, init, options, callbackFn} = this.islandCreator;
         let newIsland = new Island(snapshot, () => {
@@ -674,6 +726,7 @@ export default class Controller {
             const external = newIsland.messages.asArray().filter(m => m.isExternal());
             console.log(this.id, `Controller found ${external.length} unsimulated external messages in snapshot`, external);
         }
+        // schedule the supplied messages, if any
         if (messagesSinceSnapshot.length > 0) {
             if  (DEBUG.messages) console.log(this.id, `Controller scheduling ${messagesSinceSnapshot.length} messages after snapshot`, messagesSinceSnapshot);
             for (const msg of messagesSinceSnapshot) {
@@ -681,8 +734,8 @@ export default class Controller {
                 newIsland.scheduleExternalMessage(msg);
             }
         }
-        // drain message queue
-        const nextSeq = (newIsland.externalSeq + 1) >>> 0;
+        // drain network queue of messages that have been at least scheduled.
+        const nextSeq = (newIsland.externalSeq + 1) >>> 0; // externalSeq is last scheduled message
         for (let msg = this.networkQueue.peek(); msg; msg = this.networkQueue.peek()) {
             if (!inSequence(msg[1], nextSeq)) throw Error(`Missing message (expected ${nextSeq} got ${msg[1]})`);
             // found the next message
@@ -694,7 +747,7 @@ export default class Controller {
         const islandTime = Math.max(newIsland.time, newIsland.externalTime);
         if (syncTime && syncTime < islandTime) console.warn(`ignoring SYNC time from reflector (time was ${islandTime.time}, received ${syncTime})`);
         this.time = Math.max(this.time, islandTime, syncTime);
-        this.setIsland(newIsland); // install island
+        this.setIsland(newIsland); // make this our island
         callbackFn(this.island);
     }
 
@@ -717,11 +770,12 @@ export default class Controller {
         this.socket = socket;
         const {name, id} = this.user;
         const args = {
-            name: this.islandCreator.name,
+            name: this.islandCreator.nameWithOptions,
             version: VERSION,
-            user: [name, id],
+            user: [id, name],
         };
-        socket.send(JSON.stringify({
+
+        Controller.socketSend(JSON.stringify({
             id: this.id,
             action: 'JOIN',
             args,
@@ -731,7 +785,7 @@ export default class Controller {
     leave(preserveSnapshot) {
         if (this.socket.readyState === WebSocket.OPEN) {
             console.log(this.id, `Controller LEAVING session for ${this.islandCreator.name}`);
-            this.socket.send(JSON.stringify({ id: this.id, action: 'LEAVING' }));
+            Controller.socketSend(JSON.stringify({ id: this.id, action: 'LEAVING' }));
         }
         delete Controllers[this.id];
         const {destroyerFn} = this.islandCreator;
@@ -752,7 +806,7 @@ export default class Controller {
         if (DEBUG.sends) console.log(this.id, `Controller sending SEND ${msg.asState()}`);
         this.lastSent = Date.now();
         this.statistics.sent[++this.statistics.seq] = this.lastSent;
-        this.socket.send(JSON.stringify({
+        Controller.socketSend(JSON.stringify({
             id: this.id,
             action: 'SEND',
             args: [...msg.asState(), this.statistics.id, this.statistics.seq],
@@ -816,7 +870,7 @@ export default class Controller {
         if (DEBUG.session) console.log(this.id, 'Controller requesting TICKS', args);
         // args: {time, tick, delay, scale}
         try {
-            this.socket.send(JSON.stringify({
+            Controller.socketSend(JSON.stringify({
                 id: this.id,
                 action: 'TICKS',
                 args,
@@ -845,6 +899,9 @@ export default class Controller {
                 const msg = this.island.scheduleExternalMessage(msgData);
                 // remember msgData for upload / replay
                 this.oldMessages.push(msgData);
+                // boost cpuTime by a fixed cost per message, to impose an upper limit on
+                // the number of messages we'll accumulate before taking a snapshot
+                this.cpuTime += EXTERNAL_MESSAGE_CPU_PENALTY;
                 // simulate up to that message
                 weHaveTime = this.island.advanceTo(msg.time, deadline);
             }
@@ -911,17 +968,19 @@ hotreloadEventManger.addEventListener(document.body, "unload", Controller.upload
 // ... and on hotreload
 hotreloadEventManger.addDisposeHandler('snapshots', Controller.uploadOnPageClose);
 
-
 // Socket
 
 let TheSocket = null;
 const TheSocketWaitList = [];
 let LastReceived = 0;
+let LastSent = 0;
 
 /** start sending PINGs to server after not receiving anything for this timeout */
 const PING_TIMEOUT = 100;
 /** send PINGs using this interval until hearing back from server */
 const PING_INTERVAL = 100;
+/** if we haven't sent anything to the reflector for this long, send a PULSE to reassure it */
+const PULSE_TIMEOUT = 20000;
 
 function PING() {
     if (!TheSocket || TheSocket.readyState !== WebSocket.OPEN) return;
@@ -929,12 +988,19 @@ function PING() {
     else TheSocket.send(JSON.stringify({ action: 'PING', args: Date.now()}));
 }
 
-// one reason for having this is to prevent the connection from going idle,
+function PULSE() {
+    if (!TheSocket || TheSocket.readyState !== WebSocket.OPEN) return;
+    Controller.socketSend(JSON.stringify({ action: 'PULSE' }));
+}
+
+// one reason for having PINGs is to prevent the connection from going idle,
 // which caused some router/computer combinations to buffer packets instead
 // of delivering them immediately (observed on AT&T Fiber + Mac)
 hotreloadEventManger.setInterval(() => {
-    if (Date.now() - LastReceived < PING_TIMEOUT) return;
-    PING();
+    if (LastReceived === 0) return; // haven't yet consummated the connection
+    if (Date.now() - LastReceived > PING_TIMEOUT) PING();
+    // if *not* sending a PING, check to see if it's time to send a PULSE
+    else if (Date.now() - LastSent > PULSE_TIMEOUT) PULSE();
 }, PING_INTERVAL);
 
 async function startReflectorInBrowser() {
@@ -1001,16 +1067,24 @@ function socketSetup(socket, reflectorUrl) {
             console.log(socket.constructor.name, "error");
         },
         onclose: event => {
-            // we reserve event codes from 4100 to mean an unrecoverable error
+            // event codes from 4100 and up mean a disconnection from which the client
+            // shouldn't automatically try to reconnect
             // e.g., 4100 is for out-of-date reflector protocol
-            const wantToRetry = event.code !== 1000 && event.code < 4100;
-            displayError(`Connection closed: ${event.code} ${event.reason}`, { duration: wantToRetry ? undefined : 3600000 }); // leave it there for 1 hour if unrecoverable
+            const autoReconnect = event.code !== 1000 && event.code < 4100;
+            const dormant = event.code === 4110;
+            // don't display error if going dormant
+            if (!dormant) displayError(`Connection closed: ${event.code} ${event.reason}`, { duration: autoReconnect ? undefined : 3600000 }); // leave it there for 1 hour if unrecoverable
             if (DEBUG.session) console.log(socket.constructor.name, "closed:", event.code, event.reason);
             Stats.connected(false);
             Controller.leaveAll(true);
-            if (wantToRetry) {
+            // leaveAll discards the socket, but doesn't presume that okToCallConnect should
+            // now be true.
+            // here we set it false except for the case of going dormant, which is allowed
+            // to reawaken as soon as the next animation frame happens.
+            okToCallConnect = dormant;
+            if (autoReconnect) {
                 displayWarning('Reconnecting ...');
-                hotreloadEventManger.setTimeout(() => connectToReflector(reflectorUrl), 1000);
+                hotreloadEventManger.setTimeout(() => Controller.connectToReflector(reflectorUrl), 2000);
             }
         },
         onmessage: event => {

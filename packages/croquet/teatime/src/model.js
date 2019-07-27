@@ -87,6 +87,7 @@ class Model {
                 console.warn(`${model} did not call super.init(options)`);
             }
         }
+
         return model;
     }
 
@@ -232,7 +233,7 @@ class Model {
      * @public
      */
     destroy() {
-        currentRealm().unsubscribeAll(this.id);
+        currentRealm().unsubscribeAll(this);
         currentRealm().deregister(this);
     }
 

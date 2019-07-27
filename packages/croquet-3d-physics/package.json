@@ -1,6 +1,6 @@
 {
-  "name": "croquet-3d-physics",
-  "version": "0.1.1-lerna.1",
+  "name": "@croquet/3d-physics",
+  "version": "0.1.1-lerna.3",
   "description": "",
   "main": "dist/index.js",
   "types": "dist/types.d.ts",
@@ -10,9 +10,14 @@
   },
   "author": "",
   "dependencies": {
-    "croquet": "^0.1.7-lerna.0",
-    "croquet-observable": "^0.1.1-lerna.1",
+    "@croquet/croquet": "^0.1.7-lerna.2",
+    "@croquet/observable": "^0.1.1-lerna.3",
+    "gl-matrix": "^3.0.0",
     "oimo": "git+https://github.com/croquet/Oimo.js.git",
+    "quaternion-to-euler": "^0.5.0"
+  },
+  "devDependencies": {
+    "@types/gl-matrix": "^2.4.5",
     "typescript": "^3.5.3"
   }
 }

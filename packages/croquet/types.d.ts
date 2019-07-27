@@ -1,4 +1,11 @@
-declare module "croquet" {
+declare module "@croquet/croquet" {
+    export abstract class PubSubParticipant {
+        publish(scope: string, event: string, data: any): void;
+        subscribe(scope: string, event: string, methodName: string | ((e: any) => void)): void;
+        unsubscribe(scope: string, event: string): void;
+        unsubscribeAll(): void;
+    }
+
     /**
      * Models are replicated objects in Croquet.
      * They are automatically kept in sync for each user in the same [session]{@link startSession}.
@@ -31,7 +38,7 @@ declare module "croquet" {
      * @hideconstructor
      * @public
      */
-    export class Model {
+    export class Model extends PubSubParticipant {
         id: string;
 
         /**
@@ -230,6 +237,178 @@ declare module "croquet" {
 
         /**
          * Unsubscribes all of this model's handlers for any event in any scope.
+         * @public
+         */
+        unsubscribeAll(): void;
+
+        /**
+         * **Schedule a message for future execution**
+         *
+         * Use a future message to automatically advance time in a model,
+         * for example for animations.
+         * The execution will be scheduled `tOffset` milliseconds into the future.
+         * It will run at precisely `[this.now()]{@link Model#now} + tOffset`.
+         *
+         * Use the form `this.future(100).methodName(args)` to schedule the execution
+         * of `this.methodName(args)` at time `this.[now]{@link Model#now}() + tOffset`.
+         *
+         * **Hint**: This would be an unusual use of `future()`, but the `tOffset` given may be `0`,
+         * in which case the execution will happen asynchronously before advancing time.
+         * This is the only way for asynchronous execution in the model since you must not
+         * use Promises or async functions in model code (because a snapshot may happen at any time
+         * and it would not capture those executions).
+         *
+         * **Note:** the recommended form given above is equivalent to `this.future(100, "methodName", arg1, arg2)`
+         * but makes it more clear that "methodName" is not just a string but the name of a method of this object.
+         * Technically, it answers a [Proxy]{@link https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Proxy}
+         * that captures the name and arguments of `.methodName(args)` for later execution.
+         *
+         * See this [tutorial]{@tutorial 1_1_hello_world} for a complete example.
+         * @example <caption>single invocation with two arguments</caption>
+         * this.future(3000).say("hello", "world");
+         * @example <caption>repeated invocation with no arguments</caption>
+         * tick() {
+         *     this.n++;
+         *     this.publish(this.id, "count", {time: this.now(), count: this.n)});
+         *     this.future(100).tick();
+         * }
+         * @param {Number} tOffset - time offset in milliseconds, must be >= 0
+         * @returns {this}
+         * @public
+         */
+        future(tOffset?:number, methodName?: string, ...args: any[]): this;
+    }
+
+    export class View extends PubSubParticipant {
+        /**
+         * A View instance is created in {@link startSession}, and the root model is passed into its constructor.
+         *
+         * This inherited constructor does not use the model in any way.
+         * Your constructor should recreate the view state to exactly match what is in the model.
+         * It should also [subscribe]{@link View#subscribe} to any changes published by the model.
+         * Typically, a view would also subscribe to the browser's or framework's input events,
+         * and in response [publish]{@link View#publish} events for the model to consume.
+         *
+         * The constructor will, however, register the view and assign it an [id]{@link View#id}.
+         *
+         * **Note:** When your view instance is no longer needed, you must [detach]{@link View#detach} it.
+         * Otherwise it will be kept in memory forever.
+         *
+         * @param {Model} model - the view's model
+         * @public
+         */
+        constructor(model: Model);
+
+        /**
+         * **Unsubscribes all [subscriptions]{@link View#subscribe} this model has,
+         * and removes it from the list of views**
+         *
+         * This needs to be called when a view is no longer needed to prevent memory leaks.
+         * @example
+         * removeChild(child) {
+         *    const index = this.children.indexOf(child);
+         *    this.children.splice(index, 1);
+         *    child.detach();
+         * }
+         * @public
+         */
+        detach(): void;
+
+        /**
+         * **Publish an event to a scope.**
+         *
+         * Events are the main form of communication between models and views in Croquet.
+         * Both models and views can publish events, and subscribe to each other's events.
+         * Model-to-model and view-to-view subscriptions are possible, too.
+         *
+         * See [Model.subscribe]{@link Model#subscribe} for a discussion of **scopes** and **event names**.
+         *
+         * Optionally, you can pass some **data** along with the event.
+         * For events published by a view and received by a model,
+         * the data needs to be serializable, because it will be sent via the reflector to all users.
+         * For view-to-view events it can be any value or object.
+         *
+         * Note that there is no way of testing whether subscriptions exist or not (because models can exist independent of views).
+         * Publishing an event that has no subscriptions is about as cheap as that test would be, so feel free to always publish,
+         * there is very little overhead.
+         *
+         * @example
+         * this.publish("input", "keypressed", {key: 'A'});
+         * this.publish(this.model.id, "move-to", this.pos);
+         * @param {String} scope see [subscribe]{@link Model#subscribe}()
+         * @param {String} event see [subscribe]{@link Model#subscribe}()
+         * @param {*=} data can be any value or object (for view-to-model, must be serializable)
+         * @public
+         */
+        publish(scope: string, event: string, data: any): void;
+
+        /**
+         * **Register an event handler for an event published to a scope.**
+         *
+         * Both `scope` and `event` can be arbitrary strings.
+         * Typically, the scope would select the object (or groups of objects) to respond to the event,
+         * and the event name would select which operation to perform.
+         *
+         * A commonly used scope is `this.id` (in a model) and `model.id` (in a view) to establish
+         * a communication channel between a model and its corresponding view.
+         *
+         * Unlike in a model's [subscribe]{@link Model#subscribe} method, you can specify when the event should be handled:
+         * - **Queued:** The handler will be called on the next run of the [main loop]{@link startSession},
+         *   the same number of times this event was published.
+         *   This is useful if you need each piece of data that was passed in each [publish]{@link Model#publish} call.
+         *
+         *   An example would be log entries generated in the model that the view is supposed to print.
+         *   Even if more than one log event is published in one render frame, the view needs to receive each one.
+         *
+         *   **`{ event: "name", handling: "queued" }` is the default.  Simply specify `"name"` instead.**
+         *
+         * - **Once Per Frame:** The handler will be called only _once_ during the next run of the [main loop]{@link startSession}.
+         *   If [publish]{@link Model#publish} was called multiple times, the handler will only be invoked once,
+         *   passing the data of only the last `publish` call.
+         *
+         *   For example, a view typically would only be interested in the current position of a model to render it.
+         *   Since rendering only happens once per frame, it should subscribe using the `oncePerFrame` option.
+         *   The event typically would be published only once per frame anyways, however,
+         *   while the model is catching up when joining a session, this would be fired rapidly.
+         *
+         *   **`{ event: "name", handling: "oncePerFrame" }` is the most efficient option, you should use it whenever possible.**
+         *
+         * - **Immediate:** The handler will be invoked _synchronously_ during the [publish]{@link Model#publish} call.
+         *   This will tie the view code very closely to the model simulation, which in general is undesirable.
+         *   However, if the view needs to know the exact state of the model at the time the event was published,
+         *   before execution in the model proceeds, then this is the facility to allow this without having to copy model state.
+         *
+         *   Pass `{event: "name", handling: "immediate"}` to enforce this behavior.
+         *
+         * The `handler` can be any callback function.
+         * Unlike a model's [handler]{@link Model#subscribe} which must be a method of that model,
+         * a view's handler can be any function, including fat-arrow functions declared in-line.
+         * Passing a method like in the model is allowed too, it will be bound to `this` in the subscribe call.
+         *
+         * @example
+         * this.subscribe("something", "changed", this.update);
+         * this.subscribe(this.id, {event: "moved", handling: "oncePerFrame"}, pos => this.sceneObject.setPosition(pos.x, pos.y, pos.z));
+         * @tutorial 1_4_view_smoothing
+         * @param {String} scope - the event scope (to distinguish between events of the same name used by different objects)
+         * @param {String|Object} eventSpec - the event name (user-defined or system-defined), or an event handling spec object
+         * @param {String} eventSpec.event - the event name (user-defined or system-defined)
+         * @param {String} eventSpec.handling - `"queued"` (default), `"oncePerFrame"`, or `"immediate"`
+         * @param {Function} handler - the event handler (can be any function)
+         * @return {this}
+         * @public
+         */
+        subscribe(scope: string, eventSpec: string | {event: "string", handling: "queued" | "oncePerFrame" | "immediate"}, callback: (e: any) => void): void;
+
+        /**
+         * Unsubscribes this view's handler for the given event in the given scope.
+         * @param {String} scope see [subscribe]{@link View#subscribe}
+         * @param {String} event see [subscribe]{@link View#subscribe}
+         * @public
+         */
+        unsubscribe(scope: string, event: string): void;
+
+        /**
+         * Unsubscribes all of this views's handlers for any event in any scope.
          * @public
          */
         unsubscribeAll(): void;

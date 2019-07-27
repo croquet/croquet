@@ -1,19 +1,18 @@
 {
   "name": "@croquet/reflector",
   "version": "0.0.1",
-  "description": "",
+  "description": "A single Croquet reflector, handling websocket conections from Croquet clients",
   "main": "reflector.js",
   "browser": {
     "ws": "./ws.js",
     "fs": "./fs.js"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "Croquet Studios",
+  "license": "Restricted",
   "scripts": {
     "start": "node reflector.js"
   },
   "dependencies": {
-    "broadcast-channel": "^2.1.12",
     "ws": "^6.2.1"
   },
   "devDependencies": {
@@ -21,5 +20,9 @@
     "eslint-config-airbnb-base": "^13.1.0",
     "eslint-import-resolver-parcel": "^1.8.4",
     "eslint-plugin-import": "^2.16.0"
+  },
+  "optionalDependencies": {
+    "bufferutil": "^4.0.1",
+    "utf-8-validate": "^5.0.2"
   }
 }

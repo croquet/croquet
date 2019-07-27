@@ -35,7 +35,13 @@ There are five things we will learn here:
   this.views = new Map();
   ```
 
-  `views` holds a list of nicknames indexed by unique view IDs. (A map is a standard JavaScript data structure that holds key-data pairs.)
+  `views` holds a list of nicknames indexed by unique view IDs (a map is a standard JavaScript data structure that holds key-data pairs).
+
+  ```
+  this.participants = 0;
+  ```
+
+  `participants` is the number of currently active views.
 
   ```
   this.history = [];
@@ -48,7 +54,9 @@ There are five things we will learn here:
   this.subscribe(this.sessionId, "view-exit", this.viewExit);
   ```
 
-  These subscriptions handle users entering or leaving. In both cases the scope is set to `this.sessionId` which is the default scope for all system-generated events. The data passed to both events is a `viewId`, which is a unique identifier for each participant in the session. If the same user joins the session from multiple browser windows or devices, the `viewId` for each will be different.
+  These subscriptions handle users entering or leaving. In both cases the scope is set to `this.sessionId` which is the default scope for all system-generated events. The data passed to both events is a `viewId`, which is a unique identifier for each participant in the session.
+
+  If a user's view leaves due to becoming inactive, then later re-enters (for example, if it is running on a phone that is put to sleep, then re-awakened), the `viewId` on re-entry will be the same as before.  On the other hand, if a user joins the session from multiple browser tabs even on the same device, the `viewId` for each tab will be different.
 
   **Inside your application you can use `viewID` as a unique identifier for each participant in a session.** You can store data about individual participants using `viewID` as the key. Or you can use `viewID` as the scope of an event to specify who sent it, or limit who receives it.
 
@@ -62,21 +70,25 @@ There are five things we will learn here:
 ## ChatModel.viewJoin(viewId)
 ```
   viewJoin(viewId) {
-    const nickname = this.randomName();
-    this.views.set(viewId, nickname);
+    const existing = this.views.get(viewId);
+    if (!existing) {
+      const nickname = this.randomName();
+      this.views.set(viewId, nickname);
+    }
+    this.participants++;
     this.publish("viewInfo", "refresh");
   }
   ```
-  When a user joins the session, the model generates a random nickname for them and stores it in the view list using the `viewID` as the access key. It then publishes an event to the view informing it that the view list has changed. (In this case we're using "viewInfo" as our scope. This allows us to use a generic word like "refresh" as our event.)
+  When a user joins the session, the model checks whether this `viewId` has already been seen.  If not, it generates a new random nickname and stores it in the view list using the `viewID` as the access key. It then increments the `participants` count and publishes an event that will trigger the view to refresh its display. (In this case we're using "viewInfo" as our scope. This allows us to use a generic word like "refresh" as our event.)
 
 ## ChatModel.viewExit(viewId)
   ```
     viewExit(viewId) {
-      this.views.delete(viewId);
+      this.participants--;
       this.publish("viewInfo", "refresh");
     }
   ```
-  When a user leaves the session, the model removes their entry from the view list, and publishes the same update event.
+  When a user leaves the session, the model decrements the `participants` count and publishes the same update event.
 
 ## ChatModel.newPost(post)
 ```
@@ -101,10 +113,10 @@ There are five things we will learn here:
   randomName() {
     const names = ["Acorn" ..."Zucchini"];
     return names[Math.floor(Math.random() * names.length)];
-  })
+  }
   ```
 
-When a new user joins, their nickname is picked at a random from an array. Note that even though a separate instance of this code is running locally for all users, each instance will "randomly" pick the same name. This is because **calls to `Math.random()` from inside the model are deterministic**. They will generate exactly the same sequence of random numbers in every instance of the model, insuring they all stay in synch.
+When a new user joins, their nickname is picked at a random from an array. Note that even though a separate instance of this code is running locally for each user, each of the instances will "randomly" pick the same name. This is because **calls to `Math.random()` from inside the model are deterministic**. They will generate exactly the same sequence of random numbers in every instance of the model, ensuring they all stay in synch.
 
 ## ChatView.constructor(model)
 
@@ -150,17 +162,17 @@ When the user presses the send button, we build a `"newPost"` event to send to t
 ```
   refreshViewInfo() {
     nickname.innerHTML = "<b>Nickname:</b> " + this.model.views.get(this.viewId);
-    viewCount.innerHTML = "<b>Total Views:</b> " + this.model.views.size;
+    viewCount.innerHTML = "<b>Total Views:</b> " + this.model.participants;
   }
 ```
 
 Here the view reaches directly into the model and gets information about its nickname and the total number of views currently connected. In the view's constructor we stored a pointer to the model just for this purpose.
 
-**The view is allowed to directly read from the model at any time.** In this case, the view uses `this.viewId` to get its nickname from `this.model.views`. It then reads the size of `this.model.views` to determine how many users are currently connected.
+**The view is allowed to directly read from the model at any time.** In this case, the view uses `this.viewId` to get its own nickname from `this.model.views`. It then reads `this.model.participants` to determine how many active users there are.
 
 **The view must NEVER directly write to the model!** Because Croquet exposes the model to the view for read access, it is *possible* to author a Croquet application where the view directly writes to the model. However, doing so will break synchronization and prevent the application from functioning properly.
 
-If your view needs to write to the model, it must publish an event that the model subscribes to. This will ensure that the write operation is mirrored by the reflector and executed identically by all instances of the model.
+If your view needs to change some information that is held by the model, it must publish an event that the model subscribes to. This will ensure that the change is mirrored by the reflector and executed identically by all instances of the model.
 
 ## ChatView.refreshHistory()
 ```

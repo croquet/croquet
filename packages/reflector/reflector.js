@@ -1,11 +1,16 @@
 // when running on node, 'ws' is the actual web socket module
 // when running in browser, 'ws' is our own './ws.js'
+// (in-browser mode is not supported right now)
+
+const os = require('os');
+const http = require('http');
 const WebSocket = require('ws');
 
 const port = 9090;
-const SERVE_TIMEOUT = 10000;  // time in ms to wait for SERVE
+const SERVER_HEADER = "croquet-reflector";
+const SNAP_TIMEOUT = 10000;   // time in ms to wait for SNAP from island's first client
 const TICK_MS = 1000 / 5;     // default tick interval
-const ARTIFICAL_DELAY = 0;    // delay messages randomly by 50% to 150% of this
+const ARTIFICIAL_DELAY = 0;   // delay messages randomly by 50% to 150% of this
 const MAX_MESSAGES = 10000;   // messages per island to retain since last snapshot
 const MIN_SCALE = 1 / 64;     // minimum ratio of island time to wallclock time
 const MAX_SCALE = 64;         // maximum ratio of island time to wallclock time
@@ -14,8 +19,31 @@ const TALLY_INTERVAL = 1000;  // maximum time to wait to tally TUTTI contributio
 function LOG(...args) { console.log((new Date()).toISOString(), "Reflector:", ...args); }
 function WARN(...args) { console.warn((new Date()).toISOString(), "Reflector:", ...args); }
 
-const server = new WebSocket.Server({ port });
-LOG(`starting ${server.constructor.name} ws://localhost:${server.address().port}/`);
+// this webServer is only for http:// requests to the reflector url
+// (e.g. the load-balancer's health check),
+// not ws:// requests for an actual websocket connection
+const webServer = http.createServer( (req, res) => {
+    // redirect http-to-https, unless it's a health check
+    if (req.headers['x-forwarded-proto'] === 'http' && req.url !== '/healthz') {
+        res.writeHead(301, {
+            'Server': SERVER_HEADER,
+            'Location': `https://${req.headers.host}${req.url}`
+        });
+        return res.end();
+    }
+    // otherwise, show hostname, url, and http headers
+    const body = `Reflector ${os.hostname()}\n${req.method} http://${req.headers.host}${req.url}\n${JSON.stringify(req.headers, null, 4)}`;
+    res.writeHead(200, {
+      'Server': SERVER_HEADER,
+      'Content-Length': body.length,
+      'Content-Type': 'text/plain'
+    });
+    return res.end(body);
+  });
+// the WebSocket.Server will intercept the UPGRADE request made by a ws:// websocket connection
+const server = new WebSocket.Server({ server: webServer });
+webServer.listen(port);
+LOG(`starting ${server.constructor.name} ws://${os.hostname()}:${server.address().port}/`);
 
 const STATS_TO_AVG = ["RECV", "SEND", "TICK", "IN", "OUT"];
 const STATS_TO_MAX = ["USERS", "BUFFER"];
@@ -121,13 +149,19 @@ function JOIN(client, id, args) {
     LOG('received', client.addr, 'JOIN', id, args);
     const { time, name, version, user } = args;
     if (user) {
-        client.addr += ` [${JSON.stringify(user)}]`;
+        // strip off any existing user info
+        const baseAddr = client.addr.split(' [')[0];
+        client.addr = `${baseAddr} ${JSON.stringify(user)}`;
         client.user = user;
+        if (client.location) {
+            if (Array.isArray(user)) user.push(client.location);
+            else if (typeof user === "object") user.location = client.location;
+        }
     }
     // create island data if this is the first client
     const island = ALL_ISLANDS.get(id) || {
         id,                  // the island id
-        name,                // the island name (might be null)
+        name,                // the island name, including options (or could be null)
         version,             // the client version
         time,                // the current simulation time
         seq: 0,              // sequence number for messages (uint32, wraps around)
@@ -186,7 +220,7 @@ function JOIN(client, id, args) {
             if (client.readyState === WebSocket.OPEN) client.close(4001, "client unresponsive");
             // start next client
             START();
-        }, SERVE_TIMEOUT);
+            }, SNAP_TIMEOUT);
     }
 }
 
@@ -277,7 +311,7 @@ function SNAP(client, id, args) {
         if (keep > 0) {
             LOG(`${island} forgetting messages #${msgs[0][1] >>> 0} to #${msgs[keep - 1][1] >>> 0} (keeping #${msgs[keep][1] >>> 0})`);
             msgs.splice(0, keep);
-        } if (keep === -1) {
+        } else if (keep === -1) {
             LOG(`${island} forgetting all messages (#${msgs[0][1] >>> 0} to #${msgs[msgs.length - 1][1] >>> 0})`);
             msgs.length = 0;
         }
@@ -458,13 +492,10 @@ function stopTicker(island) {
 // map island hashes to island/session ids
 const SESSIONS = {};
 
-function currentSession(hash) {
-    return `${hash}-${SESSIONS[hash] || 0}`;
-}
+function sessionIdForHash(hash) {
+    if (!SESSIONS[hash]) SESSIONS[hash] = ("" + Math.random()).slice(2, 8); // 6 digits should be more than enough
 
-function newSession(hash) {
-    SESSIONS[hash] = (SESSIONS[hash] || 0) + 1;
-    currentSession(hash);
+    return `${hash}-${SESSIONS[hash]}`;
 }
 
 /** client is requesting a session for an island
@@ -474,14 +505,22 @@ function newSession(hash) {
  */
 function SESSION(client, hash, args) {
     if (!args) args = {};
-    const island = ALL_ISLANDS.get(currentSession(hash));
-    const id = args.new ? newSession(hash) : currentSession(hash);
-
+    const id = sessionIdForHash(hash);
     const response = JSON.stringify({ action: 'SESSION', args: { hash, id } });
-    LOG(`Session ${client.addr} for ${hash} is ${id}`);
+    LOG(`SESSION ${client.addr} for ${hash} is ${id}`);
     client.safeSend(response);
+}
 
-    if (args.new && island) deleteIsland(island);
+/** client is requesting a session reset
+ * @param {Client} client - we received from this client
+ * @param {ID} hash - island hash
+ */
+function SESSION_RESET(client, hash) {
+    const oldID = sessionIdForHash(hash);
+    const island = ALL_ISLANDS.get(oldID);
+    if (island) deleteIsland(island);
+    delete SESSIONS[hash]; // force a new ID...
+    LOG(`SESSION_RESET ${hash}; new ID is ${sessionIdForHash(hash)}`); // ...which will be generated by this!
 }
 
 function deleteIsland(island) {
@@ -500,6 +539,12 @@ const replies = {};
 server.on('connection', (client, req) => {
     client.addr = `${req.connection.remoteAddress}:${req.connection.remotePort}`;
     if (req.headers['x-forwarded-for']) client.addr += ` (${req.headers['x-forwarded-for'].split(/\s*,\s*/).join(', ')})`;
+    // location header is added by load balancer, see region-servers/apply-changes
+    if (req.headers['x-location']) try {
+        const [region, city, lat, lng] = req.headers['x-location'].split(",");
+        client.location = { region };
+        if (city) client.location.city = { name: city, lat: +lat, lng: +lng };
+    } catch (ex) { /* ignore */}
     client.safeSend = data => {
         if (client.readyState !== WebSocket.OPEN) return;
         STATS.BUFFER = Math.max(STATS.BUFFER, client.bufferedAmount);
@@ -509,10 +554,45 @@ server.on('connection', (client, req) => {
     LOG(`connection #${server.clients.size} from ${client.addr}`);
     STATS.USERS = Math.max(STATS.USERS, server.clients.size);
 
-    client.on('pong', time => LOG('PONG from', client.addr, 'after', Date.now() - time, 'ms'));
+    let lastActivity = Date.now();
+    client.on('pong', time => {
+        lastActivity = Date.now();
+        LOG('socket-level pong from', client.addr, 'after', Date.now() - time, 'ms');
+        });
     setTimeout(() => client.readyState === WebSocket.OPEN && client.ping(Date.now()), 100);
 
+    let joined = false;
+    const CHECK_INTERVAL = 5000;
+    const PING_THRESHOLD = 30000; // if not heard from for this long, start pinging
+    const PING_INTERVAL = 5000;
+    const DISCONNECT_THRESHOLD = 60000; // if not for this long, disconnect
+    function checkForActivity() {
+        if (client.readyState !== WebSocket.OPEN) return;
+        const now = Date.now();
+        const quiescence = now - lastActivity;
+        if (quiescence > DISCONNECT_THRESHOLD) {
+            LOG("inactive client: closing connection from", client.addr, "inactive for", quiescence, "ms");
+            client.close(4120, "client inactive"); // NB: close event won't arrive for a while
+            return;
+        }
+        let nextCheck;
+        if (quiescence > PING_THRESHOLD) {
+            if (!joined) {
+                LOG("client never joined: closing connection from", client.addr, "after", quiescence, "ms");
+                client.close(4121, "client never joined");
+                return;
+            }
+
+            LOG("pinging client", client.addr, "inactive for", quiescence, "ms");
+            client.ping(now);
+            nextCheck = PING_INTERVAL;
+        } else nextCheck = CHECK_INTERVAL;
+        setTimeout(checkForActivity, nextCheck);
+    }
+    setTimeout(checkForActivity, PING_THRESHOLD + 2000); // allow some time for establishing session
+
     client.on('message', incomingMsg => {
+        lastActivity = Date.now();
         STATS.IN += incomingMsg.length;
         const handleMessage = () => {
             const { id, action, args } = JSON.parse(incomingMsg);
@@ -520,7 +600,7 @@ server.on('connection', (client, req) => {
                 LOG('received', client.addr, 'reply', action, incomingMsg.length, 'bytes');
                 replies[action](args);
             } else switch (action) {
-                case 'JOIN': JOIN(client, id, args); break;
+                case 'JOIN': { joined = true; JOIN(client, id, args); break; }
                 case 'SEND': SEND(client, id, [args]); break;
                 case 'TUTTI': TUTTI(client, id, args); break;
                 case 'TICKS': TICKS(client, id, args); break;
@@ -528,12 +608,14 @@ server.on('connection', (client, req) => {
                 case 'LEAVING': LEAVING(client, id); break;
                 case 'PING': PONG(client, args); break;
                 case 'SESSION': SESSION(client, id, args); break;
+                case 'SESSION_RESET': SESSION_RESET(client, id); break;
+                case 'PULSE': LOG('PULSE', client.addr); break; // nothing to do
                 default: WARN("unknown action", action);
             }
         };
 
-        if (ARTIFICAL_DELAY) {
-            const timeout = ARTIFICAL_DELAY * (0.5 + Math.random());
+        if (ARTIFICIAL_DELAY) {
+            const timeout = ARTIFICIAL_DELAY * (0.5 + Math.random());
             setTimeout(handleMessage, timeout);
         } else {
             handleMessage();
@@ -541,7 +623,7 @@ server.on('connection', (client, req) => {
     });
 
     client.on('close', () => {
-        LOG(`closing connection from ${client.addr}`);
+        LOG(`closed connection from ${client.addr}`);
         for (const island of ALL_ISLANDS.values()) {
             if (!island.clients.has(client)) continue;
             island.clients.delete(client);

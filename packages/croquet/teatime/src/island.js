@@ -163,16 +163,19 @@ export default class Island {
 
     trackUsers({entered, exited, count}) {
         if (entered.length === count) exited = Object.keys(this.users);
-        else exited = exited.map(each => each[1]); // get id
+        else exited = exited.map(each => each[0]); // get id
         for (const id of exited) {
             if (this.users[id]) {
                 delete this.users[id];
                 this.publishFromModel(this.id, "view-exit", id);
             }
         }
-        for (const [name, id] of entered) {
+        // [id, name] was provided to reflector in controller.join()
+        // reflector may have added location as {region, city: {name, lat, lng}}
+        for (const [id, name, location] of entered) {
             if (!this.users[id]) {
-                this.users[id] = name;
+                this.users[id] = { name };
+                if (location) this.users[id].location = location;
                 this.publishFromModel(this.id, "view-join", id);
             }
         }
@@ -444,7 +447,7 @@ export default class Island {
 
     processModelViewEvents() {
         if (CurrentIsland) throw Error("Island Error");
-        return inViewRealm(this, () => viewDomain.processFrameEvents());
+        return inViewRealm(this, () => viewDomain.processFrameEvents(!!this.controller.synced));
     }
 
     scheduledSnapshot() {
@@ -506,7 +509,8 @@ function hasReceiverAndSelector(payload, id, selector) {
 /** Answer true if seqA comes before seqB:
  * - sequence numbers are 32 bit unsigned ints with overflow
  * - seqA comes before seqB if it takes fewer increments to
- *    go from seqA to seqB, than going from seqB to seqA
+ *    go from seqA to seqB (zero increments counts) than
+ *    going from seqB to seqA
  * @typedef {Number} Uint32
  * @argument {Uint32} seqA
  * @argument {Uint32} seqB

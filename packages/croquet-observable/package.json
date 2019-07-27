@@ -1,6 +1,6 @@
 {
-  "name": "croquet-observable",
-  "version": "0.1.1-lerna.1",
+  "name": "@croquet/observable",
+  "version": "0.1.1-lerna.3",
   "description": "",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -9,7 +9,7 @@
     "prepublish": "tsc"
   },
   "dependencies": {
-    "croquet": "^0.1.7-lerna.0"
+    "@croquet/croquet": "^0.1.7-lerna.2"
   },
   "author": "",
   "devDependencies": {

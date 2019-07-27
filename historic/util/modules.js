@@ -291,7 +291,7 @@ if (process.env.CROQUET_REPLAY) {
         try {
             // see if it's already there
             const response = await fetch(`${BASE_URL}${hash}.json`, { method: 'HEAD' });
-            // if successfull, return
+            // if successful, return
             if (response.ok) return;
         } catch (ex) { /* ignore */ }
         // not found, so try to upload it
@@ -302,7 +302,7 @@ if (process.env.CROQUET_REPLAY) {
                 mode: "cors",
                 body,
             });
-            // uplod JSON only when uploading JS was succesful
+            // upload JSON only when uploading JS was successful
             fetch(`${BASE_URL}${hash}.json`, {
                 method: "PUT",
                 mode: "cors",

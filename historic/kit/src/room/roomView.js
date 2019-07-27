@@ -20,13 +20,15 @@ export default class RoomView extends ViewPart {
     /** @arg {{room: import('./roomModel').default}} options */
     constructor(options) {
         super();
-console.warn(this);
-        this.cameraSpatial = Inertial()(PortalTraversing({roomId: options.room.id})(SpatialPart)).create();
-        this.cameraSpatial.init({
+        // NB: cameraSpatial is a ModelPart, but - because it's initialised here, in
+        // viewRealm execution state - subscribes and publishes as if it's a view, and
+        // doesn't get included in a snapshot.
+        // ael - disabled Inertial, which doesn't get along well with dragging.
+        this.cameraSpatial = /*Inertial()*/(PortalTraversing({roomId: options.room.id})(SpatialPart)).create({
             position: options.cameraPosition,
             quaternion: options.cameraQuaternion,
-            dampening: 0.05
-        });
+            //dampening: 0.05
+            });
 
         this.parts.camera = new (Tracking({source: this.cameraSpatial})(CameraViewPart))({
             width: options.width,
@@ -285,14 +287,14 @@ class TreadmillNavigation extends ViewPart {
 
     onDragTreadmill({dragStart, dragEndOnHorizontalPlane, dragStartThreeObj}) {
         if (dragStartThreeObj === this.treadmillForwardStrip) {
-            this.affects.future().moveTo(this.threeObj.position.clone().sub(dragEndOnHorizontalPlane.clone().sub(dragStart)));
+            this.affects.moveTo(this.threeObj.position.clone().sub(dragEndOnHorizontalPlane.clone().sub(dragStart)));
             this.moveCursor.position.copy(this.threeObj.worldToLocal(dragEndOnHorizontalPlane.clone()));
         } else {
             const delta = (new THREE.Quaternion()).setFromUnitVectors(
                 dragEndOnHorizontalPlane.clone().sub(this.threeObj.position.clone().setY(dragStart.y)).normalize(),
                 dragStart.clone().sub(this.threeObj.position.clone().setY(dragStart.y)).normalize()
             );
-            this.affects.future().rotateTo(this.threeObj.quaternion.clone().multiply(delta));
+            this.affects.rotateTo(this.threeObj.quaternion.clone().multiply(delta));
             this.rotateCursor.position.copy(this.threeObj.worldToLocal(dragEndOnHorizontalPlane.clone()));
             const deltaCursor = (new THREE.Quaternion()).setFromUnitVectors(
                 this.threeObj.getWorldDirection(new THREE.Vector3()),
@@ -305,6 +307,6 @@ class TreadmillNavigation extends ViewPart {
     // TODO: this and its callsite is very ad-hoc
     onWheel(event) {
         const multiplier = 0.01;
-        this.affects.future().moveBy(new THREE.Vector3(event.deltaX * multiplier, 0, event.deltaY * multiplier).applyQuaternion(this.threeObj.quaternion), false);
+        this.affects.moveBy(new THREE.Vector3(event.deltaX * multiplier, 0, event.deltaY * multiplier).applyQuaternion(this.threeObj.quaternion), false);
     }
 }
