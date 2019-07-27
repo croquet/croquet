@@ -312,7 +312,7 @@ export default class Island {
         return null;
     }
 
-    addSubscription(model, scope, event, methodNameOrCallback, handling) {
+    addSubscription(model, scope, event, methodNameOrCallback) {
         if (CurrentIsland !== this) throw Error("Island Error");
         const methodName = this.asQFunc(model, methodNameOrCallback);
         if (typeof methodName !== "string") {
@@ -321,7 +321,7 @@ export default class Island {
         if (typeof model[methodName] !== "function") {
             if (!methodName[0]==='}') throw Error(`Subscriber method for "${event}" not found: ${model}.${methodName}()`);
         }
-        const topic = scope + ":" + event + (handling ? "#" + handling : "");
+        const topic = scope + ":" + event;
         const handler = model.id + "." + methodName;
         // model subscriptions need to be ordered, so we're using an array
         if (!this.subscriptions[topic]) this.subscriptions[topic] = [];
@@ -332,7 +332,6 @@ export default class Island {
     }
 
     removeSubscription(model, scope, event, methodName) {
-        // @@ need to take into account handling
         if (CurrentIsland !== this) throw Error("Island Error");
         const topic = scope + ":" + event;
         const handler = model.id + "." + methodName;
@@ -345,7 +344,6 @@ export default class Island {
     }
 
     removeAllSubscriptionsFor(model) {
-        // @@ need to take into account handling
         const topicPrefix = `${model.id}:`;
         const handlerPrefix = `${model.id}.`;
         // TODO: optimize this - reverse lookup table?
@@ -389,15 +387,15 @@ export default class Island {
             if (this.controller.synced !== true) { console.log(`rejecting TUTTI while synced=${this.controller.synced}`); return; }
 
             const voteTopic = topic+'#vote';
-            const wantsVote = !!this.subscriptions[voteTopic], nonVoteSubs = !!this.subscriptions[topic];
+            const wantsVote = !!viewDomain.subscriptions[voteTopic], nonVoteSubs = !!this.subscriptions[topic];
             // iff there are nonVoteSubs, build the message that should be broadcast for the first arrival of the tutti
             const firstMessage = nonVoteSubs ? new Message(this.time, 0, this.id, "handleModelEventInModel", [topic, data]) : null;
             const payload = JSON.stringify(data);
             // provide the receiver, selector and topic for any eventual tally response from the reflector.
-            // if there are subscriptions to a vote, it'll be a normal handleModelEventInModel
-            // with the vote-augmented topic.  if there aren't, it'll be a handleModelEventTally.
+            // if there are subscriptions to a vote, it'll be a handleModelEventInView with
+            // the vote-augmented topic.  if there aren't, it'll be a handleModelEventTally.
             const tallyTarget = wantsVote
-                ? [this.id, "handleModelEventInModel", voteTopic]
+                ? [this.id, "handleModelEventInView", voteTopic]
                 : [this.id, "handleModelEventTally", topic];
             this.controller.sendTutti(this.time, this.seq, payload, firstMessage, wantsVote, tallyTarget);
         } else if (this.subscriptions[topic]) {

@@ -21,9 +21,9 @@ class ModelRealm {
     publish(event, data, scope) {
         this.island.publishFromModel(scope, event, data);
     }
-    subscribe(model, scope, event, methodName, handling=null) {
-        if (DEBUG.subscribe) console.log(`Model.subscribe(${scope}:${event}) ${model} ${methodName} ${handling || ""}`);
-        return this.island.addSubscription(model, scope, event, methodName, handling);
+    subscribe(model, scope, event, methodName) {
+        if (DEBUG.subscribe) console.log(`Model.subscribe(${scope}:${event}) ${model} ${methodName}`);
+        return this.island.addSubscription(model, scope, event, methodName);
     }
     unsubscribe(model, scope, event, methodName='*') {
         if (DEBUG.subscribe) console.log(`Model.unsubscribe(${scope}:${event}) ${model}`);

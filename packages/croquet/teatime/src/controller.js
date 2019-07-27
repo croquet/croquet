@@ -312,15 +312,6 @@ export default class Controller {
         if (DEBUG.snapshot) console.log(this.id, 'Controller scheduling snapshot via reflector');
     }
 
-    // island time has tripped over a multiple of the voting interval.  vote!
-    vote() {
-        if (true) return;
-        const message = new Message(this.island.time, 0, this.island.id, "voteResult", []);
-        this.sendVote(message);
-    }
-
-    async voteResult() { }
-
     // this is called from inside the simulation loop
     async scheduledSnapshot() {
         // bail out if backlog is too large (e.g. we're just starting up)
@@ -785,13 +776,6 @@ export default class Controller {
         }));
     }
 
-    /** start a vote
-     * @param {Message} msg
-    */
-    sendVote(msg) {
-        // implement using this.sendTutti()
-    }
-
     addToStatistics(statSeq) {
         const {sent} = this.statistics;
         this.latency = Date.now() - sent[statSeq];
@@ -876,7 +860,7 @@ export default class Controller {
             if (weHaveTime && this.cpuTime > SNAPSHOT_EVERY) { this.cpuTime = 0; this.scheduleSnapshot(); }
             const newIslandTime = this.island.time;
             const VOTE_INTERVAL = 5000;
-            if (Math.floor(newIslandTime / VOTE_INTERVAL) > Math.floor(prevIslandTime / VOTE_INTERVAL)) this.vote();
+            if (false && Math.floor(newIslandTime / VOTE_INTERVAL) > Math.floor(prevIslandTime / VOTE_INTERVAL)) this.vote(); // @@
             return weHaveTime;
         } catch (error) {
             displayAppError("simulate", error);
