@@ -131,45 +131,53 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
         function asArray(a) { return a ? (Array.isArray(a) ? a : [a]) : []; }
         urlOptions.debug = [...asArray(urlOptions.debug), ...asArray(options.debug)];
     }
+    // time when we first noticed that the tab is hidden
+    let hiddenSince = null;
     if ("autoSleep" in options) urlOptions.autoSleep = options.autoSleep;
     if (urlOptions.autoSleep !== false) startSleepChecker();
     // now start
-    const CONTROLLER_OPTIONS = ['tps'];
-    const CREATOR_OPTIONS = ['optionsFromUrl'];
     Controller.connectToReflectorIfNeeded();
+    const ISLAND_OPTIONS = ['tps'];
+    const SESSION_OPTIONS = ['optionsFromUrl'];
     freezeAndHashConstants();
     const controller = new Controller();
-    const controllerOptions = {};
+    const islandOptions = {};
     for (const [option, value] of Object.entries(options)) {
-        if (CONTROLLER_OPTIONS.includes(option)) controllerOptions[option] = value;
+        if (ISLAND_OPTIONS.includes(option)) islandOptions[option] = value;
     }
-    const session = {};
+    const session = {
+        id: '',
+        moniker: '',
+        model: null,
+        view: null,
+        step(frameTime) {
+            hiddenSince = null; // evidently not hidden
+            stepSession(frameTime, controller, session.view);
+        }
+    };
+    await bootModelView();
     if (options.step !== "manual") {
         // auto stepping
         const step = frameTime => {
-            stepSession(frameTime, controller, session.view);
+            session.step(frameTime);
             window.requestAnimationFrame(step);
         };
         window.requestAnimationFrame(step);
-    } else {
-        // app-controlled stepping
-        session.step = frameTime => stepSession(frameTime, controller, session.view);
     }
-    await bootModelView();
     return session;
 
     async function bootModelView(snapshot) {
         clear();
-        const creator = {
+        const sessionSpec = {
             snapshot,
-            init: spawnModel,
+            init: islandInit,
             destroyerFn: bootModelView,
-            options: controllerOptions,
+            options: islandOptions,
         };
         for (const [option, value] of Object.entries(options)) {
-            if (CREATOR_OPTIONS.includes(option)) creator[option] = value;
+            if (SESSION_OPTIONS.includes(option)) sessionSpec[option] = value;
         }
-        session.model = (await controller.establishSession(name, creator)).modelRoot;
+        session.model = (await controller.establishSession(name, sessionSpec)).modelRoot;
         session.id = controller.id;
         session.moniker = displaySessionMoniker(controller.id);
         displayQRCode();
@@ -187,9 +195,22 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
         session.moniker = displaySessionMoniker('');
     }
 
-    function spawnModel(opts) {
-        const modelRoot = ModelRoot.create(opts);
+    function islandInit(islandOpts) {
+        const modelRoot = ModelRoot.create(islandOpts);
         return { modelRoot };
+    }
+
+    function startSleepChecker() {
+        const DORMANT_THRESHOLD = 10000;
+        setInterval(() => {
+            if (document.visibilityState === "hidden") {
+                const now = Date.now();
+                if (hiddenSince) {
+                    // Controller doesn't mind being asked repeatedly to disconnect
+                    if (now - hiddenSince > DORMANT_THRESHOLD) Controller.dormantDisconnectIfNeeded();
+                } else hiddenSince = now;
+            } else hiddenSince = null; // not hidden
+            }, 1000);
     }
 }
 
@@ -201,25 +222,9 @@ const simLoad = [0];
 const loadBalance = 4;
 // time in ms we allow sim to lag behind before increasing sim budget
 const balanceMS = loadBalance * (1000 / 60);
-// time when we first noticed that the tab is hidden
-let hiddenSince = null;
-
-function startSleepChecker() {
-    const DORMANT_THRESHOLD = 10000;
-    setInterval(() => {
-        if (document.visibilityState === "hidden") {
-            const now = Date.now();
-            if (hiddenSince) {
-                // Controller doesn't mind being asked repeatedly to disconnect
-                if (now - hiddenSince > DORMANT_THRESHOLD) Controller.dormantDisconnectIfNeeded();
-            } else hiddenSince = now;
-        } else hiddenSince = null; // not hidden
-        }, 1000);
-}
 
 function stepSession(frameTime, controller, view) {
     Controller.ensureConnection();
-    hiddenSince = null; // evidently not hidden
 
     const {backlog, latency, starvation, activity} = controller;
     Stats.animationFrame(frameTime, {backlog, starvation, latency, activity, users: controller.users});
