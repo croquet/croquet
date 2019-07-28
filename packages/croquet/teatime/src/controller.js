@@ -982,52 +982,10 @@ hotreloadEventManger.setInterval(() => {
     else if (Date.now() - LastSent > PULSE_TIMEOUT) PULSE();
 }, PING_INTERVAL);
 
-async function startReflectorInBrowser() {
-    // parcel will ignore the require() if this is not set in .env
-    // to not have the reflector code in client-side production code
-    if (process.env.CROQUET_BUILTIN_REFLECTOR) {
-        displayError('No Connection');
-        console.log("Starting in-browser reflector");
-        // we defer starting the server until hotreload has finished
-        // loading all new modules
-        await hotreloadEventManger.waitTimeout(0);
-        requireBrowserReflector();
-        // we could return require("@croquet/reflector").server._url
-        // to connect to our server.
-        // However, we want to discover servers in other tabs
-        // so we use the magic port 0 to connect to that.
-        return 'channel://server:0/';
-    }
-    return DEFAULT_REFLECTOR;
-}
-
-function requireBrowserReflector() {
-    if (process.env.CROQUET_BUILTIN_REFLECTOR) {
-        // The following import runs the exact same code that's
-        // executing on Node normally. It imports 'ws' which now
-        // comes from our own fakeWS.js
-        // ESLint doesn't know about the alias in package.json:
-        // eslint-disable-next-line global-require
-        require("@croquet/reflector"); // start up local server
-    }
-}
-
-function newInBrowserSocket(server) {
-    // parcel will ignore the require() if this is not set in .env
-    // to not have the reflector code in client-side production code
-    if (process.env.CROQUET_BUILTIN_REFLECTOR) {
-        // eslint-disable-next-line global-require
-        const Socket = require("@croquet/reflector").Socket;
-        return new Socket({ server });
-    }
-    return null;
-}
 
 async function connectToReflector(reflectorUrl) {
     let socket;
-    if (typeof reflectorUrl !== "string") reflectorUrl = await startReflectorInBrowser();
     if (reflectorUrl.match(/^wss?:/)) socket = new WebSocket(reflectorUrl);
-    else if (process.env.CROQUET_BUILTIN_REFLECTOR && reflectorUrl.match(/^channel:/)) socket = newInBrowserSocket(reflectorUrl);
     else throw Error('Cannot interpret reflector address ' + reflectorUrl);
     socketSetup(socket, reflectorUrl);
 }
