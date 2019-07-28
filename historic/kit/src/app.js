@@ -11,7 +11,6 @@ Model.allowConstructors();
 
 export default class App {
     constructor(rooms, canvas, width, height, options={}) {
-        Controller.connectToReflectorIfNeeded();
         this.roomStates = {};
 
         for (const [roomName, roomInit] of Object.entries(rooms)) {
@@ -55,6 +54,11 @@ export default class App {
         this.loadRoomBound = this.loadRoom.bind(this);
 
         if (urlOptions.autoSleep !== false) this.startSleepChecker();
+    }
+
+    get controllers() {
+        const liveRooms = Object.values(this.roomStates).filter(room => room.namedModels);
+        return liveRooms.map(room => room.controller);
     }
 
     async loadRoom(roomName) {
@@ -125,10 +129,7 @@ export default class App {
         const weHaveMoreTime = !namedModels || currentRoom.controller.simulate(deadline);
         if (!weHaveMoreTime) return;
         // if we have time, simulate other rooms
-        const liveRooms = Object.values(this.roomStates).filter(room => room.namedModels);
-        for (const {controller} of liveRooms) {
-            controller.simulate(deadline);
-        }
+        this.controllers.forEach(controller => controller.simulate());
     }
 
     startSleepChecker() {
@@ -139,14 +140,16 @@ export default class App {
                 const now = Date.now();
                 if (this.hiddenSince) {
                     // Controller doesn't mind being asked repeatedly to disconnect
-                    if (now - this.hiddenSince > DORMANT_THRESHOLD) Controller.dormantDisconnectIfNeeded();
+                    if (now - this.hiddenSince > DORMANT_THRESHOLD) {
+                        this.controllers.forEach(controller => controller.dormantDisconnect());
+                    }
                 } else this.hiddenSince = now;
             } else this.hiddenSince = null; // not hidden
             }, 1000);
     }
 
     frame(timestamp) {
-        Controller.ensureConnection();
+        this.controllers.forEach(controller => controller.ensureConnection());
         this.hiddenSince = null; // evidently not hidden
 
         this.domEventManager.requestAnimationFrame(this.frameBound);
