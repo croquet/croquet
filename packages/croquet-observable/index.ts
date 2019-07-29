@@ -102,12 +102,11 @@ function deepChangeProxy(object: any, onChangeAtAnyDepth: Function) {
 
 export function AutoObservableModel<S extends Object>(initialState: S): ObservableModel & S {
     const cls = class ObservableClass extends Observable(Model) {
-        static create(options: any) {
-            const model = super.create(options);
+        init(options: any) {
+            super.init(options);
             for (const [prop, initialValue] of Object.entries(initialState)) {
-                (model as any)[prop] = initialValue;
+                (this as any)[prop] = initialValue;
             }
-            return model;
         }
     };
 
