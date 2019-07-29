@@ -1,6 +1,6 @@
 {
   "name": "@croquet/croquet",
-  "version": "0.1.7-lerna.2",
+  "version": "0.1.9",
   "description": "",
   "main": "dist/croquet.min.js",
   "types": "types.d.ts",
