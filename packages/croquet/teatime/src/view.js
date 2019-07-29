@@ -202,7 +202,7 @@ class View {
      * @public
      */
     future(tOffset=0) {
-        return this.realm.futureProxy(tOffset, this);
+        return this.realm.future(this, tOffset);
     }
 
     /**

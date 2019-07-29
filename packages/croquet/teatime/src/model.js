@@ -233,7 +233,7 @@ class Model {
      * @public
      */
     destroy() {
-        currentRealm().unsubscribeAll(this.id);
+        currentRealm().unsubscribeAll(this);
         currentRealm().deregister(this);
     }
 
