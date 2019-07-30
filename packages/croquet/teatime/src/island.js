@@ -1,5 +1,6 @@
 import SeedRandom from "seedrandom/seedrandom";
 import PriorityQueue from "@croquet/util/priorityQueue";
+import stableStringify from "fast-json-stable-stringify";
 import hotreloadEventManger from "@croquet/util/hotreloadEventManager";
 import { displayWarning, displayAppError } from "@croquet/util/html";
 import Model from "./model";
@@ -401,7 +402,7 @@ export default class Island {
             if (wantsVote && wantsDiverge) console.log(`divergence subscription for ${topic} overridden by vote subscription`);
             // iff there are subscribers to a first message, build a candidate for the message that should be broadcast
             const firstMessage = wantsFirst ? new Message(this.time, 0, this.id, "handleModelEventInModel", [topic, data]) : null;
-            const payload = JSON.stringify(data);
+            const payload = stableStringify(data); // stable, to rule out platform differences
             // provide the receiver, selector and topic for any eventual tally response from the reflector.
             // if there are subscriptions to a vote, it'll be a handleModelEventInView with
             // the vote-augmented topic.  if not, default to our handleModelEventTally.
@@ -469,6 +470,10 @@ export default class Island {
     snapshot() {
         const writer = new IslandWriter(this);
         return writer.snapshot(this, "$");
+    }
+
+    getHash() {
+        return new IslandHasher().getHash(this);
     }
 
     random() {
@@ -613,6 +618,156 @@ export class Message {
 
     [Symbol.toPrimitive]() { return this.toString(); }
 }
+
+// IslandHasher walks the object tree gathering statistics intended to help
+// identify divergence between island instances.
+class IslandHasher {
+    constructor() {
+        this.nextRef = 1;
+        this.refs = new Map();
+        this.todo = []; // we use breadth-first writing to limit stack depth
+        this.writers = new Map();
+        for (const modelClass of Model.allClasses()) {
+            if (!Object.prototype.hasOwnProperty.call(modelClass, "types")) continue;
+            for (const [classId, ClassOrSpec] of Object.entries(modelClass.types())) {
+                this.addWriter(classId, ClassOrSpec);
+            }
+        }
+    }
+
+    addWriter(classId, ClassOrSpec) {
+        const { cls, write } = (Object.getPrototypeOf(ClassOrSpec) === Object.prototype) ? ClassOrSpec
+            : { cls: ClassOrSpec, write: obj => Object.assign({}, obj) };
+        this.writers.set(cls, obj => this.writeAs(classId, obj, write(obj)));
+    }
+
+    /** @param {Island} island */
+    getHash(island) {
+        this.hashState = {
+            objectCount: 0, // number of JS Objects
+            modelCount: 0, // number of models
+            numberCount: 0, // number of non-zero numbers
+            numberSum: 0, // sum of logs and signs of all encountered non-zero numbers
+            zeros: 0 // number of zero numbers
+        };
+        for (const [key, value] of Object.entries(island)) {
+            if (key === "controller") continue;
+            if (key === "_random") continue;
+            if (key === "messages") continue;
+            if (key === "meta") continue;
+            this.writeInto(key, value);
+        }
+        this.writeDeferred();
+        return this.hashState;
+    }
+
+    writeDeferred() {
+        while (this.todo.length > 0) {
+            const { key, value } = this.todo.shift();
+            this.writeInto(key, value, false);
+        }
+    }
+
+    write(value, defer = true) {
+        switch (typeof value) {
+            case "number":
+                if (Number.isNaN(value)) return;
+                if (!Number.isFinite(value)) return;
+                if (value===0) this.hashState.zeros++;
+                else {
+                    if (value===1234) console.log("disrupt");
+                    this.hashState.numberCount++;
+                    const sign = Math.sign(value);
+                    const log = Math.log(Math.abs(value));
+                    this.hashState.numberSum += sign + log;
+                }
+                return;
+            case "string":
+            case "boolean":
+            case "undefined":
+                return;
+            default: {
+                const type = Object.prototype.toString.call(value).slice(8, -1);
+                switch (type) {
+                    case "Array":
+                        this.writeArray(value, defer);
+                        return;
+                    case "Set":
+                    case "Map":
+                    case "Uint8Array":
+                    case "Uint16Array":
+                    case "Float32Array":
+                        this.writeAs(type, value, [...value]);
+                        return;
+                    case "Object":
+                        if (value instanceof Model) this.writeModel(value);
+                        else if (value.constructor === Object) this.writeObject(value, defer);
+                        else {
+                            const writer = this.writers.get(value.constructor);
+                            if (writer) writer(value);
+                            else throw Error(`Don't know how to hash ${value.constructor.name}`);
+                        }
+                        return;
+                    case "Null": return;
+                    default:
+                        throw Error(`Don't know how to hash ${type}`);
+                }
+            }
+        }
+    }
+
+    writeModel(model) {
+        if (this.refs.has(model)) return;
+        this.hashState.modelCount++;
+        this.refs.set(model, true);      // register ref before recursing
+        const descriptors = Object.getOwnPropertyDescriptors(model);
+        for (const key of Object.keys(descriptors).sort()) {
+            if (key === "__realm") continue;
+            const descriptor = descriptors[key];
+            if (descriptor.value !== undefined) {
+                this.writeInto(key, descriptor.value);
+            }
+        }
+    }
+
+    writeObject(object, defer = true) {
+        if (this.refs.has(object)) return;
+        this.hashState.objectCount++;
+        this.refs.set(object, true);      // register ref before recursing
+        const descriptors = Object.getOwnPropertyDescriptors(object);
+        for (const key of Object.keys(descriptors).sort()) {
+            const descriptor = descriptors[key];
+            if (descriptor.value !== undefined) {
+                this.writeInto(key, descriptor.value, defer);
+            }
+        }
+    }
+
+    writeArray(array, defer = true) {
+        if (this.refs.has(array)) return;
+        this.refs.set(array, true);       // register ref before recursing
+        for (let i = 0; i < array.length; i++) {
+            this.writeInto(i, array[i], defer);
+        }
+    }
+
+    writeAs(classID, object, value) {
+        if (value === undefined) return;
+        if (this.refs.has(object)) return;
+        this.refs.set(object, true);      // register ref before recursing
+        this.write(value, false);
+    }
+
+    writeInto(key, value, defer = true) {
+        if (key[0] === '$') { console.warn(`ignoring property ${key}`); return; }
+        if (defer && typeof value === "object") {
+            this.todo.push({ key, value });
+            return;
+        }
+        this.write(value);
+    }
+}
+
 
 const floats = new Float64Array(2);
 const ints = new Uint32Array(floats.buffer);

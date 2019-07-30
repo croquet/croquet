@@ -707,12 +707,11 @@ export default class Controller {
     */
     sendTutti(time, seq, payload, firstMessage, wantsVote, tallyTarget) {
         // TUTTI: Send a message that multiple instances are expected to send identically.  The reflector will optionally broadcast the first received message immediately, then gather all messages up to a deadline and send a TALLY message summarising the results (whatever those results, if wantsVote is true; otherwise, only if there is some variation among them).
-        if (!this.socket) return;  // probably view sending event while connection is closing
-        if (this.socket.readyState !== WebSocket.OPEN) return;
+        if (!this.connected) return; // probably view sending event while connection is closing
         if (this.viewOnly) return;
         if (DEBUG.sends) console.log(this.id, `Controller sending TUTTI ${payload} ${firstMessage && firstMessage.asState()} ${tallyTarget}`);
         this.lastSent = Date.now();
-        this.socket.send(JSON.stringify({
+        this.connection.send(JSON.stringify({
             id: this.id,
             action: 'TUTTI',
             args: [time, seq, payload, firstMessage && firstMessage.asState(), wantsVote, tallyTarget],

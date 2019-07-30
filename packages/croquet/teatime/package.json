@@ -12,6 +12,7 @@
   "dependencies": {
     "@croquet/reflector": "file:../reflector",
     "@croquet/util": "file:../util",
+    "fast-json-stable-stringify": "^2.0.0",
     "seedrandom": "^2.4.4"
   },
   "devDependencies": {
