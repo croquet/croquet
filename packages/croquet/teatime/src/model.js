@@ -70,8 +70,9 @@ class Model {
      * @public
      * @param {Object=} options - option object to be passed to [init()]{@link Model#init}.
      *     There are no system-defined options as of now, you're free to define your own.
+     * @param {String=} wellKnownName - a [well-known name]{@link Model#beWellKnownAs} for this model`.
      */
-    static create(options) {
+    static create(options, wellKnownName) {
         const ModelClass = this;
         const realm = currentRealm();
         const model = new ModelClass(SECRET);
@@ -79,6 +80,7 @@ class Model {
         Object.defineProperty(model, "__realm", {  value: realm });
         Object.defineProperty(model, "id", {  value: realm.register(model) });
         SuperInitNotCalled.add(model);
+        if (wellKnownName) model.beWellKnownAs(wellKnownName);
         model.init(options);
         if (SuperInitNotCalled.has(model)) {
             SuperInitNotCalled.delete(model);
@@ -433,6 +435,8 @@ class Model {
     /**
      * Make this model globally accessible under the given name.
      * It can be retrieved from any other model in the same session using [wellKnownModel()]{@link Model#wellKnownModel}.
+     *
+     * Hint: Another way to make a model well-known is to pass a name as second argument to {@link Model.create}().
      *
      * Note: The instance of your root Model class is automatically made well-known as `"modelRoot"`
      * and passed to the [constructor]{@link View} of your root View during {@link startSession}.
