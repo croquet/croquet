@@ -5,7 +5,7 @@ import hotreloadEventManger from "@croquet/util/hotreloadEventManager";
 import urlOptions from "@croquet/util/urlOptions";
 import { login, getUser } from "@croquet/util/user";
 import { displaySpinner, displayStatus, displayWarning, displayError, displayAppError } from "@croquet/util/html";
-import { baseUrl, CROQUET_HOST, hashNameAndCode, hashString, uploadCode } from "@croquet/util/modules";
+import { baseUrl, CROQUET_HOST, hashNameAndCode, hashString } from "@croquet/util/modules";
 import { inViewRealm } from "./realms";
 import { viewDomain } from "./domain";
 import Island, { Message, inSequence } from "./island";
@@ -25,7 +25,7 @@ console.log("Croquet SDK " + SDK_VERSION);
 const FALLBACK_REFLECTOR = `wss://${CROQUET_HOST}/reflector-v1`;
 const DEFAULT_REFLECTOR = process.env.CROQUET_REFLECTOR || FALLBACK_REFLECTOR;    // replaced by parcel at build time from app's .env file
 
-let codeHashes = null;
+const codeHashes = null; // individual codeHashes are not uploaded for now, will need to re-add for replay
 
 const DEBUG = {
     messages: urlOptions.has("debug", "messages", false),               // received messages
@@ -51,100 +51,14 @@ const EXTERNAL_MESSAGE_CPU_PENALTY = 5;
 const SYNCED_MIN = 100;
 const SYNCED_MAX = 1000;
 
-const Controllers = {};
-const SessionCallbacks = {};
-
-let okToCallConnect = true;
-
 function randomString() { return Math.floor(Math.random() * 2**53).toString(36); }
 
+const Controllers = new Set();
+
 export default class Controller {
-    static ensureConnection() {
-        if (!TheSocket) this.connectToReflectorIfNeeded();
-    }
-
-    static connectToReflectorIfNeeded() {
-        if (!okToCallConnect) return;
-        this.connectToReflector();
-    }
-
-    static connectToReflector(mainModuleID='', reflectorUrl='') {
-        okToCallConnect = false; // block further calls
-        if (!reflectorUrl) reflectorUrl = urlOptions.reflector || DEFAULT_REFLECTOR;
-        if (process.env.CROQUET_REPLAY) {
-            if (!urlOptions.noupload && mainModuleID) uploadCode(mainModuleID).then(hashes => codeHashes = hashes);
-        }
-        connectToReflector(reflectorUrl);
-    }
-
-    // socket was connected, join session for all islands
-    static join(controller) {
-        Controllers[controller.id] = controller;
-        this.whenSocketReady(() => controller.join(TheSocket));
-    }
-
-    static whenSocketReady(callback) {
-        if (TheSocket) callback();
-        else TheSocketWaitList.push(callback);
-    }
-
-    static setSocket(socket) {
-        if (TheSocket) throw Error("TheSocket already set?");
-        TheSocket = socket;
-        while (TheSocketWaitList.length > 0) {
-            const callback = TheSocketWaitList.shift();
-            callback();
-        }
-    }
-
-    static socketSend(message) {
-        LastSent = Date.now();
-        TheSocket.send(message);
-    }
-
-    // socket was disconnected, destroy all islands.
-    // it's up to the sender to decide whether to set okToCallConnect
-    static leaveAll(preserveSnapshot) {
-        if (!TheSocket) return;
-        TheSocket = null;
-        LastReceived = 0;
-        LastSent = 0;
-        for (const controller of Object.values(Controllers)) {
-            controller.leave(preserveSnapshot);
-        }
-    }
-
-    // dispatch to right controller
-    static receive(data) {
-        const { id, action, args } = JSON.parse(data);
-        if (id) {
-            try { if (Controllers[id]) Controllers[id].receive(action, args); }
-            catch (e) { this.closeConnectionWithError('receive', e); }
-        } else switch (action) {
-            case 'SESSION': SessionCallbacks[args.hash](args.id);
-                break;
-            case 'PONG': if (DEBUG.pong) console.log('PONG after', Date.now() - args, 'ms');
-                break;
-            default: console.warn('Unknown action', action);
-        }
-    }
-
-    static dormantDisconnectIfNeeded() {
-        if (!TheSocket || TheSocket.readyState !== WebSocket.OPEN) return; // not connected anyway
-
-        console.log("dormant; disconnecting from reflector");
-        TheSocket.close(4110, 'Going dormant');
-    }
-
-    static closeConnectionWithError(caller, error) {
-        console.error(error);
-        console.warn('closing socket');
-        TheSocket.close(4000, 'Error in ' + caller);
-        // closing with error code will force reconnect
-    }
 
     static uploadOnPageClose() {
-        for (const controller of Object.values(Controllers)) {
+        for (const controller of Controllers) {
             controller.uploadOnPageClose();
         }
     }
@@ -157,24 +71,20 @@ export default class Controller {
     reset() {
         /** @type {Island} */
         this.island = null;
-        /** the (shared) websocket for talking to the reflector */
-        this.socket = null;
+        /**  @type {Connection} our websocket connection for talking to the reflector */
+        this.connection = this.connection || new Connection(this);
         /** the messages received from reflector */
         this.networkQueue = new AsyncQueue();
-        /** the time of last message received from reflector */
+        /** the time stamp of last message received from reflector */
         this.time = 0;
-        /** the human-readable session (e.g. "room/user/random") */
+        /** the human-readable session name (e.g. "room/user/random") */
         this.session = '';
-        /** @type {String} the client id (different in each replica) */
+        /** @type {String} the client id (different in each replica, but stays the same on reconnect) */
         this.viewId = this.viewId || randomString(); // todo: have reflector assign unique ids
         /** the number of concurrent users in our island (excluding spectators) */
         this.users = 0;
         /** the number of concurrent users in our island (including spectators) */
         this.usersTotal = 0;
-        /** wallclock time we last received from reflector */
-        this.lastReceived = Date.now();
-        /** wallclock time we last sent a message to reflector */
-        this.lastSent = Date.now();
         /** old snapshots */
         this.snapshots = [];
         /** external messages already scheduled in the island */
@@ -184,7 +94,7 @@ export default class Controller {
         // on reconnect, show spinner
         if (this.synced) displaySpinner(true);
         /** @type {Boolean} backlog was below SYNCED_MIN */
-        this.synced = null; // indicates never synced before
+        this.synced = null; // null indicates never synced before
         /** latency statistics */
         this.statistics = {
             /** for identifying our own messages */
@@ -196,13 +106,18 @@ export default class Controller {
         };
         /** last measured latency in ms */
         this.latency = 0;
+        // make sure we have no residual "multiply" ticks
+        if (this.localTicker) {
+            window.clearInterval(this.localTicker);
+            delete this.localTicker;
+        }
     }
 
     /** @type {String} the session id (same for all replicas) */
     get id() { return this.island ? this.island.id : this.islandCreator.snapshot.id; }
 
     /** @type {Object} {id, name} the user id (identifying this client) and name (from login or "GUEST") */
-    get user() { return { name: getUser("name", "GUEST"), id: this.viewId}; }
+    get user() { return { id: this.viewId, name: getUser("name", "GUEST") }; }
 
     /**  @type {Number} how many ms the simulation is lagging behind the last tick from the reflector */
     get backlog() { return this.island ? this.time - this.island.time : 0; }
@@ -213,27 +128,44 @@ export default class Controller {
     /** @type {Number} how many ms passed since we sent a message via the reflector */
     get activity() { return Date.now() - this.lastSent; }
 
+    /** @type {Boolean} true if our connection is fine */
+    get connected() { return this.connection.connected; }
+
+    checkForConnection(force) { this.connection.checkForConnection(force); }
+
+    dormantDisconnect() { this.connection.dormantDisconnect(); }
+
     /**
      * Join or create a session by connecting to the reflector
-     * - the island/session id is created from the session name (found in the URL)
-     *   and a hash of all source code that is imported by that file
-     * - if no session name is in the URL, a random session is created
+     * - the island/session id is created from `name` and
+     *   a hash of registered options and source code
+     * - if `autoSession` is enabled then the session name is taken
+     *   from the URL, or a random session is created
      *
-     * @param {String} room - A (human-readable) name for the room
-     * @param {{moduleID:String, init:Function}} creator - The moduleID and function creating the island
+     * @param {String} name - A (human-readable) name for the session/room
+     * @param {Object} sessionSpec - Spec for the session
+     * @param {Function} sessionSpec.init - the island initializer `init(options)`
+     * @param {Function} sessionSpec.destroyerFn - optional island destroyer (called with a snapshot when disconnecting)
+     * @param {Object} sessionSpec.options - options to pass to the island initializer
+     * @param {Object} sessionSpec.snapshot - an optional snapshot to use (instead of running the island initializer if this is the first user in the session
+     * @param {Array<String>} sessionSpec.optionsFromUrl - names of additional island initializer options to take from URL
+     * @param {Number|String} sessionSpec.tps - ticks per second (can be overridden by `options.tps` or `urlOptions.tps`)
+     * @param {Boolean} sessionSpec.login - if `true` perform login
+     * @param {Boolean} sessionSpec.autoSession - if `true` take session name from URL or create new random session name
+     * @param {Boolean} sessionSpec.multiRoom - if `true` then autoSession includes the room name
      *
-     * @returns {Promise<{modelName:Model}>} list of named models (as returned by init function)
+     * @returns {Promise<{rootModel:Model}>} list of named models (as returned by init function)
      */
-    async establishSession(room, creator) {
-        const { optionsFromUrl, multiRoom, multiSession, autoSession, login: doLogin } = creator;
-        const options = {...creator.options};
+    async establishSession(name, sessionSpec) {
+        const { optionsFromUrl, multiRoom, autoSession, login: doLogin } = sessionSpec;
+        const options = {...sessionSpec.options};
         for (const key of [...OPTIONS_FROM_URL, ...optionsFromUrl||[]]) {
             if (key in urlOptions) options[key] = urlOptions[key];
         }
         if (doLogin) await login();
-        let name = room;
         if (autoSession) {
             // session is either "user/random" or "room/user/random" (for multi-room)
+            const room = name;
             const session = urlOptions.getSession().split('/');
             let user = multiRoom ? session[1] : session[0];
             let random = multiRoom ? session[2] : session[1];
@@ -243,10 +175,7 @@ export default class Controller {
                 if (autoSession.random) random = autoSession.random;
                 // incomplete session: create a new session id
                 if (!user) user = getUser("name", "").toLowerCase() || "GUEST";
-                if (!random) {
-                    random = '';
-                    for (let i = 0; i < 10; i++) random += '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.random() * 36|0];
-                }
+                if (!random) random = randomString();
             }
             this.session = multiRoom ? `${room}/${user}/${random}` : `${user}/${random}`;
             if (!multiRoom) urlOptions.setSession(this.session, newSession);   // multiRoom handles this elsewhere
@@ -254,36 +183,23 @@ export default class Controller {
             name = `${room}/${user}/${random}`;
             if (user === 'DEMO') this.viewOnly = getUser("demoViewOnly", true);
         }
-        // include options in the island's islandHash, which must remain fixed over reloads.
-        // a snapshot includes the islandHash so we can ensure that an island only
-        // attempts to load snapshots that were generated by compatible code.  this
-        // is entirely separate from the snapshot's model-based hash.
+        // include options in the island's id
         const nameWithOptions = Object.keys(options).length
             ? name + '?' + Object.entries(options).map(([k,v])=>`${k}=${v}`).join('&')
             : name;
-        const islandHash = await hashNameAndCode(nameWithOptions);
-        // multiSession is true for sessions that provide a "reset" button,
-        // and that therefore need to ask the reflector for an id with a
-        // randomised reload-driven suffix.
-        const id = multiSession ? await this.sessionIDFor(islandHash) : islandHash;
+        const id = await hashNameAndCode(nameWithOptions);
         console.log(`Session ID for "${nameWithOptions}": ${id}`);
-        this.islandCreator = { name, nameWithOptions, ...creator, options, islandHash };
+        this.islandCreator = { name, nameWithOptions, ...sessionSpec, options };
 
         let initSnapshot = false;
         if (!this.islandCreator.snapshot) initSnapshot = true;
-        else if (this.islandCreator.snapshot.meta.islandHash !== islandHash) {
+        else if (this.islandCreator.snapshot.id !== id) {
             console.warn(`Existing snapshot was for different code base!`);
             initSnapshot = true;
-        } else if (this.islandCreator.snapshot.id !== id) {
-            console.warn(`Existing snapshot was for different session!`);
-            initSnapshot = true;
         }
-        if (initSnapshot) this.islandCreator.snapshot = { id, time: 0, meta: { islandHash, created: (new Date()).toISOString() } };
-
-        const island = await new Promise(resolve => {
-            this.islandCreator.callbackFn = resolve;
-            Controller.join(this);   // when socket is ready, join server
-        });
+        if (initSnapshot) this.islandCreator.snapshot = { id, time: 0, meta: { id, created: (new Date()).toISOString() } };
+        await this.join();   // when socket is ready, join server
+        const island = await new Promise(resolve => this.islandCreator.resolveIslandPromise = resolve );
         return island.modelsByName;
     }
 
@@ -366,7 +282,7 @@ export default class Controller {
         const {time, seq, hash} = this.lastSnapshot.meta;
         if (DEBUG.snapshot) console.log(this.id, `Controller sending hash for ${time}#${seq} to reflector: ${hash}`);
         try {
-            Controller.socketSend(JSON.stringify({
+            this.connection.send(JSON.stringify({
                 id: this.id,
                 action: 'SNAP',
                 args: {time, seq, hash},
@@ -482,7 +398,7 @@ export default class Controller {
         this.uploadJSON(this.snapshotUrl('latest'), JSON.stringify({time, seq, hash, url}));
         if (DEBUG.snapshot) console.log(this.id, `Controller sending snapshot url to reflector (time: ${time}, seq: ${seq}, hash: ${hash}): ${url}`);
         try {
-            Controller.socketSend(JSON.stringify({
+            this.connection.send(JSON.stringify({
                 id: this.id,
                 action: 'SNAP',
                 args: {time, seq, hash, url},
@@ -519,38 +435,6 @@ export default class Controller {
     /** the snapshot before latest snapshot */
     get prevSnapshot() { return this.snapshots[this.snapshots.length - 2]; }
 
-    /** Ask reflector for a session
-     * @param {String} islandHash - hashed island name, options, and code base
-     */
-    async sessionIDFor(islandHash) {
-        return new Promise(resolve => {
-            SessionCallbacks[islandHash] = sessionId => {
-                delete SessionCallbacks[islandHash];
-                resolve(sessionId);
-            };
-            if (DEBUG.snapshot) console.log(islandHash, 'Controller asking reflector for session ID');
-            Controller.whenSocketReady(() => {
-                Controller.socketSend(JSON.stringify({
-                    id: islandHash,
-                    action: 'SESSION'
-                }));
-            });
-        });
-    }
-
-    /** Ask reflector for a new session. Everyone will be kicked out and rejoin, including us. */
-    requestNewSession() {
-        if (!this.islandCreator.multiSession) { console.warn("ignoring requestNewSession() since not multiSession"); return;  }
-        const { islandHash } = this.islandCreator;
-        if (SessionCallbacks[islandHash]) return;
-        SessionCallbacks[islandHash] = newSession => console.log(this.id, 'new session:', newSession);
-        Controller.whenSocketReady(() => {
-            Controller.socketSend(JSON.stringify({
-                id: islandHash,
-                action: 'SESSION_RESET'
-            }));
-        });
-    }
 
     checkMetaMessage(msgData) {
         if (Message.hasReceiverAndSelector(msgData, this.id, "scheduledSnapshot")) {
@@ -605,7 +489,7 @@ export default class Controller {
 
     // handle messages from reflector
     async receive(action, args) {
-        this.lastReceived = LastReceived;
+        this.lastReceived = this.connection.lastReceived;
         switch (action) {
             case 'START': {
                 // We are starting a new island session.
@@ -629,7 +513,7 @@ export default class Controller {
                     console.log(this.id, latest.snapshot ? "using snapshot still in memory" : `fetching latest snapshot ${latest.url}`);
                     snapshot = latest.snapshot || await this.fetchJSON(latest.url);
                 } else snapshot = null; // we found no actual snapshot (e.g., only the placeholder)
-                if (!this.socket) { console.log(this.id, 'socket went away during START'); return; }
+                if (!this.connected) { console.log(this.id, 'socket went away during START'); return; }
                 if (snapshot) this.islandCreator.snapshot = snapshot;
                 this.install();
                 this.requestTicks();
@@ -650,7 +534,7 @@ export default class Controller {
                 }
                 const snapshot = await this.fetchJSON(url);
                 this.islandCreator.snapshot = snapshot;  // set snapshot
-                if (!this.socket) { console.log(this.id, 'socket went away during SYNC'); return; }
+                if (!this.connected) { console.log(this.id, 'socket went away during SYNC'); return; }
                 for (const msg of messages) {
                     if (DEBUG.messages) console.log(this.id, 'Controller got message in SYNC ' + JSON.stringify(msg));
                     msg[1] >>>= 0;      // reflector sends int32, we want uint32
@@ -707,7 +591,7 @@ export default class Controller {
 
     // create the Island for this Controller, based on the islandCreator and optionally an array of messages that are known to post-date the islandCreator's snapshot
     install(messagesSinceSnapshot=[], syncTime=0) {
-        const {snapshot, init, options, callbackFn} = this.islandCreator;
+        const {snapshot, init, options, resolveIslandPromise} = this.islandCreator;
         let newIsland = new Island(snapshot, () => {
             try { return init(options); }
             catch (error) {
@@ -748,7 +632,7 @@ export default class Controller {
         if (syncTime && syncTime < islandTime) console.warn(`ignoring SYNC time from reflector (time was ${islandTime.time}, received ${syncTime})`);
         this.time = Math.max(this.time, islandTime, syncTime);
         this.setIsland(newIsland); // make this our island
-        callbackFn(this.island);
+        resolveIslandPromise(this.island);
     }
 
     setIsland(island) {
@@ -765,9 +649,14 @@ export default class Controller {
 
     // network queue
 
-    async join(socket) {
+    async join() {
+        this.checkForConnection(false); // don't force it
+        await this.connection.connectionPromise; // wait until there is a connection
+
+        Controllers.add(this);
+
         if (DEBUG.session) console.log(this.id, 'Controller sending JOIN');
-        this.socket = socket;
+
         const {name, id} = this.user;
         const args = {
             name: this.islandCreator.nameWithOptions,
@@ -775,19 +664,20 @@ export default class Controller {
             user: [id, name],
         };
 
-        Controller.socketSend(JSON.stringify({
+        this.connection.send(JSON.stringify({
             id: this.id,
             action: 'JOIN',
             args,
         }));
     }
 
+    // either the connection has been broken or the reflector has sent LEAVE
     leave(preserveSnapshot) {
-        if (this.socket.readyState === WebSocket.OPEN) {
+        if (this.connected) {
             console.log(this.id, `Controller LEAVING session for ${this.islandCreator.name}`);
-            Controller.socketSend(JSON.stringify({ id: this.id, action: 'LEAVING' }));
+            this.connection.send(JSON.stringify({ id: this.id, action: 'LEAVING' }));
         }
-        delete Controllers[this.id];
+        Controllers.delete(this);
         const {destroyerFn} = this.islandCreator;
         const snapshot = preserveSnapshot && destroyerFn && this.finalSnapshot();
         this.reset();
@@ -800,13 +690,12 @@ export default class Controller {
     */
     sendMessage(msg) {
         // SEND: Broadcast a message to all participants.
-        if (!this.socket) return;  // probably view sending event while connection is closing
-        if (this.socket.readyState !== WebSocket.OPEN) return;
+        if (!this.connected) return; // probably view sending event while connection is closing
         if (this.viewOnly) return;
         if (DEBUG.sends) console.log(this.id, `Controller sending SEND ${msg.asState()}`);
         this.lastSent = Date.now();
         this.statistics.sent[++this.statistics.seq] = this.lastSent;
-        Controller.socketSend(JSON.stringify({
+        this.connection.send(JSON.stringify({
             id: this.id,
             action: 'SEND',
             args: [...msg.asState(), this.statistics.id, this.statistics.seq],
@@ -857,7 +746,7 @@ export default class Controller {
 
     /** request ticks from the server */
     requestTicks(args = {}) {
-        if (!this.socket || !this.island) return;
+        if (!this.connected || !this.island) return;
         const { tick, multiplier } = this.getTickAndMultiplier();
         const delay = tick * (multiplier - 1) / multiplier;
         if (delay) { args.delay = delay; args.tick = tick; }
@@ -870,7 +759,7 @@ export default class Controller {
         if (DEBUG.session) console.log(this.id, 'Controller requesting TICKS', args);
         // args: {time, tick, delay, scale}
         try {
-            Controller.socketSend(JSON.stringify({
+            this.connection.send(JSON.stringify({
                 id: this.id,
                 action: 'TICKS',
                 args,
@@ -917,7 +806,7 @@ export default class Controller {
             return weHaveTime;
         } catch (error) {
             displayAppError("simulate", error);
-            Controller.closeConnectionWithError('simulate', error);
+            this.connection.closeConnectionWithError('simulate', error);
             return "error";
         }
     }
@@ -964,12 +853,7 @@ hotreloadEventManger.addEventListener(document.body, "unload", Controller.upload
 // ... and on hotreload
 hotreloadEventManger.addDisposeHandler('snapshots', Controller.uploadOnPageClose);
 
-// Socket
-
-let TheSocket = null;
-const TheSocketWaitList = [];
-let LastReceived = 0;
-let LastSent = 0;
+// Socket Connection
 
 /** start sending PINGs to server after not receiving anything for this timeout */
 const PING_TIMEOUT = 100;
@@ -978,115 +862,148 @@ const PING_INTERVAL = 100;
 /** if we haven't sent anything to the reflector for this long, send a PULSE to reassure it */
 const PULSE_TIMEOUT = 20000;
 
-function PING() {
-    if (!TheSocket || TheSocket.readyState !== WebSocket.OPEN) return;
-    if (TheSocket.bufferedAmount) console.log(`Reflector connection stalled: ${TheSocket.bufferedAmount} bytes unsent`);
-    else TheSocket.send(JSON.stringify({ action: 'PING', args: Date.now()}));
-}
 
-function PULSE() {
-    if (!TheSocket || TheSocket.readyState !== WebSocket.OPEN) return;
-    Controller.socketSend(JSON.stringify({ action: 'PULSE' }));
-}
-
-// one reason for having PINGs is to prevent the connection from going idle,
-// which caused some router/computer combinations to buffer packets instead
-// of delivering them immediately (observed on AT&T Fiber + Mac)
-hotreloadEventManger.setInterval(() => {
-    if (LastReceived === 0) return; // haven't yet consummated the connection
-    if (Date.now() - LastReceived > PING_TIMEOUT) PING();
-    // if *not* sending a PING, check to see if it's time to send a PULSE
-    else if (Date.now() - LastSent > PULSE_TIMEOUT) PULSE();
-}, PING_INTERVAL);
-
-async function startReflectorInBrowser() {
-    // parcel will ignore the require() if this is not set in .env
-    // to not have the reflector code in client-side production code
-    if (process.env.CROQUET_BUILTIN_REFLECTOR) {
-        displayError('No Connection');
-        console.log("Starting in-browser reflector");
-        // we defer starting the server until hotreload has finished
-        // loading all new modules
-        await hotreloadEventManger.waitTimeout(0);
-        requireBrowserReflector();
-        // we could return require("@croquet/reflector").server._url
-        // to connect to our server.
-        // However, we want to discover servers in other tabs
-        // so we use the magic port 0 to connect to that.
-        return 'channel://server:0/';
+class Connection {
+    constructor(controller) {
+        this.controller = controller;
+        this.connectBlocked = false;
+        this.connectRestricted = false;
+        this.connectHasBeenCalled = false;
+        this.setUpConnectionPromise();
     }
-    return DEFAULT_REFLECTOR;
-}
 
-function requireBrowserReflector() {
-    if (process.env.CROQUET_BUILTIN_REFLECTOR) {
-        // The following import runs the exact same code that's
-        // executing on Node normally. It imports 'ws' which now
-        // comes from our own fakeWS.js
-        // ESLint doesn't know about the alias in package.json:
-        // eslint-disable-next-line global-require
-        require("@croquet/reflector"); // start up local server
+    setUpConnectionPromise() {
+        this.connectionPromise = new Promise(resolve => this.resolveConnection = resolve);
     }
-}
 
-function newInBrowserSocket(server) {
-    // parcel will ignore the require() if this is not set in .env
-    // to not have the reflector code in client-side production code
-    if (process.env.CROQUET_BUILTIN_REFLECTOR) {
-        // eslint-disable-next-line global-require
-        const Socket = require("@croquet/reflector").Socket;
-        return new Socket({ server });
+    get connected() { return this.socket && this.socket.readyState === WebSocket.OPEN; }
+
+    checkForConnection(force) {
+        if (this.socket || this.connectHasBeenCalled) return;
+
+        // there are three levels of rights to (re)connect:
+        // 1. fully blocked (e.g., to force a pause in attempted reconnection; only a direct connectToReflector will work)
+        // 2. blocked unless requested from a session step (force === true)
+        // 3. not blocked: any call has the right to connect (e.g., on first connect to a session)
+        if (this.connectBlocked) return;
+        if (this.connectRestricted && !force) return;
+
+        this.connectToReflector();
     }
-    return null;
-}
 
-async function connectToReflector(reflectorUrl) {
-    let socket;
-    if (typeof reflectorUrl !== "string") reflectorUrl = await startReflectorInBrowser();
-    if (reflectorUrl.match(/^wss?:/)) socket = new WebSocket(reflectorUrl);
-    else if (process.env.CROQUET_BUILTIN_REFLECTOR && reflectorUrl.match(/^channel:/)) socket = newInBrowserSocket(reflectorUrl);
-    else throw Error('Cannot interpret reflector address ' + reflectorUrl);
-    socketSetup(socket, reflectorUrl);
-}
+    async connectToReflector() {
+        this.connectHasBeenCalled = true;
+        this.connectBlocked = false;
+        this.connectRestricted = false;
+        let reflectorUrl = urlOptions.reflector || DEFAULT_REFLECTOR;
+        if (!reflectorUrl.match(/^wss?:/)) throw Error('Cannot interpret reflector address ' + reflectorUrl);
+        if (!reflectorUrl.endsWith('/')) reflectorUrl += '/';
+        return new Promise( resolve => {
+            const socket = Object.assign(new WebSocket(`${reflectorUrl}${this.controller.id}`), {
+                onopen: _event => {
+                    this.socket = socket;
+                    if (DEBUG.session) console.log(this.socket.constructor.name, "connected to", this.socket.url);
+                    Stats.connected(true);
+                    this.resolveConnection(null); // the value itself isn't currently used
+                    resolve();
+                },
+                onmessage: event => {
+                    this.receive(event.data);
+                },
+                onerror: _event => {
+                    displayError('Connection error');
+                    console.log(socket.constructor.name, "error");
+                },
+                onclose: event => {
+                    // event codes from 4100 and up mean a disconnection from which the client
+                    // shouldn't automatically try to reconnect
+                    // e.g., 4100 is for out-of-date reflector protocol
+                    const autoReconnect = event.code !== 1000 && event.code < 4100;
+                    const dormant = event.code === 4110;
+                    // don't display error if going dormant
+                    if (!dormant) displayError(`Connection closed: ${event.code} ${event.reason}`, { duration: autoReconnect ? undefined : 3600000 }); // leave it there for 1 hour if unrecoverable
+                    if (DEBUG.session) console.log(socket.constructor.name, "closed:", event.code, event.reason);
+                    Stats.connected(false);
+                    if (dormant) this.connectRestricted = true; // only reconnect on session step
+                    else this.connectBlocked = true; // only reconnect using connectToReflector
+                    this.disconnected(true);
+                    if (autoReconnect) {
+                        displayWarning('Reconnecting ...');
+                        hotreloadEventManger.setTimeout(() => this.connectToReflector(), 2000);
+                    }
+                },
+            });
+         });
+    }
 
-function socketSetup(socket, reflectorUrl) {
-    //displayStatus('Connecting to ' + socket.url);
-    Object.assign(socket, {
-        onopen: _event => {
-            if (DEBUG.session) console.log(socket.constructor.name, "connected to", socket.url);
-            Controller.setSocket(socket);
-            Stats.connected(true);
-            hotreloadEventManger.setTimeout(PING, 0);
-        },
-        onerror: _event => {
-            displayError('Connection error');
-            console.log(socket.constructor.name, "error");
-        },
-        onclose: event => {
-            // event codes from 4100 and up mean a disconnection from which the client
-            // shouldn't automatically try to reconnect
-            // e.g., 4100 is for out-of-date reflector protocol
-            const autoReconnect = event.code !== 1000 && event.code < 4100;
-            const dormant = event.code === 4110;
-            // don't display error if going dormant
-            if (!dormant) displayError(`Connection closed: ${event.code} ${event.reason}`, { duration: autoReconnect ? undefined : 3600000 }); // leave it there for 1 hour if unrecoverable
-            if (DEBUG.session) console.log(socket.constructor.name, "closed:", event.code, event.reason);
-            Stats.connected(false);
-            Controller.leaveAll(true);
-            // leaveAll discards the socket, but doesn't presume that okToCallConnect should
-            // now be true.
-            // here we set it false except for the case of going dormant, which is allowed
-            // to reawaken as soon as the next animation frame happens.
-            okToCallConnect = dormant;
-            if (autoReconnect) {
-                displayWarning('Reconnecting ...');
-                hotreloadEventManger.setTimeout(() => Controller.connectToReflector(reflectorUrl), 2000);
-            }
-        },
-        onmessage: event => {
-            LastReceived = Date.now();
-            Controller.receive(event.data);
+    // socket was disconnected, destroy the island
+    disconnected(preserveSnapshot) {
+        if (!this.socket) return;
+        this.socket = null;
+        this.lastReceived = 0;
+        this.lastSent = 0;
+        this.connectHasBeenCalled = false;
+        this.setUpConnectionPromise();
+        this.controller.leave(preserveSnapshot);
+    }
+
+    send(data) {
+        this.lastSent = Date.now();
+        this.socket.send(data);
+    }
+
+    receive(data) {
+        this.lastReceived = Date.now();
+        const { id, action, args } = JSON.parse(data);
+        if (id) {
+            try { this.controller.receive(action, args); }
+            catch (e) { this.closeConnectionWithError('receive', e); }
+        } else switch (action) {
+            case 'PONG': if (DEBUG.pong) console.log('PONG after', Date.now() - args, 'ms');
+                break;
+            default: console.warn('Unknown action', action);
         }
-    });
-    //hotreloadEventManger.addDisposeHandler("socket", () => socket.readyState !== WebSocket.CLOSED && socket.close(1000, "hotreload "+moduleVersion));
+    }
+
+    dormantDisconnect() {
+        if (!this.connected) return; // not connected anyway
+        console.log("dormant; disconnecting from reflector");
+        this.socket.close(4110, 'Going dormant');
+    }
+
+    closeConnectionWithError(caller, error) {
+        console.error(error);
+        console.warn('closing socket');
+        this.socket.close(4000, 'Error in ' + caller);
+        // closing with error code will force reconnect
+    }
+
+    PING() {
+        if (!this.connected) return;
+        if (this.socket.bufferedAmount) console.log(`Reflector connection stalled: ${this.socket.bufferedAmount} bytes unsent`);
+        else this.send(JSON.stringify({ action: 'PING', args: Date.now()}));
+    }
+
+    PULSE() {
+        if (!this.connected) return;
+        if (this.socket.bufferedAmount) console.log(`Reflector connection stalled: ${this.socket.bufferedAmount} bytes unsent`);
+        this.send(JSON.stringify({ action: 'PULSE' }));
+    }
+
+    keepAlive() {
+        if (this.lastReceived === 0) return; // haven't yet consummated the connection
+        // one reason for having PINGs is to prevent the connection from going idle,
+        // which causes some router/computer combinations to buffer packets instead
+        // of delivering them immediately (observed on AT&T Fiber + Mac)
+        if (Date.now() - this.lastReceived > PING_TIMEOUT) this.PING();
+        // if *not* sending a PING, check to see if it's time to send a PULSE
+        else if (Date.now() - this.lastSent > PULSE_TIMEOUT) this.PULSE();
+    }
 }
+
+window.setInterval(() => {
+    for (const controller of Controllers) {
+        if (!controller.connected) continue;
+        controller.connection.keepAlive();
+    }
+}, PING_INTERVAL);

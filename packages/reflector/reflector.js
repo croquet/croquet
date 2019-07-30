@@ -32,7 +32,7 @@ const webServer = http.createServer( (req, res) => {
         return res.end();
     }
     // otherwise, show hostname, url, and http headers
-    const body = `Reflector ${os.hostname()}\n${req.method} http://${req.headers.host}${req.url}\n${JSON.stringify(req.headers, null, 4)}`;
+    const body = `Croquet reflector ${os.hostname()}\n${req.method} http://${req.headers.host}${req.url}\n${JSON.stringify(req.headers, null, 4)}`;
     res.writeHead(200, {
       'Server': SERVER_HEADER,
       'Content-Length': body.length,

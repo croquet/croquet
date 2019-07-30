@@ -1,6 +1,6 @@
 {
   "name": "@croquet/3d-r3f-default-scene",
-  "version": "0.1.1-lerna.1",
+  "version": "0.1.1-lerna.2",
   "main": "dist/index.js",
   "types": "dist/types.d.ts",
   "scripts": {
@@ -17,5 +17,8 @@
   },
   "peerDependencies": {
     "three": "^0.106.2"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
