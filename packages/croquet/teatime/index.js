@@ -195,7 +195,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
     }
 
     function islandInit(islandOpts) {
-        const modelRoot = ModelRoot.create(islandOpts);
+        const modelRoot = ModelRoot.create(islandOpts, "modelRoot");
         return { modelRoot };
     }
 
