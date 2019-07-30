@@ -106,6 +106,11 @@ export default class Controller {
         };
         /** last measured latency in ms */
         this.latency = 0;
+        // make sure we have no residual "multiply" ticks
+        if (this.localTicker) {
+            window.clearInterval(this.localTicker);
+            delete this.localTicker;
+        }
     }
 
     /** @type {String} the session id (same for all replicas) */
@@ -811,10 +816,8 @@ export default class Controller {
         const ms = tick / multiplier;
         let n = 1;
         this.localTicker = hotreloadEventManger.setInterval(() => {
-            if (this.time) { // don't generate multiples when our time is 0 (probably after a reset)
-                this.timeFromReflector(time + n * ms, "controller");
-                if (DEBUG.ticks) console.log(this.id, 'Controller generate TICK ' + this.time, n);
-            }
+            this.timeFromReflector(time + n * ms, "controller");
+            if (DEBUG.ticks) console.log(this.id, 'Controller generate TICK ' + this.time, n);
             if (++n >= multiplier) { window.clearInterval(this.localTicker); this.localTicker = 0; }
         }, ms);
     }
