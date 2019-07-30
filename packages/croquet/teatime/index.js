@@ -223,7 +223,7 @@ const loadBalance = 4;
 const balanceMS = loadBalance * (1000 / 60);
 
 function stepSession(frameTime, controller, view) {
-    controller.ensureConnection();
+    controller.checkForConnection(true);
 
     const {backlog, latency, starvation, activity} = controller;
     Stats.animationFrame(frameTime, {backlog, starvation, latency, activity, users: controller.users});

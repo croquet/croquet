@@ -126,7 +126,8 @@ export default class Controller {
     /** @type {Boolean} true if our connection is fine */
     get connected() { return this.connection.connected; }
 
-    ensureConnection() { this.connection.ensureConnection(); }
+    checkForConnection(force) { this.connection.checkForConnection(force); }
+
     dormantDisconnect() { this.connection.dormantDisconnect(); }
 
     /**
@@ -636,7 +637,8 @@ export default class Controller {
     // network queue
 
     async join() {
-        await this.connection.connectToReflector();
+        this.checkForConnection(false); // don't force it
+        await this.connection.connectionPromise; // wait until there is a connection
 
         Controllers.add(this);
 
@@ -656,6 +658,7 @@ export default class Controller {
         }));
     }
 
+    // either the connection has been broken or the reflector has sent LEAVE
     leave(preserveSnapshot) {
         if (this.connected) {
             console.log(this.id, `Controller LEAVING session for ${this.islandCreator.name}`);
@@ -808,8 +811,10 @@ export default class Controller {
         const ms = tick / multiplier;
         let n = 1;
         this.localTicker = hotreloadEventManger.setInterval(() => {
-            this.timeFromReflector(time + n * ms, "controller");
-            if (DEBUG.ticks) console.log(this.id, 'Controller generate TICK ' + this.time, n);
+            if (this.time) { // don't generate multiples when our time is 0 (probably after a reset)
+                this.timeFromReflector(time + n * ms, "controller");
+                if (DEBUG.ticks) console.log(this.id, 'Controller generate TICK ' + this.time, n);
+            }
             if (++n >= multiplier) { window.clearInterval(this.localTicker); this.localTicker = 0; }
         }, ms);
     }
@@ -833,23 +838,36 @@ const PULSE_TIMEOUT = 20000;
 class Connection {
     constructor(controller) {
         this.controller = controller;
-        this.okToCallConnect = true;
+        this.connectBlocked = false;
+        this.connectRestricted = false;
+        this.connectHasBeenCalled = false;
+        this.setUpConnectionPromise();
+    }
+
+    setUpConnectionPromise() {
+        this.connectionPromise = new Promise(resolve => this.resolveConnection = resolve);
     }
 
     get connected() { return this.socket && this.socket.readyState === WebSocket.OPEN; }
 
-    ensureConnection() {
-        if (!this.socket) this.connectToReflectorIfNeeded();
-    }
+    checkForConnection(force) {
+        if (this.socket || this.connectHasBeenCalled) return;
 
-    connectToReflectorIfNeeded() {
-        if (!this.okToCallConnect) return;
+        // there are three levels of rights to (re)connect:
+        // 1. fully blocked (e.g., to force a pause in attempted reconnection; only a direct connectToReflector will work)
+        // 2. blocked unless requested from a session step (force === true)
+        // 3. not blocked: any call has the right to connect (e.g., on first connect to a session)
+        if (this.connectBlocked) return;
+        if (this.connectRestricted && !force) return;
+
         this.connectToReflector();
     }
 
-    async connectToReflector(reflectorUrl) {
-        this.okToCallConnect = false;
-        if (!reflectorUrl) reflectorUrl = DEFAULT_REFLECTOR;
+    async connectToReflector() {
+        this.connectHasBeenCalled = true;
+        this.connectBlocked = false;
+        this.connectRestricted = false;
+        let reflectorUrl = urlOptions.reflector || DEFAULT_REFLECTOR;
         if (!reflectorUrl.match(/^wss?:/)) throw Error('Cannot interpret reflector address ' + reflectorUrl);
         if (!reflectorUrl.endsWith('/')) reflectorUrl += '/';
         return new Promise( resolve => {
@@ -858,6 +876,7 @@ class Connection {
                     this.socket = socket;
                     if (DEBUG.session) console.log(this.socket.constructor.name, "connected to", this.socket.url);
                     Stats.connected(true);
+                    this.resolveConnection(null); // the value itself isn't currently used
                     resolve();
                 },
                 onmessage: event => {
@@ -877,15 +896,12 @@ class Connection {
                     if (!dormant) displayError(`Connection closed: ${event.code} ${event.reason}`, { duration: autoReconnect ? undefined : 3600000 }); // leave it there for 1 hour if unrecoverable
                     if (DEBUG.session) console.log(socket.constructor.name, "closed:", event.code, event.reason);
                     Stats.connected(false);
-                    this.leave(true);
-                    // leave discards the connection, but doesn't presume that this.okToCallConnect should
-                    // now be true.
-                    // here we set it false except for the case of going dormant, which is allowed
-                    // to reawaken as soon as the next animation frame happens.
-                    this.okToCallConnect = dormant;
+                    if (dormant) this.connectRestricted = true; // only reconnect on session step
+                    else this.connectBlocked = true; // only reconnect using connectToReflector
+                    this.disconnected(true);
                     if (autoReconnect) {
                         displayWarning('Reconnecting ...');
-                        hotreloadEventManger.setTimeout(() => this.connectToReflector(reflectorUrl), 2000);
+                        hotreloadEventManger.setTimeout(() => this.connectToReflector(), 2000);
                     }
                 },
             });
@@ -893,12 +909,13 @@ class Connection {
     }
 
     // socket was disconnected, destroy the island
-    // it's up to the sender to decide whether to set this.okToCallConnect
-    leave(preserveSnapshot) {
+    disconnected(preserveSnapshot) {
         if (!this.socket) return;
         this.socket = null;
         this.lastReceived = 0;
         this.lastSent = 0;
+        this.connectHasBeenCalled = false;
+        this.setUpConnectionPromise();
         this.controller.leave(preserveSnapshot);
     }
 

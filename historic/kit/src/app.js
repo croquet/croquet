@@ -87,9 +87,10 @@ export default class App {
         };
         roomState.creator.options = this.roomInitOptions;
 
-        const controller = new Controller();
+        let controller = roomState.controller;
+        if (!controller) controller = roomState.controller = new Controller();
+        else controller.reset(); // @@ might not be necessary.  it's called by controller.leave(), for example.
         roomState.namedModelsPromise = controller.establishSession(roomName, roomState.creator);
-        roomState.controller = controller;
         roomState.namedModels = await roomState.namedModelsPromise;
         return roomState.namedModels;
     }
@@ -149,7 +150,11 @@ export default class App {
     }
 
     frame(timestamp) {
-        this.controllers.forEach(controller => controller.ensureConnection());
+        // check the socket-connection status of every known controller that's ready to step
+        Object.values(this.roomStates).forEach(room => {
+            const controller = room.controller;
+            if (controller && (controller.island || controller.islandCreator)) controller.checkForConnection(true); // true => connect if allowed
+            });
         this.hiddenSince = null; // evidently not hidden
 
         this.domEventManager.requestAnimationFrame(this.frameBound);
