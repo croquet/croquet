@@ -623,22 +623,21 @@ export class Message {
 // identify divergence between island instances.
 class IslandHasher {
     constructor() {
-        this.nextRef = 1;
         this.refs = new Map();
         this.todo = []; // we use breadth-first writing to limit stack depth
-        this.writers = new Map();
+        this.hashers = new Map();
         for (const modelClass of Model.allClasses()) {
             if (!Object.prototype.hasOwnProperty.call(modelClass, "types")) continue;
             for (const [classId, ClassOrSpec] of Object.entries(modelClass.types())) {
-                this.addWriter(classId, ClassOrSpec);
+                this.addHasher(classId, ClassOrSpec);
             }
         }
     }
 
-    addWriter(classId, ClassOrSpec) {
+    addHasher(classId, ClassOrSpec) {
         const { cls, write } = (Object.getPrototypeOf(ClassOrSpec) === Object.prototype) ? ClassOrSpec
             : { cls: ClassOrSpec, write: obj => Object.assign({}, obj) };
-        this.writers.set(cls, obj => this.writeAs(classId, obj, write(obj)));
+        this.hashers.set(cls, obj => this.hashStructure(obj, write(obj)));
     }
 
     /** @param {Island} island */
@@ -655,27 +654,26 @@ class IslandHasher {
             if (key === "_random") continue;
             if (key === "messages") continue;
             if (key === "meta") continue;
-            this.writeInto(key, value);
+            this.hashEntry(key, value);
         }
-        this.writeDeferred();
+        this.hashDeferred();
         return this.hashState;
     }
 
-    writeDeferred() {
+    hashDeferred() {
         while (this.todo.length > 0) {
             const { key, value } = this.todo.shift();
-            this.writeInto(key, value, false);
+            this.hashEntry(key, value, false);
         }
     }
 
-    write(value, defer = true) {
+    hash(value, defer = true) {
         switch (typeof value) {
             case "number":
                 if (Number.isNaN(value)) return;
                 if (!Number.isFinite(value)) return;
                 if (value===0) this.hashState.zeros++;
                 else {
-                    if (value===1234) console.log("disrupt");
                     this.hashState.numberCount++;
                     const sign = Math.sign(value);
                     const log = Math.log(Math.abs(value));
@@ -690,21 +688,21 @@ class IslandHasher {
                 const type = Object.prototype.toString.call(value).slice(8, -1);
                 switch (type) {
                     case "Array":
-                        this.writeArray(value, defer);
+                        this.hashArray(value, defer);
                         return;
                     case "Set":
                     case "Map":
                     case "Uint8Array":
                     case "Uint16Array":
                     case "Float32Array":
-                        this.writeAs(type, value, [...value]);
+                        this.hashStructure(value, [...value]);
                         return;
                     case "Object":
-                        if (value instanceof Model) this.writeModel(value);
-                        else if (value.constructor === Object) this.writeObject(value, defer);
+                        if (value instanceof Model) this.hashModel(value);
+                        else if (value.constructor === Object) this.hashObject(value, defer);
                         else {
-                            const writer = this.writers.get(value.constructor);
-                            if (writer) writer(value);
+                            const hasher = this.hashers.get(value.constructor);
+                            if (hasher) hasher(value);
                             else throw Error(`Don't know how to hash ${value.constructor.name}`);
                         }
                         return;
@@ -716,7 +714,7 @@ class IslandHasher {
         }
     }
 
-    writeModel(model) {
+    hashModel(model) {
         if (this.refs.has(model)) return;
         this.hashState.modelCount++;
         this.refs.set(model, true);      // register ref before recursing
@@ -725,12 +723,12 @@ class IslandHasher {
             if (key === "__realm") continue;
             const descriptor = descriptors[key];
             if (descriptor.value !== undefined) {
-                this.writeInto(key, descriptor.value);
+                this.hashEntry(key, descriptor.value);
             }
         }
     }
 
-    writeObject(object, defer = true) {
+    hashObject(object, defer = true) {
         if (this.refs.has(object)) return;
         this.hashState.objectCount++;
         this.refs.set(object, true);      // register ref before recursing
@@ -738,33 +736,33 @@ class IslandHasher {
         for (const key of Object.keys(descriptors).sort()) {
             const descriptor = descriptors[key];
             if (descriptor.value !== undefined) {
-                this.writeInto(key, descriptor.value, defer);
+                this.hashEntry(key, descriptor.value, defer);
             }
         }
     }
 
-    writeArray(array, defer = true) {
+    hashArray(array, defer = true) {
         if (this.refs.has(array)) return;
         this.refs.set(array, true);       // register ref before recursing
         for (let i = 0; i < array.length; i++) {
-            this.writeInto(i, array[i], defer);
+            this.hashEntry(i, array[i], defer);
         }
     }
 
-    writeAs(classID, object, value) {
+    hashStructure(object, value) {
         if (value === undefined) return;
         if (this.refs.has(object)) return;
         this.refs.set(object, true);      // register ref before recursing
-        this.write(value, false);
+        this.hash(value, false);
     }
 
-    writeInto(key, value, defer = true) {
+    hashEntry(key, value, defer = true) {
         if (key[0] === '$') { console.warn(`ignoring property ${key}`); return; }
         if (defer && typeof value === "object") {
             this.todo.push({ key, value });
             return;
         }
-        this.write(value);
+        this.hash(value);
     }
 }
 

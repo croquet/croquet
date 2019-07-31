@@ -364,7 +364,6 @@ function TUTTI(client, id, args) {
 
     const [ sendTime, sendSeq, payload, firstMsg, wantsVote, tallyTarget ] = args;
     const tallyHash = `${sendSeq}:${sendTime}`;
-LOG('TUTTI', sendSeq, payload);
     function tallyComplete() {
         const tally = island.tallies[tallyHash];
         clearTimeout(tally.timeout);
