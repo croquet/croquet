@@ -28,9 +28,9 @@ function displayToast(msg, options) {
         text: msg,
         duration: 3000,
         //close: true,
-        gravity: "bottom", // `top` or `bottom`
-        positionLeft: true, // `true` or `false`
-        backgroundColor: "linear-gradient(to right, #00b09b, #96c93d)",
+        gravity: 'bottom', // `top` or `bottom`
+        position: 'left', // `left`, `center` or `right`
+        backgroundColor: 'linear-gradient(to right, #00b09b, #96c93d)',
         stopOnFocus: true, // Prevents dismissing of toast on hover
         ...options };
     return Toastify(toastOpts).showToast();
