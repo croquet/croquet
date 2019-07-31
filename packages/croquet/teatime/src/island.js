@@ -472,7 +472,8 @@ export default class Island {
         return writer.snapshot(this, "$");
     }
 
-    getHash() {
+    // return an object describing the island - currently { objectCount, modelCount, numberSum, zeroCount } - for checking agreement between instances
+    getSummaryHash() {
         return new IslandHasher().getHash(this);
     }
 
@@ -645,9 +646,8 @@ class IslandHasher {
         this.hashState = {
             objectCount: 0, // number of JS Objects
             modelCount: 0, // number of models
-            numberCount: 0, // number of non-zero numbers
             numberSum: 0, // sum of logs and signs of all encountered non-zero numbers
-            zeros: 0 // number of zero numbers
+            zeroCount: 0 // number of zero numbers
         };
         for (const [key, value] of Object.entries(island)) {
             if (key === "controller") continue;
@@ -672,9 +672,8 @@ class IslandHasher {
             case "number":
                 if (Number.isNaN(value)) return;
                 if (!Number.isFinite(value)) return;
-                if (value===0) this.hashState.zeros++;
+                if (value===0) this.hashState.zeroCount++;
                 else {
-                    this.hashState.numberCount++;
                     const sign = Math.sign(value);
                     const log = Math.log(Math.abs(value));
                     this.hashState.numberSum += sign + log;
