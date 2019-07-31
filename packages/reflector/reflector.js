@@ -14,9 +14,14 @@ const ARTIFICIAL_DELAY = 0;   // delay messages randomly by 50% to 150% of this
 const MAX_MESSAGES = 10000;   // messages per island to retain since last snapshot
 const MIN_SCALE = 1 / 64;     // minimum ratio of island time to wallclock time
 const MAX_SCALE = 64;         // maximum ratio of island time to wallclock time
+const TALLY_INTERVAL = 1000;  // maximum time to wait to tally TUTTI contributions
 
-function LOG(...args) { console.log((new Date()).toISOString(), "Reflector:", ...args); }
-function WARN(...args) { console.warn((new Date()).toISOString(), "Reflector:", ...args); }
+const hostname = os.hostname();
+const {eth0, en0} = os.networkInterfaces();
+const hostip = (eth0 || en0).find(each => each.family==='IPv4').address;
+
+function LOG(...args) { console.log((new Date()).toISOString(), `Reflector(${hostip}):`, ...args); }
+function WARN(...args) { console.warn((new Date()).toISOString(), `Reflector(${hostip}):`, ...args); }
 
 // this webServer is only for http:// requests to the reflector url
 // (e.g. the load-balancer's health check),
@@ -31,7 +36,7 @@ const webServer = http.createServer( (req, res) => {
         return res.end();
     }
     // otherwise, show hostname, url, and http headers
-    const body = `Reflector ${os.hostname()}\n${req.method} http://${req.headers.host}${req.url}\n${JSON.stringify(req.headers, null, 4)}`;
+    const body = `Croquet reflector ${hostname} (${hostip})\n${req.method} http://${req.headers.host}${req.url}\n${JSON.stringify(req.headers, null, 4)}`;
     res.writeHead(200, {
       'Server': SERVER_HEADER,
       'Content-Length': body.length,
@@ -42,7 +47,7 @@ const webServer = http.createServer( (req, res) => {
 // the WebSocket.Server will intercept the UPGRADE request made by a ws:// websocket connection
 const server = new WebSocket.Server({ server: webServer });
 webServer.listen(port);
-LOG(`starting ${server.constructor.name} ws://${os.hostname()}:${server.address().port}/`);
+LOG(`starting ${server.constructor.name} ws://${hostname}:${server.address().port}/`);
 
 const STATS_TO_AVG = ["RECV", "SEND", "TICK", "IN", "OUT"];
 const STATS_TO_MAX = ["USERS", "BUFFER"];
@@ -181,6 +186,8 @@ function JOIN(client, id, args) {
         ticker: null,        // interval for serving TICKs
         startTimeout: null,   // pending START request timeout (should send SNAP)
         syncClients: [],     // clients waiting to SYNC
+        tallies: {},
+        lastCompletedTally: null,
         [Symbol.toPrimitive]: () => `${name} ${id}`,
     };
     ALL_ISLANDS.set(id, island);
@@ -348,6 +355,51 @@ function SEND(client, id, messages) {
         island.snapshot = null;
     }
     startTicker(island, island.tick);
+}
+
+/** handle a message that all clients are expected to be sending
+ * @param {?Client} client - we received from this client
+ * @param {ID} id - island ID
+ * @param {[sendTime: Number, sendSeq: Number, payload: String, firstMsg: Array, wantsVote: Boolean, tallyTarget: Array]} args
+ */
+function TUTTI(client, id, args) {
+    const island = ALL_ISLANDS.get(id);
+    if (!island) { if (client && client.readyState === WebSocket.OPEN) client.close(4000, "unknown island"); return; }
+
+    const [ sendTime, sendSeq, payload, firstMsg, wantsVote, tallyTarget ] = args;
+    const tallyHash = `${sendSeq}:${sendTime}`;
+    function tallyComplete() {
+        const tally = island.tallies[tallyHash];
+        clearTimeout(tally.timeout);
+        if (wantsVote || Object.keys(tally.payloads).length > 1) {
+            const payloads = { what: 'tally', tally: tally.payloads, tallyTarget };
+            const msg = [0, 0, payloads];
+            SEND(null, id, [msg]);
+        }
+        delete island.tallies[tallyHash];
+        const lastComplete = island.lastCompletedTally;
+        if (lastComplete === null || after(lastComplete, sendSeq)) island.lastCompletedTally = sendSeq;
+    }
+
+    if (!island.tallies[tallyHash]) { // either first client we've heard from, or one that's missed the party entirely
+        const lastComplete = island.lastCompletedTally;
+        if (lastComplete !== null && (sendSeq === lastComplete || after(sendSeq, lastComplete))) {
+            // too late
+            console.log(`rejecting tally of ${sendSeq} cf completed ${lastComplete}`);
+            return;
+        }
+
+        if (firstMsg) SEND(client, id, [firstMsg]);
+        island.tallies[tallyHash] = {
+            expecting: island.clients.size,
+            payloads: {},
+            timeout: setTimeout(tallyComplete, TALLY_INTERVAL)
+            };
+    }
+
+    const tally = island.tallies[tallyHash];
+    tally.payloads[payload] = (tally.payloads[payload] || 0) + 1;
+    if (--tally.expecting === 0) tallyComplete();
 }
 
 // delay for the client to generate local ticks
@@ -558,6 +610,7 @@ server.on('connection', (client, req) => {
             } else switch (action) {
                 case 'JOIN': { joined = true; JOIN(client, id, args); break; }
                 case 'SEND': SEND(client, id, [args]); break;
+                case 'TUTTI': TUTTI(client, id, args); break;
                 case 'TICKS': TICKS(client, id, args); break;
                 case 'SNAP': SNAP(client, id, args); break;
                 case 'LEAVING': LEAVING(client, id); break;

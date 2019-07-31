@@ -1,5 +1,6 @@
 import SeedRandom from "seedrandom/seedrandom";
 import PriorityQueue from "@croquet/util/priorityQueue";
+import stableStringify from "fast-json-stable-stringify";
 import hotreloadEventManger from "@croquet/util/hotreloadEventManager";
 import { displayWarning, displayAppError } from "@croquet/util/html";
 import Model from "./model";
@@ -58,6 +59,10 @@ function execOnIsland(island, fn) {
     }
 }
 
+const VOTE_SUFFIX = '#__vote'; // internal, for 'vote' handling; never seen by user
+const REFLECTED_SUFFIX = '#reflected';
+const DIVERGENCE_SUFFIX = '#divergence';
+
 /** An island holds the models which are replicated by teatime,
  * a queue of messages, plus additional bookkeeping to make
  * uniform pub/sub between models and views possible.*/
@@ -94,6 +99,8 @@ export default class Island {
                 this.externalSeq = this.seq;
                 /** @type {Number} sequence number for disambiguating future messages with same timestamp */
                 this.futureSeq = 0;
+                /** @type {Number} sequence number of last sent TUTTI */
+                this.tuttiSeq = 0;
                 /** @type {Number} number for giving ids to model */
                 this.modelsId = 0;
                 if (snapshot.modelsById) {
@@ -365,8 +372,12 @@ export default class Island {
 
     publishFromModel(scope, event, data) {
         if (CurrentIsland !== this) throw Error("Island Error");
+        // @@ hack for forcing reflection of model-to-model messages
+        const reflected = event.endsWith(REFLECTED_SUFFIX);
+        if (reflected) event = event.slice(0, event.length - REFLECTED_SUFFIX.length);
+
         const topic = scope + ":" + event;
-        this.handleModelEventInModel(topic, data);
+        this.handleModelEventInModel(topic, data, reflected);
         this.handleModelEventInView(topic, data);
     }
 
@@ -377,11 +388,33 @@ export default class Island {
         this.handleViewEventInView(topic, data);
     }
 
-    handleModelEventInModel(topic, data) {
-        // model=>model events are always handled synchronously
+    handleModelEventInModel(topic, data, reflect=false) {
+        // model=>model events are handled synchronously unless reflected
         // because making them async would mean having to use future messages
         if (CurrentIsland !== this) throw Error("Island Error");
-        if (this.subscriptions[topic]) {
+        if (reflect) {
+            this.tuttiSeq = (this.tuttiSeq + 1) >>> 0; // increment, whether we send or not
+            if (this.controller.synced !== true) return;
+
+            const voteTopic = topic + VOTE_SUFFIX;
+            const divergenceTopic = topic + DIVERGENCE_SUFFIX;
+            const wantsVote = !!viewDomain.subscriptions[voteTopic], wantsFirst = !!this.subscriptions[topic], wantsDiverge = !!this.subscriptions[divergenceTopic];
+            if (wantsVote && wantsDiverge) console.log(`divergence subscription for ${topic} overridden by vote subscription`);
+            // iff there are subscribers to a first message, build a candidate for the message that should be broadcast
+            const firstMessage = wantsFirst ? new Message(this.time, 0, this.id, "handleModelEventInModel", [topic, data]) : null;
+            const payload = stableStringify(data); // stable, to rule out platform differences
+            // provide the receiver, selector and topic for any eventual tally response from the reflector.
+            // if there are subscriptions to a vote, it'll be a handleModelEventInView with
+            // the vote-augmented topic.  if not, default to our handleModelEventTally.
+            let tallyTarget;
+            if (wantsVote) tallyTarget = [this.id, "handleModelEventInView", voteTopic];
+            else if (wantsDiverge) tallyTarget = [this.id, "handleModelEventInModel", divergenceTopic];
+            else {
+                const event = topic.split(":").slice(-1)[0];
+                tallyTarget = [this.id, "handleModelEventTally", event];
+            }
+            this.controller.sendTutti(this.time, this.tuttiSeq, payload, firstMessage, wantsVote, tallyTarget);
+        } else if (this.subscriptions[topic]) {
             for (const handler of this.subscriptions[topic]) {
                 const [id, ...rest] = handler.split('.');
                 const methodName = rest.join('.');
@@ -421,6 +454,10 @@ export default class Island {
         viewDomain.handleEvent(topic, data);
     }
 
+    handleModelEventTally(event, data) {
+        console.warn(`uncaptured divergence in ${event}:`, data);
+    }
+
     processModelViewEvents() {
         if (CurrentIsland) throw Error("Island Error");
         return inViewRealm(this, () => viewDomain.processFrameEvents(!!this.controller.synced));
@@ -433,6 +470,11 @@ export default class Island {
     snapshot() {
         const writer = new IslandWriter(this);
         return writer.snapshot(this, "$");
+    }
+
+    // return an object describing the island - currently { objectCount, modelCount, numberSum, zeroCount } - for checking agreement between instances
+    getSummaryHash() {
+        return new IslandHasher().getHash(this);
     }
 
     random() {
@@ -577,6 +619,152 @@ export class Message {
 
     [Symbol.toPrimitive]() { return this.toString(); }
 }
+
+// IslandHasher walks the object tree gathering statistics intended to help
+// identify divergence between island instances.
+class IslandHasher {
+    constructor() {
+        this.refs = new Map();
+        this.todo = []; // we use breadth-first writing to limit stack depth
+        this.hashers = new Map();
+        for (const modelClass of Model.allClasses()) {
+            if (!Object.prototype.hasOwnProperty.call(modelClass, "types")) continue;
+            for (const [classId, ClassOrSpec] of Object.entries(modelClass.types())) {
+                this.addHasher(classId, ClassOrSpec);
+            }
+        }
+    }
+
+    addHasher(classId, ClassOrSpec) {
+        const { cls, write } = (Object.getPrototypeOf(ClassOrSpec) === Object.prototype) ? ClassOrSpec
+            : { cls: ClassOrSpec, write: obj => Object.assign({}, obj) };
+        this.hashers.set(cls, obj => this.hashStructure(obj, write(obj)));
+    }
+
+    /** @param {Island} island */
+    getHash(island) {
+        this.hashState = {
+            objectCount: 0, // number of JS Objects
+            modelCount: 0, // number of models
+            numberSum: 0, // sum of logs and signs of all encountered non-zero numbers
+            zeroCount: 0 // number of zero numbers
+        };
+        for (const [key, value] of Object.entries(island)) {
+            if (key === "controller") continue;
+            if (key === "_random") continue;
+            if (key === "messages") continue;
+            if (key === "meta") continue;
+            this.hashEntry(key, value);
+        }
+        this.hashDeferred();
+        return this.hashState;
+    }
+
+    hashDeferred() {
+        while (this.todo.length > 0) {
+            const { key, value } = this.todo.shift();
+            this.hashEntry(key, value, false);
+        }
+    }
+
+    hash(value, defer = true) {
+        switch (typeof value) {
+            case "number":
+                if (Number.isNaN(value)) return;
+                if (!Number.isFinite(value)) return;
+                if (value===0) this.hashState.zeroCount++;
+                else {
+                    const sign = Math.sign(value);
+                    const log = Math.log(Math.abs(value));
+                    this.hashState.numberSum += sign + log;
+                }
+                return;
+            case "string":
+            case "boolean":
+            case "undefined":
+                return;
+            default: {
+                const type = Object.prototype.toString.call(value).slice(8, -1);
+                switch (type) {
+                    case "Array":
+                        this.hashArray(value, defer);
+                        return;
+                    case "Set":
+                    case "Map":
+                    case "Uint8Array":
+                    case "Uint16Array":
+                    case "Float32Array":
+                        this.hashStructure(value, [...value]);
+                        return;
+                    case "Object":
+                        if (value instanceof Model) this.hashModel(value);
+                        else if (value.constructor === Object) this.hashObject(value, defer);
+                        else {
+                            const hasher = this.hashers.get(value.constructor);
+                            if (hasher) hasher(value);
+                            else throw Error(`Don't know how to hash ${value.constructor.name}`);
+                        }
+                        return;
+                    case "Null": return;
+                    default:
+                        throw Error(`Don't know how to hash ${type}`);
+                }
+            }
+        }
+    }
+
+    hashModel(model) {
+        if (this.refs.has(model)) return;
+        this.hashState.modelCount++;
+        this.refs.set(model, true);      // register ref before recursing
+        const descriptors = Object.getOwnPropertyDescriptors(model);
+        for (const key of Object.keys(descriptors).sort()) {
+            if (key === "__realm") continue;
+            const descriptor = descriptors[key];
+            if (descriptor.value !== undefined) {
+                this.hashEntry(key, descriptor.value);
+            }
+        }
+    }
+
+    hashObject(object, defer = true) {
+        if (this.refs.has(object)) return;
+        this.hashState.objectCount++;
+        this.refs.set(object, true);      // register ref before recursing
+        const descriptors = Object.getOwnPropertyDescriptors(object);
+        for (const key of Object.keys(descriptors).sort()) {
+            const descriptor = descriptors[key];
+            if (descriptor.value !== undefined) {
+                this.hashEntry(key, descriptor.value, defer);
+            }
+        }
+    }
+
+    hashArray(array, defer = true) {
+        if (this.refs.has(array)) return;
+        this.refs.set(array, true);       // register ref before recursing
+        for (let i = 0; i < array.length; i++) {
+            this.hashEntry(i, array[i], defer);
+        }
+    }
+
+    hashStructure(object, value) {
+        if (value === undefined) return;
+        if (this.refs.has(object)) return;
+        this.refs.set(object, true);      // register ref before recursing
+        this.hash(value, false);
+    }
+
+    hashEntry(key, value, defer = true) {
+        if (key[0] === '$') { console.warn(`ignoring property ${key}`); return; }
+        if (defer && typeof value === "object") {
+            this.todo.push({ key, value });
+            return;
+        }
+        this.hash(value);
+    }
+}
+
 
 const floats = new Float64Array(2);
 const ints = new Uint32Array(floats.buffer);

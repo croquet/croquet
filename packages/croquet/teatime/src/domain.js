@@ -1,3 +1,5 @@
+const VOTE_SUFFIX = '#__vote'; // internal, for 'vote' handling; never seen by user
+
 /** A domain manages subscriptions */
 export class Domain {
 
@@ -30,9 +32,14 @@ export class Domain {
      * @param {String} event - a name for the event
      * @param {*} subscriber - the owner of this subscription
      * @param {Function} callback - a function called when event is published in scope
-     * @param {"immediate"|"queued"|"oncePerFrame"|"oncePerFrameWhileSynced"} handling - when to invoke the handler
+     * @param {"immediate"|"queued"|"oncePerFrame"|"oncePerFrameWhileSynced"|"vote"} handling - when to invoke the handler
      */
     addSubscription(scope, event, subscriber, callback, handling) {
+        if (handling === 'vote') {
+            this.addSubscription(scope, event + VOTE_SUFFIX, subscriber, callback, 'immediate');
+            return;
+        }
+
         const topic = scope + ":" + event;
         const handler = callback;
         handler.for = subscriber;
@@ -59,6 +66,8 @@ export class Domain {
             const remaining = _removeSubscriber(subs, subscriber);
             if (remaining === 0) delete this.subscriptions[topic];
         }
+
+        if (!event.endsWith(VOTE_SUFFIX)) this.removeSubscription(scope, event + VOTE_SUFFIX, subscriber);
     }
 
     /** Remove all subscriptions

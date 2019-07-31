@@ -136,7 +136,6 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
     if ("autoSleep" in options) urlOptions.autoSleep = options.autoSleep;
     if (urlOptions.autoSleep !== false) startSleepChecker();
     // now start
-    Controller.connectToReflectorIfNeeded();
     const ISLAND_OPTIONS = ['tps'];
     const SESSION_OPTIONS = ['optionsFromUrl'];
     freezeAndHashConstants();
@@ -196,7 +195,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
     }
 
     function islandInit(islandOpts) {
-        const modelRoot = ModelRoot.create(islandOpts);
+        const modelRoot = ModelRoot.create(islandOpts, "modelRoot");
         return { modelRoot };
     }
 
@@ -207,7 +206,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
                 const now = Date.now();
                 if (hiddenSince) {
                     // Controller doesn't mind being asked repeatedly to disconnect
-                    if (now - hiddenSince > DORMANT_THRESHOLD) Controller.dormantDisconnectIfNeeded();
+                    if (now - hiddenSince > DORMANT_THRESHOLD) controller.dormantDisconnect();
                 } else hiddenSince = now;
             } else hiddenSince = null; // not hidden
             }, 1000);
@@ -224,7 +223,7 @@ const loadBalance = 4;
 const balanceMS = loadBalance * (1000 / 60);
 
 function stepSession(frameTime, controller, view) {
-    Controller.ensureConnection();
+    controller.checkForConnection(true);
 
     const {backlog, latency, starvation, activity} = controller;
     Stats.animationFrame(frameTime, {backlog, starvation, latency, activity, users: controller.users});
