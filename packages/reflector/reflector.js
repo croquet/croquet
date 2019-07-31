@@ -15,8 +15,12 @@ const MAX_MESSAGES = 10000;   // messages per island to retain since last snapsh
 const MIN_SCALE = 1 / 64;     // minimum ratio of island time to wallclock time
 const MAX_SCALE = 64;         // maximum ratio of island time to wallclock time
 
-function LOG(...args) { console.log((new Date()).toISOString(), "Reflector:", ...args); }
-function WARN(...args) { console.warn((new Date()).toISOString(), "Reflector:", ...args); }
+const hostname = os.hostname();
+const {eth0, en0} = os.networkInterfaces();
+const hostip = (eth0 || en0).find(each => each.family==='IPv4').address;
+
+function LOG(...args) { console.log((new Date()).toISOString(), `Reflector(${hostip}):`, ...args); }
+function WARN(...args) { console.warn((new Date()).toISOString(), `Reflector(${hostip}):`, ...args); }
 
 // this webServer is only for http:// requests to the reflector url
 // (e.g. the load-balancer's health check),
@@ -31,7 +35,7 @@ const webServer = http.createServer( (req, res) => {
         return res.end();
     }
     // otherwise, show hostname, url, and http headers
-    const body = `Croquet reflector ${os.hostname()}\n${req.method} http://${req.headers.host}${req.url}\n${JSON.stringify(req.headers, null, 4)}`;
+    const body = `Croquet reflector ${hostname} (${hostip})\n${req.method} http://${req.headers.host}${req.url}\n${JSON.stringify(req.headers, null, 4)}`;
     res.writeHead(200, {
       'Server': SERVER_HEADER,
       'Content-Length': body.length,
@@ -42,7 +46,7 @@ const webServer = http.createServer( (req, res) => {
 // the WebSocket.Server will intercept the UPGRADE request made by a ws:// websocket connection
 const server = new WebSocket.Server({ server: webServer });
 webServer.listen(port);
-LOG(`starting ${server.constructor.name} ws://${os.hostname()}:${server.address().port}/`);
+LOG(`starting ${server.constructor.name} ws://${hostname}:${server.address().port}/`);
 
 const STATS_TO_AVG = ["RECV", "SEND", "TICK", "IN", "OUT"];
 const STATS_TO_MAX = ["USERS", "BUFFER"];
