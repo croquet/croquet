@@ -1,6 +1,6 @@
 {
   "name": "@croquet/3d-physics",
-  "version": "0.1.1-lerna.4",
+  "version": "0.1.1-lerna.5",
   "description": "",
   "main": "dist/index.js",
   "types": "dist/types.d.ts",
@@ -11,7 +11,7 @@
   "author": "",
   "dependencies": {
     "@croquet/croquet": "^0.1.9",
-    "@croquet/observable": "^0.1.2",
+    "@croquet/observable": "^0.1.3",
     "gl-matrix": "^3.0.0",
     "oimo": "git+https://github.com/croquet/Oimo.js.git",
     "quaternion-to-euler": "^0.5.0"
