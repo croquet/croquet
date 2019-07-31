@@ -101,29 +101,35 @@ function deepChangeProxy(object: any, onChangeAtAnyDepth: Function) {
 }
 
 export function AutoObservableModel<S extends Object>(initialState: S): ObservableModel & S {
-    const cls = class ObservableClass extends Observable(Model) {
-        init(options: any) {
-            super.init(options);
-            for (const [prop, initialValue] of Object.entries(initialState)) {
-                (this as any)[prop] = initialValue;
-            }
-        }
-    };
+    return AutoObservable(initialState)(Model);
+}
 
-    for (const prop of Object.keys(initialState)) {
-        const realProp = "_o_" + prop;
-        Object.defineProperty(cls.prototype, prop, {
-            get() {
-                return deepChangeProxy(this[realProp], () => {
+export function AutoObservable<S extends Object>(initialState: S): (BaseClass: typeof Model) => ObservableModel & S {
+    return (BaseClass) => {
+        const cls = class ObservableClass extends Observable(BaseClass) {
+            init(options: any) {
+                super.init(options);
+                for (const [prop, initialValue] of Object.entries(initialState)) {
+                    (this as any)[prop] = initialValue;
+                }
+            }
+        };
+
+        for (const prop of Object.keys(initialState)) {
+            const realProp = "_o_" + prop;
+            Object.defineProperty(cls.prototype, prop, {
+                get() {
+                    return deepChangeProxy(this[realProp], () => {
+                        this.publishPropertyChange(prop);
+                    });
+                },
+                set(newVal) {
+                    this[realProp] = newVal;
                     this.publishPropertyChange(prop);
-                });
-            },
-            set(newVal) {
-                this[realProp] = newVal;
-                this.publishPropertyChange(prop);
-            }
-        });
-    }
+                }
+            });
+        }
 
-    return cls as any as ObservableModel & S;
+        return cls as any as ObservableModel & S;
+    }
 }
