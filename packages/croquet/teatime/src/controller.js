@@ -111,6 +111,8 @@ export default class Controller {
             window.clearInterval(this.localTicker);
             delete this.localTicker;
         }
+        /** @type {Array} recent TUTTI sends and their payloads, for matching up with incoming votes and divergence alerts */
+        this.tuttiHistory = [];
     }
 
     /** @type {String} the session id (same for all replicas) */
@@ -473,11 +475,15 @@ export default class Controller {
                 break;
             }
             case "tally": {
-                // the message from the reflector will contain a tally, and an array containing the id, selector and topic that it was told to use
-                const { tally, tallyTarget } = msg[2];
+                // the message from the reflector will contain the tuttiSeq, a tally, and an array containing the id, selector and topic that it was told to use.
+                // if we have a record of supplying a value for this TUTTI, add it to the args.
+                const { tuttiSeq, tally, tallyTarget } = msg[2];
+                const convertedArgs = { tuttiSeq, tally };
+                const local = this.tuttiHistory.find(hist => hist.tuttiSeq === tuttiSeq);
+                if (local) convertedArgs._local = local.payload;
                 let topic;
                 [ receiver, selector, topic ] = tallyTarget;
-                args = [ topic, tally ];
+                args = [ topic, convertedArgs ];
                 break;
             }
             // no default
@@ -705,16 +711,18 @@ export default class Controller {
     /** send a TUTTI Message
      * @param {Message} msg
     */
-    sendTutti(time, seq, payload, firstMessage, wantsVote, tallyTarget) {
+    sendTutti(time, tuttiSeq, payload, firstMessage, wantsVote, tallyTarget) {
         // TUTTI: Send a message that multiple instances are expected to send identically.  The reflector will optionally broadcast the first received message immediately, then gather all messages up to a deadline and send a TALLY message summarising the results (whatever those results, if wantsVote is true; otherwise, only if there is some variation among them).
         if (!this.connected) return; // probably view sending event while connection is closing
         if (this.viewOnly) return;
         if (DEBUG.sends) console.log(this.id, `Controller sending TUTTI ${payload} ${firstMessage && firstMessage.asState()} ${tallyTarget}`);
+        this.tuttiHistory.push({ tuttiSeq, payload });
+        if (this.tuttiHistory.length > 100) this.tuttiHistory.shift();
         this.lastSent = Date.now();
         this.connection.send(JSON.stringify({
             id: this.id,
             action: 'TUTTI',
-            args: [time, seq, payload, firstMessage && firstMessage.asState(), wantsVote, tallyTarget],
+            args: [time, tuttiSeq, payload, firstMessage && firstMessage.asState(), wantsVote, tallyTarget],
         }));
     }
 

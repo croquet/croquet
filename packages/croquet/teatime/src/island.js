@@ -405,14 +405,10 @@ export default class Island {
             const payload = stableStringify(data); // stable, to rule out platform differences
             // provide the receiver, selector and topic for any eventual tally response from the reflector.
             // if there are subscriptions to a vote, it'll be a handleModelEventInView with
-            // the vote-augmented topic.  if not, default to our handleModelEventTally.
+            // the vote-augmented topic.  if not, default to our handleTuttiDivergence.
             let tallyTarget;
             if (wantsVote) tallyTarget = [this.id, "handleModelEventInView", voteTopic];
-            else if (wantsDiverge) tallyTarget = [this.id, "handleModelEventInModel", divergenceTopic];
-            else {
-                const event = topic.split(":").slice(-1)[0];
-                tallyTarget = [this.id, "handleModelEventTally", event];
-            }
+            else tallyTarget = [this.id, "handleTuttiDivergence", divergenceTopic];
             this.controller.sendTutti(this.time, this.tuttiSeq, payload, firstMessage, wantsVote, tallyTarget);
         } else if (this.subscriptions[topic]) {
             for (const handler of this.subscriptions[topic]) {
@@ -454,8 +450,12 @@ export default class Island {
         viewDomain.handleEvent(topic, data);
     }
 
-    handleModelEventTally(event, data) {
-        console.warn(`uncaptured divergence in ${event}:`, data);
+    handleTuttiDivergence(divergenceTopic, data) {
+        if (this.subscriptions[divergenceTopic]) this.handleModelEventInModel(divergenceTopic, data);
+        else {
+            const event = divergenceTopic.split(":").slice(-1)[0];
+            console.warn(`uncaptured divergence in ${event}:`, data);
+        }
     }
 
     processModelViewEvents() {
@@ -620,6 +620,15 @@ export class Message {
     [Symbol.toPrimitive]() { return this.toString(); }
 }
 
+const sumForFloat = (() => {
+    const float = new Float64Array(1);
+    const ints = new Int32Array(float.buffer);
+    return fl => {
+        float[0] = fl;
+        return ints[0] + ints[1];
+        };
+    })();
+
 // IslandHasher walks the object tree gathering statistics intended to help
 // identify divergence between island instances.
 class IslandHasher {
@@ -673,11 +682,7 @@ class IslandHasher {
                 if (Number.isNaN(value)) return;
                 if (!Number.isFinite(value)) return;
                 if (value===0) this.hashState.zeroCount++;
-                else {
-                    const sign = Math.sign(value);
-                    const log = Math.log(Math.abs(value));
-                    this.hashState.numberSum += sign + log;
-                }
+                else this.hashState.numberSum += sumForFloat(value);
                 return;
             case "string":
             case "boolean":

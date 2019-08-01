@@ -366,26 +366,26 @@ function TUTTI(client, id, args) {
     const island = ALL_ISLANDS.get(id);
     if (!island) { if (client && client.readyState === WebSocket.OPEN) client.close(4000, "unknown island"); return; }
 
-    const [ sendTime, sendSeq, payload, firstMsg, wantsVote, tallyTarget ] = args;
-    const tallyHash = `${sendSeq}:${sendTime}`;
+    const [ sendTime, tuttiSeq, payload, firstMsg, wantsVote, tallyTarget ] = args;
+    const tallyHash = `${tuttiSeq}:${sendTime}`;
     function tallyComplete() {
         const tally = island.tallies[tallyHash];
         clearTimeout(tally.timeout);
         if (wantsVote || Object.keys(tally.payloads).length > 1) {
-            const payloads = { what: 'tally', tally: tally.payloads, tallyTarget };
+            const payloads = { what: 'tally', tuttiSeq, tally: tally.payloads, tallyTarget };
             const msg = [0, 0, payloads];
             SEND(null, id, [msg]);
         }
         delete island.tallies[tallyHash];
         const lastComplete = island.lastCompletedTally;
-        if (lastComplete === null || after(lastComplete, sendSeq)) island.lastCompletedTally = sendSeq;
+        if (lastComplete === null || after(lastComplete, tuttiSeq)) island.lastCompletedTally = tuttiSeq;
     }
 
     if (!island.tallies[tallyHash]) { // either first client we've heard from, or one that's missed the party entirely
         const lastComplete = island.lastCompletedTally;
-        if (lastComplete !== null && (sendSeq === lastComplete || after(sendSeq, lastComplete))) {
+        if (lastComplete !== null && (tuttiSeq === lastComplete || after(tuttiSeq, lastComplete))) {
             // too late
-            console.log(`rejecting tally of ${sendSeq} cf completed ${lastComplete}`);
+            console.log(`rejecting tally of ${tuttiSeq} cf completed ${lastComplete}`);
             return;
         }
 
