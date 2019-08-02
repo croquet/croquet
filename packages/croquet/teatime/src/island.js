@@ -2,7 +2,6 @@ import SeedRandom from "seedrandom/seedrandom";
 import PriorityQueue from "@croquet/util/priorityQueue";
 import stableStringify from "fast-json-stable-stringify";
 import "@croquet/math"; // creates window.CroquetMath
-import hotreloadEventManger from "@croquet/util/hotreloadEventManager";
 import { displayWarning, displayAppError } from "@croquet/util/html";
 import Model from "./model";
 import { inModelRealm, inViewRealm } from "./realms";
@@ -12,8 +11,9 @@ import { viewDomain } from "./domain";
 /** @type {Island} */
 let CurrentIsland = null;
 
-// patch transcendentals as defined in "@croquet/math"
+// patch Math.random, and transcendentals as defined in "@croquet/math"
 if (!window.BrowserMath) {
+    window.CroquetMath.random = () => CurrentIsland.random();
     window.BrowserMath = {};
     for (const [funcName, croquetMath] of Object.entries(window.CroquetMath)) {
         const browserMath = window.Math[funcName];
@@ -23,14 +23,6 @@ if (!window.BrowserMath) {
             : arg => CurrentIsland ? croquetMath(arg) : browserMath(arg);
     }
 }
-
-// patch random
-const Math_random = Math.random.bind(Math);
-Math.random = () => {
-    if (CurrentIsland) return CurrentIsland.random();
-    return Math_random();
-};
-hotreloadEventManger.addDisposeHandler("math-random", () => Math.random = Math_random);
 
 /** function cache */
 const QFuncs = {};
