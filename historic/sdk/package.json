@@ -15,7 +15,8 @@
     "build-lib": {
       "patterns": [
         "../teatime",
-        "../util"
+        "../util",
+        "../math"
       ],
       "extensions": "js,json",
       "quiet": false
