@@ -6,6 +6,14 @@ const os = require('os');
 const http = require('http');
 const WebSocket = require('ws');
 
+// enable cloud profiler
+require('@google-cloud/profiler').start({
+    serviceContext: {
+        service: 'reflector',
+        version: '0.0.1'
+    }
+});
+
 const port = 9090;
 const SERVER_HEADER = "croquet-reflector";
 const SNAP_TIMEOUT = 10000;   // time in ms to wait for SNAP from island's first client

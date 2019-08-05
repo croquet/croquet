@@ -13,6 +13,7 @@
     "start": "node reflector.js"
   },
   "dependencies": {
+    "@google-cloud/profiler": "^2.0.2",
     "ws": "^6.2.1"
   },
   "devDependencies": {
