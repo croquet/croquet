@@ -33,7 +33,7 @@ window.CroquetMath.tanh = require("@stdlib/math/base/special/tanh");
 
 // workaround for iOS Safari bug giving inconsistent results for stdlib's pow()
 //window.CroquetMath.pow = require("@stdlib/math/base/special/pow");
-const mathPow = Math.pow;
+const mathPow = Math.pow; // the "native" method
 function isInfinite(x) { return x === Infinity || x === -Infinity; }
 function isInteger(x) { return Number.isInteger(x); }
 window.CroquetMath.pow = (x, y) => {
@@ -41,11 +41,18 @@ window.CroquetMath.pow = (x, y) => {
     if (isInfinite(x) || isInfinite(y)) return mathPow(x, y);
     if (x === 0 || y === 0) return mathPow(x, y);
     if (x < 0 && !isInteger(y)) return NaN;
-    if (isInteger(x) && isInteger(y)) return mathPow(x, y); // special-case integers
+
+    // removed:   if (isInteger(x) && isInteger(y)) return mathPow(x, y);
+    // ...because it turns out that even on integer cases, the base Math.pow can be inconsistent across browsers (e.g., 5,-4 giving 0.0016 or 0.0015999999999999999).
+    // nonetheless, we handle integer powers 1 to 4 explicitly, so that at least these will avoid the rounding errors that tend to emerge when calculating via logs.
+    if (y === 1) return x;
+    if (y === 2) return x*x;
+    if (y === 3) return x*x*x;
+    if (y === 4) return x*x*x*x;
 
     // remaining cases:
-    // x -ve non-integer, y integer
-    // x integer (+ve or -ve), y non-integer
+    // x -ve, y integer other than those handled above
+    // x +ve, y anything other than integers handled above
     let signResult = 1;
     if (x < 0) {
         x *= -1;

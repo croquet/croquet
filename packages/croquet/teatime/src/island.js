@@ -478,7 +478,7 @@ export default class Island {
         return writer.snapshot(this, "$");
     }
 
-    // return an object describing the island - currently { objectCount, modelCount, numberSum, zeroCount } - for checking agreement between instances
+    // return an object describing the island - currently { objectCount, modelCount, numHash, zeros etc } - for checking agreement between instances
     getSummaryHash() {
         return new IslandHasher().getHash(this);
     }
@@ -626,6 +626,7 @@ export class Message {
     [Symbol.toPrimitive]() { return this.toString(); }
 }
 
+/*
 const sumForFloat = (() => {
     const float = new Float64Array(1);
     const ints = new Int32Array(float.buffer);
@@ -633,6 +634,16 @@ const sumForFloat = (() => {
         float[0] = fl;
         return ints[0] + ints[1];
         };
+    })();
+*/
+const sumForFloat = (() => {
+    // use DataView so we can enforce little-endian interpretation of float as ints on any platform
+    const buffer = new ArrayBuffer(8);
+    const view = new DataView(buffer);
+    return fl => {
+        view.setFloat64(0, fl, true);
+        return view.getInt32(0, true) + view.getInt32(4, true);
+    };
     })();
 
 // IslandHasher walks the object tree gathering statistics intended to help
@@ -661,9 +672,13 @@ class IslandHasher {
         this.hashState = {
             objectCount: 0, // number of JS Objects
             modelCount: 0, // number of models
-            numberSum: 0, // sum of logs and signs of all encountered non-zero numbers
-            zeroCount: 0 // number of zero numbers
+            NaNs: 0, // number of NaNs
+            infinities: 0, // number of Infinities (+ve or -ve)
+            zeros: 0, // number of zeros
+            numCount: 0, // number of non-zero finite numbers
+            numHash: 0, // sum of the Int32 parts of non-zero numbers treated as Float64s
         };
+
         for (const [key, value] of Object.entries(island)) {
             if (key === "controller") continue;
             if (key === "_random") continue;
@@ -685,10 +700,13 @@ class IslandHasher {
     hash(value, defer = true) {
         switch (typeof value) {
             case "number":
-                if (Number.isNaN(value)) return;
-                if (!Number.isFinite(value)) return;
-                if (value===0) this.hashState.zeroCount++;
-                else this.hashState.numberSum += sumForFloat(value);
+                if (Number.isNaN(value)) this.hashState.NaNs++;
+                else if (!Number.isFinite(value)) this.hashState.infinities++;
+                else if (value===0) this.hashState.zeros++;
+                else {
+                    this.hashState.numCount++;
+                    this.hashState.numHash += sumForFloat(value);
+                }
                 return;
             case "string":
             case "boolean":
