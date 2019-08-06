@@ -223,6 +223,8 @@ const loadBalance = 4;
 const balanceMS = loadBalance * (1000 / 60);
 
 function stepSession(frameTime, controller, view) {
+    if (document.visibilityState === "hidden") return; // some browsers - e.g., Firefox - will run occasional animation frames even when hidden
+
     controller.checkForConnection(true);
 
     const {backlog, latency, starvation, activity} = controller;

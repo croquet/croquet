@@ -150,6 +150,10 @@ export default class App {
     }
 
     frame(timestamp) {
+        this.domEventManager.requestAnimationFrame(this.frameBound);
+
+        if (document.visibilityState === "hidden") return; // some browsers - e.g., Firefox - will run occasional animation frames even when hidden
+
         // check the socket-connection status of every known controller that's ready to step
         Object.values(this.roomStates).forEach(room => {
             const controller = room.controller;
@@ -157,7 +161,6 @@ export default class App {
             });
         this.hiddenSince = null; // evidently not hidden
 
-        this.domEventManager.requestAnimationFrame(this.frameBound);
         Stats.animationFrame(timestamp);
         if (this.currentRoomName) {
             const namedModels = this.roomStates[this.currentRoomName].namedModels;
@@ -289,7 +292,8 @@ export default class App {
         this.domEventManager.addEventListener(window, "hashchange", () => this.joinRoom(roomFromSession()));
 
         this.domEventManager.addEventListener(document.getElementById('reset'), "click", () => {
-            if (this.currentRoomName) {
+            // @@ since socket-per-controller (Jul 2019), requestNewSession is (temporarily?) not available
+            if (false && this.currentRoomName) {
                 const { controller } = this.roomStates[this.currentRoomName];
                 this.roomViewManager.detachAll();
                 if (controller) controller.requestNewSession();
