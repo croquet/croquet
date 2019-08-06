@@ -11,19 +11,6 @@ import { viewDomain } from "./domain";
 /** @type {Island} */
 let CurrentIsland = null;
 
-// patch Math.random, and transcendentals as defined in "@croquet/math"
-if (!window.BrowserMath) {
-    window.CroquetMath.random = () => CurrentIsland.random();
-    window.BrowserMath = {};
-    for (const [funcName, croquetMath] of Object.entries(window.CroquetMath)) {
-        const browserMath = window.Math[funcName];
-        window.BrowserMath[funcName] = browserMath;
-        window.Math[funcName] = ["pow", "atan2"].includes(funcName)
-            ? (arg1, arg2) => CurrentIsland ? croquetMath(arg1, arg2) : browserMath(arg1, arg2)
-            : arg => CurrentIsland ? croquetMath(arg) : browserMath(arg);
-    }
-}
-
 /** function cache */
 const QFuncs = {};
 
@@ -78,7 +65,24 @@ export default class Island {
         return CurrentIsland;
     }
 
+    static installCustomMath() {
+        // patch Math.random, and transcendentals as defined in "@croquet/math"
+        if (!window.BrowserMath) {
+            window.CroquetMath.random = () => CurrentIsland.random();
+            window.BrowserMath = {};
+            for (const [funcName, croquetMath] of Object.entries(window.CroquetMath)) {
+                const browserMath = window.Math[funcName];
+                window.BrowserMath[funcName] = browserMath;
+                window.Math[funcName] = ["pow", "atan2"].includes(funcName)
+                    ? (arg1, arg2) => CurrentIsland ? croquetMath(arg1, arg2) : browserMath(arg1, arg2)
+                    : arg => CurrentIsland ? croquetMath(arg) : browserMath(arg);
+            }
+        }
+    }
+
     constructor(snapshot, initFn) {
+        Island.installCustomMath(); // trivial if already installed
+
         execOnIsland(this, () => {
             inModelRealm(this, () => {
                 /** all the models in this island */
