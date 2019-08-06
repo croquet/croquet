@@ -1,7 +1,7 @@
 import "@croquet/util/deduplicate";
 import AsyncQueue from "@croquet/util/asyncQueue";
 import Stats from "@croquet/util/stats";
-import hotreloadEventManger from "@croquet/util/hotreloadEventManager";
+//import hotreloadEventManger from "@croquet/util/hotreloadEventManager";
 import urlOptions from "@croquet/util/urlOptions";
 import { login, getUser } from "@croquet/util/user";
 import { displaySpinner, displayStatus, displayWarning, displayError, displayAppError } from "@croquet/util/html";
@@ -847,7 +847,7 @@ export default class Controller {
         const { tick, multiplier } = this.tickMultiplier;
         const ms = tick / multiplier;
         let n = 1;
-        this.localTicker = hotreloadEventManger.setInterval(() => {
+        this.localTicker = window.setInterval(() => {
             this.timeFromReflector(time + n * ms, "controller");
             if (DEBUG.ticks) console.log(this.id, 'Controller generate TICK ' + this.time, n);
             if (++n >= multiplier) { window.clearInterval(this.localTicker); this.localTicker = 0; }
@@ -855,10 +855,12 @@ export default class Controller {
     }
 }
 
+/*
 // upload snapshot when the page gets unloaded
 hotreloadEventManger.addEventListener(document.body, "unload", Controller.uploadOnPageClose);
 // ... and on hotreload
 hotreloadEventManger.addDisposeHandler('snapshots', Controller.uploadOnPageClose);
+*/
 
 // Socket Connection
 
@@ -936,7 +938,7 @@ class Connection {
                     this.disconnected(true);
                     if (autoReconnect) {
                         displayWarning('Reconnecting ...');
-                        hotreloadEventManger.setTimeout(() => this.connectToReflector(), 2000);
+                        window.setTimeout(() => this.connectToReflector(), 2000);
                     }
                 },
             });

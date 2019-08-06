@@ -1,4 +1,4 @@
-import hotreloadEventManger from "@croquet/util/hotreloadEventManager";
+//import hotreloadEventManger from "@croquet/util/hotreloadEventManager";
 import urlOptions from "@croquet/util/urlOptions";
 import { addClassHash } from "@croquet/util/modules";
 import { displayAppError } from "@croquet/util";
@@ -578,7 +578,9 @@ function registerClass(file, name, cls) {
     return cls;
 }
 
+/*
 // flush ModelClasses after hot reload
 hotreloadEventManger.addDisposeHandler(module.id, () => ModelClasses = {});
+*/
 
 export default Model;

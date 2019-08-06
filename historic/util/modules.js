@@ -1,5 +1,5 @@
 import stableStringify from "fast-json-stable-stringify";
-import hotreloadEventManager from "./hotreloadEventManager";
+//import hotreloadEventManager from "./hotreloadEventManager";
 import urlOptions from "./urlOptions";
 import { getUser } from "./user";
 
@@ -179,7 +179,9 @@ export async function hashString(string) {
 
 const fileHashes = {};
 
+/*
 hotreloadEventManager.addDisposeHandler("fileHashes", () => { for (const f of (Object.keys(fileHashes))) delete fileHashes[f]; });
+*/
 
 export async function hashFile(mod) {
     if (fileHashes[mod]) return fileHashes[mod];
