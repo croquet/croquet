@@ -128,7 +128,7 @@ export default class Island {
                     this._random = new SeedRandom(null, { state: true });
                     const namedModels = initFn(this) || {};
                     Object.assign(this.modelsByName, namedModels);
-                    this.addSubscription(this, this.id, "__users__", "trackUsers");
+                    this.addSubscription(this, this.id, "__users__", this.generateJoinExit);
                 }
             });
         });
@@ -178,7 +178,7 @@ export default class Island {
     // used in Controller.convertReflectorMessage()
     noop() {}
 
-    trackUsers({entered, exited, count}) {
+    generateJoinExit({entered, exited, count}) {
         if (entered.length === count) exited = Object.keys(this.users);
         else exited = exited.map(each => each[0]); // get id
         for (const id of exited) {
