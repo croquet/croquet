@@ -553,7 +553,7 @@ function deleteIsland(island) {
 const replies = {};
 
 server.on('connection', (client, req) => {
-    client.addr = `${req.connection.remoteAddress}:${req.connection.remotePort}`;
+    client.addr = `${req.connection.remoteAddress.replace(/^::ffff:/, '')}:${req.connection.remotePort}`;
     if (req.headers['x-forwarded-for']) client.addr += ` (${req.headers['x-forwarded-for'].split(/\s*,\s*/).join(', ')})`;
     // location header is added by load balancer, see region-servers/apply-changes
     if (req.headers['x-location']) try {
