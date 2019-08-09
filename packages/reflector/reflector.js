@@ -6,8 +6,14 @@ const os = require('os');
 const http = require('http');
 const WebSocket = require('ws');
 
-// enable cloud profiler
+// enable cloud profiler & debugger
 require('@google-cloud/profiler').start({
+    serviceContext: {
+        service: 'reflector',
+        version: '0.0.1'
+    }
+});
+require('@google-cloud/debug-agent').start({
     serviceContext: {
         service: 'reflector',
         version: '0.0.1'
