@@ -2,7 +2,9 @@ Scroll down for an **overview** of Croquet concepts.
 
 Use the Navigation Panel to try our **Tutorials**, **Guides**, and **API docs**.
 
-Below you will find:
+Also, please **join** our [**Developer Slack** ![Slack](images/slack.png)](https://join.slack.com/t/croquet-dev/shared_invite/enQtNzAwNjMyMjIyMDY3LTBhZGFmODNhMTI3ZDc1NjMyODRhNjRiZjRhNDM0OGVmM2ZlYmMxMDhhMTIyNWM2NjhhZDRiMjNhMGE5MTJlZWI).
+
+## Below you will find:
 - [What is Croquet?](#what-is-croquet)
 - [Main Concepts](#main-concepts)
 - [Creating a _Croquet_ App](#creating-a-croquet-app)
