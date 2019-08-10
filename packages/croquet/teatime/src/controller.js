@@ -57,9 +57,9 @@ const Controllers = new Set();
 
 export default class Controller {
 
-    static uploadOnPageClose() {
+    static emergencyUploadIfNeeded() {
         for (const controller of Controllers) {
-            controller.uploadOnPageClose();
+            controller.emergencyUploadIfNeeded();
         }
     }
 
@@ -135,7 +135,11 @@ export default class Controller {
 
     checkForConnection(force) { this.connection.checkForConnection(force); }
 
-    dormantDisconnect() { this.connection.dormantDisconnect(); }
+    dormantDisconnect() {
+        if (!this.connected) return;
+        this.emergencyUploadIfNeeded();
+        this.connection.dormantDisconnect();
+    }
 
     /**
      * Join or create a session by connecting to the reflector
@@ -383,14 +387,15 @@ export default class Controller {
         this.uploadJSON(url, body);
     }
 
-    uploadOnPageClose() {
-        // cannot use await, page is closing
-        if (!this.island || this.lastSnapshot.meta.seq === this.island.externalSeq) return;
+    emergencyUploadIfNeeded() {
+         // cannot wait for asynchronous processes, since page might be closing
+         if (this.users > 1 || !this.island || this.lastSnapshot.meta.seq === this.island.externalSeq) return;
         const url = this.snapshotUrl('latest');
         const snapshot = this.finalSnapshot();
+        this.keepSnapshot(snapshot); // so that it becomes this.lastSnapshot, preventing a second emergency upload even if triggered
         const {time, seq} = snapshot.meta;
         const body = JSON.stringify({time, seq, snapshot});
-        if (DEBUG.snapshot) console.log(this.id, `page is closing, uploading snapshot (${time}#${seq}, ${body.length} bytes):`, url);
+        if (DEBUG.snapshot) console.log(this.id, `emergency upload of snapshot (${time}#${seq}, ${body.length} bytes):`, url);
         this.uploadJSON(url, body);
     }
 
@@ -508,15 +513,17 @@ export default class Controller {
                     snapshot,
                 };
                 // see if there is a remote or in-memory snapshot
-                let latest = null;
+                let latest = null, usingRemote = false;
                 if (!DEBUG.init) { // setting "init" option forces ignore of stored snapshots
+                    // in some cases of page reload, the emergency upload can still be in progress by the time we get here.  adding a pause reduces the risk of fetching latest.json prematurely... but it can't help in cases where the reloading browser scraps the upload connection immediately anyway, and it slows down all STARTs for the sake of the few times when it might help.  hence disabled.
+                    //await new Promise(resolve => setTimeout(resolve, 750));
                     latest = await this.fetchJSON(this.snapshotUrl('latest'));
-                    // which one's newer?
-                    if (!latest || (local && local.time > latest.time)) latest = local;
+                    usingRemote = latest && !(local && local.time > latest.time);
+                    if (!usingRemote) latest = local;
                 }
                 // fetch snapshot
                 if (latest) {
-                    console.log(this.id, latest.snapshot ? "using snapshot still in memory" : `fetching latest snapshot ${latest.url}`);
+                    console.log(this.id, latest.snapshot ? `using ${usingRemote ? "remote" : "in-memory"} emergency snapshot` : `fetching latest snapshot ${latest.url}`);
                     snapshot = latest.snapshot || await this.fetchJSON(latest.url);
                 } else snapshot = null; // we found no actual snapshot (e.g., only the placeholder)
                 if (!this.connected) { console.log(this.id, 'socket went away during START'); return; }
@@ -855,12 +862,10 @@ export default class Controller {
     }
 }
 
-/*
-// upload snapshot when the page gets unloaded
-hotreloadEventManger.addEventListener(document.body, "unload", Controller.uploadOnPageClose);
-// ... and on hotreload
-hotreloadEventManger.addDisposeHandler('snapshots', Controller.uploadOnPageClose);
-*/
+// upload snapshot when the page gets unloaded.
+// no problem if both events are triggered.
+window.addEventListener('beforeunload', () => Controller.emergencyUploadIfNeeded());
+window.addEventListener('unload', () => Controller.emergencyUploadIfNeeded());
 
 // Socket Connection
 
