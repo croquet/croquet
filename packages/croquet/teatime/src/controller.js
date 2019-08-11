@@ -283,9 +283,10 @@ export default class Controller {
         this.cpuTime -= ms;
         if (DEBUG.snapshot) console.log(this.id, `Controller snapshotting took ${Math.ceil(ms)} ms`);
         // taking the snapshot needed to be synchronous, now we can go async
-        await this.hashSnapshot(this.lastSnapshot);
+        const lastSnapshot = this.lastSnapshot; // make sure it doesn't change under us
+        await this.hashSnapshot(lastSnapshot);
         // inform reflector that we have a snapshot
-        const {time, seq, hash} = this.lastSnapshot.meta;
+        const {time, seq, hash} = lastSnapshot.meta;
         if (DEBUG.snapshot) console.log(this.id, `Controller sending hash for ${time}#${seq} to reflector: ${hash}`);
         try {
             this.connection.send(JSON.stringify({
@@ -305,12 +306,23 @@ export default class Controller {
         return `${baseUrl('snapshots')}${sessionName}/${time_seq}.json`;
     }
 
-    async hashSnapshot(snapshot) {
+    hashSnapshot(snapshot) {
+        // returns a Promise if hash isn't available yet
         if (snapshot.meta.hash) return snapshot.meta.hash;
-        // exclude meta data, which has the current (real-world) time in it
-        const snapshotWithoutMeta = {...snapshot};
-        delete snapshotWithoutMeta.meta;
-        return snapshot.meta.hash = await hashString(JSON.stringify(snapshotWithoutMeta));
+        if (!snapshot.meta.hashPromise) {
+            snapshot.meta.hashPromise = new Promise(resolve => {
+                // exclude meta data, which has the current (real-world) time in it
+                const snapshotWithoutMeta = {...snapshot};
+                delete snapshotWithoutMeta.meta;
+                hashString(JSON.stringify(snapshotWithoutMeta))
+                .then(hash => {
+                    snapshot.meta.hash = hash;
+                    delete snapshot.meta.hashPromise;
+                    resolve(hash);
+                    });
+                });
+        }
+        return snapshot.meta.hashPromise;
     }
 
     /** upload a snapshot to the asset server */
@@ -335,8 +347,9 @@ export default class Controller {
     // we sent a snapshot hash to the reflector, it elected us to upload
     async serveSnapshot(time, seq, hash) {
         const snapshot = this.findSnapshot(time, seq, hash);
-        if (snapshot !== this.lastSnapshot) {
-            const last = this.lastSnapshot.meta;
+        const lastSnapshot = this.lastSnapshot;
+        if (snapshot !== lastSnapshot) {
+            const last = lastSnapshot.meta;
             console.error(this.id, `snapshot is not last (expected ${time}#${seq}, have ${last.time}#${last.seq})`);
             return;
         }
@@ -344,13 +357,18 @@ export default class Controller {
     }
 
     // a snapshot hash came from the reflector, compare to ours
-    compareHash(time, seq, hash) {
+    async compareHash(time, seq, hash) {
         const snapshot = this.findSnapshot(time, seq);
-        const last = this.lastSnapshot.meta;
-        if (snapshot !== this.lastSnapshot) {
+        const lastSnapshot = this.lastSnapshot;
+        const last = lastSnapshot.meta;
+        if (snapshot !== lastSnapshot) {
+            // one reason for this happening is that this client hasn't even seen
+            // the scheduledSnapshot message yet (because that message goes through
+            // the simulation queue, whereas a HASH is processed immediately)
             console.warn(this.id, `snapshot is not last (expected ${time}#${seq}, have ${last.time}#${last.seq})`);
             return;
         }
+        await this.hashSnapshot(lastSnapshot);
         if (last.hash !== hash) {
             console.warn(this.id, `local snapshot hash ${time}#${seq} is ${last.hash} (got ${hash} from reflector)`);
             this.uploadLatest(false); // upload but do not send to reflector
@@ -360,18 +378,20 @@ export default class Controller {
     // upload snapshot and message history, and optionally inform reflector
     async uploadLatest(sendToReflector=true) {
         const viewId = this.viewId;
-        const snapshotUrl = await this.uploadSnapshot(this.lastSnapshot);
+        const lastSnapshot = this.lastSnapshot; // make sure it doesn't change under us
+        const prevSnapshot = this.prevSnapshot; // ditto
+        const snapshotUrl = await this.uploadSnapshot(lastSnapshot);
         // if upload is slow and the reflector loses patience, controller will have been reset
         if (this.viewId !== viewId) { console.error("Controller was reset while trying to upload snapshot"); return; }
         if (!snapshotUrl) { console.error("Failed to upload snapshot"); return; }
-        const last = this.lastSnapshot.meta;
+        const last = lastSnapshot.meta;
         if (sendToReflector) this.announceSnapshotUrl(last.time, last.seq, last.hash, snapshotUrl);
-        if (!this.prevSnapshot) return;
-        const prev = this.prevSnapshot.meta;
+        if (!prevSnapshot) return;
+        const prev = prevSnapshot.meta;
         let messages = [];
         if (prev.seq !== last.seq) {
-            const prevIndex = this.oldMessages.findIndex(msg => msg[1] >= prev.seq);
-            const lastIndex = this.oldMessages.findIndex(msg => msg[1] >= last.seq);
+            const prevIndex = this.oldMessages.findIndex(msg => inSequence(prev.seq, msg[1]));
+            const lastIndex = this.oldMessages.findIndex(msg => inSequence(last.seq, msg[1]));
             messages = this.oldMessages.slice(prevIndex, lastIndex + 1);
         }
         const messageLog = {
