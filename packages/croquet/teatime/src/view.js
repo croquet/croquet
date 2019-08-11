@@ -39,7 +39,8 @@ class View {
     constructor(_model) {
         // read-only properties
         Object.defineProperty(this, "realm", {  value: currentRealm() });
-        Object.defineProperty(this, "id", {  value: this.realm.register(this) });
+        this.realm.register(this); // (aug 2019) sets this.__id; its reset on deregister is used to suppress lingering future messages
+        Object.defineProperty(this, "id", {  get() { return this.__id; } });
         // eslint-disable-next-line no-constant-condition
         if (false) {
             /** Each view has an id which can be used to scope [events]{@link View#publish} between views.

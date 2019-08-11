@@ -75,10 +75,11 @@ class ViewRealm {
     }
 
     register(view) {
-        return viewDomain.register(view);
+        view.__id = viewDomain.register(view);
     }
     deregister(view) {
         viewDomain.deregister(view);
+        view.__id = "";
     }
     publish(event, data, scope) {
         this.island.publishFromView(scope, event, data);
@@ -105,7 +106,7 @@ class ViewRealm {
                 if (typeof view[property] === "function") {
                     const methodProxy = new Proxy(view[property], {
                         apply(_method, _this, args) {
-                            setTimeout(() => view[property](...args), tOffset);
+                            setTimeout(() => { if (view.__id) view[property](...args); }, tOffset);
                         }
                     });
                     return methodProxy;
