@@ -64,7 +64,11 @@ class View {
      * **Unsubscribes all [subscriptions]{@link View#subscribe} this model has,
      * and removes it from the list of views**
      *
-     * This needs to be called when a view is no longer needed to prevent memory leaks.
+     * This needs to be called when a view is no longer needed, to prevent memory leaks.
+     * A session's root view is automatically sent `detach` when the session becomes
+     * inactive (for example, going dormant because its browser tab is hidden).
+     * A root view should therefore override `detach` (remembering to call `super.detach()`)
+     * to detach any subsidiary views that it has created.
      * @example
      * removeChild(child) {
      *    const index = this.children.indexOf(child);
