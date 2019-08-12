@@ -485,7 +485,7 @@ export default class Island {
         return writer.snapshot(this, "$");
     }
 
-    // return an object describing the island - currently { oC, mC, nanC, infC, zC, nC, nH } - for checking agreement between instances
+    // return an object describing the island - currently { oC, mC, nanC, infC, zC, nC, nH, sC, sL } - for checking agreement between instances
     getSummaryHash() {
         return new IslandHasher().getHash(this);
     }
@@ -659,19 +659,6 @@ class IslandHasher {
     constructor() {
         this.refs = new Map();
         this.todo = []; // we use breadth-first writing to limit stack depth
-        this.hashers = new Map();
-        for (const modelClass of Model.allClasses()) {
-            if (!Object.prototype.hasOwnProperty.call(modelClass, "types")) continue;
-            for (const [classId, ClassOrSpec] of Object.entries(modelClass.types())) {
-                this.addHasher(classId, ClassOrSpec);
-            }
-        }
-    }
-
-    addHasher(classId, ClassOrSpec) {
-        const { cls, write } = (Object.getPrototypeOf(ClassOrSpec) === Object.prototype) ? ClassOrSpec
-            : { cls: ClassOrSpec, write: obj => Object.assign({}, obj) };
-        this.hashers.set(cls, obj => this.hashStructure(obj, write(obj)));
     }
 
     /** @param {Island} island */
@@ -684,6 +671,8 @@ class IslandHasher {
             zC: 0, // count of zeros
             nC: 0, // count of non-zero finite numbers
             nH: 0, // sum of the Int32 parts of non-zero numbers treated as Float64s
+            sC: 0, // number of strings
+            sL: 0  // sum of lengths of strings
         };
 
         for (const [key, value] of Object.entries(island)) {
@@ -716,6 +705,9 @@ class IslandHasher {
                 }
                 return;
             case "string":
+                this.hashState.sC++;
+                this.hashState.sL += value.length;
+                return;
             case "boolean":
             case "undefined":
                 return;
@@ -734,12 +726,7 @@ class IslandHasher {
                         return;
                     case "Object":
                         if (value instanceof Model) this.hashModel(value);
-                        else if (value.constructor === Object) this.hashObject(value, defer);
-                        else {
-                            const hasher = this.hashers.get(value.constructor);
-                            if (hasher) hasher(value);
-                            else throw Error(`Don't know how to hash ${value.constructor.name}`);
-                        }
+                        else this.hashObject(value, defer);
                         return;
                     case "Null": return;
                     default:
@@ -754,7 +741,7 @@ class IslandHasher {
         this.hashState.mC++;
         this.refs.set(model, true);      // register ref before recursing
         const descriptors = Object.getOwnPropertyDescriptors(model);
-        for (const key of Object.keys(descriptors).sort()) {
+        for (const key of Object.keys(descriptors)) {
             if (key === "__realm") continue;
             const descriptor = descriptors[key];
             if (descriptor.value !== undefined) {
@@ -768,7 +755,7 @@ class IslandHasher {
         this.hashState.oC++;
         this.refs.set(object, true);      // register ref before recursing
         const descriptors = Object.getOwnPropertyDescriptors(object);
-        for (const key of Object.keys(descriptors).sort()) {
+        for (const key of Object.keys(descriptors)) {
             const descriptor = descriptors[key];
             if (descriptor.value !== undefined) {
                 this.hashEntry(key, descriptor.value, defer);
