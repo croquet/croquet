@@ -1,6 +1,5 @@
 import SeedRandom from "seedrandom/seedrandom";
 import PriorityQueue from "@croquet/util/priorityQueue";
-import stableStringify from "fast-json-stable-stringify";
 import "@croquet/math"; // creates window.CroquetMath
 import { displayWarning, displayAppError } from "@croquet/util/html";
 import Model from "./model";
@@ -164,6 +163,11 @@ export default class Island {
     set(modelName, model) {
         if (CurrentIsland !== this) throw Error("Island Error");
         this.modelsByName[modelName] = model;
+    }
+
+    getNextTuttiSeq() {
+        this.tuttiSeq = (this.tuttiSeq + 1) >>> 0;
+        return this.tuttiSeq;
     }
 
     // Send via reflector
@@ -403,7 +407,7 @@ export default class Island {
         // because making them async would mean having to use future messages
         if (CurrentIsland !== this) throw Error("Island Error");
         if (reflect) {
-            this.tuttiSeq = (this.tuttiSeq + 1) >>> 0; // increment, whether we send or not
+            const tuttiSeq = this.getNextTuttiSeq(); // increment, whether we send or not
             if (this.controller.synced !== true) return;
 
             const voteTopic = topic + VOTE_SUFFIX;
@@ -412,14 +416,13 @@ export default class Island {
             if (wantsVote && wantsDiverge) console.log(`divergence subscription for ${topic} overridden by vote subscription`);
             // iff there are subscribers to a first message, build a candidate for the message that should be broadcast
             const firstMessage = wantsFirst ? new Message(this.time, 0, this.id, "handleModelEventInModel", [topic, data]) : null;
-            const payload = stableStringify(data); // stable, to rule out platform differences
             // provide the receiver, selector and topic for any eventual tally response from the reflector.
             // if there are subscriptions to a vote, it'll be a handleModelEventInView with
             // the vote-augmented topic.  if not, default to our handleTuttiDivergence.
             let tallyTarget;
             if (wantsVote) tallyTarget = [this.id, "handleModelEventInView", voteTopic];
             else tallyTarget = [this.id, "handleTuttiDivergence", divergenceTopic];
-            this.controller.sendTutti(this.time, this.tuttiSeq, payload, firstMessage, wantsVote, tallyTarget);
+            this.controller.sendTutti(this.time, tuttiSeq, data, firstMessage, wantsVote, tallyTarget);
         } else if (this.subscriptions[topic]) {
             for (const handler of this.subscriptions[topic]) {
                 const [id, ...rest] = handler.split('.');
@@ -482,7 +485,7 @@ export default class Island {
         return writer.snapshot(this, "$");
     }
 
-    // return an object describing the island - currently { objectCount, modelCount, numHash, zeros etc } - for checking agreement between instances
+    // return an object describing the island - currently { oC, mC, nanC, infC, zC, nC, nH } - for checking agreement between instances
     getSummaryHash() {
         return new IslandHasher().getHash(this);
     }
@@ -674,13 +677,13 @@ class IslandHasher {
     /** @param {Island} island */
     getHash(island) {
         this.hashState = {
-            objectCount: 0, // number of JS Objects
-            modelCount: 0, // number of models
-            NaNs: 0, // number of NaNs
-            infinities: 0, // number of Infinities (+ve or -ve)
-            zeros: 0, // number of zeros
-            numCount: 0, // number of non-zero finite numbers
-            numHash: 0, // sum of the Int32 parts of non-zero numbers treated as Float64s
+            oC: 0, // count of JS Objects
+            mC: 0, // count of models
+            nanC: 0, // count of NaNs
+            infC: 0, // count of Infinities (+ve or -ve)
+            zC: 0, // count of zeros
+            nC: 0, // count of non-zero finite numbers
+            nH: 0, // sum of the Int32 parts of non-zero numbers treated as Float64s
         };
 
         for (const [key, value] of Object.entries(island)) {
@@ -704,12 +707,12 @@ class IslandHasher {
     hash(value, defer = true) {
         switch (typeof value) {
             case "number":
-                if (Number.isNaN(value)) this.hashState.NaNs++;
-                else if (!Number.isFinite(value)) this.hashState.infinities++;
-                else if (value===0) this.hashState.zeros++;
+                if (Number.isNaN(value)) this.hashState.nanC++;
+                else if (!Number.isFinite(value)) this.hashState.infC++;
+                else if (value===0) this.hashState.zC++;
                 else {
-                    this.hashState.numCount++;
-                    this.hashState.numHash += sumForFloat(value);
+                    this.hashState.nC++;
+                    this.hashState.nH += sumForFloat(value);
                 }
                 return;
             case "string":
@@ -748,7 +751,7 @@ class IslandHasher {
 
     hashModel(model) {
         if (this.refs.has(model)) return;
-        this.hashState.modelCount++;
+        this.hashState.mC++;
         this.refs.set(model, true);      // register ref before recursing
         const descriptors = Object.getOwnPropertyDescriptors(model);
         for (const key of Object.keys(descriptors).sort()) {
@@ -762,7 +765,7 @@ class IslandHasher {
 
     hashObject(object, defer = true) {
         if (this.refs.has(object)) return;
-        this.hashState.objectCount++;
+        this.hashState.oC++;
         this.refs.set(object, true);      // register ref before recursing
         const descriptors = Object.getOwnPropertyDescriptors(object);
         for (const key of Object.keys(descriptors).sort()) {

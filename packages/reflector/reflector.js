@@ -381,6 +381,7 @@ function TUTTI(client, id, args) {
     if (!island) { if (client && client.readyState === WebSocket.OPEN) client.close(4000, "unknown island"); return; }
 
     const [ sendTime, tuttiSeq, payload, firstMsg, wantsVote, tallyTarget ] = args;
+console.log({sendTime, tuttiSeq, payload});
     const tallyHash = `${tuttiSeq}:${sendTime}`;
     function tallyComplete() {
         const tally = island.tallies[tallyHash];

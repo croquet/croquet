@@ -1,3 +1,4 @@
+import stableStringify from "fast-json-stable-stringify";
 import "@croquet/util/deduplicate";
 import AsyncQueue from "@croquet/util/asyncQueue";
 import Stats from "@croquet/util/stats";
@@ -37,13 +38,15 @@ const DEBUG = {
     initsnapshot: urlOptions.has("debug", "initsnapshot", "localhost"), // check snapshotting after init
     init: urlOptions.has("debug", "init", "localhost"),                 // always run init() if first user in session
 };
-
+DEBUG.snapshot = true; // ##########################
 const NOCHEAT = urlOptions.nocheat;
 
 const OPTIONS_FROM_URL = [ 'tps' ];
 
+// ms thresholds that trigger snapshot votes
+const SNAPSHOT_POLL_EVERY = 10000;
 // schedule a snapshot after this many ms of CPU time have been used for simulation
-const SNAPSHOT_EVERY = 5000;
+const SNAPSHOT_CPU_THRESHOLD = 5000;
 // add this many ms for each external message scheduled
 const EXTERNAL_MESSAGE_CPU_PENALTY = 5;
 
@@ -65,7 +68,6 @@ export default class Controller {
 
     constructor() {
         this.reset();
-        viewDomain.addSubscription(this.viewId, "__users__", this, data => displayStatus(`users now ${data.count}`), "oncePerFrameWhileSynced");
     }
 
     reset() {
@@ -113,6 +115,9 @@ export default class Controller {
         }
         /** @type {Array} recent TUTTI sends and their payloads, for matching up with incoming votes and divergence alerts */
         this.tuttiHistory = [];
+
+        viewDomain.removeAllSubscriptionsFor(this); // in case we're recycling
+        viewDomain.addSubscription(this.viewId, "__users__", this, data => displayStatus(`users now ${data.count}`), "oncePerFrameWhileSynced");
     }
 
     /** @type {String} the session id (same for all replicas) */
@@ -671,6 +676,7 @@ export default class Controller {
     setIsland(island) {
         this.island = island;
         this.island.controller = this;
+        viewDomain.addSubscription(island.id, "__snapshotVote__", this, data => this.handleSnapshotVote(data), "immediate");
     }
 
     // create an island in its initial state
@@ -738,10 +744,11 @@ export default class Controller {
     /** send a TUTTI Message
      * @param {Message} msg
     */
-    sendTutti(time, tuttiSeq, payload, firstMessage, wantsVote, tallyTarget) {
+    sendTutti(time, tuttiSeq, data, firstMessage, wantsVote, tallyTarget) {
         // TUTTI: Send a message that multiple instances are expected to send identically.  The reflector will optionally broadcast the first received message immediately, then gather all messages up to a deadline and send a TALLY message summarising the results (whatever those results, if wantsVote is true; otherwise, only if there is some variation among them).
         if (!this.connected) return; // probably view sending event while connection is closing
         if (this.viewOnly) return;
+        const payload = stableStringify(data); // stable, to rule out platform differences
         if (DEBUG.sends) console.log(this.id, `Controller sending TUTTI ${payload} ${firstMessage && firstMessage.asState()} ${tallyTarget}`);
         this.tuttiHistory.push({ tuttiSeq, payload });
         if (this.tuttiHistory.length > 100) this.tuttiHistory.shift();
@@ -751,6 +758,11 @@ export default class Controller {
             action: 'TUTTI',
             args: [time, tuttiSeq, payload, firstMessage && firstMessage.asState(), wantsVote, tallyTarget],
         }));
+    }
+
+    sendVote(tuttiSeq, event, data) {
+        const voteMessage = [this.island.id, "handleModelEventInView", this.island.id+":"+event];
+        this.sendTutti(this.island.time, tuttiSeq, data, null, true, voteMessage);
     }
 
     addToStatistics(statSeq) {
@@ -811,8 +823,16 @@ export default class Controller {
     simulate(deadline) {
         if (!this.island) return true;     // we are probably still sync-ing
         try {
-            this.cpuTime -= Stats.begin("simulate");
+            const simStart = Stats.begin("simulate");
             let weHaveTime = true;
+            let snapshotPollTrigger = Math.ceil(this.island.time / SNAPSHOT_POLL_EVERY) * SNAPSHOT_POLL_EVERY;
+            const snapCheck = () => {
+                if (this.island.time > snapshotPollTrigger) {
+                    if (this.island.time > snapshotPollTrigger + SNAPSHOT_POLL_EVERY) debugger;
+                    if (snapshotPollTrigger) this.pollForSnapshot(this.cpuTime + performance.now() - simStart); // don't poll at t=0
+                    snapshotPollTrigger += SNAPSHOT_POLL_EVERY;
+                }
+                };
             while (weHaveTime) {
                 // Get the next message from the (concurrent) network queue
                 const msgData = this.networkQueue.nextNonBlocking();
@@ -826,9 +846,13 @@ export default class Controller {
                 this.cpuTime += EXTERNAL_MESSAGE_CPU_PENALTY;
                 // simulate up to that message
                 weHaveTime = this.island.advanceTo(msg.time, deadline);
+                snapCheck();
             }
-            if (weHaveTime) weHaveTime = this.island.advanceTo(this.time, deadline);
-            this.cpuTime += Stats.end("simulate");
+            if (weHaveTime) {
+                weHaveTime = this.island.advanceTo(this.time, deadline);
+                snapCheck();
+            }
+            this.cpuTime += Stats.end("simulate") - simStart;
             const backlog = this.backlog;
             Stats.backlog(backlog);
             if (typeof this.synced === "boolean" && (this.synced && backlog > SYNCED_MAX || !this.synced && backlog < SYNCED_MIN)) {
@@ -836,13 +860,80 @@ export default class Controller {
                 displaySpinner(!this.synced);
                 this.island.publishFromView(this.viewId, "synced", this.synced);
             }
-            if (weHaveTime && this.cpuTime > SNAPSHOT_EVERY) { this.cpuTime = 0; this.scheduleSnapshot(); }
             return weHaveTime;
         } catch (error) {
             displayAppError("simulate", error);
             this.connection.closeConnectionWithError('simulate', error);
             return "error";
         }
+    }
+
+    pollForSnapshot(cpuTime) {
+        const tuttiSeq = this.island.getNextTuttiSeq();
+        if (this.synced !== true) { console.warn(`Controller not participating in snapshot during sync`); return; }
+        const data = { hash: stableStringify(this.island.getSummaryHash()), cpuTime };
+        this.sendVote(tuttiSeq, '__snapshotVote__', data);
+    }
+
+    handleSnapshotVote(data) {
+        // data is { _local, tuttiSeq, tally } where tally is an object keyed by
+        // the JSON for { cpuTime, hash } with a count for each key (which is
+        // highly likely to be 1 in each case, because of the cpuTime precision).
+
+        // first job is to pull out the cpu times to see if anyone has gone
+        // over the threshold.
+        const {_local, tally} = data;
+        const keys = Object.keys(tally);
+        if (!_local || !keys.includes(_local)) {
+            if (DEBUG.snapshot) console.log(this.id, "Snapshot: local vote not found");
+            return;
+        }
+
+        const snapshotFromGroup = (groupHash, announce) => {
+            const clientIndices = votesByHash[groupHash];
+            if (clientIndices.length > 1) {
+                clientIndices.sort((a, b) => votes[a].cpuTime - votes[b].cpuTime);
+                if (votes[clientIndices[0]].cpuTime === votes[clientIndices[1]].cpuTime) console.warn(this.id, `Identical snapshot client scores in ${announce ? "consensus" : "non-consensus"} group`);
+            }
+            const selectedClient = clientIndices[0];
+            if (keys[selectedClient] === _local) this.provideSnapshotFromPoll(announce);
+        }
+
+        const votes = keys.map(k => JSON.parse(k));
+        let overThreshold = false;
+        for (let i = 0; !overThreshold && i < votes.length; i++) overThreshold = votes[i].cpuTime >= SNAPSHOT_CPU_THRESHOLD;
+        if (!overThreshold) return;
+
+        this.cpuTime = 0;
+
+        // now figure out whether there's a consensus on the island hashes
+        const votesByHash = {};
+        votes.forEach((vote, i) => {
+            const hash = vote.hash;
+            if (!votesByHash[hash]) votesByHash[hash] = [];
+            votesByHash[hash].push(i);
+            });
+        const hashGroups = Object.keys(votesByHash);
+        let consensusHash = hashGroups[0];
+        if (hashGroups.length > 1) {
+            if (DEBUG.snapshot) console.log(this.id, `Snapshots fall into ${hashGroups.length} groups`);
+            // decide consensus by majority vote; in a tie, summary hash first in
+            // lexicographic order is taken as the consensus.
+            hashGroups.sort((a, b) => votesByHash[b].length - votesByHash[a].length); // descending order of number of matching votes
+            if (votesByHash[hashGroups[0]].length === votesByHash[hashGroups[1]].length) {
+                if (DEBUG.snapshot) console.log(this.id, `Deciding consensus by tie-break`);
+                consensusHash = hashGroups[0] < hashGroups[1] ? hashGroups[0] : hashGroups[1];
+            }
+        }
+        hashGroups.forEach(hash => snapshotFromGroup(hash, hash===consensusHash));
+    }
+
+    provideSnapshotFromPoll(announce) {
+        const ms = this.keepSnapshot();
+        // exclude snapshot time from cpu time for logic in this.simulate()
+        this.cpuTime -= ms;
+        if (DEBUG.snapshot) console.log(this.id, `Controller snapshotting took ${Math.ceil(ms)} ms`);
+        this.uploadLatest(announce);
     }
 
     /** execute something in the view realm */
