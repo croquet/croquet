@@ -827,8 +827,7 @@ export default class Controller {
             let weHaveTime = true;
             let snapshotPollTrigger = Math.ceil(this.island.time / SNAPSHOT_POLL_EVERY) * SNAPSHOT_POLL_EVERY;
             const snapCheck = () => {
-                if (this.island.time > snapshotPollTrigger) {
-                    if (this.island.time > snapshotPollTrigger + SNAPSHOT_POLL_EVERY) debugger;
+                while (this.island.time > snapshotPollTrigger) {
                     if (snapshotPollTrigger) this.pollForSnapshot(this.cpuTime + performance.now() - simStart); // don't poll at t=0
                     snapshotPollTrigger += SNAPSHOT_POLL_EVERY;
                 }
@@ -869,13 +868,19 @@ export default class Controller {
     }
 
     pollForSnapshot(cpuTime) {
-        const tuttiSeq = this.island.getNextTuttiSeq();
-        if (this.synced !== true) { console.warn(`Controller not participating in snapshot during sync`); return; }
+        const tuttiSeq = this.island.getNextTuttiSeq(); // move it along, even if we won't be using it
+        if (this.synced !== true) return;
+
         const data = { hash: stableStringify(this.island.getSummaryHash()), cpuTime };
         this.sendVote(tuttiSeq, '__snapshotVote__', data);
     }
 
     handleSnapshotVote(data) {
+        if (this.synced !== true) {
+            if (DEBUG.snapshot) console.log(`Ignoring snapshot vote during sync`);
+            return;
+        }
+
         // data is { _local, tuttiSeq, tally } where tally is an object keyed by
         // the JSON for { cpuTime, hash } with a count for each key (which is
         // highly likely to be 1 in each case, because of the cpuTime precision).
