@@ -1072,7 +1072,7 @@ class IslandReader {
         const result = [];
         if (array.$id) this.refs.set(array.$id, result);
         for (let i = 0; i < array.length; i++) {
-            this.readInto(result, i, array[i], path, nodefer);
+            if (array[i] !== undefined) this.readInto(result, i, array[i], path, nodefer); // allow for missing indices
         }
         return result;
     }
