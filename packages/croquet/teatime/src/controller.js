@@ -43,10 +43,8 @@ const NOCHEAT = urlOptions.nocheat;
 
 const OPTIONS_FROM_URL = [ 'tps' ];
 
-// ms thresholds that trigger snapshot votes
-const SNAPSHOT_POLL_EVERY = 10000;
 // schedule a snapshot after this many ms of CPU time have been used for simulation
-const SNAPSHOT_CPU_THRESHOLD = 5000;
+const SNAPSHOT_EVERY = 5000;
 // add this many ms for each external message scheduled
 const EXTERNAL_MESSAGE_CPU_PENALTY = 5;
 
@@ -115,6 +113,8 @@ export default class Controller {
         }
         /** @type {Array} recent TUTTI sends and their payloads, for matching up with incoming votes and divergence alerts */
         this.tuttiHistory = [];
+        /** island time when last pollForSnapshot was executed */
+        this.lastSnapshotPoll = 0;
 
         viewDomain.removeAllSubscriptionsFor(this); // in case we're recycling
         viewDomain.addSubscription(this.viewId, "__users__", this, data => displayStatus(`users now ${data.count}`), "oncePerFrameWhileSynced");
@@ -271,37 +271,107 @@ export default class Controller {
         return this.takeSnapshot();
     }
 
-    // we have spent a certain amount of CPU time on simulating, schedule a snapshot
+    // we have spent a certain amount of CPU time on simulating, so schedule a snapshot
     scheduleSnapshot() {
-        const message = new Message(this.island.time, 0, this.island.id, "scheduledSnapshot", []);
+        this.schedulingSnapshot = false; // whether or not we actually send a message
+
+        // abandon if this call (delayed by up to 2s) has been overtaken by a
+        // poll initiated by another client.
+        const now = this.island.time;
+        const sinceLast = now - this.lastSnapshotPoll;
+        if (sinceLast < 2500) {
+            console.log(`not sending snapshot poll request (${sinceLast}ms since poll scheduled)`);
+            return;
+        }
+
+        const message = new Message(now, 0, this.island.id, "pollForSnapshot", []);
         this.sendMessage(message);
         if (DEBUG.snapshot) console.log(this.id, 'Controller scheduling snapshot via reflector');
     }
 
-    // this is called from inside the simulation loop
-    async scheduledSnapshot() {
-        // bail out if backlog is too large (e.g. we're just starting up)
-        if (this.backlog > 300) { console.warn(`Controller not doing scheduled snapshot because backlog is ${this.backlog} ms`); return; }
-        // otherwise, do snapshot
+    pollForSnapshot() {
+        const now = this.island.time;
+        const sinceLast = now - this.lastSnapshotPoll;
+        // make sure this isn't just a clash between clients simultaneously deciding
+        // that it's time for someone to take a snapshot
+        if (sinceLast < 5000) { // arbitrary - needs to be long enough to ensure this isn't part of the same batch
+            console.log(`rejecting snapshot poll ${sinceLast}ms after previous`);
+            return;
+        }
+        this.lastSnapshotPoll = now;
+
+        const tuttiSeq = this.island.getNextTuttiSeq(); // move it along, even if we won't be using it
+        if (this.synced !== true) return;
+
+        const data = { hash: stableStringify(this.island.getSummaryHash()), cpuTime: this.cpuTime + Math.random() }; // fuzzify by 0-1ms to further reduce risk of exact agreement
+        this.sendVote(tuttiSeq, '__snapshotVote__', data);
+    }
+
+    handleSnapshotVote(data) {
+        if (this.synced !== true) {
+            if (DEBUG.snapshot) console.log(`Ignoring snapshot vote during sync`);
+            return;
+        }
+
+        // data is { _local, tuttiSeq, tally } where tally is an object keyed by
+        // the JSON for { cpuTime, hash } with a count for each key (which is
+        // in effect guaranteed to be 1 in each case, because of the cpuTime
+        // precision).
+
+        // first job is to pull out the cpu times to see if anyone has gone
+        // over the threshold.
+        const { _local, tally } = data;
+        const keys = Object.keys(tally);
+        if (!_local || !keys.includes(_local)) {
+            if (DEBUG.snapshot) console.log(this.id, "Snapshot: local vote not found");
+            return;
+        }
+
+        const snapshotFromGroup = (groupHash, announce) => {
+            const clientIndices = votesByHash[groupHash];
+            if (clientIndices.length > 1) {
+                clientIndices.sort((a, b) => votes[a].cpuTime - votes[b].cpuTime);
+                if (votes[clientIndices[0]].cpuTime === votes[clientIndices[1]].cpuTime) console.warn(this.id, `Identical snapshot client scores in ${announce ? "consensus" : "non-consensus"} group`);
+            }
+            const selectedClient = clientIndices[0];
+            if (keys[selectedClient] === _local) this.serveSnapshot(announce);
+        };
+
+        const votes = keys.map(k => JSON.parse(k));
+        let overThreshold = false;
+        for (let i = 0; !overThreshold && i < votes.length; i++) overThreshold = votes[i].cpuTime >= SNAPSHOT_EVERY;
+        if (!overThreshold) return;
+
+        this.cpuTime = 0;
+
+        // now figure out whether there's a consensus on the island hashes
+        const votesByHash = {};
+        votes.forEach((vote, i) => {
+            const hash = vote.hash;
+            if (!votesByHash[hash]) votesByHash[hash] = [];
+            votesByHash[hash].push(i);
+        });
+        const hashGroups = Object.keys(votesByHash);
+        let consensusHash = hashGroups[0];
+        if (hashGroups.length > 1) {
+            if (DEBUG.snapshot) console.log(this.id, `Snapshots fall into ${hashGroups.length} groups`);
+            // decide consensus by majority vote; in a tie, summary hash first in
+            // lexicographic order is taken as the consensus.
+            hashGroups.sort((a, b) => votesByHash[b].length - votesByHash[a].length); // descending order of number of matching votes
+            if (votesByHash[hashGroups[0]].length === votesByHash[hashGroups[1]].length) {
+                if (DEBUG.snapshot) console.log(this.id, `Deciding consensus by tie-break`);
+                consensusHash = hashGroups[0] < hashGroups[1] ? hashGroups[0] : hashGroups[1];
+            }
+        }
+        hashGroups.forEach(hash => snapshotFromGroup(hash, hash === consensusHash));
+    }
+
+    serveSnapshot(announce) {
         const ms = this.keepSnapshot();
         // exclude snapshot time from cpu time for logic in this.simulate()
         this.cpuTime -= ms;
         if (DEBUG.snapshot) console.log(this.id, `Controller snapshotting took ${Math.ceil(ms)} ms`);
-        // taking the snapshot needed to be synchronous, now we can go async
-        const lastSnapshot = this.lastSnapshot; // make sure it doesn't change under us
-        await this.hashSnapshot(lastSnapshot);
-        // inform reflector that we have a snapshot
-        const {time, seq, hash} = lastSnapshot.meta;
-        if (DEBUG.snapshot) console.log(this.id, `Controller sending hash for ${time}#${seq} to reflector: ${hash}`);
-        try {
-            this.connection.send(JSON.stringify({
-                id: this.id,
-                action: 'SNAP',
-                args: {time, seq, hash},
-            }));
-        } catch (e) {
-            console.error('ERROR while sending', e);
-        }
+        this.uploadLatest(announce);
     }
 
     snapshotUrl(time_seq) {
@@ -348,38 +418,6 @@ export default class Controller {
         return inSequence(seq, latest.seq);
     }
 
-    // was uploadSnapshotAndSendToReflector
-    // we sent a snapshot hash to the reflector, it elected us to upload
-    async serveSnapshot(time, seq, hash) {
-        const snapshot = this.findSnapshot(time, seq, hash);
-        const lastSnapshot = this.lastSnapshot;
-        if (snapshot !== lastSnapshot) {
-            const last = lastSnapshot.meta;
-            console.error(this.id, `snapshot is not last (expected ${time}#${seq}, have ${last.time}#${last.seq})`);
-            return;
-        }
-        this.uploadLatest(true);
-    }
-
-    // a snapshot hash came from the reflector, compare to ours
-    async compareHash(time, seq, hash) {
-        const snapshot = this.findSnapshot(time, seq);
-        const lastSnapshot = this.lastSnapshot;
-        const last = lastSnapshot.meta;
-        if (snapshot !== lastSnapshot) {
-            // one reason for this happening is that this client hasn't even seen
-            // the scheduledSnapshot message yet (because that message goes through
-            // the simulation queue, whereas a HASH is processed immediately)
-            console.warn(this.id, `snapshot is not last (expected ${time}#${seq}, have ${last.time}#${last.seq})`);
-            return;
-        }
-        await this.hashSnapshot(lastSnapshot);
-        if (last.hash !== hash) {
-            console.warn(this.id, `local snapshot hash ${time}#${seq} is ${last.hash} (got ${hash} from reflector)`);
-            this.uploadLatest(false); // upload but do not send to reflector
-        }
-    }
-
     // upload snapshot and message history, and optionally inform reflector
     async uploadLatest(sendToReflector=true) {
         const viewId = this.viewId;
@@ -391,7 +429,8 @@ export default class Controller {
         if (!snapshotUrl) { console.error("Failed to upload snapshot"); return; }
         const last = lastSnapshot.meta;
         if (sendToReflector) this.announceSnapshotUrl(last.time, last.seq, last.hash, snapshotUrl);
-        if (!prevSnapshot) return;
+        if (true || !prevSnapshot) return;
+
         const prev = prevSnapshot.meta;
         let messages = [];
         if (prev.seq !== last.seq) {
@@ -467,15 +506,7 @@ export default class Controller {
     /** the snapshot before latest snapshot */
     get prevSnapshot() { return this.snapshots[this.snapshots.length - 2]; }
 
-
-    checkMetaMessage(msgData) {
-        if (Message.hasReceiverAndSelector(msgData, this.id, "scheduledSnapshot")) {
-            // some client has scheduled a snapshot, so reset our own estimate
-            // now, even before we actually execute that message
-            if (DEBUG.snapshot) console.log(this.id, `Controller resetting CPU time (was ${this.cpuTime|0} ms) because snapshot was scheduled for ${msgData[0]}#${msgData[1]}`);
-            this.cpuTime = 0;
-        }
-    }
+    checkMetaMessage(_msgData) { /* currently no needs */ }
 
     // convert a message generated by the reflector itself to our own format
     convertReflectorMessage(msg) {
@@ -571,6 +602,8 @@ export default class Controller {
                     if (typeof msg[2] !== "string") this.convertReflectorMessage(msg);
                 }
                 const snapshot = await this.fetchJSON(url);
+                this.prevSnapshotSpec = { time: snapshot.meta.time, seq: snapshot.meta.seq };
+console.warn(`synced with snapshot:`, this.prevSnapshotSpec);
                 this.islandCreator.snapshot = snapshot;  // set snapshot
                 if (!this.connected) { console.log(this.id, 'socket went away during SYNC'); return; }
                 for (const msg of messages) {
@@ -608,13 +641,6 @@ export default class Controller {
                 if (DEBUG.ticks) console.log(this.id, 'Controller received TICK ' + time);
                 this.timeFromReflector(time);
                 if (this.tickMultiplier) this.multiplyTick(time);
-                return;
-            }
-            case 'HASH': {
-                // we received a snapshot hash from reflector
-                const {time, seq, hash, serve} = args;
-                if (serve) this.serveSnapshot(time, seq, hash);
-                else this.compareHash(time, seq, hash);
                 return;
             }
             case 'LEAVE': {
@@ -825,13 +851,7 @@ export default class Controller {
         try {
             const simStart = Stats.begin("simulate");
             let weHaveTime = true;
-            let snapshotPollTrigger = Math.ceil(this.island.time / SNAPSHOT_POLL_EVERY) * SNAPSHOT_POLL_EVERY;
-            const snapCheck = () => {
-                while (this.island.time > snapshotPollTrigger) {
-                    if (snapshotPollTrigger) this.pollForSnapshot(this.cpuTime + performance.now() - simStart); // don't poll at t=0
-                    snapshotPollTrigger += SNAPSHOT_POLL_EVERY;
-                }
-                };
+            // simulate all received external messages
             while (weHaveTime) {
                 // Get the next message from the (concurrent) network queue
                 const msgData = this.networkQueue.nextNonBlocking();
@@ -845,13 +865,10 @@ export default class Controller {
                 this.cpuTime += EXTERNAL_MESSAGE_CPU_PENALTY;
                 // simulate up to that message
                 weHaveTime = this.island.advanceTo(msg.time, deadline);
-                snapCheck();
             }
-            if (weHaveTime) {
-                weHaveTime = this.island.advanceTo(this.time, deadline);
-                snapCheck();
-            }
-            this.cpuTime += Stats.end("simulate") - simStart;
+            // now simulate up to last tick (whether received or generated)
+            if (weHaveTime) weHaveTime = this.island.advanceTo(this.time, deadline);
+            this.cpuTime += Math.max(0.01, Stats.end("simulate") - simStart); // ensure that we move forward even on a browser that rounds performance.now() to 1ms
             const backlog = this.backlog;
             Stats.backlog(backlog);
             if (typeof this.synced === "boolean" && (this.synced && backlog > SYNCED_MAX || !this.synced && backlog < SYNCED_MIN)) {
@@ -859,86 +876,19 @@ export default class Controller {
                 displaySpinner(!this.synced);
                 this.island.publishFromView(this.viewId, "synced", this.synced);
             }
+            if (weHaveTime && this.cpuTime > SNAPSHOT_EVERY && !this.schedulingSnapshot) {
+                this.schedulingSnapshot = true;
+                // first level of defence against clients simultaneously deciding
+                // that it's time to take a snapshot: stagger pollForSnapshot sends,
+                // so we might have heard from someone else before we send.
+                setTimeout(() => this.scheduleSnapshot(), Math.floor(Math.random()*2000));
+            }
             return weHaveTime;
         } catch (error) {
             displayAppError("simulate", error);
             this.connection.closeConnectionWithError('simulate', error);
             return "error";
         }
-    }
-
-    pollForSnapshot(cpuTime) {
-        const tuttiSeq = this.island.getNextTuttiSeq(); // move it along, even if we won't be using it
-        if (this.synced !== true) return;
-
-        const data = { hash: stableStringify(this.island.getSummaryHash()), cpuTime };
-        this.sendVote(tuttiSeq, '__snapshotVote__', data);
-    }
-
-    handleSnapshotVote(data) {
-        if (this.synced !== true) {
-            if (DEBUG.snapshot) console.log(`Ignoring snapshot vote during sync`);
-            return;
-        }
-
-        // data is { _local, tuttiSeq, tally } where tally is an object keyed by
-        // the JSON for { cpuTime, hash } with a count for each key (which is
-        // highly likely to be 1 in each case, because of the cpuTime precision).
-
-        // first job is to pull out the cpu times to see if anyone has gone
-        // over the threshold.
-        const {_local, tally} = data;
-        const keys = Object.keys(tally);
-        if (!_local || !keys.includes(_local)) {
-            if (DEBUG.snapshot) console.log(this.id, "Snapshot: local vote not found");
-            return;
-        }
-
-        const snapshotFromGroup = (groupHash, announce) => {
-            const clientIndices = votesByHash[groupHash];
-            if (clientIndices.length > 1) {
-                clientIndices.sort((a, b) => votes[a].cpuTime - votes[b].cpuTime);
-                if (votes[clientIndices[0]].cpuTime === votes[clientIndices[1]].cpuTime) console.warn(this.id, `Identical snapshot client scores in ${announce ? "consensus" : "non-consensus"} group`);
-            }
-            const selectedClient = clientIndices[0];
-            if (keys[selectedClient] === _local) this.provideSnapshotFromPoll(announce);
-        }
-
-        const votes = keys.map(k => JSON.parse(k));
-        let overThreshold = false;
-        for (let i = 0; !overThreshold && i < votes.length; i++) overThreshold = votes[i].cpuTime >= SNAPSHOT_CPU_THRESHOLD;
-        if (!overThreshold) return;
-
-        this.cpuTime = 0;
-
-        // now figure out whether there's a consensus on the island hashes
-        const votesByHash = {};
-        votes.forEach((vote, i) => {
-            const hash = vote.hash;
-            if (!votesByHash[hash]) votesByHash[hash] = [];
-            votesByHash[hash].push(i);
-            });
-        const hashGroups = Object.keys(votesByHash);
-        let consensusHash = hashGroups[0];
-        if (hashGroups.length > 1) {
-            if (DEBUG.snapshot) console.log(this.id, `Snapshots fall into ${hashGroups.length} groups`);
-            // decide consensus by majority vote; in a tie, summary hash first in
-            // lexicographic order is taken as the consensus.
-            hashGroups.sort((a, b) => votesByHash[b].length - votesByHash[a].length); // descending order of number of matching votes
-            if (votesByHash[hashGroups[0]].length === votesByHash[hashGroups[1]].length) {
-                if (DEBUG.snapshot) console.log(this.id, `Deciding consensus by tie-break`);
-                consensusHash = hashGroups[0] < hashGroups[1] ? hashGroups[0] : hashGroups[1];
-            }
-        }
-        hashGroups.forEach(hash => snapshotFromGroup(hash, hash===consensusHash));
-    }
-
-    provideSnapshotFromPoll(announce) {
-        const ms = this.keepSnapshot();
-        // exclude snapshot time from cpu time for logic in this.simulate()
-        this.cpuTime -= ms;
-        if (DEBUG.snapshot) console.log(this.id, `Controller snapshotting took ${Math.ceil(ms)} ms`);
-        this.uploadLatest(announce);
     }
 
     /** execute something in the view realm */

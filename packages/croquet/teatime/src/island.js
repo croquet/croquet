@@ -476,8 +476,8 @@ export default class Island {
         return inViewRealm(this, () => viewDomain.processFrameEvents(!!this.controller.synced));
     }
 
-    scheduledSnapshot() {
-        this.controller.scheduledSnapshot();
+    pollForSnapshot() {
+        this.controller.pollForSnapshot();
     }
 
     snapshot() {

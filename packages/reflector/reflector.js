@@ -5,6 +5,7 @@
 const os = require('os');
 const http = require('http');
 const WebSocket = require('ws');
+const { Storage } = require('@google-cloud/storage');
 
 // enable cloud profiler & debugger
 require('@google-cloud/profiler').start({
@@ -19,6 +20,10 @@ require('@google-cloud/debug-agent').start({
         version: '0.0.1'
     }
 });
+
+// we now use Google Cloud Storage for message logs
+const storage = new Storage();
+const bucket = storage.bucket('croquet-logs-v0');
 
 const port = 9090;
 const SERVER_HEADER = "croquet-reflector";
@@ -191,6 +196,7 @@ function JOIN(client, id, args) {
         usersJoined: [],     // the users who joined since last report
         usersLeft: [],       // the users who left since last report
         snapshotTime: -1,    // time of last snapshot
+        snapshotSeq: -1,     // seq of last snapshot
         snapshotUrl: '',     // url of last snapshot
         pendingSnapshotTime: -1, // time of pending snapshot
         messages: [],        // messages since last snapshot
@@ -302,38 +308,42 @@ function SNAP(client, id, args) {
     const { time, seq, hash, url } = args;
     if (time <= island.snapshotTime) return;
     LOG(`${island} got snapshot ${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'}`);
-    if (!url) {
-        // if another client was faster, ignore
-        if (time <= island.pendingSnapshotTime) return;
-        island.pendingSnapshotTime = time;
-        // if no url, tell that client (the fastest one) to upload it
-        const serveMsg = JSON.stringify({ id, action: 'HASH', args: { ...args, serve: true } });
-        LOG('sending', client.addr, serveMsg);
-        client.safeSend(serveMsg);
-        // and tell everyone else the hash
-        const others = [...island.clients].filter(each => each !== client);
-        if (others.length > 0) {
-            const hashMsg = JSON.stringify({ id, action: 'HASH', args: { ...args, serve: false } });
-            LOG('sending to', others.length, 'other clients:', hashMsg);
-            others.forEach(each => each.safeSend(hashMsg));
-        }
-        return;
-    }
-    // keep snapshot
-    island.snapshotTime = time;
-    island.snapshotUrl = url;
-    // forget older messages
+
+    // forget older messages, setting aside the ones that need to be logged
+    let messagesToStore = [];
     if (island.messages.length > 0) {
         const msgs = island.messages;
         const keep = msgs.findIndex(msg => after(seq, msg[1]));
         if (keep > 0) {
             LOG(`${island} forgetting messages #${msgs[0][1] >>> 0} to #${msgs[keep - 1][1] >>> 0} (keeping #${msgs[keep][1] >>> 0})`);
-            msgs.splice(0, keep);
+            messagesToStore = msgs.splice(0, keep);
         } else if (keep === -1) {
             LOG(`${island} forgetting all messages (#${msgs[0][1] >>> 0} to #${msgs[msgs.length - 1][1] >>> 0})`);
+            messagesToStore = msgs.slice();
             msgs.length = 0;
         }
     }
+
+    if (messagesToStore.length) {
+        // upload to the message-log bucket a blob with all messages since the previous snapshot
+        const messageLog = {
+            start: island.snapshotUrl,
+            end: url,
+            time: [island.snapshotTime, time],
+            seq: [island.snapshotSeq, seq],
+            messagesToStore,
+        };
+        const pad = n => (""+n).padStart(10, '0');
+        const logName = `${id}/${pad(island.snapshotSeq)}-${pad(seq)}-${hash}.json`;
+        LOG("uploading messages between", island.snapshotTime, "and", time, `(seqs ${island.snapshotSeq}+1 to ${seq})`, "to", logName);
+        uploadJSON(logName, messageLog);
+    }
+
+    // keep snapshot
+    island.snapshotTime = time;
+    island.snapshotSeq = seq;
+    island.snapshotUrl = url;
+
     // start waiting clients
     if (island.startTimeout) { clearTimeout(island.startTimeout); island.startTimeout = null; }
     if (island.syncClients.length > 0) SYNC(island);
@@ -656,6 +666,26 @@ server.on('connection', (client, req) => {
         }
     });
 });
+
+/** upload an object as JSON file to our storage bucket */
+async function uploadJSON(filename, object) {
+    const file = bucket.file(filename);
+    const stream = await file.createWriteStream({
+        resumable: false,
+        metadata: {
+            contentType: 'text/json',
+            cacheControl: 'no-cache',
+        }
+    });
+    return new Promise((resolve, reject) => {
+        try {
+            stream.on('finish', resolve);
+            stream.on('error', reject);
+            stream.write(JSON.stringify(object));
+            stream.end();
+        } catch (err) { reject(err); }
+    });
+}
 
 exports.server = server;
 exports.Socket = WebSocket.Socket;
