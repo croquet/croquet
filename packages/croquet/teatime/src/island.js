@@ -1079,6 +1079,7 @@ class IslandReader {
 
     readArray(array, path, nodefer=0) {
         const result = [];
+        if (array.$id) this.refs.set(array.$id, result);
         for (let i = 0; i < array.length; i++) {
             this.readInto(result, i, array[i], path, nodefer);
         }
