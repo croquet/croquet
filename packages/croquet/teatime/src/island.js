@@ -482,7 +482,7 @@ export default class Island {
         return writer.snapshot(this, "$");
     }
 
-    // return an object describing the island - currently { oC, mC, nanC, infC, zC, nC, nH, sC, sL } - for checking agreement between instances
+    // return an object describing the island - currently { oC, mC, nanC, infC, zC, nC, nH, sC, sL, fC } - for checking agreement between instances
     getSummaryHash() {
         return new IslandHasher().getHash(this);
     }
@@ -669,15 +669,19 @@ class IslandHasher {
             nC: 0, // count of non-zero finite numbers
             nH: 0, // sum of the Int32 parts of non-zero numbers treated as Float64s
             sC: 0, // number of strings
-            sL: 0  // sum of lengths of strings
+            sL: 0,  // sum of lengths of strings
+            fC: 0  // count of future messages
         };
 
         for (const [key, value] of Object.entries(island)) {
             if (key === "controller") continue;
-            if (key === "_random") continue;
-            if (key === "messages") continue;
             if (key === "meta") continue;
-            this.hashEntry(key, value);
+            if (key === "_random") this.hash(value.state(), false);
+            else if (key === "messages") {
+                const messageArray = value.asArray(); // from PriorityQueue
+                const count = this.hashState.fC = messageArray.length;
+                if (count) this.hash(messageArray, false);
+            } else this.hashEntry(key, value);
         }
         this.hashDeferred();
         return this.hashState;
@@ -693,12 +697,12 @@ class IslandHasher {
     hash(value, defer = true) {
         switch (typeof value) {
             case "number":
-                if (Number.isNaN(value)) this.hashState.NaNs++;
-                else if (!Number.isFinite(value)) this.hashState.infinities++;
-                else if (value===0) this.hashState.zeros++;
+                if (Number.isNaN(value)) this.hashState.nanC++;
+                else if (!Number.isFinite(value)) this.hashState.infC++;
+                else if (value===0) this.hashState.zC++;
                 else {
-                    this.hashState.numCount++;
-                    this.hashState.numHash += sumForFloat(value);
+                    this.hashState.nC++;
+                    this.hashState.nH += sumForFloat(value);
                 }
                 return;
             case "string":
@@ -735,7 +739,7 @@ class IslandHasher {
 
     hashModel(model) {
         if (this.refs.has(model)) return;
-        this.hashState.modelCount++;
+        this.hashState.mC++;
         this.refs.set(model, true);      // register ref before recursing
         const descriptors = Object.getOwnPropertyDescriptors(model);
         for (const key of Object.keys(descriptors)) {
@@ -749,7 +753,7 @@ class IslandHasher {
 
     hashObject(object, defer = true) {
         if (this.refs.has(object)) return;
-        this.hashState.objectCount++;
+        this.hashState.oC++;
         this.refs.set(object, true);      // register ref before recursing
         const descriptors = Object.getOwnPropertyDescriptors(object);
         for (const key of Object.keys(descriptors)) {
