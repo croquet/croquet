@@ -14,6 +14,7 @@ require('@google-cloud/profiler').start({
     }
 });
 require('@google-cloud/debug-agent').start({
+    allowExpressions: true,
     serviceContext: {
         service: 'reflector',
         version: '0.0.1'
