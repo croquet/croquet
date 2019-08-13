@@ -75,12 +75,11 @@ class ViewRealm {
     }
 
     register(view) {
-        Object.defineProperty(view, "id", { value: viewDomain.register(view), configurable: true });
+        return viewDomain.register(view);
     }
 
     deregister(view) {
         viewDomain.deregister(view);
-        Object.defineProperty(view, "id", { value: null });
     }
 
     publish(event, data, scope) {

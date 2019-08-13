@@ -39,7 +39,7 @@ class View {
     constructor(_model) {
         // read-only properties
         Object.defineProperty(this, "realm", {  value: currentRealm() });
-        this.realm.register(this);
+        Object.defineProperty(this, "id", {  value: this.realm.register(this), configurable: true });
         // eslint-disable-next-line no-constant-condition
         if (false) {
             /** Each view has an id which can be used to scope [events]{@link View#publish} between views.
@@ -80,6 +80,7 @@ class View {
     detach() {
         this.realm.unsubscribeAll(this.id);
         this.realm.deregister(this);
+        Object.defineProperty(this, "id", {  value: "" });
     }
 
     /**
