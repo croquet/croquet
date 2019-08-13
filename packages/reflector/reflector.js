@@ -354,7 +354,7 @@ function SEND(client, id, messages) {
         if (island.delayed || delay > 0) { DELAY_SEND(island, delay, messages); return; }
     }
     for (const message of messages) {
-        // message = [time, seq, payload, senderId, senderSeq] - see controller.sendMessage
+        // message = [time, seq, payload, ...] - keep whatever controller.sendMessage sends
         message[0] = time;
         message[1] = island.seq = (island.seq + 1) | 0;               // clients before V1 expect int32
         const msg = JSON.stringify({ id, action: 'RECV', args: message });
