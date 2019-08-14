@@ -119,8 +119,11 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
     }
     // also add debug options
     if (options.debug) {
-        function asArray(a) { return a ? (Array.isArray(a) ? a : [a]) : []; }
-        urlOptions.debug = [...asArray(options.debug), ...asArray(urlOptions.debug)];
+        function asArray(a) {
+            if (typeof a === "string") a = a.split(',');
+            return a ? (Array.isArray(a) ? a : [a]) : [];
+        }
+        urlOptions.debug = [...asArray(options.debug), ...asArray(urlOptions.debug)].join(',');
     }
     // time when we first noticed that the tab is hidden
     let hiddenSince = null;

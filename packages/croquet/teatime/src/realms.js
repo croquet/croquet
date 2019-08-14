@@ -2,8 +2,12 @@ import urlOptions from "@croquet/util/urlOptions";
 import { viewDomain } from "./domain";
 
 
-const DEBUG = {
-    subscribe: urlOptions.has("debug", "subscribe", false),
+let DEBUG = {
+    get subscribe() {
+        // replace with static value on first call
+        DEBUG = { subscribe: urlOptions.has("debug", "subscribe", false) };
+        return DEBUG.subscribe;
+    }
 };
 
 

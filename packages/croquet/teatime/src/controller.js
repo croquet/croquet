@@ -27,16 +27,23 @@ const DEFAULT_REFLECTOR = process.env.CROQUET_REFLECTOR || PUBLIC_REFLECTOR;    
 
 const codeHashes = null; // individual codeHashes are not uploaded for now, will need to re-add for replay
 
-const DEBUG = {
-    messages: urlOptions.has("debug", "messages", false),               // received messages
-    sends: urlOptions.has("debug", "sends", false),                     // sent messages
-    ticks: urlOptions.has("debug", "ticks", false),                     // received ticks
-    pong: urlOptions.has("debug", "pong", false),                       // received PONGs
-    snapshot: urlOptions.has("debug", "snapshot", false),               // snapshotting, uploading etc
-    session: urlOptions.has("debug", "session", false),                 // session logging
-    initsnapshot: urlOptions.has("debug", "initsnapshot", "localhost"), // check snapshotting after init
-    init: urlOptions.has("debug", "init", "localhost"),                 // always run init() if first user in session
-};
+let DEBUG = null;
+
+function initDEBUG() {
+    // to capture whatever was passed to th latest startSession({debug:...})
+    // call we simply redo this every time establishSession() is called
+    // TODO: turn this into a reasonable API
+    DEBUG = {
+        messages: urlOptions.has("debug", "messages", false),               // received messages
+        sends: urlOptions.has("debug", "sends", false),                     // sent messages
+        ticks: urlOptions.has("debug", "ticks", false),                     // received ticks
+        pong: urlOptions.has("debug", "pong", false),                       // received PONGs
+        snapshot: urlOptions.has("debug", "snapshot", false),               // snapshotting, uploading etc
+        session: urlOptions.has("debug", "session", false),                 // session logging
+        initsnapshot: urlOptions.has("debug", "initsnapshot", "localhost"), // check snapshotting after init
+        init: urlOptions.has("debug", "init", "localhost"),                 // always run init() if first user in session
+    };
+}
 
 const NOCHEAT = urlOptions.nocheat;
 
@@ -163,6 +170,7 @@ export default class Controller {
      * @returns {Promise<{rootModel:Model}>} list of named models (as returned by init function)
      */
     async establishSession(name, sessionSpec) {
+        initDEBUG();
         const { optionsFromUrl, multiRoom, autoSession, login: doLogin } = sessionSpec;
         const options = {...sessionSpec.options};
         for (const key of [...OPTIONS_FROM_URL, ...optionsFromUrl||[]]) {
