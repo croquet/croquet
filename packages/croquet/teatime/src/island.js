@@ -741,7 +741,12 @@ class IslandHasher {
                         return;
                     case "Object":
                         if (value instanceof Model) this.hashModel(value);
-                        else this.hashObject(value, defer);
+                        else if (value.constructor === Object) this.hashObject(value, defer);
+                        else {
+                            const hasher = this.hashers.get(value.constructor);
+                            if (hasher) hasher(value);
+                            else throw Error(`Don't know how to hash ${value.constructor.name}`);
+                        }
                         return;
                     case "Null": return;
                     default:
