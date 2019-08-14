@@ -656,6 +656,17 @@ class IslandHasher {
     constructor() {
         this.refs = new Map();
         this.todo = []; // we use breadth-first writing to limit stack depth
+        this.hashers = new Map();
+        this.addHasher("Teatime:Message", Message);
+        for (const modelClass of Model.allClasses()) {
+            for (const [classId, ClassOrSpec] of Object.entries(Model.classTypes(modelClass))) this.addHasher(classId, ClassOrSpec);
+        }
+    }
+
+    addHasher(classId, ClassOrSpec) {
+        const { cls, write } = (Object.getPrototypeOf(ClassOrSpec) === Object.prototype) ? ClassOrSpec
+            : { cls: ClassOrSpec, write: obj => Object.assign({}, obj) };
+        this.hashers.set(cls, obj => this.hashStructure(obj, write(obj)));
     }
 
     /** @param {Island} island */
@@ -727,7 +738,12 @@ class IslandHasher {
                         return;
                     case "Object":
                         if (value instanceof Model) this.hashModel(value);
-                        else this.hashObject(value, defer);
+                        else if (value.constructor === Object) this.hashObject(value, defer);
+                        else {
+                            const hasher = this.hashers.get(value.constructor);
+                            if (hasher) hasher(value);
+                            else throw Error(`Don't know how to hash ${value.constructor.name}`);
+                        }
                         return;
                     case "Null": return;
                     default:
@@ -802,10 +818,7 @@ class IslandWriter {
         this.writers = new Map();
         this.addWriter("Teatime:Message", Message);
         for (const modelClass of Model.allClasses()) {
-            if (!Object.prototype.hasOwnProperty.call(modelClass, "types")) continue;
-            for (const [classId, ClassOrSpec] of Object.entries(modelClass.types())) {
-                this.addWriter(classId, ClassOrSpec);
-            }
+            for (const [classId, ClassOrSpec] of Object.entries(Model.classTypes(modelClass))) this.addWriter(classId, ClassOrSpec);
         }
     }
 
@@ -972,10 +985,7 @@ class IslandReader {
         this.readers = new Map();
         this.addReader("Teatime:Message", Message);
         for (const modelClass of Model.allClasses()) {
-            if (!Object.prototype.hasOwnProperty.call(modelClass, "types")) continue;
-            for (const [classId, ClassOrSpec] of Object.entries(modelClass.types())) {
-                this.addReader(classId, ClassOrSpec);
-            }
+            for (const [classId, ClassOrSpec] of Object.entries(Model.classTypes(modelClass))) this.addReader(classId, ClassOrSpec);
         }
         this.readers.set("NaN", () => NaN);
         this.readers.set("Infinity", sign => sign * Infinity);
