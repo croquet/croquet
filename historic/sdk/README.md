@@ -1,4 +1,4 @@
-Scroll down for an **overview** of Croquet concepts.
+Scroll down for an **overview** of Croquet concepts, and the [**SDK Changelog**](#changelog).
 
 Use the Navigation Panel to try our **Tutorials**, **Guides**, and **API docs**.
 
@@ -14,7 +14,7 @@ Also, please **join** our [**Developer Slack** ![Slack](images/slack.png)](https
 - [Time](#time)
 - [Snapshots](#snapshots)
 - [Random](#random)
-- [**Changelog**](#changelog)
+- [**SDK Changelog**](#changelog)
 
 # What is Croquet?
 
