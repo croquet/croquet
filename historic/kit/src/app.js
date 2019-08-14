@@ -40,9 +40,6 @@ export default class App {
             setTimeout(...args) { return window.setTimeout(...args);},
         };
 
-        /** time when last frame was rendered */
-        this.lastFrame = 0;
-
         /** time spent simulating the last few frames */
         this.simLoad = [0];
         /** number of frames to spread load (TODO: make adaptive to tick rate */
@@ -181,10 +178,6 @@ export default class App {
                 Stats.network(Date.now() - lastReceived);
                 Stats.latency(latency);
                 Stats.activity(Date.now() - lastSent);
-                // remember lastFrame for setInterval()
-                this.lastFrame = Date.now();
-                // no view updates / render if backlogged
-                if (backlog > 1000) return;
             }
 
             // update views from model
@@ -208,15 +201,6 @@ export default class App {
 
     start() {
         this.domEventManager.requestAnimationFrame(this.frameBound);
-
-        // simulate even if rendering stopped
-        this.domEventManager.setInterval(() => {
-            // if we are rendering, do nothing
-            if (Date.now() - this.lastFrame < 100) return;
-            // otherwise, simulate a bit
-            this.simulate(10);
-        }, 10);
-
         this.setupEventHandlers();
     }
 
