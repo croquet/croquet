@@ -34,11 +34,9 @@ esac
 
 echo "DEPLOYING $MSG"
 
-# clean old
 DIR=../../servers/croquet.studio
 SDK=$DIR/sdk
 DOCS=$SDK/docs
-rm -r $DOCS/*
 
 TAG=""
 
@@ -48,6 +46,7 @@ if [ "$RELEASE" != "docs" ] ; then
 
     case "$RELEASE" in
     pre*) TAG=""
+          DOCS_VERSION=""
           ;;
     *)    TAG="$RELEASE release $VERSION"
           DOCS_VERSION=$VERSION
@@ -63,15 +62,18 @@ if [ "$RELEASE" != "docs" ] ; then
     [ -n "$TAG" ] && (cd $SDK; ln -sf croquet-$VERSION.min.js croquet-latest.min.js; ln -sf croquet-$VERSION.min.js.map croquet-latest.min.js.map)
 fi
 
-# build docs
-rm -r build/*
-npx jsdoc -c jsdoc.json -d build
-[ $? -ne 0 ] && exit
-sed -i~  "s/@CROQUET_VERSION@/$DOCS_VERSION/" build/*.html
-[ $? -ne 0 ] && exit
+# build docs unless pre-release
+if [ -n "$DOCS_VERSION" ]; then
+    rm -r build/*
+    npx jsdoc -c jsdoc.json -d build
+    [ $? -ne 0 ] && exit
+    sed -i~  "s/@CROQUET_VERSION@/$DOCS_VERSION/" build/*.html
+    [ $? -ne 0 ] && exit
 
-# deploy docs
-npx parcel build --public-url . --no-source-maps -d $DOCS build/*.html
+    # deploy docs
+    rm -r $DOCS/*
+    npx parcel build --public-url . --no-source-maps -d $DOCS build/*.html
+fi
 
 git add -A $SDK/ .env.development .env.production package.json package-lock.json
 git commit -m "[sdk] deploy $MSG to croquet.studio" || exit
