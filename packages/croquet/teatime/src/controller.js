@@ -23,22 +23,29 @@ export const SDK_VERSION = process.env.CROQUET_VERSION || "<unknown>";
 console.log("Croquet SDK " + SDK_VERSION);
 
 
-const FALLBACK_REFLECTOR = `wss://${CROQUET_HOST}/reflector-v1`;
-const DEFAULT_REFLECTOR = process.env.CROQUET_REFLECTOR || FALLBACK_REFLECTOR;    // replaced by parcel at build time from app's .env file
+const PUBLIC_REFLECTOR = `wss://reflector.croquet.studio`;
+const DEFAULT_REFLECTOR = process.env.CROQUET_REFLECTOR || PUBLIC_REFLECTOR;    // replaced by parcel at build time from app's .env file
 
 const codeHashes = null; // individual codeHashes are not uploaded for now, will need to re-add for replay
 
-const DEBUG = {
-    messages: urlOptions.has("debug", "messages", false),               // received messages
-    sends: urlOptions.has("debug", "sends", false),                     // sent messages
-    ticks: urlOptions.has("debug", "ticks", false),                     // received ticks
-    pong: urlOptions.has("debug", "pong", false),                       // received PONGs
-    snapshot: urlOptions.has("debug", "snapshot", false),               // snapshotting, uploading etc
-    session: urlOptions.has("debug", "session", false),                 // session logging
-    initsnapshot: urlOptions.has("debug", "initsnapshot", "localhost"), // check snapshotting after init
-    init: urlOptions.has("debug", "init", "localhost"),                 // always run init() if first user in session
-};
-DEBUG.snapshot = true; // ##########################
+let DEBUG = null;
+
+function initDEBUG() {
+    // to capture whatever was passed to th latest startSession({debug:...})
+    // call we simply redo this every time establishSession() is called
+    // TODO: turn this into a reasonable API
+    DEBUG = {
+        messages: urlOptions.has("debug", "messages", false),               // received messages
+        sends: urlOptions.has("debug", "sends", false),                     // sent messages
+        ticks: urlOptions.has("debug", "ticks", false),                     // received ticks
+        pong: urlOptions.has("debug", "pong", false),                       // received PONGs
+        snapshot: urlOptions.has("debug", "snapshot", false),               // snapshotting, uploading etc
+        session: urlOptions.has("debug", "session", false),                 // session logging
+        initsnapshot: urlOptions.has("debug", "initsnapshot", "localhost"), // check snapshotting after init
+        init: urlOptions.has("debug", "init", "localhost"),                 // always run init() if first user in session
+    };
+}
+
 const NOCHEAT = urlOptions.nocheat;
 
 const OPTIONS_FROM_URL = [ 'tps' ];
@@ -168,6 +175,7 @@ export default class Controller {
      * @returns {Promise<{rootModel:Model}>} list of named models (as returned by init function)
      */
     async establishSession(name, sessionSpec) {
+        initDEBUG();
         const { optionsFromUrl, multiRoom, autoSession, login: doLogin } = sessionSpec;
         const options = {...sessionSpec.options};
         for (const key of [...OPTIONS_FROM_URL, ...optionsFromUrl||[]]) {
@@ -214,8 +222,19 @@ export default class Controller {
         return island.modelsByName;
     }
 
-    // keep a snapshot in case we need to upload it or for replay
+    lastKnownTime(islandOrSnapshot) { return Math.max(islandOrSnapshot.time, islandOrSnapshot.externalTime); }
+
+    // keep a snapshot in case we need to upload it or for replay.
+    // returns ms taken in creating snapshot.
     keepSnapshot(snapshot=null) {
+        const lastSnapshot = this.lastSnapshot;
+        // if our last stored snapshot has a time equal to the supplied snapshot
+        // or (if none supplied) to the time limit on our island, don't bother
+        // taking a new one.
+        if (lastSnapshot && this.lastKnownTime(lastSnapshot) === this.lastKnownTime(snapshot || this.island)) {
+            if (DEBUG.snapshot) console.log(`Snapshot for time ${this.lastKnownTime(lastSnapshot)} already in history`);
+            return 0;
+        }
         const start = Stats.begin("snapshot");
         if (!snapshot) snapshot = this.takeSnapshot();
         // keep history
@@ -262,13 +281,14 @@ export default class Controller {
         return snapshot;
     }
 
-    finalSnapshot() {
+    keepFinalSnapshot() {
         if (!this.island) return null;
         // ensure all messages up to this point are in the snapshot
         for (let msg = this.networkQueue.nextNonBlocking(); msg; msg = this.networkQueue.nextNonBlocking()) {
            this.island.scheduleExternalMessage(msg);
         }
-        return this.takeSnapshot();
+        this.keepSnapshot(); // will take a new snapshot iff needed
+        return this.lastSnapshot;
     }
 
     // we have spent a certain amount of CPU time on simulating, so schedule a snapshot
@@ -455,8 +475,7 @@ export default class Controller {
          // cannot wait for asynchronous processes, since page might be closing
          if (this.users > 1 || !this.island || this.lastSnapshot.meta.seq === this.island.externalSeq) return;
         const url = this.snapshotUrl('latest');
-        const snapshot = this.finalSnapshot();
-        this.keepSnapshot(snapshot); // so that it becomes this.lastSnapshot, preventing a second emergency upload even if triggered
+        const snapshot = this.keepFinalSnapshot(); // will only take a new snapshot if time has advanced
         const {time, seq} = snapshot.meta;
         const body = JSON.stringify({time, seq, snapshot});
         if (DEBUG.snapshot) console.log(this.id, `emergency upload of snapshot (${time}#${seq}, ${body.length} bytes):`, url);
@@ -574,10 +593,10 @@ export default class Controller {
                     // in some cases of page reload, the emergency upload can still be in progress by the time we get here.  adding a pause reduces the risk of fetching latest.json prematurely... but it can't help in cases where the reloading browser scraps the upload connection immediately anyway, and it slows down all STARTs for the sake of the few times when it might help.  hence disabled.
                     //await new Promise(resolve => setTimeout(resolve, 750));
                     latest = await this.fetchJSON(this.snapshotUrl('latest'));
-                    usingRemote = latest && !(local && local.time > latest.time);
+                    usingRemote = latest && !(local && local.time >= latest.time); // ael - changed test to >=, since if times are the same surely local is more efficient??
                     if (!usingRemote) latest = local;
                 }
-                // fetch snapshot
+                // if we found a remote snapshot that's newer than our local (if any), or only found a local, go with that
                 if (latest) {
                     console.log(this.id, latest.snapshot ? `using ${usingRemote ? "remote" : "in-memory"} emergency snapshot` : `fetching latest snapshot ${latest.url}`);
                     snapshot = latest.snapshot || await this.fetchJSON(latest.url);
@@ -586,7 +605,7 @@ export default class Controller {
                 if (snapshot) this.islandCreator.snapshot = snapshot;
                 this.install();
                 this.requestTicks();
-                this.keepSnapshot(snapshot);
+                this.keepSnapshot(snapshot); // push to our snapshots history (taking a new snapshot if still null here)
                 if (latest && latest.url) this.announceSnapshotUrl(latest.time, latest.seq, latest.hash, latest.url);
                 else this.uploadLatest(true); // upload initial snapshot
                 return;
@@ -612,7 +631,7 @@ console.warn(`synced with snapshot:`, this.prevSnapshotSpec);
                 }
                 this.install(messages, time);
                 this.getTickAndMultiplier();
-                this.keepSnapshot(snapshot);
+                this.keepSnapshot(snapshot); // push to our snapshots history
                 return;
             }
             case 'RECV': {
@@ -692,7 +711,7 @@ console.warn(`synced with snapshot:`, this.prevSnapshotSpec);
             this.networkQueue.nextNonBlocking();
         }
         // our time is the latest of this.time (we may have received a tick already), the island time in the snapshot, and the reflector time at SYNC
-        const islandTime = Math.max(newIsland.time, newIsland.externalTime);
+        const islandTime = this.lastKnownTime(newIsland);
         if (syncTime && syncTime < islandTime) console.warn(`ignoring SYNC time from reflector (time was ${islandTime.time}, received ${syncTime})`);
         this.time = Math.max(this.time, islandTime, syncTime);
         this.setIsland(newIsland); // make this our island
@@ -744,7 +763,7 @@ console.warn(`synced with snapshot:`, this.prevSnapshotSpec);
         }
         Controllers.delete(this);
         const {destroyerFn} = this.islandCreator;
-        const snapshot = preserveSnapshot && destroyerFn && this.finalSnapshot();
+        const snapshot = preserveSnapshot && destroyerFn && this.keepFinalSnapshot();
         this.reset();
         if (!this.islandCreator) throw Error("do not discard islandCreator!");
         if (destroyerFn) destroyerFn(snapshot);
@@ -825,7 +844,7 @@ console.warn(`synced with snapshot:`, this.prevSnapshotSpec);
         else if (!args.tick) args.tick = tick;
         if (!args.time) {
             // ignored by reflector unless this is sent right after START
-            args.time = Math.max(this.island.time, this.island.externalTime);
+            args.time = this.lastKnownTime(this.island);
             args.seq = this.island.externalSeq;
         }
         if (DEBUG.session) console.log(this.id, 'Controller requesting TICKS', args);

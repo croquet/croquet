@@ -485,7 +485,7 @@ export default class Island {
         return writer.snapshot(this, "$");
     }
 
-    // return an object describing the island - currently { oC, mC, nanC, infC, zC, nC, nH, sC, sL } - for checking agreement between instances
+    // return an object describing the island - currently { oC, mC, nanC, infC, zC, nC, nH, sC, sL, fC } - for checking agreement between instances
     getSummaryHash() {
         return new IslandHasher().getHash(this);
     }
@@ -659,6 +659,17 @@ class IslandHasher {
     constructor() {
         this.refs = new Map();
         this.todo = []; // we use breadth-first writing to limit stack depth
+        this.hashers = new Map();
+        this.addHasher("Teatime:Message", Message);
+        for (const modelClass of Model.allClasses()) {
+            for (const [classId, ClassOrSpec] of Object.entries(Model.classTypes(modelClass))) this.addHasher(classId, ClassOrSpec);
+        }
+    }
+
+    addHasher(classId, ClassOrSpec) {
+        const { cls, write } = (Object.getPrototypeOf(ClassOrSpec) === Object.prototype) ? ClassOrSpec
+            : { cls: ClassOrSpec, write: obj => Object.assign({}, obj) };
+        this.hashers.set(cls, obj => this.hashStructure(obj, write(obj)));
     }
 
     /** @param {Island} island */
@@ -672,15 +683,19 @@ class IslandHasher {
             nC: 0, // count of non-zero finite numbers
             nH: 0, // sum of the Int32 parts of non-zero numbers treated as Float64s
             sC: 0, // number of strings
-            sL: 0  // sum of lengths of strings
+            sL: 0,  // sum of lengths of strings
+            fC: 0  // count of future messages
         };
 
         for (const [key, value] of Object.entries(island)) {
             if (key === "controller") continue;
-            if (key === "_random") continue;
-            if (key === "messages") continue;
             if (key === "meta") continue;
-            this.hashEntry(key, value);
+            if (key === "_random") this.hash(value.state(), false);
+            else if (key === "messages") {
+                const messageArray = value.asArray(); // from PriorityQueue
+                const count = this.hashState.fC = messageArray.length;
+                if (count) this.hash(messageArray, false);
+            } else this.hashEntry(key, value);
         }
         this.hashDeferred();
         return this.hashState;
@@ -801,10 +816,7 @@ class IslandWriter {
         this.writers = new Map();
         this.addWriter("Teatime:Message", Message);
         for (const modelClass of Model.allClasses()) {
-            if (!Object.prototype.hasOwnProperty.call(modelClass, "types")) continue;
-            for (const [classId, ClassOrSpec] of Object.entries(modelClass.types())) {
-                this.addWriter(classId, ClassOrSpec);
-            }
+            for (const [classId, ClassOrSpec] of Object.entries(Model.classTypes(modelClass))) this.addWriter(classId, ClassOrSpec);
         }
     }
 
@@ -971,10 +983,7 @@ class IslandReader {
         this.readers = new Map();
         this.addReader("Teatime:Message", Message);
         for (const modelClass of Model.allClasses()) {
-            if (!Object.prototype.hasOwnProperty.call(modelClass, "types")) continue;
-            for (const [classId, ClassOrSpec] of Object.entries(modelClass.types())) {
-                this.addReader(classId, ClassOrSpec);
-            }
+            for (const [classId, ClassOrSpec] of Object.entries(Model.classTypes(modelClass))) this.addReader(classId, ClassOrSpec);
         }
         this.readers.set("NaN", () => NaN);
         this.readers.set("Infinity", sign => sign * Infinity);
@@ -1069,8 +1078,9 @@ class IslandReader {
 
     readArray(array, path, nodefer=0) {
         const result = [];
+        if (array.$id) this.refs.set(array.$id, result);
         for (let i = 0; i < array.length; i++) {
-            this.readInto(result, i, array[i], path, nodefer);
+            if (array[i] !== undefined) this.readInto(result, i, array[i], path, nodefer); // allow for missing indices
         }
         return result;
     }

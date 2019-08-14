@@ -39,8 +39,7 @@ class View {
     constructor(_model) {
         // read-only properties
         Object.defineProperty(this, "realm", {  value: currentRealm() });
-        this.realm.register(this); // (aug 2019) sets this.__id; its reset on deregister is used to suppress lingering future messages
-        Object.defineProperty(this, "id", {  get() { return this.__id; } });
+        Object.defineProperty(this, "id", {  value: this.realm.register(this), configurable: true });
         // eslint-disable-next-line no-constant-condition
         if (false) {
             /** Each view has an id which can be used to scope [events]{@link View#publish} between views.
@@ -65,7 +64,11 @@ class View {
      * **Unsubscribes all [subscriptions]{@link View#subscribe} this model has,
      * and removes it from the list of views**
      *
-     * This needs to be called when a view is no longer needed to prevent memory leaks.
+     * This needs to be called when a view is no longer needed, to prevent memory leaks.
+     * A session's root view is automatically sent `detach` when the session becomes
+     * inactive (for example, going dormant because its browser tab is hidden).
+     * A root view should therefore override `detach` (remembering to call `super.detach()`)
+     * to detach any subsidiary views that it has created.
      * @example
      * removeChild(child) {
      *    const index = this.children.indexOf(child);
@@ -77,6 +80,7 @@ class View {
     detach() {
         this.unsubscribeAll();
         this.realm.deregister(this);
+        Object.defineProperty(this, "id", {  value: "" });
     }
 
     /**

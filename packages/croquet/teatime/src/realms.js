@@ -2,8 +2,12 @@ import urlOptions from "@croquet/util/urlOptions";
 import { viewDomain } from "./domain";
 
 
-const DEBUG = {
-    subscribe: urlOptions.has("debug", "subscribe", false),
+let DEBUG = {
+    get subscribe() {
+        // replace with static value on first call
+        DEBUG = { subscribe: urlOptions.has("debug", "subscribe", false) };
+        return DEBUG.subscribe;
+    }
 };
 
 
@@ -75,12 +79,13 @@ class ViewRealm {
     }
 
     register(view) {
-        view.__id = viewDomain.register(view);
+        return viewDomain.register(view);
     }
+
     deregister(view) {
         viewDomain.deregister(view);
-        view.__id = "";
     }
+
     publish(event, data, scope) {
         this.island.publishFromView(scope, event, data);
     }
@@ -106,7 +111,7 @@ class ViewRealm {
                 if (typeof view[property] === "function") {
                     const methodProxy = new Proxy(view[property], {
                         apply(_method, _this, args) {
-                            setTimeout(() => { if (view.__id) view[property](...args); }, tOffset);
+                            setTimeout(() => { if (view.id) view[property](...args); }, tOffset);
                         }
                     });
                     return methodProxy;
