@@ -1,6 +1,6 @@
 {
   "name": "croquet",
-  "version": "0.1.9-3",
+  "version": "0.1.9",
   "description": "",
   "main": "croquet.js",
   "scripts": {
