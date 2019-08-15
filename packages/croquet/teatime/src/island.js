@@ -658,8 +658,8 @@ class IslandHasher {
         this.todo = []; // we use breadth-first writing to limit stack depth
         this.hashers = new Map();
         this.addHasher("Teatime:Message", Message);
-        for (const modelClass of Model.allClasses()) {
-            for (const [classId, ClassOrSpec] of Object.entries(Model.classTypes(modelClass))) this.addHasher(classId, ClassOrSpec);
+        for (const [classId, ClassOrSpec] of Model.allClassTypes()) {
+            this.addHasher(classId, ClassOrSpec);
         }
     }
 
@@ -817,8 +817,8 @@ class IslandWriter {
         this.todo = []; // we use breadth-first writing to limit stack depth
         this.writers = new Map();
         this.addWriter("Teatime:Message", Message);
-        for (const modelClass of Model.allClasses()) {
-            for (const [classId, ClassOrSpec] of Object.entries(Model.classTypes(modelClass))) this.addWriter(classId, ClassOrSpec);
+        for (const [classId, ClassOrSpec] of Model.allClassTypes()) {
+            this.addWriter(classId, ClassOrSpec);
         }
     }
 
@@ -984,8 +984,8 @@ class IslandReader {
         this.unresolved = [];
         this.readers = new Map();
         this.addReader("Teatime:Message", Message);
-        for (const modelClass of Model.allClasses()) {
-            for (const [classId, ClassOrSpec] of Object.entries(Model.classTypes(modelClass))) this.addReader(classId, ClassOrSpec);
+        for (const [classId, ClassOrSpec] of Model.allClassTypes()) {
+            this.addReader(classId, ClassOrSpec);
         }
         this.readers.set("NaN", () => NaN);
         this.readers.set("Infinity", sign => sign * Infinity);
