@@ -43,9 +43,9 @@ function WARN(...args) { console.warn((new Date()).toISOString(), `Reflector(${h
 const REASON = {};
 REASON.UNKNOWN_ISLAND = [4000, "unknown island"];
 REASON.UNRESPONSIVE = [4001, "client unresponsive"];
+REASON.INACTIVE = [4002, "client inactive"];
 REASON.BAD_PROTOCOL = [4100, "outdated protocol"];
 REASON.DORMANT = [4110, "dormant"]; // sent by client, will not display error
-REASON.INACTIVE = [4120, "client inactive"];
 REASON.NO_JOIN = [4121, "client never joined"];
 
 // this webServer is only for http:// requests to the reflector url
