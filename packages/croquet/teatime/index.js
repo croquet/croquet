@@ -131,7 +131,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
     if (urlOptions.autoSleep !== false) startSleepChecker();
     // now start
     const ISLAND_OPTIONS = ['tps'];
-    const SESSION_OPTIONS = ['optionsFromUrl'];
+    const SESSION_OPTIONS = ['optionsFromUrl', 'login', 'autoSession'];
     freezeAndHashConstants();
     const controller = new Controller();
     const islandOptions = {};
