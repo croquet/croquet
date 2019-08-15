@@ -245,7 +245,7 @@ export async function login() {
         }
 
         function userURL(username, file, ext=".json") {
-            return `${fileServer()}/files-v1/user/${username.toLowerCase()}/${file}${ext}`;
+            return `${fileServer()}/user/${username.toLowerCase()}/${file}${ext}`;
         }
 
         async function checkName(final=false) {
