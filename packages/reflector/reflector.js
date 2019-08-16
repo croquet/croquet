@@ -23,7 +23,7 @@ require('@google-cloud/debug-agent').start({
 
 const port = 9090;
 const SERVER_HEADER = "croquet-reflector";
-const SNAP_TIMEOUT = 10000;   // time in ms to wait for SNAP from island's first client
+const SNAP_TIMEOUT = 30000;   // time in ms to wait for SNAP from island's first client
 const TICK_MS = 1000 / 5;     // default tick interval
 const ARTIFICIAL_DELAY = 0;   // delay messages randomly by 50% to 150% of this
 const MAX_MESSAGES = 10000;   // messages per island to retain since last snapshot
@@ -245,7 +245,7 @@ function JOIN(client, id, args) {
         island.startTimeout = setTimeout(() => {
             island.startTimeout = null;
             // kill client
-            LOG(">>> killing unresponsive ", client.addr);
+            LOG(">>> killing unresponsive", client.addr);
             if (client.readyState === WebSocket.OPEN) client.close(...REASON.UNRESPONSIVE);
             // start next client
             START();
