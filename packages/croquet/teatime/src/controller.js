@@ -397,12 +397,12 @@ export default class Controller {
 
     // upload snapshot and message history, and optionally inform reflector
     async uploadLatest(sendToReflector=true) {
-        const viewId = this.viewId;
+        const socket = this.connection.socket;
         const lastSnapshot = this.lastSnapshot; // make sure it doesn't change under us
         const prevSnapshot = this.prevSnapshot; // ditto
         const snapshotUrl = await this.uploadSnapshot(lastSnapshot);
         // if upload is slow and the reflector loses patience, controller will have been reset
-        if (this.viewId !== viewId) { console.error("Controller was reset while trying to upload snapshot"); return; }
+        if (this.connection.socket !== socket) { console.error("Controller was reset while trying to upload snapshot"); return; }
         if (!snapshotUrl) { console.error("Failed to upload snapshot"); return; }
         const last = lastSnapshot.meta;
         if (sendToReflector) this.announceSnapshotUrl(last.time, last.seq, last.hash, snapshotUrl);
