@@ -1,4 +1,5 @@
-import { Model, View, Controller, startSession } from "@croquet/teatime";
+// to use latest sdk: cd sdk; npm start
+import { Model, View, startSession } from "../../sdk/dist/croquet.min.js";  // eslint-disable-line import/extensions
 
 
 const TPS = "10x3";             // reflector ticks per sec x local multiplier
