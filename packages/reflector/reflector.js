@@ -28,7 +28,7 @@ const bucket = storage.bucket('croquet-logs-v0');
 
 const port = 9090;
 const SERVER_HEADER = "croquet-reflector";
-const SNAP_TIMEOUT = 10000;   // time in ms to wait for SNAP from island's first client
+const SNAP_TIMEOUT = 30000;   // time in ms to wait for SNAP from island's first client
 const TICK_MS = 1000 / 5;     // default tick interval
 const ARTIFICIAL_DELAY = 0;   // delay messages randomly by 50% to 150% of this
 const MAX_MESSAGES = 10000;   // messages per island to retain since last snapshot
@@ -42,6 +42,16 @@ const hostip = (eth0 || en0).find(each => each.family==='IPv4').address;
 
 function LOG(...args) { console.log((new Date()).toISOString(), `Reflector(${hostip}):`, ...args); }
 function WARN(...args) { console.warn((new Date()).toISOString(), `Reflector(${hostip}):`, ...args); }
+
+// return codes for closing connection
+// client wil try to reconnect for codes < 4100
+const REASON = {};
+REASON.UNKNOWN_ISLAND = [4000, "unknown island"];
+REASON.UNRESPONSIVE = [4001, "client unresponsive"];
+REASON.INACTIVE = [4002, "client inactive"];
+REASON.BAD_PROTOCOL = [4100, "outdated protocol"];
+REASON.DORMANT = [4110, "dormant"]; // sent by client, will not display error
+REASON.NO_JOIN = [4121, "client never joined"];
 
 // this webServer is only for http:// requests to the reflector url
 // (e.g. the load-balancer's health check),
@@ -166,7 +176,7 @@ function getTime(island) {
  */
 function JOIN(client, id, args) {
     if (typeof args === "number" || !args.version) {
-        client.close(4100, "outdated protocol"); // in the range for errors that are unrecoverable
+        client.close(...REASON.BAD_PROTOCOL);
         return;
     }
 
@@ -241,8 +251,8 @@ function JOIN(client, id, args) {
         island.startTimeout = setTimeout(() => {
             island.startTimeout = null;
             // kill client
-            LOG(">>> killing unresponsive ", client.addr);
-            if (client.readyState === WebSocket.OPEN) client.close(4001, "client unresponsive");
+            LOG(">>> killing unresponsive", client.addr);
+            if (client.readyState === WebSocket.OPEN) client.close(...REASON.UNRESPONSIVE);
             // start next client
             START();
             }, SNAP_TIMEOUT);
@@ -305,7 +315,7 @@ function after(seqA, seqB) {
  */
 function SNAP(client, id, args) {
     const island = ALL_ISLANDS.get(id);
-    if (!island) { if (client.readyState === WebSocket.OPEN) client.close(4000, "unknown island"); return; }
+    if (!island) { if (client.readyState === WebSocket.OPEN) client.close(...REASON.UNKNOWN_ISLAND); return; }
     const { time, seq, hash, url } = args;
     if (time <= island.snapshotTime) return;
     LOG(`${island} got snapshot ${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'}`);
@@ -357,7 +367,7 @@ function SNAP(client, id, args) {
  */
 function SEND(client, id, messages) {
     const island = ALL_ISLANDS.get(id);
-    if (!island) { if (client && client.readyState === WebSocket.OPEN) client.close(4000, "unknown island"); return; }
+    if (!island) { if (client && client.readyState === WebSocket.OPEN) client.close(...REASON.UNKNOWN_ISLAND); return; }
     const time = getTime(island);
     if (island.delay) {
         const delay = island.lastTick + island.delay + 0.1 - time;    // add 0.1 ms to combat rounding errors
@@ -389,7 +399,7 @@ function SEND(client, id, messages) {
  */
 function TUTTI(client, id, args) {
     const island = ALL_ISLANDS.get(id);
-    if (!island) { if (client && client.readyState === WebSocket.OPEN) client.close(4000, "unknown island"); return; }
+    if (!island) { if (client && client.readyState === WebSocket.OPEN) client.close(...REASON.UNKNOWN_ISLAND); return; }
 
     const [ sendTime, tuttiSeq, payload, firstMsg, wantsVote, tallyTarget ] = args;
 console.log({sendTime, tuttiSeq, payload});
@@ -496,7 +506,7 @@ function TICK(island) {
 function TICKS(client, id, args) {
     const { time, seq, tick, delay, scale } = args;
     const island = ALL_ISLANDS.get(id);
-    if (!island) { if (client.readyState === WebSocket.OPEN) client.close(4000, "unknown island"); return; }
+    if (!island) { if (client.readyState === WebSocket.OPEN) client.close(...REASON.UNKNOWN_ISLAND); return; }
     if (!island.time) {
         // only accept time, sequence, and delay if new island
         island.time = typeof time === "number" ? Math.ceil(time) : 0;
@@ -606,14 +616,14 @@ server.on('connection', (client, req) => {
         const quiescence = now - lastActivity;
         if (quiescence > DISCONNECT_THRESHOLD) {
             LOG("inactive client: closing connection from", client.addr, "inactive for", quiescence, "ms");
-            client.close(4120, "client inactive"); // NB: close event won't arrive for a while
+            client.close(...REASON.INACTIVE); // NB: close event won't arrive for a while
             return;
         }
         let nextCheck;
         if (quiescence > PING_THRESHOLD) {
             if (!joined) {
                 LOG("client never joined: closing connection from", client.addr, "after", quiescence, "ms");
-                client.close(4121, "client never joined");
+                client.close(...REASON.NO_JOIN);
                 return;
             }
 

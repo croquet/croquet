@@ -78,7 +78,7 @@ class Model {
         const model = new ModelClass(SECRET);
         // read-only props
         Object.defineProperty(model, "__realm", {  value: realm });
-        Object.defineProperty(model, "id", {  value: realm.register(model) });
+        Object.defineProperty(model, "id", {  value: realm.register(model), enumerable: true });
         SuperInitNotCalled.add(model);
         if (wellKnownName) model.beWellKnownAs(wellKnownName);
         model.init(options);
@@ -100,7 +100,7 @@ class Model {
         const model = new ModelClass(SECRET);
         // read-only props
         Object.defineProperty(model, "__realm", {  value: realm });
-        Object.defineProperty(model, "id", {  value: id });
+        Object.defineProperty(model, "id", {  value: id, enumerable: true });
         return model;
     }
 
@@ -182,8 +182,8 @@ class Model {
     // for use by serializer (see island.js)
     static classToID(cls) {  return classToID(cls); }
     static classFromID(id) { return classFromID(id); }
-    static classTypes(cls) { return classTypes(cls); }
     static allClasses() { return allClasses(); }
+    static allClassTypes() { return allClassTypes(); }
     static instantiateClassID(classId, id) {
         const ModelClass = classFromID(classId);
         return ModelClass.createNoInit(id);
@@ -525,9 +525,6 @@ class Model {
 
 // map model class names to model classes
 const ModelClasses = {};
-const ModelClassesUnique = []; // just the constructors
-// lazy cache of types for each model constructor
-const ModelTypes = new Map();
 
 // Symbol for storing class ID in constructors
 const CLASS_ID = Symbol('CLASS_ID');
@@ -535,7 +532,6 @@ const CLASS_ID = Symbol('CLASS_ID');
 function gatherModelClasses() {
     if (!module.bundle) return;
     // HACK: go through all exports and find model subclasses
-    ModelClassesUnique.length = 0;
     for (const [file, m] of Object.entries(module.bundle.cache)) {
         for (const [name, cls] of Object.entries(m.exports)) {
             if (cls && cls.__isTeatimeModelClass__) {
@@ -547,7 +543,16 @@ function gatherModelClasses() {
 
 function allClasses() {
     if (Object.keys(ModelClasses).length === 0) gatherModelClasses();
-    return ModelClassesUnique;
+    return Object.values(ModelClasses).map(entry => entry.cls);
+}
+
+function allClassTypes() {
+    const types = {};
+    for (const modelClass of allClasses()) {
+        if (!Object.prototype.hasOwnProperty.call(modelClass, "types")) continue;
+        Object.assign(types, modelClass.types());
+    }
+    return Object.entries(types);
 }
 
 function hasID(cls) {
@@ -568,14 +573,6 @@ function classFromID(classID) {
     throw Error(`Class "${classID}" in snapshot, but not found in current source?`);
 }
 
-function classTypes(cls) {
-    if (ModelTypes.has(cls)) return ModelTypes.get(cls);
-
-    const types = Object.prototype.hasOwnProperty.call(cls, "types") ? cls.types() : [];
-    ModelTypes.set(cls, types);
-    return types;
-}
-
 function registerClass(file, name, cls) {
     // create a classID for this class
     const id = `${file}:${name}`;
@@ -586,7 +583,6 @@ function registerClass(file, name, cls) {
     } else {
         if (DEBUG.classes) console.log(`registering class ${name} from ${file}`);
         cls[CLASS_ID] = id;
-        ModelClassesUnique.push(cls);
     }
     ModelClasses[id] = {cls, file};
     return cls;

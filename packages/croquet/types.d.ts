@@ -74,7 +74,7 @@ declare module "@croquet/croquet" {
          * @param {String=} file the file name this class was defined in, to distinguish between same class names in different files
          * @public
          */
-        static register(file:string): void;
+        static register(file?:string): void;
 
         /**
          * __Static declaration of how to serialize non-model classes.__
@@ -340,7 +340,7 @@ declare module "@croquet/croquet" {
          * @param {*=} data can be any value or object (for view-to-model, must be serializable)
          * @public
          */
-        publish(scope: string, event: string, data: any): void;
+        publish(scope: string, event: string, data?: any): void;
 
         /**
          * **Register an event handler for an event published to a scope.**
@@ -412,10 +412,18 @@ declare module "@croquet/croquet" {
          * @public
          */
         unsubscribeAll(): void;
+	
+        /**
+         * The ID of the view.
+         * @public
+         */
+	viewId: string;
     }
 
     /** helper that traverses a dummy object and gathers all object classes,
      * including otherwise inaccessible ones. Returns a mapping that can be returned in
      * a Model's static types() method */
     export function gatherInternalClassTypes(dummyObject: any, prefix: string): any;
+
+    export function startSession(name:string, model:any, view:any, options?:any): Promise<any>;
 }

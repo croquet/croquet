@@ -1,4 +1,5 @@
-import { Model, View, Controller, startSession } from "@croquet/teatime";
+// to use latest sdk: cd sdk; npm start
+import { Model, View, startSession } from "../../sdk/dist/croquet.min.js";  // eslint-disable-line import/extensions
 
 
 const TPS = "10x3";             // reflector ticks per sec x local multiplier
@@ -8,7 +9,7 @@ const SPEED = 10;               // bouncing ball speed in virtual pixels / step
 
 ////// Models /////
 
-export class ModelRoot extends Model {
+class ModelRoot extends Model {
 
     init() {
         super.init();
@@ -36,9 +37,10 @@ export class ModelRoot extends Model {
         this.publish(this.id, 'shape-removed', shape);
     }
 }
+ModelRoot.register();
 
 
-export class Shape extends Model {
+class Shape extends Model {
 
     init(options={}) {
         super.init();
@@ -66,9 +68,10 @@ export class Shape extends Model {
     }
 
 }
+Shape.register();
 
 
-export class BouncingShape extends Shape {
+class BouncingShape extends Shape {
 
     init(state) {
         super.init(state);
@@ -105,13 +108,16 @@ export class BouncingShape extends Shape {
     }
 
 }
+BouncingShape.register();
 
-export class Shapes extends ModelRoot {
+
+class Shapes extends ModelRoot {
     init(options) {
         super.init(options);
         this.shapes["bounce"] = BouncingShape.create({pos: [500, 500], color: "white"});
     }
 }
+Shapes.register();
 
 
 ////// Views /////

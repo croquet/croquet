@@ -1,11 +1,11 @@
 {
   "name": "croquet",
-  "version": "0.1.9-3",
+  "version": "0.1.9",
   "description": "",
   "main": "croquet.js",
   "scripts": {
     "start": "npm-watch",
-    "build-lib": "parcel build --public-url . --global Croquet -o croquet.min.js croquet.js",
+    "build-lib": "NODE_ENV=development parcel build --no-minify --public-url . --global Croquet -o croquet.min.js croquet.js",
     "build-docs": "jsdoc -c jsdoc.json -d build",
     "buildx": "parcel build --experimental-scope-hoisting --public-url . --global Croquet -o croquet.min.js croquet.js",
     "deploy": "./deploy.sh",

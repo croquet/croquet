@@ -661,8 +661,8 @@ class IslandHasher {
         this.todo = []; // we use breadth-first writing to limit stack depth
         this.hashers = new Map();
         this.addHasher("Teatime:Message", Message);
-        for (const modelClass of Model.allClasses()) {
-            for (const [classId, ClassOrSpec] of Object.entries(Model.classTypes(modelClass))) this.addHasher(classId, ClassOrSpec);
+        for (const [classId, ClassOrSpec] of Model.allClassTypes()) {
+            this.addHasher(classId, ClassOrSpec);
         }
     }
 
@@ -760,13 +760,9 @@ class IslandHasher {
         if (this.refs.has(model)) return;
         this.hashState.mC++;
         this.refs.set(model, true);      // register ref before recursing
-        const descriptors = Object.getOwnPropertyDescriptors(model);
-        for (const key of Object.keys(descriptors)) {
+        for (const [key, value] of Object.entries(model)) {
             if (key === "__realm") continue;
-            const descriptor = descriptors[key];
-            if (descriptor.value !== undefined) {
-                this.hashEntry(key, descriptor.value);
-            }
+            if (value !== undefined) this.hashEntry(key, value);
         }
     }
 
@@ -774,12 +770,8 @@ class IslandHasher {
         if (this.refs.has(object)) return;
         this.hashState.oC++;
         this.refs.set(object, true);      // register ref before recursing
-        const descriptors = Object.getOwnPropertyDescriptors(object);
-        for (const key of Object.keys(descriptors)) {
-            const descriptor = descriptors[key];
-            if (descriptor.value !== undefined) {
-                this.hashEntry(key, descriptor.value, defer);
-            }
+        for (const [key, value] of Object.entries(object)) {
+            if (value !== undefined) this.hashEntry(key, value, defer);
         }
     }
 
@@ -820,8 +812,8 @@ class IslandWriter {
         this.todo = []; // we use breadth-first writing to limit stack depth
         this.writers = new Map();
         this.addWriter("Teatime:Message", Message);
-        for (const modelClass of Model.allClasses()) {
-            for (const [classId, ClassOrSpec] of Object.entries(Model.classTypes(modelClass))) this.addWriter(classId, ClassOrSpec);
+        for (const [classId, ClassOrSpec] of Model.allClassTypes()) {
+            this.addWriter(classId, ClassOrSpec);
         }
     }
 
@@ -894,6 +886,8 @@ class IslandWriter {
             $model: Model.classToID(model.constructor),
         };
         this.refs.set(model, state);      // register ref before recursing
+
+        /* see comment in writeObject
         const descriptors = Object.getOwnPropertyDescriptors(model);
         for (const key of Object.keys(descriptors).sort()) {
             if (key === "__realm") continue;
@@ -902,6 +896,14 @@ class IslandWriter {
                 this.writeInto(state, key, descriptor.value, path);
             }
         }
+        */
+
+        for (const key of Object.keys(model).sort()) {
+            if (key === "__realm") continue; // not enumerable in a Model, but is set directly in a ModelPart
+            const value = model[key];
+            if (value !== undefined) this.writeInto(state, key, value, path);
+        }
+
         return state;
     }
 
@@ -909,6 +911,10 @@ class IslandWriter {
         if (this.refs.has(object)) return this.writeRef(object);
         const state = {};
         this.refs.set(object, state);      // register ref before recursing
+
+        /* (ael & bf, aug 2019)
+            originally went through property descriptors, which is slower than Object.keys.
+            not sure if there was a particular reason for doing so.
         const descriptors = Object.getOwnPropertyDescriptors(object);
         for (const key of Object.keys(descriptors).sort()) {
             const descriptor = descriptors[key];
@@ -916,6 +922,13 @@ class IslandWriter {
                 this.writeInto(state, key, descriptor.value, path, defer);
             }
         }
+        */
+
+        for (const key of Object.keys(object).sort()) {
+            const value = object[key];
+            if (value !== undefined) this.writeInto(state, key, value, path, defer);
+        }
+
         return state;
     }
 
@@ -930,9 +943,11 @@ class IslandWriter {
     }
 
     writeFloat(value) {
+        /* original test of serialization.  never found an error.  disabled for now.
         floats[0] = value;
         floats[1] = JSON.parse(JSON.stringify(value));
         if (ints[0] !== ints[2] || ints[1] !== ints[3]) throw Error("Float serialization error");
+        */
         return value;
     }
 
@@ -987,8 +1002,8 @@ class IslandReader {
         this.unresolved = [];
         this.readers = new Map();
         this.addReader("Teatime:Message", Message);
-        for (const modelClass of Model.allClasses()) {
-            for (const [classId, ClassOrSpec] of Object.entries(Model.classTypes(modelClass))) this.addReader(classId, ClassOrSpec);
+        for (const [classId, ClassOrSpec] of Model.allClassTypes()) {
+            this.addReader(classId, ClassOrSpec);
         }
         this.readers.set("NaN", () => NaN);
         this.readers.set("Infinity", sign => sign * Infinity);

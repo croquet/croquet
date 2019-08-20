@@ -1,4 +1,4 @@
-Scroll down for an **overview** of Croquet concepts.
+Scroll down for an **overview** of Croquet concepts, and the [**SDK Changelog**](#changelog).
 
 Use the Navigation Panel to try our **Tutorials**, **Guides**, and **API docs**.
 
@@ -14,7 +14,7 @@ Also, please **join** our [**Developer Slack** ![Slack](images/slack.png)](https
 - [Time](#time)
 - [Snapshots](#snapshots)
 - [Random](#random)
-- [**Changelog**](#changelog)
+- [**SDK Changelog**](#changelog)
 
 # What is Croquet?
 
@@ -173,6 +173,7 @@ Calls to `Math.random()` within the view will behave normally. Different instanc
 
 | date       | item
 |------------|---
+| 2019-08-14 | **release 0.1.9** (bug fixes; automatic reflector selection)
 | 2019-07-24 | **release 0.1.8** (bug fixes)
 | 2019-07-24 | **release 0.1.7** (bug fixes; reverted to 0.1.6 due to instabilities)
 | 2019-07-23 | new US east coast reflector available in [startSession]{@link startSession}

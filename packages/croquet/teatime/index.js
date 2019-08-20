@@ -99,7 +99,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
     // must pass a model
     if (!inherits(ModelRoot, Model)) throw Error("ModelRoot must inherit from Croquet.Model");
     // forgive beginners errors
-    ModelRoot.registerIfNeeded();
+    /* ModelRoot.registerIfNeeded(); */ // breaks w3 in model.js:allClasses()
     // view defaults to View
     if (!inherits(ViewRoot, View)) {
         // if not specifying a view, allow options as 3rd argument
@@ -131,7 +131,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
     if (urlOptions.autoSleep !== false) startSleepChecker();
     // now start
     const ISLAND_OPTIONS = ['tps'];
-    const SESSION_OPTIONS = ['optionsFromUrl'];
+    const SESSION_OPTIONS = ['optionsFromUrl', 'login', 'autoSession'];
     freezeAndHashConstants();
     const controller = new Controller();
     const islandOptions = {};

@@ -637,7 +637,7 @@ html[data-search-mode] .level-hide {
   .navicon-button {
     display: inline-block;
     position: fixed;
-    top: 1.5em;
+    top: 88px;
     right: 0;
     z-index: 2;
   }
@@ -648,7 +648,7 @@ html[data-search-mode] .level-hide {
   }
 
   #main h1.page-title {
-    margin: 1em 0;
+    margin: 1em 88px 0 0;
   }
 
   #main section {

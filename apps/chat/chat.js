@@ -5,7 +5,8 @@
 // This is an example of a simple chat application. It creates a chatroom where users can
 // post messages to a shared conversation.
 
-import { Model, View, startSession } from "@croquet/teatime";
+// to use latest sdk: cd sdk; npm start
+import { Model, View, startSession } from "../sdk/dist/croquet.min.js";
 
 //------------------------------------------------------------------------------------------
 // ChatModel
