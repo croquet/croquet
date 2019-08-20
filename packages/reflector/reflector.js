@@ -6,18 +6,30 @@ const os = require('os');
 const http = require('http');
 const WebSocket = require('ws');
 
+// Get cluster info from Google Cloud (for logging).
+// Only start Debugger & Profiler if successful.
 let cluster = "";
 http.get('http://metadata.google.internal/computeMetadata/v1/instance/attributes/cluster-name',
     { headers: {'Metadata-Flavor' : 'Google'} },
-    response => response.on('data', data => cluster += data));
-
-// enable cloud profiler & debugger
-require('@google-cloud/profiler').start({
-    serviceContext: { service: 'reflector' },
-});
-require('@google-cloud/debug-agent').start({
-    allowExpressions: true,
-    serviceContext: { service: 'reflector' },
+    response => {
+        response.on('data', data => cluster += data);
+        response.on('end', () => {
+            // eslint-disable-next-line global-require
+            require('@google-cloud/profiler').start({
+                serviceContext: { service: 'reflector' },
+            });
+            // eslint-disable-next-line global-require
+            require('@google-cloud/debug-agent').start({
+                allowExpressions: true,
+                serviceContext: { service: 'reflector' },
+            });
+            // start serving
+            startServer();
+        });
+    }
+).on("error", () => {
+    cluster = "local";
+    startServer();
 });
 
 const port = 9090;
@@ -60,7 +72,7 @@ const webServer = http.createServer( (req, res) => {
         return res.end();
     }
     // otherwise, show hostname, url, and http headers
-    const body = `Croquet reflector ${hostname} (${hostip})\n${req.method} http://${req.headers.host}${req.url}\n${JSON.stringify(req.headers, null, 4)}`;
+    const body = `Croquet reflector ${hostname} (${cluster}:${hostip})\n${req.method} http://${req.headers.host}${req.url}\n${JSON.stringify(req.headers, null, 4)}`;
     res.writeHead(200, {
       'Server': SERVER_HEADER,
       'Content-Length': body.length,
@@ -70,8 +82,11 @@ const webServer = http.createServer( (req, res) => {
   });
 // the WebSocket.Server will intercept the UPGRADE request made by a ws:// websocket connection
 const server = new WebSocket.Server({ server: webServer });
-webServer.listen(port);
-LOG(`starting ${server.constructor.name} ws://${hostname}:${server.address().port}/`);
+
+function startServer() {
+    webServer.listen(port);
+    LOG(`starting ${server.constructor.name} ws://${hostname}:${server.address().port}/`);
+}
 
 const STATS_TO_AVG = ["RECV", "SEND", "TICK", "IN", "OUT"];
 const STATS_TO_MAX = ["USERS", "BUFFER"];
