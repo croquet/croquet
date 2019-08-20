@@ -10,6 +10,7 @@ import { inViewRealm } from "./realms";
 import { viewDomain } from "./domain";
 import Island, { Message, inSequence } from "./island";
 
+const pako = require('pako'); // gzip-aware compressor
 
 /** @typedef { import('./model').default } Model */
 
@@ -319,11 +320,19 @@ export default class Controller {
         }
     }
 
-    snapshotUrl(time_seq) {
+    snapshotUrl(filetype, time, seq, hash, optExt) {
         // name includes JSON options
         const options = this.islandCreator.name.split(/[^A-Z0-9]+/i);
         const sessionName = `${options.filter(_=>_).join('-')}-${this.id}`;
-        return `${baseUrl('snapshots')}${sessionName}/${time_seq}.json`;
+        const base = `${baseUrl('snapshots')}${sessionName}`;
+        let filename;
+        if (filetype === 'latest') filename = 'latest.json';
+        else {
+            const extn = `.json${optExt ? "." + optExt : ""}`;
+            const pad = n => ("" + n).padStart(10, '0');
+            filename = `${pad(time)}_${pad(seq)}-${filetype}-${hash}${extn}`;
+        }
+        return `${base}/${filename}`;
     }
 
     hashSnapshot(snapshot) {
@@ -348,19 +357,15 @@ export default class Controller {
     /** upload a snapshot to the asset server */
     async uploadSnapshot(snapshot) {
         await this.hashSnapshot(snapshot);
-        const body = JSON.stringify(snapshot);
-        const {time, seq, hash} = snapshot.meta;
-        const url = this.snapshotUrl(`${time}_${seq}-snap-${hash}`);
-        if (DEBUG.snapshot) console.log(this.id, `Controller uploading snapshot (${body.length} bytes) to ${url}`);
-        return this.uploadJSON(url, body);
-    }
 
-    async isOlderThanLatest(snapshot) {
-        const latest = await this.fetchJSON(this.snapshotUrl('latest'));
-        if (!latest) return false;
-        const {time, seq} = snapshot.meta;
-        if (time !== latest.time) return time < latest.time;
-        return inSequence(seq, latest.seq);
+        const start = Date.now();
+        const body = JSON.stringify(snapshot);
+        const stringTime = Date.now()-start;
+
+        const {time, seq, hash} = snapshot.meta;
+        const gzurl = this.snapshotUrl('snap', time, seq, hash, 'gz');
+        if (DEBUG.snapshot) console.log(this.id, `Controller uploading snapshot (${body.length} bytes, ${stringTime}ms) to ${gzurl}`);
+        return this.uploadGzipped(gzurl, body);
     }
 
     // was uploadSnapshotAndSendToReflector
@@ -415,16 +420,16 @@ export default class Controller {
             messages = this.oldMessages.slice(prevIndex, lastIndex + 1);
         }
         const messageLog = {
-            start: this.snapshotUrl(`${prev.time}_${prev.seq}-snap-${prev.hash}`),
+            start: this.snapshotUrl('snap', prev.time, prev.seq, prev.hash, 'gz'),
             end: snapshotUrl,
             time: [prev.time, last.time],
             seq: [prev.seq, last.seq],
             messages,
         };
-        const url = this.snapshotUrl(`${prev.time}_${prev.seq}-msgs-${prev.hash}`);
+        const gzurl = this.snapshotUrl('msgs', prev.time, prev.seq, prev.hash, 'gz');
         const body = JSON.stringify(messageLog);
-        if (DEBUG.snapshot) console.log(this.id, `Controller uploading latest messages (${body.length} bytes) to ${url}`);
-        this.uploadJSON(url, body);
+        if (DEBUG.snapshot) console.log(this.id, `Controller uploading latest messages (${body.length} bytes) to ${gzurl}`);
+        this.uploadGzipped(gzurl, body);
     }
 
     emergencyUploadIfNeeded() {
@@ -457,6 +462,11 @@ export default class Controller {
     async fetchJSON(url, defaultValue) {
         try {
             const response = await fetch(url, { mode: "cors" });
+            if (url.endsWith('.gz')) {
+                const buffer = await response.arrayBuffer();
+                const jsonString = pako.inflate(new Uint8Array(buffer), { to: 'string' });
+                return JSON.parse(jsonString);
+            }
             return await response.json();
         } catch (err) { /* ignore */}
         return defaultValue;
@@ -471,6 +481,24 @@ export default class Controller {
                 body,
             });
             return url;
+        } catch (e) { /*ignore */ }
+        return false;
+    }
+
+    /** upload a stringy source object as binary gzip */
+    async uploadGzipped(gzurl, stringyContent) {
+const start = Date.now();
+        const chars = new TextEncoder().encode(stringyContent);
+        const bytes = pako.gzip(chars, { level: 1 }); // sloppy but quick
+console.log(`gzipping took ${Date.now()-start}ms`);
+        try {
+            await fetch(gzurl, {
+                method: "PUT",
+                mode: "cors",
+                headers: { "Content-Type": "application/octet-stream" },
+                body: bytes
+            });
+            return gzurl;
         } catch (e) { /*ignore */ }
         return false;
     }
