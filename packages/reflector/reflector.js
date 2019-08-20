@@ -6,19 +6,18 @@ const os = require('os');
 const http = require('http');
 const WebSocket = require('ws');
 
+let cluster = "";
+http.get('http://metadata.google.internal/computeMetadata/v1/instance/attributes/cluster-name',
+    { headers: {'Metadata-Flavor' : 'Google'} },
+    response => response.on('data', data => cluster += data));
+
 // enable cloud profiler & debugger
 require('@google-cloud/profiler').start({
-    serviceContext: {
-        service: 'reflector',
-        version: '0.0.1'
-    }
+    serviceContext: { service: 'reflector' },
 });
 require('@google-cloud/debug-agent').start({
     allowExpressions: true,
-    serviceContext: {
-        service: 'reflector',
-        version: '0.0.1'
-    }
+    serviceContext: { service: 'reflector' },
 });
 
 const port = 9090;
@@ -35,8 +34,8 @@ const hostname = os.hostname();
 const {eth0, en0} = os.networkInterfaces();
 const hostip = (eth0 || en0).find(each => each.family==='IPv4').address;
 
-function LOG(...args) { console.log((new Date()).toISOString(), `Reflector(${hostip}):`, ...args); }
-function WARN(...args) { console.warn((new Date()).toISOString(), `Reflector(${hostip}):`, ...args); }
+function LOG(...args) { console.log((new Date()).toISOString(), `Reflector(${cluster}:${hostip}):`, ...args); }
+function WARN(...args) { console.warn((new Date()).toISOString(), `Reflector(${cluster}:${hostip}):`, ...args); }
 
 // return codes for closing connection
 // client wil try to reconnect for codes < 4100
