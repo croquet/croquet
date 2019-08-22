@@ -631,11 +631,17 @@ function provisionallyDeleteIsland(island) {
 // delete our live record of the island, rewriting latest.json if necessary
 async function deleteIsland(island) {
     const { id, snapshotUrl, seq, storedUrl, storedSeq } = island;
+    // stop ticking and delete
+    stopTicker(island);
+    ALL_ISLANDS.delete(id);
+    // remove ourselves from session registry, ignoring errors
+    // TODO: return this promise along with the other promise below
+    if (cluster !== "local") {
+        storage.bucket('croquet-reflectors-v1').file(`${id}.json`).delete().catch();
+    }
     // if we've been told of a snapshot since the one (if any) stored in this
     // island's latest.json, or there are messages since the snapshot referenced
     // there, write a new latest.json.
-    stopTicker(island);
-    ALL_ISLANDS.delete(id);
     if (snapshotUrl !== storedUrl || after(storedSeq, seq)) {
         const fileName = `${id}/latest.json`;
         LOG("uploading latest.json for", id, "with", island.messages.length, "messages");
