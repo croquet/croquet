@@ -38,7 +38,8 @@ const storage = new Storage();
 const bucket = storage.bucket('croquet-logs-v0');
 
 const port = 9090;
-const SERVER_HEADER = "croquet-reflector";
+const VERSION = "v1";
+const SERVER_HEADER = `croquet-reflector-${VERSION}`;
 const SNAP_TIMEOUT = 30000;   // time in ms to wait for SNAP from island's first client
 const DELETION_DEBOUNCE = 10000; // time in ms to wait before deleting an island
 const TICK_MS = 1000 / 5;     // default tick interval
@@ -52,8 +53,8 @@ const hostname = os.hostname();
 const {eth0, en0} = os.networkInterfaces();
 const hostip = (eth0 || en0).find(each => each.family==='IPv4').address;
 
-function LOG(...args) { console.log((new Date()).toISOString(), `Reflector(${cluster}:${hostip}):`, ...args); }
-function WARN(...args) { console.warn((new Date()).toISOString(), `Reflector(${cluster}:${hostip}):`, ...args); }
+function LOG(...args) { console.log((new Date()).toISOString(), `Reflector-${VERSION}(${cluster}:${hostip}):`, ...args); }
+function WARN(...args) { console.warn((new Date()).toISOString(), `Reflector-${VERSION}(${cluster}:${hostip}):`, ...args); }
 
 // return codes for closing connection
 // client wil try to reconnect for codes < 4100
@@ -78,7 +79,7 @@ const webServer = http.createServer( (req, res) => {
         return res.end();
     }
     // otherwise, show hostname, url, and http headers
-    const body = `Croquet reflector ${hostname} (${cluster}:${hostip})\n${req.method} http://${req.headers.host}${req.url}\n${JSON.stringify(req.headers, null, 4)}`;
+    const body = `Croquet reflector-${VERSION} ${hostname} (${cluster}:${hostip})\n${req.method} http://${req.headers.host}${req.url}\n${JSON.stringify(req.headers, null, 4)}`;
     res.writeHead(200, {
       'Server': SERVER_HEADER,
       'Content-Length': body.length,
