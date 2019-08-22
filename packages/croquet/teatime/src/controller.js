@@ -66,12 +66,6 @@ const Controllers = new Set();
 
 export default class Controller {
 
-    static emergencyUploadIfNeeded() {
-        for (const controller of Controllers) {
-            controller.emergencyUploadIfNeeded();
-        }
-    }
-
     constructor() {
         this.reset();
     }
@@ -93,12 +87,10 @@ export default class Controller {
         this.users = 0;
         /** the number of concurrent users in our island (including spectators) */
         this.usersTotal = 0;
-        /** old snapshots */
-        this.snapshots = [];
-        /** external messages already scheduled in the island */
-        this.oldMessages = [];
         /** CPU time spent simulating since last snapshot */
         this.cpuTime = 0;
+        /** CPU time spent at the point when we realised a snapshot is needed */
+        this.triggeringCpuTime = null;
         // on reconnect, show spinner
         if (this.synced) displaySpinner(true);
         /** @type {Boolean} backlog was below SYNCED_MIN */
@@ -150,7 +142,6 @@ export default class Controller {
 
     dormantDisconnect() {
         if (!this.connected) return;
-        this.emergencyUploadIfNeeded();
         this.connection.dormantDisconnect();
     }
 
@@ -225,45 +216,6 @@ export default class Controller {
 
     lastKnownTime(islandOrSnapshot) { return Math.max(islandOrSnapshot.time, islandOrSnapshot.externalTime); }
 
-    // keep a snapshot in case we need to upload it or for replay.
-    // returns ms taken in creating snapshot.
-    keepSnapshot(snapshot=null) {
-        const lastSnapshot = this.lastSnapshot;
-        // if our last stored snapshot has a time equal to the supplied snapshot
-        // or (if none supplied) to the time limit on our island, don't bother
-        // taking a new one.
-        if (lastSnapshot && this.lastKnownTime(lastSnapshot) === this.lastKnownTime(snapshot || this.island)) {
-            if (DEBUG.snapshot) console.log(`Snapshot for time ${this.lastKnownTime(lastSnapshot)} already in history`);
-            return 0;
-        }
-        const start = Stats.begin("snapshot");
-        if (!snapshot) snapshot = this.takeSnapshot();
-        // keep history
-        this.snapshots.push(snapshot);
-        // limit storage for old snapshots
-        while (this.snapshots.length > 2) this.snapshots.shift();
-        // keep only messages newer than the oldest snapshot
-        const keep = this.snapshots[0].externalSeq + 1 >>> 0;
-        const keepIndex = this.oldMessages.findIndex(msg => inSequence(keep, msg[1]));
-        if (DEBUG.snapshot && keepIndex > 0) console.log(`Deleting old messages from ${this.oldMessages[0][1]} to ${this.oldMessages[keepIndex - 1][1]}`);
-        this.oldMessages.splice(0, keepIndex);
-        return Stats.end("snapshot") - start;
-    }
-
-    // look for a snapshot with the specified meta-properties (hash optional) in
-    // our old-snapshot history
-    findSnapshot(time, seq, hash='') {
-        for (let i = this.snapshots.length - 1; i >= 0; i--) {
-            const snapshot = this.snapshots[i];
-            const meta = snapshot.meta;
-            if (meta.time === time && meta.seq === seq) {
-                if (hash && meta.hash !== hash) throw Error('wrong hash in snapshot');
-                return snapshot;
-            }
-        }
-        return null;
-    }
-
     takeSnapshot() {
         const snapshot = this.island.snapshot();
         const time = Math.max(snapshot.time, snapshot.externalTime);
@@ -282,20 +234,8 @@ export default class Controller {
         return snapshot;
     }
 
-    keepFinalSnapshot() {
-        if (!this.island) return null;
-        // ensure all messages up to this point are in the snapshot
-        for (let msg = this.networkQueue.nextNonBlocking(); msg; msg = this.networkQueue.nextNonBlocking()) {
-           this.island.scheduleExternalMessage(msg);
-        }
-        this.keepSnapshot(); // will take a new snapshot iff needed
-        return this.lastSnapshot;
-    }
-
     // we have spent a certain amount of CPU time on simulating, so schedule a snapshot
     scheduleSnapshot() {
-        this.schedulingSnapshot = false; // whether or not we actually send a message
-
         // abandon if this call (delayed by up to 2s) has been overtaken by a
         // poll initiated by another client.
         const now = this.island.time;
@@ -320,12 +260,16 @@ export default class Controller {
             return;
         }
         this.lastSnapshotPoll = now;
+        const localCpuTime = this.triggeringCpuTime || this.cpuTime;
+        this.triggeringCpuTime = null;
+        this.cpuTime = 0;
 
         const tuttiSeq = this.island.getNextTuttiSeq(); // move it along, even if we won't be using it
         if (this.synced !== true) return;
 
-        const data = { hash: stableStringify(this.island.getSummaryHash()), cpuTime: this.cpuTime + Math.random() }; // fuzzify by 0-1ms to further reduce risk of exact agreement
-        this.sendVote(tuttiSeq, '__snapshotVote__', data);
+        const data = { hash: stableStringify(this.island.getSummaryHash()), cpuTime: localCpuTime + Math.random() }; // fuzzify by 0-1ms to further reduce [already minuscule] risk of exact agreement
+        const voteMessage = [this.id, "handleSnapshotVote", 'snapshotVote']; // topic is ignored
+        this.sendTutti(this.island.time, tuttiSeq, data, null, true, voteMessage);
     }
 
     handleSnapshotVote(data) {
@@ -335,43 +279,32 @@ export default class Controller {
         }
 
         // data is { _local, tuttiSeq, tally } where tally is an object keyed by
-        // the JSON for { cpuTime, hash } with a count for each key (which is
-        // in effect guaranteed to be 1 in each case, because of the cpuTime
-        // precision).
+        // the JSON for { cpuTime, hash } with a count for each key (which we
+        // treat as guaranteed to be 1 in each case, because of the cpuTime
+        // precision and fuzzification).
 
-        // first job is to pull out the cpu times to see if anyone has gone
-        // over the threshold.
         const { _local, tally } = data;
-        const keys = Object.keys(tally);
-        if (!_local || !keys.includes(_local)) {
+        const voteStrings = Object.keys(tally);
+        if (!_local || !voteStrings.includes(_local)) {
             if (DEBUG.snapshot) console.log(this.id, "Snapshot: local vote not found");
+            this.cpuTime = 0; // a snapshot will be taken by someone
             return;
         }
 
         const snapshotFromGroup = (groupHash, announce) => {
             const clientIndices = votesByHash[groupHash];
-            if (clientIndices.length > 1) {
-                clientIndices.sort((a, b) => votes[a].cpuTime - votes[b].cpuTime);
-                if (votes[clientIndices[0]].cpuTime === votes[clientIndices[1]].cpuTime) console.warn(this.id, `Identical snapshot client scores in ${announce ? "consensus" : "non-consensus"} group`);
-            }
+            if (clientIndices.length > 1) clientIndices.sort((a, b) => votes[a].cpuTime - votes[b].cpuTime); // ascending order
             const selectedClient = clientIndices[0];
-            if (keys[selectedClient] === _local) this.serveSnapshot(announce);
-        };
+            if (voteStrings[selectedClient] === _local) this.serveSnapshot(announce);
+            };
 
-        const votes = keys.map(k => JSON.parse(k));
-        let overThreshold = false;
-        for (let i = 0; !overThreshold && i < votes.length; i++) overThreshold = votes[i].cpuTime >= SNAPSHOT_EVERY;
-        if (!overThreshold) return;
-
-        this.cpuTime = 0;
-
-        // now figure out whether there's a consensus on the island hashes
+        // figure out whether there's a consensus on the summary hashes
+        const votes = voteStrings.map(k => JSON.parse(k)); // objects { hash, cpuTime }
         const votesByHash = {};
-        votes.forEach((vote, i) => {
-            const hash = vote.hash;
+        votes.forEach(({ hash }, i) => {
             if (!votesByHash[hash]) votesByHash[hash] = [];
             votesByHash[hash].push(i);
-        });
+            });
         const hashGroups = Object.keys(votesByHash);
         let consensusHash = hashGroups[0];
         if (hashGroups.length > 1) {
@@ -388,25 +321,24 @@ export default class Controller {
     }
 
     serveSnapshot(announce) {
-        const ms = this.keepSnapshot();
+        const start = Stats.begin("snapshot");
+        const snapshot = this.takeSnapshot();
+        const ms = Stats.end("snapshot") - start;
         // exclude snapshot time from cpu time for logic in this.simulate()
         this.cpuTime -= ms;
-        if (DEBUG.snapshot) console.log(this.id, `Controller snapshotting took ${Math.ceil(ms)} ms`);
-        this.uploadLatest(announce);
+        if (DEBUG.snapshot) console.log(this.id, `Snapshotting took ${Math.ceil(ms)} ms`);
+        this.uploadSnapshot(snapshot, announce);
     }
 
     snapshotUrl(filetype, time, seq, hash, optExt) {
-        // name includes JSON options
+        // island name includes JSON options
         const options = this.islandCreator.name.split(/[^A-Z0-9]+/i);
         const sessionName = `${options.filter(_=>_).join('-')}-${this.id}`;
         const base = `${baseUrl('snapshots')}${sessionName}`;
-        let filename;
-        if (filetype === 'latest') filename = 'latest.json';
-        else {
-            const extn = `.json${optExt ? "." + optExt : ""}`;
-            const pad = n => ("" + n).padStart(10, '0');
-            filename = `${pad(time)}_${pad(seq)}-${filetype}-${hash}${extn}`;
-        }
+        const extn = `.json${optExt ? "." + optExt : ""}`;
+        const pad = n => ("" + n).padStart(10, '0');
+        // snapshot time is full precision.  for storage name, we round to nearest ms.
+        const filename = `${pad(Math.round(time))}_${seq}-${filetype}-${hash}${extn}`;
         return `${base}/${filename}`;
     }
 
@@ -429,68 +361,26 @@ export default class Controller {
         return snapshot.meta.hashPromise;
     }
 
-    /** upload a snapshot to the asset server */
-    async uploadSnapshot(snapshot) {
+    /** upload a snapshot to the file server, and optionally inform reflector */
+    async uploadSnapshot(snapshot, announceToReflector=true) {
         await this.hashSnapshot(snapshot);
 
         const start = Date.now();
         const body = JSON.stringify(snapshot);
-        const stringTime = Date.now()-start;
+        const stringMS = Date.now()-start;
 
         const {time, seq, hash} = snapshot.meta;
         const gzurl = this.snapshotUrl('snap', time, seq, hash, 'gz');
-        if (DEBUG.snapshot) console.log(this.id, `Controller uploading snapshot (${body.length} bytes, ${stringTime}ms) to ${gzurl}`);
-        return this.uploadGzipped(gzurl, body);
-    }
-
-    // upload snapshot and message history, and optionally inform reflector
-    async uploadLatest(sendToReflector=true) {
+        if (DEBUG.snapshot) console.log(this.id, `Controller uploading snapshot (${body.length} bytes, ${stringMS}ms) to ${gzurl}`);
         const socket = this.connection.socket;
-        const lastSnapshot = this.lastSnapshot; // make sure it doesn't change under us
-        const prevSnapshot = this.prevSnapshot; // ditto
-        const snapshotUrl = await this.uploadSnapshot(lastSnapshot);
-        // if upload is slow and the reflector loses patience, controller will have been reset
+        const success = await this.uploadGzipped(gzurl, body);
         if (this.connection.socket !== socket) { console.error("Controller was reset while trying to upload snapshot"); return; }
-        if (!snapshotUrl) { console.error("Failed to upload snapshot"); return; }
-        const last = lastSnapshot.meta;
-        if (sendToReflector) this.announceSnapshotUrl(last.time, last.seq, last.hash, snapshotUrl);
-        if (true || !prevSnapshot) return;
-
-        const prev = prevSnapshot.meta;
-        let messages = [];
-        if (prev.seq !== last.seq) {
-            const prevIndex = this.oldMessages.findIndex(msg => inSequence(prev.seq, msg[1]));
-            const lastIndex = this.oldMessages.findIndex(msg => inSequence(last.seq, msg[1]));
-            messages = this.oldMessages.slice(prevIndex, lastIndex + 1);
-        }
-        const messageLog = {
-            start: this.snapshotUrl('snap', prev.time, prev.seq, prev.hash, 'gz'),
-            end: snapshotUrl,
-            time: [prev.time, last.time],
-            seq: [prev.seq, last.seq],
-            messages,
-        };
-        const gzurl = this.snapshotUrl('msgs', prev.time, prev.seq, prev.hash, 'gz');
-        const body = JSON.stringify(messageLog);
-        if (DEBUG.snapshot) console.log(this.id, `Controller uploading latest messages (${body.length} bytes) to ${gzurl}`);
-        this.uploadGzipped(gzurl, body);
-    }
-
-    emergencyUploadIfNeeded() {
-         // cannot wait for asynchronous processes, since page might be closing
-         if (this.users > 1 || !this.island || this.lastSnapshot.meta.seq === this.island.externalSeq) return;
-        const url = this.snapshotUrl('latest');
-        const snapshot = this.keepFinalSnapshot(); // will only take a new snapshot if time has advanced
-        const {time, seq} = snapshot.meta;
-        const body = JSON.stringify({time, seq, snapshot});
-        if (DEBUG.snapshot) console.log(this.id, `emergency upload of snapshot (${time}#${seq}, ${body.length} bytes):`, url);
-        this.uploadJSON(url, body);
+        if (!success) { console.error("Failed to upload snapshot"); return; }
+        if (announceToReflector) this.announceSnapshotUrl(time, seq, hash, gzurl);
     }
 
     // was sendSnapshotToReflector
     announceSnapshotUrl(time, seq, hash, url) {
-        if (DEBUG.snapshot) console.log(this.id, `Controller updating ${this.snapshotUrl('latest')})`);
-        this.uploadJSON(this.snapshotUrl('latest'), JSON.stringify({time, seq, hash, url}));
         if (DEBUG.snapshot) console.log(this.id, `Controller sending snapshot url to reflector (time: ${time}, seq: ${seq}, hash: ${hash}): ${url}`);
         try {
             this.connection.send(JSON.stringify({
@@ -531,10 +421,10 @@ export default class Controller {
 
     /** upload a stringy source object as binary gzip */
     async uploadGzipped(gzurl, stringyContent) {
-const start = Date.now();
+        const start = Date.now();
         const chars = new TextEncoder().encode(stringyContent);
         const bytes = pako.gzip(chars, { level: 1 }); // sloppy but quick
-console.log(`gzipping took ${Date.now()-start}ms`);
+        if (DEBUG.snapshot) console.log(`Snapshot gzipping took ${Date.now()-start}ms`);
         try {
             await fetch(gzurl, {
                 method: "PUT",
@@ -546,12 +436,6 @@ console.log(`gzipping took ${Date.now()-start}ms`);
         } catch (e) { /*ignore */ }
         return false;
     }
-
-    /** the latest snapshot of this island */
-    get lastSnapshot() { return this.snapshots[this.snapshots.length - 1]; }
-
-    /** the snapshot before latest snapshot */
-    get prevSnapshot() { return this.snapshots[this.snapshots.length - 2]; }
 
     checkMetaMessage(_msgData) { /* currently no needs */ }
 
@@ -606,36 +490,14 @@ console.log(`gzipping took ${Date.now()-start}ms`);
         this.lastReceived = this.connection.lastReceived;
         switch (action) {
             case 'START': {
-                // We are starting a new island session.
+                // aug 2019: START is now only sent if the reflector has no record
+                // of this island (in memory or in the snapshot bucket).  this client
+                // has the job of creating the first snapshot for the session.
                 if (DEBUG.session) console.log(this.id, 'Controller received START');
-                // we may have a snapshot from hot reload or reconnect
-                let snapshot = this.islandCreator.snapshot; // could be just the placeholder set up in establishSession (which has no modelsById property)
-                const local = snapshot.modelsById && {
-                    time: snapshot.meta.time,
-                    seq: snapshot.meta.seq,
-                    snapshot,
-                };
-                // see if there is a remote or in-memory snapshot
-                let latest = null, usingRemote = false;
-                if (!DEBUG.init) { // setting "init" option forces ignore of stored snapshots
-                    // in some cases of page reload, the emergency upload can still be in progress by the time we get here.  adding a pause reduces the risk of fetching latest.json prematurely... but it can't help in cases where the reloading browser scraps the upload connection immediately anyway, and it slows down all STARTs for the sake of the few times when it might help.  hence disabled.
-                    //await new Promise(resolve => setTimeout(resolve, 750));
-                    latest = await this.fetchJSON(this.snapshotUrl('latest'));
-                    usingRemote = latest && !(local && local.time >= latest.time); // ael - changed test to >=, since if times are the same surely local is more efficient??
-                    if (!usingRemote) latest = local;
-                }
-                // if we found a remote snapshot that's newer than our local (if any), or only found a local, go with that
-                if (latest) {
-                    console.log(this.id, latest.snapshot ? `using ${usingRemote ? "remote" : "in-memory"} emergency snapshot` : `fetching latest snapshot ${latest.url}`);
-                    snapshot = latest.snapshot || await this.fetchJSON(latest.url);
-                } else snapshot = null; // we found no actual snapshot (e.g., only the placeholder)
-                if (!this.connected) { console.log(this.id, 'socket went away during START'); return; }
-                if (snapshot) this.islandCreator.snapshot = snapshot;
                 this.install();
                 this.requestTicks();
-                this.keepSnapshot(snapshot); // push to our snapshots history (taking a new snapshot if still null here)
-                if (latest && latest.url) this.announceSnapshotUrl(latest.time, latest.seq, latest.hash, latest.url);
-                else this.uploadLatest(true); // upload initial snapshot
+                const snapshot = this.takeSnapshot();
+                this.uploadSnapshot(snapshot, true); // upload initial snapshot, and announce
                 return;
             }
             case 'SYNC': {
@@ -649,17 +511,14 @@ console.log(`gzipping took ${Date.now()-start}ms`);
                     if (typeof msg[2] !== "string") this.convertReflectorMessage(msg);
                 }
                 const snapshot = await this.fetchJSON(url);
-                this.prevSnapshotSpec = { time: snapshot.meta.time, seq: snapshot.meta.seq };
-console.warn(`synced with snapshot:`, this.prevSnapshotSpec);
-                this.islandCreator.snapshot = snapshot;  // set snapshot
+                this.islandCreator.snapshot = snapshot;  // set snapshot for building the island
                 if (!this.connected) { console.log(this.id, 'socket went away during SYNC'); return; }
                 for (const msg of messages) {
                     if (DEBUG.messages) console.log(this.id, 'Controller got message in SYNC ' + JSON.stringify(msg));
-                    msg[1] >>>= 0;      // reflector sends int32, we want uint32
+                    msg[1] >>>= 0; // make sure it's uint32 (reflector used to send int32)
                 }
                 this.install(messages, time);
                 this.getTickAndMultiplier();
-                this.keepSnapshot(snapshot); // push to our snapshots history
                 return;
             }
             case 'RECV': {
@@ -672,10 +531,13 @@ console.warn(`synced with snapshot:`, this.prevSnapshotSpec);
                 // we need to convert the payload to the message format this client is using
                 if (typeof msg[2] !== "string") this.convertReflectorMessage(msg);
                 const time = msg[0];
-                msg[1] >>>= 0;      // reflector sends int32, we want uint32
+                msg[1] >>>= 0; // make sure it's uint32 (reflector used to send int32)
                 // if we sent this message, add it to latency statistics
                 if (msg[3] === this.statistics.id) this.addToStatistics(msg[4]);
                 this.networkQueue.put(msg);
+
+                if (time > 100000 && this.time < 100000) console.warn(`RECV SETTING TIME TO ${time}`, args);
+
                 this.timeFromReflector(time);
                 this.checkMetaMessage(msg);
                 return;
@@ -686,6 +548,9 @@ console.warn(`synced with snapshot:`, this.prevSnapshotSpec);
                 if (!this.island) return; // ignore ticks before we are simulating
                 const time = args;
                 if (DEBUG.ticks) console.log(this.id, 'Controller received TICK ' + time);
+
+                if (time > 100000 && this.time < 100000) console.warn(`TICK SETTING TIME TO ${time}`, args);
+
                 this.timeFromReflector(time);
                 if (this.tickMultiplier) this.multiplyTick(time);
                 return;
@@ -741,6 +606,7 @@ console.warn(`synced with snapshot:`, this.prevSnapshotSpec);
         // our time is the latest of this.time (we may have received a tick already), the island time in the snapshot, and the reflector time at SYNC
         const islandTime = this.lastKnownTime(newIsland);
         if (syncTime && syncTime < islandTime) console.warn(`ignoring SYNC time from reflector (time was ${islandTime.time}, received ${syncTime})`);
+console.warn(`setting time based on this: ${this.time}, island: ${islandTime}, sync: ${syncTime}`);
         this.time = Math.max(this.time, islandTime, syncTime);
         this.setIsland(newIsland); // make this our island
         resolveIslandPromise(this.island);
@@ -749,7 +615,6 @@ console.warn(`synced with snapshot:`, this.prevSnapshotSpec);
     setIsland(island) {
         this.island = island;
         this.island.controller = this;
-        viewDomain.addSubscription(island.id, "__snapshotVote__", this, data => this.handleSnapshotVote(data), "immediate");
     }
 
     // create an island in its initial state
@@ -784,17 +649,16 @@ console.warn(`synced with snapshot:`, this.prevSnapshotSpec);
     }
 
     // either the connection has been broken or the reflector has sent LEAVE
-    leave(preserveSnapshot) {
+    leave() {
         if (this.connected) {
             console.log(this.id, `Controller LEAVING session for ${this.islandCreator.name}`);
             this.connection.send(JSON.stringify({ id: this.id, action: 'LEAVING' }));
         }
         Controllers.delete(this);
         const {destroyerFn} = this.islandCreator;
-        const snapshot = preserveSnapshot && destroyerFn && this.keepFinalSnapshot();
         this.reset();
         if (!this.islandCreator) throw Error("do not discard islandCreator!");
-        if (destroyerFn) destroyerFn(snapshot);
+        if (destroyerFn) destroyerFn();
     }
 
     /** send a Message to all island replicas via reflector
@@ -905,8 +769,6 @@ console.warn(`synced with snapshot:`, this.prevSnapshotSpec);
                 if (!msgData) break;
                 // have the island decode and schedule that message
                 const msg = this.island.scheduleExternalMessage(msgData);
-                // remember msgData for upload / replay
-                this.oldMessages.push(msgData);
                 // boost cpuTime by a fixed cost per message, to impose an upper limit on
                 // the number of messages we'll accumulate before taking a snapshot
                 this.cpuTime += EXTERNAL_MESSAGE_CPU_PENALTY;
@@ -923,8 +785,9 @@ console.warn(`synced with snapshot:`, this.prevSnapshotSpec);
                 displaySpinner(!this.synced);
                 this.island.publishFromView(this.viewId, "synced", this.synced);
             }
-            if (weHaveTime && this.cpuTime > SNAPSHOT_EVERY && !this.schedulingSnapshot) {
-                this.schedulingSnapshot = true;
+            if (weHaveTime && this.cpuTime > SNAPSHOT_EVERY) {
+                this.triggeringCpuTime = this.cpuTime;
+                this.cpuTime = 0;
                 // first level of defence against clients simultaneously deciding
                 // that it's time to take a snapshot: stagger pollForSnapshot sends,
                 // so we might have heard from someone else before we send.
@@ -974,11 +837,6 @@ console.warn(`synced with snapshot:`, this.prevSnapshotSpec);
         }, ms);
     }
 }
-
-// upload snapshot when the page gets unloaded.
-// no problem if both events are triggered.
-window.addEventListener('beforeunload', () => Controller.emergencyUploadIfNeeded());
-window.addEventListener('unload', () => Controller.emergencyUploadIfNeeded());
 
 // Socket Connection
 

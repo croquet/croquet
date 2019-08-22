@@ -480,6 +480,10 @@ export default class Island {
         this.controller.pollForSnapshot();
     }
 
+    handleSnapshotVote(_topic, data) {
+        this.controller.handleSnapshotVote(data);
+    }
+
     snapshot() {
         const writer = new IslandWriter(this);
         return writer.snapshot(this, "$");
