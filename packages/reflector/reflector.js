@@ -7,19 +7,30 @@ const http = require('http');
 const WebSocket = require('ws');
 const { Storage } = require('@google-cloud/storage');
 
-// enable cloud profiler & debugger
-require('@google-cloud/profiler').start({
-    serviceContext: {
-        service: 'reflector',
-        version: '0.0.1'
+// Get cluster info from Google Cloud (for logging).
+// Only start Debugger & Profiler if successful.
+let cluster = "";
+http.get('http://metadata.google.internal/computeMetadata/v1/instance/attributes/cluster-name',
+    { headers: {'Metadata-Flavor' : 'Google'} },
+    response => {
+        response.on('data', data => cluster += data);
+        response.on('end', () => {
+            // eslint-disable-next-line global-require
+            require('@google-cloud/profiler').start({
+                serviceContext: { service: 'reflector' },
+            });
+            // eslint-disable-next-line global-require
+            require('@google-cloud/debug-agent').start({
+                allowExpressions: true,
+                serviceContext: { service: 'reflector' },
+            });
+            // start serving
+            startServer();
+        });
     }
-});
-require('@google-cloud/debug-agent').start({
-    allowExpressions: true,
-    serviceContext: {
-        service: 'reflector',
-        version: '0.0.1'
-    }
+).on("error", () => {
+    cluster = "local";
+    startServer();
 });
 
 // we now use Google Cloud Storage for message logs
@@ -41,8 +52,8 @@ const hostname = os.hostname();
 const {eth0, en0} = os.networkInterfaces();
 const hostip = (eth0 || en0).find(each => each.family==='IPv4').address;
 
-function LOG(...args) { console.log((new Date()).toISOString(), `Reflector(${hostip}):`, ...args); }
-function WARN(...args) { console.warn((new Date()).toISOString(), `Reflector(${hostip}):`, ...args); }
+function LOG(...args) { console.log((new Date()).toISOString(), `Reflector(${cluster}:${hostip}):`, ...args); }
+function WARN(...args) { console.warn((new Date()).toISOString(), `Reflector(${cluster}:${hostip}):`, ...args); }
 
 // return codes for closing connection
 // client wil try to reconnect for codes < 4100
@@ -67,7 +78,7 @@ const webServer = http.createServer( (req, res) => {
         return res.end();
     }
     // otherwise, show hostname, url, and http headers
-    const body = `Croquet reflector ${hostname} (${hostip})\n${req.method} http://${req.headers.host}${req.url}\n${JSON.stringify(req.headers, null, 4)}`;
+    const body = `Croquet reflector ${hostname} (${cluster}:${hostip})\n${req.method} http://${req.headers.host}${req.url}\n${JSON.stringify(req.headers, null, 4)}`;
     res.writeHead(200, {
       'Server': SERVER_HEADER,
       'Content-Length': body.length,
@@ -77,8 +88,11 @@ const webServer = http.createServer( (req, res) => {
   });
 // the WebSocket.Server will intercept the UPGRADE request made by a ws:// websocket connection
 const server = new WebSocket.Server({ server: webServer });
-webServer.listen(port);
-LOG(`starting ${server.constructor.name} ws://${hostname}:${server.address().port}/`);
+
+function startServer() {
+    webServer.listen(port);
+    LOG(`starting ${server.constructor.name} ws://${hostname}:${server.address().port}/`);
+}
 
 const STATS_TO_AVG = ["RECV", "SEND", "TICK", "IN", "OUT"];
 const STATS_TO_MAX = ["USERS", "BUFFER"];
@@ -652,7 +666,7 @@ server.on('connection', (client, req) => {
         client.send(data);
         STATS.OUT += data.length;
     };
-    LOG(`connection #${server.clients.size} from ${client.addr}`);
+    LOG(`connection #${server.clients.size} from ${client.addr} ${req.headers['x-location']}`);
     STATS.USERS = Math.max(STATS.USERS, server.clients.size);
 
     let lastActivity = Date.now();
