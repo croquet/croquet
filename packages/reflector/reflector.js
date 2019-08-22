@@ -598,7 +598,7 @@ server.on('connection', (client, req) => {
         client.send(data);
         STATS.OUT += data.length;
     };
-    LOG(`connection #${server.clients.size} from ${client.addr} ${JSON.stringify(client.location)}`);
+    LOG(`connection #${server.clients.size} from ${client.addr} ${req.headers['x-location']}`);
     STATS.USERS = Math.max(STATS.USERS, server.clients.size);
 
     let lastActivity = Date.now();
