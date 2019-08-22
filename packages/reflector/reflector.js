@@ -33,9 +33,9 @@ http.get('http://metadata.google.internal/computeMetadata/v1/instance/attributes
     startServer();
 });
 
-// we now use Google Cloud Storage for message logs
+// we use Google Cloud Storage for session state
 const storage = new Storage();
-const bucket = storage.bucket('croquet-logs-v0');
+const bucket = storage.bucket('croquet-sessions-v1');
 
 const port = 9090;
 const VERSION = "v1";
