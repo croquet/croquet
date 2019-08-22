@@ -126,13 +126,15 @@ let aborted = false;
 function handleTerm() {
     if (!aborted) {
         aborted = true;
-        console.log(`\nEMERGENCY SHUTDOWN OF ${ALL_ISLANDS.size} ISLAND(S)`);
         const promises = [];
         for (const [_id, island] of ALL_ISLANDS.entries()) {
             if (island.deletionTimeout) clearTimeout(island.deletionTimeout);
             promises.push(deleteIsland(island));
         }
-        Promise.all(promises).then(() => process.exit());
+        if (promises.length) {
+            console.log(`\nEMERGENCY SHUTDOWN OF ${promises.length} ISLAND(S)`);
+            Promise.all(promises).then(() => process.exit());
+        } else process.exit();
     }
 }
 process.on('SIGINT', handleTerm);
