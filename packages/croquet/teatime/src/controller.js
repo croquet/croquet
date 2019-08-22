@@ -24,7 +24,7 @@ export const SDK_VERSION = process.env.CROQUET_VERSION || "<unknown>";
 console.log("Croquet SDK " + SDK_VERSION);
 
 
-const PUBLIC_REFLECTOR = `wss://reflector.croquet.studio`;
+const PUBLIC_REFLECTOR = `wss://reflector.croquet.studio/v${VERSION}`;
 const DEFAULT_REFLECTOR = process.env.CROQUET_REFLECTOR || PUBLIC_REFLECTOR;    // replaced by parcel at build time from app's .env file
 
 const codeHashes = null; // individual codeHashes are not uploaded for now, will need to re-add for replay
