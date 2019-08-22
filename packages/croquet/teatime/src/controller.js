@@ -535,9 +535,6 @@ export default class Controller {
                 // if we sent this message, add it to latency statistics
                 if (msg[3] === this.statistics.id) this.addToStatistics(msg[4]);
                 this.networkQueue.put(msg);
-
-                if (time > 100000 && this.time < 100000) console.warn(`RECV SETTING TIME TO ${time}`, args);
-
                 this.timeFromReflector(time);
                 this.checkMetaMessage(msg);
                 return;
@@ -548,9 +545,6 @@ export default class Controller {
                 if (!this.island) return; // ignore ticks before we are simulating
                 const time = args;
                 if (DEBUG.ticks) console.log(this.id, 'Controller received TICK ' + time);
-
-                if (time > 100000 && this.time < 100000) console.warn(`TICK SETTING TIME TO ${time}`, args);
-
                 this.timeFromReflector(time);
                 if (this.tickMultiplier) this.multiplyTick(time);
                 return;
