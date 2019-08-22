@@ -606,7 +606,6 @@ export default class Controller {
         // our time is the latest of this.time (we may have received a tick already), the island time in the snapshot, and the reflector time at SYNC
         const islandTime = this.lastKnownTime(newIsland);
         if (syncTime && syncTime < islandTime) console.warn(`ignoring SYNC time from reflector (time was ${islandTime.time}, received ${syncTime})`);
-console.warn(`setting time based on this: ${this.time}, island: ${islandTime}, sync: ${syncTime}`);
         this.time = Math.max(this.time, islandTime, syncTime);
         this.setIsland(newIsland); // make this our island
         resolveIslandPromise(this.island);
