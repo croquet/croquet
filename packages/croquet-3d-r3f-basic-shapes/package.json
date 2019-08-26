@@ -1,6 +1,6 @@
 {
   "name": "@croquet/3d-r3f-basic-shapes",
-  "version": "0.1.1-lerna.2",
+  "version": "0.1.1-lerna.3",
   "main": "dist/index.js",
   "types": "dist/types.d.ts",
   "scripts": {
