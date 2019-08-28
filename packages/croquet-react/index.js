@@ -23,8 +23,9 @@ export function useObservable(model) {
     useEffect(() => {
         // cleanup
         return () => {
-            for (const prop of actuallyObservedProps) {
+            for (const prop of Object.keys(actuallyObservedProps)) {
                 croquetContext.view.unsubscribeFromPropertyChange(model, prop);
+                delete actuallyObservedProps[prop];
             }
         };
     }, [model]);
