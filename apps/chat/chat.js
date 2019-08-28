@@ -83,7 +83,7 @@ class ChatView extends View {
     constructor(model) {
         super(model);
         const sendButton = document.getElementById("sendButton");
-        sendButton.addEventListener("click", event => this.onSendClick(event), false);
+        sendButton.onclick = event => this.onSendClick(event);
         this.subscribe("history", "update", history => this.refreshHistory(history));
         this.refreshHistory(model.history);
     }

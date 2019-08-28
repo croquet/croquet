@@ -1,6 +1,5 @@
 import SeedRandom from "seedrandom/seedrandom";
 import PriorityQueue from "@croquet/util/priorityQueue";
-import stableStringify from "fast-json-stable-stringify";
 import "@croquet/math"; // creates window.CroquetMath
 import { displayWarning, displayAppError } from "@croquet/util/html";
 import Model from "./model";
@@ -164,6 +163,11 @@ export default class Island {
     set(modelName, model) {
         if (CurrentIsland !== this) throw Error("Island Error");
         this.modelsByName[modelName] = model;
+    }
+
+    getNextTuttiSeq() {
+        this.tuttiSeq = (this.tuttiSeq + 1) >>> 0;
+        return this.tuttiSeq;
     }
 
     // Send via reflector
@@ -403,7 +407,7 @@ export default class Island {
         // because making them async would mean having to use future messages
         if (CurrentIsland !== this) throw Error("Island Error");
         if (reflect) {
-            this.tuttiSeq = (this.tuttiSeq + 1) >>> 0; // increment, whether we send or not
+            const tuttiSeq = this.getNextTuttiSeq(); // increment, whether we send or not
             if (this.controller.synced !== true) return;
 
             const voteTopic = topic + VOTE_SUFFIX;
@@ -412,14 +416,13 @@ export default class Island {
             if (wantsVote && wantsDiverge) console.log(`divergence subscription for ${topic} overridden by vote subscription`);
             // iff there are subscribers to a first message, build a candidate for the message that should be broadcast
             const firstMessage = wantsFirst ? new Message(this.time, 0, this.id, "handleModelEventInModel", [topic, data]) : null;
-            const payload = stableStringify(data); // stable, to rule out platform differences
             // provide the receiver, selector and topic for any eventual tally response from the reflector.
             // if there are subscriptions to a vote, it'll be a handleModelEventInView with
             // the vote-augmented topic.  if not, default to our handleTuttiDivergence.
             let tallyTarget;
             if (wantsVote) tallyTarget = [this.id, "handleModelEventInView", voteTopic];
             else tallyTarget = [this.id, "handleTuttiDivergence", divergenceTopic];
-            this.controller.sendTutti(this.time, this.tuttiSeq, payload, firstMessage, wantsVote, tallyTarget);
+            this.controller.sendTutti(this.time, tuttiSeq, data, firstMessage, wantsVote, tallyTarget);
         } else if (this.subscriptions[topic]) {
             for (const handler of this.subscriptions[topic]) {
                 const [id, ...rest] = handler.split('.');
@@ -473,8 +476,12 @@ export default class Island {
         return inViewRealm(this, () => viewDomain.processFrameEvents(!!this.controller.synced));
     }
 
-    scheduledSnapshot() {
-        this.controller.scheduledSnapshot();
+    pollForSnapshot() {
+        this.controller.pollForSnapshot();
+    }
+
+    handleSnapshotVote(_topic, data) {
+        this.controller.handleSnapshotVote(data);
     }
 
     snapshot() {

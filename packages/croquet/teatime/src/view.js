@@ -78,7 +78,7 @@ class View {
      * @public
      */
     detach() {
-        this.realm.unsubscribeAll(this.id);
+        this.unsubscribeAll();
         this.realm.deregister(this);
         Object.defineProperty(this, "id", {  value: "" });
     }

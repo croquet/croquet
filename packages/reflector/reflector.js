@@ -5,6 +5,7 @@
 const os = require('os');
 const http = require('http');
 const WebSocket = require('ws');
+const { Storage } = require('@google-cloud/storage');
 
 // Get cluster info from Google Cloud (for logging).
 // Only start Debugger & Profiler if successful.
@@ -32,9 +33,15 @@ http.get('http://metadata.google.internal/computeMetadata/v1/instance/attributes
     startServer();
 });
 
+// we use Google Cloud Storage for session state
+const storage = new Storage();
+const bucket = storage.bucket('croquet-sessions-v1');
+
 const port = 9090;
-const SERVER_HEADER = "croquet-reflector";
+const VERSION = "v1";
+const SERVER_HEADER = `croquet-reflector-${VERSION}`;
 const SNAP_TIMEOUT = 30000;   // time in ms to wait for SNAP from island's first client
+const DELETION_DEBOUNCE = 10000; // time in ms to wait before deleting an island
 const TICK_MS = 1000 / 5;     // default tick interval
 const ARTIFICIAL_DELAY = 0;   // delay messages randomly by 50% to 150% of this
 const MAX_MESSAGES = 10000;   // messages per island to retain since last snapshot
@@ -46,8 +53,8 @@ const hostname = os.hostname();
 const {eth0, en0} = os.networkInterfaces();
 const hostip = (eth0 || en0).find(each => each.family==='IPv4').address;
 
-function LOG(...args) { console.log((new Date()).toISOString(), `Reflector(${cluster}:${hostip}):`, ...args); }
-function WARN(...args) { console.warn((new Date()).toISOString(), `Reflector(${cluster}:${hostip}):`, ...args); }
+function LOG(...args) { console.log((new Date()).toISOString(), `Reflector-${VERSION}(${cluster}:${hostip}):`, ...args); }
+function WARN(...args) { console.warn((new Date()).toISOString(), `Reflector-${VERSION}(${cluster}:${hostip}):`, ...args); }
 
 // return codes for closing connection
 // client wil try to reconnect for codes < 4100
@@ -72,7 +79,7 @@ const webServer = http.createServer( (req, res) => {
         return res.end();
     }
     // otherwise, show hostname, url, and http headers
-    const body = `Croquet reflector ${hostname} (${cluster}:${hostip})\n${req.method} http://${req.headers.host}${req.url}\n${JSON.stringify(req.headers, null, 4)}`;
+    const body = `Croquet reflector-${VERSION} ${hostname} (${cluster}:${hostip})\n${req.method} http://${req.headers.host}${req.url}\n${JSON.stringify(req.headers, null, 4)}`;
     res.writeHead(200, {
       'Server': SERVER_HEADER,
       'Content-Length': body.length,
@@ -98,10 +105,10 @@ for (const key of STATS_KEYS) STATS[key] = 0;
 
 setInterval(showStats, 10000);
 
-// if running on node, log stats to file
-const appendFile = (typeof process !== 'undefined') && require("fs").appendFile; // eslint-disable-line global-require
+// assume we're now always running on node, so fs is available
+const appendFile = require("fs").appendFile; // eslint-disable-line global-require
 
-const fileName = "stats.txt";
+const statsFileName = "stats.txt";
 
 function showStats() {
     const time = Date.now();
@@ -122,10 +129,31 @@ function showStats() {
     LOG(out.join(', '));
     if (appendFile) {
         const line = `${(new Date(time)).toISOString().slice(0, 19)}Z ${STATS_KEYS.map(key => STATS[key]).join(' ')}\n`;
-        appendFile(fileName, line, _err => { });
+        appendFile(statsFileName, line, _err => { });
     }
     for (const key of STATS_KEYS) STATS[key] = 0;
 }
+
+// Begin reading from stdin so the process does not exit (see https://nodejs.org/api/process.html)
+process.stdin.resume();
+
+let aborted = false;
+function handleTerm() {
+    if (!aborted) {
+        aborted = true;
+        const promises = [];
+        for (const [_id, island] of ALL_ISLANDS.entries()) {
+            if (island.deletionTimeout) clearTimeout(island.deletionTimeout);
+            promises.push(deleteIsland(island));
+        }
+        if (promises.length) {
+            console.log(`\nEMERGENCY SHUTDOWN OF ${promises.length} ISLAND(S)`);
+            Promise.all(promises).then(() => process.exit());
+        } else process.exit();
+    }
+}
+process.on('SIGINT', handleTerm);
+process.on('SIGTERM', handleTerm);
 
 /**
  * @typedef ID - A random 128 bit hex ID
@@ -178,6 +206,31 @@ function getTime(island) {
     return island.time;
 }
 
+function nonSavableProps() {
+    return {
+        delay: 0,            // hold messages until this many ms after last tick
+        lag: 0,              // aggregate ms lag in tick requests
+        clients: new Set(),  // connected web sockets
+        usersJoined: [],     // the users who joined since last report
+        usersLeft: [],       // the users who left since last report
+        ticker: null,        // interval for serving TICKs
+        before: Date.now(),  // last getTime() call
+        yetToCheckLatest: true, // flag used while fetching latest.json during startup
+        storedUrl: null,     // url of snapshot in latest.json (null before we've checked latest.json)
+        storedSeq: -1,       // seq of last message in latest.json message addendum
+        startTimeout: null,  // pending START request timeout (should send SNAP)
+        deletionTimeout: null, // pending deletion after all clients disconnect
+        syncClients: [],     // clients waiting to SYNC
+        tallies: {},
+        [Symbol.toPrimitive]: () => "dummy",
+        };
+}
+
+function savableKeys(island) {
+    const nonSavable = nonSavableProps(); // make a new one
+    return Object.keys(island).filter(key => !Object.prototype.hasOwnProperty.call(nonSavable, key));
+}
+
 /** A new island controller is joining
  * @param {Client} client - we received from this client
  * @param {ID} id - island ID
@@ -190,7 +243,7 @@ function JOIN(client, id, args) {
     }
 
     LOG('received', client.addr, 'JOIN', id, args);
-    const { time, name, version, user } = args;
+    const { name, version, user } = args;
     if (user) {
         // strip off any existing user info
         const baseAddr = client.addr.split(' [')[0];
@@ -206,30 +259,27 @@ function JOIN(client, id, args) {
         id,                  // the island id
         name,                // the island name, including options (or could be null)
         version,             // the client version
-        time,                // the current simulation time
+        time: 0,             // the current simulation time
         seq: 0,              // sequence number for messages (uint32, wraps around)
         scale: 1,            // ratio of island time to wallclock time
         tick: TICK_MS,       // default tick rate
-        delay: 0,            // hold messages until this many ms after last tick
-        lag: 0,              // aggregate ms lag in tick requests
-        clients: new Set(),  // connected web sockets
-        usersJoined: [],     // the users who joined since last report
-        usersLeft: [],       // the users who left since last report
         snapshotTime: -1,    // time of last snapshot
+        snapshotSeq: null,   // seq of last snapshot
         snapshotUrl: '',     // url of last snapshot
-        pendingSnapshotTime: -1, // time of pending snapshot
         messages: [],        // messages since last snapshot
-        before: Date.now(),  // last getTime() call
         lastTick: 0,         // time of last TICK sent
         lastMsgTime: 0,      // time of last message reflected
-        ticker: null,        // interval for serving TICKs
-        startTimeout: null,   // pending START request timeout (should send SNAP)
-        syncClients: [],     // clients waiting to SYNC
-        tallies: {},
         lastCompletedTally: null,
+        ...nonSavableProps(),
         [Symbol.toPrimitive]: () => `${name} ${id}`,
-    };
+        };
     ALL_ISLANDS.set(id, island);
+
+    // if we had provisionally scheduled deletion of the island, cancel that
+    if (island.deletionTimeout) {
+        clearTimeout(island.deletionTimeout);
+        island.deletionTimeout = null;
+    }
 
     // start broadcasting messages to client
     island.clients.add(client);
@@ -240,10 +290,33 @@ function JOIN(client, id, args) {
     // if we have a current snapshot, reply with that
     if (island.snapshotUrl) { SYNC(island); return; }
 
-    // if first client, start it
-    if (!island.startTimeout) { START(); return; }
+    // if we haven't yet checked latest.json, look there first
+    if (island.yetToCheckLatest) {
+        island.yetToCheckLatest = false;
+        const fileName = `${id}/latest.json`;
+        fetchJSON(fileName)
+        .then(latestSpec => {
+            LOG("spec from latest.json: snapshot url ", latestSpec.snapshotUrl, "number of messages", latestSpec.messages.length);
+            savableKeys(island).forEach(key => island[key] = latestSpec[key]);
+            island.storedUrl = latestSpec.snapshotUrl;
+            island.storedSeq = latestSpec.seq;
+            if (island.tick) startTicker(island, island.tick);
+            if (island.syncClients.length > 0) SYNC(island);
+        }).catch(err => {
+            LOG(err.message);
+            island.storedUrl = ''; // replace the null that means we haven't looked
+            START();
+        });
 
-    // otherwise, the first client has not started yet (not provided a snapshot via SNAP)
+        return;
+    }
+
+    // if we've checked latest.json, and updated storedUrl (but not snapshotUrl,
+    // as checked above), this must be a brand new island.  send a START.
+    if (island.storedUrl !== null && !island.startTimeout) { START(); return; }
+
+    // otherwise, nothing to do at this point.  log that this client is waiting
+    // for a snapshot either from latest.json or from a STARTed client.
     console.log(`>>> client ${client.addr} waiting for snapshot`);
 
     function START() {
@@ -294,7 +367,7 @@ function LEAVING(client, id) {
     const island = ALL_ISLANDS.get(id);
     if (!island) return;
     island.clients.delete(client);
-    if (island.clients.size === 0) deleteIsland(island);
+    if (island.clients.size === 0) provisionallyDeleteIsland(island);
     else userDidLeave(island, client);
 }
 
@@ -324,41 +397,52 @@ function after(seqA, seqB) {
 function SNAP(client, id, args) {
     const island = ALL_ISLANDS.get(id);
     if (!island) { if (client.readyState === WebSocket.OPEN) client.close(...REASON.UNKNOWN_ISLAND); return; }
-    const { time, seq, hash, url } = args;
+
+    const { time, seq, hash, url } = args; // details of the snapshot that has been uploaded
+
+    // to decide if the announced snapshot deserves to replace the existing one we
+    // compare times rather than message seq, since (at least in principle) a new
+    // snapshot can be taken after some elapsed time but no additional external messages.
     if (time <= island.snapshotTime) return;
+
     LOG(`${island} got snapshot ${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'}`);
-    if (!url) {
-        // if another client was faster, ignore
-        if (time <= island.pendingSnapshotTime) return;
-        island.pendingSnapshotTime = time;
-        // if no url, tell that client (the fastest one) to upload it
-        const serveMsg = JSON.stringify({ id, action: 'HASH', args: { ...args, serve: true } });
-        LOG('sending', client.addr, serveMsg);
-        client.safeSend(serveMsg);
-        // and tell everyone else the hash
-        const others = [...island.clients].filter(each => each !== client);
-        if (others.length > 0) {
-            const hashMsg = JSON.stringify({ id, action: 'HASH', args: { ...args, serve: false } });
-            LOG('sending to', others.length, 'other clients:', hashMsg);
-            others.forEach(each => each.safeSend(hashMsg));
-        }
-        return;
-    }
-    // keep snapshot
-    island.snapshotTime = time;
-    island.snapshotUrl = url;
-    // forget older messages
-    if (island.messages.length > 0) {
-        const msgs = island.messages;
+
+    // forget older messages, setting aside the ones that need to be stored
+    let messagesToStore = [];
+    const msgs = island.messages;
+    if (msgs.length > 0) {
         const keep = msgs.findIndex(msg => after(seq, msg[1]));
         if (keep > 0) {
             LOG(`${island} forgetting messages #${msgs[0][1] >>> 0} to #${msgs[keep - 1][1] >>> 0} (keeping #${msgs[keep][1] >>> 0})`);
-            msgs.splice(0, keep);
+            messagesToStore = msgs.splice(0, keep); // we'll store all those we're forgetting
         } else if (keep === -1) {
             LOG(`${island} forgetting all messages (#${msgs[0][1] >>> 0} to #${msgs[msgs.length - 1][1] >>> 0})`);
+            messagesToStore = msgs.slice();
             msgs.length = 0;
         }
     }
+
+    if (messagesToStore.length) {
+        // upload to the message-log bucket a blob with all messages since the previous snapshot
+        const messageLog = {
+            start: island.snapshotUrl,  // previous snapshot, if any
+            end: url,                   // new snapshot
+            time: [island.snapshotTime, time],
+            seq: [island.snapshotSeq, seq], // snapshotSeq will be null first time through
+            messagesToStore,
+        };
+        const pad = n => (""+n).padStart(10, '0');
+        const firstSeq = messagesToStore[0][1] >>> 0;
+        const logName = `${id}/${pad(time)}_${firstSeq}-${seq}-${hash}.json`;
+        LOG("uploading messages between times ", island.snapshotTime, "and", time, `(seqs ${firstSeq} to ${seq})`, "to", logName);
+        uploadJSON(logName, messageLog);
+    }
+
+    // keep snapshot
+    island.snapshotTime = time;
+    island.snapshotSeq = seq;
+    island.snapshotUrl = url;
+
     // start waiting clients
     if (island.startTimeout) { clearTimeout(island.startTimeout); island.startTimeout = null; }
     if (island.syncClients.length > 0) SYNC(island);
@@ -380,7 +464,7 @@ function SEND(client, id, messages) {
     for (const message of messages) {
         // message = [time, seq, payload, ...] - keep whatever controller.sendMessage sends
         message[0] = time;
-        message[1] = island.seq = (island.seq + 1) | 0;               // clients before V1 expect int32
+        message[1] = island.seq = (island.seq + 1) >>> 0; // seq is always uint32
         const msg = JSON.stringify({ id, action: 'RECV', args: message });
         //LOG("broadcasting RECV", message);
         STATS.RECV++;
@@ -406,6 +490,7 @@ function TUTTI(client, id, args) {
     if (!island) { if (client && client.readyState === WebSocket.OPEN) client.close(...REASON.UNKNOWN_ISLAND); return; }
 
     const [ sendTime, tuttiSeq, payload, firstMsg, wantsVote, tallyTarget ] = args;
+console.log({sendTime, tuttiSeq, payload});
     const tallyHash = `${tuttiSeq}:${sendTime}`;
     function tallyComplete() {
         const tally = island.tallies[tallyHash];
@@ -486,6 +571,8 @@ function PONG(client, args) {
  * @param {IslandData} island
  */
 function TICK(island) {
+    if (island.clients.length === 0) return; // probably in provisional island deletion
+
     const { id, usersJoined, usersLeft, lastMsgTime, tick, scale } = island;
     if (usersJoined.length + usersLeft.length > 0) { USERS(island); return; }
     const time = getTime(island);
@@ -536,48 +623,36 @@ function stopTicker(island) {
     //console.log("STOPPED TICKS");
 }
 
-// map island hashes to island/session ids
-const SESSIONS = {};
-
-function sessionIdForHash(hash) {
-    if (!SESSIONS[hash]) SESSIONS[hash] = ("" + Math.random()).slice(2, 8); // 6 digits should be more than enough
-
-    return `${hash}-${SESSIONS[hash]}`;
+// impose a delay on island deletion, in case clients are only going away briefly
+function provisionallyDeleteIsland(island) {
+    if (!island.deletionTimeout) island.deletionTimeout = setTimeout(() => deleteIsland(island), DELETION_DEBOUNCE);
 }
 
-/** client is requesting a session for an island
- * @param {Client} client - we received from this client
- * @param {ID} hash - island hash
- * @param {*} args
- */
-function SESSION(client, hash, args) {
-    if (!args) args = {};
-    const id = sessionIdForHash(hash);
-    const response = JSON.stringify({ action: 'SESSION', args: { hash, id } });
-    LOG(`SESSION ${client.addr} for ${hash} is ${id}`);
-    client.safeSend(response);
-}
-
-/** client is requesting a session reset
- * @param {Client} client - we received from this client
- * @param {ID} hash - island hash
- */
-function SESSION_RESET(client, hash) {
-    const oldID = sessionIdForHash(hash);
-    const island = ALL_ISLANDS.get(oldID);
-    if (island) deleteIsland(island);
-    delete SESSIONS[hash]; // force a new ID...
-    LOG(`SESSION_RESET ${hash}; new ID is ${sessionIdForHash(hash)}`); // ...which will be generated by this!
-}
-
-function deleteIsland(island) {
-    const { id } = island;
-    const msg = JSON.stringify({ id, action: 'LEAVE' });
-    for (const client of island.clients) {
-        client.safeSend(msg);
-    }
+// delete our live record of the island, rewriting latest.json if necessary
+async function deleteIsland(island) {
+    const { id, snapshotUrl, seq, storedUrl, storedSeq } = island;
+    // stop ticking and delete
     stopTicker(island);
     ALL_ISLANDS.delete(id);
+    // remove ourselves from session registry, ignoring errors
+    // TODO: return this promise along with the other promise below
+    if (cluster !== "local") {
+        storage.bucket('croquet-reflectors-v1').file(`${id}.json`).delete().catch();
+    }
+    // if we've been told of a snapshot since the one (if any) stored in this
+    // island's latest.json, or there are messages since the snapshot referenced
+    // there, write a new latest.json.
+    if (snapshotUrl !== storedUrl || after(storedSeq, seq)) {
+        const fileName = `${id}/latest.json`;
+        LOG("uploading latest.json for", id, "with", island.messages.length, "messages");
+        const latestSpec = {};
+        savableKeys(island).forEach(key => latestSpec[key] = island[key]);
+        // wind the saved island time back to the later of the last snapshot and the last message
+        latestSpec.time = Math.max(island.snapshotTime, island.lastMsgTime);
+        latestSpec.lastTick = island.time;
+        return uploadJSON(fileName, latestSpec);
+    }
+    return true;
 }
 
 
@@ -654,8 +729,6 @@ server.on('connection', (client, req) => {
                 case 'SNAP': SNAP(client, id, args); break;
                 case 'LEAVING': LEAVING(client, id); break;
                 case 'PING': PONG(client, args); break;
-                case 'SESSION': SESSION(client, id, args); break;
-                case 'SESSION_RESET': SESSION_RESET(client, id); break;
                 case 'PULSE': LOG('PULSE', client.addr); break; // nothing to do
                 default: WARN("unknown action", action);
             }
@@ -674,12 +747,45 @@ server.on('connection', (client, req) => {
         for (const island of ALL_ISLANDS.values()) {
             if (!island.clients.has(client)) continue;
             island.clients.delete(client);
-            if (island.providers) island.providers.delete(client);  // only in v0
-            if (island.clients.size === 0) deleteIsland(island);
+            if (island.clients.size === 0) provisionallyDeleteIsland(island);
             else userDidLeave(island, client);
         }
     });
 });
+
+/** fetch a JSON-encoded object from our storage bucket */
+async function fetchJSON(filename) {
+    const file = bucket.file(filename);
+    const stream = await file.createReadStream();
+    return new Promise((resolve, reject) => {
+        try {
+            let string = '';
+            stream.on('data', data => string += data);
+            stream.on('end', () => resolve(JSON.parse(string)));
+            stream.on('error', reject);
+        } catch (err) { reject(err); }
+    });
+}
+
+/** upload an object as JSON file to our storage bucket */
+async function uploadJSON(filename, object) {
+    const file = bucket.file(filename);
+    const stream = await file.createWriteStream({
+        resumable: false,
+        metadata: {
+            contentType: 'text/json',
+            cacheControl: 'no-cache',
+        }
+    });
+    return new Promise((resolve, reject) => {
+        try {
+            stream.on('finish', resolve);
+            stream.on('error', reject);
+            stream.write(JSON.stringify(object));
+            stream.end();
+        } catch (err) { reject(err); }
+    });
+}
 
 exports.server = server;
 exports.Socket = WebSocket.Socket;

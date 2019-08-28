@@ -15,6 +15,7 @@
   "dependencies": {
     "@google-cloud/debug-agent": "^4.0.1",
     "@google-cloud/profiler": "^2.0.2",
+    "@google-cloud/storage": "^3.1.0",
     "ws": "^6.2.1"
   },
   "devDependencies": {
