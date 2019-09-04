@@ -5,7 +5,27 @@
 const os = require('os');
 const http = require('http');
 const WebSocket = require('ws');
+const prometheus = require('prom-client');
 const { Storage } = require('@google-cloud/storage');
+
+// collect metrics in Prometheus format
+const prometheusConnectionGauge = new prometheus.Gauge({
+    name: 'reflector_connections',
+    help: 'The number of client connections to the reflector.'
+});
+const prometheusSessionGauge = new prometheus.Gauge({
+    name: 'reflector_sessions',
+    help: 'The number of concurrent sessions on reflector.'
+});
+const prometheusMessagesCounter = new prometheus.Counter({
+    name: 'reflector_messages',
+    help: 'The number of messages received.'
+});
+const prometheusTicksCounter = new prometheus.Counter({
+    name: 'reflector_ticks',
+    help: 'The number of ticks generated.'
+});
+prometheus.collectDefaultMetrics();
 
 // Get cluster info from Google Cloud (for logging).
 // Only start Debugger & Profiler if successful.
@@ -70,6 +90,15 @@ REASON.NO_JOIN = [4121, "client never joined"];
 // (e.g. the load-balancer's health check),
 // not ws:// requests for an actual websocket connection
 const webServer = http.createServer( (req, res) => {
+    if (req.url === '/metrics') {
+        const body = prometheus.register.metrics();
+        res.writeHead(200, {
+            'Server': SERVER_HEADER,
+            'Content-Length': body.length,
+            'Content-Type': prometheus.register.contentType,
+        });
+        return res.end(body);
+    }
     // redirect http-to-https, unless it's a health check
     if (req.headers['x-forwarded-proto'] === 'http' && req.url !== '/healthz') {
         res.writeHead(301, {
@@ -92,7 +121,7 @@ const server = new WebSocket.Server({ server: webServer });
 
 function startServer() {
     webServer.listen(port);
-    LOG(`starting ${server.constructor.name} ws://${hostname}:${server.address().port}/`);
+    LOG(`starting ${server.constructor.name} ws://${hostname}:${port}/`);
 }
 
 const STATS_TO_AVG = ["RECV", "SEND", "TICK", "IN", "OUT"];
@@ -255,25 +284,29 @@ function JOIN(client, id, args) {
         }
     }
     // create island data if this is the first client
-    const island = ALL_ISLANDS.get(id) || {
-        id,                  // the island id
-        name,                // the island name, including options (or could be null)
-        version,             // the client version
-        time: 0,             // the current simulation time
-        seq: 0,              // sequence number for messages (uint32, wraps around)
-        scale: 1,            // ratio of island time to wallclock time
-        tick: TICK_MS,       // default tick rate
-        snapshotTime: -1,    // time of last snapshot
-        snapshotSeq: null,   // seq of last snapshot
-        snapshotUrl: '',     // url of last snapshot
-        messages: [],        // messages since last snapshot
-        lastTick: 0,         // time of last TICK sent
-        lastMsgTime: 0,      // time of last message reflected
-        lastCompletedTally: null,
-        ...nonSavableProps(),
-        [Symbol.toPrimitive]: () => `${name} ${id}`,
-        };
-    ALL_ISLANDS.set(id, island);
+    let island = ALL_ISLANDS.get(id);
+    if (!island) {
+        island = {
+            id,                  // the island id
+            name,                // the island name, including options (or could be null)
+            version,             // the client version
+            time: 0,             // the current simulation time
+            seq: 0,              // sequence number for messages (uint32, wraps around)
+            scale: 1,            // ratio of island time to wallclock time
+            tick: TICK_MS,       // default tick rate
+            snapshotTime: -1,    // time of last snapshot
+            snapshotSeq: null,   // seq of last snapshot
+            snapshotUrl: '',     // url of last snapshot
+            messages: [],        // messages since last snapshot
+            lastTick: 0,         // time of last TICK sent
+            lastMsgTime: 0,      // time of last message reflected
+            lastCompletedTally: null,
+            ...nonSavableProps(),
+            [Symbol.toPrimitive]: () => `${name} ${id}`,
+            };
+        ALL_ISLANDS.set(id, island);
+        prometheusSessionGauge.inc();
+    }
 
     // if we had provisionally scheduled deletion of the island, cancel that
     if (island.deletionTimeout) {
@@ -467,6 +500,7 @@ function SEND(client, id, messages) {
         message[1] = island.seq = (island.seq + 1) >>> 0; // seq is always uint32
         const msg = JSON.stringify({ id, action: 'RECV', args: message });
         //LOG("broadcasting RECV", message);
+        prometheusMessagesCounter.inc();
         STATS.RECV++;
         STATS.SEND += island.clients.size;
         island.clients.forEach(each => each.safeSend(msg));
@@ -580,6 +614,7 @@ function TICK(island) {
     island.lastTick = time;
     const msg = JSON.stringify({ id, action: 'TICK', args: time });
     //LOG('broadcasting', msg);
+    prometheusTicksCounter.inc();
     island.clients.forEach(client => {
         // only send ticks if not back-logged
         if (client.bufferedAmount) return;
@@ -630,6 +665,7 @@ function provisionallyDeleteIsland(island) {
 
 // delete our live record of the island, rewriting latest.json if necessary
 async function deleteIsland(island) {
+    prometheusSessionGauge.dec();
     const { id, snapshotUrl, seq, storedUrl, storedSeq } = island;
     // stop ticking and delete
     stopTicker(island);
@@ -659,6 +695,7 @@ async function deleteIsland(island) {
 const replies = {};
 
 server.on('connection', (client, req) => {
+    prometheusConnectionGauge.inc();
     client.addr = `${req.connection.remoteAddress.replace(/^::ffff:/, '')}:${req.connection.remotePort}`;
     if (req.headers['x-forwarded-for']) client.addr += ` (${req.headers['x-forwarded-for'].split(/\s*,\s*/).map(a => a.replace(/^::ffff:/, '')).join(', ')})`;
     // location header is added by load balancer, see region-servers/apply-changes
@@ -743,6 +780,7 @@ server.on('connection', (client, req) => {
     });
 
     client.on('close', () => {
+        prometheusConnectionGauge.dec();
         LOG(`closed connection from ${client.addr}`);
         for (const island of ALL_ISLANDS.values()) {
             if (!island.clients.has(client)) continue;
