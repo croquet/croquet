@@ -11,7 +11,6 @@
   "license": "ISC",
   "dependencies": {
     "@croquet/math": "file:../math",
-    "@croquet/reflector": "file:../reflector",
     "@croquet/util": "file:../util",
     "fast-json-stable-stringify": "^2.0.0",
     "pako": "^1.0.10",
