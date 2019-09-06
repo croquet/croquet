@@ -1,6 +1,6 @@
 {
   "name": "@croquet/react",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "",
   "main": "dist/croquet-react.min.js",
   "scripts": {
@@ -9,8 +9,8 @@
   },
   "author": "",
   "dependencies": {
-    "@croquet/croquet": "^0.1.9-fix",
-    "@croquet/observable": "^0.1.4"
+    "@croquet/croquet": "^0.2.0",
+    "@croquet/observable": "^0.2.0"
   },
   "peerDependencies": {
     "react": "^16.8.6"

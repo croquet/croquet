@@ -1,6 +1,6 @@
 {
   "name": "@croquet/observable",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -9,7 +9,7 @@
     "prepublish": "tsc"
   },
   "dependencies": {
-    "@croquet/croquet": "^0.1.9-fix"
+    "@croquet/croquet": "^0.2.0"
   },
   "author": "",
   "devDependencies": {
