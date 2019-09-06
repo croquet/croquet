@@ -219,6 +219,7 @@ export async function hashNameAndCode(name) {
         return !exclude;
         }).sort();
     // console.log(`${name} Hashing ${moduleID}: ${mods.join(' ')}`);
+    console.log(`hashing ${mods.length} SDK modules`);
     const hashes = await Promise.all([...mods.map(hashFile), ...extraHashes]);
     const hash = await hashString([name, ...hashes].join('|'));
     // console.timeEnd("Hashing " + name);
