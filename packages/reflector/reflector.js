@@ -693,8 +693,6 @@ async function deleteIsland(island) {
 }
 
 
-const replies = {};
-
 server.on('connection', (client, req) => {
     prometheusConnectionGauge.inc();
     client.addr = `${req.connection.remoteAddress.replace(/^::ffff:/, '')}:${req.connection.remotePort}`;
@@ -756,10 +754,7 @@ server.on('connection', (client, req) => {
         STATS.IN += incomingMsg.length;
         const handleMessage = () => {
             const { id, action, args } = JSON.parse(incomingMsg);
-            if (action in replies) {
-                LOG('received', client.addr, 'reply', action, incomingMsg.length, 'bytes');
-                replies[action](args);
-            } else switch (action) {
+            switch (action) {
                 case 'JOIN': { joined = true; JOIN(client, id, args); break; }
                 case 'SEND': SEND(client, id, [args]); break;
                 case 'TUTTI': TUTTI(client, id, args); break;
