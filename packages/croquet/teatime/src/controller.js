@@ -267,7 +267,11 @@ export default class Controller {
         const tuttiSeq = this.island.getNextTuttiSeq(); // move it along, even if we won't be using it
         if (this.synced !== true) return;
 
+        const before = Date.now();
         const data = { hash: stableStringify(this.island.getSummaryHash()), cpuTime: localCpuTime + Math.random() }; // fuzzify by 0-1ms to further reduce [already minuscule] risk of exact agreement
+        const elapsed = Date.now() - before;
+        this.cpuTime -= elapsed; // give ourselves a time credit for the non-simulation work
+
         const voteMessage = [this.id, "handleSnapshotVote", 'snapshotVote']; // topic is ignored
         this.sendTutti(this.island.time, tuttiSeq, data, null, true, voteMessage);
     }
