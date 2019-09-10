@@ -312,6 +312,7 @@ function JOIN(client, args) {
         ALL_ISLANDS.set(id, island);
         prometheusSessionGauge.inc();
     }
+    client.island = island;
 
     // if we had provisionally scheduled deletion of the island, cancel that
     if (island.deletionTimeout) {
@@ -486,14 +487,12 @@ function SNAP(client, args) {
     if (island.syncClients.length > 0) SYNC(island);
 }
 
-/** reflect a message to all participants after time stamping it
- * @param {?Client} client - we received from this client
+/** send a message to all participants after time stamping it
+ * @param {Island} island - the island to send to
  * @param {Array<Message>} messages
  */
-function SEND(client, messages) {
-    const id = client.sessionId;
-    const island = ALL_ISLANDS.get(id);
-    if (!island) { if (client && client.readyState === WebSocket.OPEN) client.close(...REASON.UNKNOWN_ISLAND); return; }
+function SEND(island, messages) {
+    if (!island) return; // client never joined?!
     const time = getTime(island);
     if (island.delay) {
         const delay = island.lastTick + island.delay + 0.1 - time;    // add 0.1 ms to combat rounding errors
@@ -503,7 +502,7 @@ function SEND(client, messages) {
         // message = [time, seq, payload, ...] - keep whatever controller.sendMessage sends
         message[0] = time;
         message[1] = island.seq = (island.seq + 1) >>> 0; // seq is always uint32
-        const msg = JSON.stringify({ id, action: 'RECV', args: message });
+        const msg = JSON.stringify({ id: island.id, action: 'RECV', args: message });
         //LOG("broadcasting RECV", message);
         prometheusMessagesCounter.inc();
         STATS.RECV++;
@@ -537,7 +536,7 @@ console.log({sendTime, tuttiSeq, payload});
         if (wantsVote || Object.keys(tally.payloads).length > 1) {
             const payloads = { what: 'tally', tuttiSeq, tally: tally.payloads, tallyTarget };
             const msg = [0, 0, payloads];
-            SEND(null, id, [msg]);
+            SEND(island, [msg]);
         }
         delete island.tallies[tallyHash];
         const lastComplete = island.lastCompletedTally;
@@ -552,7 +551,7 @@ console.log({sendTime, tuttiSeq, payload});
             return;
         }
 
-        if (firstMsg) SEND(client, id, [firstMsg]);
+        if (firstMsg) SEND(island, [firstMsg]);
         island.tallies[tallyHash] = {
             expecting: island.clients.size,
             payloads: {},
@@ -578,24 +577,24 @@ function DELAY_SEND(island, delay, messages) {
 }
 
 function DELAYED_SEND(island) {
-    const { id, delayed } = island;
+    const { delayed } = island;
     island.delayed = null;
     //console.log(">>>>>>>>>>>>>> Sending delayed messages", delayed);
-    SEND(null, id, delayed);
+    SEND(island, delayed);
 }
 
 /** SEND a replicated message when clients joined or left
  * @param {IslandData} island
 */
 function USERS(island) {
-    const { id, clients, usersJoined, usersLeft } = island;
+    const { clients, usersJoined, usersLeft } = island;
     const active = [...clients].filter(each => each.active).length;
     const total = clients.size;
     const payload = { what: 'users', active, total };
     if (usersJoined.length > 0) payload.joined = [...usersJoined];
     if (usersLeft.length > 0) payload.left = [...usersLeft];
     const msg = [0, 0, payload];
-    SEND(null, id, [msg]);
+    SEND(island, [msg]);
     LOG(`${island}: ${clients.size} users (total ${ALL_ISLANDS.size} islands, ${server.clients.size} users)`);
     usersJoined.length = 0;
     usersLeft.length = 0;
@@ -771,7 +770,7 @@ server.on('connection', (client, req) => {
             const { action, args } = JSON.parse(incomingMsg);
             switch (action) {
                 case 'JOIN': { joined = true; JOIN(client, args); break; }
-                case 'SEND': SEND(client, [args]); break;
+                case 'SEND': SEND(client.island, [args]); break;
                 case 'TUTTI': TUTTI(client, args); break;
                 case 'TICKS': TICKS(client, args); break;
                 case 'SNAP': SNAP(client, args); break;
