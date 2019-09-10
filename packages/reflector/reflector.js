@@ -698,9 +698,19 @@ async function deleteIsland(island) {
     return true;
 }
 
+function sessionIdAndVersionFromUrl(url) {
+    // extract version and session from /foo/bar/v1/session?baz
+    const path = url.replace(/\?.*/, "");
+    const sessionId = path.replace(/.*\//, "");
+    const versionMatch = path.match(/\/(v[0-9]*)\/[^/]*$/);
+    const version = versionMatch ? versionMatch[1] : "0";
+    return { sessionId, version };
+}
 
 server.on('connection', (client, req) => {
     prometheusConnectionGauge.inc();
+    const { version, sessionId } = sessionIdAndVersionFromUrl(req.url);
+    client.sessionId = sessionId;
     client.addr = `${req.connection.remoteAddress.replace(/^::ffff:/, '')}:${req.connection.remotePort}`;
     if (req.headers['x-forwarded-for']) client.addr += ` (${req.headers['x-forwarded-for'].split(/\s*,\s*/).map(a => a.replace(/^::ffff:/, '')).join(', ')})`;
     // location header is added by load balancer, see region-servers/apply-changes
@@ -715,7 +725,7 @@ server.on('connection', (client, req) => {
         client.send(data);
         STATS.OUT += data.length;
     };
-    LOG(`connection #${server.clients.size} from ${client.addr} ${req.headers['x-location']}`);
+    LOG(`connection v${version}/${sessionId} from ${client.addr} ${req.headers['x-location']}`);
     STATS.USERS = Math.max(STATS.USERS, server.clients.size);
 
     let lastActivity = Date.now();
@@ -759,14 +769,14 @@ server.on('connection', (client, req) => {
         lastActivity = Date.now();
         STATS.IN += incomingMsg.length;
         const handleMessage = () => {
-            const { id, action, args } = JSON.parse(incomingMsg);
+            const { action, args } = JSON.parse(incomingMsg);
             switch (action) {
-                case 'JOIN': { joined = true; JOIN(client, id, args); break; }
-                case 'SEND': SEND(client, id, [args]); break;
-                case 'TUTTI': TUTTI(client, id, args); break;
-                case 'TICKS': TICKS(client, id, args); break;
-                case 'SNAP': SNAP(client, id, args); break;
-                case 'LEAVING': LEAVING(client, id); break;
+                case 'JOIN': { joined = true; JOIN(client, sessionId, args); break; }
+                case 'SEND': SEND(client, sessionId, [args]); break;
+                case 'TUTTI': TUTTI(client, sessionId, args); break;
+                case 'TICKS': TICKS(client, sessionId, args); break;
+                case 'SNAP': SNAP(client, sessionId, args); break;
+                case 'LEAVING': LEAVING(client, sessionId); break;
                 case 'PING': PONG(client, args); break;
                 case 'PULSE': LOG('PULSE', client.addr); break; // nothing to do
                 default: WARN("unknown action", action);
