@@ -610,7 +610,7 @@ function PONG(client, args) {
  * @param {IslandData} island
  */
 function TICK(island) {
-    if (island.clients.length === 0) return; // probably in provisional island deletion
+    if (island.clients.size === 0) return; // probably in provisional island deletion
 
     const { id, usersJoined, usersLeft, lastMsgTime, tick, scale } = island;
     if (usersJoined.length + usersLeft.length > 0) { USERS(island); return; }
