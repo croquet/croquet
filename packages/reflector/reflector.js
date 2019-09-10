@@ -73,8 +73,8 @@ const hostname = os.hostname();
 const {eth0, en0} = os.networkInterfaces();
 const hostip = (eth0 || en0).find(each => each.family==='IPv4').address;
 
-function LOG(...args) { console.log((new Date()).toISOString(), `Reflector-${VERSION}(${cluster}:${hostip}):`, ...args); }
-function WARN(...args) { console.warn((new Date()).toISOString(), `Reflector-${VERSION}(${cluster}:${hostip}):`, ...args); }
+function LOG( ...args) { console.log( `${cluster === "local" ? (new Date()).toISOString() + " " : ""}Reflector-${VERSION}(${cluster}:${hostip}):`, ...args); }
+function WARN(...args) { console.warn(`${cluster === "local" ? (new Date()).toISOString() + " " : ""}Reflector-${VERSION}(${cluster}:${hostip}):`, ...args); }
 
 // return codes for closing connection
 // client wil try to reconnect for codes < 4100
