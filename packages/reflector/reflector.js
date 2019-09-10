@@ -595,7 +595,7 @@ function USERS(island) {
     if (usersLeft.length > 0) payload.left = [...usersLeft];
     const msg = [0, 0, payload];
     SEND(island, [msg]);
-    LOG(`${island}: ${clients.size} users (total ${ALL_ISLANDS.size} islands, ${server.clients.size} users)`);
+    LOG(`Users ${island}: +${usersJoined.length}-${usersLeft.length}=${clients.size} (total ${ALL_ISLANDS.size} islands, ${server.clients.size} users)`);
     usersJoined.length = 0;
     usersLeft.length = 0;
 }
