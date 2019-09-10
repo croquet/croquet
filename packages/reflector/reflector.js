@@ -268,15 +268,14 @@ function savableKeys(island) {
 
 /** A new island controller is joining
  * @param {Client} client - we received from this client
- * @param {ID} id - island ID
  * @param {{time: Number, name: String, version: Number, user: [name, id]}} args
  */
-function JOIN(client, id, args) {
+function JOIN(client, args) {
     if (typeof args === "number" || !args.version) {
         client.close(...REASON.BAD_PROTOCOL);
         return;
     }
-
+    const id = client.sessionId;
     LOG('received', client.addr, 'JOIN', id, args);
     const { name, version, user } = args;
     if (user) {
@@ -399,9 +398,9 @@ function SYNC(island) {
 
 /** An island controller is leaving
  * @param {Client} client - we received from this client
- * @param {ID} id - island ID
  */
-function LEAVING(client, id) {
+function LEAVING(client) {
+    const id = client.sessionId;
     LOG('received', client.addr, 'LEAVING', id);
     const island = ALL_ISLANDS.get(id);
     if (!island) return;
@@ -430,10 +429,10 @@ function after(seqA, seqB) {
 
 /** client uploaded a snapshot
  * @param {Client} client - we received from this client
- * @param {ID} id - island ID
  * @param {{time: Number, seq: Number, hash: String, url: String}} args - the snapshot details
  */
-function SNAP(client, id, args) {
+function SNAP(client, args) {
+    const id = client.sessionId;
     const island = ALL_ISLANDS.get(id);
     if (!island) { if (client.readyState === WebSocket.OPEN) client.close(...REASON.UNKNOWN_ISLAND); return; }
 
@@ -489,10 +488,10 @@ function SNAP(client, id, args) {
 
 /** reflect a message to all participants after time stamping it
  * @param {?Client} client - we received from this client
- * @param {ID} id - island ID
  * @param {Array<Message>} messages
  */
-function SEND(client, id, messages) {
+function SEND(client, messages) {
+    const id = client.sessionId;
     const island = ALL_ISLANDS.get(id);
     if (!island) { if (client && client.readyState === WebSocket.OPEN) client.close(...REASON.UNKNOWN_ISLAND); return; }
     const time = getTime(island);
@@ -522,10 +521,10 @@ function SEND(client, id, messages) {
 
 /** handle a message that all clients are expected to be sending
  * @param {?Client} client - we received from this client
- * @param {ID} id - island ID
  * @param {[sendTime: Number, sendSeq: Number, payload: String, firstMsg: Array, wantsVote: Boolean, tallyTarget: Array]} args
  */
-function TUTTI(client, id, args) {
+function TUTTI(client, args) {
+    const id = client.sessionId;
     const island = ALL_ISLANDS.get(id);
     if (!island) { if (client && client.readyState === WebSocket.OPEN) client.close(...REASON.UNKNOWN_ISLAND); return; }
 
@@ -631,10 +630,10 @@ function TICK(island) {
 
 /** client is requesting ticks for an island
  * @param {Client} client - we received from this client
- * @param {ID} id - island ID
  * @param {*} args
  */
-function TICKS(client, id, args) {
+function TICKS(client, args) {
+    const id = client.sessionId;
     const { time, seq, tick, delay, scale } = args;
     const island = ALL_ISLANDS.get(id);
     if (!island) { if (client.readyState === WebSocket.OPEN) client.close(...REASON.UNKNOWN_ISLAND); return; }
@@ -771,12 +770,12 @@ server.on('connection', (client, req) => {
         const handleMessage = () => {
             const { action, args } = JSON.parse(incomingMsg);
             switch (action) {
-                case 'JOIN': { joined = true; JOIN(client, sessionId, args); break; }
-                case 'SEND': SEND(client, sessionId, [args]); break;
-                case 'TUTTI': TUTTI(client, sessionId, args); break;
-                case 'TICKS': TICKS(client, sessionId, args); break;
-                case 'SNAP': SNAP(client, sessionId, args); break;
-                case 'LEAVING': LEAVING(client, sessionId); break;
+                case 'JOIN': { joined = true; JOIN(client, args); break; }
+                case 'SEND': SEND(client, [args]); break;
+                case 'TUTTI': TUTTI(client, args); break;
+                case 'TICKS': TICKS(client, args); break;
+                case 'SNAP': SNAP(client, args); break;
+                case 'LEAVING': LEAVING(client); break;
                 case 'PING': PONG(client, args); break;
                 case 'PULSE': LOG('PULSE', client.addr); break; // nothing to do
                 default: WARN("unknown action", action);
