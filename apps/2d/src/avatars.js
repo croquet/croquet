@@ -248,7 +248,7 @@ class ShapeView extends View {
 //window.top.postMessage({connected: -1}, "*");
 
 async function go() {
-    const session = await startSession("avatars", Shapes, ShapesView, { step: "manual", tps: TPS });
+    const session = await startSession("avatars", Shapes, ShapesView, { step: "manual", autoSession: true, tps: TPS });
     const controller = session.view.realm.island.controller;
 
     let users = 0;
