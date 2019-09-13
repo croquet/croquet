@@ -4,6 +4,11 @@
   "description": "",
   "main": "dist/croquet.min.js",
   "types": "types.d.ts",
+  "//": "/* files listed explicitly so sourcemap does not get published */",
+  "files": [
+    "dist/croquet.min.js",
+    "types.d.ts"
+  ],
   "scripts": {
     "build": "rollup -c",
     "prepublish": "npm run build"
