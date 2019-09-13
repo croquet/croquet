@@ -322,8 +322,12 @@ export default class Island {
             // if passing this.method
             if (model[func.name] === func) return func.name;
             // if passing this.foo = this.method
-            const entry = Object.entries(model).find(each => each[1] === func);
-            if (entry) return entry[0];
+            let obj = model;
+            while (obj !== null) {
+                const name = Object.getOwnPropertyNames(obj).find(each => obj[each] === func);
+                if (name) return name;
+                obj = Object.getPrototypeOf(obj);
+            }
             // if passing (foo) => this.bar(baz)
             // match:                (   foo             )   =>  this .  bar              (    baz               )
             const HANDLER_REGEX = /^\(?([a-z][a-z0-9]*)?\)? *=> *this\.([a-z][a-z0-9]*) *\( *([a-z][a-z0-9]*)? *\) *$/i;
