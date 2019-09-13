@@ -683,9 +683,6 @@ async function deleteIsland(island) {
         LOG("uploading latest.json for", id, "with", island.messages.length, "messages");
         const latestSpec = {};
         savableKeys(island).forEach(key => latestSpec[key] = island[key]);
-        // wind the saved island time back to the later of the last snapshot and the last message
-        latestSpec.time = Math.max(island.snapshotTime, island.lastMsgTime);
-        latestSpec.lastTick = island.time;
         return uploadJSON(fileName, latestSpec);
     }
     return true;
