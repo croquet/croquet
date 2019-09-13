@@ -51,6 +51,7 @@ http.get('http://metadata.google.internal/computeMetadata/v1/instance/attributes
 ).on("error", () => {
     cluster = "local";
     startServer();
+    watchStats();
 });
 
 // we use Google Cloud Storage for session state
@@ -138,35 +139,29 @@ const STATS = {
 };
 for (const key of STATS_KEYS) STATS[key] = 0;
 
-setInterval(showStats, 10000);
 
-// assume we're now always running on node, so fs is available
-const appendFile = require("fs").appendFile; // eslint-disable-line global-require
+function watchStats() {
+    setInterval(showStats, 10000);
 
-const statsFileName = "stats.txt";
-
-function showStats() {
-    const time = Date.now();
-    const delta = time - STATS.time;
-    STATS.time = time;
-    STATS.USERS = Math.max(STATS.USERS, server.clients.size);
-    const out = [];
-    let sum = 0;
-    for (const key of STATS_TO_MAX) {
-        out.push(`${key}: ${STATS[key]}`);
-        sum += STATS[key];
+    function showStats() {
+        const time = Date.now();
+        const delta = time - STATS.time;
+        STATS.time = time;
+        STATS.USERS = Math.max(STATS.USERS, server.clients.size);
+        const out = [];
+        let sum = 0;
+        for (const key of STATS_TO_MAX) {
+            out.push(`${key}: ${STATS[key]}`);
+            sum += STATS[key];
+        }
+        for (const key of STATS_TO_AVG) {
+            out.push(`${key}/s: ${Math.round(STATS[key] * 1000 / delta)}`);
+            sum += STATS[key];
+        }
+        if (sum === 0) return;
+        LOG(out.join(', '));
+        for (const key of STATS_KEYS) STATS[key] = 0;
     }
-    for (const key of STATS_TO_AVG) {
-        out.push(`${key}/s: ${Math.round(STATS[key] * 1000 / delta)}`);
-        sum += STATS[key];
-    }
-    if (sum === 0) return;
-    LOG(out.join(', '));
-    if (appendFile) {
-        const line = `${(new Date(time)).toISOString().slice(0, 19)}Z ${STATS_KEYS.map(key => STATS[key]).join(' ')}\n`;
-        appendFile(statsFileName, line, _err => { });
-    }
-    for (const key of STATS_KEYS) STATS[key] = 0;
 }
 
 // Begin reading from stdin so the process does not exit (see https://nodejs.org/api/process.html)
@@ -776,7 +771,7 @@ server.on('connection', (client, req) => {
                 case 'SNAP': SNAP(client, args); break;
                 case 'LEAVING': LEAVING(client); break;
                 case 'PING': PONG(client, args); break;
-                case 'PULSE': LOG('PULSE', client.addr); break; // nothing to do
+                case 'PULSE': if (cluster === "local") LOG('PULSE', client.addr); break; // nothing to do
                 default: WARN("unknown action", action);
             }
         };
