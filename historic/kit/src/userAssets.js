@@ -536,10 +536,10 @@ new ShareableComposite(this.frame, null, TSlideShow.compositionSpec(), slideShow
     }
 
     makeImportedModel(assetDescriptor, options) {
-        const { roomModel, roomView } = options;
-        const roomElementsID = roomModel.parts.elements.id;
+        const { roomModel: model, roomView: view } = options;
+        const modelId = model.parts ? model.parts.elements.id : model.id;
 //roomView.parts.elementViewManager.addElementManipulators = false;
-        roomView.publish(roomElementsID, "addAsset", { assetDescriptor: this.makeShareableDescriptor(assetDescriptor) });
+        view.publish(modelId, "addAsset", { assetDescriptor: this.makeShareableDescriptor(assetDescriptor) });
     }
 
     makeDescriptor(loadType, loadPaths) {
@@ -938,9 +938,9 @@ console.warn(`recording fetch of ${urlStr}`);
         });
     }
 
-    async importVideo(assetDescriptor) {
+    async importVideo(assetDescriptor, threeD = false) {
         const urlObj = await this.objectURLForName(assetDescriptor, "source");
-        return (new Video2DView(urlObj.url)).readyPromise; // must hold off from revoking URL until object is destroyed; see Video2DView.dispose()
+        return (new Video2DView(urlObj.url, threeD)).readyPromise; // must hold off from revoking URL until object is destroyed; see Video2DView.dispose()
     }
 
     async importOBJ(assetDescriptor, firstLoad) {
@@ -1260,7 +1260,7 @@ class ImportedElementView extends Tracking()(ImportedViewPart) {
 // Video2DView is an interface over an HTML video element.
 // its readyPromise resolves once the video is available to play.
 class Video2DView {
-    constructor(url) {
+    constructor(url, threeD = false) {
 //console.log(this);
         this.url = url;
         this.video = document.createElement("video");
@@ -1302,11 +1302,13 @@ class Video2DView {
         this.video.src = this.url;
         this.video.load();
 
-        this.texture = new THREE.VideoTexture(this.video);
-        this.texture.minFilter = THREE.LinearFilter;
-        this.texture.magFilter = THREE.LinearFilter;
-        this.texture.format = THREE.RGBFormat;
-        this.texture.generateMipmaps = false;
+        if (threeD) {
+            this.texture = new THREE.VideoTexture(this.video);
+            this.texture.minFilter = THREE.LinearFilter;
+            this.texture.magFilter = THREE.LinearFilter;
+            this.texture.format = THREE.RGBFormat;
+            this.texture.generateMipmaps = false;
+        }
     }
 
     width() { return this.video.videoWidth; }
@@ -1349,8 +1351,10 @@ class Video2DView {
     dispose() {
         try {
             URL.revokeObjectURL(this.url);
-            this.texture.dispose();
-            delete this.texture;
+            if (this.texture) {
+                this.texture.dispose();
+                delete this.texture;
+            }
             delete this.video;
         } catch (e) { console.warn(`error in Video2DView cleanup: ${e}`); }
     }
@@ -1453,7 +1457,7 @@ class VideoViewPart extends ViewPart {
 
         // importVideo returns a promise that resolves once the video has loaded
         assetManager.ensureAssetsAvailable(assetDescriptor)
-        .then(() => assetManager.importVideo(assetDescriptor))
+        .then(() => assetManager.importVideo(assetDescriptor, true)) // true => for use in 3D
         .then(videoView => {
             this.videoReady = true;
             this.videoView = videoView;
