@@ -173,6 +173,7 @@ Calls to `Math.random()` within the view will behave normally. Different instanc
 
 | date       | item
 |------------|---
+| 2019-09-13 | **release 0.2.1** (bug fixes)
 | 2019-09-05 | **release 0.2.0** (scalable reflector fleet, fully persistent sessions)
 | 2019-08-14 | **release 0.1.9** (bug fixes; automatic reflector selection)
 | 2019-07-24 | **release 0.1.8** (bug fixes)
