@@ -33,7 +33,7 @@ function bindQFunc(qfunc, thisArg) {
     // eslint-disable-next-line no-new-func
     const compiled = QFuncs[cacheKey] || (QFuncs[cacheKey] = new Function(...qPara));
     if (typeof qFn === "number") qArgs[qFn] = compiled;
-    return compiled.call(thisArg, ...qArgs);
+    return compiled.call(thisArg, ...qArgs).bind(thisArg);
 }
 
 
