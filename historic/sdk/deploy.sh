@@ -6,7 +6,7 @@
 cd `dirname "$0"`
 
 RELEASE="$1"
-DOCS_VERSION=`git describe --tags --match "v[0-9]*" --abbrev=0 | sed s/^v//`
+DOCS_VERSION=$(git tag --list 'v[0-9]*' | tail -1 | sed s/^v//)
 
 case "$RELEASE" in
 docs)
