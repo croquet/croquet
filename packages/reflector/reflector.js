@@ -693,7 +693,7 @@ function sessionIdAndVersionFromUrl(url) {
     const path = url.replace(/\?.*/, "");
     const sessionId = path.replace(/.*\//, "");
     const versionMatch = path.match(/\/(v[0-9]*)\/[^/]*$/);
-    const version = versionMatch ? versionMatch[1] : "0";
+    const version = versionMatch ? versionMatch[1] : "v0";
     return { sessionId, version };
 }
 
@@ -715,7 +715,7 @@ server.on('connection', (client, req) => {
         client.send(data);
         STATS.OUT += data.length;
     };
-    LOG(`connection v${version}/${sessionId} from ${client.addr} ${req.headers['x-location']}`);
+    LOG(`connection ${version}/${sessionId} from ${client.addr} ${req.headers['x-location']}`);
     STATS.USERS = Math.max(STATS.USERS, server.clients.size);
 
     let lastActivity = Date.now();
