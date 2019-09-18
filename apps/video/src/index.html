@@ -4,7 +4,7 @@
         <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
         <title>video</title>
         <style>
-            #stats { display: none; position: absolute; z-index: 2; top: 0; right: 0; width: 125px; height: 150px; background: white; opacity: 0.5; }
+            #stats { display: none; position: absolute; z-index: 20; top: 0; right: 0; width: 125px; height: 150px; background: white; opacity: 0.5; }
             body.debug #stats { display: block; }
             #qrcode { position: absolute; z-index: 2; bottom: 6px; left: 6px; width: 35px; height: 35px; border: 6px solid white; overflow: hidden; opacity: 0.3; cursor: none; transition: all 0.3s ease; }
             #qrcode canvas { width: 100%; height: 100%; image-rendering: pixelated; }
@@ -15,51 +15,45 @@
                 font: 12px sans-serif;
                 background: #999;
             }
-            .root {
-                position: absolute;
-                width: 1100px;
-                height: 1100px;
-                background: #333;
-                overflow: hidden;
-            }
-            #gui-container {
-                position: absolute;
-                top: 0;
-                left: 0;
-                z-index: 100;
-            }
-            @media screen and ( max-width: 768px ) {
-                #gui-container {
-                    transform: scale(1.5, 1.75);
-                    transform-origin: top left;
-                }
-            }
-            .dg.ac {
-                -moz-user-select: none;
-                -webkit-user-select: none;
-                -ms-user-select: none;
-                user-select: none;
-                z-index: 2 !important; /* TODO Solve this in HTML */
-            }
             #container {
-                background-color: #000;
-                left: 0;
-                right: 0;
-                top: 0;
-                bottom: 0;
+                background-color: #444;
                 position: absolute;
-                width: 100%;
-                height: 100%;
+                left: 5%;
+                top: 5%;
+                width: 90%;
+                height: 90%;
                 overflow: hidden;
+            }
+            #container video {
+                min-width: 100%;
+                width: auto;
+                height: auto;
+                position: absolute;
+                top: 10%;
+                background-size: cover;
+                overflow: hidden;
+            }
+            #container canvas {
+                background-color: white;
+                position: absolute;
+                top: 2.5%;
+                left: 5%;
+                height: 5%;
+                width: 90%;
+                z-index: 10;
+                touch-action: none;
             }
 
         </style>
+        <script src="https://code.jquery.com/pep/0.4.3/pep.js"></script>
     </head>
     <body class="debug">
         <div id="stats"></div>
         <div id="qrcode"></div>
         <div id="gui-container"></div>
-        <div id="container"></div>
+        <div id="container">
+            <canvas id="timebar" touch-action="none"></canvas>
+        </div>
         <script src="video.js"></script>
     </body>
 </html>

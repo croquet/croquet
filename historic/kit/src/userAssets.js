@@ -1261,7 +1261,6 @@ class ImportedElementView extends Tracking()(ImportedViewPart) {
 // its readyPromise resolves once the video is available to play.
 class Video2DView {
     constructor(url, threeD = false) {
-//console.log(this);
         this.url = url;
         this.video = document.createElement("video");
         this.video.autoplay = false;
@@ -1294,9 +1293,8 @@ class Video2DView {
 
         this.video.crossOrigin = "anonymous";
 
-        if (!this.video.canPlayType("video/mp4").match(/maybe|probably/i) && this.video.canPlayType("video/theora").match(/maybe|probably/i)) {
-            // try webm if mp4 isn't supported
-            console.log("can't play video");
+        if (!this.video.canPlayType("video/mp4").match(/maybe|probably/i)) {
+            console.log("apparently can't play video");
         }
 
         this.video.src = this.url;
@@ -1317,7 +1315,7 @@ class Video2DView {
     wrappedTime(videoTime, guarded) {
         if (this.duration) {
             while (videoTime > this.duration) videoTime -= this.duration; // assume it's looping, with no gap between plays
-            if (guarded) videoTime = Math.min(this.duration-0.1, videoTime); // the video element freaks out on being told to seek very close to the end
+            if (guarded) videoTime = Math.min(this.duration - 0.1, videoTime); // the video element freaks out on being told to seek very close to the end
         }
         return videoTime;
     }
@@ -1347,7 +1345,6 @@ class Video2DView {
         this.video.pause(); // no return value; synchronous, instantaneous?
     }
 
-    // @@ need to hook this into... something
     dispose() {
         try {
             URL.revokeObjectURL(this.url);
@@ -1369,7 +1366,7 @@ export class ImportedVideoElement extends ModelPart {
 
     init(options, id) {
         super.init(options, id);
-//console.warn(options);
+
         this.isPlaying = false;
         this.startOffset = null; // only valid if playing
         this.pausedTime = 0; // only valid if paused
