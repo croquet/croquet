@@ -71,8 +71,8 @@ const MAX_SCALE = 64;         // maximum ratio of island time to wallclock time
 const TALLY_INTERVAL = 1000;  // maximum time to wait to tally TUTTI contributions
 
 const hostname = os.hostname();
-const {eth0, en0} = os.networkInterfaces();
-const hostip = (eth0 || en0).find(each => each.family==='IPv4').address;
+const {wlan0, eth0, en0} = os.networkInterfaces();
+const hostip = (wlan0 || eth0 || en0).find(each => each.family==='IPv4').address;
 
 function logtime() {
     if (cluster !== "local" ) return "";
