@@ -1,4 +1,3 @@
-import * as THREE from 'three';
 import Toastify from 'toastify-js';
 
 const urlOptions = { has: () => false }; // dummy object; use defaults
@@ -264,20 +263,13 @@ export class AssetManager {
     async fetchSpecForURL(urlStr) {
         // NB: now returns a fileSpec with a buffer, suitable for a caller to hash iff
         // it decides to go ahead with the load
-        const loader = new THREE.FileLoader();
-        loader.setResponseType('arraybuffer');
-        try {
-            // NB: if the promise is rejected, the Chrome debugger will
-            // treat it as an uncaught exception (despite the try/catch),
-            // and will halt if halting on uncaught exceptions is enabled.
-            const buffer = await new Promise((resolve, reject) => loader.load(urlStr, resolve, null, reject));
-            const pathAndName = urlStr.match(/^(.*\/)?([^/]*)$/);
-            const fileName = pathAndName[2], type = this.getFileType(fileName);
-            return { path: urlStr, name: fileName, type, buffer };
-        } catch (e) {
-            console.warn(`error in loading ${urlStr}:`, e);
-            return null;
-        }
+        const response = await fetch(urlStr, { mode: "cors" });
+        if (!response.ok) return null;
+
+        const buffer = await response.arrayBuffer();
+        const pathAndName = urlStr.match(/^(.*\/)?([^/]*)$/);
+        const fileName = pathAndName[2], type = this.getFileType(fileName);
+        return { path: urlStr, name: fileName, type, buffer };
     }
 
     async analyzeDirectory(dirEntry, importSizeChecker) {
@@ -641,16 +633,16 @@ export class AssetManager {
         return new Promise(runAssetCheck);
     }
 
-    async importVideo(assetDescriptor, threeD = false) {
+    async importVideo(assetDescriptor) {
         const urlObj = await this.objectURLForName(assetDescriptor, "source");
-        return (new Video2DView(urlObj.url, threeD)).readyPromise; // must hold off from revoking URL until object is destroyed; see Video2DView.dispose()
+        return (new Video2DView(urlObj.url)).readyPromise; // must hold off from revoking URL until object is destroyed; see Video2DView.dispose()
     }
 }
 
 // Video2DView is an interface over an HTML video element.
 // its readyPromise resolves once the video is available to play.
 class Video2DView {
-    constructor(url, threeD = false) {
+    constructor(url) {
         this.url = url;
         this.video = document.createElement("video");
         this.video.autoplay = false;
@@ -693,14 +685,6 @@ class Video2DView {
 
         this.video.src = this.url;
         this.video.load();
-
-        if (threeD) {
-            this.texture = new THREE.VideoTexture(this.video);
-            this.texture.minFilter = THREE.LinearFilter;
-            this.texture.magFilter = THREE.LinearFilter;
-            this.texture.format = THREE.RGBFormat;
-            this.texture.generateMipmaps = false;
-        }
     }
 
     width() { return this.video.videoWidth; }

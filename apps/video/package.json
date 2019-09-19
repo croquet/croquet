@@ -23,7 +23,6 @@
   },
   "dependencies": {
     "@croquet/croquet": "^0.2.1",
-    "three": "^0.108.0",
     "toastify-js": "^1.6.1"
   },
   "devDependencies": {
