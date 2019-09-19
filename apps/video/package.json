@@ -1,8 +1,8 @@
 {
-  "name": "@croquet/2d",
+  "name": "@croquet/video",
   "version": "0.0.1",
   "description": "",
-  "main": "src/2d.js",
+  "main": "src/video.js",
   "scripts": {
     "start": "parcel src/*.html -p 9009",
     "deploy": "./deploy.sh",
