@@ -1,10 +1,7 @@
-//import { Model, View, startSession, theAssetManager } from "@croquet/croquet";
-//import { Model, View, startSession } from "../../sdk/dist/croquet.min.js";  // eslint-disable-line import/extensions
-import { Model, View, startSession } from "../../teatime";
-import { theAssetManager } from "../../kit/src/userAssets";
+import { Model, View, startSession } from "@croquet/croquet";
+import { theAssetManager } from "./assetManager";
 
 const SCRUB_THROTTLE = 1000 / 10; // min time between scrub events
-const TOUCH = 'ontouchstart' in document.documentElement;
 
 // handler for sharing and playing dropped-in video files
 class DragDropHandler {
@@ -84,7 +81,7 @@ class TimeBarView {
         element.addEventListener('pointerup', evt => this.onPointerUp(evt));
 
         const container = document.getElementById('container');
-        container.addEventListener('pointerdown', evt => this.onContainerClick(evt));
+        container.addEventListener('pointerup', evt => this.onContainerClick(evt)); // pointerdown doesn't seem to satisfy the conditions for immediately activating a video, at least on Android
 
         window.addEventListener('resize', () => this.onWindowResize(), false);
         this.onWindowResize();
@@ -100,6 +97,7 @@ class TimeBarView {
     }
 
     onPointerDown(evt) {
+        evt.stopPropagation();
         if (!this.rootView) return;
 
         this.dragging = true;
@@ -108,6 +106,7 @@ class TimeBarView {
     }
 
     onPointerUp(evt) {
+        evt.stopPropagation();
         if (!this.rootView) return;
 
         this.dragging = false;
