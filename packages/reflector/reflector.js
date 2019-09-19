@@ -669,12 +669,12 @@ async function deleteIsland(island) {
     // stop ticking and delete
     stopTicker(island);
     ALL_ISLANDS.delete(id);
+    // house keeping below only in fleet mode
+    if (cluster === "local") return true;
     // remove ourselves from session registry, ignoring errors
     // TODO: return this promise along with the other promise below
-    if (cluster !== "local") {
-        LOG("Unregistering", id);
-        storage.bucket('croquet-reflectors-v1').file(`${id}.json`).delete().catch(err => WARN("Failed to unregister", id, err));
-    }
+    LOG("Unregistering", id);
+    storage.bucket('croquet-reflectors-v1').file(`${id}.json`).delete().catch(err => WARN("Failed to unregister", id, err));
     // if we've been told of a snapshot since the one (if any) stored in this
     // island's latest.json, or there are messages since the snapshot referenced
     // there, write a new latest.json.
