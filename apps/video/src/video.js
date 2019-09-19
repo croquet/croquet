@@ -3,8 +3,6 @@
 import { Model, View, startSession } from "../../teatime";
 import { theAssetManager } from "../../kit/src/userAssets";
 
-//const { GUI } = require('../thirdparty/dat.gui.min');  not used yet.  could be useful.
-
 const SCRUB_THROTTLE = 1000 / 10; // min time between scrub events
 const TOUCH = 'ontouchstart' in document.documentElement;
 
@@ -15,22 +13,19 @@ class DragDropHandler {
         this.rootView = null;
 
         // NB: per https://developer.mozilla.org/docs/Web/API/HTML_Drag_and_Drop_API/Drag_operations, one must cancel (e.g., preventDefault()) on dragenter and dragover events to indicate willingness to receive drop.
-        window.addEventListener("dragenter", event => {
-            //console.log("ENTER");
+        window.addEventListener('dragenter', event => {
             event.preventDefault();
         });
 
-        window.addEventListener("dragover", event => {
-            //console.log("OVER");
+        window.addEventListener('dragover', event => {
             event.preventDefault();
         });
 
-        window.addEventListener("dragleave", event => {
-            //console.log("LEAVE");
+        window.addEventListener('dragleave', event => {
             event.preventDefault();
         });
 
-        window.addEventListener("drop", event => {
+        window.addEventListener('drop', event => {
             event.preventDefault();
             this.onDrop(event);
         });
@@ -87,6 +82,9 @@ class TimeBarView {
         element.addEventListener('pointerdown', evt => this.onPointerDown(evt));
         element.addEventListener('pointermove', simpleDebounce(evt => this.onPointerMove(evt), SCRUB_THROTTLE));
         element.addEventListener('pointerup', evt => this.onPointerUp(evt));
+
+        const container = document.getElementById('container');
+        container.addEventListener('pointerdown', evt => this.onContainerClick(evt));
 
         window.addEventListener('resize', () => this.onWindowResize(), false);
         this.onWindowResize();
@@ -145,19 +143,25 @@ class TimeBarView {
         this.drawPlaybar(portion);
     }
 
+    onContainerClick(evt) {
+        if (!this.rootView) return;
+
+        this.rootView.handleUserClick(evt);
+        evt.preventDefault();
+    }
+
     drawPlaybar(portion) {
         if (this.lastDrawnProportion === portion) return;
 
         this.lastDrawnProportion = portion;
 
         const canvas = this.element;
-        const ctx = canvas.getContext("2d");
+        const ctx = canvas.getContext('2d');
         canvas.width = canvas.width;
-        ctx.fillStyle = "#ff4444";
+        ctx.fillStyle = '#ff4444';
         ctx.fillRect(0, 0, canvas.width * portion, canvas.height);
     }
 }
-
 const timebarView = new TimeBarView();
 
 // a video
@@ -166,8 +170,8 @@ class VideoModel extends Model {
         super.init(options);
         //console.warn(options);
 
-        this.subscribe(this.id, "addAsset", this.addAsset);
-        this.subscribe(this.id, "setPlayState", this.setPlayState);
+        this.subscribe(this.id, 'addAsset', this.addAsset);
+        this.subscribe(this.id, 'setPlayState', this.setPlayState);
     }
 
     addAsset(data) {
@@ -176,7 +180,7 @@ class VideoModel extends Model {
         this.pausedTime = 0; // only valid if paused
         this.assetDescriptor = data.assetDescriptor;
 
-        this.publish(this.id, "loadVideo", data);
+        this.publish(this.id, 'loadVideo', data);
     }
 
     setPlayState(data) {
@@ -184,16 +188,11 @@ class VideoModel extends Model {
         this.isPlaying = isPlaying;
         this.startOffset = startOffset;
         this.pausedTime = pausedTime;
-        this.publish(this.id, "playStateChanged", { isPlaying, startOffset, pausedTime, actionSpec });
+        this.publish(this.id, 'playStateChanged', { isPlaying, startOffset, pausedTime, actionSpec });
     }
 }
 VideoModel.register();
 
-const VIEW_HEIGHT = 2;
-const HAND_HEIGHT = 0.4;
-const HAND_TILT = Math.PI * 0.1;
-const TIMEBAR_HEIGHT_PROP = 0.1;
-const TIMEBAR_MARGIN_PROP = TOUCH ? 0 : 0.04;
 
 class SyncedVideoView extends View {
     constructor(model) {
@@ -203,15 +202,23 @@ class SyncedVideoView extends View {
         timebarView.setView(this);
         //console.warn(this);
 
-        this.subscribe(this.model.id, { event: "loadVideo", handling: "oncePerFrameWhileSynced" }, this.loadVideo);
+        this.enableSoundIcon = document.getElementById('soundon');
+        this.playIcon = document.getElementById('play');
+        this.remoteHandIcon = document.getElementById('remotehand');
+        this.container = document.getElementById('container');
+
+        this.subscribe(this.model.id, { event: 'loadVideo', handling: 'oncePerFrameWhileSynced' }, this.loadVideo);
 
         this.videoView = null;
-        this.lastStatusCheck = this.now() + 500;
-//        this.future(500).checkPlayStatus(); // and it will re-schedule after 100ms each time
+        this.lastStatusCheck = this.now() + 500; // make the update loop wait a bit before checking the first time
+    }
+
+    iconVisible(iconName, bool) {
+        this[`${iconName}Icon`].style.opacity = bool ? 1 : 0;
     }
 
     detach() {
-        super.detach();
+        super.detach(); // will discard any outstanding future() messages
         this.disposeOfVideo();
         dragDropHandler.setView(null);
         timebarView.setView(null);
@@ -234,7 +241,7 @@ class SyncedVideoView extends View {
         }
     }
 
-    loadVideo(data) {
+    loadVideo(_data) {
         this.disposeOfVideo(); // discard any loaded or loading video
 
         this.waitingForIslandSync = !this.realm.isSynced; // this can flip back and forth
@@ -244,7 +251,7 @@ class SyncedVideoView extends View {
         const assetManager = theAssetManager;
 
         let okToGo = true; // unless cancelled by another load, or a shutdown
-        this.abandonLoad = () => { console.log("abandon"); okToGo = false; };
+        this.abandonLoad = () => okToGo = false;
 
         assetManager.ensureAssetsAvailable(assetDescriptor)
             .then(() => assetManager.importVideo(assetDescriptor, false)) // false => not 3D
@@ -253,83 +260,16 @@ class SyncedVideoView extends View {
                 delete this.abandonLoad;
 
                 this.videoView = videoView;
+                const videoElem = this.videoElem = videoView.video;
                 this.playbackBoost = 0;
-                this.flip = false; // true means rendered picture acts like a mirror (suitable for local webcam)
-                document.getElementById('container').appendChild(videoView.video);
-                videoView.video.addEventListener('click', evt => this.handleUserClick(evt));
-                //const videoH = videoView.height(), videoW = videoView.width(); // pixels
-
-/* lots of stuff for 3d display
-const rectH = this.rectHeight = VIEW_HEIGHT, rectW = this.rectWidth = rectH * videoW / videoH; // @@ stick to a default height of 2 units, for now
-
-const videoRect = new THREE.Mesh(
-    new THREE.PlaneBufferGeometry(rectW, rectH),
-    new THREE.MeshBasicMaterial({ map: videoView.texture })
-);
-videoRect.name = "videoView";
-if (this.flip) {
-    videoRect.material.side = THREE.BackSide;
-    videoRect.rotation.y = Math.PI;
-}
-this.threeObj.add(videoRect);
-
-const enableIcon = new SVGIcon(soundOn, new THREE.MeshBasicMaterial({ color: "#888888" }));
-ignorePointer(enableIcon);
-enableIcon.rotateX(Math.PI / 2);
-let iconHolder = this.enableSoundIcon = new THREE.Group();
-iconHolder.add(enableIcon);
-iconHolder.visible = false;
-let iconScale = 0.7;
-iconHolder.scale.set(iconScale, iconScale, iconScale);
-iconHolder.position.set(0, 0, 0.01);
-this.threeObj.add(iconHolder);
-
-// in this case it matters that SVG and THREE have opposite expectations for sense of +ve y
-const outerHand = new SVGIcon(remoteHand, new THREE.MeshBasicMaterial({ color: "#ffffff" }), undefined, undefined, false); // a y-flipped hand (looks like the back of a left hand)
-ignorePointer(outerHand);
-outerHand.rotateX(Math.PI); // flip over (now looks like a right hand again, pointing up)
-outerHand.rotateZ(Math.PI - HAND_TILT); // remembering that icon's Z is now into picture
-const innerHand = new SVGIcon(remoteHand, new THREE.MeshBasicMaterial({ color: "#444444" }), undefined, 0.95, false);
-ignorePointer(innerHand);
-innerHand.rotateX(Math.PI); // flip over (now looks like a right hand again, pointing up)
-innerHand.rotateZ(Math.PI - HAND_TILT); // remembering that icon's Z is now into picture
-iconHolder = this.remoteHandIcon = new THREE.Group();
-iconHolder.add(outerHand);
-innerHand.position.set(0, 0, 0.005);
-iconHolder.add(innerHand);
-iconHolder.visible = false;
-iconScale = HAND_HEIGHT;
-iconHolder.scale.set(iconScale, iconScale, iconScale);
-iconHolder.position.set(0, 0, 0.02);
-this.threeObj.add(iconHolder);
-
-const playIcon = new SVGIcon(playButton, new THREE.MeshBasicMaterial({ color: "#888888" }));
-ignorePointer(playIcon);
-playIcon.rotateX(Math.PI / 2);
-iconHolder = this.playIcon = new THREE.Group();
-iconHolder.add(playIcon);
-iconScale = 0.7;
-iconHolder.scale.set(iconScale, iconScale, iconScale);
-iconHolder.position.set(0, 0, 0.01);
-this.threeObj.add(iconHolder);
-
-// @@ seems hacky
-this.realm.island.controller.inViewRealm(() => { // needs to run in realm so it can create a new View
-    const timebarW = rectW - 2 * rectH * TIMEBAR_MARGIN_PROP, timebarH = rectH * TIMEBAR_HEIGHT_PROP, timebarY = -rectH * (0.5 - TIMEBAR_MARGIN_PROP - TIMEBAR_HEIGHT_PROP / 2);
-    const timebar = this.timebar = new TimebarView({ videoView: this, width: timebarW, height: timebarH }); // margins of 0.04 * h
-    timebar.threeObj.position.set(0, timebarY, 0.02);
-    this.threeObj.add(timebar.threeObj);
-});
-
-this.publish(this.id, ViewEvents.changedDimensions, {});
-*/
+                this.container.appendChild(videoElem);
 
                 this.applyPlayState();
                 this.lastTimingCheck = this.now() + 500; // let it settle before we try to adjust
             }).catch(err => console.error(err));
 
-        this.subscribe(this.model.id, "playStateChanged", this.playStateChanged);
-        this.subscribe(this.viewId, { event: "synced", handling: "immediate" }, this.handleSyncState);
+        this.subscribe(this.model.id, 'playStateChanged', this.playStateChanged);
+        this.subscribe(this.viewId, { event: 'synced', handling: 'immediate' }, this.handleSyncState);
     }
 
     adjustPlaybar() {
@@ -353,65 +293,75 @@ this.publish(this.id, ViewEvents.changedDimensions, {});
     applyPlayState() {
         if (!this.videoView || this.waitingForIslandSync) return;
 
+        const { videoView, videoElem } = this;
+
         //console.log("apply playState", {...this.latestPlayState});
         if (!this.latestPlayState.isPlaying) {
-            // @@ this.playIcon.visible = true;
-            // @@ this.enableSoundIcon.visible = false;
-            this.videoView.pause(this.latestPlayState.pausedTime);
+            this.iconVisible('play', true);
+            this.iconVisible('enableSound', false);
+            videoView.pause(this.latestPlayState.pausedTime);
         } else {
-            // @@ this.playIcon.visible = false;
-            this.videoView.video.playbackRate = 1 + this.playbackBoost * 0.01;
-            this.lastRateAdjust = this.now(); // make sure we don't adjust rate before playback has settled in, and any emergency jump we decide to do
+            this.iconVisible('play', false);
+            videoElem.playbackRate = 1 + this.playbackBoost * 0.01;
+            this.lastRateAdjust = this.now(); // make sure we don't adjust rate until playback has settled in, and after any emergency jump we decide to do
             this.jumpIfNeeded = false;
             // if the video is blocked from playing, enter a stepping mode in which we move the video forward with successive pause() calls
-            this.videoView.play(this.calculateVideoTime() + 0.1).then(playStarted => {
-                // @@ this.enableSoundIcon.visible = !playStarted;
+            videoView.play(this.calculateVideoTime() + 0.1).then(playStarted => {
+                this.iconVisible('enableSound', !playStarted || videoElem.muted);
                 if (playStarted) this.future(250).triggerJumpCheck(); // leave it a little time to stabilise
-                else {
-                    //console.log(`stepping video`);
+                else if (!videoElem.muted) {
+                    console.log(`trying with mute`);
+                    videoElem.muted = true;
+                    this.applyPlayState();
+                } else {
+                    console.log(`reverting to stepped display`);
                     this.isStepping = true;
                     this.stepWhileBlocked();
                 }
             });
         }
 
-        // @@ if (this.latestActionSpec) this.revealAction(this.latestActionSpec);
+        if (this.latestActionSpec) this.revealAction(this.latestActionSpec);
     }
 
     revealAction(spec) {
+        if (!this.videoView) return;
+
         if (spec.viewId !== this.viewId) {
             const type = spec.type;
-            if (type === "body") {
-                this.useHandToPoint(spec.x, spec.y);
-            } else if (type === "timebar") {
-                const xOnTimebar = this.timebar.timebarLength * (spec.proportion - 0.5);
-                const yOnTimebar = -this.rectHeight * (0.5 - TIMEBAR_MARGIN_PROP - TIMEBAR_HEIGHT_PROP * 0.75);
-                this.useHandToPoint(xOnTimebar, yOnTimebar);
-            }
+
+            let element;
+            if (type === 'video') element = this.videoElem;
+            else if (type === 'timebar') element = timebarView.element;
+            else throw new Error(`unknown action type`);
+
+            const rect = element.getBoundingClientRect();
+            this.useHandToPoint(spec.x * rect.width + rect.left, spec.y * rect.height + rect.top);
         }
     }
 
     useHandToPoint(targetX, targetY) {
-        if (!this.remoteHandIcon) return;
+        // targetX, Y are page coords.  we need to convert to coords within #container.
+        const hand = this.remoteHandIcon;
+        if (!hand) return;
 
         if (this.remoteHandTimeout) clearTimeout(this.remoteHandTimeout);
 
-        // end of finger is around (-0.1, 0.5) relative to centre
-        const xOffset = -0.1 * HAND_HEIGHT, yOffset = (0.5 + 0.05) * HAND_HEIGHT; // a bit off the finger
-        const sinTilt = Math.sin(HAND_TILT), cosTilt = Math.cos(HAND_TILT);
-        const x = xOffset * cosTilt - yOffset * sinTilt, y = xOffset * sinTilt + yOffset * cosTilt;
-        const pos = this.remoteHandIcon.position;
-        pos.x = targetX + x;
-        pos.y = targetY + y;
-        this.remoteHandIcon.visible = true;
-        this.remoteHandTimeout = setTimeout(() => this.remoteHandIcon.visible = false, 1000);
+        const handRect = hand.getBoundingClientRect();
+        const contRect = this.container.getBoundingClientRect();
+
+        // end of finger is around (0.25, 0.15) relative to element size
+        hand.style.left = `${targetX - handRect.width * 0.25 - contRect.left}px`;
+        hand.style.top = `${targetY - handRect.height * 0.15 - contRect.top}px`;
+        this.iconVisible('remoteHand', true);
+        this.remoteHandTimeout = setTimeout(() => this.iconVisible('remoteHand', false), 1000);
     }
 
     calculateVideoTime() {
         const { isPlaying, startOffset } = this.latestPlayState;
         if (!isPlaying) debugger;
 
-        const sessionNow = this.now(); // or is this.externalNow() going to be more consistent??
+        const sessionNow = this.now();
         return (sessionNow - startOffset) / 1000;
     }
 
@@ -421,8 +371,9 @@ this.publish(this.id, ViewEvents.changedDimensions, {});
             this.isStepping = false;
             return;
         }
+
         this.videoView.setStatic(this.calculateVideoTime());
-        this.future(50).stepWhileBlocked();
+        this.future(250).stepWhileBlocked(); // jerky, but keeping up
     }
 
     handleSyncState(isSynced) {
@@ -432,26 +383,42 @@ this.publish(this.id, ViewEvents.changedDimensions, {});
         if (wasWaiting && isSynced) this.applyPlayState();
     }
 
-    handleUserClick(clickPt) {
+    handleUserClick(evt) {
         if (!this.videoView) return;
 
-        // if the video is playing but blocked, this click will in theory be able to start it.
+        const { videoView, videoElem } = this;
+
+        // if the video is being stepped (i.e., wouldn't even play() when muted),
+        // this click will in theory be able to start it playing.
         if (this.isStepping) {
-            console.log(`stop video stepping`);
+            console.log(`exiting step mode`);
+            videoElem.muted = false;
             this.isStepping = false;
             this.applyPlayState();
             return;
         }
 
+        // if video was playing but is muted (which means we discovered it wouldn't
+        // play unmuted), this click should be able to remove the mute.
+        if (videoElem.muted) {
+            console.log(`unmuting video`);
+            videoElem.muted = false;
+            this.iconVisible('enableSound', false);
+            return;
+        }
+
         const wantsToPlay = !this.latestPlayState.isPlaying; // toggle
-        if (!wantsToPlay) this.videoView.pause(); // immediately!
-        const videoTime = this.videoView.video.currentTime;
+        if (!wantsToPlay) videoView.pause(); // immediately!
+        const videoTime = videoView.video.currentTime;
         const sessionTime = this.now(); // the session time corresponding to the video time
         const startOffset = wantsToPlay ? sessionTime - 1000 * videoTime : null;
         const pausedTime = wantsToPlay ? 0 : videoTime;
         this.playStateChanged({ isPlaying: wantsToPlay, startOffset, pausedTime }); // directly from the handler, in case the browser blocks indirect play() invocations
-        const actionSpec = { viewId: this.viewId, type: "body", x: clickPt.x, y: clickPt.y };
-        this.publish(this.model.id, "setPlayState", { isPlaying: wantsToPlay, startOffset, pausedTime, actionSpec }); // subscribed to by the shared model
+        // even though the click was on the container, find position relative to video
+        const contRect = this.container.getBoundingClientRect();
+        const rect = videoElem.getBoundingClientRect();
+        const actionSpec = { viewId: this.viewId, type: 'video', x: (evt.offsetX + contRect.left - rect.left)/rect.width, y: (evt.offsetY + contRect.top - rect.top)/rect.height };
+        this.publish(this.model.id, 'setPlayState', { isPlaying: wantsToPlay, startOffset, pausedTime, actionSpec }); // subscribed to by the shared model
     }
 
     handleTimebar(proportion) {
@@ -462,8 +429,8 @@ this.publish(this.id, ViewEvents.changedDimensions, {});
         const startOffset = null;
         const pausedTime = videoTime;
         this.playStateChanged({ isPlaying: wantsToPlay, startOffset, pausedTime });
-        const actionSpec = { viewId: this.viewId, type: "timebar", proportion };
-        this.publish(this.model.id, "setPlayState", { isPlaying: wantsToPlay, startOffset, pausedTime, actionSpec }); // subscribed to by the shared model
+        const actionSpec = { viewId: this.viewId, type: 'timebar', x: proportion, y: 0.5 };
+        this.publish(this.model.id, 'setPlayState', { isPlaying: wantsToPlay, startOffset, pausedTime, actionSpec }); // subscribed to by the shared model
     }
 
     triggerJumpCheck() { this.jumpIfNeeded = true; } // on next checkPlayStatus() that does a timing check
@@ -521,12 +488,9 @@ this.publish(this.id, ViewEvents.changedDimensions, {});
                 }
             }
         }
-//        this.future(100).checkPlayStatus();
     }
 
-    // @@ need to think through whether this leads to more or less erratic timing than
-    // using future() messages.
-    // presumably depends on the relative progress of frames and ticks.
+    // invoked on every animation frame
     update() {
         const now = this.now();
         if (now - this.lastStatusCheck > 100) {
@@ -538,20 +502,8 @@ this.publish(this.id, ViewEvents.changedDimensions, {});
 
 async function go() {
 
-    const session = await startSession("video", VideoModel, SyncedVideoView, { step: 'auto', autoSession: true });
+    startSession("video", VideoModel, SyncedVideoView, { step: 'auto', autoSession: true });
 
-//    const controller = session.view.realm.island.controller;
-/*
-    window.requestAnimationFrame(frame);
-    function frame(timestamp) {
-        session.step(timestamp);
-
-        if (session.view) sceneSpec.render();
-
-        window.requestAnimationFrame(frame);
-
-    }
-*/
 }
 
 go();

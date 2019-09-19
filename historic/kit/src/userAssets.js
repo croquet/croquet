@@ -1291,6 +1291,10 @@ class Video2DView {
             console.log(`Error: ${err} (errorcode=${errCode})`);
         };
 
+/* other events, that can help with debugging
+[ "pause", "play", "seeking", "seeked", "stalled", "waiting" ].forEach(k => { this.video[`on${k}`] = () => console.log(k); });
+*/
+
         this.video.crossOrigin = "anonymous";
 
         if (!this.video.canPlayType("video/mp4").match(/maybe|probably/i)) {
