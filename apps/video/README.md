@@ -33,7 +33,7 @@ and point a browser to `localhost:9009`
 
 # Main classes
 
-## Video2DView (assetManager.js)
+## Video2DView (video.js)
 
 A thin layer on top of an HTML video element, supporting play/pause/seek, and dealing with wrapped time for looping replay.
 

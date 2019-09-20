@@ -164,6 +164,100 @@ class TimeBarView {
 }
 const timebarView = new TimeBarView();
 
+// Video2DView is an interface over an HTML video element.
+// its readyPromise resolves once the video is available to play.
+export class Video2DView {
+    constructor(url) {
+        this.url = url;
+        this.video = document.createElement("video");
+        this.video.autoplay = false;
+        this.video.loop = true;
+        this.isPlaying = false;
+        this.isBlocked = false; // unless we find out to the contrary, on trying to play
+
+        this.readyPromise = new Promise(resolved => {
+            this._ready = () => resolved(this);
+        });
+
+        this.video.oncanplay = () => {
+            this.duration = this.video.duration; // ondurationchange is (apparently) always ahead of oncanplay
+            this._ready();
+        };
+
+        this.video.onerror = () => {
+            let err;
+            const errCode = this.video.error.code;
+            switch (errCode) {
+                case 1: err = "video loading aborted"; break;
+                case 2: err = "network loading error"; break;
+                case 3: err = "video decoding failed / corrupted data or unsupported codec"; break;
+                case 4: err = "video not supported"; break;
+                default: err = "unknown video error";
+            }
+            console.log(`Error: ${err} (errorcode=${errCode})`);
+        };
+
+        /* other events, that can help with debugging
+        [ "pause", "play", "seeking", "seeked", "stalled", "waiting" ].forEach(k => { this.video[`on${k}`] = () => console.log(k); });
+        */
+
+        this.video.crossOrigin = "anonymous";
+
+        if (!this.video.canPlayType("video/mp4").match(/maybe|probably/i)) {
+            console.log("apparently can't play video");
+        }
+
+        this.video.src = this.url;
+        this.video.load();
+    }
+
+    width() { return this.video.videoWidth; }
+    height() { return this.video.videoHeight; }
+
+    wrappedTime(videoTime, guarded) {
+        if (this.duration) {
+            while (videoTime > this.duration) videoTime -= this.duration; // assume it's looping, with no gap between plays
+            if (guarded) videoTime = Math.min(this.duration - 0.1, videoTime); // the video element freaks out on being told to seek very close to the end
+        }
+        return videoTime;
+    }
+
+    async play(videoTime) {
+        // return true if video play started successfully
+        this.video.currentTime = this.wrappedTime(videoTime, true);
+        this.isPlaying = true; // even if it turns out to be blocked by the browser
+        // following guidelines from https://developer.mozilla.org/docs/Web/API/HTMLMediaElement/play
+        try {
+            await this.video.play(); // will throw exception if blocked
+            this.isBlocked = false;
+        } catch (err) {
+            console.warn("video play blocked");
+            this.isBlocked = this.isPlaying; // just in case isPlaying was set false while we were trying
+        }
+        return !this.isBlocked;
+    }
+
+    pause(videoTime) {
+        this.isPlaying = this.isBlocked = false; // might not be blocked next time.
+        this.setStatic(videoTime);
+    }
+
+    setStatic(videoTime) {
+        if (videoTime !== undefined) this.video.currentTime = this.wrappedTime(videoTime, true); // true => guarded from values too near the end
+        this.video.pause(); // no return value; synchronous, instantaneous?
+    }
+
+    dispose() {
+        try {
+            URL.revokeObjectURL(this.url);
+            if (this.texture) {
+                this.texture.dispose();
+                delete this.texture;
+            }
+            delete this.video;
+        } catch (e) { console.warn(`error in Video2DView cleanup: ${e}`); }
+    }
+}
 
 // a shared model for handling video loads and interactions
 class SyncedVideoModel extends Model {
