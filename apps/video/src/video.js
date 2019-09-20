@@ -51,7 +51,8 @@ class DragDropHandler {
 const dragDropHandler = new DragDropHandler({ assetManager: theAssetManager });
 
 
-function simpleDebounce(fn, delay) {
+// a throttle that also ensures that the last value is delivered
+function throttle(fn, delay) {
     let lastTime = 0;
     let timeoutForFinal = null;
     const clearFinal = () => {
@@ -77,7 +78,7 @@ class TimeBarView {
     constructor() {
         const element = this.element = document.getElementById('timebar');
         element.addEventListener('pointerdown', evt => this.onPointerDown(evt));
-        element.addEventListener('pointermove', simpleDebounce(evt => this.onPointerMove(evt), SCRUB_THROTTLE));
+        element.addEventListener('pointermove', throttle(evt => this.onPointerMove(evt), SCRUB_THROTTLE));
         element.addEventListener('pointerup', evt => this.onPointerUp(evt));
 
         const container = document.getElementById('container');
@@ -163,25 +164,27 @@ class TimeBarView {
 }
 const timebarView = new TimeBarView();
 
-// a video
-class VideoModel extends Model {
+
+// a shared model for handling video loads and interactions
+class SyncedVideoModel extends Model {
     init(options) {
         super.init(options);
-        //console.warn(options);
 
         this.subscribe(this.id, 'addAsset', this.addAsset);
         this.subscribe(this.id, 'setPlayState', this.setPlayState);
     }
 
+    // the assetManager sends an 'addAsset' event when an asset (in this app, a video) is loaded and ready for display
     addAsset(data) {
         this.isPlaying = false;
         this.startOffset = null; // only valid if playing
         this.pausedTime = 0; // only valid if paused
         this.assetDescriptor = data.assetDescriptor;
 
-        this.publish(this.id, 'loadVideo', data);
+        this.publish(this.id, 'loadVideo'); // no event argument needed; the view will consult the model directly
     }
 
+    // the SyncedVideoView sends 'setPlayState' events when the user plays, pauses or scrubs the video.  the interface location of the user action responsible for this change of state is specified in actionSpec.
     setPlayState(data) {
         const { isPlaying, startOffset, pausedTime, actionSpec } = data;
         this.isPlaying = isPlaying;
@@ -190,7 +193,7 @@ class VideoModel extends Model {
         this.publish(this.id, 'playStateChanged', { isPlaying, startOffset, pausedTime, actionSpec });
     }
 }
-VideoModel.register();
+SyncedVideoModel.register();
 
 
 class SyncedVideoView extends View {
@@ -199,7 +202,6 @@ class SyncedVideoView extends View {
         this.model = model;
         dragDropHandler.setView(this);
         timebarView.setView(this);
-        //console.warn(this);
 
         this.enableSoundIcon = document.getElementById('soundon');
         this.playIcon = document.getElementById('play');
@@ -207,43 +209,17 @@ class SyncedVideoView extends View {
         this.container = document.getElementById('container');
 
         this.subscribe(this.model.id, { event: 'loadVideo', handling: 'oncePerFrameWhileSynced' }, this.loadVideo);
+        this.subscribe(this.model.id, 'playStateChanged', this.playStateChanged);
+        this.subscribe(this.viewId, 'synced', this.handleSyncState);
 
         this.videoView = null;
         this.lastStatusCheck = this.now() + 500; // make the update loop wait a bit before checking the first time
     }
 
-    iconVisible(iconName, bool) {
-        this[`${iconName}Icon`].style.opacity = bool ? 1 : 0;
-    }
-
-    detach() {
-        super.detach(); // will discard any outstanding future() messages
-        this.disposeOfVideo();
-        dragDropHandler.setView(null);
-        timebarView.setView(null);
-    }
-
-    disposeOfVideo() {
-        // abandon any in-progress load
-        if (this.abandonLoad) {
-            this.abandonLoad();
-            delete this.abandonLoad;
-        }
-
-        // and dispose of any already-loaded element
-        if (this.videoView) {
-            this.videoView.pause();
-            const elem = this.videoView.video;
-            elem.parentNode.removeChild(elem);
-            this.videoView.dispose();
-            this.videoView = null;
-        }
-    }
-
-    loadVideo(_data) {
+    loadVideo() {
         this.disposeOfVideo(); // discard any loaded or loading video
 
-        this.waitingForIslandSync = !this.realm.isSynced; // this can flip back and forth
+        this.waitingForSync = !this.realm.isSynced; // this can flip back and forth
 
         const { assetDescriptor, isPlaying, startOffset, pausedTime } = this.model;
         this.playStateChanged({ isPlaying, startOffset, pausedTime }); // will be stored for now, and may be overridden by messages in a backlog by the time the video is ready
@@ -266,9 +242,6 @@ class SyncedVideoView extends View {
                 this.applyPlayState();
                 this.lastTimingCheck = this.now() + 500; // let it settle before we try to adjust
             }).catch(err => console.error(err));
-
-        this.subscribe(this.model.id, 'playStateChanged', this.playStateChanged);
-        this.subscribe(this.viewId, { event: 'synced', handling: 'immediate' }, this.handleSyncState);
     }
 
     adjustPlaybar() {
@@ -285,12 +258,12 @@ class SyncedVideoView extends View {
         // ignore if we've heard this one before (probably because we set it locally)
         if (latest && Object.keys(data).every(key => data[key] === latest[key])) return;
 
-        this.latestPlayState = Object.assign({}, data);
+        this.latestPlayState = data;
         this.applyPlayState(); // will be ignored if we're still initialising
     }
 
     applyPlayState() {
-        if (!this.videoView || this.waitingForIslandSync) return;
+        if (!this.videoView || this.waitingForSync) return;
 
         const { videoView, videoElem } = this;
 
@@ -324,8 +297,6 @@ class SyncedVideoView extends View {
     }
 
     revealAction(spec) {
-        if (!this.videoView) return;
-
         if (spec.viewId !== this.viewId) {
             const type = spec.type;
 
@@ -377,8 +348,8 @@ class SyncedVideoView extends View {
 
     handleSyncState(isSynced) {
         //console.warn(`synced: ${isSynced}`);
-        const wasWaiting = this.waitingForIslandSync;
-        this.waitingForIslandSync = !isSynced;
+        const wasWaiting = this.waitingForSync;
+        this.waitingForSync = !isSynced;
         if (wasWaiting && isSynced) this.applyPlayState();
     }
 
@@ -463,7 +434,7 @@ class SyncedVideoView extends View {
                         //   < 25ms: normal (i.e., hysteresis between 50ms and 25ms in the same sense)
                         const lastRateAdjust = this.lastRateAdjust || 0;
                         if (now - lastRateAdjust >= 3000) {
-    //console.log(`${Math.round(videoDiff*1000)}ms`);
+//console.log(`${Math.round(videoDiff*1000)}ms`);
                             const oldBoostPercent = this.playbackBoost;
                             const diffAbs = Math.abs(videoDiffMS), diffSign = Math.sign(videoDiffMS);
                             const desiredBoostPercent = -diffSign * (diffAbs > 150 ? 3 : (diffAbs > 50 ? 1 : 0));
@@ -497,11 +468,39 @@ class SyncedVideoView extends View {
             this.checkPlayStatus();
         }
     }
+
+    detach() {
+        super.detach(); // will discard any outstanding future() messages
+        this.disposeOfVideo();
+        dragDropHandler.setView(null);
+        timebarView.setView(null);
+    }
+
+    disposeOfVideo() {
+        // abandon any in-progress load
+        if (this.abandonLoad) {
+            this.abandonLoad();
+            delete this.abandonLoad;
+        }
+
+        // and dispose of any already-loaded element
+        if (this.videoView) {
+            this.videoView.pause();
+            const elem = this.videoView.video;
+            elem.parentNode.removeChild(elem);
+            this.videoView.dispose();
+            this.videoView = null;
+        }
+    }
+
+    iconVisible(iconName, bool) {
+        this[`${iconName}Icon`].style.opacity = bool ? 1 : 0;
+    }
 }
 
 async function go() {
 
-    startSession("video", VideoModel, SyncedVideoView, { step: 'auto', autoSession: true });
+    startSession("video", SyncedVideoModel, SyncedVideoView, { step: 'auto', autoSession: true });
 
 }
 

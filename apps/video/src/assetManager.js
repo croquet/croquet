@@ -648,7 +648,6 @@ class Video2DView {
         this.video.autoplay = false;
         this.video.loop = true;
         this.isPlaying = false;
-        this.playOffset = null;
         this.isBlocked = false; // unless we find out to the contrary, on trying to play
 
         this.readyPromise = new Promise(resolved => {
