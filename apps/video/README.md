@@ -1,6 +1,6 @@
 
 # Croquet synced video demo
-Copyright (C) 2017-2019 by David A Smith and OS.Vision, Inc. All Rights Reserved.
+Copyright (C) 2019 Croquet Studios. All Rights Reserved.
 davidasmith@gmail.com
 919-244-4448
 
