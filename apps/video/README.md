@@ -31,6 +31,8 @@ and point a browser to `localhost:9009`
 * A tab that is hidden for 10 seconds will become dormant.  It will re-sync when revealed again, typically within 5 seconds.
 * Drag and drop a different .mp4 into any running tab to replace video in all synced tabs
 
+* Note: the stats block in the top right is only displayed if the `<body>` element includes the class `debug`.
+
 # Main classes
 
 ## Video2DView (video.js)

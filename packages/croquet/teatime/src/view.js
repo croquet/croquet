@@ -1,4 +1,5 @@
 import { currentRealm } from "./realms";
+import { displayStatus, displayWarning, displayError, displayAppError } from "../../util/html";
 
 /**
  * Views are the non-replicated part of a Croquet Application.
@@ -18,6 +19,9 @@ import { currentRealm } from "./realms";
  * @public
  */
 class View {
+    static displayStatus(msg, options) { return displayStatus(msg, options); }
+    static displayWarning(msg, options) { return displayWarning(msg, options); }
+    static displayError(msg, options) { return displayError(msg, options); }
 
     /**
      * A View instance is created in {@link startSession}, and the root model is passed into its constructor.

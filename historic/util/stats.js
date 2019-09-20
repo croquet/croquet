@@ -34,8 +34,10 @@ if (div) {
     fps.style.background = "rgba(255,255,255,0.2)";
     div.appendChild(fps);
 
+    // ael: used to be on canvas - but that now has "pointer-events: none"
+    div.title = Object.entries(colors).map(([k, c]) => `${c}: ${k}`).join('\n');
+
     canvas = document.createElement("canvas");
-    canvas.title = Object.entries(colors).map(([k,c])=>`${c}: ${k}`).join('\n');
     canvas.style.width = Math.min(120, window.innerWidth);
     canvas.style.height = 300;
     canvas.width = Math.min(120, window.innerWidth) * window.devicePixelRatio;

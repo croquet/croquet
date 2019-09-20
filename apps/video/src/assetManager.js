@@ -1,5 +1,8 @@
-import Toastify from 'toastify-js';
+//import { View } from "@croquet/croquet";
+import { View } from "../../teatime";
 import { Video2DView } from "./video";
+
+const { displayStatus, displayWarning, displayError } = View;
 
 const urlOptions = { has: () => false }; // dummy object; use defaults
 
@@ -27,114 +30,6 @@ function baseUrl(what = 'code') {
     const dev = urlOptions.has("dev", "host", "localhost");
     const host = dev ? `dev/${getUser("name", "GUEST")}/` : 'all/';
     return `${fileServer()}/${host}${what}/`;
-}
-
-function addToastifyStyle() {
-    // inject toastify's standard css
-    let toastifyCSS = `/*!
-        * Toastify js 1.5.0
-        * https://github.com/apvarun/toastify-js
-        * @license MIT licensed
-        *
-        * Copyright (C) 2018 Varun A P
-        */
-        .toastify {
-            padding: 12px 20px;
-            color: #ffffff;
-            display: inline-block;
-            box-shadow: 0 3px 6px -1px rgba(0, 0, 0, 0.12), 0 10px 36px -4px rgba(77, 96, 232, 0.3);
-            background: -webkit-linear-gradient(315deg, #73a5ff, #5477f5);
-            background: linear-gradient(135deg, #73a5ff, #5477f5);
-            position: fixed;
-            opacity: 0;
-            transition: all 0.4s cubic-bezier(0.215, 0.61, 0.355, 1);
-            border-radius: 2px;
-            cursor: pointer;
-            text-decoration: none;
-            max-width: calc(50% - 20px);
-            z-index: 2147483647;
-        }
-        .toastify.on {
-            opacity: 1;
-        }
-        .toast-close {
-            opacity: 0.4;
-            padding: 0 5px;
-        }
-        .toastify-right {
-            right: 15px;
-        }
-        .toastify-left {
-            left: 15px;
-        }
-        .toastify-top {
-            top: -150px;
-        }
-        .toastify-bottom {
-            bottom: -150px;
-        }
-        .toastify-rounded {
-            border-radius: 25px;
-        }
-        .toastify-avatar {
-            width: 1.5em;
-            height: 1.5em;
-            margin: 0 5px;
-            border-radius: 2px;
-        }
-        @media only screen and (max-width: 360px) {
-            .toastify-right, .toastify-left {
-                margin-left: auto;
-                margin-right: auto;
-                left: 0;
-                right: 0;
-                max-width: fit-content;
-            }
-        }
-`;
-    // add our own preferences
-    toastifyCSS += `
-        .toastify { font-family: sans-serif; border-radius: 8px; }
-`;
-    const toastifyStyle = document.createElement("style");
-    toastifyStyle.innerHTML = toastifyCSS;
-    document.head.appendChild(toastifyStyle);
-}
-
-addToastifyStyle();
-
-export function displayError(msg, options) {
-    return msg && displayToast(msg, { backgroundColor: "red", ...options });
-}
-
-export function displayWarning(msg, options) {
-    return msg && displayToast(msg, { backgroundColor: "gold", ...options });
-}
-
-export function displayStatus(msg, options) {
-    return msg && displayToast(msg, { backgroundColor: "#aaa", ...options });
-}
-
-export function displayAppError(where, error) {
-    const userStack = error.stack.split("\n").filter(l => !l.match(/croquet-.*\.min.js/)).join('\n');
-    displayError(`<b>Error during ${where}: ${error.message}</b>\n\n${userStack}`.replace(/\n/g, "<br>"), {
-        duration: 10000,
-        stopOnFocus: true,
-    });
-}
-
-function displayToast(msg, options) {
-    const toastOpts = {
-        text: msg,
-        duration: 3000,
-        //close: true,
-        gravity: 'bottom', // `top` or `bottom`
-        position: 'left', // `left`, `center` or `right`
-        backgroundColor: 'linear-gradient(to right, #00b09b, #96c93d)',
-        stopOnFocus: true, // Prevents dismissing of toast on hover
-        ...options
-    };
-    return Toastify(toastOpts).showToast();
 }
 
 export function toBase64url(bits) {

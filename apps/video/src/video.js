@@ -1,4 +1,5 @@
-import { Model, View, startSession } from "@croquet/croquet";
+//import { Model, View, startSession } from "@croquet/croquet";
+import { Model, View, startSession } from "../../teatime";
 import { theAssetManager } from "./assetManager";
 
 const SCRUB_THROTTLE = 1000 / 10; // min time between scrub events

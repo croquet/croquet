@@ -3,6 +3,22 @@ import SeedRandom from "seedrandom";
 import QRCode from "./thirdparty-patched/qrcodejs/qrcode";
 import urlOptions from "./urlOptions";
 
+// add style for the standard widgets that can appear on a Croquet page
+function addWidgetStyle() {
+    const widgetCSS = `
+        #stats { display: none; position: absolute; z-index: 20; top: 0; right: 0; width: 125px; height: 150px; background: white; opacity: 0.5; }
+        #stats canvas { pointer-events: none }
+        body.debug #stats { display: block; }
+        #qrcode { position: absolute; z-index: 2; border: 3px solid white; bottom: 6px; left: 6px; width: 35px; height: 35px; box-sizing: border-box; opacity: 0.3; cursor: none; transition: all 0.3s ease; }
+        #qrcode canvas { width: 100%; height: 100%; image-rendering: pixelated; }
+        #qrcode.active { opacity: 0.9; }
+`;
+    const widgetStyle = document.createElement("style");
+    widgetStyle.innerHTML = widgetCSS;
+    document.head.appendChild(widgetStyle);
+}
+addWidgetStyle();
+
 function addToastifyStyle() {
     // inject toastify's standard css
     let toastifyCSS = `/*!
@@ -74,7 +90,6 @@ function addToastifyStyle() {
     toastifyStyle.innerHTML = toastifyCSS;
     document.head.appendChild(toastifyStyle);
 }
-
 addToastifyStyle();
 
 export function displayError(msg, options) {
@@ -158,6 +173,14 @@ export function displayQRCode(url, div='qrcode') {
     const active = () => div.classList.contains("active");
     const activate = () => div.classList.add("active");
     const deactivate = () => div.classList.remove("active");
+    const setCustomSize = size => {
+        div.style.width = div.style.height = `${size}px`;
+        div.style.border = `${16 * size / 256}px solid white`;
+        };
+    const removeCustomSize = () => {
+        div.style.width = div.style.height = "";
+        div.style.border = "";
+        };
     if ("ontouchstart" in div) {
         div.ontouchstart = () => active() ? deactivate() : activate();
     } else {
@@ -166,10 +189,16 @@ export function displayQRCode(url, div='qrcode') {
         div.onwheel = ({deltaY}) => {
             const max = Math.min(window.innerWidth, window.innerHeight) - 2 * div.offsetLeft;
             size = Math.max(64, Math.min(max, div.offsetWidth * 1.05 ** deltaY));
-            div.style.width = div.style.height = `${size}px`;
+            setCustomSize(size);
         };
-        div.onmouseenter = () => { activate(); div.style.width = div.style.height = `${size}px`; };
-        div.onmouseleave = () => { deactivate(); div.style.width = div.style.height = ""; };
+        div.onmouseenter = () => {
+            activate();
+            setCustomSize(size);
+            };
+        div.onmouseleave = () => {
+            deactivate();
+            removeCustomSize();
+            };
     }
 }
 
