@@ -59,6 +59,5 @@ Note that if a tab goes dormant due to being hidden, its `SyncedVideoView` will 
 
 # Dependencies
 
-- [toastify-js](https://www.npmjs.com/package/toastify-js) - Produces toasts for status and error reporting.
 - icons, all from [the Noun Project](https://thenounproject.com/): Sound, by Markus; play, by Adrien Coquet; point, by Ricardo Martins
 
