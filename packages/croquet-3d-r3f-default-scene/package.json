@@ -1,6 +1,6 @@
 {
   "name": "@croquet/3d-r3f-default-scene",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "main": "dist/index.js",
   "types": "dist/types.d.ts",
   "scripts": {
