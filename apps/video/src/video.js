@@ -318,7 +318,7 @@ class SyncedVideoView extends View {
         this.container = document.getElementById('container');
 
         this.subscribe(this.model.id, { event: 'loadVideo', handling: 'oncePerFrameWhileSynced' }, this.loadVideo);
-        this.subscribe(this.model.id, 'playStateChanged', this.playStateChanged);
+        this.subscribe(this.model.id, { event: 'playStateChanged', handling: 'oncePerFrame' }, this.playStateChanged);
         this.subscribe(this.viewId, 'synced', this.handleSyncState);
 
         this.videoView = null;
