@@ -67,10 +67,22 @@
             #remotehand {
                 position: absolute;
                 height: 15%;
-                width: quto;
+                width: auto;
                 opacity: 0;
                 z-index: 40;
                 overflow: visible;
+                pointer-events: none;
+            }
+            #prompt {
+                position: absolute;
+                top: 40%;
+                left: 20%;
+                width: 60%;
+                font-size: 4vh;
+                text-align: center;
+                color: white;
+                opacity: 1;
+                z-index: 40;
                 pointer-events: none;
             }
         </style>
@@ -84,6 +96,7 @@
             <object id="play" type="image/svg+xml" data="../assets/play-button-grey.svg"></object>
             <object id="soundon" type="image/svg+xml" data="../assets/sound-on-grey.svg"></object>
             <object id="remotehand" type="image/svg+xml" data="../assets/pointing-hand-grey.svg"></object>
+            <div id="prompt">drag & drop an mp4 file (max 100MB)</div>
         </div>
         <script src="video.js"></script>
     </body>

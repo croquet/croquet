@@ -343,6 +343,8 @@ class SyncedVideoView extends View {
                 if (!okToGo) return; // been cancelled
                 delete this.abandonLoad;
 
+                document.getElementById('prompt').style.opacity = 0;
+
                 this.videoView = videoView;
                 const videoElem = this.videoElem = videoView.video;
                 this.playbackBoost = 0;
