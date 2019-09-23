@@ -1,8 +1,7 @@
 
 # Croquet synced video demo
-Copyright (C) 2019 Croquet Studios. All Rights Reserved.
-davidasmith@gmail.com
-919-244-4448
+
+Copyright (C) 2019 Croquet Studios
 
 This repository contains a demonstration of a Croquet-based app for shared playback of an mp4 video dragged into any user's browser tab.
 
@@ -60,4 +59,3 @@ Note that if a tab goes dormant due to being hidden, its `SyncedVideoView` will 
 # Dependencies
 
 - icons, all from [the Noun Project](https://thenounproject.com/): Sound, by Markus; play, by Adrien Coquet; point, by Ricardo Martins
-
