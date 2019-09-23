@@ -170,35 +170,38 @@ export function displayQRCode(url, div='qrcode') {
         correctLevel : QRCode.CorrectLevel.L,   // L, M, Q, H
     });
     else qrcode.makeCode(url);
-    const active = () => div.classList.contains("active");
-    const activate = () => div.classList.add("active");
-    const deactivate = () => div.classList.remove("active");
-    const setCustomSize = size => {
-        div.style.width = div.style.height = `${size}px`;
-        div.style.border = `${16 * size / 256}px solid white`;
+    const setCustomSize = sz => {
+        div.style.width = div.style.height = `${sz}px`;
+        div.style.border = `${16 * sz / 256}px solid white`;
         };
     const removeCustomSize = () => {
         div.style.width = div.style.height = "";
         div.style.border = "";
         };
+    let size = 256; // default size for "active" state
+    const active = () => div.classList.contains("active");
+    const activate = () => {
+        div.classList.add("active");
+        setCustomSize(size);
+        };
+    const deactivate = () => {
+        div.classList.remove("active");
+        removeCustomSize();
+        };
     if ("ontouchstart" in div) {
         div.ontouchstart = () => active() ? deactivate() : activate();
     } else {
         div.onclick = () => window.open(url);
-        let size = 256;
-        div.onwheel = ({deltaY}) => {
+        div.onwheel = evt => {
+            const { deltaY } = evt;
             const max = Math.min(window.innerWidth, window.innerHeight) - 2 * div.offsetLeft;
             size = Math.max(64, Math.min(max, div.offsetWidth * 1.05 ** deltaY));
             setCustomSize(size);
-        };
-        div.onmouseenter = () => {
-            activate();
-            setCustomSize(size);
+            evt.preventDefault();
+            evt.stopPropagation();
             };
-        div.onmouseleave = () => {
-            deactivate();
-            removeCustomSize();
-            };
+        div.onmouseenter = activate;
+        div.onmouseleave = deactivate;
     }
 }
 
