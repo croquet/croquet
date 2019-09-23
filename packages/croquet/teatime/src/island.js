@@ -324,8 +324,9 @@ export default class Island {
             // if passing this.foo = this.method
             let obj = model;
             while (obj !== null) {
-                const name = Object.getOwnPropertyNames(obj).find(each => obj[each] === func);
-                if (name) return name;
+                for (const [name, desc] of Object.entries(Object.getOwnPropertyDescriptors(obj))) {
+                    if (desc.value === func) return name;
+                }
                 obj = Object.getPrototypeOf(obj);
             }
             // if passing (foo) => this.bar(baz)
