@@ -1,5 +1,5 @@
+import { displayStatus, displayWarning, displayError, displayAppError } from "@croquet/util/html";
 import { currentRealm } from "./realms";
-import { displayStatus, displayWarning, displayError, displayAppError } from "../../util/html";
 
 /**
  * Views are the non-replicated part of a Croquet Application.
