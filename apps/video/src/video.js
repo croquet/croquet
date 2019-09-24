@@ -611,7 +611,7 @@ class SyncedVideoView extends View {
 
 async function go() {
 
-    startSession("video", SyncedVideoModel, SyncedVideoView, { step: 'auto', autoSession: true });
+    startSession("video", SyncedVideoModel, SyncedVideoView, { tps: 4, step: 'auto', autoSession: true });
 
 }
 
