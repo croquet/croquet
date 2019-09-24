@@ -238,7 +238,6 @@ function getTime(island) {
 
 function nonSavableProps() {
     return {
-        delay: 0,            // hold messages until this many ms after last tick
         lag: 0,              // aggregate ms lag in tick requests
         clients: new Set(),  // connected web sockets
         usersJoined: [],     // the users who joined since last report
@@ -294,6 +293,7 @@ function JOIN(client, args) {
             seq: 0,              // sequence number for messages (uint32, wraps around)
             scale: 1,            // ratio of island time to wallclock time
             tick: TICK_MS,       // default tick rate
+            delay: 0,            // hold messages until this many ms after last tick
             snapshotTime: -1,    // time of last snapshot
             snapshotSeq: null,   // seq of last snapshot
             snapshotUrl: '',     // url of last snapshot
