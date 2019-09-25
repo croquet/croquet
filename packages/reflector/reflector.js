@@ -8,6 +8,10 @@ const WebSocket = require('ws');
 const prometheus = require('prom-client');
 const { Storage } = require('@google-cloud/storage');
 
+// debugging (should read env vars)
+const googleCloudProfiler = false;
+const googleCloudDebugger = false;
+
 // collect metrics in Prometheus format
 const prometheusConnectionGauge = new prometheus.Gauge({
     name: 'reflector_connections',
@@ -36,11 +40,11 @@ http.get('http://metadata.google.internal/computeMetadata/v1/instance/attributes
         response.on('data', data => cluster += data);
         response.on('end', () => {
             // eslint-disable-next-line global-require
-            require('@google-cloud/profiler').start({
+            if (googleCloudProfiler) require('@google-cloud/profiler').start({
                 serviceContext: { service: 'reflector' },
             });
             // eslint-disable-next-line global-require
-            require('@google-cloud/debug-agent').start({
+            if (googleCloudDebugger) require('@google-cloud/debug-agent').start({
                 allowExpressions: true,
                 serviceContext: { service: 'reflector' },
             });
