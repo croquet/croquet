@@ -89,7 +89,7 @@ class Model {
                 console.warn(`${model} did not call super.init(options)`);
             }
         }
-
+window.debugLog(model, "model", "create");
         return model;
     }
 
@@ -101,6 +101,7 @@ class Model {
         // read-only props
         Object.defineProperty(model, "__realm", {  value: realm });
         Object.defineProperty(model, "id", {  value: id, enumerable: true });
+window.debugLog(model, "model", "create-no-init");
         return model;
     }
 
