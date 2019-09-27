@@ -68,11 +68,11 @@ export default class Controller {
 
     constructor(options) {
         this.showOverlay = !options || options.overlay !== false;
-        this.overlay = (options && options.overlay) || null;
-        this.reset(options);
+        this.overlayParent = (options && options.overlay && options.overlay instanceof Element) || null;
+        this.reset();
     }
 
-    reset(options) {
+    reset() {
         /** @type {Island} */
         this.island = null;
         /**  @type {Connection} our websocket connection for talking to the reflector */
@@ -93,8 +93,6 @@ export default class Controller {
         this.cpuTime = 0;
         /** CPU time spent at the point when we realised a snapshot is needed */
         this.triggeringCpuTime = null;
-        // on launch or reconnect, attempt to show spinner
-        if (this.synced === undefined || this.synced) displaySpinner(this.showOverlay, this.overlay);
         /** @type {Boolean} backlog was below SYNCED_MIN */
         this.synced = null; // null indicates never synced before
         /** latency statistics */
@@ -120,6 +118,7 @@ export default class Controller {
 
         viewDomain.removeAllSubscriptionsFor(this); // in case we're recycling
         viewDomain.addSubscription(this.viewId, "__users__", this, data => displayStatus(`users now ${data.count}`), "oncePerFrameWhileSynced");
+        displaySpinner(this.showOverlay, this.overlayParent);
     }
 
     /** @type {String} the session id (same for all replicas) */
