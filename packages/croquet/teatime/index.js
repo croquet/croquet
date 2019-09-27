@@ -133,7 +133,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
     const ISLAND_OPTIONS = ['tps'];
     const SESSION_OPTIONS = ['optionsFromUrl', 'login', 'autoSession'];
     freezeAndHashConstants();
-    const controller = new Controller();
+    const controller = new Controller({overlay: options.overlay});
     const islandOptions = {};
     for (const [option, value] of Object.entries(options)) {
         if (ISLAND_OPTIONS.includes(option)) islandOptions[option] = value;

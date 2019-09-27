@@ -205,11 +205,15 @@ export function displayQRCode(url, div='qrcode') {
     }
 }
 
-const spinnerOverlay = addSpinner();
-let spinnerEnabled = !!spinnerOverlay.parentElement;
+let spinnerOverlay;
+let spinnerEnabled;
 let spinnerTimeout = 0;
 
-export function displaySpinner(enabled) {
+export function displaySpinner(enabled, parent) {
+    if (enabled && !spinnerOverlay) {
+        spinnerOverlay = addSpinner(parent);
+        spinnerEnabled = true;
+    }
     if (spinnerEnabled === enabled) return;
     spinnerEnabled = enabled;
     if (enabled) {
@@ -220,6 +224,7 @@ export function displaySpinner(enabled) {
             spinnerOverlay.style.opacity = 0.9; // animate
         }, 500);
     } else {
+        if (!spinnerOverlay) {return;}
         spinnerOverlay.style.opacity = 0.0; // animate
         clearTimeout(spinnerTimeout);
         spinnerTimeout = setTimeout(() => {
@@ -231,7 +236,7 @@ export function displaySpinner(enabled) {
     }
 }
 
-function addSpinner() {
+function addSpinner(parentOrNull) {
     const style = document.createElement("style");
     style.innerHTML = `
         .spinnerOverlay {
@@ -288,7 +293,7 @@ function addSpinner() {
     spinner.innerText = "Catching up...";
 
     overlay.appendChild(spinner);
-    document.body.appendChild(overlay);
+    (parentOrNull || document.body).appendChild(overlay);
 
     return overlay;
 }
