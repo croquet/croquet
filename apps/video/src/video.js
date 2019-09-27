@@ -319,7 +319,7 @@ class SyncedVideoView extends View {
 
         this.subscribe(this.model.id, { event: 'loadVideo', handling: 'oncePerFrameWhileSynced' }, this.loadVideo);
         this.subscribe(this.model.id, { event: 'playStateChanged', handling: 'oncePerFrame' }, this.playStateChanged);
-        this.subscribe(this.viewId, 'synced', this.handleSyncState);
+        this.subscribe(this.viewId, { event: 'synced', handling: 'immediate' }, this.handleSyncState);
 
         this.videoView = null;
         this.lastStatusCheck = this.now() + 500; // make the update loop wait a bit before checking the first time
