@@ -157,10 +157,18 @@ let qrcode;
 
 export function displayQRCode(url, div='qrcode') {
     if (typeof div === "string") div = document.getElementById(div);
-    if (!div) return;
+    if (!div) {
+        // for any session that sets a global session URL, we'll create a div
+        // on demand if needed.
+        if (!window.croquetSessionURL) return;
+
+        div = document.createElement('div');
+        div.id = 'qrcode';
+        document.body.appendChild(div);
+    }
     div.onclick = () => {};
     if (urlOptions.noqr) return;
-    if (!url) url = window.location.href;
+    if (!url) url = window.croquetSessionURL || window.location.href;
     if (!qrcode) qrcode = new QRCode(div, {
         text: url,
         width: 128,
