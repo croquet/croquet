@@ -128,7 +128,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
     // time when we first noticed that the tab is hidden
     let hiddenSince = null;
     if ("autoSleep" in options) urlOptions.autoSleep = options.autoSleep;
-    if (urlOptions.autoSleep !== false) startSleepChecker();
+    startSleepChecker(); // now runs even if autoSleep is false
     // now start
     const ISLAND_OPTIONS = ['tps'];
     const SESSION_OPTIONS = ['optionsFromUrl', 'login', 'autoSession'];
@@ -144,6 +144,8 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
         model: null,
         view: null,
         step(frameTime) {
+            if (document.visibilityState === "hidden") return; // some browsers - e.g., Firefox - will run occasional animation frames even when hidden
+
             hiddenSince = null; // evidently not hidden
             stepSession(frameTime, controller, session.view);
         }
@@ -197,11 +199,17 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
         const DORMANT_THRESHOLD = 10000;
         setInterval(() => {
             if (document.visibilityState === "hidden") {
-                const now = Date.now();
-                if (hiddenSince) {
-                    // Controller doesn't mind being asked repeatedly to disconnect
-                    if (now - hiddenSince > DORMANT_THRESHOLD) controller.dormantDisconnect();
-                } else hiddenSince = now;
+                // if autoSleep is set to false, don't go dormant even if the tab becomes
+                // hidden.  also, run the simulation loop once per second to handle any events
+                // that have arrived from the reflector.
+                if (urlOptions.autoSleep === false) stepSession(performance.now(), controller, session.view);
+                else {
+                    const now = Date.now();
+                    if (hiddenSince) {
+                        // Controller doesn't mind being asked repeatedly to disconnect
+                        if (now - hiddenSince > DORMANT_THRESHOLD) controller.dormantDisconnect();
+                    } else hiddenSince = now;
+                }
             } else hiddenSince = null; // not hidden
             }, 1000);
     }
@@ -217,8 +225,6 @@ const loadBalance = 4;
 const balanceMS = loadBalance * (1000 / 60);
 
 function stepSession(frameTime, controller, view) {
-    if (document.visibilityState === "hidden") return; // some browsers - e.g., Firefox - will run occasional animation frames even when hidden
-
     controller.checkForConnection(true);
 
     const {backlog, latency, starvation, activity} = controller;
