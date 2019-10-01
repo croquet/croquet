@@ -24,7 +24,8 @@ You will see that a simple Croquet app is indeed very simple.
 
 ## **Try it out!**
 ![QR](https://chart.googleapis.com/chart?chs=50x50&amp;cht=qr&amp;chld=L|0&amp;chl=https://codepen.io/)
-The first thing to do is click or scan the large **QR code** in the CodePen window above.
+The first thing to do is mouse over the small **QR code** in the bottom left of the CodePen window
+to expand it, then click or scan its expanded form.
 This will launch a new CodePen instance of this session.
 If you compare the two counters, you will see that they are identical.
 If you click the counter in either of these views, the counts in both will reset to 0.
@@ -39,7 +40,7 @@ Otherwise, you will have one instance in the same session running an older versi
 and they will not synchronize properly.
 
 ![Session](images/SessionBadge.png)
-The **session badge** (the square under the QR code, filled with colored shapes) indicates the session you are in.  Users who are participating in the same session - who are seeing the same colored shapes - are guaranteed to be in sync.  The session is also identified with a five-letter nonsense word, overlaid onto the badge; this is a quick way to confirm with someone remote that you are both seeing the same thing.
+The **session badge** (the square in the top right, filled with colored shapes) indicates the session you are in.  Users who are participating in the same session - who are seeing the same colored shapes - are guaranteed to be in sync.  The session is also identified with a five-letter nonsense word, overlaid onto the badge; this is a quick way to confirm with someone remote that you are both seeing the same thing.
 
 Any change to the model code will create a new session, with a different badge.  Only when other users load that changed code will they be able to join the new session.  If you are logged into CodePen and editing your own pen, you will find that switching the view to "Debug Mode", for example, also creates a distinct session - in this case, shared by however many debug-mode views you create.
 
@@ -72,18 +73,20 @@ When we use CodePen, we simply include the same library by adding it in the Pen 
 
 Croquet uses QR codes to assist in sharing a Croquet session.
 When set up properly, all you need to do is scan the QR code to find and load a new instance of the current session.
-This is extremely convenient and makes it really easy to test and share Croquet applications.
+This makes it particularly easy to test and share Croquet applications with mobile users.
 
 **Scanning a QR code** is built into the default camera apps on iPhones and Android phones.
 
 If you created a new Pen from scratch (not forking one of the tutorials here) and you want the same join-by-QR functionality:
 
-* add the pen `https://codepen.io/croquet/pen/zVEyqj` as an additional JS resource (in the same way you included the Croquet.js library above) - it will automatically add a QR code linked to your Pen.
-* you may also add that same pen in the CSS settings for positioning of the QR code and session badge.
-  Or, just copy the pen's CSS so you can position it to fit your app.
+* add the Pen `https://codepen.io/croquet/pen/zVEyqj` as an additional JS resource (in the same way you included the Croquet.js library above) - it will automatically add a session badge, and a QR code linked to your Pen.
+* you may also add that same Pen in the CSS settings for positioning of the session badge.
+  Or, just copy the Pen's CSS so you can position it to fit your app.
+* if you want the QR code to appear somewhere other than at bottom left, the current Croquet behavior requires that you explicitly override the CSS settings of the `qrcode` element.  The Pen for the [Multiuser Chat](https://codepen.io/croquet/pen/NZjLzO) includes an example of this.
 
-If you are not using CodePen, you should add a QR code pointing to your app's home page.
-This makes it very convenient for mobile users to join a session.
+If you are not using CodePen, you can still get Croquet to add a QR code simply by setting
+`window.croquetSessionURL` to the desired URL (for example, of your app's home page)
+during initial load of the app.
 
 ## Writing a Croquet Application
 

@@ -107,6 +107,16 @@ For each child BallModel a new BallView object is created. The BallView creates 
 
 MyView also listens for "resize" events from the browser, and uses them to set a suitable size for the view by setting its scale (which also sets the scale for the children - i.e., the balls). When there are multiple users watching multiple instances of this app on browser windows of different sizes, the rescaling ensures that everyone still sees the same overall scene.
 
+```
+MyView.detach() {
+    super.detach();
+    let child;
+    while (child = this.element.firstChild) this.element.removeChild(child);
+}
+```
+
+When a session instance is shut down (including the reversible shutdown that happens if a tab is hidden for ten seconds or more), its root view is destroyed.  If the instance is re-started, a completely new root view will be built.  Therefore, on shutdown, the root view is sent `detach` to give it the chance to clean up its resources.  MyView handles this by destroying all the child views that it has added to the `"animation"` `div` element during this session.
+
 ### BallView
 
 The BallView tracks the associated BallModel.
