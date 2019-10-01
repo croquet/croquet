@@ -167,6 +167,7 @@ export function displayQRCode(url, div='qrcode') {
         document.body.appendChild(div);
     }
     div.onclick = () => {};
+
     if (urlOptions.noqr) return;
     if (!url) url = window.croquetSessionURL || window.location.href;
     if (!qrcode) qrcode = new QRCode(div, {
@@ -178,15 +179,18 @@ export function displayQRCode(url, div='qrcode') {
         correctLevel : QRCode.CorrectLevel.L,   // L, M, Q, H
     });
     else qrcode.makeCode(url);
+    const qrDivStyle = window.getComputedStyle(div);
+    const expandedSize = qrDivStyle.getPropertyValue('--expanded-px') || 256;
+    const expandedBorder = qrDivStyle.getPropertyValue('--expanded-border-px') || 16;
     const setCustomSize = sz => {
         div.style.width = div.style.height = `${sz}px`;
-        div.style.border = `${16 * sz / 256}px solid white`;
+        div.style.border = `${expandedBorder * sz / expandedSize}px solid white`;
         };
     const removeCustomSize = () => {
         div.style.width = div.style.height = "";
         div.style.border = "";
         };
-    let size = 256; // default size for "active" state
+    let size = expandedSize; // start with default size for "active" state
     const active = () => div.classList.contains("active");
     const activate = () => {
         div.classList.add("active");
@@ -202,8 +206,8 @@ export function displayQRCode(url, div='qrcode') {
         div.onclick = () => window.open(url);
         div.onwheel = evt => {
             const { deltaY } = evt;
-            const max = Math.min(window.innerWidth, window.innerHeight) - 2 * div.offsetLeft;
-            size = Math.max(64, Math.min(max, div.offsetWidth * 1.05 ** deltaY));
+            const max = Math.min(window.innerWidth, window.innerHeight) * 0.9;
+            size = Math.max(expandedSize / 4, Math.min(max, div.offsetWidth * 1.05 ** deltaY));
             setCustomSize(size);
             evt.preventDefault();
             evt.stopPropagation();
