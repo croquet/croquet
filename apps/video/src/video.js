@@ -16,6 +16,7 @@
 import { Model, View, startSession } from "@croquet/croquet";
 import { theAssetManager } from "./assetManager";
 
+const KEEP_HIDDEN_TABS_ALIVE = false;
 const SCRUB_THROTTLE = 1000 / 10; // min time between scrub events
 
 // handler for sharing and playing dropped-in video files
@@ -611,7 +612,7 @@ class SyncedVideoView extends View {
 
 async function go() {
 
-    startSession("video", SyncedVideoModel, SyncedVideoView, { tps: 4, step: 'auto', autoSession: true });
+    startSession("video", SyncedVideoModel, SyncedVideoView, { tps: 4, step: 'auto', autoSession: true, autoSleep: !KEEP_HIDDEN_TABS_ALIVE });
 
 }
 
