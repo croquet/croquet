@@ -9,7 +9,7 @@ import { theDragDropHandler } from "./domDragDrop";
 // hack for Parts that still use constructors
 Model.allowConstructors();
 
-export default class App {
+export default class DemoApp {
     constructor(rooms, canvas, width, height, options={}) {
         this.roomStates = {};
 
