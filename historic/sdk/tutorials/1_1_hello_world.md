@@ -84,10 +84,6 @@ If you created a new Pen from scratch (not forking one of the tutorials here) an
   Or, just copy the Pen's CSS so you can position it to fit your app.
 * if you want the QR code to appear somewhere other than at bottom left, the current Croquet behavior requires that you explicitly override the CSS settings of the `qrcode` element.  The Pen for the [Multiuser Chat](https://codepen.io/croquet/pen/NZjLzO) includes an example of this.
 
-If you are not using CodePen, you can still get Croquet to add a QR code simply by setting
-`window.croquetSessionURL` to the desired URL (for example, of your app's home page)
-during initial load of the app.
-
 ## Writing a Croquet Application
 
 ***Every _Croquet_ application consists of two parts:***
