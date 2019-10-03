@@ -639,6 +639,7 @@ export default class Controller {
             name: this.islandCreator.nameWithOptions,
             version: VERSION,
             user: [id, name],
+            url: window.croquetSessionURL || window.location.href,
         };
 
         this.connection.send(JSON.stringify({
