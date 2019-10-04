@@ -1,4 +1,4 @@
-import { displaySessionMoniker, displayQRCode } from "@croquet/util/html";
+import { App, displaySessionMoniker, displayQRCode } from "@croquet/util/html";
 import Stats from "@croquet/util/stats";
 import urlOptions from "@croquet/util/urlOptions";
 import { addConstantsHash } from "@croquet/util/modules";
@@ -10,6 +10,7 @@ import Controller from "./src/controller";
 export { Model, View, Controller };
 export { currentRealm } from "./src/realms";
 export { QFunc, gatherInternalClassTypes } from "./src/island";
+export { App };
 
 //@typedef { import('./src/model').default } Model
 
@@ -133,7 +134,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
     const ISLAND_OPTIONS = ['tps'];
     const SESSION_OPTIONS = ['optionsFromUrl', 'login', 'autoSession'];
     freezeAndHashConstants();
-    const controller = new Controller({overlay: options.overlay});
+    const controller = new Controller();
     const islandOptions = {};
     for (const [option, value] of Object.entries(options)) {
         if (ISLAND_OPTIONS.includes(option)) islandOptions[option] = value;
@@ -175,7 +176,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
         session.model = (await controller.establishSession(name, sessionSpec)).modelRoot;
         session.id = controller.id;
         session.moniker = displaySessionMoniker(controller.id);
-        displayQRCode();
+        //displayQRCode();
         controller.inViewRealm(() => {
             session.view = new ViewRoot(session.model);
         });

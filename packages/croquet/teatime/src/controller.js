@@ -2,11 +2,10 @@ import stableStringify from "fast-json-stable-stringify";
 import "@croquet/util/deduplicate";
 import AsyncQueue from "@croquet/util/asyncQueue";
 import Stats from "@croquet/util/stats";
-//import hotreloadEventManger from "@croquet/util/hotreloadEventManager";
 import urlOptions from "@croquet/util/urlOptions";
 import { login, getUser } from "@croquet/util/user";
-import { displaySpinner, displayStatus, displayWarning, displayError, displayAppError } from "@croquet/util/html";
-import { baseUrl, CROQUET_HOST, hashNameAndCode, hashString } from "@croquet/util/modules";
+import { App, displayStatus, displayWarning, displayError, displayAppError } from "@croquet/util/html";
+import { baseUrl, hashNameAndCode, hashString } from "@croquet/util/modules";
 import { inViewRealm } from "./realms";
 import { viewDomain } from "./domain";
 import Island, { Message, inSequence } from "./island";
@@ -66,9 +65,7 @@ const Controllers = new Set();
 
 export default class Controller {
 
-    constructor(options) {
-        this.showOverlay = !options || options.overlay !== false;
-        this.overlayParent = (options && options.overlay && options.overlay instanceof Element) || null;
+    constructor() {
         this.reset();
     }
 
@@ -118,7 +115,7 @@ export default class Controller {
 
         viewDomain.removeAllSubscriptionsFor(this); // in case we're recycling
         viewDomain.addSubscription(this.viewId, "__users__", this, data => displayStatus(`users now ${data.count}`), "oncePerFrameWhileSynced");
-        displaySpinner(this.showOverlay, this.overlayParent);
+        //App.showSync(true);   @@ no - this is now the responsibility of the client
     }
 
     /** @type {String} the session id (same for all replicas) */
@@ -639,6 +636,7 @@ export default class Controller {
             name: this.islandCreator.nameWithOptions,
             version: VERSION,
             user: [id, name],
+            url: App.sessionURL,
         };
 
         this.connection.send(JSON.stringify({
@@ -782,7 +780,7 @@ export default class Controller {
             Stats.backlog(backlog);
             if (typeof this.synced === "boolean" && (this.synced && backlog > SYNCED_MAX || !this.synced && backlog < SYNCED_MIN)) {
                 this.synced = !this.synced;
-                displaySpinner(!this.synced);
+                App.showSync(!this.synced);
                 this.island.publishFromView(this.viewId, "synced", this.synced);
             }
             if (weHaveTime && this.cpuTime > SNAPSHOT_EVERY) {

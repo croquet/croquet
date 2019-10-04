@@ -92,27 +92,42 @@ function addToastifyStyle() {
 }
 addToastifyStyle();
 
+// this is the default App.messageFunction
+export function showMessageAsToast(msg, options = {}) {
+    const level = options.level;
+    let color;
+    if (level === 'error') color = 'red';
+    else if (level === 'warning') color = 'gold';
+    else color = '#aaa';
+
+    return displayToast(msg, { backgroundColor: color, ...options });
+}
+
 export function displayError(msg, options) {
-    return msg && displayToast(msg, { backgroundColor: "red", ...options });
+    return msg && App.messageFunction(msg, { ...options, level: 'error' });
 }
 
 export function displayWarning(msg, options) {
-    return msg && displayToast(msg, { backgroundColor: "gold", ...options });
+    return msg && App.messageFunction(msg, { ...options, level: 'warning' });
 }
 
 export function displayStatus(msg, options) {
-    return msg && displayToast(msg, { backgroundColor: "#aaa", ...options });
+    return msg && App.messageFunction(msg, { ...options, level: 'status' });
 }
 
 export function displayAppError(where, error) {
     const userStack = error.stack.split("\n").filter(l => !l.match(/croquet-.*\.min.js/)).join('\n');
-    displayError(`<b>Error during ${where}: ${error.message}</b>\n\n${userStack}`.replace(/\n/g, "<br>"),  {
+    App.messageFunction(`<b>Error during ${where}: ${error.message}</b>\n\n${userStack}`.replace(/\n/g, "<br>"),  {
+        level: 'error',
         duration: 10000,
         stopOnFocus: true,
     });
 }
 
 function displayToast(msg, options) {
+    const parentDef = App.messageParent;
+    if (parentDef === false) return null;
+
     const toastOpts = {
         text: msg,
         duration: 3000,
@@ -122,6 +137,17 @@ function displayToast(msg, options) {
         backgroundColor: 'linear-gradient(to right, #00b09b, #96c93d)',
         stopOnFocus: true, // Prevents dismissing of toast on hover
         ...options };
+
+    let selector;
+    if (parentDef instanceof Element) {
+        // toastify needs an id, not an element.  if the element has no id, give it one.
+        selector = parentDef.id;
+        if (!selector) parentDef.id = selector = '_croquetToastParent';
+    } else if (typeof parentDef === 'string') selector = parentDef;
+    // if parentDef is null, fall through (so body will be used as parent)
+
+    if (selector) toastOpts.selector = selector;
+
     return Toastify(toastOpts).showToast();
 }
 
@@ -153,10 +179,25 @@ export function displaySessionMoniker(id='', element='session') {
     return moniker;
 }
 
+// the QRCode maker takes an element and options (including the text for the code).
+// it adds a canvas to the element, draws the code into the canvas, and returns an
+// object that allows the code to be cleared and replaced.
+function makeQRCode(div, url, options={}) {
+    return new QRCode(div, {
+        text: url,
+        width: 128,
+        height: 128,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.L,   // L, M, Q, H
+        ...options
+    });
+}
+
 let qrcode;
 
 export function displayQRCode(url, div='qrcode') {
-    if (typeof div === "string") div = document.getElementById(div);
+    if (typeof div === 'string') div = document.getElementById(div);
     if (!div) {
         // for any session that sets a global session URL, we'll create a div
         // on demand if needed.
@@ -169,15 +210,7 @@ export function displayQRCode(url, div='qrcode') {
     div.onclick = () => {};
 
     if (urlOptions.noqr) return;
-    if (!url) url = window.croquetSessionURL || window.location.href;
-    if (!qrcode) qrcode = new QRCode(div, {
-        text: url,
-        width: 128,
-        height: 128,
-        colorDark : "#000000",
-        colorLight : "#ffffff",
-        correctLevel : QRCode.CorrectLevel.L,   // L, M, Q, H
-    });
+    if (!qrcode) qrcode = makeQRCode(div, url); // default options
     else qrcode.makeCode(url);
     const qrDivStyle = window.getComputedStyle(div);
     const expandedSize = qrDivStyle.getPropertyValue('--expanded-px') || 256;
@@ -191,16 +224,16 @@ export function displayQRCode(url, div='qrcode') {
         div.style.border = "";
         };
     let size = expandedSize; // start with default size for "active" state
-    const active = () => div.classList.contains("active");
+    const active = () => div.classList.contains('active');
     const activate = () => {
-        div.classList.add("active");
+        div.classList.add('active');
         setCustomSize(size);
         };
     const deactivate = () => {
-        div.classList.remove("active");
+        div.classList.remove('active');
         removeCustomSize();
         };
-    if ("ontouchstart" in div) {
+    if ('ontouchstart' in div) {
         div.ontouchstart = () => active() ? deactivate() : activate();
     } else {
         div.onclick = () => window.open(url);
@@ -218,38 +251,48 @@ export function displayQRCode(url, div='qrcode') {
 }
 
 let spinnerOverlay;
-let spinnerEnabled;
-let spinnerTimeout = 0;
+let spinnerEnabled; // set true when spinner is shown, or about to be shown
+let spinnerTimeout = 0; // used to debounce.  only act on enabled true/false if steady for 500ms.
 
-export function displaySpinner(enabled, parent) {
-    if (enabled && !spinnerOverlay) {
-        spinnerOverlay = addSpinner(parent);
-        spinnerEnabled = true;
-    }
+function displaySpinner(enabled) {
     if (spinnerEnabled === enabled) return;
+
+    if (enabled && !spinnerOverlay) spinnerOverlay = makeSpinner(); // lazily create when first enabled
+
     spinnerEnabled = enabled;
     if (enabled) {
         clearTimeout(spinnerTimeout);
+
+        // set timer to add the overlay after 500ms iff still enabled
         spinnerTimeout = setTimeout(() => {
-            if (!spinnerEnabled) return;
-            document.body.appendChild(spinnerOverlay);
-            spinnerOverlay.style.opacity = 0.9; // animate
+            if (!spinnerEnabled) return; // not enabled any more.  don't show.
+
+            let parent;
+            if (parentDef instanceof Element) parent = parentDef;
+            else if (typeof parentDef === 'string') parent = document.getElementById(parentDef);
+            if (!parent) parent = document.body; // fail safe; also when parentDef === null
+            parent.appendChild(spinnerOverlay);
+
+            spinnerOverlay.style.opacity = 0.9; // animate into view
         }, 500);
     } else {
-        if (!spinnerOverlay) {return;}
-        spinnerOverlay.style.opacity = 0.0; // animate
+        if (!spinnerOverlay) return;
+
         clearTimeout(spinnerTimeout);
+
+        spinnerOverlay.style.opacity = 0.0; // start the animated fade
+
+        // set timer to remove the overlay after 500ms iff still disabled
         spinnerTimeout = setTimeout(() => {
-            if (spinnerEnabled) return;
-            if (spinnerOverlay.parentElement) {
-                document.body.removeChild(spinnerOverlay);
-            } // else console.warn("spinner overlay already removed?!");
+            if (spinnerEnabled) return; // now enabled.  don't remove.
+
+            if (spinnerOverlay.parentElement) spinnerOverlay.parentElement.removeChild(spinnerOverlay);
         }, 500);
     }
 }
 
-function addSpinner(parentOrNull) {
-    const style = document.createElement("style");
+function makeSpinner() {
+    const style = document.createElement('style');
     style.innerHTML = `
         .spinnerOverlay {
             z-index: 1000;
@@ -305,7 +348,83 @@ function addSpinner(parentOrNull) {
     spinner.innerText = "Catching up...";
 
     overlay.appendChild(spinner);
-    (parentOrNull || document.body).appendChild(overlay);
 
     return overlay;
 }
+
+function findElement(value, ifNotFoundDo) {
+    if (value === false) return false;
+
+    if (value instanceof Element) return value;
+
+    if (typeof value === "string") {
+        const elem = document.getElementById(value);
+        if (elem) return elem;
+    }
+
+    return ifNotFoundDo ? ifNotFoundDo() : null;
+}
+
+export const App = {
+    sessionURL: window.location.href,
+    syncParent: null,
+    messageParent: false,
+    qrParent: null,
+    statsParent: null,
+    messageFunction: showMessageAsToast,
+
+    generateQR(options = {}) {
+        // #### WIP ####
+        if (!App.sessionURL) return null;
+    },
+
+    showQR(options = {}) {
+        let parentDef = App.qrParent;
+        if (parentDef === false) return;
+
+        const url = App.sessionURL;
+        if (!url) { console.warn("App.sessionURL is not set"); return; }
+
+        if (parentDef === null) parentDef = 'qrcode';
+        const elem = findElement(parentDef, () => {
+            const div = document.createElement('div');
+            div.id = 'qrcode';
+            document.body.appendChild(div);
+            return div;
+            });
+        if (elem) displayQRCode(url, elem, options);
+    },
+
+    showSync(bool) {
+        const parentDef = App.syncParent; // element | element id | null (body) | false (off)
+        if (parentDef === false) bool = false; // if syncParent (now) false, make sure spinner is gone
+
+        displaySpinner(bool);
+    },
+
+    showStats(bool) {
+        // #### WIP ####
+        let parentDef = App.statsParent;
+        if (parentDef === false) return;
+
+        const url = App.sessionURL;
+        if (!url) return;
+
+        if (parentDef === null) parentDef = 'stats';
+        const elem = findElement(parentDef, () => {
+            const div = document.createElement('div');
+            div.id = 'stats';
+            document.body.appendChild(div);
+            return div;
+        });
+        if (elem) {}
+    },
+
+    showMessage(msg, options={}) {
+        if (App.messageParent === false) return null;
+
+        // we have no say in how messageParent will be used.  see displayToast (above)
+        // for an example.
+        return App.messageFunction(msg, options);
+    }
+};

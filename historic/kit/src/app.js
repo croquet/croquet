@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { Model, Controller } from "@croquet/teatime";
 import { urlOptions, Stats, displaySessionMoniker, displayQRCode } from "@croquet/util";
+import { App } from "@croquet/util/html";
 import RoomViewManager from "./room/roomViewManager";
 import Renderer from "./render";
 import { theKeyboardManager } from "./domKeyboardManager";
@@ -106,7 +107,9 @@ export default class DemoApp {
         urlOptions.setSession(controller.session, !hadSession);
         window.parent.postMessage({session: controller.sesssion, url: window.location + ""}, "*");
         displaySessionMoniker(controller.id, 'reset');
-        displayQRCode(window.location.href, 'qrcode');
+        App.messageParent = null;
+        App.sessionURL = window.location.href; // may have been updated with room info
+        App.showQR();
         this.currentRoomName = roomName;
         // leave old room after changing current room (see destroyerFn above)
         this.roomViewManager.leave(prevRoomName, this.roomStates);
