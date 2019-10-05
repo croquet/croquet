@@ -6,12 +6,12 @@ import urlOptions from "./urlOptions";
 // add style for the standard widgets that can appear on a Croquet page
 function addWidgetStyle() {
     const widgetCSS = `
-        #stats { display: none; position: absolute; z-index: 20; top: 0; right: 0; width: 125px; height: 150px; background: white; opacity: 0.5; }
-        #stats canvas { pointer-events: none }
-        body.debug #stats { display: block; }
-        #qrcode { position: absolute; z-index: 2; border: 3px solid white; bottom: 6px; left: 6px; width: 35px; height: 35px; box-sizing: border-box; opacity: 0.3; cursor: none; transition: all 0.3s ease; }
-        #qrcode canvas { width: 100%; height: 100%; image-rendering: pixelated; }
-        #qrcode.active { opacity: 0.9; }
+        #croquet_stats { display: none; position: absolute; z-index: 20; top: 0; right: 0; width: 125px; height: 150px; background: white; opacity: 0.5; }
+        #croquet_stats canvas { pointer-events: none }
+        body.debug #stats { display: block; }           ###################
+        #croquet_qrcode { position: absolute; z-index: 2; border: 3px solid white; bottom: 6px; left: 6px; width: 35px; height: 35px; box-sizing: border-box; opacity: 0.3; cursor: none; transition: all 0.3s ease; }
+        #croquet_qrcode canvas { width: 100%; height: 100%; image-rendering: pixelated; }
+        #croquet_qrcode.active { opacity: 0.9; }
 `;
     const widgetStyle = document.createElement("style");
     widgetStyle.innerHTML = widgetCSS;
@@ -125,7 +125,7 @@ export function displayAppError(where, error) {
 }
 
 function displayToast(msg, options) {
-    const parentDef = App.messageParent;
+    const parentDef = App.root;
     if (parentDef === false) return null;
 
     const toastOpts = {
@@ -139,44 +139,55 @@ function displayToast(msg, options) {
         ...options };
 
     let selector;
-    if (parentDef instanceof Element) {
+    if (parentDef instanceof Element && parentDef !== document.body) {
         // toastify needs an id, not an element.  if the element has no id, give it one.
         selector = parentDef.id;
         if (!selector) parentDef.id = selector = '_croquetToastParent';
     } else if (typeof parentDef === 'string') selector = parentDef;
-    // if parentDef is null, fall through (so body will be used as parent)
+    // fall through (so body will be used as parent) - in particular, if parentDef === true
 
     if (selector) toastOpts.selector = selector;
 
     return Toastify(toastOpts).showToast();
 }
 
-export function displaySessionMoniker(id='', element='session') {
-    const button = document.getElementById(element);
-    document.title = document.title.replace(/:.*/, '');
-    if (!id) {
-        if (button) button.style.backgroundImage = '';
-        return '';
-    }
+function monikerForId(id) {
     // random page title suffix
     const random = new SeedRandom(id);
     const letters = ['bcdfghjklmnpqrstvwxyz', 'aeiou'];
     let moniker = '';
-    for (let i = 0; i < 10; i++) moniker += letters[i%2][random.quick() * letters[i%2].length|0];
+    for (let i = 0; i < 10; i++) moniker += letters[i % 2][random.quick() * letters[i % 2].length | 0];
+    return moniker;
+}
+
+function gravatarURLForId(id) {
+    const random = new SeedRandom(id);
+    const hash = [0, 0, 0, 0].map(_ => (random.int32() >>> 0).toString(16).padStart(8, '0')).join('');
+    return `url('https://www.gravatar.com/avatar/${hash}?d=identicon&f=y')`;
+}
+
+export function clearSessionMoniker() {
+    document.title = document.title.replace(/:.*/, '');
+}
+
+export function displayBadgeIfNeeded(session) {
+    const id = session.id;
+    // WIP ################
+    const button = document.getElementById(element);
+    document.title = document.title.replace(/:.*/, '');
+    const moniker = monikerForId(id);
     document.title += ':' + moniker;
     // image derived from id
     if (button) {
         if (urlOptions.noreset) {
             button.style.display = "none";
         } else {
-            const hash = [0,0,0,0].map(_=>(random.int32()>>>0).toString(16).padStart(8, '0')).join('');
-            button.style.backgroundImage = `url('https://www.gravatar.com/avatar/${hash}?d=identicon&f=y')`;
+            button.style.backgroundImage = gravatarURLForId(id);
 
             const monikerDiv = document.getElementById(element+'-moniker');
             if (monikerDiv) monikerDiv.textContent = moniker.slice(0, 5);
         }
     }
-    return moniker;
 }
 
 // the QRCode maker takes an element and options (including the text for the code).
@@ -191,27 +202,32 @@ function makeQRCode(div, url, options={}) {
         colorLight: "#ffffff",
         correctLevel: QRCode.CorrectLevel.L,   // L, M, Q, H
         ...options
-    });
+        });
 }
 
-let qrcode;
+export function displayQRCodeIfNeeded() {
+    if (urlOptions.noqr) return;
 
-export function displayQRCode(url, div='qrcode') {
-    if (typeof div === 'string') div = document.getElementById(div);
+    if (App.root === false) return;
+
+    let parentDef = App.qrParent;
+    if (parentDef === false) return;
+
+    const url = App.sessionURL;
+    if (!url) { console.warn("App.sessionURL is not set"); return; }
+
+    if (parentDef === true) parentDef = 'croquet_qrcode';
+    let div = findElement(parentDef);
     if (!div) {
-        // for any session that sets a global session URL, we'll create a div
-        // on demand if needed.
-        if (!window.croquetSessionURL) return;
+        if (parentDef !== 'croquet_qrcode') return; // we only have the right to create a #croquet_qrcode element
 
         div = document.createElement('div');
-        div.id = 'qrcode';
+        div.id = 'croquet_qrcode';
         document.body.appendChild(div);
     }
-    div.onclick = () => {};
+    makeQRCode(div, url); // default options
+    div.onclick = () => { };
 
-    if (urlOptions.noqr) return;
-    if (!qrcode) qrcode = makeQRCode(div, url); // default options
-    else qrcode.makeCode(url);
     const qrDivStyle = window.getComputedStyle(div);
     const expandedSize = qrDivStyle.getPropertyValue('--expanded-px') || 256;
     const expandedBorder = qrDivStyle.getPropertyValue('--expanded-border-px') || 16;
@@ -250,6 +266,13 @@ export function displayQRCode(url, div='qrcode') {
     }
 }
 
+export function displaySessionWidgets(session) {
+    displayQRCodeIfNeeded();
+    displayStatsIfNeeded();
+    displayBadgeIfNeeded(session);
+}
+
+
 let spinnerOverlay;
 let spinnerEnabled; // set true when spinner is shown, or about to be shown
 let spinnerTimeout = 0; // used to debounce.  only act on enabled true/false if steady for 500ms.
@@ -267,10 +290,7 @@ function displaySpinner(enabled) {
         spinnerTimeout = setTimeout(() => {
             if (!spinnerEnabled) return; // not enabled any more.  don't show.
 
-            let parent;
-            if (parentDef instanceof Element) parent = parentDef;
-            else if (typeof parentDef === 'string') parent = document.getElementById(parentDef);
-            if (!parent) parent = document.body; // fail safe; also when parentDef === null
+            const parent = findElement(App.root, () => document.body);
             parent.appendChild(spinnerOverlay);
 
             spinnerOverlay.style.opacity = 0.9; // animate into view
@@ -367,51 +387,37 @@ function findElement(value, ifNotFoundDo) {
 
 export const App = {
     sessionURL: window.location.href,
-    syncParent: null,
-    messageParent: false,
-    qrParent: null,
-    statsParent: null,
+    root: true,
+    qrcode: false,
+    stats: false,
+    badge: false,
     messageFunction: showMessageAsToast,
 
     generateQR(options = {}) {
-        // #### WIP ####
         if (!App.sessionURL) return null;
-    },
 
-    showQR(options = {}) {
-        let parentDef = App.qrParent;
-        if (parentDef === false) return;
-
-        const url = App.sessionURL;
-        if (!url) { console.warn("App.sessionURL is not set"); return; }
-
-        if (parentDef === null) parentDef = 'qrcode';
-        const elem = findElement(parentDef, () => {
-            const div = document.createElement('div');
-            div.id = 'qrcode';
-            document.body.appendChild(div);
-            return div;
-            });
-        if (elem) displayQRCode(url, elem, options);
+        const div = document.createElement('div');
+        const qrcode = makeQRCode(div, App.sessionURL, options);
+        return qrcode && qrcode.getCanvas();
     },
 
     showSync(bool) {
-        const parentDef = App.syncParent; // element | element id | null (body) | false (off)
-        if (parentDef === false) bool = false; // if syncParent (now) false, make sure spinner is gone
+        const parentDef = App.root; // element | element id | true (body) | false (off)
+        if (parentDef === false) bool = false; // if root (now) false, make sure spinner is gone
 
         displaySpinner(bool);
     },
 
     showStats(bool) {
-        // #### WIP ####
-        let parentDef = App.statsParent;
-        if (parentDef === false) return;
+        let rootDef = App.root;
+        if (rootDef === false) return;
 
-        const url = App.sessionURL;
-        if (!url) return;
+        let statsDef = App.stats;
+        if (statsDef === false) bool = false; // if (now) false, we can only remove
+        else if (statsDef === true) statsDef = rootDef;
 
-        if (parentDef === null) parentDef = 'stats';
-        const elem = findElement(parentDef, () => {
+        if (statsDef === null) statsDef = 'stats';
+        const elem = findElement(statsDef, () => {
             const div = document.createElement('div');
             div.id = 'stats';
             document.body.appendChild(div);
@@ -421,7 +427,7 @@ export const App = {
     },
 
     showMessage(msg, options={}) {
-        if (App.messageParent === false) return null;
+        if (App.root === false) return null;
 
         // we have no say in how messageParent will be used.  see displayToast (above)
         // for an example.

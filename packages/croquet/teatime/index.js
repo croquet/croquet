@@ -1,4 +1,4 @@
-import { App, displaySessionMoniker, displayQRCode } from "@croquet/util/html";
+import { App, displaySessionWidgets, clearSessionMoniker } from "@croquet/util/html";
 import Stats from "@croquet/util/stats";
 import urlOptions from "@croquet/util/urlOptions";
 import { addConstantsHash } from "@croquet/util/modules";
@@ -141,7 +141,6 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
     }
     const session = {
         id: '',
-        moniker: '',
         model: null,
         view: null,
         step(frameTime) {
@@ -175,8 +174,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
         }
         session.model = (await controller.establishSession(name, sessionSpec)).modelRoot;
         session.id = controller.id;
-        session.moniker = displaySessionMoniker(controller.id);
-        //displayQRCode();
+        displaySessionWidgets(session);
         controller.inViewRealm(() => {
             session.view = new ViewRoot(session.model);
         });
@@ -188,7 +186,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
             session.view.detach();
             session.view = null;
         }
-        session.moniker = displaySessionMoniker('');
+        clearSessionMoniker();
     }
 
     function islandInit(islandOpts) {
