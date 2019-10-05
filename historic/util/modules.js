@@ -40,7 +40,9 @@ if (process.env.CROQUET_REPLAY) {
     if (!htmlSource.includes(entryPointName)) console.error("Entry point substitution failed!");
 }
 
-export const CROQUET_HOST = window.location.hostname.endsWith("croquet.studio") ? window.location.hostname : "croquet.studio";
+// croquet.io and pi.croquet.io will provide file servers on same host
+// everything else still uses croquet.studio
+export const CROQUET_HOST = window.location.hostname.endsWith("croquet.io") ? window.location.host : "croquet.studio";
 
 export function fileServer() {
     const server = typeof urlOptions.files === "string" ? urlOptions.files : `https://${CROQUET_HOST}/files-v1`;
