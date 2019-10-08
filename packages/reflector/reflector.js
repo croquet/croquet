@@ -86,6 +86,7 @@ function logtime() {
 }
 function LOG( ...args) { console.log( `${logtime()}Reflector-${VERSION}(${cluster}:${hostip}):`, ...args); }
 function WARN(...args) { console.warn(`${logtime()}Reflector-${VERSION}(${cluster}:${hostip}):`, ...args); }
+function ERROR(...args) { console.error(`${logtime()}Reflector-${VERSION}(${cluster}:${hostip}):`, ...args); }
 
 // return codes for closing connection
 // client wil try to reconnect for codes < 4100
@@ -341,7 +342,7 @@ function JOIN(client, args) {
             if (island.tick) startTicker(island, island.tick);
             if (island.syncClients.length > 0) SYNC(island);
         }).catch(err => {
-            LOG(err.message);
+            if (err.code !== 404) ERROR(err.message);
             island.storedUrl = ''; // replace the null that means we haven't looked
             START();
         });
