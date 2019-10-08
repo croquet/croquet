@@ -275,7 +275,7 @@ function JOIN(client, args) {
         return;
     }
     const id = client.sessionId;
-    LOG(id, 'received', client.addr, 'JOIN', args);
+    LOG(id, "received", client.addr, 'JOIN', JSON.stringify(args));
     const { name, version, user } = args;
     if (user) {
         // strip off any existing user info
