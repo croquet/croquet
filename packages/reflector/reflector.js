@@ -275,7 +275,7 @@ function JOIN(client, args) {
         return;
     }
     const id = client.sessionId;
-    LOG('received', client.addr, 'JOIN', id, args);
+    LOG(id, 'received', client.addr, 'JOIN', args);
     const { name, version, user } = args;
     if (user) {
         // strip off any existing user info
@@ -335,14 +335,14 @@ function JOIN(client, args) {
         const fileName = `${id}/latest.json`;
         fetchJSON(fileName)
         .then(latestSpec => {
-            LOG("spec from latest.json: snapshot url ", latestSpec.snapshotUrl, "number of messages", latestSpec.messages.length);
+            LOG(id, "spec from latest.json: snapshot url ", latestSpec.snapshotUrl, "number of messages", latestSpec.messages.length);
             savableKeys(island).forEach(key => island[key] = latestSpec[key]);
             island.storedUrl = latestSpec.snapshotUrl;
             island.storedSeq = latestSpec.seq;
             if (island.tick) startTicker(island, island.tick);
             if (island.syncClients.length > 0) SYNC(island);
         }).catch(err => {
-            if (err.code !== 404) ERROR(err.message);
+            if (err.code !== 404) ERROR(id, err.message);
             island.storedUrl = ''; // replace the null that means we haven't looked
             START();
         });
@@ -356,7 +356,7 @@ function JOIN(client, args) {
 
     // otherwise, nothing to do at this point.  log that this client is waiting
     // for a snapshot either from latest.json or from a STARTed client.
-    console.log(`>>> client ${client.addr} waiting for snapshot`);
+    LOG(id, "client waiting for snapshot", client.addr);
 
     function START() {
         // find next client
@@ -366,12 +366,12 @@ function JOIN(client, args) {
         } while (client.readyState !== WebSocket.OPEN);
         const msg = JSON.stringify({ id, action: 'START' });
         client.safeSend(msg);
-        LOG('sending', client.addr, msg);
+        LOG(id, 'sending', client.addr, msg);
         // if the client does not provide a snapshot in time, we need to start over
         island.startTimeout = setTimeout(() => {
             island.startTimeout = null;
             // kill client
-            LOG(">>> killing unresponsive", client.addr);
+            LOG(id, "killing unresponsive", client.addr);
             if (client.readyState === WebSocket.OPEN) client.close(...REASON.UNRESPONSIVE);
             // start next client
             START();
@@ -380,17 +380,17 @@ function JOIN(client, args) {
 }
 
 function SYNC(island) {
-    const { snapshotUrl: url, messages } = island;
+    const { id, snapshotUrl: url, messages } = island;
     const time = getTime(island);
-    const response = JSON.stringify({ id: island.id, action: 'SYNC', args: { url, messages, time } });
+    const response = JSON.stringify({ id, action: 'SYNC', args: { url, messages, time } });
     const range = !messages.length ? '' : ` (#${messages[0][1]}...${messages[messages.length - 1][1]})`;
     for (const syncClient of island.syncClients) {
         if (syncClient.readyState === WebSocket.OPEN) {
             syncClient.safeSend(response);
-            LOG(`sending ${syncClient.addr} SYNC ${response.length} bytes, ${messages.length} messages${range}, snapshot: ${url}`);
+            LOG(id, `sending ${syncClient.addr} SYNC ${response.length} bytes, ${messages.length} messages${range}, snapshot: ${url}`);
             userDidJoin(island, syncClient);
         } else {
-            LOG('cannot send SYNC to', syncClient.addr);
+            LOG(id, 'cannot send SYNC to', syncClient.addr);
         }
     }
     // synced all that were waiting
@@ -402,7 +402,7 @@ function SYNC(island) {
  */
 function LEAVING(client) {
     const id = client.sessionId;
-    LOG('received', client.addr, 'LEAVING', id);
+    LOG(id, 'received', client.addr, 'LEAVING');
     const island = ALL_ISLANDS.get(id);
     if (!island) return;
     island.clients.delete(client);
@@ -444,7 +444,7 @@ function SNAP(client, args) {
     // snapshot can be taken after some elapsed time but no additional external messages.
     if (time <= island.snapshotTime) return;
 
-    LOG(`${island} got snapshot ${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'}`);
+    LOG(id, `${island} got snapshot ${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'}`);
 
     // forget older messages, setting aside the ones that need to be stored
     let messagesToStore = [];
@@ -452,10 +452,10 @@ function SNAP(client, args) {
     if (msgs.length > 0) {
         const keep = msgs.findIndex(msg => after(seq, msg[1]));
         if (keep > 0) {
-            LOG(`${island} forgetting messages #${msgs[0][1] >>> 0} to #${msgs[keep - 1][1] >>> 0} (keeping #${msgs[keep][1] >>> 0})`);
+            LOG(id, `${island} forgetting messages #${msgs[0][1] >>> 0} to #${msgs[keep - 1][1] >>> 0} (keeping #${msgs[keep][1] >>> 0})`);
             messagesToStore = msgs.splice(0, keep); // we'll store all those we're forgetting
         } else if (keep === -1) {
-            LOG(`${island} forgetting all messages (#${msgs[0][1] >>> 0} to #${msgs[msgs.length - 1][1] >>> 0})`);
+            LOG(id, `${island} forgetting all messages (#${msgs[0][1] >>> 0} to #${msgs[msgs.length - 1][1] >>> 0})`);
             messagesToStore = msgs.slice();
             msgs.length = 0;
         }
@@ -473,7 +473,7 @@ function SNAP(client, args) {
         const pad = n => (""+n).padStart(10, '0');
         const firstSeq = messagesToStore[0][1] >>> 0;
         const logName = `${id}/${pad(time)}_${firstSeq}-${seq}-${hash}.json`;
-        LOG("uploading messages between times ", island.snapshotTime, "and", time, `(seqs ${firstSeq} to ${seq})`, "to", logName);
+        LOG(id, "uploading messages between times ", island.snapshotTime, "and", time, `(seqs ${firstSeq} to ${seq})`, "to", logName);
         uploadJSON(logName, messageLog);
     }
 
@@ -503,7 +503,7 @@ function SEND(island, messages) {
         message[0] = time;
         message[1] = island.seq = (island.seq + 1) >>> 0; // seq is always uint32
         const msg = JSON.stringify({ id: island.id, action: 'RECV', args: message });
-        //LOG("broadcasting RECV", message);
+        //LOG(id, "broadcasting RECV", message);
         prometheusMessagesCounter.inc();
         STATS.RECV++;
         STATS.SEND += island.clients.size;
@@ -528,7 +528,7 @@ function TUTTI(client, args) {
     if (!island) { if (client && client.readyState === WebSocket.OPEN) client.close(...REASON.UNKNOWN_ISLAND); return; }
 
     const [ sendTime, tuttiSeq, payload, firstMsg, wantsVote, tallyTarget ] = args;
-console.log({sendTime, tuttiSeq, payload});
+
     const tallyHash = `${tuttiSeq}:${sendTime}`;
     function tallyComplete() {
         const tally = island.tallies[tallyHash];
@@ -547,7 +547,7 @@ console.log({sendTime, tuttiSeq, payload});
         const lastComplete = island.lastCompletedTally;
         if (lastComplete !== null && (tuttiSeq === lastComplete || after(tuttiSeq, lastComplete))) {
             // too late
-            console.log(`rejecting tally of ${tuttiSeq} cf completed ${lastComplete}`);
+            WARN(id, `rejecting tally of ${tuttiSeq} cf completed ${lastComplete}`);
             return;
         }
 
@@ -570,16 +570,16 @@ function DELAY_SEND(island, delay, messages) {
         stopTicker(island);
         island.delayed = [];
         setTimeout(() => DELAYED_SEND(island), delay);
-        //console.log(">>>>>>>>>>>>>> Delaying for", delay, "ms");
+        //LOG(island.id, ">>>>>>>>>>>>>> Delaying for", delay, "ms");
     }
     island.delayed.push(...messages);
-    //console.log(">>>>>>>>>>>>>> Delaying", ...args);
+    //LOG(island.id, ">>>>>>>>>>>>>> Delaying", ...args);
 }
 
 function DELAYED_SEND(island) {
     const { delayed } = island;
     island.delayed = null;
-    //console.log(">>>>>>>>>>>>>> Sending delayed messages", delayed);
+    //LOG(island.id, ">>>>>>>>>>>>>> Sending delayed messages", delayed);
     SEND(island, delayed);
 }
 
@@ -587,7 +587,7 @@ function DELAYED_SEND(island) {
  * @param {IslandData} island
 */
 function USERS(island) {
-    const { clients, usersJoined, usersLeft } = island;
+    const { id, clients, usersJoined, usersLeft } = island;
     const active = [...clients].filter(each => each.active).length;
     const total = clients.size;
     const payload = { what: 'users', active, total };
@@ -595,7 +595,7 @@ function USERS(island) {
     if (usersLeft.length > 0) payload.left = [...usersLeft];
     const msg = [0, 0, payload];
     SEND(island, [msg]);
-    LOG(`Users ${island}: +${usersJoined.length}-${usersLeft.length}=${clients.size} (total ${ALL_ISLANDS.size} islands, ${server.clients.size} users)`);
+    LOG(id, `Users ${island}: +${usersJoined.length}-${usersLeft.length}=${clients.size} (total ${ALL_ISLANDS.size} islands, ${server.clients.size} users)`);
     usersJoined.length = 0;
     usersLeft.length = 0;
 }
@@ -617,7 +617,7 @@ function TICK(island) {
     if (time - lastMsgTime < tick * scale) return;
     island.lastTick = time;
     const msg = JSON.stringify({ id, action: 'TICK', args: time });
-    //LOG('broadcasting', msg);
+    //LOG(id, 'broadcasting', msg);
     prometheusTicksCounter.inc();
     island.clients.forEach(client => {
         // only send ticks if not back-logged
@@ -653,13 +653,13 @@ function startTicker(island, tick) {
     if (island.ticker) stopTicker(island);
     island.tick = tick;
     island.ticker = setInterval(() => TICK(island), tick);
-    //LOG(`Sending TICKs every ${tick} ms to ${island}`)
+    //LOG(id, `Sending TICKs every ${tick} ms to ${island}`)
 }
 
 function stopTicker(island) {
     clearInterval(island.ticker);
     island.ticker = null;
-    //console.log("STOPPED TICKS");
+    //LOG(id, "STOPPED TICKS");
 }
 
 // impose a delay on island deletion, in case clients are only going away briefly
@@ -684,7 +684,7 @@ async function deleteIsland(island) {
     // there, write a new latest.json.
     if (snapshotUrl !== storedUrl || after(storedSeq, seq)) {
         const fileName = `${id}/latest.json`;
-        LOG("uploading latest.json for", id, "with", island.messages.length, "messages");
+        LOG(id, "uploading latest.json with", island.messages.length, "messages");
         const latestSpec = {};
         savableKeys(island).forEach(key => latestSpec[key] = island[key]);
         return uploadJSON(fileName, latestSpec);
@@ -694,7 +694,7 @@ async function deleteIsland(island) {
 
 async function unregisterSession(id) {
     if (cluster === "local") return;
-    LOG("Unregistering", id);
+    LOG(id, "unregistering session");
     try {
         await storage.bucket('croquet-reflectors-v1').file(`${id}.json`).delete();
     } catch (err) {
@@ -729,13 +729,13 @@ server.on('connection', (client, req) => {
         client.send(data);
         STATS.OUT += data.length;
     };
-    LOG(`connection ${version}/${sessionId} from ${client.addr} ${req.headers['x-location']}`);
+    LOG(sessionId, `connection ${version} from ${client.addr} ${req.headers['x-location']}`);
     STATS.USERS = Math.max(STATS.USERS, server.clients.size);
 
     let lastActivity = Date.now();
     client.on('pong', time => {
         lastActivity = Date.now();
-        LOG('socket-level pong from', client.addr, 'after', Date.now() - time, 'ms');
+        LOG(sessionId, 'socket-level pong from', client.addr, 'after', Date.now() - time, 'ms');
         });
     setTimeout(() => client.readyState === WebSocket.OPEN && client.ping(Date.now()), 100);
 
@@ -749,19 +749,19 @@ server.on('connection', (client, req) => {
         const now = Date.now();
         const quiescence = now - lastActivity;
         if (quiescence > DISCONNECT_THRESHOLD) {
-            LOG("inactive client: closing connection from", client.addr, "inactive for", quiescence, "ms");
+            LOG(sessionId, "inactive client: closing connection from", client.addr, "inactive for", quiescence, "ms");
             client.close(...REASON.INACTIVE); // NB: close event won't arrive for a while
             return;
         }
         let nextCheck;
         if (quiescence > PING_THRESHOLD) {
             if (!joined) {
-                LOG("client never joined: closing connection from", client.addr, "after", quiescence, "ms");
+                LOG(sessionId, "client never joined: closing connection from", client.addr, "after", quiescence, "ms");
                 client.close(...REASON.NO_JOIN);
                 return;
             }
 
-            LOG("pinging client", client.addr, "inactive for", quiescence, "ms");
+            LOG(sessionId, "pinging client", client.addr, "inactive for", quiescence, "ms");
             client.ping(now);
             nextCheck = PING_INTERVAL;
         } else nextCheck = CHECK_INTERVAL;
@@ -783,7 +783,7 @@ server.on('connection', (client, req) => {
                 case 'LEAVING': LEAVING(client); break;
                 case 'PING': PONG(client, args); break;
                 case 'PULSE': if (cluster === "local") LOG('PULSE', client.addr); break; // nothing to do
-                default: WARN("unknown action", action);
+                default: WARN(sessionId, "unknown action", action);
             }
         };
 
