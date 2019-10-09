@@ -371,7 +371,7 @@ function JOIN(client, args) {
         island.startTimeout = setTimeout(() => {
             island.startTimeout = null;
             // kill client
-            LOG(id, "killing unresponsive", client.addr);
+            LOG(id, "START client failed to respond", client.addr);
             if (client.readyState === WebSocket.OPEN) client.close(...REASON.UNRESPONSIVE);
             // start next client
             START();
