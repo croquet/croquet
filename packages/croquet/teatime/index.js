@@ -19,8 +19,8 @@ export { QFunc, gatherInternalClassTypes } from "./src/island";
  * Creates a new session executing `ModelRoot`, then attaches a `ViewRoot` instance.
  *
  * The session `name` creates individual sessions.
- * You can use it to for example to create different sessions for different users.
- * For example, a user in session `"MyApp/A"` will not see a user in `"MyApp/B"`.
+ * You can use it for example to create different sessions for different users.
+ * That is, a user in session `"MyApp/A"` will not see a user in `"MyApp/B"`.
  * If you want all users to end up in the same session, simply use a constant.
  * This is what we do in the tutorials for simplicity, but actual apps should manage sessions.
  *
@@ -80,9 +80,9 @@ export { QFunc, gatherInternalClassTypes } from "./src/island";
  *  - `step(time)` is a function you need to call in each frame if you disabled automatic stepping.
  *     The `time` argument is expected to be in milliseconds, monotonically increasing - for example, the time received by a function that you passed to `window.requestAnimationFrame`.
  * @example <caption>auto main loop</caption>
- * Croquet.startSession("MyApp", MyRootModel, MyRootView);
+ * Croquet.startSession("MyApp/1", MyRootModel, MyRootView);
  * @example <caption>manual main loop</caption>
- * Croquet.startSession("MyApp", MyRootModel, MyRootView, {step: "manual"}).then(session => {
+ * Croquet.startSession("MyApp/2", MyRootModel, MyRootView, {step: "manual"}).then(session => {
  *     function myFrame(time) {
  *         session.step(time);
  *         window.requestAnimationFrame(myFrame);
