@@ -9,7 +9,7 @@ function addWidgetStyle() {
         #stats { display: none; position: absolute; z-index: 20; top: 0; right: 0; width: 125px; height: 150px; background: white; opacity: 0.5; }
         #stats canvas { pointer-events: none }
         body.debug #stats { display: block; }
-        #qrcode { position: absolute; z-index: 2; border: 3px solid white; bottom: 6px; left: 6px; width: 35px; height: 35px; box-sizing: border-box; opacity: 0.3; cursor: none; transition: all 0.3s ease; }
+        #qrcode { position: absolute; z-index: 2; bottom: 6px; left: 6px; width: 35px; height: 35px; box-sizing: border-box; opacity: 0.3; cursor: none; transition: all 0.3s ease; }
         #qrcode canvas { width: 100%; height: 100%; image-rendering: pixelated; }
         #qrcode.active { opacity: 0.9; }
 `;
