@@ -9,7 +9,7 @@ const prometheus = require('prom-client');
 const { Storage } = require('@google-cloud/storage');
 
 // debugging (should read env vars)
-const googleCloudProfiler = false;
+const googleCloudProfiler = true;
 const googleCloudDebugger = false;
 
 // collect metrics in Prometheus format
