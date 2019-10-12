@@ -547,7 +547,7 @@ function TUTTI(client, args) {
         const lastComplete = island.lastCompletedTally;
         if (lastComplete !== null && (tuttiSeq === lastComplete || after(tuttiSeq, lastComplete))) {
             // too late
-            WARN(id, `rejecting tally of ${tuttiSeq} cf completed ${lastComplete}`);
+            LOG(id, `rejecting tally of ${tuttiSeq} cf completed ${lastComplete}`);
             return;
         }
 
