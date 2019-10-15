@@ -1,7 +1,7 @@
 import stableStringify from "fast-json-stable-stringify";
 import "@croquet/util/deduplicate";
 import AsyncQueue from "@croquet/util/asyncQueue";
-import Stats from "@croquet/util/stats";
+import { Stats } from "@croquet/util/stats";
 import urlOptions from "@croquet/util/urlOptions";
 import { login, getUser } from "@croquet/util/user";
 import { App, displayStatus, displayWarning, displayError, displayAppError } from "@croquet/util/html";
