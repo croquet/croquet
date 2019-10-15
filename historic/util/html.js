@@ -3,15 +3,26 @@ import SeedRandom from "seedrandom";
 import QRCode from "./thirdparty-patched/qrcodejs/qrcode";
 import urlOptions from "./urlOptions";
 
+const TOUCH = 'ontouchstart' in document.documentElement;
+const BAR_PROPORTION = 15; // percent height of dock
+
 // add style for the standard widgets that can appear on a Croquet page
 function addWidgetStyle() {
     const widgetCSS = `
+        body._disabled_debug #stats { display: block; }
+        #croquet_dock { position: absolute; z-index: 2; border: 3px solid white; bottom: 6px; left: 6px; width: 84px; height: 36px; box-sizing: border-box; background: white; opacity: 0.3; cursor: none; transition: all 0.3s ease; }
+        #croquet_dock.active { opacity: 0.95; }
+        #croquet_dock_bar { position: absolute; width: 100%; height: 30px; background: white; }
+        #croquet_badge { position: absolute; left: 3px; width: 72px; height: 24px; top: 50%; transform: translate(0px, -50%); box-sizing: border-box; cursor: none; }
+        #croquet_badge canvas { position: absolute; width: 100%; height: 100%; }
+        #croquet_dock_left { position: absolute; width: 10%; height: 80%; left: ${TOUCH ? '75%' : '55%'}; top: 50%; transform: translate(0px, -50%); }
+        #croquet_dock_right { position: absolute; width: 10%; height: 80%; left: ${TOUCH ? '90%' : '70%'}; top: 50%; transform: translate(0px, -50%); }
+        ${TOUCH ? '' : '#croquet_dock_pin { position: absolute; width: 10%; height: 80%; left: 90%; top: 50%; transform: translate(0px, -50%); }'}
+        #croquet_dock_content { position: absolute; top: 30px; left: 3px; bottom: 3px; right: 3px; box-sizing: border-box; background: white; }
+        #croquet_qrcode { position: absolute; border: 6px solid white; width: 100%; height: 100%;box-sizing: border-box; }
+        #croquet_qrcode canvas { width: 100%; height: 100%; image-rendering: pixelated; }
         #croquet_stats { display: none; position: absolute; z-index: 20; top: 0; right: 0; width: 125px; height: 150px; background: white; opacity: 0.5; }
         #croquet_stats canvas { pointer-events: none }
-        body.debug #stats { display: block; }           ###################
-        #croquet_qrcode { position: absolute; z-index: 2; border: 3px solid white; bottom: 6px; left: 6px; width: 35px; height: 35px; box-sizing: border-box; opacity: 0.3; cursor: none; transition: all 0.3s ease; }
-        #croquet_qrcode canvas { width: 100%; height: 100%; image-rendering: pixelated; }
-        #croquet_qrcode.active { opacity: 0.9; }
 `;
     const widgetStyle = document.createElement("style");
     widgetStyle.innerHTML = widgetCSS;
@@ -156,8 +167,15 @@ function monikerForId(id) {
     const random = new SeedRandom(id);
     const letters = ['bcdfghjklmnpqrstvwxyz', 'aeiou'];
     let moniker = '';
-    for (let i = 0; i < 10; i++) moniker += letters[i % 2][random.quick() * letters[i % 2].length | 0];
+    for (let i = 0; i < 5; i++) moniker += letters[i % 2][random.quick() * letters[i % 2].length | 0];
     return moniker;
+}
+
+function colorsForId(id, n=1) {
+    const random = new SeedRandom(id);
+    const colors = [];
+    for (let i=0; i<n; i++) colors.push(`hsl(${random.quick() * 360}, 50%, 70%)`);
+    return colors;
 }
 
 function gravatarURLForId(id) {
@@ -167,27 +185,156 @@ function gravatarURLForId(id) {
 }
 
 export function clearSessionMoniker() {
+    if (App.badge === false) return;
+
     document.title = document.title.replace(/:.*/, '');
 }
 
-export function displayBadgeIfNeeded(session) {
-    const id = session.id;
-    // WIP ################
-    const button = document.getElementById(element);
-    document.title = document.title.replace(/:.*/, '');
-    const moniker = monikerForId(id);
-    document.title += ':' + moniker;
-    // image derived from id
-    if (button) {
-        if (urlOptions.noreset) {
-            button.style.display = "none";
-        } else {
-            button.style.backgroundImage = gravatarURLForId(id);
+function makeInfoDock(session) {
+    const dockDiv = document.createElement('div');
+    dockDiv.id = 'croquet_dock';
+    document.body.appendChild(dockDiv);
 
-            const monikerDiv = document.getElementById(element+'-moniker');
-            if (monikerDiv) monikerDiv.textContent = moniker.slice(0, 5);
-        }
+    const barDiv = document.createElement('div');
+    barDiv.id = 'croquet_dock_bar';
+    dockDiv.appendChild(barDiv);
+
+    const badgeDiv = document.createElement('div');
+    badgeDiv.id = 'croquet_badge';
+    barDiv.appendChild(badgeDiv);
+    makeBadge(badgeDiv, session);
+    makeButtons(barDiv);
+
+    const contentDiv = document.createElement('div');
+    contentDiv.id = 'croquet_dock_content';
+    dockDiv.appendChild(contentDiv);
+
+    const url = App.sessionURL;
+    let qrDiv;
+    if (url) {
+        qrDiv = document.createElement('div');
+        qrDiv.id = 'croquet_qrcode';
+        contentDiv.appendChild(qrDiv);
+        makeQRCode(qrDiv, url); // default options
     }
+
+    const expandedSize = 256;
+    const expandedBorder = 8;
+    const setCustomSize = sz => {
+        dockDiv.style.width = `${sz}px`;
+        dockDiv.style.height = `${sz * (1 + BAR_PROPORTION/100)}px`;
+
+        const barHeight = sz * BAR_PROPORTION/100;
+        barDiv.style.height = `${barHeight}px`;
+        contentDiv.style.top = `${barHeight}px`;
+
+        badgeDiv.style.height = `${barHeight * 0.9}px`;
+        badgeDiv.style.width = `${barHeight * 0.9 * 3}px`;
+
+        if (qrDiv) qrDiv.style.border = `${expandedBorder * sz / expandedSize}px solid white`;
+    };
+    const removeCustomSize = () => {
+        dockDiv.style.width = dockDiv.style.height = "";
+
+        barDiv.style.height = "";
+        contentDiv.style.top = "";
+
+        badgeDiv.style.height = "";
+        badgeDiv.style.width = "";
+
+        if (qrDiv) qrDiv.style.border = "";
+    };
+    let size = expandedSize; // start with default size for "active" state
+    const active = () => dockDiv.classList.contains('active');
+    const activate = () => {
+        dockDiv.classList.add('active');
+        setCustomSize(size);
+        setTimeout(() => dockDiv.style.transition = "none", 300);
+    };
+    const deactivate = () => {
+        dockDiv.style.transition = "";
+        dockDiv.classList.remove('active');
+        removeCustomSize();
+    };
+    if ('ontouchstart' in dockDiv) {
+        dockDiv.ontouchstart = () => active() ? deactivate() : activate();
+    } else {
+        dockDiv.onclick = () => window.open(url);
+        let lastWheelTime = 0;
+        dockDiv.onwheel = evt => {
+            evt.preventDefault();
+            evt.stopPropagation();
+
+            const now = Date.now();
+            if (now - lastWheelTime < 100) return;
+            lastWheelTime = now;
+
+            const { deltaY } = evt;
+            const max = Math.min(window.innerWidth, window.innerHeight) * 0.9;
+            size = Math.max(expandedSize / 4, Math.min(max, dockDiv.offsetWidth * 1.05 ** deltaY));
+            setCustomSize(size);
+        };
+        dockDiv.onmouseenter = activate;
+        //dockDiv.onmouseleave = deactivate;
+    }
+
+}
+
+function makeButtons(barDiv) {
+    let button = document.createElement('button');
+    button.id = 'croquet_dock_left';
+    button.textContent = '<';
+    barDiv.appendChild(button);
+
+    button = document.createElement('button');
+    button.id = 'croquet_dock_right';
+    button.textContent = '>';
+    barDiv.appendChild(button);
+
+    button = document.createElement('button');
+    button.id = 'croquet_dock_pin';
+    button.textContent = '📌';
+    barDiv.appendChild(button);
+}
+
+function makeBadge(div, session) {
+    //if (App.badge === false) return;
+
+    const id = session.id;
+    const moniker = monikerForId(id);
+    document.title = document.title.replace(/:.*/, '');
+    document.title += ':' + moniker;
+
+    while (div.firstChild) div.removeChild(div.firstChild);
+    const canvas = document.createElement('canvas');
+    const w = canvas.width = 120;
+    const h = canvas.height = 40;
+    div.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+    const colors = colorsForId(id, 2);
+    ctx.fillStyle = colors[0];
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, h);
+    ctx.lineTo(w, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = colors[1];
+    ctx.beginPath();
+    ctx.moveTo(w, h);
+    ctx.lineTo(w, 0);
+    ctx.lineTo(0, h);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.font = "30px Arial";
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'black';
+    //ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+    //ctx.shadowBlur = 4;
+    ctx.fillText(moniker, w/2, h/2);
 }
 
 // the QRCode maker takes an element and options (including the text for the code).
@@ -210,7 +357,7 @@ export function displayQRCodeIfNeeded() {
 
     if (App.root === false) return;
 
-    let parentDef = App.qrParent;
+    let parentDef = App.qrcode;
     if (parentDef === false) return;
 
     const url = App.sessionURL;
@@ -228,48 +375,13 @@ export function displayQRCodeIfNeeded() {
     makeQRCode(div, url); // default options
     div.onclick = () => { };
 
-    const qrDivStyle = window.getComputedStyle(div);
-    const expandedSize = qrDivStyle.getPropertyValue('--expanded-px') || 256;
-    const expandedBorder = qrDivStyle.getPropertyValue('--expanded-border-px') || 16;
-    const setCustomSize = sz => {
-        div.style.width = div.style.height = `${sz}px`;
-        div.style.border = `${expandedBorder * sz / expandedSize}px solid white`;
-        };
-    const removeCustomSize = () => {
-        div.style.width = div.style.height = "";
-        div.style.border = "";
-        };
-    let size = expandedSize; // start with default size for "active" state
-    const active = () => div.classList.contains('active');
-    const activate = () => {
-        div.classList.add('active');
-        setCustomSize(size);
-        };
-    const deactivate = () => {
-        div.classList.remove('active');
-        removeCustomSize();
-        };
-    if ('ontouchstart' in div) {
-        div.ontouchstart = () => active() ? deactivate() : activate();
-    } else {
-        div.onclick = () => window.open(url);
-        div.onwheel = evt => {
-            const { deltaY } = evt;
-            const max = Math.min(window.innerWidth, window.innerHeight) * 0.9;
-            size = Math.max(expandedSize / 4, Math.min(max, div.offsetWidth * 1.05 ** deltaY));
-            setCustomSize(size);
-            evt.preventDefault();
-            evt.stopPropagation();
-            };
-        div.onmouseenter = activate;
-        div.onmouseleave = deactivate;
-    }
 }
 
 export function displaySessionWidgets(session) {
-    displayQRCodeIfNeeded();
-    displayStatsIfNeeded();
-    displayBadgeIfNeeded(session);
+    makeInfoDock(session);
+//    displayQRCodeIfNeeded();
+//    displayStatsIfNeeded();
+//    displayBadgeIfNeeded(session);
 }
 
 
