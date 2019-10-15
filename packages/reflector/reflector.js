@@ -11,6 +11,7 @@ const { Storage } = require('@google-cloud/storage');
 // debugging (should read env vars)
 const googleCloudProfiler = true;
 const googleCloudDebugger = false;
+const nodejsDefaultMetrics = false;
 
 // collect metrics in Prometheus format
 const prometheusConnectionGauge = new prometheus.Gauge({
@@ -29,7 +30,7 @@ const prometheusTicksCounter = new prometheus.Counter({
     name: 'reflector_ticks',
     help: 'The number of ticks generated.'
 });
-prometheus.collectDefaultMetrics();
+if (nodejsDefaultMetrics) prometheus.collectDefaultMetrics();
 
 // Get cluster info from Google Cloud (for logging).
 // Only start Debugger & Profiler if successful.
