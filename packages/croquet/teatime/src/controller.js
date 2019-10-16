@@ -201,9 +201,9 @@ export default class Controller {
         const nameWithOptions = Object.keys(options).length
             ? name + '?' + Object.entries(options).map(([k,v])=>`${k}=${v}`).join('&')
             : name;
-        const id = await hashNameAndCode(nameWithOptions);
+        const { hash: id, codeHash } = await hashNameAndCode(nameWithOptions);
         console.log(`Session ID for "${nameWithOptions}": ${id}`);
-        this.islandCreator = { name, nameWithOptions, ...sessionSpec, options };
+        this.islandCreator = {...sessionSpec, options, name, nameWithOptions, codeHash };
 
         let initSnapshot = false;
         if (!this.islandCreator.snapshot) initSnapshot = true;
@@ -211,7 +211,7 @@ export default class Controller {
             console.warn(`Existing snapshot was for different code base!`);
             initSnapshot = true;
         }
-        if (initSnapshot) this.islandCreator.snapshot = { id, time: 0, meta: { id, created: (new Date()).toISOString() } };
+        if (initSnapshot) this.islandCreator.snapshot = { id, time: 0, meta: { id, codeHash, created: (new Date()).toISOString() } };
         await this.join();   // when socket is ready, join server
         const island = await new Promise(resolve => this.islandCreator.resolveIslandPromise = resolve );
         return island.modelsByName;
@@ -642,6 +642,8 @@ export default class Controller {
             version: VERSION,
             user: [id, name],
             url: window.croquetSessionURL || window.location.href,
+            code: this.islandCreator.codeHash,
+            sdk: SDK_VERSION
         };
 
         this.connection.send(JSON.stringify({

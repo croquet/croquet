@@ -223,9 +223,10 @@ export async function hashNameAndCode(name) {
     // console.log(`${name} Hashing ${moduleID}: ${mods.join(' ')}`);
     console.log(`hashing ${mods.length} SDK modules`);
     const hashes = await Promise.all([...mods.map(hashFile), ...extraHashes]);
-    const hash = await hashString([name, ...hashes].join('|'));
+    const codeHash = await hashString(hashes.join('|'));
+    const hash = await hashString([name, codeHash].join('|'));
     // console.timeEnd("Hashing " + name);
-    return hash;
+    return { hash, codeHash };
 }
 
 // do not include code upload until we support replay
