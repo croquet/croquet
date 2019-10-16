@@ -11,7 +11,6 @@ const { Storage } = require('@google-cloud/storage');
 // debugging (should read env vars)
 const googleCloudProfiler = true;
 const googleCloudDebugger = false;
-const nodejsDefaultMetrics = false;
 
 // collect metrics in Prometheus format
 const prometheusConnectionGauge = new prometheus.Gauge({
@@ -30,16 +29,7 @@ const prometheusTicksCounter = new prometheus.Counter({
     name: 'reflector_ticks',
     help: 'The number of ticks generated.'
 });
-if (nodejsDefaultMetrics) prometheus.collectDefaultMetrics();
-else {
-    // this default metric appears to be needed
-    const prometheusProcessStartTimeGauge = new prometheus.Gauge({
-        name: 'process_start_time_seconds',
-        help: 'Start time of the process since unix epoch in seconds.'
-    });
-    const startTime = Math.floor(Date.now() / 1000 - process.uptime());
-    prometheusProcessStartTimeGauge.set(startTime);
-}
+prometheus.collectDefaultMetrics(); // default metrics like process start time, heap usage etc
 
 // Get cluster info from Google Cloud (for logging).
 // Only start Debugger & Profiler if successful.
