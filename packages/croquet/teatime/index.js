@@ -174,7 +174,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
         }
         session.model = (await controller.establishSession(name, sessionSpec)).modelRoot;
         session.id = controller.id;
-        displaySessionWidgets(session);
+        displaySessionWidgets(session.id);
         controller.inViewRealm(() => {
             session.view = new ViewRoot(session.model);
         });

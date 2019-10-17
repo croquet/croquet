@@ -115,7 +115,7 @@ export default class Controller {
 
         viewDomain.removeAllSubscriptionsFor(this); // in case we're recycling
         viewDomain.addSubscription(this.viewId, "__users__", this, data => displayStatus(`users now ${data.count}`), "oncePerFrameWhileSynced");
-        //App.showSync(true);   @@ no - this is now the responsibility of the client
+        App.showSync(true); // unless disabled by setting App.root or App.sync to false
     }
 
     /** @type {String} the session id (same for all replicas) */

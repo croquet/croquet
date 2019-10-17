@@ -6,37 +6,41 @@ import { makeStats } from "./stats";
 
 
 const TOUCH = 'ontouchstart' in document.documentElement;
-const BUTTON_OFFSET = TOUCH ? 20 : 0; // extra % from the right
-const BAR_PROPORTION = 18; // percent height of dock
+const BAR_PROPORTION = 18; // height of dock, in % of content size
+const BUTTON_RIGHT = 2; // %
+const BUTTON_WIDTH = TOUCH ? 20 : 12; // %
+const BUTTON_SEPARATION = 2; // %
+const BUTTON_OFFSET = TOUCH ? 0 : 15; // extra % from the right
+const CONTENT_MARGIN = 2; // px
 
 // add style for the standard widgets that can appear on a Croquet page
 function addWidgetStyle() {
     const widgetCSS = `
-        body._disabled_debug #stats { display: block; }
-        #croquet_dock { position: absolute; z-index: 2; border: 3px solid white; bottom: 6px; left: 6px; width: 84px; height: 36px; box-sizing: border-box; background: white; opacity: 0.3; cursor: none; transition: all 0.3s ease; }
-        #croquet_dock.active { opacity: 0.95; }
+        #croquet_dock { position: absolute; z-index: 2; border: 3px solid white; border-radius: 0; bottom: 6px; left: 6px; width: 84px; height: 36px; box-sizing: border-box; background: white; opacity: 0.3; transition: all 0.3s ease; }
+        #croquet_dock.active { opacity: 0.95; border-radius: 12px; }
         #croquet_dock_bar { position: absolute; border: 3px solid white; width: 100%; height: 30px; box-sizing: border-box; background: white; }
 
-        #croquet_badge { position: absolute; left: 3px; width: 72px; height: 24px; top: 50%; transform: translate(0px, -50%); box-sizing: border-box; cursor: none; }
+        #croquet_badge { position: absolute; width: 72px; height: 24px; top: 50%; transform: translate(0px, -50%); cursor: none; }
+        #croquet_dock.active #croquet_badge { left: 2%; }
         #croquet_badge canvas { position: absolute; width: 100%; height: 100%; }
 
         #croquet_dock.active .croquet_dock_button { display: block; }
-        .croquet_dock_button { display: none; position: absolute; width: 12%; height: 90%; top: 50%; transform: translate(0px, -50%); font-size: 80%; text-align: center; border-radius: 20%; }
+        .croquet_dock_button { display: none; position: absolute; width: ${BUTTON_WIDTH}%; height: 90%; top: 50%; transform: translate(0px, -50%); font-size: 80%; text-align: center; border-radius: 20%; }
         .croquet_dock_button canvas { position: absolute; width: 100%; height: 100%; top: 0px; left: 0px; }
-        #croquet_dock_left { right: ${BUTTON_OFFSET + 32}% }
-        #croquet_dock_right { right: ${BUTTON_OFFSET + 18}%; }
-        #croquet_dock_pin { right: 2%; }
+        #croquet_dock_left { right: ${BUTTON_RIGHT + BUTTON_OFFSET + BUTTON_WIDTH + BUTTON_SEPARATION}% }
+        #croquet_dock_right { right: ${BUTTON_RIGHT + BUTTON_OFFSET}%; }
+        #croquet_dock_pin { right: ${BUTTON_RIGHT}%; }
 
         #croquet_dock.active #croquet_dock_content { display: block; }
-        #croquet_dock_content { display: none; position: absolute; top: 30px; left: 3px; bottom: 3px; right: 3px; box-sizing: border-box; background: white; }
+        #croquet_dock_content { display: none; position: absolute; left: ${CONTENT_MARGIN}px; top: ${CONTENT_MARGIN}px; right: ${CONTENT_MARGIN}px; bottom: ${CONTENT_MARGIN}px; background: white; }
 
-        #croquet_qrcode { position: absolute; border: 6px solid white; width: 100%; height: 100%;box-sizing: border-box; opacity: 0; }
-        #croquet_qrcode.active { opacity: 1; }
+        #croquet_qrcode { position: absolute; border: 6px solid white; width: 100%; height: 100%;box-sizing: border-box; opacity: 0; cursor: none; pointer-events: none; }
+        #croquet_qrcode.active { opacity: 1; cursor: crosshair; pointer-events: auto; }
         #croquet_qrcode canvas { width: 100%; height: 100%; image-rendering: pixelated; }
 
-        #croquet_stats { position: absolute; z-index: 20; top: 0; right: 0; width: 125px; height: 150px; background: white; opacity: 0; }
-        #croquet_stats.active { opacity: 0.5; }
-        #croquet_stats canvas { pointer-events: none }
+        #croquet_stats { position: absolute; width: 70%; height: 90%; left: 15%; top: 5%; opacity: 0; cursor: none; pointer-events: none; font-family: sans-serif; }
+        #croquet_stats canvas { width: 100%; }
+        #croquet_stats.active { opacity: 0.8; cursor: default; pointer-events: auto; }
 `;
     const widgetStyle = document.createElement("style");
     widgetStyle.innerHTML = widgetCSS;
@@ -128,21 +132,21 @@ export function showMessageAsToast(msg, options = {}) {
     return displayToast(msg, { backgroundColor: color, ...options });
 }
 
-export function displayError(msg, options) {
-    return msg && App.messageFunction(msg, { ...options, level: 'error' });
+export function displayError(msg, options={}) {
+    return msg && App.showMessage(msg, { ...options, level: 'error' });
 }
 
-export function displayWarning(msg, options) {
-    return msg && App.messageFunction(msg, { ...options, level: 'warning' });
+export function displayWarning(msg, options={}) {
+    return msg && App.showMessage(msg, { ...options, level: 'warning' });
 }
 
-export function displayStatus(msg, options) {
-    return msg && App.messageFunction(msg, { ...options, level: 'status' });
+export function displayStatus(msg, options={}) {
+    return msg && App.showMessage(msg, { ...options, level: 'status' });
 }
 
 export function displayAppError(where, error) {
     const userStack = error.stack.split("\n").filter(l => !l.match(/croquet-.*\.min.js/)).join('\n');
-    App.messageFunction(`<b>Error during ${where}: ${error.message}</b>\n\n${userStack}`.replace(/\n/g, "<br>"),  {
+    App.showMessage(`<b>Error during ${where}: ${error.message}</b>\n\n${userStack}`.replace(/\n/g, "<br>"),  {
         level: 'error',
         duration: 10000,
         stopOnFocus: true,
@@ -169,7 +173,7 @@ function displayToast(msg, options) {
         selector = parentDef.id;
         if (!selector) parentDef.id = selector = '_croquetToastParent';
     } else if (typeof parentDef === 'string') selector = parentDef;
-    // fall through (so body will be used as parent) - in particular, if parentDef === true
+    // else fall through with no selector (so body will be used as parent)
 
     if (selector) toastOpts.selector = selector;
 
@@ -192,69 +196,105 @@ function colorsForId(id, n=1) {
     return colors;
 }
 
-function gravatarURLForId(id) {
-    const random = new SeedRandom(id);
-    const hash = [0, 0, 0, 0].map(_ => (random.int32() >>> 0).toString(16).padStart(8, '0')).join('');
-    return `url('https://www.gravatar.com/avatar/${hash}?d=identicon&f=y')`;
-}
-
 export function clearSessionMoniker() {
     if (App.badge === false) return;
 
     document.title = document.title.replace(/:.*/, '');
 }
 
-function makeInfoDock(session) {
+let dockPinned = false;
+let activePage = null;
+// an app can call App.makeDock with options specifying which of the widgets to include
+// in the dock.  available widgets are badge, qrcode, stats.
+function makeInfoDock(options = {}) {
+    const oldDockDiv = document.getElementById('croquet_dock');
+    if (oldDockDiv) oldDockDiv.parentElement.removeChild(oldDockDiv);
+
+    const dockParent = findElement(App.root);
+    if (!dockParent) return;
+
     const dockDiv = document.createElement('div');
     dockDiv.id = 'croquet_dock';
-    document.body.appendChild(dockDiv);
+    dockParent.appendChild(dockDiv);
 
     const barDiv = document.createElement('div');
     barDiv.id = 'croquet_dock_bar';
     dockDiv.appendChild(barDiv);
 
-    const badgeDiv = document.createElement('div');
-    badgeDiv.id = 'croquet_badge';
-    barDiv.appendChild(badgeDiv);
-    makeBadge(badgeDiv, session);
-
-    const contentChildren = [];
-    let currentContent = 0;
-    function shiftContent(dir) {
-        const numChildren = contentChildren.length;
-        if (numChildren <= 1) return;
-
-        contentChildren[currentContent].classList.remove('active');
-        currentContent = (currentContent + numChildren + dir) % numChildren;
-        contentChildren[currentContent].classList.add('active');
+    let badgeDiv;
+    if (options.badge !== false) {
+        badgeDiv = document.createElement('div');
+        badgeDiv.id = 'croquet_badge';
+        barDiv.appendChild(badgeDiv);
+        App.badge = badgeDiv;
     }
-    function prevContent() { shiftContent(-1); }
-    function nextContent() { shiftContent(1); }
-    function pin() {}
-    makeButtons(barDiv, prevContent, nextContent, pin);
 
     const contentDiv = document.createElement('div');
     contentDiv.id = 'croquet_dock_content';
     dockDiv.appendChild(contentDiv);
 
-    const url = App.sessionURL;
+    const dockPageIds = []; // an ordered collection of available page (i.e., element) ids
+
     let qrDiv;
-    if (url) {
-        qrDiv = document.createElement('div');
-        qrDiv.id = 'croquet_qrcode';
-        contentDiv.appendChild(qrDiv);
-        makeQRCode(qrDiv, url); // default options
-        qrDiv.onclick = () => window.open(url);
-        contentChildren.push(qrDiv);
+    if (options.qrcode !== false) {
+        const url = App.sessionURL;
+        if (url) {
+            qrDiv = document.createElement('div');
+            qrDiv.id = 'croquet_qrcode';
+            qrDiv.style.visibility = 'hidden';
+            contentDiv.appendChild(qrDiv);
+            dockPageIds.push(qrDiv.id);
+            App.qrcode = qrDiv;
+        }
     }
 
-    const statsDiv = document.createElement('div');
-    statsDiv.id = 'croquet_stats';
-    contentDiv.appendChild(statsDiv);
-    contentChildren.push(statsDiv);
-    makeStats(statsDiv);
+    let statsDiv;
+    if (options.stats !== false) {
+        statsDiv = document.createElement('div');
+        statsDiv.id = 'croquet_stats';
+        statsDiv.style.visibility = 'hidden';
+        contentDiv.appendChild(statsDiv);
+        dockPageIds.push(statsDiv.id);
+        App.stats = statsDiv;
+    }
 
-    const expandedSize = 256;
+    function shiftPage(dir) {
+        const numPages = dockPageIds.length;
+        // on reconnect it's possible that a previously selected page is no longer available.
+        // if so, or if no page has been selected yet, act as if the first was.
+        let oldIndex = 0, oldElem;
+        if (activePage) {
+            const index = dockPageIds.indexOf(activePage);
+            if (index >= 0) {
+                oldIndex = index;
+                oldElem = document.getElementById(activePage);
+            } else activePage = null;
+        }
+        const newIndex = (oldIndex + numPages + dir) % numPages, newPage = dockPageIds[newIndex];
+        let newElem;
+        if (newPage === activePage) newElem = oldElem;
+        else {
+            if (oldElem) {
+                oldElem.classList.remove('active');
+                oldElem.style.visibility = 'hidden';
+            }
+            newElem = document.getElementById(newPage);
+        }
+        if (newElem) {
+            newElem.classList.add('active');
+            newElem.style.visibility = 'visible';
+        }
+        activePage = newPage;
+    }
+
+    barDiv.appendChild(makeButton('<', 'croquet_dock_left', () => shiftPage(-1)));
+    barDiv.appendChild(makeButton('>', 'croquet_dock_right', () => shiftPage(1)));
+    if (!TOUCH) barDiv.appendChild(makeButton('📌', 'croquet_dock_pin', () => dockPinned = !dockPinned));
+
+    shiftPage(0); // set up a starting page (or re-select, if already set)
+
+    const expandedSize = 200;
+    const minExpandedSize = 166;
     const expandedBorder = 8;
     const setCustomSize = sz => {
         dockDiv.style.width = `${sz}px`;
@@ -262,10 +302,12 @@ function makeInfoDock(session) {
 
         const barHeight = sz * BAR_PROPORTION/100;
         barDiv.style.height = `${barHeight}px`;
-        contentDiv.style.top = `${barHeight}px`;
+        contentDiv.style.top = `${barHeight + CONTENT_MARGIN}px`;
 
-        badgeDiv.style.height = `${barHeight * 0.9}px`;
-        badgeDiv.style.width = `${barHeight * 0.9 * 3}px`;
+        if (badgeDiv) {
+            badgeDiv.style.height = `${barHeight * 0.9}px`;
+            badgeDiv.style.width = `${barHeight * 0.9 * 3}px`;
+        }
 
         if (qrDiv) qrDiv.style.border = `${expandedBorder * sz / expandedSize}px solid white`;
     };
@@ -275,9 +317,7 @@ function makeInfoDock(session) {
         barDiv.style.height = "";
         contentDiv.style.top = "";
 
-        badgeDiv.style.height = "";
-        badgeDiv.style.width = "";
-
+        if (badgeDiv) badgeDiv.style.height = badgeDiv.style.width = "";
         if (qrDiv) qrDiv.style.border = "";
     };
     let size = expandedSize; // start with default size for "active" state
@@ -292,9 +332,15 @@ function makeInfoDock(session) {
         dockDiv.classList.remove('active');
         removeCustomSize();
     };
-    if ('ontouchstart' in dockDiv) {
-        dockDiv.ontouchstart = () => active() ? deactivate() : activate();
+    if (TOUCH) {
+        deactivate();
+        dockDiv.ontouchstart = evt => {
+            evt.preventDefault();
+            evt.stopPropagation();
+            if (active()) deactivate(); else activate();
+            };
     } else {
+        if (dockPinned) activate(); else deactivate();
         let lastWheelTime = 0;
         dockDiv.onwheel = evt => {
             evt.preventDefault();
@@ -306,45 +352,43 @@ function makeInfoDock(session) {
 
             const { deltaY } = evt;
             const max = Math.min(window.innerWidth, window.innerHeight) * 0.9;
-            size = Math.max(expandedSize / 4, Math.min(max, dockDiv.offsetWidth * 1.05 ** deltaY));
+            size = Math.max(minExpandedSize, Math.min(max, dockDiv.offsetWidth * 1.05 ** deltaY));
             setCustomSize(size);
         };
         dockDiv.onmouseenter = activate;
-        //dockDiv.onmouseleave = deactivate;
+        dockDiv.onmouseleave = () => { if (!dockPinned) deactivate(); };
     }
-
 }
 
-function makeButtons(barDiv, prevContent, nextContent, pin) {
-    function makeButton(text, id, fn) {
-        const canvas = document.createElement('canvas');
-        const w = canvas.width = 40;
-        const h = canvas.height = 60;
-        const ctx = canvas.getContext('2d');
-        ctx.font = "36px Arial";
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillStyle = 'black';
-        ctx.fillText(text, w / 2, h * 0.55);
+function makeButton(text, id, fn) {
+    const canvas = document.createElement('canvas');
+    const w = canvas.width = 40 * BUTTON_WIDTH/12; // @@ fudge to allow diff button width on touch
+    const h = canvas.height = 60;
+    const ctx = canvas.getContext('2d');
+    ctx.font = "36px Arial";
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'black';
+    ctx.fillText(text, w / 2, h * 0.55);
 
-        const button = document.createElement('button');
-        button.id = id;
-        button.className = 'croquet_dock_button';
-        button.onclick = fn;
-        button.appendChild(canvas);
-        barDiv.appendChild(button);
-    }
-
-    makeButton('<', 'croquet_dock_left', prevContent);
-    makeButton('>', 'croquet_dock_right', nextContent);
-    makeButton('📌', 'croquet_dock_pin', pin);
+    const button = document.createElement('button');
+    button.id = id;
+    button.className = 'croquet_dock_button';
+    if (TOUCH) {
+        button.ontouchstart = evt => {
+            evt.preventDefault();
+            evt.stopPropagation();
+            fn();
+            };
+    } else button.onclick = fn;
+    button.appendChild(canvas);
+    return button;
 }
 
-function makeBadge(div, session) {
+function makeBadge(div, sessionId) {
     //if (App.badge === false) return;
 
-    const id = session.id;
-    const moniker = monikerForId(id);
+    const moniker = monikerForId(sessionId);
     document.title = document.title.replace(/:.*/, '');
     document.title += ':' + moniker;
 
@@ -354,7 +398,7 @@ function makeBadge(div, session) {
     const h = canvas.height = 40;
     div.appendChild(canvas);
     const ctx = canvas.getContext('2d');
-    const colors = colorsForId(id, 2);
+    const colors = colorsForId(sessionId, 2);
     ctx.fillStyle = colors[0];
     ctx.beginPath();
     ctx.moveTo(0, 0);
@@ -382,6 +426,7 @@ function makeBadge(div, session) {
 // it adds a canvas to the element, draws the code into the canvas, and returns an
 // object that allows the code to be cleared and replaced.
 function makeQRCode(div, url, options={}) {
+    while (div.firstChild) div.removeChild(div.firstChild);
     return new QRCode(div, {
         text: url,
         width: 128,
@@ -393,36 +438,44 @@ function makeQRCode(div, url, options={}) {
         });
 }
 
-export function displayQRCodeIfNeeded() {
-    if (urlOptions.noqr) return;
-
+function displayBadgeIfNeeded(sessionId) {
     if (App.root === false) return;
 
-    let parentDef = App.qrcode;
-    if (parentDef === false) return;
+    const badgeDiv = findElement(App.badge);
+    if (!badgeDiv) return;
+
+    makeBadge(badgeDiv, sessionId);
+}
+
+function displayQRCodeIfNeeded() {
+    if (App.root === false || App.qrcode === false) return;
+    if (urlOptions.noqr) return;
 
     const url = App.sessionURL;
     if (!url) { console.warn("App.sessionURL is not set"); return; }
 
-    if (parentDef === true) parentDef = 'croquet_qrcode';
-    let div = findElement(parentDef);
-    if (!div) {
-        if (parentDef !== 'croquet_qrcode') return; // we only have the right to create a #croquet_qrcode element
+    const qrDiv = findElement(App.qrcode);
+    if (!qrDiv) return;
 
-        div = document.createElement('div');
-        div.id = 'croquet_qrcode';
-        document.body.appendChild(div);
-    }
-    makeQRCode(div, url); // default options
-    div.onclick = () => { };
+    if (!TOUCH) qrDiv.onclick = () => window.open(url);
 
+    makeQRCode(qrDiv, url); // default options
 }
 
-export function displaySessionWidgets(session) {
-    makeInfoDock(session);
-//    displayQRCodeIfNeeded();
-//    displayStatsIfNeeded();
-//    displayBadgeIfNeeded(session);
+function displayStatsIfNeeded() {
+    if (App.root === false) return;
+    if (urlOptions.nostats) return;
+
+    const statsDiv = findElement(App.stats);
+    if (!statsDiv) return;
+
+    makeStats(statsDiv);
+}
+
+export function displaySessionWidgets(sessionId) {
+    displayBadgeIfNeeded(sessionId);
+    displayQRCodeIfNeeded();
+    displayStatsIfNeeded();
 }
 
 
@@ -432,6 +485,8 @@ let spinnerTimeout = 0; // used to debounce.  only act on enabled true/false if 
 
 function displaySpinner(enabled) {
     if (spinnerEnabled === enabled) return;
+
+    if (App.sync === false) enabled = false;
 
     if (enabled && !spinnerOverlay) spinnerOverlay = makeSpinner(); // lazily create when first enabled
 
@@ -540,13 +595,19 @@ function findElement(value, ifNotFoundDo) {
 
 export const App = {
     sessionURL: window.location.href,
-    root: true,
+    root: document.body,
+    sync: false,
+    messages: false,
     qrcode: false,
     stats: false,
     badge: false,
     messageFunction: showMessageAsToast,
 
-    generateQR(options = {}) {
+    makeDock(options = {}) {
+        makeInfoDock(options);
+    },
+
+    makeQRCanvas(options = {}) {
         if (!App.sessionURL) return null;
 
         const div = document.createElement('div');
@@ -561,26 +622,8 @@ export const App = {
         displaySpinner(bool);
     },
 
-    showStats(bool) {
-        let rootDef = App.root;
-        if (rootDef === false) return;
-
-        let statsDef = App.stats;
-        if (statsDef === false) bool = false; // if (now) false, we can only remove
-        else if (statsDef === true) statsDef = rootDef;
-
-        if (statsDef === null) statsDef = 'stats';
-        const elem = findElement(statsDef, () => {
-            const div = document.createElement('div');
-            div.id = 'stats';
-            document.body.appendChild(div);
-            return div;
-        });
-        if (elem) {}
-    },
-
     showMessage(msg, options={}) {
-        if (App.root === false) return null;
+        if (App.root === false || App.messages === false || !App.messageFunction) return null;
 
         // we have no say in how messageParent will be used.  see displayToast (above)
         // for an example.

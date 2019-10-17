@@ -1,11 +1,12 @@
 import * as THREE from "three";
 import { Model, Controller } from "@croquet/teatime";
-import { urlOptions, Stats, displaySessionMoniker, displayQRCodeIfNeeded } from "@croquet/util";
-import { App, clearSessionMoniker, displaySessionWidgets } from "@croquet/util/html";
+import { urlOptions, Stats } from "@croquet/util";
+import { App, displaySessionWidgets, clearSessionMoniker } from "@croquet/util/html";
 import RoomViewManager from "./room/roomViewManager";
 import Renderer from "./render";
 import { theKeyboardManager } from "./domKeyboardManager";
 import { theDragDropHandler } from "./domDragDrop";
+import { displayAppError } from "../../util";
 
 // hack for Parts that still use constructors
 Model.allowConstructors();
@@ -52,6 +53,10 @@ export default class DemoApp {
         this.loadRoomBound = this.loadRoom.bind(this);
 
         if (urlOptions.autoSleep !== false) this.startSleepChecker();
+
+        App.sync = true;
+        App.messages = true;
+        App.makeDock();
     }
 
     get controllers() {
@@ -106,9 +111,8 @@ export default class DemoApp {
         const {controller} = this.roomStates[roomName];
         urlOptions.setSession(controller.session, !hadSession);
         window.parent.postMessage({session: controller.sesssion, url: window.location + ""}, "*");
-        App.messageParent = null;
         App.sessionURL = window.location.href; // may have been updated with room info
-        displaySessionWidgets(controller.session);
+        displaySessionWidgets(controller.id);
         this.currentRoomName = roomName;
         // leave old room after changing current room (see destroyerFn above)
         this.roomViewManager.leave(prevRoomName, this.roomStates);
@@ -276,15 +280,6 @@ export default class DemoApp {
 
         const roomFromSession = () => urlOptions.getSession().split("/")[0];
         this.domEventManager.addEventListener(window, "hashchange", () => this.joinRoom(roomFromSession()));
-
-        this.domEventManager.addEventListener(document.getElementById('reset'), "click", () => {
-            // @@ since socket-per-controller (Jul 2019), requestNewSession is (temporarily?) not available
-            if (false && this.currentRoomName) {
-                const { controller } = this.roomStates[this.currentRoomName];
-                this.roomViewManager.detachAll();
-                if (controller) controller.requestNewSession();
-            }
-        });
 
         // NB: per https://developer.mozilla.org/docs/Web/API/HTML_Drag_and_Drop_API/Drag_operations, one must cancel (e.g., preventDefault()) on dragenter and dragover events to indicate willingness to receive drop.
         this.domEventManager.addEventListener(this.canvas, "dragenter", event => {
