@@ -44,6 +44,7 @@ export function makeStats(div) {
     canvas = document.createElement('canvas');
     canvas.width = Math.min(125, window.innerWidth) * window.devicePixelRatio;
     canvas.height = (PLOT_BACKLOG ? 360 : 125) * window.devicePixelRatio;
+    canvas.style.width = "100%";
     div.appendChild(canvas);
     ctx = canvas.getContext("2d");
     ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
@@ -74,7 +75,7 @@ function endCurrentFrame(timestamp) {
     frames.push(currentFrame);
     while (frames.length > Math.min(120, window.innerWidth)) frames.shift();
 
-    if (!statsDiv || statsDiv.style.visibility === 'hidden') return; // hide if you want to save plotting time
+    if (!statsDiv || window.getComputedStyle(statsDiv).display === 'none') return;
 
     // get base framerate as minimum of all frames
     const realFrames = frames.slice(1).filter(f => f.total);

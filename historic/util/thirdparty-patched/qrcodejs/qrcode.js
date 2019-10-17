@@ -392,7 +392,7 @@ var QRCode;
 	QRCode.prototype.getCanvas = function () {
 		for (let i = 0; i < this._el.children.length; i++) {
 			const child = this._el.children[i];
-			if (child.tagName === "canvas") return child;
+			if (child.tagName === 'CANVAS') return child;
 		}
 		return null;
 	};
