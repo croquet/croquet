@@ -642,7 +642,7 @@ export default class Controller {
             version: VERSION,
             user: [id, name],
             url: App.sessionURL,
-            code: this.islandCreator.codeHash,
+            codeHash: this.islandCreator.codeHash,
             sdk: SDK_VERSION
         };
 
