@@ -1,5 +1,5 @@
 // to use latest sdk: cd sdk; npm start
-import { Model, View, startSession } from "../../sdk/dist/croquet.min.js";  // eslint-disable-line import/extensions
+import { Model, View, App, startSession } from "../../sdk/dist/croquet.min.js";  // eslint-disable-line import/extensions
 
 
 const TPS = "10x3";             // reflector ticks per sec x local multiplier
@@ -248,6 +248,9 @@ class ShapeView extends View {
 //window.top.postMessage({connected: -1}, "*");
 
 async function go() {
+    App.messages = true;
+    App.makeWidgetDock();
+
     const session = await startSession("avatars", Shapes, ShapesView, { step: "manual", autoSession: true, tps: TPS });
     const controller = session.view.realm.island.controller;
 

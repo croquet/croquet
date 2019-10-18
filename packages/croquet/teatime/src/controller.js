@@ -1,12 +1,11 @@
 import stableStringify from "fast-json-stable-stringify";
 import "@croquet/util/deduplicate";
 import AsyncQueue from "@croquet/util/asyncQueue";
-import Stats from "@croquet/util/stats";
-//import hotreloadEventManger from "@croquet/util/hotreloadEventManager";
+import { Stats } from "@croquet/util/stats";
 import urlOptions from "@croquet/util/urlOptions";
 import { login, getUser } from "@croquet/util/user";
-import { displaySpinner, displayStatus, displayWarning, displayError, displayAppError } from "@croquet/util/html";
-import { baseUrl, CROQUET_HOST, hashNameAndCode, hashString } from "@croquet/util/modules";
+import { App, displayStatus, displayWarning, displayError, displayAppError } from "@croquet/util/html";
+import { baseUrl, hashNameAndCode, hashString } from "@croquet/util/modules";
 import { inViewRealm } from "./realms";
 import { viewDomain } from "./domain";
 import Island, { Message, inSequence } from "./island";
@@ -68,9 +67,7 @@ const Controllers = new Set();
 
 export default class Controller {
 
-    constructor(options) {
-        this.showOverlay = !options || options.overlay !== false;
-        this.overlayParent = (options && options.overlay && options.overlay instanceof Element) || null;
+    constructor() {
         this.reset();
     }
 
@@ -120,7 +117,7 @@ export default class Controller {
 
         viewDomain.removeAllSubscriptionsFor(this); // in case we're recycling
         viewDomain.addSubscription(this.viewId, "__users__", this, data => displayStatus(`users now ${data.count}`), "oncePerFrameWhileSynced");
-        displaySpinner(this.showOverlay, this.overlayParent);
+        App.showSyncWait(true); // enable (i.e., not synced)
     }
 
     /** @type {String} the session id (same for all replicas) */
@@ -192,7 +189,10 @@ export default class Controller {
                 if (!random) random = randomString();
             }
             this.session = multiRoom ? `${room}/${user}/${random}` : `${user}/${random}`;
-            if (!multiRoom) urlOptions.setSession(this.session, newSession);   // multiRoom handles this elsewhere
+            if (!multiRoom) { // multiRoom handles this elsewhere
+                urlOptions.setSession(this.session, newSession);
+                App.sessionURL = window.location.href;
+            }
             // the island id (name) is "room/user/random?opt=val&opt=val"
             name = `${room}/${user}/${random}`;
             if (user === 'DEMO') this.viewOnly = getUser("demoViewOnly", true);
@@ -641,8 +641,8 @@ export default class Controller {
             name: this.islandCreator.nameWithOptions,
             version: VERSION,
             user: [id, name],
-            url: window.croquetSessionURL || window.location.href,
-            code: this.islandCreator.codeHash,
+            url: App.sessionURL,
+            codeHash: this.islandCreator.codeHash,
             sdk: SDK_VERSION
         };
 
@@ -787,7 +787,7 @@ export default class Controller {
             Stats.backlog(backlog);
             if (typeof this.synced === "boolean" && (this.synced && backlog > SYNCED_MAX || !this.synced && backlog < SYNCED_MIN)) {
                 this.synced = !this.synced;
-                displaySpinner(!this.synced);
+                App.showSyncWait(!this.synced); // true if not synced
                 this.island.publishFromView(this.viewId, "synced", this.synced);
             }
             if (weHaveTime && this.cpuTime > SNAPSHOT_EVERY) {

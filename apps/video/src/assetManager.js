@@ -307,18 +307,22 @@ export class AssetManager {
         }
 
         const start = Date.now();
-        let statusToast = null, bytesSoFar = 0;
+        let statusDisplay = null, bytesSoFar = 0;
         const reportBytes = bytes => {
             bytesSoFar += bytes;
             const statusMsg = `uploading assets... ${Math.round(bytesSoFar / totalBytes * 100)}%`;
-            if (!statusToast && Date.now() - start > 500) {
-                statusToast = displayStatus(statusMsg, { duration: 600000 }); // stick around until we remove explicitly
-            } else if (statusToast) {
-                statusToast.toastElement.textContent = statusMsg;
+            if (!statusDisplay && Date.now() - start > 500) {
+                statusDisplay = displayStatus(statusMsg, { duration: 600000 }); // if displayed as a toast, make it stick around until we remove explicitly
+            } else if (statusDisplay) {
+                const elem = statusDisplay.toastElement || statusDisplay;
+                if (elem.textContent) elem.textContent = statusMsg;
             }
         };
         await Promise.all(fileSpecs.map(spec => this.hashAndStoreIfNeeded(spec, reportBytes)));
-        if (statusToast) statusToast.hideToast();
+        if (statusDisplay) {
+            if (statusDisplay.hideToast) statusDisplay.hideToast();
+            else if (statusDisplay.parentElement) statusDisplay.parentElement.removeChild(statusDisplay);
+        }
         const fileDict = {};
         fileSpecs.forEach(spec => fileDict[spec.path] = spec);
         return { displayName, fileDict, loadType, loadPaths };

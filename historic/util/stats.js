@@ -1,5 +1,3 @@
-import urlOptions from "./urlOptions";
-
 const StartDate = Date.now();
 if (typeof performance === "undefined") window.performance = { now: () => Date.now() - StartDate };
 
@@ -20,28 +18,33 @@ const colors = {
     network: "lightgray",
 };
 
-let div = document.getElementById("stats");
-if (urlOptions.nostats && div) { div.style.visibility = "hidden"; div = null; }
+let statsDiv = null;
 let fps = null;
 let canvas = null;
 let ctx = null;
+const PLOT_BACKLOG = false;
 
-if (div) {
+export function makeStats(div) {
+    statsDiv = div;
+
     while (div.firstChild) div.removeChild(div.firstChild);
 
-    fps = document.createElement("div");
+    div.style.background = '#faf0dc';
+
+    fps = document.createElement('div');
+    fps.id = 'text_stats';
     fps.style.padding = 5;
-    fps.style.background = "rgba(255,255,255,0.2)";
+    fps.style.background = 'rgba(255,255,255,0.2)';
+    fps.style.fontFamily = 'sans-serif';
     div.appendChild(fps);
 
     // ael: used to be on canvas - but that now has "pointer-events: none"
     div.title = Object.entries(colors).map(([k, c]) => `${c}: ${k}`).join('\n');
 
-    canvas = document.createElement("canvas");
-    canvas.style.width = Math.min(120, window.innerWidth);
-    canvas.style.height = 300;
-    canvas.width = Math.min(120, window.innerWidth) * window.devicePixelRatio;
-    canvas.height = 360 * window.devicePixelRatio;
+    canvas = document.createElement('canvas');
+    canvas.width = Math.min(125, window.innerWidth) * window.devicePixelRatio;
+    canvas.height = (PLOT_BACKLOG ? 360 : 125) * window.devicePixelRatio;
+    canvas.style.width = "100%";
     div.appendChild(canvas);
     ctx = canvas.getContext("2d");
     ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
@@ -72,16 +75,16 @@ function endCurrentFrame(timestamp) {
     frames.push(currentFrame);
     while (frames.length > Math.min(120, window.innerWidth)) frames.shift();
 
-    if (document.body.className !== "debug") return;
+    if (!statsDiv || window.getComputedStyle(statsDiv).display === 'none') return;
 
     // get base framerate as minimum of all frames
     const realFrames = frames.slice(1).filter(f => f.total);
     const avgMS = realFrames.map(f => f.total).reduce((a, b) => a + b, 0) / realFrames.length;
     const newMax = Math.max(...realFrames.map(f => Math.max(f.backlog, f.network)));
-    maxBacklog = Math.max(newMax, maxBacklog * 0.98); // reduce scale slowly
+    maxBacklog = PLOT_BACKLOG ? Math.max(newMax, maxBacklog * 0.98) : 1000; // reduce scale slowly
 
     // show average framerate
-    if (!fps.parentElement) { console.warn("who broke the stats div and canvas?"); div.appendChild(fps); div.appendChild(canvas); }
+    if (!fps.parentElement) { console.warn("who broke the stats div and canvas?"); statsDiv.appendChild(fps); statsDiv.appendChild(canvas); }
     fps.innerText = `${currentFrame.users} users, ${Math.round(1000/avgMS)} fps, ` +
         (currentFrame.backlog < 100 && currentFrame.activity < 1000
             ? `latency: ${currentFrame.latency} ms`
@@ -89,8 +92,12 @@ function endCurrentFrame(timestamp) {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const oneFrame = 1000 / 60;
-    const map = v => (1 - v / oneFrame) * 20 + 60;
-    const mapBacklog = v => map(v / Math.max(3000, maxBacklog) * -200) + 5;
+    const map = v => (1 - v / oneFrame) * 20 + 60; // zero is at y=80; a full frame's time (at 60Hz) subtracts 20
+
+    // for backlog, zero maps to y=85
+    // max with flexible backlog is what -200ms would look like at frame scale (80 + 12frames * 20 + 5) => 325
+    // max with fixed backlog (so we're only plotting network delay) makes 1s of delay plot as 2 frames' height.
+    const mapBacklog = v => map(PLOT_BACKLOG ? (v / Math.max(3000, maxBacklog) * -200) : (v / maxBacklog * -2 * oneFrame)) + 5;
     for (let i = 0; i < frames.length; i++) {
         const frame = frames[i];
         const x = i + 0.5;
@@ -124,7 +131,7 @@ function endCurrentFrame(timestamp) {
             ctx.strokeStyle = colors["network"];
             ctx.stroke();
         }
-        if (frame.backlog) {
+        if (PLOT_BACKLOG && frame.backlog) {
             ctx.beginPath();
             ctx.moveTo(x, mapBacklog(0));
             ctx.lineTo(x, mapBacklog(frame.backlog));
@@ -140,7 +147,7 @@ function endCurrentFrame(timestamp) {
         ctx.stroke();
     }
 
-    if (maxBacklog > 500) {
+    if (PLOT_BACKLOG && maxBacklog > 500) {
         // draw lines with labels for backlog
         // use log10 to draw lines every 1s, or 10s, or 100s etc.
         const unit = 10 ** Math.floor(Math.log10(Math.max(3000, maxBacklog)));
@@ -157,12 +164,12 @@ function endCurrentFrame(timestamp) {
         }
     }
 
-    div.style.bottom = mapBacklog(Math.max(1000, maxBacklog)) - 350;
+    if (PLOT_BACKLOG) statsDiv.style.bottom = mapBacklog(Math.max(1000, maxBacklog)) - 350;
 }
 
 const stack = [];
 
-const Stats = {
+export const Stats = {
     animationFrame(timestamp, stats={}) {
         endCurrentFrame(timestamp);
         currentFrame = newFrame(timestamp);
@@ -210,13 +217,3 @@ const Stats = {
         currentFrame.connected = connected = bool;
     },
 };
-
-const NoStats = {};
-const Noop = () => {};
-for (const key of (Object.keys(Stats))) {
-    NoStats[key] = Noop;
-}
-// controller.js is using this for cpuTime measurement
-NoStats.begin = NoStats.end = () => performance.now();
-
-export default div ? Stats : NoStats;

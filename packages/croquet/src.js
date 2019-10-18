@@ -1,1 +1,1 @@
-export { Model, View, Constants, startSession, gatherInternalClassTypes } from "@croquet/teatime";
+export { Model, View, Constants, App, startSession, gatherInternalClassTypes } from "@croquet/teatime";

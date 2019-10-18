@@ -1,4 +1,4 @@
-import { App /*, theDragDropHandler */ } from "@croquet/kit";
+import { DemoApp /*, theDragDropHandler */ } from "@croquet/kit";
 import { urlOptions } from "@croquet/util";
 import kitchenSink from "./rooms/kitchenSink/kitchenSink";
 import portals from "./rooms/portals/portals";
@@ -30,7 +30,7 @@ const rooms = {
     ...jumpRooms
 };
 
-const app = new App(
+const app = new DemoApp(
     rooms,
     document.getElementById("qanvas"),
     window.innerWidth,

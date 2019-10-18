@@ -13,7 +13,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-import { Model, View, startSession } from "@croquet/croquet";
+import { Model, View, App, startSession } from "@croquet/croquet";
 import { theAssetManager } from "./assetManager";
 
 const KEEP_HIDDEN_TABS_ALIVE = false;
@@ -611,6 +611,8 @@ class SyncedVideoView extends View {
 }
 
 async function go() {
+    App.messages = true;
+    App.makeWidgetDock();
 
     startSession("video", SyncedVideoModel, SyncedVideoView, { tps: 4, step: 'auto', autoSession: true, autoSleep: !KEEP_HIDDEN_TABS_ALIVE });
 

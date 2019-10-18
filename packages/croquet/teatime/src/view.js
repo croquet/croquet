@@ -1,4 +1,4 @@
-import { displayStatus, displayWarning, displayError, displayAppError } from "@croquet/util/html";
+import { displayStatus, displayWarning, displayError } from "@croquet/util/html";
 import { currentRealm } from "./realms";
 
 /**
