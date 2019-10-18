@@ -42,7 +42,9 @@
                 const { connected, users } = evt.data;
                 if (connected) connectedFrames += connected;
                 if (users) totalUsers = users;
-                overlay.innerText = `${connectedFrames}/${totalUsers}`;
+                //Workaround: connectedFrames count is not correct
+                // overlay.innerText = `${connectedFrames}/${totalUsers}`;
+                overlay.innerText = `${totalUsers}`;
             };
             function setCount(n, delta) {
                 const iframes = Array.from(document.getElementsByTagName("iframe"));
