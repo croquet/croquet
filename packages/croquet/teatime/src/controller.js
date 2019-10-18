@@ -19,7 +19,7 @@ const pako = require('pako'); // gzip-aware compressor
 // only newer clients get to use it
 const VERSION = 1;
 
-export const SDK_VERSION = process.env.CROQUET_VERSION || "<unknown>";
+export const SDK_VERSION = process.env.CROQUET_VERSION || "0.2.5_npm"; // @@ hack
 console.log("Croquet SDK " + SDK_VERSION);
 
 // croquet.io and pi.croquet.io will provide reflectors on same host
