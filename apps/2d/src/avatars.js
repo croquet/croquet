@@ -249,7 +249,7 @@ class ShapeView extends View {
 
 async function go() {
     App.messages = true;
-    App.makeInfoDock();
+    App.makeWidgetDock();
 
     const session = await startSession("avatars", Shapes, ShapesView, { step: "manual", autoSession: true, tps: TPS });
     const controller = session.view.realm.island.controller;

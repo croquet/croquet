@@ -1,4 +1,4 @@
-import { App, displaySessionWidgets, clearSessionMoniker } from "@croquet/util/html";
+import { App } from "@croquet/util/html";
 import { Stats } from "@croquet/util/stats";
 import urlOptions from "@croquet/util/urlOptions";
 import { addConstantsHash } from "@croquet/util/modules";
@@ -174,7 +174,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
         }
         session.model = (await controller.establishSession(name, sessionSpec)).modelRoot;
         session.id = controller.id;
-        displaySessionWidgets(session.id);
+        App.makeSessionWidgets(session.id);
         controller.inViewRealm(() => {
             session.view = new ViewRoot(session.model);
         });
@@ -186,7 +186,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
             session.view.detach();
             session.view = null;
         }
-        clearSessionMoniker();
+        App.clearSessionMoniker();
     }
 
     function islandInit(islandOpts) {

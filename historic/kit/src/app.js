@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { Model, Controller } from "@croquet/teatime";
 import { urlOptions, Stats } from "@croquet/util";
-import { App, displaySessionWidgets, clearSessionMoniker } from "@croquet/util/html";
+import { App } from "@croquet/util/html";
 import RoomViewManager from "./room/roomViewManager";
 import Renderer from "./render";
 import { theKeyboardManager } from "./domKeyboardManager";
@@ -54,7 +54,7 @@ export default class DemoApp {
         if (urlOptions.autoSleep !== false) this.startSleepChecker();
 
         App.messages = true;
-        App.makeInfoDock();
+        App.makeWidgetDock();
     }
 
     get controllers() {
@@ -80,7 +80,7 @@ export default class DemoApp {
             this.roomViewManager.detach(roomName);
             roomState.creator.snapshot = snapshot;
             if (this.currentRoomName === roomName) {
-                clearSessionMoniker();
+                App.clearSessionMoniker();
                 console.log("destroyer: re-joining " + roomName);
                 this.currentRoomName = null;
                 this.joinRoom(roomName);
@@ -110,7 +110,7 @@ export default class DemoApp {
         urlOptions.setSession(controller.session, !hadSession);
         window.parent.postMessage({session: controller.sesssion, url: window.location + ""}, "*");
         App.sessionURL = window.location.href; // may have been updated with room info
-        displaySessionWidgets(controller.id);
+        App.makeSessionWidgets(controller.id);
         this.currentRoomName = roomName;
         // leave old room after changing current room (see destroyerFn above)
         this.roomViewManager.leave(prevRoomName, this.roomStates);

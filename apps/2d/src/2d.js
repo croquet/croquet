@@ -244,7 +244,7 @@ class ShapeView extends View {
 
 async function go() {
     App.messages = true;
-    App.makeInfoDock();
+    App.makeWidgetDock();
 
     const session = await startSession("2d", Shapes, ShapesView, {step: "manual", tps: TPS, autoSession: true, optionsFromUrl: ['n']});
 

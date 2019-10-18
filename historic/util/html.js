@@ -198,18 +198,20 @@ function colorsForId(id, n=1) {
     return colors;
 }
 
-export function clearSessionMoniker() {
-    if (App.badge === false) return;
+function clearSessionMoniker() {
+    if (App.badge === false) return; // we have reason to believe the moniker was never set (so don't mess with a title that might be being used to show something else)
 
     document.title = document.title.replace(/:.*/, '');
 }
 
 let dockPinned = false;
 let activePage = null;
-// an app can call App.makeInfoDock with options specifying which of the widgets to include
+// an app can call App.makeWidgetDock with options specifying which of the widgets to include
 // in the dock.  by default, widgets badge, qrcode, stats are shown; turn off by setting
 // corresponding options property to false.
-function makeInfoDock(options = {}) {
+function makeWidgetDock(options = {}) {
+    if (urlOptions.nodock) return;
+
     const oldDockDiv = document.getElementById('croquet_dock');
     if (oldDockDiv) oldDockDiv.parentElement.removeChild(oldDockDiv);
 
@@ -450,7 +452,7 @@ function makeQRCode(div, url, options={}) {
 }
 
 function displayBadgeIfNeeded(sessionId) {
-    if (App.root === false) return;
+    if (!sessionId || App.root === false) return;
 
     const badgeDiv = findElement(App.badge);
     if (!badgeDiv) return;
@@ -484,7 +486,8 @@ function displayStatsIfNeeded() {
     makeStats(statsDiv);
 }
 
-export function displaySessionWidgets(sessionId) {
+function makeSessionWidgets(sessionId) {
+    // sessionId can be undefined (in which case you won't get a badge)
     displayBadgeIfNeeded(sessionId);
     displayQRCodeIfNeeded();
     displayStatsIfNeeded();
@@ -616,15 +619,14 @@ export const App = {
     stats: false, // the frame-by-frame stats display
     qrcode: false,
 
-    messageFunction: showMessageAsToast, // needs to be a function(msg, options) - where options from internally-generated messages will include { level: 'status' | 'warning' | 'error' }
-
     // make a fancy collapsible dock of info widgets (currently badge, qrcode, stats).
     // disable any widget by setting e.g. { stats: false } in the options.
-    makeInfoDock(options = {}) {
-        if (urlOptions.nodock) return;
+    makeWidgetDock,
 
-        makeInfoDock(options);
-    },
+    // build widgets in accordance with latest settings for root, badge, stats, and qrcode.
+    // called internally immediately after a session is established.
+    // can be called by an app at any time, to take account of changes in the settings.
+    makeSessionWidgets,
 
     // make a canvas painted with the qr code for the currently set sessionURL (if there is one).
     // options are used as overrides on our default settings, which are:
@@ -638,12 +640,17 @@ export const App = {
         return qrcode && qrcode.getCanvas();
     },
 
+    clearSessionMoniker,
+
     showSyncWait(bool) {
         const parentDef = App.root;
         if (parentDef === false) bool = false; // if root (now) false, only allow disabling
 
         displaySpinner(bool);
     },
+
+    // messageFunction(msg, options) - where options from internally generated messages will include { level: 'status' | 'warning' | 'error' }
+    messageFunction: showMessageAsToast,
 
     showMessage(msg, options={}) {
         // thin layer on top of messageFunction, to discard messages if there's nowhere
