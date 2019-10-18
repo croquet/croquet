@@ -187,7 +187,10 @@ export default class Controller {
                 if (!random) random = randomString();
             }
             this.session = multiRoom ? `${room}/${user}/${random}` : `${user}/${random}`;
-            if (!multiRoom) urlOptions.setSession(this.session, newSession);   // multiRoom handles this elsewhere
+            if (!multiRoom) { // multiRoom handles this elsewhere
+                urlOptions.setSession(this.session, newSession);
+                App.sessionURL = window.location.href;
+            }
             // the island id (name) is "room/user/random?opt=val&opt=val"
             name = `${room}/${user}/${random}`;
             if (user === 'DEMO') this.viewOnly = getUser("demoViewOnly", true);

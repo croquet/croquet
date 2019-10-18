@@ -53,7 +53,6 @@ export default class DemoApp {
 
         if (urlOptions.autoSleep !== false) this.startSleepChecker();
 
-        App.sync = true;
         App.messages = true;
         App.makeInfoDock();
     }

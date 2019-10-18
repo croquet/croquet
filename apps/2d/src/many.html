@@ -54,8 +54,8 @@
                 }
                 const src = document.location.search.slice(1)
                     || (process.env.NODE_ENV === "development"
-                        ? "2d.html?nostats&noqr#GUEST/MANY"
-                        : "../2d/GUEST/MANY?nostats&noqr");
+                        ? "2d.html?nodock&nomessages#GUEST/MANY"
+                        : "../2d/GUEST/MANY?nodock&nomessages");
                 while (iframes.length < n) {
                     const iframe = document.createElement("iframe");
                     iframe.src = src;

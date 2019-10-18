@@ -621,6 +621,8 @@ export const App = {
     // make a fancy collapsible dock of info widgets (currently badge, qrcode, stats).
     // disable any widget by setting e.g. { stats: false } in the options.
     makeInfoDock(options = {}) {
+        if (urlOptions.nodock) return;
+
         makeInfoDock(options);
     },
 
@@ -645,8 +647,8 @@ export const App = {
 
     showMessage(msg, options={}) {
         // thin layer on top of messageFunction, to discard messages if there's nowhere
-        // (or now way) to show them.
-        if (App.root === false || App.messages === false || !App.messageFunction) return null;
+        // (or no permission) to show them.
+        if (urlOptions.nomessages || App.root === false || App.messages === false || !App.messageFunction) return null;
 
         return App.messageFunction(msg, options);
     }
