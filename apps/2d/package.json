@@ -21,7 +21,9 @@
       "last 1 iOS major version"
     ]
   },
-  "dependencies": {},
+  "dependencies": {
+    "@croquet/croquet": "^0.2.4"
+  },
   "devDependencies": {
     "eslint": "^5.14.1",
     "eslint-config-airbnb-base": "^13.2.0",
