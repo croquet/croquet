@@ -17,24 +17,24 @@ const TRANSITION_TIME = 0.3; // seconds
 // add style for the standard widgets that can appear on a Croquet page
 function addWidgetStyle() {
     const widgetCSS = `
-        #croquet_dock { position: absolute; z-index: 2; border: 3px solid white; border-radius: 0; bottom: 6px; left: 6px; width: 84px; height: 36px; box-sizing: border-box; background: white; opacity: 0.3; transition: all ${TRANSITION_TIME}s ease; }
+        #croquet_dock { position: absolute; z-index: 2; border: 3px solid white; bottom: 6px; left: 6px; width: 84px; height: 36px; box-sizing: border-box; background: white; opacity: 0.4; transition: all ${TRANSITION_TIME}s ease; }
         #croquet_dock.active { opacity: 0.95; border-radius: 12px; }
         #croquet_dock_bar { position: absolute; border: 3px solid white; width: 100%; height: 30px; box-sizing: border-box; background: white; }
 
         #croquet_badge { position: absolute; width: 72px; height: 24px; top: 50%; transform: translate(0px, -50%); cursor: none; }
         #croquet_dock.active #croquet_badge { left: 2%; }
 
-        #croquet_dock.active .croquet_dock_button { display: block; }
-        .croquet_dock_button { display: none; position: absolute; width: ${BUTTON_WIDTH}%; height: 90%; top: 50%; transform: translate(0px, -50%); font-size: 80%; text-align: center; border-radius: 20%; }
+        .croquet_dock_button { position: absolute; width: ${BUTTON_WIDTH}%; height: 90%; top: 50%; transform: translate(0px, -50%); font-size: 80%; text-align: center; border-radius: 20%; }
         .croquet_dock_button:focus { outline: 0; }
         .croquet_dock_button canvas { position: absolute; width: 100%; height: 100%; top: 0px; left: 0px; }
+        #croquet_dock:not(.active) .croquet_dock_button { display: none; }
         #croquet_dock_left { right: ${BUTTON_RIGHT + BUTTON_OFFSET + BUTTON_WIDTH + BUTTON_SEPARATION}% }
         #croquet_dock_right { right: ${BUTTON_RIGHT + BUTTON_OFFSET}%; }
         #croquet_dock_pin { right: ${BUTTON_RIGHT}%; }
         #croquet_dock_pin.pinned { background: #cce6ff; }
 
-        #croquet_dock.active #croquet_dock_content { display: block; }
-        #croquet_dock_content { display: none; position: absolute; left: ${CONTENT_MARGIN}px; top: ${CONTENT_MARGIN}px; right: ${CONTENT_MARGIN}px; bottom: ${CONTENT_MARGIN}px; background: white; }
+        #croquet_dock_content { position: absolute; left: ${CONTENT_MARGIN}px; top: ${CONTENT_MARGIN}px; right: ${CONTENT_MARGIN}px; bottom: ${CONTENT_MARGIN}px; background: white; }
+        #croquet_dock:not(.active) #croquet_dock_content { display: none; }
         #croquet_dock:not(.active) #croquet_dock_content div { display: none; }
 
         #croquet_qrcode { position: absolute; border: 6px solid white; width: 100%; height: 100%;box-sizing: border-box; cursor: crosshair; }
@@ -206,8 +206,9 @@ export function clearSessionMoniker() {
 
 let dockPinned = false;
 let activePage = null;
-// an app can call App.makeDock with options specifying which of the widgets to include
-// in the dock.  available widgets are badge, qrcode, stats.
+// an app can call App.makeInfoDock with options specifying which of the widgets to include
+// in the dock.  by default, widgets badge, qrcode, stats are shown; turn off by setting
+// corresponding options property to false.
 function makeInfoDock(options = {}) {
     const oldDockDiv = document.getElementById('croquet_dock');
     if (oldDockDiv) oldDockDiv.parentElement.removeChild(oldDockDiv);
@@ -258,32 +259,39 @@ function makeInfoDock(options = {}) {
         App.stats = statsDiv;
     }
 
-    function shiftPage(dir) {
-        const numPages = dockPageIds.length;
-        // on reconnect it's possible that a previously selected page is no longer available.
-        // if so, or if no page has been selected yet, act as if the first was.
-        let oldIndex = 0, oldElem;
-        if (activePage) {
-            const index = dockPageIds.indexOf(activePage);
-            if (index >= 0) {
-                oldIndex = index;
-                oldElem = document.getElementById(activePage);
-            } else activePage = null;
-        }
-        const newIndex = (oldIndex + numPages + dir) % numPages, newPage = dockPageIds[newIndex];
-        let newElem;
-        if (newPage === activePage) newElem = oldElem;
-        else {
-            if (oldElem) oldElem.classList.remove('active');
-            newElem = document.getElementById(newPage);
-        }
-        if (newElem) newElem.classList.add('active');
+    if (dockPageIds.length) {
+        function shiftPage(dir) {
+            const numPages = dockPageIds.length;
+            // on reconnect it's possible that a previously selected page is no longer available.
+            // if so, or if no page has been selected yet, act as if the first was.
+            let oldIndex = 0, oldElem;
+            if (activePage) {
+                const index = dockPageIds.indexOf(activePage);
+                if (index >= 0) {
+                    oldIndex = index;
+                    oldElem = document.getElementById(activePage);
+                } else activePage = null;
+            }
+            const newIndex = (oldIndex + numPages + dir) % numPages, newPage = dockPageIds[newIndex];
+            let newElem;
+            if (newPage === activePage) newElem = oldElem;
+            else {
+                if (oldElem) oldElem.classList.remove('active');
+                newElem = document.getElementById(newPage);
+            }
+            if (newElem) newElem.classList.add('active');
 
-        activePage = newPage;
+            activePage = newPage;
+        }
+
+        if (dockPageIds.length > 1) {
+            barDiv.appendChild(makeButton('<', 'croquet_dock_left', () => shiftPage(-1)));
+            barDiv.appendChild(makeButton('>', 'croquet_dock_right', () => shiftPage(1)));
+        }
+
+        shiftPage(0); // set up a starting page (or re-select, if already set)
     }
 
-    barDiv.appendChild(makeButton('<', 'croquet_dock_left', () => shiftPage(-1)));
-    barDiv.appendChild(makeButton('>', 'croquet_dock_right', () => shiftPage(1)));
     if (!TOUCH) {
         const pinButton = makeButton('📌', 'croquet_dock_pin', () => {
             dockPinned = !dockPinned;
@@ -293,7 +301,6 @@ function makeInfoDock(options = {}) {
         setPinState();
         barDiv.appendChild(pinButton);
     }
-    shiftPage(0); // set up a starting page (or re-select, if already set)
 
     const expandedSize = 200;
     const minExpandedSize = 166;
@@ -389,7 +396,7 @@ function makeButton(text, id, fn) {
 }
 
 function makeBadge(div, sessionId) {
-    //if (App.badge === false) return;
+    if (App.badge === false) return;
 
     const moniker = monikerForId(sessionId);
     document.title = document.title.replace(/:.*/, '');
@@ -600,18 +607,27 @@ function findElement(value, ifNotFoundDo) {
 
 export const App = {
     sessionURL: window.location.href,
-    root: document.body,
-    sync: false,
-    messages: false,
-    qrcode: false,
-    stats: false,
-    badge: false,
-    messageFunction: showMessageAsToast,
+    root: document.body, // root for messages, the sync spinner, and the info dock
+    sync: true, // whether to show the sync spinner while starting a session, or catching up
+    messages: false, // whether to show status messages (e.g., as toasts)
 
-    makeDock(options = {}) {
+    // the following can take a DOM element, an element ID, or false (to suppress)
+    badge: false, // the two-colour session badge and 5-letter moniker
+    stats: false, // the frame-by-frame stats display
+    qrcode: false,
+
+    messageFunction: showMessageAsToast, // needs to be a function(msg, options) - where options from internally-generated messages will include { level: 'status' | 'warning' | 'error' }
+
+    // make a fancy collapsible dock of info widgets (currently badge, qrcode, stats).
+    // disable any widget by setting e.g. { stats: false } in the options.
+    makeInfoDock(options = {}) {
         makeInfoDock(options);
     },
 
+    // make a canvas painted with the qr code for the currently set sessionURL (if there is one).
+    // options are used as overrides on our default settings, which are:
+    // { width: 128, height: 128, colorDark: "#000000", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.L }
+    // the available CorrectLevel values are L, M, Q, H
     makeQRCanvas(options = {}) {
         if (!App.sessionURL) return null;
 
@@ -620,18 +636,18 @@ export const App = {
         return qrcode && qrcode.getCanvas();
     },
 
-    showSync(bool) {
-        const parentDef = App.root; // element | element id | true (body) | false (off)
-        if (parentDef === false) bool = false; // if root (now) false, make sure spinner is gone
+    showSyncWait(bool) {
+        const parentDef = App.root;
+        if (parentDef === false) bool = false; // if root (now) false, only allow disabling
 
         displaySpinner(bool);
     },
 
     showMessage(msg, options={}) {
+        // thin layer on top of messageFunction, to discard messages if there's nowhere
+        // (or now way) to show them.
         if (App.root === false || App.messages === false || !App.messageFunction) return null;
 
-        // we have no say in how messageParent will be used.  see displayToast (above)
-        // for an example.
         return App.messageFunction(msg, options);
     }
 };

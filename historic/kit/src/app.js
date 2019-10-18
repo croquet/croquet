@@ -6,7 +6,6 @@ import RoomViewManager from "./room/roomViewManager";
 import Renderer from "./render";
 import { theKeyboardManager } from "./domKeyboardManager";
 import { theDragDropHandler } from "./domDragDrop";
-import { displayAppError } from "../../util";
 
 // hack for Parts that still use constructors
 Model.allowConstructors();
@@ -56,7 +55,7 @@ export default class DemoApp {
 
         App.sync = true;
         App.messages = true;
-        App.makeDock();
+        App.makeInfoDock();
     }
 
     get controllers() {

@@ -115,7 +115,7 @@ export default class Controller {
 
         viewDomain.removeAllSubscriptionsFor(this); // in case we're recycling
         viewDomain.addSubscription(this.viewId, "__users__", this, data => displayStatus(`users now ${data.count}`), "oncePerFrameWhileSynced");
-        App.showSync(true); // unless disabled by setting App.root or App.sync to false
+        App.showSyncWait(true); // enable (i.e., not synced)
     }
 
     /** @type {String} the session id (same for all replicas) */
@@ -780,7 +780,7 @@ export default class Controller {
             Stats.backlog(backlog);
             if (typeof this.synced === "boolean" && (this.synced && backlog > SYNCED_MAX || !this.synced && backlog < SYNCED_MIN)) {
                 this.synced = !this.synced;
-                App.showSync(!this.synced);
+                App.showSyncWait(!this.synced); // true if not synced
                 this.island.publishFromView(this.viewId, "synced", this.synced);
             }
             if (weHaveTime && this.cpuTime > SNAPSHOT_EVERY) {
