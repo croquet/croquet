@@ -24,15 +24,15 @@ You will see that a simple Croquet app is indeed very simple.
 
 ## **Try it out!**
 ![QR](https://chart.googleapis.com/chart?chs=50x50&amp;cht=qr&amp;chld=L|0&amp;chl=https://codepen.io/)
-The first thing to do is mouse over the small **QR code** in the bottom left of the CodePen window
-to expand it, then click or scan its expanded form.
+The first thing to do is click or scan the **QR code** near the top right
+of the CodePen window.
 This will launch a new CodePen instance of this session.
 If you compare the two counters, you will see that they are identical.
 If you click the counter in either of these views, the counts in both will reset to 0.
 
 ## **Edit it!**
 
-To make changes, click the "Edit on CodePen" button on the top right.
+To make changes, click the "Edit on CodePen" button on the CodePen title bar.
 
 **NOTE:** If you make a change to your own Croquet CodePen app,
 you MUST save it before you create a new instance/copy.
@@ -40,7 +40,7 @@ Otherwise, you will have one instance in the same session running an older versi
 and they will not synchronize properly.
 
 ![Session](images/SessionBadge.png)
-The **session badge** (the square in the top right, filled with colored shapes) indicates the session you are in.  Users who are participating in the same session - who are seeing the same colored shapes - are guaranteed to be in sync.  The session is also identified with a five-letter nonsense word, overlaid onto the badge; this is a quick way to confirm with someone remote that you are both seeing the same thing.
+The **session badge** (the colored rectangle near the QR code) indicates the session you are in.  The session is identified with two automatically assigned colors and a five-letter nonsense word.  Users who are participating in the same session - who are seeing the same badge - are guaranteed to be in sync.
 
 Any change to the model code will create a new session, with a different badge.  Only when other users load that changed code will they be able to join the new session.  If you are logged into CodePen and editing your own pen, you will find that switching the view to "Debug Mode", for example, also creates a distinct session - in this case, shared by however many debug-mode views you create.
 
