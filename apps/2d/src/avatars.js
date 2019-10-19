@@ -185,25 +185,29 @@ class ShapesView extends View {
 
     enableDragging() {
         const el = this.element;
-        let x, y, timeStamp = 0;
-        const move = evt => {
-            evt.preventDefault();
-            x = evt.clientX - OFFSETX;
-            y = evt.clientY - OFFSETY;
-            if (evt.timeStamp - timeStamp > THROTTLE) {
+        let x, y, lastTimeStamp = 0;
+        const move = (moveDetails, sourceEvt=moveDetails) => {
+            sourceEvt.preventDefault();
+            x = moveDetails.clientX - OFFSETX;
+            y = moveDetails.clientY - OFFSETY;
+
+            const timeStamp = sourceEvt.timeStamp;
+            if (timeStamp - lastTimeStamp > THROTTLE) {
                 this.publish(this.userShape.id, "move-to", [x / SCALE, y / SCALE]);
-                timeStamp = evt.timeStamp;
+                lastTimeStamp = timeStamp;
             }
-        };
+            };
         if (TOUCH) el.ontouchstart = start => {
-            move(start.touches[0]);
-            el.ontouchmove = evt => move(evt.touches[0]);
-            el.ontouchend = el.ontouchcancel = () => el.ontouchmove = null;
-        }; else el.onmousedown = start => {
+            move(start.touches[0], start);
+            el.ontouchmove = evt => move(evt.touches[0], evt);
+            el.ontouchend = el.ontouchcancel = () => {
+                el.ontouchmove = null; };
+            };
+        else el.onmousedown = start => {
             move(start);
             document.onmousemove = move;
             document.onmouseup = () => document.onmousemove = null;
-        };
+            };
     }
 
     showStatus(backlog, starvation, min, max) {
