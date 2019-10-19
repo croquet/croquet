@@ -173,6 +173,7 @@ Calls to `Math.random()` within the view will behave normally. Different instanc
 
 | date       | item
 |------------|---
+| 2019-10-18 | **release 0.2.5** (bug fixes; new widget API) version aligned with npm
 | 2019-10-01 | **release 0.2.2** (bug fixes; updated qr-code support)
 | 2019-09-13 | **release 0.2.1** (bug fixes)
 | 2019-09-05 | **release 0.2.0** (scalable reflector fleet, fully persistent sessions)
