@@ -386,13 +386,13 @@ function makeButton(text, id, fn) {
     const button = document.createElement('button');
     button.id = id;
     button.className = 'croquet_dock_button';
-    if (TOUCH) {
-        button.ontouchstart = evt => {
-            evt.preventDefault();
-            evt.stopPropagation();
-            fn();
-            };
-    } else button.onclick = fn;
+    const trigger = evt => {
+        evt.preventDefault();
+        evt.stopPropagation();
+        fn();
+        };
+    if (TOUCH) button.ontouchstart = trigger;
+    else button.onclick = trigger;
     button.appendChild(canvas);
     return button;
 }
@@ -470,8 +470,11 @@ function displayQRCodeIfNeeded() {
     const qrDiv = findElement(App.qrcode);
     if (!qrDiv) return;
 
-    if (!TOUCH) qrDiv.onclick = () => window.open(url);
-
+    if (!TOUCH) qrDiv.onclick = evt => {
+        evt.preventDefault();
+        evt.stopPropagation();
+        window.open(url);
+        };
     const qrcode = makeQRCode(qrDiv, url); // default options
     qrcode.getCanvas().style.width = "100%";
 }
