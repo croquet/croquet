@@ -24,7 +24,7 @@ console.log("Croquet SDK " + SDK_VERSION);
 
 // croquet.io and pi.croquet.io will provide reflectors on same host
 // everything else still uses reflector.croquet.studio
-const PUBLIC_REFLECTOR_HOST = window.location.hostname.endsWith("croquet.io") ? window.location.host : "reflector.croquet.studio";
+const PUBLIC_REFLECTOR_HOST = window.location.hostname.endsWith("croquet.io") ? `${window.location.host}/reflector` : "reflector.croquet.studio";
 const PUBLIC_REFLECTOR = `wss://${PUBLIC_REFLECTOR_HOST}/v${VERSION}`;
 const DEFAULT_REFLECTOR = process.env.CROQUET_REFLECTOR || PUBLIC_REFLECTOR;    // replaced by parcel at build time from app's .env file
 
