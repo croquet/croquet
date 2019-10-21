@@ -24,7 +24,7 @@ function addWidgetStyle() {
         #croquet_badge { position: absolute; width: 72px; height: 24px; top: 50%; transform: translate(0px, -50%); cursor: none; }
         #croquet_dock.active #croquet_badge { left: 2%; }
 
-        .croquet_dock_button { position: absolute; width: ${BUTTON_WIDTH}%; height: 90%; top: 50%; transform: translate(0px, -50%); font-size: 80%; text-align: center; border-radius: 20%; }
+        .croquet_dock_button { position: absolute; width: ${BUTTON_WIDTH}%; height: 90%; top: 50%; transform: translate(0px, -50%); border-radius: 20%; }
         .croquet_dock_button:focus { outline: 0; }
         .croquet_dock_button canvas { position: absolute; width: 100%; height: 100%; top: 0px; left: 0px; }
         #croquet_dock:not(.active) .croquet_dock_button { display: none; }
@@ -386,13 +386,13 @@ function makeButton(text, id, fn) {
     const button = document.createElement('button');
     button.id = id;
     button.className = 'croquet_dock_button';
-    if (TOUCH) {
-        button.ontouchstart = evt => {
-            evt.preventDefault();
-            evt.stopPropagation();
-            fn();
-            };
-    } else button.onclick = fn;
+    const trigger = evt => {
+        evt.preventDefault();
+        evt.stopPropagation();
+        fn();
+        };
+    if (TOUCH) button.ontouchstart = trigger;
+    else button.onclick = trigger;
     button.appendChild(canvas);
     return button;
 }
@@ -470,8 +470,11 @@ function displayQRCodeIfNeeded() {
     const qrDiv = findElement(App.qrcode);
     if (!qrDiv) return;
 
-    if (!TOUCH) qrDiv.onclick = () => window.open(url);
-
+    if (!TOUCH) qrDiv.onclick = evt => {
+        evt.preventDefault();
+        evt.stopPropagation();
+        window.open(url);
+        };
     const qrcode = makeQRCode(qrDiv, url); // default options
     qrcode.getCanvas().style.width = "100%";
 }

@@ -1,4 +1,3 @@
-// to use latest sdk: cd sdk; npm start
 import { Model, View, App, startSession } from "@croquet/croquet";
 
 
@@ -20,21 +19,32 @@ class ModelRoot extends Model {
 
     // non-inherited methods below
 
-    addUser(id) {
-        if (this.shapes[id]) { console.warn("shape already exists for joining user", id); return; }
+    addUser(userId) {
+        if (this.shapes[userId]) { console.warn("shape already exists for joining user", userId); return; }
         const shape = Shape.create();
         shape.hash = "";
         for (let i = 0; i < 16; i++) shape.hash += (this.random() * 16 | 0).toString(16);
-        this.shapes[id] = shape;
+        this.shapes[userId] = shape;
+        this.subscribe(shape.id, 'path-extended', this.testForIntersect);
         this.publish(this.id, 'shape-added', shape);
-        this.publish(this.id, `user-shape-${id}`, shape);
+        this.publish(this.id, `user-shape-${userId}`, shape);
     }
 
-    removeUser(id) {
-        const shape = this.shapes[id];
-        if (!shape) { console.warn("shape not found for leaving user", id); return; }
-        delete this.shapes[id];
+    removeUser(userId) {
+        const shape = this.shapes[userId];
+        if (!shape) { console.warn("shape not found for leaving user", userId); return; }
+        delete this.shapes[userId];
+        this.unsubscribe(shape.id, 'path-extended');
         this.publish(this.id, 'shape-removed', shape);
+    }
+
+    testForIntersect(data) {
+        const { id: extendedId, segment } = data;
+        // order doesn't matter, for now
+        Object.keys(this.shapes).forEach(userId => {
+            const shape = this.shapes[userId];
+            shape.testForIntersect(segment, shape.id === extendedId);
+            });
     }
 }
 ModelRoot.register();
@@ -48,8 +58,8 @@ class Shape extends Model {
         this.type = options.type || 'circle';
         this.color = options.color || `hsla(${r(360)},${r(50)+50}%,50%,0.5)`;
         this.pos = [r(1000), r(1000)];
-        this.subscribe(this.id, "move-to", this.moveTo);
-        this.subscribe(this.id, "move-by", this.moveBy);
+        this.path = [ this.pos.slice() ];
+        this.subscribe(this.id, "move-to", this.moveTo); // published by view
     }
 
     // non-inherited methods below
@@ -64,7 +74,67 @@ class Shape extends Model {
         const [x, y] = pos;
         this.pos[0] = Math.max(0, Math.min(1000, x));
         this.pos[1] = Math.max(0, Math.min(1000, y));
+        const path = this.path;
+        path.push(this.pos.slice());
+        while (this.path.length > 50) path.shift();
+        const segment = [path[path.length - 2], path[path.length - 1]];
+        this.publish(this.id, 'path-extended', { id: this.id, segment });
         this.publish(this.id, 'pos-changed', this.pos);
+    }
+
+    testForIntersect(segment, isOwnPath) {
+        // from Fernando van Loenhout's fiddle at https://jsfiddle.net/ferrybig/eokwL9mp/
+        // referenced from https://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect
+        function computeIntersection(a, b, c, d) {
+            const h1 = computeH(a, b, c, d);
+            const h2 = computeH(c, d, a, b);
+            const isParallel = isNaN(h1) || isNaN(h2);
+            const f = { x: d.x - c.x, y: d.y - c.y };
+            return {
+                intersection: h1 >= 0 && h1 <= 1 && h2 >= 0 && h2 <= 1,
+                isParallel,
+                point: isParallel ? undefined :
+                    // C + F*h
+                    {
+                        x: c.x + f.x * h1,
+                        y: c.y + f.y * h1,
+                    },
+                };
+        }
+        function computeH(a, b, c, d) {
+            // E = B-A = ( Bx-Ax, By-Ay )
+            const e = { x: b.x - a.x, y: b.y - a.y }
+            // F = D-C = ( Dx-Cx, Dy-Cy )
+            const f = { x: d.x - c.x, y: d.y - c.y }
+            // P = ( -Ey, Ex )
+            const p = { x: -e.y, y: e.x }
+            // h = ( (A-C) * P ) / ( F * P )
+            const intersection = f.x * p.x + f.y * p.y;
+            if (intersection === 0) {
+                // Parallel lines
+                return NaN;
+            }
+            return ((a.x - c.x) * p.x + (a.y - c.y) * p.y) / intersection;
+        }
+
+        const path = this.path;
+        const otherStart = { x: segment[0][0], y: segment[0][1] }, otherEnd = { x: segment[1][0], y: segment[1][1] };
+        let chopPoint = null;
+        let segEnd = path.length - (isOwnPath ? 3 : 1);
+        for (; segEnd >= 1; segEnd--) {
+            const thisEnd = { x: path[segEnd][0], y: path[segEnd][1] };
+            const thisStart = { x: path[segEnd-1][0], y: path[segEnd-1][1] };
+            const intersect = computeIntersection(otherStart, otherEnd, thisStart, thisEnd);
+            if (intersect.intersection && intersect.point) {
+                chopPoint = [ intersect.point.x, intersect.point.y ];
+                break;
+            }
+        }
+
+        if (chopPoint) {
+            path[segEnd - 1] = chopPoint;
+            path.splice(0, segEnd - 1);
+        }
     }
 
 }
@@ -106,7 +176,6 @@ class BouncingShape extends Shape {
             ];
         }
     }
-
 }
 BouncingShape.register();
 
@@ -114,7 +183,9 @@ BouncingShape.register();
 class Shapes extends ModelRoot {
     init(options) {
         super.init(options);
-        this.shapes["bounce"] = BouncingShape.create({pos: [500, 500], color: "white"});
+        const bouncer = BouncingShape.create({pos: [500, 500], color: "white"});
+        this.shapes["bounce"] = bouncer;
+        this.subscribe(bouncer.id, 'path-extended', this.testForIntersect);
     }
 }
 Shapes.register();
@@ -122,9 +193,10 @@ Shapes.register();
 
 ////// Views /////
 
-let SCALE = 1;                  // model uses a virtual 1000x1000 space
-let OFFSETX = 50;               // top-left corner of view, plus half shape width
-let OFFSETY = 50;               // top-left corner of view, plus half shape height
+const WORLD_SIZE = 1100;  // model uses a virtual 1000x1000 space within an 1100x1100 element
+let SCALE = 1;
+let OFFSETX = 50;         // top-left corner of view, plus half shape width
+let OFFSETY = 50;         // top-left corner of view, plus half shape height
 
 const TOUCH ='ontouchstart' in document.documentElement;
 
@@ -139,10 +211,36 @@ class ShapesView extends View {
         if (TOUCH) this.element.ontouchstart = e => e.preventDefault();
         this.resize();
         window.onresize = () => this.resize();
+        this.setUpTrailSVG();
         Object.values(model.shapes).forEach(shape => this.attachShape(shape));
         this.subscribe(model.id, 'shape-added', this.attachShape);
         this.subscribe(model.id, 'shape-removed', this.detachShape);
         this.subscribe(model.id, `user-shape-${this.viewId}`, this.gotUserShape);
+        this.future(500).refreshPaths();
+    }
+
+    setUpTrailSVG() {
+        this.svg = d3.select(this.element).append("svg")
+            .attr("viewBox", [0, 0, WORLD_SIZE, WORLD_SIZE]);
+    }
+
+    refreshPaths() {
+        const shapes = this.model.shapes;
+        const allSeries = this.svg.selectAll("g")
+            .data(Object.keys(shapes), userId => userId);
+        allSeries.enter().append("g")
+            .append("path")
+                .attr("fill", "none")
+                .attr("stroke", userId => shapes[userId].color)
+                .attr("stroke-width", "8")
+                .datum(id => shapes[id].path);
+        allSeries.selectAll("path")
+            .attr("d", d3.line()
+                .x(d => d[0] + 50)
+                .y(d => d[1] + 50));
+        allSeries.exit().remove();
+
+        this.future(100).refreshPaths();
     }
 
     detach() {
@@ -167,7 +265,7 @@ class ShapesView extends View {
 
     resize() {
         const size = Math.max(50, Math.min(window.innerWidth, window.innerHeight));
-        SCALE = size / 1100;
+        SCALE = size / WORLD_SIZE;
         OFFSETX = (window.innerWidth - size) / 2;
         OFFSETY = 0;
         this.element.style.transform = `translate(${OFFSETX}px,${OFFSETY}px) scale(${SCALE})`;
@@ -186,28 +284,35 @@ class ShapesView extends View {
     enableDragging() {
         const el = this.element;
         let x, y, lastTimeStamp = 0;
-        const move = (moveDetails, sourceEvt=moveDetails) => {
+        const move = (moveDetails, sourceEvt = moveDetails) => {
             sourceEvt.preventDefault();
-            x = moveDetails.clientX - OFFSETX;
-            y = moveDetails.clientY - OFFSETY;
+            const newX = moveDetails.clientX - OFFSETX;
+            const newY = moveDetails.clientY - OFFSETY;
+
+            // never announce a zero-length move
+            if (newX === x && newY === y) return;
+
+            x = newX;
+            y = newY;
 
             const timeStamp = sourceEvt.timeStamp;
             if (timeStamp - lastTimeStamp > THROTTLE) {
                 this.publish(this.userShape.id, "move-to", [x / SCALE, y / SCALE]);
                 lastTimeStamp = timeStamp;
             }
-            };
+        };
         if (TOUCH) el.ontouchstart = start => {
             move(start.touches[0], start);
             el.ontouchmove = evt => move(evt.touches[0], evt);
             el.ontouchend = el.ontouchcancel = () => {
-                el.ontouchmove = null; };
+                el.ontouchmove = null;
             };
+        };
         else el.onmousedown = start => {
             move(start);
             document.onmousemove = move;
             document.onmouseup = () => document.onmousemove = null;
-            };
+        };
     }
 
     showStatus(backlog, starvation, min, max) {
@@ -228,7 +333,7 @@ class ShapeView extends View {
         el.id = model.id;
         el.style.backgroundColor = model.color;
         if (model.hash) el.style.backgroundImage = `url("https://www.gravatar.com/avatar/${model.hash}?d=robohash&f=y&s=100")`;
-        this.subscribe(model.id, { event: 'pos-changed', handling: "oncePerFrame" }, this.move);
+        this.subscribe(model.id, { event: 'pos-changed', handling: "oncePerFrame" }, this.move); // published by model
         this.move(model.pos);
     }
 
