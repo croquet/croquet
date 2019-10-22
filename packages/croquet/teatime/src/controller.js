@@ -415,13 +415,13 @@ export default class Controller {
 
     async uploadJSON(url, body) {
         try {
-            await fetch(url, {
+            const { ok } = await fetch(url, {
                 method: "PUT",
                 mode: "cors",
                 headers: { "Content-Type": "application/json" },
                 body,
             });
-            return url;
+            return ok && url;
         } catch (e) { /*ignore */ }
         return false;
     }
@@ -433,13 +433,13 @@ export default class Controller {
         const bytes = pako.gzip(chars, { level: 1 }); // sloppy but quick
         if (DEBUG.snapshot) console.log(`Snapshot gzipping took ${Date.now()-start}ms`);
         try {
-            await fetch(gzurl, {
+            const { ok } = await fetch(gzurl, {
                 method: "PUT",
                 mode: "cors",
                 headers: { "Content-Type": "application/octet-stream" },
                 body: bytes
             });
-            return gzurl;
+            return ok && gzurl;
         } catch (e) { /*ignore */ }
         return false;
     }
