@@ -213,8 +213,8 @@ export default class Controller {
         }
         if (initSnapshot) this.islandCreator.snapshot = { id, time: 0, meta: { id, codeHash, created: (new Date()).toISOString() } };
         await this.join();   // when socket is ready, join server
-        const island = await new Promise(resolve => this.islandCreator.resolveIslandPromise = resolve );
-        return island.modelsByName;
+        await this.startedOrSynced();
+        return this.island.modelsByName;
     }
 
     lastKnownTime(islandOrSnapshot) { return Math.max(islandOrSnapshot.time, islandOrSnapshot.externalTime); }
@@ -381,9 +381,10 @@ export default class Controller {
         if (DEBUG.snapshot) console.log(this.id, `Controller uploading snapshot (${body.length} bytes, ${stringMS}ms) to ${gzurl}`);
         const socket = this.connection.socket;
         const success = await this.uploadGzipped(gzurl, body);
-        if (this.connection.socket !== socket) { console.error("Controller was reset while trying to upload snapshot"); return; }
-        if (!success) { console.error("Failed to upload snapshot"); return; }
+        if (this.connection.socket !== socket) { console.error("Controller was reset while trying to upload snapshot"); return false; }
+        if (!success) { console.error("Failed to upload snapshot"); return false; }
         if (announceToReflector) this.announceSnapshotUrl(time, seq, hash, gzurl);
+        return true;
     }
 
     // was sendSnapshotToReflector
@@ -421,7 +422,7 @@ export default class Controller {
                 headers: { "Content-Type": "application/json" },
                 body,
             });
-            return ok && url;
+            return ok;
         } catch (e) { /*ignore */ }
         return false;
     }
@@ -439,7 +440,7 @@ export default class Controller {
                 headers: { "Content-Type": "application/octet-stream" },
                 body: bytes
             });
-            return ok && gzurl;
+            return ok;
         } catch (e) { /*ignore */ }
         return false;
     }
@@ -504,9 +505,12 @@ export default class Controller {
                 // has the job of creating the first snapshot for the session.
                 if (DEBUG.session) console.log(this.id, 'Controller received START');
                 this.install();
-                this.requestTicks();
                 const snapshot = this.takeSnapshot();
-                this.uploadSnapshot(snapshot, true); // upload initial snapshot, and announce
+                const success = await this.uploadSnapshot(snapshot, true); // upload initial snapshot, and announce
+                // return from establishSession()
+                this.islandCreator.startedOrSynced.resolve(this.island);
+                if (success) this.requestTicks();
+                else this.connection.closeConnectionWithError("start", "failed to establish session");
                 return;
             }
             case 'SYNC': {
@@ -528,6 +532,8 @@ export default class Controller {
                 }
                 this.install(messages, time);
                 this.getTickAndMultiplier();
+                // return from establishSession()
+                this.islandCreator.startedOrSynced.resolve(this.island);
                 return;
             }
             case 'RECV': {
@@ -570,7 +576,7 @@ export default class Controller {
 
     // create the Island for this Controller, based on the islandCreator and optionally an array of messages that are known to post-date the islandCreator's snapshot
     install(messagesSinceSnapshot=[], syncTime=0) {
-        const {snapshot, init, options, resolveIslandPromise} = this.islandCreator;
+        const {snapshot, init, options} = this.islandCreator;
         let newIsland = new Island(snapshot, () => {
             try { return init(options); }
             catch (error) {
@@ -611,7 +617,6 @@ export default class Controller {
         if (syncTime && syncTime < islandTime) console.warn(`ignoring SYNC time from reflector (time was ${islandTime.time}, received ${syncTime})`);
         this.time = Math.max(this.time, islandTime, syncTime);
         this.setIsland(newIsland); // make this our island
-        resolveIslandPromise(this.island);
     }
 
     setIsland(island) {
@@ -651,6 +656,10 @@ export default class Controller {
             action: 'JOIN',
             args,
         }));
+    }
+
+    async startedOrSynced() {
+        return new Promise((resolve, reject) => this.islandCreator.startedOrSynced = { resolve, reject } );
     }
 
     // either the connection has been broken or the reflector has sent LEAVE
