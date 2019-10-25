@@ -706,7 +706,7 @@ function sessionIdAndVersionFromUrl(url) {
     // extract version and session from /foo/bar/v1/session?baz
     const path = url.replace(/\?.*/, "");
     const sessionId = path.replace(/.*\//, "");
-    const versionMatch = path.match(/\/(v[0-9]*)\/[^/]*$/);
+    const versionMatch = path.match(/\/(v[0-9]+[^/]*|dev)\/[^/]*$/);
     const version = versionMatch ? versionMatch[1] : "v0";
     return { sessionId, version };
 }
