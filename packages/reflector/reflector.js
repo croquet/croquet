@@ -275,7 +275,7 @@ function JOIN(client, args) {
         return;
     }
     const id = client.sessionId;
-    LOG(id, "received", client.addr, 'JOIN', JSON.stringify(args));
+    LOG(id, "received JOIN", JSON.stringify(args));
     const { name, version, user } = args;
     if (user) {
         // strip off any existing user info
@@ -741,7 +741,7 @@ server.on('connection', (client, req) => {
     let lastActivity = Date.now();
     client.on('pong', time => {
         lastActivity = Date.now();
-        LOG(sessionId, 'socket-level pong from', client.addr, 'after', Date.now() - time, 'ms');
+        LOG(sessionId, 'pong from', client.addr, 'after', Date.now() - time, 'ms');
         });
     setTimeout(() => client.readyState === WebSocket.OPEN && client.ping(Date.now()), 100);
 
