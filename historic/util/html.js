@@ -43,6 +43,50 @@ function addWidgetStyle() {
 
         #croquet_stats { position: absolute; width: 70%; height: 90%; left: 15%; top: 5%; opacity: 0.8; font-family: sans-serif; }
         #croquet_stats:not(.active) { display: none; }
+
+        #croquet_spinnerOverlay {
+            z-index: 1000;
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color:#333;
+            opacity:0.9;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            transition: opacity 1.0s ease-out;
+        }
+        /* https://github.com/lukehaas/css-loaders */
+        @keyframes dots {
+            0%, 80%, 100% { box-shadow: 0 2.5em 0 -1.3em; }
+            40% { box-shadow: 0 2.5em 0 0; }
+        }
+        #croquet_loader,
+        #croquet_loader:before,
+        #croquet_loader:after {
+          border-radius: 50%;
+          width: 2.5em;
+          height: 2.5em;
+          animation: dots 1.8s infinite ease-in-out;
+        }
+        #croquet_loader {
+          color: #fff;
+          font-size: 10px;
+          margin: 80px auto;
+          position: relative;
+          text-indent: -9999em;
+          animation-delay: -0.16s;
+        }
+        #croquet_loader:before,
+        #croquet_loader:after {
+          content: '';
+          position: absolute;
+          top: 0;
+        }
+        #croquet_loader:before { left: -3.5em; animation-delay: -0.32s; }
+        #croquet_loader:after { left: 3.5em; }
 `;
     const widgetStyle = document.createElement("style");
     widgetStyle.innerHTML = widgetCSS;
@@ -538,59 +582,11 @@ function displaySpinner(enabled) {
 }
 
 function makeSpinner() {
-    const style = document.createElement('style');
-    style.innerHTML = `
-        .spinnerOverlay {
-            z-index: 1000;
-            position: fixed;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color:#333;
-            opacity:0.9;
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            transition: opacity 1.0s ease-out;
-        }
-        /* https://github.com/lukehaas/css-loaders */
-        @keyframes dots {
-            0%, 80%, 100% { box-shadow: 0 2.5em 0 -1.3em; }
-            40% { box-shadow: 0 2.5em 0 0; }
-        }
-        .loader,
-        .loader:before,
-        .loader:after {
-          border-radius: 50%;
-          width: 2.5em;
-          height: 2.5em;
-          animation: dots 1.8s infinite ease-in-out;
-        }
-        .loader {
-          color: #fff;
-          font-size: 10px;
-          margin: 80px auto;
-          position: relative;
-          text-indent: -9999em;
-          animation-delay: -0.16s;
-        }
-        .loader:before,
-        .loader:after {
-          content: '';
-          position: absolute;
-          top: 0;
-        }
-        .loader:before { left: -3.5em; animation-delay: -0.32s; }
-        .loader:after { left: 3.5em; }
-    `;
-    document.head.appendChild(style);
-
     const overlay = document.createElement("div");
-    overlay.className = "spinnerOverlay";
+    overlay.id = "croquet_spinnerOverlay";
 
     const spinner = document.createElement("div");
-    spinner.className = "loader";
+    spinner.id = "croquet_loader";
     spinner.innerText = "Catching up...";
 
     overlay.appendChild(spinner);
