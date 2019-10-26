@@ -366,7 +366,7 @@ function JOIN(client, args) {
         } while (client.readyState !== WebSocket.OPEN);
         const msg = JSON.stringify({ id, action: 'START' });
         client.safeSend(msg);
-        LOG(id, 'sending', client.addr, msg);
+        LOG(id, 'sending START', client.addr, msg);
         // if the client does not provide a snapshot in time, we need to start over
         island.startTimeout = setTimeout(() => {
             island.startTimeout = null;
@@ -381,13 +381,13 @@ function JOIN(client, args) {
 
 function SYNC(island) {
     const { id, snapshotUrl: url, messages } = island;
-    const time = getTime(island);
+    const { time, seq } = getTime(island);
     const response = JSON.stringify({ id, action: 'SYNC', args: { url, messages, time } });
     const range = !messages.length ? '' : ` (#${messages[0][1]}...${messages[messages.length - 1][1]})`;
     for (const syncClient of island.syncClients) {
         if (syncClient.readyState === WebSocket.OPEN) {
             syncClient.safeSend(response);
-            LOG(id, `sending ${syncClient.addr} SYNC ${response.length} bytes, ${messages.length} messages${range}, snapshot: ${url}`);
+            LOG(id, `@${time}#${seq} sending SYNC ${syncClient.addr} ${response.length} bytes, ${messages.length} messages${range}, snapshot: ${url}`);
             userDidJoin(island, syncClient);
         } else {
             LOG(id, 'cannot send SYNC to', syncClient.addr);
@@ -477,7 +477,7 @@ function SNAP(client, args) {
             const pad = n => (""+n).padStart(10, '0');
             const firstSeq = messagesToStore[0][1] >>> 0;
             const logName = `${id}/${pad(time)}_${firstSeq}-${seq}-${hash}.json`;
-            LOG(id, "uploading messages between times ", island.snapshotTime, "and", time, `(seqs ${firstSeq} to ${seq})`, "to", logName);
+            LOG(id, `@${island.time}#${island.seq} uploading messages between times ${island.snapshotTime} and ${time} (seqs ${firstSeq} to ${seq}) to ${logName}`);
             uploadJSON(logName, messageLog);
         }
     } else {
@@ -675,7 +675,7 @@ function provisionallyDeleteIsland(island) {
 // delete our live record of the island, rewriting latest.json if necessary
 async function deleteIsland(island) {
     prometheusSessionGauge.dec();
-    const { id, snapshotUrl, seq, storedUrl, storedSeq } = island;
+    const { id, snapshotUrl, time, seq, storedUrl, storedSeq, messages } = island;
     // stop ticking and delete
     stopTicker(island);
     ALL_ISLANDS.delete(id);
@@ -683,13 +683,13 @@ async function deleteIsland(island) {
     if (cluster === "local") return true;
     // remove ourselves from session registry, ignoring errors
     // TODO: return this promise along with the other promise below
-    unregisterSession(id);
+    unregisterSession(island);
     // if we've been told of a snapshot since the one (if any) stored in this
     // island's latest.json, or there are messages since the snapshot referenced
     // there, write a new latest.json.
     if (snapshotUrl !== storedUrl || after(storedSeq, seq)) {
         const fileName = `${id}/latest.json`;
-        LOG(id, "uploading latest.json with", island.messages.length, "messages");
+        LOG(id, `@${time}#${seq} uploading latest.json with ${messages.length} messages`);
         const latestSpec = {};
         savableKeys(island).forEach(key => latestSpec[key] = island[key]);
         return uploadJSON(fileName, latestSpec);
@@ -697,9 +697,10 @@ async function deleteIsland(island) {
     return true;
 }
 
-async function unregisterSession(id) {
+async function unregisterSession(island) {
     if (cluster === "local") return;
-    LOG(id, "unregistering session");
+    const { id, time, seq } = island;
+    LOG(id, `@${time}#${seq} unregistering session`);
     try {
         await storage.bucket('croquet-reflectors-v1').file(`${id}.json`).delete();
     } catch (err) {
