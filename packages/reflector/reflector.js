@@ -442,39 +442,49 @@ function SNAP(client, args) {
     // to decide if the announced snapshot deserves to replace the existing one we
     // compare times rather than message seq, since (at least in principle) a new
     // snapshot can be taken after some elapsed time but no additional external messages.
-    if (time <= island.snapshotTime) return;
-
-    LOG(id, `${island} got snapshot ${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'}`);
-
-    // forget older messages, setting aside the ones that need to be stored
-    let messagesToStore = [];
-    const msgs = island.messages;
-    if (msgs.length > 0) {
-        const keep = msgs.findIndex(msg => after(seq, msg[1]));
-        if (keep > 0) {
-            LOG(id, `${island} forgetting messages #${msgs[0][1] >>> 0} to #${msgs[keep - 1][1] >>> 0} (keeping #${msgs[keep][1] >>> 0})`);
-            messagesToStore = msgs.splice(0, keep); // we'll store all those we're forgetting
-        } else if (keep === -1) {
-            LOG(id, `${island} forgetting all messages (#${msgs[0][1] >>> 0} to #${msgs[msgs.length - 1][1] >>> 0})`);
-            messagesToStore = msgs.slice();
-            msgs.length = 0;
-        }
+    if (time <= island.snapshotTime) {
+        LOG(id, `@${island.time}#${island.seq} ignoring snapshot ${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'}`);
+        return;
     }
 
-    if (messagesToStore.length) {
-        // upload to the message-log bucket a blob with all messages since the previous snapshot
-        const messageLog = {
-            start: island.snapshotUrl,  // previous snapshot, if any
-            end: url,                   // new snapshot
-            time: [island.snapshotTime, time],
-            seq: [island.snapshotSeq, seq], // snapshotSeq will be null first time through
-            messagesToStore,
-        };
-        const pad = n => (""+n).padStart(10, '0');
-        const firstSeq = messagesToStore[0][1] >>> 0;
-        const logName = `${id}/${pad(time)}_${firstSeq}-${seq}-${hash}.json`;
-        LOG(id, "uploading messages between times ", island.snapshotTime, "and", time, `(seqs ${firstSeq} to ${seq})`, "to", logName);
-        uploadJSON(logName, messageLog);
+    LOG(id, `@${island.time}#${island.seq} got snapshot ${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'}`);
+
+    if (island.snapshotUrl) {
+        // forget older messages, setting aside the ones that need to be stored
+        let messagesToStore = [];
+        const msgs = island.messages;
+        if (msgs.length > 0) {
+            const keep = msgs.findIndex(msg => after(seq, msg[1]));
+            if (keep > 0) {
+                LOG(id, `forgetting ${msgs.length - keep} of ${msgs.length} messages #${msgs[0][1] >>> 0} to #${msgs[keep - 1][1] >>> 0} (keeping #${msgs[keep][1] >>> 0})`);
+                messagesToStore = msgs.splice(0, keep); // we'll store all those we're forgetting
+            } else if (keep === -1) {
+                LOG(id, `forgetting all of ${msgs.length} messages (#${msgs[0][1] >>> 0} to #${msgs[msgs.length - 1][1] >>> 0})`);
+                messagesToStore = msgs.slice();
+                msgs.length = 0;
+            }
+        }
+
+        if (messagesToStore.length) {
+            // upload to the message-log bucket a blob with all messages since the previous snapshot
+            const messageLog = {
+                start: island.snapshotUrl,  // previous snapshot, if any
+                end: url,                   // new snapshot
+                time: [island.snapshotTime, time],
+                seq: [island.snapshotSeq, seq], // snapshotSeq will be null first time through
+                messagesToStore,
+            };
+            const pad = n => (""+n).padStart(10, '0');
+            const firstSeq = messagesToStore[0][1] >>> 0;
+            const logName = `${id}/${pad(time)}_${firstSeq}-${seq}-${hash}.json`;
+            LOG(id, "uploading messages between times ", island.snapshotTime, "and", time, `(seqs ${firstSeq} to ${seq})`, "to", logName);
+            uploadJSON(logName, messageLog);
+        }
+    } else {
+        // this is the initial snapshot from the user we sent START
+        island.time = time;
+        island.seq = seq;
+        userDidJoin(island, client);
     }
 
     // keep snapshot
@@ -633,17 +643,12 @@ function TICK(island) {
  */
 function TICKS(client, args) {
     const id = client.sessionId;
-    const { time, seq, tick, delay, scale } = args;
+    const { tick, delay, scale } = args;
     const island = ALL_ISLANDS.get(id);
     if (!island) { if (client.readyState === WebSocket.OPEN) client.close(...REASON.UNKNOWN_ISLAND); return; }
     if (!island.time) {
-        // only accept time, sequence, and delay if new island
-        island.time = typeof time === "number" ? Math.ceil(time) : 0;
-        island.seq = typeof seq === "number" ? seq : 0xFFFFFFF0;    // v0 clients expect this value
+        // only accept delay if new island
         if (delay > 0) island.delay = delay;
-        // now that we know time & seq, send USERS to first client
-        userDidJoin(island, client);
-        USERS(island);
     }
     if (scale > 0) island.scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale));
     if (tick > 0) startTicker(island, tick);
