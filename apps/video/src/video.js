@@ -266,10 +266,6 @@ export class Video2DView {
     dispose() {
         try {
             URL.revokeObjectURL(this.url);
-            if (this.texture) {
-                this.texture.dispose();
-                delete this.texture;
-            }
             delete this.video;
         } catch (e) { console.warn(`error in Video2DView cleanup: ${e}`); }
     }
@@ -357,7 +353,7 @@ class SyncedVideoView extends View {
     }
 
     adjustPlaybar() {
-        const time = this.videoView.isPlaying ? this.videoView.video.currentTime : (this.latestPlayState.pausedTime || 0);
+        const time = this.videoView.isPlaying ? this.videoElem.currentTime : (this.latestPlayState.pausedTime || 0);
         timebarView.drawPlaybar(time / this.videoView.duration);
     }
 
@@ -491,7 +487,7 @@ class SyncedVideoView extends View {
 
         const wantsToPlay = !this.latestPlayState.isPlaying; // toggle
         if (!wantsToPlay) videoView.pause(); // immediately!
-        const videoTime = videoView.video.currentTime;
+        const videoTime = videoElem.currentTime;
         const sessionTime = this.now(); // the session time corresponding to the video time
         const startOffset = wantsToPlay ? sessionTime - 1000 * videoTime : null;
         const pausedTime = wantsToPlay ? 0 : videoTime;
@@ -527,7 +523,7 @@ class SyncedVideoView extends View {
             if (this.videoView.isPlaying && !this.videoView.isBlocked && (now - lastTimingCheck >= 500)) {
                 this.lastTimingCheck = now;
                 const expectedTime = this.videoView.wrappedTime(this.calculateVideoTime());
-                const videoTime = this.videoView.video.currentTime;
+                const videoTime = this.videoElem.currentTime;
                 const videoDiff = videoTime - expectedTime;
                 const videoDiffMS = videoDiff * 1000; // +ve means *ahead* of where it should be
                 if (videoDiff < this.videoView.duration / 2) { // otherwise presumably measured across a loop restart; just ignore.
@@ -536,7 +532,7 @@ class SyncedVideoView extends View {
                         // if there's a difference greater than 500ms, try to jump the video to the right place
                         if (Math.abs(videoDiffMS) > 500) {
                             console.log(`jumping video by ${-Math.round(videoDiffMS)}ms`);
-                            this.videoView.video.currentTime = this.videoView.wrappedTime(videoTime - videoDiff + 0.1, true); // 0.1 to counteract the delay that the jump itself tends to introduce; true to ensure we're not jumping beyond the last video frame
+                            this.videoElem.currentTime = this.videoView.wrappedTime(videoTime - videoDiff + 0.1, true); // 0.1 to counteract the delay that the jump itself tends to introduce; true to ensure we're not jumping beyond the last video frame
                         }
                     } else {
                         // every 3s, check video lag/advance, and set the playback rate accordingly.
@@ -561,7 +557,7 @@ class SyncedVideoView extends View {
                                     this.playbackBoost = desiredBoostPercent;
                                     const playbackRate = 1 + this.playbackBoost * 0.01;
                                     console.log(`video playback rate: ${playbackRate}`);
-                                    this.videoView.video.playbackRate = playbackRate;
+                                    this.videoElem.playbackRate = playbackRate;
                                 }
                             }
                             this.lastRateAdjust = now;
@@ -598,10 +594,10 @@ class SyncedVideoView extends View {
         // and dispose of any already-loaded element
         if (this.videoView) {
             this.videoView.pause();
-            const elem = this.videoView.video;
+            const elem = this.videoElem;
             elem.parentNode.removeChild(elem);
             this.videoView.dispose();
-            this.videoView = null;
+            this.videoView = this.videoElem = null;
         }
     }
 
