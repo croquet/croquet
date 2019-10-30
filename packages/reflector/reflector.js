@@ -482,8 +482,12 @@ function SNAP(client, args) {
         }
     } else {
         // this is the initial snapshot from the user we sent START
-        island.time = time;
-        island.seq = seq;
+        if (island.time === 0) {
+            island.time = time;
+            island.seq = seq;
+        } else {
+            LOG(id, `@${island.time}#${island.seq} not initializing time from snapshot (old client)`);
+        }
         userDidJoin(island, client);
     }
 
