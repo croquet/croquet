@@ -388,7 +388,7 @@ function SYNC(island) {
         if (syncClient.readyState === WebSocket.OPEN) {
             syncClient.safeSend(response);
             LOG(id, `@${island.time}#${island.seq} sending SYNC ${syncClient.addr} ${response.length} bytes, ${messages.length} messages${range}, snapshot: ${url}`);
-            userDidJoin(island, syncClient);
+            announceUserDidJoin(island, syncClient);
         } else {
             LOG(id, 'cannot send SYNC to', syncClient.addr);
         }
@@ -407,17 +407,17 @@ function LEAVING(client) {
     if (!island) return;
     island.clients.delete(client);
     if (island.clients.size === 0) provisionallyDeleteIsland(island);
-    else userDidLeave(island, client);
+    else announceUserDidLeave(island, client);
 }
 
-function userDidJoin(island, client) {
-    if (!client.user) return;
+function announceUserDidJoin(island, client) {
+    if (!client.user || client.active === true) return;
     client.active = true;
     island.usersJoined.push(client.user);
 }
 
-function userDidLeave(island, client) {
-    if (!client.user) return;
+function announceUserDidLeave(island, client) {
+    if (!client.user || client.active === false) return;
     client.active = false;
     island.usersLeft.push(client.user);
 }
@@ -480,15 +480,15 @@ function SNAP(client, args) {
             LOG(id, `@${island.time}#${island.seq} uploading messages between times ${island.snapshotTime} and ${time} (seqs ${firstSeq} to ${seq}) to ${logName}`);
             uploadJSON(logName, messageLog);
         }
-    } else {
+    } else if (island.time === 0) {
         // this is the initial snapshot from the user we sent START
-        if (island.time === 0) {
-            island.time = time;
-            island.seq = seq;
-        } else {
-            LOG(id, `@${island.time}#${island.seq} not initializing time from snapshot (old client)`);
-        }
-        userDidJoin(island, client);
+        LOG(id, `@${island.time}#${island.seq} init ${time}#${seq} from SNAP`);
+        island.time = time;
+        island.seq = seq;
+        announceUserDidJoin(island, client);
+    } else {
+        // this is the initial snapshot, but it's an old client (<=0.2.5) that already requested TICKS()
+        LOG(id, `@${island.time}#${island.seq} not initializing time from snapshot (old client)`);
     }
 
     // keep snapshot
@@ -650,6 +650,14 @@ function TICKS(client, args) {
     const { tick, delay, scale } = args;
     const island = ALL_ISLANDS.get(id);
     if (!island) { if (client.readyState === WebSocket.OPEN) client.close(...REASON.UNKNOWN_ISLAND); return; }
+    if (!island.snapshotUrl) {
+         // this must be an old client (<=0.2.5) that requests TICKS before sending a snapshot
+        const { time, seq } = args;
+        LOG(id, `@${island.time}#${island.seq} init ${time}#${seq} from TICKS (old client)`);
+        island.time = typeof time === "number" ? Math.ceil(time) : 0;
+        island.seq = typeof seq === "number" ? seq : 0;
+        announceUserDidJoin(island, client);
+    }
     if (!island.time) {
         // only accept delay if new island
         if (delay > 0) island.delay = delay;
@@ -813,7 +821,7 @@ server.on('connection', (client, req) => {
         else {
             island.clients.delete(client);
             if (island.clients.size === 0) provisionallyDeleteIsland(island);
-            else userDidLeave(island, client);
+            else announceUserDidLeave(island, client);
         }
     });
 });
