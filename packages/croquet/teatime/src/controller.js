@@ -776,7 +776,12 @@ export default class Controller {
         try {
             const simStart = Stats.begin("simulate");
             let weHaveTime = true;
-            // simulate all received external messages
+            // first, finish simulating already scheduled messages
+            // (without this, multiple external messages can end up
+            // in the future queue, making snapshots non-deterministic)
+            const firstInQueue = this.networkQueue.peek();
+            if (firstInQueue) weHaveTime = this.island.advanceTo(firstInQueue[0], deadline);
+            // then, simulate all received external messages
             while (weHaveTime) {
                 // Get the next message from the (concurrent) network queue
                 const msgData = this.networkQueue.nextNonBlocking();
@@ -786,10 +791,12 @@ export default class Controller {
                 // boost cpuTime by a fixed cost per message, to impose an upper limit on
                 // the number of messages we'll accumulate before taking a snapshot
                 this.cpuTime += EXTERNAL_MESSAGE_CPU_PENALTY;
-                // simulate up to that message
+                // simulate that message
                 weHaveTime = this.island.advanceTo(msg.time, deadline);
+                // this means there should never be an external message in the
+                // future queue at snapshot time
             }
-            // now simulate up to last tick (whether received or generated)
+            // finally, simulate up to last tick (whether received or generated)
             if (weHaveTime) weHaveTime = this.island.advanceTo(this.time, deadline);
             this.cpuTime += Math.max(0.01, Stats.end("simulate") - simStart); // ensure that we move forward even on a browser that rounds performance.now() to 1ms
             const backlog = this.backlog;

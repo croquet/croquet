@@ -570,6 +570,11 @@ export class Message {
         this.payload = encode(receiver, selector, args);
     }
 
+    // Messages are generally sorted by time
+    // For the same time stamp, we sort reflected messages after future messages
+    // because otherwise it would depend on timing where the external message is put
+    // (e.g when there are many future messages for the same time, we simulate a few,
+    // and then insert an external message)
     before(other) {
         // sort by time
         if (this.time !== other.time) return this.time < other.time;
