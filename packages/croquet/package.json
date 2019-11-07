@@ -10,8 +10,22 @@
     "types.d.ts"
   ],
   "scripts": {
+    "start": "npm-watch build",
     "build": "rollup -c",
     "prepublish": "npm run build"
+  },
+  "watch": {
+    "build": {
+      "patterns": [
+        ".",
+        "../../../teatime",
+        "../../../util",
+        "../../../math"
+      ],
+      "ignore": "./dist",
+      "extensions": "js,json",
+      "quiet": false
+    }
   },
   "author": "",
   "dependencies": {
@@ -27,6 +41,7 @@
     "@babel/plugin-transform-runtime": "^7.5.0",
     "@babel/preset-env": "^7.5.4",
     "@croquet/teatime": "file:../../../teatime",
+    "npm-watch": "^0.6.0",
     "rollup": "^1.16.4",
     "rollup-plugin-babel": "^4.3.3",
     "rollup-plugin-license": "^0.9.0",
