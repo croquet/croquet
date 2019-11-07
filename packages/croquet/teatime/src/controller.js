@@ -515,20 +515,23 @@ export default class Controller {
                 // We are joining an island session.
                 const {messages, url, time} = args;
                 if (DEBUG.session) console.log(this.id, `Controller received SYNC: time ${time}, ${messages.length} messages, ${url}`);
+                // enqueue all messages now because the reflector will start sending more messages
+                // while we are waiting for the snapshot.
                 // if any conversion of custom reflector messages is to be done, do it before
                 // waiting for the snapshot to arrive (because there might be some meta-processing
                 // that happens immediately on conversion; this is the case for "users" messages)
                 for (const msg of messages) {
+                    if (DEBUG.messages) console.log(this.id, 'Controller received message in SYNC ' + JSON.stringify(msg));
+                    msg[1] >>>= 0; // make sure it's uint32 (reflector used to send int32)
                     if (typeof msg[2] !== "string") this.convertReflectorMessage(msg);
+                    this.networkQueue.put(msg);
+                    this.timeFromReflector(msg[0]);
                 }
+                this.timeFromReflector(time);
                 const snapshot = await this.fetchJSON(url);
                 this.islandCreator.snapshot = snapshot;  // set snapshot for building the island
                 if (!this.connected) { console.log(this.id, 'socket went away during SYNC'); return; }
-                for (const msg of messages) {
-                    if (DEBUG.messages) console.log(this.id, 'Controller got message in SYNC ' + JSON.stringify(msg));
-                    msg[1] >>>= 0; // make sure it's uint32 (reflector used to send int32)
-                }
-                this.install(messages, time);
+                this.install();
                 this.getTickAndMultiplier();
                 // return from establishSession()
                 this.islandCreator.startedOrSynced.resolve(this.island);
@@ -543,12 +546,11 @@ export default class Controller {
                 // the reflector might insert messages on its own, indicated by a non-string payload
                 // we need to convert the payload to the message format this client is using
                 if (typeof msg[2] !== "string") this.convertReflectorMessage(msg);
-                const time = msg[0];
                 msg[1] >>>= 0; // make sure it's uint32 (reflector used to send int32)
                 // if we sent this message, add it to latency statistics
                 if (msg[3] === this.statistics.id) this.addToStatistics(msg[4]);
                 this.networkQueue.put(msg);
-                this.timeFromReflector(time);
+                this.timeFromReflector(msg[0]);
                 return;
             }
             case 'TICK': {
@@ -571,8 +573,8 @@ export default class Controller {
         }
     }
 
-    // create the Island for this Controller, based on the islandCreator and optionally an array of messages that are known to post-date the islandCreator's snapshot
-    install(messagesSinceSnapshot=[], syncTime=0) {
+    // create the Island for this Controller, based on the islandCreator
+    install() {
         const {snapshot, init, options} = this.islandCreator;
         let newIsland = new Island(snapshot, () => {
             try { return init(options); }
@@ -586,33 +588,9 @@ export default class Controller {
             const initialIslandSnap = JSON.stringify(newIsland.snapshot());
             newIsland = new Island(JSON.parse(initialIslandSnap), () => init(options));
         }
-        if (DEBUG.messages) {
-            const expected = (newIsland.externalSeq - newIsland.seq) >>> 0;
-            console.log(this.id, `Controller expected ${expected} unsimulated external messages in snapshot (${newIsland.seq}-${newIsland.externalSeq})`);
-            const external = newIsland.messages.asArray().filter(m => m.isExternal());
-            console.log(this.id, `Controller found ${external.length} unsimulated external messages in snapshot`, external);
-        }
-        // schedule the supplied messages, if any
-        if (messagesSinceSnapshot.length > 0) {
-            if  (DEBUG.messages) console.log(this.id, `Controller scheduling ${messagesSinceSnapshot.length} messages after snapshot`, messagesSinceSnapshot);
-            for (const msg of messagesSinceSnapshot) {
-                if (typeof msg[2] !== "string") this.convertReflectorMessage(msg);
-                newIsland.scheduleExternalMessage(msg);
-            }
-        }
-        // drain network queue of messages that have been at least scheduled.
-        const nextSeq = (newIsland.externalSeq + 1) >>> 0; // externalSeq is last scheduled message
-        for (let msg = this.networkQueue.peek(); msg; msg = this.networkQueue.peek()) {
-            if (!inSequence(msg[1], nextSeq)) throw Error(`Missing message (expected ${nextSeq} got ${msg[1]})`);
-            // found the next message
-            if (msg[1] === nextSeq) break;
-            // silently skip old messages
-            this.networkQueue.nextNonBlocking();
-        }
-        // our time is the latest of this.time (we may have received a tick already), the island time in the snapshot, and the reflector time at SYNC
+       // our time is the latest of this.time (we may have received a tick already) and the island time in the snapshot
         const islandTime = this.lastKnownTime(newIsland);
-        if (syncTime && syncTime < islandTime) console.warn(`ignoring SYNC time from reflector (time was ${islandTime.time}, received ${syncTime})`);
-        this.time = Math.max(this.time, islandTime, syncTime);
+        this.time = Math.max(this.time, islandTime);
         this.setIsland(newIsland); // make this our island
     }
 
