@@ -3,6 +3,7 @@
 // (in-browser mode is not supported right now)
 
 const os = require('os');
+const fs = require('fs');
 const http = require('http');
 const WebSocket = require('ws');
 const prometheus = require('prom-client');
@@ -31,33 +32,6 @@ const prometheusTicksCounter = new prometheus.Counter({
 });
 prometheus.collectDefaultMetrics(); // default metrics like process start time, heap usage etc
 
-// Get cluster info from Google Cloud (for logging).
-// Only start Debugger & Profiler if successful.
-let cluster = "";
-http.get('http://metadata.google.internal/computeMetadata/v1/instance/attributes/cluster-name',
-    { headers: {'Metadata-Flavor' : 'Google'} },
-    response => {
-        response.on('data', data => cluster += data);
-        response.on('end', () => {
-            // eslint-disable-next-line global-require
-            if (googleCloudProfiler) require('@google-cloud/profiler').start({
-                serviceContext: { service: 'reflector' },
-            });
-            // eslint-disable-next-line global-require
-            if (googleCloudDebugger) require('@google-cloud/debug-agent').start({
-                allowExpressions: true,
-                serviceContext: { service: 'reflector' },
-            });
-            // start serving
-            startServer();
-        });
-    }
-).on("error", () => {
-    cluster = "local";
-    startServer();
-    watchStats();
-});
-
 // we use Google Cloud Storage for session state
 const storage = new Storage();
 const bucket = storage.bucket('croquet-sessions-v1');
@@ -77,6 +51,7 @@ const TALLY_INTERVAL = 1000;  // maximum time to wait to tally TUTTI contributio
 const hostname = os.hostname();
 const {wlan0, eth0, en0} = os.networkInterfaces();
 const hostip = (wlan0 || eth0 || en0).find(each => each.family==='IPv4').address;
+let cluster = fs.existsSync("/var/run/secrets/kubernetes.io") ? "k8s" : "local"; // name set async
 
 function logtime() {
     if (cluster !== "local" ) return "";
@@ -198,6 +173,35 @@ function handleTerm() {
 }
 process.on('SIGINT', handleTerm);
 process.on('SIGTERM', handleTerm);
+
+
+// start server
+if (cluster === "local") {
+    startServer();
+    watchStats();
+} else {
+    // Start Debugger & Profiler
+    // eslint-disable-next-line global-require
+    if (googleCloudProfiler) require('@google-cloud/profiler').start({
+        serviceContext: { service: 'reflector' },
+    });
+    // eslint-disable-next-line global-require
+    if (googleCloudDebugger) require('@google-cloud/debug-agent').start({
+        allowExpressions: true,
+        serviceContext: { service: 'reflector' },
+    });
+    http.get('http://metadata.google.internal/computeMetadata/v1/instance/attributes/cluster-name',
+        { headers: {'Metadata-Flavor' : 'Google'} },
+        response => {
+            response.on('data', data => cluster += data);
+            response.on('end', () => startServer());
+        }
+    ).on("error", err => {
+        ERROR("FATAL: failed to get cluster name.", err.message);
+        process.exit(1);
+    });
+}
+
 
 /**
  * @typedef ID - A random 128 bit hex ID
