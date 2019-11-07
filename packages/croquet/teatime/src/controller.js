@@ -776,17 +776,18 @@ export default class Controller {
         try {
             const simStart = Stats.begin("simulate");
             let weHaveTime = true;
-            // first, finish simulating already scheduled messages
-            // (without this, multiple external messages can end up
-            // in the future queue, making snapshots non-deterministic)
-            const firstInQueue = this.networkQueue.peek();
-            if (firstInQueue) weHaveTime = this.island.advanceTo(firstInQueue[0], deadline);
-            // then, simulate all received external messages
+            // simulate all received external messages
             while (weHaveTime) {
                 // Get the next message from the (concurrent) network queue
                 const msgData = this.networkQueue.nextNonBlocking();
                 if (!msgData) break;
+                // first, finish simulating internal messages up to this time
+                // (otherwise, external messages would end up in the future queue,
+                // making snapshots non-deterministic)
+                weHaveTime = this.island.advanceTo(msgData[0], deadline);
+                if (!weHaveTime) break;
                 // have the island decode and schedule that message
+                // it will end up first in the future message queue
                 const msg = this.island.scheduleExternalMessage(msgData);
                 // boost cpuTime by a fixed cost per message, to impose an upper limit on
                 // the number of messages we'll accumulate before taking a snapshot
