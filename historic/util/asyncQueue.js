@@ -5,7 +5,7 @@ export default class AsyncQueue {
     }
 
     async next() {
-        if (this.values.length > 0) this.values.shift();
+        if (this.values.length > 0) return this.values.shift();
         return new Promise(resolve => this.resolves.push(resolve));
     }
 
