@@ -15,6 +15,10 @@ export default class AsyncQueue {
         else this.values.push(value);
     }
 
+    putAll(values) {
+        for (const value of values) this.put(value);
+    }
+
     peek() {
         return this.values[0];
     }
@@ -22,4 +26,13 @@ export default class AsyncQueue {
     nextNonBlocking() {
         return this.values.shift();
     }
+
+    allNonBlocking() {
+        if (this.values.length === 0) return [];
+        const values = this.values;
+        this.values = [];
+        return values;
+    }
+
+    get size() { return this.values.length - this.resolves.length; }
 }
