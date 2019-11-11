@@ -51,7 +51,7 @@ const TALLY_INTERVAL = 1000;  // maximum time to wait to tally TUTTI contributio
 const hostname = os.hostname();
 const {wlan0, eth0, en0} = os.networkInterfaces();
 const hostip = (wlan0 || eth0 || en0).find(each => each.family==='IPv4').address;
-let cluster = fs.existsSync("/var/run/secrets/kubernetes.io") ? "k8s" : "local"; // name set async
+let cluster = fs.existsSync("/var/run/secrets/kubernetes.io") ? "" : "local"; // name set async for k8s
 
 function logtime() {
     if (cluster !== "local" ) return "";
