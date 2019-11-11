@@ -19,11 +19,7 @@ const pako = require('pako'); // gzip-aware compressor
 // only newer clients get to use it
 const VERSION = 1;
 
-<<<<<<< HEAD
 export const SDK_VERSION = process.env.CROQUET_VERSION || "<unknown>";
-=======
-export const SDK_VERSION = process.env.CROQUET_VERSION || "0.2.6_npm_dev"; // @@ hack
->>>>>>> [sdk] update hard-coded npm version, for use during development
 console.log("Croquet SDK " + SDK_VERSION);
 
 // *croquet.io/reflector/v1 is used as reflector for pages served from *croquet.io
@@ -225,9 +221,44 @@ export default class Controller {
 
     lastKnownTime(islandOrSnapshot) { return Math.max(islandOrSnapshot.time, islandOrSnapshot.externalTime); }
 
+    // DEBUG SUPPORT
+    pollToCheckSync() {
+        return;
+        const tuttiSeq = this.island.getNextTuttiSeq(); // move it along, even if we won't be using it
+        if (this.synced !== true) { /*console.log(`not contributing to sync check on seq ${tuttiSeq}`);*/ return; }
+
+        const before = Date.now();
+        const data = { date_island: this.island.time, hash: stableStringify(this.island.getSummaryHash()) };
+        const elapsed = Date.now() - before;
+        this.cpuTime -= elapsed; // give ourselves a time credit for the non-simulation work
+
+        const voteMessage = [this.id, "handleSyncCheckVote", 'syncCheckVote']; // topic is ignored
+        this.sendTutti(this.island.time, tuttiSeq, data, null, true, voteMessage);
+    }
+
+    handleSyncCheckVote(data) {
+        if (this.synced !== true) return;
+
+        // data is { _local, tuttiSeq, tally } where tally is an object keyed by
+        // the JSON for { cpuTime, hash } with a count for each key (which we
+        // treat as guaranteed to be 1 in each case, because of the cpuTime
+        // precision and fuzzification).
+
+        const { _local, tally } = data;
+        const hashStrings = Object.keys(tally);
+        if (!_local || !hashStrings.includes(_local)) {
+            console.log(this.id, "Sync: local vote not found", _local, tally);
+            return;
+        }
+
+        if (hashStrings.length > 1) {
+            console.log(hashStrings);
+        } else console.log("ok");
+    }
+
     takeSnapshot() {
         const snapshot = this.island.snapshot();
-        const time = Math.max(snapshot.time, snapshot.externalTime);
+        const time = this.lastKnownTime(snapshot);
         const seq = snapshot.externalSeq;
         snapshot.meta = {
             ...this.islandCreator.snapshot.meta,

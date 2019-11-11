@@ -6,6 +6,7 @@ import Model from "./model";
 import { inModelRealm, inViewRealm } from "./realms";
 import { viewDomain } from "./domain";
 
+const debugMessageStates = [];
 
 /** @type {Island} */
 let CurrentIsland = null;
@@ -294,23 +295,43 @@ export default class Island {
             if (time < this.time) throw Error("past message encountered: " + message);
             // if external message, check seq so we don't miss any
             if (seq & 1) {
+/*
+const extMsgs = this.messages.asArray(); // from PriorityQueue
+const numExts = extMsgs.length;
+if (false && numExts) {
+    const lastMsg = extMsgs[numExts - 1];
+    const lastMsgTime = lastMsg.time;
+    const lastMsgSeq = lastMsg.seq;
+}
+*/
+const hash = this.getSummaryHash();
+debugMessageStates.push({ seq, hash });
+
                 this.seq = (this.seq + 1) >>> 0;  // uint32 rollover
                 if ((seq/2) >>> 0 !== this.seq) throw Error(`Sequence error: expected ${this.seq} got ${(seq/2) >>> 0} in ${message}`);
             }
             // drop first message in message queue
             this.messages.poll();
             // advance time
+const startSecond = Math.floor(this.time / 1000);
             this.time = message.time;
             // execute future or external message
             message.executeOn(this);
+if (Math.floor(this.time / 1000) !== startSecond) this.controller.pollToCheckSync();
             // make date check cheaper by only checking every 100 messages
             if (++count > 100) { count = 0; if (Date.now() > deadline) return false; }
         }
         // we processed all messages up to newTime
+const startSecond = Math.floor(this.time / 1000);
         this.time = newTime;
+if (Math.floor(this.time / 1000) !== startSecond) this.controller.pollToCheckSync();
         return true;
     }
-
+    getAndResetDebugState() {
+        const state = debugMessageStates.slice();
+        debugMessageStates.length = 0;
+        return state;
+    }
 
     // Pub-sub
 
@@ -479,6 +500,10 @@ export default class Island {
     processModelViewEvents() {
         if (CurrentIsland) throw Error("Island Error");
         return inViewRealm(this, () => viewDomain.processFrameEvents(!!this.controller.synced));
+    }
+
+    handleSyncCheckVote(_topic, data) {
+        this.controller.handleSyncCheckVote(data);
     }
 
     pollForSnapshot() {
@@ -708,7 +733,7 @@ class IslandHasher {
             else if (key === "messages") {
                 const messageArray = value.asArray(); // from PriorityQueue
                 const count = this.hashState.fC = messageArray.length;
-                if (count) this.hash(messageArray, false);
+                if (count) { this.hash(messageArray, false); /*this.hashState.futures = JSON.stringify(messageArray);*/ }
             } else this.hashEntry(key, value);
         }
         this.hashDeferred();
