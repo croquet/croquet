@@ -708,7 +708,7 @@ async function deleteIsland(island) {
     if (cluster === "local") return true;
     // remove ourselves from session registry, ignoring errors
     // TODO: return this promise along with the other promise below
-    unregisterSession(island);
+    unregisterSession(id, `@${time}#${seq}`);
     // if we've been told of a snapshot since the one (if any) stored in this
     // island's latest.json, or there are messages since the snapshot referenced
     // there, write a new latest.json.
@@ -722,14 +722,14 @@ async function deleteIsland(island) {
     return true;
 }
 
-async function unregisterSession(island) {
+async function unregisterSession(id, detail) {
     if (cluster === "local") return;
-    const { id, time, seq } = island;
-    LOG(id, `@${time}#${seq} unregistering session`);
+    LOG(id, `unregistering session ${detail}`);
     try {
         await storage.bucket('croquet-reflectors-v1').file(`${id}.json`).delete();
     } catch (err) {
-        WARN("Failed to unregister", id, err);
+        if (err.code === 404) LOG("Failed to unregister", id, err.message);
+        else WARN("Failed to unregister", id, err.message);
     }
 }
 
@@ -831,7 +831,7 @@ server.on('connection', (client, req) => {
         prometheusConnectionGauge.dec();
         LOG(`${client.sessionId} closed connection from ${client.addr}`);
         const island = ALL_ISLANDS.get(client.sessionId);
-        if (!island) unregisterSession(client.sessionId);
+        if (!island) unregisterSession(client.sessionId, "on close");
         else {
             island.clients.delete(client);
             if (island.clients.size === 0) provisionallyDeleteIsland(island);
