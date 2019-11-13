@@ -271,7 +271,7 @@ export default class Controller {
         if (this.synced !== true) return;
 
         const before = Date.now();
-        const data = { hash: stableStringify(this.island.getSummaryHash()), cpuTime: localCpuTime + Math.random() }; // fuzzify by 0-1ms to further reduce [already minuscule] risk of exact agreement
+        const data = { hash: stableStringify(this.island.getSummaryHash()), cpuTime: localCpuTime + window.BrowserMath.random() }; // fuzzify by 0-1ms to further reduce [already minuscule] risk of exact agreement [NB: force use of BrowserMath, because pollForSnapshot runs in the Model realm]
         const elapsed = Date.now() - before;
         this.cpuTime -= elapsed; // give ourselves a time credit for the non-simulation work
 
