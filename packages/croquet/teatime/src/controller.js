@@ -22,10 +22,12 @@ const VERSION = 1;
 export const SDK_VERSION = process.env.CROQUET_VERSION || "0.2.5_npm"; // @@ hack
 console.log("Croquet SDK " + SDK_VERSION);
 
-// croquet.io and pi.croquet.io will provide reflectors on same host
-// everything else still uses reflector.croquet.studio
-const PUBLIC_REFLECTOR_HOST = window.location.hostname.endsWith("croquet.io") ? `${window.location.host}/reflector` : "reflector.croquet.studio";
-const PUBLIC_REFLECTOR = `wss://${PUBLIC_REFLECTOR_HOST}/v${VERSION}`;
+// *croquet.io/reflector/v1 is used as reflector for pages served from *croquet.io
+// (specifically, pi.croquet.io must use its own reflector)
+// everything else uses croquet.io/reflector/v1
+// (can be overridden in .env)
+const PUBLIC_REFLECTOR_BASE = window.location.hostname.endsWith("croquet.io") ? `${window.location.host}/reflector` : "croquet.io/reflector";
+const PUBLIC_REFLECTOR = `wss://${PUBLIC_REFLECTOR_BASE}/v${VERSION}`;
 const DEFAULT_REFLECTOR = process.env.CROQUET_REFLECTOR || PUBLIC_REFLECTOR;    // replaced by parcel at build time from app's .env file
 
 const codeHashes = null; // individual codeHashes are not uploaded for now, will need to re-add for replay
