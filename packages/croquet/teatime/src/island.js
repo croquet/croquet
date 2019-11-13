@@ -814,9 +814,11 @@ class IslandHasher {
     }
 }
 
-
+/*
+// conversion buffer for writeFloat()
 const floats = new Float64Array(2);
 const ints = new Uint32Array(floats.buffer);
+*/
 
 class IslandWriter {
     constructor(island) {

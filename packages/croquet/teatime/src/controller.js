@@ -8,7 +8,7 @@ import { App, displayStatus, displayWarning, displayError, displayAppError } fro
 import { baseUrl, hashNameAndCode, hashString } from "@croquet/util/modules";
 import { inViewRealm } from "./realms";
 import { viewDomain } from "./domain";
-import Island, { Message, inSequence } from "./island";
+import Island, { Message } from "./island";
 
 const pako = require('pako'); // gzip-aware compressor
 
