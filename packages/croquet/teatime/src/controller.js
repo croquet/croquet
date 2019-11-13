@@ -719,19 +719,13 @@ export default class Controller {
     }
 
     /** request ticks from the server */
-    requestTicks(args = {}) {
+    requestTicks(args = {}) { // simpleapp can send { scale }
         if (!this.connected || !this.island) return;
         const { tick, multiplier } = this.getTickAndMultiplier();
-        const delay = tick * (multiplier - 1) / multiplier;
-        if (delay) { args.delay = delay; args.tick = tick; }
-        else if (!args.tick) args.tick = tick;
-        if (!args.time) {
-            // ignored by reflector unless this is sent right after START
-            args.time = this.lastKnownTime(this.island);
-            args.seq = this.island.externalSeq;
-        }
+        args.tick = tick;
+        args.delay = tick * (multiplier - 1) / multiplier;
         if (DEBUG.session) console.log(this.id, 'Controller requesting TICKS', args);
-        // args: {time, tick, delay, scale}
+        // args: {tick, delay, scale}
         try {
             this.connection.send(JSON.stringify({
                 id: this.id,
