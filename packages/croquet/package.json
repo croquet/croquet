@@ -10,6 +10,7 @@
     "types.d.ts"
   ],
   "scripts": {
+    "start": "npm run watch",
     "watch": "npm-watch build",
     "build": "rollup -c",
     "prepublish": "npm run build"
