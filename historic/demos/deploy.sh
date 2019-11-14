@@ -11,15 +11,6 @@ if [ "$old_stash" != "$new_stash" ]; then
 fi
 
 DIR=../../servers/croquet.studio
-OLD=../../servers/croquet.studio-old
-
-DATE=`git log -1 --pretty='%ci' $DIR | sed 's/ [^ ]*$//;s/[-:]//g;s/ /-/'`
-SHORT_DATE=`echo $DATE | sed 's/-.*//'`
-rm -rf "$OLD/$SHORT_DATE"*
-mkdir -p "$OLD/$DATE"
-cp -a $DIR/* "$OLD/$DATE/"
-git add -A "$OLD/"
-git commit --no-verify -m "deploy croquet.studio/old/$DATE/"
 
 APP=$DIR/demos
 rm -f $APP/*
