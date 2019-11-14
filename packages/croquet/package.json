@@ -10,7 +10,7 @@
     "types.d.ts"
   ],
   "scripts": {
-    "start": "npm-watch build",
+    "watch": "npm-watch build",
     "build": "rollup -c",
     "prepublish": "npm run build"
   },
@@ -30,9 +30,11 @@
   "author": "",
   "dependencies": {
     "@babel/runtime": "^7.5.1",
+    "dotenv-flow": "^3.1.0",
     "fast-json-stable-stringify": "^2.0.0",
     "fastpriorityqueue": "^0.6.1",
     "pako": "^1.0.10",
+    "rollup-plugin-replace": "^2.2.0",
     "seedrandom": "^2.4.4",
     "toastify-js": "^1.5.0"
   },
