@@ -397,7 +397,7 @@ declare module "@croquet/croquet" {
          * @return {this}
          * @public
          */
-        subscribe(scope: string, eventSpec: string | {event: "string", handling: "queued" | "oncePerFrame" | "immediate"}, callback: (e: any) => void): void;
+        subscribe(scope: string, eventSpec: string | {event: string, handling: "queued" | "oncePerFrame" | "immediate"}, callback: (e: any) => void): void;
 
         /**
          * Unsubscribes this view's handler for the given event in the given scope.
@@ -412,7 +412,7 @@ declare module "@croquet/croquet" {
          * @public
          */
         unsubscribeAll(): void;
-	
+
         /**
          * The ID of the view.
          * @public
@@ -425,5 +425,5 @@ declare module "@croquet/croquet" {
      * a Model's static types() method */
     export function gatherInternalClassTypes(dummyObject: any, prefix: string): any;
 
-    export function startSession(name:string, model:any, view:any, options?:any): Promise<any>;
+    export function startSession(name:string, modelClass: typeof Model, viewClass: typeof View, options?:any): Promise<any>;
 }
