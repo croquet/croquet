@@ -111,6 +111,8 @@ export default class Island {
                 this.futureSeq = 0;
                 /** @type {Number} sequence number of last sent TUTTI */
                 this.tuttiSeq = 0;
+                /** @type {Number} simulation time when last pollForSnapshot was executed */
+                this.lastSnapshotPoll = 0;
                 /** @type {Number} number for giving ids to model */
                 this.modelsId = 0;
                 if (snapshot.modelsById) {
@@ -507,7 +509,25 @@ if (Math.floor(this.time / 1000) !== startSecond) this.controller.pollToCheckSyn
     }
 
     pollForSnapshot() {
-        this.controller.pollForSnapshot();
+        const tuttiSeq = this.getNextTuttiSeq(); // move it along, even if this client decides not to participate
+
+        const now = this.time;
+        const sinceLast = now - this.lastSnapshotPoll;
+        // make sure this isn't just a clash between clients simultaneously deciding
+        // that it's time for someone to take a snapshot.
+        if (sinceLast < 5000) { // arbitrary - needs to be long enough to ensure this isn't part of the same batch
+            console.log(`rejecting snapshot poll ${sinceLast}ms after previous`);
+            return;
+        }
+
+        this.lastSnapshotPoll = now;
+
+        const before = Date.now();
+        const hash = this.getSummaryHash();
+        const elapsed = Date.now() - before;
+        this.controller.cpuTime -= elapsed; // give ourselves a time credit for the non-simulation work
+
+        Promise.resolve().then(() => this.controller.pollForSnapshot(now, tuttiSeq, hash));
     }
 
     handleSnapshotVote(_topic, data) {

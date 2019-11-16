@@ -114,8 +114,6 @@ export default class Controller {
         }
         /** @type {Array} recent TUTTI sends and their payloads, for matching up with incoming votes and divergence alerts */
         this.tuttiHistory = [];
-        /** island time when last pollForSnapshot was executed */
-        this.lastSnapshotPoll = 0;
 
         viewDomain.removeAllSubscriptionsFor(this); // in case we're recycling
         viewDomain.addSubscription(this.viewId, "__users__", this, data => displayStatus(`users now ${data.count}`), "oncePerFrameWhileSynced");
@@ -279,9 +277,9 @@ export default class Controller {
         // abandon if this call (delayed by up to 2s) has been overtaken by a
         // poll initiated by another client.
         const now = this.island.time;
-        const sinceLast = now - this.lastSnapshotPoll;
+        const sinceLast = now - this.island.lastSnapshotPoll;
         if (sinceLast < 2500) {
-            console.log(`not sending snapshot poll request (${sinceLast}ms since poll scheduled)`);
+            console.log(`not requesting snapshot poll (${sinceLast}ms since poll scheduled)`);
             return;
         }
 
@@ -290,30 +288,16 @@ export default class Controller {
         if (DEBUG.snapshot) console.log(this.id, 'Controller scheduling snapshot via reflector');
     }
 
-    pollForSnapshot() {
-        const now = this.island.time;
-        const sinceLast = now - this.lastSnapshotPoll;
-        // make sure this isn't just a clash between clients simultaneously deciding
-        // that it's time for someone to take a snapshot
-        if (sinceLast < 5000) { // arbitrary - needs to be long enough to ensure this isn't part of the same batch
-            console.log(`rejecting snapshot poll ${sinceLast}ms after previous`);
-            return;
-        }
-        this.lastSnapshotPoll = now;
+    pollForSnapshot(time, tuttiSeq, hash) {
         const localCpuTime = this.triggeringCpuTime || this.cpuTime;
         this.triggeringCpuTime = null;
         this.cpuTime = 0;
 
-        const tuttiSeq = this.island.getNextTuttiSeq(); // move it along, even if we won't be using it
         if (this.synced !== true) return;
 
-        const before = Date.now();
-        const data = { hash: stableStringify(this.island.getSummaryHash()), cpuTime: localCpuTime + window.BrowserMath.random() }; // fuzzify by 0-1ms to further reduce [already minuscule] risk of exact agreement [NB: force use of BrowserMath, because pollForSnapshot runs in the Model realm]
-        const elapsed = Date.now() - before;
-        this.cpuTime -= elapsed; // give ourselves a time credit for the non-simulation work
-
+        const data = { hash, cpuTime: localCpuTime + Math.random() }; // fuzzify by 0-1ms to further reduce [already minuscule] risk of exact agreement
         const voteMessage = [this.id, "handleSnapshotVote", 'snapshotVote']; // topic is ignored
-        this.sendTutti(this.island.time, tuttiSeq, data, null, true, voteMessage);
+        this.sendTutti(time, tuttiSeq, data, null, true, voteMessage);
     }
 
     handleSnapshotVote(data) {
