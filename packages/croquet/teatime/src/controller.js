@@ -219,21 +219,6 @@ export default class Controller {
 
     lastKnownTime(islandOrSnapshot) { return Math.max(islandOrSnapshot.time, islandOrSnapshot.externalTime); }
 
-    // DEBUG SUPPORT
-    pollToCheckSync() {
-        return;
-        const tuttiSeq = this.island.getNextTuttiSeq(); // move it along, even if we won't be using it
-        if (this.synced !== true) { /*console.log(`not contributing to sync check on seq ${tuttiSeq}`);*/ return; }
-
-        const before = Date.now();
-        const data = { date_island: this.island.time, hash: stableStringify(this.island.getSummaryHash()) };
-        const elapsed = Date.now() - before;
-        this.cpuTime -= elapsed; // give ourselves a time credit for the non-simulation work
-
-        const voteMessage = [this.id, "handleSyncCheckVote", 'syncCheckVote']; // topic is ignored
-        this.sendTutti(this.island.time, tuttiSeq, data, null, true, voteMessage);
-    }
-
     handleSyncCheckVote(data) {
         if (this.synced !== true) return;
 
@@ -288,16 +273,20 @@ export default class Controller {
         if (DEBUG.snapshot) console.log(this.id, 'Controller scheduling snapshot via reflector');
     }
 
-    pollForSnapshot(time, tuttiSeq, hash) {
+    preparePollForSnapshot() {
+        // read and reset cpuTime whether or not we'll be participating in the vote
         const localCpuTime = this.triggeringCpuTime || this.cpuTime;
         this.triggeringCpuTime = null;
         this.cpuTime = 0;
 
-        if (this.synced !== true) return;
+        const voteData = this.synced === true ? { cpuTime: localCpuTime } : null; // if not true, we don't want to participate
+        return voteData;
+    }
 
-        const data = { hash, cpuTime: localCpuTime + Math.random() }; // fuzzify by 0-1ms to further reduce [already minuscule] risk of exact agreement
-        const voteMessage = [this.id, "handleSnapshotVote", 'snapshotVote']; // topic is ignored
-        this.sendTutti(time, tuttiSeq, data, null, true, voteMessage);
+    pollForSnapshot(time, tuttiSeq, voteData) {
+        voteData.cpuTime += Math.random(); // fuzzify by 0-1ms to further reduce [already minuscule] risk of exact agreement.  NB: this is a view-side random().
+        const voteMessage = [this.id, "handleSnapshotVote", "snapshotVote"]; // topic is ignored
+        this.sendTutti(time, tuttiSeq, voteData, null, true, voteMessage);
     }
 
     handleSnapshotVote(data) {
