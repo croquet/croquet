@@ -25,10 +25,12 @@ class UrlOptions {
      */
     has(key, item, defaultValue) {
         if (typeof defaultValue !== "boolean") defaultValue = this.isHost(defaultValue);
+        const urlString = this[key];
+        if (typeof urlString !== "string") return defaultValue;
+        const urlItems = urlString.split(',');
         if (defaultValue === true) item =`no${item}`;
-        const urlItems = this[key];
-        if (typeof urlItems !== "string") return defaultValue;
-        if (urlItems.split(',').includes(item)) return !defaultValue;
+        if (item.endsWith("s")) item = item.slice(0, -1);
+        if (urlItems.includes(item) || urlItems.includes(`${item}s`)) return !defaultValue;
         return defaultValue;
     }
 
