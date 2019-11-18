@@ -22,7 +22,7 @@
     ]
   },
   "dependencies": {
-    "@croquet/croquet": "^0.2.5"
+    "@croquet/croquet": "file:../libraries/packages/croquet"
   },
   "devDependencies": {
     "eslint": "^5.14.1",
