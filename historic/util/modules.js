@@ -168,6 +168,8 @@ export function toBase64url(bits) {
 
 /** return buffer hashed into 256 bits encoded using base64 (suitable in URL) */
 export async function hashBuffer(buffer) {
+    // MS Edge does not like empty buffer
+    if (buffer.length === 0) return "47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU";
     const bits = await window.crypto.subtle.digest("SHA-256", buffer);
     return toBase64url(bits);
 }
@@ -225,7 +227,6 @@ export async function hashNameAndCode(name) {
     const hashes = await Promise.all([...mods.map(hashFile), ...extraHashes]);
     const codeHash = await hashString(hashes.join('|'));
     const hash = await hashString([name, codeHash].join('|'));
-    // console.timeEnd("Hashing " + name);
     return { hash, codeHash };
 }
 
