@@ -470,7 +470,7 @@ function SNAP(client, args) {
         if (msgs.length > 0) {
             const keep = msgs.findIndex(msg => after(seq, msg[1]));
             if (keep > 0) {
-                LOG(id, `forgetting ${msgs.length - keep} of ${msgs.length} messages #${msgs[0][1] >>> 0} to #${msgs[keep - 1][1] >>> 0} (keeping #${msgs[keep][1] >>> 0})`);
+                LOG(id, `forgetting ${keep} of ${msgs.length} messages #${msgs[0][1] >>> 0} to #${msgs[keep - 1][1] >>> 0} (keeping #${msgs[keep][1] >>> 0})`);
                 messagesToStore = msgs.splice(0, keep); // we'll store all those we're forgetting
             } else if (keep === -1) {
                 LOG(id, `forgetting all of ${msgs.length} messages (#${msgs[0][1] >>> 0} to #${msgs[msgs.length - 1][1] >>> 0})`);
