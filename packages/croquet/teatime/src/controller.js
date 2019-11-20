@@ -14,8 +14,6 @@ const pako = require('pako'); // gzip-aware compressor
 
 /** @typedef { import('./model').default } Model */
 
-const debugRefTimes = [];
-
 // when reflector has a new feature, we increment this value
 // only newer clients get to use it
 const VERSION = 1;
@@ -562,7 +560,7 @@ export default class Controller {
                 // if we sent this message, add it to latency statistics
                 if (msg[3] === this.statistics.id) this.addToStatistics(msg[4]);
                 this.networkQueue.put(msg);
-                this.timeFromReflector(msg[0], "reflector", msg);
+                this.timeFromReflector(msg[0]);
                 return;
             }
             case 'TICK': {
@@ -571,7 +569,7 @@ export default class Controller {
                 if (!this.island) return; // ignore ticks before we are simulating
                 const time = args;
                 if (DEBUG.ticks) console.log(this.id, 'Controller received TICK ' + time);
-                this.timeFromReflector(time, "reflector", "tick");
+                this.timeFromReflector(time);
                 if (this.tickMultiplier) this.multiplyTick(time);
                 return;
             }
@@ -837,10 +835,8 @@ export default class Controller {
     }
 
     /** Got the official time from reflector server, or local multiplier */
-    timeFromReflector(time, src="reflector", extras) {
-        debugRefTimes.push([Date.now(), time, src, extras]);
-        while (debugRefTimes.length > 10) debugRefTimes.shift();
-        if (time < this.time) { if (src !== "controller" || DEBUG.ticks) console.warn(`time is ${this.time}, ignoring time ${time} from ${src}`, debugRefTimes.slice()); return; }
+    timeFromReflector(time, src="reflector") {
+        if (time < this.time) { if (src !== "controller" || DEBUG.ticks) console.warn(`time is ${this.time}, ignoring time ${time} from ${src}`); return; }
         if (typeof this.synced !== "boolean") this.synced = false;
         this.time = time;
         if (this.island) Stats.backlog(this.backlog);
@@ -853,7 +849,7 @@ export default class Controller {
         const ms = tick / multiplier;
         let n = 1;
         this.localTicker = window.setInterval(() => {
-            this.timeFromReflector(time + n * ms, "controller", { time, n });
+            this.timeFromReflector(time + n * ms, "controller");
             if (DEBUG.ticks) console.log(this.id, 'Controller generate TICK ' + this.time, n);
             if (++n >= multiplier) { window.clearInterval(this.localTicker); this.localTicker = 0; }
         }, ms);
