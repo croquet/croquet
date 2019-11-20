@@ -95,15 +95,6 @@ export default class Controller {
         this.triggeringCpuTime = null;
         /** @type {Boolean} backlog was below SYNCED_MIN */
         this.synced = null; // null indicates never synced before
-        /** latency statistics */
-        this.statistics = {
-            /** for identifying our own messages */
-            id: this.viewId,
-            /** for identifying each message we sent */
-            seq: 0,
-            /** time when message was sent */
-            sent: {},
-        };
         /** last measured latency in ms */
         this.latency = 0;
         // make sure we have no residual "multiply" ticks
@@ -558,7 +549,7 @@ export default class Controller {
                 if (typeof msg[2] !== "string") this.convertReflectorMessage(msg);
                 msg[1] >>>= 0; // make sure it's uint32 (reflector used to send int32)
                 // if we sent this message, add it to latency statistics
-                if (msg[3] === this.statistics.id) this.addToStatistics(msg[4]);
+                if (msg[3] === this.viewId) this.addToStatistics(msg[4]);
                 this.networkQueue.put(msg);
                 this.timeFromReflector(msg[0]);
                 return;
@@ -669,11 +660,10 @@ export default class Controller {
         if (this.viewOnly) return;
         if (DEBUG.sends) console.log(this.id, `Controller sending SEND ${msg.asState()}`);
         this.lastSent = Date.now();
-        this.statistics.sent[++this.statistics.seq] = this.lastSent;
         this.connection.send(JSON.stringify({
             id: this.id,
             action: 'SEND',
-            args: [...msg.asState(), this.statistics.id, this.statistics.seq],
+            args: [...msg.asState(), this.viewId, this.lastSent],
         }));
     }
 
@@ -687,11 +677,10 @@ export default class Controller {
         if (this.viewOnly) return;
         if (DEBUG.sends) console.log(this.id, `Controller sending SEND_TAGGED ${msg.asState()} with tags ${JSON.stringify(tags)}`);
         this.lastSent = Date.now();
-        this.statistics.sent[++this.statistics.seq] = this.lastSent;
         this.connection.send(JSON.stringify({
             id: this.id,
             action: 'SEND_TAGGED',
-            args: [...msg.asState(), this.statistics.id, this.statistics.seq, tags],
+            args: [...msg.asState(), this.viewId, this.lastSent],
         }));
     }
 
@@ -719,10 +708,8 @@ export default class Controller {
         this.sendTutti(this.island.time, tuttiSeq, data, null, true, voteMessage);
     }
 
-    addToStatistics(statSeq) {
-        const {sent} = this.statistics;
-        this.latency = Date.now() - sent[statSeq];
-        delete sent[statSeq];
+    addToStatistics(timeSent) {
+        this.latency = Date.now() - timeSent;
     }
 
     /** parse tps `ticks x multiplier` ticks are from server, multiplied by locally generated ticks
