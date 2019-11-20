@@ -269,6 +269,7 @@ function nonSavableProps() {
         deletionTimeout: null, // pending deletion after all clients disconnect
         syncClients: [],     // clients waiting to SYNC
         tallies: {},
+        tagRecords: {},
         [Symbol.toPrimitive]: () => "dummy",
         };
 }
@@ -545,6 +546,33 @@ function SEND(island, messages) {
     startTicker(island, island.tick);
 }
 
+/** send a message to all participants subject to tag-defined filter policies
+ * @param {Island} island - the island to send to
+ * @param {Message} message, with tag collection as 6th field
+ */
+function SEND_TAGGED(island, message) {
+    if (!island) return; // client never joined
+
+    const tags = message[5];
+    const rawMsg = message.slice(0, 5);
+    if (tags) {
+        // tag pattern example: { debounce: 1000, msgID: "pollForSnapshot" }
+        if (tags.debounce) {
+            const { msgID } = tags;
+            const now = Date.now(); // debounce uses wall-clock time
+            const msgRecord = island.tagRecords[msgID];
+            if (!msgRecord || (now - msgRecord > tags.debounce)) {
+                island.tagRecords[msgID] = now;
+            } else {
+                LOG(`debounce suppressed: ${JSON.stringify(message)}`);
+                return;
+            }
+        }
+    }
+    // not suppressed by any recognised pattern, so send as usual
+    SEND(island, [rawMsg]);
+}
+
 /** handle a message that all clients are expected to be sending
  * @param {?Client} client - we received from this client
  * @param {[sendTime: Number, sendSeq: Number, payload: String, firstMsg: Array, wantsVote: Boolean, tallyTarget: Array]} args
@@ -671,7 +699,7 @@ function TICKS(client, args) {
         island.seq = typeof seq === "number" ? seq : 0;
         announceUserDidJoin(island, client);
     }
-    if (!island.time) {
+    if (true || !island.time) { // @@@ see issue #368
         // only accept delay if new island
         if (delay > 0) island.delay = delay;
     }
@@ -809,6 +837,7 @@ server.on('connection', (client, req) => {
             switch (action) {
                 case 'JOIN': { joined = true; JOIN(client, args); break; }
                 case 'SEND': SEND(client.island, [args]); break;
+                case 'SEND_TAGGED': SEND_TAGGED(client.island, args); break; // expects a single msg
                 case 'TUTTI': TUTTI(client, args); break;
                 case 'TICKS': TICKS(client, args); break;
                 case 'SNAP': SNAP(client, args); break;

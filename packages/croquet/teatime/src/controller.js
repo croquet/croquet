@@ -14,6 +14,7 @@ const pako = require('pako'); // gzip-aware compressor
 
 /** @typedef { import('./model').default } Model */
 
+const debugRefTimes = [];
 
 // when reflector has a new feature, we increment this value
 // only newer clients get to use it
@@ -259,17 +260,18 @@ export default class Controller {
 
     // we have spent a certain amount of CPU time on simulating, so schedule a snapshot
     scheduleSnapshot() {
-        // abandon if this call (delayed by up to 2s) has been overtaken by a
-        // poll initiated by another client.
+        // abandon if this call (delayed by up to 2s - possibly more, if browser is busy)
+        // has been overtaken by a poll initiated by another client.
         const now = this.island.time;
         const sinceLast = now - this.island.lastSnapshotPoll;
-        if (sinceLast < 2500) {
-            console.log(`not requesting snapshot poll (${sinceLast}ms since poll scheduled)`);
+        if (sinceLast < 5000) {
+            if (DEBUG.snapshot) console.log(`not requesting snapshot poll (${sinceLast}ms since poll scheduled)`);
             return;
         }
 
         const message = new Message(now, 0, this.island.id, "pollForSnapshot", []);
-        this.sendMessage(message);
+        // tell reflector only to reflect this message if no message with same ID has been sent in past 5000ms (wall-clock time)
+        this.sendTagged(message, { debounce: 5000, msgID: "pollForSnapshot" });
         if (DEBUG.snapshot) console.log(this.id, 'Controller scheduling snapshot via reflector');
     }
 
@@ -285,7 +287,7 @@ export default class Controller {
 
     pollForSnapshot(time, tuttiSeq, voteData) {
         voteData.cpuTime += Math.random(); // fuzzify by 0-1ms to further reduce [already minuscule] risk of exact agreement.  NB: this is a view-side random().
-        const voteMessage = [this.id, "handleSnapshotVote", "snapshotVote"]; // topic is ignored
+        const voteMessage = [this.id, "handleSnapshotVote", "snapshotVote"]; // direct message to the island (3rd arg - topic - will be ignored)
         this.sendTutti(time, tuttiSeq, voteData, null, true, voteMessage);
     }
 
@@ -560,7 +562,7 @@ export default class Controller {
                 // if we sent this message, add it to latency statistics
                 if (msg[3] === this.statistics.id) this.addToStatistics(msg[4]);
                 this.networkQueue.put(msg);
-                this.timeFromReflector(msg[0]);
+                this.timeFromReflector(msg[0], "reflector", msg);
                 return;
             }
             case 'TICK': {
@@ -569,7 +571,7 @@ export default class Controller {
                 if (!this.island) return; // ignore ticks before we are simulating
                 const time = args;
                 if (DEBUG.ticks) console.log(this.id, 'Controller received TICK ' + time);
-                this.timeFromReflector(time);
+                this.timeFromReflector(time, "reflector", "tick");
                 if (this.tickMultiplier) this.multiplyTick(time);
                 return;
             }
@@ -674,6 +676,24 @@ export default class Controller {
             id: this.id,
             action: 'SEND',
             args: [...msg.asState(), this.statistics.id, this.statistics.seq],
+        }));
+    }
+
+    /** send a Message to all island replicas via reflector, subject to reflector preprocessing as determined by the tag(s)
+     * @param {Message} msg
+     * @param {Object} tags
+    */
+    sendTagged(msg, tags) {
+        // SEND_TAGGED: Preprocess a message according to its tags, and broadcast to all participants if/when appropriate
+        if (!this.connected) return; // probably view sending event while connection is closing
+        if (this.viewOnly) return;
+        if (DEBUG.sends) console.log(this.id, `Controller sending SEND_TAGGED ${msg.asState()} with tags ${JSON.stringify(tags)}`);
+        this.lastSent = Date.now();
+        this.statistics.sent[++this.statistics.seq] = this.lastSent;
+        this.connection.send(JSON.stringify({
+            id: this.id,
+            action: 'SEND_TAGGED',
+            args: [...msg.asState(), this.statistics.id, this.statistics.seq, tags],
         }));
     }
 
@@ -785,7 +805,7 @@ export default class Controller {
                 App.showSyncWait(!this.synced); // true if not synced
                 this.island.publishFromView(this.viewId, "synced", this.synced);
             }
-            if (weHaveTime && this.cpuTime > SNAPSHOT_EVERY) {
+            if (weHaveTime && this.cpuTime > SNAPSHOT_EVERY) { // won't be triggered during sync, because weHaveTime won't be true
                 this.triggeringCpuTime = this.cpuTime;
                 this.cpuTime = 0;
                 // first level of defence against clients simultaneously deciding
@@ -817,8 +837,10 @@ export default class Controller {
     }
 
     /** Got the official time from reflector server, or local multiplier */
-    timeFromReflector(time, src="reflector") {
-        if (time < this.time) { if (src !== "controller" || DEBUG.ticks) console.warn(`time is ${this.time}, ignoring time ${time} from ${src}`); return; }
+    timeFromReflector(time, src="reflector", extras) {
+        debugRefTimes.push([Date.now(), time, src, extras]);
+        while (debugRefTimes.length > 10) debugRefTimes.shift();
+        if (time < this.time) { if (src !== "controller" || DEBUG.ticks) console.warn(`time is ${this.time}, ignoring time ${time} from ${src}`, debugRefTimes.slice()); return; }
         if (typeof this.synced !== "boolean") this.synced = false;
         this.time = time;
         if (this.island) Stats.backlog(this.backlog);
@@ -831,7 +853,7 @@ export default class Controller {
         const ms = tick / multiplier;
         let n = 1;
         this.localTicker = window.setInterval(() => {
-            this.timeFromReflector(time + n * ms, "controller");
+            this.timeFromReflector(time + n * ms, "controller", { time, n });
             if (DEBUG.ticks) console.log(this.id, 'Controller generate TICK ' + this.time, n);
             if (++n >= multiplier) { window.clearInterval(this.localTicker); this.localTicker = 0; }
         }, ms);
