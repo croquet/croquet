@@ -1,9 +1,9 @@
 import { Model, View, App, startSession } from "@croquet/croquet";
 
 
-const TPS = "10x3";             // reflector ticks per sec x local multiplier
+const TPS = "5x2";             // reflector ticks per sec x local multiplier
 const THROTTLE = 1000 / 20;     // mouse event throttling
-const STEP_MS = 1000 / 30;      // bouncing ball step time in ms
+const STEP_MS = 1000 / 10;      // bouncing ball step time in ms
 const SPEED = 10;               // bouncing ball speed in virtual pixels / step
 
 ////// Models /////
@@ -21,7 +21,7 @@ class ModelRoot extends Model {
 
     addUser(userId) {
         if (this.shapes[userId]) { console.warn("shape already exists for joining user", userId); return; }
-        const shape = Shape.create();
+        const shape = BouncingShape.create();
         shape.hash = "";
         for (let i = 0; i < 16; i++) shape.hash += (this.random() * 16 | 0).toString(16);
         this.shapes[userId] = shape;

@@ -56,7 +56,9 @@
                 }
                 const src = document.location.search.slice(1)
                     || (process.env.NODE_ENV === "development"
-                        ? "2d.html?nodock&nomessages#GUEST/MANY"
+                        ? "2d.html?reflector=ws://localhost:9090&nodock&nomessages#GUEST/2D"
+//                        ? "tails.html?reflector=ws://localhost:9090&nodock&nomessages#GUEST/TAILS"
+//                        ? "tails.html?nodock&nomessages#GUEST/MANY"
                         : "../2d/GUEST/MANY?nodock&nomessages");
                 while (iframes.length < n) {
                     const iframe = document.createElement("iframe");
