@@ -671,10 +671,7 @@ function TICKS(client, args) {
         island.seq = typeof seq === "number" ? seq : 0;
         announceUserDidJoin(island, client);
     }
-    if (!island.time) {
-        // only accept delay if new island
-        if (delay > 0) island.delay = delay;
-    }
+    if (delay > 0) island.delay = delay;
     if (scale > 0) island.scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale));
     if (tick > 0) startTicker(island, tick);
 }
