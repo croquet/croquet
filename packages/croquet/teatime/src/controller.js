@@ -672,15 +672,17 @@ export default class Controller {
      * @param {Object} tags
     */
     sendTagged(msg, tags) {
-        // SEND_TAGGED: Preprocess a message according to its tags, and broadcast to all participants if/when appropriate
+        // reflector SEND protocol now allows for an additional tags property.  previous
+        // reflector versions will handle as a standard SEND.
         if (!this.connected) return; // probably view sending event while connection is closing
         if (this.viewOnly) return;
-        if (DEBUG.sends) console.log(this.id, `Controller sending SEND_TAGGED ${msg.asState()} with tags ${JSON.stringify(tags)}`);
+        if (DEBUG.sends) console.log(this.id, `Controller sending tagged SEND ${msg.asState()} with tags ${JSON.stringify(tags)}`);
         this.lastSent = Date.now();
         this.connection.send(JSON.stringify({
             id: this.id,
-            action: 'SEND_TAGGED',
+            action: 'SEND',
             args: [...msg.asState(), this.viewId, this.lastSent],
+            tags
         }));
     }
 

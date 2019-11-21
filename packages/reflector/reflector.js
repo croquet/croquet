@@ -517,7 +517,7 @@ function SNAP(client, args) {
 
 /** send a message to all participants after time stamping it
  * @param {Island} island - the island to send to
- * @param {Array<Message>} messages
+ * @param {Array<Message>} messages - an array so that DELAYED_SEND can submit a batch of messages
  */
 function SEND(island, messages) {
     if (!island) return; // client never joined?!
@@ -548,29 +548,27 @@ function SEND(island, messages) {
 
 /** send a message to all participants subject to tag-defined filter policies
  * @param {Island} island - the island to send to
- * @param {Message} message, with tag collection as 6th field
+ * @param {Message} message
+ * @param {Object} tags
  */
-function SEND_TAGGED(island, message) {
+function SEND_TAGGED(island, message, tags) {
     if (!island) return; // client never joined
 
-    const tags = message[5];
-    const rawMsg = message.slice(0, 5);
-    if (tags) {
-        // tag pattern example: { debounce: 1000, msgID: "pollForSnapshot" }
-        if (tags.debounce) {
-            const { msgID } = tags;
-            const now = Date.now(); // debounce uses wall-clock time
-            const msgRecord = island.tagRecords[msgID];
-            if (!msgRecord || (now - msgRecord > tags.debounce)) {
-                island.tagRecords[msgID] = now;
-            } else {
-                LOG(`debounce suppressed: ${JSON.stringify(message)}`);
-                return;
-            }
+    // tag pattern example: { debounce: 1000, msgID: "pollForSnapshot" }
+    if (tags.debounce) {
+        const { msgID } = tags;
+        const now = Date.now(); // debounce uses wall-clock time
+        const msgRecord = island.tagRecords[msgID];
+        if (!msgRecord || (now - msgRecord > tags.debounce)) {
+            island.tagRecords[msgID] = now;
+        } else {
+            LOG(island.id, `debounce suppressed: ${JSON.stringify(message)}`);
+            return;
         }
     }
+
     // not suppressed by any recognised pattern, so send as usual
-    SEND(island, [rawMsg]);
+    SEND(island, [message]);
 }
 
 /** handle a message that all clients are expected to be sending
@@ -833,11 +831,10 @@ server.on('connection', (client, req) => {
         lastActivity = Date.now();
         STATS.IN += incomingMsg.length;
         const handleMessage = () => {
-            const { action, args } = JSON.parse(incomingMsg);
+            const { action, args, tags } = JSON.parse(incomingMsg);
             switch (action) {
                 case 'JOIN': { joined = true; JOIN(client, args); break; }
-                case 'SEND': SEND(client.island, [args]); break;
-                case 'SEND_TAGGED': SEND_TAGGED(client.island, args); break; // expects a single msg
+                case 'SEND': if (tags) SEND_TAGGED(client.island, args, tags); else SEND(client.island, [args]); break; // SEND accepts an array of messages
                 case 'TUTTI': TUTTI(client, args); break;
                 case 'TICKS': TICKS(client, args); break;
                 case 'SNAP': SNAP(client, args); break;
