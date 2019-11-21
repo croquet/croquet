@@ -24,10 +24,14 @@ console.log("Croquet SDK " + SDK_VERSION);
 // *croquet.io/reflector/v1 is used as reflector for pages served from *croquet.io
 // (specifically, pi.croquet.io must use its own reflector)
 // everything else uses croquet.io/reflector/v1
-// (can be overridden in .env)
+// ...unless overridden by a CROQUET_REFLECTOR setting in the .env
+// ...unless overridden by a "dev" url option, which selects the dev dispatcher and reflector
+// ...unless overridden by a "reflector=<url>" url option, which sets the specified url
+
 const PUBLIC_REFLECTOR_BASE = window.location.hostname.endsWith("croquet.io") ? `${window.location.host}/reflector` : "croquet.io/reflector";
 const PUBLIC_REFLECTOR = `wss://${PUBLIC_REFLECTOR_BASE}/v${VERSION}`;
 const DEFAULT_REFLECTOR = process.env.CROQUET_REFLECTOR || PUBLIC_REFLECTOR;    // replaced by parcel at build time from app's .env file
+const DEV_DEFAULT_REFLECTOR = "wss://croquet.io/reflector-dev/dev";
 
 const codeHashes = null; // individual codeHashes are not uploaded for now, will need to re-add for replay
 
@@ -887,7 +891,7 @@ class Connection {
         this.connectHasBeenCalled = true;
         this.connectBlocked = false;
         this.connectRestricted = false;
-        let reflectorUrl = urlOptions.reflector || DEFAULT_REFLECTOR;
+        let reflectorUrl = urlOptions.reflector || (urlOptions.dev ? DEV_DEFAULT_REFLECTOR : DEFAULT_REFLECTOR);
         if (!reflectorUrl.match(/^wss?:/)) throw Error('Cannot interpret reflector address ' + reflectorUrl);
         if (!reflectorUrl.endsWith('/')) reflectorUrl += '/';
         return new Promise( resolve => {
