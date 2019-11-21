@@ -172,7 +172,7 @@ class View {
      * @public
      */
     subscribe(scope, eventSpec, callback) {
-        if (this[callback.name] === callback) callback = callback.bind(this);
+        callback = callback.bind(this);
         const {event, handling} = eventSpec.event ? eventSpec : {event: eventSpec};
         this.realm.subscribe(event, this.id, callback, scope, handling);
     }
