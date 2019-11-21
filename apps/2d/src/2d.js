@@ -13,6 +13,7 @@ const SPEED = 10;               // bouncing ball speed in virtual pixels / step
 class ModelRoot extends Model {
 
     init() {
+        super.init();
         this.children = [];
     }
 
