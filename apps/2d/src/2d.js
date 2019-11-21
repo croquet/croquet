@@ -31,7 +31,7 @@ class ModelRoot extends Model {
         child.destroy();
     }
 }
-ModelRoot.register();
+ModelRoot.register("ModelRoot");
 
 class Shape extends Model {
 
@@ -61,7 +61,7 @@ class Shape extends Model {
     }
 
 }
-Shape.register();
+Shape.register("Shape");
 
 class BouncingShape extends Shape {
 
@@ -100,7 +100,7 @@ class BouncingShape extends Shape {
     }
 
 }
-BouncingShape.register();
+BouncingShape.register("BouncingShape");
 
 class Shapes extends ModelRoot {
     init(options) {
@@ -110,7 +110,7 @@ class Shapes extends ModelRoot {
         this.add(BouncingShape.create({pos: [500, 500], color: "white"}));
     }
 }
-Shapes.register();
+Shapes.register("Shapes");
 
 ////// Views /////
 
