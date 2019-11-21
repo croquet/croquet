@@ -567,7 +567,7 @@ export default class Controller {
             case 'LEAVE': {
                 // the server wants us to leave this session and rejoin
                 console.log(this.id, 'Controller received LEAVE');
-                this.leave(false);
+                this.leave();
                 return;
             }
             default: console.warn("Unknown action:", action, args);
@@ -918,7 +918,7 @@ class Connection {
                     Stats.connected(false);
                     if (dormant) this.connectRestricted = true; // only reconnect on session step
                     else this.connectBlocked = true; // only reconnect using connectToReflector
-                    this.disconnected(true);
+                    this.disconnected();
                     if (autoReconnect) {
                         displayWarning('Reconnecting ...');
                         window.setTimeout(() => this.connectToReflector(), 2000);
@@ -929,14 +929,14 @@ class Connection {
     }
 
     // socket was disconnected, destroy the island
-    disconnected(preserveSnapshot) {
+    disconnected() {
         if (!this.socket) return;
         this.socket = null;
         this.lastReceived = 0;
         this.lastSent = 0;
         this.connectHasBeenCalled = false;
         this.setUpConnectionPromise();
-        this.controller.leave(preserveSnapshot);
+        this.controller.leave();
     }
 
     send(data) {

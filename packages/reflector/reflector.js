@@ -468,15 +468,15 @@ function SNAP(client, args) {
         let messagesToStore = [];
         const msgs = island.messages;
         if (msgs.length > 0) {
-            const keep = msgs.findIndex(msg => after(seq, msg[1]));
-            if (keep > 0) {
-                LOG(id, `forgetting ${keep} of ${msgs.length} messages #${msgs[0][1] >>> 0} to #${msgs[keep - 1][1] >>> 0} (keeping #${msgs[keep][1] >>> 0})`);
-                messagesToStore = msgs.splice(0, keep); // we'll store all those we're forgetting
-            } else if (keep === -1) {
+            const firstToKeep = msgs.findIndex(msg => after(seq, msg[1]));
+            if (firstToKeep > 0) {
+                LOG(id, `forgetting ${firstToKeep} of ${msgs.length} messages #${msgs[0][1] >>> 0} to #${msgs[firstToKeep - 1][1] >>> 0} (keeping #${msgs[firstToKeep][1] >>> 0})`);
+                messagesToStore = msgs.splice(0, firstToKeep); // we'll store all those we're forgetting
+            } else if (firstToKeep === -1) {
                 LOG(id, `forgetting all of ${msgs.length} messages (#${msgs[0][1] >>> 0} to #${msgs[msgs.length - 1][1] >>> 0})`);
                 messagesToStore = msgs.slice();
                 msgs.length = 0;
-            }
+            } // else if firstToKeep is 0 there's nothing to do
         }
 
         if (messagesToStore.length) {
@@ -697,10 +697,7 @@ function TICKS(client, args) {
         island.seq = typeof seq === "number" ? seq : 0;
         announceUserDidJoin(island, client);
     }
-    if (true || !island.time) { // @@@ see issue #368
-        // only accept delay if new island
-        if (delay > 0) island.delay = delay;
-    }
+    if (delay > 0) island.delay = delay;
     if (scale > 0) island.scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale));
     if (tick > 0) startTicker(island, tick);
 }
