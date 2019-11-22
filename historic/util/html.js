@@ -406,8 +406,9 @@ function makeWidgetDock(options = {}) {
             if (now - lastWheelTime < 100) return;
             lastWheelTime = now;
 
-            const { deltaY } = evt;
-            const max = Math.min(window.innerWidth, window.innerHeight) * 0.9;
+            let { deltaY } = evt;
+            deltaY = Math.sign(deltaY) * Math.min(5, Math.abs(deltaY)); // real mouse wheels generate huge deltas
+            const max = Math.min(window.innerWidth, window.innerHeight) * 0.8;
             size = Math.max(minExpandedSize, Math.min(max, dockDiv.offsetWidth * 1.05 ** deltaY));
             setCustomSize(size);
         };
