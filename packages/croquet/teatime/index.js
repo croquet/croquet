@@ -184,6 +184,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
         session.model = null;
         if (session.view) {
             session.view.detach();
+            if (session.view.id !== "") console.warn(`${session.view} did not call super.detach()`);
             session.view = null;
         }
         App.clearSessionMoniker();
