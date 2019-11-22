@@ -49,7 +49,6 @@ class Shape extends Model {
         this.color = options.color || `hsla(${r(360)},${r(50)+50}%,50%,0.5)`;
         this.pos = [r(1000), r(1000)];
         this.subscribe(this.id, "move-to", this.moveTo);
-        this.subscribe(this.id, "move-by", this.moveBy);
     }
 
     // non-inherited methods below
