@@ -65,6 +65,7 @@ const EXTERNAL_MESSAGE_CPU_PENALTY = 5;
 // backlog threshold in ms to publish "synced(true|false)" event (to start/stop rendering)
 const SYNCED_MIN = 100;
 const SYNCED_MAX = 1000;
+const SYNCED_ANNOUNCE_DELAY = 200; // ms to delay setting synced, mainly to accommodate immediate post-SYNC messages (notably "users") from reflector
 
 function randomString() { return Math.floor(Math.random() * 2**53).toString(36); }
 
@@ -791,10 +792,19 @@ export default class Controller {
             this.cpuTime += Math.max(0.01, Stats.end("simulate") - simStart); // ensure that we move forward even on a browser that rounds performance.now() to 1ms
             const backlog = this.backlog;
             Stats.backlog(backlog);
+            // synced will be non-boolean until this.time is given its first meaningful value from a message or tick
             if (typeof this.synced === "boolean" && (this.synced && backlog > SYNCED_MAX || !this.synced && backlog < SYNCED_MIN)) {
-                this.synced = !this.synced;
-                App.showSyncWait(!this.synced); // true if not synced
-                this.island.publishFromView(this.viewId, "synced", this.synced);
+                const nowSynced = !this.synced;
+                // nov 2019: impose a delay before setting synced to true, to hold off processing that depends on being synced (notably, subscriptions with handling "oncePerFrameWhileSynced") long enough to incorporate processing of messages that rightfully belong with the sync batch - e.g., "users" messages after SYNC from reflector.  SYNCED_ANNOUNCE_DELAY is therefore chosen with reference to the reflector's USERS_INTERVAL used for batching the "users" messages.
+                if (nowSynced) {
+                    // this will be triggered every cycle until synced is eventually set to true.  capture with one timeout.
+                    if (!this.syncTimer) {
+                        this.syncTimer = setTimeout(() => {
+                            delete this.syncTimer;
+                            if (this.backlog < SYNCED_MIN) this.applySyncChange(true); // iff we haven't somehow dropped out of sync again
+                            }, SYNCED_ANNOUNCE_DELAY);
+                    }
+                } else this.applySyncChange(false); // switch to out-of-sync is acted on immediately
             }
             if (weHaveTime && this.cpuTime > SNAPSHOT_EVERY) { // won't be triggered during sync, because weHaveTime won't be true
                 this.triggeringCpuTime = this.cpuTime;
@@ -810,6 +820,12 @@ export default class Controller {
             this.connection.closeConnectionWithError('simulate', error);
             return "error";
         }
+    }
+
+    applySyncChange(bool) {
+        this.synced = bool;
+        App.showSyncWait(!bool); // true if not synced
+        this.island.publishFromView(this.viewId, "synced", bool);
     }
 
     /** execute something in the view realm */
