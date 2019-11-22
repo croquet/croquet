@@ -47,6 +47,7 @@ const MAX_MESSAGES = 10000;   // messages per island to retain since last snapsh
 const MIN_SCALE = 1 / 64;     // minimum ratio of island time to wallclock time
 const MAX_SCALE = 64;         // maximum ratio of island time to wallclock time
 const TALLY_INTERVAL = 1000;  // maximum time to wait to tally TUTTI contributions
+const USERS_INTERVAL = 100;   // time to gather user entries/exits before sending a "users" message
 
 const hostname = os.hostname();
 const {wlan0, eth0, en0} = os.networkInterfaces();
@@ -260,6 +261,7 @@ function nonSavableProps() {
         clients: new Set(),  // connected web sockets
         usersJoined: [],     // the users who joined since last report
         usersLeft: [],       // the users who left since last report
+        usersTimer: null,    // timeout for sending USERS message
         ticker: null,        // interval for serving TICKs
         before: Date.now(),  // last getTime() call
         yetToCheckLatest: true, // flag used while fetching latest.json during startup
@@ -428,12 +430,18 @@ function announceUserDidJoin(island, client) {
     if (!client.user || client.active === true) return;
     client.active = true;
     island.usersJoined.push(client.user);
+    scheduleUsersMessage(island);
 }
 
 function announceUserDidLeave(island, client) {
     if (!client.user || client.active === false) return;
     client.active = false;
     island.usersLeft.push(client.user);
+    scheduleUsersMessage(island);
+}
+
+function scheduleUsersMessage(island) {
+    if (!island.usersTimer) island.usersTimer = setTimeout(() => USERS(island), USERS_INTERVAL);
 }
 
 /** answer true if seqB comes after seqA */
@@ -640,6 +648,7 @@ function DELAYED_SEND(island) {
  * @param {IslandData} island
 */
 function USERS(island) {
+    island.usersTimer = null;
     const { id, clients, usersJoined, usersLeft } = island;
     const active = [...clients].filter(each => each.active).length;
     const total = clients.size;
@@ -665,7 +674,6 @@ function TICK(island) {
     if (island.clients.size === 0) return; // probably in provisional island deletion
 
     const { id, usersJoined, usersLeft, lastMsgTime, tick, scale } = island;
-    if (usersJoined.length + usersLeft.length > 0) { USERS(island); return; }
     const time = getTime(island);
     if (time - lastMsgTime < tick * scale) return;
     island.lastTick = time;
@@ -722,6 +730,7 @@ function provisionallyDeleteIsland(island) {
 
 // delete our live record of the island, rewriting latest.json if necessary
 async function deleteIsland(island) {
+    if (island.usersTimer) clearTimeout(island.usersTimer);
     prometheusSessionGauge.dec();
     const { id, snapshotUrl, time, seq, storedUrl, storedSeq, messages } = island;
     // stop ticking and delete
@@ -857,7 +866,7 @@ server.on('connection', (client, req) => {
         if (!island) unregisterSession(client.sessionId, "on close");
         else {
             island.clients.delete(client);
-            if (island.clients.size === 0) provisionallyDeleteIsland(island);
+            if (island.clients.size === 0) provisionallyDeleteIsland(island); // last user to leave doesn't trigger a "users" message, because there's no-one to act on it
             else announceUserDidLeave(island, client);
         }
     });
