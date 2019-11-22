@@ -42,7 +42,6 @@ class Shape extends Model {
         this.color = options.color || `hsla(${r(360)},${r(50)+50}%,50%,0.5)`;
         this.pos = [r(1000), r(1000)];
         this.subscribe(this.id, "move-to", this.moveTo);
-        this.subscribe(this.id, "move-by", this.moveBy);
     }
 
     // non-inherited methods below
@@ -203,36 +202,28 @@ class ShapeView extends View {
 
     enableDragging() {
         const el = this.element;
+        let x, y, lastTimeStamp = 0;
+        const move = (moveDetails, sourceEvt = moveDetails) => {
+            sourceEvt.preventDefault();
+            x = moveDetails.clientX - OFFSETX;
+            y = moveDetails.clientY - OFFSETY;
+
+            const timeStamp = sourceEvt.timeStamp;
+            if (timeStamp - lastTimeStamp > THROTTLE) {
+                this.publish(el.id, "move-to", [x / SCALE, y / SCALE]);
+                lastTimeStamp = timeStamp;
+            }
+        };
         if (TOUCH) el.ontouchstart = start => {
-            start.preventDefault();
-            let x = start.touches[0].clientX - OFFSETX;
-            let y = start.touches[0].clientY - OFFSETY;
-            let timeStamp = 0;
-            el.ontouchmove = evt => {
-                const dx = evt.touches[0].clientX - OFFSETX - x;
-                const dy = evt.touches[0].clientY - OFFSETY - y;
-                if (evt.timeStamp - timeStamp > THROTTLE) {
-                    this.publish(el.id, "move-by", [dx / SCALE, dy / SCALE]);
-                    x += dx;
-                    y += dy;
-                    timeStamp = evt.timeStamp;
-                }
+            move(start.touches[0], start);
+            el.ontouchmove = evt => move(evt.touches[0], evt);
+            el.ontouchend = el.ontouchcancel = () => {
+                el.ontouchmove = null;
             };
-            el.ontouchend = el.ontouchcancel = () => el.ontouchmove = null;
-        }; else el.onmousedown = start => {
-            start.preventDefault();
-            let dx = 0;
-            let dy = 0;
-            let timeStamp = 0;
-            document.onmousemove = evt => {
-                dx += evt.movementX;
-                dy += evt.movementY;
-                if (evt.timeStamp - timeStamp > THROTTLE) {
-                    this.publish(el.id, "move-by", [dx / SCALE, dy / SCALE]);
-                    dx = dy = 0;
-                    timeStamp = evt.timeStamp;
-                }
-            };
+        };
+        else el.onmousedown = start => {
+            move(start);
+            document.onmousemove = move;
             document.onmouseup = () => document.onmousemove = null;
         };
     }
