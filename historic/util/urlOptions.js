@@ -7,11 +7,10 @@ let sessionArgs = "";
 
 class UrlOptions {
     constructor() {
-        if (typeof document === "undefined" || !document.location) return;
         this.getSession();
-        parseUrlOptionString(this, document.location.search.slice(1));
-        parseUrlOptionString(this, sessionFromPath ? document.location.hash.slice(1) : sessionArgs);
-        if (document.location.pathname.indexOf('/ar.html') >= 0) this.ar = true;
+        parseUrlOptionString(this, window.location.search.slice(1));
+        parseUrlOptionString(this, sessionFromPath ? window.location.hash.slice(1) : sessionArgs);
+        if (window.location.pathname.indexOf('/ar.html') >= 0) this.ar = true;
     }
 
     /**
@@ -43,7 +42,7 @@ class UrlOptions {
         // extract app and session from /(app)/(session)
         if (sessionFromPath) {
             const PATH_REGEX = /^\/([^/]+)\/(.*)$/;
-            const pathMatch = document.location.pathname.match(PATH_REGEX);
+            const pathMatch = window.location.pathname.match(PATH_REGEX);
             if (pathMatch) {
                 sessionApp = pathMatch[1];     // used in setSession()
                 return pathMatch[2];
@@ -51,7 +50,7 @@ class UrlOptions {
         } else {
             // extract session and args from #(session)&(arg=val&arg)
             const HASH_REGEX = /^#([^&]+)&?(.*)$/;
-            const hashMatch = document.location.hash.match(HASH_REGEX);
+            const hashMatch = window.location.hash.match(HASH_REGEX);
             if (hashMatch) {
                 // if first match includes "=" it's not a session
                 if (hashMatch[1].includes("=")) {
@@ -64,7 +63,7 @@ class UrlOptions {
         }
         // check session arg
         if (typeof this.session === "string") {
-            sessionArgs = document.location.hash.slice(1);
+            sessionArgs = window.location.hash.slice(1);
             return this.session;
         }
         // no session

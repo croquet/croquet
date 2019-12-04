@@ -9,7 +9,7 @@
     var anchorHash;
 
     if (source && source[0]) {
-        anchorHash = document.location.hash.substring(1);
+        anchorHash = window.location.hash.substring(1);
         lines = source[0].getElementsByTagName('li');
         totalLines = lines.length;
 

@@ -54,7 +54,7 @@
                     document.body.removeChild(iframes.pop());
                     window.onmessage({ data: { connected: -1 } });
                 }
-                const src = document.location.search.slice(1)
+                const src = window.location.search.slice(1)
                     || (process.env.NODE_ENV === "development"
                         ? "2d.html?nodock&nomessages#GUEST/MANY"
                         : "../2d/GUEST/MANY?nodock&nomessages");
@@ -64,7 +64,7 @@
                     document.body.appendChild(iframe);
                     iframes.push(iframe);
                 }
-                document.location.hash = n;
+                window.location.hash = n;
             }
             window.onresize = () => setCount(Math.floor(window.innerWidth / 102) * Math.floor(window.innerHeight/102));
             window.onhashchange = () => {
