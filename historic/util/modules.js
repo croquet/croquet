@@ -40,9 +40,9 @@ if (process.env.CROQUET_REPLAY) {
     if (!htmlSource.includes(entryPointName)) console.error("Entry point substitution failed!");
 }
 
-// croquet.io and pi.croquet.io will provide file servers on same host
-// everything else still uses croquet.studio
-export const CROQUET_HOST = window.location.hostname.endsWith("croquet.io") ? window.location.host : "croquet.studio";
+// croquet.io and pi.croquet.io provide file servers themselves
+// everything else uses croquet.io via CORS
+export const CROQUET_HOST = window.location.hostname.endsWith("croquet.io") ? window.location.host : "croquet.io";
 
 export function fileServer() {
     const server = typeof urlOptions.files === "string" ? urlOptions.files : `https://${CROQUET_HOST}/files-v1`;
@@ -50,10 +50,10 @@ export function fileServer() {
     return server;
 }
 
-// we use a separate directory for each host (e.g. "croquet.studio")
+// we put everything into the "all/" directory
 // but replace 'localhost' and '*.ngrok.io' by 'dev/username' for developers
 export function baseUrl(what='code') {
-    const dev = urlOptions.has("dev", "host", "localhost");
+    const dev = urlOptions.has("dev", "host", "localhost"); // true on localhost or ngrok
     const host = dev ? `dev/${getUser("name", "GUEST")}/` : 'all/';
     return `${fileServer()}/${host}${what}/`;
 }
