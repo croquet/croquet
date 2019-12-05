@@ -33,9 +33,10 @@ class UrlOptions {
         return defaultValue;
     }
 
-    /** Extract session from either path or hash
-     * - in deploy mode, path is "/app/session/with/slashes"
-     * - in dev mode, path is either "/#session/with/slashes" or "/app.html#session/with/slashes"
+    /** Extract session from either path or hash or option
+     * - on croquet.studio, it is "/app/session/with/slashes"
+     * - elsewhere, it is "...#session/with/slashes&..."
+     * - or optionally, passed as "session=session/with/slashes"
      * @return {String} "" or "session/with/slashes"
      */
     getSession() {
