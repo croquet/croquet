@@ -192,7 +192,7 @@ export function displayStatus(msg, options={}) {
 
 export function displayAppError(where, error) {
     console.error(`Error during ${where}`, error);
-    const userStack = error.stack.split("\n").filter(l => !l.match(/croquet-.*\.min.js/)).join('\n');
+    const userStack = (error.stack || '').split("\n").filter(l => !l.match(/croquet-.*\.min.js/)).join('\n');
     App.showMessage(`<b>Error during ${where}: ${error.message}</b>\n\n${userStack}`.replace(/\n/g, "<br>"),  {
         level: 'error',
         duration: 10000,
