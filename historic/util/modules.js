@@ -45,7 +45,7 @@ if (process.env.CROQUET_REPLAY) {
 export const CROQUET_HOST = window.location.hostname.endsWith("croquet.io") ? window.location.host : "croquet.io";
 
 export function fileServer() {
-    const server = typeof urlOptions.files === "string" ? urlOptions.files : `https://${CROQUET_HOST}/files-v1`;
+    const server = typeof urlOptions.files === "string" ? urlOptions.files : `https://${CROQUET_HOST}/files/v1`;
     if (server.endsWith('/')) return server.slice(0, -1);
     return server;
 }

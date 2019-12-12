@@ -35,7 +35,7 @@ function getUser(key, defaultValue = undefined, initFn = null) {
 const CROQUET_HOST = window.location.hostname.endsWith("croquet.io") ? window.location.hostname : "croquet.io";
 
 function fileServer() {
-    const server = typeof urlOptions.files === "string" ? urlOptions.files : `https://${CROQUET_HOST}/files-v1`;
+    const server = typeof urlOptions.files === "string" ? urlOptions.files : `https://${CROQUET_HOST}/files/v1`;
     if (server.endsWith('/')) return server.slice(0, -1);
     return server;
 }
