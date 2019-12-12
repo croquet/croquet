@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "react": "^16.8.6",
-    "react-three-fiber": "^2.2.12"
+    "react-three-fiber": "^3.0.13"
   },
   "devDependencies": {
     "@types/react": "^16.8.23",
