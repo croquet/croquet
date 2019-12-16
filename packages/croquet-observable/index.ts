@@ -1,4 +1,4 @@
-import { Model, View, PubSubParticipant } from '@croquet/croquet';
+import { Model, View, PubSubParticipant, ViewSubOptions } from '@croquet/croquet';
 
 export interface ObservableModel extends Model {
     publishPropertyChange(property: string): void;
@@ -20,22 +20,22 @@ export function Observable(BaseClass: typeof Model) {
     };
 }
 
-export interface ModelObserving {
-    subscribeToPropertyChange(model: ObservableModel, property: string, callback: any): void;
+export interface ModelObserving<SubOptions> {
+    subscribeToPropertyChange(model: ObservableModel, property: string, callback: any, options?: SubOptions): void;
     unsubscribeFromPropertyChange(model: ObservableModel, property: string): void;
 }
 
 
-export function Observing<M extends Model>(BaseClass: new (...args: any[]) => M): new (...args: any[]) => (M & ModelObserving);
-export function Observing<V extends Model>(BaseClass: new (...args: any[]) => V): new (...args: any[]) => (V & ModelObserving);
-export function Observing(BaseClass: new (...args: any[]) => PubSubParticipant): new (...args: any[]) => (PubSubParticipant & ModelObserving) {
-    return class extends BaseClass implements ModelObserving {
+export function Observing<M extends Model>(BaseClass: new (...args: any[]) => M): new (...args: any[]) => (M & ModelObserving<{}>);
+export function Observing<V extends View>(BaseClass: new (...args: any[]) => V): new (...args: any[]) => (V & ModelObserving<ViewSubOptions>);
+export function Observing<SubOptions>(BaseClass: new (...args: any[]) => PubSubParticipant<SubOptions>): new (...args: any[]) => (PubSubParticipant<SubOptions> & ModelObserving<SubOptions>) {
+    return class extends BaseClass implements ModelObserving<SubOptions> {
         /**
          *
          * public
          */
-        subscribeToPropertyChange(model: ObservableModel, property: string, callback: any) {
-            this.subscribe(model.id + "#" + property, "changed", callback);
+        subscribeToPropertyChange(model: ObservableModel, property: string, callback: any, options?: SubOptions) {
+            this.subscribe(model.id + "#" + property, {event: "changed",  ...options}, callback);
         }
 
         /**
@@ -100,11 +100,11 @@ function deepChangeProxy(object: any, onChangeAtAnyDepth: Function) {
     return object;
 }
 
-export function AutoObservableModel<S extends Object>(initialState: S): ObservableModel & S {
+export function AutoObservableModel<S extends Object>(initialState: S): new (...args: any[]) => (ObservableModel & S){
     return AutoObservable(initialState)(Model);
 }
 
-export function AutoObservable<S extends Object>(initialState: S): (BaseClass: typeof Model) => ObservableModel & S {
+export function AutoObservable<S extends Object>(initialState: S): (BaseClass: typeof Model) => new (...args: any[]) => (ObservableModel & S) {
     return (BaseClass) => {
         const cls = class ObservableClass extends Observable(BaseClass) {
             init(options: any) {
@@ -130,6 +130,6 @@ export function AutoObservable<S extends Object>(initialState: S): (BaseClass: t
             });
         }
 
-        return cls as any as ObservableModel & S;
+        return cls as any as new (...args: any[]) => (ObservableModel & S);
     }
 }

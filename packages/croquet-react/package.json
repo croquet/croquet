@@ -2,10 +2,11 @@
   "name": "@croquet/react",
   "version": "0.2.5",
   "description": "",
-  "main": "dist/croquet-react.min.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
-    "build": "rollup -c",
-    "prepublish": "npm run build"
+    "build": "tsc",
+    "prepublish": "tsc"
   },
   "author": "",
   "dependencies": {
@@ -19,11 +20,13 @@
     "@babel/core": "^7.5.4",
     "@babel/plugin-transform-runtime": "^7.5.0",
     "@babel/preset-env": "^7.5.4",
+    "@types/react": "^16.9.16",
     "rollup": "^1.16.4",
     "rollup-plugin-babel": "^4.3.3",
     "rollup-plugin-license": "^0.9.0",
     "rollup-plugin-node-resolve": "^5.2.0",
-    "rollup-plugin-terser": "^5.1.0"
+    "rollup-plugin-terser": "^5.1.0",
+    "typescript": "^3.5.3"
   },
   "publishConfig": {
     "access": "public"

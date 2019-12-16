@@ -1,7 +1,7 @@
 declare module "@croquet/croquet" {
-    export abstract class PubSubParticipant {
+    export abstract class PubSubParticipant<SubOptions> {
         publish(scope: string, event: string, data: any): void;
-        subscribe(scope: string, event: string, methodName: string | ((e: any) => void)): void;
+        subscribe(scope: string, event: string | {event: string} | {event: string} & SubOptions, methodName: string | ((e: any) => void)): void;
         unsubscribe(scope: string, event: string): void;
         unsubscribeAll(): void;
     }
@@ -38,7 +38,7 @@ declare module "@croquet/croquet" {
      * @hideconstructor
      * @public
      */
-    export class Model extends PubSubParticipant {
+    export class Model extends PubSubParticipant<{}> {
         id: string;
 
         /**
@@ -279,7 +279,11 @@ declare module "@croquet/croquet" {
         future(tOffset?:number, methodName?: string, ...args: any[]): this;
     }
 
-    export class View extends PubSubParticipant {
+    export type ViewSubOptions = {
+        handling?: "queued" | "oncePerFrame" | "immediate"
+    }
+
+    export class View extends PubSubParticipant<ViewSubOptions> {
         /**
          * A View instance is created in {@link startSession}, and the root model is passed into its constructor.
          *
@@ -425,5 +429,19 @@ declare module "@croquet/croquet" {
      * a Model's static types() method */
     export function gatherInternalClassTypes(dummyObject: any, prefix: string): any;
 
-    export function startSession(name:string, modelClass: typeof Model, viewClass: typeof View, options?:any): Promise<any>;
+    export type CroquetSession<V extends View> = {
+        id: string,
+        view: V,
+        step: (time: number) => void
+    }
+    export type CroquetSessionOptions = {
+        step?: "auto" | "manual",
+        tps?: number
+    }
+    export function startSession<M extends Model, V extends View> (
+        name:string,
+        modelClass: new (...args: any[]) => M,
+        viewClass: new (...args: any[]) => V,
+        options?: CroquetSessionOptions
+    ): Promise<CroquetSession<V>>;
 }
