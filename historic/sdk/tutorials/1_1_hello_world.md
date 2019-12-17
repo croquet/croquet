@@ -82,7 +82,7 @@ If you created a new Pen from scratch (not forking one of the tutorials here) an
 * add the Pen `https://codepen.io/croquet/pen/zVEyqj` as an additional JS resource (in the same way you included the Croquet.js library above) - it will automatically add a session badge, and a QR code linked to your Pen.
 * you may also add that same Pen in the CSS settings for positioning of the session badge.
   Or, just copy the Pen's CSS so you can position it to fit your app.
-* if you want the QR code to appear somewhere other than at bottom left, the current Croquet behavior requires that you explicitly override the CSS settings of the `qrcode` element.  The Pen for the [Multiuser Chat](https://codepen.io/croquet/pen/NZjLzO) includes an example of this.
+* if you want the QR code to appear in another position, override the CSS settings of the `#widgets` element.  The Pen for the [Multiuser Chat](https://codepen.io/croquet/pen/NZjLzO) includes an example of this.
 
 ## Writing a Croquet Application
 
