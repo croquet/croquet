@@ -79,7 +79,7 @@ This makes it particularly easy to test and share Croquet applications with mobi
 
 If you created a new Pen from scratch (not forking one of the tutorials here) and you want the same join-by-QR functionality:
 
-* add the Pen `https://codepen.io/croquet/pen/zVEyqj` as an additional JS resource (in the same way you included the Croquet.js library above) - it will automatically add a session badge, and a QR code linked to your Pen.
+* add the Pen `https://codepen.io/croquet/pen/vYYyNed` as an additional JS resource (in the same way you included the Croquet.js library above) - it will automatically add a session badge, and a QR code linked to your Pen.
 * you may also add that same Pen in the CSS settings for positioning of the session badge.
   Or, just copy the Pen's CSS so you can position it to fit your app.
 * if you want the QR code to appear in another position, override the CSS settings of the `#widgets` element.  The Pen for the [Multiuser Chat](https://codepen.io/croquet/pen/NZjLzO) includes an example of this.
