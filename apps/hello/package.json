@@ -11,7 +11,9 @@
   ],
   "author": "Croquet Studios",
   "license": "ISC",
-  "dependencies": {},
+  "dependencies": {
+    "@croquet/croquet": "file:../libraries/packages/croquet"
+  },
   "devDependencies": {
     "parcel": "^1.12.3"
   }

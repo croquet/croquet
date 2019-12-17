@@ -7,8 +7,7 @@
 // will respond to clicks from any user in the same session. The current value of the
 // counter is automatically saved to the cloud.
 
-// to use latest sdk: cd sdk; npm start
-import * as Croquet from "../sdk/dist/croquet.min.js";
+import * as Croquet from "@croquet/croquet";
 
 //------------------------------------------------------------------------------------------
 // Define our model. MyModel has a tick method that executes once per second. It updates the value
