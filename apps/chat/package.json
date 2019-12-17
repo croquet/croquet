@@ -12,7 +12,7 @@
   "author": "Croquet Studios",
   "license": "ISC",
   "dependencies": {
-    "@croquet/teatime": "file:../teatime"
+    "@croquet/croquet": "file:../libraries/packages/croquet"
   },
   "devDependencies": {
     "parcel": "^1.12.3"
