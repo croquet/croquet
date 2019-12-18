@@ -11,7 +11,8 @@ export default {
     input: 'src.js',
     output: {
         file: 'dist/croquet.min.js',
-        format: 'cjs',
+        format: 'umd',      // amd, cjs and iife all in one
+        name: 'Croquet',    // global name
         sourcemap: true,    // not included in npm bundle by explicit "files" section in package.json
     },
     external: ['seedrandom/seedrandom', 'toastify-js', 'seedrandom', 'fast-json-stable-stringify', 'fastpriorityqueue'],
