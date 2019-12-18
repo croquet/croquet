@@ -1,7 +1,7 @@
 // work around https://github.com/parcel-bundler/parcel/issues/1838
 
 // only run if we are using parcel
-if (module.bundle) deduplicateImports();
+if (module && module.bundle && module.bundle.modules) deduplicateImports();
 
 function deduplicateImports() {
     // find duplicates of modules by comparing source code
