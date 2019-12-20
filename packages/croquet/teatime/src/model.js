@@ -250,7 +250,7 @@ class Model {
      * Model-to-model and view-to-view subscriptions are possible, too.
      *
      * See [Model.subscribe]{@link Model#subscribe}() for a discussion of **scopes** and **event names**.
-     * See [View.subscribe]{@link View#subscribe} for invoking event handlers *asynchronously* or *immediately*.
+     * Refer to [View.subscribe]{@link View#subscribe}() for invoking event handlers *asynchronously* or *immediately*.
      *
      * Optionally, you can pass some **data** along with the event.
      * For events published by a model, this can be any arbitrary value or object.
