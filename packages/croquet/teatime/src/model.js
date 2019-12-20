@@ -249,7 +249,8 @@ class Model {
      * Both models and views can publish events, and subscribe to each other's events.
      * Model-to-model and view-to-view subscriptions are possible, too.
      *
-     * See [subscribe]{@link Model#subscribe}() for a discussion of **scopes** and **event names**.
+     * See [Model.subscribe]{@link Model#subscribe}() for a discussion of **scopes** and **event names**.
+     * See [View.subscribe]{@link View#subscribe} for invoking event handlers *asynchronously* or *immediately*.
      *
      * Optionally, you can pass some **data** along with the event.
      * For events published by a model, this can be any arbitrary value or object.
