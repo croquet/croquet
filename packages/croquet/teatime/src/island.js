@@ -472,7 +472,7 @@ export default class Island {
     }
 
     handleModelEventInView(topic, data) {
-        viewDomain.handleEvent(topic, data, fn => execOffIsland(inViewRealm(this, fn, true)));
+        viewDomain.handleEvent(topic, data, fn => execOffIsland(() => inViewRealm(this, fn, true)));
     }
 
     handleViewEventInView(topic, data) {
