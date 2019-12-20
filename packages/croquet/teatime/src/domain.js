@@ -50,6 +50,7 @@ export class Domain {
             oncePerFrame: new Set(),
             oncePerFrameWhileSynced: new Set(),
         };
+        if (!subs[handling]) throw Error(`Unknown subscribe() option: handling="${handling}"`);
         subs[handling].add(handler);
     }
 
