@@ -90,7 +90,7 @@ export class Domain {
     /** An event was published. Invoke its immediate handlers now, and/or queue it
      * for later execution in processFrameEvents()
      */
-    handleEvent(topic, data) {
+    handleEvent(topic, data, immediateWrapper=fn=>fn()) {
         // model=>view events are typically queued for later execution from the main loop
         // The subscriber is encouraged to request batch handling, which only invokes the handler
         // for the latest event per render frame (e.g. to batch multiple position updates into one)
@@ -100,7 +100,9 @@ export class Domain {
             if (topicSubscribers.queued.size > 0) this.queuedEvents.push({topic, data});
             if (topicSubscribers.oncePerFrame.size > 0) this.perFrameEvents.set(topic, data);
             if (topicSubscribers.oncePerFrameWhileSynced.size > 0) this.perSyncedFrameEvents.set(topic, data);
-            for (const handler of topicSubscribers.immediate) handler(data);
+            if (topicSubscribers.immediate.size > 0) immediateWrapper(() => {
+                for (const handler of topicSubscribers.immediate) handler(data);
+            });
         }
     }
 

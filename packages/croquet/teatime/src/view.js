@@ -149,7 +149,10 @@ class View {
      *
      * - **Immediate:** The handler will be invoked _synchronously_ during the [publish]{@link Model#publish} call.
      *   This will tie the view code very closely to the model simulation, which in general is undesirable.
-     *   However, if the view needs to know the exact state of the model at the time the event was published,
+     *   However, if the event handler needs to set up another subscription,
+     *   immediate execution ensures that a subsequent publish will be properly handled
+     *   (especially when rapidly replaying events for a new user).
+     *   Similarly, if the view needs to know the exact state of the model at the time the event was published,
      *   before execution in the model proceeds, then this is the facility to allow this without having to copy model state.
      *
      *   Pass `{event: "name", handling: "immediate"}` to enforce this behavior.

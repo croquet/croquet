@@ -36,7 +36,7 @@ function bindQFunc(qfunc, thisArg) {
 }
 
 
-// this is the only place allowed to change CurrentIsland
+// this is the only place allowed to set CurrentIsland
 function execOnIsland(island, fn) {
     if (CurrentIsland) throw Error("Island confusion");
     if (!(island instanceof Island)) throw Error("not an island: " + island);
@@ -44,6 +44,17 @@ function execOnIsland(island, fn) {
     try {
         CurrentIsland = island;
         window.ISLAND = island;
+        fn();
+    } finally {
+        CurrentIsland = previousIsland;
+    }
+}
+
+function execOffIsland(fn) {
+    if (!CurrentIsland) throw Error("Island confusion");
+    const previousIsland = CurrentIsland;
+    try {
+        CurrentIsland = null;
         fn();
     } finally {
         CurrentIsland = previousIsland;
@@ -461,7 +472,7 @@ export default class Island {
     }
 
     handleModelEventInView(topic, data) {
-        viewDomain.handleEvent(topic, data);
+        viewDomain.handleEvent(topic, data, fn => execOffIsland(inViewRealm(this, fn, true)));
     }
 
     handleViewEventInView(topic, data) {
