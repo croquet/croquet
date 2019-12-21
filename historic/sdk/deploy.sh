@@ -37,6 +37,7 @@ echo "DEPLOYING $MSG"
 DIR=../../servers/croquet.studio
 SDK=$DIR/sdk
 DOCS=$SDK/docs
+SRC_PKG=../libraries/packages/croquet
 
 TAG=""
 
@@ -52,6 +53,9 @@ if [ "$RELEASE" != "docs" ] ; then
           DOCS_VERSION=$VERSION
           ;;
     esac
+
+    # update @croquet/croquet package
+    (cd $SRC_PKG ; npm run build)
 
     # build & deploy library
     npx parcel build --public-url . --global Croquet -d $SDK -o croquet-$VERSION.min.js croquet.js
