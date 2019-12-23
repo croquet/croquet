@@ -207,7 +207,7 @@ class MyView extends Croquet.View {
 
     constructor(model) {
         super(model);
-        countDisplay.addEventListener("click", event => this.onclick(event), false);
+        countDisplay.onclick = event => this.onclick(event);
         this.subscribe("counter", "update", this.handleUpdate);
     }
 
@@ -232,7 +232,7 @@ Note that the model is an argument to the constructor. This object reference **M
 
 Since myView is a subclass, we need to ensure that the base-class constructor is executed.
 
-```document.addEventListener("click", event => this.onclick(event), false);```
+```countDisplay.onclick = event => this.onclick(event);```
 
 This is a vanilla tracking of a user event and then calling the onclick function defined below.
 
