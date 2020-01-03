@@ -69,14 +69,17 @@ fi
 # build docs unless pre-release
 if [ -n "$DOCS_VERSION" ]; then
     rm -r build/*
-    npx jsdoc -c jsdoc.json -d build
-    [ $? -ne 0 ] && exit
-    sed -i~  "s/@CROQUET_VERSION@/$DOCS_VERSION/" build/*.html
-    [ $? -ne 0 ] && exit
+    npx jsdoc -c jsdoc.json -d build || exit
+    sed -i~  "s/@CROQUET_VERSION@/$DOCS_VERSION/" build/*.html || exit
 
     # deploy docs
     rm -r $DOCS/*
-    npx parcel build --public-url . --no-source-maps -d $DOCS build/*.html
+    # (fake conduct.html to fool parcel)
+    touch build/conduct.html
+    npx parcel build --public-url . --no-source-maps -d $DOCS build/*.html || exit
+    # (remove fake conduct.html and substitute proper link)
+    rm $DOCS/conduct.html
+    sed -i~ "s|conduct.html|/conduct.html|" $DOCS/index.html
 fi
 
 git add -A $SDK/ .env.development .env.production package.json package-lock.json
