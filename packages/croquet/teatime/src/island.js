@@ -359,7 +359,7 @@ export default class Island {
             throw Error(`Subscription handler for "${event}" must be a method name`);
         }
         if (typeof model[methodName] !== "function") {
-            if (!methodName[0]==='}') throw Error(`Subscriber method for "${event}" not found: ${model}.${methodName}()`);
+            if (methodName[0] !== '{') throw Error(`Subscriber method for "${event}" not found: ${model}.${methodName}()`);
         }
         const topic = scope + ":" + event;
         const handler = model.id + "." + methodName;
