@@ -292,7 +292,7 @@ function JOIN(client, args) {
     }
     const id = client.sessionId;
     // the connection log filter matches on (" connection " OR " JOIN ")
-    LOG(`${id}/${client.addr} sent JOIN ${JSON.stringify(args)}`);
+    LOG(`${id}/${client.addr} receiving JOIN ${JSON.stringify(args)}`);
     const { name, version, user } = args;
     if (user) {
         client.user = user;
@@ -349,7 +349,7 @@ function JOIN(client, args) {
         const fileName = `${id}/latest.json`;
         fetchJSON(fileName)
         .then(latestSpec => {
-            LOG(id, "spec from latest.json: snapshot url ", latestSpec.snapshotUrl, "number of messages", latestSpec.messages.length);
+            LOG(`${id} resuming from latest.json @${latestSpec.time}#${latestSpec.seq} messages: ${latestSpec.messages.length} snapshot: ${latestSpec.snapshotUrl}`);
             savableKeys(island).forEach(key => island[key] = latestSpec[key]);
             island.storedUrl = latestSpec.snapshotUrl;
             island.storedSeq = latestSpec.seq;
@@ -416,7 +416,7 @@ function SYNC(island) {
  */
 function LEAVING(client) {
     const id = client.sessionId;
-    LOG(`${id}/${client.addr} sent LEAVING`);
+    LOG(`${id}/${client.addr} receiving LEAVING`);
     const island = ALL_ISLANDS.get(id);
     if (!island) return;
     island.clients.delete(client);
@@ -801,7 +801,7 @@ server.on('connection', (client, req) => {
     let lastActivity = Date.now();
     client.on('pong', time => {
         lastActivity = Date.now();
-        LOG(`${sessionId}/${client.addr} sent pong after ${Date.now() - time} ms`);
+        LOG(`${sessionId}/${client.addr} receiving pong after ${Date.now() - time} ms`);
         });
     setTimeout(() => client.readyState === WebSocket.OPEN && client.ping(Date.now()), 100);
 
@@ -850,7 +850,7 @@ server.on('connection', (client, req) => {
                 case 'SNAP': SNAP(client, args); break;
                 case 'LEAVING': LEAVING(client); break;
                 case 'PING': PONG(client, args); break;
-                case 'PULSE': if (cluster === "local") LOG(`${sessionId}/${client.addr} sent PULSE`); break; // nothing to do
+                case 'PULSE': if (cluster === "local") LOG(`${sessionId}/${client.addr} receiving PULSE`); break; // nothing to do
                 default: WARN(`${sessionId}/${client.addr} unknown action ${JSON.stringify(action)}`);
             }
         };
