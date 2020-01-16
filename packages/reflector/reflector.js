@@ -292,7 +292,7 @@ function JOIN(client, args) {
     }
     const id = client.sessionId;
     // the connection log filter matches on (" connection " OR " JOIN ")
-    LOG(id, client.addr, "sent JOIN", JSON.stringify(args));
+    LOG(`${id}:${client.addr} sent JOIN ${JSON.stringify(args)}`);
     const { name, version, user } = args;
     if (user) {
         // strip off any existing user info
@@ -373,7 +373,7 @@ function JOIN(client, args) {
 
     // otherwise, nothing to do at this point.  log that this client is waiting
     // for a snapshot either from latest.json or from a STARTed client.
-    LOG(id, "client waiting for snapshot", client.addr);
+    LOG(`${id}:${client.addr} waiting for snapshot`);
 
     function START() {
         // find next client
@@ -383,12 +383,12 @@ function JOIN(client, args) {
         } while (client.readyState !== WebSocket.OPEN);
         const msg = JSON.stringify({ id, action: 'START' });
         client.safeSend(msg);
-        LOG(id, 'sending START', client.addr, msg);
+        LOG(`${id}:${client.addr} sending START ${msg}`);
         // if the client does not provide a snapshot in time, we need to start over
         island.startTimeout = setTimeout(() => {
             island.startTimeout = null;
             // kill client
-            LOG(id, "START client failed to respond", client.addr);
+            LOG(`${id}:${client.addr} START client failed to respond`);
             if (client.readyState === WebSocket.OPEN) client.close(...REASON.UNRESPONSIVE);
             // start next client
             START();
@@ -404,10 +404,10 @@ function SYNC(island) {
     for (const syncClient of island.syncClients) {
         if (syncClient.readyState === WebSocket.OPEN) {
             syncClient.safeSend(response);
-            LOG(id, `@${island.time}#${island.seq} sending SYNC ${syncClient.addr} ${response.length} bytes, ${messages.length} messages${range}, snapshot: ${url}`);
+            LOG(`${id}:${syncClient.addr} @${island.time}#${island.seq} sending SYNC ${response.length} bytes, ${messages.length} messages${range}, snapshot: ${url}`);
             announceUserDidJoin(island, syncClient);
         } else {
-            LOG(id, 'cannot send SYNC to', syncClient.addr);
+            LOG(`${id}:${syncClient.addr} cannot send SYNC`);
         }
     }
     // synced all that were waiting
@@ -419,7 +419,7 @@ function SYNC(island) {
  */
 function LEAVING(client) {
     const id = client.sessionId;
-    LOG(id, 'received', client.addr, 'LEAVING');
+    LOG(`${id}:${client.addr} sent LEAVING`);
     const island = ALL_ISLANDS.get(id);
     if (!island) return;
     island.clients.delete(client);
@@ -466,11 +466,11 @@ function SNAP(client, args) {
     // compare times rather than message seq, since (at least in principle) a new
     // snapshot can be taken after some elapsed time but no additional external messages.
     if (time <= island.snapshotTime) {
-        LOG(id, `@${island.time}#${island.seq} ignoring snapshot ${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'}`);
+        LOG(`${id}:${client.addr} @${island.time}#${island.seq} ignoring snapshot ${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'}`);
         return;
     }
 
-    LOG(id, `@${island.time}#${island.seq} got snapshot ${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'}`);
+    LOG(`${id}:${client.addr} @${island.time}#${island.seq} got snapshot ${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'}`);
 
     if (island.snapshotUrl) {
         // forget older messages, setting aside the ones that need to be stored
@@ -609,7 +609,7 @@ function TUTTI(client, args) {
         const lastComplete = island.lastCompletedTally;
         if (lastComplete !== null && (tuttiSeq === lastComplete || after(tuttiSeq, lastComplete))) {
             // too late
-            LOG(id, `rejecting tally of ${tuttiSeq} cf completed ${lastComplete}`);
+            LOG(`${id}:${client.addr} rejecting tally of ${tuttiSeq} cf completed ${lastComplete}`);
             return;
         }
 
@@ -701,7 +701,7 @@ function TICKS(client, args) {
     if (!island.snapshotUrl) {
          // this must be an old client (<=0.2.5) that requests TICKS before sending a snapshot
         const { time, seq } = args;
-        LOG(id, `@${island.time}#${island.seq} init ${time}#${seq} from TICKS (old client)`);
+        LOG(`${id}:${client.addr} @${island.time}#${island.seq} init ${time}#${seq} from TICKS (old client)`);
         island.time = typeof time === "number" ? Math.ceil(time) : 0;
         island.seq = typeof seq === "number" ? seq : 0;
         announceUserDidJoin(island, client);
@@ -781,7 +781,7 @@ server.on('connection', (client, req) => {
     if (!sessionId) { ERROR(`Missing session id in request "${req.url}"`); client.close(...REASON.BAD_PROTOCOL); return; }
     client.sessionId = sessionId;
     client.addr = `${req.connection.remoteAddress.replace(/^::ffff:/, '')}:${req.connection.remotePort}`;
-    if (req.headers['x-forwarded-for']) client.forwarded = ` (${req.headers['x-forwarded-for'].split(/\s*,\s*/).map(a => a.replace(/^::ffff:/, '')).join(', ')})`;
+    if (req.headers['x-forwarded-for']) client.forwarded = `via (${req.headers['x-forwarded-for'].split(/\s*,\s*/).map(a => a.replace(/^::ffff:/, '')).join(', ')}) `;
     // location header is added by load balancer, see region-servers/apply-changes
     if (req.headers['x-location']) try {
         const [region, city, lat, lng] = req.headers['x-location'].split(",");
@@ -798,13 +798,13 @@ server.on('connection', (client, req) => {
         client.stats.bo += data.length;     // bytes out
     };
     // the connection log filter matches on (" connection " OR " JOIN ")
-    LOG(sessionId, `connection ${version} from ${client.addr}${client.forwarded||''} ${req.headers['x-location']}`);
+    LOG(`${sessionId}:${client.addr} opened connection ${version} ${client.forwarded||''}${req.headers['x-location']}`);
     STATS.USERS = Math.max(STATS.USERS, server.clients.size);
 
     let lastActivity = Date.now();
     client.on('pong', time => {
         lastActivity = Date.now();
-        LOG(sessionId, 'pong from', client.addr, 'after', Date.now() - time, 'ms');
+        LOG(`${sessionId}:${client.addr} sent pong after ${Date.now() - time} ms`);
         });
     setTimeout(() => client.readyState === WebSocket.OPEN && client.ping(Date.now()), 100);
 
@@ -818,19 +818,19 @@ server.on('connection', (client, req) => {
         const now = Date.now();
         const quiescence = now - lastActivity;
         if (quiescence > DISCONNECT_THRESHOLD) {
-            LOG(sessionId, "inactive client: closing connection from", client.addr, "inactive for", quiescence, "ms");
+            LOG(`${sessionId}:${client.addr} inactive for ${quiescence} ms, disconnecting`);
             client.close(...REASON.INACTIVE); // NB: close event won't arrive for a while
             return;
         }
         let nextCheck;
         if (quiescence > PING_THRESHOLD) {
             if (!joined) {
-                LOG(sessionId, "client never joined: closing connection from", client.addr, "after", quiescence, "ms");
+                LOG(`${sessionId}:${client.addr} did not join within ${quiescence} ms, disconnecting`);
                 client.close(...REASON.NO_JOIN);
                 return;
             }
 
-            LOG(sessionId, "pinging client", client.addr, "inactive for", quiescence, "ms");
+            LOG(`${sessionId}:${client.addr} inactive for ${quiescence} ms, sending ping`);
             client.ping(now);
             nextCheck = PING_INTERVAL;
         } else nextCheck = CHECK_INTERVAL;
@@ -853,8 +853,8 @@ server.on('connection', (client, req) => {
                 case 'SNAP': SNAP(client, args); break;
                 case 'LEAVING': LEAVING(client); break;
                 case 'PING': PONG(client, args); break;
-                case 'PULSE': if (cluster === "local") LOG('PULSE', client.addr); break; // nothing to do
-                default: WARN(sessionId, "unknown action", action);
+                case 'PULSE': if (cluster === "local") LOG(`${sessionId}:${client.addr} sent PULSE`); break; // nothing to do
+                default: WARN(`${sessionId}:${client.addr} unknown action ${JSON.stringify(action)}`);
             }
         };
 
