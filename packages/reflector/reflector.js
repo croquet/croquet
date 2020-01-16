@@ -780,7 +780,7 @@ server.on('connection', (client, req) => {
     if (!sessionId) { ERROR(`Missing session id in request "${req.url}"`); client.close(...REASON.BAD_PROTOCOL); return; }
     client.sessionId = sessionId;
     client.addr = `${req.connection.remoteAddress.replace(/^::ffff:/, '')}:${req.connection.remotePort}`;
-    if (req.headers['x-forwarded-for']) client.addr += ` (${req.headers['x-forwarded-for'].split(/\s*,\s*/).map(a => a.replace(/^::ffff:/, '')).join(', ')})`;
+    if (req.headers['x-forwarded-for']) client.forwarded = ` (${req.headers['x-forwarded-for'].split(/\s*,\s*/).map(a => a.replace(/^::ffff:/, '')).join(', ')})`;
     // location header is added by load balancer, see region-servers/apply-changes
     if (req.headers['x-location']) try {
         const [region, city, lat, lng] = req.headers['x-location'].split(",");
@@ -793,7 +793,7 @@ server.on('connection', (client, req) => {
         client.send(data);
         STATS.OUT += data.length;
     };
-    LOG(sessionId, `connection ${version} from ${client.addr} ${req.headers['x-location']}`);
+    LOG(sessionId, `connection ${version} from ${client.addr}${client.forwarded||''} ${req.headers['x-location']}`);
     STATS.USERS = Math.max(STATS.USERS, server.clients.size);
 
     let lastActivity = Date.now();
