@@ -295,9 +295,6 @@ function JOIN(client, args) {
     LOG(`${id}/${client.addr} sent JOIN ${JSON.stringify(args)}`);
     const { name, version, user } = args;
     if (user) {
-        // strip off any existing user info
-        const baseAddr = client.addr.split(' [')[0];
-        client.addr = `${baseAddr} ${JSON.stringify(user)}`;
         client.user = user;
         if (client.location) {
             if (Array.isArray(user)) user.push(client.location);
