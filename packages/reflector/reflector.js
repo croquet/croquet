@@ -291,6 +291,7 @@ function JOIN(client, args) {
         return;
     }
     const id = client.sessionId;
+    // the connection log filter matches on (" connection " OR " JOIN ")
     LOG(id, client.addr, "sent JOIN", JSON.stringify(args));
     const { name, version, user } = args;
     if (user) {
@@ -793,6 +794,7 @@ server.on('connection', (client, req) => {
         client.send(data);
         STATS.OUT += data.length;
     };
+    // the connection log filter matches on (" connection " OR " JOIN ")
     LOG(sessionId, `connection ${version} from ${client.addr}${client.forwarded||''} ${req.headers['x-location']}`);
     STATS.USERS = Math.max(STATS.USERS, server.clients.size);
 
@@ -861,6 +863,7 @@ server.on('connection', (client, req) => {
 
     client.on('close', () => {
         prometheusConnectionGauge.dec();
+        // the connection log filter matches on (" connection " OR " JOIN ")
         LOG(`${client.sessionId} closed connection from ${client.addr}`);
         const island = ALL_ISLANDS.get(client.sessionId);
         if (!island) unregisterSession(client.sessionId, "on close");
