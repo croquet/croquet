@@ -674,7 +674,7 @@ function PONG(client, args) {
 function TICK(island) {
     if (island.clients.size === 0) return; // probably in provisional island deletion
 
-    const { id, usersJoined, usersLeft, lastMsgTime, tick, scale } = island;
+    const { id, lastMsgTime, tick, scale } = island;
     const time = getTime(island);
     if (time - lastMsgTime < tick * scale) return;
     island.lastTick = time;
