@@ -788,11 +788,14 @@ server.on('connection', (client, req) => {
         client.location = { region };
         if (city) client.location.city = { name: city, lat: +lat, lng: +lng };
     } catch (ex) { /* ignore */}
+    client.stats = { mi: 0, mo: 0, bi: 0, bo: 0 }; // messages / bytes, in / out
     client.safeSend = data => {
         if (client.readyState !== WebSocket.OPEN) return;
         STATS.BUFFER = Math.max(STATS.BUFFER, client.bufferedAmount);
         client.send(data);
         STATS.OUT += data.length;
+        client.stats.mo += 1;               // messages out
+        client.stats.bo += data.length;     // bytes out
     };
     // the connection log filter matches on (" connection " OR " JOIN ")
     LOG(sessionId, `connection ${version} from ${client.addr}${client.forwarded||''} ${req.headers['x-location']}`);
@@ -838,6 +841,8 @@ server.on('connection', (client, req) => {
     client.on('message', incomingMsg => {
         lastActivity = Date.now();
         STATS.IN += incomingMsg.length;
+        client.stats.mi += 1;                      // messages in
+        client.stats.bi += incomingMsg.length;     // bytes in
         const handleMessage = () => {
             const { action, args, tags } = JSON.parse(incomingMsg);
             switch (action) {
@@ -864,7 +869,7 @@ server.on('connection', (client, req) => {
     client.on('close', () => {
         prometheusConnectionGauge.dec();
         // the connection log filter matches on (" connection " OR " JOIN ")
-        LOG(`${client.sessionId} closed connection from ${client.addr}`);
+        LOG(`${client.sessionId}:${client.addr} closed connection ${JSON.stringify(client.stats)}`);
         const island = ALL_ISLANDS.get(client.sessionId);
         if (!island) unregisterSession(client.sessionId, "on close");
         else {
