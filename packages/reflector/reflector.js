@@ -12,6 +12,7 @@ const { Storage } = require('@google-cloud/storage');
 // debugging (should read env vars)
 const googleCloudProfiler = true;
 const googleCloudDebugger = false;
+const collectRawSocketStats = false;
 
 // collect metrics in Prometheus format
 const prometheusConnectionGauge = new prometheus.Gauge({
@@ -794,6 +795,16 @@ server.on('connection', (client, req) => {
         client.stats.mo += 1;               // messages out
         client.stats.bo += data.length;     // bytes out
     };
+    if (collectRawSocketStats) {
+        client.stats.ri = 0;
+        client.stats.ro = 0;
+        client._socket.write_orig = client._socket.write_orig || client._socket.write;
+        client._socket.write = (buf, ...args) => {
+            client.stats.ro += buf.length;
+            client._socket.write_orig(buf, ...args);
+        };
+        client._socket.on('data', buf => client.stats.ri += buf.length);
+    }
     // the connection log filter matches on (" connection " OR " JOIN ")
     LOG(`${sessionId}/${client.addr} opened connection ${version} ${client.forwarded||''}${req.headers['x-location']}`);
     STATS.USERS = Math.max(STATS.USERS, server.clients.size);
