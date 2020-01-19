@@ -219,7 +219,7 @@ export default class Island {
      * @return {Message} decoded message
      */
     scheduleExternalMessage(msgData) {
-        const message = Message.fromState(msgData);
+        const message = Message.fromState(msgData, this);
         if (message.time < this.time) throw Error("past message from reflector " + msgData);
         const nextSeq = (this.externalSeq + 1) >>> 0;
         if (message.seq !== nextSeq) throw Error(`External message error. Expected message #${nextSeq} got #${message.seq}`);
@@ -650,9 +650,9 @@ export class Message {
         return [this.time, this.seq, this.payload];
     }
 
-    static fromState(state) {
+    static fromState(state, island) {
         const [time, seq, payload] = state;
-        const { receiver, selector, args } = decode(payload);
+        const { receiver, selector, args } = decode(payload, island);
         return new Message(time, seq, receiver, selector, args);
     }
 
@@ -1240,6 +1240,7 @@ class MessageArgumentDecoder extends IslandReader {
     decode(args) {
         const decoded = this.readArray(args, '$');
         this.readDeferred();
+        this.resolveRefs();
         return decoded;
     }
 
@@ -1248,7 +1249,7 @@ class MessageArgumentDecoder extends IslandReader {
             if (this.refs.has(ref)) {
                 object[key] = this.refs.get(ref);
             } else {
-                const model = this.island.lookUp(ref);
+                const model = this.island.lookUpModel(ref);
                 if (model) object[key] = model;
                 else throw Error(`Unresolved ref: ${ref} at ${path}[${JSON.stringify(key)}]`);
             }
