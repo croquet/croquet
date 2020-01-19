@@ -1182,7 +1182,7 @@ class IslandReader {
             if (ref) {
                 if (this.refs.has(ref)) temp[key] = this.refs.get(ref);
                 else {
-                    temp[key] = "placeholder";
+                    temp[key] = "<unresolved>";
                     unresolved.set(ref, key);
                 }
             } else {
@@ -1205,7 +1205,7 @@ class IslandReader {
         if (this.refs.has(ref)) {
             object[key] = this.refs.get(ref);
         } else {
-            object[key] = "placeholder";
+            object[key] = "<unresolved>";
             this.unresolved.push({object, key, ref, path});
         }
         return true;
