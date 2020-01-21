@@ -27,18 +27,6 @@ development build, but are replaced by random short identifiers in
 production. That's why we must not ascribe any meaning to those IDs.
 */
 
-const entryPointName = "entry";
-const htmlName = "index.html";
-let htmlSource = "";
-
-if (process.env.CROQUET_REPLAY) {
-    const scripts = Array.from(document.getElementsByTagName('script')).map(script => script.outerHTML);
-    if (scripts.length > 1) console.warn("More than one script tag!");
-    const rawHTML = document.getElementsByTagName('html')[0].outerHTML;
-    // replace main script tag (which changes all the time)
-    htmlSource = rawHTML.replace(scripts[0], `<script src="${entryPointName}"></script>`);
-    if (!htmlSource.includes(entryPointName)) console.error("Entry point substitution failed!");
-}
 
 // croquet.io and pi.croquet.io provide file servers themselves
 // everything else uses croquet.io via CORS
@@ -122,15 +110,13 @@ function classSrc(cls) {
  * @returns {String} the module source code
  */
 function sourceCodeOf(mod) {
-    const source = mod === htmlName ? htmlSource : functionSource(moduleWithID(mod)[0]);
+    const source = functionSource(moduleWithID(mod)[0]);
 
     /*
-    if (mod !== htmlName) {
-        // verify that code survives stringification
-        const fn = new Function('require', 'module', 'exports', source);
-        const src = functionSource(fn);
-        if (src !== source) throw Error("source does not match");
-    }
+    // verify that code survives stringification
+    const fn = new Function('require', 'module', 'exports', source);
+    const src = functionSource(fn);
+    if (src !== source) throw Error("source does not match");
     */
 
     return source;
@@ -231,144 +217,3 @@ export async function hashNameAndCode(name, sdk_version) {
     const hash = await hashString([name, codeHash].join('|'));
     return { hash, codeHash };
 }
-
-// do not include code upload until we support replay
-
-let uploadCodeOrNoop;
-
-if (process.env.CROQUET_REPLAY) {
-
-    // naming
-
-    const names = {};
-    const assets = [];
-
-    // resolve names now, before deduplicating below
-    resolveNames();
-
-    function resolveNames() {
-        // get all path names
-        for (const m of allModuleIDs()) {
-            for (const [name, id] of Object.entries(namedImportsOf(m))) {
-                const existing = names[id] || '';
-                const clean = name.replace(/^[./]*/, '');
-                if (clean.length > existing.length) names[id] = clean;
-                if (clean.match(/^assets\//)) assets.push({id, code: sourceCodeOf(id)});
-            }
-        }
-    }
-
-    function nameOf(mod) {
-        if (names[mod]) return names[mod];
-        console.warn('No name for ' + mod);
-        return mod;
-    }
-
-    // uploading
-    function createMetadata(name) {
-        const meta = {
-            name,
-            date: (new Date()).toISOString(),
-            host: window.location.hostname,
-        };
-        return meta;
-    }
-
-    async function metadataFor(mod, includeAllFiles=false) {
-        const meta = createMetadata(nameOf(mod));
-        // add imports
-        for (const [key, id] of Object.entries(moduleWithID(mod)[1])) {
-            if (!meta.imports) meta.imports = {};
-            meta.imports[key] = await hashFile(id);   //eslint-disable-line no-await-in-loop
-        }
-        // add all files if requested
-        if (includeAllFiles) {
-            meta.files = {};
-            for (const id of allModuleIDs()) {
-                meta.files[await hashFile(id)] = nameOf(id); //eslint-disable-line no-await-in-loop
-            }
-            meta.html = await hashFile(htmlName);
-        }
-        return meta;
-    }
-
-    const BASE_URL = baseUrl('code');
-
-    async function uploadFile(mod, meta, ext=".js") {
-        const hash = await hashFile(mod);
-        const body = sourceCodeOf(mod);
-        try {
-            // see if it's already there
-            const response = await fetch(`${BASE_URL}${hash}.json`, { method: 'HEAD' });
-            // if successful, return
-            if (response.ok) return;
-        } catch (ex) { /* ignore */ }
-        // not found, so try to upload it
-        try {
-            console.log(`uploading "${meta.name}${meta.name.includes('.') ? '' : ext}" (${hash}): ${body.length} bytes`);
-            await fetch(`${BASE_URL}${hash}${ext}`, {
-                method: "PUT",
-                mode: "cors",
-                body,
-            });
-            // upload JSON only when uploading JS was successful
-            fetch(`${BASE_URL}${hash}.json`, {
-                method: "PUT",
-                mode: "cors",
-                body: JSON.stringify(meta),
-            });
-        } catch (error) { /* ignore */}
-    }
-
-    async function uploadModule(mod, includeAllFiles=false) {
-        const meta = await metadataFor(mod, includeAllFiles);
-        uploadFile(mod, meta);
-    }
-
-    async function uploadHTML() {
-        const meta = createMetadata(htmlName);
-        uploadFile(htmlName, meta, ".html");
-    }
-
-    /* we don't want to fetch assets to upload for now
-    async function uploadAsset(asset) {
-        const src = sourceCodeOf(asset.id);
-        const match = src.match(/^module.exports ?= ?"(.*\.(.*))";$/);
-        if (match) {
-            const [_, url, ext] = match;
-            console.log(asset.id, url, ext);
-        } else {
-            // not a url (probably JSON)
-        }
-    }
-    */
-
-    /** upload code for all modules */
-    async function uploadCode(entryPoint) {
-        names[entryPoint] = entryPointName;
-        uploadHTML();
-        for (const mod of allModuleIDs()) {
-            uploadModule(mod, mod === entryPoint);
-        }
-        // for (const asset of assets) {
-        //     uploadAsset(asset);
-        // }
-        return { base: BASE_URL, entry: await hashFile(entryPoint), html: await hashFile(htmlName) };
-    }
-
-    uploadCodeOrNoop = uploadCode;
-
-} else {
-
-    function uploadNoop() {}
-
-    uploadCodeOrNoop = uploadNoop;
-}
-
-// export uploadCode only if CROQUET_REPLAY is defined in .env
-
-async function _uploadCode() {
-    return uploadCodeOrNoop();
-}
-
-export { _uploadCode as uploadCode };
