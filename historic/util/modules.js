@@ -214,7 +214,8 @@ export function addConstantsHash(constants) {
     extraHashes.push(hashPromise);
 }
 
-export async function hashNameAndCode(name) {
+export async function hashNameAndCode(name, sdk_version) {
+    // if the application is not using parcel to bundle, we will not have any modules @@@
     const mods = allModuleIDs().filter(id => {
         // we don't want to be encoding any package.json, because it includes a build-specific path name.  ar.js also causes trouble, for some as yet unknown reason.
         // @@ this could be switched on or off under control of a process.env setting.
@@ -223,9 +224,10 @@ export async function hashNameAndCode(name) {
         return !exclude;
         }).sort();
     // console.log(`${name} Hashing ${moduleID}: ${mods.join(' ')}`);
-    console.log(`hashing ${mods.length} SDK modules`);
+    if (mods.length) console.log(`hashing ${mods.length} SDK modules`);
+    else console.log(`hashing SDK`);
     const hashes = await Promise.all([...mods.map(hashFile), ...extraHashes]);
-    const codeHash = await hashString(hashes.join('|'));
+    const codeHash = await hashString([sdk_version, ...hashes].join('|'));
     const hash = await hashString([name, codeHash].join('|'));
     return { hash, codeHash };
 }

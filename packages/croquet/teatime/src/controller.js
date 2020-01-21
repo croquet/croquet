@@ -196,7 +196,7 @@ export default class Controller {
         const nameWithOptions = Object.keys(options).length
             ? name + '?' + Object.entries(options).map(([k,v])=>`${k}=${v}`).join('&')
             : name;
-        const { hash: id, codeHash } = await hashNameAndCode(nameWithOptions);
+        const { hash: id, codeHash } = await hashNameAndCode(nameWithOptions, SDK_VERSION);
         console.log(`Session ID for "${nameWithOptions}": ${id}`);
         this.islandCreator = {...sessionSpec, options, name, nameWithOptions, codeHash };
 
