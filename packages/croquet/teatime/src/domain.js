@@ -111,14 +111,6 @@ export class Domain {
      */
     processFrameEvents(controllerIsSynced) {
         let n = 0;
-        // process queued events in order
-        for (const {topic, data} of this.queuedEvents) {
-            const subscriptions = this.subscriptions[topic];
-            if (subscriptions) {
-                for (const handler of subscriptions.queued) { handler(data); n++; }
-            }
-        }
-        this.queuedEvents.length = 0;
         // process oncePerFrame events in any order
         for (const [topic, data] of this.perFrameEvents) {
             const subscriptions = this.subscriptions[topic];
@@ -127,6 +119,7 @@ export class Domain {
             }
         }
         this.perFrameEvents.clear();
+        // process oncePerFrameWhileSynced events in any order
         if (controllerIsSynced) {
             for (const [topic, data] of this.perSyncedFrameEvents) {
                 const subscriptions = this.subscriptions[topic];
@@ -136,6 +129,14 @@ export class Domain {
             }
             this.perSyncedFrameEvents.clear();
         }
+        // process queued events in order
+        for (const {topic, data} of this.queuedEvents) {
+            const subscriptions = this.subscriptions[topic];
+            if (subscriptions) {
+                for (const handler of subscriptions.queued) { handler(data); n++; }
+            }
+        }
+        this.queuedEvents.length = 0;
         return n;
     }
 
