@@ -2,10 +2,41 @@ import resolve from 'rollup-plugin-node-resolve';
 import license from 'rollup-plugin-license';
 import babel from 'rollup-plugin-babel';
 import { terser } from 'rollup-plugin-terser';
-import replace from 'rollup-plugin-replace';
+import MagicString from 'magic-string';
 require('dotenv-flow').config({
     default_node_env: 'development'
 });
+
+
+// costum rollup plugin to resolve "process.env" references
+// it fakes a "process" module that exports "env" and imports that module everywhere
+// https://github.com/rollup/rollup/issues/487#issuecomment-486229172
+const INJECT_PROCESS_MODULE_ID = '\0inject-process';    // prefix \0 hides us from other plugins
+function inject_process() {
+    return {
+        name: 'inject-process-plugin',
+        resolveId(id) {
+            if (id === INJECT_PROCESS_MODULE_ID) {
+                return INJECT_PROCESS_MODULE_ID;
+            }
+        },
+        load(id) {
+            if (id === INJECT_PROCESS_MODULE_ID) {
+                return `export const env = ${JSON.stringify(process.env)};\n`;
+            }
+        },
+        transform(code, id) {
+            // Each module (except ours) gets the process mock injected.
+            // Tree-shaking will make sure the import is removed from most modules later.
+            if (id !== INJECT_PROCESS_MODULE_ID) {
+                const magicString = new MagicString(code);
+                magicString.prepend(`import * as process from '${INJECT_PROCESS_MODULE_ID}';\n`);
+                return { code: magicString.toString(), map: magicString.generateMap({ hires: true }) };
+            }
+        }
+    }
+};
+
 
 export default {
     input: 'src.js',
@@ -16,11 +47,7 @@ export default {
     },
     external: ['seedrandom/seedrandom', 'toastify-js', 'seedrandom', 'fast-json-stable-stringify', 'fastpriorityqueue'],
     plugins: [
-        // TODO: we might need something more elaborate once simple string replacement doesn't cut it anymore,
-        // see https://github.com/rollup/rollup/issues/487#issuecomment-486229172
-        replace({
-            'process.env.CROQUET_VERSION': JSON.stringify(process.env.CROQUET_VERSION)
-        }),
+        inject_process(),
         resolve({only: [/^@croquet/]}),
         babel({
             externalHelpers: false, runtimeHelpers: true,
