@@ -350,6 +350,7 @@ function JOIN(client, args) {
         const fileName = `${id}/latest.json`;
         fetchJSON(fileName)
         .then(latestSpec => {
+            if (!latestSpec.snapshotUrl) throw Error("latest.json has no snapshot, ignoring");
             LOG(`${id} resuming from latest.json @${latestSpec.time}#${latestSpec.seq} messages: ${latestSpec.messages.length} snapshot: ${latestSpec.snapshotUrl}`);
             savableKeys(island).forEach(key => island[key] = latestSpec[key]);
             island.storedUrl = latestSpec.snapshotUrl;
