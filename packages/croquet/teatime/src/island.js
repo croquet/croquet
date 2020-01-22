@@ -589,14 +589,6 @@ function hasReceiver(payload, id) {
     return payload.match(new RegExp(`^${id}>`));
 }
 
-function hasSelector(payload, selector) {
-    return payload.match(new RegExp(`>${selector}\\b`));
-}
-
-function hasReceiverAndSelector(payload, id, selector) {
-    return payload.match(new RegExp(`^${id}>${selector}\\b`));
-}
-
 /** Answer true if seqA comes before seqB:
  * - sequence numbers are 32 bit unsigned ints with overflow
  * - seqA comes before seqB if it takes fewer increments to
@@ -611,10 +603,6 @@ export function inSequence(seqA, seqB) {
 }
 
 export class Message {
-    static hasReceiver(msgData, id) { return hasReceiver(msgData[2], id); }
-    static hasSelector(msgData, sel) { return hasSelector(msgData[2], sel); }
-    static hasReceiverAndSelector(msgData, id, sel) { return hasReceiverAndSelector(msgData[2], id, sel); }
-
     constructor(time, seq, receiver, selector, args) {
         this.time = time;
         this.seq = seq;
@@ -637,8 +625,6 @@ export class Message {
     }
 
     hasReceiver(id) { return hasReceiver(this.payload, id); }
-    hasSelector(sel) { return hasSelector(this.payload, sel); }
-    hasReceiverAndSelector(id, sel) { return hasReceiverAndSelector(this.payload, id, sel); }
 
     isExternal() { return this.seq & 1; }
     get externalSeq() { return (this.seq / 2) >>> 0; }
