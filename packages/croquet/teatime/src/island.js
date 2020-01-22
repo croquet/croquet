@@ -586,7 +586,7 @@ function decode(payload, island) {
 }
 
 function hasReceiver(payload, id) {
-    return payload.match(new RegExp(`^${id}>`));
+    return payload.startsWith(`${id}>`);
 }
 
 /** Answer true if seqA comes before seqB:
