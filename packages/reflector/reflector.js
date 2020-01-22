@@ -744,7 +744,7 @@ async function deleteIsland(island) {
     // if we've been told of a snapshot since the one (if any) stored in this
     // island's latest.json, or there are messages since the snapshot referenced
     // there, write a new latest.json.
-    if (snapshotUrl !== storedUrl || after(storedSeq, seq)) {
+    if (snapshotUrl && (snapshotUrl !== storedUrl || after(storedSeq, seq))) {
         const fileName = `${id}/latest.json`;
         LOG(id, `@${time}#${seq} uploading latest.json with ${messages.length} messages`);
         const latestSpec = {};
