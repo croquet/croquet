@@ -543,7 +543,7 @@ function SEND(island, messages) {
         prometheusMessagesCounter.inc();
         STATS.RECV++;
         STATS.SEND += island.clients.size;
-        island.clients.forEach(each => each.safeSend(msg));
+        island.clients.forEach(each => each.active && each.safeSend(msg));
         island.messages.push(message); // raw message sent again in SYNC
     }
     island.lastMsgTime = time;
@@ -681,10 +681,11 @@ function TICK(island) {
     //LOG(id, 'broadcasting', msg);
     prometheusTicksCounter.inc();
     island.clients.forEach(client => {
-        // only send ticks if not back-logged
-        if (client.bufferedAmount) return;
-        client.safeSend(msg);
-        STATS.TICK++;
+        // only send ticks if joined and not back-logged
+        if (client.active && !client.bufferedAmount) {
+            client.safeSend(msg);
+            STATS.TICK++;
+        }
     });
 }
 
