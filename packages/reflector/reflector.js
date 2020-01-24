@@ -323,7 +323,7 @@ function JOIN(client, args) {
             snapshotSeq: null,   // seq of last snapshot
             snapshotUrl: '',     // url of last snapshot
             messages: [],        // messages since last snapshot
-            lastTick: 0,         // time of last TICK sent
+            lastTick: -1000,     // time of last TICK sent (-1000 to avoid initial delay)
             lastMsgTime: 0,      // time of last message reflected
             lastCompletedTally: null,
             ...nonSavableProps(),
