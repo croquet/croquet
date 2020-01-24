@@ -171,7 +171,7 @@ function handleTerm() {
             promises.push(deleteIsland(island));
         }
         if (promises.length) {
-            LOG(`\nEMERGENCY SHUTDOWN OF ${promises.length} ISLAND(S)`);
+            DEBUG(`\nEMERGENCY SHUTDOWN OF ${promises.length} ISLAND(S)`);
             Promise.all(promises).then(() => process.exit());
         } else process.exit();
     }
@@ -356,7 +356,7 @@ function JOIN(client, args) {
         fetchJSON(fileName)
         .then(latestSpec => {
             if (!latestSpec.snapshotUrl) throw Error("latest.json has no snapshot, ignoring");
-            LOG(`${id} resuming from latest.json @${latestSpec.time}#${latestSpec.seq} messages: ${latestSpec.messages.length} snapshot: ${latestSpec.snapshotUrl}`);
+            DEBUG(`${id} resuming from latest.json @${latestSpec.time}#${latestSpec.seq} messages: ${latestSpec.messages.length} snapshot: ${latestSpec.snapshotUrl}`);
             savableKeys(island).forEach(key => island[key] = latestSpec[key]);
             island.before = Date.now();
             island.storedUrl = latestSpec.snapshotUrl;
@@ -378,7 +378,7 @@ function JOIN(client, args) {
 
     // otherwise, nothing to do at this point.  log that this client is waiting
     // for a snapshot either from latest.json or from a STARTed client.
-    LOG(`${id}/${client.addr} waiting for snapshot`);
+    DEBUG(`${id}/${client.addr} waiting for snapshot`);
 }
 
 function START(island) {
@@ -390,7 +390,7 @@ function START(island) {
     const client = island.startClient;
     const msg = JSON.stringify({ id: island.id, action: 'START' });
     client.safeSend(msg);
-    LOG(`${island.id}/${client.addr} sending START ${msg}`);
+    DEBUG(`${island.id}/${client.addr} sending START ${msg}`);
     // if the client does not provide a snapshot in time, we need to start over
     island.startTimeout = setTimeout(() => {
         if (island.startClient !== client) return; // success
@@ -409,10 +409,10 @@ function SYNC(island) {
     for (const syncClient of island.syncClients) {
         if (syncClient.readyState === WebSocket.OPEN) {
             syncClient.safeSend(response);
-            LOG(`${id}/${syncClient.addr} @${island.time}#${island.seq} sending SYNC ${response.length} bytes, ${messages.length} messages${range}, snapshot: ${url}`);
+            DEBUG(`${id}/${syncClient.addr} @${island.time}#${island.seq} sending SYNC ${response.length} bytes, ${messages.length} messages${range}, snapshot: ${url}`);
             announceUserDidJoin(island, syncClient);
         } else {
-            LOG(`${id}/${syncClient.addr} cannot send SYNC`);
+            DEBUG(`${id}/${syncClient.addr} cannot send SYNC`);
         }
     }
     // synced all that were waiting
@@ -424,7 +424,7 @@ function SYNC(island) {
  */
 function LEAVING(client) {
     const id = client.sessionId;
-    LOG(`${id}/${client.addr} receiving LEAVING`);
+    DEBUG(`${id}/${client.addr} receiving LEAVING`);
     const island = ALL_ISLANDS.get(id);
     if (!island) return;
     island.clients.delete(client);
@@ -471,11 +471,11 @@ function SNAP(client, args) {
     // compare times rather than message seq, since (at least in principle) a new
     // snapshot can be taken after some elapsed time but no additional external messages.
     if (time <= island.snapshotTime) {
-        LOG(`${id}/${client.addr} @${island.time}#${island.seq} ignoring snapshot ${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'}`);
+        DEBUG(`${id}/${client.addr} @${island.time}#${island.seq} ignoring snapshot ${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'}`);
         return;
     }
 
-    LOG(`${id}/${client.addr} @${island.time}#${island.seq} got snapshot ${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'}`);
+    DEBUG(`${id}/${client.addr} @${island.time}#${island.seq} got snapshot ${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'}`);
 
     if (island.snapshotUrl) {
         // forget older messages, setting aside the ones that need to be stored
@@ -484,10 +484,10 @@ function SNAP(client, args) {
         if (msgs.length > 0) {
             const firstToKeep = msgs.findIndex(msg => after(seq, msg[1]));
             if (firstToKeep > 0) {
-                LOG(id, `forgetting ${firstToKeep} of ${msgs.length} messages #${msgs[0][1] >>> 0} to #${msgs[firstToKeep - 1][1] >>> 0} (keeping #${msgs[firstToKeep][1] >>> 0})`);
+                DEBUG(id, `forgetting ${firstToKeep} of ${msgs.length} messages #${msgs[0][1] >>> 0} to #${msgs[firstToKeep - 1][1] >>> 0} (keeping #${msgs[firstToKeep][1] >>> 0})`);
                 messagesToStore = msgs.splice(0, firstToKeep); // we'll store all those we're forgetting
             } else if (firstToKeep === -1) {
-                LOG(id, `forgetting all of ${msgs.length} messages (#${msgs[0][1] >>> 0} to #${msgs[msgs.length - 1][1] >>> 0})`);
+                DEBUG(id, `forgetting all of ${msgs.length} messages (#${msgs[0][1] >>> 0} to #${msgs[msgs.length - 1][1] >>> 0})`);
                 messagesToStore = msgs.slice();
                 msgs.length = 0;
             } // else if firstToKeep is 0 there's nothing to do
@@ -505,19 +505,19 @@ function SNAP(client, args) {
             const pad = n => (""+n).padStart(10, '0');
             const firstSeq = messagesToStore[0][1] >>> 0;
             const logName = `${id}/${pad(time)}_${firstSeq}-${seq}-${hash}.json`;
-            LOG(id, `@${island.time}#${island.seq} uploading messages between times ${island.snapshotTime} and ${time} (seqs ${firstSeq} to ${seq}) to ${logName}`);
+            DEBUG(id, `@${island.time}#${island.seq} uploading messages between times ${island.snapshotTime} and ${time} (seqs ${firstSeq} to ${seq}) to ${logName}`);
             uploadJSON(logName, messageLog);
         }
     } else if (island.startClient === client) {
         // this is the initial snapshot from the user we sent START
-        LOG(id, `@${island.time}#${island.seq} init ${time}#${seq} from SNAP`);
+        DEBUG(id, `@${island.time}#${island.seq} init ${time}#${seq} from SNAP`);
         island.time = time;
         island.seq = seq;
         island.before = Date.now();
         announceUserDidJoin(island, client);
     } else {
         // this is the initial snapshot, but it's an old client (<=0.2.5) that already requested TICKS()
-        LOG(id, `@${island.time}#${island.seq} not initializing time from snapshot (old client)`);
+        DEBUG(id, `@${island.time}#${island.seq} not initializing time from snapshot (old client)`);
     }
 
     // keep snapshot
@@ -577,7 +577,7 @@ function SEND_TAGGED(island, message, tags) {
         if (!msgRecord || (now - msgRecord > tags.debounce)) {
             island.tagRecords[msgID] = now;
         } else {
-            LOG(island.id, `debounce suppressed: ${JSON.stringify(message)}`);
+            DEBUG(island.id, `debounce suppressed: ${JSON.stringify(message)}`);
             return;
         }
     }
@@ -615,7 +615,7 @@ function TUTTI(client, args) {
         const lastComplete = island.lastCompletedTally;
         if (lastComplete !== null && (tuttiSeq === lastComplete || after(tuttiSeq, lastComplete))) {
             // too late
-            LOG(`${id}/${client.addr} rejecting tally of ${tuttiSeq} cf completed ${lastComplete}`);
+            DEBUG(`${id}/${client.addr} rejecting tally of ${tuttiSeq} cf completed ${lastComplete}`);
             return;
         }
 
@@ -664,7 +664,7 @@ function USERS(island) {
     if (usersLeft.length > 0) payload.left = [...usersLeft];
     const msg = [0, 0, payload];
     SEND(island, [msg]);
-    LOG(id, `Users ${island}: +${usersJoined.length}-${usersLeft.length}=${clients.size} (total ${ALL_ISLANDS.size} islands, ${server.clients.size} users)`);
+    DEBUG(id, `Users ${island}: +${usersJoined.length}-${usersLeft.length}=${clients.size} (total ${ALL_ISLANDS.size} islands, ${server.clients.size} users)`);
     usersJoined.length = 0;
     usersLeft.length = 0;
 }
@@ -685,7 +685,6 @@ function TICK(island) {
     if (time - lastMsgTime < tick * scale) return;
     island.lastTick = time;
     const msg = JSON.stringify({ id, action: 'TICK', args: time });
-    //LOG(id, 'broadcasting', msg);
     prometheusTicksCounter.inc();
     island.clients.forEach(client => {
         // only send ticks if joined and not back-logged
@@ -708,7 +707,7 @@ function TICKS(client, args) {
     if (!island.snapshotUrl) {
          // this must be an old client (<=0.2.5) that requests TICKS before sending a snapshot
         const { time, seq } = args;
-        LOG(`${id}/${client.addr} @${island.time}#${island.seq} init ${time}#${seq} from TICKS (old client)`);
+        DEBUG(`${id}/${client.addr} @${island.time}#${island.seq} init ${time}#${seq} from TICKS (old client)`);
         island.time = typeof time === "number" ? Math.ceil(time) : 0;
         island.seq = typeof seq === "number" ? seq : 0;
         island.before = Date.now();
@@ -729,7 +728,6 @@ function startTicker(island, tick) {
 function stopTicker(island) {
     clearInterval(island.ticker);
     island.ticker = null;
-    //LOG(id, "STOPPED TICKS");
 }
 
 // impose a delay on island deletion, in case clients are only going away briefly
@@ -755,7 +753,7 @@ async function deleteIsland(island) {
     // there, write a new latest.json.
     if (snapshotUrl && (snapshotUrl !== storedUrl || after(storedSeq, seq))) {
         const fileName = `${id}/latest.json`;
-        LOG(id, `@${time}#${seq} uploading latest.json with ${messages.length} messages`);
+        DEBUG(id, `@${time}#${seq} uploading latest.json with ${messages.length} messages`);
         const latestSpec = {};
         savableKeys(island).forEach(key => latestSpec[key] = island[key]);
         return uploadJSON(fileName, latestSpec);
@@ -765,7 +763,7 @@ async function deleteIsland(island) {
 
 async function unregisterSession(id, detail) {
     if (cluster === "local") return;
-    LOG(id, `unregistering session ${detail}`);
+    DEBUG(id, `unregistering session ${detail}`);
     try {
         await storage.bucket('croquet-reflectors-v1').file(`${id}.json`).delete();
     } catch (err) {
@@ -822,7 +820,7 @@ server.on('connection', (client, req) => {
     let lastActivity = Date.now();
     client.on('pong', time => {
         lastActivity = Date.now();
-        LOG(`${sessionId}/${client.addr} receiving pong after ${Date.now() - time} ms`);
+        DEBUG(`${sessionId}/${client.addr} receiving pong after ${Date.now() - time} ms`);
         });
     setTimeout(() => client.readyState === WebSocket.OPEN && client.ping(Date.now()), 100);
 
@@ -836,19 +834,19 @@ server.on('connection', (client, req) => {
         const now = Date.now();
         const quiescence = now - lastActivity;
         if (quiescence > DISCONNECT_THRESHOLD) {
-            LOG(`${sessionId}/${client.addr} inactive for ${quiescence} ms, disconnecting`);
+            DEBUG(`${sessionId}/${client.addr} inactive for ${quiescence} ms, disconnecting`);
             client.close(...REASON.INACTIVE); // NB: close event won't arrive for a while
             return;
         }
         let nextCheck;
         if (quiescence > PING_THRESHOLD) {
             if (!joined) {
-                LOG(`${sessionId}/${client.addr} did not join within ${quiescence} ms, disconnecting`);
+                DEBUG(`${sessionId}/${client.addr} did not join within ${quiescence} ms, disconnecting`);
                 client.close(...REASON.NO_JOIN);
                 return;
             }
 
-            LOG(`${sessionId}/${client.addr} inactive for ${quiescence} ms, sending ping`);
+            DEBUG(`${sessionId}/${client.addr} inactive for ${quiescence} ms, sending ping`);
             client.ping(now);
             nextCheck = PING_INTERVAL;
         } else nextCheck = CHECK_INTERVAL;
@@ -871,7 +869,7 @@ server.on('connection', (client, req) => {
                 case 'SNAP': SNAP(client, args); break;
                 case 'LEAVING': LEAVING(client); break;
                 case 'PING': PONG(client, args); break;
-                case 'PULSE': if (cluster === "local") LOG(`${sessionId}/${client.addr} receiving PULSE`); break; // nothing to do
+                case 'PULSE': LOCAL_DEBUG(`${sessionId}/${client.addr} receiving PULSE`); break; // nothing to do
                 default: WARN(`${sessionId}/${client.addr} unknown action ${JSON.stringify(action)}`);
             }
         };
@@ -893,7 +891,7 @@ server.on('connection', (client, req) => {
         else {
             island.clients.delete(client);
             if (island.startClient === client) {
-                LOG(`${island.id}/${client.addr} START client failed to respond`);
+                DEBUG(`${island.id}/${client.addr} START client failed to respond`);
                 clearTimeout(island.startTimeout);
                 island.startTimeout = null;
                 island.startClient = null;
