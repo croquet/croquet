@@ -13,6 +13,7 @@ const { Storage } = require('@google-cloud/storage');
 const googleCloudProfiler = true;
 const googleCloudDebugger = false;
 const collectRawSocketStats = false;
+const debugLogs = false;
 
 // collect metrics in Prometheus format
 const prometheusConnectionGauge = new prometheus.Gauge({
@@ -64,6 +65,8 @@ function logtime() {
 function LOG( ...args) { console.log( `${logtime()}Reflector-${VERSION}(${cluster}:${hostip}):`, ...args); }
 function WARN(...args) { console.warn(`${logtime()}Reflector-${VERSION}(${cluster}:${hostip}):`, ...args); }
 function ERROR(...args) { console.error(`${logtime()}Reflector-${VERSION}(${cluster}:${hostip}):`, ...args); }
+function DEBUG(...args) { if (debugLogs) LOG(...args); }
+function LOCAL_DEBUG(...args) { if (debugLogs && cluster === "local") LOG(...args); }
 
 // return codes for closing connection
 // client wil try to reconnect for codes < 4100
@@ -168,7 +171,7 @@ function handleTerm() {
             promises.push(deleteIsland(island));
         }
         if (promises.length) {
-            console.log(`\nEMERGENCY SHUTDOWN OF ${promises.length} ISLAND(S)`);
+            LOG(`\nEMERGENCY SHUTDOWN OF ${promises.length} ISLAND(S)`);
             Promise.all(promises).then(() => process.exit());
         } else process.exit();
     }
@@ -231,7 +234,7 @@ const ALL_ISLANDS = new Map();
 /** Get current time for island
  * @param {IslandData} island
  */
-function getTime(island) {
+function getTime(island, reason) {
     const now = Date.now();
     const delta = now - island.before;     // might be < 0 if system clock went backwards
     if (delta > 0) {
@@ -252,6 +255,7 @@ function getTime(island) {
         }
         island.time += island.scale * advance;
         island.before = now;
+        LOCAL_DEBUG(`${island.id} getTime(${reason}) => ${island.time}`);
     }
     return island.time;
 }
@@ -398,7 +402,7 @@ function JOIN(client, args) {
 
 function SYNC(island) {
     const { id, snapshotUrl: url, messages } = island;
-    const time = getTime(island);
+    const time = getTime(island, "SYNC");
     const response = JSON.stringify({ id, action: 'SYNC', args: { url, messages, time } });
     const range = !messages.length ? '' : ` (#${messages[0][1]}...${messages[messages.length - 1][1]})`;
     for (const syncClient of island.syncClients) {
@@ -531,7 +535,7 @@ function SNAP(client, args) {
  */
 function SEND(island, messages) {
     if (!island) return; // client never joined?!
-    const time = getTime(island);
+    const time = getTime(island, "SEND");
     if (island.delay) {
         const delay = island.lastTick + island.delay + 0.1 - time;    // add 0.1 ms to combat rounding errors
         if (island.delayed || delay > 0) { DELAY_SEND(island, delay, messages); return; }
@@ -541,7 +545,7 @@ function SEND(island, messages) {
         message[0] = time;
         message[1] = island.seq = (island.seq + 1) >>> 0; // seq is always uint32
         const msg = JSON.stringify({ id: island.id, action: 'RECV', args: message });
-        //LOG(id, "broadcasting RECV", message);
+        LOCAL_DEBUG(`${island.id} broadcasting RECV ${JSON.stringify(message)}`);
         prometheusMessagesCounter.inc();
         STATS.RECV++;
         STATS.SEND += island.clients.size;
@@ -633,16 +637,15 @@ function DELAY_SEND(island, delay, messages) {
         stopTicker(island);
         island.delayed = [];
         setTimeout(() => DELAYED_SEND(island), delay);
-        //LOG(island.id, ">>>>>>>>>>>>>> Delaying for", delay, "ms");
+        LOCAL_DEBUG(`${island.id} last tick: @${island.lastTick}, delaying for ${delay} ms`);
     }
     island.delayed.push(...messages);
-    //LOG(island.id, ">>>>>>>>>>>>>> Delaying", ...args);
+    if (debugLogs) for (const msg of messages) LOCAL_DEBUG(`${island.id} delaying ${JSON.stringify(msg)}`);
 }
 
 function DELAYED_SEND(island) {
     const { delayed } = island;
     island.delayed = null;
-    //LOG(island.id, ">>>>>>>>>>>>>> Sending delayed messages", delayed);
     SEND(island, delayed);
 }
 
@@ -676,7 +679,7 @@ function TICK(island) {
     if (island.clients.size === 0) return; // probably in provisional island deletion
 
     const { id, lastMsgTime, tick, scale } = island;
-    const time = getTime(island);
+    const time = getTime(island, "TICK");
     if (time - lastMsgTime < tick * scale) return;
     island.lastTick = time;
     const msg = JSON.stringify({ id, action: 'TICK', args: time });
@@ -715,10 +718,10 @@ function TICKS(client, args) {
 }
 
 function startTicker(island, tick) {
+    LOCAL_DEBUG(`${island.id} ${island.ticker ? "restarting" : "started"} ticker: ${tick} ms`);
     if (island.ticker) stopTicker(island);
     island.tick = tick;
     island.ticker = setInterval(() => TICK(island), tick);
-    //LOG(id, `Sending TICKs every ${tick} ms to ${island}`)
 }
 
 function stopTicker(island) {
@@ -811,7 +814,7 @@ server.on('connection', (client, req) => {
         client._socket.on('data', buf => client.stats.ri += buf.length);
     }
     // the connection log filter matches on (" connection " OR " JOIN ")
-    LOG(`${sessionId}/${client.addr} opened connection ${version} ${client.forwarded||''}${req.headers['x-location']}`);
+    LOG(`${sessionId}/${client.addr} opened connection ${version} ${client.forwarded||''}${req.headers['x-location']||''}`);
     STATS.USERS = Math.max(STATS.USERS, server.clients.size);
 
     let lastActivity = Date.now();
