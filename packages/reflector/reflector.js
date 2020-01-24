@@ -264,7 +264,7 @@ function nonSavableProps() {
         usersLeft: [],       // the users who left since last report
         usersTimer: null,    // timeout for sending USERS message
         ticker: null,        // interval for serving TICKs
-        before: Date.now(),  // last getTime() call
+        before: 0,           // last getTime() call
         yetToCheckLatest: true, // flag used while fetching latest.json during startup
         storedUrl: null,     // url of snapshot in latest.json (null before we've checked latest.json)
         storedSeq: -1,       // seq of last message in latest.json message addendum
@@ -353,6 +353,7 @@ function JOIN(client, args) {
             if (!latestSpec.snapshotUrl) throw Error("latest.json has no snapshot, ignoring");
             LOG(`${id} resuming from latest.json @${latestSpec.time}#${latestSpec.seq} messages: ${latestSpec.messages.length} snapshot: ${latestSpec.snapshotUrl}`);
             savableKeys(island).forEach(key => island[key] = latestSpec[key]);
+            island.before = Date.now();
             island.storedUrl = latestSpec.snapshotUrl;
             island.storedSeq = latestSpec.seq;
             if (island.tick) startTicker(island, island.tick);
@@ -507,6 +508,7 @@ function SNAP(client, args) {
         LOG(id, `@${island.time}#${island.seq} init ${time}#${seq} from SNAP`);
         island.time = time;
         island.seq = seq;
+        island.before = Date.now();
         announceUserDidJoin(island, client);
     } else {
         // this is the initial snapshot, but it's an old client (<=0.2.5) that already requested TICKS()
@@ -704,6 +706,7 @@ function TICKS(client, args) {
         LOG(`${id}/${client.addr} @${island.time}#${island.seq} init ${time}#${seq} from TICKS (old client)`);
         island.time = typeof time === "number" ? Math.ceil(time) : 0;
         island.seq = typeof seq === "number" ? seq : 0;
+        island.before = Date.now();
         announceUserDidJoin(island, client);
     }
     if (delay > 0) island.delay = delay;
