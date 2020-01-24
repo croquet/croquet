@@ -272,6 +272,7 @@ function nonSavableProps() {
         yetToCheckLatest: true, // flag used while fetching latest.json during startup
         storedUrl: null,     // url of snapshot in latest.json (null before we've checked latest.json)
         storedSeq: -1,       // seq of last message in latest.json message addendum
+        startClient: null,   // the client we sent START
         startTimeout: null,  // pending START request timeout (should send SNAP)
         deletionTimeout: null, // pending deletion after all clients disconnect
         syncClients: [],     // clients waiting to SYNC
@@ -365,7 +366,7 @@ function JOIN(client, args) {
         }).catch(err => {
             if (err.code !== 404) ERROR(id, err.message);
             island.storedUrl = ''; // replace the null that means we haven't looked
-            START();
+            START(island);
         });
 
         return;
@@ -373,31 +374,31 @@ function JOIN(client, args) {
 
     // if we've checked latest.json, and updated storedUrl (but not snapshotUrl,
     // as checked above), this must be a brand new island.  send a START.
-    if (island.storedUrl !== null && !island.startTimeout) { START(); return; }
+    if (island.storedUrl !== null && !island.startTimeout) { START(island); return; }
 
     // otherwise, nothing to do at this point.  log that this client is waiting
     // for a snapshot either from latest.json or from a STARTed client.
     LOG(`${id}/${client.addr} waiting for snapshot`);
+}
 
-    function START() {
-        // find next client
-        do {
-            client = island.syncClients.shift();
-            if (!client) return; // no client waiting
-        } while (client.readyState !== WebSocket.OPEN);
-        const msg = JSON.stringify({ id, action: 'START' });
-        client.safeSend(msg);
-        LOG(`${id}/${client.addr} sending START ${msg}`);
-        // if the client does not provide a snapshot in time, we need to start over
-        island.startTimeout = setTimeout(() => {
-            island.startTimeout = null;
-            // kill client
-            LOG(`${id}/${client.addr} START client failed to respond`);
-            if (client.readyState === WebSocket.OPEN) client.close(...REASON.UNRESPONSIVE);
-            // start next client
-            START();
-            }, SNAP_TIMEOUT);
-    }
+function START(island) {
+    // find next client
+    do {
+        island.startClient = island.syncClients.shift();
+        if (!island.startClient) return; // no client waiting
+    } while (island.startClient.readyState !== WebSocket.OPEN);
+    const client = island.startClient;
+    const msg = JSON.stringify({ id: island.id, action: 'START' });
+    client.safeSend(msg);
+    LOG(`${island.id}/${client.addr} sending START ${msg}`);
+    // if the client does not provide a snapshot in time, we need to start over
+    island.startTimeout = setTimeout(() => {
+        if (island.startClient !== client) return; // success
+        if (client.readyState === WebSocket.OPEN) {
+            client.close(...REASON.UNRESPONSIVE);
+        }
+        // the client's on('close') handler will call START again
+    }, SNAP_TIMEOUT);
 }
 
 function SYNC(island) {
@@ -507,7 +508,7 @@ function SNAP(client, args) {
             LOG(id, `@${island.time}#${island.seq} uploading messages between times ${island.snapshotTime} and ${time} (seqs ${firstSeq} to ${seq}) to ${logName}`);
             uploadJSON(logName, messageLog);
         }
-    } else if (island.time === 0) {
+    } else if (island.startClient === client) {
         // this is the initial snapshot from the user we sent START
         LOG(id, `@${island.time}#${island.seq} init ${time}#${seq} from SNAP`);
         island.time = time;
@@ -525,7 +526,7 @@ function SNAP(client, args) {
     island.snapshotUrl = url;
 
     // start waiting clients
-    if (island.startTimeout) { clearTimeout(island.startTimeout); island.startTimeout = null; }
+    if (island.startClient) { clearTimeout(island.startTimeout); island.startTimeout = null; island.startClient = null; }
     if (island.syncClients.length > 0) SYNC(island);
 }
 
@@ -890,6 +891,14 @@ server.on('connection', (client, req) => {
         if (!island) unregisterSession(client.sessionId, "on close");
         else {
             island.clients.delete(client);
+            if (island.startClient === client) {
+                LOG(`${island.id}/${client.addr} START client failed to respond`);
+                clearTimeout(island.startTimeout);
+                island.startTimeout = null;
+                island.startClient = null;
+                // start next client
+                START(island);
+            }
             if (island.clients.size === 0) provisionallyDeleteIsland(island); // last user to leave doesn't trigger a "users" message, because there's no-one to act on it
             else announceUserDidLeave(island, client);
         }
