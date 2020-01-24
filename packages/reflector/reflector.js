@@ -657,6 +657,7 @@ function USERS(island) {
     island.usersTimer = null;
     const { id, clients, usersJoined, usersLeft } = island;
     const active = [...clients].filter(each => each.active).length;
+    if (!active) return; // do not trigger a SEND before someone successfully joined
     const total = clients.size;
     const payload = { what: 'users', active, total };
     if (usersJoined.length > 0) payload.joined = [...usersJoined];
