@@ -49,6 +49,7 @@ function initDEBUG() {
         snapshot: urlOptions.has("debug", "snapshot", false),               // snapshotting, uploading etc
         session: urlOptions.has("debug", "session", false),                 // session logging
         initsnapshot: urlOptions.has("debug", "initsnapshot", "localhost"), // check snapshotting after init
+        reflector: urlOptions.has("debug", "reflector", urlOptions.dev || "localhost"), // use dev reflector
         // init: urlOptions.has("debug", "init", false),                      // always run init() if first user in session
     };
 }
@@ -907,14 +908,14 @@ class Connection {
         this.connectHasBeenCalled = true;
         this.connectBlocked = false;
         this.connectRestricted = false;
-        let reflectorUrl = urlOptions.reflector || (urlOptions.dev ? DEV_DEFAULT_REFLECTOR : DEFAULT_REFLECTOR);
+        let reflectorUrl = urlOptions.reflector || (DEBUG.reflector ? DEV_DEFAULT_REFLECTOR : DEFAULT_REFLECTOR);
         if (!reflectorUrl.match(/^wss?:/)) throw Error('Cannot interpret reflector address ' + reflectorUrl);
         if (!reflectorUrl.endsWith('/')) reflectorUrl += '/';
         return new Promise( resolve => {
             const socket = Object.assign(new WebSocket(`${reflectorUrl}${this.controller.id}`), {
                 onopen: _event => {
                     this.socket = socket;
-                    if (DEBUG.session) console.log(this.socket.constructor.name, "connected to", this.socket.url);
+                    if (DEBUG.session || DEBUG.reflector) console.log(this.socket.constructor.name, "connected to", this.socket.url);
                     Stats.connected(true);
                     this.resolveConnection(null); // the value itself isn't currently used
                     resolve();
