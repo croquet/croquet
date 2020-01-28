@@ -49,7 +49,7 @@ function initDEBUG() {
         snapshot: urlOptions.has("debug", "snapshot", false),               // snapshotting, uploading etc
         session: urlOptions.has("debug", "session", false),                 // session logging
         initsnapshot: urlOptions.has("debug", "initsnapshot", "localhost"), // check snapshotting after init
-        init: urlOptions.has("debug", "init", "localhost"),                 // always run init() if first user in session
+        // init: urlOptions.has("debug", "init", false),                      // always run init() if first user in session
     };
 }
 
