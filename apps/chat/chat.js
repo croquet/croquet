@@ -22,6 +22,7 @@ class ChatModel extends Model {
         this.subscribe("input", "newPost", post => this.newPost(post));
         this.subscribe(this.sessionId, "view-join", viewId => this.userJoin(viewId));
         this.subscribe(this.sessionId, "view-exit", viewId => this.userDrop(viewId));
+        this.subscribe("reset", "chatReset", viewId => this.chatReset(viewId));
     }
 
     userJoin(viewId) {
@@ -46,6 +47,12 @@ class ChatModel extends Model {
         if (this.history.length > 100) this.history.shift();
         this.publish("history", "update", this.history);
     }
+
+    chatReset(viewId) {
+        const userName = this.users[viewId];
+        this.history = [];
+        this.addToHistory(`<i>${userName} has reset the room</i>`);
+   }
 
     escape(text) { // Clean up text to remove html formatting characters
         return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
@@ -83,6 +90,8 @@ class ChatView extends View {
         super(model);
         const sendButton = document.getElementById("sendButton");
         sendButton.onclick = event => this.onSendClick(event);
+        const resetButton = document.getElementById("resetButton");
+        resetButton.onclick = event => this.onResetClick(event);
         this.subscribe("history", "update", history => this.refreshHistory(history));
         this.refreshHistory(model.history);
     }
@@ -92,6 +101,10 @@ class ChatView extends View {
         const post = {viewId: this.viewId, text: textIn.value};
         this.publish("input", "newPost", post);
         textIn.value = "";
+    }
+    
+    onResetClick() {
+        this.publish("reset", "chatReset", this.viewId);
     }
 
     refreshHistory(history) {
