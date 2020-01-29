@@ -167,8 +167,14 @@ function addToastifyStyle() {
 }
 addToastifyStyle();
 
+const seenMessages = new Set();
+
 // this is the default App.messageFunction
 export function showMessageAsToast(msg, options = {}) {
+    if (options.only === "once") {
+        if (seenMessages.has(msg)) return null;
+        seenMessages.add(msg);
+    }
     const level = options.level;
     let color;
     if (level === 'error') { color = 'red'; console.error(msg); }
