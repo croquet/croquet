@@ -90,7 +90,7 @@ function addWidgetStyle() {
 `;
     const widgetStyle = document.createElement("style");
     widgetStyle.innerHTML = widgetCSS;
-    document.head.appendChild(widgetStyle);
+    document.head.insertBefore(widgetStyle, document.head.getElementsByTagName("style")[0]);
 }
 addWidgetStyle();
 
@@ -163,7 +163,7 @@ function addToastifyStyle() {
 `;
     const toastifyStyle = document.createElement("style");
     toastifyStyle.innerHTML = toastifyCSS;
-    document.head.appendChild(toastifyStyle);
+    document.head.insertBefore(toastifyStyle, document.head.getElementsByTagName("style")[0]);
 }
 addToastifyStyle();
 
