@@ -171,8 +171,8 @@ addToastifyStyle();
 export function showMessageAsToast(msg, options = {}) {
     const level = options.level;
     let color;
-    if (level === 'error') color = 'red';
-    else if (level === 'warning') color = 'gold';
+    if (level === 'error') { color = 'red'; console.error(msg); }
+    else if (level === 'warning') { color = 'gold'; console.warn(msg); }
     else color = '#aaa';
 
     return displayToast(msg, { backgroundColor: color, ...options });
