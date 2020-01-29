@@ -842,7 +842,7 @@ class IslandHasher {
     }
 
     hashEntry(key, value, defer = true) {
-        if (key[0] === '$') { console.warn(`ignoring property ${key}`); return; }
+        if (key[0] === '$') { displayWarning(`snapshot: ignoring property ${key}`, { only: "once" }); return; }
         if (defer && typeof value === "object") {
             this.todo.push({ key, value });
             return;
@@ -1036,7 +1036,7 @@ class IslandWriter {
     }
 
     writeInto(state, key, value, path, defer=true) {
-        if (key[0] === '$') { console.warn(`ignoring property ${path}`); return; }
+        if (key[0] === '$') { displayWarning(`snapshot: ignoring property ${key}`, { only: "once" }); return; }
         if (defer && typeof value === "object") {
             this.todo.push({state, key, value, path});
             return;
