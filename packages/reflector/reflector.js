@@ -13,7 +13,7 @@ const { Storage } = require('@google-cloud/storage');
 const googleCloudProfiler = true;
 const googleCloudDebugger = false;
 const collectRawSocketStats = false;
-const debugLogs = false;
+const debugLogs = true;
 
 // collect metrics in Prometheus format
 const prometheusConnectionGauge = new prometheus.Gauge({
