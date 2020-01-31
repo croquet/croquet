@@ -434,14 +434,18 @@ declare module "@croquet/croquet" {
         view: V,
         step: (time: number) => void
     }
+
     export type CroquetSessionOptions = {
         step?: "auto" | "manual",
         tps?: number
     }
+
+    type ClassOf<M> = new (...args: any[]) => M;
+
     export function startSession<M extends Model, V extends View> (
-        name:string,
-        modelClass: new (...args: any[]) => M,
-        viewClass: new (...args: any[]) => V,
+        name: string,
+        modelClass: ClassOf<M>,
+        viewClass: ClassOf<V>,
         options?: CroquetSessionOptions
     ): Promise<CroquetSession<V>>;
 }

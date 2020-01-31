@@ -5,11 +5,28 @@ export interface ObservableModel extends Model {
 }
 
 /**
- * Create a new __observable__ model
+ * Mixin that supplies a standard implementation for {@link ObservableModel#publishPropertyChange} into the given Model BaseClass.
+ * This makes this method is available to all classes extending the mixed-in BaseClass, **allowing them to publish property changes as a {@link ObservableModel}**.
+ *
+ * ```
+ * class CounterModel extends Observable(Model) {
+ *      init(options = {}) {
+ *          super.init(options);
+ *          this.count = 0;
+ *          this.subscribe(this.id, 'increment', this.onIncrement);
+ *      }
+ *
+ *      onIncrement() {
+ *          this.count += 1;
+ *          publishPropertyChange("count");
+ *      }
+ * }
+ * ```
+ *
  * @param BaseClass
  */
-export function Observable(BaseClass: typeof Model) {
-    return class extends BaseClass implements ObservableModel {
+export function Observable<M extends Model>(BaseClass: ClassOf<M>): ClassOf<M & ObservableModel> {
+    return class ObservableClass extends (BaseClass as ClassOf<Model>) {
         /**
          *
          * public
@@ -17,7 +34,7 @@ export function Observable(BaseClass: typeof Model) {
         publishPropertyChange(property: string) {
             this.publish(this.id + "#" + property, "changed", null);
         }
-    };
+    } as any;
 }
 
 export interface ModelObserving<SubOptions> {
@@ -25,10 +42,28 @@ export interface ModelObserving<SubOptions> {
     unsubscribeFromPropertyChange(model: ObservableModel, property: string): void;
 }
 
+type ClassOf<M> = new (...args: any[]) => M
 
-export function Observing<M extends Model>(BaseClass: new (...args: any[]) => M): new (...args: any[]) => (M & ModelObserving<{}>);
-export function Observing<V extends View>(BaseClass: new (...args: any[]) => V): new (...args: any[]) => (V & ModelObserving<ViewSubOptions>);
-export function Observing<SubOptions>(BaseClass: new (...args: any[]) => PubSubParticipant<SubOptions>): new (...args: any[]) => (PubSubParticipant<SubOptions> & ModelObserving<SubOptions>) {
+/** Mixin that supplies a standard implementation for {@link ModelObserving#subscribeToPropertyChange} and {@link ModelObserving#unsubscribeFromPropertyChange}
+ * into a Model *or* View BaseClass.
+ * This makes these methods is available to all classes extending the mixed-in BaseClass, **allowing them to listen to property changes of {@link ObservableModel}s**.
+ *
+ * ```
+ * class CounterView extends Observing(View) {
+ *      constructor(model) {
+ *          this.model = model;
+ *          this.subscribeToPropertyChange(model, "count", this.onCountChanged, {handling: "oncePerFrame"});
+ *      }
+ *
+ *      onCountChanged() {
+ *          console.log("Count changed! " + this.model.count);
+ *      }
+ * }
+ * ```
+ */
+export function Observing<M extends Model>(BaseClass: ClassOf<M>): ClassOf<M & ModelObserving<{}>>;
+export function Observing<V extends View>(BaseClass: ClassOf<V>): ClassOf<V & ModelObserving<ViewSubOptions>>;
+export function Observing<SubOptions>(BaseClass: ClassOf<PubSubParticipant<SubOptions>>): ClassOf<PubSubParticipant<SubOptions> & ModelObserving<SubOptions>> {
     return class extends BaseClass implements ModelObserving<SubOptions> {
         /**
          *
@@ -100,11 +135,45 @@ function deepChangeProxy(object: any, onChangeAtAnyDepth: Function) {
     return object;
 }
 
-export function AutoObservableModel<S extends Object>(initialState: S): new (...args: any[]) => (ObservableModel & S){
+/** Create a model class that consist solely of automatically observable properties.
+ *
+ * This works by defining getters and setters for all properties implied by `initialState`,
+ * which not only read and change those properties as if they were instance members,
+ * but automatically publish corresponding property change events on every property write.
+ *
+ * The CounterModel example from {@link Observable}, where properties changes were published
+ * manually, can be rewritten using `AutoObservableModel` like this:
+ *
+ * ```
+ * class CounterModel extends AutoObservableModel({count: 0}) {
+ *      init(options = {}) {
+ *          super.init(options);
+ *          this.subscribe(this.id, 'increment', this.onIncrement);
+ *      }
+ *
+ *      onIncrement() {
+ *          // automatically publishes property change event
+ *          this.count += 1;
+ *      }
+ * }
+ * ```
+ */
+export function AutoObservableModel<S extends Object>(initialState: S): ClassOf<ObservableModel & S> {
     return AutoObservable(initialState)(Model);
 }
 
-export function AutoObservable<S extends Object>(initialState: S): (BaseClass: typeof Model) => new (...args: any[]) => (ObservableModel & S) {
+/** Mixin that supplies automatically managed observable properties to a Model BaseClass,
+ * making it an ObservableModel with respect to these properties.
+ *
+ * This works by defining getters and setters for all properties implied by `initialState`,
+ * which not only read and change those properties as if they were instance members,
+ * but automatically publish corresponding property change events on every property write.
+ *
+ * Combining automatically observed properties with an existing Model class is probably a rarer use case,
+ * so the main application for `AutoObservable` is actually through `AutoObservableModel`, which creates
+ * a Model class consisting solely of automatically observable properties.
+ */
+export function AutoObservable<S extends Object>(initialState: S): (BaseClass: typeof Model) => ClassOf<ObservableModel & S> {
     return (BaseClass) => {
         const cls = class ObservableClass extends Observable(BaseClass) {
             init(options: any) {
@@ -120,7 +189,7 @@ export function AutoObservable<S extends Object>(initialState: S): (BaseClass: t
             Object.defineProperty(cls.prototype, prop, {
                 get() {
                     return deepChangeProxy(this[realProp], () => {
-                        this.publishPropertyChange(prop);
+                        (this as ObservableModel).publishPropertyChange(prop);
                     });
                 },
                 set(newVal) {
