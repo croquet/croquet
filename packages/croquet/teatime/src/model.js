@@ -3,7 +3,7 @@ import urlOptions from "@croquet/util/urlOptions";
 import { addClassHash } from "@croquet/util/modules";
 import { displayAppError } from "@croquet/util";
 import { currentRealm } from "./realms";
-
+import { resetReadersAndWriters } from "./island";
 
 const DEBUG = {
     classes: urlOptions.has("debug", "classes", false),
@@ -123,6 +123,7 @@ class Model {
      * @public
      */
     static register(file="unknown-file") {
+        resetReadersAndWriters();
         addClassHash(this);
         registerClass(file, this.name, this);
         return this;

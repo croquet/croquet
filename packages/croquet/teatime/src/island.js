@@ -126,7 +126,7 @@ export default class Island {
                 this.modelsId = 0;
                 if (snapshot.modelsById) {
                     // read island from snapshot
-                    const reader = new IslandReader(this);
+                    const reader = IslandReader.newOrRecycled(this);
                     const islandData = reader.readIsland(snapshot, "$");
                     // only read keys declared above
                     for (const key of Object.keys(islandData)) {
@@ -541,7 +541,7 @@ export default class Island {
     }
 
     snapshot() {
-        const writer = new IslandWriter(this);
+        const writer = IslandWriter.newOrRecycled(this);
         return writer.snapshot(this, "$");
     }
 
@@ -568,7 +568,7 @@ export default class Island {
 
 function encode(receiver, selector, args) {
     if (args.length > 0) {
-        const encoder = new MessageArgumentEncoder();
+        const encoder = MessageArgumentEncoder.newOrRecycled();
         args = encoder.encode(args);
     }
     return `${receiver}>${selector}${args.length > 0 ? JSON.stringify(args):""}`;
@@ -579,7 +579,7 @@ function decode(payload, island) {
     const [receiver, selector] = msg.split('>');
     let args = [];
     if (argString) {
-        const decoder = new MessageArgumentDecoder(island);
+        const decoder = MessageArgumentDecoder.newOrRecycled(island);
         args = decoder.decode(JSON.parse(argString));
     }
     return {receiver, selector, args};
@@ -858,6 +858,25 @@ const ints = new Uint32Array(floats.buffer);
 */
 
 class IslandWriter {
+    static newOrRecycled(island) {
+        let inst = this.reusableInstance;
+        if (!inst) {
+            inst = this.reusableInstance = new this(island);
+        } else {
+            inst.island = island;
+            inst.nextRef = 1;
+            inst.refs = new Map();
+            inst.todo = [];
+        }
+        return inst;
+    }
+
+    static get reusableInstance() { return this[this.name + "-instance"]; }
+
+    static set reusableInstance(val) { this[this.name + "-instance"] = val; }
+
+    static resetInstance() { this.reusableInstance = null; }
+
     constructor(island) {
         this.island = island;
         this.nextRef = 1;
@@ -1049,6 +1068,25 @@ class IslandWriter {
 }
 
 class IslandReader {
+    static newOrRecycled(island) {
+        let inst = this.reusableInstance;
+        if (!inst) {
+            inst = this.reusableInstance = new this(island);
+        } else {
+            inst.island = island;
+            inst.refs = new Map();
+            inst.todo = [];
+            inst.unresolved = [];
+        }
+        return inst;
+    }
+
+    static get reusableInstance() { return this[this.name + "-instance"]; }
+
+    static set reusableInstance(val) { this[this.name + "-instance"] = val; }
+
+    static resetInstance() { this.reusableInstance = null; }
+
     constructor(island) {
         this.island = island;
         this.refs = new Map();
@@ -1210,7 +1248,6 @@ class IslandReader {
     }
 }
 
-
 class MessageArgumentEncoder extends IslandWriter {
     encode(args) {
         const encoded = this.writeArray(args, '$');
@@ -1252,6 +1289,13 @@ export function gatherInternalClassTypes(dummyObject, prefix) {
     const seen = new Set();
     gatherInternalClassTypesRec({root: dummyObject}, prefix, gatheredClasses, seen);
     return gatheredClasses;
+}
+
+export function resetReadersAndWriters() {
+    IslandReader.resetInstance();
+    IslandWriter.resetInstance();
+    MessageArgumentEncoder.resetInstance();
+    MessageArgumentDecoder.resetInstance();
 }
 
 function gatherInternalClassTypesRec(dummyObject, prefix="", gatheredClasses={}, seen=new Set()) {
