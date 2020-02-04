@@ -255,7 +255,7 @@ function getTime(island, reason) {
         }
         island.time += island.scale * advance;
         island.before = now;
-        LOCAL_DEBUG(`${island.id} getTime(${reason}) => ${island.time}`);
+        //LOCAL_DEBUG(`${island.id} getTime(${reason}) => ${island.time}`);
     }
     return island.time;
 }
