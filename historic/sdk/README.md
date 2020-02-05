@@ -6,6 +6,7 @@ Also, please review our [**Code of Conduct**](/conduct.html) and
 **join** our [**Developer Slack** ![Slack](images/slack.png)](https://join.slack.com/t/croquet-dev/shared_invite/enQtNzAwNjMyMjIyMDY3LTBhZGFmODNhMTI3ZDc1NjMyODRhNjRiZjRhNDM0OGVmM2ZlYmMxMDhhMTIyNWM2NjhhZDRiMjNhMGE5MTJlZWI).
 
 ## Below you will find:
+- [Quickstart](#quickstart)
 - [What is Croquet?](#what-is-croquet)
 - [Main Concepts](#main-concepts)
 - [Creating a _Croquet_ App](#creating-a-croquet-app)
@@ -16,6 +17,28 @@ Also, please review our [**Code of Conduct**](/conduct.html) and
 - [Snapshots](#snapshots)
 - [Random](#random)
 - [**SDK Changelog**](#changelog)
+
+# Quickstart
+
+There are 3 main ways to use our SDK:
+
+1. **CodePen:** play with our tutorials, click "Edit on CodePen", and develop your app there. To share it, change the view to full screen, and share the pen's url. Alternatively, click "Export" and choose "Export .zip" to download your app to your local computer for further editing and uploading to your own website.
+
+2. **Script Tag**: Add the following inside your page's `<head>` tag:
+
+        <script src="https://croquet.io/sdk/croquet-latest.min.js"></script>
+
+    This will create the `Croquet` global to access `Croquet.Model` etc.
+
+3. **NPM**: install the [`@croquet/croquet`](https://www.npmjs.com/package/@croquet/croquet) package:
+
+        $ npm install @croquet/croquet
+
+    Then import it in your JS file:
+
+        import * as Croquet from "@croquet/croquet"
+
+We frequently update the SDK so be sure to always use the latest (until we have a stable release).
 
 # What is Croquet?
 
