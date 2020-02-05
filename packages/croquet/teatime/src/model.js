@@ -77,8 +77,8 @@ class Model {
         const realm = currentRealm();
         const model = new ModelClass(SECRET);
         // read-only props
-        Object.defineProperty(model, "__realm", {  value: realm });
-        Object.defineProperty(model, "id", {  value: realm.register(model), enumerable: true });
+        Object.defineProperty(model, "__realm", { value: realm });
+        Object.defineProperty(model, "id", { value: realm.register(model), enumerable: true });
         SuperInitNotCalled.add(model);
         if (wellKnownName) model.beWellKnownAs(wellKnownName);
         model.init(options);
@@ -98,8 +98,8 @@ class Model {
         const realm = currentRealm();
         const model = new ModelClass(SECRET);
         // read-only props
-        Object.defineProperty(model, "__realm", {  value: realm });
-        Object.defineProperty(model, "id", {  value: id, enumerable: true });
+        Object.defineProperty(model, "__realm", { value: realm });
+        Object.defineProperty(model, "id", { value: id, enumerable: true });
         return model;
     }
 
