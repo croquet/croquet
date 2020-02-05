@@ -238,6 +238,8 @@ class Model {
     destroy() {
         currentRealm().unsubscribeAll(this);
         currentRealm().deregister(this);
+        // we're not deleting the object's id here
+        // because it comes in handy for queued view event handlers
     }
 
     // Pub / Sub
