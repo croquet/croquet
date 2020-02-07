@@ -61,7 +61,7 @@ import {
           delete actuallyObservedProps[prop];
         }
       };
-    }, [model, actuallyObservedProps, croquetContext.view]);
+    }, [model, croquetContext.view]);
 
     return useMemo(
       () =>
@@ -79,7 +79,7 @@ import {
             return (target as any)[prop];
           }
         }),
-      [model, actuallyObservedProps, croquetContext.view]
+      [model, croquetContext.view]
     );
   }
 
