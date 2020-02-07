@@ -1,6 +1,6 @@
 {
   "name": "@croquet/croquet",
-  "version": "0.2.6-types",
+  "version": "0.2.6-subfix5",
   "description": "",
   "main": "dist/croquet.min.js",
   "types": "types.d.ts",
