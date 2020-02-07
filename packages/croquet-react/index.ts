@@ -172,13 +172,14 @@ import {
    *  }
    * ``` */
   export function useSubscribe(scope: string, eventSpec: string, callback: (data: any) => void, deps: any[]) {
-    // TODO: support multiple subscriptions to the same event => requires multiple views!!
     const croquetContext = useContext(CroquetContext);
     if (!croquetContext) throw new Error("No Croquet Context provided!");
     useEffect(() => {
-      croquetContext.view.subscribe(scope, eventSpec, callback);
+      const oneUseView = new View(croquetContext.view.model);
+      oneUseView.subscribe(scope, eventSpec, callback);
       return () => {
-        croquetContext.view.unsubscribe(scope, eventSpec);
+        oneUseView.unsubscribe(scope, eventSpec);
+        oneUseView.detach();
       }
     }, [scope, eventSpec, callback, croquetContext.view, ...deps]);
   }
