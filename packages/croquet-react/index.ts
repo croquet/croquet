@@ -14,7 +14,7 @@ import {
     Model,
     CroquetSessionOptions
   } from "@croquet/croquet";
-  import { Observing, ObservableModel } from "@croquet/observable";
+  import { ObservableModel, Observing } from "@croquet/observable";
 
   export const CroquetContext = createContext<
     CroquetSession<CroquetReactView> | undefined
@@ -55,12 +55,12 @@ import {
           [prop: number]: true | undefined;
         } = {};
 
-        const oneUseView = new View(croquetContext.view.model);
+        const oneUseView = new (Observing(View))(croquetContext.view.model);
 
         return {oneUseView, proxy: new Proxy(model, {
           get(target, prop) {
             if (typeof prop !== "symbol" && !actuallyObservedProps[prop]) {
-              croquetContext.view.subscribeToPropertyChange(
+              oneUseView.subscribeToPropertyChange(
                 model,
                 prop.toString(),
                 onChange,
