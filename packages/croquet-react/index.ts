@@ -48,24 +48,16 @@ import {
       forceUpdate({});
     };
 
-    const actuallyObservedProps: {
-      [prop: string]: true | undefined;
-      [prop: number]: true | undefined;
-    } = {};
+    const {proxy, oneUseView} = useMemo(
+      () => {
+        const actuallyObservedProps: {
+          [prop: string]: true | undefined;
+          [prop: number]: true | undefined;
+        } = {};
 
-    useEffect(() => {
-      // cleanup
-      return () => {
-        for (const prop of Object.keys(actuallyObservedProps)) {
-          croquetContext.view.unsubscribeFromPropertyChange(model, prop);
-          delete actuallyObservedProps[prop];
-        }
-      };
-    }, [model, croquetContext.view]);
+        const oneUseView = new View(croquetContext.view.model);
 
-    return useMemo(
-      () =>
-        new Proxy(model, {
+        return {oneUseView, proxy: new Proxy(model, {
           get(target, prop) {
             if (typeof prop !== "symbol" && !actuallyObservedProps[prop]) {
               croquetContext.view.subscribeToPropertyChange(
@@ -78,9 +70,19 @@ import {
             }
             return (target as any)[prop];
           }
-        }),
+        })};
+      },
       [model, croquetContext.view]
     );
+
+    useEffect(() => {
+      // cleanup
+      return () => {
+        oneUseView.detach();
+      };
+    }, [model, croquetContext.view]);
+
+    return proxy;
   }
 
   /** Hook that gives access to the id of the main view. This can be used as an identifier for different clients.
