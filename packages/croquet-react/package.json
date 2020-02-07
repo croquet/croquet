@@ -1,6 +1,6 @@
 {
   "name": "@croquet/react",
-  "version": "0.2.6-subfix3",
+  "version": "0.2.6-subfix4",
   "description": "",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
