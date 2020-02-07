@@ -12,9 +12,15 @@ import {
     startSession,
     CroquetSession,
     Model,
-    CroquetSessionOptions
+    CroquetSessionOptions,
   } from "@croquet/croquet";
   import { ObservableModel, Observing } from "@croquet/observable";
+
+  declare module "@croquet/croquet" {
+    interface View {
+      inSameViewRealm<T>(callback: () => T): T;
+    }
+  }
 
   export const CroquetContext = createContext<
     CroquetSession<CroquetReactView> | undefined
@@ -55,7 +61,7 @@ import {
           [prop: number]: true | undefined;
         } = {};
 
-        const oneUseView = new (Observing(View))(croquetContext.view.model);
+        const oneUseView = croquetContext.view.inSameViewRealm(() => new (Observing(View))(croquetContext.view.model));
 
         return {oneUseView, proxy: new Proxy(model, {
           get(target, prop) {
@@ -177,7 +183,7 @@ import {
     const croquetContext = useContext(CroquetContext);
     if (!croquetContext) throw new Error("No Croquet Context provided!");
     useEffect(() => {
-      const oneUseView = new View(croquetContext.view.model);
+      const oneUseView = croquetContext.view.inSameViewRealm(() => new View(croquetContext.view.model));
       oneUseView.subscribe(scope, eventSpec, callback);
       return () => {
         oneUseView.unsubscribe(scope, eventSpec);
