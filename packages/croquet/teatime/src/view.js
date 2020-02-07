@@ -346,7 +346,7 @@ class View {
     // hidden helper to execute code in same view realm as this view
     // used by @croquet/react
     inSameViewRealm(callback) {
-        return inViewRealm(this.realm.island, callback);
+        return inViewRealm(this.realm.island, callback, true);
     }
 
     [Symbol.toPrimitive]() {
