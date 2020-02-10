@@ -5,7 +5,7 @@
   "main": "croquet.js",
   "scripts": {
     "start": "npm-watch",
-    "build-lib": "NODE_ENV=development parcel build --public-url . --global Croquet -o croquet-dev-bundled.js croquet.js",
+    "build-lib": "NODE_ENV=development parcel build --no-minify --public-url . --global Croquet -o croquet-dev-bundled.js croquet.js",
     "build-docs": "jsdoc -c jsdoc.json -d build",
     "deploy": "./deploy.sh",
     "watch": "npm-watch"

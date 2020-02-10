@@ -358,7 +358,8 @@ export default class Island {
         if (typeof methodName !== "string") {
             throw Error(`Subscription handler for "${event}" must be a method name`);
         }
-        if (typeof model[methodName] !== "function") {
+
+        if (methodName.indexOf('.') < 0 && typeof model[methodName] !== "function") {
             if (methodName[0] !== '{') throw Error(`Subscriber method for "${event}" not found: ${model}.${methodName}()`);
         }
         const topic = scope + ":" + event;
@@ -444,20 +445,30 @@ export default class Island {
                 const [id, ...rest] = handler.split('.');
                 const methodName = rest.join('.');
                 const model = this.lookUpModel(id);
-                if (!model) displayWarning(`event ${topic} .${methodName}(): subscriber not found`);
-                else if (methodName[0] === '{') {
-                    const fn = bindQFunc(methodName, model);
-                    try {
-                        fn(data);
-                    } catch (error) {
-                        displayAppError(`event ${topic} ${model} ${fn}`, error);
+
+                
+                if (!model) {
+                    displayWarning(`event ${topic} .${methodName}(): subscriber not found`);
+                    continue;
+                }
+                if (methodName.indexOf('.') < 0) {
+                    if (typeof model[methodName] !== "function") {
+                        console.log(`event ${topic} ${model}.${methodName}(): method not found`);
+                        continue;
+                    } else {
+                        try {
+                            model[methodName](data);
+                        } catch (error) {
+                            console.log(`event ${topic} ${model}.${methodName}()`, error);
+                        }
                     }
-                    return;
-                } else if (typeof model[methodName] !== "function") displayWarning(`event ${topic} ${model}.${methodName}(): method not found`);
-                try {
-                    model[methodName](data);
-                } catch (error) {
-                    displayAppError(`event ${topic} ${model}.${methodName}()`, error);
+                } else {
+                    try {
+                        let split = methodName.split('.');
+                        model.call(split[0], split[1], data);
+                    } catch (error) {
+                        console.log(`event ${topic} ${model}.${methodName}()`, error);
+                    }
                 }
             }
         }

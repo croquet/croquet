@@ -54,9 +54,9 @@ export default {
             presets: [['@babel/env', { "targets": "> 0.25%" }]],
             plugins: ['@babel/transform-runtime']
         }),
-        terser({
-            mangle: {module: true},
-        }),
+//        terser({
+//            mangle: {module: true},
+//        }),
         license({
             banner: `Copyright Croquet Studio <%= moment().format('YYYY') %>
 Bundle of <%= pkg.name %>
