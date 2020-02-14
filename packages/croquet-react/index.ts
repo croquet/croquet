@@ -12,9 +12,15 @@ import {
     startSession,
     CroquetSession,
     Model,
-    CroquetSessionOptions
+    CroquetSessionOptions,
   } from "@croquet/croquet";
-  import { Observing, ObservableModel } from "@croquet/observable";
+  import { ObservableModel, Observing } from "@croquet/observable";
+
+  declare module "@croquet/croquet" {
+    interface View {
+      inSameViewRealm<T>(callback: () => T): T;
+    }
+  }
 
   export const CroquetContext = createContext<
     CroquetSession<CroquetReactView> | undefined
@@ -48,27 +54,19 @@ import {
       forceUpdate({});
     };
 
-    const actuallyObservedProps: {
-      [prop: string]: true | undefined;
-      [prop: number]: true | undefined;
-    } = {};
+    const {proxy, oneUseView} = useMemo(
+      () => {
+        const actuallyObservedProps: {
+          [prop: string]: true | undefined;
+          [prop: number]: true | undefined;
+        } = {};
 
-    useEffect(() => {
-      // cleanup
-      return () => {
-        for (const prop of Object.keys(actuallyObservedProps)) {
-          croquetContext.view.unsubscribeFromPropertyChange(model, prop);
-          delete actuallyObservedProps[prop];
-        }
-      };
-    }, [model, actuallyObservedProps, croquetContext.view]);
+        const oneUseView = croquetContext.view.inSameViewRealm(() => new (Observing(View))(croquetContext.view.model));
 
-    return useMemo(
-      () =>
-        new Proxy(model, {
+        return {oneUseView, proxy: new Proxy(model, {
           get(target, prop) {
             if (typeof prop !== "symbol" && !actuallyObservedProps[prop]) {
-              croquetContext.view.subscribeToPropertyChange(
+              oneUseView.subscribeToPropertyChange(
                 model,
                 prop.toString(),
                 onChange,
@@ -78,11 +76,23 @@ import {
             }
             return (target as any)[prop];
           }
-        }),
-      [model, actuallyObservedProps, croquetContext.view]
+        })};
+      },
+      [model, croquetContext.view]
     );
+
+    useEffect(() => {
+      // cleanup
+      return () => {
+        oneUseView.detach();
+      };
+    }, [model, croquetContext.view]);
+
+    return proxy;
   }
 
+  /** Hook that gives access to the id of the main view. This can be used as an identifier for different clients.
+  */
   export function useViewId() {
     const croquetContext = useContext(CroquetContext);
     if (!croquetContext) throw new Error("No Croquet Context provided!");
@@ -99,6 +109,38 @@ import {
     return croquetContext.view.model;
   }
 
+  /** Hook that returns a function that will have an event publishing effect.
+   * Needs to be provided with a `publishCallback` that determines the event and data to be published,
+   * by either returning `[scope, event, data]` or just `[scope, event]`.
+   * Any arguments passed to the function returned by the hook will be forwarded to `publishCallback` as-is.
+   * Any state variables that the publish callback depends on internally need to be provided as `deps`,
+   * like for React's own `useCallback` hook.
+   *
+   *
+   * A simple example:
+   * ```
+   * function IncrementCounterButton({counterModel}) {
+   *    const publishIncrement = usePublish(
+   *      () => [counterModel.id, 'increment', 1],
+   *      [counterModel]
+   *    );
+   *
+   *    return <button onClick={publishIncrement} value="Increment"/>;
+   * }
+   * ```
+   *
+   * Forwarding arguments:
+   * ```
+   * function IncrementCounterBy10Button({counterModel}) {
+   *    const publishIncrement = usePublish(
+   *      (incrementBy) => [counterModel.id, 'increment', incrementBy],
+   *      [counterModel]
+   *    );
+   *
+   *    return <button onClick={() => publishIncrement(10)} value="Increment by 10"/>;
+   * }
+   * ```
+  */
   export function usePublish(
     publishCallback: (...args: any[]) => [string, string] | [string, string, any],
     deps: any[]
@@ -117,16 +159,37 @@ import {
     );
   }
 
-  export function useSubscribe(scope: string, eventSpec: string, callback: (data: any) => void) {
-    // TODO: support multiple subscriptions to the same event => requires multiple views!!
+  /** Hook that listens to events matching the provided `scope` and `eventSpec`.
+   * Event data is passed as an argument to `callback`.
+   * Automatically unsubscribes when the component is demounted.
+   * Any state variables that `callback` uses internally need to be provided as `deps`,
+   * like for React's own `useEffect` hook.
+   *
+   * ```
+   *  function StatusBar({counterModel}) {
+   *    const [status, setStatus] = useState("Counting...");
+   *
+   *    useSubscribe(
+   *      counterModel.id,
+   *      "maximumReached",
+   *      (maximum) => {setStatus("Maximum reached!")},
+   *      [setStatus]
+   *    );
+   *
+   *    return <div>Current Status: {status}</div>;
+   *  }
+   * ``` */
+  export function useSubscribe(scope: string, eventSpec: string, callback: (data: any) => void, deps: any[]) {
     const croquetContext = useContext(CroquetContext);
     if (!croquetContext) throw new Error("No Croquet Context provided!");
     useEffect(() => {
-      croquetContext.view.subscribe(scope, eventSpec, callback);
+      const oneUseView = croquetContext.view.inSameViewRealm(() => new View(croquetContext.view.model));
+      oneUseView.subscribe(scope, eventSpec, callback);
       return () => {
-        croquetContext.view.unsubscribe(scope, eventSpec);
+        oneUseView.unsubscribe(scope, eventSpec);
+        oneUseView.detach();
       }
-    }, [scope, eventSpec, callback, croquetContext.view]);
+    }, [scope, eventSpec, callback, croquetContext.view, ...deps]);
   }
 
   class CroquetReactView extends Observing(View) {

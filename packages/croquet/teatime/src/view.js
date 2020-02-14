@@ -1,5 +1,5 @@
 import { displayStatus, displayWarning, displayError } from "@croquet/util/html";
-import { currentRealm } from "./realms";
+import { currentRealm, inViewRealm } from "./realms";
 
 /**
  * Views are the non-replicated part of a Croquet Application.
@@ -341,6 +341,12 @@ class View {
      */
     get viewId() {
         return this.realm.island.controller.viewId;
+    }
+
+    // hidden helper to execute code in same view realm as this view
+    // used by @croquet/react
+    inSameViewRealm(callback) {
+        return inViewRealm(this.realm.island, callback, true);
     }
 
     [Symbol.toPrimitive]() {
