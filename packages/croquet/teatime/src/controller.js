@@ -113,6 +113,10 @@ export default class Controller {
             window.clearInterval(this.localTicker);
             delete this.localTicker;
         }
+        if (this.syncTimer) {
+            gl.clearInterval(this.syncTimer);
+            delete this.syncTimer;
+        }
         /** @type {Array} recent TUTTI sends and their payloads, for matching up with incoming votes and divergence alerts */
         this.tuttiHistory = [];
 
@@ -262,7 +266,10 @@ export default class Controller {
     // we have spent a certain amount of CPU time on simulating, so schedule a snapshot
     scheduleSnapshot() {
         // abandon if this call (delayed by up to 2s - possibly more, if browser is busy)
-        // has been overtaken by a poll initiated by another client.
+        // has been overtaken by a poll initiated by another client.  or if the controller
+        // has been reset.
+        if (!this.island) return;
+
         const now = this.island.time;
         const sinceLast = now - this.island.lastSnapshotPoll;
         if (sinceLast < 5000) {
