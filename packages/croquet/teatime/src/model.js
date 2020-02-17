@@ -327,7 +327,7 @@ class Model {
      * @return {this}
      * @public
      */
-    subscribe(scope, event, methodName) {
+    subscribe(scope, event, methodName, isInterIsland) {
         if (!this.__realm) this.__realmError();
         return this.__realm.subscribe(this, scope, event, methodName);
     }

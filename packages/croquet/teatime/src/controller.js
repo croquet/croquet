@@ -54,6 +54,16 @@ function initDEBUG() {
     };
 }
 
+function addToISLANDS(island, isPrimary) {
+    if (!window.ISLANDS) {
+        window.ISLANDS = {};
+    }
+    window.ISLANDS[island.id] = island;
+    if (isPrimary) {
+        window.PRIMARY_ISLAND = island;
+    }
+}
+
 const NOCHEAT = urlOptions.nocheat;
 
 const OPTIONS_FROM_URL = [ 'tps' ];
@@ -74,7 +84,8 @@ const Controllers = new Set();
 
 export default class Controller {
 
-    constructor() {
+    constructor(options) {
+        this.isPrimary = options && options.isPrimary;
         this.reset();
     }
 
@@ -590,10 +601,12 @@ export default class Controller {
                 throw error;
             }
         });
+        addToISLANDS(newIsland, this.isPrimary);
         if (DEBUG.initsnapshot && !snapshot.modelsById) {
             // exercise save & load if we came from init
             const initialIslandSnap = JSON.stringify(newIsland.snapshot());
             newIsland = new Island(JSON.parse(initialIslandSnap), () => init(options));
+            addToISLANDS(newIsland, this.isPrimary);
         }
        // our time is the latest of this.time (we may have received a tick already) and the island time in the snapshot
         const islandTime = this.lastKnownTime(newIsland);
@@ -610,7 +623,9 @@ export default class Controller {
     createCleanIsland() {
         const { options, init } = this.islandCreator;
         const snapshot = { id: this.id };
-        return new Island(snapshot, () => init(options));
+        let newIsland = new Island(snapshot, () => init(options));
+        addToISLANDS(newIsland, this.isPrimary);
+        return newIsland;
     }
 
     // network queue

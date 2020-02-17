@@ -51,7 +51,7 @@ export default {
         resolve({only: [/^@croquet/]}),
         babel({
             externalHelpers: false, runtimeHelpers: true,
-            presets: [['@babel/env', { "targets": "> 0.25%" }]],
+            presets: [['@babel/env', { "targets": "> 10%" }]],
             plugins: ['@babel/transform-runtime']
         }),
 //        terser({

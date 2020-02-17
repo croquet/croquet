@@ -50,6 +50,19 @@ function execOnIsland(island, fn) {
     }
 }
 
+// a variation of execOnIsland where the previous island does not have to be null
+function execOnIslandNoCheck(island, fn) {
+    if (!(island instanceof Island)) throw Error("not an island: " + island);
+    const previousIsland = CurrentIsland;
+    try {
+        CurrentIsland = island;
+        window.ISLAND = island;
+        fn();
+    } finally {
+        CurrentIsland = previousIsland;
+    }
+}
+
 function execOffIsland(fn) {
     if (!CurrentIsland) throw Error("Island confusion");
     const previousIsland = CurrentIsland;
