@@ -136,6 +136,10 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
     freezeAndHashConstants();
     const controller = new Controller();
     const islandOptions = {};
+    if (options.options) {
+        // make sure options are a JSON object
+        Object.assign(islandOptions, JSON.parse(JSON.stringify(options.options)));
+    }
     for (const [option, value] of Object.entries(options)) {
         if (ISLAND_OPTIONS.includes(option)) islandOptions[option] = value;
     }
