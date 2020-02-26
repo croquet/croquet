@@ -8,7 +8,8 @@
     "build": "tsc",
     "prepublish": "tsc"
   },
-  "author": "",
+  "author": "Croquet Corporation",
+  "license": "ISC",
   "dependencies": {
     "@croquet/croquet": "^0.2.6-subfix6",
     "@croquet/observable": "^0.2.6-subfix6"
