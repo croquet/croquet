@@ -452,7 +452,7 @@ export default class Island {
                     } catch (error) {
                         displayAppError(`event ${topic} ${model} ${fn}`, error);
                     }
-                    return;
+                    continue;
                 } else if (typeof model[methodName] !== "function") displayWarning(`event ${topic} ${model}.${methodName}(): method not found`);
                 try {
                     model[methodName](data);
