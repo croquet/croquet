@@ -244,7 +244,7 @@ function stepSession(frameTime, controller, view) {
 
     if (!view) return;
     Stats.begin("render");
-    view.update(frameTime);
+    controller.inViewRealm(() => view.update(frameTime));
     Stats.end("render");
 }
 
