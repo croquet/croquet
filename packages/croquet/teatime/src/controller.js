@@ -210,8 +210,9 @@ export default class Controller {
             if (user === 'DEMO') this.viewOnly = getUser("demoViewOnly", true);
         }
         // include options in the island's id
+        const stringify = v => typeof v === "object" ? stableStringify(v) : v;
         const nameWithOptions = Object.keys(options).length
-            ? name + '?' + Object.entries(options).map(([k,v])=>`${k}=${v}`).join('&')
+            ? name + '?' + Object.entries(options).map(([k,v])=>`${k}=${stringify(v)}`).sort().join('&')
             : name;
         const { hash: id, codeHash } = await hashNameAndCode(nameWithOptions, SDK_VERSION);
         console.log(`Session ID for "${nameWithOptions}": ${id}`);

@@ -7,7 +7,7 @@ Also, please review our [**Code of Conduct**](/conduct.html) and
 
 ## Below you will find:
 - [Quickstart](#quickstart)
-- [What is Croquet?](#what-is-croquet)
+- [What is Croquet?](#what-is-croquet%3F)
 - [Main Concepts](#main-concepts)
 - [Creating a _Croquet_ App](#creating-a-croquet-app)
 - [Models](#models)
