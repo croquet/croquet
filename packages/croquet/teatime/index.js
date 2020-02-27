@@ -136,7 +136,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
     const ISLAND_OPTIONS = ['tps'];
     const SESSION_OPTIONS = ['optionsFromUrl', 'login', 'autoSession'];
     freezeAndHashConstants();
-    const controller = new Controller({isSecondary: options.isSecondary, modelOptions: options.modelOptions});
+    const controller = new Controller({isSecondary: options.isSecondary});
     const islandOptions = {};
     if (options.options) {
         // make sure options are a JSON object

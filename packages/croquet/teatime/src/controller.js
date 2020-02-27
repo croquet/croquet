@@ -88,9 +88,7 @@ const Controllers = new Set();
 export default class Controller {
 
     constructor(options) {
-        console.log(`Controller.constructor(${Object.keys(options)})`);
         this.isPrimary = !options || !options.isSecondary;
-        this.modelOptions = options.modelOptions;
         this.reset();
     }
 
@@ -181,7 +179,7 @@ export default class Controller {
     async establishSession(name, sessionSpec) {
         initDEBUG();
         const { optionsFromUrl, multiRoom, autoSession, login: doLogin } = sessionSpec;
-        const options = {...sessionSpec.options, modelOptions: this.modelOptions};
+        const options = {...sessionSpec.options};
         for (const key of [...OPTIONS_FROM_URL, ...optionsFromUrl||[]]) {
             if (key in urlOptions) options[key] = urlOptions[key];
         }
@@ -898,8 +896,6 @@ const PULSE_TIMEOUT = 20000;
 
 class Connection {
     constructor(controller) {
-        let maybeId = controller && controller.island ? controller.island.id : "null";
-        console.log(`Connection.constructor(${maybeId})`);
         this.controller = controller;
         this.connectBlocked = false;
         this.connectRestricted = false;

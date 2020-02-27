@@ -81,7 +81,7 @@ class Model {
         Object.defineProperty(model, "id", { value: realm.register(model), enumerable: true });
         SuperInitNotCalled.add(model);
         if (wellKnownName) model.beWellKnownAs(wellKnownName);
-        model.init(options ? options.modelOptions : null);
+        model.init(options);
         if (SuperInitNotCalled.has(model)) {
             SuperInitNotCalled.delete(model);
             // only warn about deep subclasses

@@ -103,7 +103,6 @@ export default class Island {
     }
 
     constructor(snapshot, initFn) {
-        console.log(`new Island(${snapshot.modelsById})`);
         Island.installCustomMath(); // trivial if already installed
 
         execOnIsland(this, () => {
