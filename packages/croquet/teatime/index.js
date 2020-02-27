@@ -154,7 +154,8 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
 
             hiddenSince = null; // evidently not hidden
             stepSession(frameTime, controller, session.view);
-        }
+        },
+        get latency() { return controller.latency; },
     };
     await bootModelView();
     if (options.step !== "manual") {
