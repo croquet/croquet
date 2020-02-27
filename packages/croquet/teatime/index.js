@@ -156,6 +156,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
             stepSession(frameTime, controller, session.view);
         },
         get latency() { return controller.latency; },
+        get latencies() { return controller.latencies; },
     };
     await bootModelView();
     if (options.step !== "manual") {
