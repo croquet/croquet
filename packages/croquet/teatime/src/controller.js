@@ -670,7 +670,7 @@ export default class Controller {
         this.connection.send(JSON.stringify({
             id: this.id,
             action: 'SEND',
-            args: [...msg.asState(), this.viewId, this.lastSent],
+            args: [...msg.asState(), this.viewId, this.lastSent, this.latency],
         }));
     }
 
