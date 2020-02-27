@@ -103,6 +103,11 @@ export default class Controller {
         this.synced = null; // null indicates never synced before
         /** last measured latency in ms */
         this.latency = 0;
+        // only collect latency history if asked for
+        if (this.latencyHistory) {
+            /** @type {Array<Number>} */
+            this.latencyHistory = [];
+        }
         // make sure we have no residual "multiply" ticks
         if (this.localTicker) {
             window.clearInterval(this.localTicker);
@@ -556,7 +561,7 @@ export default class Controller {
                 if (typeof msg[2] !== "string") this.convertReflectorMessage(msg);
                 msg[1] >>>= 0; // make sure it's uint32 (reflector used to send int32)
                 // if we sent this message, add it to latency statistics
-                if (msg[3] === this.viewId) this.addToStatistics(msg[4]);
+                if (msg[3] === this.viewId) this.addToStatistics(msg[4], this.lastReceived);
                 this.networkQueue.put(msg);
                 this.timeFromReflector(msg[0]);
                 return;
@@ -717,8 +722,17 @@ export default class Controller {
         this.sendTutti(this.island.time, tuttiSeq, data, null, true, voteMessage);
     }
 
-    addToStatistics(timeSent) {
-        this.latency = Date.now() - timeSent;
+    addToStatistics(timeSent, timeReceived) {
+        this.latency = timeReceived - timeSent;
+        if (this.latencyHistory) {
+            if (this.latencyHistory.length >= 100) this.latencyHistory.shift();
+            this.latencyHistory.push({time: timeReceived, ms: this.latency});
+        }
+    }
+
+    get latencies() {
+        if (!this.latencyHistory) this.latencyHistory = [];
+        return this.latencyHistory;
     }
 
     /** parse tps `ticks x multiplier` ticks are from server, multiplied by locally generated ticks
