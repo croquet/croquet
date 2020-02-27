@@ -430,7 +430,6 @@ export default class Island {
         }
     }
 
-
     publishFromView(scope, event, data) {
         if (CurrentIsland) throw Error("Island Error");
         let oldIsland = window.ISLAND;
