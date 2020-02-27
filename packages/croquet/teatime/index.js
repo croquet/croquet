@@ -134,7 +134,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
     const ISLAND_OPTIONS = ['tps'];
     const SESSION_OPTIONS = ['optionsFromUrl', 'login', 'autoSession'];
     freezeAndHashConstants();
-    const controller = new Controller({isPrimary: options.isPrimary});
+    const controller = new Controller({isSecondary: options.isSecondary, modelOptions: options.modelOptions});
     const islandOptions = {};
     for (const [option, value] of Object.entries(options)) {
         if (ISLAND_OPTIONS.includes(option)) islandOptions[option] = value;
@@ -244,7 +244,7 @@ function stepSession(frameTime, controller, view) {
 
     if (!view) return;
     Stats.begin("render");
-    view.update(frameTime);
+    controller.inViewRealm(() => view.update(frameTime));
     Stats.end("render");
 }
 

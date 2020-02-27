@@ -81,7 +81,7 @@ class Model {
         Object.defineProperty(model, "id", { value: realm.register(model), enumerable: true });
         SuperInitNotCalled.add(model);
         if (wellKnownName) model.beWellKnownAs(wellKnownName);
-        model.init(options);
+        model.init(options ? options.modelOptions : null);
         if (SuperInitNotCalled.has(model)) {
             SuperInitNotCalled.delete(model);
             // only warn about deep subclasses
@@ -270,9 +270,9 @@ class Model {
      * @param {*=} data can be any value or object
      * @public
      */
-    publish(scope, event, data) {
+    publish(scope, event, data, isInterIsland) {
         if (!this.__realm) this.__realmError();
-        this.__realm.publish(event, data, scope);
+        this.__realm.publish(event, data, scope, isInterIsland);
     }
 
     /**
@@ -327,7 +327,7 @@ class Model {
      * @return {this}
      * @public
      */
-    subscribe(scope, event, methodName, isInterIsland) {
+    subscribe(scope, event, methodName) {
         if (!this.__realm) this.__realmError();
         return this.__realm.subscribe(this, scope, event, methodName);
     }
@@ -513,6 +513,10 @@ class Model {
      */
     get sessionId() {
         return this.__realm.island.id;
+    }
+
+    get primarySessionId() {
+        return window.PRIMARY_ISLAND.id || this.__realm.island.id;
     }
 
     [Symbol.toPrimitive]() {

@@ -103,6 +103,7 @@ export default class Island {
     }
 
     constructor(snapshot, initFn) {
+        console.log(`new Island(${snapshot.modelsById})`);
         Island.installCustomMath(); // trivial if already installed
 
         execOnIsland(this, () => {
@@ -414,22 +415,48 @@ export default class Island {
         }
     }
 
-    publishFromModel(scope, event, data) {
+    publishFromModel(scope, event, data, isInterIsland) {
         if (CurrentIsland !== this) throw Error("Island Error");
         // @@ hack for forcing reflection of model-to-model messages
         const reflected = event.endsWith(REFLECTED_SUFFIX);
         if (reflected) event = event.slice(0, event.length - REFLECTED_SUFFIX.length);
-
         const topic = scope + ":" + event;
-        this.handleModelEventInModel(topic, data, reflected);
-        this.handleModelEventInView(topic, data);
+        if (!isInterIsland) {
+            this.handleModelEventInModel(topic, data, reflected);
+            this.handleModelEventInView(topic, data);
+        } else {
+            if (window.isMaster) {
+                this.publishFromModelAsView(topic, data);
+            }
+        }
     }
+
 
     publishFromView(scope, event, data) {
         if (CurrentIsland) throw Error("Island Error");
+        let oldIsland = window.ISLAND;
         const topic = scope + ":" + event;
-        this.handleViewEventInModel(topic, data);
+        for (let key in window.ISLANDS) {
+            let island = window.ISLANDS[key];
+            try {
+                CurrentIsland = island;
+                window.ISLAND = island;
+                island.handleViewEventInModel(topic, data);
+            } finally {
+                CurrentIsland = null;
+                window.ISLAND = oldIsland;
+            }
+        }
         this.handleViewEventInView(topic, data);
+    }
+
+    publishFromModelAsView(topic, data) {
+        for (let key in window.ISLANDS) {
+            let island = window.ISLANDS[key];
+            execOnIslandNoCheck(island, () => {
+                island.handleViewEventInModel(topic, data);
+            });
+        }
     }
 
     handleModelEventInModel(topic, data, reflect=false) {

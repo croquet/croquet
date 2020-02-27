@@ -58,6 +58,9 @@ function addToISLANDS(island, isPrimary) {
     if (!window.ISLANDS) {
         window.ISLANDS = {};
     }
+    if (window.ISLANDS[island.id] !== island) {
+        console.log('replacing an island');
+    }
     window.ISLANDS[island.id] = island;
     if (isPrimary) {
         window.PRIMARY_ISLAND = island;
@@ -85,7 +88,9 @@ const Controllers = new Set();
 export default class Controller {
 
     constructor(options) {
-        this.isPrimary = options && options.isPrimary;
+        console.log(`Controller.constructor(${Object.keys(options)})`);
+        this.isPrimary = !options || !options.isSecondary;
+        this.modelOptions = options.modelOptions;
         this.reset();
     }
 
@@ -176,7 +181,7 @@ export default class Controller {
     async establishSession(name, sessionSpec) {
         initDEBUG();
         const { optionsFromUrl, multiRoom, autoSession, login: doLogin } = sessionSpec;
-        const options = {...sessionSpec.options};
+        const options = {...sessionSpec.options, modelOptions: this.modelOptions};
         for (const key of [...OPTIONS_FROM_URL, ...optionsFromUrl||[]]) {
             if (key in urlOptions) options[key] = urlOptions[key];
         }
@@ -601,12 +606,10 @@ export default class Controller {
                 throw error;
             }
         });
-        addToISLANDS(newIsland, this.isPrimary);
         if (DEBUG.initsnapshot && !snapshot.modelsById) {
             // exercise save & load if we came from init
             const initialIslandSnap = JSON.stringify(newIsland.snapshot());
             newIsland = new Island(JSON.parse(initialIslandSnap), () => init(options));
-            addToISLANDS(newIsland, this.isPrimary);
         }
        // our time is the latest of this.time (we may have received a tick already) and the island time in the snapshot
         const islandTime = this.lastKnownTime(newIsland);
@@ -617,6 +620,7 @@ export default class Controller {
     setIsland(island) {
         this.island = island;
         this.island.controller = this;
+        addToISLANDS(island, this.isPrimary);
     }
 
     // create an island in its initial state
@@ -893,6 +897,8 @@ const PULSE_TIMEOUT = 20000;
 
 class Connection {
     constructor(controller) {
+        let maybeId = controller && controller.island ? controller.island.id : "null";
+        console.log(`Connection.constructor(${maybeId})`);
         this.controller = controller;
         this.connectBlocked = false;
         this.connectRestricted = false;
