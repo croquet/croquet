@@ -204,8 +204,8 @@ export default class Controller {
             ? name + '?' + Object.entries(options).map(([k,v])=>`${k}=${stringify(v)}`).sort().join('&')
             : name;
         const { hash: id, codeHash } = await hashNameAndCode(nameWithOptions, SDK_VERSION);
-        console.log(`Session ID for "${nameWithOptions}": ${id}`);
-        this.islandCreator = {...sessionSpec, options, name, nameWithOptions, codeHash };
+        console.log(`Session ID for "${name}": ${id}`);
+        this.islandCreator = {...sessionSpec, options, name, codeHash };
 
         let initSnapshot = false;
         if (!this.islandCreator.snapshot) initSnapshot = true;
@@ -628,7 +628,8 @@ export default class Controller {
 
         const {name, id} = this.user;
         const args = {
-            name: this.islandCreator.nameWithOptions,
+            name: this.islandCreator.name,
+            options: this.islandCreator.options,
             version: VERSION,
             user: [id, name],
             url: App.sessionURL,
