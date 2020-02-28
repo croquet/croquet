@@ -16,12 +16,21 @@ import {
   } from "@croquet/croquet";
   import { ObservableModel, Observing } from "@croquet/observable";
 
+  // this was implemented by Anselm in teatime as a hack to generate
+  // new views in the same view realm as some existing view, but *while
+  // currently outside any view realm*. croquet-react needs this to
+  // spontaneously create new helper view instances for each new
+  // component that uses some of the hooks defined here. Each new
+  // component mainly needs its own helper view, so it can manage its
+  // own isolated subscriptions.
   declare module "@croquet/croquet" {
     interface View {
       inSameViewRealm<T>(callback: () => T): T;
     }
   }
 
+  // A React context that stores the croquet session
+  // Provided by `InCroquetSession`, consumed by all the hooks.
   export const CroquetContext = createContext<
     CroquetSession<CroquetReactView> | undefined
   >(undefined);
@@ -54,6 +63,7 @@ import {
       forceUpdate({});
     };
 
+    // once (on component mount), create an access-monitoring proxy and one-use-view
     const {proxy, oneUseView} = useMemo(
       () => {
         const actuallyObservedProps: {
@@ -63,7 +73,9 @@ import {
 
         const oneUseView = croquetContext.view.inSameViewRealm(() => new (Observing(View))(croquetContext.view.model));
 
-        return {oneUseView, proxy: new Proxy(model, {
+        const proxy = new Proxy(model, {
+          // only start subscribing to property changes on properties
+          // that the component actually accesses.
           get(target, prop) {
             if (typeof prop !== "symbol" && !actuallyObservedProps[prop]) {
               oneUseView.subscribeToPropertyChange(
@@ -76,11 +88,14 @@ import {
             }
             return (target as any)[prop];
           }
-        })};
+        });
+
+        return {oneUseView, proxy};
       },
       [model, croquetContext.view]
     );
 
+    // empty effect that is only used to ensure cleanup
     useEffect(() => {
       // cleanup
       return () => {
@@ -185,6 +200,7 @@ import {
     useEffect(() => {
       const oneUseView = croquetContext.view.inSameViewRealm(() => new View(croquetContext.view.model));
       oneUseView.subscribe(scope, eventSpec, callback);
+      // cleanup on component unmount
       return () => {
         oneUseView.unsubscribe(scope, eventSpec);
         oneUseView.detach();
@@ -192,6 +208,8 @@ import {
     }, [scope, eventSpec, callback, croquetContext.view, ...deps]);
   }
 
+  // our top level view that gets the root model
+  // and from which we create our one-time-use views per component
   class CroquetReactView extends Observing(View) {
     model: Model;
 
@@ -201,6 +219,7 @@ import {
     }
   }
 
+  // just a type helper to make the documentation look cleaner and more descriptive
   type ClassOf<M> = new (...args: any[]) => M
 
   /** Main wrapper component that starts and manages a croquet session, enabling child elements to use the
