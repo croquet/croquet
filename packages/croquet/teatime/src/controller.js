@@ -351,10 +351,7 @@ export default class Controller {
     }
 
     snapshotUrl(filetype, time, seq, hash, optExt) {
-        // island name includes JSON options
-        const options = this.islandCreator.name.split(/[^A-Z0-9]+/i);
-        const sessionName = `${options.filter(_=>_).join('-')}-${this.id}`;
-        const base = `${baseUrl('snapshots')}${sessionName}`;
+        const base = `${baseUrl('snapshots')}${this.id}`;
         const extn = `.json${optExt ? "." + optExt : ""}`;
         const pad = n => ("" + n).padStart(10, '0');
         // snapshot time is full precision.  for storage name, we round to nearest ms.
