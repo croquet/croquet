@@ -670,6 +670,7 @@ export default class Controller {
         }
         Controllers.delete(this);
         const {destroyerFn} = this.islandCreator;
+        if (this._destroyed) {return;}
         this.reset();
         if (!this.islandCreator) throw Error("do not discard islandCreator!");
         if (destroyerFn) destroyerFn();

@@ -221,6 +221,22 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
     }
 }
 
+export function destroySession(islandId) {
+    let island = window.ISLANDS[islandId];
+    if (!island) {return;}
+
+    delete window.ISLANDS[islandId];
+
+    let controller = island.controller;
+    if (!controller) {return;}
+    let connection = controller.connection;
+    if (!connection) {return;}
+    if (!connection.connected) {return;}
+
+    controller._destroyed = true;
+    connection.socket.close(1000); // should trigger the onclose handler
+}
+
 // maximum amount of time in milliseconds the model get to spend running its simulation
 const MAX_SIMULATION_MS = 200;
 // time spent simulating the last few frames
