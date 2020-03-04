@@ -560,7 +560,7 @@ export default class Controller {
                     if (this.networkQueue.size) setTimeout(simulateQueuedMessages, 0);
                     // return from establishSession()
                     else this.islandCreator.startedOrSynced.resolve(this.island);
-                }
+                };
                 simulateQueuedMessages();
                 return;
             }
