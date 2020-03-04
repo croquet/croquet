@@ -117,10 +117,20 @@ export default class Controller {
         this.synced = null; // null indicates never synced before
         /** last measured latency in ms */
         this.latency = 0;
+        // only collect latency history if asked for
+        if (this.latencyHistory) {
+            /** @type {Array<Number>} */
+            this.latencyHistory = [];
+        }
         // make sure we have no residual "multiply" ticks
         if (this.localTicker) {
             window.clearInterval(this.localTicker);
             delete this.localTicker;
+        }
+        // in case we were still waiting for sync
+        if (this.syncTimer) {
+            window.clearTimeout(this.syncTimer);
+            delete this.syncTimer;
         }
         /** @type {Array} recent TUTTI sends and their payloads, for matching up with incoming votes and divergence alerts */
         this.tuttiHistory = [];
@@ -213,8 +223,8 @@ export default class Controller {
             ? name + '?' + Object.entries(options).map(([k,v])=>`${k}=${stringify(v)}`).sort().join('&')
             : name;
         const { hash: id, codeHash } = await hashNameAndCode(nameWithOptions, SDK_VERSION);
-        console.log(`Session ID for "${nameWithOptions}": ${id}`);
-        this.islandCreator = {...sessionSpec, options, name, nameWithOptions, codeHash };
+        console.log(`Session ID for "${name}": ${id}`);
+        this.islandCreator = {...sessionSpec, options, name, codeHash };
 
         let initSnapshot = false;
         if (!this.islandCreator.snapshot) initSnapshot = true;
@@ -271,7 +281,10 @@ export default class Controller {
     // we have spent a certain amount of CPU time on simulating, so schedule a snapshot
     scheduleSnapshot() {
         // abandon if this call (delayed by up to 2s - possibly more, if browser is busy)
-        // has been overtaken by a poll initiated by another client.
+        // has been overtaken by a poll initiated by another client.  or if the controller
+        // has been reset.
+        if (!this.island) return;
+
         const now = this.island.time;
         const sinceLast = now - this.island.lastSnapshotPoll;
         if (sinceLast < 5000) {
@@ -360,10 +373,7 @@ export default class Controller {
     }
 
     snapshotUrl(filetype, time, seq, hash, optExt) {
-        // island name includes JSON options
-        const options = this.islandCreator.name.split(/[^A-Z0-9]+/i);
-        const sessionName = `${options.filter(_=>_).join('-')}-${this.id}`;
-        const base = `${baseUrl('snapshots')}${sessionName}`;
+        const base = `${baseUrl('snapshots')}${this.id}`;
         const extn = `.json${optExt ? "." + optExt : ""}`;
         const pad = n => ("" + n).padStart(10, '0');
         // snapshot time is full precision.  for storage name, we round to nearest ms.
@@ -555,8 +565,17 @@ export default class Controller {
                 if (!this.connected) { console.log(this.id, 'socket went away during SYNC'); return; }
                 this.install();
                 this.getTickAndMultiplier();
-                // return from establishSession()
-                this.islandCreator.startedOrSynced.resolve(this.island);
+                // simulate messages before continuing
+                const simulateQueuedMessages = () => {
+                    if (DEBUG.session && this.networkQueue.size) console.log(`${this.id} catching up: ${this.networkQueue.size} messages to do`);
+                    this.cpuTime = 0; // do not snapshot while catching up
+                    this.simulate(Date.now() + 200);
+                    // if more messages, finish those first
+                    if (this.networkQueue.size) setTimeout(simulateQueuedMessages, 0);
+                    // return from establishSession()
+                    else this.islandCreator.startedOrSynced.resolve(this.island);
+                };
+                simulateQueuedMessages();
                 return;
             }
             case 'RECV': {
@@ -564,13 +583,13 @@ export default class Controller {
                 // Put it in the queue, and set time.
                 // Actual processing happens in main loop.
                 if (DEBUG.messages) console.log(this.id, 'Controller received RECV ' + JSON.stringify(args));
-                const msg = args;   // [time, seq, payload, senderId, senderSeq]
+                const msg = args;   // [0:time, 1:seq, 2:payload, 3:senderId, 4:timeSent, 5:prevLatency, ...]
                 // the reflector might insert messages on its own, indicated by a non-string payload
                 // we need to convert the payload to the message format this client is using
                 if (typeof msg[2] !== "string") this.convertReflectorMessage(msg);
                 msg[1] >>>= 0; // make sure it's uint32 (reflector used to send int32)
                 // if we sent this message, add it to latency statistics
-                if (msg[3] === this.viewId) this.addToStatistics(msg[4]);
+                if (msg[3] === this.viewId) this.addToStatistics(msg[4], this.lastReceived);
                 this.networkQueue.put(msg);
                 this.timeFromReflector(msg[0]);
                 return;
@@ -643,7 +662,8 @@ export default class Controller {
 
         const {name, id} = this.user;
         const args = {
-            name: this.islandCreator.nameWithOptions,
+            name: this.islandCreator.name,
+            options: this.islandCreator.options,
             version: VERSION,
             user: [id, name],
             url: App.sessionURL,
@@ -688,7 +708,7 @@ export default class Controller {
         this.connection.send(JSON.stringify({
             id: this.id,
             action: 'SEND',
-            args: [...msg.asState(), this.viewId, this.lastSent],
+            args: [...msg.asState(), this.viewId, this.lastSent, this.latency],
         }));
     }
 
@@ -735,8 +755,17 @@ export default class Controller {
         this.sendTutti(this.island.time, tuttiSeq, data, null, true, voteMessage);
     }
 
-    addToStatistics(timeSent) {
-        this.latency = Date.now() - timeSent;
+    addToStatistics(timeSent, timeReceived) {
+        this.latency = timeReceived - timeSent;
+        if (this.latencyHistory) {
+            if (this.latencyHistory.length >= 100) this.latencyHistory.shift();
+            this.latencyHistory.push({time: timeReceived, ms: this.latency});
+        }
+    }
+
+    get latencies() {
+        if (!this.latencyHistory) this.latencyHistory = [];
+        return this.latencyHistory;
     }
 
     /** parse tps `ticks x multiplier` ticks are from server, multiplied by locally generated ticks

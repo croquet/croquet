@@ -42,7 +42,7 @@ export function fileServer() {
 // but replace 'localhost' and '*.ngrok.io' by 'dev/username' for developers
 export function baseUrl(what='code') {
     const dev = urlOptions.has("dev", "host", "localhost"); // true on localhost or ngrok
-    const host = dev ? `dev/${getUser("name", "GUEST")}/` : 'all/';
+    const host = dev ? `dev/${getUser("name", "GUEST")}/` : '';
     return `${fileServer()}/${host}${what}/`;
 }
 
@@ -210,8 +210,8 @@ export async function hashNameAndCode(name, sdk_version) {
         return !exclude;
         }).sort();
     // console.log(`${name} Hashing ${moduleID}: ${mods.join(' ')}`);
-    if (mods.length) console.log(`hashing ${mods.length} SDK modules`);
-    else console.log(`hashing SDK`);
+    // if (mods.length) console.log(`hashing ${mods.length} SDK modules`);
+    // else console.log(`hashing SDK`);
     const hashes = await Promise.all([...mods.map(hashFile), ...extraHashes]);
     const codeHash = await hashString([sdk_version, ...hashes].join('|'));
     const hash = await hashString([name, codeHash].join('|'));

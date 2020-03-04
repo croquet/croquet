@@ -98,6 +98,10 @@ function mutatingMethodProxy(fn: Function, onCalled: Function) {
     });
 }
 
+// This creates proxies around objects that detect even deep changes
+// (to sub-properties) and call the given callback on mutation.
+// This is used to implement the auto-publish functionalities
+// of AutoObservables.
 function deepChangeProxy(object: any, onChangeAtAnyDepth: Function) {
     if (typeof object === "object" && object !== null) {
         if (deepChangeProxyCache.has(object)) {

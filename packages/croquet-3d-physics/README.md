@@ -1,0 +1,1 @@
+This is a very incomplete attempt to move oimo.js physics (from simpleapp) to its own library.

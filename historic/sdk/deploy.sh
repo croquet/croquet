@@ -42,8 +42,8 @@ SRC_PKG=../libraries/packages/croquet
 TAG=""
 
 if [ "$RELEASE" != "docs" ] ; then
-    echo CROQUET_VERSION='"'$VERSION' (pre-alpha)"' > .env.production
-    echo CROQUET_VERSION='"'$VERSION'_dev (pre-alpha)"' > .env.development
+    echo CROQUET_VERSION='"'$VERSION' (alpha)"' > .env.production
+    echo CROQUET_VERSION='"'$VERSION'_dev (alpha)"' > .env.development
 
     case "$RELEASE" in
     pre*) TAG=""

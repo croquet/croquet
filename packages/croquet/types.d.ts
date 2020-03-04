@@ -54,24 +54,33 @@ declare module "@croquet/croquet" {
          *
          * **Warning**: never create a Model instance using `new`, or override its constructor. See [above]{@link Model}.
          *
-         * @example this.foo = FooModel.create({answer: 123});
+         * Example:
+         * ```
+         * this.foo = FooModel.create({answer: 123});
+         * ```
+         *
          * @public
-         * @param {Object=} options - option object to be passed to [init()]{@link Model#init}.
+         * @param options - option object to be passed to [init()]{@link Model#init}.
          *     There are no system-defined options as of now, you're free to define your own.
+         * @param wellKnownName - a well-known name for this model.
          */
-        static create(options: any): Model;
+        static create<T extends typeof Model>(this: T, options: any, wellKnownName?: string): InstanceType<T>;
 
         /**
          * __Registers this model subclass with Croquet__
          *
          * It is necessary to register all Model subclasses so the serializer can recreate their instances from a snapshot.
          * Also, the [session id]{@link startSession} is derived by hashing the source code of all registered classes.
-         * @example
+         *
+         * Example
+         * ```
          * class MyModel extends Croquet.Model {
          *   ...
          * }
          * MyModel.register()
-         * @param {String=} file the file name this class was defined in, to distinguish between same class names in different files
+         * ```
+         *
+         * @param file the file name this class was defined in, to distinguish between same class names in different files
          * @public
          */
         static register(file?:string): void;
@@ -93,7 +102,8 @@ declare module "@croquet/croquet" {
          * __NOTE:__ This is currently the only way to customize serialization (for example to keep snapshots fast and small).
          * The serialization of Model subclasses themselves can not be customized.
          *
-         * @example <caption>To use the default serializer just declare the class:</caption>
+         * Example: To use the default serializer just declare the class:</caption>
+         * ```
          * class MyModel extends Croquet.Model {
          *   static types() {
          *     return {
@@ -103,8 +113,10 @@ declare module "@croquet/croquet" {
          *     };
          *   }
          * }
+         * ```
          *
-         * @example <caption>To define your own serializer, declare read and write functions:</caption>
+         * Example: To define your own serializer, declare read and write functions:
+         * ```
          * class MyModel extends Croquet.Model {
          *   static types() {
          *     return {
@@ -115,6 +127,7 @@ declare module "@croquet/croquet" {
          *       };
          *    }
          * }
+         * ```
          * @public
          */
         static types(): Object;
@@ -127,7 +140,7 @@ declare module "@croquet/croquet" {
          *
          * **Note:** When your model instance is no longer needed, you must [destroy]{@link Model#destroy} it.
          *
-         * @param {Object=} options - there are no system-defined options, you're free to define your own
+         * @param options - there are no system-defined options, you're free to define your own
          * @public
          */
         init(_options: any): void;
@@ -136,12 +149,15 @@ declare module "@croquet/croquet" {
          * Unsubscribes all [subscriptions]{@link Model#subscribe} this model has,
          * unschedules all [future]{@link Model#future} messages,
          * and removes it from future snapshots.
-         * @example
+         *
+         * Example:
+         * ```
          * removeChild(child) {
          *    const index = this.children.indexOf(child);
          *    this.children.splice(index, 1);
          *    child.destroy();
          * }
+         * ```
          * @public
          */
         destroy(): void;
@@ -163,9 +179,11 @@ declare module "@croquet/croquet" {
          * Publishing an event that has no subscriptions is about as cheap as that test would be, so feel free to always publish,
          * there is very little overhead.
          *
-         * @example
+         * Example:
+         * ```
          * this.publish("something", "changed");
          * this.publish(this.id, "moved", this.pos);
+         * ```
          * @param {String} scope see [subscribe]{@link Model#subscribe}()
          * @param {String} event see [subscribe]{@link Model#subscribe}()
          * @param {*=} data can be any value or object
@@ -194,12 +212,15 @@ declare module "@croquet/croquet" {
          * If `data` was passed to the [publish]{@link Model#publish} call, it will be passed as an argument to the handler method.
          * You can have at most one argument. To pass multiple values, pass an Object or Array containing those values.
          * Note that views can only pass serializable data to models, because those events are routed via a reflector server
-         * (see [View.publish){@link View#publish}).
+         * (see [View.publish]{@link View#publish}).
          *
-         * @example
+         * Example:
+         * ```
          * this.subscribe("something", "changed", this.update);
          * this.subscribe(this.id, "moved", this.handleMove);
-         * @example
+         * ```
+         * Example:
+         * ```
          * class MyModel extends Croquet.Model {
          *   init() {
          *     this.subscribe(this.id, "moved", this.handleMove);
@@ -219,6 +240,7 @@ declare module "@croquet/croquet" {
          *      this.publish(this.modelId, "moved", {x,y});
          *   }
          * }
+         * ```
          * @param {String} scope - the event scope (to distinguish between events of the same name used by different objects)
          * @param {String} event - the event name (user-defined or system-defined)
          * @param {Function} handler - the event handler (must be a method of `this`)
@@ -264,19 +286,88 @@ declare module "@croquet/croquet" {
          * that captures the name and arguments of `.methodName(args)` for later execution.
          *
          * See this [tutorial]{@tutorial 1_1_hello_world} for a complete example.
-         * @example <caption>single invocation with two arguments</caption>
+         *
+         * Example: single invocation with two arguments
+         * ```
          * this.future(3000).say("hello", "world");
-         * @example <caption>repeated invocation with no arguments</caption>
+         * ```
+         * Example: repeated invocation with no arguments
+         * ```
          * tick() {
          *     this.n++;
          *     this.publish(this.id, "count", {time: this.now(), count: this.n)});
          *     this.future(100).tick();
          * }
+         * ```
          * @param {Number} tOffset - time offset in milliseconds, must be >= 0
          * @returns {this}
          * @public
          */
         future(tOffset?:number, methodName?: string, ...args: any[]): this;
+
+        /** **Generate a replicated pseudo-random number**
+         *
+         * This returns a floating-point, pseudo-random number in the range 0–1 (inclusive of 0, but not 1)
+         * with approximately uniform distribution over that range
+         * (just like [Math.random](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/random)).
+         *
+         * Since the model computation is replicated for every user on their device, the sequence of random numbers
+         * generated must also be exactly the same for everyone. This method provides access to such a random number generator.
+        */
+        random(): number;
+
+        /** **The model's current time**
+         *
+         * Every [event handler]{@link Model#subscribe} and [future message]{@link Model#future} is run at a precisely defined moment
+         * in virtual model time, and time stands still while this execution is happening. That means if you were to access this.now()
+         * in a loop, it would never answer a different value.
+         *
+         * The unit of now is milliseconds (1/1000 second) but the value can be fractional, it is a floating-point value.
+         */
+        now(): number;
+
+        /** Make this model globally accessible under the given name. It can be retrieved from any other model in the same session
+         * using [wellKnownModel()]{@link Model#wellKnownModel}.
+         *
+         * Hint: Another way to make a model well-known is to pass a name as second argument to [Model.create()]{@link Model#create}.
+         *
+         * Example:
+         * ```
+         *  class FooManager extends Croquet.Model {
+         *      init() {
+         *          this.beWellKnownAs("UberFoo");
+         *      }
+         *  }
+         *  class Underlings extends Croquet.Model {
+         *      reportToManager(something) {
+         *          this.wellKnownModel("UberFoo").report(something);
+         *      }
+         *  }
+         * ```*/
+        beWellKnownAs(name: string): void;
+
+        /** Access a model that was registered previously using beWellKnownAs().
+         *
+         * Note: The instance of your root Model class is automatically made well-known as `"modelRoot"`
+         * and passed to the [constructor]{@link View#constructor} of your root View during [startSession]{@link startSession}.
+         *
+         * Example:
+         * ```
+         * const topModel = this.wellKnownModel("modelRoot");
+         * ```
+         */
+        wellKnownModel<M extends Model>(name: string): Model | undefined;
+
+        /** This methods checks if it is being called from a model, and throws an Error otherwise.
+         *
+         * Use this to protect some model code against accidentally being called from a view.
+         *
+         * Example:
+         * ```
+         * get foo() { return this._foo; }
+         * set foo(value) { this.modelOnly(); this._foo = value; }
+         * ```*/
+        modelOnly(errorMessage?: string): boolean;
     }
 
     export type ViewSubOptions = {
@@ -308,12 +399,15 @@ declare module "@croquet/croquet" {
          * and removes it from the list of views**
          *
          * This needs to be called when a view is no longer needed to prevent memory leaks.
-         * @example
+         *
+         * Example:
+         * ```
          * removeChild(child) {
          *    const index = this.children.indexOf(child);
          *    this.children.splice(index, 1);
          *    child.detach();
          * }
+         * ```
          * @public
          */
         detach(): void;
@@ -336,9 +430,11 @@ declare module "@croquet/croquet" {
          * Publishing an event that has no subscriptions is about as cheap as that test would be, so feel free to always publish,
          * there is very little overhead.
          *
-         * @example
+         * Example:
+         * ```
          * this.publish("input", "keypressed", {key: 'A'});
          * this.publish(this.model.id, "move-to", this.pos);
+         * ```
          * @param {String} scope see [subscribe]{@link Model#subscribe}()
          * @param {String} event see [subscribe]{@link Model#subscribe}()
          * @param {*=} data can be any value or object (for view-to-model, must be serializable)
@@ -389,9 +485,11 @@ declare module "@croquet/croquet" {
          * a view's handler can be any function, including fat-arrow functions declared in-line.
          * Passing a method like in the model is allowed too, it will be bound to `this` in the subscribe call.
          *
-         * @example
+         * Example:
+         * ```
          * this.subscribe("something", "changed", this.update);
          * this.subscribe(this.id, {event: "moved", handling: "oncePerFrame"}, pos => this.sceneObject.setPosition(pos.x, pos.y, pos.z));
+         * ```
          * @tutorial 1_4_view_smoothing
          * @param {String} scope - the event scope (to distinguish between events of the same name used by different objects)
          * @param {String|Object} eventSpec - the event name (user-defined or system-defined), or an event handling spec object
@@ -421,7 +519,77 @@ declare module "@croquet/croquet" {
          * The ID of the view.
          * @public
          */
-	viewId: string;
+        viewId: string;
+
+        /** **Schedule a message for future execution**
+         * This method is here for symmetry with [Model.future]{@link Model#future}.
+         *
+         * It simply schedules the execution using `window.setTimeout`.
+         * The only advantage to using this over setTimeout() is consistent style.
+         */
+        future(tOffset: number): this;
+
+        /** **Answers `Math.random()`**
+         *
+         * This method is here purely for symmetry with [Model.random]{@link Model#random}.
+         */
+        random(): number;
+
+        /** **The model's current time**
+         *
+         * This is the time of how far the model has been simulated.
+         * Normally this corresponds roughly to real-world time, since the reflector is generating
+         * time stamps based on real-world time.
+         *
+         * If there is [backlog]{@link View#externalNow} however (e.g while a newly joined user is catching up),
+         * this time will advance much faster than real time.
+         *
+         * The unit is milliseconds (1/1000 second) but the value can be fractional, it is a floating-point value.
+         *
+         * Returns: the model's time in milliseconds since the first user created the session.
+        */
+        now(): number;
+
+        /** **The latest timestamp received from reflector**
+         *
+         * Timestamps are received asynchronously from the reflector at the specified tick rate.
+         * [Model time]{@View#now} however only advances synchronously on every iteration of the [main loop]{@link startSession}.
+         * Usually `now == externalNow`, but if the model has not caught up yet, then `now < externalNow`.
+         *
+         * We call the difference "backlog". If the backlog is too large, Croquet will put an overlay on the scene,
+         * and remove it once the model simulation has caught up. The `"synced"` event is sent when that happens.
+         *
+         * The `externalNow` value is rarely used by apps but may be useful if you need to synchronize views to real-time.
+         *
+         * Example:
+         * ```
+         * const backlog = this.externalNow() - this.now();
+         * ```
+        */
+        externalNow(): number;
+
+        /** Called on the root view from [main loop]{@link startSession} once per frame. Default implementation does nothing.
+         *
+         * Override to add your own view-side input polling, rendering, etc.
+         *
+         * If you want this to be called for other views than the root view,
+         * you will have to call those methods from the root view's `update()`.
+         *
+         * The time received is related to the local real-world time. If you need to access the model's time, use [this.now()]{@link View#now}.
+        */
+        update(time: number): void;
+
+        /** Access a model that was registered previously using beWellKnownAs().
+         *
+         * Note: The instance of your root Model class is automatically made well-known as `"modelRoot"`
+         * and passed to the [constructor]{@link View#constructor} of your root View during [startSession]{@link startSession}.
+         *
+         * Example:
+         * ```
+         * const topModel = this.wellKnownModel("modelRoot");
+         * ```
+         */
+        wellKnownModel<M extends Model>(name: string): Model | undefined;
     }
 
     /** helper that traverses a dummy object and gathers all object classes,
