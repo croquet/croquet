@@ -113,8 +113,9 @@ export default class Controller {
             window.clearInterval(this.localTicker);
             delete this.localTicker;
         }
+        // in case we were still waiting for sync
         if (this.syncTimer) {
-            gl.clearInterval(this.syncTimer);
+            window.clearTimeout(this.syncTimer);
             delete this.syncTimer;
         }
         /** @type {Array} recent TUTTI sends and their payloads, for matching up with incoming votes and divergence alerts */
