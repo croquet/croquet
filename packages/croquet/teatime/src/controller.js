@@ -559,7 +559,7 @@ export default class Controller {
                 // Put it in the queue, and set time.
                 // Actual processing happens in main loop.
                 if (DEBUG.messages) console.log(this.id, 'Controller received RECV ' + JSON.stringify(args));
-                const msg = args;   // [time, seq, payload, senderId, senderSeq]
+                const msg = args;   // [0:time, 1:seq, 2:payload, 3:senderId, 4:timeSent, 5:prevLatency, ...]
                 // the reflector might insert messages on its own, indicated by a non-string payload
                 // we need to convert the payload to the message format this client is using
                 if (typeof msg[2] !== "string") this.convertReflectorMessage(msg);

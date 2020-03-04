@@ -633,6 +633,7 @@ export class Message {
     set internalSeq(seq) { this.seq = seq * 2; }
 
     asState() {
+        // controller relies on this being a 3-element array
         return [this.time, this.seq, this.payload];
     }
 
