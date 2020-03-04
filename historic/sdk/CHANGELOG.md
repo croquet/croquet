@@ -2,6 +2,27 @@
 
 This is a private summary of changes. The public changes are in [README.md](./README.md).
 
+# 0.3.0
+
+* added `options` for model root to startSession (documented)
+* added `latency` and `latencies` accessors to session (undocumented)
+* messages are simulated before view is created
+* fixed view.update() and immediate view handlers to run in view realm
+* fixed queued events to behandled after oncePerFrame events
+* fixed passing models as event data when reflected
+* fixed a bug with multiple event handlers per topic
+* fixed reading NaNs in snapshot
+* fixed npm not having proper hash by including version name in code hash
+* warnings and errors are logged to console
+* made our CSS overridable
+* added "once" option to log warnings only once per session
+* recycle message encoder instead of allocating for every send
+* do not use session name in snapshot name
+* sending latency of each previous message to reflector
+* reflector: new START logic
+* reflector: consistent session ids / connection ids in log entries
+* reflector: collect connection stats
+
 # 0.2.6
 
 * switch to croquet.io/reflector/v1 and croquet.io/files-v1
