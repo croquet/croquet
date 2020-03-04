@@ -551,8 +551,17 @@ export default class Controller {
                 if (!this.connected) { console.log(this.id, 'socket went away during SYNC'); return; }
                 this.install();
                 this.getTickAndMultiplier();
-                // return from establishSession()
-                this.islandCreator.startedOrSynced.resolve(this.island);
+                // simulate messages before continuing
+                const simulateQueuedMessages = () => {
+                    if (DEBUG.session && this.networkQueue.size) console.log(`${this.id} catching up: ${this.networkQueue.size} messages to do`);
+                    this.cpuTime = 0; // do not snapshot while catching up
+                    this.simulate(Date.now() + 200);
+                    // if more messages, finish those first
+                    if (this.networkQueue.size) setTimeout(simulateQueuedMessages, 0);
+                    // return from establishSession()
+                    else this.islandCreator.startedOrSynced.resolve(this.island);
+                }
+                simulateQueuedMessages();
                 return;
             }
             case 'RECV': {
