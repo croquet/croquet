@@ -1,4 +1,4 @@
-Copyright © 2019 Croquet Studios
+Copyright © 2019 Croquet Corporation
 
 Snapshots are copies of the model state that are saved to the cloud. When your _Croquet_ application is running, the reflector will periodically request one of the participants to perform a snapshot.
 
