@@ -7,7 +7,7 @@
     "ws": "./ws.js",
     "fs": "./fs.js"
   },
-  "author": "Croquet Studios",
+  "author": "Croquet Corporation",
   "license": "Restricted",
   "scripts": {
     "start": "node reflector.js"

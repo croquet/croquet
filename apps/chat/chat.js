@@ -1,6 +1,6 @@
 // Hello World Example
 //
-// Croquet Studios, 2019
+// Croquet Corporation, 2019
 //
 // This is an example of a simple chat application. It creates a chatroom where users can
 // post messages to a shared conversation.
@@ -102,7 +102,7 @@ class ChatView extends View {
         this.publish("input", "newPost", post);
         textIn.value = "";
     }
-    
+
     onResetClick() {
         this.publish("reset", "chatReset", this.viewId);
     }

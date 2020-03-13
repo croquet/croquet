@@ -9,7 +9,7 @@
   "browserslist": [
     "> 5%"
   ],
-  "author": "Croquet Studios",
+  "author": "Croquet Corporation",
   "license": "ISC",
   "dependencies": {
     "@croquet/croquet": "file:../libraries/packages/croquet"

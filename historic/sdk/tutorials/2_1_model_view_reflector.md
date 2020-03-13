@@ -1,4 +1,4 @@
-Copyright © 2019 Croquet Studios
+Copyright © 2019 Croquet Corporation
 
 Every _Croquet_ application consists of two parts:
 

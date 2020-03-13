@@ -181,7 +181,7 @@ class View {
     }
 
     /**
-     * Unsubscribes this view's handler for the given event in the given scope.
+     * Unsubscribes this view's handlers for the given event in the given scope.
      * @param {String} scope see [subscribe]{@link View#subscribe}
      * @param {String} event see [subscribe]{@link View#subscribe}
      * @public

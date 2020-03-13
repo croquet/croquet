@@ -3,6 +3,7 @@ import license from 'rollup-plugin-license';
 import babel from 'rollup-plugin-babel';
 import { terser } from 'rollup-plugin-terser';
 import MagicString from 'magic-string';
+import fs from 'fs';
 require('dotenv-flow').config({
     default_node_env: 'development'
 });
@@ -37,13 +38,14 @@ function inject_process() {
     }
 };
 
+const is_dev_build = process.env.NODE_ENV !== "production";
 
-export default {
+const config = {
     input: 'src.js',
     output: {
         file: 'dist/croquet.min.js',
         format: 'cjs',
-        sourcemap: true,    // not included in npm bundle by explicit "files" section in package.json
+        sourcemap: is_dev_build,    // not included in npm bundle by explicit "files" section in package.json
     },
     external: ['seedrandom/seedrandom', 'toastify-js', 'seedrandom', 'fast-json-stable-stringify', 'fastpriorityqueue'],
     plugins: [
@@ -65,3 +67,8 @@ Version: <%= process.env.CROQUET_VERSION %>`,
         })
     ]
 };
+
+// clean up source map from dev build, if any
+if (!is_dev_build) fs.unlink(`${config.output.file}.map`, () => { /* ignore error */});
+
+export default config;

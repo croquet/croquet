@@ -12,8 +12,8 @@
   "scripts": {
     "start": "npm run watch",
     "watch": "npm-watch build",
-    "build": "rollup -c",
-    "prepublish": "npm run build"
+    "build": "rollup -c --environment NODE_ENV:development",
+    "prepublish": "rollup -c --environment NODE_ENV:production"
   },
   "watch": {
     "build": {

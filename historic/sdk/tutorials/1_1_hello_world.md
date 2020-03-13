@@ -1,4 +1,4 @@
-Copyright © 2019 Croquet Studios
+Copyright © 2019 Croquet Corporation
 
 ## We are using CodePen for our tutorials.
 
