@@ -201,8 +201,10 @@ export function addConstantsHash(constants) {
 }
 
 export async function hashNameAndCode(name, sdk_version) {
-    // if the application is not using parcel to bundle, we will not have any modules @@@
-    const mods = allModuleIDs().filter(id => {
+    // if the application is not using parcel to bundle, we will not see any SDK modules
+    // in production (i.e., building the npm), we will not hash the SDK, but only the models
+    const production = process.env.NODE_ENV === "production";
+    const mods = production ? [] : allModuleIDs().filter(id => {
         // we don't want to be encoding any package.json, because it includes a build-specific path name.  ar.js also causes trouble, for some as yet unknown reason.
         // @@ this could be switched on or off under control of a process.env setting.
         const exclude = id.endsWith("/package.json") || id.endsWith("/ar.js");
