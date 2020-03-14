@@ -7,6 +7,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 * added `options` for model root to startSession (documented)
 * added `latency` and `latencies` accessors to session (undocumented)
 * messages are simulated before view is created
+* added `hashing` debug option
 * fixed view.update() and immediate view handlers to run in view realm
 * fixed queued events to behandled after oncePerFrame events
 * fixed passing models as event data when reflected
