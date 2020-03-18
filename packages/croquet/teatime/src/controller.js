@@ -584,7 +584,7 @@ export default class Controller {
                 // We received a tick from reflector.
                 // Just set time so main loop knows how far it can advance.
                 if (!this.island) return; // ignore ticks before we are simulating
-                const time = args;
+                const time = (typeof args === 'number') ? args : args.time;
                 if (DEBUG.ticks) console.log(this.id, 'Controller received TICK ' + time);
                 this.timeFromReflector(time);
                 if (this.tickMultiplier) this.multiplyTick(time);
