@@ -152,6 +152,10 @@ export function toBase64url(bits) {
         .replace(/\//g, "_");
 }
 
+if (!window.crypto || !window.crypto.subtle || typeof window.crypto.subtle.digest !== "function") {
+    console.error(`ERROR: crypto.subtle.digest() browser API not available. Please access this page via https or localhost.`);
+}
+
 /** return buffer hashed into 256 bits encoded using base64 (suitable in URL) */
 export async function hashBuffer(buffer) {
     // MS Edge does not like empty buffer
