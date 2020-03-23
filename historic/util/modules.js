@@ -152,6 +152,10 @@ export function toBase64url(bits) {
         .replace(/\//g, "_");
 }
 
+if (!window.crypto || !window.crypto.subtle || typeof window.crypto.subtle.digest !== "function") {
+    console.error(`ERROR: crypto.subtle.digest() browser API not available. Please access this page via https or localhost.`);
+}
+
 /** return buffer hashed into 256 bits encoded using base64 (suitable in URL) */
 export async function hashBuffer(buffer) {
     // MS Edge does not like empty buffer
@@ -160,23 +164,44 @@ export async function hashBuffer(buffer) {
     return toBase64url(bits);
 }
 
+function debugHashing() { return urlOptions.has("debug", "hashing", false); }
+
+const debugHashes = {};
+const debugModuleNames = { was_initialized: false };
+
+function resolveDebugModuleNames() {
+    for (const m of allModuleIDs()) {
+        for (const [name, id] of Object.entries(namedImportsOf(m))) {
+            const existing = debugModuleNames[id] || '';
+            const clean = name.replace(/^[./]*/, '');
+            if (clean.length > existing.length) debugModuleNames[id] = clean;
+        }
+    }
+    debugModuleNames.was_initialized = true;
+}
+
+function debugNameOf(mod) {
+    if (!debugModuleNames.was_initialized) resolveDebugModuleNames();
+    return debugModuleNames[mod] || mod;
+}
+
 const encoder = new TextEncoder();
 
 export async function hashString(string) {
     const buffer = encoder.encode(string);
-    return hashBuffer(buffer);
+    const hash = await hashBuffer(buffer);
+    if (debugHashing()) debugHashes[hash] = {string, buffer};
+    return hash;
 }
 
 const fileHashes = {};
 
-/*
-hotreloadEventManager.addDisposeHandler("fileHashes", () => { for (const f of (Object.keys(fileHashes))) delete fileHashes[f]; });
-*/
-
 export async function hashFile(mod) {
     if (fileHashes[mod]) return fileHashes[mod];
     const source = sourceCodeOf(mod).replace(/\s+/g, ' '); // a side effect of parcel is some whitespace mangling that can be different on different platforms.  hash on a version in which each run of whitespace is converted to a single space.
-    return fileHashes[mod] = await hashString(source);
+    const hash = await hashString(source);
+    if (debugHashing()) debugHashes[hash].name = `Module ${debugNameOf(mod)}`;
+    return fileHashes[mod] = hash;
 }
 
 const extraHashes = [];
@@ -184,7 +209,10 @@ const extraHashes = [];
 export function addClassHash(cls) {
     const source = classSrc(cls);
     const hashPromise = hashString(source);
-    hashPromise.then(hash => console.log(`hashing ${cls.name}: ${hash}`));
+    hashPromise.then(hash => {
+        console.log(`hashing class ${cls.name}: ${hash}`);
+        if (debugHashing()) debugHashes[hash].name = `Class ${cls.name}`;
+    });
     extraHashes.push(hashPromise);
 }
 
@@ -196,24 +224,32 @@ export function addConstantsHash(constants) {
     const obj = JSON.parse(json);
     const string = stableStringify(obj);
     const hashPromise = hashString(string);
-    hashPromise.then(hash => console.log(`hashing Croquet.Constants(${Object.keys(obj).join(', ')}): ${hash}`));
+    hashPromise.then(hash => {
+        console.log(`hashing Croquet.Constants(${Object.keys(obj).join(', ')}): ${hash}`);
+        if (debugHashing()) debugHashes[hash].name = "Croquet Constants";
+    });
     extraHashes.push(hashPromise);
 }
 
 export async function hashNameAndCode(name, sdk_version) {
-    // if the application is not using parcel to bundle, we will not have any modules @@@
-    const mods = allModuleIDs().filter(id => {
+    // if the application is not using parcel to bundle, we will not see any SDK modules
+    // in production (i.e., building the npm), we will not hash the SDK, but only the models
+    const production = process.env.NODE_ENV === "production";
+    const mods = production ? [] : allModuleIDs().filter(id => {
         // we don't want to be encoding any package.json, because it includes a build-specific path name.  ar.js also causes trouble, for some as yet unknown reason.
         // @@ this could be switched on or off under control of a process.env setting.
         const exclude = id.endsWith("/package.json") || id.endsWith("/ar.js");
         if (exclude) console.warn(`excluding ${id} from code hash`);
         return !exclude;
         }).sort();
-    // console.log(`${name} Hashing ${moduleID}: ${mods.join(' ')}`);
-    // if (mods.length) console.log(`hashing ${mods.length} SDK modules`);
-    // else console.log(`hashing SDK`);
     const hashes = await Promise.all([...mods.map(hashFile), ...extraHashes]);
     const codeHash = await hashString([sdk_version, ...hashes].join('|'));
     const hash = await hashString([name, codeHash].join('|'));
+    if (debugHashing()) {
+        debugHashes[codeHash].name = "All code";
+        debugHashes[hash].name = "Session name and code";
+        const sessionHashes = [...hashes, codeHash, hash].map(each => ({ hash: each, ...debugHashes[each]}));
+        console.log(`Debug Hashing for session ${hash}`, sessionHashes);
+    }
     return { hash, codeHash };
 }

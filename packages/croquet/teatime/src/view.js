@@ -65,7 +65,7 @@ class View {
     }
 
     /**
-     * **Unsubscribes all [subscriptions]{@link View#subscribe} this model has,
+     * **Unsubscribes all [subscriptions]{@link View#subscribe} this view has,
      * and removes it from the list of views**
      *
      * This needs to be called when a view is no longer needed, to prevent memory leaks.
