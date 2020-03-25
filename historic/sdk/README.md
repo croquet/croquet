@@ -182,15 +182,16 @@ Calling `this.now()` will return the current simulation time.
 
 In addition to normal events, the reflector also sends out a regular stream of **heartbeat ticks**. Heartbeat ticks advance the model's simulation time even if the view isn't sending any events. By default the reflector sends out heartbeat ticks 20 times a second, but you can change the frequency at session start.
 
-The method `this.future()` can be used to schedule an event in the future. For example, if you wanted to create a tick routine in the model that executes every 100 milliseconds, it would look like this:
+The method `this.future()` can be used to schedule an event in the future. For example, if you wanted to create an animation routine in a model that executes every 100 milliseconds, it would look like this:
 
 ```
-myTick() {
+step() {
     // ... do some stuff ...
-    this.future(100).myTick();
+    this.future(100).step();
 }
 ```
 
+Note that the ticks-per-second rate of the reflector is independent of the future interval used by your models. Individual models may use different future times.
 
 # Snapshots
 
