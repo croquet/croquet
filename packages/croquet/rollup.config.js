@@ -78,4 +78,7 @@ Version: <%= process.env.CROQUET_VERSION %>`,
 // clean up source map from dev build, if any
 if (!is_dev_build) fs.unlink(`${config.output.file}.map`, () => { /* ignore error */});
 
+// generate .env
+fs.writeFile('.env', `CROQUET_VERSION="${process.env.CROQUET_VERSION}"\n`, err => { if (err) throw err; });
+
 export default config;
