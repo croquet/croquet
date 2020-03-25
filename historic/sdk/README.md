@@ -197,6 +197,7 @@ Calls to `Math.random()` within the view will behave normally. Different instanc
 
 | date       | item
 |------------|---
+| 2020-03-24 | **release 0.2.7** (bug fixes; [startSession]{@link startSession} supports passing `options` to root model's [init]{@link Model#init}, message replay no longer visible to app)
 | 2019-12-12 | **release 0.2.6** (bug fixes; works on MS Edge)
 | 2019-10-18 | **release 0.2.5** (bug fixes; new widget API) version aligned with npm
 | 2019-10-01 | **release 0.2.2** (bug fixes; updated qr-code support)
