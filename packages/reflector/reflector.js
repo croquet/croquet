@@ -234,7 +234,7 @@ const ALL_ISLANDS = new Map();
 /** Get current time for island
  * @param {IslandData} island
  */
-function getTime(island, reason) {
+function getTime(island, _reason) {
     const now = Date.now();
     const delta = now - island.before;     // might be < 0 if system clock went backwards
     if (delta > 0) {
@@ -255,7 +255,7 @@ function getTime(island, reason) {
         }
         island.time += island.scale * advance;
         island.before = now;
-        //LOCAL_DEBUG(`${island.id} getTime(${reason}) => ${island.time}`);
+        //LOCAL_DEBUG(`${island.id} getTime(${_reason}) => ${island.time}`);
     }
     return island.time;
 }
