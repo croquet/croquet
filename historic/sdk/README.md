@@ -26,6 +26,7 @@ There are 3 main ways to use our SDK:
 
 2. **Script Tag**: Add the following inside your page's `<head>` tag:
 
+        <meta charset="utf-8">
         <script src="https://croquet.io/sdk/croquet-latest.min.js"></script>
 
     This will create the `Croquet` global to access `Croquet.Model` etc.
@@ -37,6 +38,8 @@ There are 3 main ways to use our SDK:
     Then import it in your JS file:
 
         import * as Croquet from "@croquet/croquet"
+
+    Again, make sure to specify `charset="utf-8"` for your HTML or your script tags.
 
 We frequently update the SDK so be sure to always use the latest (until we have a stable release).
 
