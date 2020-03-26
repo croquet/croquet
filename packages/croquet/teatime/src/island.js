@@ -293,7 +293,9 @@ export default class Island {
             get(_target, property) {
                 if (typeof model[property] === "function") {
                     return (...args) => {
-                        if (island.lookUpModel(model.id) !== model) throw Error("future send to unregistered model");
+                        let lookedUp = island.lookUpModel(model.id);
+                        if (lookedUp !== model &&
+                            lookedUp !== model._target) throw Error("future send to unregistered model");
                         return island.futureSend(tOffset, model.id, property, args);
                     };
                 }
