@@ -132,6 +132,9 @@ export default class Controller {
     /** @type {Object} {id, name} the user id (identifying this client) and name (from login or "GUEST") */
     get user() { return { id: this.viewId, name: getUser("name", "GUEST") }; }
 
+    /** @type {Boolean} if true, sends to the reflector are disabled */
+    get viewOnly() { return this.islandCreator.viewOnly; }
+
     /**  @type {Number} how many ms the simulation is lagging behind the last tick from the reflector */
     get backlog() { return this.island ? this.time - this.island.time : 0; }
 
