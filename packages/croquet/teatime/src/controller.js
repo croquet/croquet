@@ -201,7 +201,6 @@ export default class Controller {
             }
             // the island id (name) is "room/user/random?opt=val&opt=val"
             name = `${room}/${user}/${random}`;
-            if (user === 'DEMO') this.viewOnly = getUser("demoViewOnly", true);
         }
         // include options in the island's id
         const stringify = v => typeof v === "object" ? stableStringify(v) : v;
