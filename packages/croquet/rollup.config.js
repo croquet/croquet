@@ -58,12 +58,12 @@ const config = {
     plugins: [
         inject_process(),
         resolve({only: [/^@croquet/]}),
-        babel({
+        !is_dev_build && babel({
             externalHelpers: false, runtimeHelpers: true,
             presets: [['@babel/env', { "targets": "> 0.25%" }]],
             plugins: ['@babel/transform-runtime']
         }),
-        terser({
+        !is_dev_build && terser({
             mangle: {module: true},
         }),
         license({
