@@ -2,6 +2,10 @@
 
 This is a private summary of changes. The public changes are in [README.md](./README.md).
 
+# upcoming
+
+* allow `viewOnly` sessions (removed DEMO hack)
+
 # 0.2.7
 
 * added `options` for model root to startSession (documented)
