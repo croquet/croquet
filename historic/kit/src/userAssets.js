@@ -1452,7 +1452,7 @@ class VideoViewPart extends ViewPart {
 //console.warn(this);
 
         this.videoReady = false; // this will go true just once
-        this.waitingForIslandSync = !this.realm.isSynced; // this can flip back and forth
+        this.waitingForIslandSync = !this.realm.isSynced(); // this can flip back and forth
 
         const element = this.model = options.model;
         const { assetDescriptor, isPlaying, startOffset, pausedTime } = element;
