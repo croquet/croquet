@@ -4,6 +4,8 @@ import babel from 'rollup-plugin-babel';
 import { terser } from 'rollup-plugin-terser';
 import MagicString from 'magic-string';
 import fs from 'fs';
+import { execSync } from 'child_process';
+const pkg = require("./package.json");
 require('dotenv-flow').config({
     default_node_env: 'development'
 });
@@ -40,6 +42,11 @@ function inject_process() {
 
 const is_dev_build = process.env.NODE_ENV !== "production";
 
+const git_branch = is_dev_build ? execSync("git rev-parse --abbrev-ref HEAD").toString().trim() : "";
+const git_commit = is_dev_build ? execSync("git rev-parse HEAD").toString().trim() : "";
+
+process.env.CROQUET_VERSION = is_dev_build ? `${pkg.version}:${git_branch}:${git_commit}` : pkg.version;
+
 const config = {
     input: 'src.js',
     output: {
@@ -51,16 +58,16 @@ const config = {
     plugins: [
         inject_process(),
         resolve({only: [/^@croquet/]}),
-        babel({
+        !is_dev_build && babel({
             externalHelpers: false, runtimeHelpers: true,
             presets: [['@babel/env', { "targets": "> 0.25%" }]],
             plugins: ['@babel/transform-runtime']
         }),
-        terser({
+        !is_dev_build && terser({
             mangle: {module: true},
         }),
         license({
-            banner: `Copyright Croquet Studio <%= moment().format('YYYY') %>
+            banner: `Copyright Croquet Corporation <%= moment().format('YYYY') %>
 Bundle of <%= pkg.name %>
 Generated: <%= moment().format('YYYY-MM-DD') %>
 Version: <%= process.env.CROQUET_VERSION %>`,
@@ -70,5 +77,8 @@ Version: <%= process.env.CROQUET_VERSION %>`,
 
 // clean up source map from dev build, if any
 if (!is_dev_build) fs.unlink(`${config.output.file}.map`, () => { /* ignore error */});
+
+// generate .env
+fs.writeFile('.env', `CROQUET_VERSION="${process.env.CROQUET_VERSION}"\n`, err => { if (err) throw err; });
 
 export default config;

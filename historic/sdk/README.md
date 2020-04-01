@@ -26,6 +26,7 @@ There are 3 main ways to use our SDK:
 
 2. **Script Tag**: Add the following inside your page's `<head>` tag:
 
+        <meta charset="utf-8">
         <script src="https://croquet.io/sdk/croquet-latest.min.js"></script>
 
     This will create the `Croquet` global to access `Croquet.Model` etc.
@@ -37,6 +38,8 @@ There are 3 main ways to use our SDK:
     Then import it in your JS file:
 
         import * as Croquet from "@croquet/croquet"
+
+    Again, make sure to specify `charset="utf-8"` for your HTML or your script tags.
 
 We frequently update the SDK so be sure to always use the latest (until we have a stable release).
 
@@ -50,23 +53,25 @@ This synchronization is largely invisible to the developer. Creating a _Croquet_
 
 Every _Croquet_ application consists of two parts:
 
-- The **view** handles user input and output. It processes all keyboard / mouse / touch events, and determines what is displayed on the screen.
+- The **views** handle user input and output. They process all keyboard / mouse / touch events, and determine what is displayed on the screen.
 
-- The **model** handles all calculation and simulation. This is where the actual work of the application takes place. The model is also where save / load happens.
+- The **models** handle all calculation and simulation. This is where the actual work of the application takes place. The models are saved, shared, and loaded automatically.
 
-**The model is guaranteed to always be identical for all users.** However, the view is not. Different users might be running on different hardware platforms, or might display different representations of the model.
+**Models are guaranteed to always be identical for all users.** However, the views are not. Different users might be running on different hardware platforms, or might display different representations of the models.
 
-When you launch a _Croquet_ application, you automatically join a shared **session**. As long as you're in the session, your model will be identical to the models of every other user in the session.
+When you launch a _Croquet_ application, you automatically join a shared **session**. As long as you're in the session, your models will be identical to the models of every other user in the session.
 
-To maintain this synchronization, the model and the view communicate through **events**. When you publish an event from the view, it's mirrored to everyone else in your session, so every model receives exactly the same event stream.
+To maintain this synchronization, the models and the views communicate through **events**. When you publish an event from a view, it's mirrored to everyone else in your session, so everyone's models receive exactly the same event stream.
 
 This mirroring is handled by **reflectors**. Reflectors are stateless, public message-passing services located in the cloud.
 
-**Snapshots** are archived copies of a model. _Croquet_ apps periodically take snapshots and save them to the cloud. When you join an existing session, you sync with the other users by loading one of these snapshots.
+**Snapshots** are archived copies of all models in a session. _Croquet_ apps periodically take snapshots and save them to the cloud. When you join an existing session, you sync with the other users by loading one of these snapshots.
 
 # Creating a _Croquet_ App
 
-To create a new a _Croquet_ app, you simply define your own model and view. These classes inherit from the base classes {@link Model} and {@link View} in the `croquet.js` library. The view contains all your input and output code, and the model  contains all your simulation code.
+To create a new a _Croquet_ app, you simply define your own models and views. These classes inherit from the base classes {@link Model} and {@link View} in the `croquet` library.
+
+A simple app often only has one model and one view. In that case, the view contains all your input and output code, and the model contains all your simulation code.
 
 ```
 class MyModel extends Croquet.Model {
@@ -88,16 +93,16 @@ class MyView extends Croquet.View {
 }
 ```
 
-You then join a session by calling {@link startSession} from the `croquet.js` and passing it the name of your app, and your model and view classes. `startSession` automatically connects to a nearby reflector, synchronizes your model with the models of any other users already in the same session, and starts executing.
+You then join a session by calling {@link startSession} and passing it a session name, and your model and view classes. `startSession` automatically connects to a nearby reflector, synchronizes your model with the models of any other users already in the same session, and starts executing.
 
 ```
-Croquet.startSession("myAppName", MyModel, MyView);
+Croquet.startSession("mySessionName", MyModel, MyView);
 ```
-That it. You don't need to worry about setting up a server, or writing special synchronization code. _Croquet_ handles all of that invisibly, allowing you to concentrate on what your app _does_.
+That's it. You don't need to worry about setting up a server, or writing special synchronization code. _Croquet_ handles all of that invisibly, allowing you to concentrate on what your app _does_.
 
 # Models
 
-_Croquet_ models are a little different from normal JavaScript classes. For one thing, instead of having a constructor, they have an `init()` method. `init()` only executes the _very first time_ the model is instantiated within a brand new session. If you join a session that's already in progress, your model will be initialized from a snapshot instead.
+_Croquet_ models are a little different from normal JavaScript classes. For one thing, instead of having a constructor, they have an [`init()`]{@link Model#init} method. `init` only executes the _very first time_ the model is instantiated within a brand new session. If you join a session that's already in progress, your model will be initialized from a snapshot instead.
 
 ```
 class MyModel extends Croquet.Model {
@@ -108,11 +113,15 @@ class MyModel extends Croquet.Model {
 MyModel.register();
 ```
 
-Also, every _Croquet_ model needs to have its static `register()` method called after it is defined. This registers the model with _Croquet's_ internal class database so it can be properly stored and retrieved when a snapshot is created.
+Also, every _Croquet_ model class needs to have its static [`register()`]{@link Model.register} method called after it is defined. This registers the model class with _Croquet's_ internal class database so it can be properly stored and retrieved when a snapshot is created.
+
+If your application uses multiple models, you instantiate them by calling [`create()`]{@link Model.create} instead of `new`.
+
+See {@link Model} for the full class documentation.
 
 # Views
 
-When `startSession()` creates the local model and view, it passes the view a pointer to the model. This way the view can initialize itself to reflect whatever state the model may currently be in. Remember that when you join a session, your model might be initalized by running its `init()` method, or it might be initialized by loading an existing snapshot. Having direct access to the model allows the view to configure itself properly no matter how the model was initialized.
+When `startSession()` creates the local root model and root view, it passes the view a reference to the model. This way the view can initialize itself to reflect whatever state the model may currently be in. Remember that when you join a session, your model might be initalized by running its `init()` method, or it might be initialized by loading an existing snapshot. Having direct access to the model allows the view to configure itself properly no matter how the model was initialized.
 ```
 class MyView extends Croquet.View {
     constructor(model) {
@@ -125,15 +134,19 @@ class MyView extends Croquet.View {
     }
 }
 ```
-This illustrates an important feature of _Croquet_: **The view can read directly from the model at any time.** The view doesn't need to receive an event from the model to update itself. It can just pull whatever data it needs directly from the model whenever it wants.  (Of course, the view shouldn't _write_ directly to the model, because that would break synchronization.)
+This illustrates an important feature of _Croquet_: **A view can read directly from a model at any time.** A view doesn't need to receive an event from a model to update itself. It can just pull whatever data it needs directly from the model whenever it wants.  (Of course, a view shouldn't _write_ directly to a model, because that would break synchronization.)
 
-The view's `update()` method is called every time the application window requests an animation frame (usually 60 times a second). This allows the view to continually refresh itself even if the model is updating more slowly. `update()` receives the local system time at the start of the frame as its argument.
+The root view's [`update()`]{@link View#update} method is called every time the application window requests an animation frame (usually 60 times a second). This allows the view to continually refresh itself even if the models are updating more slowly. `update()` receives the local system time at the start of the frame as its argument.
+
+If your app uses more than one view, you root view's `update` method needs to call all other views' `update`.
+
+See {@link View} for the full class documentation.
 
 # Events
 
-Even though the view can read directly from the model, the primary way the model and the view communicate is through events.
+Even though views can read directly from their model, the primary way models views communicate is through events.
 
-To send an event, call `publish()`in either the model or the view:
+To send an event, call `publish()` in either the model or the view:
 ```
 publish(scope, event, data)
 ```
@@ -150,33 +163,38 @@ subscribe(scope, event, this.handler)
 - _Event_ is the name of the event itself.
 - _Handler_ is the method that will be called when the event is published. (The handler accepts the data object as an argument.)
 
-Events can be used to communicate between any two parts of your _Croquet_ app. However, events sent from view to model are handled differently:
+Events can be used to communicate between models themselves or views or any combination. However, events sent between models and views are handled specially:
 
-**When you send an event from the view to the model, it is mirrored by the reflector and sent to every instance of the model in your current session.**
+**_Input events_ (published by a view and handled by a model) are mirrored by the reflector and sent to every replica of the model in your current session.**
 
-By mirroring view-to-model events through the reflector, _Croquet_ insures that all instances of the model stay in sync. All instances of the model receive exactly the same stream of events in exactly the same order.
+By mirroring view-to-model events through the reflector, _Croquet_ ensures that all replicas of the model stay in sync. All replicas of the model receive exactly the same stream of events in exactly the same order.
+
+**_Output events_ (published by a model and handled by a view) are queued up locally, and handled right before invoking `update()`.**
+
+This is to ensure a strict separation between model code execution and view code execution. The model code must be executed precisely the same for every user to stay in sync, no matter if there are views subscribed on that user's machine or not.
 
 There are also two special events that are generated by the reflector itself: `view-join` and `view-exit`. These are broadcast whenever a user joins or leaves a session.
 
 # Time
 
-The model has no concept of real-world time. All it knows about is **simulation time**.
+Models have no concept of real-world time. All they know about is **simulation time**.
 
-Every event that passes through the reflector is timestamped. The current simulation time in the model is simply the timestamp of the last event it received. This allows different instances of the model to stay in sync even if their local real-world clocks diverge.
+Every event that passes through the reflector is timestamped. The current simulation time in the model is simply the timestamp of the last event it received. This allows different replicas of the model to stay in sync even if their local real-world clocks diverge.
 
 Calling `this.now()` will return the current simulation time.
 
 In addition to normal events, the reflector also sends out a regular stream of **heartbeat ticks**. Heartbeat ticks advance the model's simulation time even if the view isn't sending any events. By default the reflector sends out heartbeat ticks 20 times a second, but you can change the frequency at session start.
 
-The method `this.future()` can be used to schedule an event in the future. For example, if you wanted to create a tick routine in the model that executes every 100 milliseconds, it would look like this:
+The method `this.future()` can be used to schedule an event in the future. For example, if you wanted to create an animation routine in a model that executes every 100 milliseconds, it would look like this:
 
 ```
-myTick() {
+step() {
     // ... do some stuff ...
-    this.future(100).myTick();
+    this.future(100).step();
 }
 ```
 
+Note that the ticks-per-second rate of the reflector is independent of the future interval used by your models. Individual models may use different future times.
 
 # Snapshots
 
@@ -188,15 +206,16 @@ _Note: The snapshot code is currently unoptimized, so you may experience a perfo
 
 # Random
 
-Croquet guarantees that the same sequence of random numbers is generated in every instance of the model. If you call `Math.random()` within the model it will return the same number for all instances.
+Croquet guarantees that the same sequence of random numbers is generated in every replica of your application. If you call `Math.random()` within a model it will return the same number for all replicas.
 
-Calls to `Math.random()` within the view will behave normally. Different instances will receive different random numbers.
+Calls to `Math.random()` within a view will behave normally. Different instances will receive different random numbers.
 
 
 # Changelog
 
 | date       | item
 |------------|---
+| 2020-03-24 | **release 0.2.7** (bug fixes; [startSession]{@link startSession} supports passing `options` to root model's [init]{@link Model#init}, message replay no longer visible to app)
 | 2019-12-12 | **release 0.2.6** (bug fixes; works on MS Edge)
 | 2019-10-18 | **release 0.2.5** (bug fixes; new widget API) version aligned with npm
 | 2019-10-01 | **release 0.2.2** (bug fixes; updated qr-code support)
@@ -217,6 +236,6 @@ Calls to `Math.random()` within the view will behave normally. Different instanc
 | 2019-06-27 | docs: [View.subscribe]{@link View#subscribe}, [startSession]{@link startSession}
 | 2019-06-26 | **release 0.1.0**
 
-Copyright © 2019 Croquet Corporation
+Copyright © 2019, 2020 Croquet Corporation
 
 _THE CROQUET SDK IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE._

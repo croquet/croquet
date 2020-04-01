@@ -114,6 +114,8 @@ class Model {
      *
      * It is necessary to register all Model subclasses so the serializer can recreate their instances from a snapshot.
      * Also, the [session id]{@link startSession} is derived by hashing the source code of all registered classes.
+     *
+     * **Important**: for the hashing to work reliably across browsers, be sure to specify `charset="utf-8"` for your `<html>` or all `<script>` tags.
      * @example
      * class MyModel extends Croquet.Model {
      *   ...

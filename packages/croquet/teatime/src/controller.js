@@ -146,6 +146,9 @@ export default class Controller {
     /** @type {Object} {id, name} the user id (identifying this client) and name (from login or "GUEST") */
     get user() { return { id: this.viewId, name: getUser("name", "GUEST") }; }
 
+    /** @type {Boolean} if true, sends to the reflector are disabled */
+    get viewOnly() { return this.islandCreator.viewOnly; }
+
     /**  @type {Number} how many ms the simulation is lagging behind the last tick from the reflector */
     get backlog() { return this.island ? this.time - this.island.time : 0; }
 
@@ -215,7 +218,6 @@ export default class Controller {
             }
             // the island id (name) is "room/user/random?opt=val&opt=val"
             name = `${room}/${user}/${random}`;
-            if (user === 'DEMO') this.viewOnly = getUser("demoViewOnly", true);
         }
         // include options in the island's id
         const stringify = v => typeof v === "object" ? stableStringify(v) : v;
