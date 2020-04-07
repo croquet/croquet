@@ -880,6 +880,7 @@ export default class Controller {
         if (typeof this.synced !== "boolean") this.synced = false;
         this.time = time;
         if (this.island) Stats.backlog(this.backlog);
+        if (this.tickHook) this.tickHook();
     }
 
     /** we received a tick from reflector, generate local ticks */
