@@ -563,7 +563,7 @@ export default class Controller {
                     // return from establishSession()
                     else this.islandCreator.startedOrSynced.resolve(this.island);
                 };
-                simulateQueuedMessages();
+                setTimeout(simulateQueuedMessages, 0); // force async to be on same codepath with few or many messages
                 return;
             }
             case 'RECV': {
