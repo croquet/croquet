@@ -184,6 +184,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
         session.id = controller.id;
         App.makeSessionWidgets(session.id);
         controller.inViewRealm(() => {
+            if (urlOptions.has("debug", "session", false)) console.log(session.id, 'Creating root view');
             session.view = new ViewRoot(session.model);
         });
     }
@@ -191,6 +192,7 @@ export async function startSession(name, ModelRoot=Model, ViewRoot=View, options
     function clear() {
         session.model = null;
         if (session.view) {
+            if (urlOptions.has("debug", "session", false)) console.log(session.id, 'Detaching root view');
             session.view.detach();
             if (session.view.id !== "") console.warn(`${session.view} did not call super.detach()`);
             session.view = null;
