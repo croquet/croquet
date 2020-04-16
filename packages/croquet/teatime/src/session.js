@@ -8,7 +8,7 @@ import View from "./view";
 import Controller from "./controller";
 
 export const Session = {
-    join: startSession,
+    join: joinSession,
 };
 
 export function deprecatedStartSession(...args) {
@@ -19,15 +19,15 @@ export function deprecatedStartSession(...args) {
 //@typedef { import('./src/model').default } Model
 
 /**
- * **Start a new Croquet session.**
+ * **Join a Croquet session.**
  *
- * Creates a new session executing `ModelRoot`, then attaches a `ViewRoot` instance.
+ * Joins a session (instantiating `ModelRoot` for the very first user, otherwise resuming from snapshot), then attaches a `ViewRoot` instance.
  *
- * The session `name` creates individual sessions.
+ * The session `name` identifies individual sessions.
  * You can use it for example to create different sessions for different users.
  * That is, a user in session `"MyApp/A"` will not see a user in `"MyApp/B"`.
- * If you want all users to end up in the same session, simply use a constant.
- * This is what we do in the tutorials for simplicity, but actual apps should manage sessions.
+ * (If you use a constant, then all users will end up in the same session.
+ * This is what we do in the tutorials for simplicity, but actual apps should manage sessions).
  *
  * A [session id]{@link Model#sessionId} is created from the given session `name`,
  * and a hash of all the [registered]{@link Model.register} Model classes and {@link Constants}.
@@ -35,11 +35,13 @@ export function deprecatedStartSession(...args) {
  * which is a prerequisite for perfectly replicated computation.
  *
  * The session id is used to connect to a reflector. If there is no ongoing session and no persistent snapshot,
- * an instance of `ModelRoot` is [created]{@link Model.create}. Otherwise, the previously stored
- * [modelRoot]{@link Model#beWellKnownAs} is deserialized from a snapshot.
+ * an instance of `ModelRoot` is [created]{@link Model.create} (which in turn typically creates a number of models).
+ * Otherwise, the previously stored [modelRoot]{@link Model#beWellKnownAs} is deserialized from the snapshot,
+ * along with all additional models.
  *
- * That model instance is passed to the [constructor]{@link View} of your ViewRoot class.
- * The view root should set up the input and output operations of your application.
+ * That root model instance is passed to the [constructor]{@link View} of your ViewRoot class.
+ * The view root should set up the input and output operations of your application,
+ * and create any additional views as to match the application state as found in the models.
  *
  * Then the Croquet **main loop** is started (unless you pass in a `step: "manual"` option).
  * This uses [requestAnimationFrame()]{@link https://developer.mozilla.org/docs/Web/API/window/requestAnimationFrame}
@@ -79,6 +81,7 @@ export function deprecatedStartSession(...args) {
  *     id,           // the session id
  *     view,         // the ViewRoot instance
  *     step(time),   // function for "manual" stepping
+ *     leave(),      // force leaving the session
  * }
  * ```
  *
@@ -87,9 +90,9 @@ export function deprecatedStartSession(...args) {
  *  - `step(time)` is a function you need to call in each frame if you disabled automatic stepping.
  *     The `time` argument is expected to be in milliseconds, monotonically increasing - for example, the time received by a function that you passed to `window.requestAnimationFrame`.
  * @example <caption>auto main loop</caption>
- * Croquet.startSession("MyApp/1", MyRootModel, MyRootView);
+ * Croquet.Session.join("MyApp/1", MyRootModel, MyRootView);
  * @example <caption>manual main loop</caption>
- * Croquet.startSession("MyApp/2", MyRootModel, MyRootView, {step: "manual"}).then(session => {
+ * Croquet.Session.join("MyApp/2", MyRootModel, MyRootView, {step: "manual"}).then(session => {
  *     function myFrame(time) {
  *         session.step(time);
  *         window.requestAnimationFrame(myFrame);
@@ -98,7 +101,7 @@ export function deprecatedStartSession(...args) {
  * });
  * @public
  */
-async function startSession(name, ModelRoot=Model, ViewRoot=View, options) {
+async function joinSession(name, ModelRoot=Model, ViewRoot=View, options) {
     function inherits(A, B) { return A === B || A.prototype instanceof B; }
     // sanitize name
     if (typeof name !== "string") name = JSON.stringify(name) || "undefined";
@@ -158,6 +161,9 @@ async function startSession(name, ModelRoot=Model, ViewRoot=View, options) {
 
             hiddenSince = null; // evidently not hidden
             stepSession(frameTime, controller, session.view);
+        },
+        leave() {
+            console.warn("Session leave not implemented yet!");
         },
         get latency() { return controller.latency; },
         get latencies() { return controller.latencies; },
@@ -265,7 +271,7 @@ function stepSession(frameTime, controller, view) {
 /**
  * **User-defined Constants**
  *
- * To ensure that all users in a session execute the exact same Model code, the [session id]{@link startSession}
+ * To ensure that all users in a session execute the exact same Model code, the [session id]{@link joinSession}
  * is derived by [hashing]{@link Model.register} the source code of Model classes and value of constants.
  * To hash your own constants, put them into `Croquet.Constants` object.
  *
