@@ -41,7 +41,6 @@ const bucket = storage.bucket('croquet-sessions-v1');
 const port = 9090;
 const VERSION = "v1";
 const SERVER_HEADER = `croquet-reflector-${VERSION}`;
-const SNAP_TIMEOUT = 30000;   // time in ms to wait for SNAP from island's first client
 const DELETION_DEBOUNCE = 10000; // time in ms to wait before deleting an island
 const TICK_MS = 1000 / 5;     // default tick interval
 const ARTIFICIAL_DELAY = 0;   // delay messages randomly by 50% to 150% of this
@@ -55,6 +54,13 @@ const hostname = os.hostname();
 const {wlan0, eth0, en0} = os.networkInterfaces();
 const hostip = (wlan0 || eth0 || en0).find(each => each.family==='IPv4').address;
 let cluster = fs.existsSync("/var/run/secrets/kubernetes.io") ? "" : "local"; // name set async for k8s
+
+const DISCONNECT_UNRESPONSIVE_CLIENTS = cluster !== "local";
+const CHECK_INTERVAL = 5000;        // how often to checkForActivity
+const PING_INTERVAL = 5000;         // while inactive, send pings at this rate
+const SNAP_TIMEOUT = 30000;         // if no SNAP received after waiting this number of ms, disconnect
+const PING_THRESHOLD = 30000;       // if not heard from for this long, start pinging
+const DISCONNECT_THRESHOLD = 60000; // if not responding for this long, disconnect
 
 function logtime() {
     if (cluster !== "local" ) return "";
@@ -234,7 +240,7 @@ const ALL_ISLANDS = new Map();
 /** Get current time for island
  * @param {IslandData} island
  */
-function getTime(island, reason) {
+function getTime(island, _reason) {
     const now = Date.now();
     const delta = now - island.before;     // might be < 0 if system clock went backwards
     if (delta > 0) {
@@ -255,7 +261,7 @@ function getTime(island, reason) {
         }
         island.time += island.scale * advance;
         island.before = now;
-        //LOCAL_DEBUG(`${island.id} getTime(${reason}) => ${island.time}`);
+        //LOCAL_DEBUG(`${island.id} getTime(${_reason}) => ${island.time}`);
     }
     return island.time;
 }
@@ -392,7 +398,7 @@ function START(island) {
     client.safeSend(msg);
     DEBUG(`${island.id}/${client.addr} sending START ${msg}`);
     // if the client does not provide a snapshot in time, we need to start over
-    island.startTimeout = setTimeout(() => {
+    if (DISCONNECT_UNRESPONSIVE_CLIENTS) island.startTimeout = setTimeout(() => {
         if (island.startClient !== client) return; // success
         if (client.readyState === WebSocket.OPEN) {
             client.close(...REASON.UNRESPONSIVE);
@@ -825,34 +831,32 @@ server.on('connection', (client, req) => {
     setTimeout(() => client.readyState === WebSocket.OPEN && client.ping(Date.now()), 100);
 
     let joined = false;
-    const CHECK_INTERVAL = 5000;
-    const PING_THRESHOLD = 30000; // if not heard from for this long, start pinging
-    const PING_INTERVAL = 5000;
-    const DISCONNECT_THRESHOLD = 60000; // if not for this long, disconnect
-    function checkForActivity() {
-        if (client.readyState !== WebSocket.OPEN) return;
-        const now = Date.now();
-        const quiescence = now - lastActivity;
-        if (quiescence > DISCONNECT_THRESHOLD) {
-            DEBUG(`${sessionId}/${client.addr} inactive for ${quiescence} ms, disconnecting`);
-            client.close(...REASON.INACTIVE); // NB: close event won't arrive for a while
-            return;
-        }
-        let nextCheck;
-        if (quiescence > PING_THRESHOLD) {
-            if (!joined) {
-                DEBUG(`${sessionId}/${client.addr} did not join within ${quiescence} ms, disconnecting`);
-                client.close(...REASON.NO_JOIN);
+    if (DISCONNECT_UNRESPONSIVE_CLIENTS) {
+        function checkForActivity() {
+            if (client.readyState !== WebSocket.OPEN) return;
+            const now = Date.now();
+            const quiescence = now - lastActivity;
+            if (quiescence > DISCONNECT_THRESHOLD) {
+                DEBUG(`${sessionId}/${client.addr} inactive for ${quiescence} ms, disconnecting`);
+                client.close(...REASON.INACTIVE); // NB: close event won't arrive for a while
                 return;
             }
+            let nextCheck;
+            if (quiescence > PING_THRESHOLD) {
+                if (!joined) {
+                    DEBUG(`${sessionId}/${client.addr} did not join within ${quiescence} ms, disconnecting`);
+                    client.close(...REASON.NO_JOIN);
+                    return;
+                }
 
-            DEBUG(`${sessionId}/${client.addr} inactive for ${quiescence} ms, sending ping`);
-            client.ping(now);
-            nextCheck = PING_INTERVAL;
-        } else nextCheck = CHECK_INTERVAL;
-        setTimeout(checkForActivity, nextCheck);
+                DEBUG(`${sessionId}/${client.addr} inactive for ${quiescence} ms, sending ping`);
+                client.ping(now);
+                nextCheck = PING_INTERVAL;
+            } else nextCheck = CHECK_INTERVAL;
+            setTimeout(checkForActivity, nextCheck);
+        }
+        setTimeout(checkForActivity, PING_THRESHOLD + 2000); // allow some time for establishing session
     }
-    setTimeout(checkForActivity, PING_THRESHOLD + 2000); // allow some time for establishing session
 
     client.on('message', incomingMsg => {
         lastActivity = Date.now();

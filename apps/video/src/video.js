@@ -325,7 +325,7 @@ class SyncedVideoView extends View {
     loadVideo() {
         this.disposeOfVideo(); // discard any loaded or loading video
 
-        this.waitingForSync = !this.realm.isSynced; // this can flip back and forth
+        this.waitingForSync = !this.realm.isSynced(); // this can flip back and forth
 
         const { assetDescriptor, isPlaying, startOffset, pausedTime } = this.model;
         this.playStateChanged({ isPlaying, startOffset, pausedTime }); // will be stored for now, and may be overridden by messages in a backlog by the time the video is ready
