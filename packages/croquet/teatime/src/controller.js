@@ -121,8 +121,9 @@ export default class Controller {
         /** @type {Array} recent TUTTI sends and their payloads, for matching up with incoming votes and divergence alerts */
         this.tuttiHistory = [];
 
-        viewDomain.removeAllSubscriptionsFor(this); // in case we're recycling
-        viewDomain.addSubscription(this.viewId, "__users__", this, data => displayStatus(`users now ${data.count}`), "oncePerFrameWhileSynced");
+        // controller (only) gets to subscribe to events using the shared viewId as the "subscriber" argument
+        viewDomain.removeAllSubscriptionsFor(this.viewId); // in case we're recycling
+        viewDomain.addSubscription(this.viewId, "__users__", this.viewId, data => displayStatus(`users now ${data.count}`), "oncePerFrameWhileSynced");
         App.showSyncWait(true); // enable (i.e., not synced)
     }
 
