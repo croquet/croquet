@@ -87,6 +87,11 @@ class View {
         Object.defineProperty(this, "id", {  value: "" });
     }
 
+    // ael - provisional
+    reattach() {
+        Object.defineProperty(this, "id", { value: this.realm.register(this) });
+    }
+
     /**
      * **Publish an event to a scope.**
      *
