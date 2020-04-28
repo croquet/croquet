@@ -549,6 +549,7 @@ export default class Controller {
                     this.timeFromReflector(msg[0]);
                 }
                 this.timeFromReflector(time);
+                if (DEBUG.session) console.log(`${this.id} fetching snapshot ${url}`);
                 const snapshot = await this.fetchJSON(url);
                 this.islandCreator.snapshot = snapshot;  // set snapshot for building the island
                 if (!this.connected) { console.log(this.id, 'socket went away during SYNC'); return; }
@@ -561,7 +562,10 @@ export default class Controller {
                     // if more messages, finish those first
                     if (!caughtUp) setTimeout(simulateSyncMessages, 0);
                     // return from establishSession()
-                    else this.islandCreator.startedOrSynced.resolve(this.island);
+                    else {
+                        if (DEBUG.session) console.log(`${this.id} fast forwarded to ${Math.round(this.island.time)}`);
+                        this.islandCreator.startedOrSynced.resolve(this.island);
+                    }
                 };
                 setTimeout(simulateSyncMessages, 0);
                 return;
@@ -604,6 +608,7 @@ export default class Controller {
 
     // create the Island for this Controller, based on the islandCreator
     install() {
+        if (DEBUG.session) console.log(`${this.id} installing island`);
         const {snapshot, init, options} = this.islandCreator;
         let newIsland = new Island(snapshot, () => {
             try { return init(options); }
