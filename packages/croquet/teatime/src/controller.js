@@ -87,6 +87,8 @@ export default class Controller {
         this.networkQueue = new AsyncQueue();
         /** the time stamp of last message received from reflector */
         this.time = 0;
+        /** during SYNC, only fast-forwarding to this time */
+        this.fastForwardTo = -1;
         /** the human-readable session name (e.g. "room/user/random") */
         this.session = '';
         /** @type {String} the client id (different in each replica, but stays the same on reconnect) */
@@ -554,16 +556,20 @@ export default class Controller {
                 this.islandCreator.snapshot = snapshot;  // set snapshot for building the island
                 if (!this.connected) { console.log(this.id, 'socket went away during SYNC'); return; }
                 this.install();
+                // after install() sets this.island, the main loop may try to simulate beyond SYNC time
+                this.fastForwardTo = time;
+                if (DEBUG.session) console.log(`${this.id} fast forwarding from ${Math.round(this.island.time)} to ${this.fastForwardTo}`);
                 this.getTickAndMultiplier();
                 // simulate messages before continuing, but only up to the SYNC time
                 const simulateSyncMessages = () => {
-                    if (DEBUG.session) console.log(`${this.id} fast forwarding from ${Math.round(this.island.time)} to ${time}`);
-                    const caughtUp = this.simulate(Date.now() + 200, time);
+                    const caughtUp = this.simulate(Date.now() + 200);
                     // if more messages, finish those first
                     if (!caughtUp) setTimeout(simulateSyncMessages, 0);
                     // return from establishSession()
                     else {
                         if (DEBUG.session) console.log(`${this.id} fast forwarded to ${Math.round(this.island.time)}`);
+                        // remove time limit to start regulare simualation
+                        this.fastForwardTo = -1;
                         this.islandCreator.startedOrSynced.resolve(this.island);
                     }
                 };
@@ -798,10 +804,9 @@ export default class Controller {
     /**
      * Process pending messages for this island and advance simulation
      * @param {Number} deadline CPU time deadline before interrupting simulation
-     * @param {Number?} fastForwardTo if specified, return when reaching this simulation time
      * @return {Boolean} true if simulation finished before deadline
      */
-    simulate(deadline, fastForwardTo=-1) {
+    simulate(deadline) {
         if (!this.island) return true;     // we are probably still sync-ing
         try {
             const simStart = Stats.begin("simulate");
@@ -816,7 +821,7 @@ export default class Controller {
                 weHaveTime = this.island.advanceTo(msgData[0], deadline);
                 if (!weHaveTime) break;
                 // return true if done fast forwarding
-                if (fastForwardTo >= 0 && msgData[0] >= fastForwardTo) return true;
+                if (this.fastForwardTo >= 0 && msgData[0] >= this.fastForwardTo) return true;
                 // Remove message from the (concurrent) network queue
                 this.networkQueue.nextNonBlocking();
                 // have the island decode and schedule that message
@@ -829,9 +834,9 @@ export default class Controller {
                 this.cpuTime += EXTERNAL_MESSAGE_CPU_PENALTY;
             }
             // don't do any of the below while fast forwarding
-            if (fastForwardTo >= 0) {
+            if (this.fastForwardTo >= 0) {
                 if (!weHaveTime) return false;
-                return this.island.advanceTo(fastForwardTo, deadline);
+                return this.island.advanceTo(this.fastForwardTo, deadline);
             }
             // finally, simulate up to last tick (whether received or generated)
             if (weHaveTime) weHaveTime = this.island.advanceTo(this.time, deadline);
