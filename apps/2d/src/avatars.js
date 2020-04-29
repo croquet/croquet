@@ -20,12 +20,13 @@ class ModelRoot extends Model {
 
     // non-inherited methods below
 
-    addUser(id) {
-        if (this.shapes[id]) { console.warn("shape already exists for joining user", id); return; }
+    addUser(viewId) {
+        if (this.shapes[viewId]) { console.warn("shape already exists for joining user", viewId); return; }
         const shape = Shape.create();
-        this.shapes[id] = shape;
+        shape.viewId = viewId;
         shape.gravatar = ""; // generate random gravatar hash
         for (let i = 0; i < 16; i++) shape.gravatar += (this.random() * 16 | 0).toString(16);
+        this.shapes[viewId] = shape;
         this.publish(this.id, 'shape-added', shape);
     }
 
