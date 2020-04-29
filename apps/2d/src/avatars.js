@@ -22,10 +22,13 @@ class ModelRoot extends Model {
 
     addUser(viewId) {
         if (this.shapes[viewId]) { console.warn("shape already exists for joining user", viewId); return; }
-        const shape = Shape.create();
-        shape.viewId = viewId;
-        shape.gravatar = ""; // generate random gravatar hash
-        for (let i = 0; i < 16; i++) shape.gravatar += (this.random() * 16 | 0).toString(16);
+        // both color and gravatar pic are based on viewId
+        // so we get the same look back after going dormant
+        const randomInt = Number.parseInt(viewId, 36);
+        const hue = Math.floor(randomInt / 50) % 360;
+        const saturation = 50 + randomInt % 50;
+        const shape = Shape.create({color: `hsla(${hue},${saturation}%,50%,0.5)`});
+        shape.gravatar = randomInt.toString(16).padStart(16, '0');
         this.shapes[viewId] = shape;
         this.publish(this.id, 'shape-added', shape);
     }
@@ -44,7 +47,7 @@ class Shape extends Model {
 
     init(options={}) {
         super.init();
-        const r = max => Math.floor(max * this.random());
+        const r = max => Math.floor(max * Math.random());
         this.type = options.type || 'circle';
         this.color = options.color || `hsla(${r(360)},${r(50)+50}%,50%,0.5)`;
         this.pos = [r(1000), r(1000)];
