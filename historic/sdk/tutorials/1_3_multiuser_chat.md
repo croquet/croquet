@@ -126,7 +126,7 @@ When a new user joins, their nickname is picked at a random from an array. Note 
 
 We store a reference to the model so that we can use it later to pull data directly.
 
-(Note: This reference is only to the root model that was created during `Croquet.startSession`. If your root model contains sub-models that you need to read from, you should store references to them inside the root model.)
+(Note: This reference is only to the root model that was created during `Croquet.Session.join`. If your root model contains sub-models that you need to read from, you should store references to them inside the root model.)
 
 ```
   sendButton.onclick = () => this.send();

@@ -180,7 +180,7 @@ The "right" value for `Q.SMOOTH` depends on many factors: how fast the actor is 
 
 When the reflector doesn't have any normal events to send, it sends silent heartbeat ticks. This allows the model to keep running even if it's not receiving input from any users. These ticks don't consume much bandwidth, but they do consume some, so it can be useful to lower the tick rate to match the needs of your application.
 
-The option `tps` in [`startSession`]{@link Session.join} is used to set the tick rate (a.k.a. "ticks per second").
+The option `tps` in [`Session.join`]{@link Session.join} is used to set the tick rate (a.k.a. "ticks per second").
 
 ```
 Croquet.Session.join("smooth", RootModel, RootView, { tps: 1000/Q.TICK_MS });

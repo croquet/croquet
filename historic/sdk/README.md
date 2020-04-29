@@ -93,7 +93,7 @@ class MyView extends Croquet.View {
 }
 ```
 
-You then join a session by calling {@link Session.join} and passing it a session name, and your model and view classes. `startSession` automatically connects to a nearby reflector, synchronizes your model with the models of any other users already in the same session, and starts executing.
+You then join a session by calling {@link Session.join} and passing it a session name, and your model and view classes. `Session.join` automatically connects to a nearby reflector, synchronizes your model with the models of any other users already in the same session, and starts executing.
 
 ```
 Croquet.Session.join("mySessionName", MyModel, MyView);

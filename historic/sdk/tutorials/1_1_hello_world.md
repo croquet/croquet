@@ -258,7 +258,7 @@ This method is called whenever a new value of the count is published by the mode
 Croquet.Session.join("hello", MyModel, MyView);
 ```
 
-Croquet.startSession is where the application is actually launched. The arguments are the sessionName, the MyModel class, the MyView class, and any options you may wish to include.
+Croquet.Session.join is where the application is actually launched. The arguments are the sessionName, the MyModel class, the MyView class, and any options you may wish to include.
 
 Starting the session will do the following things:
 
