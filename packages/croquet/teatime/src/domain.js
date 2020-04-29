@@ -111,32 +111,32 @@ export class Domain {
      */
     processFrameEvents(controllerIsSynced) {
         let n = 0;
-        // process oncePerFrame events in any order
-        for (const [topic, data] of this.perFrameEvents) {
+
+        const processSubs = (topic, data, accessor) => {
             const subscriptions = this.subscriptions[topic];
             if (subscriptions) {
-                for (const handler of subscriptions.oncePerFrame) { handler(data); n++; }
+                for (const handler of subscriptions[accessor]) { handler(data); n++; }
             }
-        }
+            };
+
+        // process queued events in order
+        for (const {topic, data} of this.queuedEvents) processSubs(topic, data, 'queued');
+        this.queuedEvents.length = 0;
+
+        // process oncePerFrame events in any order
+        for (const [topic, data] of this.perFrameEvents) processSubs(topic, data, 'oncePerFrame');
         this.perFrameEvents.clear();
+
         // process oncePerFrameWhileSynced events in any order
         if (controllerIsSynced) {
-            for (const [topic, data] of this.perSyncedFrameEvents) {
-                const subscriptions = this.subscriptions[topic];
-                if (subscriptions) {
-                    for (const handler of subscriptions.oncePerFrameWhileSynced) { handler(data); n++; }
-                }
-            }
+            for (const [topic, data] of this.perSyncedFrameEvents) processSubs(topic, data, 'oncePerFrameWhileSynced');
             this.perSyncedFrameEvents.clear();
         }
-        // process queued events in order
-        for (const {topic, data} of this.queuedEvents) {
-            const subscriptions = this.subscriptions[topic];
-            if (subscriptions) {
-                for (const handler of subscriptions.queued) { handler(data); n++; }
-            }
-        }
+
+        // finally, process any newly queued events
+        for (const {topic, data} of this.queuedEvents) processSubs(topic, data, 'queued');
         this.queuedEvents.length = 0;
+
         return n;
     }
 

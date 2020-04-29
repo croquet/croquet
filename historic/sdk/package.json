@@ -2,10 +2,10 @@
   "name": "croquet",
   "version": "0.2.7",
   "description": "Croquet SDK Documentation and all-in-one JS bundle",
-  "main": "croquet.js",
+  "main": "sdk.js",
   "scripts": {
     "start": "npm-watch",
-    "build-lib": "NODE_ENV=development parcel build --public-url . --global Croquet -o croquet-dev-bundled.js croquet.js",
+    "build-lib": "NODE_ENV=development parcel build --public-url . --global Croquet -o croquet-dev-bundled.js sdk.js",
     "build-docs": "jsdoc -c jsdoc.json -d build",
     "deploy": "./deploy.sh",
     "watch": "npm-watch"

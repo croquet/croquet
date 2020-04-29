@@ -48,7 +48,7 @@ const git_commit = is_dev_build ? execSync("git rev-parse HEAD").toString().trim
 process.env.CROQUET_VERSION = is_dev_build ? `${pkg.version}:${git_branch}:${git_commit}` : pkg.version;
 
 const config = {
-    input: 'src.js',
+    input: 'croquet.js',
     output: {
         file: 'dist/croquet.min.js',
         format: 'cjs',

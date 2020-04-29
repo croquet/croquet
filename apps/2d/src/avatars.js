@@ -1,4 +1,4 @@
-// to use latest sdk: cd sdk; npm start
+// to use latest sdk: cd croquet/libraries/packages/croquet; npm start
 import { Model, View, App, startSession } from "@croquet/croquet";
 
 
@@ -20,14 +20,17 @@ class ModelRoot extends Model {
 
     // non-inherited methods below
 
-    addUser(id) {
-        if (this.shapes[id]) { console.warn("shape already exists for joining user", id); return; }
-        const shape = Shape.create();
-        shape.hash = "";
-        for (let i = 0; i < 16; i++) shape.hash += (this.random() * 16 | 0).toString(16);
-        this.shapes[id] = shape;
+    addUser(viewId) {
+        if (this.shapes[viewId]) { console.warn("shape already exists for joining user", viewId); return; }
+        // both color and gravatar pic are based on viewId
+        // so we get the same look back after going dormant
+        const randomInt = Number.parseInt(viewId, 36);
+        const hue = Math.floor(randomInt / 50) % 360;
+        const saturation = 50 + randomInt % 50;
+        const shape = Shape.create({color: `hsla(${hue},${saturation}%,50%,0.5)`});
+        shape.gravatar = randomInt.toString(16).padStart(16, '0');
+        this.shapes[viewId] = shape;
         this.publish(this.id, 'shape-added', shape);
-        this.publish(this.id, `user-shape-${id}`, shape);
     }
 
     removeUser(id) {
@@ -44,7 +47,7 @@ class Shape extends Model {
 
     init(options={}) {
         super.init();
-        const r = max => Math.floor(max * this.random());
+        const r = max => Math.floor(max * Math.random());
         this.type = options.type || 'circle';
         this.color = options.color || `hsla(${r(360)},${r(50)+50}%,50%,0.5)`;
         this.pos = [r(1000), r(1000)];
@@ -141,7 +144,6 @@ class ShapesView extends View {
         Object.values(model.shapes).forEach(shape => this.attachShape(shape));
         this.subscribe(model.id, 'shape-added', this.attachShape);
         this.subscribe(model.id, 'shape-removed', this.detachShape);
-        this.subscribe(model.id, `user-shape-${this.viewId}`, this.gotUserShape);
     }
 
     detach() {
@@ -157,6 +159,8 @@ class ShapesView extends View {
         const shapeView = new ShapeView(shape);
         this.element.appendChild(shapeView.element);
         shapeView.element.view = shapeView;
+        // make our own shape our avatar
+        if (this.model.shapes[this.viewId] === shape) this.gotUserShape(shape);
     }
 
     detachShape(shape) {
@@ -226,7 +230,7 @@ class ShapeView extends View {
         el.className = model.type;
         el.id = model.id;
         el.style.backgroundColor = model.color;
-        if (model.hash) el.style.backgroundImage = `url("https://www.gravatar.com/avatar/${model.hash}?d=robohash&f=y&s=100")`;
+        if (model.gravatar) el.style.backgroundImage = `url("https://www.gravatar.com/avatar/${model.gravatar}?d=robohash&f=y&s=100")`;
         this.subscribe(model.id, { event: 'pos-changed', handling: "oncePerFrame" }, this.move);
         this.move(model.pos);
     }
