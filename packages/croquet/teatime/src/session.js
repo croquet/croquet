@@ -140,6 +140,7 @@ async function joinSession(name, ModelRoot=Model, ViewRoot=View, options) {
     if ("autoSleep" in options) urlOptions.autoSleep = options.autoSleep;
     startSleepChecker(); // now runs even if autoSleep is false
     // now start
+    if ("expectedSimFPS" in options) expectedSimFPS = Math.min(options.expectedSimFPS, MAX_BALANCE_FPS);
     const ISLAND_OPTIONS = ['tps'];
     const SESSION_OPTIONS = ['optionsFromUrl', 'login', 'autoSession'];
     freezeAndHashConstants();
@@ -240,9 +241,22 @@ const MAX_SIMULATION_MS = 200;
 // time spent simulating the last few frames
 const simLoad = [0];
 // number of frames to spread load
-const loadBalance = 4;
-// time in ms we allow sim to lag behind before increasing sim budget
-const balanceMS = loadBalance * (1000 / 60);
+const LOAD_BALANCE_FRAMES = 4;
+// when average load is low, the balancer spreads simulation across frames by
+// simulating with a budget equal to the mean of the durations recorded from the
+// last LOAD_BALANCE_FRAMES simulations.
+// a session also has a value expectedSimFPS, from which we derive the maximum time
+// slice that the simulation can use on each frame while still letting the app
+// render on time.  whenever the controller is found to have a backlog greater than
+// LOAD_BALANCE_FRAMES times that per-frame slice, the balancer immediately
+// schedules a simulation boost with a budget of MAX_SIMULATION_MS.
+// expectedSimFPS can be set using session option expectedSimFPS; the higher
+// the value, the less of a backlog is needed to trigger a simulation boost.  but
+// if expectedSimFPS is set to zero, the balancer will attempt to clear any backlog
+// on every frame.
+const DEFAULT_BALANCE_FPS = 60;
+const MAX_BALANCE_FPS = 120;
+let expectedSimFPS = DEFAULT_BALANCE_FPS;
 
 function stepSession(frameTime, controller, view) {
     controller.checkForConnection(true);
@@ -254,9 +268,10 @@ function stepSession(frameTime, controller, view) {
     const simStart = Date.now();
     const simBudget = simLoad.reduce((a,b) => a + b, 0) / simLoad.length;
     controller.simulate(simStart + Math.min(simBudget, MAX_SIMULATION_MS));
-    if (controller.backlog > balanceMS) controller.simulate(simStart + MAX_SIMULATION_MS - simBudget);
+    const allowableLag = expectedSimFPS === 0 ? 0 : LOAD_BALANCE_FRAMES * (1000 / expectedSimFPS);
+    if (controller.backlog > allowableLag) controller.simulate(simStart + MAX_SIMULATION_MS - simBudget);
     simLoad.push(Date.now() - simStart);
-    if (simLoad.length > loadBalance) simLoad.shift();
+    if (simLoad.length > LOAD_BALANCE_FRAMES) simLoad.shift();
 
     Stats.begin("update");
     controller.processModelViewEvents();
