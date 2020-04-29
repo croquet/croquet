@@ -1,4 +1,4 @@
-// to use latest sdk: cd sdk; npm start
+// to use latest sdk: cd croquet/libraries/packages/croquet; npm start
 import { Model, View, App, startSession } from "@croquet/croquet";
 
 
