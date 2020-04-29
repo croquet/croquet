@@ -8,7 +8,7 @@ declare module "@croquet/croquet" {
 
     /**
      * Models are replicated objects in Croquet.
-     * They are automatically kept in sync for each user in the same [session]{@link startSession}.
+     * They are automatically kept in sync for each user in the same [session]{@link Session.join}.
      * Models receive input by [subscribing]{@link Model#subscribe} to events published in a {@link View}.
      * Their output is handled by views subscribing to events [published]{@link Model#publish} by a model.
      * Models advance time by sending messages into their [future]{@link Model#future}.
@@ -70,7 +70,7 @@ declare module "@croquet/croquet" {
          * __Registers this model subclass with Croquet__
          *
          * It is necessary to register all Model subclasses so the serializer can recreate their instances from a snapshot.
-         * Also, the [session id]{@link startSession} is derived by hashing the source code of all registered classes.
+         * Also, the [session id]{@link Session.join} is derived by hashing the source code of all registered classes.
          *
          * Example
          * ```
@@ -349,7 +349,7 @@ declare module "@croquet/croquet" {
         /** Access a model that was registered previously using beWellKnownAs().
          *
          * Note: The instance of your root Model class is automatically made well-known as `"modelRoot"`
-         * and passed to the [constructor]{@link View#constructor} of your root View during [startSession]{@link startSession}.
+         * and passed to the [constructor]{@link View#constructor} of your root View during [Session.join]{@link Session.join}.
          *
          * Example:
          * ```
@@ -376,7 +376,7 @@ declare module "@croquet/croquet" {
 
     export class View extends PubSubParticipant<ViewSubOptions> {
         /**
-         * A View instance is created in {@link startSession}, and the root model is passed into its constructor.
+         * A View instance is created in {@link Session.join}, and the root model is passed into its constructor.
          *
          * This inherited constructor does not use the model in any way.
          * Your constructor should recreate the view state to exactly match what is in the model.
@@ -453,7 +453,7 @@ declare module "@croquet/croquet" {
          * a communication channel between a model and its corresponding view.
          *
          * Unlike in a model's [subscribe]{@link Model#subscribe} method, you can specify when the event should be handled:
-         * - **Queued:** The handler will be called on the next run of the [main loop]{@link startSession},
+         * - **Queued:** The handler will be called on the next run of the [main loop]{@link Session.join},
          *   the same number of times this event was published.
          *   This is useful if you need each piece of data that was passed in each [publish]{@link Model#publish} call.
          *
@@ -462,7 +462,7 @@ declare module "@croquet/croquet" {
          *
          *   **`{ event: "name", handling: "queued" }` is the default.  Simply specify `"name"` instead.**
          *
-         * - **Once Per Frame:** The handler will be called only _once_ during the next run of the [main loop]{@link startSession}.
+         * - **Once Per Frame:** The handler will be called only _once_ during the next run of the [main loop]{@link Session.join}.
          *   If [publish]{@link Model#publish} was called multiple times, the handler will only be invoked once,
          *   passing the data of only the last `publish` call.
          *
@@ -553,7 +553,7 @@ declare module "@croquet/croquet" {
         /** **The latest timestamp received from reflector**
          *
          * Timestamps are received asynchronously from the reflector at the specified tick rate.
-         * [Model time]{@View#now} however only advances synchronously on every iteration of the [main loop]{@link startSession}.
+         * [Model time]{@View#now} however only advances synchronously on every iteration of the [main loop]{@link Session.join}.
          * Usually `now == externalNow`, but if the model has not caught up yet, then `now < externalNow`.
          *
          * We call the difference "backlog". If the backlog is too large, Croquet will put an overlay on the scene,
@@ -568,7 +568,7 @@ declare module "@croquet/croquet" {
         */
         externalNow(): number;
 
-        /** Called on the root view from [main loop]{@link startSession} once per frame. Default implementation does nothing.
+        /** Called on the root view from [main loop]{@link Session.join} once per frame. Default implementation does nothing.
          *
          * Override to add your own view-side input polling, rendering, etc.
          *
@@ -582,7 +582,7 @@ declare module "@croquet/croquet" {
         /** Access a model that was registered previously using beWellKnownAs().
          *
          * Note: The instance of your root Model class is automatically made well-known as `"modelRoot"`
-         * and passed to the [constructor]{@link View#constructor} of your root View during [startSession]{@link startSession}.
+         * and passed to the [constructor]{@link View#constructor} of your root View during [Session.join]{@link Session.join}.
          *
          * Example:
          * ```
@@ -610,10 +610,65 @@ declare module "@croquet/croquet" {
 
     type ClassOf<M> = new (...args: any[]) => M;
 
+    /**
+     * __startSession__ is deprecated, use {@link Session.join} instead!
+     */
     export function startSession<M extends Model, V extends View> (
         name: string,
         modelClass: ClassOf<M>,
         viewClass: ClassOf<V>,
         options?: CroquetSessionOptions
     ): Promise<CroquetSession<V>>;
+
+
+    /**
+     * Models are replicated objects in Croquet.
+     * They are automatically kept in sync for each user in the same [session]{@link Session.join}.
+     * Models receive input by [subscribing]{@link Model#subscribe} to events published in a {@link View}.
+     * Their output is handled by views subscribing to events [published]{@link Model#publish} by a model.
+     * Models advance time by sending messages into their [future]{@link Model#future}.
+     *
+     * ## Instance Creation and Initialization
+     *
+     * ### Do __NOT__ create a {@link Model} instance using `new` and<br>do __NOT__ override the `constructor`!
+     *
+     * To __create__ a new instance, use [create()]{@link Model.create}, for example:
+     * ```
+     * this.foo = FooModel.create({answer: 123});
+     * ```
+     * To __initialize__ an instance, override [init()]{@link Model#init}, for example:
+     * ```
+     * class FooModel extends Croquet.Model {
+     *     init(options={}) {
+     *         this.answer = options.answer || 42;
+     *     }
+     * }
+     * ```
+     * The **reason** for this is that Models are only initialized by calling `init()`
+     * the first time the object comes into existence in the session.
+     * After that, when joining a session, the models are deserialized from the snapshot, which
+     * restores all properties automatically without calling `init()`. A constructor would
+     * be called all the time, not just when starting a session.
+     *
+     * @hideconstructor
+     * @public
+     */
+    export class Session {
+
+        /**
+         * **Join a Croquet session.**
+         *
+         * Joins a session (instantiating `M` as Model root for the very first user, otherwise resuming from snapshot),
+         * then attaches a `V` instance as View root.
+         *
+         */
+        static join<M extends Model, V extends View> (
+            name: string,
+            modelClass: ClassOf<M>,
+            viewClass: ClassOf<V>,
+            options?: CroquetSessionOptions
+        ): Promise<CroquetSession<V>>;
+
+    }
+
 }

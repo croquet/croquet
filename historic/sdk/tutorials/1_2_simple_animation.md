@@ -37,7 +37,7 @@ Q.STEP_MS = 1000 / 30;        // bouncing ball tick interval in ms
 Q.SPEED = 10;                 // max speed on a dimension, in units/s
 ```
 
-MyModel is the root model, and is therefore what will be passed into [Croquet.startSession]{@link startSession}.
+MyModel is the root model, and is therefore what will be passed into [Croquet.startSession]{@link Session.join}.
 In this app, MyModel also creates and stores the BallModel objects, holding them in the array MyModel.children.
 
 A BallModel is the model for a shaped, colored, bouncing ball. The model itself has no direct say in the HTML that will be used to display the ball. For the shape, for example, the model records just a string - either `'circle'` or `'roundRect'` - that the view will use to generate a visual element that (by the workings of the app's CSS) will be displayed as the appropriate shape. The BallModel also initializes itself with a random color, position, and speed vector.

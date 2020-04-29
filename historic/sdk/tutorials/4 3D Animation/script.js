@@ -168,4 +168,4 @@ class BallView extends Croquet.View {
     }
 }
 
-Croquet.startSession("3D Animation", MyModel, MyView);
+Croquet.Session.join("3D Animation", MyModel, MyView);

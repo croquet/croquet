@@ -1,5 +1,5 @@
 // to use latest sdk: cd croquet/libraries/packages/croquet; npm start
-import { Model, View, App, startSession } from "@croquet/croquet";
+import { Model, View, App, Session } from "@croquet/croquet";
 
 
 const TPS = "10x3";             // reflector ticks per sec x local multiplier
@@ -258,7 +258,7 @@ async function go() {
     App.messages = true;
     App.makeWidgetDock();
 
-    const session = await startSession("avatars", Shapes, ShapesView, { step: "manual", autoSession: true, tps: TPS });
+    const session = await Session.join("avatars", Shapes, ShapesView, { step: "manual", autoSession: true, tps: TPS });
     const controller = session.view.realm.island.controller;
 
     let users = 0;

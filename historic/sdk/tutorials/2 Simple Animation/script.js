@@ -143,4 +143,4 @@ class BallView extends Croquet.View {
     }
 }
 
-Croquet.startSession("SimpleAnimation", MyModel, MyView);
+Croquet.Session.join("SimpleAnimation", MyModel, MyView);

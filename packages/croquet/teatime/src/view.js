@@ -24,7 +24,7 @@ class View {
     static displayError(msg, options) { return displayError(msg, options); }
 
     /**
-     * A View instance is created in {@link startSession}, and the root model is passed into its constructor.
+     * A View instance is created in {@link Session.join}, and the root model is passed into its constructor.
      *
      * This inherited constructor does not use the model in any way.
      * Your constructor should recreate the view state to exactly match what is in the model.
@@ -132,7 +132,7 @@ class View {
      * a communication channel between a model and its corresponding view.
      *
      * Unlike in a model's [subscribe]{@link Model#subscribe} method, you can specify when the event should be handled:
-     * - **Queued:** The handler will be called on the next run of the [main loop]{@link startSession},
+     * - **Queued:** The handler will be called on the next run of the [main loop]{@link Session.join},
      *   the same number of times this event was published.
      *   This is useful if you need each piece of data that was passed in each [publish]{@link Model#publish} call.
      *
@@ -141,7 +141,7 @@ class View {
      *
      *   **`{ event: "name", handling: "queued" }` is the default.  Simply specify `"name"` instead.**
      *
-     * - **Once Per Frame:** The handler will be called only _once_ during the next run of the [main loop]{@link startSession}.
+     * - **Once Per Frame:** The handler will be called only _once_ during the next run of the [main loop]{@link Session.join}.
      *   If [publish]{@link Model#publish} was called multiple times, the handler will only be invoked once,
      *   passing the data of only the last `publish` call.
      *
@@ -259,7 +259,7 @@ class View {
      * **The latest timestamp received from reflector**
      *
      * Timestamps are received asynchronously from the reflector at the specified tick rate.
-     * [Model time]{@link View#now} however only advances synchronously on every iteration of the [main loop]{@link startSession}.
+     * [Model time]{@link View#now} however only advances synchronously on every iteration of the [main loop]{@link Session.join}.
      * Usually `now == externalNow`, but if the model has not caught up yet, then `now < externalNow`.
      *
      * We call the difference "backlog". If the backlog is too large, Croquet will put an overlay on the scene,
@@ -276,7 +276,7 @@ class View {
         return this.realm.externalNow();
     }
 
-    /** Called on the root view from [main loop]{@link startSession} once per frame. Default implementation does nothing.
+    /** Called on the root view from [main loop]{@link Session.join} once per frame. Default implementation does nothing.
      *
      * Override to add your own view-side input polling, rendering, etc.
      *
@@ -288,7 +288,7 @@ class View {
      *
      * @param {Number} time - this frame's time stamp in milliseconds, as received by
      *     [requestAnimationFrame]{@link https://developer.mozilla.org/docs/Web/API/window/requestAnimationFrame}
-     *     (or passed into `step(time)` if [stepping manually]{@link startSession})
+     *     (or passed into `step(time)` if [stepping manually]{@link Session.join})
      * @public
     */
     update(_time) {
@@ -298,7 +298,7 @@ class View {
      * Access a model that was registered previously using  [beWellKnownAs()]{@link Model#beWellKnownAs}.
      *
      * Note: The instance of your root Model class is automatically made well-known as `"modelRoot"`
-     * and passed to the [constructor]{@link View} of your root View during {@link startSession}.
+     * and passed to the [constructor]{@link View} of your root View during {@link Session.join}.
      * @example
      * const topModel = this.wellKnownModel("modelRoot");
      * @param {String} name - the name given in [beWellKnownAs()]{@link Model#beWellKnownAs}
@@ -314,7 +314,7 @@ class View {
      *
      * The session id is used as "global" scope for events like [`"view-join"`]{@link event:view-join}.
      *
-     * See {@link startSession} for how the session id is generated.
+     * See {@link Session.join} for how the session id is generated.
      *
      * If your app has several sessions at the same time, each session id will be different.
      * @example

@@ -55,7 +55,7 @@ export { QFunc, gatherInternalClassTypes } from "./src/island";
  *
  * This event will be published when the view is closed, or is disconnected due
  * to network interruption or inactivity.  A view is deemed to be inactive if
- * 10 seconds pass without an execution of the Croquet [main loop]{@link startSession};
+ * 10 seconds pass without an execution of the Croquet [main loop]{@link Session.join};
  * this will happen if, for example, the browser tab is hidden.  As soon as the tab becomes
  * active again the main loop resumes, and the session will reconnect, causing
  * a [`"view-join"`]{@link event:view-join} event to be published.  The `viewId`

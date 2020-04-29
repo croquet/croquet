@@ -38,7 +38,7 @@ const codeHashes = null; // individual codeHashes are not uploaded for now, will
 let DEBUG = null;
 
 function initDEBUG() {
-    // to capture whatever was passed to th latest startSession({debug:...})
+    // to capture whatever was passed to th latest Session.join({debug:...})
     // call we simply redo this every time establishSession() is called
     // TODO: turn this into a reasonable API
     DEBUG = {

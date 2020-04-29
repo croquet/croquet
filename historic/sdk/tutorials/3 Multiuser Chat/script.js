@@ -81,4 +81,4 @@ class ChatView extends Croquet.View {
   }
 }
 
-Croquet.startSession("chat", ChatModel, ChatView);
+Croquet.Session.join("chat", ChatModel, ChatView);

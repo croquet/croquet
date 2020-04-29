@@ -1,2 +1,2 @@
 import "./polyfills/textencoder";
-export { startSession, Model, View, Constants, App, gatherInternalClassTypes } from "@croquet/teatime";
+export { Model, View, Session, Constants, App, gatherInternalClassTypes, startSession } from "@croquet/teatime";
