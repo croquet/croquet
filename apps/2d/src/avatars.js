@@ -27,7 +27,6 @@ class ModelRoot extends Model {
         for (let i = 0; i < 16; i++) shape.hash += (this.random() * 16 | 0).toString(16);
         this.shapes[id] = shape;
         this.publish(this.id, 'shape-added', shape);
-        this.publish(this.id, `user-shape-${id}`, shape);
     }
 
     removeUser(id) {
@@ -141,7 +140,6 @@ class ShapesView extends View {
         Object.values(model.shapes).forEach(shape => this.attachShape(shape));
         this.subscribe(model.id, 'shape-added', this.attachShape);
         this.subscribe(model.id, 'shape-removed', this.detachShape);
-        this.subscribe(model.id, `user-shape-${this.viewId}`, this.gotUserShape);
     }
 
     detach() {
@@ -157,6 +155,8 @@ class ShapesView extends View {
         const shapeView = new ShapeView(shape);
         this.element.appendChild(shapeView.element);
         shapeView.element.view = shapeView;
+        // make our own shape our avatar
+        if (this.model.shapes[this.viewId] === shape) this.gotUserShape(shape);
     }
 
     detachShape(shape) {
