@@ -5,7 +5,7 @@
 // This is an example of a simple chat application. It creates a chatroom where users can
 // post messages to a shared conversation.
 
-import { Model, View, startSession } from "@croquet/croquet";
+import { Model, View, Session } from "@croquet/croquet";
 
 //------------------------------------------------------------------------------------------
 // ChatModel
@@ -119,4 +119,4 @@ class ChatView extends View {
 // Join the Teatime session and spawn our model and view.
 //------------------------------------------------------------------------------------------
 
-startSession("chat", ChatModel, ChatView, {step: "auto"});
+Session.join("chat", ChatModel, ChatView, {step: "auto"});

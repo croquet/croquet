@@ -252,13 +252,13 @@ If it is not, then the view publishes a "reset" event in the "counter" scope. As
 
 This method is called whenever a new value of the count is published by the model. The view changes the textContent value of the "countDisplay" element to whatever count the model has sent.
 
-## Croquet.startSession(sessionName, MyModel, MyView, options)
+## Croquet.Session.join(sessionName, MyModel, MyView, options)
 
 ```
-Croquet.startSession("hello", MyModel, MyView);
+Croquet.Session.join("hello", MyModel, MyView);
 ```
 
-Croquet.startSession is where the application is actually launched. The arguments are the sessionName, the MyModel class, the MyView class, and any options you may wish to include.
+Croquet.Session.join is where the application is actually launched. The arguments are the sessionName, the MyModel class, the MyView class, and any options you may wish to include.
 
 Starting the session will do the following things:
 

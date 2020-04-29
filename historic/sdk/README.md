@@ -93,10 +93,10 @@ class MyView extends Croquet.View {
 }
 ```
 
-You then join a session by calling {@link startSession} and passing it a session name, and your model and view classes. `startSession` automatically connects to a nearby reflector, synchronizes your model with the models of any other users already in the same session, and starts executing.
+You then join a session by calling {@link Session.join} and passing it a session name, and your model and view classes. `Session.join` automatically connects to a nearby reflector, synchronizes your model with the models of any other users already in the same session, and starts executing.
 
 ```
-Croquet.startSession("mySessionName", MyModel, MyView);
+Croquet.Session.join("mySessionName", MyModel, MyView);
 ```
 That's it. You don't need to worry about setting up a server, or writing special synchronization code. _Croquet_ handles all of that invisibly, allowing you to concentrate on what your app _does_.
 
@@ -121,7 +121,7 @@ See {@link Model} for the full class documentation.
 
 # Views
 
-When `startSession()` creates the local root model and root view, it passes the view a reference to the model. This way the view can initialize itself to reflect whatever state the model may currently be in. Remember that when you join a session, your model might be initalized by running its `init()` method, or it might be initialized by loading an existing snapshot. Having direct access to the model allows the view to configure itself properly no matter how the model was initialized.
+When `Session.join()` creates the local root model and root view, it passes the view a reference to the model. This way the view can initialize itself to reflect whatever state the model may currently be in. Remember that when you join a session, your model might be initalized by running its `init()` method, or it might be initialized by loading an existing snapshot. Having direct access to the model allows the view to configure itself properly no matter how the model was initialized.
 ```
 class MyView extends Croquet.View {
     constructor(model) {
@@ -215,7 +215,7 @@ Calls to `Math.random()` within a view will behave normally. Different instances
 
 | date       | item
 |------------|---
-| 2020-03-24 | **release 0.2.7** (bug fixes; [startSession]{@link startSession} supports passing `options` to root model's [init]{@link Model#init}, message replay no longer visible to app)
+| 2020-03-24 | **release 0.2.7** (bug fixes; [Session.join]{@link Session.join} supports passing `options` to root model's [init]{@link Model#init}, message replay no longer visible to app)
 | 2019-12-12 | **release 0.2.6** (bug fixes; works on MS Edge)
 | 2019-10-18 | **release 0.2.5** (bug fixes; new widget API) version aligned with npm
 | 2019-10-01 | **release 0.2.2** (bug fixes; updated qr-code support)
@@ -224,7 +224,7 @@ Calls to `Math.random()` within a view will behave normally. Different instances
 | 2019-08-14 | **release 0.1.9** (bug fixes; automatic reflector selection)
 | 2019-07-24 | **release 0.1.8** (bug fixes)
 | 2019-07-24 | **release 0.1.7** (bug fixes; reverted to 0.1.6 due to instabilities)
-| 2019-07-23 | new US east coast reflector available in [startSession]{@link startSession}
+| 2019-07-23 | new US east coast reflector available in [Session.join]{@link Session.join}
 | 2019-07-18 | **release 0.1.6** (bug fixes; documentation updates;<br/>inactive clients will now be disconnected after 10 seconds)
 | 2019-07-10 | **release 0.1.5** (bug fixes)
 | 2019-07-09 | **release 0.1.4** (bug fixes)
@@ -233,7 +233,7 @@ Calls to `Math.random()` within a view will behave normally. Different instances
 | 2019-07-01 | **release 0.1.3** (bug fixes; add 5-letter moniker to session badge)
 | 2019-06-29 | **release 0.1.2** (bug fixes)
 | 2019-06-28 | **release 0.1.1** (bug fixes)
-| 2019-06-27 | docs: [View.subscribe]{@link View#subscribe}, [startSession]{@link startSession}
+| 2019-06-27 | docs: [View.subscribe]{@link View#subscribe}, [Session.join]{@link Session.join}
 | 2019-06-26 | **release 0.1.0**
 
 Copyright © 2019, 2020 Croquet Corporation

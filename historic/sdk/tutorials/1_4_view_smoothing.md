@@ -28,7 +28,7 @@ There are five things we will learn here:
 
 ## Global Constants
 
-Sometimes it's useful to declare a global constant that you can use throughout your code. However, any constants used by the model should also be included in the [code hash]{@link startSession}, to make sure the model stays synchronized. If they are included in the hash, changing the constants will create a new session. If the constants are not included in the hash, you might end up in the same session with older code and different constant values, which would lead to desynchronization.
+Sometimes it's useful to declare a global constant that you can use throughout your code. However, any constants used by the model should also be included in the [code hash]{@link Session.join}, to make sure the model stays synchronized. If they are included in the hash, changing the constants will create a new session. If the constants are not included in the hash, you might end up in the same session with older code and different constant values, which would lead to desynchronization.
 
 ```
 const Q = Croquet.Constants;
@@ -180,10 +180,10 @@ The "right" value for `Q.SMOOTH` depends on many factors: how fast the actor is 
 
 When the reflector doesn't have any normal events to send, it sends silent heartbeat ticks. This allows the model to keep running even if it's not receiving input from any users. These ticks don't consume much bandwidth, but they do consume some, so it can be useful to lower the tick rate to match the needs of your application.
 
-The option `tps` in [`startSession`]{@link startSession} is used to set the tick rate (a.k.a. "ticks per second").
+The option `tps` in [`Session.join`]{@link Session.join} is used to set the tick rate (a.k.a. "ticks per second").
 
 ```
-Croquet.startSession("smooth", RootModel, RootView, { tps: 1000/Q.TICK_MS });
+Croquet.Session.join("smooth", RootModel, RootView, { tps: 1000/Q.TICK_MS });
 ```
 
 In this tutorial `Q.TICK_MS` is 500, so the reflector will generate a tick when no message from any user arrived in the last 500 milliseconds. This means it will send out heartbeat ticks twice a second at most (we could have written `tps: 2` instead of `tps: 1000/Q.TICK_MS`). In general, you should set the heartbeat rate to match the internal tick rate of your model. If your model is only changing 10 times a second, there's no point in having a faster heartbeat tick than `tps: 10`.

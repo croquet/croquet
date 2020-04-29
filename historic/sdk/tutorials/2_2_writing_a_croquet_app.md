@@ -24,10 +24,10 @@ Your view will contain all your input and output code, and your model will conta
 
 ## Launching a session
 
-You launch a session by calling {@link startSession} from the `croquet.js` library.  Its arguments are the name of the session you're creating, the class types of your model and your view, and a set of session options (described below).
+You launch a session by calling {@link Session.join} from the `croquet.js` library.  Its arguments are the name of the session you're creating, the class types of your model and your view, and a set of session options (described below).
 
 ```
-Croquet.startSession("hello", MyModel, MyView);
+Croquet.Session.join("hello", MyModel, MyView);
 ```
 
 Starting the session will do the following things:
@@ -50,7 +50,7 @@ The main loop runs each time the window performs an animation update — commonl
 If you want more control over your main loop, you can pass out the `step: "manual"` directive and write a main loop yourself. For example:
 
 ```
-const session = await Croquet.startSession("hello", MyModel, MyView, {step: "manual"});
+const session = await Croquet.Session.join("hello", MyModel, MyView, {step: "manual"});
 window.requestAnimationFrame(frame);
 
 function frame(now) {

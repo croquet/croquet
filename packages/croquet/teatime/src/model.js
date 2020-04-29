@@ -18,7 +18,7 @@ const SuperInitNotCalled = new WeakSet();
 
 /**
  * Models are replicated objects in Croquet.
- * They are automatically kept in sync for each user in the same [session]{@link startSession}.
+ * They are automatically kept in sync for each user in the same [session]{@link Session.join}.
  * Models receive input by [subscribing]{@link Model#subscribe} to events published in a {@link View}.
  * Their output is handled by views subscribing to events [published]{@link Model#publish} by a model.
  * Models advance time by sending messages into their [future]{@link Model#future}.
@@ -113,7 +113,7 @@ class Model {
      * __Registers this model subclass with Croquet__
      *
      * It is necessary to register all Model subclasses so the serializer can recreate their instances from a snapshot.
-     * Also, the [session id]{@link startSession} is derived by hashing the source code of all registered classes.
+     * Also, the [session id]{@link Session.join} is derived by hashing the source code of all registered classes.
      *
      * **Important**: for the hashing to work reliably across browsers, be sure to specify `charset="utf-8"` for your `<html>` or all `<script>` tags.
      * @example
@@ -445,7 +445,7 @@ class Model {
      * Hint: Another way to make a model well-known is to pass a name as second argument to {@link Model.create}().
      *
      * Note: The instance of your root Model class is automatically made well-known as `"modelRoot"`
-     * and passed to the [constructor]{@link View} of your root View during {@link startSession}.
+     * and passed to the [constructor]{@link View} of your root View during {@link Session.join}.
      * @example
      * class FooManager extends Croquet.Model {
      *   init() {
@@ -468,7 +468,7 @@ class Model {
      * Access a model that was registered previously using  [beWellKnownAs()]{@link Model#beWellKnownAs}.
      *
      * Note: The instance of your root Model class is automatically made well-known as `"modelRoot"`
-     * and passed to the [constructor]{@link View} of your root View during {@link startSession}.
+     * and passed to the [constructor]{@link View} of your root View during {@link Session.join}.
      * @example
      * const topModel = this.wellKnownModel("modelRoot");
      * @param {String} name - the name given in [beWellKnownAs()]{@link Model#beWellKnownAs}
@@ -506,7 +506,7 @@ class Model {
      *
      * The session id is used as "global" scope for events like [`"view-join"`]{@link event:view-join}.
      *
-     * See {@link startSession} for how the session id is generated.
+     * See {@link Session.join} for how the session id is generated.
      *
      * If your app has several sessions at the same time, each session id will be different.
      * @example

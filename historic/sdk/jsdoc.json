@@ -4,7 +4,8 @@
       "README.md",
       "../teatime/index.js",
       "../teatime/src/model.js",
-      "../teatime/src/view.js"
+      "../teatime/src/view.js",
+      "../teatime/src/session.js"
     ]
   },
   "opts": {

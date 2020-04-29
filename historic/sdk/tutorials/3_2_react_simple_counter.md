@@ -26,7 +26,7 @@ function CounterApp() {
 }
 ```
 
-After the model, we define `CounterApp` as our top level React component. In it, we use the `InCroquetSession` component, which takes the role of `startSession` in `@croquet/croquet`, takes the same parameters and then provides the running Croquet session to its child components.
+After the model, we define `CounterApp` as our top level React component. In it, we use the `InCroquetSession` component, which takes the role of `Session.join` in `@croquet/croquet`, takes the same parameters and then provides the running Croquet session to its child components.
 
 Next, we define the `CounterDisplay` component, which has two goals:
 

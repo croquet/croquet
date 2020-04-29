@@ -9,7 +9,7 @@ import {
   } from "react";
   import {
     View,
-    startSession,
+    Session,
     CroquetSession,
     Model,
     CroquetSessionOptions,
@@ -225,7 +225,7 @@ import {
   /** Main wrapper component that starts and manages a croquet session, enabling child elements to use the
    * {@link usePublish}, {@link useSubscribe}, {@link useObservable}, {@link useViewId} and {@link useModelRoot} hooks.
    *
-   * Takes the same parameters as {@link startSession} except that it doesn't need a root View class,
+   * Takes the same parameters as {@link Session.join} except that it doesn't need a root View class,
    * since croquet-react provides a suitable View class behind the scenes.
    *
    * ```
@@ -262,7 +262,7 @@ import {
         step: "auto",
         ...(options || {})
       };
-      startSession(name, modelRoot, CroquetReactView, optionsWithDefaults).then(
+      Session.join(name, modelRoot, CroquetReactView, optionsWithDefaults).then(
         context => setCroquetContext(context)
       );
     }, [name, modelRoot, options]);

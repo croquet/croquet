@@ -4,11 +4,12 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 
 # upcoming
 
+* deprecated `startSession`, use `Session.join` instead
 * allow `viewOnly` sessions (removed DEMO hack)
 
 # 0.2.7
 
-* added `options` for model root to startSession (documented)
+* added `options` for model root to Session.join (documented)
 * added `latency` and `latencies` accessors to session (undocumented)
 * messages are simulated before view is created
 * added `hashing` debug option
