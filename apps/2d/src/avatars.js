@@ -23,9 +23,9 @@ class ModelRoot extends Model {
     addUser(id) {
         if (this.shapes[id]) { console.warn("shape already exists for joining user", id); return; }
         const shape = Shape.create();
-        shape.hash = "";
-        for (let i = 0; i < 16; i++) shape.hash += (this.random() * 16 | 0).toString(16);
         this.shapes[id] = shape;
+        shape.gravatar = ""; // generate random gravatar hash
+        for (let i = 0; i < 16; i++) shape.gravatar += (this.random() * 16 | 0).toString(16);
         this.publish(this.id, 'shape-added', shape);
     }
 
@@ -226,7 +226,7 @@ class ShapeView extends View {
         el.className = model.type;
         el.id = model.id;
         el.style.backgroundColor = model.color;
-        if (model.hash) el.style.backgroundImage = `url("https://www.gravatar.com/avatar/${model.hash}?d=robohash&f=y&s=100")`;
+        if (model.gravatar) el.style.backgroundImage = `url("https://www.gravatar.com/avatar/${model.gravatar}?d=robohash&f=y&s=100")`;
         this.subscribe(model.id, { event: 'pos-changed', handling: "oncePerFrame" }, this.move);
         this.move(model.pos);
     }
