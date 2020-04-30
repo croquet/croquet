@@ -1,4 +1,4 @@
-import { Model, View, Data, Session } from "@croquet/croquet"
+import { Model, View, Data, Session, App } from "@croquet/croquet"
 
 class DataTestModel extends Model {
 
@@ -62,4 +62,4 @@ class DataTestView extends View {
 }
 
 
-Session.join("data-test", DataTestModel, DataTestView);
+App.makeWidgetDock();
