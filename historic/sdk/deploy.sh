@@ -2,7 +2,7 @@
 # to redeploy docs only: deploy.sh docs
 # to bump minor (x.y.0-0): deploy.sh preminor
 # to bump patch (x.y.z-0): deploy.sh prepatch
-# to prerelease (x.y.z-p): deploy.sh prepatch
+# to prerelease (x.y.z-p): deploy.sh prerelease
 # for release (x.y.z): deploy.sh sdk
 
 cd `dirname "$0"`
