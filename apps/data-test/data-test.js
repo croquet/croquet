@@ -63,3 +63,4 @@ class DataTestView extends View {
 
 
 App.makeWidgetDock();
+Session.join("data-test", DataTestModel, DataTestView, {tps: 0});
