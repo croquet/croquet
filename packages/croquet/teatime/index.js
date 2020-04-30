@@ -1,6 +1,7 @@
 // official exports
 export { default as Model } from "./src/model";
 export { default as View } from "./src/view";
+export { default as Data } from "./src/data";
 export { Session, Constants, deprecatedStartSession as startSession } from "./src/session";
 export { App } from "@croquet/util/html";
 

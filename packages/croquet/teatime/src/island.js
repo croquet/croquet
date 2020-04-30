@@ -74,6 +74,10 @@ export default class Island {
         return CurrentIsland;
     }
 
+    static hasCurrent() {
+        return !!CurrentIsland;
+    }
+
     static installCustomMath() {
         // patch Math.random, and transcendentals as defined in "@croquet/math"
         if (!window.BrowserMath) {
