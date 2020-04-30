@@ -26,17 +26,24 @@ class DataTestView extends View {
         window.ondragover = event => event.preventDefault();
         window.ondrop = event => {
             event.preventDefault();
-            this.onFileDropped(event.dataTransfer.items[0].getAsFile());
+            this.addFile(event.dataTransfer.items[0].getAsFile());
         }
+        imageinput.onchange = () => {
+            this.addFile(imageinput.files[0]);
+        };
     }
 
     // only uploading user does this
-    async onFileDropped(file) {
-        if (!file.type.startsWith('image/')) return console.warn(`Not an image: "${file.name}" (${file.type})`);
-        const data = await file.arrayBuffer();
-        this.showMessage(`sending "${file.name}" (${data.byteLength} bytes}`);   // for immediate feedback
+    async addFile(file) {
+        if (!file.type.startsWith('image/')) return this.showMessage(`Not an image: "${file.name}" (${file.type})`);
+        this.showMessage(`reading "${file.name}" (${file.type})`);
+        const data = await new Promise(resolve => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.readAsArrayBuffer(file);
+        });
+        this.showMessage(`sending "${file.name}" (${data.byteLength} bytes}`);
         const handle = await Data.store(this.sessionId, data); // <== Croquet.Data API
-        console.log("got handle:", handle);
         const asset = { name: file.name, type: file.type, size: data.byteLength, handle };
         this.publish(this.modelId, "add-asset", asset);
         this.showImage(asset);
@@ -44,7 +51,7 @@ class DataTestView extends View {
 
     // every user gets this event via model
     async assetAdded(asset) {
-        this.showMessage(`fetching "${asset.name}" (${asset.size} bytes}`);   // for immediate feedback
+        this.showMessage(`fetching "${asset.name}" (${asset.size} bytes}`);
         this.showImage(asset);
     }
 
