@@ -255,8 +255,13 @@ function clearSessionMoniker() {
     document.title = document.title.replace(/:.*/, '');
 }
 
-let dockPinned = false;
-let activePage = null;
+const dockState = {
+    get pinned() { return localStorage['croquet-debug-ui-pinned'] === "true"; },
+    set pinned(bool) { localStorage['croquet-debug-ui-pinned'] = !!bool; },
+    get activePage() { return localStorage['croquet-debug-ui-activePage']; },
+    set activePage(id) { localStorage['croquet-debug-ui-activePage'] = id; },
+};
+
 // an app can call App.makeWidgetDock with options specifying which of the widgets to include
 // in the dock.  by default, widgets badge, qrcode, stats are shown; turn off by setting
 // corresponding options property to false.
@@ -318,23 +323,23 @@ function makeWidgetDock(options = {}) {
             // on reconnect it's possible that a previously selected page is no longer available.
             // if so, or if no page has been selected yet, act as if the first was.
             let oldIndex = 0, oldElem;
-            if (activePage) {
-                const index = dockPageIds.indexOf(activePage);
+            if (dockState.activePage) {
+                const index = dockPageIds.indexOf(dockState.activePage);
                 if (index >= 0) {
                     oldIndex = index;
-                    oldElem = document.getElementById(activePage);
-                } else activePage = null;
+                    oldElem = document.getElementById(dockState.activePage);
+                } else dockState.activePage = null;
             }
             const newIndex = (oldIndex + numPages + dir) % numPages, newPage = dockPageIds[newIndex];
             let newElem;
-            if (newPage === activePage) newElem = oldElem;
+            if (newPage === dockState.activePage) newElem = oldElem;
             else {
                 if (oldElem) oldElem.classList.remove('active');
                 newElem = document.getElementById(newPage);
             }
             if (newElem) newElem.classList.add('active');
 
-            activePage = newPage;
+            dockState.activePage = newPage;
         }
 
         if (dockPageIds.length > 1) {
@@ -347,10 +352,10 @@ function makeWidgetDock(options = {}) {
 
     if (!TOUCH) {
         const pinButton = makeButton('📌', 'croquet_dock_pin', () => {
-            dockPinned = !dockPinned;
+            dockState.pinned = !dockState.pinned;
             setPinState();
             });
-        const setPinState = () => { if (dockPinned) pinButton.classList.add('pinned'); else pinButton.classList.remove('pinned'); };
+        const setPinState = () => { if (dockState.pinned) pinButton.classList.add('pinned'); else pinButton.classList.remove('pinned'); };
         setPinState();
         barDiv.appendChild(pinButton);
     }
@@ -403,7 +408,7 @@ function makeWidgetDock(options = {}) {
             if (active()) deactivate(); else activate();
             };
     } else {
-        if (dockPinned) activate(); else deactivate();
+        if (dockState.pinned) activate(); else deactivate();
         let lastWheelTime = 0;
         dockDiv.onwheel = evt => {
             evt.preventDefault();
@@ -420,7 +425,7 @@ function makeWidgetDock(options = {}) {
             setCustomSize(size);
         };
         dockDiv.onmouseenter = activate;
-        dockDiv.onmouseleave = () => { if (!dockPinned) deactivate(); };
+        dockDiv.onmouseleave = () => { if (!dockState.pinned) deactivate(); };
     }
 }
 
