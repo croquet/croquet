@@ -57,12 +57,12 @@ class PixView extends View {
 
     showMessage(string) {
         message.innerText = string;
-        console.log(string);
+        if (string) console.log(string);
     }
 
     async showImage(asset) {
         const data = await Data.fetch(this.sessionId, asset.handle);  // <== Croquet.Data API
-        this.showMessage(`fetched "${asset.name}" (${data.byteLength} bytes)`);
+        this.showMessage("");
         const blob = new Blob([data], { type: asset.type });
         document.body.style.backgroundImage = `url(${URL.createObjectURL(blob)})`;
     }
