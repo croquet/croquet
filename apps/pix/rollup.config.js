@@ -6,9 +6,9 @@ import { terser } from 'rollup-plugin-terser';
 const is_dev_build = process.env.BUILD !== 'production';
 
 export default {
-    input: 'data-test.js',
+    input: 'pix.js',
     output: {
-        file: 'dist/data-test-bundled.js',
+        file: 'dist/pix-bundled.js',
         format: 'iife', // immediately-invoked function expression — suitable for <script> tags
         globals: {
             "crypto": "null", // because the seedrandom module uses require('crypto') - FIXME

@@ -1,6 +1,6 @@
 import { Model, View, Data, Session, App } from "@croquet/croquet"
 
-class DataTestModel extends Model {
+class PixModel extends Model {
 
     init() {
         this.subscribe(this.id, "add-asset", this.addAsset);
@@ -12,10 +12,10 @@ class DataTestModel extends Model {
     }
 
 }
-DataTestModel.register();
+PixModel.register();
 
 
-class DataTestView extends View {
+class PixView extends View {
 
     constructor(model) {
         super(model);
@@ -70,4 +70,4 @@ class DataTestView extends View {
 
 
 App.makeWidgetDock();
-Session.join("data-test", DataTestModel, DataTestView, {tps: 0, autoSession: true});
+Session.join("data-test", PixModel, PixView, {tps: 0, autoSession: true});

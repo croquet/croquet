@@ -1,7 +1,7 @@
 {
-  "name": "@croquet/data-test",
+  "name": "@croquet/pix",
   "version": "0.0.1",
-  "description": "Croquet Data API Test",
+  "description": "Croquet Pix Demo for Data API",
   "scripts": {
     "start": "npm-run-all --parallel serve watch",
     "build": "rollup -c",
