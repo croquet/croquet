@@ -31,6 +31,8 @@ class PixView extends View {
         imageinput.onchange = () => {
             this.addFile(imageinput.files[0]);
         };
+        window.onresize = () => document.body.height = window.innerHeight;
+        window.onresize();
     }
 
     // only uploading user does this
