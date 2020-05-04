@@ -64,8 +64,15 @@ class PixView extends View {
     }
 
     async showImage(asset) {
-        const data = await Data.fetch(this.sessionId, asset.handle);  // <== Croquet.Data API
         this.showMessage("");
+        let data;
+        try {
+            data = await Data.fetch(this.sessionId, asset.handle);  // <== Croquet.Data API
+        } catch(ex) {
+            console.error(ex);
+            this.showMessage(`Failed to fetch "${asset.name}" (${asset.size} bytes)`);
+            return;
+        }
         const blob = new Blob([data], { type: asset.type });
         const url = URL.createObjectURL(blob);
         image.src = url;
