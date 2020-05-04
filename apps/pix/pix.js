@@ -59,6 +59,7 @@ class PixView extends View {
 
     showMessage(string) {
         message.innerText = string;
+        message.style.display = string ? "" : "none";
         if (string) console.log(string);
     }
 
