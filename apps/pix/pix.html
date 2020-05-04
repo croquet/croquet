@@ -4,19 +4,26 @@
         <title>Croquet Pix</title>
         <style>
             body {
+                margin: 0;
                 background-color: #666;
-                background-size: contain;
-                background-repeat: no-repeat;
-                background-position: center;
             }
             #message {
                 background-color: rgb(255,255,255,0.5);
+            }
+            #image {
+                margin: 0;
+                position: absolute;
+                height: 100%;
+                width: 100%;
+                object-fit: scale-down;
+                image-orientation: from-image;
             }
         </style>
     </head>
     <body onclick="imageinput.click()">
         <input id="imageinput" type="file" accept="image/*" style="display:none;">
         <span id="message"></i></span>
+        <img id="image">
         <script src="dist/pix-bundled.js"></script>
     </body>
 </html>

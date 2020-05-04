@@ -66,7 +66,8 @@ class PixView extends View {
         const data = await Data.fetch(this.sessionId, asset.handle);  // <== Croquet.Data API
         this.showMessage("");
         const blob = new Blob([data], { type: asset.type });
-        document.body.style.backgroundImage = `url(${URL.createObjectURL(blob)})`;
+        const url = URL.createObjectURL(blob);
+        image.src = url;
     }
 }
 
