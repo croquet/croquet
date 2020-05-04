@@ -1,4 +1,5 @@
 import { Model, View, Data, Session, App } from "@croquet/croquet"
+import EXIF from "@nuofe/exif-js";
 
 class PixModel extends Model {
 
@@ -73,6 +74,8 @@ class PixView extends View {
             this.showMessage(`Failed to fetch "${asset.name}" (${asset.size} bytes)`);
             return;
         }
+        const exif = EXIF.readFromBinaryFile(data);
+        if (exif) console.log("EXIF:", exif);
         const blob = new Blob([data], { type: asset.type });
         const url = URL.createObjectURL(blob);
         image.src = url;
