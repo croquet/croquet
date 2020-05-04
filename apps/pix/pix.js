@@ -51,7 +51,7 @@ class PixView extends View {
 
     // every user gets this event via model
     async assetAdded(asset) {
-        this.showMessage(`fetching "${asset.name}" (${asset.size} bytes}`);
+        this.showMessage(`fetching "${asset.name}" (${asset.size} bytes)`);
         this.showImage(asset);
     }
 
