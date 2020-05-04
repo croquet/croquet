@@ -45,7 +45,7 @@ class PixView extends View {
             reader.onload = () => resolve(reader.result);
             reader.readAsArrayBuffer(file);
         });
-        this.showMessage(`sending "${file.name}" (${data.byteLength} bytes}`);
+        this.showMessage(`sending "${file.name}" (${data.byteLength} bytes)`);
         const handle = await Data.store(this.sessionId, data); // <== Croquet.Data API
         const asset = { name: file.name, type: file.type, size: data.byteLength, handle };
         this.publish(this.modelId, "add-asset", asset);
