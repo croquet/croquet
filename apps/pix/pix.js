@@ -1,5 +1,6 @@
 import { Model, View, Data, Session, App } from "@croquet/croquet"
 import EXIF from "@nuofe/exif-js";
+import Hammer from "hammerjs";
 
 class PixModel extends Model {
 
@@ -57,6 +58,8 @@ class PixView extends View {
                 case "ArrowRight": this.advance(1); break;
             }
         }
+        const gestures = new Hammer(document.body);
+        gestures.on('swipe', event => this.advance(-Math.sign(event.deltaX)));
     }
 
     // only uploading user does this
