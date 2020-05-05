@@ -7,6 +7,7 @@ import Island from "./island";
 const DATAHANDLE_HASH = Symbol("hash");
 
 const HandleCache = new Map();      // map hash => handle
+const ContentCache = new WeakMap(); // map handle => buffer
 
 // TODO: encryption
 function getSessionKey(_sessionId) { return null; }
@@ -52,15 +53,24 @@ export default class DataHandle {
         if (existing) return existing;
         const url = dataUrl(sessionId, hash);
         await upload(url, encrypted);
-        return new DataHandle(hash);
+        const handle = new DataHandle(hash);
+        ContentCache.set(handle, data);
+        return handle;
     }
 
     static async fetch(sessionId, handle) {
         if (Island.hasCurrent()) throw Error("Croquet.Data.fetch() called from Model code");
+        const content = ContentCache.get(handle);
+        if (content) {
+            if (debug("data")) console.log(`Croquet.Data: using cached content for ${handle[DATAHANDLE_HASH]}`);
+            return content;
+        }
         const url = dataUrl(sessionId, handle[DATAHANDLE_HASH]);
         const encrypted = await download(url);
         const key = getSessionKey(sessionId);
-        return decrypt(key, encrypted);
+        const data = decrypt(key, encrypted);
+        ContentCache.set(handle, data);
+        return data;
     }
 
     constructor(hash) {
