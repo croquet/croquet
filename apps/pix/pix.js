@@ -29,6 +29,7 @@ class PixModel extends Model {
 }
 PixModel.register();
 
+let objectURL = null;
 
 class PixView extends View {
 
@@ -93,8 +94,9 @@ class PixView extends View {
         const exif = EXIF.readFromBinaryFile(data);
         if (exif) console.log("EXIF:", exif);
         const blob = new Blob([data], { type: asset.type });
-        const url = URL.createObjectURL(blob);
-        image.src = url;
+        if (objectURL) URL.revokeObjectURL(objectURL)
+        objectURL = URL.createObjectURL(blob);
+        image.src = objectURL;
     }
 
     showMessage(string) {
