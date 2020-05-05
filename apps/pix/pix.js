@@ -35,6 +35,7 @@ class PixView extends View {
 
     constructor(model) {
         super(model);
+        this.contentCache = new WeakMap();
         this.model = model;
         if (model.asset) this.assetChanged(model.asset);
         this.subscribe(this.model.id, "asset-changed", this.assetChanged);
@@ -75,6 +76,7 @@ class PixView extends View {
         });
         this.showMessage(`sending "${file.name}" (${data.byteLength} bytes)`);
         const handle = await Data.store(this.sessionId, data); // <== Croquet.Data API
+        this.addToCache(handle, data);
         const asset = { name: file.name, type: file.type, size: data.byteLength, handle };
         this.publish(this.model.id, "add-asset", asset);
         this.assetChanged(asset);
@@ -83,16 +85,17 @@ class PixView extends View {
     // every user gets this event via model
      async assetChanged(asset) {
         this.showMessage("");
-        let data;
-        try {
-            data = await Data.fetch(this.sessionId, asset.handle);  // <== Croquet.Data API
-        } catch(ex) {
-            console.error(ex);
-            this.showMessage(`Failed to fetch "${asset.name}" (${asset.size} bytes)`);
-            return;
+        let data = this.getFromCache(asset.handle);
+        if (!data) {
+            try {
+                data = await Data.fetch(this.sessionId, asset.handle);  // <== Croquet.Data API
+                this.addToCache(asset.handle, data);
+            } catch(ex) {
+                console.error(ex);
+                this.showMessage(`Failed to fetch "${asset.name}" (${asset.size} bytes)`);
+                return;
+            }
         }
-        const exif = EXIF.readFromBinaryFile(data);
-        if (exif) console.log("EXIF:", exif);
         const blob = new Blob([data], { type: asset.type });
         if (objectURL) URL.revokeObjectURL(objectURL)
         objectURL = URL.createObjectURL(blob);
@@ -110,6 +113,16 @@ class PixView extends View {
         const index = this.model.assets.indexOf(current);
         const next = this.model.assets[index + offset];
         if (current && next && current.id !== next.id) this.publish(this.model.id, "go-to", { from: current.id, to: next.id });
+    }
+
+    addToCache(handle, data) {
+        this.contentCache.set(handle, data);
+        const exif = EXIF.readFromBinaryFile(data);
+        if (exif) console.log("EXIF:", exif);
+    }
+
+    getFromCache(handle) {
+        return this.contentCache.get(handle);
     }
 }
 
