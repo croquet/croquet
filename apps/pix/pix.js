@@ -40,10 +40,14 @@ class PixView extends View {
         window.ondragover = event => event.preventDefault();
         window.ondrop = event => {
             event.preventDefault();
-            this.addFile(event.dataTransfer.items[0].getAsFile());
+            for (const item of event.dataTransfer.items) {
+                if (item.kind === "file") this.addFile(item.getAsFile());
+            }
         }
         imageinput.onchange = () => {
-            this.addFile(imageinput.files[0]);
+            for (const file of imageinput.files) {
+                this.addFile(file);
+            }
         };
         window.onresize = () => document.body.height = window.innerHeight;
         window.onresize();
