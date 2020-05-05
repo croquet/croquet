@@ -1,22 +1,36 @@
 <html>
     <head>
         <meta charset="utf-8">
+        <meta name="viewport" content="initial-scale=1.0">
         <title>Croquet Pix</title>
         <style>
             body {
+                margin: 0;
                 background-color: #666;
-                background-size: contain;
-                background-repeat: no-repeat;
-                background-position: center;
+                font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
             }
             #message {
+                display: inline-block;
+                margin: 6px;
+                padding: 3px 6px;
+                border-radius: 6px;
                 background-color: rgb(255,255,255,0.5);
+            }
+            #image {
+                margin: 0;
+                position: absolute;
+                height: 100%;
+                width: 100%;
+                object-fit: scale-down;
+                image-orientation: from-image;
+                z-index: -1;
             }
         </style>
     </head>
-    <body onclick="imageinput.click()">
-        <input id="imageinput" type="file" accept="image/*" style="display:none;">
-        <span id="message"></i></span>
+    <body>
+        <input id="imageinput" type="file" multiple accept="image/*" style="display:none;">
+        <img id="image">
+        <div id="message">Drop an image!</div>
         <script src="dist/pix-bundled.js"></script>
     </body>
 </html>

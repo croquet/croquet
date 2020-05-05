@@ -33,7 +33,7 @@ function addWidgetStyle() {
         #croquet_dock_pin { right: ${BUTTON_RIGHT}%; }
         #croquet_dock_pin.pinned { background: #cce6ff; }
 
-        #croquet_dock_content { position: absolute; left: ${CONTENT_MARGIN}px; top: ${CONTENT_MARGIN}px; right: ${CONTENT_MARGIN}px; bottom: ${CONTENT_MARGIN}px; background: white; }
+        #croquet_dock_content { position: absolute; left: ${CONTENT_MARGIN}px; top: ${CONTENT_MARGIN}px; right: ${CONTENT_MARGIN}px; bottom: ${CONTENT_MARGIN}px; background: white; overflow: hidden; }
         #croquet_dock:not(.active) #croquet_dock_content { display: none; }
         #croquet_dock:not(.active) #croquet_dock_content div { display: none; }
 
