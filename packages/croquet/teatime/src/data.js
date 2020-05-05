@@ -35,7 +35,7 @@ async function upload(url, data) {
 }
 
 async function download(url) {
-    if (debug("data")) console.log(`Downloading from ${url}`);
+    if (debug("data")) console.log(`Croquet.Data: Downloading from ${url}`);
     const response = await fetch(url);
     if (response.ok) return response.arrayBuffer();
     throw Error(`Croquet.Data: failed to download ${url} (${response.status} ${response.statusText})`);
