@@ -6,6 +6,8 @@ import Island from "./island";
 
 const DATAHANDLE_HASH = Symbol("hash");
 
+const HandleCache = new Map();      // map hash => handle
+
 // TODO: encryption
 function getSessionKey(_sessionId) { return null; }
 async function encrypt(_key, data) { return data; }
@@ -46,6 +48,8 @@ export default class DataHandle {
         const key = getSessionKey(sessionId);
         const encrypted = await encrypt(key, data);
         const hash = await hashData(encrypted);
+        const existing = HandleCache.get(hash);
+        if (existing) return existing;
         const url = dataUrl(sessionId, hash);
         await upload(url, encrypted);
         return new DataHandle(hash);
@@ -60,8 +64,15 @@ export default class DataHandle {
     }
 
     constructor(hash) {
+        const existing = HandleCache.get(hash);
+        if (existing) {
+            if (debug("data")) console.log(`Croquet.Data: using cached handle for ${hash}`);
+            return existing;
+        }
         // stored under Symbol key to be invisible to user code
         Object.defineProperty(this, DATAHANDLE_HASH, { value: hash });
+        HandleCache.set(hash, this);
+        if (debug("data")) console.log(`Croquet.Data: created new handle for ${hash}`);
     }
 
     // no other methods - API is static
