@@ -83,5 +83,12 @@ class PixView extends View {
 }
 
 
+let room = window.location.hash.slice(1);
+if (!room) {
+    room = Math.floor(Math.random() * 2**53).toString(36);
+    window.location.hash = room;
+    App.sessionURL = window.location.href;
+}
+
 App.makeWidgetDock();
-Session.join("data-test", PixModel, PixView, {tps: 0, autoSession: true});
+Session.join(`pix-${room}`, PixModel, PixView, {tps: 0});
