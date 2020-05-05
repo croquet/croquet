@@ -20,8 +20,8 @@ class PixView extends View {
 
     constructor(model) {
         super(model);
-        this.modelId = model.id;
-        this.subscribe(this.modelId, "asset-added", this.assetAdded);
+        this.model = model;
+        this.subscribe(this.model.id, "asset-added", this.assetAdded);
         if (model.asset) this.assetAdded(model.asset);
 
         window.ondragover = event => event.preventDefault();
@@ -48,7 +48,7 @@ class PixView extends View {
         this.showMessage(`sending "${file.name}" (${data.byteLength} bytes)`);
         const handle = await Data.store(this.sessionId, data); // <== Croquet.Data API
         const asset = { name: file.name, type: file.type, size: data.byteLength, handle };
-        this.publish(this.modelId, "add-asset", asset);
+        this.publish(this.model.id, "add-asset", asset);
         this.showImage(asset);
     }
 
