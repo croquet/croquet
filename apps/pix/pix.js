@@ -54,10 +54,13 @@ class PixView extends View {
         window.onresize = () => document.body.height = window.innerHeight;
         window.onresize();
         window.onkeydown = event => {
+            if (event.ctrlKey || event.altKey || event.metaKey) return;
             switch (event.key) {
                 case "ArrowLeft": this.advance(-1); break;
                 case "ArrowRight": this.advance(1); break;
+                default: return;
             }
+            event.preventDefault();
         }
         const gestures = new Hammer(document.body);
         gestures.on('tap', () => imageinput.click());
