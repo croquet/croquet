@@ -59,6 +59,7 @@ class PixView extends View {
             }
         }
         const gestures = new Hammer(document.body);
+        gestures.on('tap', () => imageinput.click());
         gestures.on('swipe', event => this.advance(-Math.sign(event.deltaX)));
     }
 
