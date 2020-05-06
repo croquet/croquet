@@ -30,11 +30,12 @@ class PixModel extends Model {
 PixModel.register();
 
 
+const contentCache = new WeakMap();
+
 class PixView extends View {
 
     constructor(model) {
         super(model);
-        this.contentCache = new WeakMap();
         this.model = model;
         if (model.asset) this.assetChanged(model.asset);
         this.subscribe(this.model.id, "asset-changed", this.assetChanged);
@@ -118,13 +119,13 @@ class PixView extends View {
     }
 
     addToCache(handle, data) {
-        this.contentCache.set(handle, data);
+        contentCache.set(handle, data);
         const exif = EXIF.readFromBinaryFile(data);
         if (exif) console.log("EXIF:", exif);
     }
 
     getFromCache(handle) {
-        return this.contentCache.get(handle);
+        return contentCache.get(handle);
     }
 }
 
