@@ -31,6 +31,7 @@ PixModel.register();
 
 
 const contentCache = new WeakMap();
+let objectURL;
 
 class PixView extends View {
 
@@ -100,9 +101,9 @@ class PixView extends View {
             }
         }
         const blob = new Blob([data], { type: asset.type });
-        if (this.objectURL) URL.revokeObjectURL(this.objectURL)
-        this.objectURL = URL.createObjectURL(blob);
-        image.src = this.objectURL;
+        if (objectURL) URL.revokeObjectURL(objectURL);
+        objectURL = URL.createObjectURL(blob);
+        image.src = objectURL;
     }
 
     showMessage(string) {
