@@ -15,7 +15,7 @@ class PixModel extends Model {
         this.asset = asset;
         this.assets.push(asset);
         this.asset.id = ++this.assetIds;
-        this.publish(this.id, "asset-changed", this.asset);
+        this.publish(this.id, "asset-changed");
     }
 
     goTo({from, to}) {
@@ -23,22 +23,25 @@ class PixModel extends Model {
         const toAsset = this.assets.find(asset => asset.id === to);
         if (!toAsset) return;
         this.asset = toAsset;
-        this.publish(this.id, "asset-changed", this.asset);
+        this.publish(this.id, "asset-changed");
     }
 
 }
 PixModel.register();
 
 
+const contentCache = new WeakMap();
+let objectURL;
+
 class PixView extends View {
 
     constructor(model) {
         super(model);
-        this.contentCache = new WeakMap();
         this.model = model;
-        if (model.asset) this.assetChanged(model.asset);
-        this.subscribe(this.model.id, "asset-changed", this.assetChanged);
+        this.subscribe(this.model.id, {event: "asset-changed", handling: "oncePerFrame"}, this.assetChanged);
+        this.assetChanged();
 
+        // we do not use addEventListener so we do not have to remove them when going dormant
         window.ondragover = event => event.preventDefault();
         window.ondrop = event => {
             event.preventDefault();
@@ -64,7 +67,8 @@ class PixView extends View {
         }
         const gestures = new Hammer(document.body);
         gestures.on('tap', () => imageinput.click());
-        gestures.on('swipe', event => this.advance(-Math.sign(event.deltaX)));
+        gestures.on('swipeleft', event => this.advance(-1));
+        gestures.on('swiperight', event => this.advance(1));
     }
 
     // only uploading user does this
@@ -81,12 +85,15 @@ class PixView extends View {
         this.addToCache(handle, data);
         const asset = { name: file.name, type: file.type, size: data.byteLength, handle };
         this.publish(this.model.id, "add-asset", asset);
-        this.assetChanged(asset);
     }
 
     // every user gets this event via model
-     async assetChanged(asset) {
-        this.showMessage("");
+     async assetChanged() {
+        const asset = this.model.asset;
+        // are we already showing the desired image?
+        if (asset === this.asset) return;
+        if (!asset) { image.src = ""; return; }
+        // no - fetch it
         let data = this.getFromCache(asset.handle);
         if (!data) {
             try {
@@ -98,10 +105,15 @@ class PixView extends View {
                 return;
             }
         }
+        // is this still the asset we want to show after async fetching?
+        if (asset !== this.model.asset) return this.assetChanged();
         const blob = new Blob([data], { type: asset.type });
-        if (this.objectURL) URL.revokeObjectURL(this.objectURL)
-        this.objectURL = URL.createObjectURL(blob);
-        image.src = this.objectURL;
+        // yes, show it
+        if (objectURL) URL.revokeObjectURL(objectURL);
+        objectURL = URL.createObjectURL(blob);
+        image.src = objectURL;
+        this.asset = asset;
+        this.showMessage("");
     }
 
     showMessage(string) {
@@ -118,13 +130,13 @@ class PixView extends View {
     }
 
     addToCache(handle, data) {
-        this.contentCache.set(handle, data);
+        contentCache.set(handle, data);
         const exif = EXIF.readFromBinaryFile(data);
         if (exif) console.log("EXIF:", exif);
     }
 
     getFromCache(handle) {
-        return this.contentCache.get(handle);
+        return contentCache.get(handle);
     }
 }
 

@@ -262,6 +262,12 @@ const dockState = {
     set activePage(id) { localStorage['croquet-debug-ui-activePage'] = id; },
 };
 
+const smotherEvent = evt => {
+    // console.log("smothering event", evt);
+    evt.preventDefault();
+    evt.stopPropagation();
+};
+
 // an app can call App.makeWidgetDock with options specifying which of the widgets to include
 // in the dock.  by default, widgets badge, qrcode, stats are shown; turn off by setting
 // corresponding options property to false.
@@ -407,6 +413,9 @@ function makeWidgetDock(options = {}) {
             evt.stopPropagation();
             if (active()) deactivate(); else activate();
             };
+        dockDiv.ontouchend = smotherEvent;
+        dockDiv.onpointerdown = smotherEvent;
+        dockDiv.onpointerup = smotherEvent;
     } else {
         if (dockState.pinned) activate(); else deactivate();
         let lastWheelTime = 0;
@@ -448,8 +457,16 @@ function makeButton(text, id, fn) {
         evt.stopPropagation();
         fn();
         };
-    if (TOUCH) button.ontouchstart = trigger;
-    else button.onclick = trigger;
+    if (TOUCH) {
+        button.ontouchstart = trigger;
+        button.ontouchend = smotherEvent;
+        button.onpointerdown = smotherEvent;
+        button.onpointerup = smotherEvent;
+    } else {
+        button.onclick = trigger;
+        button.onpointerdown = smotherEvent;
+        button.onpointerup = smotherEvent;
+    }
     button.appendChild(canvas);
     return button;
 }
