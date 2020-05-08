@@ -103,9 +103,9 @@ class PixView extends View {
     // every user gets this event via model
     async assetChanged() {
         const asset = this.model.asset;
+        if (!asset) { image.src = "icon-add.svg"; return; }
         // are we already showing the desired image?
         if (asset === this.asset) return;
-        if (!asset) { image.src = ""; return; }
         // no - fetch it
         let blob = contentCache.get(asset.handle);
         if (!blob) {
