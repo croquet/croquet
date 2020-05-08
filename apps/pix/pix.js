@@ -7,6 +7,7 @@ class PixModel extends Model {
         this.assetIds = 0;
         this.assets = [];
         this.subscribe(this.id, "add-asset", this.addAsset);
+        this.subscribe(this.id, "remove-id", this.removeId);
         this.subscribe(this.id, "go-to", this.goTo);
     }
 
@@ -15,6 +16,17 @@ class PixModel extends Model {
         this.assets.push(asset);
         this.asset.id = ++this.assetIds;
         this.publish(this.id, "asset-changed");
+    }
+
+    removeId(id) {
+        const index = this.assets.findIndex(asset => asset.id === id);
+        if (index < 0) return;
+        const wasCurrent = this.asset === this.assets[index];
+        this.assets.splice(index, 1);
+        if (wasCurrent) {
+            this.asset = this.assets[Math.min(index, this.assets.length - 1)];
+            this.publish(this.id, "asset-changed");
+        }
     }
 
     goTo({from, to}) {
@@ -60,7 +72,8 @@ class PixView extends View {
             switch (event.key) {
                 case "ArrowLeft": this.advance(-1); break;
                 case "ArrowRight": this.advance(1); break;
-                default: return;
+                case "Delete":
+                case "Backspace": this.remove(); break;
             }
             event.preventDefault();
         }
@@ -88,7 +101,7 @@ class PixView extends View {
     }
 
     // every user gets this event via model
-     async assetChanged() {
+    async assetChanged() {
         const asset = this.model.asset;
         // are we already showing the desired image?
         if (asset === this.asset) return;
@@ -127,6 +140,12 @@ class PixView extends View {
         const index = this.model.assets.indexOf(current);
         const next = this.model.assets[index + offset];
         if (current && next && current.id !== next.id) this.publish(this.model.id, "go-to", { from: current.id, to: next.id });
+    }
+
+    remove() {
+        const current = this.model.asset;
+        if (!current) return;
+        this.publish(this.model.id, "remove-id", current.id);
     }
 }
 
