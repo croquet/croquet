@@ -1,5 +1,4 @@
 import { Model, View, Data, Session, App } from "@croquet/croquet"
-import EXIF from "@nuofe/exif-js";
 import Hammer from "hammerjs";
 
 class PixModel extends Model {
@@ -82,7 +81,7 @@ class PixView extends View {
         });
         this.showMessage(`sending "${file.name}" (${data.byteLength} bytes)`);
         const handle = await Data.store(this.sessionId, data); // <== Croquet.Data API
-        this.addToCache(handle, data);
+        contentCache.set(handle, data);
         const asset = { name: file.name, type: file.type, size: data.byteLength, handle };
         this.publish(this.model.id, "add-asset", asset);
     }
@@ -94,11 +93,11 @@ class PixView extends View {
         if (asset === this.asset) return;
         if (!asset) { image.src = ""; return; }
         // no - fetch it
-        let data = this.getFromCache(asset.handle);
+        let data = contentCache.get(asset.handle);
         if (!data) {
             try {
                 data = await Data.fetch(this.sessionId, asset.handle);  // <== Croquet.Data API
-                this.addToCache(asset.handle, data);
+                contentCache.set(asset.handle, data);
             } catch(ex) {
                 console.error(ex);
                 this.showMessage(`Failed to fetch "${asset.name}" (${asset.size} bytes)`);
@@ -127,16 +126,6 @@ class PixView extends View {
         const index = this.model.assets.indexOf(current);
         const next = this.model.assets[index + offset];
         if (current && next && current.id !== next.id) this.publish(this.model.id, "go-to", { from: current.id, to: next.id });
-    }
-
-    addToCache(handle, data) {
-        contentCache.set(handle, data);
-        const exif = EXIF.readFromBinaryFile(data);
-        if (exif) console.log("EXIF:", exif);
-    }
-
-    getFromCache(handle) {
-        return contentCache.get(handle);
     }
 }
 
