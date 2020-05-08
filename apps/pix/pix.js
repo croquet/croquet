@@ -79,9 +79,10 @@ class PixView extends View {
             reader.onload = () => resolve(reader.result);
             reader.readAsArrayBuffer(file);
         });
+        let blob = new Blob([data], { type: file.type });
         this.showMessage(`sending "${file.name}" (${data.byteLength} bytes)`);
         const handle = await Data.store(this.sessionId, data); // <== Croquet.Data API
-        contentCache.set(handle, data);
+        contentCache.set(handle, blob);
         const asset = { name: file.name, type: file.type, size: data.byteLength, handle };
         this.publish(this.model.id, "add-asset", asset);
     }
@@ -93,11 +94,12 @@ class PixView extends View {
         if (asset === this.asset) return;
         if (!asset) { image.src = ""; return; }
         // no - fetch it
-        let data = contentCache.get(asset.handle);
-        if (!data) {
+        let blob = contentCache.get(asset.handle);
+        if (!blob) {
             try {
-                data = await Data.fetch(this.sessionId, asset.handle);  // <== Croquet.Data API
-                contentCache.set(asset.handle, data);
+                const data = await Data.fetch(this.sessionId, asset.handle);  // <== Croquet.Data API
+                blob = new Blob([data], { type: asset.type });
+                contentCache.set(asset.handle, blob);
             } catch(ex) {
                 console.error(ex);
                 this.showMessage(`Failed to fetch "${asset.name}" (${asset.size} bytes)`);
@@ -106,7 +108,6 @@ class PixView extends View {
         }
         // is this still the asset we want to show after async fetching?
         if (asset !== this.model.asset) return this.assetChanged();
-        const blob = new Blob([data], { type: asset.type });
         // yes, show it
         if (objectURL) URL.revokeObjectURL(objectURL);
         objectURL = URL.createObjectURL(blob);
