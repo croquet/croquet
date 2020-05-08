@@ -74,6 +74,9 @@ class PixView extends View {
                 case "ArrowRight": this.advance(1); break;
                 case "Delete":
                 case "Backspace": this.remove(); break;
+                case "Enter":
+                case " ": imageinput.click(); break;
+                default: return;
             }
             event.preventDefault();
         }
