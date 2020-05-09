@@ -128,6 +128,7 @@ class PixView extends View {
         if (objectURL) URL.revokeObjectURL(objectURL);
         objectURL = URL.createObjectURL(blob);
         image.src = objectURL;
+        image.onload = () => { if (objectURL === image.src) { URL.revokeObjectURL(objectURL); objectURL = ""; } };
         this.asset = asset;
         this.showMessage("");
     }
