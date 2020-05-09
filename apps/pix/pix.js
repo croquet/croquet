@@ -3,6 +3,12 @@ import Hammer from "hammerjs";
 
 const THUMB_SIZE = 32;
 
+function DEBUG_DELAY(arg) {
+    const delay = +((location.search.match(/delay=([0-9]+)/)||[])[1]||0);
+    if (!delay) return arg;
+    return new Promise(resolve => setTimeout(() => resolve(arg), delay));
+}
+
 class PixModel extends Model {
 
     init() {
@@ -103,7 +109,7 @@ class PixView extends View {
         // show placeholder for immediate feedback
         image.src = thumb;
         this.showMessage(`sending "${file.name}" (${data.byteLength} bytes)`);
-        const handle = await Data.store(this.sessionId, data); // <== Croquet.Data API
+        const handle = await Data.store(this.sessionId, data).then(DEBUG_DELAY);
         contentCache.set(handle, blob);
         const asset = { handle, type: file.type, size: data.byteLength, name: file.name, width, height, thumb, scale };
         this.publish(this.model.id, "add-asset", asset);
@@ -122,7 +128,7 @@ class PixView extends View {
             image.src = asset.thumb;
             try {
                 this.showMessage(`Fetching "${asset.name}" (${asset.size} bytes)`);
-                const data = await Data.fetch(this.sessionId, asset.handle);  // <== Croquet.Data API
+                const data = await Data.fetch(this.sessionId, asset.handle).then(DEBUG_DELAY);
                 blob = new Blob([data], { type: asset.type });
                 contentCache.set(asset.handle, blob);
             } catch(ex) {
