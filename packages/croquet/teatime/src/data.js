@@ -48,8 +48,6 @@ export default class DataHandle {
         const key = getSessionKey(sessionId);
         const encrypted = await encrypt(key, data);
         const hash = await hashData(encrypted);
-        const existing = HandleCache.get(hash);
-        if (existing) return existing;
         const url = dataUrl(sessionId, hash);
         await upload(url, encrypted);
         return new DataHandle(hash);
