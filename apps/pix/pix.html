@@ -8,6 +8,7 @@
                 margin: 0;
                 background-color: #666;
                 font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+                overflow: hidden;
             }
             #message {
                 display: inline-block;
@@ -21,7 +22,7 @@
                 position: absolute;
                 height: 100%;
                 width: 100%;
-                object-fit: scale-down;
+                object-fit: contain;
                 image-orientation: from-image;
                 z-index: -1;
             }
@@ -30,7 +31,7 @@
     <body>
         <input id="imageinput" type="file" multiple accept="image/*" style="display:none;">
         <img id="image">
-        <div id="message">Drop an image!</div>
+        <div id="message"></div>
         <script src="dist/pix-bundled.js"></script>
     </body>
 </html>

@@ -1,6 +1,8 @@
 import { Model, View, Data, Session, App } from "@croquet/croquet"
 import Hammer from "hammerjs";
 
+const THUMB_SIZE = 32;
+
 class PixModel extends Model {
 
     init() {
@@ -95,11 +97,15 @@ class PixView extends View {
             reader.onload = () => resolve(reader.result);
             reader.readAsArrayBuffer(file);
         });
-        let blob = new Blob([data], { type: file.type });
+        const blob = new Blob([data], { type: file.type });
+        const { width, height, thumb, scale } = await this.analyzeImage(blob);
+        if (!thumb) return this.showMessage(`Image is empty (${width}x${height}): "${file.name}" (${file.type})`);
+        // show placeholder for immediate feedback
+        image.src = thumb;
         this.showMessage(`sending "${file.name}" (${data.byteLength} bytes)`);
         const handle = await Data.store(this.sessionId, data); // <== Croquet.Data API
         contentCache.set(handle, blob);
-        const asset = { name: file.name, type: file.type, size: data.byteLength, handle };
+        const asset = { handle, type: file.type, size: data.byteLength, name: file.name, width, height, thumb, scale };
         this.publish(this.model.id, "add-asset", asset);
     }
 
@@ -109,10 +115,13 @@ class PixView extends View {
         if (!asset) { image.src = "icon-add.svg"; return; }
         // are we already showing the desired image?
         if (asset === this.asset) return;
-        // no - fetch it
+        // do we have it cached?
         let blob = contentCache.get(asset.handle);
         if (!blob) {
+            // no - show placeholder immediately, and go fetch it
+            image.src = asset.thumb;
             try {
+                this.showMessage(`Fetching "${asset.name}" (${asset.size} bytes)`);
                 const data = await Data.fetch(this.sessionId, asset.handle);  // <== Croquet.Data API
                 blob = new Blob([data], { type: asset.type });
                 contentCache.set(asset.handle, blob);
@@ -121,13 +130,14 @@ class PixView extends View {
                 this.showMessage(`Failed to fetch "${asset.name}" (${asset.size} bytes)`);
                 return;
             }
+            // is this still the asset we want to show after async fetching?
+            if (asset !== this.model.asset) return this.assetChanged();
         }
-        // is this still the asset we want to show after async fetching?
-        if (asset !== this.model.asset) return this.assetChanged();
-        // yes, show it
+        // we do have the blob, show it
         if (objectURL) URL.revokeObjectURL(objectURL);
         objectURL = URL.createObjectURL(blob);
         image.src = objectURL;
+        // revoke objectURL ASAP
         image.onload = () => { if (objectURL === image.src) { URL.revokeObjectURL(objectURL); objectURL = ""; } };
         this.asset = asset;
         this.showMessage("");
@@ -138,6 +148,32 @@ class PixView extends View {
         message.style.display = string ? "" : "none";
         if (string) console.log(string);
     }
+
+    async analyzeImage(blob) {
+        // load image
+        const original = await new Promise(resolve => {
+            const objectURL = URL.createObjectURL(blob);
+            const img = new Image();
+            img.onload = () => { URL.revokeObjectURL(objectURL); resolve(img); };
+            img.onerror = () => { URL.revokeObjectURL(objectURL); resolve({}); };
+            img.src = objectURL;
+        });
+        const { width, height } = original;
+        if (!original.width || !original.height) return {};
+        // render to thumbnail canvas
+        const aspect = original.width / original.height;
+        const scale = THUMB_SIZE / Math.max(original.width, original.height);
+        const canvas = document.createElement('canvas');
+        canvas.width = aspect >= 1 ? THUMB_SIZE : THUMB_SIZE * aspect;
+        canvas.height = aspect <= 1 ? THUMB_SIZE : THUMB_SIZE / aspect;
+        const ctx = canvas.getContext("2d");
+        ctx.scale(scale, scale);
+        ctx.drawImage(original, 0, 0);
+        // export as data url
+        const thumb = canvas.toDataURL("image/png");
+        return { width, height, thumb, scale: 1 / scale };
+    }
+
 
     advance(offset) {
         const current = this.model.asset;
