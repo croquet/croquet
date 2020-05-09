@@ -82,8 +82,8 @@ class PixView extends View {
         }
         const gestures = new Hammer(document.body);
         gestures.on('tap', () => imageinput.click());
-        gestures.on('swipeleft', event => this.advance(-1));
-        gestures.on('swiperight', event => this.advance(1));
+        gestures.on('swiperight', event => this.advance(-1));
+        gestures.on('swipeleft', event => this.advance(1));
     }
 
     // only uploading user does this
