@@ -1,5 +1,6 @@
 import { Model, View, Data, Session, App } from "@croquet/croquet"
 import Hammer from "hammerjs";
+import prettyBytes from "pretty-bytes";
 
 const THUMB_SIZE = 32;
 
@@ -108,7 +109,7 @@ class PixView extends View {
         if (!thumb) return this.showMessage(`Image is empty (${width}x${height}): "${file.name}" (${file.type})`);
         // show placeholder for immediate feedback
         image.src = thumb;
-        this.showMessage(`Sending ${data.byteLength} bytes ...`);
+        this.showMessage(`Sending ${prettyBytes(data.byteLength)} ...`);
         const handle = await Data.store(this.sessionId, data).then(DEBUG_DELAY);
         contentCache.set(handle, blob);
         const asset = { handle, type: file.type, size: data.byteLength, name: file.name, width, height, thumb, scale };
@@ -127,13 +128,13 @@ class PixView extends View {
             // no - show placeholder immediately, and go fetch it
             image.src = asset.thumb;
             try {
-                this.showMessage(`Fetching ${asset.size} bytes ...`);
+                this.showMessage(`Fetching ${prettyBytes(asset.size)} ...`);
                 const data = await Data.fetch(this.sessionId, asset.handle).then(DEBUG_DELAY);
                 blob = new Blob([data], { type: asset.type });
                 contentCache.set(asset.handle, blob);
             } catch(ex) {
                 console.error(ex);
-                this.showMessage(`Failed to fetch "${asset.name}" (${asset.size} bytes)`);
+                this.showMessage(`Failed to fetch "${asset.name}" (${prettyBytes(asset.size)})`);
                 return;
             }
             // is this still the asset we want to show after async fetching?
