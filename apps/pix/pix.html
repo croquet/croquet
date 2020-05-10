@@ -26,12 +26,53 @@
                 image-orientation: from-image;
                 z-index: -1;
             }
+            .button {
+                position: absolute;
+                width: 48px;
+                height: 48px;
+                border-radius: 24px;
+                opacity: 0.5;
+                background-color: rgba(0, 0, 0, 0.5);
+                background-size: 192px 48px;
+                background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAAAYCAQAAACv4DAfAAAAn0lEQVR42u2Wuw2AMAwFWSIrUDENbEOfsTIF20BxNBQgJOIXQYHlKy1Head8uy4IgsAGA4V0qyYKQ3UsoE+YmU19M9nUV4DlqkBiAcoHAmRgpa/29axgUTjCnhTuldcEyMDGaOod2VoU7PFlASV+q4ISXxQ44k/Sik2yghBfEmiJ36RQjc8DngV+v4UcHGIH16iDh8zBV8LBZy4Igj+wA3+zsUCvan/GAAAAAElFTkSuQmCC");
+                background-image: url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iOTYiIGhlaWdodD0iMjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGcgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIj48cGF0aCBkPSJNOTEgMTNoLTZ2NmgtMnYtNmgtNnYtMmg2VjVoMnY2aDZ6IiBmaWxsPSIjRkZGIiBmaWxsLXJ1bGU9Im5vbnplcm8iLz48cGF0aCBkPSJNNzIgMGgyNHYyNEg3MnoiLz48cGF0aCBkPSJNNjcgNi40MUw2NS41OSA1IDYwIDEwLjU5IDU0LjQxIDUgNTMgNi40MSA1OC41OSAxMiA1MyAxNy41OSA1NC40MSAxOSA2MCAxMy40MSA2NS41OSAxOSA2NyAxNy41OSA2MS40MSAxMnoiIGZpbGw9IiNGRkYiIGZpbGwtcnVsZT0ibm9uemVybyIvPjxwYXRoIGQ9Ik00OCAwaDI0djI0SDQ4eiIvPjxwYXRoIGQ9Ik0zNC4wMiAxOGw2LTYtNi02LTEuNDEgMS40MUwzNy4xOSAxMmwtNC41OCA0LjU5eiIgZmlsbD0iI0ZGRiIgZmlsbC1ydWxlPSJub256ZXJvIi8+PHBhdGggZD0iTTI0IDBoMjR2MjRIMjR6Ii8+PHBhdGggZD0iTTEzLjk4IDE4bC02LTYgNi02IDEuNDEgMS40MUwxMC44MSAxMmw0LjU4IDQuNTl6IiBmaWxsPSIjRkZGIiBmaWxsLXJ1bGU9Im5vbnplcm8iLz48cGF0aCBkPSJNMCAwaDI0djI0SDB6Ii8+PC9nPjwvc3ZnPg==");
+            }
+            .button:hover {
+                opacity: 1;
+            }
+            #prevButton {
+                left: 12px;
+                top: 50%;
+                margin: -24px 0;
+            }
+            #nextButton {
+                background-position-x: -48px;
+                right: 12px;
+                top: 50%;
+                margin: -24px 0;
+            }
+            #delButton {
+                background-position-x: -96px;
+                top: 12px;
+                left: 50%;
+                margin: 0 -24px;
+            }
+            #addButton {
+                background-position-x: -144px;
+                bottom: 12px;
+                left: 50%;
+                margin: 0 -24px;
+            }
         </style>
     </head>
     <body>
         <input id="imageinput" type="file" multiple accept="image/*" style="display:none;">
         <img id="image">
         <div id="message"></div>
+        <div id="prevButton" class="button"></div>
+        <div id="nextButton" class="button"></div>
+        <div id="delButton" class="button"></div>
+        <div id="addButton" class="button"></div>
         <script src="dist/pix-bundled.js"></script>
     </body>
 </html>

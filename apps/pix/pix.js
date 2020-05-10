@@ -89,8 +89,11 @@ class PixView extends View {
             }
             event.preventDefault();
         }
+        nextButton.onclick = () => this.advance(1);
+        prevButton.onclick = () => this.advance(-1);
+        addButton.onclick = () => imageinput.click();
+        delButton.onclick = () => this.remove();
         const gestures = new Hammer(document.body);
-        gestures.on('tap', () => imageinput.click());
         gestures.on('swiperight', event => this.advance(-1));
         gestures.on('swipeleft', event => this.advance(1));
     }
@@ -119,7 +122,8 @@ class PixView extends View {
     // every user gets this event via model
     async assetChanged() {
         const asset = this.model.asset;
-        if (!asset) { image.src = "icon-add.svg"; return; }
+        image.style.display = asset ? "" : "none";
+        if (!asset) return this.showMessage("");
         // are we already showing the desired image?
         if (asset === this.asset) return;
         // do we have it cached?
