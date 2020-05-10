@@ -108,14 +108,14 @@ class PixView extends View {
             reader.readAsArrayBuffer(file);
         });
         const blob = new Blob([data], { type: file.type });
-        const { width, height, thumb, scale } = await this.analyzeImage(blob);
+        const { width, height, thumb } = await this.analyzeImage(blob);
         if (!thumb) return this.showMessage(`Image is empty (${width}x${height}): "${file.name}" (${file.type})`);
         // show placeholder for immediate feedback
         image.src = thumb;
         this.showMessage(`Sending ${prettyBytes(data.byteLength)} ...`);
         const handle = await Data.store(this.sessionId, data).then(DEBUG_DELAY);
         contentCache.set(handle, blob);
-        const asset = { handle, type: file.type, size: data.byteLength, name: file.name, width, height, thumb, scale };
+        const asset = { handle, type: file.type, size: data.byteLength, name: file.name, width, height, thumb };
         this.publish(this.model.id, "add-asset", asset);
     }
 
@@ -182,7 +182,7 @@ class PixView extends View {
         ctx.drawImage(original, 0, 0);
         // export as data url
         const thumb = canvas.toDataURL("image/png");
-        return { width, height, thumb, scale: 1 / scale };
+        return { width, height, thumb };
     }
 
 
