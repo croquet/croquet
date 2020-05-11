@@ -687,5 +687,16 @@ export const App = {
         if (urlOptions.nomessages || App.root === false || App.messages === false || !App.messageFunction) return null;
 
         return App.messageFunction(msg, options);
-    }
+    },
+
+    autoSession() {
+        let fragment = window.location.hash.slice(1);
+        if (!fragment) {
+            fragment = Math.floor(Math.random() * 2**53).toString(36);
+            window.location.hash = fragment;
+            App.sessionURL = window.location.href;
+        }
+        return fragment;
+    },
+
 };
