@@ -69,20 +69,42 @@ class PixView extends View {
                 if (item.kind === "file") this.addFile(item.getAsFile());
             }
         }
+
         imageinput.onchange = () => {
             for (const file of imageinput.files) {
                 this.addFile(file);
             }
         };
+
         window.onresize = () => document.body.height = window.innerHeight;
         window.onresize();
+
         nextButton.onclick = () => this.advance(1);
         prevButton.onclick = () => this.advance(-1);
         addButton.onclick = () => imageinput.click();
         delButton.onclick = () => this.remove();
+
         const gestures = new Hammer(document.body);
         gestures.on('swiperight', event => this.advance(-1));
         gestures.on('swipeleft', event => this.advance(1));
+
+        if (!("ontouchstart" in window)) {
+            let timer = 0;
+            window.onmousemove = () => {
+                if (timer) clearTimeout(timer);
+                else document.body.classList.remove("mouse-inactive");
+                timer = setTimeout(() => {
+                    document.body.classList.add("mouse-inactive");
+                    timer = 0;
+                }, 3000);
+            }
+            window.onmousemove();
+        }
+
+        for (const button of [prevButton, nextButton, addButton, delButton]) {
+            button.onmouseenter = () => button.classList.add("mouse-over");
+            button.onmouseleave = () => button.classList.remove("mouse-over");
+        }
     }
 
     // only uploading user does this
