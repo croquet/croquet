@@ -100,8 +100,7 @@ class PixView extends View {
 
     // only uploading user does this
     async addFile(file) {
-        if (!file.type.startsWith('image/')) return this.showMessage(`Not an image: "${file.name}" (${file.type})`);
-        this.showMessage(`reading "${file.name}" (${file.type})`);
+        if (!file.type.startsWith('image/')) return App.showMessage(`Not an image: "${file.name}" (${file.type})`, {level: "warning"});
         const data = await new Promise(resolve => {
             const reader = new FileReader();
             reader.onload = () => resolve(reader.result);
@@ -109,10 +108,10 @@ class PixView extends View {
         });
         const blob = new Blob([data], { type: file.type });
         const { width, height, thumb } = await this.analyzeImage(blob);
-        if (!thumb) return this.showMessage(`Image is empty (${width}x${height}): "${file.name}" (${file.type})`);
+        if (!thumb) return App.showMessage(`Image is empty (${width}x${height}): "${file.name}" (${file.type})`, {level: "warning"});
         // show placeholder for immediate feedback
         image.src = thumb;
-        this.showMessage(`Sending ${prettyBytes(data.byteLength)} ...`);
+        App.showMessage(`Uploading image (${prettyBytes(data.byteLength)})`);
         const handle = await Data.store(this.sessionId, data).then(DEBUG_DELAY);
         contentCache.set(handle, blob);
         const asset = { handle, type: file.type, size: data.byteLength, name: file.name, width, height, thumb };
@@ -123,7 +122,7 @@ class PixView extends View {
     async assetChanged() {
         const asset = this.model.asset;
         image.style.display = asset ? "" : "none";
-        if (!asset) return this.showMessage("");
+        if (!asset) return;
         // are we already showing the desired image?
         if (asset === this.asset) return;
         // do we have it cached?
@@ -132,13 +131,13 @@ class PixView extends View {
             // no - show placeholder immediately, and go fetch it
             image.src = asset.thumb;
             try {
-                this.showMessage(`Fetching ${prettyBytes(asset.size)} ...`);
+                App.showMessage(`Fetching image (${prettyBytes(asset.size)})`);
                 const data = await Data.fetch(this.sessionId, asset.handle).then(DEBUG_DELAY);
                 blob = new Blob([data], { type: asset.type });
                 contentCache.set(asset.handle, blob);
             } catch(ex) {
                 console.error(ex);
-                this.showMessage(`Failed to fetch "${asset.name}" (${prettyBytes(asset.size)})`);
+                App.showMessage(`Failed to fetch "${asset.name}" (${prettyBytes(asset.size)})`, {level: "warning"});
                 return;
             }
             // is this still the asset we want to show after async fetching?
@@ -151,13 +150,6 @@ class PixView extends View {
         // revoke objectURL ASAP
         image.onload = () => { if (objectURL === image.src) { URL.revokeObjectURL(objectURL); objectURL = ""; } };
         this.asset = asset;
-        this.showMessage("");
-    }
-
-    showMessage(string) {
-        message.innerText = string;
-        message.style.display = string ? "" : "none";
-        if (string) console.log(string);
     }
 
     async analyzeImage(blob) {
@@ -208,5 +200,6 @@ if (!room) {
     App.sessionURL = window.location.href;
 }
 
+App.messages = true;
 App.makeWidgetDock();
 Session.join(`pix-${room}`, PixModel, PixView, {tps: 0});
