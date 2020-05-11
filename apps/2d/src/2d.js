@@ -238,7 +238,7 @@ async function go() {
     App.messages = true;
     App.makeWidgetDock();
 
-    const session = await Session.join("2d", Shapes, ShapesView, {step: "manual", tps: TPS, autoSession: true, optionsFromUrl: ['n']});
+    const session = await Session.join(`2d-${App.autoSession()}`, Shapes, ShapesView, {step: "manual", tps: TPS, optionsFromUrl: ['n']});
 
     const controller = session.view.realm.island.controller;
 
