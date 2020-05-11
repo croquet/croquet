@@ -1,6 +1,14 @@
 import { Model, View, Data, Session, App } from "@croquet/croquet"
-import EXIF from "@nuofe/exif-js";
 import Hammer from "hammerjs";
+import prettyBytes from "pretty-bytes";
+
+const THUMB_SIZE = 32;
+
+function DEBUG_DELAY(arg) {
+    const delay = +((location.search.match(/delay=([0-9]+)/)||[])[1]||0);
+    if (!delay) return arg;
+    return new Promise(resolve => setTimeout(() => resolve(arg), delay));
+}
 
 class PixModel extends Model {
 
@@ -8,6 +16,7 @@ class PixModel extends Model {
         this.assetIds = 0;
         this.assets = [];
         this.subscribe(this.id, "add-asset", this.addAsset);
+        this.subscribe(this.id, "remove-id", this.removeId);
         this.subscribe(this.id, "go-to", this.goTo);
     }
 
@@ -16,6 +25,17 @@ class PixModel extends Model {
         this.assets.push(asset);
         this.asset.id = ++this.assetIds;
         this.publish(this.id, "asset-changed");
+    }
+
+    removeId(id) {
+        const index = this.assets.findIndex(asset => asset.id === id);
+        if (index < 0) return;
+        const wasCurrent = this.asset === this.assets[index];
+        this.assets.splice(index, 1);
+        if (wasCurrent) {
+            this.asset = this.assets[Math.min(index, this.assets.length - 1)];
+            this.publish(this.id, "asset-changed");
+        }
     }
 
     goTo({from, to}) {
@@ -61,66 +81,103 @@ class PixView extends View {
             switch (event.key) {
                 case "ArrowLeft": this.advance(-1); break;
                 case "ArrowRight": this.advance(1); break;
+                case "Delete":
+                case "Backspace": this.remove(); break;
+                case "Enter":
+                case " ": imageinput.click(); break;
                 default: return;
             }
             event.preventDefault();
         }
+        nextButton.onclick = () => this.advance(1);
+        prevButton.onclick = () => this.advance(-1);
+        addButton.onclick = () => imageinput.click();
+        delButton.onclick = () => this.remove();
         const gestures = new Hammer(document.body);
-        gestures.on('tap', () => imageinput.click());
-        gestures.on('swipeleft', event => this.advance(-1));
-        gestures.on('swiperight', event => this.advance(1));
+        gestures.on('swiperight', event => this.advance(-1));
+        gestures.on('swipeleft', event => this.advance(1));
     }
 
     // only uploading user does this
     async addFile(file) {
-        if (!file.type.startsWith('image/')) return this.showMessage(`Not an image: "${file.name}" (${file.type})`);
-        this.showMessage(`reading "${file.name}" (${file.type})`);
+        if (!file.type.startsWith('image/')) return App.showMessage(`Not an image: "${file.name}" (${file.type})`, {level: "warning"});
         const data = await new Promise(resolve => {
             const reader = new FileReader();
             reader.onload = () => resolve(reader.result);
             reader.readAsArrayBuffer(file);
         });
-        this.showMessage(`sending "${file.name}" (${data.byteLength} bytes)`);
-        const handle = await Data.store(this.sessionId, data); // <== Croquet.Data API
-        this.addToCache(handle, data);
-        const asset = { name: file.name, type: file.type, size: data.byteLength, handle };
+        const blob = new Blob([data], { type: file.type });
+        const { width, height, thumb } = await this.analyzeImage(blob);
+        if (!thumb) return App.showMessage(`Image is empty (${width}x${height}): "${file.name}" (${file.type})`, {level: "warning"});
+        // show placeholder for immediate feedback
+        image.src = thumb;
+        App.showMessage(`Uploading image (${prettyBytes(data.byteLength)})`);
+        const handle = await Data.store(this.sessionId, data).then(DEBUG_DELAY);
+        contentCache.set(handle, blob);
+        const asset = { handle, type: file.type, size: data.byteLength, name: file.name, width, height, thumb };
         this.publish(this.model.id, "add-asset", asset);
     }
 
     // every user gets this event via model
-     async assetChanged() {
+    async assetChanged() {
         const asset = this.model.asset;
+        image.style.display = asset ? "" : "none";
+        if (!asset) return;
         // are we already showing the desired image?
         if (asset === this.asset) return;
-        if (!asset) { image.src = ""; return; }
-        // no - fetch it
-        let data = this.getFromCache(asset.handle);
-        if (!data) {
+        // do we have it cached?
+        let blob = contentCache.get(asset.handle);
+        if (!blob) {
+            // no - show placeholder immediately, and go fetch it
+            image.src = asset.thumb;
+            this.asset = null;
             try {
-                data = await Data.fetch(this.sessionId, asset.handle);  // <== Croquet.Data API
-                this.addToCache(asset.handle, data);
+                App.showMessage(`Fetching image (${prettyBytes(asset.size)})`);
+                const data = await Data.fetch(this.sessionId, asset.handle).then(DEBUG_DELAY);
+                blob = new Blob([data], { type: asset.type });
+                contentCache.set(asset.handle, blob);
             } catch(ex) {
                 console.error(ex);
-                this.showMessage(`Failed to fetch "${asset.name}" (${asset.size} bytes)`);
+                App.showMessage(`Failed to fetch "${asset.name}" (${prettyBytes(asset.size)})`, {level: "warning"});
                 return;
             }
+            // is this still the asset we want to show after async fetching?
+            if (asset !== this.model.asset) return this.assetChanged();
         }
-        // is this still the asset we want to show after async fetching?
-        if (asset !== this.model.asset) return this.assetChanged();
-        const blob = new Blob([data], { type: asset.type });
-        // yes, show it
+        // we do have the blob, show it
         if (objectURL) URL.revokeObjectURL(objectURL);
         objectURL = URL.createObjectURL(blob);
         image.src = objectURL;
+        // revoke objectURL ASAP
+        image.onload = () => { if (objectURL === image.src) { URL.revokeObjectURL(objectURL); objectURL = ""; } };
         this.asset = asset;
-        this.showMessage("");
     }
 
-    showMessage(string) {
-        message.innerText = string;
-        message.style.display = string ? "" : "none";
-        if (string) console.log(string);
+    async analyzeImage(blob) {
+        // load image
+        const original = await new Promise(resolve => {
+            const objectURL = URL.createObjectURL(blob);
+            const img = new Image();
+            img.onload = () => { URL.revokeObjectURL(objectURL); resolve(img); };
+            img.onerror = () => { URL.revokeObjectURL(objectURL); resolve({}); };
+            img.src = objectURL;
+        });
+        const { width, height } = original;
+        if (!original.width || !original.height) return {};
+        // render to thumbnail canvas
+        const aspect = original.width / original.height;
+        const scale = THUMB_SIZE / Math.max(original.width, original.height);
+        const canvas = document.createElement('canvas');
+        canvas.width = aspect >= 1 ? THUMB_SIZE : THUMB_SIZE * aspect;
+        canvas.height = aspect <= 1 ? THUMB_SIZE : THUMB_SIZE / aspect;
+        const ctx = canvas.getContext("2d");
+        ctx.scale(scale, scale);
+        ctx.drawImage(original, 0, 0);
+        // export as data url
+        const thumb = canvas.toDataURL("image/png");
+        return { width, height, thumb };
     }
+
 
     advance(offset) {
         const current = this.model.asset;
@@ -129,14 +186,12 @@ class PixView extends View {
         if (current && next && current.id !== next.id) this.publish(this.model.id, "go-to", { from: current.id, to: next.id });
     }
 
-    addToCache(handle, data) {
-        contentCache.set(handle, data);
-        const exif = EXIF.readFromBinaryFile(data);
-        if (exif) console.log("EXIF:", exif);
-    }
-
-    getFromCache(handle) {
-        return contentCache.get(handle);
+    remove() {
+        const current = this.model.asset;
+        if (!current) return;
+        if (confirm("Delete this image?")) {
+            this.publish(this.model.id, "remove-id", current.id);
+        }
     }
 }
 
@@ -148,5 +203,6 @@ if (!room) {
     App.sessionURL = window.location.href;
 }
 
+App.messages = true;
 App.makeWidgetDock();
 Session.join(`pix-${room}`, PixModel, PixView, {tps: 0});

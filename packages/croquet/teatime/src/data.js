@@ -48,8 +48,6 @@ export default class DataHandle {
         const key = getSessionKey(sessionId);
         const encrypted = await encrypt(key, data);
         const hash = await hashData(encrypted);
-        const existing = HandleCache.get(hash);
-        if (existing) return existing;
         const url = dataUrl(sessionId, hash);
         await upload(url, encrypted);
         return new DataHandle(hash);
@@ -57,7 +55,9 @@ export default class DataHandle {
 
     static async fetch(sessionId, handle) {
         if (Island.hasCurrent()) throw Error("Croquet.Data.fetch() called from Model code");
-        const url = dataUrl(sessionId, handle[DATAHANDLE_HASH]);
+        const hash = handle && handle[DATAHANDLE_HASH];
+        if (typeof hash !== "string") throw Error("Croquet.Data.fetch() called with invalid handle");
+        const url = dataUrl(sessionId, hash);
         const encrypted = await download(url);
         const key = getSessionKey(sessionId);
         return decrypt(key, encrypted);
