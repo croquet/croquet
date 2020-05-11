@@ -76,19 +76,6 @@ class PixView extends View {
         };
         window.onresize = () => document.body.height = window.innerHeight;
         window.onresize();
-        window.onkeydown = event => {
-            if (event.ctrlKey || event.altKey || event.metaKey) return;
-            switch (event.key) {
-                case "ArrowLeft": this.advance(-1); break;
-                case "ArrowRight": this.advance(1); break;
-                case "Delete":
-                case "Backspace": this.remove(); break;
-                case "Enter":
-                case " ": imageinput.click(); break;
-                default: return;
-            }
-            event.preventDefault();
-        }
         nextButton.onclick = () => this.advance(1);
         prevButton.onclick = () => this.advance(-1);
         addButton.onclick = () => imageinput.click();
