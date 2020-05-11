@@ -322,13 +322,8 @@ class View {
      * @type {String}
      * @public
      */
-
-    get primarySessionId() {
-        return window.PRIMARY_ISLAND.id || this.realm.island.id;
-    }
-    
     get sessionId() {
-        return window.PRIMARY_ISLAND.id || this.realm.island.id;
+        return this.realm.island.id;
     }
 
     /**

@@ -273,9 +273,9 @@ class Model {
      * @param {*=} data can be any value or object
      * @public
      */
-    publish(scope, event, data, isInterIsland) {
+    publish(scope, event, data) {
         if (!this.__realm) this.__realmError();
-        this.__realm.publish(event, data, scope, isInterIsland);
+        this.__realm.publish(event, data, scope);
     }
 
     /**
@@ -516,10 +516,6 @@ class Model {
      */
     get sessionId() {
         return this.__realm.island.id;
-    }
-
-    get primarySessionId() {
-        return window.PRIMARY_ISLAND.id || this.__realm.island.id;
     }
 
     [Symbol.toPrimitive]() {

@@ -22,8 +22,8 @@ class ModelRealm {
     deregister(model) {
         this.island.deregisterModel(model.id);
     }
-    publish(event, data, scope, isInterIsland) {
-        this.island.publishFromModel(scope, event, data, isInterIsland);
+    publish(event, data, scope) {
+        this.island.publishFromModel(scope, event, data);
     }
     subscribe(model, scope, event, methodName) {
         if (DEBUG.subscribe) console.log(`Model.subscribe("${scope}:${event}", ${model} ${(""+methodName).replace(/\(.*/s, '')})`);

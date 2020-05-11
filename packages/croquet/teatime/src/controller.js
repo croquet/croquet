@@ -54,19 +54,6 @@ function initDEBUG() {
     };
 }
 
-function addToISLANDS(island, isPrimary) {
-    if (!window.ISLANDS) {
-        window.ISLANDS = {};
-    }
-    if (window.ISLANDS[island.id] !== island) {
-        console.log('replacing an island');
-    }
-    window.ISLANDS[island.id] = island;
-    if (isPrimary) {
-        window.PRIMARY_ISLAND = island;
-    }
-}
-
 const NOCHEAT = urlOptions.nocheat;
 
 const OPTIONS_FROM_URL = [ 'tps' ];
@@ -87,8 +74,7 @@ const Controllers = new Set();
 
 export default class Controller {
 
-    constructor(options) {
-        this.isPrimary = !options || !options.isSecondary;
+    constructor() {
         this.reset();
     }
 
@@ -646,16 +632,13 @@ export default class Controller {
     setIsland(island) {
         this.island = island;
         this.island.controller = this;
-        addToISLANDS(island, this.isPrimary);
     }
 
     // create an island in its initial state
     createCleanIsland() {
         const { options, init } = this.islandCreator;
         const snapshot = { id: this.id };
-        let newIsland = new Island(snapshot, () => init(options));
-        addToISLANDS(newIsland, this.isPrimary);
-        return newIsland;
+        return new Island(snapshot, () => init(options));
     }
 
     // network queue
@@ -671,6 +654,7 @@ export default class Controller {
         const {name, id} = this.user;
         const args = {
             name: this.islandCreator.name,
+            options: this.islandCreator.options,
             version: VERSION,
             user: [id, name],
             url: App.sessionURL,
@@ -697,7 +681,6 @@ export default class Controller {
         }
         Controllers.delete(this);
         const {destroyerFn} = this.islandCreator;
-        if (this._destroyed) {return;}
         this.reset();
         if (!this.islandCreator) throw Error("do not discard islandCreator!");
         if (destroyerFn) destroyerFn();

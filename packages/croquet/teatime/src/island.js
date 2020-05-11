@@ -50,19 +50,6 @@ function execOnIsland(island, fn) {
     }
 }
 
-// a variation of execOnIsland where the previous island does not have to be null
-function execOnIslandNoCheck(island, fn) {
-    if (!(island instanceof Island)) throw Error("not an island: " + island);
-    const previousIsland = CurrentIsland;
-    try {
-        CurrentIsland = island;
-        window.ISLAND = island;
-        fn();
-    } finally {
-        CurrentIsland = previousIsland;
-    }
-}
-
 function execOffIsland(fn) {
     if (!CurrentIsland) throw Error("Island confusion");
     const previousIsland = CurrentIsland;
@@ -297,9 +284,7 @@ export default class Island {
             get(_target, property) {
                 if (typeof model[property] === "function") {
                     return (...args) => {
-                        let lookedUp = island.lookUpModel(model.id);
-                        if (lookedUp !== model &&
-                            lookedUp !== model._target) throw Error("future send to unregistered model");
+                        if (island.lookUpModel(model.id) !== model) throw Error("future send to unregistered model");
                         return island.futureSend(tOffset, model.id, property, args);
                     };
                 }
@@ -377,8 +362,7 @@ export default class Island {
         if (typeof methodName !== "string") {
             throw Error(`Subscription handler for "${event}" must be a method name`);
         }
-
-        if (methodName.indexOf('.') < 0 && typeof model[methodName] !== "function") {
+        if (typeof model[methodName] !== "function") {
             if (methodName[0] !== '{') throw Error(`Subscriber method for "${event}" not found: ${model}.${methodName}()`);
         }
         const topic = scope + ":" + event;
@@ -420,47 +404,22 @@ export default class Island {
         }
     }
 
-    publishFromModel(scope, event, data, isInterIsland) {
+    publishFromModel(scope, event, data) {
         if (CurrentIsland !== this) throw Error("Island Error");
         // @@ hack for forcing reflection of model-to-model messages
         const reflected = event.endsWith(REFLECTED_SUFFIX);
         if (reflected) event = event.slice(0, event.length - REFLECTED_SUFFIX.length);
+
         const topic = scope + ":" + event;
-        if (!isInterIsland) {
-            this.handleModelEventInModel(topic, data, reflected);
-            this.handleModelEventInView(topic, data);
-        } else {
-            if (window.isMaster) {
-                this.publishFromModelAsView(topic, data);
-            }
-        }
+        this.handleModelEventInModel(topic, data, reflected);
+        this.handleModelEventInView(topic, data);
     }
 
     publishFromView(scope, event, data) {
         if (CurrentIsland) throw Error("Island Error");
-        let oldIsland = window.ISLAND;
         const topic = scope + ":" + event;
-        for (let key in window.ISLANDS) {
-            let island = window.ISLANDS[key];
-            try {
-                CurrentIsland = island;
-                window.ISLAND = island;
-                island.handleViewEventInModel(topic, data);
-            } finally {
-                CurrentIsland = null;
-                window.ISLAND = oldIsland;
-            }
-        }
+        this.handleViewEventInModel(topic, data);
         this.handleViewEventInView(topic, data);
-    }
-
-    publishFromModelAsView(topic, data) {
-        for (let key in window.ISLANDS) {
-            let island = window.ISLANDS[key];
-            execOnIslandNoCheck(island, () => {
-                island.handleViewEventInModel(topic, data);
-            });
-        }
     }
 
     handleModelEventInModel(topic, data, reflect=false) {
@@ -489,30 +448,20 @@ export default class Island {
                 const [id, ...rest] = handler.split('.');
                 const methodName = rest.join('.');
                 const model = this.lookUpModel(id);
-
-                
-                if (!model) {
-                    displayWarning(`event ${topic} .${methodName}(): subscriber not found`);
-                    continue;
-                }
-                if (methodName.indexOf('.') < 0) {
-                    if (typeof model[methodName] !== "function") {
-                        console.log(`event ${topic} ${model}.${methodName}(): method not found`);
-                        continue;
-                    } else {
-                        try {
-                            model[methodName](data);
-                        } catch (error) {
-                            console.log(`event ${topic} ${model}.${methodName}()`, error);
-                        }
-                    }
-                } else {
+                if (!model) displayWarning(`event ${topic} .${methodName}(): subscriber not found`);
+                else if (methodName[0] === '{') {
+                    const fn = bindQFunc(methodName, model);
                     try {
-                        let split = methodName.split('.');
-                        model.call(split[0], split[1], data);
+                        fn(data);
                     } catch (error) {
-                        console.log(`event ${topic} ${model}.${methodName}()`, error);
+                        displayAppError(`event ${topic} ${model} ${fn}`, error);
                     }
+                    continue;
+                } else if (typeof model[methodName] !== "function") displayWarning(`event ${topic} ${model}.${methodName}(): method not found`);
+                try {
+                    model[methodName](data);
+                } catch (error) {
+                    displayAppError(`event ${topic} ${model}.${methodName}()`, error);
                 }
             }
         }

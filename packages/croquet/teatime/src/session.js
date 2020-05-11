@@ -144,7 +144,7 @@ export class Session {
         const ISLAND_OPTIONS = ['tps'];
         const SESSION_OPTIONS = ['optionsFromUrl', 'login', 'autoSession'];
         freezeAndHashConstants();
-        const controller = new Controller({isSecondary: options.isSecondary});
+        const controller = new Controller();
         const islandOptions = {};
         if (options.options) {
             // make sure options are a JSON object
@@ -234,21 +234,6 @@ export class Session {
                 } else hiddenSince = null; // not hidden
                 }, 1000);
         }
-    }
-
-    static destroySession(islandId) {
-        let island = window.ISLANDS[islandId];
-        if (!island) {return;}
-
-        delete window.ISLANDS[islandId];
-
-        let controller = island.controller;
-        if (!controller) {return;}
-        let connection = controller.connection;
-        if (!connection) {return;}
-        if (!connection.connected) {return;}
-        controller._destroyed = true;
-        connection.socket.close(1000); // triggers the onclose handler
     }
 }
 
