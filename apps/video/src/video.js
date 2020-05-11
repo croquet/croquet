@@ -610,7 +610,7 @@ async function go() {
     App.messages = true;
     App.makeWidgetDock();
 
-    Session.join("video", SyncedVideoModel, SyncedVideoView, { tps: 4, step: 'auto', autoSession: true, autoSleep: !KEEP_HIDDEN_TABS_ALIVE });
+    Session.join(`video-${App.autoSession()}`, SyncedVideoModel, SyncedVideoView, { tps: 4, step: 'auto', autoSleep: !KEEP_HIDDEN_TABS_ALIVE });
 
 }
 
