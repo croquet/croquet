@@ -130,6 +130,7 @@ class PixView extends View {
         if (!blob) {
             // no - show placeholder immediately, and go fetch it
             image.src = asset.thumb;
+            this.asset = null;
             try {
                 App.showMessage(`Fetching image (${prettyBytes(asset.size)})`);
                 const data = await Data.fetch(this.sessionId, asset.handle).then(DEBUG_DELAY);
