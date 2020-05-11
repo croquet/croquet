@@ -188,7 +188,9 @@ class PixView extends View {
     remove() {
         const current = this.model.asset;
         if (!current) return;
-        this.publish(this.model.id, "remove-id", current.id);
+        if (confirm("Delete this image?")) {
+            this.publish(this.model.id, "remove-id", current.id);
+        }
     }
 }
 
