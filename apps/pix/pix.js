@@ -107,8 +107,8 @@ class PixView extends View {
 
     // every user gets this event via model
     async assetChanged() {
+        this.updateUI();
         const asset = this.model.asset;
-        image.style.display = asset ? "" : "none";
         if (!asset) return;
         // are we already showing the desired image?
         if (asset === this.asset) return;
@@ -179,6 +179,16 @@ class PixView extends View {
         if (confirm("Delete this image?")) {
             this.publish(this.model.id, "remove-id", current.id);
         }
+    }
+
+    updateUI() {
+        const current = this.model.asset;
+        const index = this.model.assets.indexOf(current);
+        const count = this.model.assets.length;
+        image.style.display = !current ?  "none" : "";
+        delButton.style.display = !current ?  "none" : "";
+        prevButton.style.display = index <= 0 ? "none" : "";
+        nextButton.style.display = index === count - 1 ? "none" : "";
     }
 }
 
