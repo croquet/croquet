@@ -2,14 +2,6 @@ import { Model, View, Data, Session, App } from "@croquet/croquet"
 import Hammer from "hammerjs";
 import prettyBytes from "pretty-bytes";
 
-const THUMB_SIZE = 32;
-
-function DEBUG_DELAY(arg) {
-    const delay = +((location.search.match(/delay=([0-9]+)/)||[])[1]||0);
-    if (!delay) return arg;
-    return new Promise(resolve => setTimeout(() => resolve(arg), delay));
-}
-
 class PixModel extends Model {
 
     init() {
@@ -18,6 +10,13 @@ class PixModel extends Model {
         this.subscribe(this.id, "add-asset", this.addAsset);
         this.subscribe(this.id, "remove-id", this.removeId);
         this.subscribe(this.id, "go-to", this.goTo);
+
+        this.buttons = {};
+        for (const name of ["prev", "next", "add", "del"]) {
+            this.buttons[name] = { views: new Set(), since: 0, active: false };
+        };
+        this.subscribe(this.id, "button-active", this.buttonActive);
+        this.subscribe(this.sessionId, "view-exit", this.viewExit);
     }
 
     addAsset(asset) {
@@ -46,20 +45,65 @@ class PixModel extends Model {
         this.publish(this.id, "asset-changed");
     }
 
+    buttonActive({view, name, active}) {
+        const button = this.buttons[name];
+        if (active) {
+            button.views.add(view);
+            button.since = this.now();
+            this.future(2500).updateButton(name);
+        } else {
+            button.views.delete(view);
+        }
+        this.updateButton(name);
+    }
+
+    viewExit(view) {
+        for (const [name, button] of Object.entries(this.buttons)) {
+            button.views.delete(view);
+            this.updateButton(name);
+        }
+    }
+
+    updateButton(name) {
+        const button = this.buttons[name];
+        const active = button.views.size > 0 && this.now() - button.since < 2000;
+        if (button.active !== active) {
+            button.active = active;
+            this.publish(this.id, "button-changed", {name, active});
+        }
+    }
 }
 PixModel.register();
 
 
+/******************** View ************************/
+
+
+const THUMB_SIZE = 32;
+
+function DEBUG_DELAY(arg) {
+    const delay = +((location.search.match(/delay=([0-9]+)/)||[])[1]||0);
+    if (!delay) return arg;
+    return new Promise(resolve => setTimeout(() => resolve(arg), delay));
+}
+
 const contentCache = new WeakMap();
 let objectURL;
+const isTouch = "ontouchstart" in window;
 
 class PixView extends View {
 
     constructor(model) {
         super(model);
         this.model = model;
-        this.subscribe(this.model.id, {event: "asset-changed", handling: "oncePerFrame"}, this.assetChanged);
-        this.assetChanged();
+
+        this.subscribe(this.model.id, {event: "asset-changed", handling: "oncePerFrame"}, this.onAssetChanged);
+        this.onAssetChanged();
+
+        this.subscribe(this.model.id, {event: "button-changed", handling: "oncePerFrame"}, this.onButtonChanged);
+        for (const [name, button] of Object.entries(model.buttons)) {
+            this.onButtonChanged({name, active: button.active});
+        }
 
         // we do not use addEventListener so we do not have to remove them when going dormant
         window.ondragover = event => event.preventDefault();
@@ -85,10 +129,10 @@ class PixView extends View {
         delButton.onclick = () => this.remove();
 
         const gestures = new Hammer(document.body);
-        gestures.on('swiperight', event => this.advance(-1));
-        gestures.on('swipeleft', event => this.advance(1));
+        gestures.on('swiperight', () => this.advance(-1));
+        gestures.on('swipeleft', () => this.advance(1));
 
-        if (!("ontouchstart" in window)) {
+        if (!isTouch) {
             let timer = 0;
             window.onmousemove = () => {
                 if (timer) clearTimeout(timer);
@@ -102,8 +146,14 @@ class PixView extends View {
         }
 
         for (const button of [prevButton, nextButton, addButton, delButton]) {
-            button.onmouseenter = () => button.classList.add("mouse-over");
-            button.onmouseleave = () => button.classList.remove("mouse-over");
+            const name = button.id.replace('Button', '');
+            if (isTouch) {
+                button.onmousedown = () => this.activateButton(name, true);
+                // no mouse-up, model will deactivate after 2 secs
+            } else {
+                button.onmouseenter = () => this.activateButton(name, true);
+                button.onmouseleave = () => this.activateButton(name, false);
+            }
         }
     }
 
@@ -128,7 +178,7 @@ class PixView extends View {
     }
 
     // every user gets this event via model
-    async assetChanged() {
+    async onAssetChanged() {
         this.updateUI();
         const asset = this.model.asset;
         if (!asset) return;
@@ -151,7 +201,7 @@ class PixView extends View {
                 return;
             }
             // is this still the asset we want to show after async fetching?
-            if (asset !== this.model.asset) return this.assetChanged();
+            if (asset !== this.model.asset) return this.onAssetChanged();
         }
         // we do have the blob, show it
         if (objectURL) URL.revokeObjectURL(objectURL);
@@ -203,6 +253,12 @@ class PixView extends View {
         }
     }
 
+    onButtonChanged({name, active}) {
+        const button = window[`${name}Button`];
+        if (active) button.classList.add("active");
+        else button.classList.remove("active");
+    }
+
     updateUI() {
         const current = this.model.asset;
         const index = this.model.assets.indexOf(current);
@@ -211,6 +267,10 @@ class PixView extends View {
         delButton.style.display = !current ?  "none" : "";
         prevButton.style.display = index <= 0 ? "none" : "";
         nextButton.style.display = index === count - 1 ? "none" : "";
+    }
+
+    activateButton(name, active) {
+        this.publish(this.model.id, "button-active", {view: this.viewId, name, active});
     }
 }
 
