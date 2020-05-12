@@ -132,12 +132,15 @@ export default class Island {
                     // read island from snapshot
                     const reader = IslandReader.newOrRecycled(this);
                     const islandData = reader.readIsland(snapshot, "$");
+                    let messages = [];
                     // only read keys declared above
                     for (const key of Object.keys(islandData)) {
                         if (!(key in this) && key !== "meta") console.warn(`Ignoring property snapshot.${key}`);
-                        else if (key === "messages") for (const msg of islandData.messages) this.messages.add(msg);
+                        else if (key === "messages") messages = islandData.messages;
                         else this[key] = islandData[key];
                     }
+                    // add messages array to priority queue
+                    for (const msg of messages) this.messages.add(msg.convertIfNeeded(this));
                 } else {
                     // create new random, it is okay to use in init code
                     this._random = new SeedRandom(null, { state: true });
@@ -589,10 +592,6 @@ function decode(payload, island) {
     return {receiver, selector, args};
 }
 
-function hasReceiver(payload, id) {
-    return payload.startsWith(`${id}>`);
-}
-
 /** Answer true if seqA comes before seqB:
  * - sequence numbers are 32 bit unsigned ints with overflow
  * - seqA comes before seqB if it takes fewer increments to
@@ -610,7 +609,20 @@ export class Message {
     constructor(time, seq, receiver, selector, args) {
         this.time = time;
         this.seq = seq;
-        this.payload = encode(receiver, selector, args);
+        this.receiver = receiver;
+        this.selector = selector;
+        this.args = args;
+    }
+
+    convertIfNeeded(island) {
+        if (this.payload) {
+            // before 0.3, messages always had an encoded payload
+            const {receiver, selector, args} = decode(this.payload, island);
+            delete this.payload;
+            this.receiver = receiver;
+            this.selector = selector;
+            this.args = args;
+        }
     }
 
     // Messages are generally sorted by time
@@ -628,7 +640,7 @@ export class Message {
             : inSequence(this.internalSeq, other.internalSeq);
     }
 
-    hasReceiver(id) { return hasReceiver(this.payload, id); }
+    hasReceiver(id) { return this.receiver.id === id; }
 
     isExternal() { return this.seq & 1; }
     get externalSeq() { return (this.seq / 2) >>> 0; }
@@ -638,7 +650,7 @@ export class Message {
 
     asState() {
         // controller relies on this being a 3-element array
-        return [this.time, this.seq, this.payload];
+        return [this.time, this.seq, encode(this.receiver, this.selector, this.args)];
     }
 
     static fromState(state, island) {
@@ -648,7 +660,7 @@ export class Message {
     }
 
     executeOn(island) {
-        const { receiver, selector, args } = decode(this.payload, island);
+        const { receiver, selector, args } = this;
         const object = island.lookUpModel(receiver);
         if (!object) displayWarning(`${this.shortString()} ${selector}(): receiver not found`);
         else if (selector[0] === '{') {
@@ -680,7 +692,7 @@ export class Message {
     }
 
     toString() {
-        const { receiver, selector, args } = decode(this.payload);
+        const { receiver, selector, args } = this;
         const ext = this.isExternal();
         const seq = ext ? this.externalSeq : this.internalSeq;
         return `${ext ? 'External' : 'Future'}Message[${this.time}${':#'[+ext]}${seq} ${receiver}.${selector}(${args.map(JSON.stringify).join(', ')})]`;
