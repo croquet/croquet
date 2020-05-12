@@ -1,5 +1,6 @@
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
+import sourcemaps from 'rollup-plugin-sourcemaps';
 
 
 export default {
@@ -15,5 +16,6 @@ export default {
     plugins: [
         resolve(), // tells Rollup how to resolve stuff in node_modules
         commonjs(), // converts all modules (including @croquet/croquet) to ES modules
+        sourcemaps(), // use sourcemaps from source files
     ]
 };
