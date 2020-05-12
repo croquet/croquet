@@ -5,6 +5,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 # upcoming
 
 * deprecated `startSession`, use `Session.join` instead
+* `future` messages arguments are passed by identity, not copied anymore
 * allow `viewOnly` sessions (removed DEMO hack)
 
 # 0.2.7
