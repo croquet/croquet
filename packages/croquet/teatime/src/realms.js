@@ -26,11 +26,11 @@ class ModelRealm {
         this.island.publishFromModel(scope, event, data);
     }
     subscribe(model, scope, event, methodName) {
-        if (DEBUG.subscribe) console.log(`Model.subscribe("${scope}:${event}", ${model} ${(""+methodName).replace(/\(.*/s, '')})`);
+        if (DEBUG.subscribe) console.log(`Model.subscribe("${scope}:${event}", ${model} ${(""+methodName).replace(/\([\s\S]*/, '')})`);
         return this.island.addSubscription(model, scope, event, methodName);
     }
     unsubscribe(model, scope, event, methodName='*') {
-        if (DEBUG.subscribe) console.log(`Model.unsubscribe(${scope}:${event}", ${model} ${(""+methodName).replace(/\(.*/s, '')})`);
+        if (DEBUG.subscribe) console.log(`Model.unsubscribe(${scope}:${event}", ${model} ${(""+methodName).replace(/\([\s\S]*/, '')})`);
         this.island.removeSubscription(model, scope, event, methodName);
     }
     unsubscribeAll(model) {
@@ -90,11 +90,11 @@ class ViewRealm {
         this.island.publishFromView(scope, event, data);
     }
     subscribe(event, viewId, callback, scope, handling="queued") {
-        if (DEBUG.subscribe) console.log(`View.subscribe("${scope}:${event}", ${viewId} ${callback.name || (""+callback).replace(/\(.*/s, '')} [${handling}])`);
+        if (DEBUG.subscribe) console.log(`View.subscribe("${scope}:${event}", ${viewId} ${callback.name || (""+callback).replace(/\([\s\S]*/, '')} [${handling}])`);
         viewDomain.addSubscription(scope, event, viewId, callback, handling);
     }
     unsubscribe(event, viewId, callback, scope) {
-        if (DEBUG.subscribe) console.log(`View.unsubscribe("${scope}:${event}", ${viewId} ${callback.name || (""+callback).replace(/\(.*/s, '')})`);
+        if (DEBUG.subscribe) console.log(`View.unsubscribe("${scope}:${event}", ${viewId} ${callback.name || (""+callback).replace(/\([\s\S]*/, '')})`);
         viewDomain.removeSubscription(scope, event, viewId, callback);
     }
     unsubscribeAll(viewId) {
