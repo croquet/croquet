@@ -57,11 +57,19 @@ export default class DataHandle {
         const hash = await hashData(encrypted);
         const handle = new DataHandle(hash);
         const url = dataUrl(sessionId, hash);
-        const storedPromise = upload(url, encrypted);
-        if (doNotWait) Object.defineProperty(handle, "stored", { value: () => Island.hasCurrent() ? undefined : storedPromise });
-        else await storedPromise;
+        const promise = upload(url, encrypted);
+        // if we uploaded the same file in this same session before, then the promise already exists
+        if (!handle.stored) {
+            Object.defineProperty(handle, "stored", { value: () => Island.hasCurrent() ? undefined : promise });
+            // TODO: do not ignore upload failure
+        }
+
+        // TODO: publish events and handle in island to track assets even if user code fails to do so
         // publish(sessionId, "data-storing", handle);
-        // storedPromise.then(() => publish(sessionId, "data-stored", handle));
+        // promise.then(() => publish(sessionId, "data-stored", handle));
+
+        // wait for upload to complete unless doNotWait requested
+        if (!doNotWait) await promise;
         return handle;
     }
 
