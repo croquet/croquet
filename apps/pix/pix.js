@@ -195,13 +195,15 @@ class PixView extends View {
         if (!asset) return;
         // are we already showing the desired image?
         if (asset === this.asset) return;
-        // do we have it cached?
-        let blob = contentCache.get(asset.handle);
-        if (!blob || !asset.stored) {
+        // do we have the blob yet?
+        let blob = asset.stored && contentCache.get(asset.handle);
+        // (if this is the uploading view then it is cached but not stored yet, we could
+        // show the full res immediately, but we rather show the thumb for feedback)
+        if (!blob) {
             // no - show placeholder immediately, and go fetch it
             image.src = asset.thumb;
             this.asset = null;
-            // if asset is not yet stored we will get another event
+            // ... unless asset is not even stored yet, in which case we will get another event
             if (!asset.stored) return;
             try {
                 const data = await Data.fetch(this.sessionId, asset.handle).then(DEBUG_DELAY);
