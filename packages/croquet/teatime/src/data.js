@@ -43,14 +43,17 @@ async function download(url) {
 
 /** exposed as Data in API */
 export default class DataHandle {
-    static async store(sessionId, data) {
+    static async store(sessionId, data, doNotWait=false) {
         if (Island.hasCurrent()) throw Error("Croquet.Data.store() called from Model code");
         const key = getSessionKey(sessionId);
         const encrypted = await encrypt(key, data);
         const hash = await hashData(encrypted);
+        const handle = new DataHandle(hash);
         const url = dataUrl(sessionId, hash);
-        await upload(url, encrypted);
-        return new DataHandle(hash);
+        const storedPromise = upload(url, encrypted);
+        if (doNotWait) Object.defineProperty(handle, "stored", { get() { return Island.hasCurrent() ? undefined : storedPromise; } });
+        else await storedPromise;
+        return handle;
     }
 
     static async fetch(sessionId, handle) {
