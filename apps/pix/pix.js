@@ -184,7 +184,7 @@ class PixView extends View {
         contentCache.set(handle, blob);
         const asset = { handle, stored: false, type: file.type, size: data.byteLength, name: file.name, width, height, thumb };
         this.publish(this.model.id, "add-asset", asset);
-        await handle.stored.then(DEBUG_DELAY);
+        await handle.stored().then(DEBUG_DELAY);
         this.publish(this.model.id, "stored-data", handle);
     }
 
