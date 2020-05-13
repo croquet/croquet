@@ -58,8 +58,10 @@ export default class DataHandle {
         const handle = new DataHandle(hash);
         const url = dataUrl(sessionId, hash);
         const storedPromise = upload(url, encrypted);
-        if (doNotWait) Object.defineProperty(handle, "stored", { get() { return Island.hasCurrent() ? undefined : storedPromise; } });
+        if (doNotWait) Object.defineProperty(handle, "stored", { value: () => Island.hasCurrent() ? undefined : storedPromise });
         else await storedPromise;
+        // publish(sessionId, "data-storing", handle);
+        // storedPromise.then(() => publish(sessionId, "data-stored", handle));
         return handle;
     }
 
