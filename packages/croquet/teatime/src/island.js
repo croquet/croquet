@@ -606,11 +606,16 @@ export function inSequence(seqA, seqB) {
 }
 
 export class Message {
-    constructor(time, seq, receiver, selector, args) {
+    constructor(time, seq, receiverId, selector, args) {
+        /** @type {Number} floating point seconds since beginning of session */
         this.time = time;
+        /** @type {Number} a 32 bit unsigned integer (wraps around) */
         this.seq = seq;
-        this.receiver = receiver;
+        /** @type {String} id of receiver */
+        this.receiver = receiverId;
+        /** @type {String} method name */
         this.selector = selector;
+        /** @type {Array} method arguments */
         this.args = args;
     }
 
