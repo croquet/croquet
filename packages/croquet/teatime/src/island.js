@@ -640,7 +640,7 @@ export class Message {
             : inSequence(this.internalSeq, other.internalSeq);
     }
 
-    hasReceiver(id) { return this.receiver.id === id; }
+    hasReceiver(id) { return this.receiver === id; }
 
     isExternal() { return this.seq & 1; }
     get externalSeq() { return (this.seq / 2) >>> 0; }
