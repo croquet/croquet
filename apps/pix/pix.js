@@ -180,7 +180,6 @@ class PixView extends View {
         if (!thumb) return App.showMessage(`Image is empty (${width}x${height}): "${file.name}" (${file.type})`, {level: "warning"});
         // show placeholder for immediate feedback
         image.src = thumb;
-        App.showMessage(`Uploading image (${prettyBytes(data.byteLength)})`);
         const handle = await Data.store(this.sessionId, data, true);
         contentCache.set(handle, blob);
         const asset = { handle, stored: false, type: file.type, size: data.byteLength, name: file.name, width, height, thumb };
@@ -205,7 +204,6 @@ class PixView extends View {
             // if asset is not yet stored we will get another event
             if (!asset.stored) return;
             try {
-                App.showMessage(`Fetching image (${prettyBytes(asset.size)})`);
                 const data = await Data.fetch(this.sessionId, asset.handle).then(DEBUG_DELAY);
                 blob = new Blob([data], { type: asset.type });
                 contentCache.set(asset.handle, blob);
