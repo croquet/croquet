@@ -628,6 +628,7 @@ export class Message {
             this.selector = selector;
             this.args = args;
         }
+        return this;
     }
 
     // Messages are generally sorted by time
