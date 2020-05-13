@@ -8,6 +8,7 @@ class PixModel extends Model {
         this.assetIds = 0;
         this.assets = [];
         this.subscribe(this.id, "add-asset", this.addAsset);
+        this.subscribe(this.id, "stored-data", this.storedData);
         this.subscribe(this.id, "remove-id", this.removeId);
         this.subscribe(this.id, "go-to", this.goTo);
 
@@ -24,6 +25,15 @@ class PixModel extends Model {
         this.assets.push(asset);
         this.asset.id = ++this.assetIds;
         this.publish(this.id, "asset-changed");
+    }
+
+    storedData(handle) {
+        for (const asset of this.assets) {
+            if (handle === asset.handle) {
+                asset.stored = true;
+                this.publish(this.id, "asset-changed");
+            }
+        }
     }
 
     removeId(id) {
@@ -171,10 +181,12 @@ class PixView extends View {
         // show placeholder for immediate feedback
         image.src = thumb;
         App.showMessage(`Uploading image (${prettyBytes(data.byteLength)})`);
-        const handle = await Data.store(this.sessionId, data).then(DEBUG_DELAY);
+        const handle = await Data.store(this.sessionId, data, true);
         contentCache.set(handle, blob);
-        const asset = { handle, type: file.type, size: data.byteLength, name: file.name, width, height, thumb };
+        const asset = { handle, stored: false, type: file.type, size: data.byteLength, name: file.name, width, height, thumb };
         this.publish(this.model.id, "add-asset", asset);
+        await handle.stored.then(DEBUG_DELAY);
+        this.publish(this.model.id, "stored-data", handle);
     }
 
     // every user gets this event via model
@@ -190,6 +202,8 @@ class PixView extends View {
             // no - show placeholder immediately, and go fetch it
             image.src = asset.thumb;
             this.asset = null;
+            // if asset is not yet stored we will get another event
+            if (!asset.stored) return;
             try {
                 App.showMessage(`Fetching image (${prettyBytes(asset.size)})`);
                 const data = await Data.fetch(this.sessionId, asset.handle).then(DEBUG_DELAY);
