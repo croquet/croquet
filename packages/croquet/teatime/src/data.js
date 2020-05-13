@@ -43,6 +43,13 @@ async function download(url) {
 
 /** exposed as Data in API */
 export default class DataHandle {
+    /**
+     * Store data and return an (opaque) handle.
+     * @param {String} sessionId the sessionId for encryption
+     * @param {ArrayBuffer} data the data to be stored
+     * @param {Boolean} doNotWait if true, return before storing finished and resolve `handle.stored` when done
+     * @returns {Promise<DataHandle>} return promise for the handle. If requested, `handle.stored` will be another promise that resolves when uploading is done.
+     */
     static async store(sessionId, data, doNotWait=false) {
         if (Island.hasCurrent()) throw Error("Croquet.Data.store() called from Model code");
         const key = getSessionKey(sessionId);
@@ -56,6 +63,12 @@ export default class DataHandle {
         return handle;
     }
 
+    /**
+     * Fetch data for a given data handle
+     * @param {String} sessionId the sessionId for decryption
+     * @param {DataHandle} handle created by {@link Data.store}
+     * @returns {Promise<ArrayBuffer>} the data
+     */
     static async fetch(sessionId, handle) {
         if (Island.hasCurrent()) throw Error("Croquet.Data.fetch() called from Model code");
         const hash = handle && handle[DATAHANDLE_HASH];
