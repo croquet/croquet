@@ -197,7 +197,7 @@ class PixView extends View {
         if (asset === this.asset) return;
         // do we have it cached?
         let blob = contentCache.get(asset.handle);
-        if (!blob) {
+        if (!blob || !asset.stored) {
             // no - show placeholder immediately, and go fetch it
             image.src = asset.thumb;
             this.asset = null;
