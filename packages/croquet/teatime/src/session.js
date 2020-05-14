@@ -13,7 +13,6 @@ export function deprecatedStartSession(...args) {
 }
 
 const Controllers = {};
-const Sessions = {};
 
 /**
  * @hideconstructor
@@ -185,7 +184,7 @@ export class Session {
 
         async function rebootModelView(snapshot) {
             clear();
-            if (session.leaveResolve) { session.leaveResolve(true); return; }
+            if (controller.leaving) { controller.leaving(true); return; }
             const sessionSpec = {
                 snapshot,
                 init: islandInit,
@@ -198,7 +197,6 @@ export class Session {
             session.model = (await controller.establishSession(name, sessionSpec)).modelRoot;
             session.id = controller.id;
             Controllers[session.id] = controller;
-            Sessions[session.id] = session;
 
             App.makeSessionWidgets(session.id);
             controller.inViewRealm(() => {
@@ -245,15 +243,13 @@ export class Session {
 
     static async leave(sessionId) {
         const controller = Controllers[sessionId];
-        const session = Sessions[sessionId];
         if (!controller) return false;
         delete Controllers[sessionId];
-        delete Sessions[sessionId];
-        session.leavePromise = new Promise(resolve => session.leaveResolve = resolve);
+        const leavePromise = new Promise(resolve => controller.leaving = resolve);
         const connection = controller.connection;
         if (!connection.connected) return false;
         connection.socket.close(1000); // triggers the onclose which eventually calls destroyerFn above
-        return session.leavePromise;
+        return leavePromise;
     }
 
 }

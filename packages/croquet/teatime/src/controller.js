@@ -125,7 +125,8 @@ export default class Controller {
         // controller (only) gets to subscribe to events using the shared viewId as the "subscriber" argument
         viewDomain.removeAllSubscriptionsFor(this.viewId); // in case we're recycling
         viewDomain.addSubscription(this.viewId, "__users__", this.viewId, data => displayStatus(`users now ${data.count}`), "oncePerFrameWhileSynced");
-        if (!Controllers.size) App.showSyncWait(true); // enable (i.e., not synced)
+        // "leaving" is set in session.js if we are leaving by user's request (rather than going dormant/reconnecting)
+        if (!this.leaving) App.showSyncWait(true); // enable (i.e., not synced)
     }
 
     /** @type {String} the session id (same for all replicas) */
