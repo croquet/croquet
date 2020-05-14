@@ -238,29 +238,49 @@ async function go() {
     App.messages = true;
     App.makeWidgetDock();
 
-    const session = await Session.join(`2d-${App.autoSession()}`, Shapes, ShapesView, {step: "manual", tps: TPS, optionsFromUrl: ['n']});
+    const SessionButton = document.getElementById("SessionButton");
 
-    const controller = session.view.realm.island.controller;
-
+    let session = null;
     let users = 0;
 
-    window.requestAnimationFrame(frame);
+    joinSession();
+
+    async function joinSession() {
+        SessionButton.innerText = "Joining";
+        SessionButton.onclick = null;
+        session = await Session.join(`2d-${App.autoSession()}`, Shapes, ShapesView, {step: "manual", tps: TPS, optionsFromUrl: ['n']});
+        window.requestAnimationFrame(frame);
+        SessionButton.innerText = "Leave";
+        SessionButton.onclick = leaveSession;
+    }
+
+    async function leaveSession() {
+        SessionButton.innerText = "Leaving";
+        SessionButton.onclick = null;
+        await session.leave();
+        session = null;
+        SessionButton.innerText = "Join";
+        SessionButton.onclick = joinSession;
+    }
+
     function frame(timestamp) {
+        if (!session) return;
+
         session.step(timestamp);
 
-        if (session.view) session.view.showStatus(controller.backlog, controller.starvation, 100, 3000);
+        if (session.view) {
+            const controller = session.view.realm.island.controller;
 
-        if (users !== controller.users) {
-            users = controller.users;
-            window.top.postMessage({ users }, "*");
+            session.view.showStatus(controller.backlog, controller.starvation, 100, 3000);
+
+            if (users !== controller.users) {
+                users = controller.users;
+                window.top.postMessage({ users }, "*");
+            }
         }
 
         window.requestAnimationFrame(frame);
     }
-
-    window.addEventListener("beforeunload", () => {
-        if (controller.island) window.top.postMessage({connected: -1}, "*");
-    });
 }
 
 

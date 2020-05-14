@@ -28,9 +28,21 @@
                 border: solid 10px #fff;
                 z-index: 1;
             }
+            button {
+                position: absolute;
+                z-index: 2;
+                right: 10px;
+                bottom: 10px;
+            }
+            @media only screen and (max-width: 200px) {
+                button {
+                    display: none;
+                }
+            }
         </style>
     </head>
     <body>
+        <button id="SessionButton">Loading...</button>
         <script src="2d.js"></script>
     </body>
 </html>
