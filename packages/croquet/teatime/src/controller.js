@@ -79,6 +79,7 @@ export default class Controller {
     }
 
     reset() {
+        if (window.ISLAND === this.island) delete window.ISLAND;
         /** @type {Island} */
         this.island = null;
         /**  @type {Connection} our websocket connection for talking to the reflector */
@@ -124,7 +125,7 @@ export default class Controller {
         // controller (only) gets to subscribe to events using the shared viewId as the "subscriber" argument
         viewDomain.removeAllSubscriptionsFor(this.viewId); // in case we're recycling
         viewDomain.addSubscription(this.viewId, "__users__", this.viewId, data => displayStatus(`users now ${data.count}`), "oncePerFrameWhileSynced");
-        App.showSyncWait(true); // enable (i.e., not synced)
+        if (!Controllers.size) App.showSyncWait(true); // enable (i.e., not synced)
     }
 
     /** @type {String} the session id (same for all replicas) */
@@ -679,9 +680,9 @@ export default class Controller {
             console.log(this.id, `Controller LEAVING session for ${this.islandCreator.name}`);
             this.connection.send(JSON.stringify({ id: this.id, action: 'LEAVING' }));
         }
-        Controllers.delete(this);
         const {destroyerFn} = this.islandCreator;
         this.reset();
+        Controllers.delete(this);   // after reset so it does not re-enable the SYNC overlay
         if (!this.islandCreator) throw Error("do not discard islandCreator!");
         if (destroyerFn) destroyerFn();
     }
@@ -972,8 +973,8 @@ class Connection {
                     // e.g., 4100 is for out-of-date reflector protocol
                     const autoReconnect = event.code !== 1000 && event.code < 4100;
                     const dormant = event.code === 4110;
-                    // don't display error if going dormant
-                    if (!dormant) displayError(`Connection closed: ${event.code} ${event.reason}`, { duration: autoReconnect ? undefined : 3600000 }); // leave it there for 1 hour if unrecoverable
+                    // don't display error if going dormant or normal close
+                    if (!dormant && event.code !== 1000) displayError(`Connection closed: ${event.code} ${event.reason}`, { duration: autoReconnect ? undefined : 3600000 }); // leave it there for 1 hour if unrecoverable
                     if (DEBUG.session) console.log(socket.constructor.name, "closed:", event.code, event.reason);
                     Stats.connected(false);
                     if (dormant) this.connectRestricted = true; // only reconnect on session step

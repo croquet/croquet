@@ -12,6 +12,9 @@ export function deprecatedStartSession(...args) {
     return Session.join(...args);
 }
 
+const Controllers = {};
+const Sessions = {};
+
 /**
  * @hideconstructor
  * @public
@@ -164,12 +167,12 @@ export class Session {
                 stepSession(frameTime, controller, session.view);
             },
             leave() {
-                console.warn("Session leave not implemented yet!");
+                Session.leave(session.id);
             },
             get latency() { return controller.latency; },
             get latencies() { return controller.latencies; },
         };
-        await bootModelView();
+        await rebootModelView();
         if (options.step !== "manual") {
             // auto stepping
             const step = frameTime => {
@@ -180,12 +183,13 @@ export class Session {
         }
         return session;
 
-        async function bootModelView(snapshot) {
+        async function rebootModelView(snapshot) {
             clear();
+            if (session.leaveResolve) { session.leaveResolve(true); return; }
             const sessionSpec = {
                 snapshot,
                 init: islandInit,
-                destroyerFn: bootModelView,
+                destroyerFn: rebootModelView,
                 options: islandOptions,
             };
             for (const [option, value] of Object.entries(options)) {
@@ -193,6 +197,9 @@ export class Session {
             }
             session.model = (await controller.establishSession(name, sessionSpec)).modelRoot;
             session.id = controller.id;
+            Controllers[session.id] = controller;
+            Sessions[session.id] = session;
+
             App.makeSessionWidgets(session.id);
             controller.inViewRealm(() => {
                 if (urlOptions.has("debug", "session", false)) console.log(session.id, 'Creating root view');
@@ -235,6 +242,20 @@ export class Session {
                 }, 1000);
         }
     }
+
+    static async leave(sessionId) {
+        const controller = Controllers[sessionId];
+        const session = Sessions[sessionId];
+        if (!controller) return false;
+        delete Controllers[sessionId];
+        delete Sessions[sessionId];
+        session.leavePromise = new Promise(resolve => session.leaveResolve = resolve);
+        const connection = controller.connection;
+        if (!connection.connected) return false;
+        connection.socket.close(1000); // triggers the onclose which eventually calls destroyerFn above
+        return session.leavePromise;
+    }
+
 }
 
 // maximum amount of time in milliseconds the model get to spend running its simulation
