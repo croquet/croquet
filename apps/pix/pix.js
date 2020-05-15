@@ -228,13 +228,10 @@ class PixView extends View {
 
     async analyzeImage(blob) {
         // load image
-        const original = await new Promise(resolve => {
-            const objectURL = URL.createObjectURL(blob);
-            const img = new Image();
-            img.onload = () => { URL.revokeObjectURL(objectURL); resolve(img); };
-            img.onerror = () => { URL.revokeObjectURL(objectURL); resolve({}); };
-            img.src = objectURL;
-        });
+        const original = new Image();
+        original.src = URL.createObjectURL(blob);
+        try { await original.decode(); } catch(ex) { };
+        URL.revokeObjectURL(original.src);
         const { width, height } = original;
         if (!original.width || !original.height) return {};
         // render to thumbnail canvas
