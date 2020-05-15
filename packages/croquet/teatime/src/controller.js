@@ -656,7 +656,6 @@ export default class Controller {
         const {name, id} = this.user;
         const args = {
             name: this.islandCreator.name,
-            options: this.islandCreator.options,
             version: VERSION,
             user: [id, name],
             url: App.sessionURL,
