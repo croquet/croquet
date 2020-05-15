@@ -231,9 +231,10 @@ export function addConstantsHash(constants) {
     extraHashes.push(hashPromise);
 }
 
-export async function hashNameAndCode(name, sdk_version) {
-    // if the application is not using parcel to bundle, we will not see any SDK modules
-    // in production (i.e., building the npm), we will not hash the SDK, but only the models
+export async function hashSessionAndCode(name, options, sdk_version) {
+    // if the application is not using parcel to bundle, we will not see any modules
+    // but only the registered models. So when building the npm in production mode
+    // we do not even look at the parcel modules.
     const production = process.env.NODE_ENV === "production";
     const mods = production ? [] : allModuleIDs().filter(id => {
         // we don't want to be encoding any package.json, because it includes a build-specific path name.  ar.js also causes trouble, for some as yet unknown reason.
@@ -242,14 +243,22 @@ export async function hashNameAndCode(name, sdk_version) {
         if (exclude) console.warn(`excluding ${id} from code hash`);
         return !exclude;
         }).sort();
-    const hashes = await Promise.all([...mods.map(hashFile), ...extraHashes]);
-    const codeHash = await hashString([sdk_version, ...hashes].join('|'));
-    const hash = await hashString([name, codeHash].join('|'));
+    // codeHashes are from registered user models and constants (in extraHashes)
+    // and possibly other modules if built in dev mode with parcel as mentioned above
+    const codeHashes = await Promise.all([...mods.map(hashFile), ...extraHashes]);
+    /** identifies the code being executed - user code, constants, SDK */
+    const codeHash = await hashString([sdk_version, ...codeHashes].join('|'));
+    /** identifies the session - not yet true unless name or options are unique */
+    const sessionHash = await hashString([name, stableStringify(options)].join('|'));
+    /** this will be the session ID */
+    const id = await hashString([sessionHash, codeHash].join('|'));
+    // log all hashes if debug=hashing
     if (debugHashing()) {
-        debugHashes[codeHash].name = "All code";
-        debugHashes[hash].name = "Session name and code";
-        const sessionHashes = [...hashes, codeHash, hash].map(each => ({ hash: each, ...debugHashes[each]}));
-        console.log(`Debug Hashing for session ${hash}`, sessionHashes);
+        debugHashes[codeHash].name = "All code hashes";
+        debugHashes[sessionHash].name = "Session name and options";
+        debugHashes[id].name = "Session ID";
+        const allHashes = [...codeHashes, codeHash, sessionHash, id].map(each => ({ hash: each, ...debugHashes[each]}));
+        console.log(`Debug Hashing for session ${id}`, allHashes);
     }
-    return { hash, codeHash };
+    return { id, sessionHash, codeHash };
 }

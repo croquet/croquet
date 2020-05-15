@@ -5,7 +5,7 @@ import { Stats } from "@croquet/util/stats";
 import urlOptions from "@croquet/util/urlOptions";
 import { login, getUser } from "@croquet/util/user";
 import { App, displayStatus, displayWarning, displayError, displayAppError } from "@croquet/util/html";
-import { baseUrl, hashNameAndCode, hashString } from "@croquet/util/modules";
+import { baseUrl, hashSessionAndCode, hashString } from "@croquet/util/modules";
 import { inViewRealm } from "./realms";
 import { viewDomain } from "./domain";
 import Island, { Message } from "./island";
@@ -208,22 +208,18 @@ export default class Controller {
             // the island id (name) is "room/user/random?opt=val&opt=val"
             name = `${room}/${user}/${random}`;
         }
-        // include options in the island's id
-        const stringify = v => typeof v === "object" ? stableStringify(v) : v;
-        const nameWithOptions = Object.keys(options).length
-            ? name + '?' + Object.entries(options).map(([k,v])=>`${k}=${stringify(v)}`).sort().join('&')
-            : name;
-        const { hash: id, codeHash } = await hashNameAndCode(nameWithOptions, SDK_VERSION);
+        const { id, sessionHash, codeHash } = await hashSessionAndCode(name, options, SDK_VERSION);
         console.log(`Session ID for "${name}": ${id}`);
-        this.islandCreator = {...sessionSpec, options, name, codeHash };
+        this.islandCreator = {...sessionSpec, options, name, sessionHash, codeHash };
 
         let initSnapshot = false;
         if (!this.islandCreator.snapshot) initSnapshot = true;
         else if (this.islandCreator.snapshot.id !== id) {
-            console.warn(`Existing snapshot was for different code base!`);
+            const sameSession = this.islandCreator.snapshot.sessionHash === sessionHash;
+            console.warn(`Existing snapshot was for different ${sameSession ? "code base" : "session"}!`);
             initSnapshot = true;
         }
-        if (initSnapshot) this.islandCreator.snapshot = { id, time: 0, meta: { id, codeHash, created: (new Date()).toISOString() } };
+        if (initSnapshot) this.islandCreator.snapshot = { id, time: 0, meta: { id, sessionHash, codeHash, created: (new Date()).toISOString() } };
         await this.join();   // when socket is ready, join server
         await this.startedOrSynced();
         return this.island.modelsByName;
