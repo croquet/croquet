@@ -696,6 +696,7 @@ export const App = {
             window.location.hash = fragment;
             App.sessionURL = window.location.href;
         }
+        window.onhashchange = () => window.location.reload();
         return fragment;
     },
 
