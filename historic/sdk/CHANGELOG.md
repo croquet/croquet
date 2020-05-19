@@ -2,11 +2,14 @@
 
 This is a private summary of changes. The public changes are in [README.md](./README.md).
 
-# upcoming
+# 0.3.0
 
 * deprecated `startSession`, use `Session.join` instead
 * `future` messages arguments are passed by identity, not copied anymore
 * allow `viewOnly` sessions (removed DEMO hack)
+* added `Data` API (undocumented)
+* added `App.autoSession` (undocumented)
+* debug badge state is stored in localStorage
 
 # 0.2.7
 

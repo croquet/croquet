@@ -215,7 +215,8 @@ Calls to `Math.random()` within a view will behave normally. Different instances
 
 | date       | item
 |------------|---
-| 2020-03-24 | **release 0.2.7** (bug fixes; [Session.join]{@link Session.join} supports passing `options` to root model's [init]{@link Model#init}, message replay no longer visible to app)
+| 2020-05-18 | **release 0.3.0** (bug fixes; [Session.join]{@link Session.join} instead of `startSession`, adds `session.leave()`, `future` message arguments are passed by identity, not copied anymore)
+| 2020-03-24 | **release 0.2.7** (bug fixes; [startSession]{@link Session.join} supports passing `options` to root model's [init]{@link Model#init}, message replay no longer visible to app)
 | 2019-12-12 | **release 0.2.6** (bug fixes; works on MS Edge)
 | 2019-10-18 | **release 0.2.5** (bug fixes; new widget API) version aligned with npm
 | 2019-10-01 | **release 0.2.2** (bug fixes; updated qr-code support)
@@ -224,7 +225,7 @@ Calls to `Math.random()` within a view will behave normally. Different instances
 | 2019-08-14 | **release 0.1.9** (bug fixes; automatic reflector selection)
 | 2019-07-24 | **release 0.1.8** (bug fixes)
 | 2019-07-24 | **release 0.1.7** (bug fixes; reverted to 0.1.6 due to instabilities)
-| 2019-07-23 | new US east coast reflector available in [Session.join]{@link Session.join}
+| 2019-07-23 | new US east coast reflector available in [startSession]{@link Session.join}
 | 2019-07-18 | **release 0.1.6** (bug fixes; documentation updates;<br/>inactive clients will now be disconnected after 10 seconds)
 | 2019-07-10 | **release 0.1.5** (bug fixes)
 | 2019-07-09 | **release 0.1.4** (bug fixes)
@@ -233,7 +234,7 @@ Calls to `Math.random()` within a view will behave normally. Different instances
 | 2019-07-01 | **release 0.1.3** (bug fixes; add 5-letter moniker to session badge)
 | 2019-06-29 | **release 0.1.2** (bug fixes)
 | 2019-06-28 | **release 0.1.1** (bug fixes)
-| 2019-06-27 | docs: [View.subscribe]{@link View#subscribe}, [Session.join]{@link Session.join}
+| 2019-06-27 | docs: [View.subscribe]{@link View#subscribe}, [startSession]{@link Session.join}
 | 2019-06-26 | **release 0.1.0**
 
 Copyright © 2019, 2020 Croquet Corporation
