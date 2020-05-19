@@ -600,12 +600,17 @@ declare module "@croquet/croquet" {
     export type CroquetSession<V extends View> = {
         id: string,
         view: V,
-        step: (time: number) => void
+        step: (time: number) => void,
+        leave: () => Promise<void>,
+    }
+
+    export type CroquetModelOptions = {
     }
 
     export type CroquetSessionOptions = {
         step?: "auto" | "manual",
-        tps?: number
+        tps?: number,
+        options?: CroquetModelOptions,
     }
 
     type ClassOf<M> = new (...args: any[]) => M;
@@ -622,33 +627,7 @@ declare module "@croquet/croquet" {
 
 
     /**
-     * Models are replicated objects in Croquet.
-     * They are automatically kept in sync for each user in the same [session]{@link Session.join}.
-     * Models receive input by [subscribing]{@link Model#subscribe} to events published in a {@link View}.
-     * Their output is handled by views subscribing to events [published]{@link Model#publish} by a model.
-     * Models advance time by sending messages into their [future]{@link Model#future}.
-     *
-     * ## Instance Creation and Initialization
-     *
-     * ### Do __NOT__ create a {@link Model} instance using `new` and<br>do __NOT__ override the `constructor`!
-     *
-     * To __create__ a new instance, use [create()]{@link Model.create}, for example:
-     * ```
-     * this.foo = FooModel.create({answer: 123});
-     * ```
-     * To __initialize__ an instance, override [init()]{@link Model#init}, for example:
-     * ```
-     * class FooModel extends Croquet.Model {
-     *     init(options={}) {
-     *         this.answer = options.answer || 42;
-     *     }
-     * }
-     * ```
-     * The **reason** for this is that Models are only initialized by calling `init()`
-     * the first time the object comes into existence in the session.
-     * After that, when joining a session, the models are deserialized from the snapshot, which
-     * restores all properties automatically without calling `init()`. A constructor would
-     * be called all the time, not just when starting a session.
+     * The Session API is under construction.
      *
      * @hideconstructor
      * @public
