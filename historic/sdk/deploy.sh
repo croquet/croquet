@@ -1,30 +1,49 @@
 #!/bin/bash
 # to redeploy docs only: deploy.sh docs
-# to bump minor (x.y.0-0): deploy.sh preminor
-# to bump patch (x.y.z-0): deploy.sh prepatch
-# to prerelease (x.y.z-p): deploy.sh prerelease
-# for release (x.y.z): deploy.sh sdk
+# to deploy docs and sdk: deploy.sh release
+# to deploy prerelease sdk: deploy.sh prerelease
 
 cd `dirname "$0"`
 
 WHAT="$1"
-VERSION=$(git tag --list @croquet/croquet\* | tail -1 | sed 's/.*@//')
+VERSION=$(cd ../libraries/packages/croquet;node -p -e "require('./package.json').version")
+RELEASEVERSION=$(git tag --list @croquet/croquet\* | tail -1 | sed 's/.*@//')
 [ $? -ne 0 ] && exit 1
 
+case "$VERSION" in
+    *-*)
+        PRERELEASE=true
+        ;;
+    *)
+        PRERELEASE=false;
+esac
+
+
 case "$WHAT" in
-prerelease|prepatch|preminor|premajor)
-    VERSION=`npm version $WHAT`
-    [ $? -ne 0 ] && exit 1
-    MSG="prerelease $VERSION"
-    PRERELEASE=true
-    BUILDDOCS=false
-    ;;
 docs)
-    MSG="docs $VERSION"
-    PRERELEASE=false
+    MSG="docs $RELEASEVERSION"
     BUILDDOCS=true
     ;;
-sdk)
+prerelease)
+    if ! $PRERELEASE ; then
+        echo "$VERSION does not look like a pre-release version!"
+        exit 0
+    fi
+    npm version "$VERSION"
+    [ $? -ne 0 ] && exit 1
+    MSG="prerelease $VERSION"
+    npm version "$VERSION"
+    BUILDDOCS=false
+    ;;
+release)
+    if $PRERELEASE ; then
+        echo "$VERSION looks like a pre-release version!"
+        exit 0
+    fi
+    if [ "$VERSION" != "$RELEASEVERSION" ] ; then
+        echo "package.json's $VERSION does not equal latest tag $RELEASEVERSION"
+        exit 1
+    fi
     npm version "$VERSION"
     [ $? -ne 0 ] && exit 1
     MSG="sdk+docs $VERSION"
@@ -33,7 +52,7 @@ sdk)
     ;;
 *)
     DEPLOY=`basename $0`
-    echo "Usage: $DEPLOY (sdk|docs|prerelease|prepatch|preminor|premajor)"
+    echo "Usage: $DEPLOY (release|prerelease|docs)"
     exit 1
 esac
 
