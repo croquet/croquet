@@ -95,6 +95,7 @@ export class Session {
      *  - `view` is an instance of the `ViewRoot` class
      *  - `step(time)` is a function you need to call in each frame if you disabled automatic stepping.
      *     The `time` argument is expected to be in milliseconds, monotonically increasing - for example, the time received by a function that you passed to `window.requestAnimationFrame`.
+     *  - `leave()` is an async function that forces this session to disconnect.
      * @example <caption>auto main loop</caption>
      * Croquet.Session.join("MyApp/1", MyRootModel, MyRootView);
      * @example <caption>manual main loop</caption>
