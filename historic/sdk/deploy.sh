@@ -80,7 +80,7 @@ fi
 if $BUILDDOCS ; then
     rm -r build/*
     npx jsdoc -c jsdoc.json -d build || exit
-    sed -i '' "s/@CROQUET_VERSION@/$VERSION/" build/*.html || exit
+    sed -i '' "s/@CROQUET_VERSION@/$RELEASEVERSION/" build/*.html || exit
 
     # deploy docs
     rm -r $DOCS/*
