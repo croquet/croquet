@@ -15,6 +15,10 @@ export function deprecatedStartSession(...args) {
 const Controllers = {};
 
 /**
+ * _The Session API is under construction._
+ *
+ * New in 0.3: use `Session.join` instead of `startSession()`. The returned object has a new `leave()` method for leaving that session.
+ *
  * @hideconstructor
  * @public
  */
