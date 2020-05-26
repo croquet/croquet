@@ -52,9 +52,9 @@ export { QFunc, gatherInternalClassTypes } from "./src/island";
 /**
  * **Published when a user leaves the session, or is disconnected.**
  *
- * This is a replicated event, meaning both models and views can subscribe to it.
+ * This is a replicated model-only event. Views cannot subscribe to it directly.
  *
- * This event will be published when the view is closed, or is disconnected due
+ * This event will be published when a view tab is closed, or is disconnected due
  * to network interruption or inactivity.  A view is deemed to be inactive if
  * 10 seconds pass without an execution of the Croquet [main loop]{@link Session.join};
  * this will happen if, for example, the browser tab is hidden.  As soon as the tab becomes

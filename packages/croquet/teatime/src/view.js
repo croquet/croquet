@@ -310,15 +310,15 @@ class View {
     }
 
     /**
-     * **Identifies the shared Model of all users.**
+     * **Identifies the shared session.**
      *
-     * The session id is used as "global" scope for events like [`"view-join"`]{@link event:view-join}.
+     * The session id is used as "global" scope for events like [`"synced"`]{@link event:synced}.
      *
      * See {@link Session.join} for how the session id is generated.
      *
      * If your app has several sessions at the same time, each session id will be different.
      * @example
-     * this.subscribe(this.sessionId, "view-join", this.logUser);
+     * this.subscribe(this.sessionId, "synced", this.handleSynced);
      * @type {String}
      * @public
      */

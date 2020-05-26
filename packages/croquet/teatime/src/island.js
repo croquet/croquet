@@ -207,7 +207,7 @@ export default class Island {
         for (const id of exited) {
             if (this.users[id]) {
                 delete this.users[id];
-                this.publishFromModel(this.id, "view-exit", id);
+                this.publishFromModelOnly(this.id, "view-exit", id);
             }
         }
         // [id, name] was provided to reflector in controller.join()
@@ -216,7 +216,7 @@ export default class Island {
             if (!this.users[id]) {
                 this.users[id] = { name };
                 if (location) this.users[id].location = location;
-                this.publishFromModel(this.id, "view-join", id);
+                this.publishFromModelOnly(this.id, "view-join", id);
             }
         }
     }
@@ -416,6 +416,12 @@ export default class Island {
         const topic = scope + ":" + event;
         this.handleModelEventInModel(topic, data, reflected);
         this.handleModelEventInView(topic, data);
+    }
+
+    publishFromModelOnly(scope, event, data) {
+        if (CurrentIsland !== this) throw Error("Island Error");
+        const topic = scope + ":" + event;
+        this.handleModelEventInModel(topic, data);
     }
 
     publishFromView(scope, event, data) {
