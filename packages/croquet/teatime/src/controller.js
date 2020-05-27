@@ -768,7 +768,7 @@ export default class Controller {
             : 'tps' in this.islandCreator ? this.islandCreator.tps
             : 20;
         const [rate, mult] = (tps + "x").split('x').map(n => Number.parseInt("0" + n, 10));
-        const tick = 1000 / Math.max(1, Math.min(60, rate));     // minimum 1 tick per second
+        const tick = 1000 / Math.max(1/30, Math.min(60, rate));     // minimum 1 tick per 30 seconds
         const multiplier = Math.max(1, mult);      // default multiplier is 1 (no local ticks)
         if (multiplier > 1 && !NOCHEAT) this.tickMultiplier = { tick, multiplier };
         return { tick, multiplier };
