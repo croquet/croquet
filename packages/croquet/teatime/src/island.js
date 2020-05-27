@@ -1,3 +1,4 @@
+import stableStringify from "fast-json-stable-stringify";
 import SeedRandom from "seedrandom/seedrandom";
 import PriorityQueue from "@croquet/util/priorityQueue";
 import "@croquet/math"; // creates window.CroquetMath
@@ -558,9 +559,9 @@ export default class Island {
         return writer.snapshot(this, "$");
     }
 
-    // return an object describing the island - currently { oC, mC, nanC, infC, zC, nC, nH, sC, sL, fC } - for checking agreement between instances
+    // return the stringification of an object describing the island - currently { oC, mC, nanC, infC, zC, nC, nH, sC, sL, fC } - for checking agreement between instances
     getSummaryHash() {
-        return new IslandHasher().getHash(this);
+        return stableStringify(new IslandHasher().getHash(this));
     }
 
     random() {
