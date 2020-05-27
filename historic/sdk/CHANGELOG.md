@@ -4,6 +4,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 
 # next release
 
+* 0.3.1-2 fixed detection of model divergence
 * 0.3.1-1 made `"view-join"` and `"view-exit"` model-only
 
 # 0.3.0
