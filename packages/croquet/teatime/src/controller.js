@@ -1061,3 +1061,40 @@ window.setInterval(() => {
         controller.connection.keepAlive(Date.now());
     }
 }, KEEP_ALIVE_INTERVAL);
+
+
+/*************************************************
+
+LOGIC TO DETECT BROKEN CONNECTIONS
+
+REFLECTOR:
+
+    32s after JOIN:
+        every 5s:
+            if quiescence > 60s:
+                disconnect client
+            else if quiescence > 30s:
+                ping client
+
+    on pong from client:
+        reset quiescence
+
+    on message from client:
+        reset quiescence
+
+
+CONTROLLER:
+
+    every 100ms:
+        if lastSent > 20000:
+            send PULSE to server
+        else if lastReceived > min(3*TICK, 45s):
+            send PULSE to server
+
+    on any message from server:
+        reset lastReceived
+
+    on any send to server:
+        reset lastSent
+
+*************************************************/
