@@ -780,6 +780,7 @@ export default class Controller {
         const { tick, multiplier } = this.getTickAndMultiplier();
         args.tick = tick;
         args.delay = tick * (multiplier - 1) / multiplier;
+        this.connection.setTick(tick);
         if (DEBUG.session) console.log(this.id, 'Controller requesting TICKS', args);
         // args: {tick, delay, scale}
         try {
@@ -904,12 +905,12 @@ export default class Controller {
 
 // Socket Connection
 
-/** start sending PINGs to server after not receiving anything for this timeout */
-const PING_TIMEOUT = 100;
-/** send PINGs using this interval until hearing back from server */
-const PING_INTERVAL = 100;
+/** send PULSEs using this interval until hearing back from server */
+const KEEP_ALIVE_INTERVAL = 100;
 /** if we haven't sent anything to the reflector for this long, send a PULSE to reassure it */
 const PULSE_TIMEOUT = 20000;
+/** warn about unsent outgoing bytes after this many ms */
+const UNSENT_TIMEOUT = 500;
 
 
 class Connection {
@@ -918,7 +919,12 @@ class Connection {
         this.connectBlocked = false;
         this.connectRestricted = false;
         this.connectHasBeenCalled = false;
+        this.missingTickThreshold = Infinity;
         this.setUpConnectionPromise();
+    }
+
+    setTick(ms) {
+        this.missingTickThreshold = Math.min(ms * 3, 45000); // send PULSE after
     }
 
     setUpConnectionPromise() {
@@ -1027,32 +1033,31 @@ class Connection {
         // closing with error code will force reconnect
     }
 
-    PING() {
+    PULSE(now) {
         if (!this.connected) return;
-        if (this.socket.bufferedAmount) console.log(`Reflector connection stalled: ${this.socket.bufferedAmount} bytes unsent`);
-        else this.send(JSON.stringify({ action: 'PING', args: Date.now()}));
+        if (this.socket.bufferedAmount === 0) {
+            // only send a pulse if no other outgoing data pending
+            this.send(JSON.stringify({ action: 'PULSE' }));
+        } else if (now - this.lastSent > UNSENT_TIMEOUT) {
+            // only warn about unsent data after a certain time
+            console.log(`Reflector connection stalled: ${this.socket.bufferedAmount} bytes unsent`);
+        }
     }
 
-    PULSE() {
-        if (!this.connected) return;
-        if (this.socket.bufferedAmount) console.log(`Reflector connection stalled: ${this.socket.bufferedAmount} bytes unsent`);
-        this.send(JSON.stringify({ action: 'PULSE' }));
-    }
-
-    keepAlive() {
+    keepAlive(now) {
         if (this.lastReceived === 0) return; // haven't yet consummated the connection
-        // one reason for having PINGs is to prevent the connection from going idle,
+        // the reflector expects to hear from us at least every 30 seconds
+        if (now - this.lastSent > PULSE_TIMEOUT) this.PULSE(now);
+        // also, if we are expecting steady ticks, prevent the connection from going idle,
         // which causes some router/computer combinations to buffer packets instead
         // of delivering them immediately (observed on AT&T Fiber + Mac)
-        if (Date.now() - this.lastReceived > PING_TIMEOUT) this.PING();
-        // if *not* sending a PING, check to see if it's time to send a PULSE
-        else if (Date.now() - this.lastSent > PULSE_TIMEOUT) this.PULSE();
+        else if (now - this.lastReceived > this.missingTickThreshold) this.PULSE(now);
     }
 }
 
 window.setInterval(() => {
     for (const controller of Controllers) {
         if (!controller.connected) continue;
-        controller.connection.keepAlive();
+        controller.connection.keepAlive(Date.now());
     }
-}, PING_INTERVAL);
+}, KEEP_ALIVE_INTERVAL);
