@@ -549,8 +549,12 @@ export default class Controller {
                 this.timeFromReflector(time);
                 if (DEBUG.session) console.log(`${this.id} fetching snapshot ${url}`);
                 const snapshot = await this.fetchJSON(url);
-                this.islandCreator.snapshot = snapshot;  // set snapshot for building the island
                 if (!this.connected) { console.log(this.id, 'socket went away during SYNC'); return; }
+                if (!snapshot) {
+                    this.connection.closeConnectionWithError('SYNC', Error("failed to fetch snapshot"));
+                    return;
+                }
+                this.islandCreator.snapshot = snapshot;  // set snapshot for building the island
                 this.install();
                 // after install() sets this.island, the main loop may also trigger simulation
                 if (DEBUG.session) console.log(`${this.id} fast forwarding from ${Math.round(this.island.time)} to ${time}`);
