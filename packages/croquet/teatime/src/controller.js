@@ -482,7 +482,7 @@ export default class Controller {
                 const event = "__users__";
                 const data = {entered: joined||[], exited: left||[], count: active};
                 // HACK: clear location info until #333 is fixed
-                for (const userArray of data.entered) if (userArray.length > 2) userArray.length = 2;
+                for (const userArray of [...data.entered, ...data.exited]) if (userArray.length > 2) userArray.length = 2;
                 // create event message
                 receiver = this.id;
                 selector = "publishFromModel";
