@@ -207,8 +207,15 @@ export default class Island {
         else exited = exited.map(each => each[0]); // get id
         for (const id of exited) {
             if (this.users[id]) {
+                if (this.users[id].ignoreExit) {
+                    this.users[id].ignoreExit--;
+                    console.warn(`view ${id} exited after joining twice, ignoring`);
+                    continue;
+                }
                 delete this.users[id];
                 this.publishFromModelOnly(this.id, "view-exit", id);
+            } else {
+                console.error(`view ${id} exited without being present - this should not happen`);
             }
         }
         // [id, name] was provided to reflector in controller.join()
@@ -218,6 +225,9 @@ export default class Island {
                 this.users[id] = { name };
                 if (location) this.users[id].location = location;
                 this.publishFromModelOnly(this.id, "view-join", id);
+            } else {
+                console.warn(`view ${id} joined but already present, ignoring`);
+                this.users[id].ignoreExit = (this.users[id].ignoreExit||0) + 1;
             }
         }
     }

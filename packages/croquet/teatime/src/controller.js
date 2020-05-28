@@ -485,7 +485,7 @@ export default class Controller {
                 for (const userArray of [...data.entered, ...data.exited]) if (userArray.length > 2) userArray.length = 2;
                 // create event message
                 receiver = this.id;
-                selector = "publishFromModel";
+                selector = "publishFromModelOnly";
                 args = [scope, event, data];
 
                 // also immediately publish as view event, which this controller will
