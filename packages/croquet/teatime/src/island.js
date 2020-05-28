@@ -202,18 +202,23 @@ export default class Island {
     // used in Controller.convertReflectorMessage()
     noop() {}
 
+    // generate perfectly paired view-join and view-exit events
     generateJoinExit({entered, exited, count}) {
+        // create exits events for old views stored in snapshot
         if (entered.length === count) exited = Object.keys(this.users);
         for (const id of exited) {
             if (this.users[id]) {
+                // ignore exit after rejoin (see below)
                 if (this.users[id].ignoreExit) {
                     this.users[id].ignoreExit--;
                     console.warn(`view ${id} exited after joining twice, ignoring`);
                     continue;
                 }
+                // otherwise this is a real exit
                 delete this.users[id];
                 this.publishFromModelOnly(this.id, "view-exit", id);
             } else {
+                // there is no way this could ever happen. If it does, something is seriously broken.
                 console.error(`view ${id} exited without being present - this should not happen`);
             }
         }
@@ -223,9 +228,12 @@ export default class Island {
         // for now, we are using plain string ids
         for (const id of entered) {
             if (this.users[id]) {
+                // this happens if a client rejoins but the reflector is still holding
+                // onto the old connection
                 console.warn(`view ${id} joined but already present, ignoring`);
                 this.users[id].ignoreExit = (this.users[id].ignoreExit||0) + 1;
             } else {
+                // otherwise this is a real join
                 this.users[id] = {};
                 this.publishFromModelOnly(this.id, "view-join", id);
             }
