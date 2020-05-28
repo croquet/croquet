@@ -33,10 +33,10 @@ class ModelRoot extends Model {
         this.publish(this.id, 'shape-added', shape);
     }
 
-    removeUser(id) {
-        const shape = this.shapes[id];
-        if (!shape) { console.warn("shape not found for leaving user", id); return; }
-        delete this.shapes[id];
+    removeUser(viewId) {
+        const shape = this.shapes[viewId];
+        if (!shape) { console.warn("shape not found for leaving user", viewId); return; }
+        delete this.shapes[viewId];
         this.publish(this.id, 'shape-removed', shape);
     }
 }
