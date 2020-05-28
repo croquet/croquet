@@ -204,7 +204,6 @@ export default class Island {
 
     generateJoinExit({entered, exited, count}) {
         if (entered.length === count) exited = Object.keys(this.users);
-        else exited = exited.map(each => each[0]); // get id
         for (const id of exited) {
             if (this.users[id]) {
                 if (this.users[id].ignoreExit) {
@@ -218,16 +217,17 @@ export default class Island {
                 console.error(`view ${id} exited without being present - this should not happen`);
             }
         }
-        // [id, name] was provided to reflector in controller.join()
-        // reflector may have added location as {region, city: {name, lat, lng}}
-        for (const [id, name, location] of entered) {
-            if (!this.users[id]) {
-                this.users[id] = { name };
-                if (location) this.users[id].location = location;
-                this.publishFromModelOnly(this.id, "view-join", id);
-            } else {
+        // if the user sent to reflector in controller.join() was an object or array
+        // instead of a plain string, then reflector may have added the
+        // location as {region, city: {name, lat, lng}}, see JOIN() in reflector.js
+        // for now, we are using plain string ids
+        for (const id of entered) {
+            if (this.users[id]) {
                 console.warn(`view ${id} joined but already present, ignoring`);
                 this.users[id].ignoreExit = (this.users[id].ignoreExit||0) + 1;
+            } else {
+                this.users[id] = {};
+                this.publishFromModelOnly(this.id, "view-join", id);
             }
         }
     }

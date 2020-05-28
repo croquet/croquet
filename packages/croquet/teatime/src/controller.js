@@ -132,9 +132,6 @@ export default class Controller {
     /** @type {String} the session id (same for all replicas) */
     get id() { return this.island ? this.island.id : this.islandCreator.snapshot.id; }
 
-    /** @type {Object} {id, name} the user id (identifying this client) and name (from login or "GUEST") */
-    get user() { return { id: this.viewId, name: getUser("name", "GUEST") }; }
-
     /** @type {Boolean} if true, sends to the reflector are disabled */
     get viewOnly() { return this.islandCreator.viewOnly; }
 
@@ -481,8 +478,6 @@ export default class Controller {
                 const scope = this.id;
                 const event = "__users__";
                 const data = {entered: joined||[], exited: left||[], count: active};
-                // HACK: clear location info until #333 is fixed
-                for (const userArray of [...data.entered, ...data.exited]) if (userArray.length > 2) userArray.length = 2;
                 // create event message
                 receiver = this.id;
                 selector = "publishFromModelOnly";
@@ -653,11 +648,10 @@ export default class Controller {
 
         if (DEBUG.session) console.log(this.id, 'Controller sending JOIN');
 
-        const {name, id} = this.user;
         const args = {
             name: this.islandCreator.name,
             version: VERSION,
-            user: [id, name],
+            user: this.viewId,  // see island.generateJoinExit() for getting location data
             url: App.sessionURL,
             codeHash: this.islandCreator.codeHash,
             sdk: SDK_VERSION
