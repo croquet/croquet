@@ -337,7 +337,7 @@ export default class Controller {
         const hashGroups = Object.keys(votesByHash);
         let consensusHash = hashGroups[0];
         if (hashGroups.length > 1) {
-            if (DEBUG.snapshot) console.log(this.id, `Snapshots fall into ${hashGroups.length} groups`);
+            console.warn(this.id, `Snapshots fall into ${hashGroups.length} groups`);
             // decide consensus by majority vote; in a tie, summary hash first in
             // lexicographic order is taken as the consensus.
             hashGroups.sort((a, b) => votesByHash[b].length - votesByHash[a].length); // descending order of number of matching votes
