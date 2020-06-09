@@ -15,7 +15,7 @@ export { QFunc, gatherInternalClassTypes } from "./src/island";
 /**
  * **Published when a new user enters the session, or re-enters after being temporarily disconnected.**
  *
- * This is a replicated event, meaning both models and views can subscribe to it.
+ * This is a model-only event, meaning views can not handle it directly (as of **0.3.1**).
  *
  * **Note:** Each `"view-join"` event is guaranteed to be followed by a [`"view-exit"`]{@link event:view-exit}
  * event when that user leaves the session, or when the session is cold-started from a persistent snapshot.
@@ -30,16 +30,29 @@ export { QFunc, gatherInternalClassTypes } from "./src/island";
  *         this.subscribe(this.sessionId, "view-join", this.addUser);
  *         this.subscribe(this.sessionId, "view-exit", this.deleteUser);
  *     }
- *
- *     addUser(id) {
- *         this.userData[id] = { start: this.now() };
- *         console.log(`user ${id} came in`);
+ *     addUser(viewId) {
+ *         this.userData[viewId] = { start: this.now() };
+ *         this.publish(this.sessionId, "user-added", viewId);
  *     }
- *
- *     deleteUser(id) {
- *         const time = this.now() - this.userData[id].start;
- *         console.log(`user ${id} left after ${time / 1000} seconds`);
- *         delete this.userData[id];
+ *     deleteUser(viewId) {
+ *         const time = this.now() - this.userData[viewId].start;
+ *         delete this.userData[viewId];
+ *         this.publish(this.sessionId, "user-deleted", {viewId, time});
+ *     }
+ * }
+ * MyModel.register();
+ * class MyView extends Croquet.View {
+ *     constructor(model) {
+ *         super(model);
+ *         for (const viewId of Object.keys(model.userData)) this.userAdded(viewId);
+ *         this.subscribe(this.sessionId, "user-added", this.userAdded);
+ *         this.subscribe(this.sessionId, "user-deleted", this.userDeleted);
+ *     }
+ *     userAdded(viewId) {
+ *         this.show(`${ this.viewId === viewId ? "local" : "remote"} user ${viewId} came in`);
+ *     }
+ *     userDeleted({viewId, time}) {
+ *         this.show(`${ this.viewId === viewId ? "local" : "remote"} user ${viewId} left after ${time / 1000} seconds`);
  *     }
  * }
  * @event view-join
@@ -52,7 +65,7 @@ export { QFunc, gatherInternalClassTypes } from "./src/island";
 /**
  * **Published when a user leaves the session, or is disconnected.**
  *
- * This is a replicated model-only event. Views cannot subscribe to it directly.
+ * This is a model-only event, meaning views can not handle it directly (as of **0.3.1**).
  *
  * This event will be published when a view tab is closed, or is disconnected due
  * to network interruption or inactivity.  A view is deemed to be inactive if
