@@ -215,6 +215,7 @@ Calls to `Math.random()` within a view will behave normally. Different instances
 
 | date       | item
 |------------|---
+| 2020-06-08 | **release 0.3.1** (bug fixes; [`"view-join"`]{@link event:view-join} and [`"view-exit"`]{@link event:view-exit} events are now model-only)
 | 2020-05-18 | **release 0.3.0** (bug fixes; [Session.join]{@link Session.join} instead of `startSession`, adds `session.leave()`, `future` message arguments are passed by identity, not copied anymore)
 | 2020-03-24 | **release 0.2.7** (bug fixes; [startSession]{@link Session.join} supports passing `options` to root model's [init]{@link Model#init}, message replay no longer visible to app)
 | 2019-12-12 | **release 0.2.6** (bug fixes; works on MS Edge)

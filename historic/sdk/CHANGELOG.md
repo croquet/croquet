@@ -4,9 +4,13 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 
 # next release
 
+* ...
+
+# 0.3.1
+
 * 0.3.1-5 remove names and location from internal join/exit events
 * 0.3.1-4 fix asymmetric view-join/exit events when reconnecting with same viewId
-* 0.3.1-3 make PINGs adaptive to TPS
+* 0.3.1-3 make PINGs adaptive to TPS, allow 0 TPS (30s per TICK)
 * 0.3.1-2 fixed detection of model divergence
 * 0.3.1-1 made `"view-join"` and `"view-exit"` model-only
 
