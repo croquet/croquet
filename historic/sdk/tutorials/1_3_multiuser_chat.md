@@ -140,10 +140,11 @@ This is the event handler for the HTML "Send" button. It is called when the user
 We subscribe to two different refresh events from the model. One is sent when a new chat message is added to the chat history, and the other is sent when someone joins or exits the session.
 
     this.refreshHistory();
+    this.refreshViewInfo();
 
 The final thing we do when the view starts is to pull the current history from the model and post it to the screen. We do this because when a user joins an existing chat session, there may already be a history of previous chat messages. We want to show this previous history right away instead of waiting for the next new message to refresh.
 
-(We don't need to do something similar for refreshing the view info because we know that the model will immediately send us a view info refresh event in response to our joining.)
+We need to do the same for refreshing the view info because the model will likely process our own view-join event before the view is constructed, meaning the view will not see the `viewInfo` event generated in response to our joining. Views should always set themselves up completely from the model state before relying on events being processed.
 
 ## ChatView.send()
   ```
