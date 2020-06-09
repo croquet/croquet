@@ -312,13 +312,12 @@ class View {
     /**
      * **Identifies the shared session.**
      *
-     * The session id is used as "global" scope for events like [`"synced"`]{@link event:synced}.
+     * The session id is used as "global" scope for events like the model-only
+     * [`"view-join"`]{@link event:view-join} and [`"view-exit"`]{@link event:view-exit} events.
      *
      * See {@link Session.join} for how the session id is generated.
      *
      * If your app has several sessions at the same time, each session id will be different.
-     * @example
-     * this.subscribe(this.sessionId, "synced", this.handleSynced);
      * @type {String}
      * @public
      */
@@ -330,8 +329,9 @@ class View {
      * **Identifies the View of the current user.**
      *
      * All users in a session share the same Model (meaning all model objects) but each user has a different View
-     * (meaning all the non-model state). The `viewId` identifies each user's view.
-     * It is sent as argument in [`"view-join"`]{@link event:view-join} and [`"view-exit"`]{@link event:view-exit}
+     * (meaning all the non-model state). The `viewId` identifies each user's view, or more specifically,
+     * their connection to the server.
+     * It is sent as argument in the model-only [`"view-join"`]{@link event:view-join} and [`"view-exit"`]{@link event:view-exit}
      * events.
      *
      * The `viewId` is also used as a scope for non-replicated events, for example [`"synced"`]{@link event:synced}.
@@ -340,7 +340,7 @@ class View {
      * (if you create multiple views in your code). `this.viewId` identifies the local user, so it will be the same
      * in each individual view object. See [`"view-join"`]{@link event:view-join} event.
      * @example
-     * this.subscribe(this.sessionId, "view-join", id => console.log(`${id === this.viewId ? "local" : "remote"} user ${id} joined`));
+     * this.subscribe(this.viewId, "synced", this.handleSynced);
      * @type {String}
      * @public
      */
