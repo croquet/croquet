@@ -49,10 +49,10 @@ export { QFunc, gatherInternalClassTypes } from "./src/island";
  *         this.subscribe(this.sessionId, "user-deleted", this.userDeleted);
  *     }
  *     userAdded(viewId) {
- *         this.show(`${ this.viewId === viewId ? "local" : "remote"} user ${viewId} came in`);
+ *         console.log(`${ this.viewId === viewId ? "local" : "remote"} user ${viewId} came in`);
  *     }
  *     userDeleted({viewId, time}) {
- *         this.show(`${ this.viewId === viewId ? "local" : "remote"} user ${viewId} left after ${time / 1000} seconds`);
+ *         console.log(`${ this.viewId === viewId ? "local" : "remote"} user ${viewId} left after ${time / 1000} seconds`);
  *     }
  * }
  * @event view-join
