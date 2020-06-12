@@ -227,18 +227,20 @@ export class Session {
         }
 
         function startSleepChecker() {
-            const DORMANT_THRESHOLD = 10000;
+            const DORMANT_TIMEOUT_DEFAULT = 10000;
+            const noSleep = "autoSleep" in urlOptions && !urlOptions.autoSleep;
+            const dormantTimeout = typeof urlOptions.autoSleep === "number" ? 1000 * urlOptions.autoSleep : DORMANT_TIMEOUT_DEFAULT;
             setInterval(() => {
                 if (document.visibilityState === "hidden") {
-                    // if autoSleep is set to false, don't go dormant even if the tab becomes
+                    // if autoSleep is set to false or 0, don't go dormant even if the tab becomes
                     // hidden.  also, run the simulation loop once per second to handle any events
                     // that have arrived from the reflector.
-                    if (urlOptions.autoSleep === false) stepSession(performance.now(), controller, session.view);
+                    if (noSleep) stepSession(performance.now(), controller, session.view);
                     else {
                         const now = Date.now();
                         if (hiddenSince) {
                             // Controller doesn't mind being asked repeatedly to disconnect
-                            if (now - hiddenSince > DORMANT_THRESHOLD) controller.dormantDisconnect();
+                            if (now - hiddenSince > dormantTimeout) controller.dormantDisconnect();
                         } else hiddenSince = now;
                     }
                 } else hiddenSince = null; // not hidden
