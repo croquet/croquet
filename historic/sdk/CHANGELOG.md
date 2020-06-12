@@ -2,9 +2,9 @@
 
 This is a private summary of changes. The public changes are in [README.md](./README.md).
 
-# next release
+# 0.3.2
 
-* ...
+* 0.3.2-0 accept `autoSleep: seconds` argument
 
 # 0.3.1
 
