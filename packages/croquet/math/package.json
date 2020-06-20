@@ -10,7 +10,7 @@
   "license": "Unlicensed",
   "dependencies": {},
   "devDependencies": {
-    "@stdlib/stdlib": "0.0.62",
+    "@stdlib/stdlib": "0.0.91",
     "browserify": "^16.3.0",
     "tinyify": "^2.5.1"
   }
