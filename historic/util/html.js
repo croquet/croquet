@@ -255,6 +255,19 @@ function clearSessionMoniker() {
     document.title = document.title.replace(/:.*/, '');
 }
 
+let localStorage;
+try {
+    // check if we're allowed to use localStorage
+    localStorage = window.localStorage;
+    localStorage['croquet-debug-persist-allowed'] = "true";
+    if (localStorage['croquet-debug-persist-allowed'] !== "true") throw Error("localStorage not persisted");
+    delete localStorage['croquet-debug-persist-allowed'];
+} catch (err) {
+    // if not, fake it
+    console.warn('localStorage not allowed');
+    localStorage = {};
+}
+
 const dockState = {
     get pinned() { return localStorage['croquet-debug-ui-pinned'] === "true"; },
     set pinned(bool) { localStorage['croquet-debug-ui-pinned'] = !!bool; },
