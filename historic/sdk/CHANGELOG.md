@@ -4,6 +4,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 
 # 0.3.2
 
+* 0.3.2-1 detect dormancy in iFrames
 * 0.3.2-0 accept `autoSleep: seconds` argument
 
 # 0.3.1
