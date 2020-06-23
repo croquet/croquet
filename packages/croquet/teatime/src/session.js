@@ -160,13 +160,13 @@ export class Session {
         for (const [option, value] of Object.entries(options)) {
             if (ISLAND_OPTIONS.includes(option)) islandOptions[option] = value;
         }
+        let lastStepped = Date.now();
         const session = {
             id: '',
             model: null,
             view: null,
             step(frameTime) {
-                if (document.visibilityState === "hidden") return; // some browsers - e.g., Firefox - will run occasional animation frames even when hidden
-
+                lastStepped = Date.now();
                 hiddenSince = null; // evidently not hidden
                 stepSession(frameTime, controller, session.view);
             },
@@ -180,7 +180,8 @@ export class Session {
         if (options.step !== "manual") {
             // auto stepping
             const step = frameTime => {
-                session.step(frameTime);
+                // some browsers - e.g., Firefox - will run occasional animation frames even when hidden
+                if (document.visibilityState !== "hidden") session.step(frameTime);
                 window.requestAnimationFrame(step);
             };
             window.requestAnimationFrame(step);
@@ -231,18 +232,17 @@ export class Session {
             const noSleep = "autoSleep" in urlOptions && !urlOptions.autoSleep;
             const dormantTimeout = typeof urlOptions.autoSleep === "number" ? 1000 * urlOptions.autoSleep : DORMANT_TIMEOUT_DEFAULT;
             setInterval(() => {
-                if (document.visibilityState === "hidden") {
+                const now = Date.now();
+                const isHidden = document.visibilityState === "hidden" || (now - lastStepped) > dormantTimeout;
+                if (isHidden) {
                     // if autoSleep is set to false or 0, don't go dormant even if the tab becomes
                     // hidden.  also, run the simulation loop once per second to handle any events
                     // that have arrived from the reflector.
                     if (noSleep) stepSession(performance.now(), controller, session.view);
-                    else {
-                        const now = Date.now();
-                        if (hiddenSince) {
-                            // Controller doesn't mind being asked repeatedly to disconnect
-                            if (now - hiddenSince > dormantTimeout) controller.dormantDisconnect();
-                        } else hiddenSince = now;
-                    }
+                    else if (hiddenSince) {
+                        // Controller doesn't mind being asked repeatedly to disconnect
+                        if (now - hiddenSince > dormantTimeout) controller.dormantDisconnect();
+                    } else hiddenSince = now;
                 } else hiddenSince = null; // not hidden
                 }, 1000);
         }
