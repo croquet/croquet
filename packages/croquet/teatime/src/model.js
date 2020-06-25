@@ -3,7 +3,7 @@ import urlOptions from "@croquet/util/urlOptions";
 import { addClassHash } from "@croquet/util/modules";
 import { displayAppError } from "@croquet/util";
 import { currentRealm } from "./realms";
-import { resetReadersAndWriters } from "./island";
+import Island, { resetReadersAndWriters } from "./island";
 
 const DEBUG = {
     classes: urlOptions.has("debug", "classes", false),
@@ -492,9 +492,7 @@ class Model {
      * @public
      */
     modelOnly(msg) {
-        let realm = "none";
-        try { realm = currentRealm(); } catch (e) { /* ignore */}
-        if (realm === this.__realm) return true;
+        if (Island.current() === this.__realm.island) return true;
         const error = Error(msg || `${this}.modelOnly() called from outside a model!`);
         displayAppError('view code', error);
         throw error;
