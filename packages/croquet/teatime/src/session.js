@@ -6,6 +6,7 @@ import { addConstantsHash } from "@croquet/util/modules";
 import Model from "./model";
 import View from "./view";
 import Controller from "./controller";
+import Island from "./island";
 
 export function deprecatedStartSession(...args) {
     App.showMessage("Croquet.startSession() is deprecated, please use Croquet.Session.join()", { level: "warning", only: "once"});
@@ -259,6 +260,10 @@ export class Session {
         return leavePromise;
     }
 
+    static thisSession() {
+        const island = Island.current();
+        return island ? island.id : "";
+    }
 }
 
 // maximum amount of time in milliseconds the model get to spend running its simulation
