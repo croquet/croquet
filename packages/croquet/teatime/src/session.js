@@ -192,6 +192,7 @@ export class Session {
         let frameTimeWhenHidden = 0;
         /** hidden check and auto stepping */
         const onAnimationFrame = frameTime => {
+            if (!Controllers[session.id]) return; // stop loop
             // jump to larger v immediately, cool off slowly, limit to max
             const coolOff = (v0, v1, t, max) => Math.min(max, Math.max(v1, v0 * (1 - t) + v1 * t)) | 0;
             recentFramesAverage = coolOff(recentFramesAverage, frameTime - lastFrameTime, 0.1, 10000);
@@ -250,8 +251,9 @@ export class Session {
             const DORMANT_TIMEOUT_DEFAULT = 10000;
             const noSleep = "autoSleep" in urlOptions && !urlOptions.autoSleep;
             const dormantTimeout = typeof urlOptions.autoSleep === "number" ? 1000 * urlOptions.autoSleep : DORMANT_TIMEOUT_DEFAULT;
-            setInterval(() => {
-                if (isHidden()) {
+            const interval = setInterval(() => {
+                if (!Controllers[session.id]) clearInterval(interval); // stop loop
+                else if (isHidden()) {
                     if (!hiddenSince) {
                         hiddenSince = Date.now();
                         frameTimeWhenHidden = lastFrameTime + hiddenSince - lastFrame;
