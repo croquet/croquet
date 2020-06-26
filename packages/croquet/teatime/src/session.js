@@ -143,10 +143,7 @@ export class Session {
             }
             urlOptions.debug = [...asArray(options.debug), ...asArray(urlOptions.debug)].join(',');
         }
-        // time when we first noticed that the tab is hidden
-        let hiddenSince = null;
         if ("autoSleep" in options) urlOptions.autoSleep = options.autoSleep;
-        startSleepChecker(); // now runs even if autoSleep is false
         // now start
         if ("expectedSimFPS" in options) expectedSimFPS = Math.min(options.expectedSimFPS, MAX_BALANCE_FPS);
         const ISLAND_OPTIONS = ['tps'];
@@ -161,14 +158,13 @@ export class Session {
         for (const [option, value] of Object.entries(options)) {
             if (ISLAND_OPTIONS.includes(option)) islandOptions[option] = value;
         }
-        let lastStepped = Date.now();
+        /** our return value */
         const session = {
             id: '',
             model: null,
             view: null,
+            // called from our own onAnimationFrame, or application if stepping manually
             step(frameTime) {
-                lastStepped = Date.now();
-                hiddenSince = null; // evidently not hidden
                 stepSession(frameTime, controller, session.view);
             },
             leave() {
@@ -178,15 +174,37 @@ export class Session {
             get latencies() { return controller.latencies; },
         };
         await rebootModelView();
-        if (options.step !== "manual") {
-            // auto stepping
-            const step = frameTime => {
-                // some browsers - e.g., Firefox - will run occasional animation frames even when hidden
-                if (document.visibilityState !== "hidden") session.step(frameTime);
-                window.requestAnimationFrame(step);
-            };
-            window.requestAnimationFrame(step);
-        }
+        /** timestamp of last frame (in animationFrame timebase) */
+        let lastFrameTime = 0;
+        /** time of last frame in (in Date.now() timebase) */
+        let lastFrame = Date.now();
+        /** average duration of last step */
+        let recentFramesAverage = 0;
+        /** recentFramesAverage to be considered hidden */
+        const FRAME_AVERAGE_THRESHOLD = 1000;
+        /** tab hidden or no anim frames recently */
+        const isHidden = () => document.visibilityState === "hidden"
+            || Date.now() - lastFrame > FRAME_AVERAGE_THRESHOLD
+            || recentFramesAverage > FRAME_AVERAGE_THRESHOLD;
+        /** time that we were hidden */
+        let hiddenSince = 0;
+        /** timestamp of frame when we were hidden */
+        let frameTimeWhenHidden = 0;
+        /** hidden check and auto stepping */
+        const onAnimationFrame = frameTime => {
+            // jump to larger v immediately, cool off slowly, limit to max
+            const coolOff = (v0, v1, t, max) => Math.min(max, Math.max(v1, v0 * (1 - t) + v1 * t)) | 0;
+            recentFramesAverage = coolOff(recentFramesAverage, frameTime - lastFrameTime, 0.1, 10000);
+            lastFrameTime = frameTime;
+            lastFrame = Date.now();
+            if (!isHidden()) {
+                controller.checkForConnection(true);
+                if (options.step !== "manual") session.step(frameTime);
+            }
+            window.requestAnimationFrame(onAnimationFrame);
+        };
+        window.requestAnimationFrame(onAnimationFrame);
+        startHiddenChecker();
         return session;
 
         async function rebootModelView(snapshot) {
@@ -228,24 +246,34 @@ export class Session {
             return { modelRoot };
         }
 
-        function startSleepChecker() {
+        function startHiddenChecker() {
             const DORMANT_TIMEOUT_DEFAULT = 10000;
             const noSleep = "autoSleep" in urlOptions && !urlOptions.autoSleep;
             const dormantTimeout = typeof urlOptions.autoSleep === "number" ? 1000 * urlOptions.autoSleep : DORMANT_TIMEOUT_DEFAULT;
             setInterval(() => {
-                const now = Date.now();
-                const isHidden = document.visibilityState === "hidden" || (now - lastStepped) > dormantTimeout;
-                if (isHidden) {
+                if (isHidden()) {
+                    if (!hiddenSince) {
+                        hiddenSince = Date.now();
+                        frameTimeWhenHidden = lastFrameTime + hiddenSince - lastFrame;
+                        // console.log("hidden");
+                    }
+                    const hiddenFor = Date.now() - hiddenSince;
                     // if autoSleep is set to false or 0, don't go dormant even if the tab becomes
                     // hidden.  also, run the simulation loop once per second to handle any events
                     // that have arrived from the reflector.
-                    if (noSleep) stepSession(performance.now(), controller, session.view);
-                    else if (hiddenSince) {
+                    if (noSleep) {
+                        // make time appear as continuous as possible
+                        if (options.step !== "manual") session.step(frameTimeWhenHidden + hiddenFor);
+                    } else if (hiddenFor > dormantTimeout) {
                         // Controller doesn't mind being asked repeatedly to disconnect
-                        if (now - hiddenSince > dormantTimeout) controller.dormantDisconnect();
-                    } else hiddenSince = now;
-                } else hiddenSince = null; // not hidden
-                }, 1000);
+                        controller.dormantDisconnect();
+                    }
+                } else if (hiddenSince) {
+                    // reconnect happens in onAnimationFrame()
+                    hiddenSince = 0;
+                    // console.log("unhidden");
+                }
+            }, 1000);
         }
     }
 
@@ -289,8 +317,6 @@ const MAX_BALANCE_FPS = 120;
 let expectedSimFPS = DEFAULT_BALANCE_FPS;
 
 function stepSession(frameTime, controller, view) {
-    controller.checkForConnection(true);
-
     const {backlog, latency, starvation, activity} = controller;
     Stats.animationFrame(frameTime, {backlog, starvation, latency, activity, users: controller.users});
 
