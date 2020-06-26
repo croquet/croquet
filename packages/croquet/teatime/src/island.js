@@ -859,6 +859,8 @@ class IslandHasher {
         if (this.refs.has(model)) return;
         this.hashState.mC++;
         this.refs.set(model, true);      // register ref before recursing
+        // note: for the hash as currently taken, all tallies are additive
+        // so order is not important
         for (const [key, value] of Object.entries(model)) {
             if (key === "__realm") continue;
             if (value !== undefined) this.hashEntry(key, value);
@@ -869,6 +871,7 @@ class IslandHasher {
         if (this.refs.has(object)) return;
         this.hashState.oC++;
         this.refs.set(object, true);      // register ref before recursing
+        // see comment in hashModel re order
         for (const [key, value] of Object.entries(object)) {
             if (value !== undefined) this.hashEntry(key, value, defer);
         }
@@ -890,7 +893,7 @@ class IslandHasher {
     }
 
     hashEntry(key, value, defer = true) {
-        if (key[0] === '$') { displayWarning(`snapshot: ignoring property ${key}`, { only: "once" }); return; }
+        if (key[0] === '$') { displayWarning(`hash: ignoring property ${key}`, { only: "once" }); return; }
         if (defer && typeof value === "object") {
             this.todo.push({ key, value });
             return;
