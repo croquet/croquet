@@ -64,11 +64,14 @@
                     document.body.appendChild(iframe);
                     iframes.push(iframe);
                 }
-                window.location.hash = n;
+                if (window.location.hash) window.location.hash = n;
             }
-            window.onresize = () => setCount(Math.floor(window.innerWidth / 102) * Math.floor(window.innerHeight/102));
+            function setCountFromWindowSize() {
+                setCount(Math.floor(window.innerWidth / 102) * Math.floor(window.innerHeight/102));
+            }
             window.onhashchange = () => {
                 const hash = window.location.hash.slice(1);
+                if (!hash) { window.onresize = setCountFromWindowSize; window.onresize(); return; }
                 if (hash.startsWith('+') && !overlay.className) {
                     overlay.className = 'auto';
                     setInterval(() => {
@@ -77,13 +80,13 @@
                     }, 30000);
                 }
                 setCount(+hash);
+                window.onresize = null;
             }
             window.onkeydown = evt => {
                 if (evt.key === '=') setCount(0, +1);
                 if (evt.key === '-') setCount(0, -1);
             }
-            if (window.location.hash) window.onhashchange();
-            else window.onresize();
+            window.onhashchange();
         </script>
     </body>
 </html>
