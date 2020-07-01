@@ -702,11 +702,21 @@ export const App = {
         return App.messageFunction(msg, options);
     },
 
-    autoSession() {
-        let fragment = window.location.hash.slice(1);
+    // session name is typically `${app}-${fragment}` where
+    // "app" is constant and "fragment" comes from this autoSession
+    autoSession(key='') {
+        const url = new URL(window.location);
+        let fragment;
+        // if app passes a key, then the fragment comes from ?key=fragment
+        if (key) fragment = url.searchParams.get(key);
+        // otherwise get session fragment from #fragment
+        else fragment = url.hash.slice(1);
+        // if not found, create random fragment
         if (!fragment) {
             fragment = Math.floor(Math.random() * 2**53).toString(36);
-            window.location.hash = fragment;
+            if (key) url.searchParams.set(key, fragment);
+            else url.hash = fragment;
+            window.history.replaceState({}, "", url);
             App.sessionURL = window.location.href;
         }
         window.onhashchange = () => window.location.reload();
