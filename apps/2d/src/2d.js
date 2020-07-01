@@ -248,7 +248,7 @@ async function go() {
     async function joinSession() {
         SessionButton.innerText = "Joining";
         SessionButton.onclick = null;
-        session = await Session.join(`2d-${App.autoSession()}`, Shapes, ShapesView, {step: "manual", tps: TPS, optionsFromUrl: ['n']});
+        session = await Session.join(`2d-${App.autoSession("q")}`, Shapes, ShapesView, {step: "manual", tps: TPS, optionsFromUrl: ['n']});
         window.requestAnimationFrame(frame);
         SessionButton.innerText = "Leave";
         SessionButton.onclick = leaveSession;

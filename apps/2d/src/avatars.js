@@ -258,7 +258,7 @@ async function go() {
     App.messages = true;
     App.makeWidgetDock();
 
-    const session = await Session.join(`avatars-${App.autoSession()}`, Shapes, ShapesView, { step: "manual", tps: TPS });
+    const session = await Session.join(`avatars-${App.autoSession("q")}`, Shapes, ShapesView, { step: "manual", tps: TPS });
     const controller = session.view.realm.island.controller;
 
     let users = 0;
