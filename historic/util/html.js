@@ -702,6 +702,13 @@ export const App = {
         return App.messageFunction(msg, options);
     },
 
+    // sanitized session URL (always without @user:password and #hash, and without query if not same-origin as croquet.io)
+    referrerURL() {
+        const url = new URL(App.sessionURL);
+        const sameOrigin = ["croquet.io", "croquet.studio", "localhost"].includes(url.hostname);
+        return `${url.origin}${url.pathname}${sameOrigin ? url.search : ""}`;
+    },
+
     // session name is typically `${app}-${fragment}` where
     // "app" is constant and "fragment" comes from this autoSession
     autoSession(key='') {

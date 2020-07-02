@@ -1,4 +1,5 @@
 import { hashBuffer } from "@croquet/util/modules";
+import { App } from "@croquet/util/html";
 import urlOptions from "@croquet/util/urlOptions";
 import Model from "./model";
 import Island from "./island";
@@ -29,14 +30,14 @@ async function hashData(data) {
 
 async function upload(url, data) {
     if (debug("data")) console.log(`Uploading ${data.byteLength} bytes to ${url}`);
-    const response = await fetch(url, { method: 'PUT', body: data});
+    const response = await fetch(url, { method: 'PUT', referrer: App.referrerURL(), body: data});
     if (!response.ok) throw Error(`Croquet.Data: failed to upload ${url} (${response.status} ${response.statusText})`);
     if (debug("data")) console.log(`Croquet.Data: uploaded (${response.status} ${response.statusText}) ${data.byteLength} bytes to ${url}`);
 }
 
 async function download(url) {
     if (debug("data")) console.log(`Croquet.Data: Downloading from ${url}`);
-    const response = await fetch(url);
+    const response = await fetch(url, { referrer: App.referrerURL() });
     if (response.ok) return response.arrayBuffer();
     throw Error(`Croquet.Data: failed to download ${url} (${response.status} ${response.statusText})`);
 }

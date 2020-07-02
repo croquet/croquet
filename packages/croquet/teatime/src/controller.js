@@ -419,7 +419,7 @@ export default class Controller {
 
     async fetchJSON(url, defaultValue) {
         try {
-            const response = await fetch(url, { mode: "cors" });
+            const response = await fetch(url, { mode: "cors", referrer: App.referrerURL() });
             if (url.endsWith('.gz')) {
                 const buffer = await response.arrayBuffer();
                 const jsonString = pako.inflate(new Uint8Array(buffer), { to: 'string' });
@@ -436,6 +436,7 @@ export default class Controller {
                 method: "PUT",
                 mode: "cors",
                 headers: { "Content-Type": "application/json" },
+                referrer: App.referrerURL(),
                 body,
             });
             return ok;
@@ -454,6 +455,7 @@ export default class Controller {
                 method: "PUT",
                 mode: "cors",
                 headers: { "Content-Type": "application/octet-stream" },
+                referrer: App.referrerURL(),
                 body: bytes
             });
             return ok;
@@ -652,7 +654,7 @@ export default class Controller {
             name: this.islandCreator.name,
             version: VERSION,
             user: this.viewId,  // see island.generateJoinExit() for getting location data
-            url: App.sessionURL,
+            url: App.referrerURL(),
             codeHash: this.islandCreator.codeHash,
             sdk: SDK_VERSION
         };
