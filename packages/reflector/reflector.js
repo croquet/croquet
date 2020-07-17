@@ -787,6 +787,9 @@ function sessionIdAndVersionFromUrl(url) {
     return { sessionId, version };
 }
 
+
+server.on('error', err => ERROR(`Server Socket Error: ${err.message}`));
+
 server.on('connection', (client, req) => {
     prometheusConnectionGauge.inc();
     const { version, sessionId } = sessionIdAndVersionFromUrl(req.url);
@@ -906,6 +909,8 @@ server.on('connection', (client, req) => {
             else announceUserDidLeave(island, client);
         }
     });
+
+    client.on('error', err => ERROR(`Client Socket Error: ${err.message}`));
 });
 
 /** fetch a JSON-encoded object from our storage bucket */
