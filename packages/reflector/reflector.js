@@ -106,8 +106,10 @@ const webServer = http.createServer( (req, res) => {
         });
         return res.end(body);
     }
+    const is_health_check = req.url.endsWith('/healthz');
+    if (!is_health_check) LOG(`GET ${req.url} ${JSON.stringify(req.headers)}`);
     // redirect http-to-https, unless it's a health check
-    if (req.headers['x-forwarded-proto'] === 'http' && req.url !== '/healthz') {
+    if (req.headers['x-forwarded-proto'] === 'http' && !is_health_check) {
         res.writeHead(301, {
             'Server': SERVER_HEADER,
             'Location': `https://${req.headers.host}${req.url}`
