@@ -715,11 +715,18 @@ export const App = {
         const url = new URL(window.location);
         let fragment;
         // if app passes a key, then the fragment comes from ?key=fragment
-        if (key) fragment = url.searchParams.get(key);
+        if (key) {
+            // Note: cannot use url.searchParams because browsers differ for malformed % sequences
+            const params = url.search.slice(1).split("&");
+            const keyAndFragment = params.find(param => param.split("=")[0] === key);
+            if (keyAndFragment) fragment = keyAndFragment.replace(/[^=]*=/, '');
+        }
         // otherwise get session fragment from #fragment
         else fragment = url.hash.slice(1);
+        // decode % entities if possible
+        if (fragment) try { fragment = decodeURIComponent(fragment); } catch (ex) { /* ignore */ }
         // if not found, create random fragment
-        if (!fragment) {
+        else {
             fragment = Math.floor(Math.random() * 36**10).toString(36);
             if (key) url.searchParams.set(key, fragment);
             else url.hash = fragment;
