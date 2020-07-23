@@ -68,7 +68,7 @@ const SYNCED_MIN = 100;
 const SYNCED_MAX = 1000;
 const SYNCED_ANNOUNCE_DELAY = 200; // ms to delay setting synced, mainly to accommodate immediate post-SYNC messages (notably "users") from reflector
 
-function randomString() { return Math.floor(Math.random() * 2**53).toString(36); }
+function randomString() { return Math.floor(Math.random() * 36**10).toString(36); }
 
 const Controllers = new Set();
 

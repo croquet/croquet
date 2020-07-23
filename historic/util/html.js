@@ -720,7 +720,7 @@ export const App = {
         else fragment = url.hash.slice(1);
         // if not found, create random fragment
         if (!fragment) {
-            fragment = Math.floor(Math.random() * 2**53).toString(36);
+            fragment = Math.floor(Math.random() * 36**10).toString(36);
             if (key) url.searchParams.set(key, fragment);
             else url.hash = fragment;
             window.history.replaceState({}, "", url);
