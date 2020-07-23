@@ -7,6 +7,7 @@ import Model from "./model";
 import View from "./view";
 import Controller from "./controller";
 import Island from "./island";
+import { Messenger } from "./messenger";
 
 export function deprecatedStartSession(...args) {
     App.showMessage("Croquet.startSession() is deprecated, please use Croquet.Session.join()", { level: "warning", only: "once"});
@@ -240,6 +241,7 @@ export class Session {
                 session.view = null;
             }
             App.clearSessionMoniker();
+            if (Messenger.ready) {Messenger.detach();}
         }
 
         function islandInit(islandOpts) {

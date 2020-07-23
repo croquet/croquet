@@ -9,6 +9,7 @@ export { App } from "@croquet/util/html";
 export { default as Controller } from "./src/controller";
 export { currentRealm } from "./src/realms";
 export { QFunc, gatherInternalClassTypes } from "./src/island";
+export { Messenger }  from "./src/messenger";
 
 // putting event documentation here because JSDoc errors when parsing controller.js at the moment
 
