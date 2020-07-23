@@ -75,7 +75,9 @@ function endCurrentFrame(timestamp) {
     frames.push(currentFrame);
     while (frames.length > Math.min(120, window.innerWidth)) frames.shift();
 
-    if (!statsDiv || window.getComputedStyle(statsDiv).display === 'none') return;
+    if (!statsDiv) return;
+    const statsDisplay = window.getComputedStyle(statsDiv).display;
+    if (statsDisplay === 'none' || statsDisplay === '') return;
 
     // get base framerate as minimum of all frames
     const realFrames = frames.slice(1).filter(f => f.total);
