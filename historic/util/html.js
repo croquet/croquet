@@ -720,6 +720,7 @@ export const App = {
             const params = url.search.slice(1).split("&");
             const keyAndFragment = params.find(param => param.split("=")[0] === key);
             if (keyAndFragment) fragment = keyAndFragment.replace(/[^=]*=/, '');
+            else fragment = params.find(param => !param.includes("="));     // allow keyless ?fragment
         }
         // otherwise get session fragment from #fragment
         else fragment = url.hash.slice(1);
