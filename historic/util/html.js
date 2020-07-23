@@ -369,7 +369,7 @@ function makeWidgetDock(options = {}) {
         shiftPage(0); // set up a starting page (or re-select, if already set)
     }
 
-    if (!TOUCH) {
+    if (!TOUCH && !options.alwaysPinned) {
         const pinButton = makeButton('📌', 'croquet_dock_pin', () => {
             dockState.pinned = !dockState.pinned;
             setPinState();
@@ -406,7 +406,7 @@ function makeWidgetDock(options = {}) {
         if (badgeDiv) badgeDiv.style.height = badgeDiv.style.width = "";
         if (qrDiv) qrDiv.style.border = "";
     };
-    let size = expandedSize; // start with default size for "active" state
+    let size = options.fixedSize || expandedSize; // start with default size for "active" state
     const active = () => dockDiv.classList.contains('active');
     const activate = () => {
         dockDiv.classList.add('active');
@@ -430,24 +430,29 @@ function makeWidgetDock(options = {}) {
         dockDiv.onpointerdown = smotherEvent;
         dockDiv.onpointerup = smotherEvent;
     } else {
-        if (dockState.pinned) activate(); else deactivate();
-        let lastWheelTime = 0;
-        dockDiv.onwheel = evt => {
-            evt.preventDefault();
-            evt.stopPropagation();
+        if (options.alwaysPinned) activate();
+        else {
+            if (dockState.pinned) activate(); else deactivate();
+            dockDiv.onmouseenter = activate;
+            dockDiv.onmouseleave = () => { if (!dockState.pinned) deactivate(); };
+        }
+        if (!options.fixedSize) {
+            let lastWheelTime = 0;
+            dockDiv.onwheel = evt => {
+                evt.preventDefault();
+                evt.stopPropagation();
 
-            const now = Date.now();
-            if (now - lastWheelTime < 100) return;
-            lastWheelTime = now;
+                const now = Date.now();
+                if (now - lastWheelTime < 100) return;
+                lastWheelTime = now;
 
-            let { deltaY } = evt;
-            deltaY = Math.sign(deltaY) * Math.min(5, Math.abs(deltaY)); // real mouse wheels generate huge deltas
-            const max = Math.min(window.innerWidth, window.innerHeight) * 0.8;
-            size = Math.max(minExpandedSize, Math.min(max, dockDiv.offsetWidth * 1.05 ** deltaY));
-            setCustomSize(size);
-        };
-        dockDiv.onmouseenter = activate;
-        dockDiv.onmouseleave = () => { if (!dockState.pinned) deactivate(); };
+                let { deltaY } = evt;
+                deltaY = Math.sign(deltaY) * Math.min(5, Math.abs(deltaY)); // real mouse wheels generate huge deltas
+                const max = Math.min(window.innerWidth, window.innerHeight) * 0.8;
+                size = Math.max(minExpandedSize, Math.min(max, dockDiv.offsetWidth * 1.05 ** deltaY));
+                setCustomSize(size);
+                };
+        }
     }
 }
 
