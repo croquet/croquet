@@ -320,6 +320,8 @@ class SyncedVideoView extends View {
 
         this.videoView = null;
         this.lastStatusCheck = this.now() + 500; // make the update loop wait a bit before checking the first time
+
+        if (model.assetDescriptor) this.loadVideo();
     }
 
     loadVideo() {
