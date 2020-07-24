@@ -42,8 +42,8 @@ function inject_process() {
 
 const is_dev_build = process.env.NODE_ENV !== "production";
 
-const git_branch = is_dev_build ? execSync("git rev-parse --abbrev-ref HEAD").toString().trim() : "";
-const git_commit = is_dev_build ? execSync("git rev-parse HEAD").toString().trim() : "";
+const git_branch = execSync("git rev-parse --abbrev-ref HEAD").toString().trim();
+const git_commit = execSync("git rev-parse HEAD").toString().trim();
 
 const is_pre_release = is_dev_build || pkg.version.includes('-') || git_branch !== "main";
 
