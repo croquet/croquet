@@ -45,7 +45,9 @@ const is_dev_build = process.env.NODE_ENV !== "production";
 const git_branch = is_dev_build ? execSync("git rev-parse --abbrev-ref HEAD").toString().trim() : "";
 const git_commit = is_dev_build ? execSync("git rev-parse HEAD").toString().trim() : "";
 
-process.env.CROQUET_VERSION = is_dev_build ? `${pkg.version}:${git_branch}:${git_commit}` : pkg.version;
+const is_pre_release = is_dev_build || pkg.version.includes('-') || git_branch !== "main";
+
+process.env.CROQUET_VERSION = is_pre_release ? `${pkg.version}:${git_branch}:${git_commit}` : pkg.version;
 
 const config = {
     input: 'croquet.js',
