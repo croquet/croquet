@@ -4,6 +4,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 
 # 0.3.2
 
+* 0.3.2-6 add messenger for inter-frame communication
 * 0.3.2-5 better base36 ids, autoSession keyless ?fragment, toasts on right, session badge fixedSize or alwaysPinned
 * 0.3.2-4 sanitize referrer, autoSession("key")
 * 0.3.2-3 fix dormancy detection, stop timers when leaving session
