@@ -75,6 +75,8 @@ class M {
             method = this.receiver[method];
         }
 
+        if (!method) {throw Error("Messenger.on: the second argument must be a method name or a function");}
+
         if (!this.subscriptions[event]) {
             this.subscriptions[event] = [];
         } else if (this.findIndex(this.subscriptions[event], method) >= 0) {
