@@ -1,30 +1,27 @@
 #!/bin/bash
 cd `dirname $0`
 
-old_stash=`git rev-parse -q --verify refs/stash`
-git stash -q -- src
-new_stash=`git rev-parse -q --verify refs/stash`
+HTML=./assets/*.html
+APP=$(basename `pwd`)
 
-if [ "$old_stash" != "$new_stash" ]; then
-    echo "Stashing dirty files"
-    git stash show
-fi
+TARGET=../../servers/croquet.studio
+CROQUET=../libraries/packages/croquet
 
-DIR=../../servers/croquet.studio
+# update @croquet/croquet package
+# (even though we're only using its .env file, not the .js)
+(cd $CROQUET ; npm run prepublish)
 
-APP=$DIR/demos
-rm -f $APP/*
-npx parcel build ./assets/*.html -d $APP/ --public-url . || exit
+rm -f $TARGET/$APP/*
+npx parcel build $HTML -d $TARGET/$APP/ --public-url . || exit
 
-if [ "$old_stash" != "$new_stash" ]; then
-    echo "restoring dirty files"
-    git stash show
-    git stash pop -q
-fi
-
-git add -A $APP/
-git commit -m "[demos] deploy to croquet.studio" || exit
+# commit to git
+git add -A $TARGET/$APP
+git commit -m "[$APP] deploy to croquet.studio" $TARGET/$APP || exit
 git show --stat
 
 echo
-echo 'You still need to "git push" to upload to https://croquet.studio/'
+echo "You still need to"
+echo "    git push"
+echo "to upload to https://croquet.studio/$APP/ and"
+echo "    ../../docker/scripts/croquet-studio-to-croquet-io.sh"
+echo "to deploy to https://croquet.io/$APP/"
