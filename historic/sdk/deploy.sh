@@ -58,7 +58,7 @@ esac
 
 echo "DEPLOYING $MSG"
 
-DIR=../../servers/croquet.studio
+DIR=../../servers/croquet-io-testing
 SDK=$DIR/sdk
 DOCS=$SDK/docs
 SRC_PKG=../libraries/packages/croquet

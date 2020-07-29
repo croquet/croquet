@@ -4,7 +4,7 @@ cd `dirname $0`
 HTML=./assets/*.html
 APP=$(basename `pwd`)
 
-TARGET=../../servers/croquet.studio
+TARGET=../../servers/croquet-io-testing
 CROQUET=../libraries/packages/croquet
 
 # update @croquet/croquet package
@@ -16,12 +16,10 @@ npx parcel build $HTML -d $TARGET/$APP/ --public-url . || exit
 
 # commit to git
 git add -A $TARGET/$APP
-git commit -m "[$APP] deploy to croquet.studio" $TARGET/$APP || exit
+git commit -m "[$APP] deploy to croquet.io/testing" $TARGET/$APP || exit
 git show --stat
 
 echo
-echo "You still need to"
-echo "    git push"
-echo "to upload to https://croquet.studio/$APP/ and"
-echo "    ../../docker/scripts/croquet-studio-to-croquet-io.sh"
-echo "to deploy to https://croquet.io/$APP/"
+echo "You still need to run"
+echo "    gsutil -m -h 'Cache-Control:public, max-age=60' rsync -r -c -x '^\..*|.*(.sh|\.js\.map)$' $TARGET/$APP/ gs://croquet.io/testing/$APP/"
+echo "to deploy to https://croquet.io/testing/$APP/"
