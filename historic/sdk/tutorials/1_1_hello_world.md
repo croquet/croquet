@@ -62,7 +62,7 @@ This will add a "Run" button that you press when you're finished editing.
 All of the Croquet support code is included within the Croquet.js library. Typically, to access it within your Javascript application you add it to your HTML:
 
 ```
-<script src="https://croquet.studio/sdk/croquet-latest.min.js"></script>
+<script src="https://croquet.io/sdk/croquet-latest.min.js"></script>
 ```
 
 When we use CodePen, we simply include the same library by adding it in the Pen Settings

@@ -93,9 +93,11 @@ if $BUILDDOCS ; then
 fi
 
 git add -A $SDK/ package.json package-lock.json
-git commit -m "[sdk] deploy $MSG to croquet.studio" || exit
+git commit -m "[sdk] deploy $MSG to croquet.io/test" $SDK/ package.json package-lock.json || exit
 
 git show --stat
 
 echo
-echo 'You still need to "git push" to upload to https://croquet.studio/'
+echo "You still need to run"
+echo "    ../../docker/scripts/deploy-to-croquet-io-testing.sh"
+echo "to deploy to https://croquet.io/testing/"
