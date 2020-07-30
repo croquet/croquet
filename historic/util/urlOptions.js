@@ -89,7 +89,7 @@ class UrlOptions {
         if (hostname !== "localhost") return false;
         // answer true for a variety of localhost equivalents
         if (actualHostname.endsWith(".ngrok.io")) return true;
-        return ["127.0.0.1", "::1"].includes(actualHostname);
+        return ["127.0.0.1", "[::1]"].includes(actualHostname);
     }
 
     isLocalhost() {
