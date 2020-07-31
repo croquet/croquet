@@ -98,6 +98,6 @@ git commit -m "[sdk] deploy $MSG to croquet.io/test" $SDK/ package.json package-
 git show --stat
 
 echo
-echo "You still need to run"
-echo "    ../../docker/scripts/deploy-to-croquet-io-testing.sh"
+echo "You still need to"
+echo "    git push"
 echo "to deploy to https://croquet.io/testing/"

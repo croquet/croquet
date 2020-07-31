@@ -22,6 +22,4 @@ git show --stat
 echo
 echo "You still need to"
 echo "    git push"
-echo "and run"
-echo "    gsutil -m -h 'Cache-Control:public, max-age=60' rsync -r -c -x '^\..*|.*(.sh|\.js\.map)$' $TARGET/$APP/ gs://croquet.io/testing/$APP/"
 echo "to deploy to https://croquet.io/testing/$APP/"
