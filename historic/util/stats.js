@@ -19,10 +19,19 @@ const colors = {
 };
 
 let statsDiv = null;
-let fps = null;
 let canvas = null;
 let ctx = null;
-const PLOT_BACKLOG = false;
+let drawX = 0;
+export const PLOT_BACKLOG = false; // currently the true case is not well supported
+
+let fps = null;
+let fCtx = null;
+
+let horizCanvas;
+let hCtx;
+
+let backlogCanvas;
+let bCtx;
 
 export function makeStats(div) {
     statsDiv = div;
@@ -31,29 +40,101 @@ export function makeStats(div) {
 
     div.style.background = '#faf0dc';
 
-    fps = document.createElement('div');
+    fps = document.createElement('canvas');
+    fCtx = fps.getContext("2d");
+
     fps.id = 'text_stats';
-    fps.style.padding = 5;
-    fps.style.background = 'rgba(255,255,255,0.2)';
-    fps.style.fontFamily = 'sans-serif';
+    fps.width = Math.min(125, window.innerWidth);
+    fps.height = 36;
+    fps.style.width = fps.width;
+    fps.style.height = fps.height;
+    fCtx.font = '9.5pt sans-serif';
     div.appendChild(fps);
 
     // ael: used to be on canvas - but that now has "pointer-events: none"
     div.title = Object.entries(colors).map(([k, c]) => `${c}: ${k}`).join('\n');
 
     canvas = document.createElement('canvas');
-    canvas.width = Math.min(125, window.innerWidth) * window.devicePixelRatio;
-    canvas.height = (PLOT_BACKLOG ? 360 : 125) * window.devicePixelRatio;
+    canvas.width = Math.min(125, window.innerWidth);
+    canvas.height = (PLOT_BACKLOG ? 360 : 125);
     canvas.style.width = "100%";
-    div.appendChild(canvas);
+
+    const innerDiv = document.createElement("div");
+    innerDiv.id = "innerDiv";
+
+    div.appendChild(innerDiv);
+    innerDiv.appendChild(canvas);
     ctx = canvas.getContext("2d");
-    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
 }
 
 const frames = [];
 let maxBacklog = 0;
 let connected = false;
 let currentFrame = newFrame(0);
+
+const oneFrame = 1000 / 60;
+function map(v) {
+    return (1 - v / oneFrame) * 20 + 60;
+    // zero is at y=80; a full frame's time (at 60Hz) subtracts 20
+}
+
+function makeOverlayCanvas(baseCanvas) {
+    const c = document.createElement('canvas');
+    c.width = baseCanvas.width;
+    c.height = baseCanvas.height;
+    c.style.width = "100%";
+    c.style.position = "absolute";
+    c.style.left = "0px";
+
+    const innerDiv = statsDiv.querySelector("#innerDiv");
+    innerDiv.appendChild(c);
+    return c;
+}
+
+function makeHorizCanvas(baseCanvas) {
+    horizCanvas = makeOverlayCanvas(baseCanvas);
+    hCtx = horizCanvas.getContext("2d");
+
+    hCtx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+    for (let y = 0; y < 60; y += oneFrame) {
+        const m = map(y);
+        hCtx.moveTo(0, m);
+        hCtx.lineTo(horizCanvas.width, m);
+        hCtx.stroke();
+    }
+}
+
+function makeBacklogCanvas(baseCanvas) {
+    backlogCanvas = makeOverlayCanvas(baseCanvas);
+    bCtx = backlogCanvas.getContext("2d");
+}
+
+function cleanupOverlayCanvases() {
+    if (horizCanvas) {
+        horizCanvas.remove();
+        hCtx = null;
+    }
+    if (backlogCanvas) {
+        backlogCanvas.remove();
+        bCtx = null;
+    }
+}
+
+function drawTextStats(avgMS) {
+    fCtx.globalCompositeOperation = "copy";
+    fCtx.fillStyle = "rgb(255, 255, 255, 0)";
+    fCtx.fillRect(0, 0, fps.width, fps.height);
+
+    fCtx.fillStyle = "rgb(0, 0, 0, 1)";
+    fCtx.globalCompositeOperation = "source-over";
+    let line = `${currentFrame.users} users, ${Math.round(1000/avgMS)} fps,`;
+    fCtx.fillText(line, 2, 15);
+
+    line = (currentFrame.backlog < 100 && currentFrame.activity < 1000
+            ? `latency: ${currentFrame.latency} ms`
+            : `backlog: ${currentFrame.backlog < 100 ? '0.0' : (currentFrame.backlog/1000).toFixed(1)} s`);
+    fCtx.fillText(line, 2, 33);
+}
 
 function newFrame(now) {
     return {
@@ -72,12 +153,15 @@ function newFrame(now) {
 function endCurrentFrame(timestamp) {
     // add current frame to end
     currentFrame.total = timestamp - currentFrame.start;
+    const limit = Math.min(120, window.innerWidth);
+    // drop at least one to make room
+    if (frames.length >= limit) {frames.splice(0, frames.length - limit + 1);}
     frames.push(currentFrame);
-    while (frames.length > Math.min(120, window.innerWidth)) frames.shift();
+
+    if  (frames.length <= 1) return;
 
     if (!statsDiv) return;
-    const statsDisplay = window.getComputedStyle(statsDiv).display;
-    if (statsDisplay === 'none' || statsDisplay === '') return;
+    if (statsDiv.offsetHeight === 0) return;
 
     // get base framerate as minimum of all frames
     const realFrames = frames.slice(1).filter(f => f.total);
@@ -85,24 +169,28 @@ function endCurrentFrame(timestamp) {
     const newMax = Math.max(...realFrames.map(f => Math.max(f.backlog, f.network)));
     maxBacklog = PLOT_BACKLOG ? Math.max(newMax, maxBacklog * 0.98) : 1000; // reduce scale slowly
 
-    // show average framerate
-    if (!fps.parentElement) { console.warn("who broke the stats div and canvas?"); statsDiv.appendChild(fps); statsDiv.appendChild(canvas); }
-    fps.innerText = `${currentFrame.users} users, ${Math.round(1000/avgMS)} fps, ` +
-        (currentFrame.backlog < 100 && currentFrame.activity < 1000
-            ? `latency: ${currentFrame.latency} ms`
-            : `backlog: ${currentFrame.backlog < 100 ? '0.0' : (currentFrame.backlog/1000).toFixed(1)} s`);
+    drawTextStats(avgMS);
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const oneFrame = 1000 / 60;
-    const map = v => (1 - v / oneFrame) * 20 + 60; // zero is at y=80; a full frame's time (at 60Hz) subtracts 20
+    if (!horizCanvas) {makeHorizCanvas(canvas);}
+    if (PLOT_BACKLOG && !backlogCanvas) {makeBacklogCanvas(canvas);}
 
+    if (drawX === canvas.width) {
+        ctx.globalCompositeOperation = "copy";
+        ctx.drawImage(canvas, 1, 0, canvas.width - 1, canvas.height, 0, 0, canvas.width - 1, canvas.height);
+        ctx.globalCompositeOperation = "source-over";
+        ctx.fillStyle = "transparent";
+        ctx.fillRect(canvas.width - 1, 0, 1, canvas.height);
+    } else {
+        drawX++;
+    }
     // for backlog, zero maps to y=85
     // max with flexible backlog is what -200ms would look like at frame scale (80 + 12frames * 20 + 5) => 325
     // max with fixed backlog (so we're only plotting network delay) makes 1s of delay plot as 2 frames' height.
     const mapBacklog = v => map(PLOT_BACKLOG ? (v / Math.max(3000, maxBacklog) * -200) : (v / maxBacklog * -2 * oneFrame)) + 5;
-    for (let i = 0; i < frames.length; i++) {
-        const frame = frames[i];
-        const x = i + 0.5;
+
+    {
+        const frame = frames[frames.length - 1];
+        const x = drawX - 0.5; // it is already incremented so go half pixel left to draw
         let y = map(0);
 
         ctx.beginPath();
@@ -141,27 +229,21 @@ function endCurrentFrame(timestamp) {
             ctx.stroke();
         }
     }
-    // draw horizontal lines over graph, one per frame
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-    for (let y = 0; y < 60; y += oneFrame) {
-        ctx.moveTo(0, map(y));
-        ctx.lineTo(120, map(y));
-        ctx.stroke();
-    }
 
     if (PLOT_BACKLOG && maxBacklog > 500) {
         // draw lines with labels for backlog
         // use log10 to draw lines every 1s, or 10s, or 100s etc.
         const unit = 10 ** Math.floor(Math.log10(Math.max(3000, maxBacklog)));
-        ctx.font = '10pt sans-serif';
-        ctx.fillStyle = 'rgba(255, 255, 255, 1)';
+        bCtx.clearRect(0, 0, backlogCanvas.width, backlogCanvas.height);
+        bCtx.font = '10pt sans-serif';
+        bCtx.fillStyle = 'rgba(255, 255, 0, 1)';
         for (let i = 1; i < 11; i++) {
             const value = i * unit;
             const y = mapBacklog(value);
-            ctx.moveTo(0, y);
-            ctx.lineTo(120, y);
-            ctx.stroke();
-            ctx.fillText(`${value / 1000}s`, 0, y - 5);
+            bCtx.moveTo(0, y);
+            bCtx.lineTo(120, y);
+            bCtx.stroke();
+            bCtx.fillText(`${value / 1000}s`, 0, y - 5);
             if (value > maxBacklog) break;
         }
     }
@@ -216,6 +298,10 @@ export const Stats = {
         currentFrame.users = users;
     },
     connected(bool) {
+        const wasConnected = connected;
         currentFrame.connected = connected = bool;
+        if (wasConnected && !connected) {
+            cleanupOverlayCanvases();
+        }
     },
 };

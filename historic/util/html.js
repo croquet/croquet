@@ -384,7 +384,8 @@ function makeWidgetDock(options = {}) {
     const expandedBorder = 8;
     const setCustomSize = sz => {
         dockDiv.style.width = `${sz}px`;
-        dockDiv.style.height = `${sz * (1 + BAR_PROPORTION/100)}px`;
+        let docHeight = sz * (1 + BAR_PROPORTION/100);
+        dockDiv.style.height = `${docHeight}px`;
 
         const barHeight = sz * BAR_PROPORTION/100;
         barDiv.style.height = `${barHeight}px`;
@@ -449,9 +450,9 @@ function makeWidgetDock(options = {}) {
                 let { deltaY } = evt;
                 deltaY = Math.sign(deltaY) * Math.min(5, Math.abs(deltaY)); // real mouse wheels generate huge deltas
                 const max = Math.min(window.innerWidth, window.innerHeight) * 0.8;
-                size = Math.max(minExpandedSize, Math.min(max, dockDiv.offsetWidth * 1.05 ** deltaY));
+                size = Math.max(minExpandedSize, Math.min(max, dockDiv.offsetWidth / (1.05 ** deltaY)));
                 setCustomSize(size);
-                };
+            };
         }
     }
 }
