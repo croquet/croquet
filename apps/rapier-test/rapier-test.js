@@ -40,25 +40,26 @@ class RapierModel extends Model {
     }
 /*
 
-ISSUES:
+ISSUES
 
 * separate objects refer to world, cannot be de-serialized separately (need ref to world)
   => now hacking world ref into every engine object
 * there appears to be no world.forEachJoint iterator, nor join.handle() method, so we can't restore joints
+* Q: how to set position of an object after creation?
 * Q: do we need to manual free() objects we retrieve from rapier?
 * Q: are handles unique to each world? Can we have multiple rapier worlds at the same time?
 
+RESOURCES
+* Extracting info about objects extractWorldDescription()
+  https://github.com/sebcrozet/rapier.js/blob/master/testbed3d/src/Testbed.js#L41
+* creating worlds:
+  https://github.com/sebcrozet/rapier.js/blob/master/testbed3d/src/demos/
 */
     init() {
-        this.world = new RAPIER.World(0.0, -9.81, 0.0);
+        this.reset();
 
-        this.bodies = [];
-        this.colliders = [];
-        // this.joints = [];
+        this.subscribe(this.id, "reset", this.reset);
 
-        this.addPendulum();
-
-        console.log(this.world);
         this.future(100, this.step);
     }
 
@@ -91,18 +92,53 @@ ISSUES:
         // this.joints.push(rod);
     }
 
+    reset() {
+        // there appears to be no way to move objects, so we just recreate the world for now
+        this.world = new RAPIER.World(0.0, -9.81, 0.0);
+        this.bodies = [];
+        this.colliders = [];
+        // this.joints = [];
+        this.addPendulum();
+
+        this.publish(this.id, "bodies-changed");
+    }
+
     step() {
         this.world.step();
-        //this.future(100, this.step);
+        this.publish(this.id, "bodies-changed");
+        this.future(100, this.step);
     }
 }
 RapierModel.register("RapierModel");
+
+class RapierView extends View {
+    constructor(model) {
+        super(model);
+        this.model = model;
+        this.subscribe(model.id, "bodies-changed", this.bodiesChanged);
+        TestCanvas.onclick = () => this.publish(model.id, "reset");
+    }
+
+    bodiesChanged() {
+        const ctx = TestCanvas.getContext('2d');
+        ctx.resetTransform();
+        ctx.clearRect(0, 0, 500, 500);
+        ctx.translate(250, 0);
+        for (const body of this.model.bodies) {
+            const pos = body.translation();
+            ctx.beginPath();
+            ctx.arc(pos.x, pos.y, 10, 0, 2 * Math.PI, false);
+            ctx.fillStyle = 'red';
+            ctx.fill();
+        }
+    }
+}
 
 async function go() {
     RAPIER = await import("@dimforge/rapier3d");
     App.messages = true;
     App.makeWidgetDock();
-    const session = await Session.join(`rapier-test-${App.autoSession("q")}`, RapierModel, View);
+    const session = await Session.join(`rapier-test-${App.autoSession("q")}`, RapierModel, RapierView);
     console.log(session.model.world);
 }
 
