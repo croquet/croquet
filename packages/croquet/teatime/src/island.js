@@ -1081,7 +1081,8 @@ class IslandWriter {
         const state = { $class: classID };
         this.refs.set(object, state);      // register ref before recursing
         const written = this.write(value, path, false);
-        if (typeof written !== "object" || Array.isArray(written)) state.$value = written;
+        // only use $value property if necessary
+        if (typeof written !== "object" || written.$class || Array.isArray(written)) state.$value = written;
         else Object.assign(state, written);
         return state;
     }
