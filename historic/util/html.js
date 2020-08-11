@@ -717,7 +717,7 @@ export const App = {
 
     // session name is typically `${app}-${fragment}` where
     // "app" is constant and "fragment" comes from this autoSession
-    autoSession(key='') {
+    autoSession(key='q') {
         const url = new URL(window.location);
         let fragment;
         // if app passes a key, then the fragment comes from ?key=fragment
