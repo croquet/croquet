@@ -717,16 +717,18 @@ export const App = {
 
     // session name is typically `${app}-${fragment}` where
     // "app" is constant and "fragment" comes from this autoSession
-    autoSession(key='') {
+    autoSession(key='q') {
         const url = new URL(window.location);
         let fragment;
         // if app passes a key, then the fragment comes from ?key=fragment
+        // with a fallback to #fragment
         if (key) {
             // Note: cannot use url.searchParams because browsers differ for malformed % sequences
             const params = url.search.slice(1).split("&");
             const keyAndFragment = params.find(param => param.split("=")[0] === key);
             if (keyAndFragment) fragment = keyAndFragment.replace(/[^=]*=/, '');
-            else fragment = params.find(param => !param.includes("="));     // allow keyless ?fragment
+            else fragment = params.find(param => !param.includes("="))  // allow keyless ?fragment
+                || url.hash.slice(1);     // fall back to #fragment for old URLs
         }
         // otherwise get session fragment from #fragment
         else fragment = url.hash.slice(1);
