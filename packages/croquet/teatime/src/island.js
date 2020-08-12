@@ -970,7 +970,8 @@ class IslandWriter {
     write(value, path, defer=true) {
         switch (typeof value) {
             case "number":
-                // JSON disallows NaN and Infinity
+                // JSON disallows NaN and Infinity, and writes -0 as "0"
+                if (Object.is(value, -0)) return {$class: 'NegZero'};
                 if (Number.isSafeInteger(value)) return value;
                 if (Number.isNaN(value)) return {$class: 'NaN'};
                 if (!Number.isFinite(value)) return {$class: 'Infinity', $value: Math.sign(value)};
@@ -1151,6 +1152,7 @@ class IslandReader {
         }
         this.readers.set("NaN", () => NaN);
         this.readers.set("Infinity", sign => sign * Infinity);
+        this.readers.set("NegZero", () => -0);
         this.readers.set("Set", array => new Set(array));
         this.readers.set("Map", array => new Map(array));
         this.readers.set("Array", array => array.slice(0));
