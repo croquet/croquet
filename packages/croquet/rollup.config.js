@@ -1,6 +1,6 @@
-import resolve from 'rollup-plugin-node-resolve';
+import babel from '@rollup/plugin-babel';
+import resolve from '@rollup/plugin-node-resolve';
 import license from 'rollup-plugin-license';
-import babel from 'rollup-plugin-babel';
 import { terser } from 'rollup-plugin-terser';
 import MagicString from 'magic-string';
 import fs from 'fs';
@@ -59,9 +59,9 @@ const config = {
     external: ['seedrandom/seedrandom', 'toastify-js', 'seedrandom', 'fast-json-stable-stringify', 'fastpriorityqueue'],
     plugins: [
         inject_process(),
-        resolve({only: [/^@croquet/]}),
+        resolve({resolveOnly: [/^@croquet/]}),
         !is_dev_build && babel({
-            externalHelpers: false, runtimeHelpers: true,
+            babelHelpers: 'runtime',
             presets: [['@babel/env', { "targets": "> 0.25%" }]],
             plugins: ['@babel/transform-runtime']
         }),
