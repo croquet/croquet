@@ -95,6 +95,9 @@ class M {
             window.removeEventListener("message", this.listener);
             this.listener = null;
         }
+
+        this.stopPublishingPointerMove();
+
         this.receiver = null;
         this.subscriptions = {};
         this.enumerator = null;
@@ -156,6 +159,19 @@ class M {
     findIndex(array, handler) {
         return array.findIndex(entry => entry.view === handler.view && entry.method === handler.method);
     }
+
+    startPublishingPointerMove() {
+        this._moveHandler = evt => this.send("pointerPosition", {x: evt.clientX, y: evt.clientY, type: evt.type});
+        window.document.addEventListener("pointermove", this._moveHandler, true);
+    }
+
+    stopPublishingPointerMove() {
+        if (this._moveHandler) {
+            window.document.removeEventListener("pointermove", this._moveHandler, true);
+            this._moveHandler = null;
+        }
+    }
+
 }
 
 export const Messenger = new M();
