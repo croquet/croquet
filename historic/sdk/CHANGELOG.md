@@ -4,7 +4,8 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 
 # 0.3.2
 
-* 0.3.2-9 disstinguish between 0 and -0 in serialization, update dependencies
+* 0.3.2-10 Messenger: add start/stopPublishingPointerMove API
+* 0.3.2-9 distinguish between 0 and -0 in serialization, update dependencies
 * 0.3.2-8 autoSession() defaults to ?q=fragment, accepts #fragment from old URLs
 * 0.3.2-7 optimize stats graph display
 * 0.3.2-6 add messenger for inter-frame communication
