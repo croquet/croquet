@@ -9,7 +9,7 @@ CROQUET=../libraries/packages/croquet
 
 # update @croquet/croquet package
 # (even though we're only using its .env file, not the .js)
-(cd $CROQUET ; npm run prepublish)
+(cd $CROQUET ; npm run prepare)
 
 rm -f $TARGET/$APP/*
 npx parcel build $HTML -d $TARGET/$APP/ --public-url . || exit

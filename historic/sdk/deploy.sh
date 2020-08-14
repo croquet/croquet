@@ -65,7 +65,7 @@ SRC_PKG=../libraries/packages/croquet
 
 if [ "$WHAT" != "docs" ] ; then
     # update @croquet/croquet package
-    (cd $SRC_PKG ; npm run prepublish)
+    (cd $SRC_PKG ; npm run prepare)
 
     # build & deploy library
     npx parcel build --public-url . --global Croquet -d $SDK -o croquet-$VERSION.min.js sdk.js
