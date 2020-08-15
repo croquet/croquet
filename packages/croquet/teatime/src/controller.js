@@ -21,6 +21,9 @@ const VERSION = 1;
 export const SDK_VERSION = process.env.CROQUET_VERSION || "<unknown>";
 console.log("Croquet SDK " + SDK_VERSION);
 
+// use dev reflectors for pre-release SDKs, unless dev=false given
+if (!("dev" in urlOptions) && (SDK_VERSION === "<unknown>" || SDK_VERSION.includes("-"))) urlOptions.dev = true;
+
 // *croquet.io/reflector/v1 is used as reflector for pages served from *croquet.io
 // (specifically, pi.croquet.io must use its own reflector)
 // everything else uses croquet.io/reflector/v1
