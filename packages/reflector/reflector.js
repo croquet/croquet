@@ -492,7 +492,7 @@ function SNAP(client, args) {
 
     DEBUG(`${id}/${client.addr} @${island.time}#${island.seq} got snapshot ${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'}`);
 
-    if (island.snapshotUrl) {
+    if (island.syncWithoutSnapshot || island.snapshotUrl) {
         // forget older messages, setting aside the ones that need to be stored
         let messagesToStore = [];
         const msgs = island.messages;
