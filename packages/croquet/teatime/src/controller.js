@@ -513,20 +513,6 @@ export default class Controller {
     async receive(action, args) {
         this.lastReceived = this.connection.lastReceived;
         switch (action) {
-            case 'START': {
-                // aug 2019: START is now only sent if the reflector has no record
-                // of this island (in memory or in the snapshot bucket).  this client
-                // has the job of creating the first snapshot for the session.
-                if (DEBUG.session) console.log(this.id, 'Controller received START');
-                this.install();
-                const snapshot = this.takeSnapshot();
-                const success = await this.uploadSnapshot(snapshot, true); // upload initial snapshot, and announce
-                // return from establishSession()
-                this.islandCreator.startedOrSynced.resolve(this.island);
-                if (success) this.requestTicks();
-                else this.connection.closeConnectionWithError("start", "failed to establish session");
-                return;
-            }
             case 'SYNC': {
                 // We are joining an island session.
                 const {messages, url, time} = args;
