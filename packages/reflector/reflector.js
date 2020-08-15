@@ -342,6 +342,7 @@ function JOIN(client, args) {
             };
         ALL_ISLANDS.set(id, island);
         prometheusSessionGauge.inc();
+        if (syncWithoutSnapshot) TICKS(client, args.ticks); // client will not request ticks
     }
     client.island = island;
 
