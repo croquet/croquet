@@ -650,10 +650,13 @@ export default class Controller {
 
         if (DEBUG.session) console.log(this.id, 'Controller sending JOIN');
 
+        const { tick, delay } = this.getTickAndMultiplier();
+
         const args = {
             name: this.islandCreator.name,
             version: VERSION,
             user: this.viewId,  // see island.generateJoinExit() for getting location data
+            ticks: { tick, delay },
             url: App.referrerURL(),
             codeHash: this.islandCreator.codeHash,
             sdk: SDK_VERSION
@@ -759,8 +762,8 @@ export default class Controller {
      *
      * default taken from `islandCreator.tps` unless `islandCreator.options.tps` is present
      *
-     * @returns {{tick: Number, multiplier: Number}}
-     *          reflector tick period in ms and local multiplier
+     * @returns {{tick: Number, multiplier: Number, delay: Number}}
+     *          reflector tick period in ms, local multiplier, and delay to account for locally produced ticks
      */
     getTickAndMultiplier() {
         const options = this.islandCreator.options;
@@ -770,16 +773,20 @@ export default class Controller {
         const [rate, mult] = (tps + "x").split('x').map(n => Number.parseInt("0" + n, 10));
         const tick = 1000 / Math.max(1/30, Math.min(60, rate));     // minimum 1 tick per 30 seconds
         const multiplier = Math.max(1, mult);      // default multiplier is 1 (no local ticks)
-        if (multiplier > 1 && !NOCHEAT) this.tickMultiplier = { tick, multiplier };
-        return { tick, multiplier };
+        let delay = 0;
+        if (multiplier > 1 && !NOCHEAT) {
+            this.tickMultiplier = { tick, multiplier };
+            delay = tick * (multiplier - 1) / multiplier;
+        }
+        return { tick, multiplier, delay };
     }
 
     /** request ticks from the server */
     requestTicks(args = {}) { // simpleapp can send { scale }
         if (!this.connected || !this.island) return;
-        const { tick, multiplier } = this.getTickAndMultiplier();
+        const { tick, delay } = this.getTickAndMultiplier();
         args.tick = tick;
-        args.delay = tick * (multiplier - 1) / multiplier;
+        args.delay = delay;
         this.connection.setTick(tick);
         if (DEBUG.session) console.log(this.id, 'Controller requesting TICKS', args);
         // args: {tick, delay, scale}
