@@ -368,8 +368,8 @@ function JOIN(client, args) {
         const fileName = `${id}/latest.json`;
         fetchJSON(fileName)
         .then(latestSpec => {
-            if (!latestSpec.snapshotUrl) throw Error("latest.json has no snapshot, ignoring");
-            DEBUG(`${id} resuming from latest.json @${latestSpec.time}#${latestSpec.seq} messages: ${latestSpec.messages.length} snapshot: ${latestSpec.snapshotUrl}`);
+            if (!latestSpec.snapshotUrl && !latestSpec.syncWithoutSnapshot) throw Error("latest.json has no snapshot, ignoring");
+            DEBUG(`${id} resuming from latest.json @${latestSpec.time}#${latestSpec.seq} messages: ${latestSpec.messages.length} snapshot: ${latestSpec.snapshotUrl || "<none>"}`);
             savableKeys(island).forEach(key => island[key] = latestSpec[key]);
             island.before = Date.now();
             island.storedUrl = latestSpec.snapshotUrl;
