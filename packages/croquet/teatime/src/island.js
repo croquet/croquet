@@ -143,8 +143,8 @@ export default class Island {
                     // add messages array to priority queue
                     for (const msg of messages) this.messages.add(msg.convertIfNeeded(this));
                 } else {
-                    // create new random, it is okay to use in init code
-                    this._random = new SeedRandom(null, { state: true });
+                    // seed with island id so different sessions get different random streams
+                    this._random = new SeedRandom(snapshot.id, { state: true });
                     const namedModels = initFn(this) || {};
                     Object.assign(this.modelsByName, namedModels);
                     this.addSubscription(this, this.id, "__users__", this.generateJoinExit);
