@@ -62,6 +62,7 @@ function execOffIsland(fn) {
     }
 }
 
+const INITIAL_SEQ = 0xFFFFFFF0; // initial sequence number, must match reflector.js
 const VOTE_SUFFIX = '#__vote'; // internal, for 'vote' handling; never seen by user
 const REFLECTED_SUFFIX = '#reflected';
 const DIVERGENCE_SUFFIX = '#divergence';
@@ -116,7 +117,7 @@ export default class Island {
                 /** @type {Number} how far simulation has progressed */
                 this.time = 0;
                 /** @type {Number} sequence number of last executed external message */
-                this.seq = 0xFFFFFFF0;       // start value provokes 32 bit rollover soon
+                this.seq = INITIAL_SEQ;       // 0xFFFFFFF0 provokes 32 bit rollover soon
                 /** @type {Number} timestamp of last scheduled external message */
                 this.externalTime = 0;
                 /** @type {Number} sequence number of last scheduled external message */
