@@ -4,6 +4,7 @@ import license from 'rollup-plugin-license';
 import { terser } from 'rollup-plugin-terser';
 import MagicString from 'magic-string';
 import fs from 'fs';
+import os from 'os';
 import { execSync } from 'child_process';
 const pkg = require("./package.json");
 require('dotenv-flow').config({
@@ -42,12 +43,16 @@ function inject_process() {
 
 const is_dev_build = process.env.NODE_ENV !== "production";
 
+const deps = ["../../../teatime",  "../../../util", "../../../math"];
 const git_branch = execSync("git rev-parse --abbrev-ref HEAD").toString().trim();
 const git_commit = execSync("git rev-parse HEAD").toString().trim();
+const git_dirty = execSync("git status --porcelain -- " + deps.join(" ")).toString().trim();
 
-const is_pre_release = is_dev_build || pkg.version.includes('-') || git_branch !== "main";
+const is_pre_release = is_dev_build || pkg.version.includes('-') || git_branch !== "main" || git_dirty;
 
-process.env.CROQUET_VERSION = is_pre_release ? `${pkg.version}:${git_branch}:${git_commit}` : pkg.version;
+process.env.CROQUET_VERSION = !is_pre_release ? pkg.version
+    : !git_dirty ? `${pkg.version}:${git_branch}:${git_commit}`
+    : `${pkg.version}:${git_branch}:${git_commit}:${os.userInfo().username}:${new Date().toISOString()}`;
 
 const config = {
     input: 'croquet.js',
