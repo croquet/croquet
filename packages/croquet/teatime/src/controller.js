@@ -763,7 +763,7 @@ export default class Controller {
         let delay = 0;
         if (multiplier > 1 && !NOCHEAT) {
             this.tickMultiplier = { tick, multiplier };
-            delay = tick * (multiplier - 1) / multiplier;
+            delay = Math.ceil(tick * (multiplier - 1) / multiplier);
         }
         return { tick, multiplier, delay };
     }
