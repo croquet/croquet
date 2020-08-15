@@ -315,6 +315,8 @@ function JOIN(client, args) {
             else if (typeof user === "object") user.location = client.location;
         }
     }
+    // new clients (>=0.3.3) send ticks in JOIN
+    const syncWithoutSnapshot = 'ticks' in args;
     // create island data if this is the first client
     let island = ALL_ISLANDS.get(id);
     if (!island) {
@@ -323,13 +325,14 @@ function JOIN(client, args) {
             name,                // the island name, including options (or could be null)
             version,             // the client version
             time: 0,             // the current simulation time
-            seq: 0,              // sequence number for messages (uint32, wraps around)
+            seq: 0xFFFFFFF0,     // sequence number for messages (uint32, wraps around)
             scale: 1,            // ratio of island time to wallclock time
             tick: TICK_MS,       // default tick rate
             delay: 0,            // hold messages until this many ms after last tick
             snapshotTime: -1,    // time of last snapshot
             snapshotSeq: null,   // seq of last snapshot
             snapshotUrl: '',     // url of last snapshot
+            syncWithoutSnapshot, // new protocol as of 0.3.3
             messages: [],        // messages since last snapshot
             lastTick: -1000,     // time of last TICK sent (-1000 to avoid initial delay)
             lastMsgTime: 0,      // time of last message reflected
@@ -390,6 +393,8 @@ function JOIN(client, args) {
 }
 
 function START(island) {
+    // as of 0.3.3, clients do not want START but SYNC with an empty snapshot
+    if (island.syncWithoutSnapshot) { SYNC(island); return; }
     // find next client
     do {
         island.startClient = island.syncClients.shift();
@@ -417,7 +422,7 @@ function SYNC(island) {
     for (const syncClient of island.syncClients) {
         if (syncClient.readyState === WebSocket.OPEN) {
             syncClient.safeSend(response);
-            DEBUG(`${id}/${syncClient.addr} @${island.time}#${island.seq} sending SYNC ${response.length} bytes, ${messages.length} messages${range}, snapshot: ${url}`);
+            DEBUG(`${id}/${syncClient.addr} @${island.time}#${island.seq} sending SYNC ${response.length} bytes, ${messages.length} messages${range}, snapshot: ${url || "<none>"}`);
             announceUserDidJoin(island, syncClient);
         } else {
             DEBUG(`${id}/${syncClient.addr} cannot send SYNC`);
@@ -712,7 +717,7 @@ function TICKS(client, args) {
     const { tick, delay, scale } = args;
     const island = ALL_ISLANDS.get(id);
     if (!island) { if (client.readyState === WebSocket.OPEN) client.close(...REASON.UNKNOWN_ISLAND); return; }
-    if (!island.snapshotUrl) {
+    if (!island.syncWithoutSnapshot && !island.snapshotUrl) {
          // this must be an old client (<=0.2.5) that requests TICKS before sending a snapshot
         const { time, seq } = args;
         DEBUG(`${id}/${client.addr} @${island.time}#${island.seq} init ${time}#${seq} from TICKS (old client)`);
