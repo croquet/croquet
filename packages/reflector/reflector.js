@@ -43,6 +43,7 @@ const VERSION = "v1";
 const SERVER_HEADER = `croquet-reflector-${VERSION}`;
 const DELETION_DEBOUNCE = 10000; // time in ms to wait before deleting an island
 const TICK_MS = 1000 / 5;     // default tick interval
+const INITIAL_SEQ = 0xFFFFFFF0; // initial sequence number
 const ARTIFICIAL_DELAY = 0;   // delay messages randomly by 50% to 150% of this
 const MAX_MESSAGES = 10000;   // messages per island to retain since last snapshot
 const MIN_SCALE = 1 / 64;     // minimum ratio of island time to wallclock time
@@ -279,7 +280,7 @@ function nonSavableProps() {
         before: 0,           // last getTime() call
         yetToCheckLatest: true, // flag used while fetching latest.json during startup
         storedUrl: null,     // url of snapshot in latest.json (null before we've checked latest.json)
-        storedSeq: -1,       // seq of last message in latest.json message addendum
+        storedSeq: INITIAL_SEQ, // seq of last message in latest.json message addendum
         startClient: null,   // the client we sent START
         startTimeout: null,  // pending START request timeout (should send SNAP)
         deletionTimeout: null, // pending deletion after all clients disconnect
@@ -325,7 +326,7 @@ function JOIN(client, args) {
             name,                // the island name, including options (or could be null)
             version,             // the client version
             time: 0,             // the current simulation time
-            seq: 0xFFFFFFF0,     // sequence number for messages (uint32, wraps around)
+            seq: INITIAL_SEQ,    // sequence number for messages (uint32, wraps around)
             scale: 1,            // ratio of island time to wallclock time
             tick: TICK_MS,       // default tick rate
             delay: 0,            // hold messages until this many ms after last tick
@@ -753,7 +754,7 @@ function provisionallyDeleteIsland(island) {
 async function deleteIsland(island) {
     if (island.usersTimer) clearTimeout(island.usersTimer);
     prometheusSessionGauge.dec();
-    const { id, snapshotUrl, time, seq, storedUrl, storedSeq, messages } = island;
+    const { id, syncWithoutSnapshot, snapshotUrl, time, seq, storedUrl, storedSeq, messages } = island;
     // stop ticking and delete
     stopTicker(island);
     ALL_ISLANDS.delete(id);
@@ -765,7 +766,7 @@ async function deleteIsland(island) {
     // if we've been told of a snapshot since the one (if any) stored in this
     // island's latest.json, or there are messages since the snapshot referenced
     // there, write a new latest.json.
-    if (snapshotUrl && (snapshotUrl !== storedUrl || after(storedSeq, seq))) {
+    if ((syncWithoutSnapshot || snapshotUrl) && (snapshotUrl !== storedUrl || after(storedSeq, seq))) {
         const fileName = `${id}/latest.json`;
         DEBUG(id, `@${time}#${seq} uploading latest.json with ${messages.length} messages`);
         const latestSpec = {};
