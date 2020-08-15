@@ -541,21 +541,19 @@ export default class Controller {
                     msg[1] >>>= 0; // make sure it's uint32 (reflector used to send int32)
                     if (typeof msg[2] !== "string") this.convertReflectorMessage(msg);
                     this.networkQueue.put(msg);
-                    this.timeFromReflector(msg[0]);
                 }
                 this.timeFromReflector(time);
                 if (DEBUG.session) console.log(`${this.id} fetching snapshot ${url}`);
-                const snapshot = await this.fetchJSON(url);
+                const snapshot = url && await this.fetchJSON(url);
                 if (!this.connected) { console.log(this.id, 'socket went away during SYNC'); return; }
-                if (!snapshot) {
+                if (url && !snapshot) {
                     this.connection.closeConnectionWithError('SYNC', Error("failed to fetch snapshot"));
                     return;
                 }
-                this.islandCreator.snapshot = snapshot;  // set snapshot for building the island
-                this.install();
+                if (snapshot) this.islandCreator.snapshot = snapshot;  // set snapshot for building the island
+                this.install();  // will run init() if no snapshot
                 // after install() sets this.island, the main loop may also trigger simulation
                 if (DEBUG.session) console.log(`${this.id} fast forwarding from ${Math.round(this.island.time)} to ${time}`);
-                this.getTickAndMultiplier();
                 // simulate messages before continuing, but only up to the SYNC time
                 const simulateSyncMessages = () => {
                     const caughtUp = this.simulate(Date.now() + 200);
