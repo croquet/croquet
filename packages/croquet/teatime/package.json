@@ -12,14 +12,9 @@
   "dependencies": {
     "@croquet/math": "file:../math",
     "@croquet/util": "file:../util",
-    "fast-json-stable-stringify": "^2.0.0",
-    "pako": "^1.0.10",
-    "seedrandom": "^2.4.4"
+    "fast-json-stable-stringify": "^2.1.0",
+    "pako": "^1.0.11",
+    "seedrandom": "^3.0.5"
   },
-  "devDependencies": {
-    "eslint": "^5.14.1",
-    "eslint-config-airbnb-base": "^13.1.0",
-    "eslint-import-resolver-parcel": "^1.8.4",
-    "eslint-plugin-import": "^2.16.0"
-  }
+  "devDependencies": {}
 }
