@@ -45,11 +45,4 @@ const roomFromSession = () => urlOptions.getSession().split("/")[0];
 const startRoom = roomFromSession() || defaultRoom;
 app.joinRoom(startRoom);
 
-/*
-if (urlOptions.ar) hotreloadEventManager.addDisposeHandler('ar', () => {
-    try { app.renderer.arToolkitContext.arController.dispose(); }
-    catch (e) { }
-});
-*/
-
 app.start();

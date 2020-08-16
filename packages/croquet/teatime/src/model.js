@@ -1,4 +1,3 @@
-//import hotreloadEventManger from "@croquet/util/hotreloadEventManager";
 import urlOptions from "@croquet/util/urlOptions";
 import { addClassHash } from "@croquet/util/modules";
 import { displayAppError } from "@croquet/util";

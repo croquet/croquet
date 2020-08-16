@@ -324,13 +324,3 @@ export class Server extends CallbackHandler {
         return `${family.toLowerCase()}://${address}:${port}/`;
     }
 }
-
-
-// hotreloadEventManager.addDisposeHandler("broadcast-channel", () => {
-//     if (channel) {
-//         // notify everyone with a socket to this window
-//         channel._post("close", {port: myPort });
-//         channel.onmessage = () => {};
-//         channel = null;
-//     }
-// });
