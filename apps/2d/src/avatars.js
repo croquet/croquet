@@ -27,7 +27,7 @@ class ModelRoot extends Model {
         const randomInt = Number.parseInt(viewId, 36);
         const hue = Math.floor(randomInt / 50) % 360;
         const saturation = 50 + randomInt % 50;
-        const shape = Shape.create({color: `hsla(${hue},${saturation}%,50%,0.5)`});
+        const shape = BouncingShape.create({color: `hsla(${hue},${saturation}%,50%,0.5)`});
         shape.gravatar = randomInt.toString(16).padStart(16, '0');
         this.shapes[viewId] = shape;
         this.publish(this.id, 'shape-added', shape);
@@ -78,7 +78,8 @@ class BouncingShape extends Shape {
     init(state) {
         super.init(state);
         this.speed = this.randomSpeed();
-        this.future(STEP_MS).step();
+        this.subscribe(this.id, 'stress-step', this.step);
+        if (state.startStepping) this.step(true);
     }
 
     // non-inherited methods below
@@ -88,9 +89,9 @@ class BouncingShape extends Shape {
         return [Math.cos(r) * SPEED, Math.sin(r) * SPEED];
     }
 
-    step() {
+    step(repeat) {
         this.moveBy(this.speed);
-        this.future(STEP_MS).step();
+        if (repeat) this.future(STEP_MS).step(repeat);
     }
 
     moveTo(pos) {
@@ -116,7 +117,7 @@ BouncingShape.register("BouncingShape");
 class Shapes extends ModelRoot {
     init(options) {
         super.init(options);
-        this.shapes["bounce"] = BouncingShape.create({pos: [500, 500], color: "white"});
+        for (let i = 0; i < options.bounce; i++) this.shapes["bounce" + i] = BouncingShape.create({pos: [500, 500], color: "white", startStepping: true});
     }
 }
 Shapes.register("Shape");
@@ -129,6 +130,7 @@ let OFFSETX = 50;               // top-left corner of view, plus half shape widt
 let OFFSETY = 50;               // top-left corner of view, plus half shape height
 
 const TOUCH ='ontouchstart' in document.documentElement;
+const STRESS = +new URL(window.location).searchParams.get("stress");
 
 class ShapesView extends View {
 
@@ -144,6 +146,7 @@ class ShapesView extends View {
         Object.values(model.shapes).forEach(shape => this.attachShape(shape));
         this.subscribe(model.id, 'shape-added', this.attachShape);
         this.subscribe(model.id, 'shape-removed', this.detachShape);
+        if (STRESS) this.startStress(1000 / (Math.min(120, STRESS)));
     }
 
     detach() {
@@ -220,6 +223,10 @@ class ShapesView extends View {
         const alpha = size / 100;
         this.element.style.boxShadow = alpha < 0.2 ? "" : `inset 0 0 ${size}px rgba(${color},${alpha})`;
     }
+
+    startStress(ms) {
+        this.ticker = setInterval(() => this.userShape && this.publish(this.userShape.id, 'stress-step'), ms);
+    }
 }
 
 class ShapeView extends View {
@@ -230,7 +237,7 @@ class ShapeView extends View {
         el.className = model.type;
         el.id = model.id;
         el.style.backgroundColor = model.color;
-        if (model.gravatar) el.style.backgroundImage = `url("https://www.gravatar.com/avatar/${model.gravatar}?d=robohash&f=y&s=100")`;
+        if (!STRESS && model.gravatar) el.style.backgroundImage = `url("https://www.gravatar.com/avatar/${model.gravatar}?d=robohash&f=y&s=100")`;
         this.subscribe(model.id, { event: 'pos-changed', handling: "oncePerFrame" }, this.move);
         this.move(model.pos);
     }
@@ -258,7 +265,9 @@ async function go() {
     App.messages = true;
     App.makeWidgetDock();
 
-    const session = await Session.join(`avatars-${App.autoSession("q")}`, Shapes, ShapesView, { step: "manual", tps: TPS });
+    const bounce = +new URL(window.location).searchParams.get("bounce");
+
+    const session = await Session.join(`avatars-${App.autoSession("q")}`, Shapes, ShapesView, { step: "manual", tps: TPS, options: { bounce: Math.max(1, bounce) } });
     const controller = session.view.realm.island.controller;
 
     let users = 0;

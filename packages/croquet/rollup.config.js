@@ -46,7 +46,8 @@ const is_dev_build = process.env.NODE_ENV !== "production";
 const deps = ["../../../teatime",  "../../../util", "../../../math"];
 const git_branch = execSync("git rev-parse --abbrev-ref HEAD").toString().trim();
 const git_commit = execSync("git rev-parse HEAD").toString().trim();
-const git_dirty = execSync("git status --porcelain -- " + deps.join(" ")).toString().trim();
+const git_pushed = execSync("git branch -r --contains " + git_commit).toString().trim();
+const git_dirty = !git_pushed || execSync("git status --porcelain -- " + deps.join(" ")).toString().trim();
 
 const is_pre_release = is_dev_build || pkg.version.includes('-') || git_branch !== "main" || git_dirty;
 
