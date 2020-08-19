@@ -1,6 +1,6 @@
 {
   "name": "@croquet/react",
-  "version": "0.3.1",
+  "version": "0.3.1-commonjs",
   "description": "",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -12,7 +12,7 @@
   "license": "ISC",
   "dependencies": {
     "@croquet/croquet": "^0.3.1",
-    "@croquet/observable": "^0.3.1"
+    "@croquet/observable": "^0.3.1-commonjs"
   },
   "peerDependencies": {
     "react": "^16.8.6"

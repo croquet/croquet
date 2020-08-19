@@ -1,6 +1,6 @@
 {
   "name": "@croquet/observable",
-  "version": "0.3.1",
+  "version": "0.3.1-commonjs",
   "description": "",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
