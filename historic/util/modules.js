@@ -78,14 +78,14 @@ function functionSource(fn) {
 
 function classSrc(cls) {
     // this is used to provide the source code for hashing, and hence for generating
-    // a session ID.  we do some minimal cleanup to unify the class strings as
-    // provided by different browsers.
+    // a session ID.  we do some minimal cleanup to unify the class / function strings
+    // as provided by different browsers.
     function cleanup(str) {
         const openingBrace = str.indexOf('{');
         const closingBrace = str.lastIndexOf('}');
-        const head = str.slice(0, openingBrace).replace(/\s+/g, ' ').trim();
-        const body = str.slice(openingBrace + 1, closingBrace).trim();
-        return `${head}{${body}}`;
+        const head = str.slice(0, openingBrace).replace(/\s+/g, ' ').replace(/\s\(/, '');
+        const body = str.slice(openingBrace + 1, closingBrace);
+        return `${head.trim()}{${body.trim()}}`;
     }
     const str = "" + cls;
     let src = cleanup(str);
