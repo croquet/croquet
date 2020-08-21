@@ -83,7 +83,7 @@ function classSrc(cls) {
     function cleanup(str) {
         const openingBrace = str.indexOf('{');
         const closingBrace = str.lastIndexOf('}');
-        const head = str.slice(0, openingBrace).replace(/\s+/g, ' ').replace(/\s\(/, '');
+        const head = str.slice(0, openingBrace).replace(/\s+/g, ' ').replace(/\s\(/, '(');
         const body = str.slice(openingBrace + 1, closingBrace);
         return `${head.trim()}{${body.trim()}}`;
     }
