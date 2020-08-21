@@ -782,8 +782,8 @@ async function unregisterSession(id, detail) {
     try {
         await storage.bucket('croquet-reflectors-v1').file(`${id}.json`).delete();
     } catch (err) {
-        if (err.code === 404) LOG("Failed to unregister", id, err.message);
-        else WARN("Failed to unregister", id, err.message);
+        if (err.code === 404) LOG(`${id} failed to unregister. ${err.code}: ${err.message}`);
+        else WARN(`${id} failed to unregister. ${err.code}: ${err.message}`);
     }
 }
 
