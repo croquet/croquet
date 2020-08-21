@@ -80,13 +80,22 @@ function classSrc(cls) {
     // this is used to provide the source code for hashing, and hence for generating
     // a session ID.  we do some minimal cleanup to unify the class strings as
     // provided by different browsers.
+    function cleanup(str) {
+        const openingBrace = str.indexOf('{');
+        const closingBrace = str.lastIndexOf('}');
+        const head = str.slice(0, openingBrace).replace(/\s+/g, ' ').trim();
+        const body = str.slice(openingBrace + 1, closingBrace).trim();
+        return `${head}{${body}}`;
+    }
     const str = "" + cls;
-    const openingBrace = str.indexOf('{');
-    const closingBrace = str.lastIndexOf('}');
-    const head = str.slice(0, openingBrace).replace(/\s+/g, ' ').trim();
-    const body = str.slice(openingBrace + 1, closingBrace).trim();
-    return `${head} {\n${body}}`;
-
+    let src = cleanup(str);
+    if (!str.startsWith("class")) {
+        // likely class has been minified and replaced with function definition
+        // add source of prototype methods
+        const p = cls.prototype;
+        src += Object.getOwnPropertyNames(p).map(n => `${n}:${cleanup("" + p[n])}`).join('');
+    }
+    return src;
     // remnants of an experiment (june 2019) in deriving the same hash for code
     // that is semantically equivalent, even if formatted differently - so that
     // tools such as Codepen, which mess with white space depending on the
