@@ -551,6 +551,16 @@ function SNAP(client, args) {
  */
 function SEND(island, messages) {
     if (!island) return; // client never joined?!
+
+    if (island.messages.length >= MAX_MESSAGES) {
+        INFO(island, {
+            code: "SNAPSHOT_NEEDED",
+            msg: "Cannot buffer more messages. Need snapshot.",
+            options: { level: "warning" }
+        });
+        return;
+    }
+
     const time = getTime(island, "SEND");
     if (island.delay) {
         const delay = island.lastTick + island.delay + 0.1 - time;    // add 0.1 ms to combat rounding errors
@@ -569,10 +579,6 @@ function SEND(island, messages) {
         island.messages.push(message); // raw message sent again in SYNC
     }
     island.lastMsgTime = time;
-    if (island.messages.length > MAX_MESSAGES) {
-        island.messages.splice(0, MAX_MESSAGES - island.messages.length);
-        island.snapshot = null;
-    }
     startTicker(island, island.tick);
 }
 
@@ -708,6 +714,12 @@ function TICK(island) {
             STATS.TICK++;
         }
     });
+}
+
+/** send INFO to all clients */
+function INFO(island, args) {
+    const msg = JSON.stringify({ id: island.id, action: 'INFO', args });
+    island.clients.forEach(client => client.safeSend(msg));
 }
 
 /** client is requesting ticks for an island
