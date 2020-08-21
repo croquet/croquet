@@ -46,6 +46,7 @@ const TICK_MS = 1000 / 5;     // default tick interval
 const INITIAL_SEQ = 0xFFFFFFF0; // initial sequence number, must match island.js
 const ARTIFICIAL_DELAY = 0;   // delay messages randomly by 50% to 150% of this
 const MAX_MESSAGES = 10000;   // messages per island to retain since last snapshot
+const REQU_SNAPSHOT = 9000;   // request a snapshot if this many messages retained
 const MIN_SCALE = 1 / 64;     // minimum ratio of island time to wallclock time
 const MAX_SCALE = 64;         // maximum ratio of island time to wallclock time
 const TALLY_INTERVAL = 1000;  // maximum time to wait to tally TUTTI contributions
@@ -561,6 +562,11 @@ function SEND(island, messages) {
         return;
     }
 
+    if (island.messages.length === REQU_SNAPSHOT) {
+        WARN(`${island.id} reached ${island.messages.length} messages, sending REQU`);
+        REQU(island);
+    }
+
     const time = getTime(island, "SEND");
     if (island.delay) {
         const delay = island.lastTick + island.delay + 0.1 - time;    // add 0.1 ms to combat rounding errors
@@ -714,6 +720,12 @@ function TICK(island) {
             STATS.TICK++;
         }
     });
+}
+
+/** send REQU to all clients */
+function REQU(island) {
+    const msg = JSON.stringify({ id: island.id, action: 'REQU' });
+    island.clients.forEach(client => client.safeSend(msg));
 }
 
 /** send INFO to all clients */
