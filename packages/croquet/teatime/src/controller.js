@@ -590,6 +590,11 @@ export default class Controller {
                 App.showMessage(msg, options);
                 return;
             }
+            case 'REQU': {
+                // reflector requests a snapshot
+                this.cpuTime = 10000;
+                return;
+            }
             case 'LEAVE': {
                 // the server wants us to leave this session and rejoin
                 console.log(this.id, 'Controller received LEAVE');
