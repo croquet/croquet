@@ -4,6 +4,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 
 # 0.3.2
 
+* 0.3.2-12 show INFO messages from reflector, handle SERV snapshot request
 * 0.3.2-11 start session without snapshot, use dev reflectors if pre-release
 * 0.3.2-10 Messenger: add start/stopPublishingPointerMove API
 * 0.3.2-9 distinguish between 0 and -0 in serialization, update dependencies
