@@ -583,6 +583,13 @@ export default class Controller {
                 if (this.tickMultiplier) this.multiplyTick(time);
                 return;
             }
+            case 'INFO': {
+                // information the reflector wants us to know
+                // for the moment just show it
+                const { msg, options } = args;
+                App.showMessage(msg, options);
+                return;
+            }
             case 'LEAVE': {
                 // the server wants us to leave this session and rejoin
                 console.log(this.id, 'Controller received LEAVE');
