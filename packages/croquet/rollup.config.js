@@ -47,13 +47,14 @@ const deps = ["../../../teatime",  "../../../util", "../../../math"];
 const git_branch = execSync("git rev-parse --abbrev-ref HEAD").toString().trim();
 const git_commit = execSync("git rev-parse HEAD").toString().trim();
 const git_pushed = execSync("git branch -r --contains " + git_commit).toString().trim();
-const git_dirty = !git_pushed || execSync("git status --porcelain -- " + deps.join(" ")).toString().trim();
+const git_clean = git_pushed && !execSync("git status --porcelain -- " + deps.join(" ")).toString().trim();
 
-const is_pre_release = is_dev_build || pkg.version.includes('-') || git_branch !== "main" || git_dirty;
+const public_build = !is_dev_build && !pkg.version.includes('-') && git_branch === "main" && git_clean;
 
-process.env.CROQUET_VERSION = !is_pre_release ? pkg.version
-    : !git_dirty ? `${pkg.version}:${git_branch}:${git_commit}`
-    : `${pkg.version}:${git_branch}:${git_commit}:${os.userInfo().username}:${new Date().toISOString()}`;
+// semantic versioning x.y.z-pre.release+meta.data https://semver.org/
+process.env.CROQUET_VERSION = public_build ? pkg.version
+    :  git_clean ? `${pkg.version}+${git_branch}.${git_commit}`
+    : `${pkg.version}+${git_branch}.${git_commit}.${os.userInfo().username}.${new Date().toISOString()}`;
 
 const config = {
     input: 'croquet.js',
