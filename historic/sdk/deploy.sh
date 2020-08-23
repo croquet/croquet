@@ -67,6 +67,11 @@ if [ "$WHAT" != "docs" ] ; then
     # update @croquet/croquet package
     (cd $SRC_PKG ; npm run prepare)
 
+    if grep + $SRC_PKG/.env ; then
+        echo "ERROR: Version name looks not like a release!"
+        exit 1
+    fi
+
     # build & deploy library
     npx parcel build --public-url . --global Croquet -d $SDK -o croquet-$VERSION.min.js sdk.js
 
