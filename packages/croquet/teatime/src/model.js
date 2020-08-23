@@ -498,8 +498,8 @@ class Model {
     }
 
     /**
-     * **Identifies the shared Model of all users**<br>
-     * (as opposed to the [viewId]{@link View#viewId} which identifies the non-shared view of each user).
+     * **Identifies the shared session of all users**<br>
+     * (as opposed to the [viewId]{@link View#viewId} which identifies the non-shared views of each user).
      *
      * The session id is used as "global" scope for events like [`"view-join"`]{@link event:view-join}.
      *
