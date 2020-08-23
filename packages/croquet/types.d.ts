@@ -368,6 +368,23 @@ declare module "@croquet/croquet" {
          * set foo(value) { this.modelOnly(); this._foo = value; }
          * ```*/
         modelOnly(errorMessage?: string): boolean;
+
+        /** **Identifies the shared session of all users**
+         *
+         * (as opposed to the [viewId]{@link View#viewId} which identifies the non-shared views of each user).
+         *
+         * The session id is used as "global" scope for events like [`"view-join"`]{@link event:view-join}.
+         *
+         * See {@link Session.join} for how the session id is generated.
+         *
+         * If your app has several sessions at the same time, each session id will be different.
+         *
+         * Example
+         * ```
+         * this.subscribe(this.sessionId, "view-join", this.addUser);
+         * ```*/
+        get sessionId(): string;
+
     }
 
     export type ViewSubOptions = {
