@@ -93,7 +93,7 @@ if $BUILDDOCS ; then
 fi
 
 git add -A $SDK/ package.json package-lock.json
-git commit -m "[sdk] deploy $MSG to croquet.io/test" $SDK/ package.json package-lock.json || exit
+git commit -m "[sdk] deploy $MSG to croquet.io/testing" $SDK/ package.json package-lock.json || exit
 
 git show --stat
 
