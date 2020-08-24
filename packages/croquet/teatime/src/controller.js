@@ -1,5 +1,7 @@
-import stableStringify from "fast-json-stable-stringify";
 import "@croquet/util/deduplicate";
+import stableStringify from "fast-json-stable-stringify";
+import CryptoJS from "crypto-js";
+import pako from "pako"; // gzip-aware compressor
 import AsyncQueue from "@croquet/util/asyncQueue";
 import { Stats } from "@croquet/util/stats";
 import urlOptions from "@croquet/util/urlOptions";

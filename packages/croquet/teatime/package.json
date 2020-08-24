@@ -1,20 +1,16 @@
 {
   "name": "@croquet/teatime",
-  "version": "0.2.6",
-  "description": "",
+  "version": "0.3.2",
+  "description": "The core client-side protocol for Croquet",
   "main": "index.js",
-  "scripts": {
-    "lint": "eslint src",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "",
-  "license": "ISC",
+  "author": "Croquet Corp",
+  "license": "UNLICENSED",
   "dependencies": {
     "@croquet/math": "file:../math",
     "@croquet/util": "file:../util",
+    "crypto-js": "^4.0.0",
     "fast-json-stable-stringify": "^2.1.0",
     "pako": "^1.0.11",
     "seedrandom": "^3.0.5"
-  },
-  "devDependencies": {}
+  }
 }
