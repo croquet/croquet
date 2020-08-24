@@ -2,7 +2,13 @@
 
 This is a private summary of changes. The public changes are in [README.md](./README.md).
 
+# 0.3.3 prereleases
+
+* 0.3.3-0 version bump
+
+
 # 0.3.2
+
 * 0.3.2-13 hash methods of classes transpiled to functions
 * 0.3.2-12 show INFO messages from reflector, handle SERV snapshot request
 * 0.3.2-11 start session without snapshot, use dev reflectors if pre-release
