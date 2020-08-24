@@ -4,6 +4,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 
 # 0.3.3 prereleases
 
+* 0.3.3-1 add message encryption
 * 0.3.3-0 version bump
 
 
