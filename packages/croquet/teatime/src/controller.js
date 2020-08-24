@@ -12,8 +12,6 @@ import { inViewRealm } from "./realms";
 import { viewDomain } from "./domain";
 import Island, { Message } from "./island";
 
-const pako = require('pako'); // gzip-aware compressor
-
 /** @typedef { import('./model').default } Model */
 
 // when reflector has a new feature, we increment this value
@@ -535,10 +533,17 @@ export default class Controller {
                 // if any conversion of custom reflector messages is to be done, do it before
                 // waiting for the snapshot to arrive (because there might be some meta-processing
                 // that happens immediately on conversion; this is the case for "users" messages)
-                for (const msg of messages) {
+                for (const encrypted_msg of messages) {
+                    let msg = null;
+                    if (typeof encrypted_msg[2] !== "string") {
+                        this.convertReflectorMessage(encrypted_msg);
+                        msg = encrypted_msg;
+                    } else {
+                        const dp = this.decrypt_payload(encrypted_msg[2])
+                        msg = [encrypted_msg[0], encrypted_msg[1], dp.msgPayload, dp.viewId, dp.lastSent, args.latency]
+                    }
                     if (DEBUG.messages) console.log(this.id, 'Controller received message in SYNC ' + JSON.stringify(msg));
                     msg[1] >>>= 0; // make sure it's uint32 (reflector used to send int32)
-                    if (typeof msg[2] !== "string") this.convertReflectorMessage(msg);
                     this.networkQueue.put(msg);
                 }
                 this.timeFromReflector(time);
@@ -572,10 +577,18 @@ export default class Controller {
                 // Put it in the queue, and set time.
                 // Actual processing happens in main loop.
                 if (DEBUG.messages) console.log(this.id, 'Controller received RECV ' + JSON.stringify(args));
-                const msg = args;   // [0:time, 1:seq, 2:payload, 3:senderId, 4:timeSent, 5:prevLatency, ...]
+                let msg = null;
+                const encrypted_msg = args;
                 // the reflector might insert messages on its own, indicated by a non-string payload
                 // we need to convert the payload to the message format this client is using
-                if (typeof msg[2] !== "string") this.convertReflectorMessage(msg);
+                if (typeof encrypted_msg[2] !== "string") {
+                    this.convertReflectorMessage(encrypted_msg);
+                    msg = encrypted_msg;
+                } else {
+                    const dp = this.decrypt_payload(encrypted_msg[2])
+                    msg = [encrypted_msg[0], encrypted_msg[1], dp.msgPayload, dp.viewId, dp.lastSent, args.latency]
+
+                }
                 msg[1] >>>= 0; // make sure it's uint32 (reflector used to send int32)
                 // if we sent this message, add it to latency statistics
                 if (msg[3] === this.viewId) this.addToStatistics(msg[4], this.lastReceived);
@@ -717,10 +730,15 @@ export default class Controller {
         }
     }
 
+    decrypt_payload(payload) {
+        const pl = JSON.parse(payload);
+        return JSON.parse(CryptoJS.enc.Utf8.stringify(this.decrypt(pl.ciphertext, pl.iv, pl.hmac)));
+    }
+
     compare_hmacs(fst, snd) {
-        let ret = fst.length == snd.length;
+        let ret = fst.length === snd.length;
         for(let i=0; i<fst.length; i++) {
-            if (!(fst[i] == snd[i])) {
+            if (!(fst[i] === snd[i])) {
                 ret = false;
             }
         }
@@ -736,10 +754,17 @@ export default class Controller {
         if (this.viewOnly) return;
         if (DEBUG.sends) console.log(this.id, `Controller sending SEND ${msg.asState()}`);
         this.lastSent = Date.now();
+        const [time, seq,msgPayload] = msg.asState();
+        const plaintext = (JSON.stringify({
+            msgPayload,
+            viewId: this.viewId,
+            lastSent: this.lastSent
+        }));
+        const encryptedPayload = JSON.stringify(this.encrypt(plaintext));
         this.connection.send(JSON.stringify({
             id: this.id,
             action: 'SEND',
-            args: [...msg.asState(), this.viewId, this.lastSent, this.latency],
+            args: [time, seq, encryptedPayload, this.latency],
         }));
     }
 
@@ -754,10 +779,17 @@ export default class Controller {
         if (this.viewOnly) return;
         if (DEBUG.sends) console.log(this.id, `Controller sending tagged SEND ${msg.asState()} with tags ${JSON.stringify(tags)}`);
         this.lastSent = Date.now();
+        const [time, seq,msgPayload] = msg.asState();
+        const plaintext = (JSON.stringify({
+            msgPayload,
+            viewId: this.viewId,
+            lastSent: this.lastSent
+        }));
+        const encryptedPayload = JSON.stringify(this.encrypt(plaintext));
         this.connection.send(JSON.stringify({
             id: this.id,
             action: 'SEND',
-            args: [...msg.asState(), this.viewId, this.lastSent],
+            args: [time, seq, encryptedPayload, this.latency],
             tags
         }));
     }
