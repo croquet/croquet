@@ -93,8 +93,10 @@ export default class Controller {
         this.networkQueue = new AsyncQueue();
         /** the time stamp of last message received from reflector */
         this.time = 0;
-        /** the human-readable session name (e.g. "room/user/random") */
+        /** @type {String} the human-readable session name (e.g. "room/user/random") */
         this.session = '';
+        /** key generated from password, shared by all clients */
+        this.key = null;
         /** @type {String} the client id (different in each replica, but stays the same on reconnect) */
         this.viewId = this.viewId || randomString(); // todo: have reflector assign unique ids
         /** the number of concurrent users in our island (excluding spectators) */
@@ -182,12 +184,18 @@ export default class Controller {
      */
     async establishSession(name, sessionSpec) {
         initDEBUG();
-        const { optionsFromUrl, multiRoom, autoSession, login: doLogin } = sessionSpec;
+        const { optionsFromUrl, password, multiRoom, autoSession, login: doLogin } = sessionSpec;
         const options = {...sessionSpec.options};
         for (const key of [...OPTIONS_FROM_URL, ...optionsFromUrl||[]]) {
             if (key in urlOptions) options[key] = urlOptions[key];
         }
         if (doLogin) await login();
+        // if the default shows up in logs we have a problem
+        const keyMaterial = password || urlOptions.pw || "THIS SHOULDN'T BE IN LOGS"; 
+        const pbkdf2Result = CryptoJS.PBKDF2(keyMaterial, "", {
+            keySize: 256/32,
+        });
+        this.key = CryptoJS.lib.WordArray.create(pbkdf2Result.words.slice(0, 256/32));
         if (autoSession) {
             // session is either "user/random" or "room/user/random" (for multi-room)
             const room = name;
@@ -685,6 +693,38 @@ export default class Controller {
         Controllers.delete(this);   // after reset so it does not re-enable the SYNC overlay
         if (!this.islandCreator) throw Error("do not discard islandCreator!");
         if (destroyerFn) destroyerFn();
+    }
+
+    encrypt(plaintext) {
+        const iv  = CryptoJS.lib.WordArray.random(16);
+        const encrypted = CryptoJS.AES.encrypt(plaintext, this.key, {
+            iv: iv,
+            padding: CryptoJS.pad.Pkcs7,
+            mode: CryptoJS.mode.CBC
+          });
+        const hmac = CryptoJS.HmacSHA256(plaintext, this.key);
+        return {ciphertext: encrypted.toString(), iv, hmac};
+    }
+
+    decrypt(ciphertext, iv, mac) {
+        const decrypted = CryptoJS.AES.decrypt(ciphertext, this.key, {iv:iv});
+        const hmac = CryptoJS.HmacSHA256(CryptoJS.enc.Utf8.stringify(decrypted), this.key);
+        if(this.compare_hmacs(mac.words, hmac.words)) {
+            return decrypted;
+        }
+        else {
+            return "";
+        }
+    }
+
+    compare_hmacs(fst, snd) {
+        let ret = fst.length == snd.length;
+        for(let i=0; i<fst.length; i++) {
+            if (!(fst[i] == snd[i])) {
+                ret = false;
+            }
+        }
+        return ret;
     }
 
     /** send a Message to all island replicas via reflector
