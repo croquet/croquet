@@ -191,7 +191,7 @@ export default class Controller {
         }
         if (doLogin) await login();
         // if the default shows up in logs we have a problem
-        const keyMaterial = password || urlOptions.pw || "THIS SHOULDN'T BE IN LOGS"; 
+        const keyMaterial = password || urlOptions.pw || "THIS SHOULDN'T BE IN LOGS";
         const pbkdf2Result = CryptoJS.PBKDF2(keyMaterial, "", {
             keySize: 256/32,
         });
