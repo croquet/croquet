@@ -33,8 +33,8 @@ console.log("Croquet SDK " + SDK_VERSION);
 // ...unless overridden by a "dev" url option, which selects the dev dispatcher and reflector
 // ...unless overridden by a "reflector=<url>" url option, which sets the specified url
 
-const PUBLIC_REFLECTOR_BASE = window.location.hostname.endsWith("croquet.io") ? `${window.location.host}/reflector` : "croquet.io/reflector";
-const PUBLIC_REFLECTOR = `wss://${PUBLIC_REFLECTOR_BASE}/v${VERSION}`;
+const PUBLIC_REFLECTOR_HOST = window.location.hostname.match(/^(.*\.)?croquet\.io$/i) ? window.location.host : "croquet.io";
+const PUBLIC_REFLECTOR = `wss://${PUBLIC_REFLECTOR_HOST}/reflector/v${VERSION}`;
 const DEFAULT_REFLECTOR = process.env.CROQUET_REFLECTOR || PUBLIC_REFLECTOR;    // replaced by parcel at build time from app's .env file
 const DEV_DEFAULT_REFLECTOR = "wss://croquet.io/reflector-dev/dev";
 
