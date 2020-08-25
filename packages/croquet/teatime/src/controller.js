@@ -330,11 +330,14 @@ export default class Controller {
             return;
         }
 
-        const snapshotFromGroup = (groupHash, announce) => {
+        const snapshotFromGroup = (groupHash, isConsensus) => {
             const clientIndices = votesByHash[groupHash];
             if (clientIndices.length > 1) clientIndices.sort((a, b) => votes[a].cpuTime - votes[b].cpuTime); // ascending order
             const selectedClient = clientIndices[0];
-            if (voteStrings[selectedClient] === _local) this.serveSnapshot(announce);
+            if (voteStrings[selectedClient] === _local) {
+                const dissidentFlag = isConsensus ? null : { groupSize: clientIndices.length };
+                this.serveSnapshot(dissidentFlag);
+            }
             };
 
         // figure out whether there's a consensus on the summary hashes
@@ -359,14 +362,14 @@ export default class Controller {
         hashGroups.forEach(hash => snapshotFromGroup(hash, hash === consensusHash));
     }
 
-    serveSnapshot(announce) {
+    serveSnapshot(dissidentFlag) {
         const start = Stats.begin("snapshot");
         const snapshot = this.takeSnapshot();
         const ms = Stats.end("snapshot") - start;
         // exclude snapshot time from cpu time for logic in this.simulate()
         this.cpuTime -= ms;
         if (DEBUG.snapshot) console.log(this.id, `Snapshotting took ${Math.ceil(ms)} ms`);
-        this.uploadSnapshot(snapshot, announce);
+        this.uploadSnapshot(snapshot, dissidentFlag);
     }
 
     snapshotUrl(filetype, time, seq, hash, optExt) {
@@ -397,8 +400,8 @@ export default class Controller {
         return snapshot.meta.hashPromise;
     }
 
-    /** upload a snapshot to the file server, and optionally inform reflector */
-    async uploadSnapshot(snapshot, announceToReflector=true) {
+    /* upload a snapshot to the file server, optionally with a dissident argument that the reflector can interpret as meaning that this is not the snapshot to serve to new clients */
+    async uploadSnapshot(snapshot, dissidentFlag=null) {
         await this.hashSnapshot(snapshot);
 
         const start = Date.now();
@@ -412,18 +415,22 @@ export default class Controller {
         const success = await this.uploadGzipped(gzurl, body);
         if (this.connection.socket !== socket) { console.error("Controller was reset while trying to upload snapshot"); return false; }
         if (!success) { console.error("Failed to upload snapshot"); return false; }
-        if (announceToReflector) this.announceSnapshotUrl(time, seq, hash, gzurl);
+        this.announceSnapshotUrl(time, seq, hash, gzurl, dissidentFlag);
         return true;
     }
 
     // was sendSnapshotToReflector
-    announceSnapshotUrl(time, seq, hash, url) {
-        if (DEBUG.snapshot) console.log(this.id, `Controller sending snapshot url to reflector (time: ${time}, seq: ${seq}, hash: ${hash}): ${url}`);
+    announceSnapshotUrl(time, seq, hash, url, dissidentFlag) {
+        if (DEBUG.snapshot) {
+            let logProps = `time: ${time}, seq: ${seq}, hash: ${hash}`;
+            if (dissidentFlag) logProps += ", dissident: " + JSON.stringify(dissidentFlag);
+            console.log(this.id, `Controller sending snapshot url to reflector (${logProps}): ${url}`);
+        }
         try {
             this.connection.send(JSON.stringify({
                 id: this.id,
                 action: 'SNAP',
-                args: {time, seq, hash, url},
+                args: {time, seq, hash, url, dissident: dissidentFlag},
             }));
         } catch (e) {
             console.error('ERROR while sending', e);
