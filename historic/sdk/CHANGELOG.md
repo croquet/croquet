@@ -9,7 +9,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 * 0.3.3-0 version bump
 
 
-# 0.3.2
+# 2020-08-23: 0.3.2
 
 * 0.3.2-13 hash methods of classes transpiled to functions
 * 0.3.2-12 show INFO messages from reflector, handle SERV snapshot request
@@ -26,7 +26,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 * 0.3.2-1 detect dormancy in iFrames
 * 0.3.2-0 accept `autoSleep: seconds` argument
 
-# 0.3.1
+# 2020-06-08: 0.3.1
 
 * 0.3.1-5 remove names and location from internal join/exit events
 * 0.3.1-4 fix asymmetric view-join/exit events when reconnecting with same viewId
@@ -34,7 +34,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 * 0.3.1-2 fixed detection of model divergence
 * 0.3.1-1 made `"view-join"` and `"view-exit"` model-only
 
-# 0.3.0
+# 2020-05-18: 0.3.0
 
 * deprecated `startSession`, use `Session.join` instead
 * `future` messages arguments are passed by identity, not copied anymore
@@ -43,7 +43,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 * added `App.autoSession` (undocumented)
 * debug badge state is stored in localStorage
 
-# 0.2.7
+# 2020-03-24: 0.2.7
 
 * added `options` for model root to Session.join (documented)
 * added `latency` and `latencies` accessors to session (undocumented)
@@ -67,7 +67,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 * reflector: consistent session ids / connection ids in log entries
 * reflector: collect connection stats
 
-# 0.2.6
+# 2019-12-16: 0.2.6
 
 * switch to croquet.io/reflector/v1 and croquet.io/files-v1
 * fixes to work on Microsoft Edge
@@ -82,7 +82,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 * fix simulation non-determinism (no more external messages in future queue)
 * debug url options accept singular or plural, like `debug=snapshot/s`
 
-# 0.2.5
+# 2019-10-18: 0.2.5
 
 * debug badge ("widget dock")
 * new `Croquet.App` API for debug UI etc.
