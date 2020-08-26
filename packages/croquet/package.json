@@ -19,7 +19,7 @@
     "prepare": ""
   },
   "watch": {
-    "build": {
+    "build-dev": {
       "patterns": [
         ".",
         "../../../teatime",
