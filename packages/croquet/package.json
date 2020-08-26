@@ -11,9 +11,12 @@
   ],
   "scripts": {
     "start": "npm run watch",
-    "watch": "npm-watch build",
-    "build": "rollup -c --environment NODE_ENV:development",
-    "prepare": "rollup -c --environment NODE_ENV:production"
+    "watch": "npm-watch build-dev",
+    "build-dev": "rollup -c --environment NODE_ENV:development",
+    "build-prod": "rollup -c --environment NODE_ENV:production",
+    "prepublishOnly": "npm run build-prod",
+    "clean": "rm -f dist/*; git checkout dist/",
+    "prepare": ""
   },
   "watch": {
     "build": {
