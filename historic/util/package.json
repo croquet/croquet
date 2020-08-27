@@ -1,6 +1,6 @@
 {
   "name": "@croquet/util",
-  "version": "0.0.1",
+  "version": "42",
   "description": "misc utilities",
   "main": "index.js",
   "scripts": {

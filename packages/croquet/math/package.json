@@ -1,6 +1,6 @@
 {
   "name": "@croquet/math",
-  "version": "0.0.1",
+  "version": "42",
   "description": "Deterministic float math functions based on stdlib-js",
   "main": "math-dist.js",
   "scripts": {

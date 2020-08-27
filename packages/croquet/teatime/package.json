@@ -1,6 +1,6 @@
 {
   "name": "@croquet/teatime",
-  "version": "0.3.2",
+  "version": "42",
   "description": "The core client-side protocol for Croquet",
   "main": "index.js",
   "author": "Croquet Corp",
