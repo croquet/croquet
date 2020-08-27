@@ -28,8 +28,8 @@
     "cssnano": "^4.1.10",
     "eslint": "^5.14.1",
     "eslint-config-airbnb-base": "^13.1.0",
-    "eslint-import-resolver-parcel": "^1.10.1",
-    "eslint-plugin-import": "^2.16.0",
-    "parcel-bundler": "^1.12.3"
+    "eslint-import-resolver-parcel": "^1.10.4",
+    "eslint-plugin-import": "^2.22.0",
+    "parcel-bundler": "^1.12.4"
   }
 }
