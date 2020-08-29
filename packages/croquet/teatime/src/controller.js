@@ -292,7 +292,7 @@ export default class Controller {
         const message = new Message(now, 0, this.island.id, "pollForSnapshot", []);
         // tell reflector only to reflect this message if no message with same ID has been sent in past 5000ms (wall-clock time)
         this.sendTagged(message, { debounce: 5000, msgID: "pollForSnapshot" });
-        if (DEBUG.snapshot) console.log(this.id, 'Controller scheduling snapshot via reflector');
+        if (DEBUG.snapshot) console.log(this.id, 'requesting snapshot poll via reflector');
     }
 
     preparePollForSnapshot() {
@@ -308,6 +308,7 @@ export default class Controller {
     pollForSnapshot(time, tuttiSeq, voteData) {
         voteData.cpuTime += Math.random(); // fuzzify by 0-1ms to further reduce [already minuscule] risk of exact agreement.  NB: this is a view-side random().
         const voteMessage = [this.id, "handleSnapshotVote", "snapshotVote"]; // direct message to the island (3rd arg - topic - will be ignored)
+        if (DEBUG.snapshot) console.log(this.id, 'sending snapshot vote', voteData);
         this.sendTutti(time, tuttiSeq, voteData, null, true, voteMessage);
     }
 
@@ -316,6 +317,7 @@ export default class Controller {
             if (DEBUG.snapshot) console.log(`Ignoring snapshot vote during sync`);
             return;
         }
+        if (DEBUG.snapshot) console.log("received snapshot votes", data);
 
         // data is { _local, tuttiSeq, tally } where tally is an object keyed by
         // the JSON for { cpuTime, hash } with a count for each key (which we
