@@ -1,7 +1,6 @@
 import { hashBuffer } from "@croquet/util/modules";
 import { App } from "@croquet/util/html";
 import urlOptions from "@croquet/util/urlOptions";
-import Model from "./model";
 import Island from "./island";
 
 
@@ -105,15 +104,8 @@ export default class DataHandle {
     // no other methods - API is static
 }
 
-class DataHandleModel extends Model {
-    static types() {
-        return {
-            "@croquet.data": {
-                cls: DataHandle,
-                write: handle => handle[DATAHANDLE_HASH],
-                read: state => new DataHandle(state),
-            }
-        };
-    }
-}
-DataHandleModel.register();
+export const DataHandleSpec = {
+    cls: DataHandle,
+    write: handle => handle[DATAHANDLE_HASH],
+    read: state => new DataHandle(state),
+};

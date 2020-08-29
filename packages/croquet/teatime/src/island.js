@@ -6,6 +6,8 @@ import { displayWarning, displayAppError } from "@croquet/util/html";
 import Model from "./model";
 import { inModelRealm, inViewRealm } from "./realms";
 import { viewDomain } from "./domain";
+import { DataHandleSpec } from "./data";
+
 
 /** @type {Island} */
 let CurrentIsland = null;
@@ -779,6 +781,7 @@ class IslandHasher {
         this.todo = []; // we use breadth-first writing to limit stack depth
         this.hashers = new Map();
         this.addHasher("Teatime:Message", Message);
+        this.addHasher("Teatime:Data", DataHandleSpec);
         for (const [classId, ClassOrSpec] of Model.allClassTypes()) {
             this.addHasher(classId, ClassOrSpec);
         }
@@ -954,6 +957,7 @@ class IslandWriter {
         this.todo = []; // we use breadth-first writing to limit stack depth
         this.writers = new Map();
         this.addWriter("Teatime:Message", Message);
+        this.addWriter("Teatime:Data", DataHandleSpec);
         for (const [classId, ClassOrSpec] of Model.allClassTypes()) {
             this.addWriter(classId, ClassOrSpec);
         }
@@ -1166,6 +1170,7 @@ class IslandReader {
         this.unresolved = [];
         this.readers = new Map();
         this.addReader("Teatime:Message", Message);
+        this.addReader("Teatime:Data", DataHandleSpec);
         for (const [classId, ClassOrSpec] of Model.allClassTypes()) {
             this.addReader(classId, ClassOrSpec);
         }
