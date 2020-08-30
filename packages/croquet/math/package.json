@@ -1,17 +1,16 @@
 {
   "name": "@croquet/math",
-  "version": "42",
+  "version": "0.0.42",
   "description": "Deterministic float math functions based on stdlib-js",
   "main": "math-dist.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "Croquet",
-  "license": "Unlicensed",
+  "author": "Croquet Corp",
+  "license": "UNLICENSED",
   "dependencies": {},
   "devDependencies": {
-    "@stdlib/stdlib": "0.0.62",
-    "browserify": "^16.3.0",
-    "tinyify": "^2.5.1"
+    "@rollup/plugin-commonjs": "^15.0.0",
+    "@rollup/plugin-node-resolve": "^9.0.0",
+    "@stdlib/stdlib": "0.0.92",
+    "rollup": "^2.26.8",
+    "rollup-plugin-cleanup": "^3.1.1"
   }
 }

@@ -1,1 +1,3423 @@
-!function(){"use strict";var r,n=function(r){return r!=r},t=Math.sqrt,e=.7853981633974483,u=function(r){var u,o,i,f,a;if(n(r))return NaN;if(r>0?i=r:(u=!0,i=-r),i>1)return NaN;if(i>.625)f=(o=1-i)*function(r){var n,t;return 0===r?.08333333333333809:((r<0?-r:r)<=1?(n=28.536655482610616+r*(r*(6.968710824104713+r*(.002967721961301243*r-.5634242780008963))-25.56901049652825),t=342.43986579130785+r*(r*(147.0656354026815+r*(1*r-21.947795316429207))-383.8770957603691)):(n=.002967721961301243+(r=1/r)*(r*(6.968710824104713+r*(28.536655482610616*r-25.56901049652825))-.5634242780008963),t=1+r*(r*(147.0656354026815+r*(342.43986579130785*r-383.8770957603691))-21.947795316429207)),n/t)}(o),o=t(o+o),a=e-o,a-=o=o*f-6.123233995736766e-17,a+=e;else{if(i<1e-8)return r;a=i*(a=(o=i*i)*function(r){var n,t;return 0===r?.16666666666666713:((r<0?-r:r)<=1?(n=r*(19.562619833175948+r*(r*(5.444622390564711+r*(.004253011369004428*r-.6019598008014124))-16.262479672107002))-8.198089802484825,t=r*(139.51056146574857+r*(r*(70.49610280856842+r*(1*r-14.740913729888538))-147.1791292232726))-49.18853881490881):(n=.004253011369004428+(r=1/r)*(r*(5.444622390564711+r*(r*(19.562619833175948+-8.198089802484825*r)-16.262479672107002))-.6019598008014124),t=1+r*(r*(70.49610280856842+r*(r*(139.51056146574857+-49.18853881490881*r)-147.1791292232726))-14.740913729888538)),n/t)}(o))+i}return u?-a:a},o=function(r){var o;return n(r)?NaN:r<-1||r>1?NaN:r>.5?2*u(t(.5-.5*r)):(o=e-u(r),o+=6.123233995736766e-17,o+=e)},i=function(){return"function"==typeof Symbol&&"symbol"==typeof Symbol("foo")}(),f=function(){return i&&"symbol"==typeof Symbol.toStringTag},a=Object.prototype.toString,c=Object.prototype.hasOwnProperty,w=function(r,n){return null!=r&&c.call(r,n)},y="function"==typeof Symbol?Symbol.toStringTag:"",l={};r=f()?function(r){var n,t,e;if(null==r)return a.call(r);t=r[y],n=w(r,y);try{r[y]=void 0}catch(u){return a.call(r)}return e=a.call(r),n?r[y]=t:delete r[y],e}:function(r){return a.call(r)},l=r;var v="function"==typeof Uint32Array,N=function(r){return v&&r instanceof Uint32Array||"[object Uint32Array]"===l(r)},h="function"==typeof Uint32Array?Uint32Array:null,s="function"==typeof Uint32Array?Uint32Array:null,d={};d=function(){var r,n;if("function"!=typeof h)return!1;try{n=new h(n=[1,3.14,-3.14,4294967296,4294967297]),r=N(n)&&1===n[0]&&3===n[1]&&4294967293===n[2]&&0===n[3]&&1===n[4]}catch(t){r=!1}return r}()?s:function(){throw new Error("not implemented")};var p="function"==typeof Float64Array,A=function(r){return p&&r instanceof Float64Array||"[object Float64Array]"===l(r)},M="function"==typeof Float64Array?Float64Array:null,q="function"==typeof Float64Array?Float64Array:null,b={};b=function(){var r,n;if("function"!=typeof M)return!1;try{n=new M([1,3.14,-3.14,NaN]),r=A(n)&&1===n[0]&&3.14===n[1]&&-3.14===n[2]&&n[3]!=n[3]}catch(t){r=!1}return r}()?q:function(){throw new Error("not implemented")};var C,U="function"==typeof Uint8Array,m=function(r){return U&&r instanceof Uint8Array||"[object Uint8Array]"===l(r)},g="function"==typeof Uint8Array?Uint8Array:null,I="function"==typeof Uint8Array?Uint8Array:null;C=function(){var r,n;if("function"!=typeof g)return!1;try{n=new g(n=[1,3.14,-3.14,256,257]),r=m(n)&&1===n[0]&&3===n[1]&&253===n[2]&&0===n[3]&&1===n[4]}catch(t){r=!1}return r}()?I:function(){throw new Error("not implemented")};var F,S="function"==typeof Uint16Array,H=function(r){return S&&r instanceof Uint16Array||"[object Uint16Array]"===l(r)},O="function"==typeof Uint16Array?Uint16Array:null,x="function"==typeof Uint16Array?Uint16Array:null,E={uint16:function(){var r,n;if("function"!=typeof O)return!1;try{n=new O(n=[1,3.14,-3.14,65536,65537]),r=H(n)&&1===n[0]&&3===n[1]&&65533===n[2]&&0===n[3]&&1===n[4]}catch(t){r=!1}return r}()?x:function(){throw new Error("not implemented")},uint8:C};(F=new E.uint16(1))[0]=4660;var j,T=52===new E.uint8(F.buffer)[0];j=!0===T?1:0;var G,L=new b(1),W=new d(L.buffer),P=function(r){return L[0]=r,W[j]};G=!0===T?1:0;var V,Y,_,k=new b(1),z=new d(k.buffer),B=function(r,n){return k[0]=r,z[G]=n>>>0,k[0]},D=Number.POSITIVE_INFINITY,J=Number.NEGATIVE_INFINITY,K=.6931471803691238,Q=1.9082149292705877e-10,R=function(r){var t,e,u,o,i,f,a,c,w,y;if(r<-1||n(r))return NaN;if(-1===r)return J;if(r===D)return r;if(0===r)return r;if(y=1,(u=r<0?-r:r)<.41421356237309503){if(u<1.862645149230957e-9)return u<5.551115123125783e-17?r:r-r*r*.5;r>-.2928932188134525&&(y=0,o=r,e=1)}return 0!==y&&(u<9007199254740992?(i=(y=((e=P(w=1+r))>>20)-1023)>0?1-(w-r):r-(w-1),i/=w):(y=((e=P(w=r))>>20)-1023,i=0),(e&=1048575)<434334?w=B(w,1072693248|e):(y+=1,w=B(w,1071644672|e),e=1048576-e>>2),o=w-1),t=.5*o*o,0===e?0===o?y*K+(i+=y*Q):y*K-((c=t*(1-.6666666666666666*o))-(y*Q+i)-o):(c=(a=(f=o/(2+o))*f)*function(r){return 0===r?.6666666666666735:.6666666666666735+r*(.3999999999940942+r*(.2857142874366239+r*(.22222198432149784+r*(.1818357216161805+r*(.15313837699209373+.14798198605116586*r)))))}(a),0===y?o-(t-f*(t+c)):y*K-(t-(f*(t+c)+(y*Q+i))-o))},X=.6931471805599453,Z=1.9082149292705877e-10,$=function(r){var t,e,u,o,i,f,a,c,w,y,l;return 0===r?J:n(r)||r<0?NaN:(o=0,(e=P(r))<1048576&&(o-=54,e=P(r*=0x40000000000000)),e>=2146435072?r+r:(o+=(e>>20)-1023|0,o+=(a=614244+(e&=1048575)&1048576|0)>>20|0,f=(r=B(r,e|1072693248^a))-1,(1048575&2+e)<3?0===f?0===o?0:.6931471803691238*o+o*Z:(i=f*f*(.5-.3333333333333333*f),0===o?f-i:.6931471803691238*o-(i-o*Z-f)):(a=e-398458|0,c=440401-e|0,u=(y=(l=(w=f/(2+f))*w)*l)*function(r){return 0===r?.3999999999940942:.3999999999940942+r*(.22222198432149784+.15313837699209373*r)}(y),i=l*function(r){return 0===r?.6666666666666735:.6666666666666735+r*(.2857142874366239+r*(.1818357216161805+.14798198605116586*r))}(y)+u,(a|=c)>0?(t=.5*f*f,0===o?f-(t-w*(t+i)):.6931471803691238*o-(t-(w*(t+i)+o*Z)-f)):0===o?f-w*(f-i):.6931471803691238*o-(w*(f-i)-o*Z-f))))},rr=function(r){var e;return n(r)?NaN:r<1?NaN:1===r?0:r>=1<<28?$(r)+X:r>2?$(2*r-1/(r+t(r*r-1))):R((e=r-1)+t(2*e+e*e))},nr=function(r){return r===D||r===J},tr=function(r){var e,u,o;return n(r)||nr(r)?r:(r<0&&(r=-r,e=!0),o=r<1/(1<<28)?r:r>1<<28?$(r)+X:r>2?$(2*r+1/(t(r*r+1)+r)):R(r+(u=r*r)/(1+t(1+u))),e?-o:o)},er=1.5707963267948966,ur=function(r){var t,u,o,i;return n(r)||0===r?r:r===D?er:r===J?-er:(r<0&&(u=!0,r=-r),t=0,r>2.414213562373095?(o=er,t=1,r=-1/r):r<=.66?o=0:(o=e,t=2,r=(r-1)/(r+1)),i=r*(i=(i=r*r)*function(r){return 0===r?-64.85021904942025:r*(r*(r*(-.8750608600031904*r-16.157537187333652)-75.00855792314705)-122.88666844901361)-64.85021904942025}(i)/function(r){return 0===r?194.5506571482614:194.5506571482614+r*(485.3903996359137+r*(432.88106049129027+r*(165.02700983169885+r*(24.858464901423062+1*r))))}(i))+r,2===t?i+=3.061616997868383e-17:1===t&&(i+=6.123233995736766e-17),o+=i,u?-o:o)},or=function(r){var t,e;return n(r)?NaN:r<-1||r>1?NaN:1===r?D:-1===r?J:(r<0&&(t=!0,r=-r),r<1/(1<<28)?t?-r:r:(e=r<.5?.5*R((e=r+r)+e*r/(1-r)):.5*R((r+r)/(1-r)),t?-e:e))};!0===T?(Y=1,_=0):(Y=0,_=1),V={HIGH:Y,LOW:_};var ir,fr,ar,cr=new b(1),wr=new d(cr.buffer),yr=V.HIGH,lr=V.LOW,vr=function(r,n){return cr[0]=n,r[0]=wr[yr],r[1]=wr[lr],r},Nr=function(r,n){return 1===arguments.length?vr([0,0],r):vr(r,n)};!0===T?(fr=1,ar=0):(fr=0,ar=1),ir={HIGH:fr,LOW:ar};var hr,sr=new b(1),dr=new d(sr.buffer),pr=ir.HIGH,Ar=ir.LOW,Mr=function(r,n){return dr[pr]=r,dr[Ar]=n,sr[0]},qr=[0,0],br=function(r,n){var t,e;return Nr(qr,r),t=qr[0],t&=2147483647,e=P(n),Mr(t|=e&=2147483648,qr[1])},Cr=function(r){return!!(P(r)>>>31)},Ur=3.141592653589793,mr=function(r,t){var e;return n(t)||n(r)?NaN:nr(t)?t===D?nr(r)?br(Ur/4,r):br(0,r):nr(r)?br(3*Ur/4,r):br(Ur,r):nr(r)?br(Ur/2,r):0===r?t>=0&&!Cr(t)?br(0,r):br(Ur,r):0===t?br(Ur/2,r):(e=ur(r/t),t<0?e<=0?e+Ur:e-Ur:e)},gr=function(r){var t,e,u,o,i;return n(r)||nr(r)||0===r?r:(e=-2147483648&(u=P(r)),u&=2147483647,i=0,r<2.2250738585072014e-308?(i=0x40000000000000,t=P(i*=r),i=Mr(e|(t=(2147483647&t)/3+696219795),0)):i=B(i,e|(t=u/3+715094163)),i*=function(r){return 0===r?1.87595182427177:1.87595182427177+r*(r*(1.6214297201053545+r*(.14599619288661245*r-.758397934778766))-1.8849797954337717)}(o=i*i*(i/r)),t=P(i),i=Mr(t+1,0),i+=i*(o=((o=r/(i*i))-i)/(i+i+o)))},Ir=function(r,n){var t,e,u,o;return u=(o=r*r)*o,e=o*function(r){return 0===r?.0416666666666666:.0416666666666666+r*(2480158728947673e-20*r-.001388888888887411)}(o),e+=u*u*function(r){return 0===r?-2.7557314351390663e-7:r*(2.087572321298175e-9+-1.1359647557788195e-11*r)-2.7557314351390663e-7}(o),(u=1-(t=.5*o))+(1-u-t+(o*e-r*n))},Fr=-.16666666666666632,Sr=function(r,n){var t,e,u;return t=.00833333333332249+(u=r*r)*(27557313707070068e-22*u-.0001984126982985795)+u*(u*u)*(1.58969099521155e-10*u-2.5050760253406863e-8),e=u*r,0===n?r+e*(Fr+u*t):r-(u*(.5*n-e*t)-n-e*Fr)};hr=!0===T?0:1;var Hr=new b(1),Or=new d(Hr.buffer),xr=function(r){return Hr[0]=r,Or[hr]},Er=Math.floor,jr=function(r){return r<0?-r:0===r?0:r},Tr=function(r,t){return n(t)||nr(t)?(r[0]=t,r[1]=0,r):0!==t&&jr(t)<2.2250738585072014e-308?(r[0]=4503599627370496*t,r[1]=-52,r):(r[0]=t,r[1]=0,r)},Gr=function(r,n){return 1===arguments.length?Tr([0,0],r):Tr(r,n)},Lr=function(r){var n=P(r);return(n=(2146435072&n)>>>20)-1023|0},Wr=[0,0],Pr=[0,0],Vr=function(r,t){var e,u;return 0===r||n(r)||nr(r)?r:(Gr(Wr,r),t+=Wr[1],(t+=Lr(r=Wr[0]))<-1074?br(0,r):t>1023?r<0?J:D:(t<=-1023?(t+=52,u=2.220446049250313e-16):u=1,Nr(Pr,r),e=Pr[0],e&=2148532223,u*Mr(e|=t+1023<<20,Pr[1])))},Yr=[10680707,7228996,1387004,2578385,16069853,12639074,9804092,4427841,16666979,11263675,12935607,2387514,4345298,14681673,3074569,13734428,16653803,1880361,10960616,8533493,3062596,8710556,7349940,6258241,3772886,3769171,3798172,8675211,12450088,3874808,9961438,366607,15675153,9132554,7151469,3571407,2607881,12013382,4155038,6285869,7677882,13102053,15825725,473591,9065106,15363067,6271263,9264392,5636912,4652155,7056368,13614112,10155062,1944035,9527646,15080200,6658437,6231200,6832269,16767104,5075751,3212806,1398474,7579849,6349435,12618859],_r=[1.570796251296997,7.549789415861596e-8,5.390302529957765e-15,3.282003415807913e-22,1.270655753080676e-29,1.2293330898111133e-36,2.7337005381646456e-44,2.1674168387780482e-51],kr=5.960464477539063e-8,zr=Kr(new Array(20)),Br=Kr(new Array(20)),Dr=Kr(new Array(20)),Jr=Kr(new Array(20));function Kr(r){var n,t=r.length;for(n=0;n<t;n++)r[n]=0;return r}var Qr,Rr=Math.round,Xr=function(r,n,t){var e,u,o,i,f;return o=r-1.5707963267341256*(e=Rr(.6366197723675814*r)),i=6.077100506506192e-11*e,f=n>>20|0,t[0]=o-i,f-(P(t[0])>>20&2047)>16&&(i=2.0222662487959506e-21*e-((u=o)-(o=u-(i=6.077100506303966e-11*e))-i),t[0]=o-i,f-(P(t[0])>>20&2047)>49&&(i=8.4784276603689e-32*e-((u=o)-(o=u-(i=2.0222662487111665e-21*e))-i),t[0]=o-i)),t[1]=o-t[0]-i,e},Zr=1.5707963267341256,$r=6.077100506506192e-11,rn=2*$r,nn=4*$r,tn=new Array(3),en=new Array(2),un=function(r,n){var t,e,u,o,i,f,a;if((u=2147483647&P(r)|0)<=1072243195)return n[0]=r,n[1]=0,0;if(u<=1074752122)return 598523==(1048575&u)?Xr(r,u,n):u<=1073928572?r>0?(a=r-Zr,n[0]=a-$r,n[1]=a-n[0]-$r,1):(a=r+Zr,n[0]=a+$r,n[1]=a-n[0]+$r,-1):r>0?(a=r-2*Zr,n[0]=a-rn,n[1]=a-n[0]-rn,2):(a=r+2*Zr,n[0]=a+rn,n[1]=a-n[0]+rn,-2);if(u<=1075594811)return u<=1075183036?1074977148===u?Xr(r,u,n):r>0?(a=r-3*Zr,n[0]=a-1.8231301519518578e-10,n[1]=a-n[0]-1.8231301519518578e-10,3):(a=r+3*Zr,n[0]=a+1.8231301519518578e-10,n[1]=a-n[0]+1.8231301519518578e-10,-3):1075388923===u?Xr(r,u,n):r>0?(a=r-4*Zr,n[0]=a-nn,n[1]=a-n[0]-nn,4):(a=r+4*Zr,n[0]=a+nn,n[1]=a-n[0]+nn,-4);if(u<1094263291)return Xr(r,u,n);if(u>=2146435072)return n[0]=NaN,n[1]=NaN,0;for(t=xr(r),a=Mr(u-((e=(u>>20)-1046)<<20|0),t),i=0;i<2;i++)tn[i]=0|a,a=16777216*(a-tn[i]);for(tn[2]=a,o=3;0===tn[o-1];)o-=1;return f=function(r,n,t,e){var u,o,i,f,a,c,w;for((o=(t-3)/24|0)<0&&(o=0),f=t-24*(o+1),c=o-(i=e-1),w=i+4,a=0;a<=w;a++)zr[a]=c<0?0:Yr[c],c+=1;for(a=0;a<=4;a++){for(u=0,c=0;c<=i;c++)u+=r[c]*zr[i+(a-c)];Br[a]=u}return function r(n,t,e,u,o,i,f,a,c){var w,y,l,v,N,h,s,d,p;for(v=i,p=u[e],d=e,N=0;d>0;N++)y=kr*p|0,Jr[N]=p-16777216*y|0,p=u[d-1]+y,d-=1;if(p=Vr(p,o),p-=8*Er(.125*p),p-=s=0|p,l=0,o>0?(s+=N=Jr[e-1]>>24-o,Jr[e-1]-=N<<24-o,l=Jr[e-1]>>23-o):0===o?l=Jr[e-1]>>23:p>=.5&&(l=2),l>0){for(s+=1,w=0,N=0;N<e;N++)d=Jr[N],0===w?0!==d&&(w=1,Jr[N]=16777216-d):Jr[N]=16777215-d;if(o>0)switch(o){case 1:Jr[e-1]&=8388607;break;case 2:Jr[e-1]&=4194303}2===l&&(p=1-p,0!==w&&(p-=Vr(1,o)))}if(0===p){for(d=0,N=e-1;N>=i;N--)d|=Jr[N];if(0===d){for(h=1;0===Jr[i-h];h++);for(N=e+1;N<=e+h;N++){for(c[a+N]=Yr[f+N],y=0,d=0;d<=a;d++)y+=n[d]*c[a+(N-d)];u[N]=y}return r(n,t,e+=h,u,o,i,f,a,c)}}if(0===p)for(e-=1,o-=24;0===Jr[e];)e-=1,o-=24;else(p=Vr(p,-o))>=16777216?(y=kr*p|0,Jr[e]=p-16777216*y|0,o+=24,Jr[e+=1]=y):Jr[e]=0|p;for(y=Vr(1,o),N=e;N>=0;N--)u[N]=y*Jr[N],y*=kr;for(N=e;N>=0;N--){for(y=0,h=0;h<=v&&h<=e-N;h++)y+=_r[h]*u[N+h];Dr[e-N]=y}for(y=0,N=e;N>=0;N--)y+=Dr[N];for(t[0]=0===l?y:-y,y=Dr[0]-y,N=1;N<=e;N++)y+=Dr[N];return t[1]=0===l?y:-y,7&s}(r,n,4,Br,f,4,o,i,zr)}(tn,en,e,o),r<0?(n[0]=-en[0],n[1]=-en[1],-f):(n[0]=en[0],n[1]=en[1],f)},on=[0,0],fn=function(r){var n;if(n=P(r),(n&=2147483647)<=1072243195)return n<1044381696?1:Ir(r,0);if(n>=2146435072)return NaN;switch(3&un(r,on)){case 0:return Ir(on[0],on[1]);case 1:return-Sr(on[0],on[1]);case 2:return-Ir(on[0],on[1]);default:return Sr(on[0],on[1])}},an=Math.ceil,cn=function(r){return r<0?an(r):Er(r)},wn=function(r){var t;return n(r)||r===D?r:r===J?0:r>709.782712893384?D:r<-745.1332191019411?0:r>-1/(1<<28)&&r<1/(1<<28)?1+r:function(r,n,t){var e,u,o,i;return o=(e=r-n)-(u=e*e)*(0===(i=u)?.16666666666666602:.16666666666666602+i*(i*(6613756321437934e-20+i*(4.1381367970572385e-8*i-16533902205465252e-22))-.0027777777777015593)),Vr(1-(n-e*o/(2-o)-r),t)}(r-.6931471803691238*(t=cn(r<0?1.4426950408889634*r-.5:1.4426950408889634*r+.5)),1.9082149292705877e-10*t,t)},yn=function(r){return n(r)?r:(r<0&&(r=-r),r>21?wn(r)/2:(wn(r)+wn(-r))/2)},ln=function(r){var t,e,u,o,i,f,a,c,w,y,l,v;if(r===D||n(r))return r;if(r===J)return-1;if(0===r)return r;if(r<0?(e=!0,a=-r):(e=!1,a=r),a>=38.816242111356935){if(e)return-1;if(a>=709.782712893384)return D}if(i=0|P(a),a>.34657359027997264)a<1.0397207708399179?e?(u=r+.6931471803691238,o=-1.9082149292705877e-10,v=-1):(u=r-.6931471803691238,o=1.9082149292705877e-10,v=1):(v=e?1.4426950408889634*r-.5:1.4426950408889634*r+.5,u=r-.6931471803691238*(y=v|=0),o=1.9082149292705877e-10*y),w=u-(r=u-o)-o;else{if(i<1016070144)return r;v=0}return l=(c=r*(t=.5*r))*(((f=1+c*function(r){return 0===r?-.03333333333333313:r*(.0015873015872548146+r*(r*(4008217827329362e-21+-2.0109921818362437e-7*r)-793650757867488e-19))-.03333333333333313}(c))-(y=3-f*t))/(6-r*y)),0===v?r-(r*l-c):(l=r*(l-w)-w,l-=c,-1===v?.5*(r-l)-.5:1===v?r<-.25?-2*(l-(r+.5)):1+2*(r-l):v<=-2||v>56?(u=P(a=1-(l-r))+(v<<20)|0,(a=B(a,u))-1):(y=1,v<20?a=(y=B(y,u=1072693248-(2097152>>v)|0))-(l-r):(a=r-(l+(y=B(y,u=1023-v<<20|0))),a+=1),u=P(a)+(v<<20)|0,B(a,u)))};Qr=!0===T?0:1;var vn=new b(1),Nn=new d(vn.buffer),hn=function(r,n){return vn[0]=r,Nn[Qr]=n>>>0,vn[0]},sn=function(r){var t,e,u,o,i,f,a;return n(r)||r<0?NaN:0===r?J:(i=0,(e=P(r))<1048576&&(i-=54,e=P(r*=0x40000000000000)),e>=2146435072?r+r:(i+=(e>>20)-1023|0,r=B(r,(e&=1048575)|1072693248^(o=e+614244&1048576|0)),f=i+=o>>20|0,u=function(r){var n,t,e,u,o,i,f,a,c,w;return u=r-1,(1048575&2+(e=P(r)))<3?0===u?0:u*u*(.3333333333333333*u-.5):(c=(e&=1048575)-398458|0,w=440401-e|0,t=(a=(i=(o=u/(2+u))*o)*i)*function(r){return 0===r?.3999999999940942:.3999999999940942+r*(.22222198432149784+.15313837699209373*r)}(a),f=i*function(r){return 0===r?.6666666666666735:.6666666666666735+r*(.2857142874366239+r*(.1818357216161805+.14798198605116586*r))}(a)+t,(c|=w)>0?o*((n=.5*u*u)+f)-n:o*(f-u))}(r),t=hn(r-=1,0),a=3.694239077158931e-13*f+2.5082946711645275e-11*(r+u),(a+=.4342944818781689*(r-t+u)+.4342944818781689*t)+.30102999566361177*f))},dn=[0,0],pn=function(r){var t,e,u,o,i;if(n(r)||r<0)return NaN;if(Nr(dn,r),i=0,(e=dn[0])<1048576){if(0==(2147483647&e|dn[1]))return J;i-=54,e=P(r*=0x40000000000000)}return e>=2146435072?r+r:(i+=(e>>20)-1023|0,r=B(r,(e&=1048575)|1072693248^(o=e+614244&1048576|0)),i+=o>>20|0,u=function(r){var n,t,e,u,o,i,f,a,c,w;return u=r-1,(1048575&2+(e=P(r)))<3?0===u?0:u*u*(.3333333333333333*u-.5):(c=(e&=1048575)-398458|0,w=440401-e|0,t=(a=(i=(o=u/(2+u))*o)*i)*function(r){return 0===r?.3999999999940942:.3999999999940942+r*(.22222198432149784+.15313837699209373*r)}(a),f=i*function(r){return 0===r?.6666666666666735:.6666666666666735+r*(.2857142874366239+r*(.1818357216161805+.14798198605116586*r))}(a)+t,(c|=w)>0?o*((n=.5*u*u)+f)-n:o*(f-u))}(r),t=hn(r-=1,0),1.6751713164886512e-10*(r+u)+1.4426950407214463*(r-t+u)+1.4426950407214463*t+i)},An=[0,0],Mn=function(r){var n;if(n=P(r),(n&=2147483647)<=1072243195)return n<1045430272?r:Sr(r,0);if(n>=2146435072)return NaN;switch(3&un(r,An)){case 0:return Sr(An[0],An[1]);case 1:return Ir(An[0],An[1]);case 2:return-Sr(An[0],An[1]);default:return-Ir(An[0],An[1])}},qn=function(r){var n;return 0===r?r:(n=jr(r),r>710.4758600739439||r<-709.089565712824?r>0?D:J:n>1?n>=709.0895657128241?(n=wn(.5*n),n*=.5*n,r<0&&(n=-n),n):(n=.5*(n=wn(n))-.5/n,r<0&&(n=-n),n):r+r*(n*=n)*function(r){var n,t;return 0===r?.16666666666666666:((r<0?-r:r)<=1?(n=r*(r*(-.789474443963537*r-163.72585752598383)-11561.443576500522)-351754.9648081514,t=r*(36157.827983443196+r*(1*r-277.7110814206028))-2110529.7888489086):(n=(r=1/r)*(r*(-351754.9648081514*r-11561.443576500522)-163.72585752598383)-.789474443963537,t=1+r*(r*(36157.827983443196+-2110529.7888489086*r)-277.7110814206028)),n/t)}(n))},bn=function(r,n,t){var e,u,o,i,f,a,c,w,y;return(u=2147483647&(e=P(r))|0)>=1072010280&&(r<0&&(r=-r,n=-n),r=(y=.7853981633974483-r)+(w=3.061616997868383e-17-n),n=0),i=n+(y=r*r)*((f=y*r)*((i=function(r){return 0===r?.13333333333320124:.13333333333320124+r*(.021869488294859542+r*(.0035920791075913124+r*(.0005880412408202641+r*(7817944429395571e-20+-18558637485527546e-21*r))))}(w=y*y))+(c=y*function(r){return 0===r?.05396825397622605:.05396825397622605+r*(.0088632398235993+r*(.0014562094543252903+r*(.0002464631348184699+r*(7140724913826082e-20+2590730518636337e-20*r))))}(w)))+n),w=r+(i+=.3333333333333341*f),u>=1072010280?(1-(e>>30&2))*((c=t)-2*(r-(w*w/(w+c)-i))):1===t?w:(hn(y=w,0),c=i-(y-r),hn(a=o=-1/w,0),a+o*((f=1+a*y)+a*c))},Cn=[0,0],Un=function(r){var n,t;return n=P(r),(n&=2147483647)<=1072243195?n<1044381696?r:bn(r,0,1):n>=2146435072?NaN:(t=un(r,Cn),bn(Cn[0],Cn[1],1-((1&t)<<1)))},mn=function(r){var n,t;if((t=jr(r))>44.014845965556525)return r<0?-1:1;if(t>=.625)t=1-2/((n=wn(2*t))+1),r<0&&(t=-t);else{if(0===r)return r;t=r+r*(n=r*r)*function(r){var n,t;return 0===r?-.3333333333333332:((r<0?-r:r)<=1?(n=r*(r*(0*r-.9643991794250523)-99.28772310019185)-1614.6876844170845,t=4844.063053251255+r*(2235.4883906010045+r*(112.81167849163293+1*r))):(n=0+(r=1/r)*(r*(-1614.6876844170845*r-99.28772310019185)-.9643991794250523),t=1+r*(112.81167849163293+r*(2235.4883906010045+4844.063053251255*r))),n/t)}(n)}return t};void 0===window.CroquetMath&&(window.CroquetMath={}),window.CroquetMath.acos=o,window.CroquetMath.acosh=rr,window.CroquetMath.asin=u,window.CroquetMath.asinh=tr,window.CroquetMath.atan=ur,window.CroquetMath.atanh=or,window.CroquetMath.atan2=mr,window.CroquetMath.cbrt=gr,window.CroquetMath.cos=fn,window.CroquetMath.cosh=yn,window.CroquetMath.exp=wn,window.CroquetMath.expm1=ln,window.CroquetMath.log=$,window.CroquetMath.log1p=R,window.CroquetMath.log10=sn,window.CroquetMath.log2=pn,window.CroquetMath.sin=Mn,window.CroquetMath.sinh=qn,window.CroquetMath.tan=Un,window.CroquetMath.tanh=mn;const gn=Math.pow;function In(r){return r===1/0||r===-1/0}window.CroquetMath.pow=((r,n)=>{if(isNaN(r)||isNaN(n))return NaN;if(In(r)||In(n))return gn(r,n);if(0===r||0===n)return gn(r,n);if(r<0&&!function(r){return Number.isInteger(r)}(n))return NaN;if(1===n)return r;if(2===n)return r*r;if(3===n)return r*r*r;if(4===n)return r*r*r*r;let t=1;return r<0&&(r*=-1,t=gn(-1,n)),window.CroquetMath.exp(window.CroquetMath.log(r)*n)*t})}();
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+function isnan( x ) {
+	return ( x !== x );
+}
+var main = isnan;
+
+var lib = main;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+var sqrt = Math.sqrt;
+var main$1 = sqrt;
+
+var lib$1 = main$1;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+var FOURTH_PI = 7.85398163397448309616e-1;
+var lib$2 = FOURTH_PI;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+function evalrational( x ) {
+	var ax;
+	var s1;
+	var s2;
+	if ( x === 0.0 ) {
+		return 0.16666666666666713;
+	}
+	if ( x < 0.0 ) {
+		ax = -x;
+	} else {
+		ax = x;
+	}
+	if ( ax <= 1.0 ) {
+		s1 = -8.198089802484825 + (x * (19.562619833175948 + (x * (-16.262479672107002 + (x * (5.444622390564711 + (x * (-0.6019598008014124 + (x * 0.004253011369004428)))))))));
+		s2 = -49.18853881490881 + (x * (139.51056146574857 + (x * (-147.1791292232726 + (x * (70.49610280856842 + (x * (-14.740913729888538 + (x * 1.0)))))))));
+	} else {
+		x = 1.0 / x;
+		s1 = 0.004253011369004428 + (x * (-0.6019598008014124 + (x * (5.444622390564711 + (x * (-16.262479672107002 + (x * (19.562619833175948 + (x * -8.198089802484825)))))))));
+		s2 = 1.0 + (x * (-14.740913729888538 + (x * (70.49610280856842 + (x * (-147.1791292232726 + (x * (139.51056146574857 + (x * -49.18853881490881)))))))));
+	}
+	return s1 / s2;
+}
+var rational_pq = evalrational;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+function evalrational$1( x ) {
+	var ax;
+	var s1;
+	var s2;
+	if ( x === 0.0 ) {
+		return 0.08333333333333809;
+	}
+	if ( x < 0.0 ) {
+		ax = -x;
+	} else {
+		ax = x;
+	}
+	if ( ax <= 1.0 ) {
+		s1 = 28.536655482610616 + (x * (-25.56901049652825 + (x * (6.968710824104713 + (x * (-0.5634242780008963 + (x * 0.002967721961301243)))))));
+		s2 = 342.43986579130785 + (x * (-383.8770957603691 + (x * (147.0656354026815 + (x * (-21.947795316429207 + (x * 1.0)))))));
+	} else {
+		x = 1.0 / x;
+		s1 = 0.002967721961301243 + (x * (-0.5634242780008963 + (x * (6.968710824104713 + (x * (-25.56901049652825 + (x * 28.536655482610616)))))));
+		s2 = 1.0 + (x * (-21.947795316429207 + (x * (147.0656354026815 + (x * (-383.8770957603691 + (x * 342.43986579130785)))))));
+	}
+	return s1 / s2;
+}
+var rational_rs = evalrational$1;
+
+var MOREBITS = 6.123233995736765886130e-17;
+function asin( x ) {
+	var sgn;
+	var zz;
+	var a;
+	var p;
+	var z;
+	if ( lib( x ) ) {
+		return NaN;
+	}
+	if ( x > 0.0 ) {
+		a = x;
+	} else {
+		sgn = true;
+		a = -x;
+	}
+	if ( a > 1.0 ) {
+		return NaN;
+	}
+	if ( a > 0.625 ) {
+		zz = 1.0 - a;
+		p = zz * rational_rs( zz );
+		zz = lib$1( zz + zz );
+		z = lib$2 - zz;
+		zz = ( zz*p ) - MOREBITS;
+		z -= zz;
+		z += lib$2;
+	} else {
+		if ( a < 1.0e-8 ) {
+			return x;
+		}
+		zz = a * a;
+		z = zz * rational_pq( zz );
+		z = ( a*z ) + a;
+	}
+	return ( sgn ) ? -z : z;
+}
+var asin_1 = asin;
+
+var lib$3 = asin_1;
+
+var MOREBITS$1 = 6.123233995736765886130e-17;
+function acos( x ) {
+	var z;
+	if ( lib( x ) ) {
+		return NaN;
+	}
+	if ( x < -1.0 || x > 1.0 ) {
+		return NaN;
+	}
+	if ( x > 0.5 ) {
+		return 2.0 * lib$3( lib$1( 0.5 - (0.5*x) ) );
+	}
+	z = lib$2 - lib$3( x );
+	z += MOREBITS$1;
+	z += lib$2;
+	return z;
+}
+var acos_1 = acos;
+
+var lib$4 = acos_1;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+function hasSymbolSupport() {
+	return (
+		typeof Symbol === 'function' &&
+		typeof Symbol( 'foo' ) === 'symbol'
+	);
+}
+var main$2 = hasSymbolSupport;
+
+var lib$5 = main$2;
+
+var FLG = lib$5();
+function hasToStringTagSupport() {
+	return ( FLG && typeof Symbol.toStringTag === 'symbol' );
+}
+var main$3 = hasToStringTagSupport;
+
+var lib$6 = main$3;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+var toStr = Object.prototype.toString;
+var tostring = toStr;
+
+function nativeClass( v ) {
+	return tostring.call( v );
+}
+var native_class = nativeClass;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+var has = Object.prototype.hasOwnProperty;
+function hasOwnProp( value, property ) {
+	if (
+		value === void 0 ||
+		value === null
+	) {
+		return false;
+	}
+	return has.call( value, property );
+}
+var main$4 = hasOwnProp;
+
+var lib$7 = main$4;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+var toStrTag = ( typeof Symbol === 'function' ) ? Symbol.toStringTag : '';
+var tostringtag = toStrTag;
+
+function nativeClass$1( v ) {
+	var isOwn;
+	var tag;
+	var out;
+	if ( v === null || v === void 0 ) {
+		return tostring.call( v );
+	}
+	tag = v[ tostringtag ];
+	isOwn = lib$7( v, tostringtag );
+	try {
+		v[ tostringtag ] = void 0;
+	} catch ( err ) {
+		return tostring.call( v );
+	}
+	out = tostring.call( v );
+	if ( isOwn ) {
+		v[ tostringtag ] = tag;
+	} else {
+		delete v[ tostringtag ];
+	}
+	return out;
+}
+var polyfill = nativeClass$1;
+
+var nativeClass$2;
+if ( lib$6() ) {
+	nativeClass$2 = polyfill;
+} else {
+	nativeClass$2 = native_class;
+}
+var lib$8 = nativeClass$2;
+
+var hasUint32Array = ( typeof Uint32Array === 'function' );
+function isUint32Array( value ) {
+	return (
+		( hasUint32Array && value instanceof Uint32Array ) ||
+		lib$8( value ) === '[object Uint32Array]'
+	);
+}
+var main$5 = isUint32Array;
+
+var lib$9 = main$5;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+var UINT32_MAX = 4294967295;
+var lib$a = UINT32_MAX;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+var main$6 = ( typeof Uint32Array === 'function' ) ? Uint32Array : null;
+var uint32array = main$6;
+
+function hasUint32ArraySupport() {
+	var bool;
+	var arr;
+	if ( typeof uint32array !== 'function' ) {
+		return false;
+	}
+	try {
+		arr = [ 1, 3.14, -3.14, lib$a+1, lib$a+2 ];
+		arr = new uint32array( arr );
+		bool = (
+			lib$9( arr ) &&
+			arr[ 0 ] === 1 &&
+			arr[ 1 ] === 3 &&
+			arr[ 2 ] === lib$a-2 &&
+			arr[ 3 ] === 0 &&
+			arr[ 4 ] === 1
+		);
+	} catch ( err ) {
+		bool = false;
+	}
+	return bool;
+}
+var main$7 = hasUint32ArraySupport;
+
+var lib$b = main$7;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+var ctor = ( typeof Uint32Array === 'function' ) ? Uint32Array : null;
+var uint32array$1 = ctor;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+function polyfill$1() {
+	throw new Error( 'not implemented' );
+}
+var polyfill_1 = polyfill$1;
+
+var ctor$1;
+if ( lib$b() ) {
+	ctor$1 = uint32array$1;
+} else {
+	ctor$1 = polyfill_1;
+}
+var lib$c = ctor$1;
+
+var hasFloat64Array = ( typeof Float64Array === 'function' );
+function isFloat64Array( value ) {
+	return (
+		( hasFloat64Array && value instanceof Float64Array ) ||
+		lib$8( value ) === '[object Float64Array]'
+	);
+}
+var main$8 = isFloat64Array;
+
+var lib$d = main$8;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+var main$9 = ( typeof Float64Array === 'function' ) ? Float64Array : null;
+var float64array = main$9;
+
+function hasFloat64ArraySupport() {
+	var bool;
+	var arr;
+	if ( typeof float64array !== 'function' ) {
+		return false;
+	}
+	try {
+		arr = new float64array( [ 1.0, 3.14, -3.14, NaN ] );
+		bool = (
+			lib$d( arr ) &&
+			arr[ 0 ] === 1.0 &&
+			arr[ 1 ] === 3.14 &&
+			arr[ 2 ] === -3.14 &&
+			arr[ 3 ] !== arr[ 3 ]
+		);
+	} catch ( err ) {
+		bool = false;
+	}
+	return bool;
+}
+var main$a = hasFloat64ArraySupport;
+
+var lib$e = main$a;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+var ctor$2 = ( typeof Float64Array === 'function' ) ? Float64Array : null;
+var float64array$1 = ctor$2;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+function polyfill$2() {
+	throw new Error( 'not implemented' );
+}
+var polyfill_1$1 = polyfill$2;
+
+var ctor$3;
+if ( lib$e() ) {
+	ctor$3 = float64array$1;
+} else {
+	ctor$3 = polyfill_1$1;
+}
+var lib$f = ctor$3;
+
+var hasUint8Array = ( typeof Uint8Array === 'function' );
+function isUint8Array( value ) {
+	return (
+		( hasUint8Array && value instanceof Uint8Array ) ||
+		lib$8( value ) === '[object Uint8Array]'
+	);
+}
+var main$b = isUint8Array;
+
+var lib$g = main$b;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+var UINT8_MAX = 255|0;
+var lib$h = UINT8_MAX;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+var main$c = ( typeof Uint8Array === 'function' ) ? Uint8Array : null;
+var uint8array = main$c;
+
+function hasUint8ArraySupport() {
+	var bool;
+	var arr;
+	if ( typeof uint8array !== 'function' ) {
+		return false;
+	}
+	try {
+		arr = [ 1, 3.14, -3.14, lib$h+1, lib$h+2 ];
+		arr = new uint8array( arr );
+		bool = (
+			lib$g( arr ) &&
+			arr[ 0 ] === 1 &&
+			arr[ 1 ] === 3 &&
+			arr[ 2 ] === lib$h-2 &&
+			arr[ 3 ] === 0 &&
+			arr[ 4 ] === 1
+		);
+	} catch ( err ) {
+		bool = false;
+	}
+	return bool;
+}
+var main$d = hasUint8ArraySupport;
+
+var lib$i = main$d;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+var ctor$4 = ( typeof Uint8Array === 'function' ) ? Uint8Array : null;
+var uint8array$1 = ctor$4;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+function polyfill$3() {
+	throw new Error( 'not implemented' );
+}
+var polyfill_1$2 = polyfill$3;
+
+var ctor$5;
+if ( lib$i() ) {
+	ctor$5 = uint8array$1;
+} else {
+	ctor$5 = polyfill_1$2;
+}
+var lib$j = ctor$5;
+
+var hasUint16Array = ( typeof Uint16Array === 'function' );
+function isUint16Array( value ) {
+	return (
+		( hasUint16Array && value instanceof Uint16Array ) ||
+		lib$8( value ) === '[object Uint16Array]'
+	);
+}
+var main$e = isUint16Array;
+
+var lib$k = main$e;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+var UINT16_MAX = 65535|0;
+var lib$l = UINT16_MAX;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+var main$f = ( typeof Uint16Array === 'function' ) ? Uint16Array : null;
+var uint16array = main$f;
+
+function hasUint16ArraySupport() {
+	var bool;
+	var arr;
+	if ( typeof uint16array !== 'function' ) {
+		return false;
+	}
+	try {
+		arr = [ 1, 3.14, -3.14, lib$l+1, lib$l+2 ];
+		arr = new uint16array( arr );
+		bool = (
+			lib$k( arr ) &&
+			arr[ 0 ] === 1 &&
+			arr[ 1 ] === 3 &&
+			arr[ 2 ] === lib$l-2 &&
+			arr[ 3 ] === 0 &&
+			arr[ 4 ] === 1
+		);
+	} catch ( err ) {
+		bool = false;
+	}
+	return bool;
+}
+var main$g = hasUint16ArraySupport;
+
+var lib$m = main$g;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+var ctor$6 = ( typeof Uint16Array === 'function' ) ? Uint16Array : null;
+var uint16array$1 = ctor$6;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+function polyfill$4() {
+	throw new Error( 'not implemented' );
+}
+var polyfill_1$3 = polyfill$4;
+
+var ctor$7;
+if ( lib$m() ) {
+	ctor$7 = uint16array$1;
+} else {
+	ctor$7 = polyfill_1$3;
+}
+var lib$n = ctor$7;
+
+var ctors = {
+	'uint16': lib$n,
+	'uint8': lib$j
+};
+var ctors_1 = ctors;
+
+var bool;
+function isLittleEndian() {
+	var uint16view;
+	var uint8view;
+	uint16view = new ctors_1[ 'uint16' ]( 1 );
+	uint16view[ 0 ] = 0x1234;
+	uint8view = new ctors_1[ 'uint8' ]( uint16view.buffer );
+	return ( uint8view[ 0 ] === 0x34 );
+}
+bool = isLittleEndian();
+var main$h = bool;
+
+var lib$o = main$h;
+
+var HIGH;
+if ( lib$o === true ) {
+	HIGH = 1;
+} else {
+	HIGH = 0;
+}
+var high = HIGH;
+
+var FLOAT64_VIEW = new lib$f( 1 );
+var UINT32_VIEW = new lib$c( FLOAT64_VIEW.buffer );
+function getHighWord( x ) {
+	FLOAT64_VIEW[ 0 ] = x;
+	return UINT32_VIEW[ high ];
+}
+var main$i = getHighWord;
+
+var lib$p = main$i;
+
+var HIGH$1;
+if ( lib$o === true ) {
+	HIGH$1 = 1;
+} else {
+	HIGH$1 = 0;
+}
+var high$1 = HIGH$1;
+
+var FLOAT64_VIEW$1 = new lib$f( 1 );
+var UINT32_VIEW$1 = new lib$c( FLOAT64_VIEW$1.buffer );
+function setHighWord( x, high ) {
+	FLOAT64_VIEW$1[ 0 ] = x;
+	UINT32_VIEW$1[ high$1 ] = ( high >>> 0 );
+	return FLOAT64_VIEW$1[ 0 ];
+}
+var main$j = setHighWord;
+
+var lib$q = main$j;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+var FLOAT64_PINF = Number.POSITIVE_INFINITY;
+var lib$r = FLOAT64_PINF;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+var number = Number;
+
+var lib$s = number;
+
+var FLOAT64_NINF = lib$s.NEGATIVE_INFINITY;
+var lib$t = FLOAT64_NINF;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+var FLOAT64_EXPONENT_BIAS = 1023|0;
+var lib$u = FLOAT64_EXPONENT_BIAS;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+function evalpoly( x ) {
+	if ( x === 0.0 ) {
+		return 0.6666666666666735;
+	}
+	return 0.6666666666666735 + (x * (0.3999999999940942 + (x * (0.2857142874366239 + (x * (0.22222198432149784 + (x * (0.1818357216161805 + (x * (0.15313837699209373 + (x * 0.14798198605116586)))))))))));
+}
+var polyval_lp = evalpoly;
+
+var LN2_HI = 6.93147180369123816490e-01;
+var LN2_LO = 1.90821492927058770002e-10;
+var SQRT2M1 = 4.142135623730950488017e-01;
+var SQRT2HALFM1 = -2.928932188134524755992e-01;
+var SMALL = 1.862645149230957e-09;
+var TINY = 5.551115123125783e-17;
+var TWO53 = 9007199254740992;
+var TWO_THIRDS = 6.666666666666666666e-01;
+function log1p( x ) {
+	var hfsq;
+	var hu;
+	var y;
+	var f;
+	var c;
+	var s;
+	var z;
+	var R;
+	var u;
+	var k;
+	if ( x < -1.0 || lib( x ) ) {
+		return NaN;
+	}
+	if ( x === -1.0 ) {
+		return lib$t;
+	}
+	if ( x === lib$r ) {
+		return x;
+	}
+	if ( x === 0.0 ) {
+		return x;
+	}
+	if ( x < 0.0 ) {
+		y = -x;
+	} else {
+		y = x;
+	}
+	k = 1;
+	if ( y < SQRT2M1 ) {
+		if ( y < SMALL ) {
+			if ( y < TINY ) {
+				return x;
+			}
+			return x - ( x*x*0.5 );
+		}
+		if ( x > SQRT2HALFM1 ) {
+			k = 0;
+			f = x;
+			hu = 1;
+		}
+	}
+	if ( k !== 0 ) {
+		if ( y < TWO53 ) {
+			u = 1.0 + x;
+			hu = lib$p( u );
+			k = (hu>>20) - lib$u;
+			if ( k > 0 ) {
+				c = 1.0 - (u-x);
+			} else {
+				c = x - (u-1.0);
+			}
+			c /= u;
+		} else {
+			u = x;
+			hu = lib$p( u );
+			k = (hu>>20) - lib$u;
+			c = 0;
+		}
+		hu &= 0x000fffff;
+		if ( hu < 434334 ) {
+			u = lib$q( u, hu|0x3ff00000 );
+		} else {
+			k += 1;
+			u = lib$q( u, hu|0x3fe00000 );
+			hu = (1048576-hu)>>2;
+		}
+		f = u - 1.0;
+	}
+	hfsq = 0.5 * f * f;
+	if ( hu === 0 ) {
+		if ( f === 0.0 ) {
+			c += k * LN2_LO;
+			return ( k * LN2_HI ) + c;
+		}
+		R = hfsq * (1.0 - ( TWO_THIRDS*f ) );
+		return ( k*LN2_HI ) - ( (R - ( (k*LN2_LO) + c)) - f );
+	}
+	s = f / (2.0 + f);
+	z = s * s;
+	R = z * polyval_lp( z );
+	if ( k === 0 ) {
+		return f - ( hfsq - ( s*(hfsq+R) ) );
+	}
+	return ( k*LN2_HI ) - ( (hfsq - ( (s*(hfsq+R)) + ((k*LN2_LO) + c))) - f );
+}
+var log1p_1 = log1p;
+
+var lib$v = log1p_1;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+var LN2 = 6.93147180559945309417232121458176568075500134360255254120680009493393621969694715605863326996418687542001481021e-01;
+var lib$w = LN2;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+function evalpoly$1( x ) {
+	if ( x === 0.0 ) {
+		return 0.3999999999940942;
+	}
+	return 0.3999999999940942 + (x * (0.22222198432149784 + (x * 0.15313837699209373)));
+}
+var polyval_p = evalpoly$1;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+function evalpoly$2( x ) {
+	if ( x === 0.0 ) {
+		return 0.6666666666666735;
+	}
+	return 0.6666666666666735 + (x * (0.2857142874366239 + (x * (0.1818357216161805 + (x * 0.14798198605116586)))));
+}
+var polyval_q = evalpoly$2;
+
+var LN2_HI$1 = 6.93147180369123816490e-01;
+var LN2_LO$1 = 1.90821492927058770002e-10;
+var TWO54 = 1.80143985094819840000e+16;
+var ONE_THIRD = 0.33333333333333333;
+var HIGH_SIGNIFICAND_MASK = 0x000fffff|0;
+var HIGH_MAX_NORMAL_EXP = 0x7ff00000|0;
+var HIGH_MIN_NORMAL_EXP = 0x00100000|0;
+var HIGH_BIASED_EXP_0 = 0x3ff00000|0;
+function ln( x ) {
+	var hfsq;
+	var hx;
+	var t2;
+	var t1;
+	var k;
+	var R;
+	var f;
+	var i;
+	var j;
+	var s;
+	var w;
+	var z;
+	if ( x === 0.0 ) {
+		return lib$t;
+	}
+	if ( lib( x ) || x < 0.0 ) {
+		return NaN;
+	}
+	hx = lib$p( x );
+	k = 0|0;
+	if ( hx < HIGH_MIN_NORMAL_EXP ) {
+		k -= 54|0;
+		x *= TWO54;
+		hx = lib$p( x );
+	}
+	if ( hx >= HIGH_MAX_NORMAL_EXP ) {
+		return x + x;
+	}
+	k += ( ( hx>>20 ) - lib$u )|0;
+	hx &= HIGH_SIGNIFICAND_MASK;
+	i = ( (hx+0x95f64) & 0x100000 )|0;
+	x = lib$q( x, hx|(i^HIGH_BIASED_EXP_0) );
+	k += ( i>>20 )|0;
+	f = x - 1.0;
+	if ( (HIGH_SIGNIFICAND_MASK&(2+hx)) < 3 ) {
+		if ( f === 0.0 ) {
+			if ( k === 0 ) {
+				return 0.0;
+			}
+			return (k * LN2_HI$1) + (k * LN2_LO$1);
+		}
+		R = f * f * ( 0.5 - (ONE_THIRD*f) );
+		if ( k === 0 ) {
+			return f - R;
+		}
+		return (k * LN2_HI$1) - ( (R-(k*LN2_LO$1)) - f );
+	}
+	s = f / (2.0 + f);
+	z = s * s;
+	i = ( hx - 0x6147a )|0;
+	w = z * z;
+	j = ( 0x6b851 - hx )|0;
+	t1 = w * polyval_p( w );
+	t2 = z * polyval_q( w );
+	i |= j;
+	R = t2 + t1;
+	if ( i > 0 ) {
+		hfsq = 0.5 * f * f;
+		if ( k === 0 ) {
+			return f - ( hfsq - (s * (hfsq+R)) );
+		}
+		return (k * LN2_HI$1) - ( hfsq - ((s*(hfsq+R))+(k*LN2_LO$1)) - f );
+	}
+	if ( k === 0 ) {
+		return f - (s*(f-R));
+	}
+	return (k * LN2_HI$1) - ( ( (s*(f-R)) - (k*LN2_LO$1) ) - f );
+}
+var ln_1 = ln;
+
+var lib$x = ln_1;
+
+var HUGE = 1 << 28;
+function acosh( x ) {
+	var t;
+	if ( lib( x ) ) {
+		return NaN;
+	}
+	if ( x < 1.0 ) {
+		return NaN;
+	}
+	if ( x === 1.0 ) {
+		return 0.0;
+	}
+	if ( x >= HUGE ) {
+		return lib$x( x ) + lib$w;
+	}
+	if ( x > 2.0 ) {
+		return lib$x( (2.0*x) - ( 1.0 / ( x + lib$1( (x*x) - 1.0 ) ) ) );
+	}
+	t = x - 1.0;
+	return lib$v( t + lib$1( (2.0*t) + (t*t) ) );
+}
+var acosh_1 = acosh;
+
+var lib$y = acosh_1;
+
+function isInfinite( x ) {
+	return (x === lib$r || x === lib$t);
+}
+var is_infinite = isInfinite;
+
+var lib$z = is_infinite;
+
+var NEAR_ZERO = 1.0 / (1 << 28);
+var HUGE$1 = 1 << 28;
+function asinh( x ) {
+	var sgn;
+	var xx;
+	var t;
+	if ( lib( x ) || lib$z( x ) ) {
+		return x;
+	}
+	if ( x < 0.0 ) {
+		x = -x;
+		sgn = true;
+	}
+	if ( x < NEAR_ZERO ) {
+		t = x;
+	}
+	else if ( x > HUGE$1 ) {
+		t = lib$x( x ) + lib$w;
+	}
+	else if ( x > 2.0 ) {
+		t = lib$x( (2.0*x) + ( 1.0 / (lib$1( (x*x) + 1.0 ) + x) ) );
+	}
+	else {
+		xx = x * x;
+		t = lib$v( x + ( xx/(1.0 + lib$1(1.0 + xx)) ) );
+	}
+	return ( sgn ) ? -t : t;
+}
+var asinh_1 = asinh;
+
+var lib$A = asinh_1;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+var HALF_PI = 1.5707963267948966;
+var lib$B = HALF_PI;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+function evalpoly$3( x ) {
+	if ( x === 0.0 ) {
+		return -64.85021904942025;
+	}
+	return -64.85021904942025 + (x * (-122.88666844901361 + (x * (-75.00855792314705 + (x * (-16.157537187333652 + (x * -0.8750608600031904)))))));
+}
+var polyval_p$1 = evalpoly$3;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+function evalpoly$4( x ) {
+	if ( x === 0.0 ) {
+		return 194.5506571482614;
+	}
+	return 194.5506571482614 + (x * (485.3903996359137 + (x * (432.88106049129027 + (x * (165.02700983169885 + (x * (24.858464901423062 + (x * 1.0)))))))));
+}
+var polyval_q$1 = evalpoly$4;
+
+var MOREBITS$2 = 6.123233995736765886130e-17;
+var T3P8 = 2.41421356237309504880;
+function atan( x ) {
+	var flg;
+	var sgn;
+	var y;
+	var z;
+	if ( lib( x ) || x === 0.0 ) {
+		return x;
+	}
+	if ( x === lib$r ) {
+		return lib$B;
+	}
+	if ( x === lib$t ) {
+		return -lib$B;
+	}
+	if ( x < 0.0 ) {
+		sgn = true;
+		x = -x;
+	}
+	flg = 0;
+	if ( x > T3P8 ) {
+		y = lib$B;
+		flg = 1;
+		x = -( 1.0/x );
+	}
+	else if ( x <= 0.66 ) {
+		y = 0.0;
+	}
+	else {
+		y = lib$2;
+		flg = 2;
+		x = (x-1.0) / (x+1.0);
+	}
+	z = x * x;
+	z = z*polyval_p$1( z ) / polyval_q$1( z );
+	z = ( x*z ) + x;
+	if ( flg === 2 ) {
+		z += 0.5 * MOREBITS$2;
+	}
+	else if ( flg === 1 ) {
+		z += MOREBITS$2;
+	}
+	y += z;
+	return ( sgn ) ? -y : y;
+}
+var atan_1 = atan;
+
+var lib$C = atan_1;
+
+var NEAR_ZERO$1 = 1.0 / (1 << 28);
+function atanh( x ) {
+	var sgn;
+	var t;
+	if ( lib( x ) ) {
+		return NaN;
+	}
+	if ( x < -1.0 || x > 1.0 ) {
+		return NaN;
+	}
+	if ( x === 1.0 ) {
+		return lib$r;
+	}
+	if ( x === -1.0 ) {
+		return lib$t;
+	}
+	if ( x < 0.0 ) {
+		sgn = true;
+		x = -x;
+	}
+	if ( x < NEAR_ZERO$1 ) {
+		return ( sgn ) ? -x : x;
+	}
+	if ( x < 0.5 ) {
+		t = x + x;
+		t = 0.5 * lib$v( t + ( t*x/(1-x) ) );
+	} else {
+		t = 0.5 * lib$v( (x+x) / (1-x) );
+	}
+	return ( sgn ) ? -t : t;
+}
+var atanh_1 = atanh;
+
+var lib$D = atanh_1;
+
+var indices;
+var HIGH$2;
+var LOW;
+if ( lib$o === true ) {
+	HIGH$2 = 1;
+	LOW = 0;
+} else {
+	HIGH$2 = 0;
+	LOW = 1;
+}
+indices = {
+	'HIGH': HIGH$2,
+	'LOW': LOW
+};
+var indices_1 = indices;
+
+var FLOAT64_VIEW$2 = new lib$f( 1 );
+var UINT32_VIEW$2 = new lib$c( FLOAT64_VIEW$2.buffer );
+var HIGH$3 = indices_1.HIGH;
+var LOW$1 = indices_1.LOW;
+function toWords( out, x ) {
+	FLOAT64_VIEW$2[ 0 ] = x;
+	out[ 0 ] = UINT32_VIEW$2[ HIGH$3 ];
+	out[ 1 ] = UINT32_VIEW$2[ LOW$1 ];
+	return out;
+}
+var to_words = toWords;
+
+function toWords$1( out, x ) {
+	if ( arguments.length === 1 ) {
+		return to_words( [ 0, 0 ], out );
+	}
+	return to_words( out, x );
+}
+var main$k = toWords$1;
+
+var lib$E = main$k;
+
+var indices$1;
+var HIGH$4;
+var LOW$2;
+if ( lib$o === true ) {
+	HIGH$4 = 1;
+	LOW$2 = 0;
+} else {
+	HIGH$4 = 0;
+	LOW$2 = 1;
+}
+indices$1 = {
+	'HIGH': HIGH$4,
+	'LOW': LOW$2
+};
+var indices_1$1 = indices$1;
+
+var FLOAT64_VIEW$3 = new lib$f( 1 );
+var UINT32_VIEW$3 = new lib$c( FLOAT64_VIEW$3.buffer );
+var HIGH$5 = indices_1$1.HIGH;
+var LOW$3 = indices_1$1.LOW;
+function fromWords( high, low ) {
+	UINT32_VIEW$3[ HIGH$5 ] = high;
+	UINT32_VIEW$3[ LOW$3 ] = low;
+	return FLOAT64_VIEW$3[ 0 ];
+}
+var main$l = fromWords;
+
+var lib$F = main$l;
+
+var SIGN_MASK = 0x80000000>>>0;
+var MAGNITUDE_MASK = 0x7fffffff|0;
+var WORDS = [ 0, 0 ];
+function copysign( x, y ) {
+	var hx;
+	var hy;
+	lib$E( WORDS, x );
+	hx = WORDS[ 0 ];
+	hx &= MAGNITUDE_MASK;
+	hy = lib$p( y );
+	hy &= SIGN_MASK;
+	hx |= hy;
+	return lib$F( hx, WORDS[ 1 ] );
+}
+var copysign_1 = copysign;
+
+var lib$G = copysign_1;
+
+function signbit( x ) {
+	var high = lib$p( x );
+	return ( high >>> 31 ) ? true : false;
+}
+var main$m = signbit;
+
+var lib$H = main$m;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+var PI = 3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679;
+var lib$I = PI;
+
+function atan2( y, x ) {
+	var q;
+	if ( lib( x ) || lib( y ) ) {
+		return NaN;
+	}
+	if ( lib$z( x ) ) {
+		if ( x === lib$r ) {
+			if ( lib$z( y ) ) {
+				return lib$G( lib$I / 4.0, y );
+			}
+			return lib$G( 0.0, y );
+		}
+		if ( lib$z( y ) ) {
+			return lib$G( 3.0*lib$I/4.0, y );
+		}
+		return lib$G( lib$I, y );
+	}
+	if ( lib$z( y ) ) {
+		return lib$G( lib$I / 2.0, y );
+	}
+	if ( y === 0.0 ) {
+		if ( x >= 0.0 && !lib$H( x ) ) {
+			return lib$G( 0.0, y );
+		}
+		return lib$G( lib$I, y );
+	}
+	if ( x === 0.0 ) {
+		return lib$G( lib$I / 2.0, y );
+	}
+	q = lib$C( y / x );
+	if ( x < 0.0 ) {
+		if ( q <= 0.0 ) {
+			return q + lib$I;
+		}
+		return q - lib$I;
+	}
+	return q;
+}
+var main$n = atan2;
+
+var lib$J = main$n;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+var FLOAT64_SMALLEST_NORMAL = 2.2250738585072014e-308;
+var lib$K = FLOAT64_SMALLEST_NORMAL;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+function evalpoly$5( x ) {
+	if ( x === 0.0 ) {
+		return 1.87595182427177;
+	}
+	return 1.87595182427177 + (x * (-1.8849797954337717 + (x * (1.6214297201053545 + (x * (-0.758397934778766 + (x * 0.14599619288661245)))))));
+}
+var polyval_p$2 = evalpoly$5;
+
+var SIGN_MASK$1 = 0x80000000|0;
+var ABS_MASK = 0x7fffffff|0;
+var TWO_54 = 18014398509481984;
+var ONE = 0x00000001|0;
+var B1 = 715094163|0;
+var B2 = 696219795|0;
+function cbrt( x ) {
+	var high;
+	var sgn;
+	var hx;
+	var r;
+	var s;
+	var t;
+	var w;
+	if (
+		lib( x ) ||
+		lib$z( x ) ||
+		x === 0.0
+	) {
+		return x;
+	}
+	hx = lib$p( x );
+	sgn = hx & SIGN_MASK$1;
+	hx &= ABS_MASK;
+	t = 0.0;
+	if ( x < lib$K ) {
+		t = TWO_54;
+		t *= x;
+		high = lib$p( t );
+		high = ( (high&ABS_MASK)/3 ) + B2;
+		t = lib$F( sgn|high, 0 );
+	} else {
+		high = (hx/3) + B1;
+		t = lib$q( t, sgn|high );
+	}
+	r = (t*t) * (t/x);
+	t *= polyval_p$2( r );
+	high = lib$p( t );
+	t = lib$F( high+ONE, 0 );
+	s = t * t;
+	r = x / s;
+	w = t + t;
+	r = (r - t) / (w + r);
+	t += t * r;
+	return t;
+}
+var cbrt_1 = cbrt;
+
+var lib$L = cbrt_1;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+function evalpoly$6( x ) {
+	if ( x === 0.0 ) {
+		return 0.0416666666666666;
+	}
+	return 0.0416666666666666 + (x * (-0.001388888888887411 + (x * 0.00002480158728947673)));
+}
+var polyval_c13 = evalpoly$6;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+function evalpoly$7( x ) {
+	if ( x === 0.0 ) {
+		return -2.7557314351390663e-7;
+	}
+	return -2.7557314351390663e-7 + (x * (2.087572321298175e-9 + (x * -1.1359647557788195e-11)));
+}
+var polyval_c46 = evalpoly$7;
+
+function kernelCos( x, y ) {
+	var hz;
+	var r;
+	var w;
+	var z;
+	z = x * x;
+	w = z * z;
+	r = z * polyval_c13( z );
+	r += w * w * polyval_c46( z );
+	hz = 0.5 * z;
+	w = 1.0 - hz;
+	return w + ( ((1.0-w) - hz) + ((z*r) - (x*y)) );
+}
+var kernel_cos = kernelCos;
+
+var lib$M = kernel_cos;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*
+*
+* ## Notice
+*
+* The following copyright, license, and long comment were part of the original implementation available as part of [FreeBSD]{@link https://svnweb.freebsd.org/base/release/9.3.0/lib/msun/src/k_sin.c}. The implementation follows the original, but has been modified for JavaScript.
+*
+* ```text
+* Copyright (C) 1993 by Sun Microsystems, Inc. All rights reserved.
+*
+* Developed at SunPro, a Sun Microsystems, Inc. business.
+* Permission to use, copy, modify, and distribute this
+* software is freely granted, provided that this notice
+* is preserved.
+* ```
+*/
+var S1 = -1.66666666666666324348e-01;
+var S2 = 8.33333333332248946124e-03;
+var S3 = -1.98412698298579493134e-04;
+var S4 = 2.75573137070700676789e-06;
+var S5 = -2.50507602534068634195e-08;
+var S6 = 1.58969099521155010221e-10;
+function kernelSin( x, y ) {
+	var r;
+	var v;
+	var w;
+	var z;
+	z = x * x;
+	w = z * z;
+	r = S2 + (z * (S3 + (z*S4))) + (z * w * (S5 + (z*S6)));
+	v = z * x;
+	if ( y === 0.0 ) {
+		return x + (v * (S1 + (z*r)));
+	}
+	return x - (((z*((0.5*y) - (v*r))) - y) - (v*S1));
+}
+var kernel_sin = kernelSin;
+
+var lib$N = kernel_sin;
+
+var LOW$4;
+if ( lib$o === true ) {
+	LOW$4 = 0;
+} else {
+	LOW$4 = 1;
+}
+var low = LOW$4;
+
+var FLOAT64_VIEW$4 = new lib$f( 1 );
+var UINT32_VIEW$4 = new lib$c( FLOAT64_VIEW$4.buffer );
+function getLowWord( x ) {
+	FLOAT64_VIEW$4[ 0 ] = x;
+	return UINT32_VIEW$4[ low ];
+}
+var main$o = getLowWord;
+
+var lib$O = main$o;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+var floor = Math.floor;
+var floor_1 = floor;
+
+var lib$P = floor_1;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+var FLOAT64_MAX_BASE2_EXPONENT = 1023|0;
+var lib$Q = FLOAT64_MAX_BASE2_EXPONENT;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+var FLOAT64_MAX_BASE2_EXPONENT_SUBNORMAL = -1023|0;
+var lib$R = FLOAT64_MAX_BASE2_EXPONENT_SUBNORMAL;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+var FLOAT64_MIN_BASE2_EXPONENT_SUBNORMAL = -1074|0;
+var lib$S = FLOAT64_MIN_BASE2_EXPONENT_SUBNORMAL;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+function abs( x ) {
+	if ( x < 0.0 ) {
+		return -x;
+	}
+	if ( x === 0.0 ) {
+		return 0.0;
+	}
+	return x;
+}
+var abs_1 = abs;
+
+var lib$T = abs_1;
+
+var SCALAR = 4503599627370496;
+function normalize( out, x ) {
+	if ( lib( x ) || lib$z( x ) ) {
+		out[ 0 ] = x;
+		out[ 1 ] = 0;
+		return out;
+	}
+	if ( x !== 0.0 && lib$T( x ) < lib$K ) {
+		out[ 0 ] = x * SCALAR;
+		out[ 1 ] = -52;
+		return out;
+	}
+	out[ 0 ] = x;
+	out[ 1 ] = 0;
+	return out;
+}
+var normalize_1 = normalize;
+
+function normalize$1( out, x ) {
+	if ( arguments.length === 1 ) {
+		return normalize_1( [ 0.0, 0 ], out );
+	}
+	return normalize_1( out, x );
+}
+var main$p = normalize$1;
+
+var lib$U = main$p;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+var FLOAT64_HIGH_WORD_EXPONENT_MASK = 0x7ff00000;
+var lib$V = FLOAT64_HIGH_WORD_EXPONENT_MASK;
+
+function exponent( x ) {
+	var high = lib$p( x );
+	high = ( high & lib$V ) >>> 20;
+	return (high - lib$u)|0;
+}
+var main$q = exponent;
+
+var lib$W = main$q;
+
+var TWO52_INV = 2.220446049250313e-16;
+var CLEAR_EXP_MASK = 0x800fffff>>>0;
+var FRAC = [ 0.0, 0.0 ];
+var WORDS$1 = [ 0, 0 ];
+function ldexp( frac, exp ) {
+	var high;
+	var m;
+	if (
+		frac === 0.0 ||
+		lib( frac ) ||
+		lib$z( frac )
+	) {
+		return frac;
+	}
+	lib$U( FRAC, frac );
+	frac = FRAC[ 0 ];
+	exp += FRAC[ 1 ];
+	exp += lib$W( frac );
+	if ( exp < lib$S ) {
+		return lib$G( 0.0, frac );
+	}
+	if ( exp > lib$Q ) {
+		if ( frac < 0.0 ) {
+			return lib$t;
+		}
+		return lib$r;
+	}
+	if ( exp <= lib$R ) {
+		exp += 52;
+		m = TWO52_INV;
+	} else {
+		m = 1.0;
+	}
+	lib$E( WORDS$1, frac );
+	high = WORDS$1[ 0 ];
+	high &= CLEAR_EXP_MASK;
+	high |= ((exp+lib$u) << 20);
+	return m * lib$F( high, WORDS$1[ 1 ] );
+}
+var ldexp_1 = ldexp;
+
+var lib$X = ldexp_1;
+
+var IPIO2 = [
+	0xA2F983, 0x6E4E44, 0x1529FC, 0x2757D1, 0xF534DD, 0xC0DB62,
+	0x95993C, 0x439041, 0xFE5163, 0xABDEBB, 0xC561B7, 0x246E3A,
+	0x424DD2, 0xE00649, 0x2EEA09, 0xD1921C, 0xFE1DEB, 0x1CB129,
+	0xA73EE8, 0x8235F5, 0x2EBB44, 0x84E99C, 0x7026B4, 0x5F7E41,
+	0x3991D6, 0x398353, 0x39F49C, 0x845F8B, 0xBDF928, 0x3B1FF8,
+	0x97FFDE, 0x05980F, 0xEF2F11, 0x8B5A0A, 0x6D1F6D, 0x367ECF,
+	0x27CB09, 0xB74F46, 0x3F669E, 0x5FEA2D, 0x7527BA, 0xC7EBE5,
+	0xF17B3D, 0x0739F7, 0x8A5292, 0xEA6BFB, 0x5FB11F, 0x8D5D08,
+	0x560330, 0x46FC7B, 0x6BABF0, 0xCFBC20, 0x9AF436, 0x1DA9E3,
+	0x91615E, 0xE61B08, 0x659985, 0x5F14A0, 0x68408D, 0xFFD880,
+	0x4D7327, 0x310606, 0x1556CA, 0x73A8C9, 0x60E27B, 0xC08C6B
+];
+var PIO2 = [
+	1.57079625129699707031e+00,
+	7.54978941586159635335e-08,
+	5.39030252995776476554e-15,
+	3.28200341580791294123e-22,
+	1.27065575308067607349e-29,
+	1.22933308981111328932e-36,
+	2.73370053816464559624e-44,
+	2.16741683877804819444e-51
+];
+var TWO24 = 1.67772160000000000000e+07;
+var TWON24 = 5.96046447753906250000e-08;
+var F = zero( new Array( 20 ) );
+var Q = zero( new Array( 20 ) );
+var FQ = zero( new Array( 20 ) );
+var IQ = zero( new Array( 20 ) );
+function zero( arr ) {
+	var len = arr.length;
+	var i;
+	for ( i = 0; i < len; i++ ) {
+		arr[ i ] = 0.0;
+	}
+	return arr;
+}
+function compute( x, y, jz, q, q0, jk, jv, jx, f ) {
+	var carry;
+	var fw;
+	var ih;
+	var jp;
+	var i;
+	var k;
+	var n;
+	var j;
+	var z;
+	jp = jk;
+	z = q[ jz ];
+	j = jz;
+	for ( i = 0; j > 0; i++ ) {
+		fw = ( TWON24 * z )|0;
+		IQ[ i ] = ( z - (TWO24*fw) )|0;
+		z = q[ j-1 ] + fw;
+		j -= 1;
+	}
+	z = lib$X( z, q0 );
+	z -= 8.0 * lib$P( z*0.125 );
+	n = z|0;
+	z -= n;
+	ih = 0;
+	if ( q0 > 0 ) {
+		i = ( IQ[ jz-1 ] >> (24-q0) );
+		n += i;
+		IQ[ jz-1 ] -= ( i << (24-q0) );
+		ih = ( IQ[ jz-1 ] >> (23-q0) );
+	}
+	else if ( q0 === 0 ) {
+		ih = ( IQ[ jz-1 ] >> 23 );
+	}
+	else if ( z >= 0.5 ) {
+		ih = 2;
+	}
+	if ( ih > 0 ) {
+		n += 1;
+		carry = 0;
+		for ( i = 0; i < jz; i++ ) {
+			j = IQ[ i ];
+			if ( carry === 0 ) {
+				if ( j !== 0 ) {
+					carry = 1;
+					IQ[ i ] = 0x1000000 - j;
+				}
+			} else {
+				IQ[ i ] = 0xffffff - j;
+			}
+		}
+		if ( q0 > 0 ) {
+			switch ( q0 ) {
+			case 1:
+				IQ[ jz-1 ] &= 0x7fffff;
+				break;
+			case 2:
+				IQ[ jz-1 ] &= 0x3fffff;
+				break;
+			}
+		}
+		if ( ih === 2 ) {
+			z = 1.0 - z;
+			if ( carry !== 0 ) {
+				z -= lib$X( 1.0, q0 );
+			}
+		}
+	}
+	if ( z === 0.0 ) {
+		j = 0;
+		for ( i = jz-1; i >= jk; i-- ) {
+			j |= IQ[ i ];
+		}
+		if ( j === 0 ) {
+			for ( k = 1; IQ[ jk-k ] === 0; k++ ) {
+			}
+			for ( i = jz+1; i <= jz+k; i++ ) {
+				f[ jx+i ] = IPIO2[ jv+i ];
+				fw = 0.0;
+				for ( j = 0; j <= jx; j++ ) {
+					fw += x[ j ] * f[ jx + (i-j) ];
+				}
+				q[ i ] = fw;
+			}
+			jz += k;
+			return compute( x, y, jz, q, q0, jk, jv, jx, f );
+		}
+	}
+	if ( z === 0.0 ) {
+		jz -= 1;
+		q0 -= 24;
+		while ( IQ[ jz ] === 0 ) {
+			jz -= 1;
+			q0 -= 24;
+		}
+	} else {
+		z = lib$X( z, -q0 );
+		if ( z >= TWO24 ) {
+			fw = (TWON24*z)|0;
+			IQ[ jz ] = ( z - (TWO24*fw) )|0;
+			jz += 1;
+			q0 += 24;
+			IQ[ jz ] = fw;
+		} else {
+			IQ[ jz ] = z|0;
+		}
+	}
+	fw = lib$X( 1.0, q0 );
+	for ( i = jz; i >= 0; i-- ) {
+		q[ i ] = fw * IQ[i];
+		fw *= TWON24;
+	}
+	for ( i = jz; i >= 0; i-- ) {
+		fw = 0.0;
+		for ( k = 0; k <= jp && k <= jz-i; k++ ) {
+			fw += PIO2[ k ] * q[ i+k ];
+		}
+		FQ[ jz-i ] = fw;
+	}
+	fw = 0.0;
+	for ( i = jz; i >= 0; i-- ) {
+		fw += FQ[ i ];
+	}
+	if ( ih === 0 ) {
+		y[ 0 ] = fw;
+	} else {
+		y[ 0 ] = -fw;
+	}
+	fw = FQ[ 0 ] - fw;
+	for ( i = 1; i <= jz; i++ ) {
+		fw += FQ[i];
+	}
+	if ( ih === 0 ) {
+		y[ 1 ] = fw;
+	} else {
+		y[ 1 ] = -fw;
+	}
+	return ( n & 7 );
+}
+function kernelRempio2( x, y, e0, nx ) {
+	var fw;
+	var jk;
+	var jv;
+	var jx;
+	var jz;
+	var q0;
+	var i;
+	var j;
+	var m;
+	jk = 4;
+	jx = nx - 1;
+	jv = ( (e0 - 3) / 24 )|0;
+	if ( jv < 0 ) {
+		jv = 0;
+	}
+	q0 = e0 - (24 * (jv + 1));
+	j = jv - jx;
+	m = jx + jk;
+	for ( i = 0; i <= m; i++ ) {
+		if ( j < 0 ) {
+			F[ i ] = 0.0;
+		} else {
+			F[ i ] = IPIO2[ j ];
+		}
+		j += 1;
+	}
+	for ( i = 0; i <= jk; i++ ) {
+		fw = 0.0;
+		for ( j = 0; j <= jx; j++ ) {
+			fw += x[ j ] * F[ jx + (i-j) ];
+		}
+		Q[ i ] = fw;
+	}
+	jz = jk;
+	return compute( x, y, jz, Q, q0, jk, jv, jx, F );
+}
+var kernel_rempio2 = kernelRempio2;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+var round = Math.round;
+var round_1 = round;
+
+var lib$Y = round_1;
+
+var INVPIO2 = 6.36619772367581382433e-01;
+var PIO2_1 = 1.57079632673412561417e+00;
+var PIO2_1T = 6.07710050650619224932e-11;
+var PIO2_2 = 6.07710050630396597660e-11;
+var PIO2_2T = 2.02226624879595063154e-21;
+var PIO2_3 = 2.02226624871116645580e-21;
+var PIO2_3T = 8.47842766036889956997e-32;
+var EXPONENT_MASK = 0x7ff|0;
+function rempio2Medium( x, ix, y ) {
+	var high;
+	var n;
+	var t;
+	var r;
+	var w;
+	var i;
+	var j;
+	n = lib$Y( x * INVPIO2 );
+	r = x - ( n * PIO2_1 );
+	w = n * PIO2_1T;
+	j = (ix >> 20)|0;
+	y[ 0 ] = r - w;
+	high = lib$p( y[0] );
+	i = j - ( (high >> 20) & EXPONENT_MASK );
+	if ( i > 16 ) {
+		t = r;
+		w = n * PIO2_2;
+		r = t - w;
+		w = (n * PIO2_2T) - ((t-r) - w);
+		y[ 0 ] = r - w;
+		high = lib$p( y[0] );
+		i = j - ( (high >> 20) & EXPONENT_MASK );
+		if ( i > 49 ) {
+			t = r;
+			w = n * PIO2_3;
+			r = t - w;
+			w = (n * PIO2_3T) - ((t-r) - w);
+			y[ 0 ] = r - w;
+		}
+	}
+	y[ 1 ] = (r - y[0]) - w;
+	return n;
+}
+var rempio2_medium = rempio2Medium;
+
+var ZERO = 0.00000000000000000000e+00;
+var TWO24$1 = 1.67772160000000000000e+07;
+var PIO2_1$1 = 1.57079632673412561417e+00;
+var PIO2_1T$1 = 6.07710050650619224932e-11;
+var TWO_PIO2_1T = 2.0 * PIO2_1T$1;
+var THREE_PIO2_1T = 3.0 * PIO2_1T$1;
+var FOUR_PIO2_1T = 4.0 * PIO2_1T$1;
+var ABS_MASK$1 = 0x7fffffff|0;
+var EXPONENT_MASK$1 = 0x7ff00000|0;
+var SIGNIFICAND_MASK = 0xfffff|0;
+var PI_HIGH_WORD_SIGNIFICAND = 0x921fb|0;
+var PIO4_HIGH_WORD = 0x3fe921fb|0;
+var THREE_PIO4_HIGH_WORD = 0x4002d97c|0;
+var FIVE_PIO4_HIGH_WORD = 0x400f6a7a|0;
+var THREE_PIO2_HIGH_WORD = 0x4012d97c|0;
+var SEVEN_PIO4_HIGH_WORD = 0x4015fdbc|0;
+var TWO_PI_HIGH_WORD = 0x401921fb|0;
+var NINE_PIO4_HIGH_WORD = 0x401c463b|0;
+var MEDIUM = 0x413921fb|0;
+var TX = new Array( 3 );
+var TY = new Array( 2 );
+function rempio2( x, y ) {
+	var low;
+	var e0;
+	var hx;
+	var ix;
+	var nx;
+	var i;
+	var n;
+	var z;
+	hx = lib$p( x );
+	ix = (hx & ABS_MASK$1)|0;
+	if ( ix <= PIO4_HIGH_WORD ) {
+		y[ 0 ] = x;
+		y[ 1 ] = 0.0;
+		return 0;
+	}
+	if ( ix <= FIVE_PIO4_HIGH_WORD ) {
+		if ( (ix & SIGNIFICAND_MASK) === PI_HIGH_WORD_SIGNIFICAND ) {
+			return rempio2_medium( x, ix, y );
+		}
+		if ( ix <= THREE_PIO4_HIGH_WORD ) {
+			if ( x > 0.0 ) {
+				z = x - PIO2_1$1;
+				y[ 0 ] = z - PIO2_1T$1;
+				y[ 1 ] = (z - y[0]) - PIO2_1T$1;
+				return 1;
+			}
+			z = x + PIO2_1$1;
+			y[ 0 ] = z + PIO2_1T$1;
+			y[ 1 ] = (z - y[0]) + PIO2_1T$1;
+			return -1;
+		}
+		if ( x > 0.0 ) {
+			z = x - ( 2.0*PIO2_1$1 );
+			y[ 0 ] = z - TWO_PIO2_1T;
+			y[ 1 ] = (z - y[0]) - TWO_PIO2_1T;
+			return 2;
+		}
+		z = x + ( 2.0*PIO2_1$1 );
+		y[ 0 ] = z + TWO_PIO2_1T;
+		y[ 1 ] = (z - y[0]) + TWO_PIO2_1T;
+		return -2;
+	}
+	if ( ix <= NINE_PIO4_HIGH_WORD ) {
+		if ( ix <= SEVEN_PIO4_HIGH_WORD ) {
+			if ( ix === THREE_PIO2_HIGH_WORD ) {
+				return rempio2_medium( x, ix, y );
+			}
+			if ( x > 0.0 ) {
+				z = x - ( 3.0*PIO2_1$1 );
+				y[ 0 ] = z - THREE_PIO2_1T;
+				y[ 1 ] = (z - y[0]) - THREE_PIO2_1T;
+				return 3;
+			}
+			z = x + ( 3.0*PIO2_1$1 );
+			y[ 0 ] = z + THREE_PIO2_1T;
+			y[ 1 ] = (z - y[0]) + THREE_PIO2_1T;
+			return -3;
+		}
+		if ( ix === TWO_PI_HIGH_WORD ) {
+			return rempio2_medium( x, ix, y );
+		}
+		if ( x > 0.0 ) {
+			z = x - ( 4.0*PIO2_1$1 );
+			y[ 0 ] = z - FOUR_PIO2_1T;
+			y[ 1 ] = (z - y[0]) - FOUR_PIO2_1T;
+			return 4;
+		}
+		z = x + ( 4.0*PIO2_1$1 );
+		y[ 0 ] = z + FOUR_PIO2_1T;
+		y[ 1 ] = (z - y[0]) + FOUR_PIO2_1T;
+		return -4;
+	}
+	if ( ix < MEDIUM ) {
+		return rempio2_medium( x, ix, y );
+	}
+	if ( ix >= EXPONENT_MASK$1 ) {
+		y[ 0 ] = NaN;
+		y[ 1 ] = NaN;
+		return 0.0;
+	}
+	low = lib$O( x );
+	e0 = (ix >> 20) - 1046;
+	z = lib$F( ix - ((e0 << 20)|0), low );
+	for ( i = 0; i < 2; i++ ) {
+		TX[ i ] = z|0;
+		z = (z - TX[i]) * TWO24$1;
+	}
+	TX[ 2 ] = z;
+	nx = 3;
+	while ( TX[ nx-1 ] === ZERO ) {
+		nx -= 1;
+	}
+	n = kernel_rempio2( TX, TY, e0, nx);
+	if ( x < 0.0 ) {
+		y[ 0 ] = -TY[ 0 ];
+		y[ 1 ] = -TY[ 1 ];
+		return -n;
+	}
+	y[ 0 ] = TY[ 0 ];
+	y[ 1 ] = TY[ 1 ];
+	return n;
+}
+var rempio2_1 = rempio2;
+
+var lib$Z = rempio2_1;
+
+var buffer = [ 0.0, 0.0 ];
+var HIGH_WORD_ABS_MASK = 0x7fffffff|0;
+var HIGH_WORD_PIO4 = 0x3fe921fb|0;
+var HIGH_WORD_TWO_NEG_27 = 0x3e400000|0;
+var HIGH_WORD_EXPONENT_MASK = 0x7ff00000|0;
+function cos( x ) {
+	var ix;
+	var n;
+	ix = lib$p( x );
+	ix &= HIGH_WORD_ABS_MASK;
+	if ( ix <= HIGH_WORD_PIO4 ) {
+		if ( ix < HIGH_WORD_TWO_NEG_27 ) {
+			return 1.0;
+		}
+		return lib$M( x, 0.0 );
+	}
+	if ( ix >= HIGH_WORD_EXPONENT_MASK ) {
+		return NaN;
+	}
+	n = lib$Z( x, buffer );
+	switch ( n & 3 ) {
+	case 0:
+		return lib$M( buffer[ 0 ], buffer[ 1 ] );
+	case 1:
+		return -lib$N( buffer[ 0 ], buffer[ 1 ] );
+	case 2:
+		return -lib$M( buffer[ 0 ], buffer[ 1 ] );
+	default:
+		return lib$N( buffer[ 0 ], buffer[ 1 ] );
+	}
+}
+var cos_1 = cos;
+
+var lib$_ = cos_1;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+var ceil = Math.ceil;
+var ceil_1 = ceil;
+
+var lib$$ = ceil_1;
+
+function trunc( x ) {
+	if ( x < 0.0 ) {
+		return lib$$( x );
+	}
+	return lib$P( x );
+}
+var trunc_1 = trunc;
+
+var lib$10 = trunc_1;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+function evalpoly$8( x ) {
+	if ( x === 0.0 ) {
+		return 0.16666666666666602;
+	}
+	return 0.16666666666666602 + (x * (-0.0027777777777015593 + (x * (0.00006613756321437934 + (x * (-0.0000016533902205465252 + (x * 4.1381367970572385e-8)))))));
+}
+var polyval_p$3 = evalpoly$8;
+
+function expmulti( hi, lo, k ) {
+	var r;
+	var t;
+	var c;
+	var y;
+	r = hi - lo;
+	t = r * r;
+	c = r - ( t*polyval_p$3( t ) );
+	y = 1.0 - ( lo - ( (r*c)/(2.0-c) ) - hi);
+	return lib$X( y, k );
+}
+var expmulti_1 = expmulti;
+
+var LN2_HI$2 = 6.93147180369123816490e-01;
+var LN2_LO$2 = 1.90821492927058770002e-10;
+var LOG2_E = 1.44269504088896338700e+00;
+var OVERFLOW = 7.09782712893383973096e+02;
+var UNDERFLOW = -7.45133219101941108420e+02;
+var NEARZERO = 1.0 / (1 << 28);
+var NEG_NEARZERO = -NEARZERO;
+function exp( x ) {
+	var hi;
+	var lo;
+	var k;
+	if ( lib( x ) || x === lib$r ) {
+		return x;
+	}
+	if ( x === lib$t ) {
+		return 0.0;
+	}
+	if ( x > OVERFLOW ) {
+		return lib$r;
+	}
+	if ( x < UNDERFLOW ) {
+		return 0.0;
+	}
+	if (
+		x > NEG_NEARZERO &&
+		x < NEARZERO
+	) {
+		return 1.0 + x;
+	}
+	if ( x < 0.0 ) {
+		k = lib$10( (LOG2_E*x) - 0.5 );
+	} else {
+		k = lib$10( (LOG2_E*x) + 0.5 );
+	}
+	hi = x - (k*LN2_HI$2);
+	lo = k * LN2_LO$2;
+	return expmulti_1( hi, lo, k );
+}
+var exp_1 = exp;
+
+var lib$11 = exp_1;
+
+function cosh( x ) {
+	if ( lib( x ) ) {
+		return x;
+	}
+	if ( x < 0.0 ) {
+		x = -x;
+	}
+	if ( x > 21.0 ) {
+		return lib$11( x ) / 2.0;
+	}
+	return ( lib$11(x) + lib$11(-x) ) / 2.0;
+}
+var cosh_1 = cosh;
+
+var lib$12 = cosh_1;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+var HALF_LN2 = 3.46573590279972654709e-01;
+var lib$13 = HALF_LN2;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+function evalpoly$9( x ) {
+	if ( x === 0.0 ) {
+		return -0.03333333333333313;
+	}
+	return -0.03333333333333313 + (x * (0.0015873015872548146 + (x * (-0.0000793650757867488 + (x * (0.000004008217827329362 + (x * -2.0109921818362437e-7)))))));
+}
+var polyval_q$2 = evalpoly$9;
+
+var OVERFLOW_THRESHOLD = 7.09782712893383973096e+02;
+var LN2_HI$3 = 6.93147180369123816490e-01;
+var LN2_LO$3 = 1.90821492927058770002e-10;
+var LN2_INV = 1.44269504088896338700e+00;
+var LN2x56 = 3.88162421113569373274e+01;
+var LN2_HALFX3 = 1.03972077083991796413e+00;
+function expm1( x ) {
+	var halfX;
+	var sign;
+	var hi;
+	var lo;
+	var hx;
+	var r1;
+	var y;
+	var z;
+	var c;
+	var t;
+	var e;
+	var k;
+	if ( x === lib$r || lib( x ) ) {
+		return x;
+	}
+	if ( x === lib$t ) {
+		return -1.0;
+	}
+	if ( x === 0.0 ) {
+		return x;
+	}
+	if ( x < 0.0 ) {
+		sign = true;
+		y = -x;
+	} else {
+		sign = false;
+		y = x;
+	}
+	if ( y >= LN2x56 ) {
+		if ( sign ) {
+			return -1.0;
+		}
+		if ( y >= OVERFLOW_THRESHOLD ) {
+			return lib$r;
+		}
+	}
+	hx = lib$p( y )|0;
+	if ( y > lib$13 ) {
+		if ( y < LN2_HALFX3 ) {
+			if ( sign ) {
+				hi = x + LN2_HI$3;
+				lo = -LN2_LO$3;
+				k = -1;
+			} else {
+				hi = x - LN2_HI$3;
+				lo = LN2_LO$3;
+				k = 1;
+			}
+		} else {
+			if ( sign ) {
+				k = (LN2_INV*x) - 0.5;
+			} else {
+				k = (LN2_INV*x) + 0.5;
+			}
+			k |= 0;
+			t = k;
+			hi = x - (t*LN2_HI$3);
+			lo = t * LN2_LO$3;
+		}
+		x = hi - lo;
+		c = (hi-x) - lo;
+	}
+	else if ( hx < 1016070144 ) {
+		return x;
+	}
+	else {
+		k = 0;
+	}
+	halfX = 0.5 * x;
+	z = x * halfX;
+	r1 = 1.0 + ( z * polyval_q$2( z ) );
+	t = 3.0 - (r1*halfX);
+	e = z * ( (r1-t) / (6.0 - (x*t)) );
+	if ( k === 0 ) {
+		return x - ( (x*e) - z );
+	}
+	e = ( x * (e-c) ) - c;
+	e -= z;
+	if ( k === -1 ) {
+		return ( 0.5*(x-e) )- 0.5;
+	}
+	if ( k === 1 ) {
+		if ( x < -0.25 ) {
+			return -2.0 * ( e - (x+0.5) );
+		}
+		return 1 + ( 2.0 * (x-e) );
+	}
+	if ( k <= -2 || k > 56 ) {
+		y = 1.0 - (e-x);
+		hi = (lib$p( y ) + (k<<20))|0;
+		y = lib$q( y, hi );
+		return y - 1.0;
+	}
+	t = 1.0;
+	if ( k < 20 ) {
+		hi = (1072693248 - (0x200000>>k))|0;
+		t = lib$q( t, hi );
+		y = t - (e-x);
+	} else {
+		hi = ( (lib$u-k)<<20 )|0;
+		t = lib$q( t, hi );
+		y = x - (e+t);
+		y += 1.0;
+	}
+	hi = (lib$p( y ) + (k<<20))|0;
+	return lib$q( y, hi );
+}
+var expm1_1 = expm1;
+
+var lib$14 = expm1_1;
+
+var LOW$5;
+if ( lib$o === true ) {
+	LOW$5 = 0;
+} else {
+	LOW$5 = 1;
+}
+var low$1 = LOW$5;
+
+var FLOAT64_VIEW$5 = new lib$f( 1 );
+var UINT32_VIEW$5 = new lib$c( FLOAT64_VIEW$5.buffer );
+function setLowWord( x, low ) {
+	FLOAT64_VIEW$5[ 0 ] = x;
+	UINT32_VIEW$5[ low$1 ] = ( low >>> 0 );
+	return FLOAT64_VIEW$5[ 0 ];
+}
+var main$r = setLowWord;
+
+var lib$15 = main$r;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+function evalpoly$a( x ) {
+	if ( x === 0.0 ) {
+		return 0.3999999999940942;
+	}
+	return 0.3999999999940942 + (x * (0.22222198432149784 + (x * 0.15313837699209373)));
+}
+var polyval_p$4 = evalpoly$a;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+function evalpoly$b( x ) {
+	if ( x === 0.0 ) {
+		return 0.6666666666666735;
+	}
+	return 0.6666666666666735 + (x * (0.2857142874366239 + (x * (0.1818357216161805 + (x * 0.14798198605116586)))));
+}
+var polyval_q$3 = evalpoly$b;
+
+var HIGH_SIGNIFICAND_MASK$1 = 0x000fffff|0;
+var ONE_THIRD$1 = 0.33333333333333333;
+function klog( x ) {
+	var hfsq;
+	var t1;
+	var t2;
+	var hx;
+	var f;
+	var s;
+	var z;
+	var R;
+	var w;
+	var i;
+	var j;
+	hx = lib$p( x );
+	f = x - 1.0;
+	if ( ( HIGH_SIGNIFICAND_MASK$1 & (2+hx) ) < 3 ) {
+		if ( f === 0.0 ) {
+			return 0.0;
+		}
+		return f * f * ( (ONE_THIRD$1*f) - 0.5 );
+	}
+	s = f / ( 2.0 + f );
+	z = s * s;
+	hx &= HIGH_SIGNIFICAND_MASK$1;
+	i = (hx - 0x6147a)|0;
+	w = z * z;
+	j = (0x6b851 - hx)|0;
+	t1 = w * polyval_p$4( w );
+	t2 = z * polyval_q$3( w );
+	i |= j;
+	R = t2 + t1;
+	if ( i > 0 ) {
+		hfsq = 0.5 * f * f;
+		return ( s * (hfsq+R) ) - hfsq;
+	}
+	return s * (R-f);
+}
+var klog_1 = klog;
+
+var TWO54$1 = 1.80143985094819840000e+16;
+var IVLN10HI = 4.34294481878168880939e-01;
+var IVLN10LO = 2.50829467116452752298e-11;
+var LOG10_2HI = 3.01029995663611771306e-01;
+var LOG10_2LO = 3.69423907715893078616e-13;
+var HIGH_SIGNIFICAND_MASK$2 = 0x000fffff|0;
+var HIGH_MAX_NORMAL_EXP$1 = 0x7ff00000|0;
+var HIGH_MIN_NORMAL_EXP$1 = 0x00100000|0;
+var HIGH_BIASED_EXP_0$1 = 0x3ff00000|0;
+function log10( x ) {
+	var hi;
+	var hx;
+	var lo;
+	var f;
+	var i;
+	var k;
+	var y;
+	var z;
+	if ( lib( x ) || x < 0.0 ) {
+		return NaN;
+	}
+	if ( x === 0.0 ) {
+		return lib$t;
+	}
+	hx = lib$p( x );
+	k = 0|0;
+	if ( hx < HIGH_MIN_NORMAL_EXP$1 ) {
+		k -= 54|0;
+		x *= TWO54$1;
+		hx = lib$p( x );
+	}
+	if ( hx >= HIGH_MAX_NORMAL_EXP$1 ) {
+		return x + x;
+	}
+	k += ((hx>>20) - lib$u)|0;
+	hx &= HIGH_SIGNIFICAND_MASK$2;
+	i = ( (hx+0x95f64)&0x100000 )|0;
+	x = lib$q( x, hx|(i^HIGH_BIASED_EXP_0$1) );
+	k += (i>>20)|0;
+	y = k;
+	f = klog_1( x );
+	x -= 1;
+	hi = lib$15( x, 0.0 );
+	lo = x - hi;
+	z = (y*LOG10_2LO) + ( (x+f)*IVLN10LO );
+	z += ( (lo+f)*IVLN10HI ) + ( hi*IVLN10HI );
+	return z + ( y*LOG10_2HI );
+}
+var log10_1 = log10;
+
+var lib$16 = log10_1;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+function evalpoly$c( x ) {
+	if ( x === 0.0 ) {
+		return 0.3999999999940942;
+	}
+	return 0.3999999999940942 + (x * (0.22222198432149784 + (x * 0.15313837699209373)));
+}
+var polyval_p$5 = evalpoly$c;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+function evalpoly$d( x ) {
+	if ( x === 0.0 ) {
+		return 0.6666666666666735;
+	}
+	return 0.6666666666666735 + (x * (0.2857142874366239 + (x * (0.1818357216161805 + (x * 0.14798198605116586)))));
+}
+var polyval_q$4 = evalpoly$d;
+
+var HIGH_SIGNIFICAND_MASK$3 = 0x000fffff|0;
+var ONE_THIRD$2 = 0.33333333333333333;
+function klog$1( x ) {
+	var hfsq;
+	var t1;
+	var t2;
+	var hx;
+	var f;
+	var s;
+	var z;
+	var R;
+	var w;
+	var i;
+	var j;
+	hx = lib$p( x );
+	f = x - 1.0;
+	if ( ( HIGH_SIGNIFICAND_MASK$3 & (2+hx) ) < 3 ) {
+		if ( f === 0.0 ) {
+			return 0.0;
+		}
+		return f * f * ( ( ONE_THIRD$2*f )- 0.5 );
+	}
+	s = f / ( 2.0 + f );
+	z = s * s;
+	hx &= HIGH_SIGNIFICAND_MASK$3;
+	i = ( hx - 0x6147a )|0;
+	w = z * z;
+	j = ( 0x6b851 - hx )|0;
+	t1 = w * polyval_p$5( w );
+	t2 = z * polyval_q$4( w );
+	i |= j;
+	R = t2 + t1;
+	if ( i > 0 ) {
+		hfsq = 0.5 * f * f;
+		return ( s * (hfsq+R) ) - hfsq;
+	}
+	return s * (R-f);
+}
+var klog_1$1 = klog$1;
+
+var TWO54$2 = 1.80143985094819840000e+16;
+var IVLN2HI = 1.44269504072144627571e+00;
+var IVLN2LO = 1.67517131648865118353e-10;
+var HIGH_SIGNIFICAND_MASK$4 = 0x000fffff|0;
+var HIGH_MAX_NORMAL_EXP$2 = 0x7ff00000|0;
+var HIGH_MIN_NORMAL_EXP$2 = 0x00100000|0;
+var HIGH_BIASED_EXP_0$2 = 0x3ff00000|0;
+var ABS_MASK$2 = 0x7fffffff|0;
+var WORDS$2 = [ 0|0, 0|0 ];
+function log2( x ) {
+	var hi;
+	var lo;
+	var hx;
+	var lx;
+	var f;
+	var i;
+	var k;
+	if ( lib( x ) || x < 0.0 ) {
+		return NaN;
+	}
+	lib$E( WORDS$2, x );
+	hx = WORDS$2[ 0 ];
+	lx = WORDS$2[ 1 ];
+	k = 0|0;
+	if ( hx < HIGH_MIN_NORMAL_EXP$2 ) {
+		if ( ( (hx&ABS_MASK$2) | lx ) === 0 ) {
+			return lib$t;
+		}
+		k -= 54|0;
+		x *= TWO54$2;
+		hx = lib$p( x );
+	}
+	if ( hx >= HIGH_MAX_NORMAL_EXP$2 ) {
+		return x + x;
+	}
+	k += ( (hx>>20) - lib$u )|0;
+	hx &= HIGH_SIGNIFICAND_MASK$4;
+	i = ( ( hx+0x95f64 ) & 0x100000 )|0;
+	x = lib$q( x, hx|(i^HIGH_BIASED_EXP_0$2) );
+	k += (i>>20)|0;
+	f = klog_1$1( x );
+	x -= 1;
+	hi = lib$15( x, 0 );
+	lo = x - hi;
+	return ( (x+f)*IVLN2LO ) + ( (lo+f)*IVLN2HI ) + ( hi*IVLN2HI ) + k;
+}
+var log2_1 = log2;
+
+var lib$17 = log2_1;
+
+var ABS_MASK$3 = 0x7fffffff|0;
+var EXPONENT_MASK$2 = 0x7ff00000|0;
+var PIO4_HIGH_WORD$1 = 0x3fe921fb|0;
+var SMALL_HIGH_WORD = 0x3e500000|0;
+var Y = [ 0.0, 0.0 ];
+function sin( x ) {
+	var ix;
+	var n;
+	ix = lib$p( x );
+	ix &= ABS_MASK$3;
+	if ( ix <= PIO4_HIGH_WORD$1 ) {
+		if ( ix < SMALL_HIGH_WORD ) {
+			return x;
+		}
+		return lib$N( x, 0.0 );
+	}
+	if ( ix >= EXPONENT_MASK$2 ) {
+		return NaN;
+	}
+	n = lib$Z( x, Y );
+	switch ( n & 3 ) {
+	case 0:
+		return lib$N( Y[ 0 ], Y[ 1 ] );
+	case 1:
+		return lib$M( Y[ 0 ], Y[ 1 ] );
+	case 2:
+		return -lib$N( Y[ 0 ], Y[ 1 ] );
+	default:
+		return -lib$M( Y[ 0 ], Y[ 1 ] );
+	}
+}
+var sin_1 = sin;
+
+var lib$18 = sin_1;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+function evalrational$2( x ) {
+	var ax;
+	var s1;
+	var s2;
+	if ( x === 0.0 ) {
+		return 0.16666666666666666;
+	}
+	if ( x < 0.0 ) {
+		ax = -x;
+	} else {
+		ax = x;
+	}
+	if ( ax <= 1.0 ) {
+		s1 = -351754.9648081514 + (x * (-11561.443576500522 + (x * (-163.72585752598383 + (x * -0.789474443963537)))));
+		s2 = -2110529.7888489086 + (x * (36157.827983443196 + (x * (-277.7110814206028 + (x * 1.0)))));
+	} else {
+		x = 1.0 / x;
+		s1 = -0.789474443963537 + (x * (-163.72585752598383 + (x * (-11561.443576500522 + (x * -351754.9648081514)))));
+		s2 = 1.0 + (x * (-277.7110814206028 + (x * (36157.827983443196 + (x * -2110529.7888489086)))));
+	}
+	return s1 / s2;
+}
+var rational_pq$1 = evalrational$2;
+
+var MAXLOG = 7.09782712893383996843e2;
+var MINLOG = -7.08396418532264106224e2;
+var POS_OVERFLOW = MAXLOG + lib$w;
+var NEG_OVERFLOW = MINLOG - lib$w;
+var LARGE = MAXLOG - lib$w;
+function sinh( x ) {
+	var a;
+	if ( x === 0.0 ) {
+		return x;
+	}
+	a = lib$T( x );
+	if ( x > POS_OVERFLOW || x < NEG_OVERFLOW ) {
+		return ( x > 0.0 ) ? lib$r : lib$t;
+	}
+	if ( a > 1.0 ) {
+		if ( a >= LARGE ) {
+			a = lib$11( 0.5*a );
+			a *= 0.5 * a;
+			if ( x < 0.0 ) {
+				a = -a;
+			}
+			return a;
+		}
+		a = lib$11( a );
+		a = (0.5*a) - (0.5/a);
+		if ( x < 0.0 ) {
+			a = -a;
+		}
+		return a;
+	}
+	a *= a;
+	return x + ( x*a*rational_pq$1( a ) );
+}
+var sinh_1 = sinh;
+
+var lib$19 = sinh_1;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+function evalpoly$e( x ) {
+	if ( x === 0.0 ) {
+		return 0.13333333333320124;
+	}
+	return 0.13333333333320124 + (x * (0.021869488294859542 + (x * (0.0035920791075913124 + (x * (0.0005880412408202641 + (x * (0.00007817944429395571 + (x * -0.000018558637485527546)))))))));
+}
+var polyval_t_odd = evalpoly$e;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+function evalpoly$f( x ) {
+	if ( x === 0.0 ) {
+		return 0.05396825397622605;
+	}
+	return 0.05396825397622605 + (x * (0.0088632398235993 + (x * (0.0014562094543252903 + (x * (0.0002464631348184699 + (x * (0.00007140724913826082 + (x * 0.00002590730518636337)))))))));
+}
+var polyval_t_even = evalpoly$f;
+
+var PIO4 = 7.85398163397448278999e-01;
+var PIO4LO = 3.06161699786838301793e-17;
+var T0 = 3.33333333333334091986e-01;
+var HIGH_WORD_ABS_MASK$1 = 0x7fffffff|0;
+function kernelTan( x, y, k ) {
+	var hx;
+	var ix;
+	var a;
+	var r;
+	var s;
+	var t;
+	var v;
+	var w;
+	var z;
+	hx = lib$p( x );
+	ix = (hx & HIGH_WORD_ABS_MASK$1)|0;
+	if ( ix >= 0x3FE59428 ) {
+		if ( x < 0 ) {
+			x = -x;
+			y = -y;
+		}
+		z = PIO4 - x;
+		w = PIO4LO - y;
+		x = z + w;
+		y = 0.0;
+	}
+	z = x * x;
+	w = z * z;
+	r = polyval_t_odd( w );
+	v = z * polyval_t_even( w );
+	s = z * x;
+	r = y + (z * ((s * (r + v)) + y));
+	r += T0 * s;
+	w = x + r;
+	if ( ix >= 0x3FE59428 ) {
+		v = k;
+		return ( 1.0 - ( (hx >> 30) & 2 ) ) * ( v - (2.0 * (x - ((w * w / (w + v)) - r)) ));
+	}
+	if ( k === 1 ) {
+		return w;
+	}
+	z = w;
+	lib$15( z, 0 );
+	v = r - (z - x);
+	a = -1.0 / w;
+	t = a;
+	lib$15( t, 0 );
+	s = 1.0 + (t * z);
+	return t + (a * (s + (t * v)));
+}
+var kernel_tan = kernelTan;
+
+var lib$1a = kernel_tan;
+
+var buffer$1 = [ 0.0, 0.0 ];
+var HIGH_WORD_ABS_MASK$2 = 0x7fffffff|0;
+var HIGH_WORD_PIO4$1 = 0x3fe921fb|0;
+var HIGH_WORD_EXPONENT_MASK$1 = 0x7ff00000|0;
+var HIGH_WORD_TWO_NEG_27$1 = 0x3e400000|0;
+function tan( x ) {
+	var ix;
+	var n;
+	ix = lib$p( x );
+	ix &= HIGH_WORD_ABS_MASK$2;
+	if ( ix <= HIGH_WORD_PIO4$1 ) {
+		if ( ix < HIGH_WORD_TWO_NEG_27$1 ) {
+			return x;
+		}
+		return lib$1a( x, 0.0, 1 );
+	}
+	if ( ix >= HIGH_WORD_EXPONENT_MASK$1 ) {
+		return NaN;
+	}
+	n = lib$Z( x, buffer$1 );
+	return lib$1a( buffer$1[ 0 ], buffer$1[ 1 ], 1-((n&1)<<1) );
+}
+var tan_1 = tan;
+
+var lib$1b = tan_1;
+
+/**
+* @license Apache-2.0
+*
+* Copyright (c) 2018 The Stdlib Authors.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+function evalrational$3( x ) {
+	var ax;
+	var s1;
+	var s2;
+	if ( x === 0.0 ) {
+		return -0.3333333333333332;
+	}
+	if ( x < 0.0 ) {
+		ax = -x;
+	} else {
+		ax = x;
+	}
+	if ( ax <= 1.0 ) {
+		s1 = -1614.6876844170845 + (x * (-99.28772310019185 + (x * (-0.9643991794250523 + (x * 0.0)))));
+		s2 = 4844.063053251255 + (x * (2235.4883906010045 + (x * (112.81167849163293 + (x * 1.0)))));
+	} else {
+		x = 1.0 / x;
+		s1 = 0.0 + (x * (-0.9643991794250523 + (x * (-99.28772310019185 + (x * -1614.6876844170845)))));
+		s2 = 1.0 + (x * (112.81167849163293 + (x * (2235.4883906010045 + (x * 4844.063053251255)))));
+	}
+	return s1 / s2;
+}
+var rational_pq$2 = evalrational$3;
+
+var MAXLOG$1 = 8.8029691931113054295988e+01;
+function tanh( x ) {
+	var s;
+	var z;
+	z = lib$T( x );
+	if ( z > 0.5*MAXLOG$1 ) {
+		return ( x < 0.0 ) ? -1.0 : 1.0;
+	}
+	if ( z >= 0.625 ) {
+		s = lib$11( 2.0 * z );
+		z = 1.0 - ( 2.0/(s+1.0) );
+		if ( x < 0.0 ) {
+			z = -z;
+		}
+	} else {
+		if ( x === 0.0 ) {
+			return x;
+		}
+		s = x * x;
+		z = x + ( x*s*rational_pq$2( s ) );
+	}
+	return z;
+}
+var tanh_1 = tanh;
+
+var lib$1c = tanh_1;
+
+if (typeof window.CroquetMath === "undefined") window.CroquetMath = {};
+Object.assign(window.CroquetMath, { acos: lib$4, acosh: lib$y, asin: lib$3, asinh: lib$A, atan: lib$C, atanh: lib$D, atan2: lib$J, cbrt: lib$L, cos: lib$_, cosh: lib$12, exp: lib$11, expm1: lib$14, log: lib$x, log1p: lib$v, log10: lib$16, log2: lib$17, sin: lib$18, sinh: lib$19, tan: lib$1b, tanh: lib$1c });
+const mathPow = Math.pow;
+function isInfinite$1(x) { return x === Infinity || x === -Infinity; }
+function isInteger(x) { return Number.isInteger(x); }
+window.CroquetMath.pow = (x, y) => {
+    if (isNaN(x) || isNaN(y)) return NaN;
+    if (isInfinite$1(x) || isInfinite$1(y)) return mathPow(x, y);
+    if (x === 0 || y === 0) return mathPow(x, y);
+    if (x < 0 && !isInteger(y)) return NaN;
+    if (y === 1) return x;
+    if (y === 2) return x*x;
+    if (y === 3) return x*x*x;
+    if (y === 4) return x*x*x*x;
+    let signResult = 1;
+    if (x < 0) {
+        x *= -1;
+        signResult = mathPow(-1, y);
+    }
+    const absPow = window.CroquetMath.exp(window.CroquetMath.log(x) * y);
+    return absPow * signResult;
+    };
