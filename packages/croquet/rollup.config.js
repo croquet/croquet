@@ -81,7 +81,8 @@ const config = {
             mangle: {module: true},
         }),
         license({
-            banner: `Copyright Croquet Corporation <%= moment().format('YYYY') %>
+            banner: `@license UNLICENSED
+Copyright Croquet Corporation <%= moment().format('YYYY') %>
 Bundle of <%= pkg.name %>
 Generated: <%= moment().format('YYYY-MM-DD') %>
 Version: <%= process.env.CROQUET_VERSION %>`,
