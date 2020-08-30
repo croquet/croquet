@@ -51,6 +51,7 @@
     "@rollup/plugin-node-resolve": "^9.0.0",
     "dotenv-flow": "^3.2.0",
     "magic-string": "^0.25.7",
+    "moment": "^2.27.0",
     "npm-watch": "^0.7.0",
     "rollup": "^2.23.1",
     "rollup-plugin-license": "^2.2.0",

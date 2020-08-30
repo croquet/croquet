@@ -3,6 +3,7 @@ import resolve from '@rollup/plugin-node-resolve';
 import license from 'rollup-plugin-license';
 import { terser } from 'rollup-plugin-terser';
 import MagicString from 'magic-string';
+import moment from 'moment';
 import fs from 'fs';
 import os from 'os';
 import { execSync } from 'child_process';
@@ -56,7 +57,7 @@ if (public_build && (git_branch !== "main" || !git_clean)) throw Error(`Public b
 // semantic versioning x.y.z-pre.release+meta.data https://semver.org/
 process.env.CROQUET_VERSION = public_build ? pkg.version
     :  git_clean && git_pushed ? `${pkg.version}+${git_branch}.${git_commit}`
-    : `${pkg.version}+${git_branch}.${git_commit}.${os.userInfo().username}.${new Date().toISOString()}`;
+    : `${pkg.version}+${git_branch}.${git_commit}.${os.userInfo().username}.${moment().toISOString(true)}`;
 
 console.log(`Building Croquet SDK ${process.env.CROQUET_VERSION}`);
 
