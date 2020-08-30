@@ -1,14 +1,10 @@
 {
   "name": "@croquet/util",
-  "version": "42",
+  "version": "0.0.42",
   "description": "misc utilities",
   "main": "index.js",
-  "scripts": {
-    "lint": "eslint src",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "",
-  "license": "ISC",
+  "author": "Croquet Corp",
+  "license": "UNLICENSED",
   "dependencies": {
     "fast-json-stable-stringify": "^2.1.0",
     "fastpriorityqueue": "^0.6.3",
