@@ -550,8 +550,8 @@ export default class Controller {
                         this.convertReflectorMessage(encrypted_msg);
                         msg = encrypted_msg;
                     } else {
-                        const dp = this.decrypt_payload(encrypted_msg[2])
-                        msg = [encrypted_msg[0], encrypted_msg[1], dp.msgPayload, dp.viewId, dp.lastSent, args.latency]
+                        const dp = this.decrypt_payload(encrypted_msg[2]);
+                        msg = [encrypted_msg[0], encrypted_msg[1], dp.msgPayload, dp.viewId, dp.lastSent, args.latency];
                     }
                     if (DEBUG.messages) console.log(this.id, 'Controller received message in SYNC ' + JSON.stringify(msg));
                     msg[1] >>>= 0; // make sure it's uint32 (reflector used to send int32)
@@ -595,9 +595,8 @@ export default class Controller {
                     this.convertReflectorMessage(encrypted_msg);
                     msg = encrypted_msg;
                 } else {
-                    const dp = this.decrypt_payload(encrypted_msg[2])
-                    msg = [encrypted_msg[0], encrypted_msg[1], dp.msgPayload, dp.viewId, dp.lastSent, args.latency]
-
+                    const dp = this.decrypt_payload(encrypted_msg[2]);
+                    msg = [encrypted_msg[0], encrypted_msg[1], dp.msgPayload, dp.viewId, dp.lastSent, args.latency];
                 }
                 msg[1] >>>= 0; // make sure it's uint32 (reflector used to send int32)
                 if (DEBUG.messages) console.log(this.id, 'Controller received RECV ' + JSON.stringify(msg));
@@ -722,7 +721,7 @@ export default class Controller {
     encrypt(plaintext) {
         const iv  = CryptoJS.lib.WordArray.random(16);
         const encrypted = CryptoJS.AES.encrypt(plaintext, this.key, {
-            iv: iv,
+            iv,
             padding: CryptoJS.pad.Pkcs7,
             mode: CryptoJS.mode.CBC
           });
@@ -731,14 +730,12 @@ export default class Controller {
     }
 
     decrypt(ciphertext, iv, mac) {
-        const decrypted = CryptoJS.AES.decrypt(ciphertext, this.key, {iv:iv});
+        const decrypted = CryptoJS.AES.decrypt(ciphertext, this.key, { iv });
         const hmac = CryptoJS.HmacSHA256(CryptoJS.enc.Utf8.stringify(decrypted), this.key);
-        if(this.compare_hmacs(mac.words, hmac.words)) {
+        if (this.compare_hmacs(mac.words, hmac.words)) {
             return decrypted;
         }
-        else {
-            return "";
-        }
+        return "";
     }
 
     decrypt_payload(payload) {
@@ -748,7 +745,7 @@ export default class Controller {
 
     compare_hmacs(fst, snd) {
         let ret = fst.length === snd.length;
-        for(let i=0; i<fst.length; i++) {
+        for (let i=0; i<fst.length; i++) {
             if (!(fst[i] === snd[i])) {
                 ret = false;
             }
