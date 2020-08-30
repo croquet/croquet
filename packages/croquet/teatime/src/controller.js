@@ -587,7 +587,6 @@ export default class Controller {
                 // We received a message from reflector.
                 // Put it in the queue, and set time.
                 // Actual processing happens in main loop.
-                if (DEBUG.messages) console.log(this.id, 'Controller received RECV ' + JSON.stringify(args));
                 let msg = null;
                 const encrypted_msg = args;
                 // the reflector might insert messages on its own, indicated by a non-string payload
@@ -601,6 +600,7 @@ export default class Controller {
 
                 }
                 msg[1] >>>= 0; // make sure it's uint32 (reflector used to send int32)
+                if (DEBUG.messages) console.log(this.id, 'Controller received RECV ' + JSON.stringify(msg));
                 // if we sent this message, add it to latency statistics
                 if (msg[3] === this.viewId) this.addToStatistics(msg[4], this.lastReceived);
                 this.networkQueue.put(msg);
