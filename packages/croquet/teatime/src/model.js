@@ -551,7 +551,6 @@ function allClasses() {
 function allClassTypes() {
     const types = {};
     for (const modelClass of allClasses()) {
-        if (!Object.prototype.hasOwnProperty.call(modelClass, "types")) continue;
         Object.assign(types, modelClass.types());
     }
     return Object.entries(types);
