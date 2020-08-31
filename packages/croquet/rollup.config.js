@@ -67,7 +67,7 @@ console.log(`Building Croquet SDK ${process.env.CROQUET_VERSION}`);
 const config = {
     input: 'croquet.js',
     output: {
-        file: 'dist/croquet.min.js',
+        file: 'pub/croquet-croquet.js',
         format: 'cjs',
         sourcemap: is_dev_build,    // not included in npm bundle by explicit "files" section in package.json
     },
