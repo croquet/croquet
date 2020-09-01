@@ -32,7 +32,6 @@ prerelease)
     npm version "$VERSION"
     [ $? -ne 0 ] && exit 1
     MSG="prerelease $VERSION"
-    npm version "$VERSION"
     BUILDDOCS=false
     ;;
 release)
