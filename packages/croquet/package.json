@@ -1,12 +1,12 @@
 {
   "name": "@croquet/croquet",
-  "version": "0.3.3-5",
+  "version": "0.3.3-6",
   "description": "",
-  "main": "dist/croquet.min.js",
+  "main": "pub/croquet-croquet.js",
   "types": "types.d.ts",
   "//": "/* files listed explicitly so sourcemap does not get published */",
   "files": [
-    "dist/croquet.min.js",
+    "pub/croquet-croquet.js",
     "types.d.ts"
   ],
   "scripts": {
@@ -15,7 +15,7 @@
     "build-dev": "rollup -c --environment NODE_ENV:development",
     "build-prod": "rollup -c --environment NODE_ENV:production",
     "prepublishOnly": "npm run build-prod",
-    "clean": "rm -f dist/*; git checkout dist/",
+    "clean": "rm -f pub/*; git checkout pub/",
     "prepare": ""
   },
   "watch": {
@@ -26,7 +26,7 @@
         "../../../util",
         "../../../math"
       ],
-      "ignore": "./dist",
+      "ignore": "./pub",
       "extensions": "js,json",
       "quiet": false
     }
@@ -46,7 +46,6 @@
     "@babel/core": "^7.11.1",
     "@babel/plugin-transform-runtime": "^7.11.0",
     "@babel/preset-env": "^7.11.0",
-    "@croquet/teatime": "file:../../../teatime",
     "@rollup/plugin-babel": "^5.2.0",
     "@rollup/plugin-node-resolve": "^9.0.0",
     "dotenv-flow": "^3.2.0",

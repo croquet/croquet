@@ -46,17 +46,20 @@ const is_dev_build = process.env.NODE_ENV !== "production";
 
 const deps = ["../../../teatime",  "../../../util", "../../../math"];
 const git_branch = execSync("git rev-parse --abbrev-ref HEAD").toString().trim();
-const git_commit = execSync("git rev-parse HEAD").toString().trim();
-const git_pushed = execSync("git branch -r --contains " + git_commit).toString().trim();
-const git_clean = !execSync("git status --porcelain -- " + deps.join(" ")).toString().trim();
+const git_commit = execSync("git rev-parse HEAD").toString().trim();                          // last commit hash
+const git_message = execSync("git show --format='%s' -s " + git_commit).toString().trim();    // last commit message
+const git_pushed = execSync("git branch -r --contains " + git_commit).toString().trim();      // last commit was pushed
+const git_bumped = git_message.endsWith(pkg.version);                                         // last commit was bump
+const git_clean = !execSync("git status --porcelain -- " + deps.join(" ")).toString().trim(); // all deps are committed
 
 const public_build = !is_dev_build && !pkg.version.includes('-');
+const git_ok = git_pushed || git_bumped;
 
 if (public_build && (git_branch !== "main" || !git_clean)) throw Error(`Public build ${pkg.version} but ${git_clean ? "git is not clean" : "not on main branch"}`);
 
 // semantic versioning x.y.z-pre.release+meta.data https://semver.org/
 process.env.CROQUET_VERSION = public_build ? pkg.version
-    :  git_clean && git_pushed ? `${pkg.version}+${git_branch}.${git_commit}`
+    :  git_clean && git_ok ? `${pkg.version}+${git_branch}.${git_commit}`
     : `${pkg.version}+${git_branch}.${git_commit}.${os.userInfo().username}.${moment().toISOString(true)}`;
 
 console.log(`Building Croquet SDK ${process.env.CROQUET_VERSION}`);
@@ -64,7 +67,7 @@ console.log(`Building Croquet SDK ${process.env.CROQUET_VERSION}`);
 const config = {
     input: 'croquet.js',
     output: {
-        file: 'dist/croquet.min.js',
+        file: 'pub/croquet-croquet.js',
         format: 'cjs',
         sourcemap: is_dev_build,    // not included in npm bundle by explicit "files" section in package.json
     },

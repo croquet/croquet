@@ -4,6 +4,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 
 # 0.3.3 prereleases
 
+* 0.3.3-6 rename to public/croquet-croquet.js
 * 0.3.3-5 types() for mixins, rebuilt @croquet/math
 * 0.3.3-4 expander support
 * 0.3.3-3 report divergent snapshots to reflector
