@@ -1,4 +1,4 @@
-import { Model, View, Data, Session, App } from "@croquet/croquet"
+import { Model, View, Data, Session, App, Messenger } from "@croquet/croquet";
 import Hammer from "hammerjs";
 import prettyBytes from "pretty-bytes";
 
@@ -15,7 +15,7 @@ class PixModel extends Model {
         this.buttons = {};
         for (const name of ["prev", "next", "add", "del"]) {
             this.buttons[name] = { views: new Set(), since: 0, active: false };
-        };
+        }
         this.subscribe(this.id, "button-active", this.buttonActive);
         this.subscribe(this.sessionId, "view-exit", this.viewExit);
     }
@@ -122,7 +122,7 @@ class PixView extends View {
             for (const item of event.dataTransfer.items) {
                 if (item.kind === "file") this.addFile(item.getAsFile());
             }
-        }
+        };
 
         imageinput.onchange = () => {
             for (const file of imageinput.files) {
@@ -151,7 +151,7 @@ class PixView extends View {
                     document.body.classList.add("mouse-inactive");
                     timer = 0;
                 }, 3000);
-            }
+            };
             window.onmousemove();
         }
 
@@ -165,6 +165,20 @@ class PixView extends View {
                 button.onmouseleave = () => this.activateButton(name, false);
             }
         }
+
+        if (window.parent !== window) {
+            // assume that we're embedded in Q
+            Messenger.startPublishingPointerMove();
+
+            Messenger.setReceiver(this);
+            Messenger.send("appReady");
+            Messenger.on("appInfoRequest", () => {
+                Messenger.send("appInfo", { appName: "pix", label: "images", iconName: "addimg.svgIcon", urlTemplate: "../pix/?q=${q}" });
+                });
+            Messenger.on("userCursor", data => window.document.body.style.setProperty("cursor", data));
+            Messenger.send("userCursorRequest");
+        }
+
     }
 
     // only uploading user does this
@@ -230,7 +244,7 @@ class PixView extends View {
         // load image
         const original = new Image();
         original.src = URL.createObjectURL(blob);
-        try { await original.decode(); } catch(ex) { };
+        try { await original.decode(); } catch(ex) { }
         URL.revokeObjectURL(original.src);
         const { width, height } = original;
         if (!original.width || !original.height) return {};
