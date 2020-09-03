@@ -383,7 +383,7 @@ declare module "@croquet/croquet" {
          * ```
          * this.subscribe(this.sessionId, "view-join", this.addUser);
          * ```*/
-        get sessionId(): string;
+        sessionId: string;
 
     }
 
