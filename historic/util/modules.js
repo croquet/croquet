@@ -262,6 +262,8 @@ export async function hashSessionAndCode(name, options, sdk_version) {
     const id = await hashString([sessionHash, codeHash].join('|'));
     // log all hashes if debug=hashing
     if (debugHashing()) {
+        const charset = [...document.getElementsByTagName('meta')].find(el => el.getAttribute('charset'));
+        if (!charset) console.warn('Missing <meta charset="..."> declaration. Croquet model code hashing might differ between browsers.');
         debugHashes[codeHash].name = "All code hashes";
         debugHashes[sessionHash].name = "Session name and options";
         debugHashes[id].name = "Session ID";
