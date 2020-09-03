@@ -2,16 +2,16 @@
 
 This is a private summary of changes. The public changes are in [README.md](./README.md).
 
-# 0.3.3 prereleases
+# latest pre-releases
 
-* 0.3.3-6 rename to public/croquet-croquet.js
+* 0.3.3-7 temporarily back out crypto to reduce bundle size
+* 0.3.3-6 rename to pub/croquet-croquet.js
 * 0.3.3-5 types() for mixins, rebuilt @croquet/math
 * 0.3.3-4 expander support
 * 0.3.3-3 report divergent snapshots to reflector
 * 0.3.3-2 do not force dev reflectors anymore
 * 0.3.3-1 add message encryption
 * 0.3.3-0 version bump
-
 
 # 2020-08-23: 0.3.2
 
