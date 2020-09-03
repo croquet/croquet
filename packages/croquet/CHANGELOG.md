@@ -4,6 +4,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 
 # latest pre-releases
 
+* 0.3.3-8 fix session.leave() return value
 * 0.3.3-7 temporarily back out crypto to reduce bundle size
 * 0.3.3-6 rename to pub/croquet-croquet.js
 * 0.3.3-5 types() for mixins, rebuilt @croquet/math
