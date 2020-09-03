@@ -215,6 +215,7 @@ Calls to `Math.random()` within a view will behave normally. Different instances
 
 | date       | item
 |------------|---
+| 2020-09-03 | **release 0.3.3** (bug fixes; `session.leave()` returns promise, support for virtual-dom)
 | 2020-08-21 | **release 0.3.2** (bug fixes; much faster session creation)
 | 2020-06-08 | **release 0.3.1** (bug fixes; [`"view-join"`]{@link event:view-join} and [`"view-exit"`]{@link event:view-exit} events are now model-only)
 | 2020-05-18 | **release 0.3.0** (bug fixes; [Session.join]{@link Session.join} instead of `startSession`, adds `session.leave()`, `future` message arguments are passed by identity, not copied anymore)
