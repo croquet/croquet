@@ -169,7 +169,7 @@ export class Session {
                 stepSession(frameTime, controller, session.view);
             },
             leave() {
-                Session.leave(session.id);
+                return Session.leave(session.id);
             },
             get latency() { return controller.latency; },
             get latencies() { return controller.latencies; },
