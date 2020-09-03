@@ -989,6 +989,10 @@ export default class Controller {
             if (++n >= multiplier) { window.clearInterval(this.localTicker); this.localTicker = 0; }
         }, ms);
     }
+
+    toString() { return `Controller[${this.id}]`; }
+
+    [Symbol.toPrimitive]() { return this.toString(); }
 }
 
 // Socket Connection

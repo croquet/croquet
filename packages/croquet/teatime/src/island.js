@@ -616,6 +616,10 @@ export default class Island {
         }
         return id;
     }
+
+    toString() { return `Island[${this.id}]`; }
+
+    [Symbol.toPrimitive]() { return this.toString(); }
 }
 
 
