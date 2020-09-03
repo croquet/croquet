@@ -53,13 +53,13 @@ const git_bumped = git_message.endsWith(pkg.version);                           
 const git_clean = !execSync("git status --porcelain -- " + deps.join(" ")).toString().trim(); // all deps are committed
 
 const public_build = !is_dev_build && !pkg.version.includes('-');
-const git_ok = git_pushed || git_bumped;
+const prerelease = !is_dev_build && git_branch === "main" && git_bumped && git_clean;
 
 if (public_build && (git_branch !== "main" || !git_clean)) throw Error(`Public build ${pkg.version} but ${git_clean ? "git is not clean" : "not on main branch"}`);
 
 // semantic versioning x.y.z-pre.release+meta.data https://semver.org/
-process.env.CROQUET_VERSION = public_build ? pkg.version
-    :  git_clean && git_ok ? `${pkg.version}+${git_branch}.${git_commit}`
+process.env.CROQUET_VERSION = public_build || prerelease ? pkg.version
+    :  git_clean && (git_pushed || git_bumped) ? `${pkg.version}+${git_branch}.${git_commit}`
     : `${pkg.version}+${git_branch}.${git_commit}.${os.userInfo().username}.${moment().toISOString(true)}`;
 
 console.log(`Building Croquet SDK ${process.env.CROQUET_VERSION}`);
