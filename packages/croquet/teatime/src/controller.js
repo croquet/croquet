@@ -1,8 +1,6 @@
 import "@croquet/util/deduplicate";
 import stableStringify from "fast-json-stable-stringify";
-/* TEMP BACKOUT OF CRYPTO
 import CryptoJS from "crypto-js";
-*/
 import pako from "pako"; // gzip-aware compressor
 import AsyncQueue from "@croquet/util/asyncQueue";
 import { Stats } from "@croquet/util/stats";
@@ -98,9 +96,7 @@ export default class Controller {
         /** @type {String} the human-readable session name (e.g. "room/user/random") */
         this.session = '';
         /** key generated from password, shared by all clients */
-/* TEMP BACKOUT OF CRYPTO
         this.key = null;
-*/
         /** @type {String} the client id (different in each replica, but stays the same on reconnect) */
         this.viewId = this.viewId || randomString(); // todo: have reflector assign unique ids
         /** the number of concurrent users in our island (excluding spectators) */
@@ -194,14 +190,12 @@ export default class Controller {
             if (key in urlOptions) options[key] = urlOptions[key];
         }
         if (doLogin) await login();
-/* TEMP BACKOUT OF CRYPTO
         // if the default shows up in logs we have a problem
         const keyMaterial = password || urlOptions.pw || "THIS SHOULDN'T BE IN LOGS";
         const pbkdf2Result = CryptoJS.PBKDF2(keyMaterial, "", {
             keySize: 256/32,
         });
         this.key = CryptoJS.lib.WordArray.create(pbkdf2Result.words.slice(0, 256/32));
-*/
         if (autoSession) {
             // session is either "user/random" or "room/user/random" (for multi-room)
             const room = name;
@@ -556,11 +550,8 @@ export default class Controller {
                         this.convertReflectorMessage(encrypted_msg);
                         msg = encrypted_msg;
                     } else {
-/* TEMP BACKOUT OF CRYPTO
                         const dp = this.decrypt_payload(encrypted_msg[2]);
                         msg = [encrypted_msg[0], encrypted_msg[1], dp.msgPayload, dp.viewId, dp.lastSent, args.latency];
-*/
-                        msg = encrypted_msg;
                     }
                     if (DEBUG.messages) console.log(this.id, 'Controller received message in SYNC ' + JSON.stringify(msg));
                     msg[1] >>>= 0; // make sure it's uint32 (reflector used to send int32)
@@ -604,11 +595,8 @@ export default class Controller {
                     this.convertReflectorMessage(encrypted_msg);
                     msg = encrypted_msg;
                 } else {
-/* TEMP BACKOUT OF CRYPTO
                     const dp = this.decrypt_payload(encrypted_msg[2]);
                     msg = [encrypted_msg[0], encrypted_msg[1], dp.msgPayload, dp.viewId, dp.lastSent, args.latency];
-*/
-                    msg = encrypted_msg;
                 }
                 msg[1] >>>= 0; // make sure it's uint32 (reflector used to send int32)
                 if (DEBUG.messages) console.log(this.id, 'Controller received RECV ' + JSON.stringify(msg));
@@ -729,7 +717,6 @@ export default class Controller {
         if (!this.islandCreator) throw Error("do not discard islandCreator!");
         if (destroyerFn) destroyerFn();
     }
-/* TEMP BACKOUT OF CRYPTO
 
     encrypt(plaintext) {
         const iv  = CryptoJS.lib.WordArray.random(16);
@@ -765,7 +752,6 @@ export default class Controller {
         }
         return ret;
     }
-*/
 
     /** send a Message to all island replicas via reflector
      * @param {Message} msg
@@ -776,22 +762,17 @@ export default class Controller {
         if (this.viewOnly) return;
         if (DEBUG.sends) console.log(this.id, `Controller sending SEND ${msg.asState()}`);
         this.lastSent = Date.now();
-        const [time, seq, msgPayload] = msg.asState();
-/* TEMP BACKOUT OF CRYPTO
+        const [time, seq,msgPayload] = msg.asState();
         const plaintext = (JSON.stringify({
             msgPayload,
             viewId: this.viewId,
             lastSent: this.lastSent
         }));
         const encryptedPayload = JSON.stringify(this.encrypt(plaintext));
-*/
         this.connection.send(JSON.stringify({
             id: this.id,
             action: 'SEND',
-/* TEMP BACKOUT OF CRYPTO
             args: [time, seq, encryptedPayload, this.latency],
-*/
-            args: [time, seq, msgPayload, this.latency],
         }));
     }
 
@@ -806,22 +787,17 @@ export default class Controller {
         if (this.viewOnly) return;
         if (DEBUG.sends) console.log(this.id, `Controller sending tagged SEND ${msg.asState()} with tags ${JSON.stringify(tags)}`);
         this.lastSent = Date.now();
-        const [time, seq, msgPayload] = msg.asState();
-/* TEMP BACKOUT OF CRYPTO
+        const [time, seq,msgPayload] = msg.asState();
         const plaintext = (JSON.stringify({
             msgPayload,
             viewId: this.viewId,
             lastSent: this.lastSent
         }));
         const encryptedPayload = JSON.stringify(this.encrypt(plaintext));
-*/
         this.connection.send(JSON.stringify({
             id: this.id,
             action: 'SEND',
-/* TEMP BACKOUT OF CRYPTO
             args: [time, seq, encryptedPayload, this.latency],
-*/
-            args: [time, seq, msgPayload, this.latency],
             tags
         }));
     }
