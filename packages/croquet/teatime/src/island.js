@@ -1298,7 +1298,7 @@ class IslandReader {
         }
         const reader = this.readers.get(classID);
         const object = reader(temp, path);
-        if (!object && classID !== "NaN") console.warn(`Reading "${classID}" returned ${object} at ${path}`);
+        if (!object && classID !== "NaN" && classID !== "NegZero") console.warn(`Reading "${classID}" returned ${object} at ${path}`);
         if (state.$id) this.refs.set(state.$id, object);
         for (const [ref, key] of unresolved.entries()) {
             this.unresolved.push({object, key, ref, path});
