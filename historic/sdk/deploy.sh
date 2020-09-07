@@ -67,7 +67,7 @@ if [ "$WHAT" != "docs" ] ; then
     (cd $SRC_PKG ; npm run clean)
 
     # build & deploy library
-    npx parcel build --public-url . --global Croquet -d $SDK -o croquet-$VERSION.min.js sdk.js
+    npx parcel build --public-url . --global Croquet -d $SDK -o croquet-$VERSION.min.js sdk.js || exit 1
 
     # always link as latest-pre
     (cd $SDK; ln -sf croquet-$VERSION.min.js croquet-latest-pre.min.js; ln -sf croquet-$VERSION.min.js.map croquet-latest-pre.min.js.map)
