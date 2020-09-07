@@ -91,8 +91,8 @@ if $BUILDDOCS ; then
     sed -i '' "s|conduct.html|/conduct.html|" $DOCS/index.html
 fi
 
-git add -A $SDK/ package.json package-lock.json
-git commit -m "[sdk] deploy $MSG to croquet.io/testing" $SDK/ package.json package-lock.json || exit
+git add -A $SDK/ package.json
+git commit -m "[sdk] deploy $MSG to croquet.io/testing" $SDK/ package.json || exit
 
 git show --stat
 
