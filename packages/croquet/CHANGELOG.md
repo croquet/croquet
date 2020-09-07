@@ -4,6 +4,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 
 # latest pre-releases
 
+* 0.3.4-2 remove warning when deserializing NegZero
 * 0.3.4-1 re-enable crypto
 * 0.3.4-0 version bump
 
