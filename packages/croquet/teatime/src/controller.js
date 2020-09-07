@@ -230,8 +230,11 @@ export default class Controller {
             initSnapshot = true;
         }
         if (initSnapshot) this.islandCreator.snapshot = { id, time: 0, meta: { id, sessionHash, codeHash, created: (new Date()).toISOString() } };
-        await this.join();   // when socket is ready, join server
-        await this.startedOrSynced();
+
+        // create promise before join to prevent race
+        const synced = new Promise((resolve, reject) => this.islandCreator.sessionSynced = { resolve, reject } );
+        this.join();   // when socket is ready, join server
+        await synced;  // resolved after receiving `SYNC`, installing island, and replaying messages
         return this.island.modelsByName;
     }
 
@@ -577,7 +580,7 @@ export default class Controller {
                     // return from establishSession()
                     else {
                         if (DEBUG.session) console.log(`${this.id} fast forwarded to ${Math.round(this.island.time)}`);
-                        this.islandCreator.startedOrSynced.resolve(this.island);
+                        this.islandCreator.sessionSynced.resolve(this.island);
                     }
                 };
                 setTimeout(simulateSyncMessages, 0);
@@ -699,10 +702,6 @@ export default class Controller {
             action: 'JOIN',
             args,
         }));
-    }
-
-    async startedOrSynced() {
-        return new Promise((resolve, reject) => this.islandCreator.startedOrSynced = { resolve, reject } );
     }
 
     // either the connection has been broken or the reflector has sent LEAVE
