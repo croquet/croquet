@@ -15,7 +15,7 @@
     "build-dev": "rollup -c --environment NODE_ENV:development",
     "build-prod": "rollup -c --environment NODE_ENV:production",
     "prepublishOnly": "npm run build-prod",
-    "clean": "rm -rf pub node_modules; git checkout package-lock.json pub/ ; npm ci --production"
+    "clean": "git checkout package-lock.json pub/ ; npm ci --production"
   },
   "watch": {
     "build-dev": {
