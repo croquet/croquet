@@ -1014,6 +1014,8 @@ class Connection {
         this.setUpConnectionPromise();
     }
 
+    get id() { return this.controller.id; }
+
     setTick(ms) {
         this.missingTickThreshold = Math.min(ms * 3, 45000); // send PULSE after
     }
@@ -1131,7 +1133,7 @@ class Connection {
             this.send(JSON.stringify({ action: 'PULSE' }));
         } else if (now - this.lastSent > UNSENT_TIMEOUT) {
             // only warn about unsent data after a certain time
-            console.log(`Reflector connection stalled: ${this.socket.bufferedAmount} bytes unsent`);
+            console.log(`${this.id} Reflector connection stalled: ${this.socket.bufferedAmount} bytes unsent for ${now - this.lastSent} ms`);
         }
     }
 
