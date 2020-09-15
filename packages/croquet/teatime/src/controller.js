@@ -409,13 +409,13 @@ export default class Controller {
     async uploadSnapshot(snapshot, dissidentFlag=null) {
         await this.hashSnapshot(snapshot);
 
-        const start = Date.now();
+        const start = Stats.begin("snapshot");
         const body = JSON.stringify(snapshot);
-        const stringMS = Date.now()-start;
+        const stringMS = Stats.end("snapshot") - start;
+        if (DEBUG.snapshot) console.log(this.id, `Snapshot stringification (${body.length} bytes) took ${Math.ceil(stringMS)}ms`);
 
         const {time, seq, hash} = snapshot.meta;
         const gzurl = this.snapshotUrl('snap', time, seq, hash, 'gz');
-        if (DEBUG.snapshot) console.log(this.id, `Controller uploading snapshot (${body.length} bytes, ${stringMS}ms) to ${gzurl}`);
         const socket = this.connection.socket;
         const success = await this.uploadGzipped(gzurl, body);
         if (this.connection.socket !== socket) { console.error("Controller was reset while trying to upload snapshot"); return false; }
@@ -471,10 +471,12 @@ export default class Controller {
 
     /** upload a stringy source object as binary gzip */
     async uploadGzipped(gzurl, stringyContent) {
-        const start = Date.now();
+        const start = Stats.begin("snapshot");
         const chars = new TextEncoder().encode(stringyContent);
         const bytes = pako.gzip(chars, { level: 1 }); // sloppy but quick
-        if (DEBUG.snapshot) console.log(`Snapshot gzipping took ${Date.now()-start}ms`);
+        const ms = Stats.end("snapshot") - start;
+        if (DEBUG.snapshot) console.log(this.id, `Snapshot gzipping (${bytes.length} bytes) took ${Math.ceil(ms)}ms`);
+        if (DEBUG.snapshot) console.log(this.id, `Controller uploading snapshot to ${gzurl}`);
         try {
             const { ok } = await fetch(gzurl, {
                 method: "PUT",
