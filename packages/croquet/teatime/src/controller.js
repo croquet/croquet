@@ -184,7 +184,10 @@ export default class Controller {
      */
     async establishSession(name, sessionSpec) {
         initDEBUG();
-        const { optionsFromUrl, password, multiRoom, autoSession, login: doLogin } = sessionSpec;
+        // If we add more options here, add them to SESSION_OPTIONS in session.js
+        // multiRoom, autoSession, and login are only used by simpleapp
+        const { optionsFromUrl, password, viewIdDebugSuffix, multiRoom, autoSession, login: doLogin } = sessionSpec;
+        if (viewIdDebugSuffix) this.viewId = this.viewId.replace(/-.*$/, '') + "-" + (""+viewIdDebugSuffix).slice(0,16);
         const options = {...sessionSpec.options};
         for (const key of [...OPTIONS_FROM_URL, ...optionsFromUrl||[]]) {
             if (key in urlOptions) options[key] = urlOptions[key];

@@ -148,7 +148,7 @@ export class Session {
         // now start
         if ("expectedSimFPS" in options) expectedSimFPS = Math.min(options.expectedSimFPS, MAX_BALANCE_FPS);
         const ISLAND_OPTIONS = ['tps'];
-        const SESSION_OPTIONS = ['optionsFromUrl', 'login', 'autoSession'];
+        const SESSION_OPTIONS = ['optionsFromUrl', 'password', 'viewIdDebugSuffix'];
         freezeAndHashConstants();
         const controller = new Controller();
         const islandOptions = {};
