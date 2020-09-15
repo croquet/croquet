@@ -1,6 +1,6 @@
 {
   "name": "@croquet/croquet",
-  "version": "0.3.4-3",
+  "version": "0.3.4-4",
   "description": "",
   "main": "pub/croquet-croquet.js",
   "types": "types.d.ts",
