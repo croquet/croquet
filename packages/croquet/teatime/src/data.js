@@ -89,6 +89,16 @@ export default class DataHandle {
         return decrypt(key, encrypted);
     }
 
+    /** @private */
+    static fromId(id) {
+        return new this(id);
+    }
+
+    /** @private */
+    static toId(handle) {
+        return handle && handle[DATAHANDLE_HASH];
+    }
+
     constructor(hash) {
         const existing = HandleCache.get(hash);
         if (existing) {
