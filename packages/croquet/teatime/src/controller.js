@@ -292,13 +292,46 @@ export default class Controller {
             return;
         }
 
-        const message = new Message(now, 0, this.island.id, "pollForSnapshot", []);
+        const message = new Message(now, 0, this.island.id, "handlePollForSnapshot", []);
         // tell reflector only to reflect this message if no message with same ID has been sent in past 5000ms (wall-clock time)
         this.sendTagged(message, { debounce: 5000, msgID: "pollForSnapshot" });
         if (DEBUG.snapshot) console.log(this.id, 'requesting snapshot poll via reflector');
     }
 
+    handlePollForSnapshot() {
+        // !!! THIS IS BEING EXECUTED INSIDE THE SIMULATION LOOP!!!
+        const { island } = this;
+        const tuttiSeq = this.island.getNextTuttiSeq(); // move it along, even if this client decides not to participate
+
+        // make sure there isn't a clash between clients simultaneously deciding
+        // that it's time for someone to take a snapshot.
+        const now = island.time;
+        const sinceLast = now - island.lastSnapshotPoll;
+        if (sinceLast < 5000) { // arbitrary - needs to be long enough to ensure this isn't part of the same batch
+            console.log(`rejecting snapshot poll ${sinceLast}ms after previous`);
+            return;
+        }
+
+        island.lastSnapshotPoll = now; // whether or not the controller agrees to participate
+
+        const voteData = this.preparePollForSnapshot(); // at least resets cpuTime
+        if (!voteData) return; // not going to vote, so don't waste time on creating the hash
+
+        const start = Stats.begin("snapshot");
+        voteData.hash = island.getSummaryHash();
+        const ms = Stats.end("snapshot") - start;
+        // exclude snapshot time from cpu time for logic in this.simulate()
+        this.cpuTime -= ms;  // give ourselves a time credit for the non-simulation work
+        if (DEBUG.snapshot) console.log(this.id, `Summary hashing took ${Math.ceil(ms)}ms`);
+
+        // sending the vote is handled asynchronously, because we want to add a view-side random()
+        Promise.resolve().then(() => this.pollForSnapshot(now, tuttiSeq, voteData));
+    }
+
+
     preparePollForSnapshot() {
+        // !!! THIS IS BEING EXECUTED INSIDE THE SIMULATION LOOP!!!
+
         // read and reset cpuTime whether or not we'll be participating in the vote
         const localCpuTime = this.triggeringCpuTime || this.cpuTime;
         this.triggeringCpuTime = null;
@@ -316,6 +349,8 @@ export default class Controller {
     }
 
     handleSnapshotVote(data) {
+        // !!! THIS IS BEING EXECUTED INSIDE THE SIMULATION LOOP!!!
+
         if (this.synced !== true) {
             if (DEBUG.snapshot) console.log(`Ignoring snapshot vote during sync`);
             return;
@@ -368,12 +403,14 @@ export default class Controller {
     }
 
     serveSnapshot(dissidentFlag) {
+        // !!! THIS IS BEING EXECUTED INSIDE THE SIMULATION LOOP!!!
         const start = Stats.begin("snapshot");
         const snapshot = this.takeSnapshot();
         const ms = Stats.end("snapshot") - start;
         // exclude snapshot time from cpu time for logic in this.simulate()
         this.cpuTime -= ms;
         if (DEBUG.snapshot) console.log(this.id, `Snapshotting took ${Math.ceil(ms)} ms`);
+        // ... here we go async
         this.uploadSnapshot(snapshot, dissidentFlag);
     }
 

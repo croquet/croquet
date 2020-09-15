@@ -563,30 +563,8 @@ export default class Island {
         this.controller.handleSyncCheckVote(data);
     }
 
-    pollForSnapshot() {
-        const tuttiSeq = this.getNextTuttiSeq(); // move it along, even if this client decides not to participate
-
-        // make sure there isn't a clash between clients simultaneously deciding
-        // that it's time for someone to take a snapshot.
-        const now = this.time;
-        const sinceLast = now - this.lastSnapshotPoll;
-        if (sinceLast < 5000) { // arbitrary - needs to be long enough to ensure this isn't part of the same batch
-            console.log(`rejecting snapshot poll ${sinceLast}ms after previous`);
-            return;
-        }
-
-        this.lastSnapshotPoll = now; // whether or not the controller agrees to participate
-
-        const voteData = this.controller.preparePollForSnapshot(); // at least resets cpuTime
-        if (!voteData) return; // not going to vote, so don't waste time on creating the hash
-
-        const before = Date.now();
-        voteData.hash = this.getSummaryHash();
-        const elapsed = Date.now() - before;
-        this.controller.cpuTime -= elapsed; // give ourselves a time credit for the non-simulation work
-
-        // sending the vote is handled asynchronously, because we want to add a view-side random()
-        Promise.resolve().then(() => this.controller.pollForSnapshot(now, tuttiSeq, voteData));
+    handlePollForSnapshot() {
+        this.controller.handlePollForSnapshot();
     }
 
     handleSnapshotVote(_topic, data) {
