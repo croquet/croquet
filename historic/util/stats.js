@@ -44,7 +44,7 @@ export function makeStats(div) {
     fCtx = fps.getContext("2d");
 
     fps.id = 'text_stats';
-    fps.width = Math.min(125, window.innerWidth);
+    fps.width = Math.min(140, window.innerWidth);
     fps.height = 36;
     fps.style.width = fps.width;
     fps.style.height = fps.height;
@@ -120,14 +120,15 @@ function cleanupOverlayCanvases() {
     }
 }
 
-function drawTextStats(avgMS) {
+function drawTextStats(avgMS, maxMS) {
     fCtx.globalCompositeOperation = "copy";
     fCtx.fillStyle = "rgb(255, 255, 255, 0)";
     fCtx.fillRect(0, 0, fps.width, fps.height);
 
     fCtx.fillStyle = "rgb(0, 0, 0, 1)";
     fCtx.globalCompositeOperation = "source-over";
-    let line = `${currentFrame.users} users, ${Math.round(1000/avgMS)} fps,`;
+    let line = `${currentFrame.users} users, ${Math.round(1000/avgMS)} fps`;
+    if (maxMS > 70) line += ` ${Math.ceil(maxMS).toLocaleString()}ms`;
     fCtx.fillText(line, 2, 15);
 
     line = (currentFrame.backlog < 100 && currentFrame.activity < 1000
@@ -166,10 +167,11 @@ function endCurrentFrame(timestamp) {
     // get base framerate as minimum of all frames
     const realFrames = frames.slice(1).filter(f => f.total);
     const avgMS = realFrames.map(f => f.total).reduce((a, b) => a + b, 0) / realFrames.length;
+    const maxMS = Math.max(...realFrames.map(f => f.total));
     const newMax = Math.max(...realFrames.map(f => Math.max(f.backlog, f.network)));
     maxBacklog = PLOT_BACKLOG ? Math.max(newMax, maxBacklog * 0.98) : 1000; // reduce scale slowly
 
-    drawTextStats(avgMS);
+    drawTextStats(avgMS, maxMS);
 
     if (!horizCanvas) {makeHorizCanvas(canvas);}
     if (PLOT_BACKLOG && !backlogCanvas) {makeBacklogCanvas(canvas);}
