@@ -1,6 +1,10 @@
 #!/bin/sh
 cd `dirname "$0"`
 rm -rf pub/
+(cd ../../../util ; npm ci --production)
+(cd ../../../math ; npm ci --production)
+(cd ../../../teatime ; npm ci --production)
+npm ci
 npm run build-prod || exit 1
 source .env
 rm .env
