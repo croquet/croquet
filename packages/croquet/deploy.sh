@@ -19,3 +19,6 @@ case $CROQUET_VERSION in
 *-*) ../../../sdk/deploy.sh prerelease ;;
 *) ../../../sdk/deploy.sh release ;;
 esac
+
+echo "For public release, do not forget to"
+echo "    ../../../../docker/scripts/deploy-to-public-from-testing.sh sdk"
