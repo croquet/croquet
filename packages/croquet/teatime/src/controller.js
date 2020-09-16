@@ -589,14 +589,11 @@ export default class Controller {
                 // if any conversion of custom reflector messages is to be done, do it before
                 // waiting for the snapshot to arrive (because there might be some meta-processing
                 // that happens immediately on conversion; this is the case for "users" messages)
-                for (const encrypted_msg of messages) {
-                    let msg = null;
-                    if (typeof encrypted_msg[2] !== "string") {
-                        this.convertReflectorMessage(encrypted_msg);
-                        msg = encrypted_msg;
+                for (const msg of messages) {
+                    if (typeof msg[2] !== "string") {
+                        this.convertReflectorMessage(msg);
                     } else {
-                        const dp = this.decrypt_payload(encrypted_msg[2]);
-                        msg = [encrypted_msg[0], encrypted_msg[1], dp.msgPayload, dp.viewId, dp.lastSent, args.latency];
+                        msg[2] = this.decryptPayload(msg[2])[0];
                     }
                     if (DEBUG.messages) console.log(this.id, 'Controller received message in SYNC ' + JSON.stringify(msg));
                     msg[1] >>>= 0; // make sure it's uint32 (reflector used to send int32)
@@ -632,21 +629,19 @@ export default class Controller {
                 // We received a message from reflector.
                 // Put it in the queue, and set time.
                 // Actual processing happens in main loop.
-                let msg = null;
-                const encrypted_msg = args;
+                const msg = args;
                 // the reflector might insert messages on its own, indicated by a non-string payload
                 // we need to convert the payload to the message format this client is using
-                if (typeof encrypted_msg[2] !== "string") {
-                    this.convertReflectorMessage(encrypted_msg);
-                    msg = encrypted_msg;
+                if (typeof msg[2] !== "string") {
+                    this.convertReflectorMessage(msg);
                 } else {
-                    const dp = this.decrypt_payload(encrypted_msg[2]);
-                    msg = [encrypted_msg[0], encrypted_msg[1], dp.msgPayload, dp.viewId, dp.lastSent, args.latency];
+                    const [payload, viewId, lastSent] = this.decryptPayload(msg[2]);
+                    msg[2] = payload;
+                    // if we sent this message, add it to latency statistics
+                    if (viewId === this.viewId) this.addToStatistics(lastSent, this.lastReceived);
                 }
                 msg[1] >>>= 0; // make sure it's uint32 (reflector used to send int32)
                 if (DEBUG.messages) console.log(this.id, 'Controller received RECV ' + JSON.stringify(msg));
-                // if we sent this message, add it to latency statistics
-                if (msg[3] === this.viewId) this.addToStatistics(msg[4], this.lastReceived);
                 this.networkQueue.put(msg);
                 this.timeFromReflector(msg[0]);
                 return;
@@ -760,31 +755,46 @@ export default class Controller {
     }
 
     encrypt(plaintext) {
-        const iv  = CryptoJS.lib.WordArray.random(16);
-        const encrypted = CryptoJS.AES.encrypt(plaintext, this.key, {
+        const iv = CryptoJS.lib.WordArray.random(16);
+        const ciphertext = CryptoJS.AES.encrypt(plaintext, this.key, {
             iv,
             padding: CryptoJS.pad.Pkcs7,
             mode: CryptoJS.mode.CBC
           });
         const hmac = CryptoJS.HmacSHA256(plaintext, this.key);
-        return {ciphertext: encrypted.toString(), iv, hmac};
+        const encrypted = [ciphertext.toString(), iv.words, hmac.words];
+        return encrypted;
     }
 
-    decrypt(ciphertext, iv, mac) {
-        const decrypted = CryptoJS.AES.decrypt(ciphertext, this.key, { iv });
-        const hmac = CryptoJS.HmacSHA256(CryptoJS.enc.Utf8.stringify(decrypted), this.key);
-        if (this.compare_hmacs(mac.words, hmac.words)) {
-            return decrypted;
-        }
+    decrypt(encrypted) {
+        const [ciphertext, iv_words, mac_words] = encrypted;
+        const decrypted = CryptoJS.AES.decrypt(ciphertext, this.key, { iv: { words: iv_words, sigBytes: 16 } });
+        const plaintext = CryptoJS.enc.Utf8.stringify(decrypted);
+        const hmac = CryptoJS.HmacSHA256(plaintext, this.key);
+        if (this.compareHmacs(mac_words, hmac.words)) return plaintext;
+        console.warn("decryption hmac mismatch");
         return "";
     }
 
-    decrypt_payload(payload) {
-        const pl = JSON.parse(payload);
-        return JSON.parse(CryptoJS.enc.Utf8.stringify(this.decrypt(pl.ciphertext, pl.iv, pl.hmac)));
+    encryptMessage(msg, viewId, lastSent) {
+        const [time, seq, msgPayload] = msg.asState();
+        const encryptedPayload = this.encryptPayload([msgPayload, viewId, lastSent]);
+        return [time, seq, encryptedPayload];
     }
 
-    compare_hmacs(fst, snd) {
+    encryptPayload(payload) {
+        const plaintext = JSON.stringify(payload);
+        const encrypted = this.encrypt(plaintext);
+        return JSON.stringify(encrypted);
+    }
+
+    decryptPayload(payload) {
+        const encrypted = JSON.parse(payload);
+        const plaintext = this.decrypt(encrypted);
+        return JSON.parse(plaintext);
+    }
+
+    compareHmacs(fst, snd) {
         let ret = fst.length === snd.length;
         for (let i=0; i<fst.length; i++) {
             if (!(fst[i] === snd[i])) {
@@ -803,17 +813,11 @@ export default class Controller {
         if (this.viewOnly) return;
         if (DEBUG.sends) console.log(this.id, `Controller sending SEND ${msg.asState()}`);
         this.lastSent = Date.now();
-        const [time, seq,msgPayload] = msg.asState();
-        const plaintext = (JSON.stringify({
-            msgPayload,
-            viewId: this.viewId,
-            lastSent: this.lastSent
-        }));
-        const encryptedPayload = JSON.stringify(this.encrypt(plaintext));
+        const encryptedMsg = this.encryptMessage(msg, this.viewId, this.lastSent); // [time, seq, payload]
         this.connection.send(JSON.stringify({
             id: this.id,
             action: 'SEND',
-            args: [time, seq, encryptedPayload, this.latency],
+            args: [...encryptedMsg, this.latency],
         }));
     }
 
@@ -828,17 +832,11 @@ export default class Controller {
         if (this.viewOnly) return;
         if (DEBUG.sends) console.log(this.id, `Controller sending tagged SEND ${msg.asState()} with tags ${JSON.stringify(tags)}`);
         this.lastSent = Date.now();
-        const [time, seq,msgPayload] = msg.asState();
-        const plaintext = (JSON.stringify({
-            msgPayload,
-            viewId: this.viewId,
-            lastSent: this.lastSent
-        }));
-        const encryptedPayload = JSON.stringify(this.encrypt(plaintext));
+        const encryptedMsg = this.encryptMessage(msg, this.viewId, this.lastSent); // [time, seq, payload]
         this.connection.send(JSON.stringify({
             id: this.id,
             action: 'SEND',
-            args: [time, seq, encryptedPayload, this.latency],
+            args: [...encryptedMsg, this.latency],
             tags
         }));
     }
@@ -855,10 +853,11 @@ export default class Controller {
         this.tuttiHistory.push({ tuttiSeq, payload });
         if (this.tuttiHistory.length > 100) this.tuttiHistory.shift();
         this.lastSent = Date.now();
+        const encryptedMsg = firstMessage && this.encryptMessage(firstMessage, this.viewId, this.lastSent); // [time, seq, payload]
         this.connection.send(JSON.stringify({
             id: this.id,
             action: 'TUTTI',
-            args: [time, tuttiSeq, payload, firstMessage && firstMessage.asState(), wantsVote, tallyTarget],
+            args: [time, tuttiSeq, payload, encryptedMsg, wantsVote, tallyTarget],
         }));
     }
 
