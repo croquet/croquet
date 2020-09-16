@@ -762,16 +762,18 @@ export default class Controller {
             mode: CryptoJS.mode.CBC
           });
         const hmac = CryptoJS.HmacSHA256(plaintext, this.key);
-        const encrypted = [ciphertext.toString(), iv.words, hmac.words];
+        const encrypted = `${CryptoJS.enc.Base64.stringify(iv)}${CryptoJS.enc.Base64.stringify(hmac)}${ciphertext}`;
         return encrypted;
     }
 
     decrypt(encrypted) {
-        const [ciphertext, iv_words, mac_words] = encrypted;
-        const decrypted = CryptoJS.AES.decrypt(ciphertext, this.key, { iv: { words: iv_words, sigBytes: 16 } });
+        const iv = CryptoJS.enc.Base64.parse(encrypted.slice(0, 24));
+        const mac = CryptoJS.enc.Base64.parse(encrypted.slice(24, 24 + 44));
+        const ciphertext = encrypted.slice(24 + 44);
+        const decrypted = CryptoJS.AES.decrypt(ciphertext, this.key, { iv });
         const plaintext = CryptoJS.enc.Utf8.stringify(decrypted);
         const hmac = CryptoJS.HmacSHA256(plaintext, this.key);
-        if (this.compareHmacs(mac_words, hmac.words)) return plaintext;
+        if (this.compareHmacs(mac.words, hmac.words)) return plaintext;
         console.warn("decryption hmac mismatch");
         return "";
     }
@@ -783,15 +785,11 @@ export default class Controller {
     }
 
     encryptPayload(payload) {
-        const plaintext = JSON.stringify(payload);
-        const encrypted = this.encrypt(plaintext);
-        return JSON.stringify(encrypted);
+        return this.encrypt(JSON.stringify(payload));
     }
 
-    decryptPayload(payload) {
-        const encrypted = JSON.parse(payload);
-        const plaintext = this.decrypt(encrypted);
-        return JSON.parse(plaintext);
+    decryptPayload(encrypted) {
+        return JSON.parse(this.decrypt(encrypted));
     }
 
     compareHmacs(fst, snd) {
