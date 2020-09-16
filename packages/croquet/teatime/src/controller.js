@@ -1,6 +1,12 @@
 import "@croquet/util/deduplicate";
 import stableStringify from "fast-json-stable-stringify";
-import CryptoJS from "crypto-js";
+import Base64 from "crypto-js/enc-base64";
+import Utf8 from "crypto-js/enc-utf8";
+import PBKDF2 from "crypto-js/pbkdf2";
+import AES from "crypto-js/aes";
+import WordArray from "crypto-js/lib-typedarrays";
+import HmacSHA256 from "crypto-js/hmac-sha256";
+
 import pako from "pako"; // gzip-aware compressor
 import AsyncQueue from "@croquet/util/asyncQueue";
 import { Stats } from "@croquet/util/stats";
@@ -195,10 +201,8 @@ export default class Controller {
         if (doLogin) await login();
         // if the default shows up in logs we have a problem
         const keyMaterial = password || urlOptions.pw || "THIS SHOULDN'T BE IN LOGS";
-        const pbkdf2Result = CryptoJS.PBKDF2(keyMaterial, "", {
-            keySize: 256/32,
-        });
-        this.key = CryptoJS.lib.WordArray.create(pbkdf2Result.words.slice(0, 256/32));
+        const pbkdf2Result = PBKDF2(keyMaterial, "", { keySize: 256/32 });
+        this.key = WordArray.create(pbkdf2Result.words.slice(0, 256/32));
         if (autoSession) {
             // session is either "user/random" or "room/user/random" (for multi-room)
             const room = name;
@@ -755,24 +759,24 @@ export default class Controller {
     }
 
     encrypt(plaintext) {
-        const iv = CryptoJS.lib.WordArray.random(16);
-        const ciphertext = CryptoJS.AES.encrypt(plaintext, this.key, {
+        const iv = WordArray.random(16);
+        const ciphertext = AES.encrypt(plaintext, this.key, {
             iv,
-            padding: CryptoJS.pad.Pkcs7,
-            mode: CryptoJS.mode.CBC
+            // padding: Pkcs7, // default
+            // mode: CBC       // default
           });
-        const hmac = CryptoJS.HmacSHA256(plaintext, this.key);
-        const encrypted = `${CryptoJS.enc.Base64.stringify(iv)}${CryptoJS.enc.Base64.stringify(hmac)}${ciphertext}`;
+        const hmac = HmacSHA256(plaintext, this.key);
+        const encrypted = `${Base64.stringify(iv)}${Base64.stringify(hmac)}${ciphertext}`;
         return encrypted;
     }
 
     decrypt(encrypted) {
-        const iv = CryptoJS.enc.Base64.parse(encrypted.slice(0, 24));
-        const mac = CryptoJS.enc.Base64.parse(encrypted.slice(24, 24 + 44));
+        const iv = Base64.parse(encrypted.slice(0, 24));
+        const mac = Base64.parse(encrypted.slice(24, 24 + 44));
         const ciphertext = encrypted.slice(24 + 44);
-        const decrypted = CryptoJS.AES.decrypt(ciphertext, this.key, { iv });
-        const plaintext = CryptoJS.enc.Utf8.stringify(decrypted);
-        const hmac = CryptoJS.HmacSHA256(plaintext, this.key);
+        const decrypted = AES.decrypt(ciphertext, this.key, { iv });
+        const plaintext = Utf8.stringify(decrypted);
+        const hmac = HmacSHA256(plaintext, this.key);
         if (this.compareHmacs(mac.words, hmac.words)) return plaintext;
         console.warn("decryption hmac mismatch");
         return "";
