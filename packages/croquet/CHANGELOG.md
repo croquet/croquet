@@ -4,6 +4,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 
 # latest pre-releases
 
+* 0.3.4-7 reduce message size
 * 0.3.4-6 add viewIdDebugSuffix session option
 * 0.3.4-5 add Data.toId(handle) and Data.fromId(id)
 * 0.3.4-4 fix snapshot stats
