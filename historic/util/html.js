@@ -46,7 +46,7 @@ function addWidgetStyle() {
 
         #croquet_spinnerOverlay {
             z-index: 1000;
-            position: fixed;
+            position: absolute;
             left: 0;
             top: 0;
             width: 100%;
