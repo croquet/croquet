@@ -868,6 +868,12 @@ export default class Controller {
         this.sendTutti(this.island.time, tuttiSeq, data, null, true, voteMessage);
     }
 
+    sendLog(...args) {
+        if (!this.connected) return;
+        if (args.length < 2) args = args[0];
+        this.connection.send(JSON.stringify({ action: 'LOG', args }));
+    }
+
     addToStatistics(timeSent, timeReceived) {
         this.latency = timeReceived - timeSent;
         if (this.latencyHistory) {
