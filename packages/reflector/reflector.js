@@ -909,7 +909,7 @@ server.on('connection', (client, req) => {
                 case 'SNAP': SNAP(client, args); break;
                 case 'LEAVING': LEAVING(client); break;
                 case 'PING': PONG(client, args); break;
-                case 'PULSE': LOCAL_DEBUG(`${sessionId}/${client.addr} receiving PULSE`); break; // nothing to do
+                case 'PULSE': LOCAL_DEBUG(`${sessionId}/${client.addr} receiving PULSE`); break; // sets lastActivity, otherwise no-op
                 default: WARN(`${sessionId}/${client.addr} unknown action ${JSON.stringify(action)}`);
             }
         };
