@@ -907,6 +907,7 @@ server.on('connection', (client, req) => {
                 case 'TUTTI': TUTTI(client, args); break;
                 case 'TICKS': TICKS(client, args); break;
                 case 'SNAP': SNAP(client, args); break;
+                case 'LOG': LOG(`${sessionId}/${client.addr} LOG ${typeof args === "string" ? args : JSON.stringify(args)}`); break;
                 case 'LEAVING': LEAVING(client); break;
                 case 'PING': PONG(client, args); break;
                 case 'PULSE': LOCAL_DEBUG(`${sessionId}/${client.addr} receiving PULSE`); break; // sets lastActivity, otherwise no-op
