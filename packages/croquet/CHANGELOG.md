@@ -4,6 +4,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 
 # latest pre-releases
 
+* 0.3.4-8 add controller.sendLog() for logging to reflector
 * 0.3.4-7 reduce message size
 * 0.3.4-6 add viewIdDebugSuffix session option
 * 0.3.4-5 add Data.toId(handle) and Data.fromId(id)
@@ -113,7 +114,7 @@ If someone feels like going through these changes, please do so.
 * 2019-09-20: 0.2.2
 * 2019-09-13: 0.2.1
 * 2019-09-06: 0.2.0
-* 2019-08-14: 0.1.9
+* 2019-08-14: 0.1.9 controller sends PULSE
 * 2019-07-24: 0.1.7
 * 2019-07-18: 0.1.6
 * 2019-07-10: 0.1.5
