@@ -1,5 +1,4 @@
 import { Model, View } from "@croquet/kit";
-import { hotreloadEventManger } from "@croquet/util";
 
 export class SpeedSlider extends Model {
     init() {
@@ -21,7 +20,7 @@ export class SpeedSliderView extends View {
         super();
         this.controllers = new Map();
         this.element = document.getElementById("speed");
-        hotreloadEventManger.addEventListener(this.element, "input", evt => {
+        this.element.addEventListener("input", evt => {
             let value = evt.target.value;
             if (Math.abs(value - 50) < 5) value = 50;
             const scale = 2 ** ((value - 50) / 50 * 2);        // 1/4 to 4x

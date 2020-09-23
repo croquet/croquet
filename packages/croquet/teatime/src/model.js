@@ -600,9 +600,4 @@ function registerClass(cls, classId) {
     return cls;
 }
 
-/*
-// flush ModelClasses after hot reload
-hotreloadEventManger.addDisposeHandler(module.id, () => ModelClasses = {});
-*/
-
 export default Model;
