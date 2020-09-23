@@ -120,7 +120,7 @@ class Model {
      *   ...
      * }
      * MyModel.register("MyModel")
-     * @param {String} classId for this model class. Must be unique. If you use the same class name in two files, use e.g. `"file1/MyModel"` and `"file2/MyModel"`.
+     * @param {String} classId Id for this model class. Must be unique. If you use the same class name in two files, use e.g. `"file1/MyModel"` and `"file2/MyModel"`.
      * @public
      */
     static register(classId) {
