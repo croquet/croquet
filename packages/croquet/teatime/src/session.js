@@ -180,11 +180,27 @@ export class Session {
         /** average duration of last step */
         let recentFramesAverage = 0;
         /** recentFramesAverage to be considered hidden */
-        const FRAME_AVERAGE_THRESHOLD = 1000;
+        const FRAME_AVERAGE_THRESHOLD = 20000;
         /** tab hidden or no anim frames recently */
-        const isHidden = () => document.visibilityState === "hidden"
-            || Date.now() - lastFrame > FRAME_AVERAGE_THRESHOLD
-            || recentFramesAverage > FRAME_AVERAGE_THRESHOLD;
+        const isHidden = () => {
+            // report whether to consider this tab hidden - returning true if
+            //   - the visibilityState is "hidden", or
+            //   - the time gap since the last animationFrame is above threshold, or
+            //   - the responsive but decaying average of gaps between animation frames
+            //     is above threshold.
+            // i.e., a big frame gap can cause an immediate isHidden report, but
+            // if rapid frames resume, they will soon lead to !isHidden.
+            // sept 2020: Safari 13 (but not 14) drastically slows animation frames to
+            // a browser tab that is fully in view but is not focussed; inter-frame
+            // gaps of 10-15 seconds seem common.  to prevent these gaps from causing
+            // isHidden reports, the threshold time was raised from 1s to 20s, and the
+            // ceiling of the average calculation from 10s to 30s.
+            // a corollary is that frames that are off-screen on Q in Safari, which
+            // appears to send animation frames every 10s, will never go dormant.
+            return document.visibilityState === "hidden"
+                || Date.now() - lastFrame > FRAME_AVERAGE_THRESHOLD
+                || recentFramesAverage > FRAME_AVERAGE_THRESHOLD;
+            };
         /** time that we were hidden */
         let hiddenSince = 0;
         /** timestamp of frame when we were hidden */
@@ -194,15 +210,18 @@ export class Session {
             if (!Controllers[session.id]) return; // stop loop
             // jump to larger v immediately, cool off slowly, limit to max
             const coolOff = (v0, v1, t, max) => Math.min(max, Math.max(v1, v0 * (1 - t) + v1 * t)) | 0;
-            recentFramesAverage = coolOff(recentFramesAverage, frameTime - lastFrameTime, 0.1, 10000);
+            recentFramesAverage = coolOff(recentFramesAverage, frameTime - lastFrameTime, 0.1, 30000);
             lastFrameTime = frameTime;
             lastFrame = Date.now();
+            // having just recorded a lastFrame, isHidden will only be
+            // true if the recentFramesAverage is above threshold (or
+            // if visibilityState is explicitly "hidden", of course)
             if (!isHidden()) {
-                controller.checkForConnection(true);
+                controller.checkForConnection(true); // reconnect if disconnected and not blocked
                 if (options.step !== "manual") session.step(frameTime);
             }
             window.requestAnimationFrame(onAnimationFrame);
-        };
+            };
         window.requestAnimationFrame(onAnimationFrame);
         startHiddenChecker();
         return session;
