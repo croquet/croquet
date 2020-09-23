@@ -130,10 +130,6 @@ class Model {
         return this;
     }
 
-    static registerIfNeeded() {
-        if (!hasID(this)) this.register();
-    }
-
     /**
      * __Static declaration of how to serialize non-model classes.__
      *

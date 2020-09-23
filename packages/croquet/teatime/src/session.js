@@ -117,8 +117,6 @@ export class Session {
         else if (!name) name = "unnamed";
         // must pass a model
         if (!inherits(ModelRoot, Model)) throw Error("ModelRoot must inherit from Croquet.Model");
-        // forgive beginners errors
-        /* ModelRoot.registerIfNeeded(); */ // breaks w3 in model.js:allClasses()
         // view defaults to View
         if (!inherits(ViewRoot, View)) {
             // if not specifying a view, allow options as 3rd argument
