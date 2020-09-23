@@ -464,6 +464,18 @@ class Model {
     }
 
     /**
+     * Look up a model in the current session given its `id`
+     * @example
+     * const otherModel = this.getModel(otherId);
+     * @param {String} id - the model's `id`
+     * @returns {Model} the model if found, or `undefined`
+     * @public
+     */
+    getModel(id) {
+        return this.__realm.island.lookUpModel(id);
+    }
+
+    /**
      * Access a model that was registered previously using  [beWellKnownAs()]{@link Model#beWellKnownAs}.
      *
      * Note: The instance of your root Model class is automatically made well-known as `"modelRoot"`
