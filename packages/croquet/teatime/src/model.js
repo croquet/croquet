@@ -529,8 +529,8 @@ class Model {
         return `${className}[Model]`;
     }
 }
-Model.register("Croquet.Model");
-
+// Model.register("Croquet.Model");
+// registered at end of this file without hashing or logging
 
 /// MODEL CLASS LOADING
 
@@ -579,5 +579,8 @@ function registerClass(cls, classId) {
     ModelClasses[classId] = cls;
     return cls;
 }
+
+// register without logging or hashing
+ModelClasses["Croquet.Model"] = Model;
 
 export default Model;
