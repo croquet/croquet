@@ -214,14 +214,14 @@ export async function hashFile(mod) {
 
 const extraHashes = [];
 
-export function addClassHash(cls) {
+export function addClassHash(cls, classId) {
     const source = classSrc(cls);
     const hashPromise = hashString(source);
-    hashPromise.then(hash => {
-        console.log(`hashing class ${cls.name}: ${hash}`);
-        if (debugHashing()) debugHashes[hash].name = `Class ${cls.name}`;
-    });
     extraHashes.push(hashPromise);
+    if (debugHashing()) hashPromise.then(hash => {
+        // console.log(`hashing model class ${classId}: ${hash}`);
+        debugHashes[hash].name = `Class ${classId}`;
+    });
 }
 
 export function addConstantsHash(constants) {

@@ -119,14 +119,18 @@ class Model {
      * class MyModel extends Croquet.Model {
      *   ...
      * }
-     * MyModel.register()
-     * @param {String=} file the file name this class was defined in, to distinguish between same class names in different files
+     * MyModel.register("MyModel")
+     * @param {String} classId for this model class. Must be unique. If you use the same class name in two files, use e.g. `"file1/MyModel"` and `"file2/MyModel"`.
      * @public
      */
-    static register(file="unknown-file") {
+    static register(classId) {
+        if (!classId) {
+            classId = this.name;
+            console.warn(`Deprecation warning: ${this.name}.register(classId) called without classId. See https://croquet.io/sdk/docs/Model.html#.register`);
+        }
         resetReadersAndWriters();
-        addClassHash(this);
-        registerClass(file, this.name, this);
+        addClassHash(this, classId);
+        registerClass(this, classId);
         return this;
     }
 
@@ -512,7 +516,7 @@ class Model {
     }
 
     [Symbol.toPrimitive]() {
-        const className = this.constructor.name;
+        const className = this.constructor[CLASS_ID] || this.constructor.name;
         if (className.includes('Model')) return className;
         return `${className}[Model]`;
     }
@@ -533,7 +537,7 @@ function gatherModelClasses() {
     for (const [file, m] of Object.entries(module.bundle.cache)) {
         for (const [name, cls] of Object.entries(m.exports)) {
             if (cls && cls.__isTeatimeModelClass__) {
-                registerClass(file, name === "default" ? cls.name : name, cls);
+                registerClass(cls, `${file}/${name === "default" ? cls.name : name}`);
             }
         }
     }
@@ -541,7 +545,7 @@ function gatherModelClasses() {
 
 function allClasses() {
     if (Object.keys(ModelClasses).length === 0) gatherModelClasses();
-    return Object.values(ModelClasses).map(entry => entry.cls);
+    return Object.values(ModelClasses);
 }
 
 function allClassTypes() {
@@ -560,28 +564,27 @@ function classToID(cls) {
     if (hasID(cls)) return cls[CLASS_ID];
     gatherModelClasses();
     if (hasID(cls)) return cls[CLASS_ID];
-    throw Error(`Class "${cls.name}" not found, did you call ${cls.name}.register()?`);
+    throw Error(`Class "${cls.name}" not found, did you call ${cls.name}.register("${cls.name}")?`);
 }
 
 function classFromID(classID) {
-    if (ModelClasses[classID]) return ModelClasses[classID].cls;
+    if (ModelClasses[classID]) return ModelClasses[classID];
     gatherModelClasses();
-    if (ModelClasses[classID]) return ModelClasses[classID].cls;
+    if (ModelClasses[classID]) return ModelClasses[classID];
     throw Error(`Class "${classID}" in snapshot, but not found in current source?`);
 }
 
-function registerClass(file, name, cls) {
+function registerClass(cls, classId) {
     // create a classID for this class
-    const id = `${file}:${name}`;
-    const dupe = ModelClasses[id];
-    if (dupe && dupe.cls !== cls) throw Error(`Duplicate class ${name} in ${file}`);
+    const dupe = ModelClasses[classId];
+    if (dupe && dupe !== cls) throw Error(`Registering model class ${cls.name} failed, id "${classId}" already used by ${dupe.name}`);
     if (hasID(cls)) {
-        if (DEBUG.classes && !dupe) console.warn(`ignoring re-exported class ${name} from ${file}`);
+        if (DEBUG.classes && !dupe) console.warn(`ignoring re-exported model class ${classId}`);
     } else {
-        if (DEBUG.classes) console.log(`registering class ${name} from ${file}`);
-        cls[CLASS_ID] = id;
+        if (DEBUG.classes) console.log(`registering model class ${classId}`);
+        cls[CLASS_ID] = classId;
     }
-    ModelClasses[id] = {cls, file};
+    ModelClasses[classId] = cls;
     return cls;
 }
 
