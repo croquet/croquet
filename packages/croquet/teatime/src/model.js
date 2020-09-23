@@ -48,10 +48,6 @@ const SuperInitNotCalled = new WeakSet();
  * @public
  */
 class Model {
-    // mark this and subclasses as model classes
-    // used in classToID / classFromID below
-    static __isTeatimeModelClass__() { return true; }
-
     /**
      * __Create an instance of a Model subclass.__
      *
@@ -533,6 +529,7 @@ class Model {
         return `${className}[Model]`;
     }
 }
+Model.register("Croquet.Model");
 
 
 /// MODEL CLASS LOADING
@@ -543,20 +540,7 @@ const ModelClasses = {};
 // Symbol for storing class ID in constructors
 const CLASS_ID = Symbol('CLASS_ID');
 
-function gatherModelClasses() {
-    if (!module.bundle) return;
-    // HACK: go through all exports and find model subclasses
-    for (const [file, m] of Object.entries(module.bundle.cache)) {
-        for (const [name, cls] of Object.entries(m.exports)) {
-            if (cls && cls.__isTeatimeModelClass__) {
-                registerClass(cls, `${file}/${name === "default" ? cls.name : name}`);
-            }
-        }
-    }
-}
-
 function allClasses() {
-    if (Object.keys(ModelClasses).length === 0) gatherModelClasses();
     return Object.values(ModelClasses);
 }
 
@@ -574,14 +558,10 @@ function hasID(cls) {
 
 function classToID(cls) {
     if (hasID(cls)) return cls[CLASS_ID];
-    gatherModelClasses();
-    if (hasID(cls)) return cls[CLASS_ID];
     throw Error(`Class "${cls.name}" not found, did you call ${cls.name}.register("${cls.name}")?`);
 }
 
 function classFromID(classID) {
-    if (ModelClasses[classID]) return ModelClasses[classID];
-    gatherModelClasses();
     if (ModelClasses[classID]) return ModelClasses[classID];
     throw Error(`Class "${classID}" in snapshot, but not found in current source?`);
 }
