@@ -72,18 +72,20 @@ declare module "@croquet/croquet" {
          * It is necessary to register all Model subclasses so the serializer can recreate their instances from a snapshot.
          * Also, the [session id]{@link Session.join} is derived by hashing the source code of all registered classes.
          *
+         * **Important**: for the hashing to work reliably across browsers, be sure to specify `charset="utf-8"` for your `<html>` or all `<script>` tags.
+         *
          * Example
          * ```
          * class MyModel extends Croquet.Model {
          *   ...
          * }
-         * MyModel.register()
+         * MyModel.register("MyModel")
          * ```
          *
-         * @param file the file name this class was defined in, to distinguish between same class names in different files
+         * @param classId Id for this model class. Must be unique. If you use the same class name in two files, use e.g. `"file1/MyModel"` and `"file2/MyModel"`.
          * @public
          */
-        static register(file?:string): void;
+        static register(classId:string): void;
 
         /**
          * __Static declaration of how to serialize non-model classes.__
@@ -357,6 +359,16 @@ declare module "@croquet/croquet" {
          * ```
          */
         wellKnownModel<M extends Model>(name: string): Model | undefined;
+
+
+        /** Look up a model in the current session given its `id`.
+         *
+         * Example:
+         * ```
+         * const otherModel = this.getModel(otherId);
+         * ```
+         */
+        getModel<M extends Model>(id: string): M | undefined;
 
         /** This methods checks if it is being called from a model, and throws an Error otherwise.
          *
