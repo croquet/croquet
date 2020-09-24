@@ -4,6 +4,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 
 # latest pre-releases
 
+* 0.3.4-12 early error for unregistered model subclasses, _ in viewIdDebugSuffix
 * 0.3.4-11 removed all parcel magic
 * 0.3.4-10 add model.getModel(id)
 * 0.3.4-9 require classId argument for Model.register()
