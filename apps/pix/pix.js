@@ -83,7 +83,7 @@ class PixModel extends Model {
         }
     }
 }
-PixModel.register();
+PixModel.register("PixModel");
 
 
 /******************** View ************************/

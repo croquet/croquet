@@ -24,7 +24,7 @@ class MyModel extends Croquet.Model {
 
 }
 
-MyModel.register();
+MyModel.register("MyModel");
 
 class MyView extends Croquet.View {
 

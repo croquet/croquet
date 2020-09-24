@@ -164,7 +164,7 @@ tick() {
 Finally, we register our model so that whenever we change the game implementation, old snapshotted sessions that might still be around are recognized as incompatible with our new model code.
 
 ```
-PongModel.register();
+PongModel.register("PongModel");
 ```
 
 Moving over to the view side, we first define our top-level component, `PongApp`, which starts a croquet session using our singular `PongModel` as the root model.

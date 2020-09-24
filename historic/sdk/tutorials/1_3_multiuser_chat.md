@@ -207,7 +207,7 @@ class MyModel extends Croquet.Model {
   }
 
 }
-MyModel.register();
+MyModel.register("MyModel");
 
 ```
 

@@ -41,7 +41,7 @@ export { Messenger }  from "./src/messenger";
  *         this.publish(this.sessionId, "user-deleted", {viewId, time});
  *     }
  * }
- * MyModel.register();
+ * MyModel.register("MyModel");
  * class MyView extends Croquet.View {
  *     constructor(model) {
  *         super(model);

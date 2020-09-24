@@ -76,7 +76,7 @@ class ChatModel extends Model {
     }
 
 }
-ChatModel.register();
+ChatModel.register("ChatModel");
 
 //------------------------------------------------------------------------------------------
 // ChatView

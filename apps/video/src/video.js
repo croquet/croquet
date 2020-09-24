@@ -299,7 +299,7 @@ class SyncedVideoModel extends Model {
         this.publish(this.id, 'playStateChanged', { isPlaying, startOffset, pausedTime, actionSpec });
     }
 }
-SyncedVideoModel.register();
+SyncedVideoModel.register("SyncedVideoModel");
 
 
 class SyncedVideoView extends View {

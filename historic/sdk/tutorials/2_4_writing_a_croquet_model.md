@@ -2,7 +2,7 @@ Copyright © 2019 Croquet Corporation
 
 Unlike the view, there are limits to what the model can do if it is going to stay synched across all the machines in the session:
 
-**Model classes must be registered when defined.** Call `MyModel.register()` every time you define a new {@link Model} subclass.
+**Model classes must be registered when defined.** Call `MyModel.register("MyModel")` every time you define a new {@link Model} subclass.
 
 **Use `create` and `destroy` to instantiate or dispose of models.** Do not use `new` to create sub-models. These models should be created/destroyed using the syntax `mySubModel.create()` and `mySubModel.destroy()`. Your `init` is called as part of the `create()` process.
 

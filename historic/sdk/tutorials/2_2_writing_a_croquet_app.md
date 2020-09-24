@@ -8,7 +8,7 @@ class MyModel extends Croquet.Model {
         ...
     }
 }
-MyModel.register();
+MyModel.register("MyModel");
 
 class MyView extends Croquet.View {
     constructor(model) {
@@ -20,7 +20,7 @@ class MyView extends Croquet.View {
 
 Your view will contain all your input and output code, and your model will contain all your simulation code.
 
-(Note that every time you define a new model subclass, you must `register()` it so that _Croquet_ knows it exists. This step can be automated if you're using a build manager such as parcel. But if you're just writing plain JS, you'll need to do it yourself after you declare each model class.)
+(Note that every time you define a new model subclass, you must `register("name")` it so that _Croquet_ knows it exists, and under which name to find its instances in a snapshot.)
 
 ## Launching a session
 

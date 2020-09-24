@@ -131,7 +131,7 @@ class MyModel extends Croquet.Model {
 
 }
 
-MyModel.register();
+MyModel.register("MyModel");
 ```
 
 Our new class MyModel is a subclass of [Croquet.Model]{@link Model}.
@@ -191,7 +191,7 @@ The future call inserts a message into the queue, timed for execution after a fu
 
 ### register()
 
-```MyModel.register();```
+```MyModel.register("MyModel");```
 
 Every time you define a new model subclass, you must register() it so that Croquet knows it exists.
 

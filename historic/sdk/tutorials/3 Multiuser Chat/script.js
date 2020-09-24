@@ -58,7 +58,7 @@ class ChatModel extends Croquet.Model {
 
 }
 
-ChatModel.register();
+ChatModel.register("ChatModel");
 
 class ChatView extends Croquet.View {
 

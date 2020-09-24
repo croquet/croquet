@@ -20,7 +20,7 @@ class MyModel extends Croquet.Model {
     }
 }
 
-MyModel.register();
+MyModel.register("MyModel");
 
 class BallModel extends Croquet.Model {
 
@@ -86,7 +86,7 @@ class BallModel extends Croquet.Model {
     }
 }
 
-BallModel.register();
+BallModel.register("BallModel");
 
 function setUpScene() {
     const scene = new THREE.Scene();

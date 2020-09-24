@@ -37,7 +37,7 @@ class MyModel extends Croquet.Model {
 }
 
 // Register our model class with the serializer
-MyModel.register();
+MyModel.register("MyModel");
 
 //------------------------------------------------------------------------------------------
 // Define our view. MyView listens for click events on the window. If it receives one, it

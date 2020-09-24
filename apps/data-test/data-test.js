@@ -12,7 +12,7 @@ class DataTestModel extends Model {
     }
 
 }
-DataTestModel.register();
+DataTestModel.register("DataTestModel");
 
 
 class DataTestView extends View {

@@ -30,7 +30,7 @@ class MyModel extends Croquet.Model {
   version(){return '0.0.`19`'} // Hack I use this to force a new session
 }
 
-MyModel.register();
+MyModel.register("MyModel");
 
 class BallModel extends Croquet.Model {
 
@@ -74,7 +74,7 @@ class BallModel extends Croquet.Model {
     }
 }
 
-BallModel.register();
+BallModel.register("BallModel");
 
 //------------ View--------------
 let SCALE = 1;                  // model uses a virtual 1000x1000 space
