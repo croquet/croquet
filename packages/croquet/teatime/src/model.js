@@ -68,6 +68,7 @@ class Model {
      * @param {String=} wellKnownName - a [well-known name]{@link Model#beWellKnownAs} for this model`.
      */
     static create(options, wellKnownName) {
+        if (!hasID(this)) throw Error(`Model class "${this.name}" not registered`);
         const ModelClass = this;
         const realm = currentRealm();
         const model = new ModelClass(SECRET);
@@ -581,6 +582,8 @@ function registerClass(cls, classId) {
 }
 
 // register without logging or hashing
-ModelClasses["Croquet.Model"] = Model;
+const modelClassId = "Croquet.Model";
+Model[CLASS_ID] = modelClassId;
+ModelClasses[modelClassId] = Model;
 
 export default Model;
