@@ -8,6 +8,7 @@ import moment from 'moment';
 require('dotenv-flow').config({
     default_node_env: 'development'
 });
+const CROQUET_VERSION = require('@croquet/croquet/package.json').version;
 
 const is_dev_build = process.env.NODE_ENV !== "production";
 
@@ -38,7 +39,7 @@ const config = {
         license({
             banner: `Copyright Croquet Corporation ${moment().format('YYYY')}
 Generated: ${moment().format('YYYY-MM-DD')}
-Version: ${process.env.CROQUET_VERSION}`,
+Version: ${CROQUET_VERSION}`,
         })
     ]
 };
