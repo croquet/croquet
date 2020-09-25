@@ -71,7 +71,6 @@ const config = {
         format: 'cjs',
         sourcemap: is_dev_build,    // not included in npm bundle by explicit "files" section in package.json
     },
-    external: ['seedrandom/seedrandom', 'toastify-js', 'seedrandom', 'fast-json-stable-stringify', 'fastpriorityqueue'],
     plugins: [
         inject_process(),
         resolve({resolveOnly: [/^@croquet/]}),
