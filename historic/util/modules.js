@@ -1,6 +1,5 @@
 import stableStringify from "fast-json-stable-stringify";
 import urlOptions from "./urlOptions";
-import { getUser } from "./user";
 
 // croquet.io and pi.croquet.io provide file servers themselves
 // everything else uses croquet.io via CORS
@@ -15,17 +14,7 @@ export function fileServer() {
 // we put everything into the "all/" directory
 // but replace 'localhost' and '*.ngrok.io' by 'dev/username' for developers
 export function baseUrl(what='code') {
-    const dev = urlOptions.has("dev", "host", "localhost"); // true on localhost or ngrok
-    const host = dev ? `dev/${getUser("name", "GUEST")}/` : '';
-    return `${fileServer()}/${host}${what}/`;
-}
-
-function functionSource(fn) {
-    // strip the Function(args) { ...source ... } to just the source
-    const str = "" + fn;
-    const openingBrace = str.indexOf('{');
-    const closingBrace = str.lastIndexOf('}');
-    return str.slice(openingBrace + 1, closingBrace).trim();
+    return `${fileServer()}/${what}/`;
 }
 
 function classSrc(cls) {
