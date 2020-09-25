@@ -122,11 +122,11 @@ export function addConstantsHash(constants) {
     const obj = JSON.parse(json);
     const string = stableStringify(obj);
     const hashPromise = hashString(string);
-    hashPromise.then(hash => {
-        console.log(`hashing Croquet.Constants(${Object.keys(obj).join(', ')}): ${hash}`);
-        if (debugHashing()) debugHashes[hash].name = "Croquet Constants";
-    });
     hashPromises.push(hashPromise);
+    if (debugHashing()) hashPromise.then(hash => {
+        //console.log(`hashing Croquet.Constants(${Object.keys(obj).join(', ')}): ${hash}`);
+        debugHashes[hash].name = "Croquet Constants";
+    });
 }
 
 export async function hashSessionAndCode(name, options, sdk_version) {
