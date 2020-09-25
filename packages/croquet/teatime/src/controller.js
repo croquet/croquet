@@ -11,7 +11,6 @@ import pako from "pako"; // gzip-aware compressor
 import AsyncQueue from "@croquet/util/asyncQueue";
 import { Stats } from "@croquet/util/stats";
 import urlOptions from "@croquet/util/urlOptions";
-import { login, getUser } from "@croquet/util/user";
 import { App, displayStatus, displayWarning, displayError, displayAppError } from "@croquet/util/html";
 import { baseUrl, hashSessionAndCode, hashString } from "@croquet/util/modules";
 import { inViewRealm } from "./realms";
@@ -194,40 +193,16 @@ export default class Controller {
     async establishSession(name, sessionSpec) {
         initDEBUG();
         // If we add more options here, add them to SESSION_OPTIONS in session.js
-        // multiRoom, autoSession, and login are only used by simpleapp
-        const { optionsFromUrl, password, viewIdDebugSuffix, multiRoom, autoSession, login: doLogin } = sessionSpec;
+        const { optionsFromUrl, password, viewIdDebugSuffix} = sessionSpec;
         if (viewIdDebugSuffix) this.viewId = this.viewId.replace(/_.*$/, '') + "_" + (""+viewIdDebugSuffix).slice(0,16);
         const options = {...sessionSpec.options};
         for (const key of [...OPTIONS_FROM_URL, ...optionsFromUrl||[]]) {
             if (key in urlOptions) options[key] = urlOptions[key];
         }
-        if (doLogin) await login();
         // if the default shows up in logs we have a problem
         const keyMaterial = password || urlOptions.pw || "THIS SHOULDN'T BE IN LOGS";
         const pbkdf2Result = PBKDF2(keyMaterial, "", { keySize: 256/32 });
         this.key = WordArray.create(pbkdf2Result.words.slice(0, 256/32));
-        if (autoSession) {
-            // session is either "user/random" or "room/user/random" (for multi-room)
-            const room = name;
-            const session = urlOptions.getSession().split('/');
-            let user = multiRoom ? session[1] : session[0];
-            let random = multiRoom ? session[2] : session[1];
-            const newSession = !user || !random;
-            if (newSession) {
-                if (autoSession.user) user = autoSession.user;
-                if (autoSession.random) random = autoSession.random;
-                // incomplete session: create a new session id
-                if (!user) user = getUser("name", "").toLowerCase() || "GUEST";
-                if (!random) random = randomString();
-            }
-            this.session = multiRoom ? `${room}/${user}/${random}` : `${user}/${random}`;
-            if (!multiRoom) { // multiRoom handles this elsewhere
-                urlOptions.setSession(this.session, newSession);
-                App.sessionURL = window.location.href;
-            }
-            // the island id (name) is "room/user/random?opt=val&opt=val"
-            name = `${room}/${user}/${random}`;
-        }
         const { id, sessionHash, codeHash } = await hashSessionAndCode(name, options, SDK_VERSION);
         console.log(`Session ID for "${name}": ${id}`);
         this.islandCreator = {...sessionSpec, options, name, sessionHash, codeHash };
