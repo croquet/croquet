@@ -25,7 +25,10 @@ import Island, { Message } from "./island";
 const VERSION = 1;
 
 export const SDK_VERSION = process.env.CROQUET_VERSION || "<unknown>";
-console.log("%cCroquet%c SDK %c" + SDK_VERSION, "color:#F0493E", "color:inherit", `color:${SDK_VERSION.includes("+") ? "#909" : "inherit"}`);
+
+// codepen cannot deal with styled console output
+if (window.location.hostname.match(/co?de?pe?n\.io/)) console.log("Croquet SDK " + SDK_VERSION);
+else console.log("%cCroquet%c SDK %c" + SDK_VERSION, "color:#F0493E", "color:inherit", `color:${SDK_VERSION.includes("+") ? "#909" : "inherit"}`);
 
 // use dev reflectors for pre-release SDKs, unless dev=false given
 // (only needed for periods when code changes below require dev reflectors,
