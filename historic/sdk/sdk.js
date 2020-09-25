@@ -1,1 +1,3 @@
-export * from "@croquet/croquet";
+import * as Croquet from "@croquet/croquet";
+
+window.Croquet = Croquet;
