@@ -85,11 +85,11 @@ function randomString() { return Math.floor(Math.random() * 36**10).toString(36)
 
 
 // start Snapshot worker executing snapshotWorkerOnMessage (below)
+// Using a Blob avoids having to distribute a separate worker.js file
 const snapshotWorkerBlob = new Blob([`
 ${import_pako_deflate()}
 onmessage=${snapshotWorkerOnMessage}`]);
 const SnapshotWorker = new Worker(window.URL.createObjectURL(snapshotWorkerBlob));
-
 
 const Controllers = new Set();
 
@@ -745,7 +745,7 @@ export default class Controller {
         if (destroyerFn) destroyerFn();
     }
 
-    encrypt(plaintext) {
+    async encrypt(plaintext) {
         const iv = WordArray.random(16);
         const ciphertext = AES.encrypt(plaintext, this.key, {
             iv,
@@ -769,13 +769,13 @@ export default class Controller {
         return "";
     }
 
-    encryptMessage(msg, viewId, lastSent) {
+    async encryptMessage(msg, viewId, lastSent) {
         const [time, seq, msgPayload] = msg.asState();
-        const encryptedPayload = this.encryptPayload([msgPayload, viewId, lastSent]);
+        const encryptedPayload = await this.encryptPayload([msgPayload, viewId, lastSent]);
         return [time, seq, encryptedPayload];
     }
 
-    encryptPayload(payload) {
+    async encryptPayload(payload) {
         return this.encrypt(JSON.stringify(payload));
     }
 
@@ -796,13 +796,13 @@ export default class Controller {
     /** send a Message to all island replicas via reflector
      * @param {Message} msg
     */
-    sendMessage(msg) {
+    async sendMessage(msg) {
         // SEND: Broadcast a message to all participants.
         if (!this.connected) return; // probably view sending event while connection is closing
         if (this.viewOnly) return;
         if (DEBUG.sends) console.log(this.id, `Controller sending SEND ${msg.asState()}`);
         this.lastSent = Date.now();
-        const encryptedMsg = this.encryptMessage(msg, this.viewId, this.lastSent); // [time, seq, payload]
+        const encryptedMsg = await this.encryptMessage(msg, this.viewId, this.lastSent); // [time, seq, payload]
         this.connection.send(JSON.stringify({
             id: this.id,
             action: 'SEND',
@@ -814,14 +814,14 @@ export default class Controller {
      * @param {Message} msg
      * @param {Object} tags
     */
-    sendTagged(msg, tags) {
+    async sendTagged(msg, tags) {
         // reflector SEND protocol now allows for an additional tags property.  previous
         // reflector versions will handle as a standard SEND.
         if (!this.connected) return; // probably view sending event while connection is closing
         if (this.viewOnly) return;
         if (DEBUG.sends) console.log(this.id, `Controller sending tagged SEND ${msg.asState()} with tags ${JSON.stringify(tags)}`);
         this.lastSent = Date.now();
-        const encryptedMsg = this.encryptMessage(msg, this.viewId, this.lastSent); // [time, seq, payload]
+        const encryptedMsg = await this.encryptMessage(msg, this.viewId, this.lastSent); // [time, seq, payload]
         this.connection.send(JSON.stringify({
             id: this.id,
             action: 'SEND',
@@ -833,7 +833,7 @@ export default class Controller {
     /** send a TUTTI Message
      * @param {Message} msg
     */
-    sendTutti(time, tuttiSeq, data, firstMessage, wantsVote, tallyTarget) {
+    async sendTutti(time, tuttiSeq, data, firstMessage, wantsVote, tallyTarget) {
         // TUTTI: Send a message that multiple instances are expected to send identically.  The reflector will optionally broadcast the first received message immediately, then gather all messages up to a deadline and send a TALLY message summarising the results (whatever those results, if wantsVote is true; otherwise, only if there is some variation among them).
         if (!this.connected) return; // probably view sending event while connection is closing
         if (this.viewOnly) return;
@@ -842,7 +842,7 @@ export default class Controller {
         this.tuttiHistory.push({ tuttiSeq, payload });
         if (this.tuttiHistory.length > 100) this.tuttiHistory.shift();
         this.lastSent = Date.now();
-        const encryptedMsg = firstMessage && this.encryptMessage(firstMessage, this.viewId, this.lastSent); // [time, seq, payload]
+        const encryptedMsg = firstMessage && await this.encryptMessage(firstMessage, this.viewId, this.lastSent); // [time, seq, payload]
         this.connection.send(JSON.stringify({
             id: this.id,
             action: 'TUTTI',
@@ -1032,7 +1032,7 @@ export default class Controller {
 
 // This function is stringified and run as SnapshotWorker
 // MAKE SURE TO TEST AFTER MINIFICATION!
-// (it can not uses async / await for example)
+// (it can not use async / await for example)
 function snapshotWorkerOnMessage(msg) {
     const { cmd, gzurl, stringyContent, referrer, debug } = msg.data;
     switch (cmd) {
