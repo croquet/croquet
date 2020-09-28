@@ -109,7 +109,11 @@ class Model {
      * __Registers this model subclass with Croquet__
      *
      * It is necessary to register all Model subclasses so the serializer can recreate their instances from a snapshot.
-     * Also, the [session id]{@link Session.join} is derived by hashing the source code of all registered classes.
+     * Since source code minification can change the actual class name, you have to pass a `classId` explicitly.
+     *
+     * Secondly, the [session id]{@link Session.join} is derived by hashing the source code of all registered classes.
+     * This ensures that only clients running the same source code can be in the same session,
+     * so that the replicated computations are identical for each client.
      *
      * **Important**: for the hashing to work reliably across browsers, be sure to specify `charset="utf-8"` for your `<html>` or all `<script>` tags.
      * @example
