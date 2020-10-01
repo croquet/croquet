@@ -207,8 +207,12 @@ export default class Island {
 
     // generate perfectly paired view-join and view-exit events
     generateJoinExit({entered, exited, count}) {
-        // create exits events for old views stored in snapshot
-        if (entered.length === count) exited = Object.keys(this.users);
+        // synthesize exit events for old views stored in snapshot
+        if (entered.length === count) {
+            exited = Object.keys(this.users);
+            // never ignore these
+            for (const id of exited) this.users[id].ignoreExit = 0;
+        }
         for (const id of exited) {
             if (this.users[id]) {
                 // ignore exit after rejoin (see below)
