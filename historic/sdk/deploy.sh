@@ -70,9 +70,9 @@ if [ "$WHAT" != "docs" ] ; then
     NODE_ENV=production npx rollup -c rollup.config.js -o $SDK/croquet-$VERSION.min.js || exit 1
 
     # always link as latest-pre
-    (cd $SDK; ln -sf croquet-$VERSION.min.js croquet-latest-pre.min.js)
+    (cd $SDK; ln -sf croquet-$VERSION.min.js croquet-latest-pre.min.js; echo $VERSION > croquet-latest-pre.txt)
     # link as latest unless prerelease
-    $PRERELEASE || (cd $SDK; ln -sf croquet-$VERSION.min.js croquet-latest.min.js)
+    $PRERELEASE || (cd $SDK; ln -sf croquet-$VERSION.min.js croquet-latest.min.js; echo $VERSION > croquet-latest.txt)
 fi
 
 # build docs unless pre-release
