@@ -1,6 +1,6 @@
 {
   "name": "croquet",
-  "version": "0.3.4-14",
+  "version": "0.3.4-15",
   "description": "Croquet SDK Documentation and all-in-one JS bundle",
   "main": "sdk.js",
   "scripts": {
