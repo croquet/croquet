@@ -90,6 +90,7 @@ const snapshotWorkerBlob = new Blob([`
 ${import_pako_deflate()}
 onmessage=${snapshotWorkerOnMessage}`]);
 const SnapshotWorker = new Worker(window.URL.createObjectURL(snapshotWorkerBlob));
+SnapshotWorker.onerror = e => console.error(`SnapshotWorker error: ${e.message}`);
 
 const Controllers = new Set();
 
