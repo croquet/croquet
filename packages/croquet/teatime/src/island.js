@@ -213,6 +213,7 @@ export default class Island {
             // never ignore these
             for (const id of exited) this.users[id].ignoreExit = 0;
         }
+        // process exits first
         for (const id of exited) {
             if (this.users[id]) {
                 // ignore exit after rejoin (see below)
@@ -230,10 +231,7 @@ export default class Island {
                 this.controller.sendLog(`view-exit-mismatch ${id} left without being present`);
             }
         }
-        // if the user sent to reflector in controller.join() was an object or array
-        // instead of a plain string, then reflector may have added the
-        // location as {region, city: {name, lat, lng}}, see JOIN() in reflector.js
-        // for now, we are using plain string ids
+        // then joins
         for (const id of entered) {
             if (this.users[id]) {
                 // this happens if a client rejoins but the reflector is still holding
@@ -246,6 +244,10 @@ export default class Island {
                 this.publishFromModelOnly(this.id, "view-join", id);
             }
         }
+        // BTW: if the user sent to reflector in controller.join() was an object or array
+        // instead of a plain string, then reflector may have added the
+        // location as {region, city: {name, lat, lng}}, see JOIN() in reflector.js
+        // for now, we are using plain string ids, so no location is sent
     }
 
     /** decode msgData and sort it into future queue
