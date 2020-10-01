@@ -223,6 +223,7 @@ export default class Island {
             } else {
                 // there is no way this could ever happen. If it does, something is seriously broken.
                 console.error(`view ${id} exited without being present - this should not happen`);
+                this.controller.sendLog(`view-exit-mismatch ${id} left without being present`);
             }
         }
         // if the user sent to reflector in controller.join() was an object or array
