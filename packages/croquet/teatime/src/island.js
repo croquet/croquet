@@ -207,6 +207,15 @@ export default class Island {
 
     // generate perfectly paired view-join and view-exit events
     generateJoinExit({entered, exited, count}) {
+        // reflector may send join+exit for same view in one event
+        if (entered.length !== 0 && exited.length !== 0) {
+            const both = entered.filter(id => exited.includes(id));
+            if (both.length !== 0) {
+                entered = entered.filter(id => !both.includes(id));
+                exited = exited.filter(id => !both.includes(id));
+                if (entered.length === 0 && exited.length === 0) return;
+            }
+        }
         // synthesize exit events for old views stored in snapshot
         if (entered.length === count) {
             exited = Object.keys(this.users);
