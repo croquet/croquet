@@ -257,6 +257,12 @@ export default class Island {
                 this.publishFromModelOnly(this.id, "view-join", id);
             }
         }
+        // sanity check: the active number of connections on the reflector should match our count
+        const connections = Object.values(this.users).reduce((n, user) => n + 1 + (user.extraConnections || 0), 0);
+        if (count !== connections) {
+            console.error(`@${this.time}#${this.seq} view count mismatch (client: ${connections}, server: ${count}) - this should not happen`);
+            this.controller.sendLog(`view-exit-mismatch @${this.time}#${this.seq} connections reported: ${connections} actual: ${count}`);
+        }
         // BTW: if the user sent to reflector in controller.join() was an object or array
         // instead of a plain string, then reflector may have added the
         // location as {region, city: {name, lat, lng}}, see JOIN() in reflector.js
