@@ -206,6 +206,10 @@ export default class Island {
     noop() {}
 
     // generate perfectly paired view-join and view-exit events
+    // from imperfectly paired reflector messages
+    // e.g. nobody is there to receive an exit event for the last user
+    // leaving a session so we generate those when the firsat user resumes a session
+    // keeping track of users in the currently not exposed this.users property
     generateJoinExit({entered, exited, count}) {
         // reflector may send join+exit for same view in one event
         if (entered.length !== 0 && exited.length !== 0) {
