@@ -223,15 +223,15 @@ export default class Island {
         // synthesize exit events for old views stored in snapshot
         if (entered.length === count) {
             exited = Object.keys(this.users);
-            // never ignore these
-            for (const id of exited) this.users[id].ignoreExit = 0;
+            // all connections gone
+            for (const id of exited) this.users[id].extraConnections = 0;
         }
         // process exits first
         for (const id of exited) {
             if (this.users[id]) {
-                // ignore exit after rejoin (see below)
-                if (this.users[id].ignoreExit) {
-                    this.users[id].ignoreExit--;
+                // ignore exit for multiple connections (see below)
+                if (this.users[id].extraConnections) {
+                    this.users[id].extraConnections--;
                     console.warn(`@${this.time}#${this.seq} view ${id} exited after joining twice, ignoring`);
                     continue;
                 }
@@ -250,7 +250,7 @@ export default class Island {
                 // this happens if a client rejoins but the reflector is still holding
                 // onto the old connection
                 console.warn(`@${this.time}#${this.seq} view ${id} joined but already present, ignoring`);
-                this.users[id].ignoreExit = (this.users[id].ignoreExit||0) + 1;
+                this.users[id].extraConnections = (this.users[id].extraConnections||0) + 1;
             } else {
                 // otherwise this is a real join
                 this.users[id] = {};
