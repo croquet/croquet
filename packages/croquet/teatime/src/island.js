@@ -65,7 +65,7 @@ function execOffIsland(fn) {
 }
 
 const INITIAL_SEQ = 0xFFFFFFF0; // initial sequence number, must match reflector.js
-const VOTE_SUFFIX = '#__vote'; // internal, for 'vote' handling; never seen by user
+const VOTE_SUFFIX = '#__vote'; // internal, for 'vote' handling; never seen by apps
 const REFLECTED_SUFFIX = '#reflected';
 const DIVERGENCE_SUFFIX = '#divergence';
 
@@ -110,8 +110,8 @@ export default class Island {
                 this.messages = new PriorityQueue((a, b) => a.before(b));
                 /** @type {{"scope:event": Array<String>}} model subscriptions */
                 this.subscriptions = {};
-                /** @type {{"id": "name"}} active users */
-                this.users = {};
+                /** @type {{"id": "name"}} active views */
+                this.views = {};
                 /** @type {SeedRandom} our synced pseudo random stream */
                 this._random = () => { throw Error("You must not use random when applying state!"); };
                 /** @type {String} island ID */
@@ -150,7 +150,7 @@ export default class Island {
                     this._random = new SeedRandom(snapshot.id, { state: true });
                     const namedModels = initFn(this) || {};
                     Object.assign(this.modelsByName, namedModels);
-                    this.addSubscription(this, this.id, "__users__", this.generateJoinExit);
+                    this.addSubscription(this, this.id, "__views__", this.generateJoinExit);
                 }
             });
         });
@@ -207,9 +207,9 @@ export default class Island {
 
     // generate perfectly paired view-join and view-exit events
     // from imperfectly paired reflector messages
-    // e.g. nobody is there to receive an exit event for the last user
-    // leaving a session so we generate those when the firsat user resumes a session
-    // keeping track of users in the currently not exposed this.users property
+    // e.g. nobody is there to receive an exit event for the last view
+    // leaving a session so we generate those when the first view resumes a session
+    // keeping track of views in the currently not exposed this.views property
     generateJoinExit({entered, exited, count}) {
         // reflector may send join+exit for same view in one event
         if (entered.length !== 0 && exited.length !== 0) {
@@ -222,21 +222,21 @@ export default class Island {
         }
         // synthesize exit events for old views stored in snapshot
         if (entered.length === count) {
-            exited = Object.keys(this.users);
+            exited = Object.keys(this.views);
             // all connections gone
-            for (const id of exited) this.users[id].extraConnections = 0;
+            for (const id of exited) this.views[id].extraConnections = 0;
         }
         // process exits first
         for (const id of exited) {
-            if (this.users[id]) {
+            if (this.views[id]) {
                 // ignore exit for multiple connections (see below)
-                if (this.users[id].extraConnections) {
-                    this.users[id].extraConnections--;
+                if (this.views[id].extraConnections) {
+                    this.views[id].extraConnections--;
                     console.warn(`@${this.time}#${this.seq} view ${id} exited after joining twice, ignoring`);
                     continue;
                 }
                 // otherwise this is a real exit
-                delete this.users[id];
+                delete this.views[id];
                 this.publishFromModelOnly(this.id, "view-exit", id);
             } else {
                 // there is no way this could ever happen. If it does, something is seriously broken.
@@ -246,24 +246,24 @@ export default class Island {
         }
         // then joins
         for (const id of entered) {
-            if (this.users[id]) {
+            if (this.views[id]) {
                 // this happens if a client rejoins but the reflector is still holding
                 // onto the old connection
                 console.warn(`@${this.time}#${this.seq} view ${id} joined but already present, ignoring`);
-                this.users[id].extraConnections = (this.users[id].extraConnections||0) + 1;
+                this.views[id].extraConnections = (this.views[id].extraConnections||0) + 1;
             } else {
                 // otherwise this is a real join
-                this.users[id] = {};
+                this.views[id] = {};
                 this.publishFromModelOnly(this.id, "view-join", id);
             }
         }
         // sanity check: the active number of connections on the reflector should match our count
-        const connections = Object.values(this.users).reduce((n, user) => n + 1 + (user.extraConnections || 0), 0);
+        const connections = Object.values(this.views).reduce((n, view) => n + 1 + (view.extraConnections || 0), 0);
         if (count !== connections) {
             console.error(`@${this.time}#${this.seq} view count mismatch (client: ${connections}, server: ${count}) - this should not happen`);
             this.controller.sendLog(`view-exit-mismatch @${this.time}#${this.seq} connections reported: ${connections} actual: ${count}`);
         }
-        // BTW: if the user sent to reflector in controller.join() was an object or array
+        // BTW: if the view sent to reflector in controller.join() was an object or array
         // instead of a plain string, then reflector may have added the
         // location as {region, city: {name, lat, lng}}, see JOIN() in reflector.js
         // for now, we are using plain string ids, so no location is sent
