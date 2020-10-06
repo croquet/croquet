@@ -4,6 +4,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 
 # latest pre-releases
 
+* 0.3.4-16 ignore join/exit of same view in one event, rename island.users to views
 * 0.3.4-15 fix a potential exit mismatch, send view-exit-mismatch to reflector LOG
 * 0.3.4-14 gzip and upload snapshots in web worker
 * 0.3.4-13 remove simpleapp stuff, switch from parcel to rollup
