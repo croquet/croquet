@@ -20,7 +20,7 @@ npx parcel build $HTML -d $TARGET/$APP/ --public-url . || exit
 # commit to git
 git add -A $TARGET/$APP
 git commit -m "[$APP] deploy to croquet.io/testing" $TARGET/$APP || exit
-git show --stat
+git --no-pager show --stat
 
 echo
 echo "You still need to"

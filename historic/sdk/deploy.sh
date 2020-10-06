@@ -94,7 +94,7 @@ fi
 git add -A $SDK/ package.json
 git commit -m "[sdk] deploy $MSG to croquet.io/testing" $SDK/ package.json || exit
 
-git show --stat
+git --no-pager show --stat
 
 echo
 echo "You still need to"

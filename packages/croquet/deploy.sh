@@ -17,7 +17,7 @@ esac
 git update-index --no-assume-unchanged pub/croquet-croquet.js
 git commit -m "[teatime] croquet-croquet.js $CROQUET_VERSION" pub/croquet-croquet.js || exit 1
 git update-index --assume-unchanged pub/croquet-croquet.js
-git show --stat
+git --no-pager show --stat
 
 case $CROQUET_VERSION in
 *-*) ../../../sdk/deploy.sh prerelease ;;
