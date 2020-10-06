@@ -110,7 +110,7 @@ export default class Island {
                 this.messages = new PriorityQueue((a, b) => a.before(b));
                 /** @type {{"scope:event": Array<String>}} model subscriptions */
                 this.subscriptions = {};
-                /** @type {{"id": "name"}} active views */
+                /** @type {{[id:string]: {extraConnections?: Number}}} viewIds of active reflector connections */
                 this.views = {};
                 /** @type {SeedRandom} our synced pseudo random stream */
                 this._random = () => { throw Error("You must not use random when applying state!"); };
