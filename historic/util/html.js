@@ -269,10 +269,11 @@ try {
 }
 
 const dockState = {
-    get pinned() { return localStorage['croquet-debug-ui-pinned'] === "true"; },
-    set pinned(bool) { localStorage['croquet-debug-ui-pinned'] = !!bool; },
-    get activePage() { return localStorage['croquet-debug-ui-activePage']; },
-    set activePage(id) { localStorage['croquet-debug-ui-activePage'] = id; },
+    // localStorage is per-host, but we also want per-app
+    get pinned() { return localStorage[location.pathname + '/croquet-debug-ui-pinned'] === "true"; },
+    set pinned(bool) { localStorage[location.pathname + '/croquet-debug-ui-pinned'] = !!bool; },
+    get activePage() { return localStorage[location.pathname + '/croquet-debug-ui-activePage']; },
+    set activePage(id) { localStorage[location.pathname + '/croquet-debug-ui-activePage'] = id; },
 };
 
 const smotherEvent = evt => {
