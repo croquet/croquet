@@ -120,7 +120,7 @@ class Shapes extends ModelRoot {
         for (let i = 0; i < options.bounce; i++) this.shapes["bounce" + i] = BouncingShape.create({pos: [500, 500], color: "white", startStepping: true});
     }
 }
-Shapes.register("Shape");
+Shapes.register("Shapes");
 
 
 ////// Views /////
