@@ -1,5 +1,6 @@
 import babel from '@rollup/plugin-babel';
 import resolve from '@rollup/plugin-node-resolve';
+import commonjs from '@rollup/plugin-commonjs';
 import license from 'rollup-plugin-license';
 import { terser } from 'rollup-plugin-terser';
 import MagicString from 'magic-string';
@@ -31,9 +32,9 @@ function inject_process() {
             }
         },
         transform(code, id) {
-            // Each module (except ours) gets the process mock injected.
+            // Only inject in our own teatime modules
             // Tree-shaking will make sure the import is removed from most modules later.
-            if (id !== INJECT_PROCESS_MODULE_ID) {
+            if (id.includes("/teatime/")) {
                 const magicString = new MagicString(code);
                 magicString.prepend(`import * as process from '${INJECT_PROCESS_MODULE_ID}';\n`);
                 return { code: magicString.toString(), map: magicString.generateMap({ hires: true }) };
@@ -71,13 +72,14 @@ const config = {
         format: 'cjs',
         sourcemap: is_dev_build,    // not included in npm bundle by explicit "files" section in package.json
     },
+    external: [ 'crypto' ], // suppress warning for modules that require("crypto")
     plugins: [
-        inject_process(),
-        resolve({resolveOnly: [/^@croquet/]}),
+        resolve(),
+        commonjs(),
+        inject_process(), // must be after commonjs, otherwise commonjs gets confused by the added "import" statement
         !is_dev_build && babel({
-            babelHelpers: 'runtime',
+            babelHelpers: 'bundled',
             presets: [['@babel/env', { "targets": "> 0.25%" }]],
-            plugins: ['@babel/transform-runtime']
         }),
         !is_dev_build && terser({
             mangle: {module: true},
