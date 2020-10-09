@@ -1,8 +1,9 @@
 {
-  "name": "croquet",
+  "name": "croquet-sdk",
   "version": "0.3.4-16",
   "description": "Croquet SDK Documentation and all-in-one JS bundle",
   "main": "sdk.js",
+  "private": true,
   "scripts": {
     "preinstall": "npx only-allow pnpm",
     "start": "npm-watch",
@@ -33,7 +34,7 @@
     }
   },
   "author": "Croquet Corporation",
-  "license": "ISC",
+  "license": "UNLICENSED",
   "dependencies": {
     "@croquet/croquet": "file:../libraries/packages/croquet"
   },
