@@ -22,11 +22,13 @@ const COSTUM_MODULE_ID = '\0croquet-costum';    // prefix \0 hides us from other
 function inject_process() {
     return {
         name: 'croquet-costum-plugin',
+        // do not resolve our custom module via file lookup, we "load" it below
         resolveId(id) {
             if (id === COSTUM_MODULE_ID) {
                 return COSTUM_MODULE_ID;
             }
         },
+        // create source code of our custom module
         load(id) {
             if (id === COSTUM_MODULE_ID) {
                 const importRegenerator = `import "regenerator-runtime/runtime.js";\n`;
@@ -36,6 +38,7 @@ function inject_process() {
                 return importRegenerator + exportEnv;
             }
         },
+        // patch other modules
         transform(code, id) {
             // Only inject in our own teatime modules
             // Tree-shaking will make sure the import is removed from most modules later.
