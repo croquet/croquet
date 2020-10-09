@@ -13,22 +13,27 @@ require('dotenv-flow').config({
     default_node_env: 'development'
 });
 
+const is_dev_build = process.env.NODE_ENV !== "production";
 
 // costum rollup plugin to resolve "process.env" references
 // it fakes a "process" module that exports "env" and imports that module everywhere
 // https://github.com/rollup/rollup/issues/487#issuecomment-486229172
-const INJECT_PROCESS_MODULE_ID = '\0inject-process';    // prefix \0 hides us from other plugins
+const COSTUM_MODULE_ID = '\0croquet-costum';    // prefix \0 hides us from other plugins
 function inject_process() {
     return {
-        name: 'inject-process-plugin',
+        name: 'croquet-costum-plugin',
         resolveId(id) {
-            if (id === INJECT_PROCESS_MODULE_ID) {
-                return INJECT_PROCESS_MODULE_ID;
+            if (id === COSTUM_MODULE_ID) {
+                return COSTUM_MODULE_ID;
             }
         },
         load(id) {
-            if (id === INJECT_PROCESS_MODULE_ID) {
-                return `export const env = ${JSON.stringify(process.env)};\n`;
+            if (id === COSTUM_MODULE_ID) {
+                const importRegenerator = `import "regenerator-runtime/runtime.js";\n`;
+                const exportEnv = `export const env = ${JSON.stringify(process.env)};\n`;
+                if (is_dev_build) return exportEnv;
+                // only include regenerator in production builds
+                return importRegenerator + exportEnv;
             }
         },
         transform(code, id) {
@@ -36,14 +41,12 @@ function inject_process() {
             // Tree-shaking will make sure the import is removed from most modules later.
             if (id.includes("/teatime/")) {
                 const magicString = new MagicString(code);
-                magicString.prepend(`import * as process from '${INJECT_PROCESS_MODULE_ID}';\n`);
+                magicString.prepend(`import * as process from '${COSTUM_MODULE_ID}';\n`);
                 return { code: magicString.toString(), map: magicString.generateMap({ hires: true }) };
             }
         }
     }
 };
-
-const is_dev_build = process.env.NODE_ENV !== "production";
 
 const deps = ["../../../teatime",  "../../../util", "../../../math"];
 const git_branch = execSync("git rev-parse --abbrev-ref HEAD").toString().trim();
@@ -69,7 +72,11 @@ const config = {
     input: 'croquet.js',
     output: {
         file: 'pub/croquet-croquet.js',
-        format: 'cjs',
+        format: 'umd',
+        name: 'Croquet',
+        globals: {
+            'crypto': '__no_crypto_in_browser__'
+        },
         sourcemap: is_dev_build,    // not included in npm bundle by explicit "files" section in package.json
     },
     external: [ 'crypto' ], // suppress warning for modules that require("crypto")
