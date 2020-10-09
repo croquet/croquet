@@ -1,7 +1,7 @@
 {
   "name": "@croquet/react",
   "version": "0.3.3",
-  "description": "",
+  "description": "React bindings for Croquet",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -11,7 +11,7 @@
   "author": "Croquet Corporation",
   "license": "ISC",
   "dependencies": {
-    "@croquet/croquet": "^0.3.1",
+    "@croquet/croquet": "^0.3.3",
     "@croquet/observable": "^0.3.3"
   },
   "peerDependencies": {

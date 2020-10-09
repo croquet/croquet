@@ -1,7 +1,7 @@
 {
   "name": "@croquet/croquet",
   "version": "0.3.4-16",
-  "description": "",
+  "description": "Live Collaboration for Web Apps without Server Code",
   "main": "pub/croquet-croquet.js",
   "types": "types.d.ts",
   "files": [
