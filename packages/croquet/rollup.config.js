@@ -3,6 +3,7 @@ import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import license from 'rollup-plugin-license';
 import { terser } from 'rollup-plugin-terser';
+import worker_loader from 'rollup-plugin-web-worker-loader';
 import MagicString from 'magic-string';
 import moment from 'moment';
 import fs from 'fs';
@@ -86,7 +87,11 @@ const config = {
     plugins: [
         resolve(),
         commonjs(),
-        inject_process(), // must be after commonjs, otherwise commonjs gets confused by the added "import" statement
+        worker_loader({
+            targetPlatform: "browser",
+            sourcemap: is_dev_build,
+        }),
+        inject_process(), // must be after commonjs and worker_loader
         !is_dev_build && babel({
             babelHelpers: 'bundled',
             presets: [['@babel/env', { "targets": "> 0.25%" }]],
