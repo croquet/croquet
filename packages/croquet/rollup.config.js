@@ -52,6 +52,24 @@ function inject_process() {
     }
 };
 
+// custom plugin to fix up terser output
+function escape_fix() {
+    return {
+        name: 'escape-fix-plugin',
+        // re-instate a removed escape sequence which otherwise throws off parcel
+        renderChunk(code, chunk) {
+            const bad = '"//# sourceMappingURL="';
+            const good = '"\\/\\/# sourceMappingURL="';
+            const start = code.indexOf(bad);
+            if (start !== -1) {
+                const magicString = new MagicString(code);
+                magicString.overwrite(start, start + bad.length, good);
+                return { code: magicString.toString(), map: magicString.generateMap({ hires: true }) };
+            }
+        }
+    }
+}
+
 const deps = ["../../../teatime",  "../../../util", "../../../math"];
 const git_branch = execSync("git rev-parse --abbrev-ref HEAD").toString().trim();
 const git_commit = execSync("git rev-parse HEAD").toString().trim();                          // last commit hash
@@ -99,6 +117,7 @@ const config = {
         !is_dev_build && terser({
             mangle: {module: true},
         }),
+        escape_fix(), // must be after terser
         license({
             banner: `@license UNLICENSED
 Copyright Croquet Corporation <%= moment().format('YYYY') %>
