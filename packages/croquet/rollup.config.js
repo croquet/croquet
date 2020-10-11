@@ -52,20 +52,29 @@ function inject_process() {
     }
 };
 
-// custom plugin to fix up terser output
-function escape_fix() {
+function magic_replace(code, fixes) {
+    const magicString = new MagicString(code);
+    let changed = false;
+    for (const { bad, good } of fixes) {
+        const start = code.indexOf(bad);
+        if (start !== -1) {
+            magicString.overwrite(start, start + bad.length, good);
+            changed = true;
+        }
+    }
+    if (changed) return { code: magicString.toString(), map: magicString.generateMap({ hires: true }) };
+}
+
+// custom plugin to fix up generated code
+function fixups() {
     return {
-        name: 'escape-fix-plugin',
-        // re-instate a removed escape sequence which otherwise throws off parcel
+        name: 'fixup-plugin',
         renderChunk(code, chunk) {
-            const bad = '"//# sourceMappingURL="';
-            const good = '"\\/\\/# sourceMappingURL="';
-            const start = code.indexOf(bad);
-            if (start !== -1) {
-                const magicString = new MagicString(code);
-                magicString.overwrite(start, start + bad.length, good);
-                return { code: magicString.toString(), map: magicString.generateMap({ hires: true }) };
-            }
+            // re-instate a removed escape sequence which otherwise throws off parcel
+            return magic_replace(code, [
+                { bad: '"//# sourceMappingURL="', good: '"\\/\\/# sourceMappingURL="' },
+                { bad: 'regeneratorRuntime=', good: 'globalThis.regeneratorRuntime=' },
+            ]);
         }
     }
 }
@@ -117,7 +126,7 @@ const config = {
         !is_dev_build && terser({
             mangle: {module: true},
         }),
-        escape_fix(), // must be after terser
+        !is_dev_build && fixups(), // must be after terser
         license({
             banner: `@license UNLICENSED
 Copyright Croquet Corporation <%= moment().format('YYYY') %>
