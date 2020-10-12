@@ -1,35 +1,51 @@
 // this is our UploadWorker
 
 import { deflate } from 'pako/dist/pako_deflate.js';
+import Base64 from "crypto-js/enc-base64";
+import AES from "crypto-js/aes";
+import WordArray from "crypto-js/lib-typedarrays";
+import HmacSHA256 from "crypto-js/hmac-sha256";
 
 onmessage = msg => {
-    const { cmd, gzurl, stringyContent, referrer, id, debug } = msg.data;
+    const { cmd, url, stringyContent, keyBase64, referrer, id, debug } = msg.data;
     switch (cmd) {
-        case "uploadGzipped": uploadGzipped(); break;
+        case "uploadGzippedEncrypted": uploadGzippedEncrypted(); break;
         default: console.error("Unknown worker command", cmd);
     }
 
-    async function uploadGzipped() {
+    function encrypt(bytes) {
+        const start = Date.now();
+        const plaintext = WordArray.create(bytes);
+        const key = Base64.parse(keyBase64);
+        const hmac = HmacSHA256(plaintext, key);
+        const iv = WordArray.random(16);
+        const { ciphertext } = AES.encrypt(plaintext, key, { iv });
+        const encrypted = [iv, hmac, ciphertext].map(wordArray => wordArray.toString(Base64)).join('');
+        if (debug) console.log(`${id} Snapshot encryption (${encrypted.length} bytes) took ${Math.ceil(Date.now() - start)}ms`);
+        return encrypted;
+    }
+
+    async function uploadGzippedEncrypted() {
         try {
             const start = Date.now();
             const chars = new TextEncoder().encode(stringyContent);
-            const bytes = deflate(chars, { gzip: true, level: 1 }); // sloppy but quick
-            const ms = Date.now() - start;
-            if (debug) console.log(`${id} Snapshot gzipping (${bytes.length} bytes) took ${Math.ceil(ms)}ms`);
-            if (debug) console.log(`${id} Uploading snapshot to ${gzurl}`);
-            const { ok, status, statusText} = await fetch(gzurl, {
+            const gzipped = deflate(chars, { gzip: true, level: 1 }); // sloppy but quick
+            if (debug) console.log(`${id} Snapshot gzipping (${gzipped.length} bytes) took ${Math.ceil(Date.now() - start)}ms`);
+            const encrypted = encrypt(gzipped);
+            if (debug) console.log(`${id} Uploading snapshot to ${url}`);
+            const { ok, status, statusText} = await fetch(url, {
                 method: "PUT",
                 mode: "cors",
                 headers: { "Content-Type": "application/octet-stream" },
                 referrer,
-                body: bytes
+                body: encrypted
             });
-            if (!ok) throw Error(`server returned ${status} ${statusText} for PUT ${gzurl}`);
-            if (debug) console.log(`${id} Uploaded (${status}) ${gzurl}`);
-            postMessage({url: gzurl, ok, status, statusText});
+            if (!ok) throw Error(`server returned ${status} ${statusText} for PUT ${url}`);
+            if (debug) console.log(`${id} Uploaded (${status}) ${url}`);
+            postMessage({url, ok, status, statusText});
         } catch(e) {
             if (debug) console.log(`${id} Upload error ${e.message}`);
-            postMessage({url: gzurl, ok: false, status: -1, statusText: e.message});
+            postMessage({url, ok: false, status: -1, statusText: e.message});
         };
     }
 }

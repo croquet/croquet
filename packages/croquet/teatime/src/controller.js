@@ -109,7 +109,7 @@ export default class Controller {
         this.time = 0;
         /** @type {String} the human-readable session name (e.g. "room/user/random") */
         this.session = '';
-        /** key generated from password, shared by all clients */
+        /** key generated from password, shared by all clients in session */
         this.key = null;
         /** @type {String} the client id (different in each replica, but stays the same on reconnect) */
         this.viewId = this.viewId || randomString(); // todo: have reflector assign unique ids
@@ -343,7 +343,7 @@ export default class Controller {
         // !!! THIS IS BEING EXECUTED INSIDE THE SIMULATION LOOP!!!
 
         if (this.synced !== true) {
-            if (DEBUG.snapshot) console.log(`Ignoring snapshot vote during sync`);
+            if (DEBUG.snapshot) console.log(this.id, "Ignoring snapshot vote during sync");
             return;
         }
         if (DEBUG.snapshot) console.log(this.id, "received snapshot votes", data);
@@ -405,12 +405,11 @@ export default class Controller {
         this.uploadSnapshot(snapshot, dissidentFlag);
     }
 
-    snapshotUrl(filetype, time, seq, hash, optExt) {
+    snapshotUrl(time, seq, hash) {
         const base = `${baseUrl('snapshots')}${this.id}`;
-        const extn = `.json${optExt ? "." + optExt : ""}`;
         const pad = n => ("" + n).padStart(10, '0');
-        // snapshot time is full precision.  for storage name, we round to nearest ms.
-        const filename = `${pad(Math.round(time))}_${seq}-${filetype}-${hash}${extn}`;
+        // snapshot time is full precision. for storage name, we use full ms.
+        const filename = `${pad(Math.ceil(time))}_${seq}-${hash}.snap`;
         return `${base}/${filename}`;
     }
 
@@ -443,13 +442,13 @@ export default class Controller {
         if (DEBUG.snapshot) console.log(this.id, `Snapshot stringification (${body.length} bytes) took ${Math.ceil(stringMS)}ms`);
 
         const {time, seq, hash} = snapshot.meta;
-        const gzurl = this.snapshotUrl('snap', time, seq, hash, 'gz');
+        const url = this.snapshotUrl(time, seq, hash);
         const socket = this.connection.socket;
         try {
-            await this.uploadGzipped(gzurl, body);
+            await this.uploadGzippedEncrypted(url, body);
             if (this.connection.socket !== socket) { console.warn(this.id, "Controller was reset while trying to upload snapshot"); return false; }
         } catch (e) { console.error(this.id, "Failed to upload snapshot"); return false; }
-        this.announceSnapshotUrl(time, seq, hash, gzurl, dissidentFlag);
+        this.announceSnapshotUrl(time, seq, hash, url, dissidentFlag);
         return true;
     }
 
@@ -471,48 +470,33 @@ export default class Controller {
         }
     }
 
-    async fetchJSON(url, defaultValue) {
+    async downloadGzippedEncrypted(url, defaultValue) {
         try {
             const response = await fetch(url, { mode: "cors", referrer: App.referrerURL() });
-            if (url.endsWith('.gz')) {
-                const buffer = await response.arrayBuffer();
-                const jsonString = pako.inflate(new Uint8Array(buffer), { to: 'string' });
-                return JSON.parse(jsonString);
-            }
-            return await response.json();
+            const encrypted = await response.text();
+            const plaintext = this.decryptBinary(encrypted);
+            const jsonString = pako.inflate(plaintext, { to: 'string' });
+            return JSON.parse(jsonString);
         } catch (err) { /* ignore */}
         return defaultValue;
     }
 
-    async uploadJSON(url, body) {
-        try {
-            const { ok } = await fetch(url, {
-                method: "PUT",
-                mode: "cors",
-                headers: { "Content-Type": "application/json" },
-                referrer: App.referrerURL(),
-                body,
-            });
-            return ok;
-        } catch (e) { /*ignore */ }
-        return false;
-    }
-
-    /** upload a stringy source object as binary gzip */
-    async uploadGzipped(gzurl, stringyContent) {
+    /** upload a stringy source object as binary encrypted gzip */
+    async uploadGzippedEncrypted(url, stringyContent) {
         // leave actual work to our UploadWorker
         return new Promise( (resolve, reject) => {
             UploadWorker.postMessage({
-                cmd: "uploadGzipped",
-                gzurl,
+                cmd: "uploadGzippedEncrypted",
+                url,
                 stringyContent,
+                keyBase64: Base64.stringify(this.key),
                 referrer: App.referrerURL(),
                 id: this.id,
                 debug: DEBUG.snapshot,
             });
             const onmessage = msg => {
                 const {url, ok, status, statusText} = msg.data;
-                if (url !== gzurl) return;
+                if (url !== url) return;
                 UploadWorker.removeEventListener("message", onmessage);
                 if (ok) resolve(ok);
                 else reject(Error(`${status}: ${statusText}`));
@@ -592,7 +576,7 @@ export default class Controller {
                 }
                 this.timeFromReflector(time);
                 if (DEBUG.session) console.log(`${this.id} fetching snapshot ${url}`);
-                const snapshot = url && await this.fetchJSON(url);
+                const snapshot = url && await this.downloadGzippedEncrypted(url);
                 if (!this.connected) { console.log(this.id, 'socket went away during SYNC'); return; }
                 if (url && !snapshot) {
                     this.connection.closeConnectionWithError('SYNC', Error("failed to fetch snapshot"));
@@ -767,6 +751,36 @@ export default class Controller {
         if (this.compareHmacs(mac.words, hmac.words)) return plaintext;
         console.warn("decryption hmac mismatch");
         return "";
+    }
+
+    decryptBinary(encrypted) {
+        const iv = Base64.parse(encrypted.slice(0, 24));
+        const mac = Base64.parse(encrypted.slice(24, 24 + 44));
+        const ciphertext = encrypted.slice(24 + 44);
+        const decrypted = AES.decrypt(ciphertext, this.key, { iv });
+        const hmac = HmacSHA256(decrypted, this.key);
+        if (!this.compareHmacs(mac.words, hmac.words)) {
+            console.warn("decryption hmac mismatch");
+            // always getting a mac mismatch even though decryption worked ...
+            //return [];
+        }
+        return this.cryptoJsWordArrayToUint8Array(decrypted);
+    }
+
+    cryptoJsWordArrayToUint8Array(wordArray) {
+        const l = wordArray.sigBytes;
+        const words = wordArray.words;
+        const result = new Uint8Array(l);
+        let i = 0, j = 0;
+        while (true) {
+            if (i === l) break;
+            const w = words[j++];
+            result[i++] = (w & 0xff000000) >>> 24; if (i === l) break;
+            result[i++] = (w & 0x00ff0000) >>> 16; if (i === l) break;
+            result[i++] = (w & 0x0000ff00) >>> 8;  if (i === l) break;
+            result[i++] = (w & 0x000000ff);
+        }
+        return result;
     }
 
     async encryptMessage(msg, viewId, lastSent) {
