@@ -759,11 +759,11 @@ export default class Controller {
         const mac = Base64.parse(encrypted.slice(4 + 24, 4 + 24 + 44));
         const ciphertext = encrypted.slice(4 + 24 + 44);
         const decrypted = AES.decrypt(ciphertext, this.key, { iv });
+        decrypted.clamp(); // clamping manually because of bug in HmacSHA256
         const hmac = HmacSHA256(decrypted, this.key);
         if (!this.compareHmacs(mac.words, hmac.words)) {
             console.warn("decryption hmac mismatch");
-            // always getting a mac mismatch even though decryption worked ...
-            //return [];
+            return [];
         }
         return this.cryptoJsWordArrayToUint8Array(decrypted);
     }
