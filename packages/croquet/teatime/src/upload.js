@@ -20,7 +20,7 @@ onmessage = msg => {
         const hmac = HmacSHA256(plaintext, key);
         const iv = WordArray.random(16);
         const { ciphertext } = AES.encrypt(plaintext, key, { iv });
-        const encrypted = [iv, hmac, ciphertext].map(wordArray => wordArray.toString(Base64)).join('');
+        const encrypted = "CRQ0" + [iv, hmac, ciphertext].map(wordArray => wordArray.toString(Base64)).join('');
         if (debug) console.log(`${id} Snapshot encryption (${encrypted.length} bytes) took ${Math.ceil(Date.now() - start)}ms`);
         return encrypted;
     }

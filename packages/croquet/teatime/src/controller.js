@@ -754,9 +754,10 @@ export default class Controller {
     }
 
     decryptBinary(encrypted) {
-        const iv = Base64.parse(encrypted.slice(0, 24));
-        const mac = Base64.parse(encrypted.slice(24, 24 + 44));
-        const ciphertext = encrypted.slice(24 + 44);
+        const version = encrypted.slice(0, 4);
+        const iv = Base64.parse(encrypted.slice(4, 4 + 24));
+        const mac = Base64.parse(encrypted.slice(4 + 24, 4 + 24 + 44));
+        const ciphertext = encrypted.slice(4 + 24 + 44);
         const decrypted = AES.decrypt(ciphertext, this.key, { iv });
         const hmac = HmacSHA256(decrypted, this.key);
         if (!this.compareHmacs(mac.words, hmac.words)) {
