@@ -23,14 +23,16 @@ const COSTUM_MODULE_ID = '\0croquet-costum';    // prefix \0 hides us from other
 function inject_process() {
     return {
         name: 'croquet-costum-plugin',
-        // do not resolve our custom module via file lookup, we "load" it below
         resolveId(id) {
+            // do not resolve our custom module via file lookup, we "load" it below
             if (id === COSTUM_MODULE_ID) {
                 return COSTUM_MODULE_ID;
             }
+            // also pretend we have a "crypto" module which some node packages try to load
+            if (id === "crypto") return "crypto";
         },
-        // create source code of our custom module
         load(id) {
+            // create source code of our custom module
             if (id === COSTUM_MODULE_ID) {
                 const importRegenerator = `import "regenerator-runtime/runtime.js";\n`;
                 const exportEnv = `export const env = ${JSON.stringify(process.env)};\n`;
@@ -38,6 +40,8 @@ function inject_process() {
                 // only include regenerator in production builds
                 return importRegenerator + exportEnv;
             }
+            // also generate an empty "crypto" module which some node packages try to load
+            if (id === "crypto") return "";
         },
         // patch other modules
         transform(code, id) {
@@ -105,12 +109,8 @@ const config = {
         file: 'pub/croquet-croquet.js',
         format: 'umd',
         name: 'Croquet',
-        globals: {
-            'crypto': '__no_crypto_in_browser__'
-        },
         sourcemap: is_dev_build,    // not included in npm bundle by explicit "files" section in package.json
     },
-    external: [ 'crypto' ], // suppress warning for modules that require("crypto")
     plugins: [
         resolve(),
         commonjs(),
