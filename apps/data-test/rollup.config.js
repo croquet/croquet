@@ -8,9 +8,6 @@ export default {
     output: {
         file: 'dist/data-test-bundled.js',
         format: 'iife', // immediately-invoked function expression — suitable for <script> tags
-        globals: {
-            "crypto": "null", // because the seedrandom module uses require('crypto') - FIXME
-        },
         sourcemap: true
     },
     plugins: [

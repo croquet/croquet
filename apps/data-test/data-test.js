@@ -43,10 +43,9 @@ class DataTestView extends View {
             reader.readAsArrayBuffer(file);
         });
         this.showMessage(`sending "${file.name}" (${data.byteLength} bytes}`);
-        const handle = await Data.store(this.sessionId, data); // <== Croquet.Data API
+        const handle = await Data.store(data); // <== Croquet.Data API
         const asset = { name: file.name, type: file.type, size: data.byteLength, handle };
         this.publish(this.modelId, "add-asset", asset);
-        this.showImage(asset);
     }
 
     // every user gets this event via model
@@ -61,7 +60,7 @@ class DataTestView extends View {
     }
 
     async showImage(asset) {
-        const data = await Data.fetch(this.sessionId, asset.handle);  // <== Croquet.Data API
+        const data = await Data.fetch(asset.handle);  // <== Croquet.Data API
         this.showMessage(`fetched "${asset.name}" (${data.byteLength} bytes)`);
         const blob = new Blob([data], { type: asset.type });
         document.body.style.backgroundImage = `url(${URL.createObjectURL(blob)})`;
