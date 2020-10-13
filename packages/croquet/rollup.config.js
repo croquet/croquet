@@ -107,8 +107,7 @@ const config = {
     input: 'croquet.js',
     output: {
         file: 'pub/croquet-croquet.js',
-        format: 'umd',
-        name: 'Croquet',
+        format: 'cjs',
         sourcemap: is_dev_build,    // not included in npm bundle by explicit "files" section in package.json
     },
     plugins: [
