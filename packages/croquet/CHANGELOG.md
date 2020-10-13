@@ -4,7 +4,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 
 # latest pre-releases
 
-* 0.3.4-17 encrypted snapshots
+* 0.3.4-17 encrypt snapshots and data (still uses base64)
 * 0.3.4-16 ignore join/exit of same view in one event, rename island.users to views
 * 0.3.4-15 fix a potential exit mismatch, send view-exit-mismatch to reflector LOG
 * 0.3.4-14 gzip and upload snapshots in web worker
