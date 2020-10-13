@@ -439,7 +439,7 @@ export default class Controller {
         const start = Stats.begin("snapshot");
         const body = JSON.stringify(snapshot);
         const stringMS = Stats.end("snapshot") - start;
-        if (DEBUG.snapshot) console.log(this.id, `Snapshot stringification (${body.length} bytes) took ${Math.ceil(stringMS)}ms`);
+        if (DEBUG.snapshot) console.log(this.id, `Snapshot stringified (${body.length} bytes) in ${Math.ceil(stringMS)}ms`);
 
         const {time, seq, hash} = snapshot.meta;
         const url = this.snapshotUrl(time, seq, hash);
@@ -472,10 +472,14 @@ export default class Controller {
 
     async downloadGzippedEncrypted(url, defaultValue) {
         try {
+            let timer = Date.now();
             const response = await fetch(url, { mode: "cors", referrer: App.referrerURL() });
             const encrypted = await response.text();
+            if (DEBUG.snapshot) console.log(this.id, `Snapshot fetched (${encrypted.length} bytes) in ${-timer + (timer = Date.now())}ms`);
             const plaintext = this.decryptBinary(encrypted);
+            if (DEBUG.snapshot) console.log(this.id, `Snapshot decrypted (${plaintext.length} bytes) in ${-timer + (timer = Date.now())}ms`);
             const jsonString = pako.inflate(plaintext, { to: 'string' });
+            if (DEBUG.snapshot) console.log(this.id, `Snapshot inflated (${jsonString.length} bytes) in ${-timer + (timer = Date.now())}ms`);
             return JSON.parse(jsonString);
         } catch (err) { /* ignore */}
         return defaultValue;
@@ -558,7 +562,7 @@ export default class Controller {
             case 'SYNC': {
                 // We are joining an island session.
                 const {messages, url, time} = args;
-                if (DEBUG.session) console.log(this.id, `Controller received SYNC: time ${time}, ${messages.length} messages, ${url}`);
+                if (DEBUG.session) console.log(this.id, `Controller received SYNC: time ${time}, ${messages.length} messages, ${url || "no snapshot"}`);
                 // enqueue all messages now because the reflector will start sending more messages
                 // while we are waiting for the snapshot.
                 // if any conversion of custom reflector messages is to be done, do it before
@@ -585,7 +589,7 @@ export default class Controller {
                 if (snapshot) this.islandCreator.snapshot = snapshot;  // set snapshot for building the island
                 this.install();  // will run init() if no snapshot
                 // after install() sets this.island, the main loop may also trigger simulation
-                if (DEBUG.session) console.log(`${this.id} fast forwarding from ${Math.round(this.island.time)} to ${time}`);
+                if (DEBUG.session) console.log(`${this.id} fast-forwarding from ${Math.round(this.island.time)}`);
                 // simulate messages before continuing, but only up to the SYNC time
                 const simulateSyncMessages = () => {
                     const caughtUp = this.simulate(Date.now() + 200);
@@ -593,7 +597,7 @@ export default class Controller {
                     if (!caughtUp) setTimeout(simulateSyncMessages, 0);
                     // return from establishSession()
                     else {
-                        if (DEBUG.session) console.log(`${this.id} fast forwarded to ${Math.round(this.island.time)}`);
+                        if (DEBUG.session) console.log(`${this.id} fast-forwarded to ${Math.round(this.island.time)}`);
                         this.islandCreator.sessionSynced.resolve(this.island);
                     }
                 };

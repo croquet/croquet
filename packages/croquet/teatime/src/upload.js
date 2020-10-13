@@ -21,7 +21,7 @@ onmessage = msg => {
         const iv = WordArray.random(16);
         const { ciphertext } = AES.encrypt(plaintext, key, { iv });
         const encrypted = "CRQ0" + [iv, hmac, ciphertext].map(wordArray => wordArray.toString(Base64)).join('');
-        if (debug) console.log(`${id} Snapshot encryption (${encrypted.length} bytes) took ${Math.ceil(Date.now() - start)}ms`);
+        if (debug) console.log(`${id} Snapshot encrypted (${encrypted.length} bytes) in ${Math.ceil(Date.now() - start)}ms`);
         return encrypted;
     }
 
@@ -30,7 +30,7 @@ onmessage = msg => {
             const start = Date.now();
             const chars = new TextEncoder().encode(stringyContent);
             const gzipped = deflate(chars, { gzip: true, level: 1 }); // sloppy but quick
-            if (debug) console.log(`${id} Snapshot gzipping (${gzipped.length} bytes) took ${Math.ceil(Date.now() - start)}ms`);
+            if (debug) console.log(`${id} Snapshot deflated (${gzipped.length} bytes) in ${Math.ceil(Date.now() - start)}ms`);
             const encrypted = encrypt(gzipped);
             if (debug) console.log(`${id} Uploading snapshot to ${url}`);
             const { ok, status, statusText} = await fetch(url, {
