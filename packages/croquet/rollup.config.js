@@ -6,7 +6,6 @@ import { terser } from 'rollup-plugin-terser';
 import worker_loader from 'rollup-plugin-web-worker-loader';
 import MagicString from 'magic-string';
 import moment from 'moment';
-import fs from 'fs';
 import os from 'os';
 import { execSync } from 'child_process';
 const pkg = require("./package.json");
@@ -108,7 +107,7 @@ const config = {
     output: {
         file: 'pub/croquet-croquet.js',
         format: 'cjs',
-        sourcemap: is_dev_build,    // not included in npm bundle by explicit "files" section in package.json
+        sourcemap: true,    // not included in npm bundle by explicit "files" section in package.json
     },
     plugins: [
         resolve(),
@@ -135,11 +134,5 @@ Version: <%= process.env.CROQUET_VERSION %>`,
         })
     ]
 };
-
-// clean up source map from dev build, if any
-if (!is_dev_build) fs.unlink(`${config.output.file}.map`, () => { /* ignore error */});
-
-// generate .env
-fs.writeFile('.env', `CROQUET_VERSION="${process.env.CROQUET_VERSION}"\n`, err => { if (err) throw err; });
 
 export default config;

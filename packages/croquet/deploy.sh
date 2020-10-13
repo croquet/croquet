@@ -6,17 +6,21 @@ rm -rf pub/
 (cd ../../../teatime ; npm ci --production)
 npm ci
 npm run build-prod || exit 1
-source .env
-rm .env
+
+HEAD=`head -6 pub/croquet-croquet.js`
+CROQUET_VERSION=`echo "$HEAD" | grep Version: | sed 's/.*Version: //'`
 
 case $CROQUET_VERSION in
+    "") echo "ERROR: Version comment not found in\n$HEAD"
+        exit 1
+        ;;
     *+*) echo "ERROR: won't deploy a dirty version: $CROQUET_VERSION"
         exit 1
 esac
 
-git update-index --no-assume-unchanged pub/croquet-croquet.js
-git commit -m "[teatime] croquet-croquet.js $CROQUET_VERSION" pub/croquet-croquet.js || exit 1
-git update-index --assume-unchanged pub/croquet-croquet.js
+git update-index --no-assume-unchanged pub/croquet-croquet.js pub/croquet-croquet.js.map
+git commit -m "[teatime] croquet-croquet.js $CROQUET_VERSION" pub/croquet-croquet.js pub/croquet-croquet.js.map || exit 1
+git update-index --assume-unchanged pub/croquet-croquet.js pub/croquet-croquet.js.map
 git --no-pager show --stat
 
 case $CROQUET_VERSION in
