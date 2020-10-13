@@ -73,10 +73,13 @@ function fixups() {
     return {
         name: 'fixup-plugin',
         renderChunk(code, chunk) {
-            // re-instate a removed escape sequence which otherwise throws off parcel
             return magic_replace(code, [
+                // re-instate a removed escape sequence which otherwise throws off parcel
                 { bad: '"//# sourceMappingURL="', good: '"\\/\\/# sourceMappingURL="' },
+                // avoid runtime error when assigning in strict mode
                 { bad: 'regeneratorRuntime=', good: 'globalThis.regeneratorRuntime=' },
+                // work around stupid check in FastPriorityQueue
+                { bad: 'require.main', good: 'undefined' },
             ]);
         }
     }
