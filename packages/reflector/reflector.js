@@ -451,14 +451,18 @@ function LEAVING(client) {
 function announceUserDidJoin(island, client) {
     if (!client.user || client.active === true) return;
     client.active = true;
-    island.usersJoined.push(client.user);
+    const didLeave = island.usersLeft.indexOf(client.user);
+    if (didLeave !== -1) island.usersLeft.splice(didLeave, 1);
+    else island.usersJoined.push(client.user);
     scheduleUsersMessage(island);
 }
 
 function announceUserDidLeave(island, client) {
     if (!client.user || client.active === false) return;
     client.active = false;
-    island.usersLeft.push(client.user);
+    const didJoin = island.usersJoined.indexOf(client.user);
+    if (didJoin !== -1) island.usersJoined.splice(didJoin, 1);
+    else island.usersLeft.push(client.user);
     scheduleUsersMessage(island);
 }
 
@@ -683,6 +687,7 @@ function DELAYED_SEND(island) {
 function USERS(island) {
     island.usersTimer = null;
     const { id, clients, usersJoined, usersLeft } = island;
+    if (usersJoined.length + usersLeft.length === 0) return; // someone joined & left
     const active = [...clients].filter(each => each.active).length;
     if (!active) return; // do not trigger a SEND before someone successfully joined
     const total = clients.size;
