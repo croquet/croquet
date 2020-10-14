@@ -13,19 +13,14 @@
     "start": "node reflector.js"
   },
   "dependencies": {
-    "@google-cloud/debug-agent": "^4.0.1",
-    "@google-cloud/profiler": "^2.0.2",
-    "@google-cloud/storage": "^3.1.0",
+    "@google-cloud/debug-agent": "^5.1.2",
+    "@google-cloud/profiler": "^4.0.3",
+    "@google-cloud/storage": "^5.3.0",
     "fast-crc32c": "^2.0.0",
-    "prom-client": "^11.5.3",
-    "ws": "^6.2.1"
+    "prom-client": "^12.0.0",
+    "ws": "^7.3.1"
   },
-  "devDependencies": {
-    "eslint": "^5.14.1",
-    "eslint-config-airbnb-base": "^13.1.0",
-    "eslint-import-resolver-parcel": "^1.8.4",
-    "eslint-plugin-import": "^2.16.0"
-  },
+  "devDependencies": {},
   "optionalDependencies": {
     "bufferutil": "^4.0.1",
     "utf-8-validate": "^5.0.2"
