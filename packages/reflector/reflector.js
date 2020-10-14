@@ -444,8 +444,8 @@ function LEAVING(client) {
     const island = ALL_ISLANDS.get(id);
     if (!island) return;
     island.clients.delete(client);
+    announceUserDidLeave(island, client);
     if (island.clients.size === 0) provisionallyDeleteIsland(island);
-    else announceUserDidLeave(island, client);
 }
 
 function announceUserDidJoin(island, client) {
@@ -939,8 +939,8 @@ server.on('connection', (client, req) => {
                 // start next client
                 START(island);
             }
-            if (island.clients.size === 0) provisionallyDeleteIsland(island); // last user to leave doesn't trigger a "users" message, because there's no-one to act on it
-            else announceUserDidLeave(island, client);
+            announceUserDidLeave(island, client);
+            if (island.clients.size === 0) provisionallyDeleteIsland(island);
         }
     });
 
