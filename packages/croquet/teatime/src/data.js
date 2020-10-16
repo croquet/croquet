@@ -106,15 +106,16 @@ async function download(url) {
 export default class DataHandle {
     /**
      * Store data and return an (opaque) handle.
+     * @param {String} sessionId the sessionId for authentication
      * @param {ArrayBuffer} data the data to be stored
      * @param {Boolean} doNotWait if true, return before storing finished and resolve `handle.stored` when done
      * @returns {Promise<DataHandle>} return promise for the handle. If requested, `handle.stored` will be another promise that resolves when uploading is done.
      */
-    static async store(data, doNotWait=false, thirdArg=false) {
-        if (typeof data === "string" && typeof doNotWait === "object") {
-            console.warn("Deprecated: Croquet.Data.store(data) called with sessionID")
-            data = doNotWait;
-            doNotWait = thirdArg;
+    static async store(sessionId, data, doNotWait=false) {
+        if (typeof sessionId === "object") {
+            console.warn("Deprecated: Croquet.Data.store(sessionId, data) called without sessionId")
+            doNotWait = data || false;
+            data = sessionId;
         }
         if (Island.hasCurrent()) throw Error("Croquet.Data.store() called from Model code");
         const key = await randomKey();
@@ -140,13 +141,14 @@ export default class DataHandle {
 
     /**
      * Fetch data for a given data handle
+     * @param {String} sessionId the sessionId for authentication
      * @param {DataHandle} handle created by {@link Data.store}
      * @returns {Promise<ArrayBuffer>} the data
      */
-    static async fetch(handle, secondArg) {
-        if (typeof handle === "string" && typeof secondArg === "object") {
-            console.warn("Deprecated: Croquet.Data.fetch(handle) called with sessionID")
-            handle = secondArg;
+    static async fetch(sessionId, handle) {
+        if (typeof sessionId === "object") {
+            console.warn("Deprecated: Croquet.Data.fetch(sessionId, handle) called without sessionId")
+            handle = sessionId;
         }
         if (Island.hasCurrent()) throw Error("Croquet.Data.fetch() called from Model code");
         const hash = handle && handle[DATAHANDLE_HASH];
