@@ -194,7 +194,7 @@ class PixView extends View {
         if (!thumb) return App.showMessage(`Image is empty (${width}x${height}): "${file.name}" (${file.type})`, {level: "warning"});
         // show placeholder for immediate feedback
         image.src = thumb;
-        const handle = await Data.store(data, true);
+        const handle = await Data.store(this.sessionId, data, true);
         contentCache.set(handle, blob);
         const asset = { handle, stored: false, type: file.type, size: data.byteLength, name: file.name, width, height, thumb };
         this.publish(this.model.id, "add-asset", asset);
@@ -220,7 +220,7 @@ class PixView extends View {
             // ... unless asset is not even stored yet, in which case we will get another event
             if (!asset.stored) return;
             try {
-                const data = await Data.fetch(asset.handle).then(DEBUG_DELAY);
+                const data = await Data.fetch(this.sessionId, asset.handle).then(DEBUG_DELAY);
                 blob = new Blob([data], { type: asset.type });
                 contentCache.set(asset.handle, blob);
             } catch(ex) {

@@ -11,6 +11,9 @@ export default {
     output: {
         file: 'dist/pix-bundled.js',
         format: 'iife', // immediately-invoked function expression — suitable for <script> tags
+        globals: {
+            "crypto": "null", // because the seedrandom module uses require('crypto') - FIXME
+        },
         sourcemap: is_dev_build
     },
     plugins: [
