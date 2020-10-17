@@ -127,7 +127,7 @@ const config = {
         !is_dev_build && terser({
             mangle: {module: true},
         }),
-        !is_dev_build && fixups(), // must be after terser
+        fixups(), // must be after terser
         license({
             banner: `@license UNLICENSED
 Copyright Croquet Corporation <%= moment().format('YYYY') %>
