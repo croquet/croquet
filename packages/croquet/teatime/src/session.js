@@ -131,7 +131,7 @@ export class Session {
         // put reflector option into urlOptions because that's where controller.js looks
         const reflector = urlOptions.reflector || options.reflector;
         if (reflector) {
-            if (reflector.includes("://")) urlOptions.reflector = reflector;
+            if (reflector.includes("://") || reflector.match(/^[-a-z0-9]+$/i)) urlOptions.reflector = reflector;
             else console.warn(`Not a valid websocket url, ignoring reflector "${reflector}"`);
         }
         // also add debug options
