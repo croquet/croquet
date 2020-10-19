@@ -834,7 +834,7 @@ server.on('connection', (client, req) => {
     if (!sessionId) { ERROR(`Missing session id in request "${req.url}"`); client.close(...REASON.BAD_PROTOCOL); return; }
     client.sessionId = sessionId;
     client.addr = `${req.connection.remoteAddress.replace(/^::ffff:/, '')}:${req.connection.remotePort}`;
-    if (req.headers['x-forwarded-for']) client.forwarded = `via (${req.headers['x-forwarded-for'].split(/\s*,\s*/).map(a => a.replace(/^::ffff:/, '')).join(', ')}) `;
+    if (req.headers['x-forwarded-for']) client.forwarded = `via ${req.headers['x-croquet-dispatcher'||'']} (${req.headers['x-forwarded-for'].split(/\s*,\s*/).map(a => a.replace(/^::ffff:/, '')).join(', ')}) `;
     // location header is added by load balancer, see region-servers/apply-changes
     if (req.headers['x-location']) try {
         const [region, city, lat, lng] = req.headers['x-location'].split(",");
