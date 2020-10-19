@@ -4,7 +4,8 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 
 # latest pre-releases
 
-* 0.3.4-19 allow reflector=region arg
+* 0.3.4-20 allow reflector:region session option
+* 0.3.4-19 allow reflector=region url option
 * 0.3.4-18 fix SDK build, include sourcemaps
 * 0.3.4-17 encrypt snapshots and data (still uses base64)
 * 0.3.4-16 ignore join/exit of same view in one event, rename island.users to views
