@@ -1099,11 +1099,18 @@ class Connection {
         this.connectHasBeenCalled = true;
         this.connectBlocked = false;
         this.connectRestricted = false;
-        let reflectorUrl = urlOptions.reflector || (DEBUG.reflector ? DEV_DEFAULT_REFLECTOR : DEFAULT_REFLECTOR);
+
+        let reflectorUrl = DEBUG.reflector ? DEV_DEFAULT_REFLECTOR : DEFAULT_REFLECTOR;
+        let region = "";
+        if (urlOptions.reflector) {
+            if (urlOptions.reflector.match(/^[-a-z0-9]+$/i)) region = `?${urlOptions.reflector}`;
+            else reflectorUrl = urlOptions.reflector;
+        }
         if (!reflectorUrl.match(/^wss?:/)) throw Error('Cannot interpret reflector address ' + reflectorUrl);
         if (!reflectorUrl.endsWith('/')) reflectorUrl += '/';
+
         return new Promise( resolve => {
-            const socket = Object.assign(new WebSocket(`${reflectorUrl}${this.controller.id}`), {
+            const socket = Object.assign(new WebSocket(`${reflectorUrl}${this.controller.id}${region}`), {
                 onopen: _event => {
                     this.socket = socket;
                     if (DEBUG.session || DEBUG.reflector) console.log(this.socket.constructor.name, "connected to", this.socket.url);
