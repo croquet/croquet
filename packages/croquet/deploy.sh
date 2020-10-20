@@ -1,32 +1,47 @@
 #!/bin/sh
 cd `dirname "$0"`
-rm -rf pub/
+rm -rf cjs/ pub/
 (cd ../../../util ; npm ci --production)
 (cd ../../../math ; npm ci --production)
 (cd ../../../teatime ; npm ci --production)
 npm ci
 npm run build-prod || exit 1
 
-HEAD=`head -6 pub/croquet-croquet.js`
-CROQUET_VERSION=`echo "$HEAD" | grep Version: | sed 's/.*Version: //'`
+HEAD=`head -6 cjs/croquet-croquet.js`
+VERSION=`echo "$HEAD" | grep Version: | sed 's/.*Version: //'`
+PRERELEASE=true
 
-case $CROQUET_VERSION in
+case $VERSION in
     "") echo "ERROR: Version comment not found in\n$HEAD"
         exit 1
         ;;
-    *+*) echo "ERROR: won't deploy a dirty version: $CROQUET_VERSION"
+    *+*) echo "ERROR: won't deploy a dirty version: $VERSION"
         exit 1
+        ;;
+    *-*) PRERELEASE=true
+        ;;
+    *) PRERELEASE=false
 esac
 
-git update-index --no-assume-unchanged pub/croquet-croquet.js pub/croquet-croquet.js.map
-git commit -m "[teatime] croquet-croquet.js $CROQUET_VERSION" pub/croquet-croquet.js pub/croquet-croquet.js.map || exit 1
-git update-index --assume-unchanged pub/croquet-croquet.js pub/croquet-croquet.js.map
+# publish pub/croquet.min.js to croquet.io/testing/sdk
+SDK=../../../../servers/croquet-io-testing/sdk
+cp pub/croquet.min.js $SDK/croquet-$VERSION.min.js
+cp pub/croquet.min.js.map $SDK/croquet-$VERSION.min.js.map
+
+# always link as latest-pre
+(cd $SDK; ln -sf croquet-$VERSION.min.js croquet-latest-pre.min.js; echo $VERSION > croquet-latest-pre.txt)
+
+# link as latest unless prerelease
+$PRERELEASE || (cd $SDK; ln -sf croquet-$VERSION.min.js croquet-latest.min.js; echo $VERSION > croquet-latest.txt)
+
+# commit
+FILES="cjs/croquet-croquet.js cjs/croquet-croquet.js.map pub/croquet.min.js pub/croquet.min.js.map"
+git update-index --no-assume-unchanged $FILES
+git add -A cjs/ pub/ $SDK/
+git commit -m "[teatime] deploy $VERSION" cjs/ pub/ $SDK/ || exit 1
+git update-index --assume-unchanged $FILES
 git --no-pager show --stat
 
-case $CROQUET_VERSION in
-*-*) ../../../sdk/deploy.sh prerelease ;;
-*) ../../../sdk/deploy.sh release ;;
-esac
 
 echo "For public release, do not forget to"
 echo "    ../../../../docker/scripts/deploy-to-public-from-testing.sh sdk"

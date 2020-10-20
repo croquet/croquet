@@ -107,11 +107,21 @@ console.log(`Building Croquet SDK ${process.env.CROQUET_VERSION}`);
 
 const config = {
     input: 'croquet.js',
-    output: {
-        file: 'pub/croquet-croquet.js',
-        format: 'cjs',
-        sourcemap: true,    // not included in npm bundle by explicit "files" section in package.json
-    },
+    output: [
+        // commonjs build for bundlers
+        {
+            file: 'cjs/croquet-croquet.js',
+            format: 'cjs',
+            sourcemap: true,    // not included in npm bundle by explicit "files" section in package.json
+        },
+        // bundled build for direct inclusion in script tag, e.g. via unpkg.com
+        {
+            file: 'pub/croquet.min.js',
+            format: 'iife',
+            name: 'Croquet',
+            sourcemap: true,    // not included in npm bundle by explicit "files" section in package.json
+        },
+    ],
     plugins: [
         resolve(),
         commonjs(),
@@ -126,6 +136,7 @@ const config = {
         }),
         !is_dev_build && terser({
             mangle: {module: true},
+            output: {comments: false},
         }),
         fixups(), // must be after terser
         license({

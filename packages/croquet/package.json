@@ -2,11 +2,12 @@
   "name": "@croquet/croquet",
   "version": "0.3.4-20",
   "description": "Live Collaboration for Web Apps without Server Code",
-  "main": "pub/croquet-croquet.js",
+  "main": "cjs/croquet-croquet.js",
   "types": "types.d.ts",
   "files": [
     "README.md",
-    "pub/croquet-croquet.js",
+    "cjs/croquet-croquet.js",
+    "pub/croquet.min.js",
     "types.d.ts"
   ],
   "scripts": {
@@ -25,13 +26,17 @@
         "../../../util",
         "../../../math"
       ],
-      "ignore": "./pub",
+      "ignore": [
+        "./cjs",
+        "./pub"
+      ],
       "extensions": "js,json",
       "quiet": false
     }
   },
   "author": "Croquet Corporation",
   "license": "UNLICENSED",
+  "unpkg": "pub/croquet.min.js",
   "devDependencies": {
     "@babel/core": "^7.11.6",
     "@babel/preset-env": "^7.11.5",
