@@ -135,7 +135,6 @@ const config = {
             presets: [['@babel/env', { "targets": "> 0.25%" }]],
         }),
         !is_dev_build && terser({
-            mangle: {module: true},
             output: {comments: false},
         }),
         fixups(), // must be after terser
