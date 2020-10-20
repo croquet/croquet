@@ -1,33 +1,23 @@
 {
   "name": "croquet-sdk",
   "version": "0.3.4-20",
-  "description": "Croquet SDK Documentation and all-in-one JS bundle",
+  "description": "Croquet SDK Documentation",
   "main": "sdk.js",
   "private": true,
   "scripts": {
-    "preinstall": "npx only-allow pnpm",
     "start": "npm-watch",
-    "build-lib": "NODE_ENV=development rollup -c rollup.config.js",
-    "build-docs": "jsdoc -c jsdoc.json -d build",
+    "build": "jsdoc -c jsdoc.json -d build",
     "deploy": "./deploy.sh",
     "watch": "npm-watch"
   },
   "watch": {
-    "build-lib": {
-      "patterns": [
-        "../libraries/packages/croquet"
-      ],
-      "extensions": "js,json",
-      "quiet": false
-    },
-    "build-docs": {
+    "build": {
       "patterns": [
         ".",
         "../teatime"
       ],
       "ignore": [
-        "build",
-        "dist"
+        "build"
       ],
       "extensions": "js,json,html,css,tmpl,md",
       "quiet": false
@@ -36,21 +26,10 @@
   "author": "Croquet Corporation",
   "license": "UNLICENSED",
   "dependencies": {
-    "@croquet/croquet": "file:../libraries/packages/croquet"
-  },
-  "devDependencies": {
-    "@babel/core": "^7.12.3",
-    "@babel/plugin-transform-runtime": "^7.12.1",
-    "@babel/preset-env": "^7.12.1",
-    "@rollup/plugin-commonjs": "^15.1.0",
-    "dotenv-flow": "^3.2.0",
     "jsdoc": "^3.6.6",
     "moment": "^2.29.1",
     "npm-watch": "^0.7.0",
-    "rollup": "^2.32.0",
-    "rollup-plugin-license": "^2.2.0",
-    "rollup-plugin-sourcemaps": "^0.6.3",
-    "rollup-plugin-terser": "^7.0.2",
+    "parcel": "^1.12.4",
     "taffydb": "^2.7.3"
   }
 }
