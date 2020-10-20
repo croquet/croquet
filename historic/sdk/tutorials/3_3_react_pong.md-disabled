@@ -1,4 +1,4 @@
-Copyright © 2019 Croquet Studios
+Copyright © 2020 Croquet Studios
 
 In this tutorial, we'll implement a simple multiplayer pong game. We will use the same technique as in the "Hello React" tutorial - a singular model containing all state - only that that model is now a lot more complex, containing and simulating the whole game state of Pong.
 

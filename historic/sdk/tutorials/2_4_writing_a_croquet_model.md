@@ -1,4 +1,4 @@
-Copyright © 2019 Croquet Corporation
+Copyright © 2020 Croquet Corporation
 
 Unlike the view, there are limits to what the model can do if it is going to stay synched across all the machines in the session:
 

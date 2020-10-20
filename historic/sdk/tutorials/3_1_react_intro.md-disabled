@@ -1,4 +1,4 @@
-Copyright © 2019 Croquet Studios
+Copyright © 2020 Croquet Studios
 
 Because Croquet uses events as its main communication mechanism and enforces a strict separation between model and view, it is a natural fit for reactive view frameworks such as React.
 

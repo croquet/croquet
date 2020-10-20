@@ -1,4 +1,4 @@
-Copyright © 2019 Croquet Corporation
+Copyright © 2020 Croquet Corporation
 
 To create a _Croquet_ application, you need to define two classes that inherit from the base classes {@link Model} and {@link View} from the `croquet.js` library:
 

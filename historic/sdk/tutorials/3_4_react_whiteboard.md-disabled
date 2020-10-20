@@ -1,4 +1,4 @@
-Copyright © 2019 Croquet Studios
+Copyright © 2020 Croquet Studios
 
 In this tutorial we will implement a multi-user whiteboard app. This will be a showcase of breaking up more complex application state into several models and submodels and correspondingly breaking up the view side into several components, now with "smart" subcomponents, each independently taking care of communication with their correpsonding submodel.
 
