@@ -15,8 +15,8 @@
     "watch": "npm-watch build-dev",
     "build-dev": "rollup -c --environment NODE_ENV:development",
     "build-prod": "rollup -c --environment NODE_ENV:production",
-    "prepublishOnly": "npm run build-prod",
-    "clean": "rm -f pub/* ; git checkout package-lock.json pub/ ; npm ci --production"
+    "prepublishOnly": "npm run clean ; sed -i '' 's,//# sourceMappingURL.*,,' cjs/*.js pub/*.js",
+    "clean": "rm -f cjs/* pub/* ; git checkout cjs/ pub/ package-lock.json ; npm ci --production"
   },
   "watch": {
     "build-dev": {

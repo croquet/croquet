@@ -7,7 +7,7 @@ rm -rf cjs/ pub/
 npm ci
 npm run build-prod || exit 1
 
-HEAD=`head -6 cjs/croquet-croquet.js`
+HEAD=`sed '/\*\// q' pub/croquet.min.js`
 VERSION=`echo "$HEAD" | grep Version: | sed 's/.*Version: //'`
 PRERELEASE=true
 
@@ -25,7 +25,7 @@ esac
 
 # publish pub/croquet.min.js to croquet.io/testing/sdk
 SDK=../../../../servers/croquet-io-testing/sdk
-cp pub/croquet.min.js $SDK/croquet-$VERSION.min.js
+sed 's,//# sourceMappingURL.*,,' pub/croquet.min.js > $SDK/croquet-$VERSION.min.js
 cp pub/croquet.min.js.map $SDK/croquet-$VERSION.min.js.map
 
 # always link as latest-pre
@@ -43,5 +43,5 @@ git update-index --assume-unchanged $FILES
 git --no-pager show --stat
 
 
-echo "For public release, do not forget to"
+echo "After pushing to testing, do not forget to"
 echo "    ../../../../docker/scripts/deploy-to-public-from-testing.sh sdk"
