@@ -89,19 +89,22 @@ const deps = ["../../../teatime",  "../../../util", "../../../math"];
 const git_branch = execSync("git rev-parse --abbrev-ref HEAD").toString().trim();
 const git_commit = execSync("git rev-parse HEAD").toString().trim();                          // last commit hash
 const git_message = execSync("git show --format='%s' -s " + git_commit).toString().trim();    // last commit message
+const git_date = execSync("git show --format='%as' -s " + git_commit).toString().trim();      // last commit date
 const git_pushed = execSync("git branch -r --contains " + git_commit).toString().trim();      // last commit was pushed
 const git_bumped = git_message.endsWith(pkg.version);                                         // last commit was bump
 const git_clean = !execSync("git status --porcelain -- " + deps.join(" ")).toString().trim(); // all deps are committed
 
 const public_build = !is_dev_build && !pkg.version.includes('-');
 const prerelease = !is_dev_build && git_branch === "main" && git_bumped && git_clean;
+const bundle_date = public_build || prerelease ? git_date : moment().toISOString(true);
 
 if (public_build && (git_branch !== "main" || !git_clean)) throw Error(`Public build ${pkg.version} but ${git_clean ? "git is not clean" : "not on main branch"}`);
+
 
 // semantic versioning x.y.z-pre.release+meta.data https://semver.org/
 process.env.CROQUET_VERSION = public_build || prerelease ? pkg.version
     :  git_clean && (git_pushed || git_bumped) ? `${pkg.version}+${git_branch}.${git_commit}`
-    : `${pkg.version}+${git_branch}.${git_commit}.${os.userInfo().username}.${moment().toISOString(true)}`;
+    : `${pkg.version}+${git_branch}.${git_commit}.${os.userInfo().username}.${bundle_date}`;
 
 console.log(`Building Croquet SDK ${process.env.CROQUET_VERSION}`);
 
@@ -140,10 +143,10 @@ const config = {
         fixups(), // must be after terser
         license({
             banner: `@license UNLICENSED
-Copyright Croquet Corporation <%= moment().format('YYYY') %>
-Bundle of <%= pkg.name %>
-Generated: <%= moment().format('YYYY-MM-DD') %>
-Version: <%= process.env.CROQUET_VERSION %>`,
+Copyright Croquet Corporation ${ git_date.slice(0, 4) }
+Bundle of ${ pkg.name }
+Date: ${ bundle_date.slice(0, 10) }
+Version: ${ process.env.CROQUET_VERSION }`,
         })
     ]
 };
