@@ -33,10 +33,13 @@ function inject_process() {
         load(id) {
             // create source code of our custom module
             if (id === COSTUM_MODULE_ID) {
-                const importRegenerator = `import "regenerator-runtime/runtime.js";\n`;
-                const exportEnv = `export const env = ${JSON.stringify(process.env)};\n`;
+                const exportEnv =`
+// rollup will remove unused entries in production builds
+export const env = ${JSON.stringify(Object.keys(process.env).filter(key => key.match(/^[A-Z]/)).sort()
+    .reduce((obj, key) => ({...obj, [key]: process.env[key]}), {}), null, 4)};\n`;
                 if (is_dev_build) return exportEnv;
                 // only include regenerator in production builds
+                const importRegenerator = `import "regenerator-runtime/runtime.js";\n`;
                 return importRegenerator + exportEnv;
             }
             // also generate an empty "crypto" module which some node packages try to load
@@ -99,7 +102,6 @@ const prerelease = !is_dev_build && git_branch === "main" && git_bumped && git_c
 const bundle_date = public_build || prerelease ? git_date : moment().toISOString(true);
 
 if (public_build && (git_branch !== "main" || !git_clean)) throw Error(`Public build ${pkg.version} but ${git_clean ? "git is not clean" : "not on main branch"}`);
-
 
 // semantic versioning x.y.z-pre.release+meta.data https://semver.org/
 process.env.CROQUET_VERSION = public_build || prerelease ? pkg.version
