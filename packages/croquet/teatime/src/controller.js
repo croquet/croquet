@@ -199,7 +199,8 @@ export default class Controller {
     async establishSession(name, sessionSpec) {
         initDEBUG();
         // If we add more options here, add them to SESSION_OPTIONS in session.js
-        const { optionsFromUrl, password, viewIdDebugSuffix} = sessionSpec;
+        const { optionsFromUrl, password, appId, viewIdDebugSuffix} = sessionSpec;
+        if (appId) name = `${appId}/${name}`;
         if (viewIdDebugSuffix) this.viewId = this.viewId.replace(/_.*$/, '') + "_" + (""+viewIdDebugSuffix).slice(0,16);
         const options = {...sessionSpec.options};
         for (const key of [...OPTIONS_FROM_URL, ...optionsFromUrl||[]]) {
@@ -210,7 +211,8 @@ export default class Controller {
         const pbkdf2Result = PBKDF2(keyMaterial, "", { keySize: 256/32 });
         this.key = WordArray.create(pbkdf2Result.words.slice(0, 256/32));
         const { id, sessionHash, codeHash } = await hashSessionAndCode(name, options, SDK_VERSION);
-        console.log(`Session ID for "${name}": ${id}`);
+        if (appId) console.log(`Island ID for "${name}": ${sessionHash}, Session ID: ${id}`);
+        else console.log(`Session ID for "${name}": ${id}`);
         this.islandCreator = {...sessionSpec, options, name, sessionHash, codeHash };
 
         let initSnapshot = false;

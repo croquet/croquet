@@ -128,6 +128,10 @@ export class Session {
         }
         // default options are empty
         if (!options) options = {};
+        // check appId
+        if (options.appId && !options.appId.match(/^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)+$/i)) {
+            throw Error(`Croquet: malformed appId "${options.appId}"`)
+        }
         // put reflector option into urlOptions because that's where controller.js looks
         const reflector = urlOptions.reflector || options.reflector;
         if (reflector) {
@@ -146,7 +150,7 @@ export class Session {
         // now start
         if ("expectedSimFPS" in options) expectedSimFPS = Math.min(options.expectedSimFPS, MAX_BALANCE_FPS);
         const ISLAND_OPTIONS = ['tps'];
-        const SESSION_OPTIONS = ['optionsFromUrl', 'password', 'viewIdDebugSuffix'];
+        const SESSION_OPTIONS = ['optionsFromUrl', 'password', 'appId', 'viewIdDebugSuffix'];
         freezeAndHashConstants();
         const controller = new Controller();
         const islandOptions = {};
