@@ -4,7 +4,7 @@ import prettyBytes from "pretty-bytes";
 
 class PixModel extends Model {
 
-    init({persistedData}) {
+    init(_options, persistedData) {
         this.asset = null;
         this.assetIds = 0;
         this.assets = [];
@@ -35,6 +35,7 @@ class PixModel extends Model {
             if (handle === asset.handle) {
                 asset.stored = true;
                 this.publish(this.id, "asset-changed");
+                this.sessionSave(this.getEverything());
             }
         }
     }
@@ -48,6 +49,7 @@ class PixModel extends Model {
             this.asset = this.assets[Math.min(index, this.assets.length - 1)];
             this.publish(this.id, "asset-changed");
         }
+        this.sessionSave(this.getEverything());
     }
 
     goTo({from, to}) {

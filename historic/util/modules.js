@@ -84,6 +84,7 @@ const debugHashes = {};
 
 const encoder = new TextEncoder();
 
+/** return string hashed into 256 bits encoded using base64 (suitable in URL)  */
 export async function hashString(string) {
     const buffer = encoder.encode(string);
     const hash = await hashBuffer(buffer);

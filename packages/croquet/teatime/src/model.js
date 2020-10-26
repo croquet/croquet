@@ -204,9 +204,10 @@ class Model {
      * **Note:** When your model instance is no longer needed, you must [destroy]{@link Model#destroy} it.
      *
      * @param {Object=} options - there are no system-defined options, you're free to define your own
+     * @param {Object=} persistentData - data previously stored by [destroy]{@link Model#destroy}
      * @public
      */
-    init(_options) {
+    init(options, persistentData) {
         // for reporting errors if user forgot to call super.init()
         SuperInitNotCalled.delete(this);
         // eslint-disable-next-line no-constant-condition
@@ -526,6 +527,18 @@ class Model {
      */
     get sessionId() {
         return this.__realm.island.id;
+    }
+
+    /**
+     * Store an application-defined reperesentation of this session to be loaded into future
+     * sessions. This will be passed into the root model's [init]{@link Model#init} method
+     * if resuming a session that is not currently ongoing (e.g. due to changes in the model code).
+     *
+     * @param {*} persistentData - information to be stored, will be stringified as JSON
+     * @private
+     */
+    sessionSave(persistentData) {
+        this.__realm.island.save(persistentData);
     }
 
     [Symbol.toPrimitive]() {

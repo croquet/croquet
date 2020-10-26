@@ -8,6 +8,7 @@ import { inModelRealm, inViewRealm } from "./realms";
 import { viewDomain } from "./domain";
 import { DataHandleSpec } from "./data";
 
+/** @typedef { import('./controller').default } Controller */
 
 /** @type {Island} */
 let CurrentIsland = null;
@@ -130,8 +131,12 @@ export default class Island {
                 this.tuttiSeq = 0;
                 /** @type {Number} simulation time when last pollForSnapshot was executed */
                 this.lastSnapshotPoll = 0;
+                /** @type {Number} simulation time when last pollForSave was executed */
+                this.lastSavePoll = 0;
                 /** @type {Number} number for giving ids to model */
                 this.modelsId = 0;
+                /** @type {Controller} our controller, for sending messages. Excluded from snapshot */
+                this.controller = null;
                 if (snapshot.modelsById) {
                     // read island from snapshot
                     const reader = IslandReader.newOrRecycled(this);
@@ -605,6 +610,11 @@ export default class Island {
     // return the stringification of an object describing the island - currently { oC, mC, nanC, infC, zC, nC, nH, sC, sL, fC } - for checking agreement between instances
     getSummaryHash() {
         return stableStringify(new IslandHasher().getHash(this));
+    }
+
+    save(persistentData) {
+        // run outside of realm
+        Promise.resolve().then(() => this.controller.save(persistentData));
     }
 
     random() {
