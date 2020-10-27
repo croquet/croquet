@@ -209,8 +209,7 @@ export default class Controller {
         const pbkdf2Result = PBKDF2(keyMaterial, "", { keySize: 256/32 });
         this.key = WordArray.create(pbkdf2Result.words.slice(0, 256/32));
         const { id, islandId, codeHash } = await hashSessionAndCode(name, options, SDK_VERSION);
-        if (appId) console.log(`Island ID for "${name}": ${islandId}, Session ID: ${id}`);
-        else console.log(`Session ID for "${name}": ${id}`);
+        if (DEBUG.session) console.log(`Session ID for "${name}": ${id}`);
         this.islandCreator = {...sessionSpec, options, name, islandId, codeHash };
 
         let initSnapshot = false;
@@ -1151,7 +1150,7 @@ class Connection {
             const socket = Object.assign(new WebSocket(`${reflectorUrl}${this.controller.id}${region}`), {
                 onopen: _event => {
                     this.socket = socket;
-                    if (DEBUG.session || DEBUG.reflector) console.log(this.socket.constructor.name, "connected to", this.socket.url);
+                    if (DEBUG.session) console.log(this.socket.constructor.name, "connected to", this.socket.url);
                     Stats.connected(true);
                     this.resolveConnection(null); // the value itself isn't currently used
                     resolve();
