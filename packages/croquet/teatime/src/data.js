@@ -3,7 +3,7 @@ import HmacSHA256 from "crypto-js/hmac-sha256";
 import WordArray from "crypto-js/lib-typedarrays";
 import Base64 from "crypto-js/enc-base64";
 
-import { hashString } from "@croquet/util/modules";
+import { hashString, baseUrl } from "@croquet/util/modules";
 import { App } from "@croquet/util/html";
 import urlOptions from "@croquet/util/urlOptions";
 import Island from "./island";
@@ -21,7 +21,7 @@ function debug(what) {
 }
 
 function dataUrl(hash) {
-    return `https://croquet.io/files/v1/sessiondata/${hash}`;
+    return `${baseUrl('sessiondata')}${hash}`;
 }
 
 async function hashData(data) {
