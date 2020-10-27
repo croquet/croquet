@@ -510,18 +510,19 @@ export default class Controller {
         });
     }
 
-    saveUrl(hash) {
+    persistentUrl(hash) {
         const { appId, islandId } = this.islandCreator;
-        return `${baseUrl('saved')}${appId}/${islandId}/${hash}.save`;
+        return `${baseUrl('apps')}${appId}/${islandId}/${hash}.save`;
     }
 
-    async save(persistentData) {
+    async persist(persistentData) {
         if (!this.synced) return; // ignore during fast-forward
+        if (!this.islandCreator.appId) throw Error('Persistence API requires appId');
         const start = Date.now();
         const persistentDataString = stableStringify(persistentData);
         const persistentDataHash = await hashString(persistentDataString);
         if (DEBUG.snapshot) console.log(`${this.id} persistent data stringified and encrypted in ${Date.now() - start}ms`);
-        const url = this.saveUrl(persistentDataHash);
+        const url = this.persistentUrl(persistentDataHash);
         await this.uploadGzippedEncrypted(url, persistentDataString, "persistent data");
         if (DEBUG.snapshot) console.log(this.id, `Controller sending persistent data url to reflector: ${url}`);
         try {

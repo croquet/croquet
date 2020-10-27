@@ -537,8 +537,8 @@ class Model {
      * @param {*} persistentData - information to be stored, will be stringified as JSON
      * @private
      */
-    sessionSave(persistentData) {
-        this.__realm.island.save(persistentData);
+    persistSession(persistentData) {
+        this.__realm.island.persist(persistentData);
     }
 
     [Symbol.toPrimitive]() {

@@ -131,8 +131,6 @@ export default class Island {
                 this.tuttiSeq = 0;
                 /** @type {Number} simulation time when last pollForSnapshot was executed */
                 this.lastSnapshotPoll = 0;
-                /** @type {Number} simulation time when last pollForSave was executed */
-                this.lastSavePoll = 0;
                 /** @type {Number} number for giving ids to model */
                 this.modelsId = 0;
                 /** @type {Controller} our controller, for sending messages. Excluded from snapshot */
@@ -612,9 +610,9 @@ export default class Island {
         return stableStringify(new IslandHasher().getHash(this));
     }
 
-    save(persistentData) {
+    persist(persistentData) {
         // run outside of realm
-        Promise.resolve().then(() => this.controller.save(persistentData));
+        Promise.resolve().then(() => this.controller.persist(persistentData));
     }
 
     random() {
