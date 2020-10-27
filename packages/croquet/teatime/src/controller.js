@@ -1215,7 +1215,7 @@ class Connection {
 
     dormantDisconnect() {
         if (!this.connected) return; // not connected anyway
-        console.log("dormant; disconnecting from reflector");
+        if (DEBUG.session) console.log(this.id, "dormant; disconnecting from reflector");
         this.socket.close(4110, 'Going dormant');
     }
 
