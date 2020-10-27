@@ -83,6 +83,7 @@ REASON.UNKNOWN_ISLAND = [4000, "unknown island"];
 REASON.UNRESPONSIVE = [4001, "client unresponsive"];
 REASON.INACTIVE = [4002, "client inactive"];
 REASON.BAD_PROTOCOL = [4100, "outdated protocol"];
+REASON.BAD_APPID = [4101, "bad appId"];
 REASON.DORMANT = [4110, "dormant"]; // sent by client, will not display error
 REASON.NO_JOIN = [4121, "client never joined"];
 
@@ -299,7 +300,7 @@ function savableKeys(island) {
 
 /** A new island controller is joining
  * @param {Client} client - we received from this client
- * @param {{time: Number, name: String, version: Number, user: [name, id]}} args
+ * @param {{name: String, version: Number, appId?: string, islandId?: string, user: string}} args
  */
 function JOIN(client, args) {
     if (typeof args === "number" || !args.version) {
@@ -309,7 +310,7 @@ function JOIN(client, args) {
     const id = client.sessionId;
     // the connection log filter matches on (" connection " OR " JOIN ")
     LOG(`${id}/${client.addr} receiving JOIN ${JSON.stringify(args)}`);
-    const { name, version, user } = args;
+    const { name, version, appId, islandId, user } = args;
     if (user) {
         client.user = user;
         if (client.location) {
@@ -334,6 +335,9 @@ function JOIN(client, args) {
             snapshotTime: -1,    // time of last snapshot
             snapshotSeq: null,   // seq of last snapshot
             snapshotUrl: '',     // url of last snapshot
+            appId,
+            islandId,
+            persistentUrl: '',   // url of persisted island
             syncWithoutSnapshot, // new protocol as of 0.3.3
             messages: [],        // messages since last snapshot
             lastTick: -1000,     // time of last TICK sent (-1000 to avoid initial delay)
@@ -546,6 +550,27 @@ function SNAP(client, args) {
     // start waiting clients
     if (island.startClient) { clearTimeout(island.startTimeout); island.startTimeout = null; island.startClient = null; }
     if (island.syncClients.length > 0) SYNC(island);
+}
+
+/** client uploaded a persistent island
+ * @param {Client} client - we received from this client
+ * @param {{url: String}} args - the persistent island details
+ */
+function SAVE(client, args) {
+    const id = client.sessionId;
+    const island = ALL_ISLANDS.get(id);
+    if (!island) { client.safeClose(...REASON.UNKNOWN_ISLAND); return; }
+    const { appId, islandId } = island;
+    if (!appId || !islandId) { client.safeClose(...REASON.BAD_APPID); return; }
+
+    const { url } = args; // details of the persistent island that has been uploaded
+
+    DEBUG(`${id}/${client.addr} @${island.time}#${island.seq} got persistent island: ${url}`);
+
+    // do *not* change our own session's persistentUrl!
+    // we only upload this to be used to init the next session of this island
+    const saved = { url };
+    uploadJSON(`apps/${appId}/${islandId}.json`, saved);
 }
 
 /** send a message to all participants after time stamping it
@@ -914,6 +939,7 @@ server.on('connection', (client, req) => {
                 case 'TUTTI': TUTTI(client, args); break;
                 case 'TICKS': TICKS(client, args); break;
                 case 'SNAP': SNAP(client, args); break;
+                case 'SAVE': SAVE(client, args); break;
                 case 'LOG': LOG(`${sessionId}/${client.addr} LOG ${typeof args === "string" ? args : JSON.stringify(args)}`); break;
                 case 'LEAVING': LEAVING(client); break;
                 case 'PING': PONG(client, args); break;
