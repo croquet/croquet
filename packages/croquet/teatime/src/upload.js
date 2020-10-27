@@ -7,7 +7,7 @@ import WordArray from "crypto-js/lib-typedarrays";
 import HmacSHA256 from "crypto-js/hmac-sha256";
 
 onmessage = msg => {
-    const { cmd, url, stringyContent, keyBase64, referrer, id, debug, what } = msg.data;
+    const { cmd, url, stringyContent, keyBase64, referrer, id, appId, islandId, debug, what } = msg.data;
     switch (cmd) {
         case "uploadGzippedEncrypted": uploadGzippedEncrypted(); break;
         default: console.error("Unknown worker command", cmd);
@@ -36,7 +36,11 @@ onmessage = msg => {
             const { ok, status, statusText} = await fetch(url, {
                 method: "PUT",
                 mode: "cors",
-                headers: { "Content-Type": "application/octet-stream" },
+                headers: {
+                    "Content-Type": "application/octet-stream",
+                    'X-Croquet-App': appId,
+                    'X-Croquet-Id': islandId,
+                },
                 referrer,
                 body: encrypted
             });

@@ -91,6 +91,16 @@ UploadWorker.onerror = e => console.error(`UploadWorker error: ${e.message}`);
 
 const Controllers = new Set();
 
+export function sessionProps(sessionId) {
+    for (const controller of Controllers) {
+        if (controller.id === sessionId) {
+            const { appId, islandId } = controller.islandCreator;
+            return { appId, islandId };
+        }
+    }
+    return {};
+}
+
 export default class Controller {
 
     constructor() {
@@ -494,6 +504,8 @@ export default class Controller {
                 keyBase64: Base64.stringify(this.key),
                 referrer: App.referrerURL(),
                 id: this.id,
+                appId: this.islandCreator.appId,
+                islandId: this.islandCreator.islandId,
                 debug: DEBUG.snapshot,
                 what,
             });
@@ -510,7 +522,7 @@ export default class Controller {
 
     persistentUrl(hash) {
         const { appId, islandId } = this.islandCreator;
-        return `${baseUrl('apps')}${appId}/${islandId}/${hash}.save`;
+        return `${baseUrl('apps')}${appId}/${islandId}/save/${hash}`;
     }
 
     async persist(persistentData) {

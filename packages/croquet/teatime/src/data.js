@@ -7,6 +7,7 @@ import { hashString, baseUrl } from "@croquet/util/modules";
 import { App } from "@croquet/util/html";
 import urlOptions from "@croquet/util/urlOptions";
 import Island from "./island";
+import { sessionProps } from "./controller";
 
 
 const VERSION = '0';
@@ -22,6 +23,8 @@ function debug(what) {
 
 function dataUrl(hash) {
     return `${baseUrl('sessiondata')}${hash}`;
+    // If we use appId and islandId in the data url then we can't easily share between sessions/apps
+    // return `${baseUrl('apps')}${appId}/${islandId}/data/${hash}`;
 }
 
 async function hashData(data) {
@@ -88,9 +91,17 @@ function cryptoJsWordArrayToUint8Array(wordArray) {
     return result;
 }
 
-async function upload(url, data) {
+async function upload(url, data, appId, islandId) {
     if (debug("data")) console.log(`Croquet.Data: Uploading ${data.length} bytes to ${url}`);
-    const response = await fetch(url, { method: 'PUT', referrer: App.referrerURL(), body: data});
+    const response = await fetch(url, {
+        method: 'PUT',
+        headers: {
+            'X-Croquet-App': appId,
+            'X-Croquet-Id': islandId,
+        },
+        referrer: App.referrerURL(),
+        body: data,
+    });
     if (!response.ok) throw Error(`Croquet.Data: failed to upload ${url} (${response.status} ${response.statusText})`);
     if (debug("data")) console.log(`Croquet.Data: uploaded (${response.status} ${response.statusText}) ${data.length} bytes to ${url}`);
 }
@@ -118,12 +129,16 @@ export default class DataHandle {
             data = sessionId;
         }
         if (Island.hasCurrent()) throw Error("Croquet.Data.store() called from Model code");
+        const  { appId, islandId } = sessionProps(sessionId);
+        if (!appId) {
+            console.warn("Deprecated: Croquet.Data API used without declaring appId in Croquet.Session.join()");
+        }
         const key = await randomKey();
         const encrypted = await encrypt(key, data);
         const hash = await hashData(encrypted);
         const handle = new DataHandle(hash, key);
         const url = dataUrl(hash);
-        const promise = upload(url, encrypted);
+        const promise = upload(url, encrypted, appId, islandId);
         // if we uploaded the same file in this same session before, then the promise already exists
         if (!handle.stored) {
             Object.defineProperty(handle, "stored", { value: () => Island.hasCurrent() ? undefined : promise });
