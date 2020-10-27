@@ -303,7 +303,7 @@ function savableKeys(island) {
  */
 function JOIN(client, args) {
     if (typeof args === "number" || !args.version) {
-        client.close(...REASON.BAD_PROTOCOL);
+        client.safeClose(...REASON.BAD_PROTOCOL);
         return;
     }
     const id = client.sessionId;
@@ -410,9 +410,7 @@ function START(island) {
     // if the client does not provide a snapshot in time, we need to start over
     if (DISCONNECT_UNRESPONSIVE_CLIENTS) island.startTimeout = setTimeout(() => {
         if (island.startClient !== client) return; // success
-        if (client.readyState === WebSocket.OPEN) {
-            client.close(...REASON.UNRESPONSIVE);
-        }
+        client.safeClose(...REASON.UNRESPONSIVE);
         // the client's on('close') handler will call START again
     }, SNAP_TIMEOUT);
 }
@@ -483,7 +481,7 @@ function after(seqA, seqB) {
 function SNAP(client, args) {
     const id = client.sessionId;
     const island = ALL_ISLANDS.get(id);
-    if (!island) { if (client.readyState === WebSocket.OPEN) client.close(...REASON.UNKNOWN_ISLAND); return; }
+    if (!island) { client.safeClose(...REASON.UNKNOWN_ISLAND); return; }
 
     const { time, seq, hash, url } = args; // details of the snapshot that has been uploaded
 
@@ -624,7 +622,7 @@ function SEND_TAGGED(island, message, tags) {
 function TUTTI(client, args) {
     const id = client.sessionId;
     const island = ALL_ISLANDS.get(id);
-    if (!island) { if (client && client.readyState === WebSocket.OPEN) client.close(...REASON.UNKNOWN_ISLAND); return; }
+    if (!island) { client.safeClose(...REASON.UNKNOWN_ISLAND); return; }
 
     const [ sendTime, tuttiSeq, payload, firstMsg, wantsVote, tallyTarget ] = args;
 
@@ -747,7 +745,7 @@ function TICKS(client, args) {
     const id = client.sessionId;
     const { tick, delay, scale } = args;
     const island = ALL_ISLANDS.get(id);
-    if (!island) { if (client.readyState === WebSocket.OPEN) client.close(...REASON.UNKNOWN_ISLAND); return; }
+    if (!island) { client.safeClose(...REASON.UNKNOWN_ISLAND); return; }
     if (!island.syncWithoutSnapshot && !island.snapshotUrl) {
          // this must be an old client (<=0.2.5) that requests TICKS before sending a snapshot
         const { time, seq } = args;
@@ -850,6 +848,10 @@ server.on('connection', (client, req) => {
         client.stats.mo += 1;               // messages out
         client.stats.bo += data.length;     // bytes out
     };
+    client.safeClose = (code, data) => {
+        if (client.readyState !== WebSocket.OPEN) return;
+        client.close(code, data);
+    };
     if (collectRawSocketStats) {
         client.stats.ri = 0;
         client.stats.ro = 0;
@@ -879,14 +881,14 @@ server.on('connection', (client, req) => {
             const quiescence = now - lastActivity;
             if (quiescence > DISCONNECT_THRESHOLD) {
                 DEBUG(`${sessionId}/${client.addr} inactive for ${quiescence} ms, disconnecting`);
-                client.close(...REASON.INACTIVE); // NB: close event won't arrive for a while
+                client.safeClose(...REASON.INACTIVE); // NB: close event won't arrive for a while
                 return;
             }
             let nextCheck;
             if (quiescence > PING_THRESHOLD) {
                 if (!joined) {
                     DEBUG(`${sessionId}/${client.addr} did not join within ${quiescence} ms, disconnecting`);
-                    client.close(...REASON.NO_JOIN);
+                    client.safeClose(...REASON.NO_JOIN);
                     return;
                 }
 
