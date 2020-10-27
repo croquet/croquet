@@ -470,19 +470,18 @@ export default class Controller {
         }
     }
 
-    async downloadGzippedEncrypted(url, defaultValue) {
+    async downloadGzippedEncrypted(url, persistedOrSnapshot) {
         try {
             let timer = Date.now();
             const response = await fetch(url, { mode: "cors", referrer: App.referrerURL() });
             const encrypted = await response.text();
-            if (DEBUG.snapshot) console.log(this.id, `Snapshot fetched (${encrypted.length} bytes) in ${-timer + (timer = Date.now())}ms`);
+            if (DEBUG.snapshot) console.log(this.id, `${persistedOrSnapshot} fetched (${encrypted.length} bytes) in ${-timer + (timer = Date.now())}ms`);
             const plaintext = this.decryptBinary(encrypted);
-            if (DEBUG.snapshot) console.log(this.id, `Snapshot decrypted (${plaintext.length} bytes) in ${-timer + (timer = Date.now())}ms`);
+            if (DEBUG.snapshot) console.log(this.id, `${persistedOrSnapshot} decrypted (${plaintext.length} bytes) in ${-timer + (timer = Date.now())}ms`);
             const jsonString = pako.inflate(plaintext, { to: 'string' });
-            if (DEBUG.snapshot) console.log(this.id, `Snapshot inflated (${jsonString.length} bytes) in ${-timer + (timer = Date.now())}ms`);
+            if (DEBUG.snapshot) console.log(this.id, `${persistedOrSnapshot} inflated (${jsonString.length} bytes) in ${-timer + (timer = Date.now())}ms`);
             return JSON.parse(jsonString);
         } catch (err) { /* ignore */}
-        return defaultValue;
     }
 
     /** upload a stringy source object as binary encrypted gzip */
@@ -589,8 +588,9 @@ export default class Controller {
         switch (action) {
             case 'SYNC': {
                 // We are joining an island session.
-                const {messages, url, time} = args;
-                if (DEBUG.session) console.log(this.id, `Controller received SYNC: time ${time}, ${messages.length} messages, ${url || "no snapshot"}`);
+                const {messages, url, persisted, time} = args;
+                const persistedOrSnapshot = persisted ? "persisted data" : "snapshot";
+                if (DEBUG.session) console.log(this.id, `Controller received SYNC: time ${time}, ${messages.length} messages, ${persistedOrSnapshot} ${url || "<none>"}`);
                 // enqueue all messages now because the reflector will start sending more messages
                 // while we are waiting for the snapshot.
                 // if any conversion of custom reflector messages is to be done, do it before
@@ -607,15 +607,20 @@ export default class Controller {
                     this.networkQueue.put(msg);
                 }
                 this.timeFromReflector(time);
-                if (DEBUG.session) console.log(`${this.id} fetching snapshot ${url}`);
-                const snapshot = url && await this.downloadGzippedEncrypted(url);
+                if (DEBUG.session) console.log(`${this.id} fetching ${persistedOrSnapshot} ${url}`);
+                const data = url && await this.downloadGzippedEncrypted(url, persistedOrSnapshot);
                 if (!this.connected) { console.log(this.id, 'socket went away during SYNC'); return; }
-                if (url && !snapshot) {
-                    this.connection.closeConnectionWithError('SYNC', Error("failed to fetch snapshot"));
+                if (url && !data) {
+                    this.connection.closeConnectionWithError('SYNC', Error(`failed to fetch ${persistedOrSnapshot}`));
                     return;
                 }
-                if (snapshot) this.islandCreator.snapshot = snapshot;  // set snapshot for building the island
-                this.install();  // will run init() if no snapshot
+                if (persisted) {
+                    // run init() with persisted data, if any
+                    this.install(data);
+                } else {
+                    if (data) this.islandCreator.snapshot = data;  // set snapshot for building the island
+                    this.install();  // will run init() if no snapshot
+                }
                 // after install() sets this.island, the main loop may also trigger simulation
                 if (DEBUG.session) console.log(`${this.id} fast-forwarding from ${Math.round(this.island.time)}`);
                 // simulate messages before continuing, but only up to the SYNC time
@@ -686,11 +691,11 @@ export default class Controller {
     }
 
     // create the Island for this Controller, based on the islandCreator
-    install() {
+    install(persistentData) {
         if (DEBUG.session) console.log(`${this.id} installing island`);
         const {snapshot, init, options} = this.islandCreator;
         let newIsland = new Island(snapshot, () => {
-            try { return init(options); }
+            try { return init(options, persistentData); }
             catch (error) {
                 displayAppError("init", error);
                 throw error;

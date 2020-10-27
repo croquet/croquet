@@ -265,8 +265,8 @@ export class Session {
             if (Messenger.ready) {Messenger.detach();}
         }
 
-        function islandInit(islandOpts) {
-            const modelRoot = ModelRoot.create(islandOpts, "modelRoot");
+        function islandInit(islandOpts, persistentData) {
+            const modelRoot = ModelRoot.create(islandOpts, "modelRoot", persistentData);
             return { modelRoot };
         }
 

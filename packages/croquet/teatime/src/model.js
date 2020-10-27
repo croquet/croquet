@@ -67,7 +67,7 @@ class Model {
      *     There are no system-defined options as of now, you're free to define your own.
      * @param {String=} wellKnownName - a [well-known name]{@link Model#beWellKnownAs} for this model`.
      */
-    static create(options, wellKnownName) {
+    static create(options, wellKnownName, persistentData) {
         if (!hasID(this)) throw Error(`Model class "${this.name}" not registered`);
         const ModelClass = this;
         const realm = currentRealm();
@@ -77,7 +77,7 @@ class Model {
         Object.defineProperty(model, "id", { value: realm.register(model), enumerable: true });
         SuperInitNotCalled.add(model);
         if (wellKnownName) model.beWellKnownAs(wellKnownName);
-        model.init(options);
+        model.init(options, persistentData);
         if (SuperInitNotCalled.has(model)) {
             SuperInitNotCalled.delete(model);
             // only warn about deep subclasses
@@ -204,7 +204,7 @@ class Model {
      * **Note:** When your model instance is no longer needed, you must [destroy]{@link Model#destroy} it.
      *
      * @param {Object=} options - there are no system-defined options, you're free to define your own
-     * @param {Object=} persistentData - data previously stored by [destroy]{@link Model#destroy}
+     * @param {Object=} persistentData - data previously stored by [persistSession]{@link Model#persistSession}
      * @public
      */
     init(options, persistentData) {
