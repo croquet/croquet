@@ -729,16 +729,21 @@ export default class Controller {
         if (DEBUG.session) console.log(this.id, 'Controller sending JOIN');
 
         const { tick, delay } = this.getTickAndMultiplier();
+        const { name, codeHash, appId, islandId } = this.islandCreator;
 
         const args = {
-            name: this.islandCreator.name,
-            version: VERSION,
-            user: this.viewId,  // see island.generateJoinExit() for getting location data
+            name,                   // for debugging only
+            version: VERSION,       // protocol version
+            user: this.viewId,      // see island.generateJoinExit() for getting location data
             ticks: { tick, delay },
-            url: App.referrerURL(),
-            codeHash: this.islandCreator.codeHash,
-            sdk: SDK_VERSION
+            url: App.referrerURL(), // for debugging only
+            codeHash,               // for debugging only
+            sdk: SDK_VERSION,       // for debugging only
         };
+        if (appId) Object.assign(args, {
+            appId,                  // identifies developer/app
+            islandId,               // identifies island across sessions
+        });
 
         this.connection.send(JSON.stringify({
             id: this.id,
