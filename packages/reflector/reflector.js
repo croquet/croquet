@@ -365,7 +365,7 @@ function JOIN(client, args) {
     island.syncClients.push(client);
 
     // if we have a current snapshot, reply with that
-    if (island.snapshotUrl) { SYNC(island); return; }
+    if (island.snapshotUrl || island.persistentUrl) { SYNC(island); return; }
 
     // if we haven't yet checked latest.json, look there first
     if (island.yetToCheckLatest) {
@@ -383,8 +383,20 @@ function JOIN(client, args) {
             if (island.syncClients.length > 0) SYNC(island);
         }).catch(err => {
             if (err.code !== 404) ERROR(id, err.message);
-            island.storedUrl = ''; // replace the null that means we haven't looked
-            START(island);
+            // this is a brand-new session, check if there is a persisted island
+            const persistName = `apps/${appId}/${islandId}.json`;
+            const persistPromise = appId && islandId
+                ? fetchJSON(persistName)
+                : Promise.resolve(false);
+            persistPromise.then(persisted => {
+                if (persisted) {
+                    island.persistentUrl = persisted.url;
+                    DEBUG(`${id} resuming from persisted ${persistName}: ${island.persistentUrl || "<none>"}`);
+                }
+            }).finally(() => {
+                island.storedUrl = ''; // replace the null that means we haven't looked
+                START(island);
+            });
         });
 
         return;
@@ -420,14 +432,16 @@ function START(island) {
 }
 
 function SYNC(island) {
-    const { id, snapshotUrl: url, messages } = island;
+    const { id, snapshotUrl: url, persistentUrl, messages } = island;
     const time = getTime(island, "SYNC");
-    const response = JSON.stringify({ id, action: 'SYNC', args: { url, messages, time } });
+    const args = { url, messages, time};
+    if (!url && persistentUrl) { args.url = persistentUrl ; args.persisted = true; }
+    const response = JSON.stringify({ id, action: 'SYNC', args });
     const range = !messages.length ? '' : ` (#${messages[0][1]}...${messages[messages.length - 1][1]})`;
     for (const syncClient of island.syncClients) {
         if (syncClient.readyState === WebSocket.OPEN) {
             syncClient.safeSend(response);
-            DEBUG(`${id}/${syncClient.addr} @${island.time}#${island.seq} sending SYNC ${response.length} bytes, ${messages.length} messages${range}, snapshot: ${url || "<none>"}`);
+            DEBUG(`${id}/${syncClient.addr} @${island.time}#${island.seq} sending SYNC ${response.length} bytes, ${messages.length} messages${range}, ${args.persisted ? "persisted" : "snapshot"} ${args.url || "<none>"}`);
             announceUserDidJoin(island, syncClient);
         } else {
             DEBUG(`${id}/${syncClient.addr} cannot send SYNC`);
