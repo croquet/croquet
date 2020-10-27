@@ -208,19 +208,19 @@ export default class Controller {
         const keyMaterial = password || urlOptions.pw || "THIS SHOULDN'T BE IN LOGS";
         const pbkdf2Result = PBKDF2(keyMaterial, "", { keySize: 256/32 });
         this.key = WordArray.create(pbkdf2Result.words.slice(0, 256/32));
-        const { id, sessionHash, codeHash } = await hashSessionAndCode(name, options, SDK_VERSION);
-        if (appId) console.log(`Island ID for "${name}": ${sessionHash}, Session ID: ${id}`);
+        const { id, islandId, codeHash } = await hashSessionAndCode(name, options, SDK_VERSION);
+        if (appId) console.log(`Island ID for "${name}": ${islandId}, Session ID: ${id}`);
         else console.log(`Session ID for "${name}": ${id}`);
-        this.islandCreator = {...sessionSpec, options, name, sessionHash, codeHash };
+        this.islandCreator = {...sessionSpec, options, name, islandId, codeHash };
 
         let initSnapshot = false;
         if (!this.islandCreator.snapshot) initSnapshot = true;
         else if (this.islandCreator.snapshot.id !== id) {
-            const sameSession = this.islandCreator.snapshot.sessionHash === sessionHash;
+            const sameSession = this.islandCreator.snapshot.islandId === islandId;
             console.warn(`Existing snapshot was for different ${sameSession ? "code base" : "session"}!`);
             initSnapshot = true;
         }
-        if (initSnapshot) this.islandCreator.snapshot = { id, time: 0, meta: { id, sessionHash, codeHash, created: (new Date()).toISOString() } };
+        if (initSnapshot) this.islandCreator.snapshot = { id, time: 0, meta: { id, islandId, codeHash, created: (new Date()).toISOString() } };
 
         // create promise before join to prevent race
         const synced = new Promise((resolve, reject) => this.islandCreator.sessionSynced = { resolve, reject } );
@@ -511,7 +511,7 @@ export default class Controller {
     }
 
     saveUrl(hash) {
-        const { appId, sessionHash: islandId } = this.islandCreator;
+        const { appId, islandId } = this.islandCreator;
         return `${baseUrl('saved')}${appId}/${islandId}/${hash}.save`;
     }
 
