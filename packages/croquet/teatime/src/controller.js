@@ -608,7 +608,7 @@ export default class Controller {
             case 'SYNC': {
                 // We are joining an island session.
                 const {messages, url, persisted, time} = args;
-                const persistedOrSnapshot = persisted ? "persisted data" : "snapshot";
+                const persistedOrSnapshot = persisted ? "persisted session" : "snapshot";
                 if (DEBUG.session) console.log(this.id, `Controller received SYNC: time ${time}, ${messages.length} messages, ${persistedOrSnapshot} ${url || "<none>"}`);
                 // enqueue all messages now because the reflector will start sending more messages
                 // while we are waiting for the snapshot.
