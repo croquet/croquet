@@ -15,7 +15,7 @@ class PixModel extends Model {
 
         this.buttons = {};
         for (const name of ["prev", "next", "add", "del"]) {
-            this.buttons[name] = { views: new Set(), since: 0, active: false };
+            this.buttons[name] = { views: new Set(), until: 0 };
         }
         this.subscribe(this.id, "button-active", this.buttonActive);
         this.subscribe(this.sessionId, "view-exit", this.viewExit);
@@ -63,29 +63,30 @@ class PixModel extends Model {
     buttonActive({view, name, active}) {
         const button = this.buttons[name];
         if (active) {
-            button.views.add(view);
-            button.since = this.now();
-            this.future(2500).updateButton(name);
+            if (typeof active === "number") {
+                button.until = this.now() + active;
+            } else {
+                button.views.add(view);
+            }
         } else {
             button.views.delete(view);
         }
-        this.updateButton(name);
+        this.publish(this.id, "button-changed", name);
     }
 
     viewExit(view) {
         for (const [name, button] of Object.entries(this.buttons)) {
-            button.views.delete(view);
-            this.updateButton(name);
+            if (button.views.has(view)) {
+                button.views.delete(view);
+                this.publish(this.id, "button-changed", name);
+            }
         }
     }
 
-    updateButton(name) {
+    // for direct access by view
+    buttonIsActive(name, time) {
         const button = this.buttons[name];
-        const active = button.views.size > 0 && this.now() - button.since < 2000;
-        if (button.active !== active) {
-            button.active = active;
-            this.publish(this.id, "button-changed", {name, active});
-        }
+        return button.views.size > 0 || Math.max(0, button.until - time) || false;
     }
 
     /* persistent session data */
@@ -157,8 +158,8 @@ class PixView extends View {
         this.onAssetChanged();
 
         this.subscribe(this.model.id, {event: "button-changed", handling: "oncePerFrame"}, this.onButtonChanged);
-        for (const [name, button] of Object.entries(model.buttons)) {
-            this.onButtonChanged({name, active: button.active});
+        for (const name of Object.keys(model.buttons)) {
+            this.onButtonChanged(name);
         }
 
         // we do not use addEventListener so we do not have to remove them when going dormant
@@ -204,8 +205,8 @@ class PixView extends View {
         for (const button of [prevButton, nextButton, addButton, delButton]) {
             const name = button.id.replace('Button', '');
             if (isTouch) {
-                button.onmousedown = () => this.activateButton(name, true);
-                // no mouse-up, model will deactivate after 2 secs
+                button.onmousedown = () => this.activateButton(name, 2000);
+                // no mouse-up, view will de-activate after 2 secs
             } else {
                 button.onmouseenter = () => this.activateButton(name, true);
                 button.onmouseleave = () => this.activateButton(name, false);
@@ -324,10 +325,13 @@ class PixView extends View {
         }
     }
 
-    onButtonChanged({name, active}) {
+    onButtonChanged(name) {
         const button = window[`${name}Button`];
+        const active = this.model.buttonIsActive(name, this.extrapolatedNow());
         if (active) button.classList.add("active");
         else button.classList.remove("active");
+        // if activated by time, check again in a while
+        if (typeof active === "number") setTimeout(() => this.onButtonChanged(name), active);
     }
 
     updateUI() {
