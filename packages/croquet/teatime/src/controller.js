@@ -482,7 +482,15 @@ export default class Controller {
     async downloadGzippedEncrypted(url, persistedOrSnapshot) {
         try {
             let timer = Date.now();
-            const response = await fetch(url, { mode: "cors", referrer: App.referrerURL() });
+            const response = await fetch(url, {
+                method: "GET",
+                mode: "cors",
+                headers: {
+                    "X-Croquet-App": this.islandCreator.appId,
+                    "X-Croquet-Id": this.islandCreator.islandId,
+                },
+                referrer: App.referrerURL(),
+            });
             const encrypted = await response.text();
             if (DEBUG.snapshot) console.log(this.id, `${persistedOrSnapshot} fetched (${encrypted.length} bytes) in ${-timer + (timer = Date.now())}ms`);
             const plaintext = this.decryptBinary(encrypted);

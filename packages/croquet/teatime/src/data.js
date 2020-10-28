@@ -94,10 +94,10 @@ function cryptoJsWordArrayToUint8Array(wordArray) {
 async function upload(url, data, appId, islandId) {
     if (debug("data")) console.log(`Croquet.Data: Uploading ${data.length} bytes to ${url}`);
     const response = await fetch(url, {
-        method: 'PUT',
+        method: "PUT",
         headers: {
-            'X-Croquet-App': appId,
-            'X-Croquet-Id': islandId,
+            "X-Croquet-App": appId,
+            "X-Croquet-Id": islandId,
         },
         referrer: App.referrerURL(),
         body: data,
@@ -106,9 +106,16 @@ async function upload(url, data, appId, islandId) {
     if (debug("data")) console.log(`Croquet.Data: uploaded (${response.status} ${response.statusText}) ${data.length} bytes to ${url}`);
 }
 
-async function download(url) {
+async function download(url, appId, islandId) {
     if (debug("data")) console.log(`Croquet.Data: Downloading from ${url}`);
-    const response = await fetch(url, { referrer: App.referrerURL() });
+    const response = await fetch(url, {
+        method: "GET",
+        headers: {
+            "X-Croquet-App": appId,
+            "X-Croquet-Id": islandId,
+        },
+        referrer: App.referrerURL(),
+    });
     if (response.ok) return response.text();
     throw Error(`Croquet.Data: failed to download ${url} (${response.status} ${response.statusText})`);
 }
@@ -166,11 +173,15 @@ export default class DataHandle {
             handle = sessionId;
         }
         if (Island.hasCurrent()) throw Error("Croquet.Data.fetch() called from Model code");
+        const  { appId, islandId } = sessionProps(sessionId);
+        if (!appId) {
+            console.warn("Deprecated: Croquet.Data API used without declaring appId in Croquet.Session.join()");
+        }
         const hash = handle && handle[DATAHANDLE_HASH];
         const key = handle && handle[DATAHANDLE_KEY];
         if (typeof hash !== "string" ||typeof key !== "string") throw Error("Croquet.Data.fetch() called with invalid handle");
         const url = dataUrl(hash);
-        const encrypted = await download(url);
+        const encrypted = await download(url, appId, islandId);
         return decrypt(key, encrypted);
     }
 
