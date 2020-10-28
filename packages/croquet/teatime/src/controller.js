@@ -117,6 +117,8 @@ export default class Controller {
         this.networkQueue = new AsyncQueue();
         /** the time stamp of last message received from reflector */
         this.time = 0;
+        /** the local time at which we received the last time stamp, minus that time stamp */
+        this.extrapolatedTimeBase = Date.now();
         /** @type {String} the human-readable session name (e.g. "room/user/random") */
         this.session = '';
         /** key generated from password, shared by all clients in session */
@@ -162,6 +164,9 @@ export default class Controller {
 
     /** @type {String} the session id (same for all replicas) */
     get id() { return this.island ? this.island.id : this.islandCreator.snapshot.id; }
+
+    /** @type {Number} the reflector time extrapolated beyond last received tick */
+    get extrapolatedNow() { return Date.now() - this.extrapolatedTimeBase; }
 
     /** @type {Boolean} if true, sends to the reflector are disabled */
     get viewOnly() { return this.islandCreator.viewOnly; }
@@ -1091,6 +1096,7 @@ export default class Controller {
         if (time < this.time) { if (src !== "controller" || DEBUG.ticks) console.warn(`time is ${this.time}, ignoring time ${time} from ${src}`); return; }
         if (typeof this.synced !== "boolean") this.synced = false;
         this.time = time;
+        this.extrapolatedTimeBase = Date.now() - time;
         if (this.island) Stats.backlog(this.backlog);
         if (this.tickHook) this.tickHook();
     }
