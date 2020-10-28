@@ -109,6 +109,19 @@ const webServer = http.createServer( (req, res) => {
         });
         return res.end(body);
     }
+    if (req.url.includes('/users/')) {
+        const id = req.url.replace(/.*\//, '');
+        const island = ALL_ISLANDS.get(id);
+        const users = (island ? [...island.clients] : []).map(client => client.user);
+        const body = JSON.stringify(users);
+        res.writeHead(200, {
+            'Server': SERVER_HEADER,
+            'Content-Length': body.length,
+            'Content-Type': 'text/json',
+        });
+        return res.end(body);
+    }
+    // we don't log any of the above or health checks
     const is_health_check = req.url.endsWith('/healthz');
     if (!is_health_check) LOG(`GET ${req.url} ${JSON.stringify(req.headers)}`);
     // redirect http-to-https, unless it's a health check
