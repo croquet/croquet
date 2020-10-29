@@ -1,6 +1,7 @@
 import stableStringify from "fast-json-stable-stringify";
 import SeedRandom from "seedrandom/seedrandom";
 import PriorityQueue from "@croquet/util/priorityQueue";
+import { Stats } from "@croquet/util/stats";
 import "@croquet/math"; // creates window.CroquetMath
 import { displayWarning, displayAppError } from "@croquet/util/html";
 import Model from "./model";
@@ -610,9 +611,13 @@ export default class Island {
         return stableStringify(new IslandHasher().getHash(this));
     }
 
-    persist(persistentData) {
-        // run outside of realm
-        Promise.resolve().then(() => this.controller.persist(persistentData));
+    persist(model, persistentDataFunc) {
+        Stats.begin("snapshot");
+        const persistentData = persistentDataFunc.call(model);
+        const ms = Stats.end("snapshot");
+        const { seq } = this;
+        // run everything else outside of model
+        Promise.resolve().then(() => this.controller.persist(persistentData, seq, ms));
     }
 
     random() {

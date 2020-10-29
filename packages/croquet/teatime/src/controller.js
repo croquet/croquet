@@ -448,12 +448,11 @@ export default class Controller {
 
     /* upload a snapshot to the file server, optionally with a dissident argument that the reflector can interpret as meaning that this is not the snapshot to serve to new clients */
     async uploadSnapshot(snapshot, dissidentFlag=null) {
-        await this.hashSnapshot(snapshot);
-
         const start = Stats.begin("snapshot");
+        await this.hashSnapshot(snapshot);
         const body = JSON.stringify(snapshot);
         const stringMS = Stats.end("snapshot") - start;
-        if (DEBUG.snapshot) console.log(this.id, `Snapshot stringified (${body.length} bytes) in ${Math.ceil(stringMS)}ms`);
+        if (DEBUG.snapshot) console.log(this.id, `snapshot stringified and hashed (${body.length} bytes) in ${Math.ceil(stringMS)}ms`);
 
         const {time, seq, hash} = snapshot.meta;
         const url = this.snapshotUrl(time, seq, hash);
@@ -538,13 +537,14 @@ export default class Controller {
         return `${baseUrl('apps')}${appId}/${islandId}/save/${hash}`;
     }
 
-    async persist(persistentData) {
+    async persist(persistentData, seq, ms) {
         if (!this.synced) return; // ignore during fast-forward
         if (!this.islandCreator.appId) throw Error('Persistence API requires appId');
-        const start = Date.now();
+        Stats.begin("snapshot");
         const persistentDataString = stableStringify(persistentData);
         const persistentDataHash = await hashString(persistentDataString);
-        if (DEBUG.snapshot) console.log(`${this.id} persistent data stringified and encrypted in ${Date.now() - start}ms`);
+        ms += Stats.end("snapshot");;
+        if (DEBUG.snapshot) console.log(`${this.id} persistent data collected, stringified and hashed in ${Math.ceil(ms)}ms`);
         const url = this.persistentUrl(persistentDataHash);
         await this.uploadGzippedEncrypted(url, persistentDataString, "persistent data");
         if (DEBUG.snapshot) console.log(this.id, `Controller sending persistent data url to reflector: ${url}`);

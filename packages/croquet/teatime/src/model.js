@@ -530,15 +530,18 @@ class Model {
     }
 
     /**
-     * Store an application-defined reperesentation of this session to be loaded into future
+     * Store an application-defined representation of this session to be loaded into future
      * sessions. This will be passed into the root model's [init]{@link Model#init} method
      * if resuming a session that is not currently ongoing (e.g. due to changes in the model code).
-     *
-     * @param {*} persistentData - information to be stored, will be stringified as JSON
-     * @private
+     * @example
+     * save() { this.persistSession(this.getSaveData); }
+     * getSaveData() { return { propA: "value", propB: ["values"] }; }
+     * @param {Function} persistentDataFunc - method returning information to be stored, will be stringified as JSON
+     * @since 0.3.4
+     * @notpublic (yet)
      */
-    persistSession(persistentData) {
-        this.__realm.island.persist(persistentData);
+    persistSession(persistentDataFunc) {
+        this.__realm.island.persist(this, persistentDataFunc);
     }
 
     [Symbol.toPrimitive]() {
