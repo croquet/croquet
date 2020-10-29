@@ -201,6 +201,12 @@ class Model {
      * In your Model subclass this is the place to [subscribe]{@link Model#subscribe} to events,
      * or start a [future]{@link Model#future} message chain.
      *
+     * If you pass `options` to [Session.join]{@link Session.join}, these will be passed to your root model's `init()`.
+     *
+     * If you called [persistSession]{@link Model#persistSession} in a previous session (same name, same options, different code base),
+     * that data will be passed as `persistentData` to your root model's `init()`. Based on that data you should re-create submodels,
+     * subscriptions, future messages etc. to start the new session in a state similar to when it was last saved.
+     *
      * **Note:** When your model instance is no longer needed, you must [destroy]{@link Model#destroy} it.
      *
      * @param {Object=} options - there are no system-defined options, you're free to define your own
@@ -533,15 +539,22 @@ class Model {
      * Store an application-defined representation of this session to be loaded into future
      * sessions. This will be passed into the root model's [init]{@link Model#init} method
      * if resuming a session that is not currently ongoing (e.g. due to changes in the model code).
+     *
+     * **Note:** You should design this data in a way to be loadable in newer versions of your app.
+     * To help migrating incompatible data, you may want to include a version identifier so a future
+     * version of your [init]{@link Model#init} can decide what to do.
+     *
+     * Croquet will not interpret this data in any way. It is simply encrypted, stored, and retrieved.
+     *
      * @example
-     * save() { this.persistSession(this.getSaveData); }
-     * getSaveData() { return { propA: "value", propB: ["values"] }; }
-     * @param {Function} persistentDataFunc - method returning information to be stored, will be stringified as JSON
+     * save() { this.persistSession(this.dataForExport); }
+     * dataForExport() { return { version: 1, payload: { propA: "value", propB: ["values"] } }; }
+     * @param {Function} collectDataFunc - method returning information to be stored, will be stringified as JSON
      * @since 0.3.4
      * @notpublic (yet)
      */
-    persistSession(persistentDataFunc) {
-        this.__realm.island.persist(this, persistentDataFunc);
+    persistSession(collectDataFunc) {
+        this.__realm.island.persist(this, collectDataFunc);
     }
 
     [Symbol.toPrimitive]() {
