@@ -167,6 +167,12 @@ class PixView extends View {
                 if (item.kind === "file") this.addFile(item.getAsFile());
             }
         };
+        document.onpaste = event => {
+            event.preventDefault();
+            for (const item of event.clipboardData.items) {
+                if (item.kind === 'file') this.addFile(item.getAsFile());
+            }
+        };
 
         imageinput.onchange = () => {
             for (const file of imageinput.files) {
