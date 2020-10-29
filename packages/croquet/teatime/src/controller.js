@@ -540,10 +540,10 @@ export default class Controller {
     async persist(persistentData, seq, ms) {
         if (!this.synced) return; // ignore during fast-forward
         if (!this.islandCreator.appId) throw Error('Persistence API requires appId');
-        Stats.begin("snapshot");
+        const start = Stats.begin("snapshot");
         const persistentDataString = stableStringify(persistentData);
         const persistentDataHash = await hashString(persistentDataString);
-        ms += Stats.end("snapshot");;
+        ms += Stats.end("snapshot") - start;
         if (DEBUG.snapshot) console.log(`${this.id} persistent data collected, stringified and hashed in ${Math.ceil(ms)}ms`);
         const url = this.persistentUrl(persistentDataHash);
         await this.uploadGzippedEncrypted(url, persistentDataString, "persistent data");

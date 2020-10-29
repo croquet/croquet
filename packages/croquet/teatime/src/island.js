@@ -612,9 +612,9 @@ export default class Island {
     }
 
     persist(model, persistentDataFunc) {
-        Stats.begin("snapshot");
+        const start = Stats.begin("snapshot");
         const persistentData = persistentDataFunc.call(model);
-        const ms = Stats.end("snapshot");
+        const ms = Stats.end("snapshot") - start;
         const { seq } = this;
         // run everything else outside of model
         Promise.resolve().then(() => this.controller.persist(persistentData, seq, ms));
