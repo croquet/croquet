@@ -4,6 +4,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 
 # latest pre-releases
 
+* 0.3.4-23 add extrapolatedNow(), add appId
 * 0.3.4-22 fix build
 * 0.3.4-21 include both commonjs and ready-to-use versions in npm
 * 0.3.4-20 allow reflector:region session option
