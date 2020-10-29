@@ -35,7 +35,7 @@ class PixModel extends Model {
             if (handle === asset.handle) {
                 asset.stored = true;
                 this.publish(this.id, "asset-changed");
-                this.persistSession(this.getEverything());
+                if (this.persistSession) this.persistSession(this.getEverything());
             }
         }
     }
@@ -49,7 +49,7 @@ class PixModel extends Model {
             this.asset = this.assets[Math.min(index, this.assets.length - 1)];
             this.publish(this.id, "asset-changed");
         }
-        this.persistSession(this.getEverything());
+        if (this.persistSession) this.persistSession(this.getEverything());
     }
 
     goTo({from, to}) {
@@ -168,6 +168,12 @@ class PixView extends View {
             event.preventDefault();
             for (const item of event.dataTransfer.items) {
                 if (item.kind === "file") this.addFile(item.getAsFile());
+            }
+        };
+        document.onpaste = event => {
+            event.preventDefault();
+            for (const item of event.clipboardData.items) {
+                if (item.kind === 'file') this.addFile(item.getAsFile());
             }
         };
 
