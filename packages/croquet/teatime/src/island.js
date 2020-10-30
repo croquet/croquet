@@ -613,11 +613,12 @@ export default class Island {
 
     persist(model, persistentDataFunc) {
         const start = Stats.begin("snapshot");
+        const time = this.time;
+        const tuttiSeq = this.getNextTuttiSeq();
         const persistentData = persistentDataFunc.call(model);
         const ms = Stats.end("snapshot") - start;
-        const { seq } = this;
         // run everything else outside of model
-        Promise.resolve().then(() => this.controller.persist(persistentData, seq, ms));
+        Promise.resolve().then(() => this.controller.persist(time, tuttiSeq, persistentData, ms));
     }
 
     random() {
