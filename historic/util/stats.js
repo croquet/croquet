@@ -276,7 +276,8 @@ export const Stats = {
         const now = performance.now();
         currentFrame.items[item] += now;
         // start outer measurement
-        if (stack.pop() !== item) throw Error("Unmatched stats calls for " + item);
+        const expected = stack.pop();
+        if (expected !== item) throw Error(`Unmatched stats calls: expected end("${expected}"), got end("${item}")`);
         const outer = stack[stack.length - 1];
         if (outer) currentFrame.items[outer] -= now;
         return now;
