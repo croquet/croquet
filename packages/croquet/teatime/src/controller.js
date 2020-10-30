@@ -245,24 +245,14 @@ export default class Controller {
 
     lastKnownTime(islandOrSnapshot) { return Math.max(islandOrSnapshot.time, islandOrSnapshot.externalTime); }
 
-    handleSyncCheckVote(data) {
+    // DEBUG SUPPORT - NORMALLY NOT USED
+    async syncCheck(time, tuttiSeq, summaryHash) {
         if (this.synced !== true) return;
-
-        // data is { _local, tuttiSeq, tally } where tally is an object keyed by
-        // the JSON for { cpuTime, hash } with a count for each key (which we
-        // treat as guaranteed to be 1 in each case, because of the cpuTime
-        // precision and fuzzification).
-
-        const { _local, tally } = data;
+        const tally = await this.sendTutti(time, tuttiSeq, summaryHash);
         const hashStrings = Object.keys(tally);
-        if (!_local || !hashStrings.includes(_local)) {
-            console.log(this.id, "Sync: local vote not found", _local, tally);
-            return;
-        }
-
         if (hashStrings.length > 1) {
-            console.log(hashStrings);
-        } else console.log("ok");
+            console.warn("sync check failed:", hashStrings);
+        } else console.log("sync check ok");
     }
 
     takeSnapshot() {
@@ -970,11 +960,6 @@ export default class Controller {
             if (this.tuttiHistory.length > 100) this.tuttiHistory.shift();
             this.tuttiHistory.push({ tuttiSeq, payload, resolve })
         });
-    }
-
-    sendVote(tuttiSeq, event, data) {
-        const voteMessage = [this.island.id, "handleModelEventInView", this.island.id+":"+event];
-        this.sendTutti(this.island.time, tuttiSeq, data, null, true, voteMessage);
     }
 
     sendLog(...args) {

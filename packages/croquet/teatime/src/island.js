@@ -577,20 +577,14 @@ export default class Island {
 
     // DEBUG SUPPORT - NORMALLY NOT USED
     pollToCheckSync() {
+        const time = this.time;
         const tuttiSeq = this.getNextTuttiSeq(); // move it along, even if we won't be using it
         if (this.controller.synced !== true) return;
-
         const before = Date.now();
-        const data = { date_island: this.time, hash: this.getSummaryHash() };
+        const data = this.getSummaryHash();
         const elapsed = Date.now() - before;
         this.controller.cpuTime -= elapsed; // give ourselves a time credit for the non-simulation work
-
-        const voteMessage = [this.id, "handleSyncCheckVote", "syncCheckVote"]; // topic is ignored
-        this.controller.sendTutti(this.time, tuttiSeq, data, null, true, voteMessage);
-    }
-
-    handleSyncCheckVote(_topic, data) {
-        this.controller.handleSyncCheckVote(data);
+        Promise.resolve().then(() => this.controller.syncCheck(time, tuttiSeq, data));
     }
 
     handlePollForSnapshot() {
