@@ -470,7 +470,7 @@ export default class Controller {
         if (DEBUG.snapshot) {
             let logProps = `time: ${time}, seq: ${seq}, hash: ${hash}`;
             if (dissidentFlag) logProps += ", dissident: " + JSON.stringify(dissidentFlag);
-            console.log(this.id, `Controller sending snapshot url to reflector (${logProps}): ${url}`);
+            console.log(this.id, `sending snapshot url to reflector (${logProps}): ${url}`);
         }
         try {
             this.connection.send(JSON.stringify({
@@ -547,7 +547,7 @@ export default class Controller {
         if (DEBUG.snapshot) console.log(`${this.id} persistent data collected, stringified and hashed in ${Math.ceil(ms)}ms`);
         const url = this.persistentUrl(persistentDataHash);
         await this.uploadGzippedEncrypted(url, persistentDataString, "persistent data");
-        if (DEBUG.snapshot) console.log(this.id, `Controller sending persistent data url to reflector: ${url}`);
+        if (DEBUG.snapshot) console.log(this.id, `sending persistent data url to reflector: ${url}`);
         try {
             this.connection.send(JSON.stringify({
                 id: this.id,
@@ -614,7 +614,7 @@ export default class Controller {
                 // We are joining an island session.
                 const {messages, url, persisted, time} = args;
                 const persistedOrSnapshot = persisted ? "persisted session" : "snapshot";
-                if (DEBUG.session) console.log(this.id, `Controller received SYNC: time ${time}, ${messages.length} messages, ${persistedOrSnapshot} ${url || "<none>"}`);
+                if (DEBUG.session) console.log(this.id, `received SYNC: time ${time}, ${messages.length} messages, ${persistedOrSnapshot} ${url || "<none>"}`);
                 // enqueue all messages now because the reflector will start sending more messages
                 // while we are waiting for the snapshot.
                 // if any conversion of custom reflector messages is to be done, do it before
@@ -626,7 +626,7 @@ export default class Controller {
                     } else {
                         msg[2] = this.decryptPayload(msg[2])[0];
                     }
-                    if (DEBUG.messages) console.log(this.id, 'Controller received message in SYNC ' + JSON.stringify(msg));
+                    if (DEBUG.messages) console.log(this.id, 'received in SYNC ' + JSON.stringify(msg));
                     msg[1] >>>= 0; // make sure it's uint32 (reflector used to send int32)
                     this.networkQueue.put(msg);
                 }
@@ -666,18 +666,20 @@ export default class Controller {
                 // Put it in the queue, and set time.
                 // Actual processing happens in main loop.
                 const msg = args;
+                msg[1] >>>= 0; // make sure it's uint32 (reflector used to send int32)
                 // the reflector might insert messages on its own, indicated by a non-string payload
                 // we need to convert the payload to the message format this client is using
                 if (typeof msg[2] !== "string") {
+                    if (DEBUG.messages) console.log(this.id, 'received META' + JSON.stringify(msg));
                     this.convertReflectorMessage(msg);
+                    if (DEBUG.messages) console.log(this.id, 'converted to ' + JSON.stringify(msg));
                 } else {
                     const [payload, viewId, lastSent] = this.decryptPayload(msg[2]);
                     msg[2] = payload;
                     // if we sent this message, add it to latency statistics
                     if (viewId === this.viewId) this.addToStatistics(lastSent, this.lastReceived);
+                    if (DEBUG.messages) console.log(this.id, 'received ' + JSON.stringify(msg));
                 }
-                msg[1] >>>= 0; // make sure it's uint32 (reflector used to send int32)
-                if (DEBUG.messages) console.log(this.id, 'Controller received RECV ' + JSON.stringify(msg));
                 this.networkQueue.put(msg);
                 this.timeFromReflector(msg[0]);
                 return;
@@ -785,7 +787,7 @@ export default class Controller {
     // either the connection has been broken or the reflector has sent LEAVE
     leave() {
         if (this.connected) {
-            console.log(this.id, `Controller LEAVING session for ${this.islandCreator.name}`);
+            console.log(this.id, `LEAVING session for ${this.islandCreator.name}`);
             this.connection.send(JSON.stringify({ id: this.id, action: 'LEAVING' }));
         }
         const {destroyerFn} = this.islandCreator;
@@ -881,7 +883,7 @@ export default class Controller {
         // SEND: Broadcast a message to all participants.
         if (!this.connected) return; // probably view sending event while connection is closing
         if (this.viewOnly) return;
-        if (DEBUG.sends) console.log(this.id, `Controller sending SEND ${msg.asState()}`);
+        if (DEBUG.sends) console.log(this.id, `sending SEND ${msg.asState()}`);
         this.lastSent = Date.now();
         const encryptedMsg = await this.encryptMessage(msg, this.viewId, this.lastSent); // [time, seq, payload]
         this.connection.send(JSON.stringify({
@@ -900,7 +902,7 @@ export default class Controller {
         // reflector versions will handle as a standard SEND.
         if (!this.connected) return; // probably view sending event while connection is closing
         if (this.viewOnly) return;
-        if (DEBUG.sends) console.log(this.id, `Controller sending tagged SEND ${msg.asState()} with tags ${JSON.stringify(tags)}`);
+        if (DEBUG.sends) console.log(this.id, `sending tagged SEND ${msg.asState()} with tags ${JSON.stringify(tags)}`);
         this.lastSent = Date.now();
         const encryptedMsg = await this.encryptMessage(msg, this.viewId, this.lastSent); // [time, seq, payload]
         this.connection.send(JSON.stringify({
@@ -919,9 +921,9 @@ export default class Controller {
         if (!this.connected) return; // probably view sending event while connection is closing
         if (this.viewOnly) return;
         const payload = stableStringify(data); // stable, to rule out platform differences
-        if (DEBUG.sends) console.log(this.id, `Controller sending TUTTI ${payload} ${firstMessage && firstMessage.asState()} ${tallyTarget}`);
         this.tuttiHistory.push({ tuttiSeq, payload });
         if (this.tuttiHistory.length > 100) this.tuttiHistory.shift();
+        if (DEBUG.sends) console.log(this.id, `sending TUTTI ${payload} ${firstMessage && firstMessage.asState()} ${tallyTarget}`);
         this.lastSent = Date.now();
         const encryptedMsg = firstMessage && await this.encryptMessage(firstMessage, this.viewId, this.lastSent); // [time, seq, payload]
         this.connection.send(JSON.stringify({
