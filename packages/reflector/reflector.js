@@ -10,8 +10,6 @@ const prometheus = require('prom-client');
 const { Storage } = require('@google-cloud/storage');
 
 // debugging (should read env vars)
-const googleCloudProfiler = true;
-const googleCloudDebugger = false;
 const collectRawSocketStats = false;
 const debugLogs = true;
 
@@ -54,7 +52,14 @@ const USERS_INTERVAL = 100;   // time to gather user entries/exits before sendin
 
 const hostname = os.hostname();
 const hostip = Object.values(os.networkInterfaces()).flat().filter(addr => !addr.internal && addr.family === 'IPv4')[0].address;
-let cluster = fs.existsSync("/var/run/secrets/kubernetes.io") ? "" : "local"; // name set async for k8s
+const cluster = fs.existsSync("/var/run/secrets/kubernetes.io") ? process.env.CLUSTER_NAME : "local";
+const cluster_label = process.env.CLUSTER_LABEL || cluster;
+
+if (!cluster) {
+    // should have been injected to container via config map
+    ERROR("FATAL: no CLUSTER_NAME env var");
+    process.exit(1);
+}
 
 const DISCONNECT_UNRESPONSIVE_CLIENTS = cluster !== "local";
 const CHECK_INTERVAL = 5000;        // how often to checkForActivity
@@ -131,8 +136,8 @@ const webServer = http.createServer( (req, res) => {
         });
         return res.end();
     }
-    // otherwise, show hostname, url, and http headers
-    const body = `Croquet reflector-${VERSION} ${hostname} (${cluster}:${hostip})\n${req.method} http://${req.headers.host}${req.url}\n${JSON.stringify(req.headers, null, 4)}`;
+    // otherwise, show host and cluster
+    const body = `Croquet reflector-${VERSION} ${hostip} ${cluster_label}\n\nAh, ha, ha, ha, stayin' alive!`;
     res.writeHead(200, {
       'Server': SERVER_HEADER,
       'Content-Length': body.length,
@@ -204,32 +209,8 @@ process.on('SIGTERM', handleTerm);
 
 
 // start server
-if (cluster === "local") {
-    startServer();
-    watchStats();
-} else {
-    // Start Debugger & Profiler
-    // eslint-disable-next-line global-require
-    if (googleCloudProfiler) require('@google-cloud/profiler').start({
-        serviceContext: { service: 'reflector' },
-    });
-    // eslint-disable-next-line global-require
-    if (googleCloudDebugger) require('@google-cloud/debug-agent').start({
-        allowExpressions: true,
-        serviceContext: { service: 'reflector' },
-    });
-    http.get('http://metadata.google.internal/computeMetadata/v1/instance/attributes/cluster-name',
-        { headers: {'Metadata-Flavor' : 'Google'} },
-        response => {
-            response.on('data', data => cluster += data);
-            response.on('end', () => startServer());
-        }
-    ).on("error", err => {
-        ERROR("FATAL: failed to get cluster name.", err.message);
-        process.exit(1);
-    });
-}
-
+startServer();
+if (cluster === "local") watchStats();
 
 /**
  * @typedef ID - A random 128 bit hex ID
