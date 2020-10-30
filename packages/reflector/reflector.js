@@ -303,14 +303,7 @@ function JOIN(client, args) {
     const id = client.sessionId;
     // the connection log filter matches on (" connection " OR " JOIN ")
     LOG(`${id}/${client.addr} receiving JOIN ${JSON.stringify(args)}`);
-    const { name, version, appId, islandId, user } = args;
-    if (user) {
-        client.user = user;
-        if (client.location) {
-            if (Array.isArray(user)) user.push(client.location);
-            else if (typeof user === "object") user.location = client.location;
-        }
-    }
+    const { name, version, appId, islandId, user, location } = args;
     // new clients (>=0.3.3) send ticks in JOIN
     const syncWithoutSnapshot = 'ticks' in args;
     // create island data if this is the first client
@@ -332,6 +325,7 @@ function JOIN(client, args) {
             islandId,
             persistentUrl: '',   // url of persisted island
             syncWithoutSnapshot, // new protocol as of 0.3.3
+            location,            // send location data?
             messages: [],        // messages since last snapshot
             lastTick: -1000,     // time of last TICK sent (-1000 to avoid initial delay)
             lastMsgTime: 0,      // time of last message reflected
@@ -344,6 +338,14 @@ function JOIN(client, args) {
         if (syncWithoutSnapshot) TICKS(client, args.ticks); // client will not request ticks
     }
     client.island = island;
+
+    if (user) {
+        client.user = user;
+        if (island.location && client.location) {
+            if (Array.isArray(user)) user.push(client.location);
+            else if (typeof user === "object") user.location = client.location;
+        }
+    }
 
     // if we had provisionally scheduled deletion of the island, cancel that
     if (island.deletionTimeout) {
