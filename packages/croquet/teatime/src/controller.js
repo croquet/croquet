@@ -293,95 +293,63 @@ export default class Controller {
         if (DEBUG.snapshot) console.log(this.id, 'requesting snapshot poll via reflector');
     }
 
-    handlePollForSnapshot() {
+    handlePollForSnapshot(time, tuttiSeq) {
         // !!! THIS IS BEING EXECUTED INSIDE THE SIMULATION LOOP!!!
-        const { island } = this;
-        const tuttiSeq = this.island.getNextTuttiSeq(); // move it along, even if this client decides not to participate
+        // !!! IT MUST NOT MODIFY ISLAND !!!
 
-        // make sure there isn't a clash between clients simultaneously deciding
-        // that it's time for someone to take a snapshot.
-        const now = island.time;
-        const sinceLast = now - island.lastSnapshotPoll;
-        if (sinceLast < 5000) { // arbitrary - needs to be long enough to ensure this isn't part of the same batch
-            console.log(`rejecting snapshot poll ${sinceLast}ms after previous`);
-            return;
-        }
+        if (this.synced !== true) return;  // not going to vote, so don't waste time on creating the hash
 
-        island.lastSnapshotPoll = now; // whether or not the controller agrees to participate
-
-        const voteData = this.preparePollForSnapshot(); // at least resets cpuTime
-        if (!voteData) return; // not going to vote, so don't waste time on creating the hash
+        const localCpuTime = this.triggeringCpuTime || this.cpuTime;
+        this.triggeringCpuTime = null;
+        this.cpuTime = 0;
 
         const start = Stats.begin("snapshot");
-        voteData.hash = island.getSummaryHash();
+        const voteData = {
+            cpuTime: localCpuTime,
+            hash: this.island.getSummaryHash(),
+            viewId: this.viewId,
+        }
         const ms = Stats.end("snapshot") - start;
         // exclude snapshot time from cpu time for logic in this.simulate()
         this.cpuTime -= ms;  // give ourselves a time credit for the non-simulation work
         if (DEBUG.snapshot) console.log(this.id, `Summary hashing took ${Math.ceil(ms)}ms`);
 
         // sending the vote is handled asynchronously, because we want to add a view-side random()
-        Promise.resolve().then(() => this.pollForSnapshot(now, tuttiSeq, voteData));
+        Promise.resolve().then(() => this.pollForSnapshot(time, tuttiSeq, voteData));
     }
 
-
-    preparePollForSnapshot() {
-        // !!! THIS IS BEING EXECUTED INSIDE THE SIMULATION LOOP!!!
-
-        // read and reset cpuTime whether or not we'll be participating in the vote
-        const localCpuTime = this.triggeringCpuTime || this.cpuTime;
-        this.triggeringCpuTime = null;
-        this.cpuTime = 0;
-
-        const voteData = this.synced === true ? { cpuTime: localCpuTime } : null; // if not true, we don't want to participate
-        return voteData;
-    }
-
-    pollForSnapshot(time, tuttiSeq, voteData) {
+    async pollForSnapshot(time, tuttiSeq, voteData) {
         voteData.cpuTime += Math.random(); // fuzzify by 0-1ms to further reduce [already minuscule] risk of exact agreement.  NB: this is a view-side random().
-        const voteMessage = [this.id, "handleSnapshotVote", "snapshotVote"]; // direct message to the island (3rd arg - topic - will be ignored)
         if (DEBUG.snapshot) console.log(this.id, 'sending snapshot vote', voteData);
-        this.sendTutti(time, tuttiSeq, voteData, null, true, voteMessage);
-    }
 
-    handleSnapshotVote(data) {
-        // !!! THIS IS BEING EXECUTED INSIDE THE SIMULATION LOOP!!!
+        const tally = await this.sendTutti(time, tuttiSeq, voteData);
 
         if (this.synced !== true) {
             if (DEBUG.snapshot) console.log(this.id, "Ignoring snapshot vote during sync");
             return;
         }
-        if (DEBUG.snapshot) console.log(this.id, "received snapshot votes", data);
+        if (DEBUG.snapshot) console.log(this.id, "received snapshot votes", tally);
 
-        // data is { _local, tuttiSeq, tally } where tally is an object keyed by
-        // the JSON for { cpuTime, hash } with a count for each key (which we
-        // treat as guaranteed to be 1 in each case, because of the cpuTime
-        // precision and fuzzification).
-
-        const { _local, tally } = data;
         const voteStrings = Object.keys(tally);
-        if (!_local || !voteStrings.includes(_local)) {
-            if (DEBUG.snapshot) console.log(this.id, "Snapshot: local vote not found");
-            this.cpuTime = 0; // a snapshot will be taken by someone
-            return;
-        }
+        const votes = voteStrings.map(k => JSON.parse(k)); // objects { hash, cpuTime, viewId }
+        const votesByHash = {};
+
+        // figure out whether there's a consensus on the summary hashes
+        votes.forEach(({ hash }, i) => {
+            if (!votesByHash[hash]) votesByHash[hash] = [];
+            votesByHash[hash].push(i);
+            });
 
         const snapshotFromGroup = (groupHash, isConsensus) => {
             const clientIndices = votesByHash[groupHash];
             if (clientIndices.length > 1) clientIndices.sort((a, b) => votes[a].cpuTime - votes[b].cpuTime); // ascending order
             const selectedClient = clientIndices[0];
-            if (voteStrings[selectedClient] === _local) {
+            if (votes[selectedClient].viewId === this.viewId) {
                 const dissidentFlag = isConsensus ? null : { groupSize: clientIndices.length };
                 this.serveSnapshot(dissidentFlag);
             }
             };
 
-        // figure out whether there's a consensus on the summary hashes
-        const votes = voteStrings.map(k => JSON.parse(k)); // objects { hash, cpuTime }
-        const votesByHash = {};
-        votes.forEach(({ hash }, i) => {
-            if (!votesByHash[hash]) votesByHash[hash] = [];
-            votesByHash[hash].push(i);
-            });
         const hashGroups = Object.keys(votesByHash);
         let consensusHash = hashGroups[0];
         if (hashGroups.length > 1) {
@@ -692,7 +660,7 @@ export default class Controller {
                 // the reflector might insert messages on its own, indicated by a non-string payload
                 // we need to convert the payload to the message format this client is using
                 if (typeof msg[2] !== "string") {
-                    if (DEBUG.messages) console.log(this.id, 'received META' + JSON.stringify(msg));
+                    if (DEBUG.messages) console.log(this.id, 'received META ' + JSON.stringify(msg));
                     this.convertReflectorMessage(msg);
                     if (DEBUG.messages) console.log(this.id, 'converted to ' + JSON.stringify(msg));
                 } else {

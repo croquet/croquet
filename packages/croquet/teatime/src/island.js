@@ -588,11 +588,19 @@ export default class Island {
     }
 
     handlePollForSnapshot() {
-        this.controller.handlePollForSnapshot();
-    }
+        const tuttiSeq = this.getNextTuttiSeq(); // move it along, even if this client decides not to participate
 
-    handleSnapshotVote(_topic, data) {
-        this.controller.handleSnapshotVote(data);
+        // make sure there isn't a clash between clients simultaneously deciding
+        // that it's time for someone to take a snapshot.
+        const now = this.time;
+        const sinceLast = now - this.lastSnapshotPoll;
+        if (sinceLast < 5000) { // arbitrary - needs to be long enough to ensure this isn't part of the same batch
+            console.log(`rejecting snapshot poll ${sinceLast}ms after previous`);
+            return;
+        }
+
+        this.lastSnapshotPoll = now; // whether or not the controller agrees to participate
+        this.controller.handlePollForSnapshot(now, tuttiSeq);
     }
 
     snapshot() {
