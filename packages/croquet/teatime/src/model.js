@@ -201,19 +201,14 @@ class Model {
      * In your Model subclass this is the place to [subscribe]{@link Model#subscribe} to events,
      * or start a [future]{@link Model#future} message chain.
      *
-     * If you pass `options` to [Session.join]{@link Session.join}, these will be passed to your root model's `init()`.
-     *
-     * If you called [persistSession]{@link Model#persistSession} in a previous session (same name, same options, different code base),
-     * that data will be passed as `persistentData` to your root model's `init()`. Based on that data you should re-create submodels,
-     * subscriptions, future messages etc. to start the new session in a state similar to when it was last saved.
+     * If you pass `{options:...}` to [Session.join]{@link Session.join}, these will be passed to your root model's `init()`.
      *
      * **Note:** When your model instance is no longer needed, you must [destroy]{@link Model#destroy} it.
      *
      * @param {Object=} options - there are no system-defined options, you're free to define your own
-     * @param {Object=} persistentData - data previously stored by [persistSession]{@link Model#persistSession}
      * @public
      */
-    init(options, persistentData) {
+    init(options) {
         // for reporting errors if user forgot to call super.init()
         SuperInitNotCalled.delete(this);
         // eslint-disable-next-line no-constant-condition
@@ -232,6 +227,15 @@ class Model {
             // don't know how to otherwise add documentation
         }
     }
+
+    /* ONCE THE PERSISTENCE API IS PUBLIC, ADD THIS ABOVE
+     *
+     * If you called [persistSession]{@link Model#persistSession} in a previous session (same name, same options, different code base),
+     * that data will be passed as `persistentData` to your root model's `init()`. Based on that data you should re-create submodels,
+     * subscriptions, future messages etc. to start the new session in a state similar to when it was last saved.
+     *
+     * @param {Object=} persistentData - data previously stored by [persistSession]{@link Model#persistSession}
+     */
 
     /**
      * Unsubscribes all [subscriptions]{@link Model#subscribe} this model has,
