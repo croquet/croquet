@@ -51,7 +51,7 @@ export class Session {
      * The view root should set up the input and output operations of your application,
      * and create any additional views as to match the application state as found in the models.
      *
-     * Then the Croquet **main loop** is started (unless you pass in a `step: "manual"` option).
+     * Then the Croquet **main loop** is started (unless you pass in a `step: "manual"` parameter).
      * This uses [requestAnimationFrame()]{@link https://developer.mozilla.org/docs/Web/API/window/requestAnimationFrame}
      * for continuous updating. Each step of the main loop executes in three phases:
      *
@@ -67,8 +67,8 @@ export class Session {
      *    Also, polling input and other tasks that should happen in every frame should be placed here.
      *
      *
-     * #### Options
-     * | option        | values         | Description
+     * #### Parameters
+     * | parameter     | values         | Description
      * | --------------|----------------|------------
      * | `step`        | **`"auto"`**   | automatic stepping via [requestAnimationFrame()]{@link https://developer.mozilla.org/docs/Web/API/window/requestAnimationFrame} (default)
      * |               | `"manual"`     | application-defined main loop is responsible for calling the session's `step()` function
@@ -79,10 +79,10 @@ export class Session {
      * @param {String} name - a name for this session (typically consists of an app name and a session selector, e.g. `"MyApp/123abc"`)
      * @param {Model} ModelRoot - the root Model class for your app
      * @param {View} ViewRoot - the root View class for your app
-     * @param {Object} options
-     * @param {String} options.step - `"auto" | "manual"`
-     * @param {String} options.tps - ticks per second (`0` to `60`)
-     * @param {Object} options.options - `ModelRoot`.create(`{opt1: val1, opt2: val2}`)
+     * @param {Object} parameters
+     * @param {String} parameters.step - `"auto" | "manual"`
+     * @param {String} parameters.tps - ticks per second (`0` to `60`)
+     * @param {Object} parameters.options - `ModelRoot`.create(`{opt1: val1, opt2: val2}`)
      * @returns {Promise} Promise that resolves to an object describing the session:
      * ```
      * {
@@ -110,7 +110,7 @@ export class Session {
      * });
      * @public
      */
-    static async join(name, ModelRoot=Model, ViewRoot=View, options) {
+    static async join(name, ModelRoot=Model, ViewRoot=View, parameters) {
         function inherits(A, B) { return A === B || A.prototype instanceof B; }
         // sanitize name
         if (typeof name !== "string") name = JSON.stringify(name) || "undefined";
@@ -119,47 +119,47 @@ export class Session {
         if (!inherits(ModelRoot, Model)) throw Error("ModelRoot must inherit from Croquet.Model");
         // view defaults to View
         if (!inherits(ViewRoot, View)) {
-            // if not specifying a view, allow options as 3rd argument
-            if (ViewRoot && Object.getPrototypeOf(ViewRoot) === Object.prototype && options === undefined) {
-                options = ViewRoot;
+            // if not specifying a view, allow parameters as 3rd argument
+            if (ViewRoot && Object.getPrototypeOf(ViewRoot) === Object.prototype && parameters === undefined) {
+                parameters = ViewRoot;
                 ViewRoot = View;
             }
             else throw Error("ViewRoot must inherit from Croquet.View");
         }
-        // default options are empty
-        if (!options) options = {};
+        // default parameters are empty
+        if (!parameters) parameters = {};
         // check appId
-        if (options.appId && !options.appId.match(/^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)+$/i)) {
-            throw Error(`Croquet: malformed appId "${options.appId}"`)
+        if (parameters.appId && !parameters.appId.match(/^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)+$/i)) {
+            throw Error(`Croquet: malformed appId "${parameters.appId}"`)
         }
-        // put reflector option into urlOptions because that's where controller.js looks
-        const reflector = urlOptions.reflector || options.reflector;
+        // put reflector param into urlOptions because that's where controller.js looks
+        const reflector = urlOptions.reflector || parameters.reflector;
         if (reflector) {
             if (reflector.includes("://") || reflector.match(/^[-a-z0-9]+$/i)) urlOptions.reflector = reflector;
             else console.warn(`Not a valid websocket url, ignoring reflector "${reflector}"`);
         }
-        // also add debug options
-        if (options.debug) {
+        // also add debug parameters
+        if (parameters.debug) {
             function asArray(a) {
                 if (typeof a === "string") a = a.split(',');
                 return a ? (Array.isArray(a) ? a : [a]) : [];
             }
-            urlOptions.debug = [...asArray(options.debug), ...asArray(urlOptions.debug)].join(',');
+            urlOptions.debug = [...asArray(parameters.debug), ...asArray(urlOptions.debug)].join(',');
         }
-        if ("autoSleep" in options) urlOptions.autoSleep = options.autoSleep;
+        if ("autoSleep" in parameters) urlOptions.autoSleep = parameters.autoSleep;
         // now start
-        if ("expectedSimFPS" in options) expectedSimFPS = Math.min(options.expectedSimFPS, MAX_BALANCE_FPS);
+        if ("expectedSimFPS" in parameters) expectedSimFPS = Math.min(parameters.expectedSimFPS, MAX_BALANCE_FPS);
         const ISLAND_OPTIONS = ['tps'];
         const SESSION_OPTIONS = ['optionsFromUrl', 'password', 'appId', 'viewIdDebugSuffix'];
         freezeAndHashConstants();
         const controller = new Controller();
         const islandOptions = {};
-        if (options.options) {
+        if (parameters.options) {
             // make sure options are a JSON object
-            Object.assign(islandOptions, JSON.parse(JSON.stringify(options.options)));
+            Object.assign(islandOptions, JSON.parse(JSON.stringify(parameters.options)));
         }
-        for (const [option, value] of Object.entries(options)) {
-            if (ISLAND_OPTIONS.includes(option)) islandOptions[option] = value;
+        for (const [param, value] of Object.entries(parameters)) {
+            if (ISLAND_OPTIONS.includes(param)) islandOptions[param] = value;
         }
         /** our return value */
         const session = {
@@ -222,7 +222,7 @@ export class Session {
             // if visibilityState is explicitly "hidden", of course)
             if (!isHidden()) {
                 controller.checkForConnection(true); // reconnect if disconnected and not blocked
-                if (options.step !== "manual") session.step(frameTime);
+                if (parameters.step !== "manual") session.step(frameTime);
             }
             window.requestAnimationFrame(onAnimationFrame);
             };
@@ -239,8 +239,8 @@ export class Session {
                 destroyerFn: rebootModelView,
                 options: islandOptions,
             };
-            for (const [option, value] of Object.entries(options)) {
-                if (SESSION_OPTIONS.includes(option)) sessionSpec[option] = value;
+            for (const [param, value] of Object.entries(parameters)) {
+                if (SESSION_OPTIONS.includes(param)) sessionSpec[param] = value;
             }
             session.model = (await controller.establishSession(name, sessionSpec)).modelRoot;
             session.id = controller.id;
@@ -288,7 +288,7 @@ export class Session {
                     // that have arrived from the reflector.
                     if (noSleep) {
                         // make time appear as continuous as possible
-                        if (options.step !== "manual") session.step(frameTimeWhenHidden + hiddenFor);
+                        if (parameters.step !== "manual") session.step(frameTimeWhenHidden + hiddenFor);
                     } else if (hiddenFor > dormantTimeout) {
                         // Controller doesn't mind being asked repeatedly to disconnect
                         controller.dormantDisconnect();
@@ -333,7 +333,7 @@ const LOAD_BALANCE_FRAMES = 4;
 // render on time.  whenever the controller is found to have a backlog greater than
 // LOAD_BALANCE_FRAMES times that per-frame slice, the balancer immediately
 // schedules a simulation boost with a budget of MAX_SIMULATION_MS.
-// expectedSimFPS can be set using session option expectedSimFPS; the higher
+// expectedSimFPS can be set using session param expectedSimFPS; the higher
 // the value, the less of a backlog is needed to trigger a simulation boost.  but
 // if expectedSimFPS is set to zero, the balancer will attempt to clear any backlog
 // on every frame.
