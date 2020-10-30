@@ -591,12 +591,18 @@ export default class Controller {
                 // the message from the reflector will contain the tuttiSeq, a tally, and an array containing the id, selector and topic that it was told to use.
                 // if we have a record of supplying a value for this TUTTI, add it to the args.
                 const { tuttiSeq, tally, tallyTarget } = msg[2];
-                const convertedArgs = { tuttiSeq, tally };
-                const local = this.tuttiHistory.find(hist => hist.tuttiSeq === tuttiSeq);
-                if (local) convertedArgs._local = local.payload;
-                let topic;
-                [ receiver, selector, topic ] = tallyTarget;
-                args = [ topic, convertedArgs ];
+                const tuttiIndex = this.tuttiHistory.findIndex(hist => hist.tuttiSeq === tuttiSeq);
+                const local = tuttiIndex !== -1 && this.tuttiHistory.splice(tuttiIndex, 1)[0];
+                // if we participated, resolve our promise
+                if (local) local.resolve(tally);
+                // if a target message was passed, execute it
+                if (tallyTarget) {
+                    const convertedArgs = { tuttiSeq, tally };
+                    if (local) convertedArgs._local = local.payload;
+                    let topic;
+                    [ receiver, selector, topic ] = tallyTarget;
+                    args = [ topic, convertedArgs ];
+                }
                 break;
             }
             // no default
@@ -915,14 +921,16 @@ export default class Controller {
 
     /** send a TUTTI Message
      * @param {Message} msg
+     * @returns {Promise} tally or null
     */
-    async sendTutti(time, tuttiSeq, data, firstMessage, wantsVote, tallyTarget) {
-        // TUTTI: Send a message that multiple instances are expected to send identically.  The reflector will optionally broadcast the first received message immediately, then gather all messages up to a deadline and send a TALLY message summarising the results (whatever those results, if wantsVote is true; otherwise, only if there is some variation among them).
-        if (!this.connected) return; // probably view sending event while connection is closing
-        if (this.viewOnly) return;
+    async sendTutti(time, tuttiSeq, data, firstMessage=null, wantsVote=true, tallyTarget=null) {
+        // TUTTI: Send a message that multiple instances are expected to send identically.
+        // The reflector will optionally broadcast the first received message immediately,
+        // then gather all messages up to a deadline and send a TALLY message summarising the results
+        // (whatever those results, if wantsVote is true; otherwise, only if there is some variation among them).
+        if (!this.connected) return null; // probably view sending event while connection is closing
+        if (this.viewOnly) return null;
         const payload = stableStringify(data); // stable, to rule out platform differences
-        this.tuttiHistory.push({ tuttiSeq, payload });
-        if (this.tuttiHistory.length > 100) this.tuttiHistory.shift();
         if (DEBUG.sends) console.log(this.id, `sending TUTTI ${payload} ${firstMessage && firstMessage.asState()} ${tallyTarget}`);
         this.lastSent = Date.now();
         const encryptedMsg = firstMessage && await this.encryptMessage(firstMessage, this.viewId, this.lastSent); // [time, seq, payload]
@@ -931,6 +939,11 @@ export default class Controller {
             action: 'TUTTI',
             args: [time, tuttiSeq, payload, encryptedMsg, wantsVote, tallyTarget],
         }));
+        // will resolve to tally
+        return new Promise(resolve => {
+            if (this.tuttiHistory.length > 100) this.tuttiHistory.shift();
+            this.tuttiHistory.push({ tuttiSeq, payload, resolve })
+        });
     }
 
     sendVote(tuttiSeq, event, data) {
