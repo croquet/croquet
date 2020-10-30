@@ -448,11 +448,11 @@ export default class Controller {
 
     /* upload a snapshot to the file server, optionally with a dissident argument that the reflector can interpret as meaning that this is not the snapshot to serve to new clients */
     async uploadSnapshot(snapshot, dissidentFlag=null) {
-        const start = Stats.begin("snapshot");
         await this.hashSnapshot(snapshot);
+        const start = Stats.begin("snapshot");
         const body = JSON.stringify(snapshot);
         const stringMS = Stats.end("snapshot") - start;
-        if (DEBUG.snapshot) console.log(this.id, `snapshot stringified and hashed (${body.length} bytes) in ${Math.ceil(stringMS)}ms`);
+        if (DEBUG.snapshot) console.log(this.id, `snapshot stringified (${body.length} bytes) in ${Math.ceil(stringMS)}ms`);
 
         const {time, seq, hash} = snapshot.meta;
         const url = this.snapshotUrl(time, seq, hash);
