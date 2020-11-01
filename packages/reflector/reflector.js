@@ -439,7 +439,7 @@ function SYNC(island) {
             DEBUG(`${id}/${syncClient.addr} @${island.time}#${island.seq} sending SYNC ${response.length} bytes, ${messages.length} messages${range}, ${args.persisted ? "persisted" : "snapshot"} ${args.url || "<none>"}`);
             announceUserDidJoin(island, syncClient);
         } else {
-            DEBUG(`${id}/${syncClient.addr} cannot send SYNC`);
+            DEBUG(`${id}/${syncClient.addr} socket closed before SYNC`);
         }
     }
     // synced all that were waiting
