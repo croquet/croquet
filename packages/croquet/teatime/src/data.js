@@ -10,10 +10,11 @@ import Island from "./island";
 import { sessionProps } from "./controller";
 
 
-const VERSION = '0';
+const VERSION = '1';
 
 const DATAHANDLE_HASH = Symbol("hash");
 const DATAHANDLE_KEY = Symbol("key");
+const DATAHANDLE_PATH = Symbol("path");
 
 const HandleCache = new Map();      // map hash => handle
 
@@ -21,10 +22,9 @@ function debug(what) {
     return urlOptions.has("debug", what, false);
 }
 
-function dataUrl(hash) {
-    return `${baseUrl('sessiondata')}${hash}`;
-    // If we use appId and islandId in the data url then we can't easily share between sessions/apps
-    // return `${baseUrl('apps')}${appId}/${islandId}/data/${hash}`;
+function dataUrl(hash, path) {
+    if (!path) return `${baseUrl('sessiondata')}${hash}`;              // deprecated
+    return `${baseUrl('apps')}${path}/data/${hash}`;
 }
 
 async function hashData(data) {
@@ -143,8 +143,9 @@ export default class DataHandle {
         const key = await randomKey();
         const encrypted = await encrypt(key, data);
         const hash = await hashData(encrypted);
-        const handle = new DataHandle(hash, key);
-        const url = dataUrl(hash);
+        const path = appId && `${appId}/${islandId}`;
+        const handle = new DataHandle(hash, key, path);
+        const url = dataUrl(hash, path);
         const promise = upload(url, encrypted, appId, islandId);
         // if we uploaded the same file in this same session before, then the promise already exists
         if (!handle.stored) {
@@ -179,8 +180,9 @@ export default class DataHandle {
         }
         const hash = handle && handle[DATAHANDLE_HASH];
         const key = handle && handle[DATAHANDLE_KEY];
+        const path = handle && handle[DATAHANDLE_PATH];
         if (typeof hash !== "string" ||typeof key !== "string") throw Error("Croquet.Data.fetch() called with invalid handle");
-        const url = dataUrl(hash);
+        const url = dataUrl(hash, path);
         const encrypted = await download(url, appId, islandId);
         return decrypt(key, encrypted);
     }
@@ -188,18 +190,34 @@ export default class DataHandle {
     /** @private */
     static fromId(id) {
         const version = id.slice(0, 1);
-        if (version !== VERSION) throw Error(`Croquet.Data expected handle v${VERSION} got v${version}`);
-        const hash = id.slice(1, 1 + 43);
-        const key = id.slice(1 + 43);
-        return new this(hash, key);
+        switch (version) {
+            case '0': {
+                const hash = id.slice(1, 1 + 43);
+                const key = id.slice(1 + 43);
+                return new this(hash, key);
+            }
+            case '1': {
+                const hash = id.slice(1, 1 + 43);
+                const key = id.slice(1 + 43, 1 + 43 + 43) + '=';
+                const path = id.slice(1 + 43 + 43);
+                return new this(hash, key, path);
+            }
+            default:
+                throw Error(`Croquet.Data expected handle v${VERSION} got v${version}`);
+        }
     }
 
     /** @private */
     static toId(handle) {
-        return handle && `${VERSION}${handle[DATAHANDLE_HASH]}${handle[DATAHANDLE_KEY]}`;
+        if (!handle) return;
+        const hash = handle[DATAHANDLE_HASH];
+        const key = handle[DATAHANDLE_KEY];
+        const path = handle[DATAHANDLE_PATH];
+        if (!path) return `0${hash}${key}`; // deprecated
+        return `${VERSION}${hash}${key.slice(0, -1)}${path}`;
     }
 
-    constructor(hash, key) {
+    constructor(hash, key, path) {
         const existing = HandleCache.get(hash);
         if (existing) {
             if (debug("data")) console.log(`Croquet.Data: using cached handle for ${hash}`);
@@ -208,6 +226,7 @@ export default class DataHandle {
         // stored under Symbol key to be invisible to user code
         Object.defineProperty(this, DATAHANDLE_HASH, { value: hash });
         Object.defineProperty(this, DATAHANDLE_KEY, { value: key });
+        if (path) Object.defineProperty(this, DATAHANDLE_PATH, { value: path });      // non-path is deprecated
         HandleCache.set(hash, this);
         if (debug("data")) console.log(`Croquet.Data: created new handle for ${hash}`);
     }
