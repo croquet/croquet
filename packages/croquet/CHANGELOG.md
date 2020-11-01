@@ -4,6 +4,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 
 # latest pre-releases
 
+* 0.3.4-25 fix persistent islandId (should not depend on tps)
 * 0.3.4-24 add persistSession()
 * 0.3.4-23 add extrapolatedNow(), add appId
 * 0.3.4-22 fix build
