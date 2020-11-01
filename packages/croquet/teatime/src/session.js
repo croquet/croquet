@@ -149,18 +149,11 @@ export class Session {
         if ("autoSleep" in parameters) urlOptions.autoSleep = parameters.autoSleep;
         // now start
         if ("expectedSimFPS" in parameters) expectedSimFPS = Math.min(parameters.expectedSimFPS, MAX_BALANCE_FPS);
-        const ISLAND_OPTIONS = ['tps'];
-        const SESSION_OPTIONS = ['optionsFromUrl', 'password', 'appId', 'viewIdDebugSuffix'];
+        const SESSION_PARAMS = ['tps', 'optionsFromUrl', 'password', 'appId', 'viewIdDebugSuffix'];
         freezeAndHashConstants();
         const controller = new Controller();
-        const islandOptions = {};
-        if (parameters.options) {
-            // make sure options are a JSON object
-            Object.assign(islandOptions, JSON.parse(JSON.stringify(parameters.options)));
-        }
-        for (const [param, value] of Object.entries(parameters)) {
-            if (ISLAND_OPTIONS.includes(param)) islandOptions[param] = value;
-        }
+        // make sure options are JSONable
+        const options = JSON.parse(JSON.stringify({...parameters.options}));
         /** our return value */
         const session = {
             id: '',
@@ -237,10 +230,10 @@ export class Session {
                 snapshot,
                 init: islandInit,
                 destroyerFn: rebootModelView,
-                options: islandOptions,
+                options,
             };
             for (const [param, value] of Object.entries(parameters)) {
-                if (SESSION_OPTIONS.includes(param)) sessionSpec[param] = value;
+                if (SESSION_PARAMS.includes(param)) sessionSpec[param] = value;
             }
             session.model = (await controller.establishSession(name, sessionSpec)).modelRoot;
             session.id = controller.id;

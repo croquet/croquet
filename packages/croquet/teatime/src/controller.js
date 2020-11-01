@@ -70,8 +70,6 @@ function initDEBUG() {
 
 const NOCHEAT = urlOptions.nocheat;
 
-const OPTIONS_FROM_URL = [ 'tps' ];
-
 // schedule a snapshot after this many ms of CPU time have been used for simulation
 const SNAPSHOT_EVERY = 5000;
 // add this many ms for each external message scheduled
@@ -215,15 +213,22 @@ export default class Controller {
         const { optionsFromUrl, password, appId, viewIdDebugSuffix} = sessionSpec;
         if (appId) name = `${appId}/${name}`;
         if (viewIdDebugSuffix) this.viewId = this.viewId.replace(/_.*$/, '') + "_" + (""+viewIdDebugSuffix).slice(0,16);
+        // root model options are only those explicitly requested by appp
         const options = {...sessionSpec.options};
-        for (const key of [...OPTIONS_FROM_URL, ...optionsFromUrl||[]]) {
+        if (optionsFromUrl) for (const key of optionsFromUrl) {
             if (key in urlOptions) options[key] = urlOptions[key];
+        }
+        // session parameters are additional properties that cause a new session
+        const params = {};
+        for (const key of [ 'tps' ] ) {
+            if (key in urlOptions) params[key] = urlOptions[key];
+            else if (key in sessionSpec) params[key] = sessionSpec[key];
         }
         // if the default shows up in logs we have a problem
         const keyMaterial = password || urlOptions.pw || "THIS SHOULDN'T BE IN LOGS";
         const pbkdf2Result = PBKDF2(keyMaterial, "", { keySize: 256/32 });
         this.key = WordArray.create(pbkdf2Result.words.slice(0, 256/32));
-        const { id, islandId, codeHash } = await hashSessionAndCode(name, options, SDK_VERSION);
+        const { id, islandId, codeHash } = await hashSessionAndCode(name, options, params, SDK_VERSION);
         if (DEBUG.session) console.log(`Session ID for "${name}": ${id}`);
         this.islandCreator = {...sessionSpec, options, name, islandId, codeHash };
 
