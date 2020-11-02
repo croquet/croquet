@@ -877,12 +877,26 @@ class IslandHasher {
                     case "Array":
                         this.hashArray(value, defer);
                         return;
+                    case "ArrayBuffer":
+                        this.hashArray(new Uint8Array(value), false);
+                        return;
                     case "Set":
                     case "Map":
-                    case "Uint8Array":
-                    case "Uint16Array":
-                    case "Float32Array":
                         this.hashStructure(value, [...value]);
+                        return;
+                    case "DataView":
+                        this.hashArray(new Uint8Array(value.buffer, value.byteOffset, value.byteLength), false);
+                        return;
+                    case "Int8Array":
+                    case "Uint8Array":
+                    case "Uint8ClampedArray":
+                    case "Int16Array":
+                    case "Uint16Array":
+                    case "Int32Array":
+                    case "Uint32Array":
+                    case "Float32Array":
+                    case "Float64Array":
+                        this.hashArray(value, false);
                         return;
                     case "Object":
                         if (value instanceof Model) this.hashModel(value);
@@ -1031,12 +1045,21 @@ class IslandWriter {
                 const type = Object.prototype.toString.call(value).slice(8, -1);
                 switch (type) {
                     case "Array": return this.writeArray(value, path, defer);
+                    case "ArrayBuffer": return this.writeArrayBuffer(value);
                     case "Set":
                     case "Map":
-                    case "Uint8Array":
-                    case "Uint16Array":
-                    case "Float32Array":
                         return this.writeAs(type, value, [...value], path);
+                    case "DataView":
+                    case "Int8Array":
+                    case "Uint8Array":
+                    case "Uint8ClampedArray":
+                    case "Int16Array":
+                    case "Uint16Array":
+                    case "Int32Array":
+                    case "Uint32Array":
+                    case "Float32Array":
+                    case "Float64Array":
+                        return this.writeAsTypedArray(type, value);
                     case "Object": {
                         if (value instanceof Model) return this.writeModel(value, path);
                         if (value.constructor === Object) return this.writeObject(value, path, defer);
@@ -1111,6 +1134,26 @@ class IslandWriter {
         for (let i = 0; i < array.length; i++) {
             this.writeInto(state, i, array[i], path, defer);
         }
+        return state;
+    }
+
+    writeArrayBuffer(buffer) {
+        if (this.refs.has(buffer)) return this.writeRef(buffer);
+        const state = {
+            $class: "ArrayBuffer",
+            $value: btoa(String.fromCharCode(...new Uint8Array(buffer))),
+        };
+        this.refs.set(buffer, state);
+        return state;
+    }
+
+    writeAsTypedArray(type, array) {
+        if (this.refs.has(array)) return this.writeRef(array);
+        const state = {
+            $class: type,
+            $value: [this.writeArrayBuffer(array.buffer), array.byteOffset, type === "DataView" ? array.byteLength : array.length],
+        };
+        this.refs.set(array, state);
         return state;
     }
 
@@ -1204,9 +1247,17 @@ class IslandReader {
         this.readers.set("Set", array => new Set(array));
         this.readers.set("Map", array => new Map(array));
         this.readers.set("Array", array => array.slice(0));
-        this.readers.set("Uint8Array", array => new Uint8Array(array));
-        this.readers.set("Uint16Array", array => new Uint16Array(array));
-        this.readers.set("Float32Array", array => new Float32Array(array));
+        this.readers.set("ArrayBuffer", data => new Uint8Array(atob(data).split('').map(c => c.codePointAt(0))).buffer);
+        this.readers.set("DataView", args => new DataView(...args));
+        this.readers.set("Int8Array", args => new Int8Array(...args));
+        this.readers.set("Uint8Array", args => new Uint8Array(...args));
+        this.readers.set("Uint8ClampedArray", args => new Uint8ClampedArray(...args));
+        this.readers.set("Int16Array", args => new Int16Array(...args));
+        this.readers.set("Uint16Array", args => new Uint16Array(...args));
+        this.readers.set("Int32Array", args => new Int32Array(...args));
+        this.readers.set("Uint32Array", args => new Uint32Array(...args));
+        this.readers.set("Float32Array", args => new Float32Array(...args));
+        this.readers.set("Float64Array", args => new Float64Array(...args));
     }
 
     addReader(classId, ClassOrSpec) {
