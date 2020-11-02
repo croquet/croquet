@@ -4,6 +4,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 
 # latest pre-releases
 
+* 0.3.4-27 snapshot all kinds of TypedArray, ArrayBuffer as Base64
 * 0.3.4-26 separate data directories per app
 * 0.3.4-25 fix persistent islandId (should not depend on tps)
 * 0.3.4-24 add persistSession()
