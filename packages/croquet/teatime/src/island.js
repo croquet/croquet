@@ -1059,7 +1059,7 @@ class IslandWriter {
                     case "Uint32Array":
                     case "Float32Array":
                     case "Float64Array":
-                        return this.writeAsTypedArray(type, value);
+                        return this.writeTypedArray(type, value);
                     case "Object": {
                         if (value instanceof Model) return this.writeModel(value, path);
                         if (value.constructor === Object) return this.writeObject(value, path, defer);
@@ -1141,13 +1141,13 @@ class IslandWriter {
         if (this.refs.has(buffer)) return this.writeRef(buffer);
         const state = {
             $class: "ArrayBuffer",
-            $value: btoa(String.fromCharCode(...new Uint8Array(buffer))),
+            $value: arrayBufferToBase64(buffer),
         };
         this.refs.set(buffer, state);
         return state;
     }
 
-    writeAsTypedArray(type, array) {
+    writeTypedArray(type, array) {
         if (this.refs.has(array)) return this.writeRef(array);
         const state = {
             $class: type,
@@ -1247,7 +1247,7 @@ class IslandReader {
         this.readers.set("Set", array => new Set(array));
         this.readers.set("Map", array => new Map(array));
         this.readers.set("Array", array => array.slice(0));
-        this.readers.set("ArrayBuffer", data => new Uint8Array(atob(data).split('').map(c => c.codePointAt(0))).buffer);
+        this.readers.set("ArrayBuffer", data => base64ToArrayBuffer(data));
         this.readers.set("DataView", args => new DataView(...args));
         this.readers.set("Int8Array", args => new Int8Array(...args));
         this.readers.set("Uint8Array", args => new Uint8Array(...args));
@@ -1472,4 +1472,24 @@ function gatherInternalClassTypesRec(dummyObject, prefix="", gatheredClasses={},
     for (const obj of newObjects) {
         gatherInternalClassTypesRec(obj, prefix, gatheredClasses, seen);
     }
+}
+
+function arrayBufferToBase64(buffer) {
+    const array = new Uint8Array(buffer);
+    const n = array.byteLength;
+    let string = '';
+    for (let i = 0; i < n; i++) {
+        string += String.fromCharCode(array[i]);
+    }
+    return window.btoa(string);
+}
+
+function base64ToArrayBuffer(base64) {
+    const string = window.atob(base64);
+    const n = string.length;
+    const array = new Uint8Array(n);
+    for (let i = 0; i < n; i++) {
+        array[i] = string.charCodeAt(i);
+    }
+    return array.buffer;
 }
