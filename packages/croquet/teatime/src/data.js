@@ -1,10 +1,6 @@
-import AES from "crypto-js/aes";
-import HmacSHA256 from "crypto-js/hmac-sha256";
 import WordArray from "crypto-js/lib-typedarrays";
 import Base64 from "crypto-js/enc-base64";
-
-import { hashString, baseUrl } from "@croquet/util/modules";
-import { App } from "@croquet/util/html";
+import { hashBuffer, baseUrl } from "@croquet/util/modules";
 import urlOptions from "@croquet/util/urlOptions";
 import Island from "./island";
 import { sessionProps } from "./controller";
@@ -22,102 +18,13 @@ function debug(what) {
     return urlOptions.has("debug", what, false);
 }
 
-function dataUrl(hash, path) {
+function dataUrl(path, hash) {
     if (!path) return `${baseUrl('sessiondata')}${hash}`;              // deprecated
     return `${baseUrl('apps')}${path}/data/${hash}`;
 }
 
-async function hashData(data) {
-    return hashString(data);
-}
-
-async function randomKey() {
-    return WordArray.random(32).toString(Base64);
-}
-
-// string, arraybuffer => string
-async function encrypt(keyBase64, data) {
-    const start = Date.now();
-    const plaintext = WordArray.create(data);
-    const key = Base64.parse(keyBase64);
-    const hmac = HmacSHA256(plaintext, key);
-    const iv = WordArray.random(16);
-    const { ciphertext } = AES.encrypt(plaintext, key, { iv });
-    const encrypted = "CRQ0" + [iv, hmac, ciphertext].map(wordArray => wordArray.toString(Base64)).join('');
-    if (debug("data")) console.log(`Croquet.Data: encryption (${data.byteLength} bytes) took ${Math.ceil(Date.now() - start)}ms`);
-    return encrypted;
-}
-
-// string, string => arraybuffer
-async function decrypt(keyBase64, encrypted) {
-    const start = Date.now();
-    const key = Base64.parse(keyBase64);
-    const version = encrypted.slice(0, 4);
-    const iv = Base64.parse(encrypted.slice(4, 4 + 24));
-    const mac = Base64.parse(encrypted.slice(4 + 24, 4 + 24 + 44));
-    const ciphertext = encrypted.slice(4 + 24 + 44);
-    const decrypted = AES.decrypt(ciphertext, key, { iv });
-    decrypted.clamp(); // clamping manually because of bug in HmacSHA256
-    const hmac = HmacSHA256(decrypted, key);
-    if (!compareHmacs(mac.words, hmac.words)) console.warn("decryption hmac mismatch"); // ¯\_(ツ)_/¯
-    const result = cryptoJsWordArrayToUint8Array(decrypted);
-    if (debug("data")) console.log(`Croquet.Data: decryption (${result.length} bytes) took ${Math.ceil(Date.now() - start)}ms`);
-    return result.buffer;
-}
-
-function compareHmacs(fst, snd) {
-    let ret = fst.length === snd.length;
-    for (let i=0; i<fst.length; i++) {
-        if (!(fst[i] === snd[i])) {
-            ret = false;
-        }
-    }
-    return ret;
-}
-
-function cryptoJsWordArrayToUint8Array(wordArray) {
-    const l = wordArray.sigBytes;
-    const words = wordArray.words;
-    const result = new Uint8Array(l);
-    let i = 0, j = 0;
-    while (true) {
-        if (i === l) break;
-        const w = words[j++];
-        result[i++] = (w & 0xff000000) >>> 24; if (i === l) break;
-        result[i++] = (w & 0x00ff0000) >>> 16; if (i === l) break;
-        result[i++] = (w & 0x0000ff00) >>> 8;  if (i === l) break;
-        result[i++] = (w & 0x000000ff);
-    }
-    return result;
-}
-
-async function upload(url, data, appId, islandId) {
-    if (debug("data")) console.log(`Croquet.Data: Uploading ${data.length} bytes to ${url}`);
-    const response = await fetch(url, {
-        method: "PUT",
-        headers: {
-            "X-Croquet-App": appId,
-            "X-Croquet-Id": islandId,
-        },
-        referrer: App.referrerURL(),
-        body: data,
-    });
-    if (!response.ok) throw Error(`Croquet.Data: failed to upload ${url} (${response.status} ${response.statusText})`);
-    if (debug("data")) console.log(`Croquet.Data: uploaded (${response.status} ${response.statusText}) ${data.length} bytes to ${url}`);
-}
-
-async function download(url, appId, islandId) {
-    if (debug("data")) console.log(`Croquet.Data: Downloading from ${url}`);
-    const response = await fetch(url, {
-        method: "GET",
-        headers: {
-            "X-Croquet-App": appId,
-            "X-Croquet-Id": islandId,
-        },
-        referrer: App.referrerURL(),
-    });
-    if (response.ok) return response.text();
-    throw Error(`Croquet.Data: failed to download ${url} (${response.status} ${response.statusText})`);
+function hashFromUrl(url) {
+    return url.replace(/.*\//, '');
 }
 
 /** exposed as Data in API */
@@ -136,30 +43,19 @@ export default class DataHandle {
             data = sessionId;
         }
         if (Island.hasCurrent()) throw Error("Croquet.Data.store() called from Model code");
-        const  { appId, islandId } = sessionProps(sessionId);
+        const  { appId, islandId, uploadEncrypted } = sessionProps(sessionId);
         if (!appId) {
             console.warn("Deprecated: Croquet.Data API used without declaring appId in Croquet.Session.join()");
         }
-        const key = await randomKey();
-        const encrypted = await encrypt(key, data);
-        const hash = await hashData(encrypted);
+        const key = WordArray.random(32).toString(Base64);
         const path = appId && `${appId}/${islandId}`;
-        const handle = new DataHandle(hash, key, path);
-        const url = dataUrl(hash, path);
-        const promise = upload(url, encrypted, appId, islandId);
-        // if we uploaded the same file in this same session before, then the promise already exists
-        if (!handle.stored) {
-            Object.defineProperty(handle, "stored", { value: () => Island.hasCurrent() ? undefined : promise });
-            // TODO: do not ignore upload failure
-        }
+        const url = await uploadEncrypted({ url: dataUrl(path, "%HASH%"), content: data, key, debug: debug("data"), what: "data" });
+        const hash = hashFromUrl(url);
+        return new DataHandle(hash, key, path);
 
         // TODO: publish events and handle in island to track assets even if user code fails to do so
         // publish(sessionId, "data-storing", handle);
         // promise.then(() => publish(sessionId, "data-stored", handle));
-
-        // wait for upload to complete unless doNotWait requested
-        if (!doNotWait) await promise;
-        return handle;
     }
 
     /**
@@ -174,7 +70,7 @@ export default class DataHandle {
             handle = sessionId;
         }
         if (Island.hasCurrent()) throw Error("Croquet.Data.fetch() called from Model code");
-        const  { appId, islandId } = sessionProps(sessionId);
+        const  { appId, downloadEncrypted } = sessionProps(sessionId);
         if (!appId) {
             console.warn("Deprecated: Croquet.Data API used without declaring appId in Croquet.Session.join()");
         }
@@ -182,9 +78,8 @@ export default class DataHandle {
         const key = handle && handle[DATAHANDLE_KEY];
         const path = handle && handle[DATAHANDLE_PATH];
         if (typeof hash !== "string" ||typeof key !== "string") throw Error("Croquet.Data.fetch() called with invalid handle");
-        const url = dataUrl(hash, path);
-        const encrypted = await download(url, appId, islandId);
-        return decrypt(key, encrypted);
+        const url = dataUrl(path, hash);
+        return downloadEncrypted({ url, key, debug: debug("data"), what: "data" });
     }
 
     /** @private */

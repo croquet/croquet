@@ -94,7 +94,11 @@ export function sessionProps(sessionId) {
     for (const controller of Controllers) {
         if (controller.id === sessionId) {
             const { appId, islandId } = controller.islandCreator;
-            return { appId, islandId };
+            return {
+                appId, islandId,
+                uploadEncrypted: opts => controller.uploadEncrypted(opts),
+                downloadEncrypted: opts => controller.downloadEncrypted(opts),
+            };
         }
     }
     return {};
@@ -414,15 +418,22 @@ export default class Controller {
     async uploadSnapshot(snapshot, dissidentFlag=null) {
         await this.hashSnapshot(snapshot);
         const start = Stats.begin("snapshot");
-        const body = JSON.stringify(snapshot);
+        const content = JSON.stringify(snapshot);
         const stringMS = Stats.end("snapshot") - start;
-        if (DEBUG.snapshot) console.log(this.id, `snapshot stringified (${body.length} bytes) in ${Math.ceil(stringMS)}ms`);
+        if (DEBUG.snapshot) console.log(this.id, `snapshot stringified (${content.length} bytes) in ${Math.ceil(stringMS)}ms`);
 
         const {time, seq, hash} = snapshot.meta;
         const url = this.snapshotUrl(time, seq, hash);
         const socket = this.connection.socket;
         try {
-            await this.uploadGzippedEncrypted(url, body, "snapshot");
+            await this.uploadEncrypted({
+                url,
+                content,
+                key: this.key,
+                gzip: true,
+                debug: DEBUG.snapshot,
+                what: "snapshot",
+            });
             if (this.connection.socket !== socket) { console.warn(this.id, "Controller was reset while trying to upload snapshot"); return false; }
         } catch (e) { console.error(this.id, "Failed to upload snapshot"); return false; }
         this.announceSnapshotUrl(time, seq, hash, url, dissidentFlag);
@@ -447,7 +458,7 @@ export default class Controller {
         }
     }
 
-    async downloadGzippedEncrypted(url, persistedOrSnapshot) {
+    async downloadEncrypted({url, gzip, key, debug, json, what}) {
         try {
             let timer = Date.now();
             const response = await fetch(url, {
@@ -460,19 +471,20 @@ export default class Controller {
                 referrer: App.referrerURL(),
             });
             const encrypted = await response.arrayBuffer();
-            if (DEBUG.snapshot) console.log(this.id, `${persistedOrSnapshot} fetched (${encrypted.byteLength} bytes) in ${-timer + (timer = Date.now())}ms`);
-            const plaintext = this.decryptBinary(encrypted);
-            if (DEBUG.snapshot) console.log(this.id, `${persistedOrSnapshot} decrypted (${plaintext.length} bytes) in ${-timer + (timer = Date.now())}ms`);
-            const jsonString = pako.inflate(plaintext, { to: 'string' });
-            if (DEBUG.snapshot) console.log(this.id, `${persistedOrSnapshot} inflated (${jsonString.length} bytes) in ${-timer + (timer = Date.now())}ms`);
-            return JSON.parse(jsonString);
+            if (debug) console.log(this.id, `${what} fetched (${encrypted.byteLength} bytes) in ${-timer + (timer = Date.now())}ms`);
+            const decrypted = this.decryptBinary(encrypted, key); // Uint8Array
+            if (debug) console.log(this.id, `${what} decrypted (${decrypted.length} bytes) in ${-timer + (timer = Date.now())}ms`);
+            const uncompressed = gzip ? pako.inflate(decrypted) : decrypted;
+            if (debug && gzip) console.log(this.id, `${what} inflated (${uncompressed.length} bytes) in ${-timer + (timer = Date.now())}ms`);
+            return json ? JSON.parse(new TextDecoder().decode(uncompressed)) : uncompressed;
         } catch (err) { /* ignore */}
     }
 
-    /** upload a stringy source object as binary encrypted gzip */
-    async uploadGzippedEncrypted(url, stringyContent, what) {
+    /** upload string or array buffer as binary encrypted, optionally gzipped */
+    async uploadEncrypted({url, content, key, gzip, debug, what}) {
         // leave actual work to our UploadWorker
-        const { buffer } = new TextEncoder().encode(stringyContent);
+        const buffer = typeof content === "string" ? new TextEncoder().encode(content).buffer : content;
+        const keyBase64 = typeof key === "string" ? key : Base64.stringify(key);
         const job = ++UploadJobs;
         return new Promise( (resolve, reject) => {
             UploadWorker.postMessage({
@@ -480,13 +492,13 @@ export default class Controller {
                 cmd: "uploadEncrypted",
                 url,
                 buffer,
-                keyBase64: Base64.stringify(this.key),
-                gzip: true,
+                keyBase64,
+                gzip,
                 referrer: App.referrerURL(),
                 id: this.id,
                 appId: this.islandCreator.appId,
                 islandId: this.islandCreator.islandId,
-                debug: DEBUG.snapshot,
+                debug,
                 what,
             }, [buffer]);
             const onmessage = msg => {
@@ -516,7 +528,14 @@ export default class Controller {
         const shouldUpload = await this.persistenceVoting(time, tuttiSeq, persistentDataHash, ms);
         if (!shouldUpload) return;
         const url = this.persistentUrl(persistentDataHash);
-        await this.uploadGzippedEncrypted(url, persistentDataString, "persistent data");
+        await this.uploadEncrypted({
+            url,
+            content: persistentDataString,
+            key: this.key,
+            gzip: true,
+            debug: DEBUG.snapshot,
+            what: "persistent data",
+        });
         if (DEBUG.snapshot) console.log(this.id, `sending persistent data url to reflector: ${url}`);
         try {
             this.connection.send(JSON.stringify({
@@ -632,7 +651,7 @@ export default class Controller {
                 }
                 this.timeFromReflector(time);
                 if (DEBUG.session) console.log(`${this.id} fetching ${persistedOrSnapshot} ${url}`);
-                const data = url && await this.downloadGzippedEncrypted(url, persistedOrSnapshot);
+                const data = url && await this.downloadEncrypted({url, gzip: true, key: this.key, debug: DEBUG.snapshot, json: true, what: persistedOrSnapshot});
                 if (!this.connected) { console.log(this.id, 'socket went away during SYNC'); return; }
                 if (url && !data) {
                     this.connection.closeConnectionWithError('SYNC', Error(`failed to fetch ${persistedOrSnapshot}`));
@@ -821,8 +840,9 @@ export default class Controller {
         return "";
     }
 
-    decryptBinary(buffer) {
+    decryptBinary(buffer, key) {
         const version = new TextDecoder().decode(new Uint8Array(buffer, 0, 4));
+        if (typeof key === "string") key = Base64.parse(key);
         let encrypted, iv, mac, ciphertext, decrypted;
         switch (version) {
             case "CRQ0": // Base64
@@ -830,19 +850,19 @@ export default class Controller {
                 iv = Base64.parse(encrypted.slice(4, 4 + 24));
                 mac = Base64.parse(encrypted.slice(4 + 24, 4 + 24 + 44));
                 ciphertext = encrypted.slice(4 + 24 + 44);
-                decrypted = AES.decrypt(ciphertext, this.key, { iv });        // implicitly creates { ciphertext }
+                decrypted = AES.decrypt(ciphertext, key, { iv });        // implicitly creates { ciphertext }
                 break;
             case "CRQ1": // Binary
                 encrypted = new Uint8Array(buffer);
                 iv = WordArray.create(encrypted.subarray(4, 4 + 16));
                 mac = WordArray.create(encrypted.subarray(4 + 16, 4 + 16 + 32));
                 ciphertext = WordArray.create(encrypted.subarray(4 + 16 + 32));
-                decrypted = AES.decrypt({ ciphertext }, this.key, { iv });
+                decrypted = AES.decrypt({ ciphertext }, key, { iv });
                 break;
             default: throw Error(`${this.id} unknown encryption version ${version}`);
         }
         decrypted.clamp(); // clamping manually because of bug in HmacSHA256
-        const hmac = HmacSHA256(decrypted, this.key);
+        const hmac = HmacSHA256(decrypted, key);
         if (!this.compareHmacs(mac.words, hmac.words)) {
             console.warn("decryption hmac mismatch");
             return [];
