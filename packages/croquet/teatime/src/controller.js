@@ -493,7 +493,7 @@ export default class Controller {
                 if (job !== msg.data.job) return;
                 const {url, ok, status, statusText} = msg.data;
                 UploadWorker.removeEventListener("message", onmessage);
-                if (ok) resolve(ok);
+                if (ok) resolve(url);
                 else reject(Error(`${status}: ${statusText}`));
             };
             UploadWorker.addEventListener("message", onmessage);

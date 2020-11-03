@@ -3,13 +3,14 @@
 import { deflate } from 'pako/dist/pako_deflate.js';
 import Base64 from "crypto-js/enc-base64";
 import AES from "crypto-js/aes";
+import SHA256 from "crypto-js/sha256";
 import WordArray from "crypto-js/lib-typedarrays";
 import HmacSHA256 from "crypto-js/hmac-sha256";
 
 onmessage = msg => {
     const { job, cmd, url, buffer, keyBase64, gzip, referrer, id, appId, islandId, debug, what } = msg.data;
     switch (cmd) {
-        case "uploadEncrypted": uploadEncrypted(); break;
+        case "uploadEncrypted": uploadEncrypted(url); break;
         default: console.error("Unknown worker command", cmd);
     }
 
@@ -44,9 +45,17 @@ onmessage = msg => {
         return compressed;
     }
 
-    async function uploadEncrypted() {
+    function hash(bytes) {
+        const sha256 = SHA256(WordArray.create(bytes));
+        const base64 = Base64.stringify(sha256);
+        const base64url = base64.replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+        return base64url;
+    }
+
+    async function uploadEncrypted(url) {
         try {
             const body = encrypt(gzip ? compress(buffer) : buffer);
+            if (url.includes("%HASH%")) url = url.replace("%HASH%", hash(body));
             if (debug) console.log(`${id} uploading ${what} to ${url}`);
             const { ok, status, statusText} = await fetch(url, {
                 method: "PUT",
