@@ -30,10 +30,10 @@ class PixModel extends Model {
         this.publish(this.id, "asset-changed");
     }
 
-    storedData(handle) {
+    storedData({hash, handle}) {
         for (const asset of this.assets) {
-            if (handle === asset.handle) {
-                asset.stored = true;
+            if (!asset.handle && asset.hash === hash) {
+                asset.handle = handle;
                 this.publish(this.id, "asset-changed");
                 this.persistSession(this.getEverything);
             }
@@ -94,9 +94,10 @@ class PixModel extends Model {
     getEverything() {
         return {
             // only persist stored assets
-            current: this.asset && this.asset.stored && this.asset.id,
-            assets: this.assets.filter(asset => asset.stored).map(asset => ({
+            current: this.asset && this.asset.handle && this.asset.id,
+            assets: this.assets.filter(asset => asset.handle).map(asset => ({
                 id: asset.id,
+                hash: asset.hash,
                 type: asset.type,
                 size: asset.size,
                 name: asset.name,
@@ -110,22 +111,22 @@ class PixModel extends Model {
 
     restoreEverything(persistedData) {
         // persisted as { current, assets }
-        const currentId = persistedData.current;
+        const persistedCurrent = persistedData.current;
         for (const persisted of persistedData.assets) {
-            // persisted as { id, type, size, name, width, height, thumb, data }
+            // persisted as { id, hash, type, size, name, width, height, thumb, data }
             const asset = {
-                id: persisted.id,
+                // id: persisted.id,    // will get new id
+                hash: persisted.hash,
                 type: persisted.type,
                 size: persisted.size,
                 name: persisted.name,
                 width: persisted.width,
                 height: persisted.height,
                 thumb: persisted.thumb,
-                stored: true,         // only stored assets have been persisted
                 handle: Data.fromId(persisted.data),
             };
             this.addAsset(asset);
-            if (currentId === asset.id) this.asset = asset;
+            if (persistedCurrent === persisted.id) this.asset = asset;
         }
     }
 
@@ -245,14 +246,13 @@ class PixView extends View {
         const blob = new Blob([data], { type: file.type });
         const { width, height, thumb } = await this.analyzeImage(blob);
         if (!thumb) return App.showMessage(`Image is empty (${width}x${height}): "${file.name}" (${file.type})`, {level: "warning"});
-        // show placeholder for immediate feedback
-        image.src = thumb;
-        const handle = await Data.store(this.sessionId, data, true);
-        contentCache.set(handle, blob);
-        const asset = { handle, stored: false, type: file.type, size: data.byteLength, name: file.name, width, height, thumb };
+        image.src = thumb; // show placeholder for immediate feedback
+        const hash = await Data.hash(data);
+        const asset = { hash, type: file.type, size: data.byteLength, name: file.name, width, height, thumb };
         this.publish(this.model.id, "add-asset", asset);
-        await handle.stored().then(DEBUG_DELAY);
-        this.publish(this.model.id, "stored-data", handle);
+        const handle = await Data.store(this.sessionId, data);
+        contentCache.set(handle, blob);
+        this.publish(this.model.id, "stored-data", { hash, handle });
     }
 
     // every user gets this event via model
@@ -263,7 +263,7 @@ class PixView extends View {
         // are we already showing the desired image?
         if (asset === this.asset) return;
         // do we have the blob yet?
-        let blob = asset.stored && contentCache.get(asset.handle);
+        let blob = asset.handle && contentCache.get(asset.handle);
         // (if this is the uploading view then it is cached but not stored yet, we could
         // show the full res immediately, but we rather show the thumb for feedback)
         if (!blob) {
@@ -271,7 +271,7 @@ class PixView extends View {
             image.src = asset.thumb;
             this.asset = null;
             // ... unless asset is not even stored yet, in which case we will get another event
-            if (!asset.stored) return;
+            if (!asset.handle) return;
             try {
                 const data = await Data.fetch(this.sessionId, asset.handle).then(DEBUG_DELAY);
                 blob = new Blob([data], { type: asset.type });
