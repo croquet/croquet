@@ -7,7 +7,7 @@ import WordArray from "crypto-js/lib-typedarrays";
 import HmacSHA256 from "crypto-js/hmac-sha256";
 
 onmessage = msg => {
-    const { cmd, url, buffer, keyBase64, gzip, referrer, id, appId, islandId, debug, what } = msg.data;
+    const { job, cmd, url, buffer, keyBase64, gzip, referrer, id, appId, islandId, debug, what } = msg.data;
     switch (cmd) {
         case "uploadEncrypted": uploadEncrypted(); break;
         default: console.error("Unknown worker command", cmd);
@@ -61,10 +61,10 @@ onmessage = msg => {
             });
             if (!ok) throw Error(`server returned ${status} ${statusText} for PUT ${url}`);
             if (debug) console.log(`${id} uploaded ${what} (${status}) ${url}`);
-            postMessage({url, ok, status, statusText});
+            postMessage({job, url, ok, status, statusText});
         } catch(e) {
             if (debug) console.log(`${id} upload error ${e.message}`);
-            postMessage({url, ok: false, status: -1, statusText: e.message});
+            postMessage({job, ok: false, status: -1, statusText: e.message});
         };
     }
 }

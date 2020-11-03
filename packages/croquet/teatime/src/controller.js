@@ -86,6 +86,7 @@ function randomString() { return Math.floor(Math.random() * 36**10).toString(36)
 // start upload worker (upload.js)
 const UploadWorker = new UploadWorkerFactory();
 UploadWorker.onerror = e => console.error(`UploadWorker error: ${e.message}`);
+let UploadJobs = 0;
 
 const Controllers = new Set();
 
@@ -472,8 +473,10 @@ export default class Controller {
     async uploadGzippedEncrypted(url, stringyContent, what) {
         // leave actual work to our UploadWorker
         const { buffer } = new TextEncoder().encode(stringyContent);
+        const job = ++UploadJobs;
         return new Promise( (resolve, reject) => {
             UploadWorker.postMessage({
+                job,
                 cmd: "uploadEncrypted",
                 url,
                 buffer,
@@ -487,8 +490,8 @@ export default class Controller {
                 what,
             }, [buffer]);
             const onmessage = msg => {
+                if (job !== msg.data.job) return;
                 const {url, ok, status, statusText} = msg.data;
-                if (url !== url) return;
                 UploadWorker.removeEventListener("message", onmessage);
                 if (ok) resolve(ok);
                 else reject(Error(`${status}: ${statusText}`));
