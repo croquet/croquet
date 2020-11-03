@@ -80,6 +80,14 @@ export default class DataHandle {
         return downloadEncrypted({ url, key, debug: debug("data"), what: "data" });
     }
 
+    /**
+     * Answer a base64url-encoded hash for the given data
+     * @param {ArrayBuffer} data
+     */
+    static async hash(data) {
+        return hashBuffer(data);
+    }
+
     /** @private */
     static fromId(id) {
         const version = id.slice(0, 1);
