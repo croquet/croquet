@@ -7,9 +7,9 @@ import WordArray from "crypto-js/lib-typedarrays";
 import HmacSHA256 from "crypto-js/hmac-sha256";
 
 onmessage = msg => {
-    const { cmd, url, stringyContent, keyBase64, referrer, id, appId, islandId, debug, what } = msg.data;
+    const { cmd, url, buffer, keyBase64, gzip, referrer, id, appId, islandId, debug, what } = msg.data;
     switch (cmd) {
-        case "uploadGzippedEncrypted": uploadGzippedEncrypted(); break;
+        case "uploadEncrypted": uploadEncrypted(); break;
         default: console.error("Unknown worker command", cmd);
     }
 
@@ -20,18 +20,33 @@ onmessage = msg => {
         const hmac = HmacSHA256(plaintext, key);
         const iv = WordArray.random(16);
         const { ciphertext } = AES.encrypt(plaintext, key, { iv });
-        const encrypted = "CRQ0" + [iv, hmac, ciphertext].map(wordArray => wordArray.toString(Base64)).join('');
-        if (debug) console.log(`${id} ${what} encrypted (${encrypted.length} bytes) in ${Math.ceil(Date.now() - start)}ms`);
+        // Version 0 used Based64:
+        // const encrypted = "CRQ0" + [iv, hmac, ciphertext].map(wordArray => wordArray.toString(Base64)).join('');
+        // Version 1 is binary:
+        const encrypted = new ArrayBuffer(4 + iv.sigBytes + hmac.sigBytes + ciphertext.sigBytes);
+        const view = new DataView(encrypted);
+        let i = 0;
+        view.setUint32(i, 0x43525131, false); i += 4; //"CRQ1"
+        // CryptoJS WordArrays are big-endian
+        for (const array of [iv, hmac, ciphertext]) {
+            for (const word of array.words) {
+                view.setInt32(i, word, false); i += 4;
+            }
+        }
+        if (debug) console.log(`${id} ${what} encrypted (${encrypted.byteLength} bytes) in ${Date.now() - start}ms`);
         return encrypted;
     }
 
-    async function uploadGzippedEncrypted() {
+    function compress(bytes) {
+        const start = Date.now();
+        const compressed = deflate(bytes, { gzip: true, level: 1 }); // sloppy but quick
+        if (debug) console.log(`${id} ${what} compressed (${compressed.length} bytes) in ${Date.now() - start}ms`);
+        return compressed;
+    }
+
+    async function uploadEncrypted() {
         try {
-            const start = Date.now();
-            const chars = new TextEncoder().encode(stringyContent);
-            const gzipped = deflate(chars, { gzip: true, level: 1 }); // sloppy but quick
-            if (debug) console.log(`${id} ${what} deflated (${gzipped.length} bytes) in ${Math.ceil(Date.now() - start)}ms`);
-            const encrypted = encrypt(gzipped);
+            const body = encrypt(gzip ? compress(buffer) : buffer);
             if (debug) console.log(`${id} uploading ${what} to ${url}`);
             const { ok, status, statusText} = await fetch(url, {
                 method: "PUT",
@@ -42,7 +57,7 @@ onmessage = msg => {
                     'X-Croquet-Id': islandId,
                 },
                 referrer,
-                body: encrypted
+                body
             });
             if (!ok) throw Error(`server returned ${status} ${statusText} for PUT ${url}`);
             if (debug) console.log(`${id} uploaded ${what} (${status}) ${url}`);

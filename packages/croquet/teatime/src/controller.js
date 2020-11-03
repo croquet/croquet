@@ -458,8 +458,8 @@ export default class Controller {
                 },
                 referrer: App.referrerURL(),
             });
-            const encrypted = await response.text();
-            if (DEBUG.snapshot) console.log(this.id, `${persistedOrSnapshot} fetched (${encrypted.length} bytes) in ${-timer + (timer = Date.now())}ms`);
+            const encrypted = await response.arrayBuffer();
+            if (DEBUG.snapshot) console.log(this.id, `${persistedOrSnapshot} fetched (${encrypted.byteLength} bytes) in ${-timer + (timer = Date.now())}ms`);
             const plaintext = this.decryptBinary(encrypted);
             if (DEBUG.snapshot) console.log(this.id, `${persistedOrSnapshot} decrypted (${plaintext.length} bytes) in ${-timer + (timer = Date.now())}ms`);
             const jsonString = pako.inflate(plaintext, { to: 'string' });
@@ -471,19 +471,21 @@ export default class Controller {
     /** upload a stringy source object as binary encrypted gzip */
     async uploadGzippedEncrypted(url, stringyContent, what) {
         // leave actual work to our UploadWorker
+        const { buffer } = new TextEncoder().encode(stringyContent);
         return new Promise( (resolve, reject) => {
             UploadWorker.postMessage({
-                cmd: "uploadGzippedEncrypted",
+                cmd: "uploadEncrypted",
                 url,
-                stringyContent,
+                buffer,
                 keyBase64: Base64.stringify(this.key),
+                gzip: true,
                 referrer: App.referrerURL(),
                 id: this.id,
                 appId: this.islandCreator.appId,
                 islandId: this.islandCreator.islandId,
                 debug: DEBUG.snapshot,
                 what,
-            });
+            }, [buffer]);
             const onmessage = msg => {
                 const {url, ok, status, statusText} = msg.data;
                 if (url !== url) return;
@@ -816,12 +818,26 @@ export default class Controller {
         return "";
     }
 
-    decryptBinary(encrypted) {
-        const version = encrypted.slice(0, 4);
-        const iv = Base64.parse(encrypted.slice(4, 4 + 24));
-        const mac = Base64.parse(encrypted.slice(4 + 24, 4 + 24 + 44));
-        const ciphertext = encrypted.slice(4 + 24 + 44);
-        const decrypted = AES.decrypt(ciphertext, this.key, { iv });
+    decryptBinary(buffer) {
+        const version = new TextDecoder().decode(new Uint8Array(buffer, 0, 4));
+        let encrypted, iv, mac, ciphertext, decrypted;
+        switch (version) {
+            case "CRQ0": // Base64
+                encrypted = new TextDecoder().decode(buffer);
+                iv = Base64.parse(encrypted.slice(4, 4 + 24));
+                mac = Base64.parse(encrypted.slice(4 + 24, 4 + 24 + 44));
+                ciphertext = encrypted.slice(4 + 24 + 44);
+                decrypted = AES.decrypt(ciphertext, this.key, { iv });        // implicitly creates { ciphertext }
+                break;
+            case "CRQ1": // Binary
+                encrypted = new Uint8Array(buffer);
+                iv = WordArray.create(encrypted.subarray(4, 4 + 16));
+                mac = WordArray.create(encrypted.subarray(4 + 16, 4 + 16 + 32));
+                ciphertext = WordArray.create(encrypted.subarray(4 + 16 + 32));
+                decrypted = AES.decrypt({ ciphertext }, this.key, { iv });
+                break;
+            default: throw Error(`${this.id} unknown encryption version ${version}`);
+        }
         decrypted.clamp(); // clamping manually because of bug in HmacSHA256
         const hmac = HmacSHA256(decrypted, this.key);
         if (!this.compareHmacs(mac.words, hmac.words)) {
