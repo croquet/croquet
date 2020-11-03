@@ -8,6 +8,7 @@ class PixModel extends Model {
         this.asset = null;
         this.assetIds = 0;
         this.assets = [];
+        this.handles = {};
         this.subscribe(this.id, "add-asset", this.addAsset);
         this.subscribe(this.id, "stored-data", this.storedData);
         this.subscribe(this.id, "remove-id", this.removeId);
@@ -27,10 +28,12 @@ class PixModel extends Model {
         this.asset = asset;
         this.assets.push(asset);
         this.asset.id = ++this.assetIds;
+        if (asset.handle && asset.hash) this.handles[asset.hash] = asset.handle;
         this.publish(this.id, "asset-changed");
     }
 
     storedData({hash, handle}) {
+        this.handles[hash] = handle;
         for (const asset of this.assets) {
             if (!asset.handle && asset.hash === hash) {
                 asset.handle = handle;
@@ -106,14 +109,15 @@ class PixModel extends Model {
                 thumb: asset.thumb,
                 data: Data.toId(asset.handle),
             })),
+            handles: Object.entries(this.handles).map(([hash, handle]) => [hash, Data.toId(handle)]),
         };
     }
 
     restoreEverything(persistedData) {
-        // persisted as { current, assets }
+        // persisted as { current, assets, handles? }
         const persistedCurrent = persistedData.current;
         for (const persisted of persistedData.assets) {
-            // persisted as { id, hash, type, size, name, width, height, thumb, data }
+            // persisted as { id, hash?, type, size, name, width, height, thumb, data }
             const asset = {
                 // id: persisted.id,    // will get new id
                 hash: persisted.hash,
@@ -127,6 +131,9 @@ class PixModel extends Model {
             };
             this.addAsset(asset);
             if (persistedCurrent === persisted.id) this.asset = asset;
+        }
+        if (persistedData.handles) for (const [hash, data] of persistedData.handles) {
+            this.handles[hash] = Data.fromId(data);
         }
     }
 
@@ -250,7 +257,7 @@ class PixView extends View {
         const hash = await Data.hash(data);
         const asset = { hash, type: file.type, size: data.byteLength, name: file.name, width, height, thumb };
         this.publish(this.model.id, "add-asset", asset);
-        const handle = await Data.store(this.sessionId, data);
+        const handle = this.model.handles[hash] || await Data.store(this.sessionId, data);
         contentCache.set(handle, blob);
         this.publish(this.model.id, "stored-data", { hash, handle });
     }
