@@ -1,6 +1,8 @@
+import stableStringify from "fast-json-stable-stringify";
 import WordArray from "crypto-js/lib-typedarrays";
 import Base64 from "crypto-js/enc-base64";
-import { hashBuffer, baseUrl } from "@croquet/util/modules";
+import SHA256 from "crypto-js/sha256";
+import { baseUrl } from "@croquet/util/modules";
 import urlOptions from "@croquet/util/urlOptions";
 import Island from "./island";
 import { sessionProps } from "./controller";
@@ -81,11 +83,25 @@ export default class DataHandle {
     }
 
     /**
-     * Answer a base64url-encoded hash for the given data
-     * @param {ArrayBuffer} data
+     * Answer a hash for the given data.
+     * Strings and binary arrays are hashed directly, other objects use a stable JSON stringification
+     * @param {ArrayBuffer|String|*} data the data to be hashed
+     * @param {"hex"|"base64"|"base64url"} output hash encoding (default: "base64url")
+     * @returns {String} SHA256 hash
      */
-    static async hash(data) {
-        return hashBuffer(data);
+    static hash(data, output='base64url') {
+        if (typeof data === "function") data = Function.prototype.toString.call(data);
+        if (typeof data === "string") data = new TextEncoder().encode(data);
+        else if (data && data.constructor === DataView) data = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+        else if (data && data.constructor === ArrayBuffer) data = new Uint8Array(data);
+        else if (!ArrayBuffer.isView(data)) data = new TextEncoder().encode(stableStringify(data));
+        const result = SHA256(WordArray.create(data));
+        switch (output) {
+            case "hex": return result.toString();
+            case "base64": return result.toString(Base64);
+            case "base64url": return result.toString(Base64).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+            default: throw Error(`Croquet.Data: unknown hash output "${output}", expected "hex"/"base64"/"base64url"`);
+        }
     }
 
     /** @private */
