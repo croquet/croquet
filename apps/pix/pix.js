@@ -254,7 +254,7 @@ class PixView extends View {
         const { width, height, thumb } = await this.analyzeImage(blob);
         if (!thumb) return App.showMessage(`Image is empty (${width}x${height}): "${file.name}" (${file.type})`, {level: "warning"});
         image.src = thumb; // show placeholder for immediate feedback
-        const hash = await Data.hash(data);
+        const hash = Data.hash(data);
         const asset = { hash, type: file.type, size: data.byteLength, name: file.name, width, height, thumb };
         this.publish(this.model.id, "add-asset", asset);
         const handle = this.model.handles[hash] || await Data.store(this.sessionId, data);
