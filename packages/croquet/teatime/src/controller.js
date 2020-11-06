@@ -459,25 +459,23 @@ export default class Controller {
     }
 
     async downloadEncrypted({url, gzip, key, debug, json, what}) {
-        try {
-            let timer = Date.now();
-            const response = await fetch(url, {
-                method: "GET",
-                mode: "cors",
-                headers: {
-                    "X-Croquet-App": this.islandCreator.appId,
-                    "X-Croquet-Id": this.islandCreator.islandId,
-                },
-                referrer: App.referrerURL(),
-            });
-            const encrypted = await response.arrayBuffer();
-            if (debug) console.log(this.id, `${what} fetched (${encrypted.byteLength} bytes) in ${-timer + (timer = Date.now())}ms`);
-            const decrypted = this.decryptBinary(encrypted, key); // Uint8Array
-            if (debug) console.log(this.id, `${what} decrypted (${decrypted.length} bytes) in ${-timer + (timer = Date.now())}ms`);
-            const uncompressed = gzip ? pako.inflate(decrypted) : decrypted;
-            if (debug && gzip) console.log(this.id, `${what} inflated (${uncompressed.length} bytes) in ${-timer + (timer = Date.now())}ms`);
-            return json ? JSON.parse(new TextDecoder().decode(uncompressed)) : uncompressed;
-        } catch (err) { /* ignore */}
+        let timer = Date.now();
+        const response = await fetch(url, {
+            method: "GET",
+            mode: "cors",
+            headers: {
+                "X-Croquet-App": this.islandCreator.appId,
+                "X-Croquet-Id": this.islandCreator.islandId,
+            },
+            referrer: App.referrerURL(),
+        });
+        const encrypted = await response.arrayBuffer();
+        if (debug) console.log(this.id, `${what} fetched (${encrypted.byteLength} bytes) in ${-timer + (timer = Date.now())}ms`);
+        const decrypted = this.decryptBinary(encrypted, key); // Uint8Array
+        if (debug) console.log(this.id, `${what} decrypted (${decrypted.length} bytes) in ${-timer + (timer = Date.now())}ms`);
+        const uncompressed = gzip ? pako.inflate(decrypted) : decrypted;
+        if (debug && gzip) console.log(this.id, `${what} inflated (${uncompressed.length} bytes) in ${-timer + (timer = Date.now())}ms`);
+        return json ? JSON.parse(new TextDecoder().decode(uncompressed)) : uncompressed;
     }
 
     /** upload string or array buffer as binary encrypted, optionally gzipped */
@@ -651,12 +649,14 @@ export default class Controller {
                 }
                 this.timeFromReflector(time);
                 if (DEBUG.session) console.log(`${this.id} fetching ${persistedOrSnapshot} ${url}`);
-                const data = url && await this.downloadEncrypted({url, gzip: true, key: this.key, debug: DEBUG.snapshot, json: true, what: persistedOrSnapshot});
-                if (!this.connected) { console.log(this.id, 'socket went away during SYNC'); return; }
-                if (url && !data) {
-                    this.connection.closeConnectionWithError('SYNC', Error(`failed to fetch ${persistedOrSnapshot}`));
+                let data;
+                if (url) try {
+                    data = await this.downloadEncrypted({url, gzip: true, key: this.key, debug: DEBUG.snapshot, json: true, what: persistedOrSnapshot});
+                } catch(err) {
+                    this.connection.closeConnectionWithError('SYNC', Error(`failed to fetch ${persistedOrSnapshot}: ${err.message}`), 4200); // do not retry
                     return;
                 }
+                if (!this.connected) { console.log(this.id, 'socket went away during SYNC'); return; }
                 if (persisted) {
                     // run init() with persisted data, if any
                     this.install(data);
@@ -833,11 +833,11 @@ export default class Controller {
         const mac = Base64.parse(encrypted.slice(24, 24 + 44));
         const ciphertext = encrypted.slice(24 + 44);
         const decrypted = AES.decrypt(ciphertext, this.key, { iv });
-        const plaintext = Utf8.stringify(decrypted);
+        let plaintext = '';
+        try { plaintext = Utf8.stringify(decrypted) } catch (err) { /* ignore */};
         const hmac = HmacSHA256(plaintext, this.key);
         if (this.compareHmacs(mac.words, hmac.words)) return plaintext;
-        console.warn("decryption hmac mismatch");
-        return "";
+        throw Error('Decryption error');
     }
 
     decryptBinary(buffer, key) {
@@ -863,11 +863,8 @@ export default class Controller {
         }
         decrypted.clamp(); // clamping manually because of bug in HmacSHA256
         const hmac = HmacSHA256(decrypted, key);
-        if (!this.compareHmacs(mac.words, hmac.words)) {
-            console.warn("decryption hmac mismatch");
-            return [];
-        }
-        return this.cryptoJsWordArrayToUint8Array(decrypted);
+        if (this.compareHmacs(mac.words, hmac.words)) return this.cryptoJsWordArrayToUint8Array(decrypted);
+        throw Error('Decryption error');
     }
 
     cryptoJsWordArrayToUint8Array(wordArray) {
@@ -1290,10 +1287,10 @@ class Connection {
         this.socket.close(4110, 'Going dormant');
     }
 
-    closeConnectionWithError(caller, error) {
+    closeConnectionWithError(caller, error, code=4000) {
         console.error(error);
         console.warn('closing socket');
-        this.socket.close(4000, 'Error in ' + caller);
+        this.socket.close(code, 'Error in ' + caller);
         // closing with error code will force reconnect
     }
 
