@@ -718,31 +718,42 @@ export const App = {
 
     // session name is typically `${app}-${fragment}` where
     // "app" is constant and "fragment" comes from this autoSession
+    // when we switch to appId then `${appId}/${fragment}` will be the session name
     autoSession(key='q') {
+        if (!key) key = 'q'; // make sure we have a key
         const url = new URL(window.location);
-        let fragment;
-        // if app passes a key, then the fragment comes from ?key=fragment
-        // with a fallback to #fragment
-        if (key) {
-            // Note: cannot use url.searchParams because browsers differ for malformed % sequences
-            const params = url.search.slice(1).split("&");
-            const keyAndFragment = params.find(param => param.split("=")[0] === key);
-            if (keyAndFragment) fragment = keyAndFragment.replace(/[^=]*=/, '');
-            else fragment = params.find(param => !param.includes("="))  // allow keyless ?fragment
-                || url.hash.slice(1);     // fall back to #fragment for old URLs
+        // fragment comes from ?key=fragment or ?fragment or #fragment
+        let fragment = '';
+        // Note: cannot use url.searchParams because browsers differ for malformed % sequences
+        const params = url.search.slice(1).split("&");
+        const keyAndFragment = params.find(param => param.split("=")[0] === key);
+        if (keyAndFragment) {
+            fragment = keyAndFragment.replace(/[^=]*=/, '');
+        } else { // allow keyless ?fragment
+            fragment = params.find(param => !param.includes("="));
+            if (!fragment) { // fall back to #fragment for old URLs
+                fragment = url.hash.slice(1);
+                if (fragment) { // ... but redirect to new url
+                    url.hash = '';
+                    if (url.search) url.searchParams.set(key, fragment);
+                    else url.search = fragment;
+                }
+            }
         }
-        // otherwise get session fragment from #fragment
-        else fragment = url.hash.slice(1);
         // decode % entities if possible
         if (fragment) try { fragment = decodeURIComponent(fragment); } catch (ex) { /* ignore */ }
         // if not found, create random fragment
         else {
             fragment = Math.floor(Math.random() * 36**10).toString(36);
-            if (key) url.searchParams.set(key, fragment);
-            else url.hash = fragment;
-            window.history.replaceState({}, "", url);
-            App.sessionURL = window.location.href;
+            url.searchParams.set(key, fragment);
         }
+        // change page url if needed
+        const href = url.toString("");
+        if (window.location.href !== href) {
+            window.history.replaceState({}, "", href);
+            App.sessionURL = href;
+        }
+        // force reload when someone edits hash
         window.onhashchange = () => window.location.reload();
         return fragment;
     },
