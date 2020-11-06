@@ -113,8 +113,9 @@ export class Session {
     static async join(name, ModelRoot=Model, ViewRoot=View, parameters) {
         function inherits(A, B) { return A === B || A.prototype instanceof B; }
         // sanitize name
+        if (name && typeof name.then === 'function') name = await name;
+        if (!name) name = "unnamed";
         if (typeof name !== "string") name = JSON.stringify(name) || "undefined";
-        else if (!name) name = "unnamed";
         // must pass a model
         if (!inherits(ModelRoot, Model)) throw Error("ModelRoot must inherit from Croquet.Model");
         // view defaults to View
@@ -128,6 +129,9 @@ export class Session {
         }
         // default parameters are empty
         if (!parameters) parameters = {};
+        else for (const [k,v] of Object.entries(parameters)) {
+            if (v && typeof v.then === 'function') parameters[k] = await v;
+        }
         // check appId
         if (parameters.appId && !parameters.appId.match(/^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)+$/i)) {
             throw Error(`Croquet: malformed appId "${parameters.appId}"`)
