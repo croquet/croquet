@@ -2,6 +2,7 @@ import Toastify from 'toastify-js';
 import SeedRandom from "seedrandom/seedrandom";
 import QRCode from "./thirdparty-patched/qrcodejs/qrcode";
 import urlOptions from "./urlOptions";
+import { toBase64url } from "./modules";
 import { makeStats } from "./stats";
 
 
@@ -758,4 +759,45 @@ export const App = {
         return fragment;
     },
 
+    // get password from url hash.
+    // If found, remove it but keep in sessionURL for QR code
+    // Note: independent of this, hard-coded in controller
+    autoPassword(key='pw') {
+        if (!key) key = 'pw';
+        const scrub = !urlOptions.has("debug", "password");
+        const url = new URL(window.location);
+        let password = '';
+        const hash = url.hash.slice(1);
+        if (hash) {
+            const params = hash.split("&");
+            const keyAndPassword = params.find(param => param.split("=")[0] === key);
+            if (keyAndPassword) {
+                password = keyAndPassword.replace(/[^=]*=/, '');
+                // App.sessionURL has it, but scrub from address bar
+                if (password && scrub) url.hash = params.filter(param => param.split("=")[0] !== key).join('&');
+            } else { // allow keyless #password
+                password = params.find(param => !param.includes("="));
+                // App.sessionURL has it, but scrub from address bar
+                if (password && scrub) url.hash = '';
+            }
+        }
+        // create random password if none provided
+        if (!password) {
+            var random = new Uint8Array(16);
+            window.crypto.getRandomValues(random);      // okay to use on insecure origin
+            password = toBase64url(random.buffer);
+            // add password to session URL for QR code
+            if (hash) url.hash = `${hash}&${key}=${password}`;
+            else url.hash = password;
+            App.sessionURL = url.href;
+            // but scrub it from address bar
+            if (scrub) url.hash = hash;
+        }
+        if (urlOptions.has("debug", "session")) console.log(`App.sessionUrl: ${App.sessionURL}`);
+        // change url bar if needed
+        if (window.location.href !== url.href) window.history.replaceState({}, "", url.href);
+        // decode % entities if possible
+        if (password) try { password = decodeURIComponent(password); } catch (ex) { /* ignore */ }
+        return password;
+    },
 };
