@@ -4,6 +4,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 
 # latest pre-releases
 
+* 0.3.4-31 ignore persistSession() if unchanged
 * 0.3.4-30 provide Data.hash() API
 * 0.3.4-29 binary encryption for Snapshot and Data
 * 0.3.4-28 fix Base64 encoding of large buffers
