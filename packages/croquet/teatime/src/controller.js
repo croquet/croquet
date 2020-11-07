@@ -515,20 +515,15 @@ export default class Controller {
         return `${baseUrl('apps')}${appId}/${islandId}/save/${hash}`;
     }
 
-    async persist(time, tuttiSeq, persistentData, ms) {
+    async persist(time, tuttiSeq, persistentString, persistentHash, ms) {
         if (!this.synced) return; // ignore during fast-forward
         if (!this.islandCreator.appId) throw Error('Persistence API requires appId');
-        const start = Stats.begin("snapshot");
-        const persistentDataString = stableStringify(persistentData);
-        const persistentDataHash = await hashString(persistentDataString);
-        ms += Stats.end("snapshot") - start;
-        if (DEBUG.snapshot) console.log(`${this.id} persistent data collected, stringified and hashed in ${Math.ceil(ms)}ms`);
-        const shouldUpload = await this.persistenceVoting(time, tuttiSeq, persistentDataHash, ms);
+        const shouldUpload = await this.persistenceVoting(time, tuttiSeq, persistentHash, ms);
         if (!shouldUpload) return;
-        const url = this.persistentUrl(persistentDataHash);
+        const url = this.persistentUrl(persistentHash);
         await this.uploadEncrypted({
             url,
-            content: persistentDataString,
+            content: persistentString,
             key: this.key,
             gzip: true,
             debug: DEBUG.snapshot,

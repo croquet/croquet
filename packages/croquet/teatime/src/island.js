@@ -4,10 +4,11 @@ import PriorityQueue from "@croquet/util/priorityQueue";
 import { Stats } from "@croquet/util/stats";
 import "@croquet/math"; // creates window.CroquetMath
 import { displayWarning, displayAppError } from "@croquet/util/html";
+import urlOptions from "@croquet/util/urlOptions";
 import Model from "./model";
 import { inModelRealm, inViewRealm } from "./realms";
 import { viewDomain } from "./domain";
-import { DataHandleSpec } from "./data";
+import Data, { DataHandleSpec } from "./data";
 
 /** @typedef { import('./controller').default } Controller */
 
@@ -132,6 +133,8 @@ export default class Island {
                 this.tuttiSeq = 0;
                 /** @type {Number} simulation time when last pollForSnapshot was executed */
                 this.lastSnapshotPoll = 0;
+                /** @type {String} hash of last persistent data upload */
+                this.persisted = '';
                 /** @type {Number} number for giving ids to model */
                 this.modelsId = 0;
                 /** @type {Controller} our controller, for sending messages. Excluded from snapshot */
@@ -615,12 +618,19 @@ export default class Island {
 
     persist(model, persistentDataFunc) {
         const start = Stats.begin("snapshot");
+        const persistentData = persistentDataFunc.call(model);
+        const persistentString = stableStringify(persistentData);
+        const persistentHash = Data.hash(persistentString)
+        const ms = Stats.end("snapshot") - start;
+        const debug = urlOptions.has("debug", "snapshot");
+        const unchanged = this.persisted === persistentHash;
+        if (debug) console.log(`${this.id} persistent data collected, stringified and hashed in ${Math.ceil(ms)}ms${unchanged ? " (unchanged, ignoring)" : ""}`);
+        if (unchanged) return;
+        this.persisted = persistentHash;
         const time = this.time;
         const tuttiSeq = this.getNextTuttiSeq();
-        const persistentData = persistentDataFunc.call(model);
-        const ms = Stats.end("snapshot") - start;
         // run everything else outside of model
-        Promise.resolve().then(() => this.controller.persist(time, tuttiSeq, persistentData, ms));
+        Promise.resolve().then(() => this.controller.persist(time, tuttiSeq, persistentString, persistentHash, ms));
     }
 
     random() {

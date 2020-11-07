@@ -56,7 +56,6 @@ onmessage = msg => {
         try {
             const body = encrypt(gzip ? compress(buffer) : buffer);
             if (url.includes("%HASH%")) url = url.replace("%HASH%", hash(body));
-            if (debug) console.log(`${id} uploading ${what} to ${url}`);
             const { ok, status, statusText} = await fetch(url, {
                 method: "PUT",
                 mode: "cors",
