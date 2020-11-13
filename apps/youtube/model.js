@@ -32,7 +32,7 @@ class YouTubePlayerModel extends Croquet.Model {
         this.timestamp = this.now();
         this.publish(this.id, 'did-set-video');
 
-        this.persistSession({ video, currentTime });
+        this.persistSession(() => { video, currentTime });
     }
 
     setDuration(duration) {
