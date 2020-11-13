@@ -635,8 +635,11 @@ export default class Controller {
                 for (const msg of messages) {
                     if (typeof msg[2] !== "string") {
                         this.convertReflectorMessage(msg);
-                    } else {
+                    } else try {
                         msg[2] = this.decryptPayload(msg[2])[0];
+                    } catch(err) {
+                        this.connection.closeConnectionWithError('SYNC', Error(`failed to decrypt message: ${err.message}`), 4200); // do not retry
+                        return;
                     }
                     if (DEBUG.messages) console.log(this.id, 'received in SYNC ' + JSON.stringify(msg));
                     msg[1] >>>= 0; // make sure it's uint32 (reflector used to send int32)
@@ -687,12 +690,15 @@ export default class Controller {
                     if (DEBUG.messages) console.log(this.id, 'received META ' + JSON.stringify(msg));
                     this.convertReflectorMessage(msg);
                     if (DEBUG.messages) console.log(this.id, 'converted to ' + JSON.stringify(msg));
-                } else {
+                } else try {
                     const [payload, viewId, lastSent] = this.decryptPayload(msg[2]);
                     msg[2] = payload;
                     // if we sent this message, add it to latency statistics
                     if (viewId === this.viewId) this.addToStatistics(lastSent, this.lastReceived);
                     if (DEBUG.messages) console.log(this.id, 'received ' + JSON.stringify(msg));
+                } catch(err) {
+                    this.connection.closeConnectionWithError('RECV', Error(`failed to decrypt message: ${err.message}`), 4200); // do not retry
+                    return;
                 }
                 this.networkQueue.put(msg);
                 this.timeFromReflector(msg[0]);
@@ -1286,7 +1292,7 @@ class Connection {
         console.error(error);
         console.warn('closing socket');
         this.socket.close(code, 'Error in ' + caller);
-        // closing with error code will force reconnect
+        // closing with error code < 4100 will try to reconnect
     }
 
     PULSE(now) {
