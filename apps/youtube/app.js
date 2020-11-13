@@ -534,7 +534,10 @@ let joined = false;
 function join() {
     if (!joined) {
         joined = true;
-        Croquet.Session.join(`youtube-player-${Croquet.App.autoSession("room")}`, Model, View, {autoSleep: false}).then(session => {
+        Croquet.Session.join(Croquet.App.autoSession("room"), Model, View, {
+            appId: 'io.croquet.youtube',
+            autoSleep: false,
+        }).then(session => {
             window.session = session;
         });
     }
