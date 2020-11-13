@@ -240,8 +240,7 @@ class YouTubePlayerView extends Croquet.View {
         }
     }
     updateCurrentTime() {
-        const currentTime = this.getCurrentTime();
-        const duration = this.getDuration();
+        const currentTime = this.getCurrentTime() || 0;
 
         this.elements.timeline.value = currentTime;
         this.elements.currentTime.innerText = this.secondsToHMS(currentTime);
