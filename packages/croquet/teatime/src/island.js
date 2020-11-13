@@ -618,7 +618,7 @@ export default class Island {
 
     persist(model, persistentDataFunc) {
         const start = Stats.begin("snapshot");
-        const persistentData = persistentDataFunc.call(model);
+        const persistentData = typeof persistentDataFunc === "function" ? persistentDataFunc.call(model) : persistentDataFunc;
         const persistentString = stableStringify(persistentData);
         const persistentHash = Data.hash(persistentString)
         const ms = Stats.end("snapshot") - start;
