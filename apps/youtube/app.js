@@ -530,8 +530,10 @@ class View extends Croquet.View {
     }
 }
 
+let joined = false;
 function join() {
-    if (!window.session) {
+    if (!joined) {
+        joined = true;
         Croquet.Session.join(`youtube-player-${Croquet.App.autoSession("room")}`, Model, View, {autoSleep: false}).then(session => {
             window.session = session;
         });
