@@ -2,7 +2,7 @@
 /* global Croquet */
 
 class YouTubePlayerModel extends Croquet.Model {
-    init() {
+    init(_options, persisted) {
         super.init();
 
         this.video = null;
@@ -18,6 +18,8 @@ class YouTubePlayerModel extends Croquet.Model {
         this.subscribe(this.id, 'seek', this.seek);
 
         this.timestamp = this.now();
+
+        if (persisted) this.setVideo(persisted);
     }
 
     setVideo({video, currentTime}) {
@@ -29,6 +31,8 @@ class YouTubePlayerModel extends Croquet.Model {
 
         this.timestamp = this.now();
         this.publish(this.id, 'did-set-video');
+
+        this.persistSession({ video, currentTime });
     }
 
     setDuration(duration) {
