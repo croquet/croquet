@@ -965,10 +965,10 @@ server.on('connection', (client, req) => {
         }
     });
 
-    client.on('close', () => {
+    client.on('close', (...reason) => {
         prometheusConnectionGauge.dec();
         // the connection log filter matches on (" connection " OR " JOIN ")
-        LOG(`${client.sessionId}/${client.addr} closed connection ${JSON.stringify(client.stats)}`);
+        LOG(`${client.sessionId}/${client.addr} closed connection ${JSON.stringify(reason)} ${JSON.stringify(client.stats)}`);
         const island = ALL_ISLANDS.get(client.sessionId);
         if (!island) unregisterSession(client.sessionId, "on close");
         else {
