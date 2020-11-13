@@ -171,7 +171,7 @@ class YouTubePlayerView extends Croquet.View {
     secondsToHMS(seconds) {return new Date(seconds * 1000).toISOString().substr(11, 8);}
 
     onVideoOverlayClick(event) {
-        // unMute/play
+        this.togglePlayback();
     }
 
     // URL

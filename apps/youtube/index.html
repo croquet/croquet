@@ -300,12 +300,15 @@
         #videoOverlay {
             cursor: default !important;
             z-index: 1 !important;
-            display: none !important;
         }
 
         #video, #videoOverlay {
             grid-row: 1/-1;
             grid-column: 1/-1;
+        }
+
+        #ui:not(.playedOnce) #videoOverlay {
+            display: none;
         }
 
         #video {
