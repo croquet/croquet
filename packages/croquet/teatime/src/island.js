@@ -619,6 +619,7 @@ export default class Island {
     persist(model, persistentDataFunc) {
         const start = Stats.begin("snapshot");
         const persistentData = typeof persistentDataFunc === "function" ? persistentDataFunc.call(model) : persistentDataFunc;
+        if (typeof persistentData !== "object") throw Error(`Croquet: persistSession() can only persist objects (got ${typeof persistentData})`);
         const persistentString = stableStringify(persistentData);
         const persistentHash = Data.hash(persistentString)
         const ms = Stats.end("snapshot") - start;

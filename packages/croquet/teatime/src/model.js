@@ -65,9 +65,11 @@ class Model {
      * @public
      * @param {Object=} options - option object to be passed to [init()]{@link Model#init}.
      *     There are no system-defined options as of now, you're free to define your own.
-     * @param {String=} wellKnownName - a [well-known name]{@link Model#beWellKnownAs} for this model`.
+     * @param {Object=} persistentData - persistent data to be passed to [init()]{@link Model#init}.
+     *     Only your root model's `init` receives the stored data automatically.
+     *     This argument allows you to pass portions of that data when creating submodels.
      */
-    static create(options, wellKnownName, persistentData) {
+    static create(options, persistentData) {
         if (!hasID(this)) throw Error(`Model class "${this.name}" not registered`);
         const ModelClass = this;
         const realm = currentRealm();
@@ -76,7 +78,11 @@ class Model {
         Object.defineProperty(model, "__realm", { value: realm });
         Object.defineProperty(model, "id", { value: realm.register(model), enumerable: true });
         SuperInitNotCalled.add(model);
-        if (wellKnownName) model.beWellKnownAs(wellKnownName);
+        if (typeof persistentData === "string") {
+            console.warn(`Croquet: Model.create(..., "${persistentData}") with a well-known name argument is deprecated!`);
+            model.beWellKnownAs(persistentData);
+            persistentData = undefined;
+        }
         model.init(options, persistentData);
         if (SuperInitNotCalled.has(model)) {
             SuperInitNotCalled.delete(model);
@@ -548,6 +554,11 @@ class Model {
      * To help migrating incompatible data, you may want to include a version identifier so a future
      * version of your [init]{@link Model#init} can decide what to do.
      *
+     * Also you must only call persistSession() from your [root model]{@link Model#wellKnownModel}.
+     * If there are submodels, your collectDataFunc should collect data from all submodels.
+     * Similarly, only your root model's `init` will receive that persisted data.
+     * It should recreate submodels as necessary.
+     *
      * Croquet will not interpret this data in any way. It is simply encrypted, stored, and retrieved.
      *
      * @example
@@ -558,6 +569,7 @@ class Model {
      * @notpublic (yet)
      */
     persistSession(collectDataFunc) {
+        if (this !== this.wellKnownModel("modelRoot")) throw Error('persistSession() must only be called on the root model');
         this.__realm.island.persist(this, collectDataFunc);
     }
 

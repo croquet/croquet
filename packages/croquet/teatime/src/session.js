@@ -263,7 +263,7 @@ export class Session {
         }
 
         function islandInit(islandOpts, persistentData) {
-            const modelRoot = ModelRoot.create(islandOpts, "modelRoot", persistentData);
+            const modelRoot = ModelRoot.create(islandOpts, persistentData);
             return { modelRoot };
         }
 
