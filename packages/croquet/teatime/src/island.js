@@ -117,7 +117,7 @@ export default class Island {
                 this.views = {};
                 /** @type {SeedRandom} our synced pseudo random stream */
                 this._random = () => { throw Error("You must not use random when applying state!"); };
-                /** @type {String} island ID */
+                /** @type {String} session ID */
                 this.id = snapshot.id; // the controller always provides an ID
                 /** @type {Number} how far simulation has progressed */
                 this.time = 0;
@@ -153,10 +153,10 @@ export default class Island {
                     // add messages array to priority queue
                     for (const msg of messages) this.messages.add(msg.convertIfNeeded(this));
                 } else {
-                    // seed with island id so different sessions get different random streams
+                    // seed with session id so different sessions get different random streams
                     this._random = new SeedRandom(snapshot.id, { state: true });
-                    const namedModels = initFn(this) || {};
-                    Object.assign(this.modelsByName, namedModels);
+                    // creates root model and puts it in modelsByName as "rootModel"
+                    initFn(this);
                     this.addSubscription(this, this.id, "__views__", this.generateJoinExit);
                 }
             });

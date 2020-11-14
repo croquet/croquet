@@ -62,9 +62,8 @@ function initDEBUG() {
         pong: urlOptions.has("debug", "pong", false),                       // received PONGs
         snapshot: urlOptions.has("debug", "snapshot", false),               // snapshotting, uploading etc
         session: urlOptions.has("debug", "session", false),                 // session logging
-        initsnapshot: urlOptions.has("debug", "initsnapshot", "localhost"), // check snapshotting after init
+        initsnapshot: urlOptions.has("debug", "initsnapshot", "localhost"), // check snapshotting after initFn
         reflector: urlOptions.has("debug", "reflector", urlOptions.dev || "localhost"), // use dev reflector
-        // init: urlOptions.has("debug", "init", false),                      // always run init() if first user in session
     };
 }
 
@@ -200,7 +199,7 @@ export default class Controller {
      *
      * @param {String} name - A (human-readable) name for the session/room
      * @param {Object} sessionSpec - Spec for the session
-     * @param {Function} sessionSpec.init - the island initializer `init(options)`
+     * @param {Function} sessionSpec.initFn - the island initializer `initFn(options)`
      * @param {Function} sessionSpec.destroyerFn - optional island destroyer (called with a snapshot when disconnecting)
      * @param {Object} sessionSpec.options - options to pass to the island initializer
      * @param {Object} sessionSpec.snapshot - an optional snapshot to use (instead of running the island initializer if this is the first user in the session
@@ -210,7 +209,7 @@ export default class Controller {
      * @param {String} sessionSpec.viewIdDebugSuffix - suffix for viewIds tohelp debugging
      * @param {Number|String} sessionSpec.tps - ticks per second (can be overridden by `options.tps` or `urlOptions.tps`)
      *
-     * @returns {Promise<{rootModel:Model}>} list of named models (as returned by init function)
+     * @returns {Promise}
      */
     async establishSession(name, sessionSpec) {
         initDEBUG();
@@ -656,11 +655,11 @@ export default class Controller {
                 }
                 if (!this.connected) { console.log(this.id, 'socket went away during SYNC'); return; }
                 if (persisted) {
-                    // run init() with persisted data, if any
+                    // run initFn() with persisted data, if any
                     this.install(data);
                 } else {
                     if (data) this.islandCreator.snapshot = data;  // set snapshot for building the island
-                    this.install();  // will run init() if no snapshot
+                    this.install();  // will run initFn() if no snapshot
                 }
                 // after install() sets this.island, the main loop may also trigger simulation
                 if (DEBUG.session) console.log(`${this.id} fast-forwarding from ${Math.round(this.island.time)}`);
@@ -739,18 +738,18 @@ export default class Controller {
     // create the Island for this Controller, based on the islandCreator
     install(persistentData) {
         if (DEBUG.session) console.log(`${this.id} installing island`);
-        const {snapshot, init, options} = this.islandCreator;
+        const {snapshot, initFn, options} = this.islandCreator;
         let newIsland = new Island(snapshot, () => {
-            try { return init(options, persistentData); }
+            try { return initFn(options, persistentData); }
             catch (error) {
-                displayAppError("init", error);
+                displayAppError("initFn", error);
                 throw error;
             }
         });
         if (DEBUG.initsnapshot && !snapshot.modelsById) {
-            // exercise save & load if we came from init
+            // exercise serializer if we came from initFn
             const initialIslandSnap = JSON.stringify(newIsland.snapshot());
-            newIsland = new Island(JSON.parse(initialIslandSnap), () => init(options));
+            newIsland = new Island(JSON.parse(initialIslandSnap), () => initFn(options));
         }
        // our time is the latest of this.time (we may have received a tick already) and the island time in the snapshot
         const islandTime = this.lastKnownTime(newIsland);
@@ -763,12 +762,12 @@ export default class Controller {
         this.island.controller = this;
     }
 
-    // create an island in its initial state
-    createCleanIsland() {
-        const { options, init } = this.islandCreator;
-        const snapshot = { id: this.id };
-        return new Island(snapshot, () => init(options));
-    }
+    // // create an island in its initial state
+    // createCleanIsland() {
+    //     const { options, initFn } = this.islandCreator;
+    //     const snapshot = { id: this.id };
+    //     return new Island(snapshot, () => initFn(options));
+    // }
 
     // network queue
 

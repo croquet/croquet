@@ -232,14 +232,17 @@ export class Session {
             if (controller.leaving) { controller.leaving(true); return; }
             const sessionSpec = {
                 snapshot,
-                init: islandInit,
-                destroyerFn: rebootModelView,
                 options,
+                /** executed inside the island to initialize session */
+                initFn: (opts, persistentData) => ModelRoot.create(opts, persistentData, "modelRoot"),
+                /** called by controller when leaving the session */
+                destroyerFn: rebootModelView,
             };
             for (const [param, value] of Object.entries(parameters)) {
                 if (SESSION_PARAMS.includes(param)) sessionSpec[param] = value;
             }
-            session.model = (await controller.establishSession(name, sessionSpec)).modelRoot;
+            await controller.establishSession(name, sessionSpec);
+            session.model = controller.island.get("modelRoot");
             session.id = controller.id;
             Controllers[session.id] = controller;
 
@@ -260,11 +263,6 @@ export class Session {
             }
             App.clearSessionMoniker();
             if (Messenger.ready) {Messenger.detach();}
-        }
-
-        function islandInit(islandOpts, persistentData) {
-            const modelRoot = ModelRoot.create(islandOpts, persistentData);
-            return { modelRoot };
         }
 
         function startHiddenChecker() {
