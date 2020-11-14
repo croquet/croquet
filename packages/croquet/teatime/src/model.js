@@ -69,7 +69,7 @@ class Model {
      *     Only your root model's `init` receives the stored data automatically.
      *     This argument allows you to pass portions of that data when creating submodels.
      */
-    static create(options, persistentData) {
+    static create(options, persistentData, modelRootName) {
         if (!hasID(this)) throw Error(`Model class "${this.name}" not registered`);
         const ModelClass = this;
         const realm = currentRealm();
@@ -82,6 +82,11 @@ class Model {
             console.warn(`Croquet: Model.create(..., "${persistentData}") with a well-known name argument is deprecated!`);
             model.beWellKnownAs(persistentData);
             persistentData = undefined;
+        }
+        // register root model before calling its init() so
+        // that other models created in init() can look it up
+        if (modelRootName) {
+            model.beWellKnownAs(modelRootName);
         }
         model.init(options, persistentData);
         if (SuperInitNotCalled.has(model)) {
