@@ -2,7 +2,7 @@
 /* global Croquet */
 
 class YouTubePlayerModel extends Croquet.Model {
-    init() {
+    init(_options, persisted) {
         super.init();
 
         this.video = null;
@@ -18,6 +18,8 @@ class YouTubePlayerModel extends Croquet.Model {
         this.subscribe(this.id, 'seek', this.seek);
 
         this.timestamp = this.now();
+
+        if (persisted) this.setVideo(persisted);
     }
 
     setVideo({video, currentTime}) {
@@ -30,7 +32,7 @@ class YouTubePlayerModel extends Croquet.Model {
         this.timestamp = this.now();
         this.publish(this.id, 'did-set-video');
 
-        this.save();
+        this.persistSession(() => ({ video, currentTime }));
     }
 
     setDuration(duration) {
@@ -50,13 +52,6 @@ class YouTubePlayerModel extends Croquet.Model {
         this.timestamp = this.now();
         this.publish(this.id, 'did-seek');
     }
-
-
-    save() { this.wellKnownModel("modelRoot").save(); }
-
-    toSaveData() { return { video: this.video, currentTime: this.currentTime };  }
-
-    fromSaveData(data) { this.setVideo(data); }
 }
 YouTubePlayerModel.register('YouTubePlayer');
 
@@ -70,7 +65,7 @@ class UserModel extends Croquet.Model {
 UserModel.register('User');
 
 class Model extends Croquet.Model {
-    init(_options, saved) {
+    init() {
         super.init();
 
         this.youTubePlayer = YouTubePlayerModel.create();
@@ -79,8 +74,6 @@ class Model extends Croquet.Model {
 
         this.subscribe(this.sessionId, 'view-join', this.onViewJoin);
         this.subscribe(this.sessionId, 'view-exit', this.onViewExit);
-
-        if (saved) this.restore(saved);
     }
 
     getUserByViewId(viewId) {return this.users.find(user => user.viewId === viewId);}
@@ -104,16 +97,6 @@ class Model extends Croquet.Model {
 
             this.publish(this.sessionId, 'user-exit', viewId);
         }
-    }
-
-    // only the player has data worth saving / restoring
-
-    save() {
-        this.persistSession(() => this.youTubePlayer.toSaveData());
-    }
-
-    restore(saved) {
-        this.youTubePlayer.fromSaveData(saved);
     }
 }
 Model.register('Model');
