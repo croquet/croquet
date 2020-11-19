@@ -1,10 +1,12 @@
 #!/bin/bash
-# to redeploy docs only: deploy.sh docs
-# to deploy docs release: deploy.sh release
+# to deploy docs for new release: deploy.sh release
+# to update docs for prev release: deploy.sh docs
+# add --commit to commit result
 
 cd `dirname "$0"`
 
 WHAT="$1"
+OPTION="$2"
 VERSION=$(cd ../libraries/packages/croquet;node -p -e "require('./package.json').version")
 RELEASEVERSION=$(git tag --list @croquet/croquet\* | tail -1 | sed 's/.*@//')
 [ $? -ne 0 ] && exit 1
@@ -35,11 +37,29 @@ release)
     ;;
 *)
     DEPLOY=`basename $0`
-    echo "Usage: $DEPLOY (release|docs)"
+    echo "Usage: $DEPLOY (release|docs) [--commit]"
     exit 1
 esac
 
-echo "DEPLOYING $MSG"
+COMMIT=false
+case "$OPTION" in
+    "--commit")
+        COMMIT=true
+        ;;
+    "")
+        COMMIT=false
+        ;;
+    *)
+    DEPLOY=`basename $0`
+    echo "Usage: $DEPLOY (release|docs) [--commit]"
+    exit 1
+esac
+
+if $COMMIT ; then
+    echo "DEPLOYING AND COMMITTING DOCS FOR $VERSION"
+else
+    echo "BUILDING $VERSION DOCS WITHOUT COMMITTING"
+fi
 
 DIR=../../servers/croquet-io-testing
 SDK=$DIR/sdk
@@ -57,6 +77,8 @@ npx parcel build --public-url . --no-source-maps -d $DOCS build/*.html || exit
 # (remove fake conduct.html and substitute proper link)
 rm $DOCS/conduct.html
 sed -i '' "s|conduct.html|/conduct.html|" $DOCS/index.html
+
+$COMMIT || exit
 
 git add -A $SDK/ package.json
 git commit -m "[sdk] deploy docs $RELEASEVERSION to croquet.io/testing" $SDK/ package.json || exit
