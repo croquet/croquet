@@ -597,6 +597,20 @@ declare module "@croquet/croquet" {
         */
         externalNow(): number;
 
+        /**
+         * **The model time extrapolated beyond latest timestamp received from reflector**
+         *
+         * Timestamps are received asynchronously from the reflector at the specified tick rate.
+         * In-between ticks or messages, neither [now()]{@link View#now} nor [externalNow()]{@link View#externalNow} advances.
+         * `extrapolatedNow` is `externalNow` plus the local time elapsed since that timestamp was received,
+         * so it always advances.
+         *
+         * `extrapolatedNow()` will always be >= `now()` and `externalNow()`.
+         * However, it is only guaranteed to be monotonous in-between time stamps received from the reflector
+         * (there is no "smoothing" to reconcile local time with reflector time).
+         */
+        extrapolatedNow(): number;
+
         /** Called on the root view from [main loop]{@link Session.join} once per frame. Default implementation does nothing.
          *
          * Override to add your own view-side input polling, rendering, etc.
