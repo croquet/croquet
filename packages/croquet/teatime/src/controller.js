@@ -997,8 +997,8 @@ export default class Controller {
      */
     getTickAndMultiplier() {
         const options = this.islandCreator.options;
-        const tps = 'tps' in options ? options.tps
-            : 'tps' in this.islandCreator ? this.islandCreator.tps
+        const tps = ["number", "string"].includes(typeof options.tps) ? options.tps
+            : ["number", "string"].includes(typeof this.islandCreator.tps) ? this.islandCreator.tps
             : 20;
         const [rate, mult] = (tps + "x").split('x').map(n => Number.parseInt("0" + n, 10));
         const tick = 1000 / Math.max(1/30, Math.min(60, rate));     // minimum 1 tick per 30 seconds
