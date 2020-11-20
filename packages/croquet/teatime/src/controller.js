@@ -121,8 +121,6 @@ export default class Controller {
         this.time = 0;
         /** the local time at which we received the last time stamp, minus that time stamp */
         this.extrapolatedTimeBase = Date.now();
-        /** @type {String} the human-readable session name (e.g. "room/user/random") */
-        this.session = '';
         /** key generated from password, shared by all clients in session */
         this.key = null;
         /** @type {String} the client id (different in each replica, but stays the same on reconnect) */
@@ -211,11 +209,11 @@ export default class Controller {
      *
      * @returns {Promise}
      */
-    async establishSession(name, sessionSpec) {
+    async establishSession(sessionSpec) {
         initDEBUG();
-        // If we add more options here, add them to SESSION_OPTIONS in session.js
-        const { optionsFromUrl, password, appId, viewIdDebugSuffix} = sessionSpec;
-        if (appId) name = `${appId}/${name}`;
+        // If we add more options here, add them to SESSION_PARAMS in session.js
+        const { name: n, optionsFromUrl, password, appId, viewIdDebugSuffix} = sessionSpec;
+        const name = appId ? `${appId}/${n}` : n;
         if (viewIdDebugSuffix) this.viewId = this.viewId.replace(/_.*$/, '') + "_" + (""+viewIdDebugSuffix).slice(0,16);
         // root model options are only those explicitly requested by app
         const options = {...sessionSpec.options};

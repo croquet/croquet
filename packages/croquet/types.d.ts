@@ -649,24 +649,21 @@ declare module "@croquet/croquet" {
     export type CroquetModelOptions = {
     }
 
-    export type CroquetSessionOptions = {
+    export type CroquetDebugOptions =
+        "session" | "messages" | "sends" | "snapshot" |
+        "data" | "hashing" | "subscribe" | "classes" | "ticks";
+
+    export type CroquetSessionParameters<M extends Model, V extends View> = {
+        appId?: string,
+        name: string,
+        password: string,
+        model: ClassOf<M>,
+        view: ClassOf<V>,
+        options?: CroquetModelOptions,
         step?: "auto" | "manual",
         tps?: number,
-        options?: CroquetModelOptions,
+        debug?: CroquetDebugOptions | Array<CroquetDebugOptions>
     }
-
-    type ClassOf<M> = new (...args: any[]) => M;
-
-    /**
-     * __startSession__ is deprecated, use {@link Session.join} instead!
-     */
-    export function startSession<M extends Model, V extends View> (
-        name: string,
-        modelClass: ClassOf<M>,
-        viewClass: ClassOf<V>,
-        options?: CroquetSessionOptions
-    ): Promise<CroquetSession<V>>;
-
 
     /**
      * The Session API is under construction.
@@ -679,15 +676,9 @@ declare module "@croquet/croquet" {
         /**
          * **Join a Croquet session.**
          *
-         * Joins a session (instantiating `M` as Model root for the very first user, otherwise resuming from snapshot),
-         * then attaches a `V` instance as View root.
-         *
          */
         static join<M extends Model, V extends View> (
-            name: string,
-            modelClass: ClassOf<M>,
-            viewClass: ClassOf<V>,
-            options?: CroquetSessionOptions
+            parameters: CroquetSessionParameters<M, V>
         ): Promise<CroquetSession<V>>;
 
     }
