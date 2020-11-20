@@ -23,11 +23,13 @@ case "$VERSION" in
 esac
 
 
+PARCEL_OPT=""
 case "$WHAT" in
 docs)
     VERSION="$RELEASEVERSION"
     ;;
 prerelease)
+    PARCEL_OPT="--no-minify"
     ;;
 release)
     if $PRERELEASE ; then
@@ -78,7 +80,8 @@ sed -i '' "s/@CROQUET_VERSION@/$VERSION/" build/*.html || exit
 rm -rf $DOCS/*
 # (fake conduct.html to fool parcel)
 touch build/conduct.html
-npx parcel build --public-url . --no-source-maps -d $DOCS build/*.html || exit
+npx parcel build $PARCEL_OPT --public-url . --no-source-maps -d $DOCS build/*.html || exit
+
 # (remove fake conduct.html and substitute proper link)
 rm $DOCS/conduct.html
 sed -i '' "s|conduct.html|/conduct.html|" $DOCS/index.html
