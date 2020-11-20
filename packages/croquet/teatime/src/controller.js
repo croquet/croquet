@@ -217,7 +217,7 @@ export default class Controller {
         const { optionsFromUrl, password, appId, viewIdDebugSuffix} = sessionSpec;
         if (appId) name = `${appId}/${name}`;
         if (viewIdDebugSuffix) this.viewId = this.viewId.replace(/_.*$/, '') + "_" + (""+viewIdDebugSuffix).slice(0,16);
-        // root model options are only those explicitly requested by appp
+        // root model options are only those explicitly requested by app
         const options = {...sessionSpec.options};
         if (optionsFromUrl) for (const key of optionsFromUrl) {
             if (key in urlOptions) options[key] = urlOptions[key];
@@ -228,8 +228,8 @@ export default class Controller {
             if (key in urlOptions) params[key] = urlOptions[key];
             else if (key in sessionSpec) params[key] = sessionSpec[key];
         }
-        const pbkdf2Result = PBKDF2(password, "", { keySize: 256/32 });
-        this.key = WordArray.create(pbkdf2Result.words.slice(0, 256/32));
+        this.key = PBKDF2(password, "", { keySize: 256/32 });
+        this.oldKey = PBKDF2("THIS SHOULDN'T BE IN LOGS", "", { keySize: 256/32 });
         const { id, islandId, codeHash } = await hashSessionAndCode(name, options, params, SDK_VERSION);
         if (DEBUG.session) console.log(`Session ID for "${name}": ${id}`);
         this.islandCreator = {...sessionSpec, options, name, islandId, codeHash };
@@ -826,15 +826,16 @@ export default class Controller {
         return encrypted;
     }
 
-    decrypt(encrypted) {
+    decrypt(encrypted, key=this.key) {
         const iv = Base64.parse(encrypted.slice(0, 24));
         const mac = Base64.parse(encrypted.slice(24, 24 + 44));
         const ciphertext = encrypted.slice(24 + 44);
-        const decrypted = AES.decrypt(ciphertext, this.key, { iv });
+        const decrypted = AES.decrypt(ciphertext, key, { iv });
         let plaintext = '';
         try { plaintext = Utf8.stringify(decrypted) } catch (err) { /* ignore */};
         const hmac = HmacSHA256(plaintext, this.key);
         if (this.compareHmacs(mac.words, hmac.words)) return plaintext;
+        if (key !== this.oldKey) return this.decrypt(encrypted, this.oldKey);
         throw Error('Decryption error');
     }
 
@@ -862,6 +863,7 @@ export default class Controller {
         decrypted.clamp(); // clamping manually because of bug in HmacSHA256
         const hmac = HmacSHA256(decrypted, key);
         if (this.compareHmacs(mac.words, hmac.words)) return this.cryptoJsWordArrayToUint8Array(decrypted);
+        if (key !== this.oldKey) return this.decryptBinary(buffer, this.oldKey);
         throw Error('Decryption error');
     }
 
