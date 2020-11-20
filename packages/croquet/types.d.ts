@@ -62,9 +62,8 @@ declare module "@croquet/croquet" {
          * @public
          * @param options - option object to be passed to [init()]{@link Model#init}.
          *     There are no system-defined options as of now, you're free to define your own.
-         * @param wellKnownName - a well-known name for this model.
          */
-        static create<T extends typeof Model>(this: T, options: any, wellKnownName?: string): InstanceType<T>;
+        static create<T extends typeof Model>(this: T, options: any): InstanceType<T>;
 
         /**
          * __Registers this model subclass with Croquet__

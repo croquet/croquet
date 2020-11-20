@@ -65,9 +65,6 @@ class Model {
      * @public
      * @param {Object=} options - option object to be passed to [init()]{@link Model#init}.
      *     There are no system-defined options as of now, you're free to define your own.
-     * @param {Object=} persistentData - persistent data to be passed to [init()]{@link Model#init}.
-     *     Only your root model's `init` receives the stored data automatically.
-     *     This argument allows you to pass portions of that data when creating submodels.
      */
     static create(options, persistentData, modelRootName) {
         if (!hasID(this)) throw Error(`Model class "${this.name}" not registered`);
@@ -98,6 +95,11 @@ class Model {
         }
         return model;
     }
+    /* When we announce persistence, add this above
+     * @param {Object=} persistentData - persistent data to be passed to [init()]{@link Model#init}.
+     *     Only your root model's `init` receives the stored data automatically.
+     *     This argument allows you to pass portions of that data when creating submodels.
+     */
 
     // this version is used by the serializer
     static createNoInit(id) {
