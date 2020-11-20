@@ -4,6 +4,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 
 # latest pre-releases
 
+* 0.3.4-38 use named args in Session.join()
 * 0.3.4-37 warn about missing session password
 * 0.3.4-36 make modelRoot well-known before init again
 * 0.3.4-35 allow passing persistent data to Model.create()
