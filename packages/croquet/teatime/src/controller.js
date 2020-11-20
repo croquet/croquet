@@ -228,13 +228,7 @@ export default class Controller {
             if (key in urlOptions) params[key] = urlOptions[key];
             else if (key in sessionSpec) params[key] = sessionSpec[key];
         }
-        // if the default shows up in logs we have a problem
-        let keyMaterial = password;
-        if (!keyMaterial) {
-           console.warn(`Croquet: no session password provided!`);
-           keyMaterial = "THIS SHOULDN'T BE IN LOGS";
-        }
-        const pbkdf2Result = PBKDF2(keyMaterial, "", { keySize: 256/32 });
+        const pbkdf2Result = PBKDF2(password, "", { keySize: 256/32 });
         this.key = WordArray.create(pbkdf2Result.words.slice(0, 256/32));
         const { id, islandId, codeHash } = await hashSessionAndCode(name, options, params, SDK_VERSION);
         if (DEBUG.session) console.log(`Session ID for "${name}": ${id}`);

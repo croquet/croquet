@@ -136,6 +136,13 @@ export class Session {
         if (parameters.appId && !parameters.appId.match(/^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)+$/i)) {
             throw Error(`Croquet: malformed appId "${parameters.appId}"`)
         }
+        // check password
+        if (!parameters.password) {
+            console.warn(`Croquet: no session password provided!`);
+            // if the default shows up in logs we have a problem
+            // default: btoa("THIS SHOULDN'T BE IN LOGS")
+            parameters.password = atob("VEhJUyBTSE9VTEROJ1QgQkUgSU4gTE9HUw==");
+        }
         // put reflector param into urlOptions because that's where controller.js looks
         const reflector = urlOptions.reflector || parameters.reflector;
         if (reflector) {
