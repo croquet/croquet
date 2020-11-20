@@ -92,14 +92,14 @@ export class Session {
      *
      * @async
      * @param {Object} parameters
-     * @param {String} parameters.name - a name for this session (typically consists of an app name and a session selector, e.g. `"MyApp/123abc"`)
-     * @param {String} parameters.password - a password for this session (used for end-to-end encryption of messages and snapshots)
-     * @param {Model}  parameters.model - the root Model class for your app
-     * @param {View}   parameters.view - the root View class for your app
-     * @param {Object} parameters.options - options passed to the root Model's init
+     * @param {String} parameters.name - session name
+     * @param {String} parameters.password - session password
+     * @param {Model}  parameters.model - root Model class
+     * @param {View}   parameters.view - root View class
+     * @param {Object} parameters.options - options passed to root Model's init
      * @param {String} parameters.step - `"auto" | "manual"`
      * @param {String} parameters.tps - ticks per second (`0` to `60`)
-     * @param {String|Array<String>} parameters.debug - debug options
+     * @param {String|Array<String>} parameters.debug - `"session"` | `"messages"` | `"sends"` | `"snapshot"` | `"data"` | `"hashing"` | `"subscribe"` | `"classes"` | `"ticks"`
      * @returns {Promise} Promise that resolves to an object describing the session:
      * ```
      * {
@@ -115,10 +115,10 @@ export class Session {
      *  - `step(time)` is a function you need to call in each frame if you disabled automatic stepping.
      *     The `time` argument is expected to be in milliseconds, monotonically increasing - for example, the time received by a function that you passed to `window.requestAnimationFrame`.
      *  - `leave()` is an async function that forces this session to disconnect.
-     * @example <caption>auto main loop</caption>
-     * Croquet.Session.join("MyApp/1", MyRootModel, MyRootView);
-     * @example <caption>manual main loop</caption>
-     * Croquet.Session.join("MyApp/2", MyRootModel, MyRootView, {step: "manual"}).then(session => {
+     * @example <caption>auto name, password, and main loop</caption>
+     * Croquet.Session.join({ appId: "com.example.myapp", name: Croquet.App.autoSession(), password: Croquet.App.autoPassword(), model: MyRootModel, view: MyRootView, debug: ["session"]});
+     * @example <caption>manual name, password, and main loop</caption>
+     * Croquet.Session.join({ name: "MyApp/2", password: "password", model: MyRootModel, view: MyRootView, step: "manual"}).then(session => {
      *     function myFrame(time) {
      *         session.step(time);
      *         window.requestAnimationFrame(myFrame);
@@ -127,22 +127,19 @@ export class Session {
      * });
      * @public
      */
-    // was: static async join(name, ModelRoot=Model, ViewRoot=View, parameters) {
-    //                     args[0], args[1],         args[2],       args[3]
-    static async join(...args) {
-        // new API
-        let parameters = args[0];
-        // old API
-        if (typeof args[0] === "string" || args.length > 1) {
+    static async join(parameters, ...oldargs) {
+        // old API: join(name, ModelRoot=Model, ViewRoot=View, parameters) {
+        if (typeof parameters[0] === "string" || oldargs.length > 0) {
             console.warn(`Croquet: please use new Session.join( {name, ...} ) API`)
-            parameters = args[3] || {};
-            if (args[2] && Object.getPrototypeOf(args[2]) === Object.prototype && args[3] === undefined) {
-                parameters = args[2];
+            const [n, m, v, p] = [parameters, ...oldargs];
+            parameters = p || {};
+            if (v && Object.getPrototypeOf(v) === Object.prototype && p === undefined) {
+                parameters = v;
             } else {
-                parameters.view = args[2];
+                parameters.view = v;
             }
-            parameters.model = args[1];
-            parameters.name = args[0];
+            parameters.model = m;
+            parameters.name = n;
         }
         // resolve promises
         for (const [k,v] of Object.entries(parameters)) {
