@@ -34,6 +34,13 @@ cp pub/croquet.min.js.map $SDK/croquet-$VERSION.min.js.map
 # link as latest unless prerelease
 $PRERELEASE || (cd $SDK; ln -sf croquet-$VERSION.min.js croquet-latest.min.js; echo $VERSION > croquet-latest.txt)
 
+# deploy docs (no commit)
+if $PRERELEASE ; then
+    ../../../sdk/deploy.sh prerelease
+else
+    ../../../sdk/deploy.sh release
+fi
+
 # commit
 FILES="cjs/croquet-croquet.js cjs/croquet-croquet.js.map pub/croquet.min.js pub/croquet.min.js.map"
 git update-index --no-assume-unchanged $FILES

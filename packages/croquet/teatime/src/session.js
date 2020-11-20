@@ -117,9 +117,9 @@ export class Session {
      *  - `leave()` is an async function that forces this session to disconnect.
      * @example <caption>auto name, password, and main loop</caption>
      * Croquet.Session.join({
-     *     appId: "com.example.myapp",
-     *     name: Croquet.App.autoSession(),
-     *     password: Croquet.App.autoPassword(),
+     *     appId: "com.example.myapp",             // namespace for session names
+     *     name: Croquet.App.autoSession(),        // session via URL arg
+     *     password: Croquet.App.autoPassword(),   // password via URL arg
      *     model: MyRootModel,
      *     view: MyRootView,
      *     debug: ["session"],
