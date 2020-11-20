@@ -139,7 +139,7 @@ export class Session {
     static async join(parameters, ...oldargs) {
         // old API: join(name, ModelRoot=Model, ViewRoot=View, parameters) {
         if (typeof parameters[0] === "string" || oldargs.length > 0) {
-            console.warn(`Croquet: please use new Session.join( {name, ...} ) API`)
+            console.warn(`Croquet: please use new Session.join( {name, ...} ) API. See https://croquet.io/sdk/docs/Session.html#.join`)
             const [n, m, v, p] = [parameters, ...oldargs];
             parameters = p || {};
             if (v && Object.getPrototypeOf(v) === Object.prototype && p === undefined) {
