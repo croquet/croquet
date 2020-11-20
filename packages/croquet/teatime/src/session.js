@@ -101,7 +101,7 @@ export class Session {
      * @param {Object?} parameters.options - options passed to root Model's init
      * @param {String?} parameters.step - `"auto" | "manual"`
      * @param {String?} parameters.tps - ticks per second (`0` to `60`)
-     * @param {String?|Array<String>?} parameters.debug - `"session"` | `"messages"` | `"sends"` | `"snapshot"` | `"data"` | `"hashing"` | `"subscribe"` | `"classes"` | `"ticks"`
+     * @param {String|Array<String>|undefined} parameters.debug - `"session"` | `"messages"` | `"sends"` | `"snapshot"` | `"data"` | `"hashing"` | `"subscribe"` | `"classes"` | `"ticks"`
      * @returns {Promise} Promise that resolves to an object describing the session:
      * ```
      * {
