@@ -654,7 +654,7 @@ declare module "@croquet/croquet" {
         "data" | "hashing" | "subscribe" | "classes" | "ticks";
 
     export type CroquetSessionParameters<M extends Model, V extends View> = {
-        appId?: string,
+        appId: string,
         name: string,
         password: string,
         model: ClassOf<M>,

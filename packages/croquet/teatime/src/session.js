@@ -72,7 +72,8 @@ export class Session {
      * #### Parameters
      * | parameter     | values         | Description
      * | --------------|----------------|------------
-     * | `name`        | string         | a name for this session (typically consists of an app name and a session selector, e.g. `"MyApp/123abc"`)
+     * | `appId`       | string         | unique application identifier as dot-separated words (e.g. `"com.example.myapp"`)
+     * | `name`        | string         | a name for this session (e.g. `"123abc"`)
      * | `password`    | string         | a password for this session (used for end-to-end encryption of messages and snapshots)
      * | `model`       | class          | the root Model class for your app
      * | `view`        | class          | the root View class for your app
@@ -92,14 +93,15 @@ export class Session {
      *
      * @async
      * @param {Object} parameters
+     * @param {String} parameters.appId - application identifier
      * @param {String} parameters.name - session name
      * @param {String} parameters.password - session password
      * @param {Model}  parameters.model - root Model class
      * @param {View}   parameters.view - root View class
-     * @param {Object} parameters.options - options passed to root Model's init
-     * @param {String} parameters.step - `"auto" | "manual"`
-     * @param {String} parameters.tps - ticks per second (`0` to `60`)
-     * @param {String|Array<String>} parameters.debug - `"session"` | `"messages"` | `"sends"` | `"snapshot"` | `"data"` | `"hashing"` | `"subscribe"` | `"classes"` | `"ticks"`
+     * @param {Object?} parameters.options - options passed to root Model's init
+     * @param {String?} parameters.step - `"auto" | "manual"`
+     * @param {String?} parameters.tps - ticks per second (`0` to `60`)
+     * @param {String?|Array<String>?} parameters.debug - `"session"` | `"messages"` | `"sends"` | `"snapshot"` | `"data"` | `"hashing"` | `"subscribe"` | `"classes"` | `"ticks"`
      * @returns {Promise} Promise that resolves to an object describing the session:
      * ```
      * {
@@ -154,7 +156,7 @@ export class Session {
         }
         function inherits(A, B) { return A === B || A.prototype instanceof B; }
         // sanitize name
-        if (!parameters.name) parameters.name = "unnamed";
+        if (!parameters.name) throw Error("Croquet: no session name provided in Session.join()!");
         // must pass a model
         const ModelRoot = parameters.model;
         if (!inherits(ModelRoot, Model)) throw Error("ModelRoot must inherit from Croquet.Model");
@@ -162,12 +164,14 @@ export class Session {
         const ViewRoot = parameters.view;
         if (!inherits(ViewRoot, View)) throw Error("ViewRoot must inherit from Croquet.View");
         // check appId
-        if (parameters.appId && !parameters.appId.match(/^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)+$/i)) {
+        if (!parameters.appId) {
+            console.warn("Croquet: no appId provided in Session.join()");
+        } else if (!parameters.appId.match(/^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)+$/i)) {
             throw Error(`Croquet: malformed appId "${parameters.appId}"`)
         }
         // check password
         if (!parameters.password) {
-            console.warn(`Croquet: no session password provided!`);
+            console.warn("Croquet: no session password provided in Session.join()");
             // if the default shows up in logs we have a problem
             parameters.password = "THIS SHOULDN'T BE IN LOGS";
         }
@@ -175,7 +179,7 @@ export class Session {
         const reflector = urlOptions.reflector || parameters.reflector;
         if (reflector) {
             if (reflector.includes("://") || reflector.match(/^[-a-z0-9]+$/i)) urlOptions.reflector = reflector;
-            else console.warn(`Not a valid websocket url, ignoring reflector "${reflector}"`);
+            else console.warn(`Croquet: Not a valid websocket url, ignoring reflector "${reflector}"`);
         }
         // also add debug parameters
         if (parameters.debug) {
@@ -293,7 +297,7 @@ export class Session {
             if (session.view) {
                 if (urlOptions.has("debug", "session", false)) console.log(session.id, 'Detaching root view');
                 session.view.detach();
-                if (session.view.id !== "") console.warn(`${session.view} did not call super.detach()`);
+                if (session.view.id !== "") console.warn(`Croquet: ${session.view} did not call super.detach()`);
                 session.view = null;
             }
             App.clearSessionMoniker();
