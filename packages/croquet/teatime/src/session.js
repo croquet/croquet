@@ -116,7 +116,14 @@ export class Session {
      *     The `time` argument is expected to be in milliseconds, monotonically increasing - for example, the time received by a function that you passed to `window.requestAnimationFrame`.
      *  - `leave()` is an async function that forces this session to disconnect.
      * @example <caption>auto name, password, and main loop</caption>
-     * Croquet.Session.join({ appId: "com.example.myapp", name: Croquet.App.autoSession(), password: Croquet.App.autoPassword(), model: MyRootModel, view: MyRootView, debug: ["session"]});
+     * Croquet.Session.join({
+     *     appId: "com.example.myapp",
+     *     name: Croquet.App.autoSession(),
+     *     password: Croquet.App.autoPassword(),
+     *     model: MyRootModel,
+     *     view: MyRootView,
+     *     debug: ["session"],
+     * });
      * @example <caption>manual name, password, and main loop</caption>
      * Croquet.Session.join({ name: "MyApp/2", password: "password", model: MyRootModel, view: MyRootView, step: "manual"}).then(session => {
      *     function myFrame(time) {
