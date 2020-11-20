@@ -720,8 +720,10 @@ export const App = {
     // session name is typically `${app}-${fragment}` where
     // "app" is constant and "fragment" comes from this autoSession
     // when we switch to appId then `${appId}/${fragment}` will be the session name
-    autoSession(key='q') {
-        if (!key) key = 'q'; // make sure we have a key
+    autoSession(options = { key: 'q' }) {
+        if (typeof options === "string") options = { key: options };
+        if (!options) options = {};
+        const key = options.key || 'q';
         const url = new URL(window.location);
         // fragment comes from ?key=fragment or ?fragment or #fragment
         let fragment = '';
@@ -754,8 +756,6 @@ export const App = {
             window.history.replaceState({}, "", href);
             App.sessionURL = href;
         }
-        // force reload when someone edits hash
-        window.onhashchange = () => window.location.reload();
         return fragment;
     },
 
