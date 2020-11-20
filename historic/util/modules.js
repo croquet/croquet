@@ -96,7 +96,7 @@ const hashPromises = [];
 
 export function addClassHash(cls, classId) {
     const source = classSrc(cls);
-    const hashPromise = hashString(source);
+    const hashPromise = hashString(`${classId}:${source}`);
     hashPromises.push(hashPromise);
     if (debugHashing()) hashPromise.then(hash => {
         // console.log(`hashing model class ${classId}: ${hash}`);
