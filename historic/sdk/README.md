@@ -27,7 +27,7 @@ There are 3 main ways to use our SDK:
 2. **Script Tag**: Add the following inside your page's `<head>` tag:
 
         <meta charset="utf-8">
-        <script src="https://croquet.io/sdk/croquet-latest.min.js"></script>
+        <script src="https://unpkg.com/@croquet/croquet"></script>
 
     This will create the `Croquet` global to access `Croquet.Model` etc.
 
