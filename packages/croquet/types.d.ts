@@ -653,6 +653,8 @@ declare module "@croquet/croquet" {
         "session" | "messages" | "sends" | "snapshot" |
         "data" | "hashing" | "subscribe" | "classes" | "ticks";
 
+    type ClassOf<M> = new (...args: any[]) => M;
+
     export type CroquetSessionParameters<M extends Model, V extends View> = {
         appId: string,
         name: string,
