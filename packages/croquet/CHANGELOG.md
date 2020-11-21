@@ -4,6 +4,8 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 
 # latest pre-releases
 
+2020-09-03: 0.4.0
+
 * 0.4.0-40 warn if no appId, undefined tps uses default
 * 0.4.0-39 rename release
 * 0.3.4-38 use named args in Session.join()
