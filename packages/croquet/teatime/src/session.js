@@ -33,11 +33,21 @@ export class Session {
      *
      * Joins a session by instantiating the root model (for a new session) or resuming from a snapshot, then constructs the view root instance.
      *
-     * The session `name` identifies individual sessions.
+     * The `appId` identifies each Croquet app. It must be a globally unique identifier in
+     * reverse-DNS notation, e.g. `"com.example.myapp"`.
+     *
+     * The session `name` identifies individual sessions within an app.
      * You can use it for example to create different sessions for different users.
-     * That is, a user in session `"MyApp/A"` will not see a user in `"MyApp/B"`.
+     * That is, a user in session `"ABC"` will not see a user in `"DEF"`.
+     * One simple way to create unique sessions is via `Croquet.App.autoSession()` which will
+     * use or generate a random name in the query part (`?...`) of the current url.
      * (If you use a constant, then all users will end up in the same session.
-     * This is what we do in the tutorials for simplicity, but actual apps should manage sessions).
+     * This is what we do in some of our tutorials for simplicity, but actual apps should manage sessions.)
+     *
+     * The session `password` is used for end-to-end encryption of all data leaving the client.
+     * If your app does not need to protect user data, you will still have to provide a constant dummy password.
+     * One simple way to have individual passwords is via `Croquet.App.autoPassword()` which will
+     * use or generate a random password in the hash part (`#...`) of the current url.
      *
      * A [session id]{@link Model#sessionId} is created from the given session `name`,
      * and a hash of all the [registered]{@link Model.register} Model classes and {@link Constants}.
@@ -128,7 +138,7 @@ export class Session {
      *     debug: ["session"],
      * });
      * @example <caption>manual name, password, and main loop</caption>
-     * Croquet.Session.join({ name: "MyApp/2", password: "password", model: MyRootModel, view: MyRootView, step: "manual"}).then(session => {
+     * Croquet.Session.join({ appId: "com.example.myapp", name: "abc", password: "password", model: MyRootModel, view: MyRootView, step: "manual"}).then(session => {
      *     function myFrame(time) {
      *         session.step(time);
      *         window.requestAnimationFrame(myFrame);
