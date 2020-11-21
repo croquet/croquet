@@ -79,7 +79,7 @@ class MyModel extends Croquet.Model {
         ...
     }
 }
-MyModel.register();
+MyModel.register("MyModel);
 
 class MyView extends Croquet.View {
     constructor(model) {
@@ -93,10 +93,15 @@ class MyView extends Croquet.View {
 }
 ```
 
-You then join a session by calling {@link Session.join} and passing it a session name, and your model and view classes. `Session.join` automatically connects to a nearby reflector, synchronizes your model with the models of any other users already in the same session, and starts executing.
+You then join a session by calling {@link Session.join} and passing it your model and view classes. `Session.join` automatically connects to a nearby reflector, synchronizes your model with the models of any other users already in the same session, and starts executing.
+
+You do need to provide some session meta data, like an appId, session name, and a password. Below we use `autoSession`/`autoPassword` but you can instead use whatever makes most sense for your app. In the codepen example above we even use constants for all.
 
 ```
-Croquet.Session.join("mySessionName", MyModel, MyView);
+const appId = "com.example.myapp";
+const name = Croquet.Session.App.autoSession();
+const password = Croquet.Session.App.autoPassword();
+Croquet.Session.join({appId, name, password, model: MyModel, view: MyView);
 ```
 That's it. You don't need to worry about setting up a server, or writing special synchronization code. _Croquet_ handles all of that invisibly, allowing you to concentrate on what your app _does_.
 

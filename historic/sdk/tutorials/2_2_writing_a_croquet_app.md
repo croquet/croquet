@@ -24,10 +24,16 @@ Your view will contain all your input and output code, and your model will conta
 
 ## Launching a session
 
-You launch a session by calling {@link Session.join} from the `croquet.js` library.  Its arguments are the name of the session you're creating, the class types of your model and your view, and a set of session options (described below).
+You launch a session by calling {@link Session.join} from the `croquet.js` library.  Its arguments are the id of your app (which needs to be unique, so using a reverse-DNS name like `"com.example.myapp"` is good), name and password of the session you're creating, the class types of your model and your view, and a set of session options (described below).
+
+The session name exists to distinguish multiple sessions per app. You may use our `autoSession` helper which parses URL search parameters and creates a new random session name if necessary.
+The session password encrypts all data sent via the internet. If your app does not use data worth protecting, you still need to provide a dummy password. You may use our `autoPassword` helper which parses the URL hash and creates a new random password if necessary, appending it to the url for sharing. In production you probably want to add some UI letting users type in the password.
 
 ```
-Croquet.Session.join("hello", MyModel, MyView);
+const appId = "com.example.myapp";
+const name = Croquet.App.autoSession();
+const password = Croquet.App.autoPassword();
+Croquet.Session.join({ appId, name, password, model: MyModel, view: MyView });
 ```
 
 Starting the session will do the following things:
@@ -50,7 +56,7 @@ The main loop runs each time the window performs an animation update — commonl
 If you want more control over your main loop, you can pass out the `step: "manual"` directive and write a main loop yourself. For example:
 
 ```
-const session = await Croquet.Session.join("hello", MyModel, MyView, {step: "manual"});
+const session = await Croquet.Session.join({..., step: "manual"});
 window.requestAnimationFrame(frame);
 
 function frame(now) {

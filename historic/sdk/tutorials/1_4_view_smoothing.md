@@ -183,7 +183,14 @@ When the reflector doesn't have any normal events to send, it sends silent heart
 The option `tps` in [`Session.join`]{@link Session.join} is used to set the tick rate (a.k.a. "ticks per second").
 
 ```
-Croquet.Session.join("smooth", RootModel, RootView, { tps: 1000/Q.TICK_MS });
+Croquet.Session.join({
+  appId: "io.codepen.croquet.smooth",
+  name: "unnamed",
+  password: "secret",
+  model: RootModel,
+  view: RootView,
+  tps: 1000/Q.TICK_MS,
+});
 ```
 
 In this tutorial `Q.TICK_MS` is 500, so the reflector will generate a tick when no message from any user arrived in the last 500 milliseconds. This means it will send out heartbeat ticks twice a second at most (we could have written `tps: 2` instead of `tps: 1000/Q.TICK_MS`). In general, you should set the heartbeat rate to match the internal tick rate of your model. If your model is only changing 10 times a second, there's no point in having a faster heartbeat tick than `tps: 10`.
