@@ -27,6 +27,8 @@ PARCEL_OPT=""
 case "$WHAT" in
 docs)
     VERSION="$RELEASEVERSION"
+    PRERELEASE=false
+    PRE=""
     ;;
 prerelease)
     PARCEL_OPT="--no-minify"
