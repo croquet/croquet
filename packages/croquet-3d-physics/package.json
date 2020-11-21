@@ -1,6 +1,6 @@
 {
   "name": "@croquet/3d-physics",
-  "version": "0.3.3",
+  "version": "0.4.0",
   "description": "Oimo bindings for Croquet",
   "main": "dist/index.js",
   "types": "dist/types.d.ts",
@@ -12,7 +12,7 @@
   "license": "ISC",
   "dependencies": {
     "@croquet/croquet": "^0.3.1",
-    "@croquet/observable": "^0.3.3",
+    "@croquet/observable": "^0.4.0",
     "gl-matrix": "^3.0.0",
     "oimo": "git+https://github.com/croquet/Oimo.js.git",
     "quaternion-to-euler": "^0.5.0"
