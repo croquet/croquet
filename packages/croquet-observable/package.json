@@ -1,6 +1,6 @@
 {
   "name": "@croquet/observable",
-  "version": "0.4.0",
+  "version": "0.4.1-1",
   "description": "Automatic Change Events for Croquet",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -9,7 +9,7 @@
     "prepare": "tsc"
   },
   "dependencies": {
-    "@croquet/croquet": "^0.4.0"
+    "@croquet/croquet": "^0.4.1-1"
   },
   "author": "Croquet Corporation",
   "license": "ISC",
