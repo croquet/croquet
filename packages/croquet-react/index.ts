@@ -12,7 +12,7 @@ import {
     Session,
     CroquetSession,
     Model,
-    CroquetSessionOptions,
+    CroquetModelOptions,
   } from "@croquet/croquet";
   import { ObservableModel, Observing } from "@croquet/observable";
 
@@ -57,7 +57,7 @@ import {
   export function useObservable<M extends ObservableModel>(model: M): M {
     const croquetContext = useContext(CroquetContext);
     if (!croquetContext) throw new Error("No Croquet Context provided!");
-    const [, forceUpdate] = useState();
+    const [, forceUpdate] = useState({});
 
     const onChange = () => {
       forceUpdate({});
@@ -232,7 +232,9 @@ import {
    * function MyApp() {
    *    return (
    *      <InCroquetSession
-   *        name="myApp"
+   *        appId="com.example.myapp"
+   *        name="mySession"
+   *        password="secret"
    *        modelRoot={MyRootModel}
    *      >
    *        // child elements that use hooks go here...
@@ -242,13 +244,17 @@ import {
    * ```
    */
   export function InCroquetSession<M extends Model>(params: {
+    appId: string,
     name: string;
+    password: string,
     modelRoot: ClassOf<M>;
-    options?: CroquetSessionOptions;
+    options?: CroquetModelOptions;
     children: React.ReactNode;
   }) {
     const {
+        appId,
         name,
+        password,
         modelRoot,
         options,
         children
@@ -258,11 +264,14 @@ import {
       CroquetSession<CroquetReactView> | undefined
     >(undefined);
     useEffect(() => {
-      const optionsWithDefaults: CroquetSessionOptions = {
-        step: "auto",
-        ...(options || {})
-      };
-      Session.join(name, modelRoot, CroquetReactView, optionsWithDefaults).then(
+      Session.join({
+        name,
+        appId,
+        password,
+        model: modelRoot,
+        view: CroquetReactView,
+        options
+      }).then(
         context => setCroquetContext(context)
       );
     }, [name, modelRoot, options]);
