@@ -220,7 +220,7 @@ Calls to `Math.random()` within a view will behave normally. Different instances
 
 | date       | item
 |------------|---
-| 2020-11-20 | **release 0.4.0** (bug fixes; enable encryption, `Session.join()` takes named args, `Model.register()` requires class id, getModel() and extrapolatedNow() added, removed wellKnownName arg from Model.create())
+| 2020-11-20 | **release 0.4.0** (bug fixes; enable encryption, {@link Session.join} takes named args, {@link Model.register} requires class id, [getModel()]{@link Model#getModel} and [extrapolatedNow()]{@link View#extrapolatedNow} added, removed wellKnownName arg from {@link Model.create})
 | 2020-09-03 | **release 0.3.3** (bug fixes; `session.leave()` returns promise, support for virtual-dom)
 | 2020-08-21 | **release 0.3.2** (bug fixes; much faster session creation)
 | 2020-06-08 | **release 0.3.1** (bug fixes; [`"view-join"`]{@link event:view-join} and [`"view-exit"`]{@link event:view-exit} events are now model-only)
