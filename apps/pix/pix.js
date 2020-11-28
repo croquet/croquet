@@ -232,7 +232,8 @@ class PixView extends View {
             Messenger.startPublishingPointerMove();
 
             Messenger.setReceiver(this);
-            Messenger.send("appReady");
+            Messenger.on("uploadFile", "handleUploadFile");
+            Messenger.send("appReady", window.location.href);
             Messenger.on("appInfoRequest", () => {
                 Messenger.send("appInfo", { appName: "pix", label: "images", iconName: "addimg.svgIcon", urlTemplate: "../pix/?q=${q}" });
                 });
@@ -240,6 +241,10 @@ class PixView extends View {
             Messenger.send("userCursorRequest");
         }
 
+    }
+
+    handleUploadFile(data) {
+        this.addFile(data.file);
     }
 
     // only uploading user does this
