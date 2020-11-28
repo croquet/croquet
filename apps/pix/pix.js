@@ -370,7 +370,12 @@ class PixView extends View {
 
 App.messages = true;
 App.makeWidgetDock();
-Session.join(App.autoSession(), PixModel, PixView, {
-    appId: "io.croquet.pix",    // required for persistence API
-    tps: 0,
-});
+const joinArgs = {
+    appId: 'io.croquet.pix',
+    name: App.autoSession(),
+    password: 'dummy-pass',
+    model: PixModel,
+    view: PixView,
+    tps: 0
+    };
+Session.join(joinArgs);
