@@ -4,7 +4,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 
 # latest pre-releases
 
-
+* 0.4.1-2 add optional "keep" arg to Data.store()
 * 0.4.1-1 fix ts types
 
 # 2020-09-03: 0.4.0
