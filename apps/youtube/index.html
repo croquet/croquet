@@ -302,7 +302,11 @@
         }
 
         #ui:not(.playedOnce) #play {
-            display: none
+            display: none;
+        }
+
+        #ui:not(.playedOnce) > :not(#video) {
+            display: none !important;
         }
 
         #ui:not(.isPaused) #play {
