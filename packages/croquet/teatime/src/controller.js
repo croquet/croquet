@@ -474,9 +474,10 @@ export default class Controller {
     }
 
     /** upload string or array buffer as binary encrypted, optionally gzipped */
-    async uploadEncrypted({url, content, key, gzip, debug, what}) {
+    async uploadEncrypted({url, content, key, gzip, keep, debug, what}) {
         // leave actual work to our UploadWorker
         const buffer = typeof content === "string" ? new TextEncoder().encode(content).buffer : content;
+        const transfer = keep ? undefined : [buffer];
         const keyBase64 = typeof key === "string" ? key : Base64.stringify(key);
         const job = ++UploadJobs;
         return new Promise( (resolve, reject) => {
@@ -493,7 +494,7 @@ export default class Controller {
                 islandId: this.islandCreator.islandId,
                 debug,
                 what,
-            }, [buffer]);
+            }, transfer);
             const onmessage = msg => {
                 if (job !== msg.data.job) return;
                 const {url, ok, status, statusText} = msg.data;

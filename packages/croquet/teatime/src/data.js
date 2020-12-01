@@ -35,9 +35,10 @@ export default class DataHandle {
      * Store data and return an (opaque) handle.
      * @param {String} sessionId the sessionId for authentication
      * @param {ArrayBuffer} data the data to be stored
+     * @param {Boolean} keep if true, keep the data intact (do not detach buffer)
      * @returns {Promise<DataHandle>} return promise for the handle. If requested, `handle.stored` will be another promise that resolves when uploading is done.
      */
-    static async store(sessionId, data) {
+    static async store(sessionId, data, keep=false) {
         if (typeof sessionId === "object") {
             console.warn("Deprecated: Croquet.Data.store(sessionId, data) called without sessionId")
             data = sessionId;
@@ -49,7 +50,7 @@ export default class DataHandle {
         }
         const key = WordArray.random(32).toString(Base64);
         const path = appId && `${appId}/${islandId}`;
-        const url = await uploadEncrypted({ url: dataUrl(path, "%HASH%"), content: data, key, debug: debug("data"), what: "data" });
+        const url = await uploadEncrypted({ url: dataUrl(path, "%HASH%"), content: data, key, keep, debug: debug("data"), what: "data" });
         const hash = hashFromUrl(url);
         return new DataHandle(hash, key, path);
 
