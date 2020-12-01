@@ -235,11 +235,7 @@ class PixView extends View {
             Messenger.on("uploadFiles", "handleUploadFiles");
             Messenger.send("appReady", window.location.href);
             Messenger.on("appInfoRequest", () => {
-                // we are indeed running in Q
                 Messenger.send("appInfo", { appName: "pix", label: "images", iconName: "addimg.svgIcon", urlTemplate: "../pix/?q=${q}" });
-                // hide debug badge, but leave it in place so it can be shown using dev tools
-                const badge = document.getElementById('croquet_dock');
-                if (badge) badge.style.display = "none";
                 });
             Messenger.on("userCursor", data => window.document.body.style.setProperty("cursor", data));
             Messenger.send("userCursorRequest");
