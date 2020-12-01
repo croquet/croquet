@@ -381,7 +381,7 @@ function JOIN(client, args) {
             // this is a brand-new session, check if there is a persisted island
             const persistName = `apps/${appId}/${islandId}.json`;
             const persistPromise = appId && islandId
-                ? fetchJSON(persistName)
+                ? fetchJSON(persistName).catch(() => { /* ignore */})
                 : Promise.resolve(false);
             persistPromise.then(persisted => {
                 if (persisted) {
