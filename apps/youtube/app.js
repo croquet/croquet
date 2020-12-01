@@ -3,6 +3,7 @@
 
 /* global Croquet */
 /* global YT */
+/* global Model */
 
 // https://developers.google.com/youtube/iframe_api_reference
 
@@ -533,7 +534,7 @@ let joined = false;
 function join() {
     if (!joined) {
         joined = true;
-        Croquet.Session.join(Croquet.App.autoSession("room"), Model, View, {
+        Croquet.Session.join(Croquet.App.autoSession('q'), Model, View, {
             appId: 'io.croquet.youtube',
             autoSleep: false,
         }).then(session => {
