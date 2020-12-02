@@ -295,6 +295,7 @@ function makeWidgetDock(options = {}) {
     if (urlOptions.nodock) return;
 
     const debug = options.debug || urlOptions.debug;
+    const iframed = window.parent !== window;
 
     const oldDockDiv = document.getElementById('croquet_dock');
     if (oldDockDiv) oldDockDiv.parentElement.removeChild(oldDockDiv);
@@ -305,6 +306,7 @@ function makeWidgetDock(options = {}) {
     const dockDiv = document.createElement('div');
     dockDiv.id = 'croquet_dock';
     if (debug) dockDiv.classList.add("debug");
+    if (iframed && !options.iframe) dockDiv.style.display = "none";
     dockParent.appendChild(dockDiv);
 
     const barDiv = document.createElement('div');
