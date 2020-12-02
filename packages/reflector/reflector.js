@@ -936,11 +936,12 @@ server.on('connection', (client, req) => {
     }
 
     client.on('message', incomingMsg => {
-        lastActivity = Date.now();
-        STATS.IN += incomingMsg.length;
-        client.stats.mi += 1;                      // messages in
-        client.stats.bi += incomingMsg.length;     // bytes in
         const handleMessage = () => {
+            if (client.readyState !== WebSocket.OPEN) return; // ignore messages arriving after we disconnected the client
+            lastActivity = Date.now();
+            STATS.IN += incomingMsg.length;
+            client.stats.mi += 1;                      // messages in
+            client.stats.bi += incomingMsg.length;     // bytes in
             const { action, args, tags } = JSON.parse(incomingMsg);
             switch (action) {
                 case 'JOIN': { joined = true; JOIN(client, args); break; }
