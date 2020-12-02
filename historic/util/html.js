@@ -18,28 +18,33 @@ const TRANSITION_TIME = 0.3; // seconds
 // add style for the standard widgets that can appear on a Croquet page
 function addWidgetStyle() {
     const widgetCSS = `
-        #croquet_dock { position: absolute; z-index: 2; border: 3px solid white; bottom: 6px; left: 6px; width: 84px; height: 36px; box-sizing: border-box; background: white; opacity: 0.4; transition: all ${TRANSITION_TIME}s ease; }
+        #croquet_dock { position: absolute; z-index: 2; border: 3px solid white; bottom: 6px; left: 6px; width: 36px; height: 36px; box-sizing: border-box; background: white; opacity: 0.4; transition: all ${TRANSITION_TIME}s ease; }
         #croquet_dock.active { opacity: 0.95; border-radius: 12px; }
+        #croquet_dock.debug { width: 84px; }
         #croquet_dock_bar { position: absolute; border: 3px solid white; width: 100%; height: 30px; box-sizing: border-box; background: white; }
 
         #croquet_badge { position: absolute; width: 72px; height: 24px; top: 50%; transform: translate(0px, -50%); cursor: none; }
         #croquet_dock.active #croquet_badge { left: 2%; }
+        #croquet_dock:not(.debug) #croquet_badge { display: none; }
 
         .croquet_dock_button { position: absolute; width: ${BUTTON_WIDTH}%; height: 90%; top: 50%; transform: translate(0px, -50%); border-radius: 20%; }
         .croquet_dock_button:focus { outline: 0; }
         .croquet_dock_button canvas { position: absolute; width: 100%; height: 100%; top: 0px; left: 0px; }
         #croquet_dock:not(.active) .croquet_dock_button { display: none; }
         #croquet_dock_left { right: ${BUTTON_RIGHT + BUTTON_OFFSET + BUTTON_WIDTH + BUTTON_SEPARATION}% }
+        #croquet_dock:not(.debug) #croquet_dock_left { display: none; }
         #croquet_dock_right { right: ${BUTTON_RIGHT + BUTTON_OFFSET}%; }
+        #croquet_dock:not(.debug) #croquet_dock_right { display: none; }
         #croquet_dock_pin { right: ${BUTTON_RIGHT}%; }
         #croquet_dock_pin.pinned { background: #cce6ff; }
 
         #croquet_dock_content { position: absolute; left: ${CONTENT_MARGIN}px; top: ${CONTENT_MARGIN}px; right: ${CONTENT_MARGIN}px; bottom: ${CONTENT_MARGIN}px; background: white; overflow: hidden; }
-        #croquet_dock:not(.active) #croquet_dock_content { display: none; }
-        #croquet_dock:not(.active) #croquet_dock_content div { display: none; }
+        #croquet_dock.debug:not(.active) #croquet_dock_content { display: none; }
+        #croquet_dock.debug:not(.active) #croquet_dock_content div { display: none; }
 
-        #croquet_qrcode { position: absolute; border: 6px solid white; width: 100%; height: 100%;box-sizing: border-box; cursor: crosshair; }
-        #croquet_qrcode:not(.active) { display: none; }
+        #croquet_qrcode { position: absolute; width: 100%; height: 100%;box-sizing: border-box; cursor: crosshair; }
+        #croquet_dock.active #croquet_qrcode { border: 6px solid white; }
+        #croquet_dock.debug #croquet_qrcode:not(.active) { display: none; }
         #croquet_qrcode canvas { image-rendering: pixelated; }
 
         #croquet_stats { position: absolute; width: 70%; height: 90%; left: 15%; top: 5%; opacity: 0.8; font-family: sans-serif; }
@@ -289,6 +294,8 @@ const smotherEvent = evt => {
 function makeWidgetDock(options = {}) {
     if (urlOptions.nodock) return;
 
+    const debug = options.debug || urlOptions.debug;
+
     const oldDockDiv = document.getElementById('croquet_dock');
     if (oldDockDiv) oldDockDiv.parentElement.removeChild(oldDockDiv);
 
@@ -297,6 +304,7 @@ function makeWidgetDock(options = {}) {
 
     const dockDiv = document.createElement('div');
     dockDiv.id = 'croquet_dock';
+    if (debug) dockDiv.classList.add("debug");
     dockParent.appendChild(dockDiv);
 
     const barDiv = document.createElement('div');
@@ -326,6 +334,7 @@ function makeWidgetDock(options = {}) {
             contentDiv.appendChild(qrDiv);
             dockPageIds.push(qrDiv.id);
             App.qrcode = qrDiv;
+            if (!debug) dockState.activePage = qrDiv.id;
         }
     }
 
@@ -555,6 +564,11 @@ function displayBadgeIfNeeded(sessionId) {
     makeBadge(badgeDiv, sessionId);
 }
 
+function toggleDebug() {
+    const dockDiv = document.getElementById('croquet_dock');
+    if (dockDiv) dockDiv.classList.toggle("debug");
+}
+
 function displayQRCodeIfNeeded() {
     if (App.root === false || App.qrcode === false) return;
     if (urlOptions.noqr) return;
@@ -568,7 +582,8 @@ function displayQRCodeIfNeeded() {
     if (!TOUCH) qrDiv.onclick = evt => {
         evt.preventDefault();
         evt.stopPropagation();
-        window.open(url);
+        if (evt.shiftKey) toggleDebug();
+        else window.open(url);
         };
     const qrcode = makeQRCode(qrDiv, url); // default options
     qrcode.getCanvas().style.width = "100%";
