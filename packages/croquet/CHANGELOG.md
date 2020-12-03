@@ -4,6 +4,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 
 # latest pre-releases
 
+* 0.4.1-5 catch errors in view subscription handlers
 * 0.4.1-4 hide QR code in Q
 * 0.4.1-3 show only QR code unless debug enabled
 * 0.4.1-2 add optional "keep" arg to Data.store()
