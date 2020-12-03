@@ -101,7 +101,13 @@ export class Domain {
             if (topicSubscribers.oncePerFrame.size > 0) this.perFrameEvents.set(topic, data);
             if (topicSubscribers.oncePerFrameWhileSynced.size > 0) this.perSyncedFrameEvents.set(topic, data);
             if (topicSubscribers.immediate.size > 0) immediateWrapper(() => {
-                for (const handler of topicSubscribers.immediate) handler(data);
+                for (const handler of topicSubscribers.immediate) {
+                    try { handler(data); }
+                    catch (err) {
+                        console.error(err);
+                        console.warn(`Croquet: error "${err.message}" in "immediate" subscription ${topic}`);
+                    }
+                }
             });
         }
     }
@@ -115,9 +121,16 @@ export class Domain {
         const processSubs = (topic, data, accessor) => {
             const subscriptions = this.subscriptions[topic];
             if (subscriptions) {
-                for (const handler of subscriptions[accessor]) { handler(data); n++; }
+                for (const handler of subscriptions[accessor]) {
+                    try { handler(data); }
+                    catch (err) {
+                        console.error(err);
+                        console.warn(`Croquet: error "${err.message}" in "${accessor}" subscription ${topic}`);
+                    }
+                    n++;
+                }
             }
-            };
+        };
 
         // process queued events in order
         for (const {topic, data} of this.queuedEvents) processSubs(topic, data, 'queued');
