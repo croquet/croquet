@@ -773,7 +773,14 @@ export const App = {
             window.history.replaceState({}, "", href);
             App.sessionURL = href;
         }
-        return fragment;
+        // return Promise for future-proofing
+        const retVal = Promise.resolve(fragment);
+        // warn about using it directly
+        retVal[Symbol.toPrimitive] = () => {
+            console.warn(`Deprecated: Croquet.App.autoSession() return value used directly. It returns a promise now!`);
+            return fragment;
+        };
+        return retVal;
     },
 
     // get password from url hash.
@@ -815,6 +822,13 @@ export const App = {
         if (window.location.href !== url.href) window.history.replaceState({}, "", url.href);
         // decode % entities if possible
         if (password) try { password = decodeURIComponent(password); } catch (ex) { /* ignore */ }
-        return password;
+        // return Promise for future-proofing
+        const retVal = Promise.resolve(password);
+        // warn about using it directly
+        retVal[Symbol.toPrimitive] = () => {
+            console.warn(`Deprecated: Croquet.App.autoPassword() return value used directly. It returns a promise now!`);
+            return password;
+        };
+        return retVal;
     },
 };
