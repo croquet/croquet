@@ -27,7 +27,7 @@ Your view will contain all your input and output code, and your model will conta
 You launch a session by calling {@link Session.join} from the `croquet.js` library.  Its arguments are the id of your app (which needs to be unique, so using a reverse-DNS name like `"com.example.myapp"` is good), name and password of the session you're creating, the class types of your model and your view, and a set of session options (described below).
 
 The session name exists to distinguish multiple sessions per app. You may use our `autoSession` helper which parses URL search parameters and creates a new random session name if necessary.
-The session password encrypts all data sent via the internet. If your app does not use data worth protecting, you still need to provide a dummy password. You may use our `autoPassword` helper which parses the URL hash and creates a new random password if necessary, appending it to the url for sharing. In production you probably want to add some UI letting users type in the password.
+The session password encrypts all data sent via the internet. If your app does not use data worth protecting, you still need to provide a dummy password. You may use our `autoPassword` helper which parses the URL hash and creates a new random password if necessary, appending it to the url for sharing. (Note: both `autoSession` and `autoPassword` return promises. `Session.join` waits for all promises to resolve). In production you probably want to add some UI letting users type in the password.
 
 ```
 const appId = "com.example.myapp";
