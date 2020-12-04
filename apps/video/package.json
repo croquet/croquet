@@ -1,15 +1,13 @@
 {
   "name": "@croquet/video",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "",
   "main": "src/video.js",
   "scripts": {
-    "start": "parcel src/*.html -p 9009",
-    "deploy": "./deploy.sh",
-    "lint": "eslint src"
+    "start": "parcel src/*.html -p 9009"
   },
   "author": "",
-  "license": "ISC",
+  "license": "Apache",
   "browserslist": {
     "production": [
       "> 5%"
@@ -25,11 +23,6 @@
     "@croquet/croquet": "file:../libraries/packages/croquet"
   },
   "devDependencies": {
-    "cssnano": "^4.1.10",
-    "eslint": "^5.14.1",
-    "eslint-config-airbnb-base": "^13.1.0",
-    "eslint-import-resolver-parcel": "^1.10.4",
-    "eslint-plugin-import": "^2.22.0",
     "parcel-bundler": "^1.12.4"
   }
 }

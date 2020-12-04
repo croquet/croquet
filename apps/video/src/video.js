@@ -1,5 +1,5 @@
 /*
-   Copyright 2019 Croquet Corporation
+   Copyright 2020 Croquet Corporation
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -13,8 +13,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-import { Model, View, App, Session } from "@croquet/croquet";
-import { theAssetManager } from "./assetManager";
+import { Model, View, Session, Data, App } from "@croquet/croquet";
 
 const KEEP_HIDDEN_TABS_ALIVE = false;
 const SCRUB_THROTTLE = 1000 / 10; // min time between scrub events
@@ -22,7 +21,6 @@ const SCRUB_THROTTLE = 1000 / 10; // min time between scrub events
 // handler for sharing and playing dropped-in video files
 class DragDropHandler {
     constructor(options) {
-        this.assetManager = options.assetManager;
         this.rootView = null;
 
         // NB: per https://developer.mozilla.org/docs/Web/API/HTML_Drag_and_Drop_API/Drag_operations, one must cancel (e.g., preventDefault()) on dragenter and dragover events to indicate willingness to receive drop.
@@ -46,25 +44,15 @@ class DragDropHandler {
 
     setView(view) { this.rootView = view; }
 
-    isFileDrop(evt) {
-        const dt = evt.dataTransfer;
-        for (let i = 0; i < dt.types.length; i++) {
-            if (dt.types[i] === "Files") {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    onDrop(evt) {
+    async onDrop(evt) {
         if (!this.rootView) return;
-
-        if (this.isFileDrop(evt)) this.assetManager.handleFileDrop(evt.dataTransfer.items, this.rootView.model, this.rootView);
-        else console.log("unknown drop type");
+        for (const item of evt.dataTransfer.items) {
+            if (item.kind === "file") this.rootView.addFile(item.getAsFile());
+        }
     }
 
 }
-const dragDropHandler = new DragDropHandler({ assetManager: theAssetManager });
+const dragDropHandler = new DragDropHandler();
 
 
 // a throttle that also ensures that the last value is delivered
@@ -266,6 +254,10 @@ export class Video2DView {
     dispose() {
         try {
             URL.revokeObjectURL(this.url);
+            if (this.texture) {
+                this.texture.dispose();
+                delete this.texture;
+            }
             delete this.video;
         } catch (e) { console.warn(`error in Video2DView cleanup: ${e}`); }
     }
@@ -273,30 +265,64 @@ export class Video2DView {
 
 // a shared model for handling video loads and interactions
 class SyncedVideoModel extends Model {
-    init(options) {
+    init(options, persistedSession) {
         super.init(options);
+        this.asset = null;
+        this.handles = {};
 
-        this.subscribe(this.id, 'addAsset', this.addAsset);
-        this.subscribe(this.id, 'setPlayState', this.setPlayState);
+        this.subscribe(this.id, 'add-asset', this.addAsset);
+        this.subscribe(this.id, 'stored-data', this.storedData);
+        this.subscribe(this.id, 'set-play-state', this.setPlayState);
+
+        if (persistedSession) this.restoreEverything(persistedSession);
     }
 
-    // the assetManager sends an 'addAsset' event when an asset (in this app, a video) is loaded and ready for display
-    addAsset(data) {
+    // 'add-asset' is published with the meta data, likely before the upload finished
+    addAsset(asset) {
         this.isPlaying = false;
         this.startOffset = null; // only valid if playing
         this.pausedTime = 0; // only valid if paused
-        this.assetDescriptor = data.assetDescriptor;
 
-        this.publish(this.id, 'loadVideo'); // no event argument needed; the view will consult the model directly
+        this.asset = asset;
+        if (asset.handle && asset.hash) this.handles[asset.hash] = asset.handle;
+        this.publish(this.id, 'asset-changed');
     }
 
-    // the SyncedVideoView sends 'setPlayState' events when the user plays, pauses or scrubs the video.  the interface location of the user action responsible for this change of state is specified in actionSpec.
+    // 'stored-data' is published when the upload finished
+    storedData({hash, handle}) {
+        this.handles[hash] = handle;
+        if (this.asset && this.asset.hash === hash) {
+            this.asset.handle = handle;
+            this.publish(this.id, 'asset-changed');
+        }
+        this.persistSession(this.getEverything);
+    }
+
+    // the SyncedVideoView sends 'set-play-state' events when the user plays, pauses or scrubs the video.  the interface location of the user action responsible for this change of state is specified in actionSpec.
     setPlayState(data) {
         const { isPlaying, startOffset, pausedTime, actionSpec } = data;
         this.isPlaying = isPlaying;
         this.startOffset = startOffset;
         this.pausedTime = pausedTime;
-        this.publish(this.id, 'playStateChanged', { isPlaying, startOffset, pausedTime, actionSpec });
+        this.publish(this.id, 'play-state-changed', { isPlaying, startOffset, pausedTime, actionSpec });
+    }
+
+    /* persistent session data */
+
+    getEverything() {
+        const { hash, type, size, name } = this.asset;
+        return {
+            asset: { hash, type, size, name },
+            handles: Object.entries(this.handles).map(([hash, handle]) => [hash, Data.toId(handle)]),
+        };
+    }
+
+    restoreEverything(persistedData) {
+        this.addAsset(persistedData.asset);
+        for (const [hash, id] of persistedData.handles) {
+            const handle = Data.fromId(id);
+            this.storedData({hash, handle});
+        }
     }
 }
 SyncedVideoModel.register("SyncedVideoModel");
@@ -314,48 +340,51 @@ class SyncedVideoView extends View {
         this.remoteHandIcon = document.getElementById('remotehand');
         this.container = document.getElementById('container');
 
-        this.subscribe(this.model.id, { event: 'loadVideo', handling: 'oncePerFrameWhileSynced' }, this.loadVideo);
-        this.subscribe(this.model.id, { event: 'playStateChanged', handling: 'oncePerFrame' }, this.playStateChanged);
+        this.subscribe(this.model.id, { event: 'asset-changed', handling: 'oncePerFrameWhileSynced' }, this.assetChanged);
+        this.subscribe(this.model.id, { event: 'play-state-changed', handling: 'oncePerFrame' }, this.playStateChanged);
         this.subscribe(this.viewId, { event: 'synced', handling: 'immediate' }, this.handleSyncState);
 
         this.videoView = null;
         this.lastStatusCheck = this.now() + 500; // make the update loop wait a bit before checking the first time
-
-        if (model.assetDescriptor) this.loadVideo();
+        if (this.model.asset) this.assetChanged();
     }
 
-    loadVideo() {
+    async assetChanged() {
+        View.displayStatus(`Fetching ${this.model.asset.name}`);
+        if (!this.model.asset.handle) return;
+
         this.disposeOfVideo(); // discard any loaded or loading video
 
         this.waitingForSync = !this.realm.isSynced(); // this can flip back and forth
 
-        const { assetDescriptor, isPlaying, startOffset, pausedTime } = this.model;
+        const { asset, isPlaying, startOffset, pausedTime } = this.model;
         this.playStateChanged({ isPlaying, startOffset, pausedTime }); // will be stored for now, and may be overridden by messages in a backlog by the time the video is ready
-        const assetManager = theAssetManager;
 
         let okToGo = true; // unless cancelled by another load, or a shutdown
         this.abandonLoad = () => okToGo = false;
 
-        assetManager.ensureAssetsAvailable(assetDescriptor)
-            .then(() => assetManager.importVideo(assetDescriptor, false)) // false => not 3D
-            .then(videoView => {
-                if (!okToGo) return; // been cancelled
-                delete this.abandonLoad;
+        try {
+            const urlObj = await this.objectURLFor(asset);
+            const videoView = await (new Video2DView(urlObj.url)).readyPromise;
 
-                document.getElementById('prompt').style.opacity = 0;
+            if (!okToGo) return; // been cancelled
+            delete this.abandonLoad;
 
-                this.videoView = videoView;
-                const videoElem = this.videoElem = videoView.video;
-                this.playbackBoost = 0;
-                this.container.appendChild(videoElem);
+            document.getElementById('prompt').style.opacity = 0;
 
-                this.applyPlayState();
-                this.lastTimingCheck = this.now() + 500; // let it settle before we try to adjust
-            }).catch(err => console.error(err));
+            this.videoView = videoView;
+            const videoElem = this.videoElem = videoView.video;
+            this.playbackBoost = 0;
+            this.container.appendChild(videoElem);
+
+            this.applyPlayState();
+            this.lastTimingCheck = this.now() + 500; // let it settle before we try to adjust
+
+        } catch (err) { console.error(err) };
     }
 
     adjustPlaybar() {
-        const time = this.videoView.isPlaying ? this.videoElem.currentTime : (this.latestPlayState.pausedTime || 0);
+        const time = this.videoView.isPlaying ? this.videoView.video.currentTime : (this.latestPlayState.pausedTime || 0);
         timebarView.drawPlaybar(time / this.videoView.duration);
     }
 
@@ -489,7 +518,7 @@ class SyncedVideoView extends View {
 
         const wantsToPlay = !this.latestPlayState.isPlaying; // toggle
         if (!wantsToPlay) videoView.pause(); // immediately!
-        const videoTime = videoElem.currentTime;
+        const videoTime = videoView.video.currentTime;
         const sessionTime = this.now(); // the session time corresponding to the video time
         const startOffset = wantsToPlay ? sessionTime - 1000 * videoTime : null;
         const pausedTime = wantsToPlay ? 0 : videoTime;
@@ -498,7 +527,7 @@ class SyncedVideoView extends View {
         const contRect = this.container.getBoundingClientRect();
         const rect = videoElem.getBoundingClientRect();
         const actionSpec = { viewId: this.viewId, type: 'video', x: (evt.offsetX + contRect.left - rect.left)/rect.width, y: (evt.offsetY + contRect.top - rect.top)/rect.height };
-        this.publish(this.model.id, 'setPlayState', { isPlaying: wantsToPlay, startOffset, pausedTime, actionSpec }); // subscribed to by the shared model
+        this.publish(this.model.id, 'set-play-state', { isPlaying: wantsToPlay, startOffset, pausedTime, actionSpec }); // subscribed to by the shared model
     }
 
     handleTimebar(proportion) {
@@ -510,7 +539,7 @@ class SyncedVideoView extends View {
         const pausedTime = videoTime;
         this.playStateChanged({ isPlaying: wantsToPlay, startOffset, pausedTime });
         const actionSpec = { viewId: this.viewId, type: 'timebar', x: proportion, y: 0.5 };
-        this.publish(this.model.id, 'setPlayState', { isPlaying: wantsToPlay, startOffset, pausedTime, actionSpec }); // subscribed to by the shared model
+        this.publish(this.model.id, 'set-play-state', { isPlaying: wantsToPlay, startOffset, pausedTime, actionSpec }); // subscribed to by the shared model
     }
 
     triggerJumpCheck() { this.jumpIfNeeded = true; } // on next checkPlayStatus() that does a timing check
@@ -525,7 +554,7 @@ class SyncedVideoView extends View {
             if (this.videoView.isPlaying && !this.videoView.isBlocked && (now - lastTimingCheck >= 500)) {
                 this.lastTimingCheck = now;
                 const expectedTime = this.videoView.wrappedTime(this.calculateVideoTime());
-                const videoTime = this.videoElem.currentTime;
+                const videoTime = this.videoView.video.currentTime;
                 const videoDiff = videoTime - expectedTime;
                 const videoDiffMS = videoDiff * 1000; // +ve means *ahead* of where it should be
                 if (videoDiff < this.videoView.duration / 2) { // otherwise presumably measured across a loop restart; just ignore.
@@ -534,7 +563,7 @@ class SyncedVideoView extends View {
                         // if there's a difference greater than 500ms, try to jump the video to the right place
                         if (Math.abs(videoDiffMS) > 500) {
                             console.log(`jumping video by ${-Math.round(videoDiffMS)}ms`);
-                            this.videoElem.currentTime = this.videoView.wrappedTime(videoTime - videoDiff + 0.1, true); // 0.1 to counteract the delay that the jump itself tends to introduce; true to ensure we're not jumping beyond the last video frame
+                            this.videoView.video.currentTime = this.videoView.wrappedTime(videoTime - videoDiff + 0.1, true); // 0.1 to counteract the delay that the jump itself tends to introduce; true to ensure we're not jumping beyond the last video frame
                         }
                     } else {
                         // every 3s, check video lag/advance, and set the playback rate accordingly.
@@ -559,7 +588,7 @@ class SyncedVideoView extends View {
                                     this.playbackBoost = desiredBoostPercent;
                                     const playbackRate = 1 + this.playbackBoost * 0.01;
                                     console.log(`video playback rate: ${playbackRate}`);
-                                    this.videoElem.playbackRate = playbackRate;
+                                    this.videoView.video.playbackRate = playbackRate;
                                 }
                             }
                             this.lastRateAdjust = now;
@@ -596,15 +625,38 @@ class SyncedVideoView extends View {
         // and dispose of any already-loaded element
         if (this.videoView) {
             this.videoView.pause();
-            const elem = this.videoElem;
+            const elem = this.videoView.video;
             elem.parentNode.removeChild(elem);
             this.videoView.dispose();
-            this.videoView = this.videoElem = null;
+            this.videoView = null;
         }
     }
 
     iconVisible(iconName, bool) {
         this[`${iconName}Icon`].style.opacity = bool ? 1 : 0;
+    }
+
+    async addFile(file) {
+        if (!file.type.startsWith('video/')) return View.displayWarning(`Not a video: "${file.name}" (${file.type})`);
+        const data = await new Promise(resolve => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.readAsArrayBuffer(file);
+        });
+        View.displayStatus(`Encrypting and uploading ${file.name}`);
+        const hash = Data.hash(data);
+        const asset = { hash, type: file.type, size: data.byteLength, name: file.name };
+        this.publish(this.model.id, "add-asset", asset);
+        const handle = this.model.handles[hash] || await Data.store(this.sessionId, data);
+        this.publish(this.model.id, "stored-data", { hash, handle });
+    }
+
+    async objectURLFor(asset) {
+        const data = await Data.fetch(this.sessionId, asset.handle);
+        const blob = new Blob([data], { type: asset.type });
+        const url = URL.createObjectURL(blob);
+        const revoke = () => { URL.revokeObjectURL(url); return null; }; // return null to support "urlObj.revoke() || result" usage
+        return { url, revoke };
     }
 }
 
@@ -612,7 +664,15 @@ async function go() {
     App.messages = true;
     App.makeWidgetDock();
 
-    Session.join(`video-${App.autoSession()}`, SyncedVideoModel, SyncedVideoView, { tps: 4, step: 'auto', autoSleep: !KEEP_HIDDEN_TABS_ALIVE });
+    Session.join({
+        appId: "io.croquet.examples.video_demo",
+        name: App.autoSession(),
+        password: App.autoPassword(),
+        model: SyncedVideoModel,
+        view: SyncedVideoView,
+        tps: 4,
+        autoSleep: !KEEP_HIDDEN_TABS_ALIVE
+    });
 
 }
 
