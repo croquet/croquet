@@ -452,8 +452,7 @@ function makeWidgetDock(options = {}) {
         }
         if (!options.fixedSize) {
             let lastWheelTime = 0;
-            dockDiv.onwheel = evt => {
-                evt.preventDefault();
+            dockDiv.addEventListener("wheel", evt => {
                 evt.stopPropagation();
 
                 const now = Date.now();
@@ -465,7 +464,7 @@ function makeWidgetDock(options = {}) {
                 const max = Math.min(window.innerWidth, window.innerHeight) * 0.8;
                 size = Math.max(minExpandedSize, Math.min(max, dockDiv.offsetWidth / (1.05 ** deltaY)));
                 setCustomSize(size);
-            };
+            }, { passive: true });
         }
     }
 }
