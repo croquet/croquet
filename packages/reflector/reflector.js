@@ -35,7 +35,7 @@ prometheus.collectDefaultMetrics(); // default metrics like process start time, 
 // we use Google Cloud Storage for session state
 const storage = new Storage();
 
-const port = 9090;
+const PORT = 9090;
 const VERSION = "v1";
 const SERVER_HEADER = `croquet-reflector-${VERSION}`;
 const DELETION_DEBOUNCE = 10000; // time in ms to wait before deleting an island
@@ -49,18 +49,18 @@ const MAX_SCALE = 64;         // maximum ratio of island time to wallclock time
 const TALLY_INTERVAL = 1000;  // maximum time to wait to tally TUTTI contributions
 const USERS_INTERVAL = 100;   // time to gather user entries/exits before sending a "users" message
 
-const hostname = os.hostname();
-const hostip = Object.values(os.networkInterfaces()).flat().filter(addr => !addr.internal && addr.family === 'IPv4')[0].address;
-const cluster = fs.existsSync("/var/run/secrets/kubernetes.io") ? process.env.CLUSTER_NAME : "local";
-const cluster_label = process.env.CLUSTER_LABEL || cluster;
+const HOSTNAME = os.hostname();
+const HOSTIP = Object.values(os.networkInterfaces()).flat().filter(addr => !addr.internal && addr.family === 'IPv4')[0].address;
+const CLUSTER = fs.existsSync("/var/run/secrets/kubernetes.io") ? process.env.CLUSTER_NAME : "local";
+const CLUSTER_LABEL = process.env.CLUSTER_LABEL || CLUSTER;
 
-if (!cluster) {
+if (!CLUSTER) {
     // should have been injected to container via config map
     ERROR("FATAL: no CLUSTER_NAME env var");
     process.exit(1);
 }
 
-const DISCONNECT_UNRESPONSIVE_CLIENTS = cluster !== "local";
+const DISCONNECT_UNRESPONSIVE_CLIENTS = CLUSTER !== "local";
 const CHECK_INTERVAL = 5000;        // how often to checkForActivity
 const PING_INTERVAL = 5000;         // while inactive, send pings at this rate
 const SNAP_TIMEOUT = 30000;         // if no SNAP received after waiting this number of ms, disconnect
@@ -68,16 +68,16 @@ const PING_THRESHOLD = 30000;       // if not heard from for this long, start pi
 const DISCONNECT_THRESHOLD = 60000; // if not responding for this long, disconnect
 
 function logtime() {
-    if (cluster !== "local" ) return "";
+    if (CLUSTER !== "local" ) return "";
     const d = new Date();
     const dd = new Date(d - d.getTimezoneOffset() * 60 * 1000);
     return dd.toISOString().replace(/.*T/, "").replace("Z", " ");
 }
-function LOG( ...args) { console.log( `${logtime()}Reflector-${VERSION}(${cluster}:${hostip}):`, ...args); }
-function WARN(...args) { console.warn(`${logtime()}Reflector-${VERSION}(${cluster}:${hostip}):`, ...args); }
-function ERROR(...args) { console.error(`${logtime()}Reflector-${VERSION}(${cluster}:${hostip}):`, ...args); }
+function LOG( ...args) { console.log( `${logtime()}Reflector-${VERSION}(${CLUSTER}:${HOSTIP}):`, ...args); }
+function WARN(...args) { console.warn(`${logtime()}Reflector-${VERSION}(${CLUSTER}:${HOSTIP}):`, ...args); }
+function ERROR(...args) { console.error(`${logtime()}Reflector-${VERSION}(${CLUSTER}:${HOSTIP}):`, ...args); }
 function DEBUG(...args) { if (debugLogs) LOG(...args); }
-function LOCAL_DEBUG(...args) { if (debugLogs && cluster === "local") LOG(...args); }
+function LOCAL_DEBUG(...args) { if (debugLogs && CLUSTER === "local") LOG(...args); }
 
 // return codes for closing connection
 // client wil try to reconnect for codes < 4100
@@ -136,7 +136,7 @@ const webServer = http.createServer( (req, res) => {
         return res.end();
     }
     // otherwise, show host and cluster
-    const body = `Croquet reflector-${VERSION} ${hostip} ${cluster_label}\n\nAh, ha, ha, ha, stayin' alive!`;
+    const body = `Croquet reflector-${VERSION} ${HOSTIP} ${CLUSTER_LABEL}\n\nAh, ha, ha, ha, stayin' alive!`;
     res.writeHead(200, {
       'Server': SERVER_HEADER,
       'Content-Length': body.length,
@@ -148,8 +148,8 @@ const webServer = http.createServer( (req, res) => {
 const server = new WebSocket.Server({ server: webServer });
 
 function startServer() {
-    webServer.listen(port);
-    LOG(`starting ${server.constructor.name} ws://${hostname}:${port}/`);
+    webServer.listen(PORT);
+    LOG(`starting ${server.constructor.name} ws://${HOSTNAME}:${PORT}/`);
 }
 
 const STATS_TO_AVG = ["RECV", "SEND", "TICK", "IN", "OUT"];
@@ -209,7 +209,7 @@ process.on('SIGTERM', handleTerm);
 
 // start server
 startServer();
-if (cluster === "local") watchStats();
+if (CLUSTER === "local") watchStats();
 
 /**
  * @typedef ID - A random 128 bit hex ID
@@ -819,7 +819,7 @@ async function deleteIsland(island) {
     stopTicker(island);
     ALL_ISLANDS.delete(id);
     // house keeping below only in fleet mode
-    if (cluster === "local") return true;
+    if (CLUSTER === "local") return true;
     // remove ourselves from session registry, ignoring errors
     // TODO: return this promise along with the other promise below
     unregisterSession(id, `@${time}#${seq}`);
@@ -837,7 +837,7 @@ async function deleteIsland(island) {
 }
 
 async function unregisterSession(id, detail) {
-    if (cluster === "local") return;
+    if (CLUSTER === "local") return;
     DEBUG(id, `unregistering session ${detail}`);
     try {
         await storage.bucket('croquet-reflectors-v1').file(`${id}.json`).delete();
