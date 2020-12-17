@@ -308,15 +308,22 @@ export default class Controller {
         this.triggeringCpuTime = null;
         this.cpuTime = 0;
 
-        const start = Stats.begin("snapshot");
-        const voteData = {
-            cpuTime: localCpuTime,
-            hash: this.island.getSummaryHash(),
-            viewId: this.viewId,
+        let start, voteData, ms;
+        try {
+            start = Stats.begin("snapshot");
+            voteData = {
+                cpuTime: localCpuTime,
+                hash: this.island.getSummaryHash(),
+                viewId: this.viewId,
+            }
+        } catch (error) {
+            displayAppError("snapshot", error);
+            return;
+        } finally {
+            ms = Stats.end("snapshot") - start;
+            // exclude snapshot time from cpu time for logic in this.simulate()
+            this.cpuTime -= ms;  // give ourselves a time credit for the non-simulation work
         }
-        const ms = Stats.end("snapshot") - start;
-        // exclude snapshot time from cpu time for logic in this.simulate()
-        this.cpuTime -= ms;  // give ourselves a time credit for the non-simulation work
         if (DEBUG.snapshot) console.log(this.id, `Summary hashing took ${Math.ceil(ms)}ms`);
 
         // sending the vote is handled asynchronously, because we want to add a view-side random()
@@ -371,14 +378,17 @@ export default class Controller {
     }
 
     serveSnapshot(dissidentFlag) {
-        // !!! THIS IS BEING EXECUTED INSIDE THE SIMULATION LOOP!!!
-        const start = Stats.begin("snapshot");
-        const snapshot = this.takeSnapshot();
-        const ms = Stats.end("snapshot") - start;
-        // exclude snapshot time from cpu time for logic in this.simulate()
-        this.cpuTime -= ms;
+        let start, ms, snapshot;
+        try {
+            start = Stats.begin("snapshot");
+            snapshot = this.takeSnapshot();
+        } catch (error) {
+            displayAppError("snapshot", error);
+            return;
+        } finally {
+            ms = Stats.end("snapshot") - start;
+        }
         if (DEBUG.snapshot) console.log(this.id, `Snapshotting took ${Math.ceil(ms)} ms`);
-        // ... here we go async
         this.uploadSnapshot(snapshot, dissidentFlag);
     }
 
