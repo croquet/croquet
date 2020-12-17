@@ -34,7 +34,6 @@ prometheus.collectDefaultMetrics(); // default metrics like process start time, 
 
 // we use Google Cloud Storage for session state
 const storage = new Storage();
-const bucket = storage.bucket('croquet-sessions-v1');
 
 const port = 9090;
 const VERSION = "v1";
@@ -992,7 +991,7 @@ server.on('connection', (client, req) => {
 
 /** fetch a JSON-encoded object from our storage bucket */
 async function fetchJSON(filename) {
-    const file = bucket.file(filename);
+    const file = storage.bucket('croquet-sessions-v1').file(filename);
     const stream = await file.createReadStream();
     return new Promise((resolve, reject) => {
         try {
@@ -1006,7 +1005,7 @@ async function fetchJSON(filename) {
 
 /** upload an object as JSON file to our storage bucket */
 async function uploadJSON(filename, object) {
-    const file = bucket.file(filename);
+    const file = storage.bucket('croquet-sessions-v1').file(filename);
     const stream = await file.createWriteStream({
         resumable: false,
         metadata: {
