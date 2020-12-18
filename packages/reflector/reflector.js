@@ -76,9 +76,23 @@ function ERROR(...args) { console.error(`${logtime()}Reflector-${VERSION}(${CLUS
 function DEBUG(...args) { if (debugLogs) LOG(...args); }
 function LOCAL_DEBUG(...args) { if (debugLogs && CLUSTER === "local") LOG(...args); }
 
-const NO_STORAGE = CLUSTER === "local" || process.argv.includes("--storage=none"); // no bucket access
-const NO_DISPATCHER = NO_STORAGE || process.argv.includes("--standalone"); // no session deregistration
-const APPS_ONLY = !NO_STORAGE && process.argv.includes("--storage=persist"); // no session resume
+
+const ARGS = {
+    NO_STORAGE: "--storage=none",
+    APPS_ONLY: "--storage=persist",
+    STANDALONE: "--standalone",
+}
+
+for (const arg of process.argv.slice(2)) {
+    if (!Object.values(ARGS).includes(arg)) {
+        console.error(`Error: Unrecognized option ${arg}`);
+        process.exit(1);
+    }
+}
+
+const NO_STORAGE = CLUSTER === "local" || process.argv.includes(ARGS.NO_STORAGE); // no bucket access
+const NO_DISPATCHER = NO_STORAGE || process.argv.includes(ARGS.STANDALONE); // no session deregistration
+const APPS_ONLY = !NO_STORAGE && process.argv.includes(ARGS.APPS_ONLY); // no session resume
 const STORE_SESSION = !APPS_ONLY;
 const STORE_MESSAGE_LOGS = !APPS_ONLY;
 const STORE_PERSISTENT_DATA = !NO_STORAGE;
