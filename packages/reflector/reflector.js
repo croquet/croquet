@@ -93,8 +93,8 @@ for (const arg of process.argv.slice(2)) {
 const NO_STORAGE = CLUSTER === "local" || process.argv.includes(ARGS.NO_STORAGE); // no bucket access
 const NO_DISPATCHER = NO_STORAGE || process.argv.includes(ARGS.STANDALONE); // no session deregistration
 const APPS_ONLY = !NO_STORAGE && process.argv.includes(ARGS.APPS_ONLY); // no session resume
-const STORE_SESSION = !APPS_ONLY;
-const STORE_MESSAGE_LOGS = !APPS_ONLY;
+const STORE_SESSION = !NO_STORAGE && !APPS_ONLY;
+const STORE_MESSAGE_LOGS = !NO_STORAGE && !APPS_ONLY;
 const STORE_PERSISTENT_DATA = !NO_STORAGE;
 
 // we use Google Cloud Storage for session state
