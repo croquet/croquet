@@ -32,9 +32,6 @@ const prometheusTicksCounter = new prometheus.Counter({
 });
 prometheus.collectDefaultMetrics(); // default metrics like process start time, heap usage etc
 
-// we use Google Cloud Storage for session state
-const storage = new Storage();
-
 const PORT = 9090;
 const VERSION = "v1";
 const SERVER_HEADER = `croquet-reflector-${VERSION}`;
@@ -78,6 +75,18 @@ function WARN(...args) { console.warn(`${logtime()}Reflector-${VERSION}(${CLUSTE
 function ERROR(...args) { console.error(`${logtime()}Reflector-${VERSION}(${CLUSTER}:${HOSTIP}):`, ...args); }
 function DEBUG(...args) { if (debugLogs) LOG(...args); }
 function LOCAL_DEBUG(...args) { if (debugLogs && CLUSTER === "local") LOG(...args); }
+
+const NO_STORAGE = CLUSTER === "local" || process.argv.includes("--storage=none"); // no bucket access
+const NO_DISPATCHER = NO_STORAGE || process.argv.includes("--standalone"); // no session deregistration
+const APPS_ONLY = !NO_STORAGE && process.argv.includes("--storage=persist"); // no session resume
+const STORE_SESSION = !APPS_ONLY;
+const STORE_MESSAGE_LOGS = !APPS_ONLY;
+const STORE_PERSISTENT_DATA = !NO_STORAGE;
+
+// we use Google Cloud Storage for session state
+const storage = new Storage();
+const SESSION_BUCKET = NO_STORAGE ? null : storage.bucket('croquet-sessions-v1');
+const DISPATCHER_BUCKET = NO_DISPATCHER ? null : storage.bucket('croquet-reflectors-v1');
 
 // return codes for closing connection
 // client wil try to reconnect for codes < 4100
@@ -523,7 +532,7 @@ function SNAP(client, args) {
             } // else if firstToKeep is 0 there's nothing to do
         }
 
-        if (messagesToStore.length) {
+        if (STORE_MESSAGE_LOGS && messagesToStore.length) {
             // upload to the message-log bucket a blob with all messages since the previous snapshot
             const messageLog = {
                 start: island.snapshotUrl,  // previous snapshot, if any
@@ -578,7 +587,7 @@ function SAVE(client, args) {
     // do *not* change our own session's persistentUrl!
     // we only upload this to be used to init the next session of this island
     const saved = { url };
-    uploadJSON(`apps/${appId}/${islandId}.json`, saved);
+    if (STORE_PERSISTENT_DATA) uploadJSON(`apps/${appId}/${islandId}.json`, saved);
 }
 
 /** send a message to all participants after time stamping it
@@ -839,7 +848,7 @@ async function deleteIsland(island) {
     // if we've been told of a snapshot since the one (if any) stored in this
     // island's latest.json, or there are messages since the snapshot referenced
     // there, write a new latest.json.
-    if ((syncWithoutSnapshot || snapshotUrl) && (snapshotUrl !== storedUrl || after(storedSeq, seq))) {
+    if (STORE_SESSION && (syncWithoutSnapshot || snapshotUrl) && (snapshotUrl !== storedUrl || after(storedSeq, seq))) {
         const fileName = `${id}/latest.json`;
         DEBUG(id, `@${time}#${seq} uploading latest.json with ${messages.length} messages`);
         const latestSpec = {};
@@ -850,10 +859,10 @@ async function deleteIsland(island) {
 }
 
 async function unregisterSession(id, detail) {
-    if (CLUSTER === "local") return;
+    if (!DISPATCHER_BUCKET) return;
     DEBUG(id, `unregistering session ${detail}`);
     try {
-        await storage.bucket('croquet-reflectors-v1').file(`${id}.json`).delete();
+        await DISPATCHER_BUCKET.file(`${id}.json`).delete();
     } catch (err) {
         if (err.code === 404) LOG(`${id} failed to unregister. ${err.code}: ${err.message}`);
         else WARN(`${id} failed to unregister. ${err.code}: ${err.message}`);
@@ -1004,7 +1013,10 @@ server.on('connection', (client, req) => {
 
 /** fetch a JSON-encoded object from our storage bucket */
 async function fetchJSON(filename) {
-    const file = storage.bucket('croquet-sessions-v1').file(filename);
+    // somewhat of a hack to not having to guard the fetchJSON calls in JOIN()
+    if (NO_STORAGE || (APPS_ONLY && !filename.startsWith('apps/')))
+        return Promise.reject("disabled");
+    const file = SESSION_BUCKET.file(filename);
     const stream = await file.createReadStream();
     return new Promise((resolve, reject) => {
         try {
@@ -1018,7 +1030,9 @@ async function fetchJSON(filename) {
 
 /** upload an object as JSON file to our storage bucket */
 async function uploadJSON(filename, object) {
-    const file = storage.bucket('croquet-sessions-v1').file(filename);
+    if (NO_STORAGE || (APPS_ONLY && !filename.startsWith('apps/')))
+        throw Error("storage disabled but upload called?!")
+    const file = SESSION_BUCKET.file(filename);
     const stream = await file.createWriteStream({
         resumable: false,
         metadata: {
