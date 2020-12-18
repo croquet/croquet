@@ -53,7 +53,7 @@ const CLUSTER_LABEL = process.env.CLUSTER_LABEL || CLUSTER;
 
 if (!CLUSTER) {
     // should have been injected to container via config map
-    ERROR("FATAL: no CLUSTER_NAME env var");
+    console.error("FATAL: no CLUSTER_NAME env var");
     process.exit(1);
 }
 
@@ -70,7 +70,7 @@ function logtime() {
     const dd = new Date(d - d.getTimezoneOffset() * 60 * 1000);
     return dd.toISOString().replace(/.*T/, "").replace("Z", " ");
 }
-function LOG( ...args) { console.log( `${logtime()}Reflector-${VERSION}(${CLUSTER}:${HOSTIP}):`, ...args); }
+function LOG( ...args) { console.log(`${logtime()}Reflector-${VERSION}(${CLUSTER}:${HOSTIP}):`, ...args); }
 function WARN(...args) { console.warn(`${logtime()}Reflector-${VERSION}(${CLUSTER}:${HOSTIP}):`, ...args); }
 function ERROR(...args) { console.error(`${logtime()}Reflector-${VERSION}(${CLUSTER}:${HOSTIP}):`, ...args); }
 function DEBUG(...args) { if (debugLogs) LOG(...args); }
@@ -385,7 +385,7 @@ function JOIN(client, args) {
             if (island.tick) startTicker(island, island.tick);
             if (island.syncClients.length > 0) SYNC(island);
         }).catch(err => {
-            if (err.code !== 404) ERROR(id, err.message);
+            if (err.code !== 404) ERROR(`${id} failed to fetch latest.json: ${err.message}`);
             // this is a brand-new session, check if there is a persisted island
             const persistName = `apps/${appId}/${islandId}.json`;
             const persistPromise = appId && islandId
@@ -1015,7 +1015,7 @@ server.on('connection', (client, req) => {
 async function fetchJSON(filename) {
     // somewhat of a hack to not having to guard the fetchJSON calls in JOIN()
     if (NO_STORAGE || (APPS_ONLY && !filename.startsWith('apps/')))
-        return Promise.reject("disabled");
+        return Promise.reject({code: 404, message: "fetch disabled"});
     const file = SESSION_BUCKET.file(filename);
     const stream = await file.createReadStream();
     return new Promise((resolve, reject) => {
