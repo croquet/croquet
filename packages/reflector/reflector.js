@@ -43,7 +43,7 @@ const TICK_MS = 1000 / 5;     // default tick interval
 const INITIAL_SEQ = 0xFFFFFFF0; // initial sequence number, must match island.js
 const ARTIFICIAL_DELAY = 0;   // delay messages randomly by 50% to 150% of this
 const MAX_MESSAGES = 10000;   // messages per island to retain since last snapshot
-const REQU_SNAPSHOT = 9000;   // request a snapshot if this many messages retained
+const REQU_SNAPSHOT = 6000;   // request a snapshot if this many messages retained
 const MIN_SCALE = 1 / 64;     // minimum ratio of island time to wallclock time
 const MAX_SCALE = 64;         // maximum ratio of island time to wallclock time
 const TALLY_INTERVAL = 1000;  // maximum time to wait to tally TUTTI contributions
@@ -589,6 +589,7 @@ function SEND(island, messages) {
     if (!island) return; // client never joined?!
 
     if (island.messages.length >= MAX_MESSAGES) {
+        REQU(island);
         INFO(island, {
             code: "SNAPSHOT_NEEDED",
             msg: "Cannot buffer more messages. Need snapshot.",
@@ -597,9 +598,21 @@ function SEND(island, messages) {
         return;
     }
 
-    if (island.messages.length === REQU_SNAPSHOT) {
-        WARN(`${island.id} reached ${island.messages.length} messages, sending REQU`);
-        REQU(island);
+    if (island.messages.length >= REQU_SNAPSHOT) {
+        const headroom = MAX_MESSAGES - island.messages.length;
+        const every = Math.max(1, (headroom / 100 | 0) * 10);
+        // this will request a snapshot with increasing frequency.
+        // the last 100 times before buffer is full it will be every message
+        if (island.messages.length % every === 0) {
+            WARN(`${island.id} reached ${island.messages.length} messages, sending REQU`);
+            REQU(island);
+            // send warnings if safety buffer is less than 25%
+            if (headroom < (MAX_MESSAGES - REQU_SNAPSHOT) / 4) INFO(island, {
+                code: "SNAPSHOT_NEEDED",
+                msg: `Reflector message buffer almost full. Need snapshot ASAP.`,
+                options: { level: "warning" }
+            });
+        }
     }
 
     const time = getTime(island, "SEND");
