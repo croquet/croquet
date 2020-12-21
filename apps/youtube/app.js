@@ -203,15 +203,18 @@ class YouTubePlayerView extends Croquet.View {
             }
 
             const url = new URL(string);
-
+            let video, currentTime
             if (url.host.includes('youtube.com') && url.searchParams.has('v')) {
-                const video = url.searchParams.get('v');
-                const currentTime = url.searchParams.get('t') || 0;
+                video = url.searchParams.get('v');
+            }
+            else if (url.host.includes('youtu.be') && url.pathname.length > 1) {
+                video = url.pathname.slice(1)
+            }
 
-                if (video) {
-                    console.log(video);
-                    this.publish(this.youTubePlayerModel.id, 'set-video', {video, currentTime});
-                }
+            if (video) {
+                currentTime = Number(url.searchParams.get('t')) || 0;
+                console.log(video, currentTime)
+                this.publish(this.youTubePlayerModel.id, 'set-video', {video, currentTime});
             }
         }
         catch (error) {
@@ -407,6 +410,7 @@ class YouTubePlayerView extends Croquet.View {
     // DID
     didSetVideo() {
         if (this.player) {
+            console.log(this.youTubePlayerModel.currentTime)
             this.cueVideoById(this.youTubePlayerModel.video, this.youTubePlayerModel.currentTime);
         }
         else {
