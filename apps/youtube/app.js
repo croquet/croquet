@@ -363,6 +363,9 @@ class YouTubePlayerView extends Croquet.View {
                 break;
             case YT.PlayerState.CUED:
                 console.log('cued');
+                this._updateDuration = true;
+                this._populateVideoQualities = true;
+                this._updateCurrentTime = true;
                 break;
             default:
                 break;
