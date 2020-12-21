@@ -62,6 +62,15 @@ class YouTubePlayerView extends Croquet.View {
 
         this.elements.videoOverlay.addEventListener('click', this.onVideoOverlayClick.bind(this));
 
+        document.addEventListener('paste', this.onPaste.bind(this))
+        document.addEventListener('copy', this.onCopy.bind(this))
+
+        // MEDIA UPLOADING
+        document.addEventListener('dragenter', this.onDragEnter.bind(this));
+        document.addEventListener('dragover', this.onDragOver.bind(this));
+        document.addEventListener('dragleave', this.onDragLeave.bind(this));
+        document.addEventListener('drop', this.onDrop.bind(this));
+
         if (this.isMobile()) {
             this.elements.ui.classList.add('mobile');
         }
@@ -477,9 +486,51 @@ class YouTubePlayerView extends Croquet.View {
         this.updateTimelineStyle();
     }
 
+    // COPY/PASTE
+    onPaste(event) {
+        if(event.clipboardData.types.find(type => type.includes('text/'))) {
+            const text = event.clipboardData.getData('text');
+            if(text) {
+                this.uploadUrl(text);
+            }
+        }
+    }
+    onCopy(event) {
+        if(!this._copy) {
+            const url = this.getUrl();
+            if(url) {
+                this._copy = true;
+
+                this.elements.copy.value = url;
+
+                this.elements.copy.select();
+                this.elements.copy.setSelectionRange(0, 100);
+                document.execCommand('copy');
+
+                this.elements.copy.value = '';
+            }
+        }
+        else {
+            delete this._copy;
+        }
+    }
+
     getTimeSinceModelTimestamp() {return (this.now() - this.youTubePlayerModel.timestamp)/1000;}
     getModelCurrentTime() {return this.isPaused()? this.youTubePlayerModel.currentTime : Math.min(this.youTubePlayerModel.currentTime + this.getTimeSinceModelTimestamp(), this.youTubePlayerModel.duration);}
     getTimeOffset() {return Math.abs(this.getCurrentTime() - this.getModelCurrentTime());}
+
+    // DRAG
+    onDragEnter(event){event.preventDefault()}
+    onDragOver(event){event.preventDefault()}
+    onDragLeave(event){event.preventDefault()}
+    onDrop(event) {
+        event.preventDefault();     
+
+        if (event.dataTransfer.types.find(type => type.includes('text/'))) {
+            const text = event.dataTransfer.getData('text');
+            this.uploadUrl(text);
+        }
+    }
 }
 
 class UserView extends Croquet.View {
