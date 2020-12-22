@@ -368,6 +368,7 @@ class YouTubePlayerView extends Croquet.View {
             case YT.PlayerState.PAUSED:
                 console.log('paused');
                 this.elements.ui.classList.add('isPaused');
+                this.elements.ui.classList.remove('seeking');
                 this.updateCurrentTime();
                 break;
             case YT.PlayerState.BUFFERING:

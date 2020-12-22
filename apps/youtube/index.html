@@ -377,11 +377,27 @@
         div:hover>.background {
             opacity: 0.2;
         }
+
+        #clickToStart {
+            display: none !important;
+        }
+        #ui.initPlayer.ready:not(.playedOnce) #clickToStart {
+            grid-row: 2/-1;
+            grid-column: 1/-1;
+            z-index: 3;
+            background-color: black;
+            color: white;
+            text-align: center;
+            display: flex !important;
+            flex-direction: column;
+        }
     </style>
 
     <body>
         <div id='ui' class='isPaused'>
             <input readonly id='copy'>
+
+            <div id='clickToStart' class='control'>Click the video above to start player</div>
 
             <div id='currentTime' title='Current Time'>00:00:00</div>
             <div id='duration' title='Video Duration'>00:00:00</div>
@@ -438,7 +454,7 @@
 
     <script>
         if (window.location.protocol !== 'https:') {
-            window.location.replace(`https:${window.location.href.substring(window.location.protocol.length)}`);
+            //window.location.replace(`https:${window.location.href.substring(window.location.protocol.length)}`);
         }
     </script>
 
