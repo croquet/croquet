@@ -45,7 +45,7 @@ const REQU_SNAPSHOT = 6000;   // request a snapshot if this many messages retain
 const MIN_SCALE = 1 / 64;     // minimum ratio of island time to wallclock time
 const MAX_SCALE = 64;         // maximum ratio of island time to wallclock time
 const TALLY_INTERVAL = 1000;  // maximum time to wait to tally TUTTI contributions
-const USERS_INTERVAL = 100;   // time to gather user entries/exits before sending a "users" message
+const USERS_INTERVAL = 200;   // time to gather user entries/exits before sending a "users" message
 
 const HOSTNAME = os.hostname();
 const HOSTIP = Object.values(os.networkInterfaces()).flat().filter(addr => !addr.internal && addr.family === 'IPv4')[0].address;
