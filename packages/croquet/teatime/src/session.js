@@ -194,6 +194,11 @@ export class Session {
             if (reflector.includes("://") || reflector.match(/^[-a-z0-9]+$/i)) urlOptions.reflector = reflector;
             else console.warn(`Croquet: Not a valid websocket url, ignoring reflector "${reflector}"`);
         }
+        // verify heraldUrl
+        if (parameters.heraldUrl) {
+            if (parameters.heraldUrl.length > 128) throw Error('heraldUrl can only be 128 characters');
+            if (!parameters.heraldUrl.startsWith("https://")) throw Error('heraldUrl needs to be https');
+        }
         // also add debug parameters
         if (parameters.debug) {
             function asArray(a) {
@@ -205,7 +210,7 @@ export class Session {
         if ("autoSleep" in parameters) urlOptions.autoSleep = parameters.autoSleep;
         // now start
         if ("expectedSimFPS" in parameters) expectedSimFPS = Math.min(parameters.expectedSimFPS, MAX_BALANCE_FPS);
-        const SESSION_PARAMS = ['name', 'password', 'appId', 'tps', 'optionsFromUrl', 'viewIdDebugSuffix'];
+        const SESSION_PARAMS = ['name', 'password', 'appId', 'tps', 'heraldUrl', 'optionsFromUrl', 'viewIdDebugSuffix'];
         freezeAndHashConstants();
         const controller = new Controller();
         // make sure options are JSONable

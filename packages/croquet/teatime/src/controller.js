@@ -787,7 +787,7 @@ export default class Controller {
         if (DEBUG.session) console.log(this.id, 'Controller sending JOIN');
 
         const { tick, delay } = this.getTickAndMultiplier();
-        const { name, codeHash, appId, islandId } = this.islandCreator;
+        const { name, codeHash, appId, islandId, heraldUrl } = this.islandCreator;
 
         const args = {
             name,                   // for debugging only
@@ -801,6 +801,9 @@ export default class Controller {
         if (appId) Object.assign(args, {
             appId,                  // identifies developer/app
             islandId,               // identifies island across sessions
+        });
+        if (heraldUrl) Object.assign(args, {
+            heraldUrl,              // url to receive POST for join/leave events
         });
 
         this.connection.send(JSON.stringify({
