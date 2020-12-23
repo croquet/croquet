@@ -867,12 +867,16 @@ function provisionallyDeleteIsland(island) {
 
 // delete our live record of the island, rewriting latest.json if necessary
 async function deleteIsland(island) {
+    const { id, syncWithoutSnapshot, snapshotUrl, time, seq, storedUrl, storedSeq, messages } = island;
+    if (!ALL_ISLANDS.delete(id)) {
+        LOG(`${id} island already deleted, ignoring deleteIsland();`)
+        return true;
+    };
     if (island.usersTimer) {
         clearTimeout(island.usersTimer);
         USERS(island); // ping heraldUrl one last time
     }
     prometheusSessionGauge.dec();
-    const { id, syncWithoutSnapshot, snapshotUrl, time, seq, storedUrl, storedSeq, messages } = island;
     // stop ticking and delete
     stopTicker(island);
     ALL_ISLANDS.delete(id);
