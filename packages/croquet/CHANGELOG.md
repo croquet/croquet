@@ -4,6 +4,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 
 # latest pre-releases
 
+* 0.4.1-8 add heraldUrl
 * 0.4.1-7 catch errors during snapshot
 * 0.4.1-6 async autoSession and autoPassword
 * 0.4.1-5 catch errors in view subscription handlers
