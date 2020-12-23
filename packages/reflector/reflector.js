@@ -117,9 +117,9 @@ REASON.NO_JOIN = [4121, "client never joined"];
 // this webServer is only for http:// requests to the reflector url
 // (e.g. the load-balancer's health check),
 // not ws:// requests for an actual websocket connection
-const webServer = http.createServer( (req, res) => {
+const webServer = http.createServer( async (req, res) => {
     if (req.url === '/metrics') {
-        const body = prometheus.register.metrics();
+        const body = await prometheus.register.metrics();
         res.writeHead(200, {
             'Server': SERVER_HEADER,
             'Content-Length': body.length,
