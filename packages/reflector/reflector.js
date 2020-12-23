@@ -846,7 +846,7 @@ function stopTicker(island) {
 }
 
 async function heraldUsers(heraldUrl, id, all, joined, left) {
-    const payload = {id, all, joined, left};
+    const payload = {time: Date.now(), id, all, joined, left};
     try {
         const body = JSON.stringify(payload);
         DEBUG(`${id} heralding to ${heraldUrl}: ${body.length} bytes`);
