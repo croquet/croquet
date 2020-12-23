@@ -767,7 +767,7 @@ function USERS(island) {
     if (!active) return; // do not trigger a SEND before someone successfully joined
     const msg = [0, 0, payload];
     SEND(island, [msg]);
-    DEBUG(id, `Users ${island}: +${usersJoined.length}-${usersLeft.length}=${clients.size} (total ${ALL_ISLANDS.size} islands, ${server.clients.size} users)`);
+    DEBUG(id, `Users ${island}: +${usersJoined.length}-${usersLeft.length}=${active}/${total} (total ${ALL_ISLANDS.size} islands, ${server.clients.size} users)`);
     usersJoined.length = 0;
     usersLeft.length = 0;
 }
@@ -849,14 +849,14 @@ async function heraldUsers(heraldUrl, id, all, joined, left) {
     const payload = {id, all, joined, left};
     try {
         const body = JSON.stringify(payload);
-        LOG(`${id} heralding to ${heraldUrl}: ${body}`);
+        DEBUG(`${id} heralding to ${heraldUrl}: ${body.length} bytes`);
         const response = await fetch(heraldUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body,
             size: 512, // limit response size
         });
-        if (response.ok) LOG(`${id} heralded successfully`)
+        if (response.ok) DEBUG(`${id} heralded successfully`)
         else WARN(`${id} heralding failed: ${response.status} ${response.statusText}`);
     } catch (err) {
         ERROR(`${id} failed heralding: ${err.message}`);
