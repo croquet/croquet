@@ -847,16 +847,18 @@ function stopTicker(island) {
 async function heraldUsers(heraldUrl, id, {active, joined, left}) {
     const payload = {id, joined, left, users: active};
     try {
+        const body = JSON.stringify(payload);
+        LOG(`${id} heralding to ${heraldUrl}: ${body}`);
         const response = await fetch(heraldUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
+            body,
             size: 512, // limit response size
         });
         if (response.ok) LOG(`${id} heralded successfully`)
-        else WARN(`${id} heralding failed: ${response.status} ${response.statusText} for ${heraldUrl}`);
+        else WARN(`${id} heralding failed: ${response.status} ${response.statusText}`);
     } catch (err) {
-        ERROR(`${id} failed heralding to ${heraldUrl} ${err.message}`);
+        ERROR(`${id} failed heralding: ${err.message}`);
     }
 }
 
