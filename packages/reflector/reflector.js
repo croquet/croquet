@@ -6,6 +6,7 @@ const os = require('os');
 const fs = require('fs');
 const http = require('http');
 const WebSocket = require('ws');
+const fetch = require('node-fetch');
 const prometheus = require('prom-client');
 const { Storage } = require('@google-cloud/storage');
 
@@ -325,7 +326,7 @@ function JOIN(client, args) {
     const id = client.sessionId;
     // the connection log filter matches on (" connection " OR " JOIN ")
     LOG(`${id}/${client.addr} receiving JOIN ${JSON.stringify(args)}`);
-    const { name, version, appId, islandId, user, location } = args;
+    const { name, version, appId, islandId, user, location, heraldUrl } = args;
     // new clients (>=0.3.3) send ticks in JOIN
     const syncWithoutSnapshot = 'ticks' in args;
     // create island data if this is the first client
@@ -348,6 +349,7 @@ function JOIN(client, args) {
             persistentUrl: '',   // url of persisted island
             syncWithoutSnapshot, // new protocol as of 0.3.3
             location,            // send location data?
+            heraldUrl,           // announce join/leave events
             messages: [],        // messages since last snapshot
             lastTick: -1000,     // time of last TICK sent (-1000 to avoid initial delay)
             lastMsgTime: 0,      // time of last message reflected
@@ -753,14 +755,15 @@ function DELAYED_SEND(island) {
 */
 function USERS(island) {
     island.usersTimer = null;
-    const { id, clients, usersJoined, usersLeft } = island;
+    const { id, clients, usersJoined, usersLeft, heraldUrl } = island;
     if (usersJoined.length + usersLeft.length === 0) return; // someone joined & left
     const active = [...clients].filter(each => each.active).length;
-    if (!active) return; // do not trigger a SEND before someone successfully joined
     const total = clients.size;
     const payload = { what: 'users', active, total };
     if (usersJoined.length > 0) payload.joined = [...usersJoined];
     if (usersLeft.length > 0) payload.left = [...usersLeft];
+    if (heraldUrl) heraldUsers(heraldUrl, id, payload);
+    if (!active) return; // do not trigger a SEND before someone successfully joined
     const msg = [0, 0, payload];
     SEND(island, [msg]);
     DEBUG(id, `Users ${island}: +${usersJoined.length}-${usersLeft.length}=${clients.size} (total ${ALL_ISLANDS.size} islands, ${server.clients.size} users)`);
@@ -841,6 +844,22 @@ function stopTicker(island) {
     island.ticker = null;
 }
 
+async function heraldUsers(heraldUrl, id, {active, joined, left}) {
+    const payload = {id, joined, left, users: active};
+    try {
+        const response = await fetch(heraldUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            size: 512, // limit response size
+        });
+        if (response.ok) LOG(`${id} heralded successfully`)
+        else WARN(`${id} heralding failed: ${response.status} ${response.statusText} for ${heraldUrl}`);
+    } catch (err) {
+        ERROR(`${id} failed heralding to ${heraldUrl} ${err.message}`);
+    }
+}
+
 // impose a delay on island deletion, in case clients are only going away briefly
 function provisionallyDeleteIsland(island) {
     if (!island.deletionTimeout) island.deletionTimeout = setTimeout(() => deleteIsland(island), DELETION_DEBOUNCE);
@@ -848,7 +867,10 @@ function provisionallyDeleteIsland(island) {
 
 // delete our live record of the island, rewriting latest.json if necessary
 async function deleteIsland(island) {
-    if (island.usersTimer) clearTimeout(island.usersTimer);
+    if (island.usersTimer) {
+        clearTimeout(island.usersTimer);
+        USERS(island); // ping heraldUrl one last time
+    }
     prometheusSessionGauge.dec();
     const { id, syncWithoutSnapshot, snapshotUrl, time, seq, storedUrl, storedSeq, messages } = island;
     // stop ticking and delete
