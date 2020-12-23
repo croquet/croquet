@@ -757,12 +757,13 @@ function USERS(island) {
     island.usersTimer = null;
     const { id, clients, usersJoined, usersLeft, heraldUrl } = island;
     if (usersJoined.length + usersLeft.length === 0) return; // someone joined & left
-    const active = [...clients].filter(each => each.active).length;
+    const activeClients = [...clients].filter(each => each.active);
+    const active = activeClients.length;
     const total = clients.size;
     const payload = { what: 'users', active, total };
     if (usersJoined.length > 0) payload.joined = [...usersJoined];
     if (usersLeft.length > 0) payload.left = [...usersLeft];
-    if (heraldUrl) heraldUsers(heraldUrl, id, payload);
+    if (heraldUrl) heraldUsers(heraldUrl, id, activeClients.map(each => each.user), payload.joined, payload.left);
     if (!active) return; // do not trigger a SEND before someone successfully joined
     const msg = [0, 0, payload];
     SEND(island, [msg]);
@@ -844,8 +845,8 @@ function stopTicker(island) {
     island.ticker = null;
 }
 
-async function heraldUsers(heraldUrl, id, {active, joined, left}) {
-    const payload = {id, joined, left, users: active};
+async function heraldUsers(heraldUrl, id, all, joined, left) {
+    const payload = {id, all, joined, left};
     try {
         const body = JSON.stringify(payload);
         LOG(`${id} heralding to ${heraldUrl}: ${body}`);
