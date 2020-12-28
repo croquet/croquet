@@ -79,7 +79,7 @@ class MyModel extends Croquet.Model {
         ...
     }
 }
-MyModel.register("MyModel);
+MyModel.register("MyModel");
 
 class MyView extends Croquet.View {
     constructor(model) {
