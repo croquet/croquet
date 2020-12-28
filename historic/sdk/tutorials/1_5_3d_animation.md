@@ -34,7 +34,7 @@ The tutorial demonstrates the following:
 
   Because our tutorials are built using CodePen, we can take advantage of CodePen's external-JavaScript settings. We import the minified <a href="https://threejs.org/">Three.js</a> library, and also the <a href="https://github.com/jquery/PEP">Pointer Events Polyfill</a> (PEP) that provides a unified mouse/pointer event interface across a range of browsers and device types. This image shows the full set of CodePen JavaScript imports:
 
-  ![CodePen Settings](images/3dAnimationSettings.png)
+  ![CodePen Settings](images/3DAnimationSettings.png)
 
 ## Initializing the Library-Defined Services
 
