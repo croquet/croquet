@@ -115,7 +115,7 @@ class MyModel extends Croquet.Model {
         ...
     }
 }
-MyModel.register();
+MyModel.register("MyModel");
 ```
 
 Also, every _Croquet_ model class needs to have its static [`register()`]{@link Model.register} method called after it is defined. This registers the model class with _Croquet's_ internal class database so it can be properly stored and retrieved when a snapshot is created.
