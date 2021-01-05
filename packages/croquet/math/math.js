@@ -1,10 +1,6 @@
 /* To rebuild math-dist.js:
 
-    rm -rf node_modules
-    npm i
-    mv node_modules/\@stdlib .
-    mv \@stdlib/stdlib/lib/node_modules/\@stdlib node_modules/
-    rm -r \@stdlib
+    npm ci
     npx rollup -c
 
 */
