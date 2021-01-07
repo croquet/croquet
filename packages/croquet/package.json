@@ -1,6 +1,6 @@
 {
   "name": "@croquet/croquet",
-  "version": "0.4.1-8",
+  "version": "0.4.1-9",
   "description": "Live Collaboration for Web Apps without Server Code",
   "main": "cjs/croquet-croquet.js",
   "types": "types.d.ts",
@@ -37,6 +37,7 @@
   "author": "Croquet Corporation",
   "license": "UNLICENSED",
   "unpkg": "pub/croquet.min.js",
+  "jsdelivr": "pub/croquet.min.js",
   "devDependencies": {
     "@babel/core": "^7.11.6",
     "@babel/preset-env": "^7.11.5",
