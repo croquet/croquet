@@ -304,7 +304,7 @@ class YouTubePlayerView extends Croquet.View {
     getVideoLoadedFraction() {return this.player.getVideoLoadedFraction();}
     getPlayerState() {return this.player.getPlayerState();}
     isPlaying() {return this.getPlayerState() === YT.PlayerState.PLAYING;}
-    isPaused() {return this.getPlayerState() === YT.PlayerState.PAUSED;}
+    isPaused() {return this.getPlayerState() === YT.PlayerState.PAUSED || (this._playedOnce && this.getPlayerState() === YT.PlayerState.CUED);}
     getCurrentTime() {return this.player.getCurrentTime();}
 
     // VIDEO INFORMATION
@@ -593,8 +593,12 @@ let joined = false;
 function join() {
     if (!joined) {
         joined = true;
-        Croquet.Session.join(Croquet.App.autoSession('q'), Model, View, {
-            appId: 'io.croquet.youtube',
+        Croquet.Session.join({
+            appId: "io.croquet.youtube",
+            name: Croquet.App.autoSession('q'),
+            password: "secret",
+            model: Model,
+            view: View,
             autoSleep: false,
         }).then(session => {
             window.session = session;
