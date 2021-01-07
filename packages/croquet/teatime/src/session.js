@@ -196,7 +196,7 @@ export class Session {
         }
         // verify heraldUrl
         if (parameters.heraldUrl) {
-            if (parameters.heraldUrl.length > 128) throw Error('heraldUrl can only be 128 characters');
+            if (parameters.heraldUrl.length > 256) throw Error('heraldUrl can only be 256 characters');
             if (!parameters.heraldUrl.startsWith("https://")) throw Error('heraldUrl needs to be https');
         }
         // also add debug parameters
