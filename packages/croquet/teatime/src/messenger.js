@@ -156,8 +156,20 @@ class M {
         });
     }
 
-    findIndex(array, handler) {
-        return array.findIndex(entry => entry.view === handler.view && entry.method === handler.method);
+    findIndex(array, method) {
+        const mName = method.name;
+        return array.findIndex(entry => {
+            const eName = entry.name;
+            if (!mName && !eName) {
+                // when they are not proxied, a === comparison
+                // for the case of both being anonymous
+                return method === entry;
+            }
+            // otherwise, compare their names.
+            // it is okay as the receiver is the same,
+            // and the client should call removeSubscription if it wants to update the handler
+            return mName === eName;
+        });
     }
 
     startPublishingPointerMove() {
