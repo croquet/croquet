@@ -4,6 +4,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 
 # latest pre-releases
 
+* 0.4.1-10 messenger fix
 * 0.4.1-9 allow heraldUrl to be 256 chars
 * 0.4.1-8 add heraldUrl
 * 0.4.1-7 catch errors during snapshot
