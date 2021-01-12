@@ -162,9 +162,24 @@ const webServer = http.createServer( async (req, res) => {
     // otherwise, show host and cluster
     const body = `Croquet reflector-${VERSION} ${HOSTIP} ${CLUSTER_LABEL}\n\nAh, ha, ha, ha, stayin' alive!`;
     res.writeHead(200, {
-      'Server': SERVER_HEADER,
-      'Content-Length': body.length,
-      'Content-Type': 'text/plain'
+      "Server": SERVER_HEADER,
+      "Content-Length": body.length,
+      "Content-Type": "text/plain",
+      "X-Powered-By": "Croquet",
+      "X-Croquet-0": ":           .'\\   /`.               ",
+      "X-Croquet-1": ":           .'.-.`-'.-.`.           ",
+      "X-Croquet-2": ":      ..._:   .-. .-.   :_...      ",
+      "X-Croquet-3": ":    .'    '-.(o ) (o ).-'    `.    ",
+      "X-Croquet-4": ":   :  _    _ _`~(_)~`_ _    _  :   ",
+      "X-Croquet-5": ":   :  /:   ' .-=_   _=-. `   ;\\  : ",
+      "X-Croquet-6": ":   :   :|-.._  '     `  _..-|:   : ",
+      "X-Croquet-7": ":   :   `:| |`:-:-.-:-:'| |:'   :   ",
+      "X-Croquet-8": ":    `.   `.| | | | | | |.'   .'    ",
+      "X-Croquet-9": ":      `.   `-:_| | |_:-'   .'      ",
+      "X-Croquet-A": ":   jgs  `-._   ````    _.-'        ",
+      "X-Croquet-B": ":            ``-------''            ",
+      "X-Hiring": "Seems like you enjoy poking around in http headers. You might have even more fun working with us. Let us know via jobs@croquet.io!",
+      "X-Hacker-Girls": "Unite!",
     });
     return res.end(body);
   });
@@ -401,6 +416,8 @@ function JOIN(client, args) {
             if (island.tick) startTicker(island, island.tick);
             if (island.syncClients.length > 0) SYNC(island);
         }).catch(err => {
+            if (typeof err !== "object") err = { message: ""+JSON.stringify(err) };
+            if (!err.message) err.message = "<empty>";
             if (err.code !== 404) ERROR(`${id} failed to fetch latest.json: ${err.message}`);
             // this is a brand-new session, check if there is a persisted island
             const persistName = `apps/${appId}/${islandId}.json`;
