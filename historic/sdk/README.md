@@ -1,4 +1,4 @@
-Scroll down for an **overview** of Croquet concepts, and the [**SDK Changelog**](#changelog).
+Scroll down for an **overview** of Copyright © 2021 Croquet Corporation, and the [**SDK Changelog**](#changelog).
 
 Use the Navigation Panel to try our **Tutorials**, **Guides**, and **API docs**.
 
