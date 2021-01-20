@@ -866,7 +866,8 @@ async function heraldUsers(heraldUrl, id, all, joined, left) {
     const payload = {time: Date.now(), id, all, joined, left};
     try {
         const body = JSON.stringify(payload);
-        DEBUG(`${id} heralding to ${heraldUrl}: ${body.length} bytes`);
+        const logdetail = `+${joined&&joined.length||0}-${left&&left.length||0}=${all.length}`;
+        DEBUG(`${id} heralding to ${heraldUrl} ${logdetail} ${body.length} bytes`);
         const response = await fetch(heraldUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1052,7 +1053,7 @@ server.on('connection', (client, req) => {
         // the connection log filter matches on (" connection " OR " JOIN ")
         LOG(`${client.sessionId}/${client.addr} closed connection ${JSON.stringify(reason)} ${JSON.stringify(client.stats)}`);
         const island = ALL_ISLANDS.get(client.sessionId);
-        if (!island) unregisterSession(client.sessionId, "on close");
+        if (!island) unregisterSession(client.sessionId, "on close"); // client never joined, apparently
         else {
             island.clients.delete(client);
             if (island.startClient === client) {
