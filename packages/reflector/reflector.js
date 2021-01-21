@@ -781,7 +781,7 @@ function USERS(island) {
     const payload = { what: 'users', active, total };
     if (usersJoined.length > 0) payload.joined = [...usersJoined];
     if (usersLeft.length > 0) payload.left = [...usersLeft];
-    if (heraldUrl) heraldUsers(heraldUrl, id, activeClients.map(each => each.user), payload.joined, payload.left);
+    if (heraldUrl) heraldUsers(island, activeClients.map(each => each.user), payload.joined, payload.left);
     if (!active) return; // do not trigger a SEND before someone successfully joined
     const msg = [0, 0, payload];
     SEND(island, [msg]);
@@ -863,10 +863,11 @@ function stopTicker(island) {
     island.ticker = null;
 }
 
-async function heraldUsers(heraldUrl, id, all, joined, left) {
+async function heraldUsers(island, all, joined, left) {
+    const {heraldUrl, id} = island;
     const payload = {time: Date.now(), id, all, joined, left};
+    const body = JSON.stringify(payload);
     try {
-        const body = JSON.stringify(payload);
         const logdetail = `+${joined&&joined.length||0}-${left&&left.length||0}=${all.length}`;
         DEBUG(`${id} heralding to ${heraldUrl} ${logdetail} ${body.length} bytes`);
         const response = await fetch(heraldUrl, {
@@ -875,10 +876,22 @@ async function heraldUsers(heraldUrl, id, all, joined, left) {
             body,
             size: 512, // limit response size
         });
-        if (response.ok) DEBUG(`${id} heralded successfully`)
-        else WARN(`${id} heralding failed: ${response.status} ${response.statusText}`);
+        if (response.ok) DEBUG(`${id} heralded successfully: ${response.status}`);
+        else {
+            LOG(`${id} heralding failed: ${response.status} ${response.statusText}`);
+            INFO(island, {
+                code: "HERALDING_FAILED",
+                msg: `POST ${body.length} bytes to heraldUrl "${heraldUrl}" unsuccessful: ${response.status} ${response.statusText}`,
+                options: { level: "warning" }
+            });
+        }
     } catch (err) {
         ERROR(`${id} failed heralding: ${err.message}`);
+        INFO(island, {
+            code: "HERALDING_FAILED",
+            msg: `POST ${body.length} bytes to heraldUrl "${heraldUrl}" failed: ${err.message}`,
+            options: { level: "error" }
+        });
     }
 }
 
