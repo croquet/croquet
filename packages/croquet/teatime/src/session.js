@@ -218,6 +218,8 @@ export class Session {
         /** our return value */
         const session = {
             id: '',
+            persistentId: '',
+            versionId: '',
             model: null,
             view: null,
             // called from our own onAnimationFrame, or application if stepping manually
@@ -301,6 +303,8 @@ export class Session {
             await controller.establishSession(sessionSpec);
             session.model = controller.island.get("modelRoot");
             session.id = controller.id;
+            session.persistentId = controller.persistentId;
+            session.versionId = controller.versionId;
             Controllers[session.id] = controller;
 
             App.makeSessionWidgets(session.id);

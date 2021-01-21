@@ -162,8 +162,14 @@ export default class Controller {
         if (!this.leaving) App.showSyncWait(true); // enable (i.e., not synced)
     }
 
-    /** @type {String} the session id (same for all replicas) */
+    /** @type {String} the session id (same for all replicas running with same options on the same app version) */
     get id() { return this.island ? this.island.id : this.islandCreator.snapshot.id; }
+
+    /** @type {String} the persistent id (same for all replicas with same options across app versions) */
+    get persistentId() { return this.islandCreator.islandId; }
+
+    /** @type {String} identifies SDK version and app code */
+    get versionId() { return this.islandCreator.codeHash; }
 
     /** @type {Number} the reflector time extrapolated beyond last received tick */
     get extrapolatedNow() { return Date.now() - this.extrapolatedTimeBase; }
