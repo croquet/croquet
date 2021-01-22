@@ -17,24 +17,24 @@ export function baseUrl(what='code') {
     return `${fileServer()}/${what}/`;
 }
 
-function classSrc(cls) {
+function funcSrc(func) {
     // this is used to provide the source code for hashing, and hence for generating
     // a session ID.  we do some minimal cleanup to unify the class / function strings
     // as provided by different browsers.
     function cleanup(str) {
         const openingBrace = str.indexOf('{');
         const closingBrace = str.lastIndexOf('}');
+        if (openingBrace === -1 || closingBrace === -1 || closingBrace < openingBrace) return str;
         const head = str.slice(0, openingBrace).replace(/\s+/g, ' ').replace(/\s\(/, '(');
         const body = str.slice(openingBrace + 1, closingBrace);
         return `${head.trim()}{${body.trim()}}`;
     }
-    const str = "" + cls;
-    let src = cleanup(str);
-    if (!str.startsWith("class")) {
-        // likely class has been minified and replaced with function definition
+    let src = cleanup("" + func);
+    if (!src.startsWith("class")) {
+        // possibly class has been minified and replaced with function definition
         // add source of prototype methods
-        const p = cls.prototype;
-        src += Object.getOwnPropertyNames(p).map(n => `${n}:${cleanup("" + p[n])}`).join('');
+        const p = func.prototype;
+        if (p) src += Object.getOwnPropertyNames(p).map(n => `${n}:${cleanup("" + p[n])}`).join('');
     }
     return src;
     // remnants of an experiment (june 2019) in deriving the same hash for code
@@ -95,7 +95,7 @@ export async function hashString(string) {
 const hashPromises = [];
 
 export function addClassHash(cls, classId) {
-    const source = classSrc(cls);
+    const source = funcSrc(cls);
     const hashPromise = hashString(`${classId}:${source}`);
     hashPromises.push(hashPromise);
     if (debugHashing()) hashPromise.then(hash => {
@@ -106,7 +106,7 @@ export function addClassHash(cls, classId) {
 
 export function addConstantsHash(constants) {
     // replace functions with their source
-    const json = JSON.stringify(constants, (_, val) => typeof val === "function" ? ""+val : val);
+    const json = JSON.stringify(constants, (_, val) => typeof val === "function" ? funcSrc(val) : val);
     if (json === "{}") return;
     // use a stable stringification
     const obj = JSON.parse(json);
