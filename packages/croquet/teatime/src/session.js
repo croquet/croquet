@@ -1,7 +1,7 @@
 import { App } from "@croquet/util/html";
 import { Stats } from "@croquet/util/stats";
 import urlOptions from "@croquet/util/urlOptions";
-import { addConstantsHash } from "@croquet/util/modules";
+import { addConstantsHash } from "@croquet/util/hashing";
 
 import Model from "./model";
 import View from "./view";

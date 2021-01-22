@@ -1,5 +1,5 @@
 import urlOptions from "@croquet/util/urlOptions";
-import { addClassHash } from "@croquet/util/modules";
+import { addClassHash } from "@croquet/util/hashing";
 import { displayAppError } from "@croquet/util";
 import { currentRealm } from "./realms";
 import Island, { resetReadersAndWriters } from "./island";

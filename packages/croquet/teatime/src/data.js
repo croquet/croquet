@@ -2,7 +2,7 @@ import stableStringify from "fast-json-stable-stringify";
 import WordArray from "crypto-js/lib-typedarrays";
 import Base64 from "crypto-js/enc-base64";
 import SHA256 from "crypto-js/sha256";
-import { baseUrl } from "@croquet/util/modules";
+import { baseUrl } from "@croquet/util/hashing";
 import urlOptions from "@croquet/util/urlOptions";
 import Island from "./island";
 import { sessionProps } from "./controller";

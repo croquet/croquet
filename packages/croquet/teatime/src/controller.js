@@ -12,7 +12,7 @@ import AsyncQueue from "@croquet/util/asyncQueue";
 import { Stats } from "@croquet/util/stats";
 import urlOptions from "@croquet/util/urlOptions";
 import { App, displayStatus, displayWarning, displayError, displayAppError } from "@croquet/util/html";
-import { baseUrl, hashSessionAndCode, hashString } from "@croquet/util/modules";
+import { baseUrl, hashSessionAndCode, hashString } from "@croquet/util/hashing";
 import { inViewRealm } from "./realms";
 import { viewDomain } from "./domain";
 import Island, { Message } from "./island";

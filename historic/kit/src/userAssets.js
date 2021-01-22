@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import JSZip from "jszip";
-import { baseUrl, hashBuffer } from "@croquet/util/modules";
+import { baseUrl, hashBuffer } from "@croquet/util/hashing";
 import SpatialPart from './modelParts/spatial';
 import Tracking from './viewParts/tracking';
 import Clickable from './viewParts/clickable';
