@@ -867,8 +867,9 @@ async function heraldUsers(island, all, joined, left) {
     const {heraldUrl, id} = island;
     const payload = {time: Date.now(), id, all, joined, left};
     const body = JSON.stringify(payload);
+    let success = false;
     try {
-        const logdetail = `+${joined&&joined.length||0}-${left&&left.length||0}=${all.length}`;
+        const logdetail = `${payload.time}: +${joined&&joined.length||0}-${left&&left.length||0}=${all.length}`;
         DEBUG(`${id} heralding to ${heraldUrl} ${logdetail} ${body.length} bytes`);
         const response = await fetch(heraldUrl, {
             method: 'POST',
@@ -876,18 +877,19 @@ async function heraldUsers(island, all, joined, left) {
             body,
             size: 512, // limit response size
         });
-        if (response.ok) DEBUG(`${id} heralded successfully: ${response.status}`);
+        success = response.ok;
+        if (success) DEBUG(`${id} heralding success ${payload.time}: ${response.status} ${response.statusText}`);
         else {
-            LOG(`${id} heralding failed: ${response.status} ${response.statusText}`);
+            LOG(`${id} heralding failed ${payload.time}: ${response.status} ${response.statusText}`);
             INFO(island, {
                 code: "HERALDING_FAILED",
-                msg: `POST ${body.length} bytes to heraldUrl "${heraldUrl}" unsuccessful: ${response.status} ${response.statusText}`,
+                msg: `POST ${body.length} bytes to heraldUrl "${heraldUrl}" failed: ${response.status} ${response.statusText}`,
                 options: { level: "warning" }
             });
         }
     } catch (err) {
-        ERROR(`${id} failed heralding: ${err.message}`);
-        INFO(island, {
+        ERROR(`${id} heralding error ${payload.time}: ${err.message}`);
+        if (!success) INFO(island, {
             code: "HERALDING_FAILED",
             msg: `POST ${body.length} bytes to heraldUrl "${heraldUrl}" failed: ${err.message}`,
             options: { level: "error" }
