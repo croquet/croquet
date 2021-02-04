@@ -4,14 +4,14 @@
 
         <meta charset="utf-8">
         <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-        
+
         <link rel="icon" type="image/png" href="https://www.youtube.com/favicon.ico"/>
         <link rel="icon" type="image/png" href="https://www.youtube.com/favicon.ico"/>
     </head>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins&display=swap');
-        
+
         html {
             font-family: 'Poppins', sans-serif;
         }
@@ -413,7 +413,7 @@
                 <div class='background'></div>
             </div>
             <input id='volume' title='Set Volume' type='range' min='0' max='100' value='100' step='1' oninput="this.style.background = `linear-gradient(to right, white 0%, white ${100*(this.value/this.max)}%, grey ${100*(this.value/this.max)}%, grey 100%)`">
-            
+
             <div id='settings' class='settingsPopup'>
                 <div class='close' onclick="document.getElementById('ui').classList.remove('settings');">✖ Close</div>
                 <hr>
@@ -446,7 +446,7 @@
 
             <div id='play' class='center'></div>
             <div id='tellUserToSetVideo' class='center'>Set a YouTube video (under settings ⚙)</div>
-            
+
             <div id='videoOverlay'></div>
             <div id='video'></div>
         </div>
@@ -460,10 +460,10 @@
 
     <!-- https://developers.google.com/youtube/player_parameters -->
     <script src= "https://www.youtube.com/player_api"></script>
-    
-    <!-- https://croquet.studio/sdk/docs/index.html -->
+
+    <!-- https://croquet.io/sdk/docs/index.html -->
     <script src='https://croquet.io/sdk/croquet-latest-pre.min.js'></script>
-    
+
     <script src='./model.js'></script>
     <script src='./app.js'></script>
 </html>
