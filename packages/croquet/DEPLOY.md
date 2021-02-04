@@ -12,17 +12,17 @@ We use semantic versioning, see semver.org
   - `[teatime] changelog and version bump to a.b.c-n`
   - the deploy script checks that the repo is clean and this is the last commit
 * run `./deploy.sh` here
-* `git push` to release to croquet.io/testing/sdk
+* `git push` to release to croquet.io/dev/sdk
   - the CI server will copy that to the croquet.io bucket
-* `deploy-to-public-from-testing.sh sdk`
-  - to copy sdk from croquet.io/testing/sdk to croquet.io/sdk
+* `deploy-to-public-from-dev.sh sdk`
+  - to copy sdk from croquet.io/dev/sdk to croquet.io/sdk
   - build scripts (e.g. in WorldCore) use version at croquet.io/sdk/croquet-latest-pre.txt
 
 ## Release a.b.c
 
 * make sure `types.d.ts` reflects changed API (see our private [CHANGELOG.md](./CHANGELOG.md))
 * make sure JSDoc comments reflect changed API (`teatime/index.js`, `teatime/src/{model|view|session}.js`)
-  - test using `(cd sdk; ./deploy.sh docs)` and check generated `servers/croquet-io-testing/sdk/docs/*.html`
+  - test using `(cd sdk; ./deploy.sh docs)` and check generated `servers/croquet-io-dev/sdk/docs/*.html`
 * deploy release
   - follow pre-release steps above but with release version number
 * deploy npm
@@ -31,5 +31,5 @@ We use semantic versioning, see semver.org
   - update public change log [sdk/README.md#changelog](../../../sdk/README.md#changelog)
     (select notable changes from our private [CHANGELOG.md](./CHANGELOG.md))
   - update tutorials `sdk/tutorials/*.md`
-  - test using `(cd sdk; ./deploy.sh docs)` and check generated `servers/croquet-io-testing/sdk/docs/*.html`
+  - test using `(cd sdk; ./deploy.sh docs)` and check generated `servers/croquet-io-dev/sdk/docs/*.html`
   - deploy using `(cd sdk; ./deploy.sh docs --commit)`

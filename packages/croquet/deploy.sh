@@ -23,8 +23,8 @@ case $VERSION in
     *) PRERELEASE=false
 esac
 
-# publish pub/croquet.min.js to croquet.io/testing/sdk
-SDK=../../../../servers/croquet-io-testing/sdk
+# publish pub/croquet.min.js to croquet.io/dev/sdk
+SDK=../../../../servers/croquet-io-dev/sdk
 sed 's,//# sourceMappingURL.*,,' pub/croquet.min.js > $SDK/croquet-$VERSION.min.js
 cp pub/croquet.min.js.map $SDK/croquet-$VERSION.min.js.map
 
@@ -50,5 +50,5 @@ git update-index --assume-unchanged $FILES
 git --no-pager show --stat
 
 
-echo "After pushing to testing, do not forget to"
-echo "    ../../../../docker/scripts/deploy-to-public-from-testing.sh sdk"
+echo "After pushing to dev, do not forget to"
+echo "    ../../../../docker/scripts/deploy-to-public-from-dev.sh sdk"

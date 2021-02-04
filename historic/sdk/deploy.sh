@@ -71,7 +71,7 @@ else
     echo "BUILDING $VERSION DOCS WITHOUT COMMITTING"
 fi
 
-DIR=../../servers/croquet-io-testing
+DIR=../../servers/croquet-io-dev
 DOCS=$DIR/sdk/docs$PRE
 
 rm -rf build/*
@@ -91,11 +91,11 @@ sed -i '' "s|conduct.html|/conduct.html|" $DOCS/index.html
 $COMMIT || exit
 
 git add -A $DOCS/ package.json
-git commit -m "[sdk] deploy docs $VERSION to croquet.io/testing/sdk/docs$PRE" $DOCS/ package.json || exit
+git commit -m "[sdk] deploy docs $VERSION to croquet.io/dev/sdk/docs$PRE" $DOCS/ package.json || exit
 
 git --no-pager show --stat
 
 echo
 echo "You still need to"
 echo "    git push"
-echo "to deploy to https://croquet.io/testing/"
+echo "to deploy to https://croquet.io/dev/"
