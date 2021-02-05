@@ -89,6 +89,10 @@ class UrlOptions {
         if (hostname !== "localhost") return false;
         // answer true for a variety of localhost equivalents
         if (actualHostname.endsWith(".ngrok.io")) return true;
+        if (actualHostname === "croquet.io") {
+            const path = window.location.pathname;
+            if (path.match(/^\/(dev|files)\//)) return true;
+        }
         return ["127.0.0.1", "[::1]"].includes(actualHostname);
     }
 
