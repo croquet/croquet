@@ -367,6 +367,7 @@ class PixView extends View {
     }
 }
 
+window.document.addEventListener("wheel", evt => evt.preventDefault(), { passive: false, capture: false });
 
 App.messages = true;
 App.makeWidgetDock();
