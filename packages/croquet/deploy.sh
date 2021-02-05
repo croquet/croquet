@@ -51,4 +51,4 @@ git --no-pager show --stat
 
 
 echo "After pushing to dev, do not forget to"
-echo "    ../../../../docker/scripts/deploy-to-public-from-dev.sh sdk"
+echo "    ../../../../docker/scripts/deploy-from-dev-to-test.sh sdk"

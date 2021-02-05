@@ -14,8 +14,8 @@ We use semantic versioning, see semver.org
 * run `./deploy.sh` here
 * `git push` to release to croquet.io/dev/sdk
   - the CI server will copy that to the croquet.io bucket
-* `deploy-to-public-from-dev.sh sdk`
-  - to copy sdk from croquet.io/dev/sdk to croquet.io/sdk
+* `deploy-from-dev-to-test.sh sdk` and `release-from-test-to-public.sh sdk`
+  - to copy sdk from croquet.io/dev/sdk to croquet.io/test/sdk and croquet.io/sdk
   - build scripts (e.g. in WorldCore) use version at croquet.io/sdk/croquet-latest-pre.txt
 
 ## Release a.b.c
