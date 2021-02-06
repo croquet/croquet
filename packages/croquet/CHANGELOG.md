@@ -4,6 +4,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 
 # latest pre-releases
 
+* 0.4.1-14 ensure viewIdDebugSuffix is alphanum or underscore
 * 0.4.1-13 encode viewIdDebugSuffix if not alphanum ASCII
 * 0.4.1-12 treat /dev/ as equivalent to localhost
 * 0.4.1-11 expose persistentId and versionId, fix firefox hashing
