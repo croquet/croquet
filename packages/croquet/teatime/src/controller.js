@@ -221,7 +221,7 @@ export default class Controller {
         const { name: n, optionsFromUrl, password, appId, viewIdDebugSuffix} = sessionSpec;
         const name = appId ? `${appId}/${n}` : n;
         if (viewIdDebugSuffix) this.viewId = this.viewId.replace(/_.*$/, '') + "_" + encodeURIComponent((""+viewIdDebugSuffix).slice(0,16))
-            .replace(/[^a-z0-9%]/ig, c => `%${c.charCodeAt(0).toString(16).toUpperCase()}`); // ensure only a-z0-9% in suffix
+            .replace(/[^a-z0-9]/ig, c => `_${c === '%' ? '' : c.charCodeAt(0).toString(16).toUpperCase()}`); // ensure only a-z0-9_ in suffix
         // root model options are only those explicitly requested by app
         const options = {...sessionSpec.options};
         if (optionsFromUrl) for (const key of optionsFromUrl) {
