@@ -163,9 +163,21 @@ function addToastifyStyle() {
             }
         }
 `;
-    // add our own preferences
+    // add our own (post-v1.5.0) preferences
     toastifyCSS += `
-        .toastify { font-family: sans-serif; border-radius: 8px; }
+        .toastify {
+            font-family: sans-serif;
+            border-radius: 8px;
+        }
+
+        .toastify-center {
+            margin-left: auto;
+            margin-right: auto;
+            left: 0;
+            right: 0;
+            max-width: fit-content;
+            max-width: -moz-fit-content;
+        }
 `;
     const toastifyStyle = document.createElement("style");
     toastifyStyle.innerHTML = toastifyCSS;
