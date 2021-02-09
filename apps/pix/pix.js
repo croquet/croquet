@@ -249,15 +249,31 @@ class PixView extends View {
 
     // only uploading user does this
     async addFile(file) {
-        if (!file.type.startsWith('image/')) return App.showMessage(`Not an image: "${file.name}" (${file.type})`, {level: "warning"});
-        const data = await new Promise(resolve => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result);
-            reader.readAsArrayBuffer(file);
-        });
+        const types = ["image/jpeg", "image/gif", "image/png", "image/bmp"];
+        if (!types.includes(file.type)) {
+            App.showMessage(`${file.name}: not a supported image format (jpeg, gif, png, bmp)`, {level: "warning"});
+            return;
+        }
+
+        // file is either an OS file object or a POJO with
+        // properties { name, size, type, croquet_contents }
+        // received through the Croquet Messenger.
+        let data;
+        if (file.croquet_contents) data = file.croquet_contents;
+        else {
+            data = await new Promise(resolve => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.readAsArrayBuffer(file);
+            });
+        }
         const blob = new Blob([data], { type: file.type });
         const { width, height, thumb } = await this.analyzeImage(blob);
-        if (!thumb) return App.showMessage(`Image is empty (${width}x${height}): "${file.name}" (${file.type})`, {level: "warning"});
+        if (!thumb || !width || !height) {
+            App.showMessage(`${file.name} is corrupted or has zero extent`, { level: "warning" });
+            return;
+        }
+
         image.src = thumb; // show placeholder for immediate feedback
         const hash = Data.hash(data);
         const asset = { hash, type: file.type, size: data.byteLength, name: file.name, width, height, thumb };
@@ -302,6 +318,7 @@ class PixView extends View {
         image.src = objectURL;
         // revoke objectURL ASAP
         image.onload = () => { if (objectURL === image.src) { URL.revokeObjectURL(objectURL); objectURL = ""; } };
+
         this.asset = asset;
     }
 
@@ -309,10 +326,14 @@ class PixView extends View {
         // load image
         const original = new Image();
         original.src = URL.createObjectURL(blob);
-        try { await original.decode(); } catch(ex) { }
+        let success = true;
+        try { await original.decode(); } catch(ex) { success = false; }
         URL.revokeObjectURL(original.src);
+        if (!success) return {};
+
         const { width, height } = original;
         if (!original.width || !original.height) return {};
+
         // render to thumbnail canvas
         const aspect = original.width / original.height;
         const scale = THUMB_SIZE / Math.max(original.width, original.height);
