@@ -16,7 +16,10 @@ const CONTENT_MARGIN = 2; // px
 const TRANSITION_TIME = 0.3; // seconds
 
 // add style for the standard widgets that can appear on a Croquet page
+let addedWidgetStyle = false;
 function addWidgetStyle() {
+    if (addedWidgetStyle) return;
+    addedWidgetStyle = true;
     const widgetCSS = `
         #croquet_dock { position: absolute; z-index: 2; border: 3px solid white; bottom: 6px; left: 6px; width: 36px; height: 36px; box-sizing: border-box; background: white; opacity: 0.4; transition: all ${TRANSITION_TIME}s ease; }
         #croquet_dock.active { opacity: 0.95; border-radius: 12px; }
@@ -49,7 +52,18 @@ function addWidgetStyle() {
 
         #croquet_stats { position: absolute; width: 70%; height: 90%; left: 15%; top: 5%; opacity: 0.8; font-family: sans-serif; }
         #croquet_stats:not(.active) { display: none; }
+`;
+    const widgetStyle = document.createElement("style");
+    widgetStyle.innerHTML = widgetCSS;
+    document.head.insertBefore(widgetStyle, document.head.getElementsByTagName("style")[0]);
+}
 
+// add style for the spinner
+let addedSpinnerStyle = false;
+function addSpinnerStyle() {
+    if (addedSpinnerStyle) return;
+    addedSpinnerStyle = true;
+    const spinnerCSS = `
         #croquet_spinnerOverlay {
             z-index: 1000;
             position: absolute;
@@ -94,13 +108,15 @@ function addWidgetStyle() {
         #croquet_loader:before { left: -3.5em; animation-delay: -0.32s; }
         #croquet_loader:after { left: 3.5em; }
 `;
-    const widgetStyle = document.createElement("style");
-    widgetStyle.innerHTML = widgetCSS;
-    document.head.insertBefore(widgetStyle, document.head.getElementsByTagName("style")[0]);
+    const spinnerStyle = document.createElement("style");
+    spinnerStyle.innerHTML = spinnerCSS;
+    document.head.insertBefore(spinnerStyle, document.head.getElementsByTagName("style")[0]);
 }
-addWidgetStyle();
 
+let addedToastifyStyle = false;
 function addToastifyStyle() {
+    if (addedToastifyStyle) return;
+    addedToastifyStyle = true;
     // inject toastify's standard css
     let toastifyCSS = `/*!
         * Toastify js 1.5.0
@@ -183,7 +199,6 @@ function addToastifyStyle() {
     toastifyStyle.innerHTML = toastifyCSS;
     document.head.insertBefore(toastifyStyle, document.head.getElementsByTagName("style")[0]);
 }
-addToastifyStyle();
 
 const seenMessages = new Set();
 
@@ -227,6 +242,8 @@ export function displayAppError(where, error) {
 function displayToast(msg, options) {
     const parentDef = App.root;
     if (parentDef === false) return null;
+
+    addToastifyStyle();
 
     const toastOpts = {
         text: msg,
@@ -314,6 +331,8 @@ function makeWidgetDock(options = {}) {
 
     const dockParent = findElement(App.root);
     if (!dockParent) return;
+
+    addWidgetStyle();
 
     const dockDiv = document.createElement('div');
     dockDiv.id = 'croquet_dock';
@@ -661,6 +680,8 @@ function displaySpinner(enabled) {
 }
 
 function makeSpinner() {
+    addSpinnerStyle();
+
     const overlay = document.createElement("div");
     overlay.id = "croquet_spinnerOverlay";
 
