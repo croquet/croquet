@@ -318,7 +318,7 @@
         }
 
         #tellUserToSetVideo {
-            z-index: 0 !important;
+            z-index: 2 !important;
         }
 
         #videoOverlay {
@@ -445,7 +445,7 @@
             <div id='controlsBackground'></div>
 
             <div id='play' class='center'></div>
-            <div id='tellUserToSetVideo' class='center'>Paste YouTube link here to play</div>
+            <div id='tellUserToSetVideo' class='center' onclick="document.querySelector('#settings .setVideo').click()">Click to add a YouTube video</div>
 
             <div id='videoOverlay'></div>
             <div id='video'></div>
