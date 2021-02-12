@@ -1076,14 +1076,14 @@ class IslandWriter {
                         return this.writeTypedArray(type, value);
                     case "Object": {
                         if (value instanceof Model) return this.writeModel(value, path);
-                        if (value.constructor === Object) return this.writeObject(value, path, defer);
+                        if (value.constructor === Object || typeof value.constructor !== "function") return this.writeObject(value, path, defer);
                         const writer = this.writers.get(value.constructor);
                         if (writer) return writer(value, path);
-                        throw Error(`Don't know how to write ${value.constructor.name} at ${path}`);
+                        throw Error(`Don't know how to serialize object ${value.constructor.name} at ${path}`);
                     }
                     case "Null": return value;
                     default:
-                        throw Error(`Don't know how to write ${type} at ${path}`);
+                        throw Error(`Don't know how to serialize ${type} at ${path}`);
                 }
             }
         }
@@ -1329,7 +1329,7 @@ class IslandReader {
                         return this.readObject(Object, value, path, nodefer);
                     }
                     default:
-                        throw Error(`Don't know how to read ${type} at ${path}`);
+                        throw Error(`Don't know how to deserialize ${type} at ${path}`);
                 }
             }
         }
