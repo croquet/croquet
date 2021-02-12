@@ -1,4 +1,4 @@
-Scroll down for an **overview** of Copyright © 2021 Croquet Corporation, and the [**SDK Changelog**](#changelog).
+Scroll down for an **overview** of Croquet, and the [**SDK Changelog**](#changelog).
 
 Use the Navigation Panel to try our **Tutorials**, **Guides**, and **API docs**.
 
@@ -30,6 +30,9 @@ There are 3 main ways to use our SDK:
         <script src="https://unpkg.com/@croquet/croquet"></script>
 
     This will create the `Croquet` global to access `Croquet.Model` etc.
+
+    **NOTE:** the above will link to the latest release, which will keep changing. To avoid your app breaking, you should add a version tag like this:
+    `https://unpkg.com/@croquet/croquet@0.4.0` However, we cannot promise that pre-1.0 versions will keep working forever, so please keep your apps up-to-date until then.
 
 3. **NPM**: install the [`@croquet/croquet`](https://www.npmjs.com/package/@croquet/croquet) package:
 
