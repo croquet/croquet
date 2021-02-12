@@ -525,7 +525,7 @@ class YouTubePlayerView extends Croquet.View {
     onDragOver(event){event.preventDefault()}
     onDragLeave(event){event.preventDefault()}
     onDrop(event) {
-        event.preventDefault();     
+        event.preventDefault();
 
         if (event.dataTransfer.types.find(type => type.includes('text/'))) {
             const text = event.dataTransfer.getData('text');
@@ -605,6 +605,8 @@ function join() {
         });
     }
 }
+
+window.document.addEventListener("wheel", evt => evt.preventDefault(), { passive: false, capture: false });
 
 function onYouTubeIframeAPIReady() {
     join();
