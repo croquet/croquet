@@ -123,6 +123,8 @@ export async function hashIsland(name, options) {
     return hashString(name + stableStringify(options));
 }
 
+const logged = new Set();
+
 export async function hashSessionAndCode(name, options, params, sdk_version) {
     // codeHashes are from registered user models and constants (in hashPromises)
     const codeHashes = await Promise.all(hashPromises);
@@ -133,7 +135,7 @@ export async function hashSessionAndCode(name, options, params, sdk_version) {
     /** identifies the session */
     const id = await hashString(islandId + stableStringify(params) + codeHash);
     // log all hashes if debug=hashing
-    if (debugHashing()) {
+    if (debugHashing() && !logged.has(id)) {
         const charset = [...document.getElementsByTagName('meta')].find(el => el.getAttribute('charset'));
         if (!charset) console.warn('Missing <meta charset="..."> declaration. Croquet model code hashing might differ between browsers.');
         debugHashes[codeHash].what = "Version ID";
@@ -141,6 +143,7 @@ export async function hashSessionAndCode(name, options, params, sdk_version) {
         debugHashes[id].what = "Session ID";
         const allHashes = [...codeHashes, codeHash, islandId, id].map(each => ({ hash: each, ...debugHashes[each]}));
         console.log(`Debug Hashing for session ${id}`, allHashes);
+        logged.add(id);
     }
     return { id, islandId, codeHash };
 }
