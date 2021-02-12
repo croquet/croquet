@@ -100,7 +100,7 @@ export function addClassHash(cls, classId) {
     hashPromises.push(hashPromise);
     if (debugHashing()) hashPromise.then(hash => {
         // console.log(`hashing model class ${classId}: ${hash}`);
-        debugHashes[hash].name = `Class ${classId}`;
+        debugHashes[hash].what = `Class ${classId}`;
     });
 }
 
@@ -115,7 +115,7 @@ export function addConstantsHash(constants) {
     hashPromises.push(hashPromise);
     if (debugHashing()) hashPromise.then(hash => {
         //console.log(`hashing Croquet.Constants(${Object.keys(obj).join(', ')}): ${hash}`);
-        debugHashes[hash].name = "Croquet Constants";
+        debugHashes[hash].what = "Croquet Constants";
     });
 }
 
@@ -136,9 +136,9 @@ export async function hashSessionAndCode(name, options, params, sdk_version) {
     if (debugHashing()) {
         const charset = [...document.getElementsByTagName('meta')].find(el => el.getAttribute('charset'));
         if (!charset) console.warn('Missing <meta charset="..."> declaration. Croquet model code hashing might differ between browsers.');
-        debugHashes[codeHash].name = "Code hashes";
-        debugHashes[islandId].name = "Name and options";
-        debugHashes[id].name = "Session ID";
+        debugHashes[codeHash].what = "Version ID";
+        debugHashes[islandId].what = "Persistent ID";
+        debugHashes[id].what = "Session ID";
         const allHashes = [...codeHashes, codeHash, islandId, id].map(each => ({ hash: each, ...debugHashes[each]}));
         console.log(`Debug Hashing for session ${id}`, allHashes);
     }
