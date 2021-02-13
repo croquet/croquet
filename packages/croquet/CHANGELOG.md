@@ -4,6 +4,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 
 # latest pre-releases
 
+* 0.4.1-17 optimize serialization of user types
 * 0.4.1-16 handle serialization of objects with non-function constructors
 * 0.4.1-15 no style injection unless enabled
 * 0.4.1-14 ensure viewIdDebugSuffix is alphanum or underscore
