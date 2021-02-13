@@ -886,6 +886,7 @@ class IslandHasher {
             case "undefined":
                 return;
             default: {
+                if (this.refs.has(value)) return;
                 const type = Object.prototype.toString.call(value).slice(8, -1);
                 switch (type) {
                     case "Array":
@@ -918,7 +919,7 @@ class IslandHasher {
                         else {
                             const hasher = this.hashers.get(value.constructor);
                             if (hasher) hasher(value);
-                            else throw Error(`Don't know how to hash ${value.constructor.name}`);
+                            else throw Error(`Don't know how to hash object ${value.constructor.name}`);
                         }
                         return;
                     case "Null": return;
@@ -930,7 +931,6 @@ class IslandHasher {
     }
 
     hashModel(model) {
-        if (this.refs.has(model)) return;
         this.hashState.mC++;
         this.refs.set(model, true);      // register ref before recursing
         // note: for the hash as currently taken, all tallies are additive
@@ -942,7 +942,6 @@ class IslandHasher {
     }
 
     hashObject(object, defer = true) {
-        if (this.refs.has(object)) return;
         this.hashState.oC++;
         this.refs.set(object, true);      // register ref before recursing
         // see comment in hashModel re order
@@ -952,7 +951,6 @@ class IslandHasher {
     }
 
     hashArray(array, defer = true) {
-        if (this.refs.has(array)) return;
         this.refs.set(array, true);       // register ref before recursing
         for (let i = 0; i < array.length; i++) {
             this.hashEntry(i, array[i], defer);
@@ -961,7 +959,6 @@ class IslandHasher {
 
     hashStructure(object, value) {
         if (value === undefined) return;
-        if (this.refs.has(object)) return;
         this.refs.set(object, true);      // register ref before recursing
         this.hash(value, false);
     }
