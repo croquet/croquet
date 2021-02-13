@@ -1056,6 +1056,7 @@ class IslandWriter {
             case "undefined":
                 return value;
             default: {
+                if (this.refs.has(value)) return this.writeRef(value);
                 const type = Object.prototype.toString.call(value).slice(8, -1);
                 switch (type) {
                     case "Array": return this.writeArray(value, path, defer);
@@ -1090,7 +1091,6 @@ class IslandWriter {
     }
 
     writeModel(model, path) {
-        if (this.refs.has(model)) return this.writeRef(model);
         const state = {
             $model: Model.classToID(model.constructor),
         };
@@ -1117,7 +1117,6 @@ class IslandWriter {
     }
 
     writeObject(object, path, defer=true) {
-        if (this.refs.has(object)) return this.writeRef(object);
         const state = {};
         this.refs.set(object, state);      // register ref before recursing
 
@@ -1142,7 +1141,6 @@ class IslandWriter {
     }
 
     writeArray(array, path, defer=true) {
-        if (this.refs.has(array)) return this.writeRef(array);
         const state = [];
         this.refs.set(array, state);       // register ref before recursing
         for (let i = 0; i < array.length; i++) {
@@ -1152,7 +1150,6 @@ class IslandWriter {
     }
 
     writeArrayBuffer(buffer) {
-        if (this.refs.has(buffer)) return this.writeRef(buffer);
         const state = {
             $class: "ArrayBuffer",
             $value: arrayBufferToBase64(buffer),
@@ -1162,7 +1159,6 @@ class IslandWriter {
     }
 
     writeTypedArray(type, array) {
-        if (this.refs.has(array)) return this.writeRef(array);
         const state = {
             $class: type,
             $value: [this.writeArrayBuffer(array.buffer), array.byteOffset, type === "DataView" ? array.byteLength : array.length],
@@ -1182,7 +1178,6 @@ class IslandWriter {
 
     writeAs(classID, object, value, path) {
         if (value === undefined) return value;
-        if (this.refs.has(object)) return this.writeRef(object);
         const state = { $class: classID };
         this.refs.set(object, state);      // register ref before recursing
         const written = this.write(value, path, false);
