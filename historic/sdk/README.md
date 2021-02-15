@@ -1,3 +1,6 @@
+The _Croquet SDK_ allows you to create **collaborative web** experiences without any server-side code, such as **multi-user apps** or **multi-player games**.
+These apps can be stand-alone, or they can be designed to take advantage of our _Greenlight_ collaborative environment (which itself is also built on Croquet).
+
 Scroll down for an **overview** of Croquet, and the [**SDK Changelog**](#changelog).
 
 Use the Navigation Panel to try our **Tutorials**, **Guides**, and **API docs**.
@@ -24,15 +27,15 @@ There are 3 main ways to use our SDK:
 
 1. **CodePen:** play with our tutorials, click "Edit on CodePen", and develop your app there. To share it, change the view to full screen, and share the pen's url. Alternatively, click "Export" and choose "Export .zip" to download your app to your local computer for further editing and uploading to your own website.
 
-2. **Script Tag**: Add the following inside your page's `<head>` tag:
+2. **Script Tag**: Add the following inside your page's `<head>` tag, possibly replacing `@@CROQUET_VERSION@` with the version you want:
 
-        <meta charset="utf-8">
-        <script src="https://unpkg.com/@croquet/croquet"></script>
+       <meta charset="utf-8">
+       <script src="https://unpkg.com/@croquet/croquet@@CROQUET_VERSION@"></script>
 
     This will create the `Croquet` global to access `Croquet.Model` etc.
 
-    **NOTE:** the above will link to the latest release, which will keep changing. To avoid your app breaking, you should add a version tag like this:
-    `https://unpkg.com/@croquet/croquet@0.4.0` However, we cannot promise that pre-1.0 versions will keep working forever, so please keep your apps up-to-date until then.
+    **NOTE:** See [unpkg.com](https://unpkg.com/) for ways to link to different versions or the latest version automatically. However, we do update the SDK quite often, and
+    cannot promise that pre-1.0 versions will keep working forever, so please keep your apps up-to-date.
 
 3. **NPM**: install the [`@croquet/croquet`](https://www.npmjs.com/package/@croquet/croquet) package:
 
