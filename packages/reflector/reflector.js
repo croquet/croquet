@@ -579,7 +579,7 @@ function SNAP(client, args) {
             const firstSeq = messagesToStore[0][1] >>> 0;
             const logName = `${id}/${pad(time)}_${firstSeq}-${seq}-${hash}.json`;
             DEBUG(id, `@${island.time}#${island.seq} uploading messages between times ${island.snapshotTime} and ${time} (seqs ${firstSeq} to ${seq}) to ${logName}`);
-            uploadJSON(logName, messageLog);
+            uploadJSON(logName, messageLog).catch(err => ERROR(`${id} failed to upload messages. ${err.code}: ${err.message}`));
         }
     } else if (island.startClient === client) {
         // this is the initial snapshot from the user we sent START
@@ -621,7 +621,7 @@ function SAVE(client, args) {
     // do *not* change our own session's persistentUrl!
     // we only upload this to be used to init the next session of this island
     const saved = { url };
-    if (STORE_PERSISTENT_DATA) uploadJSON(`apps/${appId}/${islandId}.json`, saved);
+    if (STORE_PERSISTENT_DATA) uploadJSON(`apps/${appId}/${islandId}.json`, saved).catch(err => ERROR(`${id} failed to upload persistent data. ${err.code}: ${err.message}`));
 }
 
 /** send a message to all participants after time stamping it
@@ -930,7 +930,9 @@ async function deleteIsland(island) {
         DEBUG(id, `@${time}#${seq} uploading latest.json with ${messages.length} messages`);
         const latestSpec = {};
         savableKeys(island).forEach(key => latestSpec[key] = island[key]);
-        return uploadJSON(fileName, latestSpec);
+        try {
+            await uploadJSON(fileName, latestSpec);
+        } catch(err) { LOG(`${id} failed to upload latest.json. ${err.code}: ${err.message}` ); }
     }
     return true;
 }
