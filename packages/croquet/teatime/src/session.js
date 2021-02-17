@@ -305,6 +305,7 @@ export class Session {
             session.id = controller.id;
             session.persistentId = controller.persistentId;
             session.versionId = controller.versionId;
+            controller.session = session;
             Controllers[session.id] = controller;
 
             App.makeSessionWidgets(session.id);

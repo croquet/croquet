@@ -345,6 +345,21 @@ class View {
     }
 
     /**
+     * **The session object**
+     *
+     * Accessor for info shared by all views in session.
+     * Same as returned by {@link Session.join}.
+     *
+     * @type {Object}
+     * @since 0.4.1-19
+     * @private
+     */
+    get session() {
+        return this.realm.island.controller.session;
+    }
+
+
+    /**
      * **Identifies the View of the current user.**
      *
      * All users in a session share the same Model (meaning all model objects) but each user has a different View

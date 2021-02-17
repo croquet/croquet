@@ -19,6 +19,7 @@ import Island, { Message } from "./island";
 import UploadWorkerFactory from "web-worker:./upload";
 
 /** @typedef { import('./model').default } Model */
+/** @typedef { {} } Session */
 
 // when reflector has a new feature, we increment this value
 // only newer clients get to use it
@@ -113,6 +114,8 @@ export default class Controller {
         if (window.ISLAND === this.island) delete window.ISLAND;
         /** @type {Island} */
         this.island = null;
+        /** @type {Session} the session object as returned from Session.join, set in session.js. Not to be used here but only so that View.session can find it. Needs redesign. */
+        this.session = null;
         /**  @type {Connection} our websocket connection for talking to the reflector */
         this.connection = this.connection || new Connection(this);
         /** the messages received from reflector */
