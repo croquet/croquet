@@ -870,7 +870,7 @@ async function heraldUsers(island, all, joined, left) {
     let success = false;
     try {
         const logdetail = `${payload.time}: +${joined&&joined.length||0}-${left&&left.length||0}=${all.length}`;
-        DEBUG(`${id} heralding to ${heraldUrl} ${logdetail} ${body.length} bytes`);
+        DEBUG(`${id} heralding users ${logdetail} ${body.length} bytes to ${heraldUrl}`);
         const response = await fetch(heraldUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
