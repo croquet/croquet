@@ -578,7 +578,7 @@ function SNAP(client, args) {
             const pad = n => (""+n).padStart(10, '0');
             const firstSeq = messagesToStore[0][1] >>> 0;
             const logName = `${id}/${pad(time)}_${firstSeq}-${seq}-${hash}.json`;
-            DEBUG(id, `@${island.time}#${island.seq} uploading messages between times ${island.snapshotTime} and ${time} (seqs ${firstSeq} to ${seq}) to ${logName}`);
+            DEBUG(id, `uploading ${messagesToStore.length} messages #${firstSeq} to #${seq} as ${logName}`);
             uploadJSON(logName, messageLog).catch(err => ERROR(`${id} failed to upload messages. ${err.code}: ${err.message}`));
         }
     } else if (island.startClient === client) {
