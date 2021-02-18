@@ -602,6 +602,7 @@ function join() {
             autoSleep: false,
         }).then(session => {
             window.session = session;
+            Croquet.Messenger.startPublishingPointerMove();
         });
     }
 }
