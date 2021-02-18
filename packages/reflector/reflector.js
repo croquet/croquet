@@ -362,7 +362,7 @@ function JOIN(client, args) {
             snapshotUrl: '',     // url of last snapshot
             appId,
             islandId,
-            persistentUrl: '',   // url of persisted island
+            persistentUrl: '',   // url of persistent data
             syncWithoutSnapshot, // new protocol as of 0.3.3
             location,            // send location data?
             messages: [],        // messages since last snapshot
@@ -420,7 +420,7 @@ function JOIN(client, args) {
             if (typeof err !== "object") err = { message: ""+JSON.stringify(err) };
             if (!err.message) err.message = "<empty>";
             if (err.code !== 404) ERROR(`${id} failed to fetch latest.json: ${err.message}`);
-            // this is a brand-new session, check if there is a persisted island
+            // this is a brand-new session, check if there is persistent data
             const persistName = `apps/${appId}/${islandId}.json`;
             const persistPromise = appId && islandId
                 ? fetchJSON(persistName).catch(() => { /* ignore */})
@@ -603,9 +603,9 @@ function SNAP(client, args) {
     if (island.syncClients.length > 0) SYNC(island);
 }
 
-/** client uploaded a persistent island
+/** client uploaded persistent data
  * @param {Client} client - we received from this client
- * @param {{url: String}} args - the persistent island details
+ * @param {{url: String}} args - the persistent data details
  */
 function SAVE(client, args) {
     const id = client.sessionId;
@@ -614,9 +614,9 @@ function SAVE(client, args) {
     const { appId, islandId } = island;
     if (!appId || !islandId) { client.safeClose(...REASON.BAD_APPID); return; }
 
-    const { url } = args; // details of the persistent island that has been uploaded
+    const { url } = args; // details of the persistent data that has been uploaded
 
-    DEBUG(`${id}/${client.addr} @${island.time}#${island.seq} got persistent island: ${url}`);
+    DEBUG(`${id}/${client.addr} @${island.time}#${island.seq} got persistent data: ${url}`);
 
     // do *not* change our own session's persistentUrl!
     // we only upload this to be used to init the next session of this island
