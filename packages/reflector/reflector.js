@@ -907,7 +907,7 @@ async function deleteIsland(island) {
     const { id, syncWithoutSnapshot, snapshotUrl, time, seq, storedUrl, storedSeq, messages } = island;
     if (!ALL_ISLANDS.delete(id)) {
         LOG(`${id} island already deleted, ignoring deleteIsland();`)
-        return true;
+        return;
     };
     if (island.usersTimer) {
         clearTimeout(island.usersTimer);
@@ -918,10 +918,9 @@ async function deleteIsland(island) {
     stopTicker(island);
     ALL_ISLANDS.delete(id);
     // house keeping below only in fleet mode
-    if (CLUSTER === "local") return true;
+    if (CLUSTER === "local") return;
     // remove ourselves from session registry, ignoring errors
-    // TODO: return this promise along with the other promise below
-    unregisterSession(id, `@${time}#${seq}`);
+    let unregistered = unregisterSession(id, `@${time}#${seq}`);
     // if we've been told of a snapshot since the one (if any) stored in this
     // island's latest.json, or there are messages since the snapshot referenced
     // there, write a new latest.json.
@@ -934,7 +933,7 @@ async function deleteIsland(island) {
             await uploadJSON(fileName, latestSpec);
         } catch(err) { LOG(`${id} failed to upload latest.json. ${err.code}: ${err.message}` ); }
     }
-    return true;
+    await unregistered;
 }
 
 async function unregisterSession(id, detail) {
