@@ -1185,6 +1185,8 @@ const KEEP_ALIVE_INTERVAL = 100;
 const PULSE_TIMEOUT = 20000;
 /** warn about unsent outgoing bytes after this many ms */
 const UNSENT_TIMEOUT = 500;
+/** increase reconnect timeout exponentially up to this many ms */
+const RECONNECT_TIMEOUT_MAX = 30000;
 
 
 class Connection {
@@ -1193,6 +1195,7 @@ class Connection {
         this.connectBlocked = false;
         this.connectRestricted = false;
         this.connectHasBeenCalled = false;
+        this.reconnectTimeout = 0;
         this.missingTickThreshold = Infinity;
         this.setUpConnectionPromise();
     }
@@ -1241,6 +1244,7 @@ class Connection {
                 onopen: _event => {
                     this.socket = socket;
                     if (DEBUG.session) console.log(this.socket.constructor.name, "connected to", this.socket.url);
+                    this.reconnectTimeout = 0;
                     Stats.connected(true);
                     this.resolveConnection(null); // the value itself isn't currently used
                     resolve();
@@ -1267,7 +1271,10 @@ class Connection {
                     this.disconnected();
                     if (autoReconnect) {
                         displayWarning('Reconnecting ...');
-                        window.setTimeout(() => this.connectToReflector(), 2000);
+                        window.setTimeout(() => this.connectToReflector(), this.reconnectTimeout);
+                        // we start reconnecting immediately once (0ms) and then back off exponentially
+                        // also randomly to avoid hitting the dispatchers at the same time
+                        this.reconnectTimeout = Math.min(RECONNECT_TIMEOUT_MAX, Math.round((this.reconnectTimeout + 100) * (1 + Math.random())));
                     }
                 },
             });
