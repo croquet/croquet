@@ -352,7 +352,7 @@ class View {
      *
      * @type {Object}
      * @since 0.4.1-19
-     * @private
+     * @notpublic (yet)
      */
     get session() {
         return this.realm.island.controller.session;
