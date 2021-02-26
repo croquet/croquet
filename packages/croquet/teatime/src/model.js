@@ -563,7 +563,7 @@ class Model {
      * @example
      * this.subscribe(this.sessionId, "view-join", this.showUsers);
      * this.subscribe(this.sessionId, "view-exit", this.showUsers);
-     * showUsers() { console.log("User count:", this.viewCount); }
+     * showUsers() { this.publish(this.sessionId, "view-count", this.viewCount); }
      * @type {Number}
      * @since 0.4.1
      * @public
