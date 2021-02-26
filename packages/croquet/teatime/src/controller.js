@@ -683,8 +683,10 @@ export default class Controller {
                 // simulate messages before continuing, but only up to the SYNC time
                 const simulateSyncMessages = () => {
                     const caughtUp = this.simulate(Date.now() + 200);
+                    const joined = this.viewId in this.island.views;
                     // if more messages, finish those first
-                    if (!caughtUp) setTimeout(simulateSyncMessages, 0);
+                    // also wait for our own view join to have been processed by the model
+                    if (!caughtUp || !joined) setTimeout(simulateSyncMessages, 0);
                     // return from establishSession()
                     else {
                         if (DEBUG.session) console.log(`${this.id} fast-forwarded to ${Math.round(this.island.time)}`);
