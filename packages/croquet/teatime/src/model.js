@@ -553,6 +553,26 @@ class Model {
     }
 
     /**
+     * **The number of users currently in this session.**
+     *
+     * All users in a session share the same Model (meaning all model objects) but each user has a different View
+     * (meaning all the non-model state). This is the number of views currently sharing this model.
+     * It increases by 1 for every [`"view-join"`]{@link event:view-join}
+     * and decreases by 1 for every [`"view-exit"`]{@link event:view-exit} event.
+     *
+     * @example
+     * this.subscribe(this.sessionId, "view-join", this.showUsers);
+     * this.subscribe(this.sessionId, "view-exit", this.showUsers);
+     * showUsers() { console.log("User count:", this.viewCount); }
+     * @type {Number}
+     * @since 0.4.1
+     * @public
+     */
+    get viewCount() {
+        return Object.keys(this.__realm.island.views).length;
+    }
+
+    /**
      * Store an application-defined representation of this session to be loaded into future
      * sessions. This will be passed into the root model's [init]{@link Model#init} method
      * if resuming a session that is not currently ongoing (e.g. due to changes in the model code).

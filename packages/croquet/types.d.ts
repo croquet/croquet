@@ -396,6 +396,20 @@ declare module "@croquet/croquet" {
          * ```*/
         sessionId: string;
 
+        /** **The number of users currently in this session.**
+         *
+         * All users in a session share the same Model (meaning all model objects) but each user has a different View
+         * (meaning all the non-model state). This is the number of views currently sharing this model.
+         * It increases by 1 for every [`"view-join"`]{@link event:view-join}
+         * and decreases by 1 for every [`"view-exit"`]{@link event:view-exit} event.
+         *
+         * Example
+         * ```
+         * this.subscribe(this.sessionId, "view-join", this.showUsers);
+         * this.subscribe(this.sessionId, "view-exit", this.showUsers);
+         * showUsers() { console.log("User count:", this.viewCount); }
+         * ```*/
+        viewCount: number;
     }
 
     export type ViewSubOptions = {
