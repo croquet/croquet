@@ -680,20 +680,19 @@ export default class Controller {
                 }
                 // after install() sets this.island, the main loop may also trigger simulation
                 if (DEBUG.session) console.log(`${this.id} fast-forwarding from ${Math.round(this.island.time)}`);
-                // simulate messages before continuing, but only up to the SYNC time
-                const simulateSyncMessages = () => {
-                    const caughtUp = this.simulate(Date.now() + 200);
-                    const joined = this.viewId in this.island.views;
-                    // if more messages, finish those first
-                    // also wait for our own view join to have been processed by the model
-                    if (!caughtUp || !joined) setTimeout(simulateSyncMessages, 0);
-                    // return from establishSession()
-                    else {
-                        if (DEBUG.session) console.log(`${this.id} fast-forwarded to ${Math.round(this.island.time)}`);
-                        this.islandCreator.sessionSynced.resolve(this.island);
-                    }
-                };
-                setTimeout(simulateSyncMessages, 0);
+                // execute pending events, up to (at least) our own view-join
+                const success = await new Promise(resolve => {
+                    function fastForwardIsland() {
+                        const caughtUp = this.simulate(Date.now() + 200);
+                        const joined = this.viewId in this.island.views;
+                        if (caughtUp && joined) resolve(true);
+                        else setTimeout(fastForwardIsland, 0);
+                    };
+                    fastForwardIsland();
+                });
+                if (DEBUG.session) console.log(`${this.id} fast-forwarded to ${Math.round(this.island.time)}`);
+                // return from establishSession()
+                this.islandCreator.sessionSynced.resolve(this.island);
                 return;
             }
             case 'RECV': {
