@@ -239,7 +239,7 @@ export default class Controller {
         this.key = PBKDF2(password, "", { keySize: 256/32 });
         this.oldKey = PBKDF2("THIS SHOULDN'T BE IN LOGS", "", { keySize: 256/32 });
         const { id, islandId, codeHash } = await hashSessionAndCode(name, options, params, SDK_VERSION);
-        if (DEBUG.session) console.log(`Session ID for "${name}": ${id}`);
+        if (DEBUG.session) console.log(`Croquet sessionId for "${name}": ${id} viewId: ${this.viewId}`);
         this.islandCreator = {...sessionSpec, options, name, islandId, codeHash };
 
         let initSnapshot = false;
