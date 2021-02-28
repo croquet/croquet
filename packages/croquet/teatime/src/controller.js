@@ -670,7 +670,7 @@ export default class Controller {
                     this.connection.closeConnectionWithError('SYNC', Error(`failed to fetch ${persistedOrSnapshot}: ${err.message}`), 4200); // do not retry
                     return;
                 }
-                if (!this.connected) { console.log(this.id, 'socket went away during SYNC'); return; }
+                if (!this.connected) { console.log(this.id, 'disconnected during SYNC'); return; }
                 if (persisted) {
                     // run initFn() with persisted data, if any
                     this.install(data);
@@ -683,6 +683,7 @@ export default class Controller {
                 // execute pending events, up to (at least) our own view-join
                 const success = await new Promise(resolve => {
                     function fastForwardIsland() {
+                        if (!this.connected) { console.log(this.id, 'disconnected during SYNC fast-forwarding'); resolve(false); return; }
                         const caughtUp = this.simulate(Date.now() + 200);
                         const joined = this.viewId in this.island.views;
                         if (caughtUp && joined) resolve(true);
@@ -690,9 +691,11 @@ export default class Controller {
                     };
                     fastForwardIsland();
                 });
+                if (!success) return;
                 if (DEBUG.session) console.log(`${this.id} fast-forwarded to ${Math.round(this.island.time)}`);
                 // return from establishSession()
                 this.islandCreator.sessionSynced.resolve(this.island);
+                // TODO: if we don't resolve nor reject this promise due to the returns above, does this leak memory?
                 return;
             }
             case 'RECV': {
