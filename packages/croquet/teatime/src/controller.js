@@ -1243,45 +1243,41 @@ class Connection {
         if (!reflectorUrl.match(/^wss?:/)) throw Error('Cannot interpret reflector address ' + reflectorUrl);
         if (!reflectorUrl.endsWith('/')) reflectorUrl += '/';
 
-        return new Promise( resolve => {
-            const socket = Object.assign(new WebSocket(`${reflectorUrl}${this.controller.id}${region}`), {
-                onopen: _event => {
-                    this.socket = socket;
-                    if (DEBUG.session) console.log(this.id, this.socket.constructor.name, "connected to", this.socket.url);
-                    this.reconnectTimeout = 0;
-                    Stats.connected(true);
-                    this.resolveConnection(null); // the value itself isn't currently used
-                    resolve();
-                },
-                onmessage: event => {
-                    this.receive(event.data);
-                },
-                onerror: _event => {
-                    if (DEBUG.session) console.log(this.id, socket.constructor.name, "connection error");
-                },
-                onclose: event => {
-                    // event codes from 4100 and up mean a disconnection from which the client
-                    // shouldn't automatically try to reconnect
-                    // e.g., 4100 is for out-of-date reflector protocol
-                    const autoReconnect = event.code !== 1000 && event.code < 4100;
-                    const dormant = event.code === 4110;
-                    // don't display error if going dormant or normal close or reconnecting
-                    if (!dormant && event.code !== 1000 && !this.reconnectTimeout) displayError(`Connection closed: ${event.code} ${event.reason}`, { duration: autoReconnect ? undefined : 3600000 }); // leave it there for 1 hour if unrecoverable
-                    if (DEBUG.session) console.log(this.id, socket.constructor.name, "closed with code:", event.code, event.reason);
-                    Stats.connected(false);
-                    if (dormant) this.connectRestricted = true; // only reconnect on session step
-                    else this.connectBlocked = true; // only reconnect using connectToReflector
-                    this.disconnected();
-                    if (autoReconnect) {
-                        if (DEBUG.session) console.log(this.id, `reconnecting in ${this.reconnectTimeout} ms`);
-                        window.setTimeout(() => this.connectToReflector(), this.reconnectTimeout);
-                        // we start reconnecting immediately once (0ms) and then back off exponentially
-                        // also randomly to avoid hitting the dispatchers at the same time
-                        this.reconnectTimeout = Math.min(RECONNECT_TIMEOUT_MAX, Math.round((this.reconnectTimeout + 100) * (1 + Math.random())));
-                    }
-                },
-            });
-         });
+        const socket = new WebSocket(`${reflectorUrl}${this.controller.id}${region}`);
+        socket.onopen = _event => {
+            this.socket = socket;
+            if (DEBUG.session) console.log(this.id, this.socket.constructor.name, "connected to", this.socket.url);
+            this.reconnectTimeout = 0;
+            Stats.connected(true);
+            this.resolveConnection(null); // the value itself isn't currently used
+        };
+        socket.onmessage = event => {
+            this.receive(event.data);
+        },
+        socket.onerror = _event => {
+            if (DEBUG.session) console.log(this.id, socket.constructor.name, "connection error");
+        };
+        socket.onclose = event => {
+            // event codes from 4100 and up mean a disconnection from which the client
+            // shouldn't automatically try to reconnect
+            // e.g., 4100 is for out-of-date reflector protocol
+            const autoReconnect = event.code !== 1000 && event.code < 4100;
+            const dormant = event.code === 4110;
+            // don't display error if going dormant or normal close or reconnecting
+            if (!dormant && event.code !== 1000 && !this.reconnectTimeout) displayError(`Connection closed: ${event.code} ${event.reason}`, { duration: autoReconnect ? undefined : 3600000 }); // leave it there for 1 hour if unrecoverable
+            if (DEBUG.session) console.log(this.id, socket.constructor.name, "closed with code:", event.code, event.reason);
+            Stats.connected(false);
+            if (dormant) this.connectRestricted = true; // only reconnect on session step
+            else this.connectBlocked = true; // only reconnect using connectToReflector
+            this.disconnected();
+            if (autoReconnect) {
+                if (DEBUG.session) console.log(this.id, `reconnecting in ${this.reconnectTimeout} ms`);
+                window.setTimeout(() => this.connectToReflector(), this.reconnectTimeout);
+                // we start reconnecting immediately once (0ms) and then back off exponentially
+                // also randomly to avoid hitting the dispatchers at the same time
+                this.reconnectTimeout = Math.min(RECONNECT_TIMEOUT_MAX, Math.round((this.reconnectTimeout + 100) * (1 + Math.random())));
+            }
+        };
     }
 
     // socket was disconnected, destroy the island
