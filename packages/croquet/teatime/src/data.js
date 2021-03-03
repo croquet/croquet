@@ -8,7 +8,7 @@ import Island from "./island";
 import { sessionProps } from "./controller";
 
 
-const VERSION = '1';
+const VERSION = '2';
 
 const DATAHANDLE_HASH = Symbol("hash");
 const DATAHANDLE_KEY = Symbol("key");
@@ -27,6 +27,18 @@ function dataUrl(path, hash) {
 
 function hashFromUrl(url) {
     return url.replace(/.*\//, '');
+}
+
+function toBase64Url(base64) {
+    return base64.replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+}
+
+function fromBase64Url(base64url) {
+    return base64url.replace(/-/g, "+").replace(/_/g, "/").padEnd((base64url.length + 3) & ~3, "=");
+}
+
+function scramble(key, string) {
+    return string.replace(/[\s\S]/g, c => String.fromCharCode(c.charCodeAt(0) ^ key.charCodeAt(0)));
 }
 
 /** exposed as Data in API */
@@ -100,7 +112,7 @@ export default class DataHandle {
         switch (output) {
             case "hex": return result.toString();
             case "base64": return result.toString(Base64);
-            case "base64url": return result.toString(Base64).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+            case "base64url": return toBase64Url(result.toString(Base64));
             default: throw Error(`Croquet.Data: unknown hash output "${output}", expected "hex"/"base64"/"base64url"`);
         }
     }
@@ -120,6 +132,12 @@ export default class DataHandle {
                 const path = id.slice(1 + 43 + 43);
                 return new this(hash, key, path);
             }
+            case '2': {
+                const hash = id.slice(1, 1 + 43);
+                const key = fromBase64Url(id.slice(1 + 43, 1 + 43 + 43));
+                const path = scramble(key, atob(fromBase64Url(id.slice(1 + 43 + 43))));
+                return new this(hash, key, path);
+            }
             default:
                 throw Error(`Croquet.Data expected handle v${VERSION} got v${version}`);
         }
@@ -132,7 +150,11 @@ export default class DataHandle {
         const key = handle[DATAHANDLE_KEY];
         const path = handle[DATAHANDLE_PATH];
         if (!path) return `0${hash}${key}`; // deprecated
-        return `${VERSION}${hash}${key.slice(0, -1)}${path}`;
+        // key is plain Base64, make it url-safe
+        const encodedKey = toBase64Url(key);
+        // the only reason for obfuscation here is so devs do not rely on any parts of the id
+        const encodedPath = toBase64Url(btoa(scramble(key, path)));
+        return `${VERSION}${hash}${encodedKey}${encodedPath}`;
     }
 
     constructor(hash, key, path) {
