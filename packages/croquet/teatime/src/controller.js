@@ -682,7 +682,7 @@ export default class Controller {
                 if (DEBUG.session) console.log(`${this.id} fast-forwarding from ${Math.round(this.island.time)}`);
                 // execute pending events, up to (at least) our own view-join
                 const success = await new Promise(resolve => {
-                    function fastForwardIsland() {
+                    const fastForwardIsland = () => {
                         if (!this.connected) { console.log(this.id, 'disconnected during SYNC fast-forwarding'); resolve(false); return; }
                         const caughtUp = this.simulate(Date.now() + 200);
                         const joined = this.viewId in this.island.views;
