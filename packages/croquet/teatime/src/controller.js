@@ -1229,7 +1229,8 @@ class Connection {
         this.connectToReflector();
     }
 
-    async connectToReflector() {
+    // this used to be async, but now just resolves this.connectionPromise once connected
+    connectToReflector() {
         this.connectHasBeenCalled = true;
         this.connectBlocked = false;
         this.connectRestricted = false;
