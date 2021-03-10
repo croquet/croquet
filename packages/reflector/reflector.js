@@ -469,16 +469,17 @@ function START(island) {
 }
 
 function SYNC(island) {
-    const { id, snapshotUrl: url, persistentUrl, messages } = island;
+    const { id, seq, snapshotUrl: url, snapshotTime, snapshotSeq, persistentUrl, messages } = island;
     const time = getTime(island, "SYNC");
-    const args = { url, messages, time};
-    if (!url && persistentUrl) { args.url = persistentUrl ; args.persisted = true; }
+    const args = { url, messages, time, seq };
+    if (url) {args.snapshotTime = snapshotTime; args.snapshotSeq = snapshotSeq; }
+    else if (persistentUrl) { args.url = persistentUrl ; args.persisted = true; }
     const response = JSON.stringify({ id, action: 'SYNC', args });
     const range = !messages.length ? '' : ` (#${messages[0][1]}...${messages[messages.length - 1][1]})`;
     for (const syncClient of island.syncClients) {
         if (syncClient.readyState === WebSocket.OPEN) {
             syncClient.safeSend(response);
-            DEBUG(`${id}/${syncClient.addr} @${island.time}#${island.seq} sending SYNC ${response.length} bytes, ${messages.length} messages${range}, ${args.persisted ? "persisted" : "snapshot"} ${args.url || "<none>"}`);
+            DEBUG(`${id}/${syncClient.addr} sending SYNC @${time}#${seq} ${response.length} bytes, ${messages.length} messages${range}, ${args.persisted ? "persisted" : "snapshot"} ${args.url || "<none>"}`);
             announceUserDidJoin(island, syncClient);
         } else {
             DEBUG(`${id}/${syncClient.addr} socket closed before SYNC`);
