@@ -348,6 +348,7 @@ function JOIN(client, args) {
     // create island data if this is the first client
     let island = ALL_ISLANDS.get(id);
     if (!island) {
+        let reflectorSession = ''; do reflectorSession = Math.random().toString(36).substring(2); while(!reflectorSession);
         island = {
             id,                  // the island id
             name,                // the island name, including options (or could be null)
@@ -364,6 +365,7 @@ function JOIN(client, args) {
             islandId,
             persistentUrl: '',   // url of persistent data
             syncWithoutSnapshot, // new protocol as of 0.3.3
+            reflectorSession,    // if a stateless reflector resumes the session, this is the only way to tell
             location,            // send location data?
             messages: [],        // messages since last snapshot
             lastTick: -1000,     // time of last TICK sent (-1000 to avoid initial delay)
@@ -469,16 +471,17 @@ function START(island) {
 }
 
 function SYNC(island) {
-    const { id, snapshotUrl: url, persistentUrl, messages } = island;
+    const { id, seq, reflectorSession, snapshotUrl: url, snapshotTime, snapshotSeq, persistentUrl, messages } = island;
     const time = getTime(island, "SYNC");
-    const args = { url, messages, time};
-    if (!url && persistentUrl) { args.url = persistentUrl ; args.persisted = true; }
+    const args = { url, messages, time, seq, reflector: CLUSTER, reflectorSession };
+    if (url) {args.snapshotTime = snapshotTime; args.snapshotSeq = snapshotSeq; }
+    else if (persistentUrl) { args.url = persistentUrl ; args.persisted = true; }
     const response = JSON.stringify({ id, action: 'SYNC', args });
     const range = !messages.length ? '' : ` (#${messages[0][1]}...${messages[messages.length - 1][1]})`;
     for (const syncClient of island.syncClients) {
         if (syncClient.readyState === WebSocket.OPEN) {
             syncClient.safeSend(response);
-            DEBUG(`${id}/${syncClient.addr} @${island.time}#${island.seq} sending SYNC ${response.length} bytes, ${messages.length} messages${range}, ${args.persisted ? "persisted" : "snapshot"} ${args.url || "<none>"}`);
+            DEBUG(`${id}/${syncClient.addr} sending SYNC @${time}#${seq} ${response.length} bytes, ${messages.length} messages${range}, ${args.persisted ? "persisted" : "snapshot"} ${args.url || "<none>"}`);
             announceUserDidJoin(island, syncClient);
         } else {
             DEBUG(`${id}/${syncClient.addr} socket closed before SYNC`);
@@ -486,19 +489,6 @@ function SYNC(island) {
     }
     // synced all that were waiting
     island.syncClients.length = 0;
-}
-
-/** An island controller is leaving
- * @param {Client} client - we received from this client
- */
-function LEAVING(client) {
-    const id = client.sessionId;
-    DEBUG(`${id}/${client.addr} receiving LEAVING`);
-    const island = ALL_ISLANDS.get(id);
-    if (!island) return;
-    island.clients.delete(client);
-    announceUserDidLeave(island, client);
-    if (island.clients.size === 0) provisionallyDeleteIsland(island);
 }
 
 function announceUserDidJoin(island, client) {
@@ -1050,7 +1040,6 @@ server.on('connection', (client, req) => {
                 case 'SNAP': SNAP(client, args); break;
                 case 'SAVE': SAVE(client, args); break;
                 case 'LOG': LOG(`${sessionId}/${client.addr} LOG ${typeof args === "string" ? args : JSON.stringify(args)}`); break;
-                case 'LEAVING': LEAVING(client); break;
                 case 'PING': PONG(client, args); break;
                 case 'PULSE': LOCAL_DEBUG(`${sessionId}/${client.addr} receiving PULSE`); break; // sets lastActivity, otherwise no-op
                 default: WARN(`${sessionId}/${client.addr} unknown action ${JSON.stringify(action)}`);
