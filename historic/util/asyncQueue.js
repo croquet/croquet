@@ -23,6 +23,10 @@ export default class AsyncQueue {
         return this.values[0];
     }
 
+    peekLast() {
+        return this.values[this.values.length - 1];
+    }
+
     nextNonBlocking() {
         return this.values.shift();
     }

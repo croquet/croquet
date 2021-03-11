@@ -15,7 +15,7 @@ import { App, displayStatus, displayWarning, displayError, displayAppError } fro
 import { baseUrl, hashSessionAndCode, hashString } from "@croquet/util/hashing";
 import { inViewRealm } from "./realms";
 import { viewDomain } from "./domain";
-import Island, { Message } from "./island";
+import Island, { Message, inSequence } from "./island";
 import UploadWorkerFactory from "web-worker:./upload";
 
 /** @typedef { import('./model').default } Model */
@@ -129,6 +129,8 @@ export default class Controller {
         this.key = null;
         /** @type {String} the client id (different in each replica, but stays the same on reconnect) */
         this.viewId = this.viewId || randomString(); // todo: have reflector assign unique ids
+        /** @type {String} stateless reflectors always start new session, this is the only way to notice that */
+        this.reflectorSession = '';
         /** the number of concurrent users in our island (excluding spectators) */
         this.users = 0;
         /** the number of concurrent users in our island (including spectators) */
@@ -253,7 +255,8 @@ export default class Controller {
 
         // create promise before join to prevent race
         const synced = new Promise((resolve, reject) => this.islandCreator.sessionSynced = { resolve, reject } );
-        this.join();   // when socket is ready, join server
+        if (this.reboot) this.reboot(); // if reconnect in progress, continue on the await in SYNC
+        else this.join();   // when socket is ready, join server
         await synced;  // resolved after receiving `SYNC`, installing island, and replaying messages
         return this.island.modelsByName;
     }
@@ -640,9 +643,42 @@ export default class Controller {
         switch (action) {
             case 'SYNC': {
                 // We are joining an island session.
-                const {messages, url, persisted, time} = args;
+                const {messages, url, persisted, time, seq, snapshotTime, snapshotSeq, reflector, reflectorSession} = args;
                 const persistedOrSnapshot = persisted ? "persisted session" : "snapshot";
-                if (DEBUG.session) console.log(this.id, `received SYNC: time ${time}, ${messages.length} messages, ${persistedOrSnapshot} ${url || "<none>"}`);
+                if (DEBUG.session) console.log(this.id, `received SYNC from ${reflector} reflector: time ${time}, ${messages.length} messages, ${persistedOrSnapshot} ${url || "<none>"}`);
+                // if we are rejoining, check if we can do that seamlessly without taking down the view
+                // meaning we have all the messages we missed while disconnected
+                let rejoining = !!this.island;
+                if (rejoining) {
+                    // old reflector does not send seq, snapshotSeq, reflectorSession, cannot rejoin
+                    const sameSession  = !!reflectorSession && reflectorSession === this.reflectorSession;
+                    const ourOldest = this.island.seq;
+                    const ourNewest = this.networkQueue.size > 0 ? this.networkQueue.peekLast().seq : ourOldest;
+                    const syncNewest = seq;
+                    const syncOldest = snapshotSeq !== undefined ? snapshotSeq
+                        : messages.length > 0 ? messages[0][1] : syncNewest;
+                    const seamlessRejoin = sameSession        //
+                        && inSequence(syncOldest, ourNewest)   // there must be no gap between our last message and the first synced message
+                        && inSequence(ourOldest, syncNewest);  // the reflector state must not be older than our island
+                    if (seamlessRejoin) {
+                        // rejoin is safe, just drop duplicate messages
+                        if (messages[0] && inSequence(messages[0][1], ourNewest)) {
+                            messages.splice(0, 1 + (ourNewest - messages[0][1]));
+                        }
+                        // proceed to enqueue the messages we missed while disconnected
+                    } else {
+                        // likely a snapshot happened while disconnected. Reboot.
+                        if (DEBUG.session) console.log(this.id, "cannot rejoin seamlessly, rebooting model/view")
+                        this.leave(true);
+                        if (DEBUG.session) console.log(this.id, "waiting for model/view reboot finished")
+                        await new Promise(resolve => this.reboot = () => {
+                            this.reboot = null;
+                            resolve();
+                        });
+                        if (DEBUG.session) console.log(this.id, "finished model/view reboot")
+                        rejoining = false;
+                    }
+                }
                 // enqueue all messages now because the reflector will start sending more messages
                 // while we are waiting for the snapshot.
                 // if any conversion of custom reflector messages is to be done, do it before
@@ -658,10 +694,16 @@ export default class Controller {
                         return;
                     }
                     if (DEBUG.messages) console.log(this.id, 'received in SYNC ' + JSON.stringify(msg));
-                    msg[1] >>>= 0; // make sure it's uint32 (reflector used to send int32)
                     this.networkQueue.put(msg);
                 }
                 this.timeFromReflector(time);
+                // if we were rejoining, then our work is done here: we got all the missing messages
+                if (rejoining) {
+                    if (DEBUG.session) console.log(this.id, "rejoined successfully")
+                    return;
+                }
+                this.reflectorSession = reflectorSession; // stored only on initial connection
+                // otherwise we need go to work
                 if (DEBUG.session) console.log(`${this.id} fetching ${persistedOrSnapshot} ${url}`);
                 let data;
                 if (url) try {
@@ -788,6 +830,7 @@ export default class Controller {
 
     async join() {
         this.checkForConnection(false); // don't force it
+        if (DEBUG.session) console.log(this.id, "awaiting connection promise")
         await this.connection.connectionPromise; // wait until there is a connection
 
         Controllers.add(this);
@@ -822,10 +865,10 @@ export default class Controller {
     }
 
     // either the connection has been broken or the reflector has sent LEAVE
-    leave() {
+    leave(keepController=false) {
         const {destroyerFn} = this.islandCreator;
         this.reset();
-        Controllers.delete(this);   // after reset so it does not re-enable the SYNC overlay
+        if (!keepController) Controllers.delete(this);   // after reset so it does not re-enable the SYNC overlay
         if (!this.islandCreator) throw Error("do not discard islandCreator!");
         if (destroyerFn) destroyerFn();
     }
@@ -1240,7 +1283,13 @@ class Connection {
             if (DEBUG.session) console.log(this.id, this.socket.constructor.name, "connected to", this.socket.url);
             this.reconnectTimeout = 0;
             Stats.connected(true);
+            // normally JOIN is sent in establishSession but when rejoining, the controller still is in the session
+            if (this.controller.island) {
+                if (DEBUG.session) console.log(this.id, "reconnected, trying to seamlessly rejoin")
+                this.controller.join();
+            }
             this.resolveConnection(null); // the value itself isn't currently used
+            if (DEBUG.session) console.log(this.id, "resolved connection promise")
         };
         socket.onmessage = event => {
             this.receive(event.data);
@@ -1255,7 +1304,14 @@ class Connection {
             const autoReconnect = event.code !== 1000 && event.code < 4100;
             const dormant = event.code === 4110;
             // don't display error if going dormant or normal close or reconnecting
-            if (!dormant && event.code !== 1000 && !this.reconnectTimeout) displayError(`Connection closed: ${event.code} ${event.reason}`, { duration: autoReconnect ? undefined : 3600000 }); // leave it there for 1 hour if unrecoverable
+            if (!dormant && event.code !== 1000 && !this.reconnectTimeout) {
+                // but also wait 300 ms to see if reconnect succeeded
+                setTimeout(() => {
+                    if (this.connected) return; // yay - connected again
+                    // leave it there for 1 hour if unrecoverable
+                    displayError(`Connection closed: ${event.code} ${event.reason}`, { duration: autoReconnect ? undefined : 3600000 });
+                }, 300);
+            }
             if (DEBUG.session) console.log(this.id, socket.constructor.name, "closed with code:", event.code, event.reason);
             Stats.connected(false);
             if (dormant) this.connectRestricted = true; // only reconnect on session step
@@ -1279,7 +1335,8 @@ class Connection {
         this.lastSent = 0;
         this.connectHasBeenCalled = false;
         this.setUpConnectionPromise();
-        this.controller.leave();
+        // only leave if forced, otherwise we try to seamlessly rejoin
+        if (this.controller.leaving) this.controller.leave();
     }
 
     send(data) {
