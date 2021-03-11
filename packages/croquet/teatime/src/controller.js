@@ -704,10 +704,10 @@ export default class Controller {
                 this.timeFromReflector(time);
                 // if we were rejoining, then our work is done here: we got all the missing messages
                 if (rejoining) {
-                    if (DEBUG.session) console.log(this.id, "rejoined successfully")
+                    if (DEBUG.session) console.log(this.id, "seemless rejoin successful")
                     return;
                 }
-                this.reflectorSession = reflectorSession; // stored only on initial connection
+                this.reflectorSession = reflectorSession || ''; // stored only on initial connection
                 // otherwise we need go to work
                 if (DEBUG.session) console.log(`${this.id} fetching ${persistedOrSnapshot} ${url}`);
                 let data;
