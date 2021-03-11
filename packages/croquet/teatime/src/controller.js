@@ -194,6 +194,12 @@ export default class Controller {
     /** @type {Boolean} true if our connection is fine */
     get connected() { return this.connection.connected; }
 
+    /** @type {Boolean} should the connection call leave() when disconnected? */
+    get shouldLeaveWhenDisconnected() { return this.leaving || !this.canRejoinSeamlessly; }
+
+    /** @type {Boolean} does the reflector support seamless rejoin? */
+    get canRejoinSeamlessly() { return !!this.reflectorSession; } //
+
     checkForConnection(force) { this.connection.checkForConnection(force); }
 
     dormantDisconnect() {
@@ -867,6 +873,7 @@ export default class Controller {
     leave(keepController=false) {
         const {destroyerFn} = this.islandCreator;
         this.reset();
+        if (DEBUG.session) console.log(this.id, `resetting ${keepController ? "(but keeping)" : "and discarding"} controller`)
         if (!keepController) Controllers.delete(this);   // after reset so it does not re-enable the SYNC overlay
         if (!this.islandCreator) throw Error("do not discard islandCreator!");
         if (destroyerFn) destroyerFn();
@@ -1334,8 +1341,8 @@ class Connection {
         this.lastSent = 0;
         this.connectHasBeenCalled = false;
         this.setUpConnectionPromise();
-        // only leave if forced, otherwise we try to seamlessly rejoin
-        if (this.controller.leaving) this.controller.leave();
+        // only leave if necessary, otherwise we try to seamlessly rejoin
+        if (this.controller.shouldLeaveWhenDisconnected) this.controller.leave();
     }
 
     send(data) {
