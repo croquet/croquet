@@ -746,12 +746,6 @@ export default class Controller {
                 this.cpuTime = 10000;
                 return;
             }
-            case 'LEAVE': {
-                // the server wants us to leave this session and rejoin
-                console.log(this.id, 'Controller received LEAVE');
-                this.leave();
-                return;
-            }
             default: console.warn("Unknown action:", action, args);
         }
     }
@@ -829,10 +823,6 @@ export default class Controller {
 
     // either the connection has been broken or the reflector has sent LEAVE
     leave() {
-        if (this.connected) {
-            console.log(this.id, `LEAVING session for ${this.islandCreator.name}`);
-            this.connection.send(JSON.stringify({ id: this.id, action: 'LEAVING' }));
-        }
         const {destroyerFn} = this.islandCreator;
         this.reset();
         Controllers.delete(this);   // after reset so it does not re-enable the SYNC overlay
