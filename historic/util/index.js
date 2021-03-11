@@ -1,4 +1,3 @@
-export { default as asyncQueue } from './asyncQueue';
 export * from './hashing';
 export * from './html';
 export { default as PriorityQueue } from './priorityQueue';

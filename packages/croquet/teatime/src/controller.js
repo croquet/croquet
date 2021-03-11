@@ -8,7 +8,6 @@ import WordArray from "crypto-js/lib-typedarrays";
 import HmacSHA256 from "crypto-js/hmac-sha256";
 
 import pako from "pako"; // gzip-aware compressor
-import AsyncQueue from "@croquet/util/asyncQueue";
 import { Stats } from "@croquet/util/stats";
 import urlOptions from "@croquet/util/urlOptions";
 import { App, displayStatus, displayWarning, displayError, displayAppError } from "@croquet/util/html";
@@ -120,7 +119,7 @@ export default class Controller {
         /**  @type {Connection} our websocket connection for talking to the reflector */
         this.connection = this.connection || new Connection(this);
         /** the messages received from reflector */
-        this.networkQueue = new AsyncQueue();
+        this.networkQueue = [];
         /** the time stamp of last message received from reflector */
         this.time = 0;
         /** the local time at which we received the last time stamp, minus that time stamp */
@@ -653,7 +652,7 @@ export default class Controller {
                     // old reflector does not send seq, snapshotSeq, reflectorSession, cannot rejoin
                     const sameSession  = !!reflectorSession && reflectorSession === this.reflectorSession;
                     const ourOldest = this.island.seq;
-                    const ourNewest = this.networkQueue.size > 0 ? this.networkQueue.peekLast().seq : ourOldest;
+                    const ourNewest = this.networkQueue.length > 0 ? this.networkQueue[this.networkQueue.length-1].seq : ourOldest;
                     const syncNewest = seq;
                     const syncOldest = snapshotSeq !== undefined ? snapshotSeq
                         : messages.length > 0 ? messages[0][1] : syncNewest;
@@ -694,7 +693,7 @@ export default class Controller {
                         return;
                     }
                     if (DEBUG.messages) console.log(this.id, 'received in SYNC ' + JSON.stringify(msg));
-                    this.networkQueue.put(msg);
+                    this.networkQueue.push(msg);
                 }
                 this.timeFromReflector(time);
                 // if we were rejoining, then our work is done here: we got all the missing messages
@@ -762,7 +761,7 @@ export default class Controller {
                     this.connection.closeConnectionWithError('RECV', Error(`failed to decrypt message: ${err.message}`), 4200); // do not retry
                     return;
                 }
-                this.networkQueue.put(msg);
+                this.networkQueue.push(msg);
                 this.timeFromReflector(msg[0]);
                 return;
             }
@@ -1101,7 +1100,7 @@ export default class Controller {
         if (!this.island) return true;     // we are probably still sync-ing
         try {
             let weHaveTime = true;
-            const nothingToDo = this.networkQueue.size + this.island.messages.size === 0;
+            const nothingToDo = this.networkQueue.length + this.island.messages.size === 0;
             if (nothingToDo) {
                 // only advance time, do not accumulate any cpuTime
                 weHaveTime = this.island.advanceTo(this.time, deadline);
@@ -1110,15 +1109,15 @@ export default class Controller {
                 const simStart = Stats.begin("simulate");
                 // simulate all received external messages
                 while (weHaveTime) {
-                    const msgData = this.networkQueue.peek();
+                    const msgData = this.networkQueue[0];
                     if (!msgData) break;
                     // finish simulating internal messages up to message time
                     // (otherwise, external messages could end up in the future queue,
                     // making snapshots non-deterministic)
                     weHaveTime = this.island.advanceTo(msgData[0], deadline);
                     if (!weHaveTime) break;
-                    // Remove message from the (concurrent) network queue
-                    this.networkQueue.nextNonBlocking();
+                    // Remove message from the network queue
+                    this.networkQueue.shift();
                     // have the island decode and schedule that message
                     // it will end up first in the future message queue
                     const msg = this.island.scheduleExternalMessage(msgData);
