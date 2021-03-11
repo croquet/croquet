@@ -348,7 +348,7 @@ function JOIN(client, args) {
     // create island data if this is the first client
     let island = ALL_ISLANDS.get(id);
     if (!island) {
-        const reflectorSession = Math.random().toString(36).substring(2);
+        let reflectorSession = ''; do reflectorSession = Math.random().toString(36).substring(2); while(!reflectorSession);
         island = {
             id,                  // the island id
             name,                // the island name, including options (or could be null)
