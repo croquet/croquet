@@ -1311,12 +1311,12 @@ class Connection {
             const dormant = event.code === 4110;
             // don't display error if going dormant or normal close or reconnecting
             if (!dormant && event.code !== 1000 && !this.reconnectTimeout) {
-                // but also wait 300 ms to see if reconnect succeeded
+                // but also wait 500 ms to see if reconnect succeeded
                 setTimeout(() => {
                     if (this.connected) return; // yay - connected again
                     // leave it there for 1 hour if unrecoverable
                     displayError(`Connection closed: ${event.code} ${event.reason}`, { duration: autoReconnect ? undefined : 3600000 });
-                }, 300);
+                }, 500);
             }
             if (DEBUG.session) console.log(this.id, socket.constructor.name, "closed with code:", event.code, event.reason);
             Stats.connected(false);
