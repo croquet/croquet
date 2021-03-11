@@ -107,6 +107,7 @@ export function sessionProps(sessionId) {
 export default class Controller {
 
     constructor() {
+        initDEBUG();
         this.reset();
     }
 
@@ -219,7 +220,6 @@ export default class Controller {
      * @returns {Promise}
      */
     async establishSession(sessionSpec) {
-        initDEBUG();
         // If we add more options here, add them to SESSION_PARAMS in session.js
         const { name: n, optionsFromUrl, password, appId, viewIdDebugSuffix} = sessionSpec;
         const name = appId ? `${appId}/${n}` : n;
