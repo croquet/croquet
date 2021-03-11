@@ -491,19 +491,6 @@ function SYNC(island) {
     island.syncClients.length = 0;
 }
 
-/** An island controller is leaving
- * @param {Client} client - we received from this client
- */
-function LEAVING(client) {
-    const id = client.sessionId;
-    DEBUG(`${id}/${client.addr} receiving LEAVING`);
-    const island = ALL_ISLANDS.get(id);
-    if (!island) return;
-    island.clients.delete(client);
-    announceUserDidLeave(island, client);
-    if (island.clients.size === 0) provisionallyDeleteIsland(island);
-}
-
 function announceUserDidJoin(island, client) {
     if (!client.user || client.active === true) return;
     client.active = true;
@@ -1053,7 +1040,6 @@ server.on('connection', (client, req) => {
                 case 'SNAP': SNAP(client, args); break;
                 case 'SAVE': SAVE(client, args); break;
                 case 'LOG': LOG(`${sessionId}/${client.addr} LOG ${typeof args === "string" ? args : JSON.stringify(args)}`); break;
-                case 'LEAVING': LEAVING(client); break;
                 case 'PING': PONG(client, args); break;
                 case 'PULSE': LOCAL_DEBUG(`${sessionId}/${client.addr} receiving PULSE`); break; // sets lastActivity, otherwise no-op
                 default: WARN(`${sessionId}/${client.addr} unknown action ${JSON.stringify(action)}`);
