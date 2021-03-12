@@ -657,20 +657,21 @@ export default class Controller {
                 if (rejoining) {
                     // old reflector does not send seq, snapshotSeq, reflectorSession, cannot rejoin
                     const sameSession  = !!reflectorSession && reflectorSession === this.reflectorSession;
+                    const firstMessage = messages[0];
                     const ourOldest = this.island.seq;
                     const ourNewest = this.networkQueue.length > 0 ? this.networkQueue[this.networkQueue.length-1].seq : ourOldest;
                     const syncNewest = seq;
                     const syncOldest = snapshotSeq !== undefined ? snapshotSeq
-                        : messages.length > 0 ? messages[0][1] : syncNewest;
+                        : firstMessage ? firstMessage[1] : syncNewest;
                     if (DEBUG.messages) console.log(this.id, `rejoin: we have #${ourOldest}-#${ourNewest} SYNC has #${syncOldest}-#${syncNewest}`);
                     const seamlessRejoin = sameSession        //
                         && inSequence(syncOldest, ourNewest)   // there must be no gap between our last message and the first synced message
                         && inSequence(ourOldest, syncNewest);  // the reflector state must not be older than our island
                     if (seamlessRejoin) {
                         // rejoin is safe, just discard duplicate messages
-                        if (messages[0] && inSequence(messages[0][1], ourNewest)) {
-                            if (DEBUG.messages) console.log(this.id, `rejoin: discarding ${discard} messages #${messages[0][1]}-#${ourNewest}`);
+                        if (firstMessage && inSequence(firstMessage[1], ourNewest)) {
                             const discard = ourNewest - firstMessage[1] + 1 >>> 0; // 32 bit difference (!)
+                            if (DEBUG.messages) console.log(this.id, `rejoin: discarding ${discard} messages #${firstMessage[1]}-#${ourNewest}`);
                             messages.splice(0, discard);
                         }
                         // proceed to enqueue the messages we missed while disconnected
