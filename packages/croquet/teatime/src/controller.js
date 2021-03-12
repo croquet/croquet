@@ -668,7 +668,8 @@ export default class Controller {
                     if (seamlessRejoin) {
                         // rejoin is safe, just drop duplicate messages
                         if (messages[0] && inSequence(messages[0][1], ourNewest)) {
-                            messages.splice(0, 1 + (ourNewest - messages[0][1]));
+                            const discard = 1 + (ourNewest - messages[0][1]) | 0; // signed difference (!)
+                            messages.splice(0, discard);
                         }
                         // proceed to enqueue the messages we missed while disconnected
                     } else {
