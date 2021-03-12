@@ -4,6 +4,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 
 # latest pre-releases
 
+* 0.4.1-22 seamless rejoin
 * 0.4.1-21 make Data handles url-safe
 * 0.4.1-20 add Model.viewCount, delay view construction until view-join
 * 0.4.1-19 add session accessor to View
