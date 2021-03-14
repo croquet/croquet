@@ -1239,6 +1239,7 @@ const RECONNECT_TIMEOUT_MAX = 30000;
 class Connection {
     constructor(controller) {
         this.controller = controller;
+        this.lastSent = 0;
         this.connectBlocked = false;
         this.connectRestricted = false;
         this.connectHasBeenCalled = false;
@@ -1384,7 +1385,7 @@ class Connection {
         if (!this.connected) return;
         if (this.socket.bufferedAmount === 0) {
             // only send a pulse if no other outgoing data pending
-            this.send(JSON.stringify({ action: 'PULSE' }));
+            this.socket.send(JSON.stringify({ action: 'PULSE' }));
         } else if (now - this.lastSent > UNSENT_TIMEOUT) {
             // only warn about unsent data after a certain time
             console.log(`${this.id} Reflector connection stalled: ${this.socket.bufferedAmount} bytes unsent for ${now - this.lastSent} ms`);
