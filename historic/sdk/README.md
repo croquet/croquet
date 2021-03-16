@@ -6,7 +6,7 @@ Scroll down for an **overview** of Croquet, and the [**SDK Changelog**](#changel
 Use the Navigation Panel to try our **Tutorials**, **Guides**, and **API docs**.
 
 Also, please review our [**Code of Conduct**](/conduct.html) and
-**join** our [**Developer Slack** ![Slack](images/slack.png)](https://join.slack.com/t/croquet-dev/shared_invite/enQtNzAwNjMyMjIyMDY3LTBhZGFmODNhMTI3ZDc1NjMyODRhNjRiZjRhNDM0OGVmM2ZlYmMxMDhhMTIyNWM2NjhhZDRiMjNhMGE5MTJlZWI).
+**join** our [**Developer Slack** ![Slack](images/slack.png)](https://join.slack.com/t/croquet-dev/shared_invite/zt-ns5gscrp-6nfDQSzxvpgoJyRg9DNfsQ)
 
 ## Below you will find:
 - [Quickstart](#quickstart)
