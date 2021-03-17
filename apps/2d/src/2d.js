@@ -104,7 +104,7 @@ BouncingShape.register("BouncingShape");
 class Shapes extends ModelRoot {
     init(options) {
         super.init(options);
-        const n = options.n || 99;
+        const n = typeof options.n === "number" ? options.n : 99;
         for (let i = 0; i < n; i++) this.add(Shape.create());
         this.add(BouncingShape.create({pos: [500, 500], color: "white"}));
     }
