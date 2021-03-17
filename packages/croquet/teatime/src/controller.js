@@ -814,6 +814,7 @@ export default class Controller {
         });
         if (DEBUG.initsnapshot && !snapshot.modelsById) {
             // exercise serializer if we came from initFn
+            if (DEBUG.snapshot) console.log(`${this.id} exercising snapshot and restore after init()`);
             const initialIslandSnap = JSON.stringify(newIsland.snapshot());
             newIsland = new Island(JSON.parse(initialIslandSnap), () => initFn(options));
         }
