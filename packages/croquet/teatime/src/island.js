@@ -1050,8 +1050,9 @@ class IslandWriter {
                 return this.writeFloat(value);
             case "string":
             case "boolean":
-            case "undefined":
                 return value;
+            case "undefined":
+                return {$class: 'Undefined'};
             default: {
                 if (this.refs.has(value)) return this.writeRef(value);
                 const type = Object.prototype.toString.call(value).slice(8, -1);
@@ -1107,7 +1108,7 @@ class IslandWriter {
         for (const key of Object.keys(model).sort()) {
             if (key === "__realm") continue; // not enumerable in a Model, but is set directly in a ModelPart
             const value = model[key];
-            if (value !== undefined) this.writeInto(state, key, value, path);
+            this.writeInto(state, key, value, path);
         }
 
         return state;
@@ -1131,7 +1132,7 @@ class IslandWriter {
 
         for (const key of Object.keys(object).sort()) {
             const value = object[key];
-            if (value !== undefined) this.writeInto(state, key, value, path, defer);
+            this.writeInto(state, key, value, path, defer);
         }
 
         return state;
@@ -1247,6 +1248,7 @@ class IslandReader {
         for (const [classId, ClassOrSpec] of Model.allClassTypes()) {
             this.addReader(classId, ClassOrSpec);
         }
+        this.readers.set("Undefined", () => undefined);
         this.readers.set("NaN", () => NaN);
         this.readers.set("Infinity", sign => sign * Infinity);
         this.readers.set("NegZero", () => -0);
@@ -1375,7 +1377,7 @@ class IslandReader {
         }
         const reader = this.readers.get(classID);
         const object = reader(temp, path);
-        if (!object && classID !== "NaN" && classID !== "NegZero") console.warn(`Reading "${classID}" returned ${object} at ${path}`);
+        if (!object && classID !== "Undefined" && classID !== "NaN" && classID !== "NegZero") console.warn(`Reading "${classID}" returned ${object} at ${path}`);
         if (state.$id) this.refs.set(state.$id, object);
         for (const [ref, key] of unresolved.entries()) {
             this.unresolved.push({object, key, ref, path});
