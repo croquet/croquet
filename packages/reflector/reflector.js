@@ -309,7 +309,7 @@ function nonSavableProps() {
         usersJoined: [],     // the users who joined since last report
         usersLeft: [],       // the users who left since last report
         usersTimer: null,    // timeout for sending USERS message
-        heraldUrl: null,     // announce join/leave events
+        heraldUrl: '',       // announce join/leave events
         ticker: null,        // interval for serving TICKs
         before: 0,           // last getTime() call
         yetToCheckLatest: true, // flag used while fetching latest.json during startup
@@ -378,7 +378,7 @@ function JOIN(client, args) {
         prometheusSessionGauge.inc();
         if (syncWithoutSnapshot) TICKS(client, args.ticks); // client will not request ticks
     }
-    island.heraldUrl = heraldUrl; // nonSavable, updated on every JOIN
+    island.heraldUrl = heraldUrl || ''; // nonSavable, updated on every JOIN
     client.island = island;
 
     if (user) {
