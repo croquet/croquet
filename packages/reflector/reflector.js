@@ -309,6 +309,7 @@ function nonSavableProps() {
         usersJoined: [],     // the users who joined since last report
         usersLeft: [],       // the users who left since last report
         usersTimer: null,    // timeout for sending USERS message
+        leaveDelay: 0,       // delay in ms before leave event is generated
         heraldUrl: '',       // announce join/leave events
         ticker: null,        // interval for serving TICKs
         before: 0,           // last getTime() call
@@ -342,7 +343,7 @@ function JOIN(client, args) {
     const id = client.sessionId;
     // the connection log filter matches on (" connection " OR " JOIN ")
     LOG(`${id}/${client.addr} receiving JOIN ${JSON.stringify(args)}`);
-    const { name, version, appId, islandId, user, location, heraldUrl } = args;
+    const { name, version, appId, islandId, user, location, heraldUrl, leaveDelay } = args;
     // new clients (>=0.3.3) send ticks in JOIN
     const syncWithoutSnapshot = 'ticks' in args;
     // create island data if this is the first client
@@ -379,6 +380,7 @@ function JOIN(client, args) {
         if (syncWithoutSnapshot) TICKS(client, args.ticks); // client will not request ticks
     }
     island.heraldUrl = heraldUrl || ''; // nonSavable, updated on every JOIN
+    island.leaveDelay = leaveDelay || 0; // nonSavable, updated on every JOIN
     client.island = island;
 
     if (user) {
@@ -1072,7 +1074,7 @@ server.on('connection', (client, req) => {
                 // start next client
                 START(island);
             }
-            announceUserDidLeave(client);
+            setTimeout(() => announceUserDidLeave(client), island.leaveDelay);
             if (island.clients.size === 0) provisionallyDeleteIsland(island);
         }
     });
