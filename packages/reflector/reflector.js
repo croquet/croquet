@@ -482,7 +482,7 @@ function SYNC(island) {
         if (syncClient.readyState === WebSocket.OPEN) {
             syncClient.safeSend(response);
             DEBUG(`${id}/${syncClient.addr} sending SYNC @${time}#${seq} ${response.length} bytes, ${messages.length} messages${range}, ${args.persisted ? "persisted" : "snapshot"} ${args.url || "<none>"}`);
-            announceUserDidJoin(island, syncClient);
+            announceUserDidJoin(syncClient);
         } else {
             DEBUG(`${id}/${syncClient.addr} socket closed before SYNC`);
         }
@@ -491,8 +491,9 @@ function SYNC(island) {
     island.syncClients.length = 0;
 }
 
-function announceUserDidJoin(island, client) {
-    if (!client.user || client.active === true) return;
+function announceUserDidJoin(client) {
+    const island = ALL_ISLANDS.get(client.sessionId);
+    if (!island || !client.user || client.active === true) return;
     client.active = true;
     const didLeave = island.usersLeft.indexOf(client.user);
     if (didLeave !== -1) island.usersLeft.splice(didLeave, 1);
@@ -500,8 +501,9 @@ function announceUserDidJoin(island, client) {
     scheduleUsersMessage(island);
 }
 
-function announceUserDidLeave(island, client) {
-    if (!client.user || client.active === false) return;
+function announceUserDidLeave(client) {
+    const island = ALL_ISLANDS.get(client.sessionId);
+    if (!island || !client.user || client.active === false) return;
     client.active = false;
     const didJoin = island.usersJoined.indexOf(client.user);
     if (didJoin !== -1) island.usersJoined.splice(didJoin, 1);
@@ -577,7 +579,7 @@ function SNAP(client, args) {
         island.time = time;
         island.seq = seq;
         island.before = Date.now();
-        announceUserDidJoin(island, client);
+        announceUserDidJoin(client);
     } else {
         // this is the initial snapshot, but it's an old client (<=0.2.5) that already requested TICKS()
         DEBUG(id, `@${island.time}#${island.seq} not initializing time from snapshot (old client)`);
@@ -834,7 +836,7 @@ function TICKS(client, args) {
         island.time = typeof time === "number" ? Math.ceil(time) : 0;
         island.seq = typeof seq === "number" ? seq : 0;
         island.before = Date.now();
-        announceUserDidJoin(island, client);
+        announceUserDidJoin(client);
     }
     if (delay > 0) island.delay = delay;
     if (scale > 0) island.scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale));
@@ -1070,7 +1072,7 @@ server.on('connection', (client, req) => {
                 // start next client
                 START(island);
             }
-            announceUserDidLeave(island, client);
+            announceUserDidLeave(client);
             if (island.clients.size === 0) provisionallyDeleteIsland(island);
         }
     });
