@@ -1345,6 +1345,7 @@ class Connection {
         this.socket = null;
         this.lastReceived = 0;
         this.lastSent = 0;
+        this.stalledSince = 0;
         this.connectHasBeenCalled = false;
         this.setUpConnectionPromise();
         // only leave if necessary, otherwise we try to seamlessly rejoin
@@ -1386,11 +1387,12 @@ class Connection {
         if (!this.connected) return;
         if (this.socket.bufferedAmount === 0) {
             // only send a pulse if no other outgoing data pending
-            this.socket.send(JSON.stringify({ action: 'PULSE' }));
-        } else if (now - this.lastSent > UNSENT_TIMEOUT) {
+            this.send(JSON.stringify({ action: 'PULSE' }));
+            this.stalledSince = 0;
+        } else if (this.stalledSince && now - this.stalledSince > UNSENT_TIMEOUT) {
             // only warn about unsent data after a certain time
-            console.log(`${this.id} Reflector connection stalled: ${this.socket.bufferedAmount} bytes unsent for ${now - this.lastSent} ms`);
-        }
+            console.log(`${this.id} Reflector connection stalled: ${this.socket.bufferedAmount} bytes unsent for ${now - this.stalledSince} ms`);
+        } else this.stalledSince = Date.now();
     }
 
     keepAlive(now) {
