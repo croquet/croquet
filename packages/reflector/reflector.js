@@ -912,7 +912,7 @@ async function deleteIsland(island) {
     stopTicker(island);
     ALL_ISLANDS.delete(id);
     // house keeping below only in fleet mode
-    if (CLUSTER === "local") return;
+    if (CLUSTER === "local") { LOG(`${id} island deleted`); return; }
     // remove ourselves from session registry, ignoring errors
     let unregistered = unregisterSession(id, `@${time}#${seq}`);
     // if we've been told of a snapshot since the one (if any) stored in this
