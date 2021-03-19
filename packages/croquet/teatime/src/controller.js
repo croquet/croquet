@@ -130,6 +130,8 @@ export default class Controller {
         this.viewId = this.viewId || randomString(); // todo: have reflector assign unique ids
         /** @type {String} stateless reflectors always start new session, this is the only way to notice that */
         this.reflectorSession = '';
+        /** @type {Function[]} buffered sends to reflector while reconnecting */
+        this.sendBuffer = [];
         /** the number of concurrent users in our island (excluding spectators) */
         this.users = 0;
         /** the number of concurrent users in our island (including spectators) */
@@ -198,7 +200,7 @@ export default class Controller {
     get shouldLeaveWhenDisconnected() { return this.leaving || !this.canRejoinSeamlessly; }
 
     /** @type {Boolean} does the reflector support seamless rejoin? */
-    get canRejoinSeamlessly() { return !!this.reflectorSession; } //
+    get canRejoinSeamlessly() { return !!this.reflectorSession; }
 
     checkForConnection(force) { this.connection.checkForConnection(force); }
 
@@ -668,11 +670,18 @@ export default class Controller {
                         && inSequence(syncOldest, ourNewest)   // there must be no gap between our last message and the first synced message
                         && inSequence(ourOldest, syncNewest);  // the reflector state must not be older than our island
                     if (seamlessRejoin) {
-                        // rejoin is safe, just discard duplicate messages
+                        // rejoin is safe, discard duplicate messages
                         if (firstMessage && inSequence(firstMessage[1], ourNewest)) {
                             const discard = ourNewest - firstMessage[1] + 1 >>> 0; // 32 bit difference (!)
                             if (DEBUG.messages) console.log(this.id, `rejoin: discarding ${discard} messages #${firstMessage[1]}-#${ourNewest}`);
                             messages.splice(0, discard);
+                        }
+                        // send out messages we buffered while disconnected
+                        if (this.sendBuffer.length > 0) {
+                            const sends = this.sendBuffer;
+                            this.sendBuffer = [];   // if we get disconnected again, sends will be re-buffered
+                            if (DEBUG.session) console.log(this.id, `rejoin: sending ${sends.length} messages buffered while disconnected`);
+                            for (const f of sends) f();
                         }
                         // proceed to enqueue the messages we missed while disconnected
                     } else {
@@ -982,8 +991,12 @@ export default class Controller {
     */
     async sendMessage(msg) {
         // SEND: Broadcast a message to all participants.
-        if (!this.connected) return; // probably view sending event while connection is closing
         if (this.viewOnly) return;
+        // view sending events while connection is closing or rejoining
+        if (!this.connected) {
+            if (this.island) this.sendBuffer.push(() => this.sendMessage(msg));
+            return;
+        }
         if (DEBUG.sends) console.log(this.id, `sending SEND ${msg.asState()}`);
         this.lastSent = Date.now();
         const encryptedMsg = await this.encryptMessage(msg, this.viewId, this.lastSent); // [time, seq, payload]
@@ -1001,8 +1014,12 @@ export default class Controller {
     async sendTagged(msg, tags) {
         // reflector SEND protocol now allows for an additional tags property.  previous
         // reflector versions will handle as a standard SEND.
-        if (!this.connected) return; // probably view sending event while connection is closing
         if (this.viewOnly) return;
+        // view sending events while connection is closing or rejoining
+        if (!this.connected) {
+            if (this.island) this.sendBuffer.push(() => this.sendTagged(msg, tags));
+            return;
+        }
         if (DEBUG.sends) console.log(this.id, `sending tagged SEND ${msg.asState()} with tags ${JSON.stringify(tags)}`);
         this.lastSent = Date.now();
         const encryptedMsg = await this.encryptMessage(msg, this.viewId, this.lastSent); // [time, seq, payload]
@@ -1023,8 +1040,12 @@ export default class Controller {
         // The reflector will optionally broadcast the first received message immediately,
         // then gather all messages up to a deadline and send a TALLY message summarising the results
         // (whatever those results, if wantsVote is true; otherwise, only if there is some variation among them).
-        if (!this.connected) return null; // probably view sending event while connection is closing
         if (this.viewOnly) return null;
+        // view sending events while connection is closing or rejoining
+        if (!this.connected) {
+            if (this.island) this.sendBuffer.push(() => this.sendTutti(time, tuttiSeq, data, firstMessage, wantsVote, tallyTarget));
+            return;
+        }
         const payload = stableStringify(data); // stable, to rule out platform differences
         if (DEBUG.sends) console.log(this.id, `sending TUTTI ${payload} ${firstMessage && firstMessage.asState()} ${tallyTarget}`);
         this.lastSent = Date.now();
@@ -1042,7 +1063,10 @@ export default class Controller {
     }
 
     sendLog(...args) {
-        if (!this.connected) return;
+        if (!this.connected) {
+            if (this.island) this.sendBuffer.push(() => this.sendLog(...args));
+            return;
+        }
         if (args.length < 2) args = args[0];
         this.connection.send(JSON.stringify({ action: 'LOG', args }));
     }
