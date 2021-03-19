@@ -15,6 +15,15 @@ import Data, { DataHandleSpec } from "./data";
 /** @type {Island} */
 let CurrentIsland = null;
 
+let DEBUG = null;
+function initDEBUG() {
+    // TODO: turn this into a reasonable API
+    DEBUG = {
+        snapshot: urlOptions.has("debug", "snapshot", false),               // snapshotting, uploading etc
+        session: urlOptions.has("debug", "session", false),                 // session logging
+    };
+}
+
 /** function cache */
 const QFuncs = {};
 
@@ -102,6 +111,7 @@ export default class Island {
 
     constructor(snapshot, initFn) {
         Island.installCustomMath(); // trivial if already installed
+        initDEBUG();
 
         execOnIsland(this, () => {
             inModelRealm(this, () => {
@@ -623,9 +633,8 @@ export default class Island {
         const persistentString = stableStringify(persistentData);
         const persistentHash = Data.hash(persistentString)
         const ms = Stats.end("snapshot") - start;
-        const debug = urlOptions.has("debug", "snapshot");
         const unchanged = this.persisted === persistentHash;
-        if (debug) console.log(`${this.id} persistent data collected, stringified and hashed in ${Math.ceil(ms)}ms${unchanged ? " (unchanged, ignoring)" : ""}`);
+        if (DEBUG.snapshot) console.log(`${this.id} persistent data collected, stringified and hashed in ${Math.ceil(ms)}ms${unchanged ? " (unchanged, ignoring)" : ""}`);
         if (unchanged) return;
         this.persisted = persistentHash;
         // controller is unset only during init()
