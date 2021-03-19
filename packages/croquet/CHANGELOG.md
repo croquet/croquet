@@ -4,6 +4,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 
 # latest pre-releases
 
+* 0.4.1-24 add rejoinLimit session parameter
 * 0.4.1-23 preserve undefined values when serializing
 * 0.4.1-22 seamless rejoin
 * 0.4.1-21 make Data handles url-safe
