@@ -130,6 +130,10 @@ export default class Controller {
         this.viewId = this.viewId || randomString(); // todo: have reflector assign unique ids
         /** @type {String} stateless reflectors always start new session, this is the only way to notice that */
         this.reflectorSession = '';
+        // just to be safe ...
+        if (this.rejoinTimeout) clearTimeout(this.rejoinTimeout);
+        /** timeout rejoin if rejoinLimit has been requested */
+        this.rejoinTimeout = 0;
         /** @type {Function[]} buffered sends to reflector while reconnecting */
         this.sendBuffer = [];
         /** the number of concurrent users in our island (excluding spectators) */
@@ -657,6 +661,8 @@ export default class Controller {
                 // meaning we have all the messages we missed while disconnected
                 let rejoining = !!this.island;
                 if (rejoining) {
+                    // cancel timeout
+                    if (this.rejoinTimeout) { clearTimeout(this.rejoinTimeout); this.rejoinTimeout = 0; }
                     // old reflector does not send seq, snapshotSeq, reflectorSession, cannot rejoin
                     const sameSession  = !!reflectorSession && reflectorSession === this.reflectorSession;
                     const firstMessage = messages[0];
@@ -857,7 +863,7 @@ export default class Controller {
         if (DEBUG.session) console.log(this.id, 'Controller sending JOIN');
 
         const { tick, delay } = this.getTickAndMultiplier();
-        const { name, codeHash, appId, islandId, heraldUrl } = this.islandCreator;
+        const { name, codeHash, appId, islandId, heraldUrl, rejoinLimit } = this.islandCreator;
 
         const args = {
             name,                   // for debugging only
@@ -875,12 +881,31 @@ export default class Controller {
         if (heraldUrl) Object.assign(args, {
             heraldUrl,              // url to receive POST for join/leave events
         });
+        if (rejoinLimit) Object.assign(args, {
+            leaveDelay: rejoinLimit + 250, // delay leave events
+        });
 
         this.connection.send(JSON.stringify({
             id: this.id,
             action: 'JOIN',
             args,
         }));
+    }
+
+    connectionInterrupted() {
+        // only leave if necessary, otherwise we try to seamlessly rejoin
+        if (this.shouldLeaveWhenDisconnected) this.leave();
+        else {
+            // limit smooth rejoin if requested
+            const { rejoinLimit } = this.islandCreator;
+            if (rejoinLimit && !this.rejoinTimeout) {
+                this.rejoinTimeout = setTimeout(() => {
+                    if (DEBUG.session) console.log(this.id, `rejoin timed out`);
+                    this.rejoinTimeout = 0;
+                    this.leave();
+                }, rejoinLimit);
+            }
+        }
     }
 
     // either the connection has been broken or the reflector has sent LEAVE
@@ -1372,8 +1397,7 @@ class Connection {
         this.stalledSince = 0;
         this.connectHasBeenCalled = false;
         this.setUpConnectionPromise();
-        // only leave if necessary, otherwise we try to seamlessly rejoin
-        if (this.controller.shouldLeaveWhenDisconnected) this.controller.leave();
+        this.controller.connectionInterrupted();
     }
 
     send(data) {

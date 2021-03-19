@@ -210,7 +210,7 @@ export class Session {
         if ("autoSleep" in parameters) urlOptions.autoSleep = parameters.autoSleep;
         // now start
         if ("expectedSimFPS" in parameters) expectedSimFPS = Math.min(parameters.expectedSimFPS, MAX_BALANCE_FPS);
-        const SESSION_PARAMS = ['name', 'password', 'appId', 'tps', 'heraldUrl', 'optionsFromUrl', 'viewIdDebugSuffix'];
+        const SESSION_PARAMS = ['name', 'password', 'appId', 'tps', 'heraldUrl', 'rejoinLimit', 'optionsFromUrl', 'viewIdDebugSuffix'];
         freezeAndHashConstants();
         const controller = new Controller();
         // make sure options are JSONable
