@@ -249,7 +249,7 @@ export default class Island {
                 // ignore exit for multiple connections (see below)
                 if (this.views[id].extraConnections) {
                     this.views[id].extraConnections--;
-                    console.warn(`@${this.time}#${this.seq} view ${id} exited after joining twice, ignoring`);
+                    if (DEBUG.session) console.warn(`@${this.time}#${this.seq} view ${id} exited after joining twice, ignoring`);
                     continue;
                 }
                 // otherwise this is a real exit
@@ -266,7 +266,7 @@ export default class Island {
             if (this.views[id]) {
                 // this happens if a client rejoins but the reflector is still holding
                 // onto the old connection
-                console.warn(`@${this.time}#${this.seq} view ${id} joined but already present, ignoring`);
+                if (DEBUG.session) console.warn(`@${this.time}#${this.seq} view ${id} joined but already present, ignoring`);
                 this.views[id].extraConnections = (this.views[id].extraConnections||0) + 1;
             } else {
                 // otherwise this is a real join
