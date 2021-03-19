@@ -493,6 +493,14 @@ function SYNC(island) {
     island.syncClients.length = 0;
 }
 
+function clientLeft(client) {
+    const island = ALL_ISLANDS.get(client.sessionId);
+    if (!island) return;
+    island.clients.delete(client);
+    if (island.clients.size === 0) provisionallyDeleteIsland(island);
+    announceUserDidLeave(client);
+}
+
 function announceUserDidJoin(client) {
     const island = ALL_ISLANDS.get(client.sessionId);
     if (!island || !client.user || client.active === true) return;
@@ -501,6 +509,7 @@ function announceUserDidJoin(client) {
     if (didLeave !== -1) island.usersLeft.splice(didLeave, 1);
     else island.usersJoined.push(client.user);
     scheduleUsersMessage(island);
+    LOCAL_DEBUG(`${island.id} user ${JSON.stringify(client.user)} did join`);
 }
 
 function announceUserDidLeave(client) {
@@ -511,6 +520,7 @@ function announceUserDidLeave(client) {
     if (didJoin !== -1) island.usersJoined.splice(didJoin, 1);
     else island.usersLeft.push(client.user);
     scheduleUsersMessage(island);
+    LOCAL_DEBUG(`${island.id} user ${JSON.stringify(client.user)} did leave`);
 }
 
 function scheduleUsersMessage(island) {
@@ -1065,7 +1075,6 @@ server.on('connection', (client, req) => {
         const island = ALL_ISLANDS.get(client.sessionId);
         if (!island) unregisterSession(client.sessionId, "on close"); // client never joined, apparently
         else {
-            island.clients.delete(client);
             if (island.startClient === client) {
                 DEBUG(`${island.id}/${client.addr} START client failed to respond`);
                 clearTimeout(island.startTimeout);
@@ -1074,8 +1083,7 @@ server.on('connection', (client, req) => {
                 // start next client
                 START(island);
             }
-            setTimeout(() => announceUserDidLeave(client), island.leaveDelay);
-            if (island.clients.size === 0) provisionallyDeleteIsland(island);
+            setTimeout(() => clientLeft(client), island.leaveDelay);
         }
     });
 
