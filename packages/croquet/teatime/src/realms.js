@@ -134,7 +134,7 @@ class ViewRealm {
     }
 
     extrapolatedNow() {
-        return this.island.controller.extrapolatedNow;
+        return this.island.controller.extrapolatedTime;
     }
 
     isSynced() {

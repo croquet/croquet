@@ -183,7 +183,7 @@ export default class Controller {
     get versionId() { return this.islandCreator.codeHash; }
 
     /** @type {Number} the reflector time extrapolated beyond last received tick */
-    get extrapolatedNow() { return Date.now() - this.extrapolatedTimeBase; }
+    get extrapolatedTime() { return Date.now() - this.extrapolatedTimeBase; }
 
     /** @type {Boolean} if true, sends to the reflector are disabled */
     get viewOnly() { return this.islandCreator.viewOnly; }
