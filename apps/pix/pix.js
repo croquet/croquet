@@ -270,7 +270,8 @@ class PixView extends View {
         const blob = new Blob([data], { type: file.type });
         const { width, height, thumb } = await this.analyzeImage(blob);
         if (!thumb || !width || !height) {
-            App.showMessage(`${file.name} is corrupted or has zero extent`, { level: "warning" });
+            if (this.isHEIF(data)) App.showMessage(`${file.name} appears to be a HEIF image which cannot be read by this browser`, { level: "warning" });
+            else App.showMessage(`${file.name} is corrupted or has zero extent`, { level: "warning" });
             return;
         }
 
@@ -348,6 +349,12 @@ class PixView extends View {
         return { width, height, thumb };
     }
 
+    isHEIF(buffer) {
+        const FTYP = 0x66747970; // 'ftyp'
+        const HEIC = 0x68656963; // 'heic'
+        const data = new DataView(buffer);
+        return data.getUint32(4) === FTYP && data.getUint32(8) === HEIC;
+    }
 
     advance(offset) {
         const current = this.model.asset;
