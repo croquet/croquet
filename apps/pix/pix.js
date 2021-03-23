@@ -1,7 +1,10 @@
 import { Model, View, Data, Session, App, Messenger } from "@croquet/croquet";
 import Hammer from "hammerjs";
 import prettyBytes from "pretty-bytes";
+import Swal from 'sweetalert2';
+
 import "./pix.css";
+import "sweetalert2/dist/sweetalert2.min.css"
 
 class PixModel extends Model {
 
@@ -364,10 +367,18 @@ class PixView extends View {
         if (current && next && current.id !== next.id) this.publish(this.model.id, "go-to", { from: current.id, to: next.id });
     }
 
-    remove() {
+    async remove() {
         const current = this.model.asset;
         if (!current) return;
-        if (confirm("Delete this image?")) {
+        const result = await Swal.fire({
+            title: 'Delete this image?',
+            text: 'There is no undo, yet 😬',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, delete it!',
+            cancelButtonText: 'No, keep it',
+        });
+        if (result.value) {
             this.publish(this.model.id, "remove-id", current.id);
         }
     }

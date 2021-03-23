@@ -13,7 +13,8 @@
   "dependencies": {
     "@croquet/croquet": "file:../libraries/packages/croquet",
     "hammerjs": "^2.0.8",
-    "pretty-bytes": "^5.4.1"
+    "pretty-bytes": "^5.4.1",
+    "sweetalert2": "^10.15.6"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^15.1.0",
