@@ -255,7 +255,14 @@ class PixView extends View {
     async addFile(file) {
         const types = ["image/jpeg", "image/gif", "image/png", "image/bmp"];
         if (!types.includes(file.type)) {
-            App.showMessage(`${file.name}: not a supported image format (jpeg, gif, png, bmp)`, {level: "warning"});
+            await Swal.fire({
+                title: `${file.name}: not a supported image format`,
+                text: "Please use jpeg, gif, png, or bmp.",
+                icon: "error",
+                toast: true,
+                timer: 10000,
+                position: "top-end",
+            });
             return;
         }
 
@@ -274,8 +281,14 @@ class PixView extends View {
         const blob = new Blob([data], { type: file.type });
         const { width, height, thumb } = await this.analyzeImage(blob);
         if (!thumb || !width || !height) {
-            if (this.isHEIF(data)) App.showMessage(`${file.name} appears to be a HEIF image which cannot be read by this browser`, { level: "warning" });
-            else App.showMessage(`${file.name} is corrupted or has zero extent`, { level: "warning" });
+            await Swal.fire({
+                title: `Failed to import ${file.name}`,
+                text: this.isHEIF(data) ? "HEIF images are not supported by this browser" : `${file.name} is corrupted or has zero extent`,
+                icon: "error",
+                toast: true,
+                timer: 10000,
+                position: "top-end",
+            });
             return;
         }
 
@@ -311,7 +324,14 @@ class PixView extends View {
                 contentCache.set(asset.handle, blob);
             } catch(ex) {
                 console.error(ex);
-                App.showMessage(`Failed to fetch "${asset.name}" (${prettyBytes(asset.size)})`, {level: "warning"});
+                await Swal.fire({
+                    title: `Failed to fetch "${asset.name}"`,
+                    text: `(${prettyBytes(asset.size)})`,
+                    icon: 'error',
+                    toast: true,
+                    timer: 3000,
+                    position: "top-end",
+                });
                 return;
             }
             // is this still the asset we want to show after async fetching?
