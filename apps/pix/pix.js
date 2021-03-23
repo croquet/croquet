@@ -1,6 +1,7 @@
 import { Model, View, Data, Session, App, Messenger } from "@croquet/croquet";
 import Hammer from "hammerjs";
 import prettyBytes from "pretty-bytes";
+import "./pix.css";
 
 class PixModel extends Model {
 
