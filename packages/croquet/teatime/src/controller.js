@@ -197,6 +197,11 @@ export default class Controller {
     /** @type {Number} how many ms passed since we sent a message via the reflector */
     get activity() { return Date.now() - this.lastSent; }
 
+    /** @type {Boolean} true if our root view is up */
+    get viewed() {
+        return !!(this.session && this.session.view);
+    }
+
     /** @type {Boolean} true if our connection is fine */
     get connected() { return this.connection.connected; }
 
@@ -1195,7 +1200,7 @@ export default class Controller {
             const backlog = this.backlog;
             Stats.backlog(backlog);
             // synced will be non-boolean until this.time is given its first meaningful value from a message or tick
-            if (typeof this.synced === "boolean" && (this.synced && backlog > SYNCED_MAX || !this.synced && backlog < SYNCED_MIN)) {
+            if (typeof this.synced === "boolean" && this.viewed && (this.synced && backlog > SYNCED_MAX || !this.synced && backlog < SYNCED_MIN)) {
                 const nowSynced = !this.synced;
                 // nov 2019: impose a delay before setting synced to true, to hold off processing that depends on being synced (notably, subscriptions with handling "oncePerFrameWhileSynced") long enough to incorporate processing of messages that rightfully belong with the sync batch - e.g., "users" messages after SYNC from reflector.  SYNCED_ANNOUNCE_DELAY is therefore chosen with reference to the reflector's USERS_INTERVAL used for batching the "users" messages.
                 if (nowSynced) {
