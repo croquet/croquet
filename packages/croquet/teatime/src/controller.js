@@ -1126,7 +1126,7 @@ export default class Controller {
         const tps = ["number", "string"].includes(typeof options.tps) ? options.tps
             : ["number", "string"].includes(typeof this.islandCreator.tps) ? this.islandCreator.tps
             : 20;
-        const [rate, mult] = (tps + "x").split('x').map(n => Number.parseInt("0" + n, 10));
+        const [rate, mult] = (tps + "x").split('x').map(n => Number.parseFloat("0" + n));
         const tick = 1000 / Math.max(1/30, Math.min(60, rate));     // minimum 1 tick per 30 seconds
         const multiplier = Math.max(1, mult);      // default multiplier is 1 (no local ticks)
         let delay = 0;
