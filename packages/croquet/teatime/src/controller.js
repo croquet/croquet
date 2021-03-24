@@ -122,6 +122,10 @@ export default class Controller {
         this.networkQueue = [];
         /** the time stamp of last message received from reflector */
         this.time = 0;
+        /** ms between expected ticks */
+        this.msPerTick = 0;
+        /** multiply reflector ticks if > 1 (a.k.a. "cheat beats") */
+        this.tickMultiplier = 1;
         /** the local time at which we received the last time stamp, minus that time stamp */
         this.extrapolatedTimeBase = Date.now();
         /** key generated from password, shared by all clients in session */
@@ -268,6 +272,10 @@ export default class Controller {
             initSnapshot = true;
         }
         if (initSnapshot) this.islandCreator.snapshot = { id, time: 0, meta: { id, islandId, codeHash, created: (new Date()).toISOString() } };
+
+        const { msPerTick, multiplier} = this.getTickAndMultiplier();
+        this.msPerTick = msPerTick;
+        this.tickMultiplier = multiplier;
 
         // create promise before join to prevent race
         const synced = new Promise((resolve, reject) => this.islandCreator.sessionSynced = { resolve, reject } );
@@ -802,7 +810,7 @@ export default class Controller {
                 const time = (typeof args === 'number') ? args : args.time;
                 if (DEBUG.ticks) console.log(this.id, 'Controller received TICK ' + time);
                 this.timeFromReflector(time);
-                if (this.tickMultiplier) this.multiplyTick(time);
+                if (this.tickMultiplier > 1) this.multiplyTick(time);
                 return;
             }
             case 'INFO': {
@@ -1118,8 +1126,12 @@ export default class Controller {
      *
      * default taken from `islandCreator.tps` unless `islandCreator.options.tps` is present
      *
-     * @returns {{tick: Number, multiplier: Number, delay: Number}}
-     *          reflector tick period in ms, local multiplier, and delay to account for locally produced ticks
+     * @returns {{
+     *      msPerTick: Number,  // effective tick period in ms
+     *      multiplier: Number, // local multiplier
+     *      tick: Number,       // reflector tick period in ms
+     *      delay: Number,      // reflector delay to account for locally produced ticks
+     * }}
      */
     getTickAndMultiplier() {
         const options = this.islandCreator.options;
@@ -1129,33 +1141,34 @@ export default class Controller {
         const [rate, mult] = (tps + "x").split('x').map(n => Number.parseFloat("0" + n));
         const tick = 1000 / Math.max(1/30, Math.min(60, rate));     // minimum 1 tick per 30 seconds
         const multiplier = Math.max(1, mult);      // default multiplier is 1 (no local ticks)
+        let msPerTick = tick;
         let delay = 0;
         if (multiplier > 1 && !NOCHEAT) {
-            this.tickMultiplier = { tick, multiplier };
-            delay = Math.ceil(tick * (multiplier - 1) / multiplier);
+            msPerTick = tick / multiplier;
+            delay = Math.ceil(msPerTick * (multiplier - 1));
         }
-        return { tick, multiplier, delay };
+        return { msPerTick, multiplier, tick, delay };
     }
 
-    /** request ticks from the server */
-    requestTicks(args = {}) { // simpleapp can send { scale }
-        if (!this.connected || !this.island) return;
-        const { tick, delay } = this.getTickAndMultiplier();
-        args.tick = tick;
-        args.delay = delay;
-        this.connection.setTick(tick);
-        if (DEBUG.session) console.log(this.id, 'Controller requesting TICKS', args);
-        // args: {tick, delay, scale}
-        try {
-            this.connection.send(JSON.stringify({
-                id: this.id,
-                action: 'TICKS',
-                args,
-            }));
-        } catch (e) {
-            console.error('ERROR while sending', e);
-        }
-    }
+    // /** request ticks from the server */
+    // requestTicks(args = {}) { // simpleapp can send { scale }
+    //     if (!this.connected || !this.island) return;
+    //     const { tick, delay } = this.getTickAndMultiplier();
+    //     args.tick = tick;
+    //     args.delay = delay;
+    //     this.connection.setTick(tick);
+    //     if (DEBUG.session) console.log(this.id, 'Controller requesting TICKS', args);
+    //     // args: {tick, delay, scale}
+    //     try {
+    //         this.connection.send(JSON.stringify({
+    //             id: this.id,
+    //             action: 'TICKS',
+    //             args,
+    //         }));
+    //     } catch (e) {
+    //         console.error('ERROR while sending', e);
+    //     }
+    // }
 
     /**
      * Process pending messages for this island and advance simulation
@@ -1263,8 +1276,8 @@ export default class Controller {
     /** we received a tick from reflector, generate local ticks */
     multiplyTick(time) {
         if (this.localTicker) window.clearInterval(this.localTicker);
-        const { tick, multiplier } = this.tickMultiplier;
-        const ms = tick / multiplier;
+        const ms = this.msPerTick;
+        const multiplier = this.tickMultiplier;
         let n = 1;
         this.localTicker = window.setInterval(() => {
             this.timeFromReflector(time + n * ms, "controller");
