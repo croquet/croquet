@@ -86,7 +86,7 @@ const DIVERGENCE_SUFFIX = '#divergence';
  * uniform pub/sub between models and views possible.*/
 export default class Island {
     static current() {
-        if (!CurrentIsland) console.warn(`No CurrentIsland!`);
+        if (!CurrentIsland) console.warn(`Island.current() called from outside the island!`);
         return CurrentIsland;
     }
 
@@ -174,7 +174,7 @@ export default class Island {
     }
 
     registerModel(model, id) {
-        if (CurrentIsland !== this) throw Error("Island Error");
+        if (CurrentIsland !== this) throw Error("You can only create models from model code!");
         if (!id) id = this.id + "/M" + ++this.modelsId;
         this.modelsById[id] = model;
         // not assigning the id here catches missing super calls in init() and load()
@@ -182,7 +182,7 @@ export default class Island {
     }
 
     deregisterModel(id) {
-        if (CurrentIsland !== this) throw Error("Island Error");
+        if (CurrentIsland !== this) throw Error("You can only destroy models from model code!");
         const model = this.modelsById;
         delete this.modelsById[id];
         for (const [name, value] of Object.entries(this.modelsByName)) {
@@ -201,7 +201,7 @@ export default class Island {
 
     get(modelName) { return this.modelsByName[modelName]; }
     set(modelName, model) {
-        if (CurrentIsland !== this) throw Error("Island Error");
+        if (CurrentIsland !== this) throw Error("You can only make a model well-known from model code!");
         this.modelsByName[modelName] = model;
     }
 
@@ -212,7 +212,7 @@ export default class Island {
 
     // Send via reflector
     callModelMethod(modelId, selector, args) {
-        if (CurrentIsland) throw Error("Island Error");
+        if (CurrentIsland) throw Error("You cannot make a reflector send from model code!");
         const model = this.lookUpModel(modelId);
         if (!model) { console.error(Error(`Model not found: ${modelId}`)); return; }
         const message = new Message(this.time, 0, model.id, selector, args);
@@ -369,7 +369,7 @@ export default class Island {
      * @returns {Boolean} true if finished simulation before deadline
      */
     advanceTo(newTime, deadline) {
-        if (CurrentIsland) throw Error("Island Error");
+        if (CurrentIsland) throw Error("cannot advance time from model code");
         let count = 0;
         let message;
         // process each message in queue up to newTime
@@ -425,7 +425,7 @@ export default class Island {
     }
 
     addSubscription(model, scope, event, methodNameOrCallback) {
-        if (CurrentIsland !== this) throw Error("Island Error");
+        if (CurrentIsland !== this) throw Error("Cannot add a model subscription from outside model code");
         const methodName = this.asQFunc(model, methodNameOrCallback);
         if (typeof methodName !== "string") {
             throw Error(`Subscription handler for "${event}" must be a method name`);
@@ -444,7 +444,7 @@ export default class Island {
     }
 
     removeSubscription(model, scope, event, methodName) {
-        if (CurrentIsland !== this) throw Error("Island Error");
+        if (CurrentIsland !== this) throw Error("Cannot remove a model subscription from outside model code");
         const topic = scope + ":" + event;
         const handler = model.id + "." + methodName;
         const handlers = this.subscriptions[topic];
@@ -473,7 +473,7 @@ export default class Island {
     }
 
     publishFromModel(scope, event, data) {
-        if (CurrentIsland !== this) throw Error("Island Error");
+        if (CurrentIsland !== this) throw Error("Cannot publish a model event from outside model code");
         // @@ hack for forcing reflection of model-to-model messages
         const reflected = event.endsWith(REFLECTED_SUFFIX);
         if (reflected) event = event.slice(0, event.length - REFLECTED_SUFFIX.length);
@@ -484,13 +484,13 @@ export default class Island {
     }
 
     publishFromModelOnly(scope, event, data) {
-        if (CurrentIsland !== this) throw Error("Island Error");
+        if (CurrentIsland !== this) throw Error("Cannot publish a model event from outside model code");
         const topic = scope + ":" + event;
         this.handleModelEventInModel(topic, data);
     }
 
     publishFromView(scope, event, data) {
-        if (CurrentIsland) throw Error("Island Error");
+        if (CurrentIsland) throw Error("Cannot publish a view event from model code");
         const topic = scope + ":" + event;
         this.handleViewEventInModel(topic, data);
         this.handleViewEventInView(topic, data);
@@ -499,7 +499,7 @@ export default class Island {
     handleModelEventInModel(topic, data, reflect=false) {
         // model=>model events are handled synchronously unless reflected
         // because making them async would mean having to use future messages
-        if (CurrentIsland !== this) throw Error("Island Error");
+        if (CurrentIsland !== this) throw Error("handleModelEventInModel called from outside model code");
         if (reflect) {
             const tuttiSeq = this.getNextTuttiSeq(); // increment, whether we send or not
             if (this.controller.synced !== true) return;
@@ -584,7 +584,7 @@ export default class Island {
     }
 
     processModelViewEvents() {
-        if (CurrentIsland) throw Error("Island Error");
+        if (CurrentIsland) throw Error("cannot process view events in model code");
         return inViewRealm(this, () => viewDomain.processFrameEvents(!!this.controller.synced));
     }
 
@@ -647,12 +647,12 @@ export default class Island {
     }
 
     random() {
-        if (CurrentIsland !== this) throw Error("Island Error");
+        if (CurrentIsland !== this) throw Error("replicated random accessed from outside the model");
         return this._random();
     }
 
     randomID() {
-        if (CurrentIsland !== this) throw Error("Island Error");
+        if (CurrentIsland !== this) throw Error("replicated random accessed from outside the model");
         let id = '';
         for (let i = 0; i < 4; i++) {
             id += (this._random.int32() >>> 0).toString(16).padStart(8, '0');
