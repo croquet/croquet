@@ -928,11 +928,15 @@ class IslandHasher {
                         else {
                             const hasher = this.hashers.get(value.constructor);
                             if (hasher) hasher(value);
-                            else throw Error(`Don't know how to hash object ${value.constructor.name}`);
+                            else {
+                                console.error("Hashing", value);
+                                throw Error(`Don't know how to hash object ${value.constructor.name}`);
+                            }
                         }
                         return;
                     case "Null": return;
                     default:
+                        console.error("Hashing", value);
                         throw Error(`Don't know how to hash ${type}`);
                 }
             }
@@ -1087,10 +1091,12 @@ class IslandWriter {
                         if (value.constructor === Object || typeof value.constructor !== "function") return this.writeObject(value, path, defer);
                         const writer = this.writers.get(value.constructor);
                         if (writer) return writer(value, path);
+                        console.error("Serializing", value);
                         throw Error(`Don't know how to serialize object ${value.constructor.name} at ${path}`);
                     }
                     case "Null": return value;
                     default:
+                        console.error("Serializing", value);
                         throw Error(`Don't know how to serialize ${type} at ${path}`);
                 }
             }
