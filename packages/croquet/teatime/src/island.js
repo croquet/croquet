@@ -228,6 +228,13 @@ export default class Island {
     // leaving a session so we generate those when the first view resumes a session
     // keeping track of views in the currently not exposed this.views property
     generateJoinExit({entered, exited, count}) {
+        // if entered = count then the reflector just resumed the session
+        // synthesize exit events for old views stored in snapshot
+        if (entered.length === count) {
+            exited = Object.keys(this.views);
+            // all connections gone
+            for (const id of exited) this.views[id].extraConnections = 0;
+        }
         // reflector may send join+exit for same view in one event
         if (entered.length !== 0 && exited.length !== 0) {
             const both = entered.filter(id => exited.includes(id));
@@ -236,12 +243,6 @@ export default class Island {
                 exited = exited.filter(id => !both.includes(id));
                 if (entered.length === 0 && exited.length === 0) return;
             }
-        }
-        // synthesize exit events for old views stored in snapshot
-        if (entered.length === count) {
-            exited = Object.keys(this.views);
-            // all connections gone
-            for (const id of exited) this.views[id].extraConnections = 0;
         }
         // process exits first
         for (const id of exited) {
