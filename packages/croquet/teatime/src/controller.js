@@ -679,22 +679,22 @@ export default class Controller {
                 if (rejoining) {
                     // cancel timeout
                     if (this.rejoinTimeout) { clearTimeout(this.rejoinTimeout); this.rejoinTimeout = 0; }
+                    // make sure no old messages hanging around
+                    this.networkQueue.length = 0;
                     // old reflector does not send seq, snapshotSeq, reflectorSession, cannot rejoin
                     const sameSession  = !!reflectorSession && reflectorSession === this.reflectorSession;
                     const firstMessage = messages[0];
-                    const ourOldest = this.island.seq;
-                    const ourNewest = this.networkQueue.length > 0 ? this.networkQueue[this.networkQueue.length-1].seq : ourOldest;
-                    const syncNewest = seq;
-                    const syncOldest = snapshotSeq !== undefined ? snapshotSeq
-                        : firstMessage ? firstMessage[1] : syncNewest;
-                    if (DEBUG.messages) console.log(this.id, `rejoin: we have #${ourOldest}-#${ourNewest} SYNC has #${syncOldest}-#${syncNewest}`);
+                    const newest = seq;
+                    const oldest = snapshotSeq !== undefined ? snapshotSeq
+                        : firstMessage ? firstMessage[1] : newest;
+                    if (DEBUG.messages) console.log(this.id, `rejoin: we have #${this.island.seq} SYNC has #${oldest}-#${newest}`);
                     const seamlessRejoin = sameSession        //
-                        && inSequence(syncOldest, ourNewest)   // there must be no gap between our last message and the first synced message
-                        && inSequence(ourOldest, syncNewest);  // the reflector state must not be older than our island
+                        && inSequence(oldest, this.island.seq)   // there must be no gap between our last message and the first synced message
+                        && inSequence(this.island.seq, newest);  // the reflector state must not be older than our island
                     if (seamlessRejoin) {
                         // rejoin is safe, discard duplicate messages
-                        if (firstMessage && inSequence(firstMessage[1], ourNewest)) {
-                            const discard = ourNewest - firstMessage[1] + 1 >>> 0; // 32 bit difference (!)
+                        if (firstMessage && inSequence(firstMessage[1], this.island.seq)) {
+                            const discard = this.island.seq - firstMessage[1] + 1 >>> 0; // 32 bit difference (!)
                             if (DEBUG.messages) console.log(this.id, `rejoin: discarding ${discard} messages #${firstMessage[1]}-#${ourNewest}`);
                             messages.splice(0, discard);
                         }
@@ -724,6 +724,8 @@ export default class Controller {
                 // if any conversion of custom reflector messages is to be done, do it before
                 // waiting for the snapshot to arrive (because there might be some meta-processing
                 // that happens immediately on conversion; this is the case for "users" messages)
+                const messagesSinceSync = this.networkQueue; // in case we RECVed during the await above
+                this.networkQueue = [];
                 for (const msg of messages) {
                     if (typeof msg[2] !== "string") {
                         this.convertReflectorMessage(msg);
@@ -736,7 +738,8 @@ export default class Controller {
                     if (DEBUG.messages) console.log(this.id, 'received in SYNC ' + JSON.stringify(msg));
                     this.networkQueue.push(msg);
                 }
-                this.timeFromReflector(time);
+                this.networkQueue.push(...messagesSinceSync);
+                if (time > this.time) this.timeFromReflector(time);
                 // if we were rejoining, then our work is done here: we got all the missing messages
                 if (rejoining) {
                     if (DEBUG.session) console.log(this.id, "seemless rejoin successful")
@@ -765,7 +768,7 @@ export default class Controller {
                 // execute pending events, up to (at least) our own view-join
                 const success = await new Promise(resolve => {
                     const fastForwardIsland = () => {
-                        if (!this.connected) { console.log(this.id, 'disconnected during SYNC fast-forwarding'); resolve(false); return; }
+                        if (!this.connected || !this.island) { console.log(this.id, 'disconnected during SYNC fast-forwarding'); resolve(false); return; }
                         const caughtUp = this.simulate(Date.now() + 200);
                         const joined = this.viewId in this.island.views;
                         if (caughtUp && joined) resolve(true);
