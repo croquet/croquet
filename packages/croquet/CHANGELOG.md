@@ -4,6 +4,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 
 # latest pre-releases
 
+* 0.4.1-27 fix join/exit when rejoining
 * 0.4.1-26 fix external message order when reconnecting
 * 0.4.1-25 fire synced event when disconnected
 * 0.4.1-24 add rejoinLimit session parameter
