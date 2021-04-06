@@ -1053,7 +1053,7 @@ server.on('connection', (client, req) => {
                 }
             } catch(error) {
                 ERROR(`${sessionId}/${client.addr} message handling error: ${error.message}`, error);
-                client.close(1003, "malformed request");
+                client.close(4201, "malformed request");
             }
         };
 
