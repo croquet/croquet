@@ -111,6 +111,8 @@ REASON.UNRESPONSIVE = [4001, "client unresponsive"];
 REASON.INACTIVE = [4002, "client inactive"];
 REASON.BAD_PROTOCOL = [4100, "outdated protocol"];
 REASON.BAD_APPID = [4101, "bad appId"];
+REASON.MALFORMED_MESSAGE = [4102, "malformed message"];
+REASON.UNKNOWN_ERROR = [4109, "unknown error"];
 REASON.DORMANT = [4110, "dormant"]; // sent by client, will not display error
 REASON.NO_JOIN = [4121, "client never joined"];
 
@@ -1037,8 +1039,17 @@ server.on('connection', (client, req) => {
             STATS.IN += incomingMsg.length;
             client.stats.mi += 1;                      // messages in
             client.stats.bi += incomingMsg.length;     // bytes in
+            let parsedMsg;
             try {
-                const { action, args, tags } = JSON.parse(incomingMsg);
+                parsedMsg = JSON.parse(incomingMsg);
+                if (typeof parsedMsg !== "object") throw Error("JSON did not contain an object");
+            } catch(error) {
+                ERROR(`${sessionId}/${client.addr} message parsing error: ${error.message}`, incomingMsg);
+                client.close(...REASON.MALFORMED_MESSAGE);
+                return;
+            }
+            try {
+                const { action, args, tags } = parsedMsg;
                 switch (action) {
                     case 'JOIN': { joined = true; JOIN(client, args); break; }
                     case 'SEND': if (tags) SEND_TAGGED(client.island, args, tags); else SEND(client.island, [args]); break; // SEND accepts an array of messages
@@ -1053,7 +1064,7 @@ server.on('connection', (client, req) => {
                 }
             } catch(error) {
                 ERROR(`${sessionId}/${client.addr} message handling error: ${error.message}`, error);
-                client.close(4201, "malformed request");
+                client.close(...REASON.UNKNOWN_ERROR);
             }
         };
 
