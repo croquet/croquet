@@ -1037,18 +1037,23 @@ server.on('connection', (client, req) => {
             STATS.IN += incomingMsg.length;
             client.stats.mi += 1;                      // messages in
             client.stats.bi += incomingMsg.length;     // bytes in
-            const { action, args, tags } = JSON.parse(incomingMsg);
-            switch (action) {
-                case 'JOIN': { joined = true; JOIN(client, args); break; }
-                case 'SEND': if (tags) SEND_TAGGED(client.island, args, tags); else SEND(client.island, [args]); break; // SEND accepts an array of messages
-                case 'TUTTI': TUTTI(client, args); break;
-                case 'TICKS': TICKS(client, args); break;
-                case 'SNAP': SNAP(client, args); break;
-                case 'SAVE': SAVE(client, args); break;
-                case 'LOG': LOG(`${sessionId}/${client.addr} LOG ${typeof args === "string" ? args : JSON.stringify(args)}`); break;
-                case 'PING': PONG(client, args); break;
-                case 'PULSE': LOCAL_DEBUG(`${sessionId}/${client.addr} receiving PULSE`); break; // sets lastActivity, otherwise no-op
-                default: WARN(`${sessionId}/${client.addr} unknown action ${JSON.stringify(action)}`);
+            try {
+                const { action, args, tags } = JSON.parse(incomingMsg);
+                switch (action) {
+                    case 'JOIN': { joined = true; JOIN(client, args); break; }
+                    case 'SEND': if (tags) SEND_TAGGED(client.island, args, tags); else SEND(client.island, [args]); break; // SEND accepts an array of messages
+                    case 'TUTTI': TUTTI(client, args); break;
+                    case 'TICKS': TICKS(client, args); break;
+                    case 'SNAP': SNAP(client, args); break;
+                    case 'SAVE': SAVE(client, args); break;
+                    case 'LOG': LOG(`${sessionId}/${client.addr} LOG ${typeof args === "string" ? args : JSON.stringify(args)}`); break;
+                    case 'PING': PONG(client, args); break;
+                    case 'PULSE': LOCAL_DEBUG(`${sessionId}/${client.addr} receiving PULSE`); break; // sets lastActivity, otherwise no-op
+                    default: WARN(`${sessionId}/${client.addr} unknown action ${JSON.stringify(action)}`);
+                }
+            } catch(error) {
+                ERROR(`${sessionId}/${client.addr} message handling error: ${error.message}`, error);
+                client.close(1003, "malformed request");
             }
         };
 
