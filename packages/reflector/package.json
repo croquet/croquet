@@ -4,21 +4,20 @@
   "description": "A single Croquet reflector, handling websocket conections from Croquet clients",
   "main": "reflector.js",
   "author": "Croquet Corporation",
-  "license": "Restricted",
+  "license": "UNLICENSED",
   "scripts": {
     "start": "node reflector.js"
   },
   "dependencies": {
-    "@google-cloud/storage": "^5.7.0",
+    "@google-cloud/storage": "^5.8.3",
     "fast-crc32c": "^2.0.0",
     "node-fetch": "^2.6.1",
-    "parcel": "^1.12.4",
-    "prom-client": "^13.0.0",
-    "ws": "^7.4.1"
+    "prom-client": "^13.1.0",
+    "ws": "^7.4.4"
   },
   "devDependencies": {},
   "optionalDependencies": {
-    "bufferutil": "^4.0.2",
-    "utf-8-validate": "^5.0.3"
+    "bufferutil": "^4.0.3",
+    "utf-8-validate": "^5.0.4"
   }
 }
