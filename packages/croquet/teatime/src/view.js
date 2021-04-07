@@ -168,7 +168,7 @@ class View {
      * Passing a method like in the model is allowed too, it will be bound to `this` in the subscribe call.
      *
      * @example
-     * this.subscribe("something", "changed", this.update);
+     * this.subscribe("something", "changed", this.update); // "queued" handling implied
      * this.subscribe(this.id, {event: "moved", handling: "oncePerFrame"}, pos => this.sceneObject.setPosition(pos.x, pos.y, pos.z));
      * @tutorial 1_4_view_smoothing
      * @param {String} scope - the event scope (to distinguish between events of the same name used by different objects)
