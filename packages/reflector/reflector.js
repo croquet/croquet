@@ -642,7 +642,9 @@ function SEND(island, messages) {
     if (island.messages.length >= REQU_SNAPSHOT) {
         const headroom = MAX_MESSAGES - island.messages.length;
         const every = Math.max(1, (headroom / 100 | 0) * 10);
-        // this will request a snapshot with increasing frequency.
+        // this will request a snapshot with increasing frequency:
+        // 6000,6290,6720,6820,7290,7500,8000,8320,8540,8760,9000,9090,9120,9200,9240,9360,9450,9500,9520,9560,
+        // 9600,9630,9660,9690,9720,9740,9760,9780,9800,9810,9820,9830,9840,9850,9860,9870,9880,9890,9900
         // the last 100 times before buffer is full it will be every message
         if (island.messages.length % every === 0) {
             WARN(`${island.id} reached ${island.messages.length} messages, sending REQU`);
