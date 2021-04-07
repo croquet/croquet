@@ -781,11 +781,13 @@ function USERS(island) {
     const payload = { what: 'users', active, total };
     if (usersJoined.length > 0) payload.joined = [...usersJoined];
     if (usersLeft.length > 0) payload.left = [...usersLeft];
+    if (active) {
+        // do not trigger a SEND before someone successfully joined
+        const msg = [0, 0, payload];
+        SEND(island, [msg]);
+        DEBUG(id, `Users ${island}: +${usersJoined.length}-${usersLeft.length}=${active}/${total} (total ${ALL_ISLANDS.size} islands, ${server.clients.size} users)`);
+    }
     if (heraldUrl) heraldUsers(island, activeClients.map(each => each.user), payload.joined, payload.left);
-    if (!active) return; // do not trigger a SEND before someone successfully joined
-    const msg = [0, 0, payload];
-    SEND(island, [msg]);
-    DEBUG(id, `Users ${island}: +${usersJoined.length}-${usersLeft.length}=${active}/${total} (total ${ALL_ISLANDS.size} islands, ${server.clients.size} users)`);
     usersJoined.length = 0;
     usersLeft.length = 0;
 }
