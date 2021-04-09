@@ -194,6 +194,11 @@ export class Session {
             if (reflector.includes("://") || reflector.match(/^[-a-z0-9]+$/i)) urlOptions.reflector = reflector;
             else console.warn(`Croquet: Not a valid websocket url, ignoring reflector "${reflector}"`);
         }
+        // verify and default rejoinLimit
+        if ("rejoinLimit" in parameters) {
+            if (typeof parameters.rejoinLimit !== "number" || parameters.rejoinLimit < 0 || parameters.rejoinLimit > 60000)
+                throw Error("rejoinLimit range: 0-60000");
+        } else parameters.rejoinLimit = 1000;
         // verify heraldUrl
         if (parameters.heraldUrl) {
             if (parameters.heraldUrl.length > 256) throw Error('heraldUrl can only be 256 characters');
