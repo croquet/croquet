@@ -305,10 +305,10 @@ try {
 
 const dockState = {
     // localStorage is per-host, but we also want per-app
-    get pinned() { return localStorage[location.pathname + '/croquet-debug-ui-pinned'] === "true"; },
-    set pinned(bool) { localStorage[location.pathname + '/croquet-debug-ui-pinned'] = !!bool; },
-    get activePage() { return localStorage[location.pathname + '/croquet-debug-ui-activePage']; },
-    set activePage(id) { localStorage[location.pathname + '/croquet-debug-ui-activePage'] = id; },
+    get pinned() { return localStorage[window.location.pathname + '/croquet-debug-ui-pinned'] === "true"; },
+    set pinned(bool) { localStorage[window.location.pathname + '/croquet-debug-ui-pinned'] = !!bool; },
+    get activePage() { return localStorage[window.location.pathname + '/croquet-debug-ui-activePage']; },
+    set activePage(id) { localStorage[window.location.pathname + '/croquet-debug-ui-activePage'] = id; },
 };
 
 const smotherEvent = evt => {
@@ -428,7 +428,7 @@ function makeWidgetDock(options = {}) {
     const expandedBorder = 8;
     const setCustomSize = sz => {
         dockDiv.style.width = `${sz}px`;
-        let docHeight = sz * (1 + BAR_PROPORTION/100);
+        const docHeight = sz * (1 + BAR_PROPORTION/100);
         dockDiv.style.height = `${docHeight}px`;
 
         const barHeight = sz * BAR_PROPORTION/100;
@@ -839,7 +839,7 @@ export const App = {
         }
         // create random password if none provided
         if (!password) {
-            var random = new Uint8Array(16);
+            const random = new Uint8Array(16);
             window.crypto.getRandomValues(random);      // okay to use on insecure origin
             password = toBase64url(random.buffer);
             // add password to session URL for QR code

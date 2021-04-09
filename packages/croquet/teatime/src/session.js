@@ -152,7 +152,7 @@ export class Session {
     static async join(parameters, ...oldargs) {
         // old API: join(name, ModelRoot=Model, ViewRoot=View, parameters) {
         if (typeof parameters[0] === "string" || oldargs.length > 0) {
-            console.warn(`Croquet: please use new Session.join( {name, ...} ) API. See https://croquet.io/sdk/docs/Session.html#.join`)
+            console.warn(`Croquet: please use new Session.join( {name, ...} ) API. See https://croquet.io/sdk/docs/Session.html#.join`);
             const [n, m, v, p] = [parameters, ...oldargs];
             parameters = p || {};
             if (v && Object.getPrototypeOf(v) === Object.prototype && p === undefined) {
@@ -165,6 +165,8 @@ export class Session {
         }
         // resolve promises
         for (const [k,v] of Object.entries(parameters)) {
+            // rewriting this using Promise.all does not seem worth the trouble so ...
+            // eslint-disable-next-line no-await-in-loop
             if (v instanceof Promise) parameters[k] = await v;
         }
         function inherits(A, B) { return A === B || A.prototype instanceof B; }
@@ -180,7 +182,7 @@ export class Session {
         if (!parameters.appId) {
             console.warn("Croquet: no appId provided in Session.join()");
         } else if (!parameters.appId.match(/^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)+$/i)) {
-            throw Error(`Croquet: malformed appId "${parameters.appId}"`)
+            throw Error(`Croquet: malformed appId "${parameters.appId}"`);
         }
         // check password
         if (!parameters.password) {
@@ -196,8 +198,9 @@ export class Session {
         }
         // verify and default rejoinLimit
         if ("rejoinLimit" in parameters) {
-            if (typeof parameters.rejoinLimit !== "number" || parameters.rejoinLimit < 0 || parameters.rejoinLimit > 60000)
+            if (typeof parameters.rejoinLimit !== "number" || parameters.rejoinLimit < 0 || parameters.rejoinLimit > 60000) {
                 throw Error("rejoinLimit range: 0-60000");
+            }
         } else parameters.rejoinLimit = 1000;
         // verify heraldUrl
         if (parameters.heraldUrl) {

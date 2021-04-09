@@ -1,6 +1,6 @@
 // this is our UploadWorker
 
-import { deflate } from 'pako/dist/pako_deflate.js';
+import { deflate } from 'pako/dist/pako_deflate.js'; // eslint-disable-line import/extensions
 import Base64 from "crypto-js/enc-base64";
 import AES from "crypto-js/aes";
 import SHA256 from "crypto-js/sha256";
@@ -8,9 +8,9 @@ import WordArray from "crypto-js/lib-typedarrays";
 import HmacSHA256 from "crypto-js/hmac-sha256";
 
 onmessage = msg => {
-    const { job, cmd, url, buffer, keyBase64, gzip, referrer, id, appId, islandId, debug, what } = msg.data;
+    const { job, cmd, url: templateUrl, buffer, keyBase64, gzip, referrer, id, appId, islandId, debug, what } = msg.data;
     switch (cmd) {
-        case "uploadEncrypted": uploadEncrypted(url); break;
+        case "uploadEncrypted": uploadEncrypted(templateUrl); break;
         default: console.error("Unknown worker command", cmd);
     }
 
@@ -70,9 +70,9 @@ onmessage = msg => {
             if (!ok) throw Error(`server returned ${status} ${statusText} for PUT ${url}`);
             if (debug) console.log(`${id} uploaded ${what} (${status}) ${url}`);
             postMessage({job, url, ok, status, statusText});
-        } catch(e) {
+        } catch (e) {
             if (debug) console.log(`${id} upload error ${e.message}`);
             postMessage({job, ok: false, status: -1, statusText: e.message});
-        };
+        }
     }
-}
+};

@@ -632,7 +632,7 @@ export default class Island {
         const persistentData = typeof persistentDataFunc === "function" ? persistentDataFunc.call(model) : persistentDataFunc;
         if (typeof persistentData !== "object") throw Error(`Croquet: persistSession() can only persist objects (got ${typeof persistentData})`);
         const persistentString = stableStringify(persistentData);
-        const persistentHash = Data.hash(persistentString)
+        const persistentHash = Data.hash(persistentString);
         const ms = Stats.end("snapshot") - start;
         const unchanged = this.persisted === persistentHash;
         if (DEBUG.snapshot) console.log(`${this.id} persistent data collected, stringified and hashed in ${Math.ceil(ms)}ms${unchanged ? " (unchanged, ignoring)" : ""}`);
@@ -837,7 +837,7 @@ class IslandHasher {
 
     addHasher(classId, ClassOrSpec) {
         const { cls, write } = (Object.getPrototypeOf(ClassOrSpec) === Object.prototype) ? ClassOrSpec
-            : { cls: ClassOrSpec, write: obj => Object.assign({}, obj) };
+            : { cls: ClassOrSpec, write: obj => ({ ...obj }) };
         this.hashers.set(cls, obj => this.hashStructure(obj, write(obj)));
     }
 
@@ -1028,7 +1028,7 @@ class IslandWriter {
 
     addWriter(classId, ClassOrSpec) {
         const {cls, write} = (Object.getPrototypeOf(ClassOrSpec) === Object.prototype) ? ClassOrSpec
-            : {cls: ClassOrSpec, write: obj => Object.assign({}, obj)};
+            : {cls: ClassOrSpec, write: obj => ({ ...obj })};
         this.writers.set(cls, (obj, path) => this.writeAs(classId, obj, write(obj), path));
     }
 

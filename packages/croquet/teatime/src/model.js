@@ -221,7 +221,7 @@ class Model {
      * @param {Object=} options - there are no system-defined options, you're free to define your own
      * @public
      */
-    init(options) {
+    init(options) { /* eslint-disable-line no-unused-vars */
         // for reporting errors if user forgot to call super.init()
         SuperInitNotCalled.delete(this);
         // eslint-disable-next-line no-constant-condition

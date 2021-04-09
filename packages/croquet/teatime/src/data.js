@@ -52,7 +52,7 @@ export default class DataHandle {
      */
     static async store(sessionId, data, keep=false) {
         if (typeof sessionId === "object") {
-            console.warn("Deprecated: Croquet.Data.store(sessionId, data) called without sessionId")
+            console.warn("Deprecated: Croquet.Data.store(sessionId, data) called without sessionId");
             data = sessionId;
         }
         if (Island.hasCurrent()) throw Error("Croquet.Data.store() called from Model code");
@@ -79,7 +79,7 @@ export default class DataHandle {
      */
     static async fetch(sessionId, handle) {
         if (typeof sessionId === "object") {
-            console.warn("Deprecated: Croquet.Data.fetch(sessionId, handle) called without sessionId")
+            console.warn("Deprecated: Croquet.Data.fetch(sessionId, handle) called without sessionId");
             handle = sessionId;
         }
         if (Island.hasCurrent()) throw Error("Croquet.Data.fetch() called from Model code");
@@ -145,7 +145,7 @@ export default class DataHandle {
 
     /** @private */
     static toId(handle) {
-        if (!handle) return;
+        if (!handle) return '';
         const hash = handle[DATAHANDLE_HASH];
         const key = handle[DATAHANDLE_KEY];
         const path = handle[DATAHANDLE_PATH];
