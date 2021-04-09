@@ -149,6 +149,35 @@ class Model {
     }
 
     /**
+     * Static version of [wellKnownModel()]{@link Model#wellKnownModel} for currently executing model.
+     *
+     * This can be used to emulate static accessors, e.g. for lazy initialization.
+     *
+     * __WARNING!__ Do not store the result in a static variable.
+     * Like any global state, that can lead to divergence.
+     *
+     * Will throw an error if called from outside model code.
+     *
+     * @example
+     * static get Default() {
+     *     let default = this.wellKnownModel("DefaultModel");
+     *     if (!default) {
+     *         console.log("Creating default")
+     *         default = MyModel.create();
+     *         default.beWellKnownAs("DefaultModel");
+     *     }
+     *     return default;
+     * }
+     * @param {String} name - the name given in [beWellKnownAs()]{@link Model#beWellKnownAs}
+     * @returns {Model?} the model if found, or `undefined`
+     * @public
+     */
+    static wellKnownModel(name) {
+        if (!Island.hasCurrent()) throw Error("static Model.wellKnownModel() called from outside model");
+        return Island.current().get(name);
+    }
+
+    /**
      * __Static declaration of how to serialize non-model classes.__
      *
      * The Croquet snapshot mechanism only knows about {@link Model} subclasses.
@@ -508,7 +537,7 @@ class Model {
      * @example
      * const topModel = this.wellKnownModel("modelRoot");
      * @param {String} name - the name given in [beWellKnownAs()]{@link Model#beWellKnownAs}
-     * @returns {Model} the model if found, or `undefined`
+     * @returns {Model?} the model if found, or `undefined`
      * @public
      */
     wellKnownModel(name) {

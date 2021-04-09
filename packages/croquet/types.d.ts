@@ -86,6 +86,30 @@ declare module "@croquet/croquet" {
          */
         static register(classId:string): void;
 
+        /** Static version of [wellKnownModel()]{@link Model#wellKnownModel} for currently executing model.
+         *
+         * This can be used to emulate static accessors, e.g. for lazy initialization.
+         *
+         * __WARNING!__ Do not store the result in a static variable.
+         * Like any global state, that can lead to divergence.
+         *
+         * Will throw an error if called from outside model code.
+         *
+         * Example:
+         * ```
+         * static get Default() {
+         *     let default = this.wellKnownModel("DefaultModel");
+         *     if (!default) {
+         *         console.log("Creating default")
+         *         default = MyModel.create();
+         *         default.beWellKnownAs("DefaultModel");
+         *     }
+         *     return default;
+         * }
+         * ```
+         */
+        static wellKnownModel<M extends Model>(name: string): Model | undefined;
+
         /**
          * __Static declaration of how to serialize non-model classes.__
          *
