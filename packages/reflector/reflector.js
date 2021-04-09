@@ -343,7 +343,7 @@ function JOIN(client, args) {
     // create island data if this is the first client
     let island = ALL_ISLANDS.get(id);
     if (!island) {
-        let reflectorSession = ''; do reflectorSession = Math.random().toString(36).substring(2); while(!reflectorSession);
+        let timeline = ''; do timeline = Math.random().toString(36).substring(2); while (!timeline);
         island = {
             id,                  // the island id
             name,                // the island name, including options (or could be null)
@@ -360,7 +360,7 @@ function JOIN(client, args) {
             islandId,
             persistentUrl: '',   // url of persistent data
             syncWithoutSnapshot, // new protocol as of 0.3.3
-            reflectorSession,    // if a stateless reflector resumes the session, this is the only way to tell
+            timeline,            // if a stateless reflector resumes the session, this is the only way to tell
             location,            // send location data?
             messages: [],        // messages since last snapshot
             lastTick: -1000,     // time of last TICK sent (-1000 to avoid initial delay)
@@ -412,6 +412,7 @@ function JOIN(client, args) {
             island.before = Date.now();
             island.storedUrl = latestSpec.snapshotUrl;
             island.storedSeq = latestSpec.seq;
+            if (latestSpec.reflectorSession) island.timeline = latestSpec.reflectorSession; // TODO: remove reflectorSession after 0.4.1 release
             if (island.tick) startTicker(island, island.tick);
             if (island.syncClients.length > 0) SYNC(island);
         }).catch(err => {
@@ -467,9 +468,9 @@ function START(island) {
 }
 
 function SYNC(island) {
-    const { id, seq, reflectorSession, snapshotUrl: url, snapshotTime, snapshotSeq, persistentUrl, messages } = island;
+    const { id, seq, timeline, snapshotUrl: url, snapshotTime, snapshotSeq, persistentUrl, messages } = island;
     const time = getTime(island, "SYNC");
-    const args = { url, messages, time, seq, reflector: CLUSTER, reflectorSession };
+    const args = { url, messages, time, seq, reflector: CLUSTER, timeline, reflectorSession: timeline };  // TODO: remove reflectorSession after 0.4.1 release
     if (url) {args.snapshotTime = snapshotTime; args.snapshotSeq = snapshotSeq; }
     else if (persistentUrl) { args.url = persistentUrl ; args.persisted = true; }
     const response = JSON.stringify({ id, action: 'SYNC', args });
