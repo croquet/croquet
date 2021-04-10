@@ -170,6 +170,7 @@ class Model {
      * }
      * @param {String} name - the name given in [beWellKnownAs()]{@link Model#beWellKnownAs}
      * @returns {Model?} the model if found, or `undefined`
+     * @since 0.4.1
      * @public
      */
     static wellKnownModel(name) {
