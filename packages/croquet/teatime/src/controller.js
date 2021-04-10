@@ -683,7 +683,10 @@ export default class Controller {
                 if (rejoining) {
                     // cancel timeout
                     if (this.rejoinTimeout) { clearTimeout(this.rejoinTimeout); this.rejoinTimeout = 0; }
-                    // make sure no old messages hanging around
+                    // In theory we could try to preserve unsimulated messages but that would complicate the logic
+                    // considerably, and only help in the rather unlikely case of a snapshot being taken while simulation
+                    // was backlogged, in which case it might be better to start from the new snapshot anyways.
+                    // Instead, we just make make sure no old messages are hanging around:
                     this.networkQueue.length = 0;
                     // old reflector does not send seq, snapshotSeq, reflectorSession, cannot rejoin
                     const sameSession  = !!reflectorSession && reflectorSession === this.reflectorSession;
@@ -692,7 +695,7 @@ export default class Controller {
                     const oldest = snapshotSeq !== undefined ? snapshotSeq
                         : firstMessage ? firstMessage[1] : newest;
                     if (DEBUG.messages) console.log(this.id, `rejoin: we have #${this.island.seq} SYNC has #${oldest}-#${newest}`);
-                    const seamlessRejoin = sameSession        //
+                    const seamlessRejoin = sameSession        // must be same timeline (in case we are connected to stateless reflector)
                         && inSequence(oldest, this.island.seq)   // there must be no gap between our last message and the first synced message
                         && inSequence(this.island.seq, newest);  // the reflector state must not be older than our island
                     if (seamlessRejoin) {
