@@ -32,11 +32,13 @@ _TODO: ... mention `model.id`, global scopes (`sessionId`, `viewId`) ..._
 
 Depending on where the event originates and which objects are subscribed to it, the controller routes it differently:
 
-- _View-to-View / Model-to-Model_ - The event handler is executed immediately.
+- _Model-to-Model_ - The event handler is executed immediately, before the publish call returns.
 
-- _Model-to-View_ - The event is queued and will be executed by the local view when the current model simulation has finished.
+- _Model-to-View_ - By default, the event is queued and will be handled by the local view when the current model simulation has finished.
 
-- _View-to-Model_ - The event is transmitted to the reflector and mirrored to all users. It will be executed during the next model simulation.
+- _View-to-View_ - By default, the event is queued and will be handled in the same update cycle.
+
+- _View-to-Model_ - The event is transmitted to the reflector and mirrored to all users. It will be handled during the next model simulation.
 
 Note that multiple models and views can subscribe to the same event. The controller will take care of routing the event to each subscriber using the appropriate route, meaning that a view subscriber and a model subscriber will receive the event at slightly different times.
 
