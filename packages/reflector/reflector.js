@@ -82,7 +82,7 @@ const ARGS = {
     NO_STORAGE: "--storage=none",
     APPS_ONLY: "--storage=persist",
     STANDALONE: "--standalone",
-}
+};
 
 for (const arg of process.argv.slice(2)) {
     if (!Object.values(ARGS).includes(arg)) {
@@ -472,7 +472,7 @@ function SYNC(island) {
     const time = getTime(island, "SYNC");
     const args = { url, messages, time, seq, reflector: CLUSTER, timeline, reflectorSession: timeline };  // TODO: remove reflectorSession after 0.4.1 release
     if (url) {args.snapshotTime = snapshotTime; args.snapshotSeq = snapshotSeq; }
-    else if (persistentUrl) { args.url = persistentUrl ; args.persisted = true; }
+    else if (persistentUrl) { args.url = persistentUrl; args.persisted = true; }
     const response = JSON.stringify({ id, action: 'SYNC', args });
     const range = !messages.length ? '' : ` (#${messages[0][1]}...${messages[messages.length - 1][1]})`;
     for (const syncClient of island.syncClients) {
@@ -909,9 +909,9 @@ function provisionallyDeleteIsland(island) {
 async function deleteIsland(island) {
     const { id, syncWithoutSnapshot, snapshotUrl, time, seq, storedUrl, storedSeq, messages } = island;
     if (!ALL_ISLANDS.delete(id)) {
-        LOG(`${id} island already deleted, ignoring deleteIsland();`)
+        LOG(`${id} island already deleted, ignoring deleteIsland();`);
         return;
-    };
+    }
     if (island.usersTimer) {
         clearTimeout(island.usersTimer);
         USERS(island); // ping heraldUrl one last time
@@ -923,7 +923,7 @@ async function deleteIsland(island) {
     // house keeping below only in fleet mode
     if (CLUSTER === "local") { LOG(`${id} island deleted`); return; }
     // remove ourselves from session registry, ignoring errors
-    let unregistered = unregisterSession(id, `@${time}#${seq}`);
+    const unregistered = unregisterSession(id, `@${time}#${seq}`);
     // if we've been told of a snapshot since the one (if any) stored in this
     // island's latest.json, or there are messages since the snapshot referenced
     // there, write a new latest.json.
@@ -934,7 +934,7 @@ async function deleteIsland(island) {
         savableKeys(island).forEach(key => latestSpec[key] = island[key]);
         try {
             await uploadJSON(fileName, latestSpec);
-        } catch(err) { LOG(`${id} failed to upload latest.json. ${err.code}: ${err.message}` ); }
+        } catch (err) { LOG(`${id} failed to upload latest.json. ${err.code}: ${err.message}` ); }
     }
     await unregistered;
 }
@@ -1048,7 +1048,7 @@ server.on('connection', (client, req) => {
             try {
                 parsedMsg = JSON.parse(incomingMsg);
                 if (typeof parsedMsg !== "object") throw Error("JSON did not contain an object");
-            } catch(error) {
+            } catch (error) {
                 ERROR(`${sessionId}/${client.addr} message parsing error: ${error.message}`, incomingMsg);
                 client.close(...REASON.MALFORMED_MESSAGE);
                 return;
@@ -1067,7 +1067,7 @@ server.on('connection', (client, req) => {
                     case 'PULSE': LOCAL_DEBUG(`${sessionId}/${client.addr} receiving PULSE`); break; // sets lastActivity, otherwise no-op
                     default: WARN(`${sessionId}/${client.addr} unknown action ${JSON.stringify(action)}`);
                 }
-            } catch(error) {
+            } catch (error) {
                 ERROR(`${sessionId}/${client.addr} message handling error: ${error.message}`, error);
                 client.close(...REASON.UNKNOWN_ERROR);
             }
@@ -1106,8 +1106,9 @@ server.on('connection', (client, req) => {
 /** fetch a JSON-encoded object from our storage bucket */
 async function fetchJSON(filename) {
     // somewhat of a hack to not having to guard the fetchJSON calls in JOIN()
-    if (NO_STORAGE || (APPS_ONLY && !filename.startsWith('apps/')))
-        return Promise.reject({code: 404, message: "fetch disabled"});
+    if (NO_STORAGE || (APPS_ONLY && !filename.startsWith('apps/'))) {
+        return Promise.reject(Object.assign(new Error("fetch disabled"), { code: 404 }));
+    }
     const file = SESSION_BUCKET.file(filename);
     const stream = await file.createReadStream();
     return new Promise((resolve, reject) => {
@@ -1122,8 +1123,9 @@ async function fetchJSON(filename) {
 
 /** upload an object as JSON file to our storage bucket */
 async function uploadJSON(filename, object) {
-    if (NO_STORAGE || (APPS_ONLY && !filename.startsWith('apps/')))
-        throw Error("storage disabled but upload called?!")
+    if (NO_STORAGE || (APPS_ONLY && !filename.startsWith('apps/'))) {
+        throw Error("storage disabled but upload called?!");
+    }
     const file = SESSION_BUCKET.file(filename);
     const stream = await file.createWriteStream({
         resumable: false,
