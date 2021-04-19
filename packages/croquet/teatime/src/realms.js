@@ -105,9 +105,6 @@ class ViewRealm {
     }
 
     future(view, tOffset) {
-        if (!tOffset) {
-            return view;
-        }
         return new Proxy(view, {
             get(_target, property) {
                 if (typeof view[property] === "function") {
