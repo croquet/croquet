@@ -4,6 +4,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 
 # latest pre-releases
 
+* 0.4.1-30 allow construction of views any time, enforce passing model to view constructor, view.future sets proper realm
 * 0.4.1-29 add static wellKnownModel()
 * 0.4.1-28 default rejoinLimit of 1000 ms
 * 0.4.1-27 fix join/exit when rejoining
