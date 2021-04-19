@@ -16,19 +16,6 @@ import {
   } from "@croquet/croquet";
   import { ObservableModel, Observing } from "@croquet/observable";
 
-  // this was implemented by Anselm in teatime as a hack to generate
-  // new views in the same view realm as some existing view, but *while
-  // currently outside any view realm*. croquet-react needs this to
-  // spontaneously create new helper view instances for each new
-  // component that uses some of the hooks defined here. Each new
-  // component mainly needs its own helper view, so it can manage its
-  // own isolated subscriptions.
-  declare module "@croquet/croquet" {
-    interface View {
-      inSameViewRealm<T>(callback: () => T): T;
-    }
-  }
-
   // A React context that stores the croquet session
   // Provided by `InCroquetSession`, consumed by all the hooks.
   export const CroquetContext = createContext<
@@ -71,7 +58,7 @@ import {
           [prop: number]: true | undefined;
         } = {};
 
-        const oneUseView = croquetContext.view.inSameViewRealm(() => new (Observing(View))(croquetContext.view.model));
+        const oneUseView = new (Observing(View))(croquetContext.view.model);
 
         const proxy = new Proxy(model, {
           // only start subscribing to property changes on properties
@@ -198,7 +185,7 @@ import {
     const croquetContext = useContext(CroquetContext);
     if (!croquetContext) throw new Error("No Croquet Context provided!");
     useEffect(() => {
-      const oneUseView = croquetContext.view.inSameViewRealm(() => new View(croquetContext.view.model));
+      const oneUseView = new View(croquetContext.view.model);
       oneUseView.subscribe(scope, eventSpec, callback);
       // cleanup on component unmount
       return () => {

@@ -70,6 +70,8 @@ class ModelRealm {
     equal(otherRealm) {
         return otherRealm instanceof ModelRealm && otherRealm.island === this.island;
     }
+
+    isViewRealm() { return false; }
 }
 
 class ViewRealm {
@@ -144,6 +146,8 @@ class ViewRealm {
     equal(otherRealm) {
         return otherRealm instanceof ViewRealm && otherRealm.island === this.island;
     }
+
+    isViewRealm() { return true; }
 }
 
 let __currentRealm = null;

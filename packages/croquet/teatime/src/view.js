@@ -40,10 +40,15 @@ class View {
      * @param {Model} model - the view's model
      * @public
      */
-    constructor(_model) {
+    constructor(model) {
+        if (typeof model !== "object" || !("__realm" in model)) console.warn(`Croquet: argument to View constructor needs to be a Model`);
+        let realm = currentRealm("");
+        if (!realm || !realm.isViewRealm()) {
+            realm = inViewRealm(model.__realm.island, () => currentRealm());
+        }
         // read-only properties
-        Object.defineProperty(this, "realm", {  value: currentRealm() });
-        Object.defineProperty(this, "id", {  value: this.realm.register(this), configurable: true });
+        Object.defineProperty(this, "realm", { value: realm });
+        Object.defineProperty(this, "id", {  value: realm.register(this), configurable: true });
         // eslint-disable-next-line no-constant-condition
         if (false) {
             /** Each view has an id which can be used to scope [events]{@link View#publish} between views.
@@ -380,12 +385,6 @@ class View {
      */
     get viewId() {
         return this.realm.island.controller.viewId;
-    }
-
-    // hidden helper to execute code in same view realm as this view
-    // used by @croquet/react
-    inSameViewRealm(callback) {
-        return inViewRealm(this.realm.island, callback, true);
     }
 
     [Symbol.toPrimitive]() {
