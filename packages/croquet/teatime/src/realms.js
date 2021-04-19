@@ -111,7 +111,7 @@ class ViewRealm {
                 if (typeof view[property] === "function") {
                     const methodProxy = new Proxy(view[property], {
                         apply(_method, _this, args) {
-                            setTimeout(() => { if (view.id) view[property](...args); }, tOffset);
+                            setTimeout(() => { if (view.id) inViewRealm(this.island, () => view[property](...args)); }, tOffset);
                         }
                     });
                     return methodProxy;
