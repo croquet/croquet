@@ -149,9 +149,9 @@ class ViewRealm {
 let __currentRealm = null;
 
 /** @returns {ModelRealm | ViewRealm} */
-export function currentRealm() {
-    if (!__currentRealm) {
-        throw Error("Tried to execute code that requires realm outside of realm.");
+export function currentRealm(errorIfNoRealm="Tried to execute code that requires realm outside of realm.") {
+    if (!__currentRealm && errorIfNoRealm) {
+        throw Error(errorIfNoRealm);
     }
     return __currentRealm;
 }
