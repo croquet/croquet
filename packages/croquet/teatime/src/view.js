@@ -44,7 +44,7 @@ class View {
         if (typeof model !== "object" || !("__realm" in model)) console.warn(`Croquet: argument to View constructor needs to be a Model`);
         let realm = currentRealm("");
         if (!realm || !realm.isViewRealm()) {
-            realm = inViewRealm(model.__realm.island, () => currentRealm());
+            realm = inViewRealm(model.__realm.island, () => currentRealm(), true);
         }
         // read-only properties
         Object.defineProperty(this, "realm", { value: realm });

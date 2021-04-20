@@ -105,12 +105,13 @@ class ViewRealm {
     }
 
     future(view, tOffset) {
+        const island = this.island;
         return new Proxy(view, {
             get(_target, property) {
                 if (typeof view[property] === "function") {
                     const methodProxy = new Proxy(view[property], {
                         apply(_method, _this, args) {
-                            setTimeout(() => { if (view.id) inViewRealm(this.island, () => view[property](...args)); }, tOffset);
+                            setTimeout(() => { if (view.id) inViewRealm(island, () => view[property](...args), true); }, tOffset);
                         }
                     });
                     return methodProxy;
