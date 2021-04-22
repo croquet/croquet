@@ -672,6 +672,7 @@ export default class Controller {
 
     // handle messages from reflector
     async receive(action, args) {
+        const prevReceived = this.lastReceived;
         this.lastReceived = this.connection.lastReceived;
         switch (action) {
             case 'SYNC': {
@@ -823,7 +824,10 @@ export default class Controller {
                 // Just set time so main loop knows how far it can advance.
                 if (!this.island) return; // ignore ticks before we are simulating
                 const time = (typeof args === 'number') ? args : args.time;
-                if (DEBUG.ticks) console.log(this.id, 'Controller received TICK ' + time);
+                if (DEBUG.ticks) {
+                    const expected = prevReceived && this.lastReceived - prevReceived - this.msPerTick * this.tickMultiplier | 0;
+                    console.log(this.id, `Controller received TICK ${time} ${Math.abs(expected) < 5 ? "on time" : expected < 0 ? "early" : "late"} (${expected} ms)`);
+                }
                 this.timeFromReflector(time);
                 if (this.tickMultiplier > 1) this.multiplyTick(time);
                 return;
