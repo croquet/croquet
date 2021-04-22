@@ -4,6 +4,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 
 # latest pre-releases
 
+* 0.4.1-32 adapt synced event threshold to low TPS
 * 0.4.1-31 bug fix for view.future
 * 0.4.1-30 allow construction of views any time, enforce passing model to view constructor, view.future sets proper realm
 * 0.4.1-29 add static wellKnownModel()
