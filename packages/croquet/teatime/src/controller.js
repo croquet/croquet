@@ -75,9 +75,11 @@ const SNAPSHOT_EVERY = 5000;
 // add this many ms for each external message scheduled
 const EXTERNAL_MESSAGE_CPU_PENALTY = 5;
 
-// backlog threshold in ms to publish "synced(true|false)" event (to start/stop rendering)
-const SYNCED_MIN = 100;
-const SYNCED_MAX = 1000;
+// lag threshold in ms to publish "synced(true|false)" event (to start/stop rendering)
+const SYNCED_MIN = 200;        // synced if tick arrives within this many ms ...
+const SYNCED_MIN_FACTOR = 0.1; // ... or msPerTick times this (e.g. 30s/tick => 3s)
+const SYNCED_MAX = 2000;       // unsynced if tick missing for this many ms ...
+const SYNCED_MAX_FACTOR = 0.2; // ... or msPerTick times this (e.g. 30s/tick => 6s)
 const SYNCED_ANNOUNCE_DELAY = 200; // ms to delay setting synced, mainly to accommodate immediate post-SYNC messages (notably "users") from reflector
 
 function randomString() { return Math.floor(Math.random() * 36**10).toString(36); }
@@ -1225,7 +1227,9 @@ export default class Controller {
             Stats.backlog(this.backlog);
             // synced will be non-boolean until this.time is given its first meaningful value from a message or tick
             const lag = this.lag;
-            if (typeof this.synced === "boolean" && this.viewed && (this.synced && lag > SYNCED_MAX || !this.synced && lag < SYNCED_MIN)) {
+            const syncedMin = Math.max(SYNCED_MIN, this.msPerTick * SYNCED_MIN_FACTOR);
+            const syncedMax = Math.max(SYNCED_MAX, this.msPerTick * SYNCED_MAX_FACTOR);
+            if (typeof this.synced === "boolean" && this.viewed && (this.synced && lag > syncedMax || !this.synced && lag < syncedMin)) {
                 const nowSynced = !this.synced;
                 // nov 2019: impose a delay before setting synced to true, to hold off processing that depends on being synced (notably, subscriptions with handling "oncePerFrameWhileSynced") long enough to incorporate processing of messages that rightfully belong with the sync batch - e.g., "users" messages after SYNC from reflector.  SYNCED_ANNOUNCE_DELAY is therefore chosen with reference to the reflector's USERS_INTERVAL used for batching the "users" messages.
                 if (nowSynced) {
@@ -1233,7 +1237,7 @@ export default class Controller {
                     if (!this.syncTimer) {
                         this.syncTimer = setTimeout(() => {
                             delete this.syncTimer;
-                            if (this.lag < SYNCED_MIN) this.applySyncChange(true); // iff we haven't somehow dropped out of sync again
+                            if (this.lag < syncedMin) this.applySyncChange(true); // iff we haven't somehow dropped out of sync again
                             }, SYNCED_ANNOUNCE_DELAY);
                     }
                 } else this.applySyncChange(false); // switch to out-of-sync is acted on immediately
