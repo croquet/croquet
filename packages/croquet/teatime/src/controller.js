@@ -1300,7 +1300,7 @@ export default class Controller {
         const multiplier = this.tickMultiplier;
         let n = 1;
         this.localTicker = window.setInterval(() => {
-            this.timeFromReflector(time + n * ms, "controller");
+            this.timeFromReflector(Math.round(time + n * ms), "controller");
             if (DEBUG.ticks) console.log(this.id, 'Controller generate TICK ' + this.time, n);
             if (++n >= multiplier) { window.clearInterval(this.localTicker); this.localTicker = 0; }
         }, ms);
