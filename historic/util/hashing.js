@@ -66,10 +66,6 @@ export function toBase64url(bits) {
         .replace(/\//g, "_");
 }
 
-if (!window.crypto || !window.crypto.subtle || typeof window.crypto.subtle.digest !== "function") {
-    console.error(`ERROR: crypto.subtle.digest() browser API not available. Please access this page via https or localhost.`);
-}
-
 /** return buffer hashed into 256 bits encoded using base64 (suitable in URL) */
 export async function hashBuffer(buffer) {
     // MS Edge does not like empty buffer
@@ -126,6 +122,9 @@ export async function hashIsland(name, options) {
 const logged = new Set();
 
 export async function hashSessionAndCode(name, options, params, sdk_version) {
+    if (!window.crypto || !window.crypto.subtle || typeof window.crypto.subtle.digest !== "function") {
+        console.error(`Croquet: Crypto API not available.\nPlease access this page via https or localhost.`);
+    }
     // codeHashes are from registered user models and constants (in hashPromises)
     const codeHashes = await Promise.all(hashPromises);
     /** identifies the code being executed - user code, constants, SDK */
