@@ -1,19 +1,104 @@
-/* eslint-disable linebreak-style */
-// eslint-disable-next-line linebreak-style
+/* global Croquet YT Swal tippy */
 
-/* global Croquet */
-/* global YT */
-/* global Model */
+class YouTubePlayerModel extends Croquet.Model {
+    init(options, persisted) {
+        super.init(options, persisted);
+
+        this.users = {};
+
+        this.video = null;
+        this.subscribe(this.id, 'set-video', this.setVideo);
+
+        this.duration = null;
+        this.subscribe(this.id, 'set-duration', this.setDuration);
+
+        this.isPaused = false;
+        this.subscribe(this.id, 'set-paused', this.setPaused);
+
+        this.currentTime = null;
+        this.subscribe(this.id, 'seek', this.seek);
+
+        this.isEnded = false;
+        this.subscribe(this.id, 'set-ended', this.setEnded);
+
+        this.timestamp = this.now();
+
+        this.users = [];
+
+        this.subscribe(this.sessionId, 'view-join', this.onViewJoin);
+        this.subscribe(this.sessionId, 'view-exit', this.onViewExit);
+
+        if (persisted) this.setVideo(persisted, true);
+    }
+
+    setVideo({video, currentTime}, resuming) {
+        this.video = video;
+        this.isPaused = false;
+        this.isEnded = false;
+
+        this.currentTime = currentTime || 0;
+        this.duration = null;
+
+        this.timestamp = this.now();
+        this.publish(this.id, 'did-set-video');
+
+        if (!resuming) {
+            this.wellKnownModel("modelRoot").persistSession(() => ({ video, currentTime }));
+        }
+    }
+
+    setDuration(duration) {
+        this.duration = duration;
+        this.publish(this.id, 'did-set-duration');
+    }
+
+    setPaused({isPaused, currentTime}) {
+        this.timestamp = this.now();
+        this.isPaused = isPaused;
+        this.isEnded = false;
+        if (currentTime !== undefined) {
+            this.currentTime = currentTime;
+            this.publish(this.id, 'did-set-paused');
+        }
+    }
+
+    setEnded(flag) {
+        this.isEnded = flag;
+    }
+
+    seek(currentTime) {
+        this.currentTime = currentTime;
+        this.isEnded = false;
+        this.timestamp = this.now();
+        this.publish(this.id, 'did-seek');
+    }
+
+    onViewJoin(viewId) {
+        if (Object.keys(this.users).length === 0) {
+            this.setPaused({isPaused: false});
+        }
+
+        if (!this.users[viewId]) {
+            this.users[viewId] = true;
+            this.publish(this.id, 'user-join', viewId);
+        }
+    }
+
+    onViewExit(viewId) {
+        delete this.users[viewId];
+        this.publish(this.sessionId, 'user-exit', viewId);
+    }
+}
+
+YouTubePlayerModel.register('YouTubePlayer');
+
 
 // https://developers.google.com/youtube/iframe_api_reference
 
 class YouTubePlayerView extends Croquet.View {
-    constructor(youTubePlayerModel) {
-        super(youTubePlayerModel);
-        this.youTubePlayerModel = youTubePlayerModel;
-
-        this.model = this.wellKnownModel('modelRoot');
-
+    constructor(model) {
+        super(model);
+        this.model = model;
         this.elements = {
             ui: document.getElementById('ui'),
 
@@ -23,21 +108,23 @@ class YouTubePlayerView extends Croquet.View {
             duration: document.getElementById('duration'),
 
             timeline: document.getElementById('timeline'),
+            scrubTimeline: document.getElementById('scrubTimeline'),
 
             play: document.getElementById('play'),
             togglePlayback: document.getElementById('togglePlayback'),
             toggleMuted: document.getElementById('toggleMuted'),
             volume: document.getElementById('volume'),
 
-            toggleSettings: document.getElementById('toggleSettings'),
+            //toggleSettings: document.getElementById('toggleSettings'),
             toggleFullscreen: document.getElementById('toggleFullscreen'),
             watchOnYouTube: document.getElementById('watchOnYouTube'),
 
-            settings: document.getElementById('settings'),
-            videoQuality: document.getElementById('videoQuality'),
-            videoQualityTemplate: document.querySelector('template.videoQuality'),
-            setVideo: document.getElementById('setVideo'),
+            //settings: document.getElementById('settings'),
+            //videoQuality: document.getElementById('videoQuality'),
+            //videoQualityTemplate: document.querySelector('template.videoQuality'),
+            //setVideo: document.getElementById('setVideo'),
 
+            tellUserToSetVideo: document.getElementById('tellUserToSetVideo'),
             video: document.getElementById('video'),
 
             videoOverlay: document.getElementById('videoOverlay'),
@@ -46,50 +133,132 @@ class YouTubePlayerView extends Croquet.View {
 
         this.elements.video.innerHTML = '';
 
-        this.elements.timeline.addEventListener('input', this.onTimelineInput.bind(this));
+        this.addEventListener(this.elements.timeline, 'input', this.onTimelineInput.bind(this));
+        this.addEventListener(this.elements.timeline, 'pointermove', this.onTimelineOver.bind(this));
+        this.addEventListener(this.elements.timeline, 'pointerleave', this.onTimelineLeave.bind(this));
 
-        this.elements.play.addEventListener('click', this.onPlayClick.bind(this));
-        this.elements.togglePlayback.addEventListener('click', this.togglePlayback.bind(this));
-        this.elements.toggleMuted.addEventListener('click', this.toggleMuted.bind(this));
-        this.elements.volume.addEventListener('input', this.onVolumeInput.bind(this));
+        this.addEventListener(this.elements.play, 'click', this.onPlayClick.bind(this));
+        this.addEventListener(this.elements.togglePlayback, 'click', this.togglePlayback.bind(this));
+        this.addEventListener(this.elements.toggleMuted, 'click', this.toggleMuted.bind(this));
+        this.addEventListener(this.elements.volume, 'input', this.onVolumeInput.bind(this));
+        this.addEventListener(this.elements.toggleFullscreen, 'click', this.toggleFullscreen.bind(this));
 
-        this.elements.toggleFullscreen.addEventListener('click', this.toggleFullscreen.bind(this));
+        this.addEventListener(this.elements.watchOnYouTube, 'click', this.watchOnYouTube.bind(this));
 
-        this.elements.watchOnYouTube.addEventListener('click', this.watchOnYouTube.bind(this));
+        this.addEventListener(this.elements.tellUserToSetVideo, 'click', this.promptUserForVideoUrl.bind(this));
+        //this.addEventListener(this.elements.settings.querySelector('.getUrl'), 'click', this.copyUrl.bind(this));
 
-        this.elements.settings.querySelector('.setVideo').addEventListener('click', this.promptUserForVideoUrl.bind(this));
-        this.elements.settings.querySelector('.getUrl').addEventListener('click', this.copyUrl.bind(this));
+        this.addEventListener(this.elements.videoOverlay, 'click', this.onVideoOverlayClick.bind(this));
 
-        this.elements.videoOverlay.addEventListener('click', this.onVideoOverlayClick.bind(this));
-
-        document.addEventListener('paste', this.onPaste.bind(this))
-        document.addEventListener('copy', this.onCopy.bind(this))
+        //this.addEventListener(document, 'paste', this.onPaste.bind(this));
+        //this.addEventListener(document, 'copy', this.onCopy.bind(this));
+        this.addEventListener(document, 'keydown', this.onKeyDown.bind(this));
 
         // MEDIA UPLOADING
-        document.addEventListener('dragenter', this.onDragEnter.bind(this));
-        document.addEventListener('dragover', this.onDragOver.bind(this));
-        document.addEventListener('dragleave', this.onDragLeave.bind(this));
-        document.addEventListener('drop', this.onDrop.bind(this));
+        this.addEventListener(document, 'dragenter', this.onDragEnter.bind(this));
+        this.addEventListener(document, 'dragover', this.onDragOver.bind(this));
+        this.addEventListener(document, 'dragleave', this.onDragLeave.bind(this));
+        this.addEventListener(document, 'drop', this.onDrop.bind(this));
+
+        this.addEventListener(document, "wheel", this.onWheel.bind(this), { passive: false, capture: false });
 
         if (this.isMobile()) {
             this.elements.ui.classList.add('mobile');
         }
 
-        if (this.youTubePlayerModel.video) {
-            this.initPlayer();
+        if (window.top !== window) {
+            this.elements.ui.classList.add("greenlight");
         }
 
-        this.subscribe(this.youTubePlayerModel.id, 'did-set-video', this.didSetVideo);
-        this.subscribe(this.youTubePlayerModel.id, 'did-set-paused', this.didSetPaused);
-        this.subscribe(this.youTubePlayerModel.id, 'did-seek', this.didSeek);
+        this.ready = false;
+        this.playerResolve = null;
+        this.playerPromise = null;
+
+        if (this.model.video) {
+            setTimeout(() => {
+                this.initPlayer();
+            }, 1500);
+        }
+
+        this.setupTippyTooltip();
+
+        this.subscribe(this.model.id, 'did-set-video', this.didSetVideo);
+        this.subscribe(this.model.id, 'did-set-paused', this.didSetPaused);
+        this.subscribe(this.model.id, 'did-seek', this.didSeek);
+
+        this.subscribe(this.model.id, 'user-join', this.onUserJoin);
+        this.subscribe(this.model.id, 'user-exit', this.onUserExit);
+    }
+
+    ensurePlayer() {
+        if (this.ready) {
+            return Promise.resolve(true);
+        }
+
+        if (!this.playerPromise) {
+            this.playerPromise = new Promise((resolve, _reject) => {
+                this.playerResolve = val => {
+                    this.ready = true;
+                    this.playerResolve = null;
+                    this.playerPromise = null;
+                    resolve(val);
+                };
+            });
+        }
+
+        return this.playerPromise;
+    }
+
+    // EVENT LISTENERS
+    addEventListener(element, type, _eventListener, options) {
+        this._eventListeners = this._eventListeners || [];
+
+        const eventListener = _eventListener.bind(this);
+        element.addEventListener(type, eventListener, options);
+        this._eventListeners.push({element, type, eventListener, _eventListener});
+    }
+
+    removeEventListener(element, type, eventListener) {
+        const record = this._eventListeners.find(rec => rec.element === element && rec.type === type && rec._eventListener === eventListener);
+        if (record) element.removeEventListener(type, record.eventListener);
+    }
+
+    removeEventListeners() {
+        this._eventListeners.forEach(({element, type, eventListener}) => {
+            element.removeEventListener(type, eventListener);
+        });
+    }
+
+    detach() {
+        super.detach();
+        this.removeEventListeners();
+    }
+
+    onWheel(evt) {
+        evt.preventDefault();
     }
 
     isMobile() {return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);}
+
+    setupTippyTooltip() {
+        tippy(this.elements.watchOnYouTube, {
+            content: "URL copied to clipboard",
+            hideOnClick: false,
+            trigger: "click",
+
+            onShow(instance) {
+                setTimeout(() => {
+                    instance.hide();
+                }, 2000);
+            }
+        });
+    }
+
     initPlayer() {
         this.player = new YT.Player('video', {
             width: '100%',
             height: '100%',
-            videoId: this.youTubePlayerModel.video,
+            videoId: this.model.video,
             events: {
                 'onReady': this.onReady.bind(this),
                 'onStateChange': this.onStateChange.bind(this),
@@ -115,34 +284,77 @@ class YouTubePlayerView extends Croquet.View {
     onTimelineInput(event) {
         if (event.isTrusted) {
             const currentTime = Number(event.target.value);
-            this.publish(this.youTubePlayerModel.id, 'seek', currentTime);
+            this.publish(this.model.id, 'seek', currentTime);
+
+            if (this.isPaused) {
+                this.updateCurrentTime(currentTime);
+            }
         }
     }
+
+    onTimelineOver(event) {
+        if (!this.ready) {return;}
+        this.getDuration().then(duration => {
+            const offsetX = event.offsetX;
+            const width = event.target.getBoundingClientRect().width;
+
+            const sWidth = this.elements.scrubTimeline.getBoundingClientRect().width;
+            const proposedTime = (Math.max(event.offsetX - 1, 0) / width) * duration;
+            this.updateScrubTimeline(proposedTime, offsetX - (sWidth / 2));
+        });
+    }
+
+    onTimelineLeave(event) {
+        this.elements.scrubTimeline.style.display = "none";
+    }
+
     onPlayClick() {
         console.log("PLAY");
-        this.publish(this.youTubePlayerModel.id, 'set-paused', {isPaused: false, currentTime: this.getCurrentTime()});
+        this.getCurrentTime().then(currentTime => {
+            this.publish(this.model.id, 'set-paused', {isPaused: false, currentTime});
+        });
     }
+
+    replay() {
+        console.log("REPLAY");
+        this.getCurrentTime().then(() => {
+            this.publish(this.model.id, 'set-paused', {isPaused: false, currentTime: 0});
+        });
+    }
+
     togglePlayback() {
+        if (this.isEnded()) {
+            this.replay();
+            return;
+        }
         console.log("toggled playback");
-        this.publish(this.youTubePlayerModel.id, 'set-paused', {isPaused: !this.isPaused(), currentTime: this.getCurrentTime()});
+        this.getCurrentTime().then(currentTime => {
+            this.publish(this.model.id, 'set-paused', {isPaused: !this.isPaused(), currentTime});
+        });
     }
+
     toggleMuted() {
-        if (this.isMuted()) {
-            this.unMute();
-            this.elements.volume.value = this.getVolume();
-            this.elements.ui.classList.remove('isMuted');
-        }
-        else {
-            this.mute();
-            this.elements.volume.value = 0;
-            this.elements.ui.classList.add('isMuted');
-        }
+        this.isMuted().then(isMuted => {
+            if (isMuted) {
+                this.unMute();
+                this.getVolume().then(vol => {
+                    this.elements.volume.value = vol;
+                });
+                this.elements.ui.classList.remove('isMuted');
+            }
+            else {
+                this.mute();
+                this.elements.volume.value = 0;
+                this.elements.ui.classList.add('isMuted');
+            }
+        });
 
         this.elements.volume.dispatchEvent(new Event('input'));
     }
+
     onVolumeInput(event) {
         if (event.isTrusted) {
-            const volume = Number(event.target.value);
+            const volume = parseFloat(event.target.value);
             this.setVolume(volume);
             if (volume > 0) {
                 this.unMute();
@@ -170,162 +382,318 @@ class YouTubePlayerView extends Croquet.View {
     }
 
     watchOnYouTube() {
-        if (this._window) {
-            this._window.close();
-            delete this._window;
-        }
-
-        this._window = window.open(this.getUrl());
+        this.copyUrl();
     }
 
-    secondsToHMS(seconds) {return new Date(seconds * 1000).toISOString().substr(11, 8);}
+    secondsToHMS(seconds) {
+        let rem = seconds;
+        let h = Math.floor(rem / 3600);
+        rem -= h * 3600;
+        h = `${h}`.padStart(2, "0");
+        let m = Math.floor(rem / 60);
+        rem -= m * 60;
+        m = `${m}`.padStart(2, "0");
+        let s = Math.floor(rem);
+        s = `${s}`.padStart(2, "0");
+        return `${h}:${m}:${s}`;
+    }
 
-    onVideoOverlayClick(event) {
+    onVideoOverlayClick(_event) {
         this.togglePlayback();
     }
 
     // URL
-    getUrl() {return `https://youtu.be/${this.youTubePlayerModel.video}?t=${Math.floor(this.getCurrentTime())}s`;}
+    getUrl() {
+        return this.getCurrentTime().then(currentTime => {
+            return `https://youtu.be/${this.model.video}?t=${Math.floor(currentTime)}s`;
+        });
+    }
+
     copyUrl() {
         if (!this.copying) {
             this.copying = true;
 
-            const url = this.getUrl();
-
-            this.elements.copy.value = url;
-
-            this.elements.copy.select();
-            this.elements.copy.setSelectionRange(0, 100);
-
-            document.execCommand('copy');
-
-            this.elements.copy.value = '';
+            this.getUrl().then(url => {
+                this.elements.copy.value = url;
+                this.elements.copy.select();
+                this.elements.copy.setSelectionRange(0, 100);
+                document.execCommand('copy');
+                this.elements.copy.value = '';
+            });
         }
         else {
             delete this.copying;
         }
     }
+
     uploadUrl(string) {
         try {
-            if (!string.startsWith(`http`)) {
-                string = `https://${string}`;
-            }
+            let video, currentTime;
+            let url;
+            if (string.indexOf("/") < 0 && string.indexOf(".") < 0) {
+                video = string;
+            } else {
+                if (!string.startsWith(`http`)) {
+                    string = `https://${string}`;
+                }
 
-            const url = new URL(string);
-            let video, currentTime
-            if (url.host.includes('youtube.com') && url.searchParams.has('v')) {
-                video = url.searchParams.get('v');
-            }
-            else if (url.host.includes('youtu.be') && url.pathname.length > 1) {
-                video = url.pathname.slice(1)
+                url = new URL(string);
+                if (url.host.includes('youtube.com') && url.searchParams.has('v')) {
+                    video = url.searchParams.get('v');
+                }
+                else if (url.host.includes('youtu.be') && url.pathname.length > 1) {
+                    video = url.pathname.slice(1);
+                }
             }
 
             if (video) {
-                currentTime = Number(url.searchParams.get('t')) || 0;
-                console.log(video, currentTime)
-                this.publish(this.youTubePlayerModel.id, 'set-video', {video, currentTime});
+                currentTime = (url && parseFloat(url.searchParams.get('t'))) || 0;
+                console.log(video, currentTime);
+                this.publish(this.model.id, 'set-video', {video, currentTime});
             }
         }
         catch (error) {
             console.error(error);
         }
     }
+
     promptUserForVideoUrl() {
-        const string = window.prompt("submit valid YouTube video url:");
-        this.uploadUrl(string);
-        this.elements.ui.classList.remove("settings");
+        Swal.fire({
+            input: 'text',
+            inputLabel: 'A YouTube link',
+            inputPlaceholder: 'Enter a link to a YouTube video',
+            showCancelButton: true,
+        }).then(result => {
+            if (result.value && result.value.length > 0) {
+                this.uploadUrl(result.value);
+            }
+        });
     }
+
     populateVideoQualities() {
-        this.elements.videoQuality.querySelectorAll('.videoQuality:not(template)').forEach(videoQualityElement => videoQualityElement.remove());
-        // FILL
     }
+
     populateVideoPlaybackRates() {
-
     }
+
     updateDuration() {
-        const duration = this.getDuration();
+        this.getDuration().then(duration => {
+            this.elements.timeline.max = Math.ceil(parseFloat(duration));
+            this.elements.duration.innerText = this.secondsToHMS(duration);
 
-        this.elements.timeline.max = Math.ceil(Number(duration));
-        this.elements.duration.innerText = this.secondsToHMS(duration);
+            this.publish(this.model.id, 'set-duration', duration);
+        });
+    }
 
-        if (!isNaN(this.youTubePlayerModel.duration)) {
-            this.publish(this.youTubePlayerModel.id, 'set-duration', duration);
+    updateCurrentTime(provisional) {
+        if (provisional !== undefined) {
+            this.provisional = provisional;
+            this.elements.timeline.value = provisional;
+            this.elements.currentTime.innerText = this.secondsToHMS(provisional);
+            return;
         }
-    }
-    updateCurrentTime() {
-        const currentTime = this.getCurrentTime() || 0;
 
-        this.elements.timeline.value = currentTime;
-        this.elements.currentTime.innerText = this.secondsToHMS(currentTime);
+        this.getCurrentTime().then(currentTime => {
+            currentTime = currentTime || 0;
+
+            this.elements.timeline.value = currentTime;
+            this.elements.currentTime.innerText = this.secondsToHMS(currentTime);
+        });
     }
+
     updateTimelineStyle(override) {
-        const currentTime = this.getCurrentTime();
-        const duration = this.getDuration();
-        const percent = 100 * (currentTime/duration);
-        const buffered = 100 * this.getVideoLoadedFraction();
-        if (override || isNaN(this.buffered) || buffered > this.buffered) {
-            this.buffered = buffered;
-            this.elements.timeline.style.background = `linear-gradient(to right, red 0%, red ${percent}%, white ${percent}%, white ${buffered}%, grey ${buffered}%, grey 100%)`;
-        }
+        Promise.all([
+            this.getCurrentTime(),
+            this.getDuration(),
+            this.getVideoLoadedFraction()
+        ]).then(([currentTime, duration, fraction]) => {
+            const percent = 100 * (currentTime/duration);
+            const buffered = 100 * fraction;
+            if (override || Number.isNaN(this.buffered) || buffered > this.buffered) {
+                this.buffered = buffered;
+                this.elements.timeline.style.background = `linear-gradient(to right, red 0%, red ${percent}%, white ${percent}%, white ${buffered}%, grey ${buffered}%, grey 100%)`;
+            }
+        });
     }
+
     updatePaused() {
         this.didSetPaused();
+        this.didSeek();
+    }
+
+    updateScrubTimeline(proposedTime, offsetX) {
+        const now = Date.now();
+        if (this.lastScrubAttempt && now - this.lastScrubAttempt < 16) {
+            return;
+        }
+
+        this.lastScrubAttempt = now;
+
+        this.elements.scrubTimeline.style.left = offsetX;
+        this.elements.scrubTimeline.style.display = "inherit";
+        this.elements.scrubTimeline.innerHTML = this.secondsToHMS(proposedTime);
     }
 
     // LOADING
-    cueVideoById(videoId, startSeconds) {return this.player.cueVideoById(...arguments);}
-    loadVideoById(viewId, startSeconds) {return this.player.loadVideoById(...arguments);}
-    cueVideoByUrl(mediaContentUrl, startSeconds) {return this.player.cueVideoByUrl(...arguments);}
-    loadVideoByUrl(mediaContentUrl, startSeconds) {return this.player.loadVideoByUrl(...arguments);}
+    cueVideoById(videoId, startSeconds) {
+        return this.ensurePlayer().then(() => {
+            return this.player.cueVideoById(videoId, startSeconds);
+        });
+    }
+
+    loadVideoById(videoId, startSeconds) {
+        return this.ensurePlayer().then(() => {
+            return this.player.loadVideoById(videoId, startSeconds);
+        });
+    }
 
     // PLAYBACK
-    playVideo() {return this.player.playVideo();}
-    pauseVideo() {return this.player.pauseVideo();}
-    stopVideo() {return this.player.stopVideo();}
-    seekTo(seconds, allowSeekAhead) {return this.player.seekTo(...arguments);}
+    playVideo() {
+        return this.ensurePlayer().then(() => {
+            return this.player.playVideo();
+        });
+    }
 
+    pauseVideo() {
+        return this.ensurePlayer().then(() => {
+            return this.player.pauseVideo();
+        });
+    }
+
+    stopVideo() {
+        return this.ensurePlayer().then(() => {
+            return this.player.stopVideo();
+        });
+    }
+
+    seekTo(seconds, allowSeekAhead) {
+        return this.ensurePlayer().then(() => {
+            return this.player.seekTo(seconds, allowSeekAhead);
+        });
+    }
 
     // VOLUME
-    mute() {return this.player.mute();}
-    unMute() {return this.player.unMute();}
-    isMuted() {return this.player.isMuted();}
-    setVolume(volume) {return this.player.setVolume(...arguments);}
-    getVolume() {return this.player.getVolume();}
+    mute() {
+        return this.ensurePlayer().then(() => {
+            return this.player.mute();
+        });
+    }
+
+    unMute() {
+        return this.ensurePlayer().then(() => {
+            return this.player.unMute();
+        });
+    }
+
+    isMuted() {
+        return this.ensurePlayer().then(() => {
+            return this.player.isMuted();
+        });
+    }
+
+    setVolume(volume) {
+        return this.ensurePlayer().then(() => {
+            return this.player.setVolume(volume);
+        });
+    }
+
+    getVolume() {
+        return this.ensurePlayer().then(() => {
+            return this.player.getVolume();
+        });
+    }
 
     // PLAYER SIZE
-    setSize(width, height) {return this.player.setSize(...arguments);}
+    setSize(width, height) {
+        return this.ensurePlayer().then(() => {
+            return this.player.setSize(width, height);
+        });
+    }
 
     // PLAYBACK RATE
-    getPlaybackRate() {return this.player.getPlaybackRate();}
-    setPlaybackRate(suggestedRate) {return this.player.setPlaybackRate(...arguments);}
-    getAvailablePlaybackRates() {return this.getAvailablePlaybackRates();}
+    getPlaybackRate() {
+        return this.ensurePlayer().then(() => {
+            return this.player.getPlaybackRate();
+        });
+    }
+
+    setPlaybackRate(suggestedRate) {
+        return this.ensurePlayer().then(() => {
+            return this.player.setPlaybackRate(suggestedRate);
+        });
+    }
+
+    getAvailablePlaybackRates() {
+        return this.ensurePlayer().then(() => {
+            return this.getAvailablePlaybackRates();
+        });
+    }
 
     // PLAYBACK STATUS
-    getVideoLoadedFraction() {return this.player.getVideoLoadedFraction();}
-    getPlayerState() {return this.player.getPlayerState();}
-    isPlaying() {return this.getPlayerState() === YT.PlayerState.PLAYING;}
-    isPaused() {return this.getPlayerState() === YT.PlayerState.PAUSED || (this._playedOnce && this.getPlayerState() === YT.PlayerState.CUED);}
-    getCurrentTime() {return this.player.getCurrentTime();}
+    getVideoLoadedFraction() {
+        return this.ensurePlayer().then(() => {
+            return this.player.getVideoLoadedFraction();
+        });
+    }
+
+    getPlayerState() {
+        if (!this.ready) {
+            return null;
+        }
+        return this.player.getPlayerState();
+    }
+
+    isPlaying() {
+        return this.getPlayerState() === YT.PlayerState.PLAYING;
+    }
+
+    isPaused() {
+        return this.getPlayerState() === YT.PlayerState.PAUSED ||
+            (this._playedOnce && this.getPlayerState() === YT.PlayerState.CUED);
+    }
+
+    isEnded() {
+        return this.getPlayerState() === YT.PlayerState.ENDED;
+    }
+
+    getCurrentTime() {
+        return this.ensurePlayer().then(() => {
+            return this.player.getCurrentTime();
+        });
+    }
 
     // VIDEO INFORMATION
-    getDuration() {return this.player.getDuration();}
-    getVideoUrl() {return this.player.getVideoUrl();}
-    getVideoEmbedCode() {return this.getVideoEmbedCode();}
+    getDuration() {
+        return this.ensurePlayer().then(() => {
+            return this.player.getDuration();
+        });
+    }
+
+    getVideoUrl() {
+        return this.ensurePlayer().then(() => {
+            return this.player.getVideoUrl();
+        });
+    }
+
+    getVideoEmbedCode() {
+        return this.getVideoEmbedCode();
+    }
 
     // EVENTS
     onReady(event) {
         console.log("READY", event);
 
+        this.ready = true;
+
         this.elements.ui.classList.add('initPlayer');
         this.elements.ui.classList.add('ready');
-        this.didInitPlayer = true;
 
         this._updateDuration = true;
-        this._populateVideoQualities = true;
         this._updatePaused = true;
         this._updateCurrentTime = true;
         this._playedOnce = false;
     }
+
     onStateChange(event) {
         console.log(event);
         const {data} = event;
@@ -335,33 +703,32 @@ class YouTubePlayerView extends Croquet.View {
                 break;
             case YT.PlayerState.ENDED:
                 console.log('ended');
+                this.publish(this.model.id, "set-ended", true);
                 break;
             case YT.PlayerState.PLAYING:
-                console.log('playing');
-
                 this.elements.ui.classList.remove('isPaused');
                 this.elements.ui.classList.remove('seeking');
                 delete this.isSeeking;
 
-                if (this._populateVideoQualities) {
-                    this.populateVideoQualities();
-                    delete this._populateVideoQualities;
-                }
                 if (this._updateDuration) {
                     this.updateDuration();
                     delete this._updateDuration;
                 }
                 if (this._updatePaused) {
+                    this._initialPause = true;
                     this.updatePaused();
                     delete this._updatePaused;
                 }
                 if (this._updateCurrentTime) {
-                    setTimeout(() => this.updateCurrentTime(), 800);
+                    setTimeout(() => {
+                        this.updateCurrentTime();
+                    }, 800);
                     delete this._updateCurrentTime;
                 }
 
                 if (!this._playedOnce) {
                     this._playedOnce = true;
+                    this.didSeek();
                     this.elements.ui.classList.add('playedOnce');
                 }
                 break;
@@ -369,7 +736,10 @@ class YouTubePlayerView extends Croquet.View {
                 console.log('paused');
                 this.elements.ui.classList.add('isPaused');
                 this.elements.ui.classList.remove('seeking');
-                this.updateCurrentTime();
+                if (this._initialPause === undefined) {
+                    this.didSeek();
+                }
+                delete this._initialPause;
                 break;
             case YT.PlayerState.BUFFERING:
                 console.log('buffering');
@@ -377,19 +747,21 @@ class YouTubePlayerView extends Croquet.View {
             case YT.PlayerState.CUED:
                 console.log('cued');
                 this._updateDuration = true;
-                this._populateVideoQualities = true;
                 this._updateCurrentTime = true;
                 break;
             default:
                 break;
         }
     }
+
     onPlaybackQualityChange(event) {
         console.log(event);
     }
+
     onPlaybackRateChange(event) {
         console.log(event);
     }
+
     onError(event) {
         console.log(event);
         const {data} = event;
@@ -413,26 +785,30 @@ class YouTubePlayerView extends Croquet.View {
                 break;
         }
     }
+
     onApiChange(event) {
         console.log(event);
     }
 
     // DID
     didSetVideo() {
+        console.log("did set video");
         if (this.player) {
-            console.log(this.youTubePlayerModel.currentTime)
-            this.cueVideoById(this.youTubePlayerModel.video, this.youTubePlayerModel.currentTime);
+            console.log(this.model.currentTime);
+            this.cueVideoById(this.model.video, this.model.currentTime);
         }
         else {
             this.initPlayer();
         }
     }
+
     didSetPaused() {
+        console.log("did set paused");
         if (!this.player) return;
         if (!this._playedOnce) return;
 
         this._didSetPaused = true;
-        if (this.youTubePlayerModel.isPaused) {
+        if (this.model.isPaused) {
             this.pauseVideo();
         }
         else {
@@ -441,38 +817,52 @@ class YouTubePlayerView extends Croquet.View {
         }
         delete this._didSetPaused;
     }
-    didSeek() {
-        if (!this.player) return;
 
-        this.buffered = 0;
-        this.elements.ui.classList.add('seeking');
-        this.isSeeking = true;
-        this.seekTo(this.getModelCurrentTime());
+    didEnd() {
+        // it would get multiple messages
+    }
+
+    didSeek() {
+        console.log("did seeek");
+        this.ensurePlayer().then(() => {
+            this.buffered = 0;
+            this.elements.ui.classList.add('seeking');
+            this.isSeeking = true;
+            this.seekTo(this.getModelCurrentTime());
+            if (this.isPaused()) {
+                this.updateCurrentTime(this.getModelCurrentTime());
+            }
+        });
     }
 
     update(timestamp) {
-        if (!this.player || !this.didInitPlayer) return;
+        if (!this.ready) return;
+        if (this.model.isEnded) {return;}
 
         if (!this.isPaused()) {
-            const flooredCurrentTime = Math.floor(this.getCurrentTime());
-            if (flooredCurrentTime !== this.flooredCurrentTime) {
-                this.flooredCurrentTime = flooredCurrentTime;
-                this.updateCurrentTime();
-                this.updateTimelineStyle(true);
-            }
+            this.getCurrentTime().then(currentTime => {
+                const flooredCurrentTime = Math.floor(currentTime);
+                if (flooredCurrentTime !== this.flooredCurrentTime) {
+                    this.flooredCurrentTime = flooredCurrentTime;
+                    this.updateCurrentTime();
+                    this.updateTimelineStyle(true);
+                }
+            });
         }
 
         this.timestamp = this.timestamp || timestamp;
         if (this._playedOnce && timestamp - this.timestamp > 100) {
-            if (!this._didSetPaused && this.youTubePlayerModel.isPaused !== this.isPaused()) {
+            if (!this._didSetPaused && this.model.isPaused !== this.isPaused()) {
                 this.didSetPaused();
             }
 
             if (!this.isPaused()) {
-                if (!this.isSeeking && this.getTimeOffset() > 1) {
-                    console.log('fixing time');
-                    this.didSeek();
-                }
+                this.getTimeOffset().then(timeOffset => {
+                    if (!this.isSeeking && timeOffset > 1) {
+                        console.log('fixing time');
+                        this.didSeek();
+                    }
+                });
             }
 
             this.timestamp = timestamp;
@@ -489,41 +879,60 @@ class YouTubePlayerView extends Croquet.View {
 
     // COPY/PASTE
     onPaste(event) {
-        if(event.clipboardData.types.find(type => type.includes('text/'))) {
+        if (event.clipboardData.types.find(type => type.includes('text/'))) {
             const text = event.clipboardData.getData('text');
-            if(text) {
+            if (text) {
                 this.uploadUrl(text);
             }
         }
     }
-    onCopy(event) {
-        if(!this._copy) {
-            const url = this.getUrl();
-            if(url) {
-                this._copy = true;
 
-                this.elements.copy.value = url;
+    onCopy(_event) {
+        this.copyUrl();
+    }
 
-                this.elements.copy.select();
-                this.elements.copy.setSelectionRange(0, 100);
-                document.execCommand('copy');
-
-                this.elements.copy.value = '';
-            }
+    onKeyDown(event) {
+        if (!this.ready) {return;}
+        if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+            this.getCurrentTime().then(currentTime => {
+                const newTime = currentTime + (event.key === 'ArrowRight' ? 5 : -5);
+                this.publish(this.model.id, 'seek', newTime);
+            });
+            event.preventDefault();
+            return;
         }
-        else {
-            delete this._copy;
+        if (event.key === ' ') {
+            this.togglePlayback();
+            event.preventDefault();
         }
     }
 
-    getTimeSinceModelTimestamp() {return (this.now() - this.youTubePlayerModel.timestamp)/1000;}
-    getModelCurrentTime() {return this.isPaused()? this.youTubePlayerModel.currentTime : Math.min(this.youTubePlayerModel.currentTime + this.getTimeSinceModelTimestamp(), this.youTubePlayerModel.duration);}
-    getTimeOffset() {return Math.abs(this.getCurrentTime() - this.getModelCurrentTime());}
+    getTimeSinceModelTimestamp() {
+        return (this.now() - this.model.timestamp) / 1000;
+    }
+
+    getModelCurrentTime() {
+        return this.isPaused()
+            ? this.model.currentTime
+            : Math.min(this.model.currentTime + this.getTimeSinceModelTimestamp(), this.model.duration);
+    }
+
+    getTimeOffset() {
+        return this.getCurrentTime().then(currentTime => {
+            return Math.abs(currentTime - this.getModelCurrentTime());
+        });
+    }
 
     // DRAG
-    onDragEnter(event){event.preventDefault()}
-    onDragOver(event){event.preventDefault()}
-    onDragLeave(event){event.preventDefault()}
+    onDragEnter(event) {
+        event.preventDefault();
+    }
+    onDragOver(event) {
+        event.preventDefault();
+    }
+    onDragLeave(event) {
+        event.preventDefault();
+    }
     onDrop(event) {
         event.preventDefault();
 
@@ -532,87 +941,38 @@ class YouTubePlayerView extends Croquet.View {
             this.uploadUrl(text);
         }
     }
-}
 
-class UserView extends Croquet.View {
-    constructor(userModel) {
-        super(userModel);
-        this.userModel = userModel;
-
-        this.model = this.wellKnownModel('modelRoot');
-    }
-}
-
-class View extends Croquet.View {
-    constructor(model) {
-        super(model);
-        this.model = model;
-
-        this.youTubePlayer = new YouTubePlayerView(this.model.youTubePlayer);
-
-        this.subscribe(this.viewId, 'user-join', this.onJoin);
-    }
-
-    onJoin() {
-        this.users = [];
-
-        this.subscribe(this.sessionId, 'user-join', this.onUserJoin);
-        this.subscribe(this.sessionId, 'user-exit', this.onUserExit);
-
-        this.model.users.forEach(user => this.onUserJoin(user.viewId));
-    }
-
-    getUserByViewId(viewId) {return this.users.find(user => user.userModel.viewId === viewId);}
     onUserJoin(viewId) {
         console.log(`viewId ${viewId}${(viewId === this.viewId)? ' (YOU)':''} joined`);
-
-        const userModel = this.model.getUserByViewId(viewId);
-        if (userModel) {
-            const user = new UserView(userModel);
-
-            this.users.push(user);
-        }
     }
+
     onUserExit(viewId) {
         console.log(`viewId ${viewId} exited`);
+    }
+}
 
-        const user = this.getUserByViewId(viewId);
-        if (user) {
-            user.detach();
-
-            this.users.splice(this.users.indexOf(user), 1);
+function load() {
+    let joined = false;
+    function join() {
+        if (!joined) {
+            joined = true;
+            Croquet.Session.join({
+                appId: "io.croquet.youtube",
+                name: Croquet.App.autoSession('q'),
+                password: "secret",
+                model: YouTubePlayerModel,
+                view: YouTubePlayerView,
+                autoSleep: false,
+            }).then(session => {
+                window.session = session;
+                Croquet.Messenger.startPublishingPointerMove();
+            });
         }
     }
 
-    update(timestamp) {
-        this.youTubePlayer.update(timestamp);
+    if (window.YT) {
+        join();
     }
 }
 
-let joined = false;
-function join() {
-    if (!joined) {
-        joined = true;
-        Croquet.Session.join({
-            appId: "io.croquet.youtube",
-            name: Croquet.App.autoSession('q'),
-            password: "secret",
-            model: Model,
-            view: View,
-            autoSleep: false,
-        }).then(session => {
-            window.session = session;
-            Croquet.Messenger.startPublishingPointerMove();
-        });
-    }
-}
-
-window.document.addEventListener("wheel", evt => evt.preventDefault(), { passive: false, capture: false });
-
-function onYouTubeIframeAPIReady() {
-    join();
-}
-
-if (window.YT) {
-    join();
-}
+window.onload = load;

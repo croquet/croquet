@@ -7,8 +7,13 @@
 
         <link rel="icon" type="image/png" href="https://www.youtube.com/favicon.ico"/>
         <link rel="icon" type="image/png" href="https://www.youtube.com/favicon.ico"/>
-    </head>
-
+	<!-- https://developers.google.com/youtube/player_parameters -->
+	<script src= "https://www.youtube.com/player_api"></script>
+	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@10"></script>
+	<script src="https://unpkg.com/@popperjs/core@2"></script>
+	<script src="https://unpkg.com/tippy.js@6"></script>
+	<script src='https://croquet.io/sdk/croquet-latest-pre.min.js'></script>
+	
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins&display=swap');
 
@@ -30,7 +35,6 @@
         #ui {
             width: 100%;
             height: 100%;
-            position: relative;
             display: grid;
             grid-template-rows: auto 40px 8px 50px 0px;
             grid-template-columns: 10px 50px 50px 80px auto 50px 50px 80px 10px;
@@ -39,17 +43,6 @@
         #copy {
             position: absolute;
             top: -1000px;
-        }
-
-        #currentTime,
-        #duration {
-            color: #fff;
-            user-select: none;
-            margin: auto;
-            cursor: default !important;
-            background-color: hsla(0, 0%, 0%, 0.4);
-            padding: 2px 6px 2px 6px;
-            border-radius: 10px;
         }
 
         #currentTime {
@@ -63,7 +56,6 @@
             grid-column: 7 / span 2;
             margin-right: 0;
         }
-
 
         /* https://codepen.io/noahblon/pen/OyajvN?editors=0100 */
 
@@ -88,10 +80,16 @@
             transition: opacity 0.2s ease-in;
         }
 
+	#scrubTimeline {
+	    position: relative;
+	    display: none;
+	    grid-row: 2;
+	    grid-column: 2 / span 2;
+	}
+
         #timeline:not(:hover)::-webkit-slider-thumb {
             opacity: 0;
         }
-
 
         /* Play/Pause */
 
@@ -100,7 +98,7 @@
             grid-column: 2;
         }
 
-        #ui.isPaused #togglePlayback .svg {
+	#ui.isPaused #togglePlayback .svg {
             -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%25' height='100%25' version='1.1' viewBox='0 0 20 20' x='0px' y='0px'%3E%3Cg%3E%3Cpath d='M5 17.066V2.934a.5.5 0 01.777-.416L17 10 5.777 17.482A.5.5 0 015 17.066z'%3E%3C/path%3E%3C/g%3E%3C/svg%3E");
         }
 
@@ -116,7 +114,7 @@
             grid-column: 3;
         }
 
-        #ui.isMuted #toggleMuted .svg {
+	#ui.isMuted #toggleMuted .svg {
             -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%25' height='100%25' version='1.1' viewBox='0 0 20 20' x='0px' y='0px' class='ScIconSVG-sc-1bgeryd-1 cMQeyU'%3E%3Cpath d='M5 7l4.146-4.146a.5.5 0 01.854.353v13.586a.5.5 0 01-.854.353L5 13H4a2 2 0 01-2-2V9a2 2 0 012-2h1zM12 8.414L13.414 7l1.623 1.623L16.66 7l1.414 1.414-1.623 1.623 1.623 1.623-1.414 1.414-1.623-1.623-1.623 1.623L12 11.66l1.623-1.623L12 8.414z'%3E%3C/path%3E%3C/svg%3E");
         }
 
@@ -149,46 +147,42 @@
             cursor: pointer;
         }
 
-
         /* Settings popup */
 
         .settingsPopup {
             z-index: 3 !important;
             grid-row: 1 / span 2;
             grid-column: 4 / span 4;
-            bottom: 10px;
-            right: 10px;
-            position: absolute !important;
+            bottom: 50px;
+            right: 100px;
+            position: absolute;
             display: flex;
             flex-direction: column;
-            align-items: center;
+            align-items: flex-start;
             justify-content: flex-start !important;
             font-size: 14px;
             color: white;
             background-color: hsl(0, 0%, 10%);
             box-shadow: 1px 1px 3px 1px black;
             border-radius: 5px;
-            cursor: default !important;
-        }
+	    border: 1px solid gray;
+            width: fit-content;
+            height: fit-content;
+	    padding: 10px 5px 5px 5px;
+	}
 
-        .settingsPopup>*:first-child {
-            margin-top: 10px;
-        }
-
-        .settingsPopup>div {
-            width: 80%;
+	.settingLabel {
             border-radius: 5px;
-            padding: 0px;
+            padding: 0px 0px 0px 8px;
             transition: background-color 0.1s linear;
             background-color: transparent;
             cursor: pointer;
-        }
-
-        .settingsPopup>div:not(:first-child):not(:nth-child(2)) {
+	    white-space: nowrap;
             margin-bottom: 6px;
-        }
+            width: fit-content;
+	}
 
-        .settingsPopup>div:hover {
+        .settingLabel:hover {
             background-color: hsla(0, 0%, 100%, 0.2);
         }
 
@@ -199,38 +193,12 @@
             background-color: hsl(0, 0%, 30%);
         }
 
-
         /* Settings */
 
-        #settings {
-            width: 160px;
-            height: fit-content;
-        }
-
-        #ui:not(.settings) #settings,
-        #ui.videoQuality #settings {
+	#ui:not(.settings) #settings {
             display: none
         }
-
-
-        /* Video Quality */
-
-        #videoQuality {
-            height: fit-content;
-            width: 200px;
-        }
-
-        #ui:not(.settings) #videoQuality,
-        #ui:not(.videoQuality) #videoQuality {
-            display: none
-        }
-
-        #videoQuality .videoQuality.selected {
-            font-weight: bold;
-            background-color: hsla(0, 0%, 100%, 0.1);
-        }
-
-
+	
         /* Toggle Settings */
 
         #toggleSettings {
@@ -241,7 +209,6 @@
         #toggleSettings .svg {
             -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%25' height='100%25' version='1.1' viewBox='0 0 20 20' x='0px' y='0px' class='ScIconSVG-sc-1bgeryd-1 cMQeyU'%3E%3Cg%3E%3Cpath d='M10 8a2 2 0 100 4 2 2 0 000-4z'%3E%3C/path%3E%3Cpath fill-rule='evenodd' d='M9 2h2a2.01 2.01 0 001.235 1.855l.53.22a2.01 2.01 0 002.185-.439l1.414 1.414a2.01 2.01 0 00-.439 2.185l.22.53A2.01 2.01 0 0018 9v2a2.01 2.01 0 00-1.855 1.235l-.22.53a2.01 2.01 0 00.44 2.185l-1.415 1.414a2.01 2.01 0 00-2.184-.439l-.531.22A2.01 2.01 0 0011 18H9a2.01 2.01 0 00-1.235-1.854l-.53-.22a2.009 2.009 0 00-2.185.438L3.636 14.95a2.009 2.009 0 00.438-2.184l-.22-.531A2.01 2.01 0 002 11V9c.809 0 1.545-.487 1.854-1.235l.22-.53a2.009 2.009 0 00-.438-2.185L5.05 3.636a2.01 2.01 0 002.185.438l.53-.22A2.01 2.01 0 009 2zm-4 8l1.464 3.536L10 15l3.535-1.464L15 10l-1.465-3.536L10 5 6.464 6.464 5 10z' clip-rule='evenodd'%3E%3C/path%3E%3C/g%3E%3C/svg%3E");
         }
-
 
         /* Full Screen */
 
@@ -255,7 +222,11 @@
         }
 
         #ui.mobile #toggleFullscreen {
-            display: none !important
+            display: none !important;
+        }
+
+        #ui.greenlight #toggleFullscreen {
+            display: none !important;
         }
 
         #ui.mobile #toggleSettings {
@@ -344,17 +315,16 @@
             z-index: 2;
         }
 
-        #ui>div {
+	.button {
             cursor: pointer;
             position: relative;
             display: flex;
             justify-content: center;
-        }
+	}
 
         .svg {
             width: 100%;
             height: 100%;
-            position: absolute;
             background-color: white;
             -webkit-mask-repeat: no-repeat no-repeat;
             -webkit-mask-size: 30px 30px;
@@ -374,6 +344,16 @@
             border-radius: 10px;
         }
 
+	.timeReadout {
+            color: #fff;
+            user-select: none;
+            margin: auto;
+            cursor: default !important;
+            background-color: hsla(0, 0%, 0%, 0.4);
+            padding: 2px 6px 2px 6px;
+            border-radius: 10px;
+	}
+
         div:hover>.background {
             opacity: 0.2;
         }
@@ -391,79 +371,60 @@
             display: flex !important;
             flex-direction: column;
         }
-    </style>
 
+    </style>
+     </head>
     <body>
         <div id='ui' class='isPaused'>
             <input readonly id='copy'>
 
-            <div id='clickToStart' class='control'>Click the video above to start player</div>
+            <div id='clickToStart' class='control button'>Click the video above to start player</div>
 
-            <div id='currentTime' title='Current Time'>00:00:00</div>
-            <div id='duration' title='Video Duration'>00:00:00</div>
+            <div id='currentTime' class="timeReadout" title='Current Time'>00:00:00</div>
+            <div id='duration' class="timeReadout" title='Video Duration'>00:00:00</div>
 
             <input id='timeline' type='range' min='0' value='0' max='1' class='control'>
+            <div id='scrubTimeline' class="timeReadout"></div>
 
-            <div id='togglePlayback' title='Play/Pause' class='control'>
+            <div id='togglePlayback' class='button' title='Play/Pause' class='control'>
                 <div class='svg'></div>
                 <div class='background'></div>
             </div>
-            <div id='toggleMuted' title='Mute/Unmute' class='control'>
+            <div id='toggleMuted' class='button' title='Mute/Unmute' class='control'>
                 <div class='svg'></div>
                 <div class='background'></div>
             </div>
             <input id='volume' title='Set Volume' type='range' min='0' max='100' value='100' step='1' oninput="this.style.background = `linear-gradient(to right, white 0%, white ${100*(this.value/this.max)}%, grey ${100*(this.value/this.max)}%, grey 100%)`">
 
-            <div id='settings' class='settingsPopup'>
-                <div class='close' onclick="document.getElementById('ui').classList.remove('settings');">✖ Close</div>
+            <!-- <div id='settings' class='settingsPopup'>
+                <div class='close settingLabel' onclick="document.getElementById('ui').classList.remove('settings');">✖ Close</div>
                 <hr>
-                <div class='setVideo'>Set video with url</div>
-                <div class='getUrl'>Copy video at time</div>
-                <div class='setVideoQuality' onclick="document.getElementById('ui').classList.add('videoQuality')">Set video quality...</div>
-            </div>
-            <div id='videoQuality' class='settingsPopup'>
-                <div class='close' onclick="document.getElementById('ui').classList.remove('settings', 'videoQuality')">✖ Close</div>
-                <div class='back' onclick="document.getElementById('ui').classList.remove('videoQuality')">Back</div>
-                <hr>
-                <template class='videoQuality'>
-                    <div class='videoQuality'></div>
-                </template>
+                <div class='setVideo settingLabel'>Set video with url</div>
+                <div class='getUrl settingLabel'>Copy video at time</div>
             </div>
             <div id='toggleSettings' title='Settings' class='control' onclick="let ui = document.getElementById('ui'); ui.classList.remove('videoQuality'); ui.classList.toggle('settings')">
                 <div class='svg'></div>
                 <div class='background'></div>
-            </div>
-            <div id='toggleFullscreen' title='Fullscreen' class='control' onclick="document.getElementById('ui').classList.remove('settings', 'videoQuality')">
+            </div> -->
+            <div id='toggleFullscreen' title='Fullscreen' class='control button'>
                 <div class='svg'></div>
                 <div class='background'></div>
             </div>
-            <div id='watchOnYouTube' title='Watch on YouTube' class='control'>
+            <div id='watchOnYouTube' title='Watch on YouTube' class='control button'>
                 <div class='svg'></div>
                 <div class='background'></div>
             </div>
 
             <div id='controlsBackground'></div>
 
-            <div id='play' class='center'></div>
-            <div id='tellUserToSetVideo' class='center' onclick="document.querySelector('#settings .setVideo').click()">Click to add a YouTube video</div>
+            <div id='play' class='center button'></div>
+            <div id='tellUserToSetVideo' class='center button'>Click to add a YouTube video</div>
 
             <div id='videoOverlay'></div>
             <div id='video'></div>
         </div>
     </body>
 
-    <script>
-        if (window.location.protocol !== 'https:') {
-            //window.location.replace(`https:${window.location.href.substring(window.location.protocol.length)}`);
-        }
-    </script>
-
-    <!-- https://developers.google.com/youtube/player_parameters -->
-    <script src= "https://www.youtube.com/player_api"></script>
-
     <!-- https://croquet.io/sdk/docs/index.html -->
-    <script src='https://croquet.io/sdk/croquet-latest-pre.min.js'></script>
-
-    <script src='./model.js'></script>
     <script src='./app.js'></script>
 </html>
