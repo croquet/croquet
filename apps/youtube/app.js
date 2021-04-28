@@ -816,6 +816,7 @@ class YouTubePlayerView extends Croquet.View {
             this.playVideo();
         }
         delete this._didSetPaused;
+        this.updateTimelineStyle();
     }
 
     didEnd() {
@@ -831,6 +832,7 @@ class YouTubePlayerView extends Croquet.View {
             this.seekTo(this.getModelCurrentTime());
             if (this.isPaused()) {
                 this.updateCurrentTime(this.getModelCurrentTime());
+                this.updateTimelineStyle();
             }
         });
     }
@@ -838,6 +840,11 @@ class YouTubePlayerView extends Croquet.View {
     update(timestamp) {
         if (!this.ready) return;
         if (this.model.isEnded) {return;}
+
+        this.timestamp = this.timestamp || timestamp;
+
+        if (timestamp - this.timestamp <= 100) {return;}
+        this.timestamp = timestamp;
 
         if (!this.isPaused()) {
             this.getCurrentTime().then(currentTime => {
@@ -850,8 +857,7 @@ class YouTubePlayerView extends Croquet.View {
             });
         }
 
-        this.timestamp = this.timestamp || timestamp;
-        if (this._playedOnce && timestamp - this.timestamp > 100) {
+        if (this._playedOnce) {
             if (!this._didSetPaused && this.model.isPaused !== this.isPaused()) {
                 this.didSetPaused();
             }
@@ -863,18 +869,9 @@ class YouTubePlayerView extends Croquet.View {
                         this.didSeek();
                     }
                 });
+                this.updateTimelineStyle();
             }
-
-            this.timestamp = timestamp;
         }
-
-        this.updateTimelineStyleTimestamp = this.updateTimelineStyleTimestamp || Date.now();
-        if (this._playedOnce && (timestamp - this.updateTimelineStyleTimestamp) > 100) {
-            this.updateTimelineStyleTimestamp = timestamp;
-            this.updateTimelineStyle();
-        }
-
-        this.updateTimelineStyle();
     }
 
     // COPY/PASTE
