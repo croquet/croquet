@@ -340,7 +340,7 @@ class YouTubePlayerView extends Croquet.View {
             this.replay();
             return;
         }
-        console.log("toggled playback");
+        // console.log("toggled playback");
         this.getCurrentTime().then(currentTime => {
             this.publish(this.model.id, 'set-paused', {isPaused: !this.isPaused(), currentTime});
         });
@@ -716,7 +716,7 @@ class YouTubePlayerView extends Croquet.View {
     }
 
     onStateChange(event) {
-        console.log(event);
+        // console.log(event);
         const {data} = event;
         switch (data) {
             case YT.PlayerState.UNSTARTED:
@@ -760,7 +760,7 @@ class YouTubePlayerView extends Croquet.View {
                 this.didSeek();
                 break;
             case YT.PlayerState.BUFFERING:
-                console.log('buffering');
+                //console.log('buffering');
                 break;
             case YT.PlayerState.CUED:
                 console.log('cued');
@@ -810,7 +810,7 @@ class YouTubePlayerView extends Croquet.View {
 
     // DID
     didSetVideo() {
-        console.log("did set video");
+        // console.log("did set video");
         if (this.player) {
             console.log(this.model.currentTime);
             this.cueVideoById(this.model.video, this.model.currentTime);
@@ -821,7 +821,7 @@ class YouTubePlayerView extends Croquet.View {
     }
 
     didSetPaused() {
-        console.log("did set paused", this._playedOnce);
+        // console.log("did set paused", this._playedOnce);
         if (!this.player) return;
         if (!this._playedOnce) return;
 
@@ -842,7 +842,7 @@ class YouTubePlayerView extends Croquet.View {
     }
 
     didSeek() {
-        console.log("did seeek");
+        // console.log("did seeek");
         this.ensurePlayer().then(() => {
             console.log("did seeek with player");
             this.buffered = 0;
