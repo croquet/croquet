@@ -42,7 +42,7 @@
 
         #copy {
             position: absolute;
-            top: -1000px;
+            visibility: hidden;
         }
 
         #currentTime {
@@ -150,7 +150,7 @@
         /* Settings popup */
 
         .settingsPopup {
-            z-index: 3 !important;
+            z-index: 3;
             grid-row: 1 / span 2;
             grid-column: 4 / span 4;
             bottom: 50px;
@@ -159,7 +159,7 @@
             display: flex;
             flex-direction: column;
             align-items: flex-start;
-            justify-content: flex-start !important;
+            justify-content: flex-start;
             font-size: 14px;
             color: white;
             background-color: hsl(0, 0%, 10%);
@@ -222,11 +222,11 @@
         }
 
         #ui.mobile #toggleFullscreen {
-            display: none !important;
+            display: none;
         }
 
         #ui.greenlight #toggleFullscreen {
-            display: none !important;
+            display: none;
         }
 
         #ui.mobile #toggleSettings {
@@ -250,7 +250,6 @@
         #controlsBackground {
             grid-row: 2/-1;
             grid-column: 1/-1;
-            z-index: 1 !important;
             background: linear-gradient(hsla(0, 0%, 0%, 0), hsla(0, 0%, 0%, 1));
         }
 
@@ -258,7 +257,7 @@
             grid-row: 1/-1;
             grid-column: 1/-1;
             margin: auto;
-            z-index: 2 !important;
+            z-index: 3;
             text-align: center;
             background-color: #494949;
             padding: 10px;
@@ -289,12 +288,12 @@
         }
 
         #tellUserToSetVideo {
-            z-index: 2 !important;
+            z-index: 2;
         }
 
         #videoOverlay {
-            cursor: default !important;
-            z-index: 1 !important;
+            cursor: default;
+            z-index: 1;
         }
 
         #video,
@@ -308,7 +307,7 @@
         }
 
         #video {
-            z-index: 0 !important;
+            z-index: 0;
         }
 
         #ui>*:not(#video) {
@@ -320,7 +319,14 @@
             position: relative;
             display: flex;
             justify-content: center;
+            background-color: #ffffff00;
+            transition: background-color 0.1s linear;
+            border-radius: 10px;
 	}
+
+        .button:hover {
+	    background-color: #ffffff30;
+        }
 
         .svg {
             width: 100%;
@@ -329,38 +335,22 @@
             -webkit-mask-repeat: no-repeat no-repeat;
             -webkit-mask-size: 30px 30px;
             -webkit-mask-position: center center;
-            z-index: 2;
-        }
-
-        .background {
-            width: calc(100% - 12px);
-            height: calc(100% - 12px);
-            position: absolute;
-            z-index: 1;
-            align-self: center;
-            background-color: white;
-            opacity: 0;
-            transition: opacity 0.1s linear;
-            border-radius: 10px;
         }
 
 	.timeReadout {
             color: #fff;
             user-select: none;
             margin: auto;
-            cursor: default !important;
+            cursor: default;
             background-color: hsla(0, 0%, 0%, 0.4);
             padding: 2px 6px 2px 6px;
             border-radius: 10px;
 	}
 
-        div:hover>.background {
-            opacity: 0.2;
+        #clickToStart {
+            display: none;
         }
 
-        #clickToStart {
-            display: none !important;
-        }
         #ui.initPlayer.ready:not(.playedOnce) #clickToStart {
             grid-row: 2/-1;
             grid-column: 1/-1;
@@ -368,7 +358,7 @@
             background-color: black;
             color: white;
             text-align: center;
-            display: flex !important;
+            display: flex;
             flex-direction: column;
         }
 
@@ -377,51 +367,39 @@
     <body>
         <div id='ui' class='isPaused'>
             <input readonly id='copy'>
+            <div id='video'></div>
+            <div id='videoOverlay'></div>
 
             <div id='clickToStart' class='control button'>Click the video above to start player</div>
 
-            <div id='currentTime' class="timeReadout" title='Current Time'>00:00:00</div>
-            <div id='duration' class="timeReadout" title='Video Duration'>00:00:00</div>
+            <div id='controlsBackground'></div>
 
             <input id='timeline' type='range' min='0' value='0' max='1' class='control'>
             <div id='scrubTimeline' class="timeReadout"></div>
 
-            <div id='togglePlayback' class='button' title='Play/Pause' class='control'>
+            <div id='currentTime' class="timeReadout" title='Current Time'>00:00:00</div>
+            <div id='duration' class="timeReadout" title='Video Duration'>00:00:00</div>
+
+            <div id='togglePlayback' title='Play/Pause' class='control button'>
                 <div class='svg'></div>
-                <div class='background'></div>
             </div>
-            <div id='toggleMuted' class='button' title='Mute/Unmute' class='control'>
+            <div id='toggleMuted' title='Mute/Unmute' class='control button'>
                 <div class='svg'></div>
-                <div class='background'></div>
             </div>
             <input id='volume' title='Set Volume' type='range' min='0' max='100' value='100' step='1' oninput="this.style.background = `linear-gradient(to right, white 0%, white ${100*(this.value/this.max)}%, grey ${100*(this.value/this.max)}%, grey 100%)`">
-
-            <!-- <div id='settings' class='settingsPopup'>
-                <div class='close settingLabel' onclick="document.getElementById('ui').classList.remove('settings');">✖ Close</div>
-                <hr>
-                <div class='setVideo settingLabel'>Set video with url</div>
-                <div class='getUrl settingLabel'>Copy video at time</div>
-            </div>
-            <div id='toggleSettings' title='Settings' class='control' onclick="let ui = document.getElementById('ui'); ui.classList.remove('videoQuality'); ui.classList.toggle('settings')">
+            <div id='toggleSettings' title='Settings' class='control button'>
                 <div class='svg'></div>
-                <div class='background'></div>
-            </div> -->
+	    </div>
             <div id='toggleFullscreen' title='Fullscreen' class='control button'>
                 <div class='svg'></div>
-                <div class='background'></div>
             </div>
             <div id='watchOnYouTube' title='Watch on YouTube' class='control button'>
                 <div class='svg'></div>
-                <div class='background'></div>
             </div>
-
-            <div id='controlsBackground'></div>
 
             <div id='play' class='center button'></div>
             <div id='tellUserToSetVideo' class='center button'>Click to add a YouTube video</div>
 
-            <div id='videoOverlay'></div>
-            <div id='video'></div>
         </div>
     </body>
 

@@ -64,6 +64,9 @@ class YouTubePlayerModel extends Croquet.Model {
 
     setEnded(flag) {
         this.isEnded = flag;
+        if (!flag) {
+            this.currentTime = 0;
+        }
     }
 
     seek(currentTime) {
@@ -76,6 +79,9 @@ class YouTubePlayerModel extends Croquet.Model {
     onViewJoin(viewId) {
         if (Object.keys(this.users).length === 0) {
             this.setPaused({isPaused: false});
+            if (this.isEnded) {
+                this.seek(0);
+            }
         }
 
         if (!this.users[viewId]) {
@@ -115,7 +121,7 @@ class YouTubePlayerView extends Croquet.View {
             toggleMuted: document.getElementById('toggleMuted'),
             volume: document.getElementById('volume'),
 
-            //toggleSettings: document.getElementById('toggleSettings'),
+            toggleSettings: document.getElementById('toggleSettings'),
             toggleFullscreen: document.getElementById('toggleFullscreen'),
             watchOnYouTube: document.getElementById('watchOnYouTube'),
 
@@ -146,6 +152,9 @@ class YouTubePlayerView extends Croquet.View {
         this.addEventListener(this.elements.watchOnYouTube, 'click', this.watchOnYouTube.bind(this));
 
         this.addEventListener(this.elements.tellUserToSetVideo, 'click', this.promptUserForVideoUrl.bind(this));
+
+        this.addEventListener(this.elements.toggleSettings, "click", this.promptUserForVideoUrl.bind(this));
+
         //this.addEventListener(this.elements.settings.querySelector('.getUrl'), 'click', this.copyUrl.bind(this));
 
         this.addEventListener(this.elements.videoOverlay, 'click', this.onVideoOverlayClick.bind(this));
@@ -181,6 +190,8 @@ class YouTubePlayerView extends Croquet.View {
         }
 
         this.setupTippyTooltip();
+
+        this.lastTimelineValues = [0, 0];
 
         this.subscribe(this.model.id, 'did-set-video', this.didSetVideo);
         this.subscribe(this.model.id, 'did-set-paused', this.didSetPaused);
@@ -304,12 +315,13 @@ class YouTubePlayerView extends Croquet.View {
         });
     }
 
-    onTimelineLeave(event) {
+    onTimelineLeave(_event) {
         this.elements.scrubTimeline.style.display = "none";
     }
 
     onPlayClick() {
         console.log("PLAY");
+        this.publish(this.model.id, "set-ended", false);
         this.getCurrentTime().then(currentTime => {
             this.publish(this.model.id, 'set-paused', {isPaused: false, currentTime});
         });
@@ -317,6 +329,7 @@ class YouTubePlayerView extends Croquet.View {
 
     replay() {
         console.log("REPLAY");
+        this.publish(this.model.id, "set-ended", false);
         this.getCurrentTime().then(() => {
             this.publish(this.model.id, 'set-paused', {isPaused: false, currentTime: 0});
         });
@@ -502,6 +515,10 @@ class YouTubePlayerView extends Croquet.View {
     }
 
     updateTimelineStyle(override) {
+        const now = Date.now();
+        this.lastTimelineUpdate = this.lastTimelineUpdate || now;
+        if (now - this.lastTimelineUpdate < 500) {return;}
+        this.lastTimelineUpdate = now;
         Promise.all([
             this.getCurrentTime(),
             this.getDuration(),
@@ -509,8 +526,11 @@ class YouTubePlayerView extends Croquet.View {
         ]).then(([currentTime, duration, fraction]) => {
             const percent = 100 * (currentTime/duration);
             const buffered = 100 * fraction;
-            if (override || Number.isNaN(this.buffered) || buffered > this.buffered) {
+            if (override || Number.isNaN(this.buffered) ||
+                this.lastTimelineValues[0] !== percent ||
+                this.lastTimelineValues[1] !== buffered) {
                 this.buffered = buffered;
+                this.lastTimelineValues = [percent, buffered];
                 this.elements.timeline.style.background = `linear-gradient(to right, red 0%, red ${percent}%, white ${percent}%, white ${buffered}%, grey ${buffered}%, grey 100%)`;
             }
         });
@@ -692,6 +712,7 @@ class YouTubePlayerView extends Croquet.View {
         this._updatePaused = true;
         this._updateCurrentTime = true;
         this._playedOnce = false;
+        this._readyTime = Date.now();
     }
 
     onStateChange(event) {
@@ -704,6 +725,7 @@ class YouTubePlayerView extends Croquet.View {
             case YT.PlayerState.ENDED:
                 console.log('ended');
                 this.publish(this.model.id, "set-ended", true);
+                this.elements.ui.classList.add('isPaused');
                 break;
             case YT.PlayerState.PLAYING:
                 this.elements.ui.classList.remove('isPaused');
@@ -715,7 +737,7 @@ class YouTubePlayerView extends Croquet.View {
                     delete this._updateDuration;
                 }
                 if (this._updatePaused) {
-                    this._initialPause = true;
+                    console.log("initial pause set to true");
                     this.updatePaused();
                     delete this._updatePaused;
                 }
@@ -733,13 +755,9 @@ class YouTubePlayerView extends Croquet.View {
                 }
                 break;
             case YT.PlayerState.PAUSED:
-                console.log('paused');
                 this.elements.ui.classList.add('isPaused');
                 this.elements.ui.classList.remove('seeking');
-                if (this._initialPause === undefined) {
-                    this.didSeek();
-                }
-                delete this._initialPause;
+                this.didSeek();
                 break;
             case YT.PlayerState.BUFFERING:
                 console.log('buffering');
@@ -803,7 +821,7 @@ class YouTubePlayerView extends Croquet.View {
     }
 
     didSetPaused() {
-        console.log("did set paused");
+        console.log("did set paused", this._playedOnce);
         if (!this.player) return;
         if (!this._playedOnce) return;
 
@@ -826,12 +844,15 @@ class YouTubePlayerView extends Croquet.View {
     didSeek() {
         console.log("did seeek");
         this.ensurePlayer().then(() => {
+            console.log("did seeek with player");
             this.buffered = 0;
             this.elements.ui.classList.add('seeking');
             this.isSeeking = true;
             this.seekTo(this.getModelCurrentTime());
             if (this.isPaused()) {
-                this.updateCurrentTime(this.getModelCurrentTime());
+                const modelTime = this.getModelCurrentTime();
+                // console.log("did seeek when paused", modelTime);
+                this.updateCurrentTime(modelTime);
                 this.updateTimelineStyle();
             }
         });
@@ -859,7 +880,9 @@ class YouTubePlayerView extends Croquet.View {
 
         if (this._playedOnce) {
             if (!this._didSetPaused && this.model.isPaused !== this.isPaused()) {
+                console.log("pause from update", this.model.isPaused, this.isPaused());
                 this.didSetPaused();
+                this.updateTimelineStyle();
             }
 
             if (!this.isPaused()) {
@@ -893,6 +916,9 @@ class YouTubePlayerView extends Croquet.View {
         if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
             this.getCurrentTime().then(currentTime => {
                 const newTime = currentTime + (event.key === 'ArrowRight' ? 5 : -5);
+                if (newTime < 0) {return;}
+                if (newTime > this.model.duration) {return;}
+
                 this.publish(this.model.id, 'seek', newTime);
             });
             event.preventDefault();
