@@ -296,10 +296,6 @@ class YouTubePlayerView extends Croquet.View {
         if (event.isTrusted) {
             const currentTime = Number(event.target.value);
             this.publish(this.model.id, 'seek', currentTime);
-
-            if (this.isPaused) {
-                this.updateCurrentTime(currentTime);
-            }
         }
     }
 
@@ -321,6 +317,7 @@ class YouTubePlayerView extends Croquet.View {
 
     onPlayClick() {
         console.log("PLAY");
+        this._firstPlayTime = Date.now();
         this.publish(this.model.id, "set-ended", false);
         this.getCurrentTime().then(currentTime => {
             this.publish(this.model.id, 'set-paused', {isPaused: false, currentTime});
@@ -329,7 +326,7 @@ class YouTubePlayerView extends Croquet.View {
 
     replay() {
         console.log("REPLAY");
-        this.publish(this.model.id, "set-ended", false);
+        this.publish(this.model.id, "set-paused", {isPaused: false, currentTime: 0});
         this.getCurrentTime().then(() => {
             this.publish(this.model.id, 'set-paused', {isPaused: false, currentTime: 0});
         });
@@ -501,15 +498,12 @@ class YouTubePlayerView extends Croquet.View {
     updateCurrentTime(provisional) {
         if (provisional !== undefined) {
             this.provisional = provisional;
-            this.elements.timeline.value = provisional;
             this.elements.currentTime.innerText = this.secondsToHMS(provisional);
             return;
         }
 
         this.getCurrentTime().then(currentTime => {
             currentTime = currentTime || 0;
-
-            this.elements.timeline.value = currentTime;
             this.elements.currentTime.innerText = this.secondsToHMS(currentTime);
         });
     }
@@ -517,20 +511,21 @@ class YouTubePlayerView extends Croquet.View {
     updateTimelineStyle(override) {
         const now = Date.now();
         this.lastTimelineUpdate = this.lastTimelineUpdate || now;
-        if (now - this.lastTimelineUpdate < 500) {return;}
+        if (!override && now - this.lastTimelineUpdate < 500) {return;}
         this.lastTimelineUpdate = now;
         Promise.all([
-            this.getCurrentTime(),
+            Promise.resolve(this.getModelCurrentTime()),
             this.getDuration(),
             this.getVideoLoadedFraction()
         ]).then(([currentTime, duration, fraction]) => {
-            const percent = 100 * (currentTime/duration);
+            const percent = 100 * (currentTime / duration);
             const buffered = 100 * fraction;
             if (override || Number.isNaN(this.buffered) ||
                 this.lastTimelineValues[0] !== percent ||
                 this.lastTimelineValues[1] !== buffered) {
                 this.buffered = buffered;
                 this.lastTimelineValues = [percent, buffered];
+                this.elements.timeline.value = currentTime;
                 this.elements.timeline.style.background = `linear-gradient(to right, red 0%, red ${percent}%, white ${percent}%, white ${buffered}%, grey ${buffered}%, grey 100%)`;
             }
         });
@@ -712,7 +707,6 @@ class YouTubePlayerView extends Croquet.View {
         this._updatePaused = true;
         this._updateCurrentTime = true;
         this._playedOnce = false;
-        this._readyTime = Date.now();
     }
 
     onStateChange(event) {
@@ -724,8 +718,14 @@ class YouTubePlayerView extends Croquet.View {
                 break;
             case YT.PlayerState.ENDED:
                 console.log('ended');
-                this.publish(this.model.id, "set-ended", true);
-                this.elements.ui.classList.add('isPaused');
+                if (this._firstPlayTime && Date.now() - this._firstPlayTime < 1000) {
+                    console.log("ended too soon");
+                    this.publish(this.model.id, "seek", 0);
+                    setTimeout(() => {this.playVideo();}, 1000);
+                } else {
+                    this.publish(this.model.id, "set-ended", true);
+                    this.elements.ui.classList.add('isPaused');
+                }
                 break;
             case YT.PlayerState.PLAYING:
                 this.elements.ui.classList.remove('isPaused');
@@ -737,7 +737,6 @@ class YouTubePlayerView extends Croquet.View {
                     delete this._updateDuration;
                 }
                 if (this._updatePaused) {
-                    console.log("initial pause set to true");
                     this.updatePaused();
                     delete this._updatePaused;
                 }
@@ -750,6 +749,7 @@ class YouTubePlayerView extends Croquet.View {
 
                 if (!this._playedOnce) {
                     this._playedOnce = true;
+                    this._firstPlayTime = Date.now();
                     this.didSeek();
                     this.elements.ui.classList.add('playedOnce');
                 }
@@ -834,7 +834,7 @@ class YouTubePlayerView extends Croquet.View {
             this.playVideo();
         }
         delete this._didSetPaused;
-        this.updateTimelineStyle();
+        this.updateTimelineStyle(true);
     }
 
     didEnd() {
@@ -842,18 +842,18 @@ class YouTubePlayerView extends Croquet.View {
     }
 
     didSeek() {
-        // console.log("did seeek");
+        // console.log("did seek");
         this.ensurePlayer().then(() => {
-            console.log("did seeek with player");
+            console.log("did seek with player");
             this.buffered = 0;
             this.elements.ui.classList.add('seeking');
             this.isSeeking = true;
             this.seekTo(this.getModelCurrentTime());
             if (this.isPaused()) {
                 const modelTime = this.getModelCurrentTime();
-                // console.log("did seeek when paused", modelTime);
+                // console.log("did seek when paused", modelTime);
                 this.updateCurrentTime(modelTime);
-                this.updateTimelineStyle();
+                this.updateTimelineStyle(true);
             }
         });
     }
@@ -873,7 +873,7 @@ class YouTubePlayerView extends Croquet.View {
                 if (flooredCurrentTime !== this.flooredCurrentTime) {
                     this.flooredCurrentTime = flooredCurrentTime;
                     this.updateCurrentTime();
-                    this.updateTimelineStyle(true);
+                    this.updateTimelineStyle();
                 }
             });
         }
