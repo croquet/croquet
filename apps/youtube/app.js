@@ -96,7 +96,7 @@ class YouTubePlayerModel extends Croquet.Model {
     }
 }
 
-YouTubePlayerModel.register('YouTubePlayer');
+YouTubePlayerModel.register('YouTubePlayerModel');
 
 
 // https://developers.google.com/youtube/iframe_api_reference
