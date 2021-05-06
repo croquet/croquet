@@ -136,7 +136,7 @@ export default class Controller {
         /** @type {String} the client id (different in each replica, but stays the same on reconnect) */
         this.viewId = this.viewId || randomString(); // todo: have reflector assign unique ids
         /** @type {String} stateless reflectors always start new session, this is the only way to notice that */
-        this.reflectorSession = '';
+        this.timeline = '';
         // just to be safe ...
         if (this.rejoinTimeout) clearTimeout(this.rejoinTimeout);
         /** timeout rejoin if rejoinLimit has been requested */
@@ -219,7 +219,7 @@ export default class Controller {
     get shouldLeaveWhenDisconnected() { return this.leaving || !this.canRejoinSeamlessly; }
 
     /** @type {Boolean} does the reflector support seamless rejoin? */
-    get canRejoinSeamlessly() { return !!this.reflectorSession; }
+    get canRejoinSeamlessly() { return !!this.timeline; }
 
     checkForConnection(force) { this.connection.checkForConnection(force); }
 
@@ -677,7 +677,8 @@ export default class Controller {
         switch (action) {
             case 'SYNC': {
                 // We are joining an island session.
-                const {messages, url, persisted, time, seq, /* snapshotTime, */ snapshotSeq, reflector, reflectorSession} = args;
+                const {messages, url, persisted, time, seq, /* snapshotTime, */ snapshotSeq, reflector} = args;
+                const timeline = args.timeline || args.reflectorSession; // renamed "reflectorSession" to "timeline"
                 const persistedOrSnapshot = persisted ? "persisted session" : "snapshot";
                 if (DEBUG.session) console.log(this.id, `received SYNC from ${reflector} reflector: time ${time}, ${messages.length} messages, ${persistedOrSnapshot} ${url || "<none>"}`);
                 // if we are rejoining, check if we can do that seamlessly without taking down the view
@@ -691,8 +692,8 @@ export default class Controller {
                     // was backlogged, in which case it might be better to start from the new snapshot anyways.
                     // Instead, we just make make sure no old messages are hanging around:
                     this.networkQueue.length = 0;
-                    // old reflector does not send seq, snapshotSeq, reflectorSession, cannot rejoin
-                    const sameSession  = !!reflectorSession && reflectorSession === this.reflectorSession;
+                    // old reflector does not send seq, snapshotSeq, timeline, cannot rejoin
+                    const sameSession  = !!timeline && timeline === this.timeline;
                     const firstMessage = messages[0];
                     const newest = seq;
                     const oldest = snapshotSeq !== undefined ? snapshotSeq
@@ -755,7 +756,7 @@ export default class Controller {
                     if (DEBUG.session) console.log(this.id, "seamless rejoin successful");
                     return;
                 }
-                this.reflectorSession = reflectorSession || ''; // stored only on initial connection
+                this.timeline = timeline || ''; // stored only on initial connection
                 // otherwise we need go to work
                 if (DEBUG.session) console.log(`${this.id} fetching ${persistedOrSnapshot} ${url}`);
                 let data;
