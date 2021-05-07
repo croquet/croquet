@@ -240,7 +240,7 @@ export function displayAppError(where, error) {
 }
 
 function displayToast(msg, options) {
-    const parentDef = App.root;
+    const parentDef = findElement(App.root, () => document.body);
     if (parentDef === false) return null;
 
     addToastifyStyle();
@@ -329,7 +329,7 @@ function makeWidgetDock(options = {}) {
     const oldDockDiv = document.getElementById('croquet_dock');
     if (oldDockDiv) oldDockDiv.parentElement.removeChild(oldDockDiv);
 
-    const dockParent = findElement(App.root);
+    const dockParent = findElement(App.root, () => document.body);
     if (!dockParent) return;
 
     addWidgetStyle();
@@ -709,7 +709,7 @@ function findElement(value, ifNotFoundDo) {
 
 export const App = {
     sessionURL: window.location.href,
-    root: document.body, // root for messages, the sync spinner, and the info dock
+    root: null, // root for messages, the sync spinner, and the info dock (defaults to document.body)
     sync: true, // whether to show the sync spinner while starting a session, or catching up
     messages: false, // whether to show status messages (e.g., as toasts)
 
@@ -742,8 +742,7 @@ export const App = {
     clearSessionMoniker,
 
     showSyncWait(bool) {
-        const parentDef = App.root;
-        if (parentDef === false) bool = false; // if root (now) false, only allow disabling
+        if (App.root === false) bool = false; // if root (now) false, only allow disabling
 
         displaySpinner(bool);
     },
