@@ -817,9 +817,10 @@ export const App = {
     // get password from url hash.
     // If found, remove it but keep in sessionURL for QR code
     // Note: independent of this, hard-coded in controller
-    autoPassword(options = { key: 'pw', scrub: false }) {
+    autoPassword(options = { key: 'pw', scrub: false, keyless: true }) {
         const key = options.key || 'pw';
         const scrub = options.scrub && !urlOptions.has("debug", "password");
+        const keyless = options.keyless;
         const url = new URL(window.location);
         let password = '';
         const hash = url.hash.slice(1);
@@ -830,7 +831,7 @@ export const App = {
                 password = keyAndPassword.replace(/[^=]*=/, '');
                 // App.sessionURL has it, but scrub from address bar
                 if (password && scrub) url.hash = params.filter(param => param.split("=")[0] !== key).join('&');
-            } else { // allow keyless #password
+            } else if (keyless) { // allow keyless #password
                 password = params.find(param => !param.includes("="));
                 // App.sessionURL has it, but scrub from address bar
                 if (password && scrub) url.hash = params.filter(param => param !== password).join('&');
@@ -843,7 +844,8 @@ export const App = {
             password = toBase64url(random.buffer);
             // add password to session URL for QR code
             if (hash) url.hash = `${hash}&${key}=${password}`;
-            else url.hash = password;
+            else if (keyless) url.hash = password;
+            else url.hash = `${key}=${password}`;
             App.sessionURL = url.href;
             // but scrub it from address bar
             if (scrub) url.hash = hash;
