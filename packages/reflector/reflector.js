@@ -509,7 +509,7 @@ function announceUserDidJoin(client) {
 
 function announceUserDidLeave(client) {
     const island = ALL_ISLANDS.get(client.sessionId);
-    if (!island || !client.user || client.active === false) return;
+    if (!island || !client.user || client.active !== true) return;
     client.active = false;
     const didJoin = island.usersJoined.indexOf(client.user);
     if (didJoin !== -1) island.usersJoined.splice(didJoin, 1);
