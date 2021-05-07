@@ -26,6 +26,7 @@ esac
 # publish pub/croquet.min.js to croquet.io/dev/sdk
 SDK=../../../../servers/croquet-io-dev/sdk
 sed 's,//# sourceMappingURL.*,,' pub/croquet.min.js > $SDK/croquet-$VERSION.min.js
+$PRERELEASE && cat prerelease.js >> $SDK/croquet-$VERSION.min.js
 cp pub/croquet.min.js.map $SDK/croquet-$VERSION.min.js.map
 
 # always link as latest-pre

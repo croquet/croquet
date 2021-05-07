@@ -758,10 +758,17 @@ export const App = {
         return App.messageFunction(msg, options);
     },
 
+    // this is also used in prerelease.js
+    isCroquetHost(hostname) {
+        return hostname.endsWith("croquet.io")
+            || ["localhost", "127.0.0.1", "[::1]"].includes(hostname)
+            || hostname.endsWith("ngrok.io");
+    },
+
     // sanitized session URL (always without @user:password and #hash, and without query if not same-origin as croquet.io)
     referrerURL() {
         const url = new URL(App.sessionURL);
-        const sameOrigin = ["croquet.io", "croquet.studio", "localhost"].includes(url.hostname);
+        const sameOrigin = this.isCroquetHost(url.hostname);
         return `${url.origin}${url.pathname}${sameOrigin ? url.search : ""}`;
     },
 
