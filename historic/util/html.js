@@ -21,7 +21,7 @@ function addWidgetStyle() {
     if (addedWidgetStyle) return;
     addedWidgetStyle = true;
     const widgetCSS = `
-        #croquet_dock { position: absolute; z-index: 2; border: 3px solid white; bottom: 6px; left: 6px; width: 36px; height: 36px; box-sizing: border-box; background: white; opacity: 0.4; transition: all ${TRANSITION_TIME}s ease; }
+        #croquet_dock { position: fixed; z-index: 2; border: 3px solid white; bottom: 6px; left: 6px; width: 36px; height: 36px; box-sizing: border-box; background: white; opacity: 0.4; transition: all ${TRANSITION_TIME}s ease; }
         #croquet_dock.active { opacity: 0.95; border-radius: 12px; }
         #croquet_dock.debug { width: 84px; }
         #croquet_dock_bar { position: absolute; border: 3px solid white; width: 100%; height: 30px; box-sizing: border-box; background: white; }
@@ -66,7 +66,7 @@ function addSpinnerStyle() {
     const spinnerCSS = `
         #croquet_spinnerOverlay {
             z-index: 1000;
-            position: absolute;
+            position: fixed;
             left: 0;
             top: 0;
             width: 100%;
