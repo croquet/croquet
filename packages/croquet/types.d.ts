@@ -121,6 +121,9 @@ declare module "@croquet/croquet" {
          * - the class description can either be just the class itself (if the serializer should
          *   snapshot all its fields, see first example below), or an object with `write()` and `read()` methods to
          *   convert instances from and to their serializable form (see second example below).
+         * - the serialized form answered by `write()` can be almost anything. E.g. if it answers an Array of objects
+         *   then the serializer will be called for each of those objects. Conversely, these objects will be deserialized
+         *   before passing the Array to `read()`.
          *
          * The types only need to be declared once, even if several different Model subclasses are using them.
          *
@@ -133,7 +136,7 @@ declare module "@croquet/croquet" {
          *   static types() {
          *     return {
          *       "SomeUniqueName": MyNonModelClass,
-         *       "THREE.Vector3": THREE.Vector3,
+         *       "THREE.Vector3": THREE.Vector3,        // serialized as '{"x":...,"y":...,"z":...}'
          *       "THREE.Quaternion": THREE.Quaternion,
          *     };
          *   }
@@ -145,12 +148,18 @@ declare module "@croquet/croquet" {
          * class MyModel extends Croquet.Model {
          *   static types() {
          *     return {
+         *       "THREE.Vector3": {
+         *         cls: THREE.Vector3,
+         *         write: v => [v.x, v.y, v.z],        // serialized as '[...,...,...]' which is shorter than the default above
+         *         read: a => new THREE.Vector3(a[0], a[1], a[2]),
+         *       },
          *       "THREE.Color": {
          *         cls: THREE.Color,
          *         write: color => '#' + color.getHexString(),
-         *         read: state => new THREE.Color(state) },
-         *       };
-         *    }
+         *         read: state => new THREE.Color(state),
+         *       },
+         *     };
+         *   }
          * }
          * ```
          * @public
