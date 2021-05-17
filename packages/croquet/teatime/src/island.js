@@ -278,8 +278,8 @@ export default class Island {
         // sanity check: the active number of connections on the reflector should match our count
         const connections = Object.values(this.views).reduce((n, view) => n + 1 + (view.extraConnections || 0), 0);
         if (count !== connections) {
-            console.error(`@${this.time}#${this.seq} view count mismatch (client: ${connections}, server: ${count}) - this should not happen`);
-            this.controller.sendLog(`view-exit-mismatch @${this.time}#${this.seq} connections reported: ${connections} actual: ${count}`);
+            console.error(`@${this.time}#${this.seq} view count mismatch (model: ${connections}, reflector: ${count}) - this should not happen`);
+            this.controller.sendLog(`view-exit-mismatch @${this.time}#${this.seq} connections model: ${connections} reflector: ${count}`);
         }
         // BTW: if the view sent to reflector in controller.join() was an object or array
         // instead of a plain string, then reflector may have added the
