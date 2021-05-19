@@ -9,7 +9,7 @@ cd `dirname "$0"`
 WHAT="$1"
 OPTION="$2"
 VERSION=$(cd ../libraries/packages/croquet;node -p -e "require('./package.json').version")
-RELEASEVERSION=$(git tag --list @croquet/croquet\* | tail -1 | sed 's/.*@//')
+DOCSVERSION=$(node -p -e "require('./package.json').version")
 [ $? -ne 0 ] && exit 1
 
 case "$VERSION" in
@@ -26,7 +26,7 @@ esac
 PARCEL_OPT=""
 case "$WHAT" in
 docs)
-    VERSION="$RELEASEVERSION"
+    VERSION="$DOCSVERSION"
     PRERELEASE=false
     PRE=""
     ;;
@@ -38,11 +38,10 @@ release)
         echo "$VERSION looks like a pre-release version!"
         exit 0
     fi
-    if [ "$VERSION" != "$RELEASEVERSION" ] ; then
-        echo "package.json's $VERSION does not equal latest tag $RELEASEVERSION"
+    if [ "$VERSION" != "$DOCSVERSION" ] ; then
+        echo "edit sdk docs version $DOCSVERSION to equal sdk package version $VERSION"
         exit 1
     fi
-    npm version "$VERSION"
     [ $? -ne 0 ] && exit 1
     ;;
 *)
@@ -88,7 +87,7 @@ npx parcel build $PARCEL_OPT --public-url . --no-source-maps -d $DOCS build/*.ht
 rm $DOCS/conduct.html
 sed -i '' "s|conduct.html|/conduct.html|" $DOCS/index.html
 
-$COMMIT || exit
+$COMMIT || exit 0
 
 git add -A $DOCS/ package.json
 git commit -m "[sdk] deploy docs $VERSION to croquet.io/dev/sdk/docs$PRE" $DOCS/ package.json || exit
