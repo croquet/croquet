@@ -2,7 +2,7 @@
 
 This is a private summary of changes. The public changes are in [README.md](./README.md).
 
-# latest pre-releases
+# 2021-05-18: 0.5.0
 
 * 0.4.1-33 fix App.root, fix badge&spinner positioning, autoPassword keyless option, prerelease on croquet hosts only
 * 0.4.1-32 adapt synced event threshold to low TPS
@@ -38,7 +38,7 @@ This is a private summary of changes. The public changes are in [README.md](./RE
 * 0.4.1-2 add optional "keep" arg to Data.store()
 * 0.4.1-1 fix ts types
 
-# 2020-09-03: 0.4.0
+# 2020-11-20: 0.4.0
 
 * 0.4.0-40 warn if no appId, undefined tps uses default
 * 0.4.0-39 rename release
