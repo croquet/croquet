@@ -636,13 +636,13 @@ export default class Island {
         const ms = Stats.end("snapshot") - start;
         const unchanged = this.persisted === persistentHash;
         if (DEBUG.snapshot) console.log(`${this.id} persistent data collected, stringified and hashed in ${Math.ceil(ms)}ms${unchanged ? " (unchanged, ignoring)" : ""}`);
+        const tuttiSeq = this.getNextTuttiSeq(); // increase seq even if unchanged. If we have a divergence this should allow voting to continue
         if (unchanged) return;
         this.persisted = persistentHash;
         // controller is unset only during init()
         // this lets us init the hash, but we won't upload the initial state
         if (!this.controller) return;
         const time = this.time;
-        const tuttiSeq = this.getNextTuttiSeq();
         // run everything else outside of model
         Promise.resolve().then(() => this.controller.persist(time, tuttiSeq, persistentString, persistentHash, ms));
     }
