@@ -704,8 +704,8 @@ declare module "@croquet/croquet" {
 
     export type CroquetSessionParameters<M extends Model, V extends View> = {
         appId: string,
-        name: string,
-        password: string,
+        name: string|Promise<string>,
+        password: string|Promise<string>,
         model: ClassOf<M>,
         view: ClassOf<V>,
         options?: CroquetModelOptions,
