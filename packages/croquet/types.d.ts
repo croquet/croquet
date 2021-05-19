@@ -711,6 +711,7 @@ declare module "@croquet/croquet" {
         options?: CroquetModelOptions,
         step?: "auto" | "manual",
         tps?: number,
+        joinLimit?: number,
         debug?: CroquetDebugOptions | Array<CroquetDebugOptions>
     }
 
