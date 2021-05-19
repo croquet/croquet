@@ -11,8 +11,8 @@
   "author": "Croquet Corporation",
   "license": "ISC",
   "dependencies": {
-    "@croquet/croquet": "^0.4.0",
-    "@croquet/observable": "^0.4.0",
+    "@croquet/croquet": "^0.4.1-1",
+    "@croquet/observable": "^0.4.1-1",
     "gl-matrix": "^3.0.0",
     "oimo": "git+https://github.com/croquet/Oimo.js.git",
     "quaternion-to-euler": "^0.5.0"
