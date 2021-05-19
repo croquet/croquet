@@ -1,6 +1,10 @@
 # Changelog
 
-This is a private summary of changes. The public changes are in [README.md](./README.md).
+This is a private summary of changes. The public changes are in the SDK [README.md](../../../sdk/README.md#changelog).
+
+# latest pre-releases
+
+* 0.5.1-0 persistSession always increments tutti seq
 
 # 2021-05-18: 0.5.0
 
