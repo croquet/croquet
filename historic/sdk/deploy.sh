@@ -75,7 +75,8 @@ DOCS=$DIR/sdk/docs$PRE
 
 rm -rf build/*
 npx jsdoc -c jsdoc.json -d build || exit
-sed -i '' "s/@CROQUET_VERSION@/$VERSION/" build/*.html || exit
+MINOR_VERSION=`echo $VERSION | sed 's/\.[^.]*$//'`
+sed -i '' "s/@CROQUET_VERSION@/$VERSION/;s/@CROQUET_VERSION_MINOR@/$MINOR_VERSION/;" build/*.html || exit
 
 # clean old docs
 rm -rf $DOCS/*

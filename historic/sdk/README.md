@@ -27,10 +27,10 @@ There are 3 main ways to use our SDK:
 
 1. **CodePen:** play with our tutorials, click "Edit on CodePen", and develop your app there. To share it, change the view to full screen, and share the pen's url. Alternatively, click "Export" and choose "Export .zip" to download your app to your local computer for further editing and uploading to your own website.
 
-2. **Script Tag**: Add the following inside your page's `<head>` tag, possibly replacing `@@CROQUET_VERSION@` with the version you want:
+2. **Script Tag**: Add the following inside your page's `<head>` tag, possibly replacing `@@CROQUET_VERSION_MINOR@` with the version you want:
 
        <meta charset="utf-8">
-       <script src="https://unpkg.com/@croquet/croquet@@CROQUET_VERSION@"></script>
+       <script src="https://unpkg.com/@croquet/croquet@@CROQUET_VERSION_MINOR@"></script>
 
     This will create the `Croquet` global to access `Croquet.Model` etc.
 
