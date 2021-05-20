@@ -971,6 +971,13 @@ server.on('connection', (client, req) => {
     prometheusConnectionGauge.inc();
     const { version, sessionId } = sessionIdAndVersionFromUrl(req.url);
     if (!sessionId) { ERROR(`Missing session id in request "${req.url}"`); client.close(...REASON.BAD_PROTOCOL); return; }
+    if (ALL_ISLANDS.has(sessionId)) {
+        const island = ALL_ISLANDS.get(sessionId);
+        if (island.deletionTimeout) {
+            clearTimeout(island.deletionTimeout);
+            island.deletionTimeout = null;
+        }
+    }
     client.sessionId = sessionId;
     client.addr = `${req.connection.remoteAddress.replace(/^::ffff:/, '')}:${req.connection.remotePort}`;
     if (req.headers['x-forwarded-for']) client.forwarded = `via ${req.headers['x-croquet-dispatcher'||'']} (${req.headers['x-forwarded-for'].split(/\s*,\s*/).map(a => a.replace(/^::ffff:/, '')).join(', ')}) `;
