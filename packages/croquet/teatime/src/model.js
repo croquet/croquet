@@ -199,6 +199,15 @@ class Model {
      * __NOTE:__ This is currently the only way to customize serialization (for example to keep snapshots fast and small).
      * The serialization of Model subclasses themselves can not be customized.
      *
+     * Serialization types supported in addition to JSON:
+     * - `-0`, NaN, Infinity
+     * - `undefined`
+     * - `ArrayBuffer`, `DataView`, `Int8Array`, `Uint8Array`, `Uint8ClampedArray`, `Int16Array`, `Uint16Array`, `Int32Array`, `Uint32Array`, `Float32Array`, `Float64Array`
+     * - `Set`, `Map`
+     *
+     * How to serialize...
+     * - Functions: wrap them in non-model class, serialize as source-code, deserialize using `new Function(...)`
+     *
      * @example <caption>To use the default serializer just declare the class:</caption>
      * class MyModel extends Croquet.Model {
      *   static types() {
@@ -612,20 +621,23 @@ class Model {
     }
 
     /**
-     * Store an application-defined representation of this session to be loaded into future
+     * Store an application-defined JSON representation of this session to be loaded into future
      * sessions. This will be passed into the root model's [init]{@link Model#init} method
      * if resuming a session that is not currently ongoing (e.g. due to changes in the model code).
      *
-     * **Note:** You should design this data in a way to be loadable in newer versions of your app.
+     * **Note:** You should design the JSON in a way to be loadable in newer versions of your app.
      * To help migrating incompatible data, you may want to include a version identifier so a future
      * version of your [init]{@link Model#init} can decide what to do.
+     *
+     * **Warning** Do NOT use `JSON.stringify` because the result is not guaranteed to have the same ordering of keys
+     * everywhere. Instead, store the JSON data directly and let Croquet apply its stable stringification.
      *
      * Also you must only call persistSession() from your [root model]{@link Model#wellKnownModel}.
      * If there are submodels, your collectDataFunc should collect data from all submodels.
      * Similarly, only your root model's `init` will receive that persisted data.
      * It should recreate submodels as necessary.
      *
-     * Croquet will not interpret this data in any way. It is simply encrypted, stored, and retrieved.
+     * Croquet will not interpret this data in any way. It is stringified, encrypted, and stored.
      *
      * @example
      * save() { this.persistSession(this.dataForExport); }
