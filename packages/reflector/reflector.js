@@ -537,7 +537,12 @@ function SNAP(client, args) {
     const island = ALL_ISLANDS.get(id);
     if (!island) { client.safeClose(...REASON.UNKNOWN_ISLAND); return; }
 
-    const { time, seq, hash, url } = args; // details of the snapshot that has been uploaded
+    const { time, seq, hash, url, dissident } = args; // details of the snapshot that has been uploaded
+
+    if (dissident) {
+        DEBUG(`${id}/${client.addr} @${island.time}#${island.seq} dissident snapshot ${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'} ${JSON.stringify(dissident)}`);
+        return;
+    }
 
     // to decide if the announced snapshot deserves to replace the existing one we
     // compare times rather than message seq, since (at least in principle) a new
