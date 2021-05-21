@@ -724,9 +724,11 @@ function TUTTI(client, args) {
     const tallyHash = `${tuttiSeq}:${sendTime}`;
     function tallyComplete() {
         const tally = island.tallies[tallyHash];
-        clearTimeout(tally.timeout);
+        const { timeout, expecting: missing } = tally;
+        clearTimeout(timeout);
+        if (missing) LOG(`${missing} ${missing === 1 ? "client" : "clients"} missing from tally ${tuttiSeq}`);
         if (wantsVote || Object.keys(tally.payloads).length > 1) {
-            const payloads = { what: 'tally', tuttiSeq, tally: tally.payloads, tallyTarget };
+            const payloads = { what: 'tally', tuttiSeq, tally: tally.payloads, tallyTarget, missingClients: missing };
             const msg = [0, 0, payloads];
             SEND(island, [msg]);
         }
