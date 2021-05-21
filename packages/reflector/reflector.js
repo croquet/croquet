@@ -865,7 +865,7 @@ function startTicker(island, tick) {
     LOCAL_DEBUG(`${island.id} ${island.ticker ? "restarting" : "started"} ticker: ${tick} ms`);
     if (island.ticker) stopTicker(island);
     island.tick = tick;
-    island.ticker = setInterval(() => TICK(island), tick * island.scale);
+    island.ticker = setInterval(() => TICK(island), tick);
 }
 
 function stopTicker(island) {
