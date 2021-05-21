@@ -618,7 +618,12 @@ function SAVE(client, args) {
     const { appId, islandId } = island;
     if (!appId || !islandId) { client.safeClose(...REASON.BAD_APPID); return; }
 
-    const { url } = args; // details of the persistent data that has been uploaded
+    const { url, dissident } = args; // details of the persistent data that has been uploaded
+
+    if (dissident) {
+        DEBUG(`${id}/${client.addr} @${island.time}#${island.seq} dissident persistent data ${url} ${JSON.stringify(dissident)}`);
+        return;
+    }
 
     DEBUG(`${id}/${client.addr} @${island.time}#${island.seq} got persistent data: ${url}`);
 

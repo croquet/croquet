@@ -385,30 +385,38 @@ export default class Controller {
         }
         if (DEBUG.snapshot) console.log(this.id, "received snapshot votes", tally);
 
-        const voteStrings = Object.keys(tally);
-        const votes = voteStrings.map(k => JSON.parse(k)); // objects { hash, cpuTime, viewId }
-        const votesByHash = {};
+        const { numberOfGroups, shouldUpload, dissidentFlag } = this.analyzeTally(tally, 'cpuTime');
+        if (numberOfGroups > 1) console.warn(this.id, `Snapshots fall into ${numberOfGroups} groups`);
+        if (shouldUpload) this.serveSnapshot(dissidentFlag);
+    }
 
-        // figure out whether there's a consensus on the summary hashes
-        votes.forEach(({ hash }, i) => {
+    analyzeTally(tally, timeProperty) {
+        // analyse the results of a tutti vote for either a snapshot or persistence,
+        // in which the tally keys are JSONified vote objects that are guaranteed to be
+        // unique.
+        // even if this client is not in the tally (didn't vote, or vote arrived late)
+        // we still analyse the votes, because if the hashes fall into multiple groups
+        // every client should log a warning.
+
+        let shouldUpload = false;
+        let dissidentFlag = null;
+        const votes = [];
+        const votesByHash = {};
+        let ourIndex = null;
+        Object.keys(tally).forEach((k, i) => {
+            const vote = JSON.parse(k); // { hash, viewId } and specified time property
+            votes.push(vote);
+
+            const { hash, viewId } = vote;
+            if (viewId === this.viewId) ourIndex = i;
             if (!votesByHash[hash]) votesByHash[hash] = [];
             votesByHash[hash].push(i);
             });
 
-        const snapshotFromGroup = (groupHash, isConsensus) => {
-            const clientIndices = votesByHash[groupHash];
-            if (clientIndices.length > 1) clientIndices.sort((a, b) => votes[a].cpuTime - votes[b].cpuTime); // ascending order
-            const selectedClient = clientIndices[0];
-            if (votes[selectedClient].viewId === this.viewId) {
-                const dissidentFlag = isConsensus ? null : { groupSize: clientIndices.length };
-                this.serveSnapshot(dissidentFlag);
-            }
-            };
-
         const hashGroups = Object.keys(votesByHash);
+        const numberOfGroups = hashGroups.length;
         let consensusHash = hashGroups[0];
-        if (hashGroups.length > 1) {
-            console.warn(this.id, `Snapshots fall into ${hashGroups.length} groups`);
+        if (numberOfGroups > 1) {
             // decide consensus by majority vote; in a tie, summary hash first in
             // lexicographic order is taken as the consensus.
             hashGroups.sort((a, b) => votesByHash[b].length - votesByHash[a].length); // descending order of number of matching votes
@@ -417,7 +425,20 @@ export default class Controller {
                 consensusHash = hashGroups[0] < hashGroups[1] ? hashGroups[0] : hashGroups[1];
             }
         }
-        hashGroups.forEach(hash => snapshotFromGroup(hash, hash === consensusHash));
+
+        // figure out whether this client should do the upload for the group (if any)
+        // that it's in.
+        if (ourIndex !== null) {
+            const ourHash = votes[ourIndex].hash;
+            const clientIndices = votesByHash[ourHash];
+            if (clientIndices.length > 1) clientIndices.sort((a, b) => votes[a][timeProperty] - votes[b][timeProperty]); // ascending order
+            if (clientIndices[0] === ourIndex) {
+                shouldUpload = true;
+                if (ourHash !== consensusHash) dissidentFlag = { groupVotes: clientIndices.length, allVotes: votes.length };
+            }
+        }
+
+        return { numberOfGroups, shouldUpload, dissidentFlag };
     }
 
     serveSnapshot(dissidentFlag) {
@@ -492,7 +513,7 @@ export default class Controller {
     announceSnapshotUrl(time, seq, hash, url, dissidentFlag) {
         if (DEBUG.snapshot) {
             let logProps = `time: ${time}, seq: ${seq}, hash: ${hash}`;
-            if (dissidentFlag) logProps += ", dissident: " + JSON.stringify(dissidentFlag);
+            if (dissidentFlag) logProps += ", as dissident; " + JSON.stringify(dissidentFlag);
             console.log(this.id, `sending snapshot url to reflector (${logProps}): ${url}`);
         }
         try {
@@ -570,8 +591,9 @@ export default class Controller {
     async persist(time, tuttiSeq, persistentString, persistentHash, ms) {
         if (!this.synced) return; // ignore during fast-forward
         if (!this.islandCreator.appId) throw Error('Persistence API requires appId');
-        const shouldUpload = await this.persistenceVoting(time, tuttiSeq, persistentHash, ms);
+        const { shouldUpload, dissidentFlag } = await this.persistenceVoting(time, tuttiSeq, persistentHash, ms);
         if (!shouldUpload) return;
+
         const url = this.persistentUrl(persistentHash);
         await this.uploadEncrypted({
             url,
@@ -581,12 +603,15 @@ export default class Controller {
             debug: DEBUG.snapshot,
             what: "persistent data",
         });
-        if (DEBUG.snapshot) console.log(this.id, `sending persistent data url to reflector: ${url}`);
+        if (DEBUG.snapshot) {
+            const logProps = dissidentFlag ? ` (as dissident; ${JSON.stringify(dissidentFlag)})` : "";
+            console.log(this.id, `sending persistent data url to reflector${logProps}: ${url}`);
+        }
         try {
             this.connection.send(JSON.stringify({
                 id: this.id,
                 action: 'SAVE',
-                args: { url },
+                args: { url, dissident: dissidentFlag },
             }));
         } catch (e) {
             console.error('ERROR while sending', e);
@@ -596,26 +621,17 @@ export default class Controller {
     async persistenceVoting(time, tuttiSeq, our_hash, our_ms) {
         if (this.synced !== true) return false; // we don't participate unless we're synced
         const ourVote = {
-            view: this.viewId,                // to identify our own vote
-            hash: our_hash,                             // if this differs, each group will upload
-            ms: our_ms + Math.random() * 0.001,   // for sorting within a group, plus add a tiny bit of randomness
-        };
+            viewId: this.viewId,                // to identify our own vote
+            hash: our_hash,                     // if this differs, each group will upload
+            ms: our_ms + Math.random() * 0.001, // for sorting within a group, plus add a tiny bit of randomness
+            };
         if (DEBUG.snapshot) console.log(this.id, 'sending persistence vote', ourVote);
         const tally = await this.sendTutti(time, tuttiSeq, ourVote);
         if (DEBUG.snapshot) console.log(this.id, 'received persistence votes', tally);
-        // find min ms in our hash group
-        let minMs = Infinity;
-        let minView = '';
-        for (const each of Object.keys(tally)) {
-            const { view, hash, ms } = JSON.parse(each);
-            if (hash !== ourVote.hash) continue;    // ignore other groups
-            if (ms > minMs || ms === minMs && view > minView) continue; // not min
-            minMs = ms;
-            minView = view;
-        }
-        // we upload if we were fastest
-        const shouldUpload = minView === this.viewId;
-        return shouldUpload;
+
+        const { numberOfGroups, shouldUpload, dissidentFlag } = this.analyzeTally(tally, 'ms');
+        if (numberOfGroups > 1) console.warn(this.id, `Persistence records fall into ${numberOfGroups} groups`);
+        return { shouldUpload, dissidentFlag };
     }
 
     // convert a message generated by the reflector itself to our own format
