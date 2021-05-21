@@ -280,7 +280,7 @@ function getTime(island, _reason) {
         if (delta > desiredTick / 2) { // don't interfere with rapid-fire message-driven requests
             const over = delta - desiredTick;
             if (over > 0) {
-                advance = desiredTick; // upper limit, subject to possible adjustment below
+                advance = desiredTick; // lower limit, subject to possible adjustment below
                 if (over < 100) island.lag += over; // don't try to cater for very large delays (e.g., at startup)
             }
             if (island.lag > 0) {
@@ -809,11 +809,11 @@ function PONG(client, args) {
 function TICK(island) {
     if (island.clients.size === 0) return; // probably in provisional island deletion
 
-    const { id, lastMsgTime, tick, scale } = island;
     const time = getTime(island, "TICK");
-    if (time - lastMsgTime < tick * scale) return;
+    // const { id, lastMsgTime, tick, scale } = island;
+    // if (time - lastMsgTime < tick * scale) return;
     island.lastTick = time;
-    const msg = JSON.stringify({ id, action: 'TICK', args: time });
+    const msg = JSON.stringify({ id: island.id, action: 'TICK', args: time });
     prometheusTicksCounter.inc();
     island.clients.forEach(client => {
         // only send ticks if joined and not back-logged
@@ -863,7 +863,7 @@ function startTicker(island, tick) {
     LOCAL_DEBUG(`${island.id} ${island.ticker ? "restarting" : "started"} ticker: ${tick} ms`);
     if (island.ticker) stopTicker(island);
     island.tick = tick;
-    island.ticker = setInterval(() => TICK(island), tick);
+    island.ticker = setInterval(() => TICK(island), tick * island.scale);
 }
 
 function stopTicker(island) {
