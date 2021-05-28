@@ -643,8 +643,9 @@ export default class Island {
         // this lets us init the hash, but we won't upload the initial state
         if (!this.controller) return;
         const time = this.time;
+        const seq = this.seq;
         // run everything else outside of model
-        Promise.resolve().then(() => this.controller.persist(time, tuttiSeq, persistentString, persistentHash, ms));
+        Promise.resolve().then(() => this.controller.persist(time, seq, tuttiSeq, persistentString, persistentHash, ms));
     }
 
     random() {

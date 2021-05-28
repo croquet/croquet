@@ -540,7 +540,7 @@ function SNAP(client, args) {
     const { time, seq, hash, url, dissident } = args; // details of the snapshot that has been uploaded
 
     if (dissident) {
-        DEBUG(`${id}/${client.addr} @${island.time}#${island.seq} dissident snapshot ${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'} ${JSON.stringify(dissident)}`);
+        DEBUG(`${id}/${client.addr} dissident snapshot @${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'} ${JSON.stringify(dissident)}`);
         return;
     }
 
@@ -548,11 +548,11 @@ function SNAP(client, args) {
     // compare times rather than message seq, since (at least in principle) a new
     // snapshot can be taken after some elapsed time but no additional external messages.
     if (time <= island.snapshotTime) {
-        DEBUG(`${id}/${client.addr} @${island.time}#${island.seq} ignoring snapshot ${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'}`);
+        DEBUG(`${id}/${client.addr} ignoring snapshot @${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'}`);
         return;
     }
 
-    DEBUG(`${id}/${client.addr} @${island.time}#${island.seq} got snapshot ${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'}`);
+    DEBUG(`${id}/${client.addr} got snapshot @${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'}`);
 
     if (island.syncWithoutSnapshot || island.snapshotUrl) {
         // forget older messages, setting aside the ones that need to be stored
@@ -618,14 +618,14 @@ function SAVE(client, args) {
     const { appId, islandId } = island;
     if (!appId || !islandId) { client.safeClose(...REASON.BAD_APPID); return; }
 
-    const { url, dissident } = args; // details of the persistent data that has been uploaded
+    const { time, seq, tuttiSeq, url, dissident } = args; // details of the persistent data that has been uploaded
 
     if (dissident) {
-        DEBUG(`${id}/${client.addr} @${island.time}#${island.seq} dissident persistent data ${url} ${JSON.stringify(dissident)}`);
+        DEBUG(`${id}/${client.addr} dissident persistent data @${time}#${seq} T${tuttiSeq} ${url} ${JSON.stringify(dissident)}`);
         return;
     }
 
-    DEBUG(`${id}/${client.addr} @${island.time}#${island.seq} got persistent data: ${url}`);
+    DEBUG(`${id}/${client.addr} got persistent data: @${time}#${seq} T${tuttiSeq} ${url}`);
 
     // do *not* change our own session's persistentUrl!
     // we only upload this to be used to init the next session of this island

@@ -588,7 +588,7 @@ export default class Controller {
         return `${baseUrl('apps')}${appId}/${islandId}/save/${hash}`;
     }
 
-    async persist(time, tuttiSeq, persistentString, persistentHash, ms) {
+    async persist(time, seq, tuttiSeq, persistentString, persistentHash, ms) {
         if (!this.synced) return; // ignore during fast-forward
         if (!this.islandCreator.appId) throw Error('Persistence API requires appId');
         const { shouldUpload, dissidentFlag } = await this.persistenceVoting(time, tuttiSeq, persistentHash, ms);
@@ -611,7 +611,7 @@ export default class Controller {
             this.connection.send(JSON.stringify({
                 id: this.id,
                 action: 'SAVE',
-                args: { url, dissident: dissidentFlag },
+                args: { time, seq, tuttiSeq, url, dissident: dissidentFlag },
             }));
         } catch (e) {
             console.error('ERROR while sending', e);
