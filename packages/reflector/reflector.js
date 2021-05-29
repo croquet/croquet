@@ -109,6 +109,7 @@ const REASON = {};
 REASON.UNKNOWN_ISLAND = [4000, "unknown island"];
 REASON.UNRESPONSIVE = [4001, "client unresponsive"];
 REASON.INACTIVE = [4002, "client inactive"];
+REASON.RECONNECT = [4003, "please reconnect"];  // used in cloudflare reflector
 REASON.BAD_PROTOCOL = [4100, "outdated protocol"];
 REASON.BAD_APPID = [4101, "bad appId"];
 REASON.MALFORMED_MESSAGE = [4102, "malformed message"];
