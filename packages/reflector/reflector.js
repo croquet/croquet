@@ -276,13 +276,13 @@ function getTime(island, _reason) {
     const delta = now - island.before;     // might be < 0 if system clock went backwards
     if (delta > 0) {
         // tick requests usually come late; sometimes tens of ms late.  keep track of such overruns, and whenever there is a net lag inject a small addition to the delta (before scaling) to help the island catch up.
-        const desiredTick = island.tick;
+        const desiredTick = island.tick; // can be fractional ms
         let advance = delta; // default
         if (delta > desiredTick / 2) { // don't interfere with rapid-fire message-driven requests
             const over = delta - desiredTick;
             if (over > 0) {
                 advance = desiredTick; // lower limit, subject to possible adjustment below
-                if (over < 100) island.lag += over; // don't try to cater for very large delays (e.g., at startup)
+                if (over < 100) island.lag += Math.ceil(over); // don't try to cater for very large delays (e.g., at startup)
             }
             if (island.lag > 0) {
                 const boost = 4; // seems to be about the smallest that will rein things in
@@ -290,7 +290,7 @@ function getTime(island, _reason) {
                 island.lag -= boost;
             }
         }
-        island.time += island.scale * advance;
+        island.time += Math.round(island.scale * advance);
         island.before = now;
         //LOCAL_DEBUG(`${island.id} getTime(${_reason}) => ${island.time}`);
     }
