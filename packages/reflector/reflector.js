@@ -582,7 +582,7 @@ function SNAP(client, args) {
             };
             const pad = n => (""+n).padStart(10, '0');
             const firstSeq = messagesToStore[0][1] >>> 0;
-            const logName = `${id}/${pad(time)}_${firstSeq}-${seq}-${hash}.json`;
+            const logName = `${id}/${pad(Math.ceil(time))}_${firstSeq}-${seq}-${hash}.json`;
             DEBUG(id, `uploading ${messagesToStore.length} messages #${firstSeq} to #${seq} as ${logName}`);
             uploadJSON(logName, messageLog).catch(err => ERROR(`${id} failed to upload messages. ${err.code}: ${err.message}`));
         }
