@@ -835,13 +835,13 @@ export default class Controller {
                     return;
                 }
                 this.networkQueue.push(msg);
-                this.timeFromReflector(msg[0]);
+                if (!this.reboot) this.timeFromReflector(msg[0]); // not ready to advance time if rebooting
                 return;
             }
             case 'TICK': {
                 // We received a tick from reflector.
                 // Just set time so main loop knows how far it can advance.
-                if (!this.island) return; // ignore ticks before we are simulating
+                if (!this.island) return; // ignore ticks before we are simulating (this also catches any ticks received during reboot)
                 const time = (typeof args === 'number') ? args : args.time;
                 if (DEBUG.ticks) {
                     const expected = prevReceived && this.lastReceived - prevReceived - this.msPerTick * this.tickMultiplier | 0;
