@@ -287,8 +287,8 @@ export default class Controller {
         const synced = new Promise((resolve, reject) => this.islandCreator.sessionSynced = { resolve, reject } );
         if (this.reboot) this.reboot(); // if reconnect in progress, continue on the await in SYNC
         else this.join();   // when socket is ready, join server
-        await synced;  // resolved after receiving `SYNC`, installing island, and replaying messages
-        return this.island.modelsByName;
+        const success = await synced;  // resolved after receiving `SYNC`, installing island, and replaying messages; false if connection was lost, or replay failed
+        return success && this.island.modelsByName;
     }
 
     lastKnownTime(islandOrSnapshot) { return Math.max(islandOrSnapshot.time, islandOrSnapshot.externalTime); }
@@ -737,7 +737,7 @@ export default class Controller {
                     } else {
                         // likely a snapshot happened while disconnected. Reboot.
                         if (DEBUG.session) console.log(this.id, "cannot rejoin seamlessly, rebooting model/view");
-                        this.leave(true);
+                        this.leave(true); // keep controller but reset it, nulling out the island
                         if (DEBUG.session) console.log(this.id, "waiting for model/view reboot finished");
                         await new Promise(resolve => this.reboot = () => {
                             this.reboot = null;
@@ -775,7 +775,7 @@ export default class Controller {
                 }
                 this.timeline = timeline || ''; // stored only on initial connection
                 // otherwise we need go to work
-                if (DEBUG.session) console.log(`${this.id} fetching ${persistedOrSnapshot} ${url}`);
+                if (DEBUG.session && url) console.log(`${this.id} fetching ${persistedOrSnapshot} ${url}`);
                 let data;
                 if (url) try {
                     data = await this.downloadEncrypted({url, gzip: true, key: this.key, debug: DEBUG.snapshot, json: true, what: persistedOrSnapshot});
@@ -804,11 +804,12 @@ export default class Controller {
                     };
                     fastForwardIsland();
                 });
-                if (!success) return;
-                if (DEBUG.session) console.log(`${this.id} fast-forwarded to ${Math.round(this.island.time)}`);
-                // return from establishSession()
-                this.islandCreator.sessionSynced.resolve(this.island);
-                // TODO: if we don't resolve nor reject this promise due to the returns above, does this leak memory?
+                if (success && DEBUG.session) console.log(`${this.id} fast-forwarded to ${Math.round(this.island.time)}`);
+                // return from establishSession(), successfully or otherwise
+                if (this.islandCreator.sessionSynced) {
+                    this.islandCreator.sessionSynced.resolve(success);
+                    delete this.islandCreator.sessionSynced;
+                }
                 return;
             }
             case 'RECV': {
@@ -1418,6 +1419,12 @@ class Connection {
             // event codes from 4100 and up mean a disconnection from which the client
             // shouldn't automatically try to reconnect
             // e.g., 4100 is for out-of-date reflector protocol
+            const { islandCreator } = this.controller;
+            if (islandCreator.sessionSynced) {
+                islandCreator.sessionSynced.resolve(false);
+                delete islandCreator.sessionSynced;
+            }
+
             const autoReconnect = event.code !== 1000 && event.code < 4100;
             const dormant = event.code === 4110;
             // don't display error if going dormant or normal close or reconnecting

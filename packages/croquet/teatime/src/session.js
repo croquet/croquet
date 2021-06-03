@@ -277,18 +277,20 @@ export class Session {
         let frameTimeWhenHidden = 0;
         /** hidden check and auto stepping */
         const onAnimationFrame = frameTime => {
-            if (!Controllers[session.id]) return; // stop loop
-            // jump to larger v immediately, cool off slowly, limit to max
-            const coolOff = (v0, v1, t, max) => Math.min(max, Math.max(v1, v0 * (1 - t) + v1 * t)) | 0;
-            recentFramesAverage = coolOff(recentFramesAverage, frameTime - lastFrameTime, 0.1, 30000);
-            lastFrameTime = frameTime;
-            lastFrame = Date.now();
-            // having just recorded a lastFrame, isHidden will only be
-            // true if the recentFramesAverage is above threshold (or
-            // if visibilityState is explicitly "hidden", of course)
-            if (!isHidden()) {
-                controller.checkForConnection(true); // reconnect if disconnected and not blocked
-                if (parameters.step !== "manual") session.step(frameTime);
+            const currentController = Controllers[session.id];
+            if (currentController) {
+                // jump to larger v immediately, cool off slowly, limit to max
+                const coolOff = (v0, v1, t, max) => Math.min(max, Math.max(v1, v0 * (1 - t) + v1 * t)) | 0;
+                recentFramesAverage = coolOff(recentFramesAverage, frameTime - lastFrameTime, 0.1, 30000);
+                lastFrameTime = frameTime;
+                lastFrame = Date.now();
+                // having just recorded a lastFrame, isHidden will only be
+                // true if the recentFramesAverage is above threshold (or
+                // if visibilityState is explicitly "hidden", of course)
+                if (!isHidden()) {
+                    currentController.checkForConnection(true); // reconnect if disconnected and not blocked
+                    if (parameters.step !== "manual") session.step(frameTime);
+                }
             }
             window.requestAnimationFrame(onAnimationFrame);
             };
@@ -311,6 +313,8 @@ export class Session {
                 if (SESSION_PARAMS.includes(param)) sessionSpec[param] = value;
             }
             await controller.establishSession(sessionSpec);
+            if (!controller.island) return; // didn't successfully join
+
             session.model = controller.island.get("modelRoot");
             session.id = controller.id;
             session.persistentId = controller.persistentId;

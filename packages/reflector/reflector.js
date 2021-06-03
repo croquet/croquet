@@ -64,6 +64,7 @@ const PING_INTERVAL = 5000;         // while inactive, send pings at this rate
 const SNAP_TIMEOUT = 30000;         // if no SNAP received after waiting this number of ms, disconnect
 const PING_THRESHOLD = 30000;       // if not heard from for this long, start pinging
 const DISCONNECT_THRESHOLD = 60000; // if not responding for this long, disconnect
+const LATE_DISPATCH_TIMEOUT = 1000; // time to allow clients to arrive from the dispatcher even though the session has been unregistered
 
 function logtime() {
     if (CLUSTER !== "local" ) return "";
@@ -753,7 +754,7 @@ function TUTTI(client, args) {
 
         if (firstMsg) SEND(island, [firstMsg]);
         island.tallies[tallyHash] = {
-            expecting: island.clients.size,
+            expecting: island.clients.size, // we could ignore clients that are not active (i.e., still in the process of joining), but with a TALLY_INTERVAL of 1000ms it's painless to give them all a chance
             payloads: {},
             timeout: setTimeout(tallyComplete, TALLY_INTERVAL)
             };
@@ -789,7 +790,7 @@ function USERS(island) {
     island.usersTimer = null;
     const { id, clients, usersJoined, usersLeft, heraldUrl } = island;
     if (usersJoined.length + usersLeft.length === 0) return; // someone joined & left
-    const activeClients = [...clients].filter(each => each.active);
+    const activeClients = [...clients].filter(each => each.active); // a client in the set but not active is between JOIN and SYNC
     const active = activeClients.length;
     const total = clients.size;
     const payload = { what: 'users', active, total };
@@ -918,10 +919,17 @@ function provisionallyDeleteIsland(island) {
     if (!island.deletionTimeout) island.deletionTimeout = setTimeout(() => deleteIsland(island), DELETION_DEBOUNCE);
 }
 
-// delete our live record of the island, rewriting latest.json if necessary
+// delete our live record of the island, rewriting latest.json if necessary and
+// removing the dispatcher's record of the island being on this reflector.
+// in case some clients have been dispatched to here just as the record's deletion
+// is being requested, we maintain the island record for a brief period so we can
+// tell those late-arriving clients that they must connect again (because any clients
+// *after* them will be dispatched afresh).  because the dispatchers could end up
+// assigning the session to this same reflector again, we only turn away clients
+// for a second or so after the unregistering has gone through.
 async function deleteIsland(island) {
     const { id, syncWithoutSnapshot, snapshotUrl, time, seq, storedUrl, storedSeq, messages } = island;
-    if (!ALL_ISLANDS.delete(id)) {
+    if (island.unregistered || !ALL_ISLANDS.has(id)) {
         LOG(`${id} island already deleted, ignoring deleteIsland();`);
         return;
     }
@@ -932,10 +940,14 @@ async function deleteIsland(island) {
     prometheusSessionGauge.dec();
     // stop ticking and delete
     stopTicker(island);
-    ALL_ISLANDS.delete(id);
     // house keeping below only in fleet mode
-    if (CLUSTER === "local") { LOG(`${id} island deleted`); return; }
+    if (CLUSTER === "local") {
+        ALL_ISLANDS.delete(id);
+        LOG(`${id} island deleted`);
+        return;
+    }
     // remove ourselves from session registry, ignoring errors
+    island.unregistered = true; // to turn away new clients
     const unregistered = unregisterSession(id, `@${time}#${seq}`);
     // if we've been told of a snapshot since the one (if any) stored in this
     // island's latest.json, or there are messages since the snapshot referenced
@@ -950,6 +962,7 @@ async function deleteIsland(island) {
         } catch (err) { LOG(`${id} failed to upload latest.json. ${err.code}: ${err.message}` ); }
     }
     await unregistered;
+    setTimeout(() => ALL_ISLANDS.delete(id), LATE_DISPATCH_TIMEOUT);
 }
 
 async function unregisterSession(id, detail) {
@@ -976,18 +989,25 @@ function sessionIdAndVersionFromUrl(url) {
 server.on('error', err => ERROR(`Server Socket Error: ${err.message}`));
 
 server.on('connection', (client, req) => {
-    prometheusConnectionGauge.inc();
     const { version, sessionId } = sessionIdAndVersionFromUrl(req.url);
     if (!sessionId) { ERROR(`Missing session id in request "${req.url}"`); client.close(...REASON.BAD_PROTOCOL); return; }
+    client.addr = `${req.connection.remoteAddress.replace(/^::ffff:/, '')}:${req.connection.remotePort}`;
     if (ALL_ISLANDS.has(sessionId)) {
         const island = ALL_ISLANDS.get(sessionId);
         if (island.deletionTimeout) {
+            // deletion was scheduled, but we're in time to stop it
             clearTimeout(island.deletionTimeout);
             island.deletionTimeout = null;
+        } else if (island.unregistered) {
+            // a request to delete the dispatcher record has already been
+            // sent.  tell client to ask the dispatchers again.
+            LOG(`${island.id}/${client.addr} rejecting connection; island has been unregistered`);
+            client.close(...REASON.RECONNECT);
+            return;
         }
     }
+    prometheusConnectionGauge.inc(); // connection accepted
     client.sessionId = sessionId;
-    client.addr = `${req.connection.remoteAddress.replace(/^::ffff:/, '')}:${req.connection.remotePort}`;
     if (req.headers['x-forwarded-for']) client.forwarded = `via ${req.headers['x-croquet-dispatcher'||'']} (${req.headers['x-forwarded-for'].split(/\s*,\s*/).map(a => a.replace(/^::ffff:/, '')).join(', ')}) `;
     // location header is added by load balancer, see region-servers/apply-changes
     if (req.headers['x-location']) try {
