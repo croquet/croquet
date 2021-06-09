@@ -65,7 +65,7 @@ export class Session {
      * The root view should set up the input and output operations of your application,
      * and create any additional views as to match the application state as found in the models.
      *
-     * Then the Croquet **main loop** is started (unless you pass in a `step: "manual"` parameter).
+     * Then the Croquet **main loop** is started (unless you pass in a `step: "manual"` parameter, e.g. for WebXR, see example below).
      * This uses [requestAnimationFrame()](https://developer.mozilla.org/docs/Web/API/window/requestAnimationFrame)
      * for continuous updating. Each step of the main loop executes in three phases:
      *
@@ -141,13 +141,14 @@ export class Session {
      *     view: MyRootView,
      *     debug: ["session"],
      * });
-     * @example <caption>manual name, password, and main loop</caption>
+     * @example <caption>manual name, password, and WebXR main loop</caption>
      * Croquet.Session.join({ appId: "com.example.myapp", name: "abc", password: "password", model: MyRootModel, view: MyRootView, step: "manual"}).then(session => {
-     *     function myFrame(time) {
+     *     function xrAnimFrame(time, xrFrame) {
      *         session.step(time);
-     *         window.requestAnimationFrame(myFrame);
+     *         ...
+     *         xrSession.requestAnimationFrame(xrAnimFrame);
      *     }
-     *     window.requestAnimationFrame(myFrame);
+     *     xrSession.requestAnimationFrame(xrAnimFrame);
      * });
      * @public
      */
