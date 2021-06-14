@@ -243,7 +243,22 @@ export class Session {
             get latency() { return controller.latency; },
             get latencies() { return controller.latencies; },
         };
+
+        const sessionSpec = {
+            options,
+            /** executed inside the island to initialize session */
+            initFn: (opts, persistentData) => ModelRoot.create(opts, persistentData, "modelRoot"),
+            /** called by controller when leaving the session */
+            rebootModelView
+        };
+        for (const [param, value] of Object.entries(parameters)) {
+            if (SESSION_PARAMS.includes(param)) sessionSpec[param] = value;
+        }
+        await controller.initFromSessionSpec(sessionSpec);
+
+        let rebooting = false;
         await rebootModelView();
+
         /** timestamp of last frame (in animationFrame timebase) */
         let lastFrameTime = 0;
         /** time of last frame in (in Date.now() timebase) */
@@ -278,20 +293,19 @@ export class Session {
         let frameTimeWhenHidden = 0;
         /** hidden check and auto stepping */
         const onAnimationFrame = frameTime => {
-            const currentController = Controllers[session.id];
-            if (currentController) {
-                // jump to larger v immediately, cool off slowly, limit to max
-                const coolOff = (v0, v1, t, max) => Math.min(max, Math.max(v1, v0 * (1 - t) + v1 * t)) | 0;
-                recentFramesAverage = coolOff(recentFramesAverage, frameTime - lastFrameTime, 0.1, 30000);
-                lastFrameTime = frameTime;
-                lastFrame = Date.now();
-                // having just recorded a lastFrame, isHidden will only be
-                // true if the recentFramesAverage is above threshold (or
-                // if visibilityState is explicitly "hidden", of course)
-                if (!isHidden()) {
-                    currentController.checkForConnection(true); // reconnect if disconnected and not blocked
-                    if (parameters.step !== "manual") session.step(frameTime);
-                }
+            if (!Controllers[session.id]) return; // stop the loop; it's not coming back
+
+            // jump to larger v immediately, cool off slowly, limit to max
+            const coolOff = (v0, v1, t, max) => Math.min(max, Math.max(v1, v0 * (1 - t) + v1 * t)) | 0;
+            recentFramesAverage = coolOff(recentFramesAverage, frameTime - lastFrameTime, 0.1, 30000);
+            lastFrameTime = frameTime;
+            lastFrame = Date.now();
+            // having just recorded a lastFrame, isHidden will only be
+            // true if the recentFramesAverage is above threshold (or
+            // if visibilityState is explicitly "hidden", of course)
+            if (!isHidden()) {
+                controller.checkForConnection(true); // reconnect if disconnected and not blocked
+                if (parameters.step !== "manual") session.step(frameTime);
             }
             window.requestAnimationFrame(onAnimationFrame);
             };
@@ -299,22 +313,25 @@ export class Session {
         startHiddenChecker();
         return session;
 
-        async function rebootModelView(snapshot) {
-            clear();
+        async function rebootModelView() {
+            // invoked from static Session.join() above and from controller.leave()
+
+            clear(); // remove session.model, detach the view
+
+            // controller.leaving is set only in the static Session.leave(), which
+            // handles an explicit user request to leave the session.  in that case,
+            // the only way back in is to invoke Session.join() again - or reload
+            // the app.
             if (controller.leaving) { controller.leaving(true); return; }
-            const sessionSpec = {
-                snapshot,
-                options,
-                /** executed inside the island to initialize session */
-                initFn: (opts, persistentData) => ModelRoot.create(opts, persistentData, "modelRoot"),
-                /** called by controller when leaving the session */
-                destroyerFn: rebootModelView,
-            };
-            for (const [param, value] of Object.entries(parameters)) {
-                if (SESSION_PARAMS.includes(param)) sessionSpec[param] = value;
-            }
+
+            // repeated connections and disconnections along the way to a (re)join
+            // can cause this function to be called multiple times.  if there is an
+            // instance already in progress, let it finish its work.
+            if (rebooting) return;
+
+            rebooting = true;
             await controller.establishSession(sessionSpec);
-            if (!controller.island) return; // didn't successfully join
+            rebooting = false;
 
             session.model = controller.island.get("modelRoot");
             session.id = controller.id;
@@ -343,9 +360,9 @@ export class Session {
         }
 
         function startHiddenChecker() {
-            const DORMANT_TIMEOUT_DEFAULT = 10000;
+            const DORMANT_DELAY_DEFAULT = 10000;
             const noSleep = "autoSleep" in urlOptions && !urlOptions.autoSleep;
-            const dormantTimeout = typeof urlOptions.autoSleep === "number" ? 1000 * urlOptions.autoSleep : DORMANT_TIMEOUT_DEFAULT;
+            const dormantDelay = typeof urlOptions.autoSleep === "number" ? 1000 * urlOptions.autoSleep : DORMANT_DELAY_DEFAULT;
             const interval = setInterval(() => {
                 if (!Controllers[session.id]) clearInterval(interval); // stop loop
                 else if (isHidden()) {
@@ -361,7 +378,7 @@ export class Session {
                     if (noSleep) {
                         // make time appear as continuous as possible
                         if (parameters.step !== "manual") session.step(frameTimeWhenHidden + hiddenFor);
-                    } else if (hiddenFor > dormantTimeout) {
+                    } else if (hiddenFor > dormantDelay) {
                         // Controller doesn't mind being asked repeatedly to disconnect
                         controller.dormantDisconnect();
                     }
@@ -378,10 +395,16 @@ export class Session {
         const controller = Controllers[sessionId];
         if (!controller) return false;
         delete Controllers[sessionId];
+        // make sure there is no lurking timeout that would cause the controller
+        // to reconnect.
+        if (controller.reconnectTimeout) {
+            clearTimeout(controller.reconnectTimeout);
+            delete controller.reconnectTimeout;
+        }
         const leavePromise = new Promise(resolve => controller.leaving = resolve);
         const connection = controller.connection;
         if (!connection.connected) return false;
-        connection.socket.close(1000); // triggers the onclose which eventually calls destroyerFn above
+        connection.socket.close(1000); // triggers the onclose which eventually calls rebootModelView to shut down the view
         return leavePromise;
     }
 

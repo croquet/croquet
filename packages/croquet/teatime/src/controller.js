@@ -126,13 +126,13 @@ export default class Controller {
         /** the time stamp of last message received from reflector */
         this.time = 0;
         /** ms between expected ticks */
-        this.msPerTick = 0;
+        this.msPerTick = this.msPerTick || 0;
         /** multiply reflector ticks if > 1 (a.k.a. "cheat beats") */
-        this.tickMultiplier = 1;
+        this.tickMultiplier = this.tickMultiplier || 1;
         /** the local time at which we received the last time stamp, minus that time stamp */
         this.extrapolatedTimeBase = Date.now();
         /** key generated from password, shared by all clients in session */
-        this.key = null;
+        this.key = this.key || null;
         /** @type {String} the client id (different in each replica, but stays the same on reconnect) */
         this.viewId = this.viewId || randomString(); // todo: have reflector assign unique ids
         /** @type {String} stateless reflectors always start new session, this is the only way to notice that */
@@ -141,6 +141,8 @@ export default class Controller {
         if (this.rejoinTimeout) clearTimeout(this.rejoinTimeout);
         /** timeout rejoin if rejoinLimit has been requested */
         this.rejoinTimeout = 0;
+        /** during a rejoin for which seamless isn't available, a function for signalling that reboot has completed */
+        this.rebootSignal = null;
         /** @type {Function[]} buffered sends to reflector while reconnecting */
         this.sendBuffer = [];
         /** the number of concurrent users in our island (excluding spectators) */
@@ -181,7 +183,7 @@ export default class Controller {
     }
 
     /** @type {String} the session id (same for all replicas running with same options on the same app version) */
-    get id() { return this.island ? this.island.id : this.islandCreator.snapshot.id; }
+    get id() { return this.island ? this.island.id : this.islandCreator.id; }
 
     /** @type {String} the persistent id (same for all replicas with same options across app versions) */
     get persistentId() { return this.islandCreator.islandId; }
@@ -216,7 +218,7 @@ export default class Controller {
     get connected() { return this.connection.connected; }
 
     /** @type {Boolean} should the connection call leave() when disconnected? */
-    get shouldLeaveWhenDisconnected() { return this.leaving || !this.canRejoinSeamlessly; }
+    get shouldLeaveWhenDisconnected() { return this.leaving || !this.canRejoinSeamlessly || this.islandCreator.rejoinLimit === 0; }
 
     /** @type {Boolean} does the reflector support seamless rejoin? */
     get canRejoinSeamlessly() { return !!this.timeline; }
@@ -229,29 +231,26 @@ export default class Controller {
     }
 
     /**
-     * Join or create a session by connecting to the reflector
+     * Initialise the controller from the sessionSpec assembled in Session.join()
      * - the island/session id is created from `name` and
      *   a hash of registered options and source code
      *
      * @param {String} name - A (human-readable) name for the session/room
      * @param {Object} sessionSpec - Spec for the session
      * @param {Function} sessionSpec.initFn - the island initializer `initFn(options)`
-     * @param {Function} sessionSpec.destroyerFn - optional island destroyer (called with a snapshot when disconnecting)
+     * @param {Function} sessionSpec.rebootModelView - for taking down and rebuilding the model (i.e., the island) and view
      * @param {Object} sessionSpec.options - options to pass to the island initializer
-     * @param {Object} sessionSpec.snapshot - an optional snapshot to use (instead of running the island initializer if this is the first user in the session
      * @param {Array<String>} sessionSpec.optionsFromUrl - names of additional island initializer options to take from URL
      * @param {String} sessionSpec.appId - a unique identifier for an app
      * @param {String} sessionSpec.password - password for end-to-end encryption
-     * @param {String} sessionSpec.viewIdDebugSuffix - suffix for viewIds tohelp debugging
+     * @param {String} sessionSpec.viewIdDebugSuffix - suffix for viewIds to help debugging
      * @param {Number|String} sessionSpec.tps - ticks per second (can be overridden by `options.tps` or `urlOptions.tps`)
-     *
-     * @returns {Promise}
      */
-    async establishSession(sessionSpec) {
+    async initFromSessionSpec(sessionSpec) {
         // If we add more options here, add them to SESSION_PARAMS in session.js
-        const { name: n, optionsFromUrl, password, appId, viewIdDebugSuffix} = sessionSpec;
+        const { name: n, optionsFromUrl, password, appId, viewIdDebugSuffix } = sessionSpec;
         const name = appId ? `${appId}/${n}` : n;
-        if (viewIdDebugSuffix) this.viewId = this.viewId.replace(/_.*$/, '') + "_" + encodeURIComponent((""+viewIdDebugSuffix).slice(0,16))
+        if (viewIdDebugSuffix) this.viewId = this.viewId.replace(/_.*$/, '') + "_" + encodeURIComponent(("" + viewIdDebugSuffix).slice(0, 16))
             .replace(/[^a-z0-9]/ig, c => `_${c === '%' ? '' : c.charCodeAt(0).toString(16).toUpperCase()}`); // ensure only a-z0-9_ in suffix
         // root model options are only those explicitly requested by app
         const options = {...sessionSpec.options};
@@ -260,7 +259,7 @@ export default class Controller {
         }
         // session parameters are additional properties that cause a new session
         const params = {};
-        for (const key of [ 'tps' ] ) {
+        for (const key of [ 'tps' ]) {
             if (key in urlOptions) params[key] = urlOptions[key];
             else if (key in sessionSpec) params[key] = sessionSpec[key];
         }
@@ -268,27 +267,38 @@ export default class Controller {
         this.oldKey = PBKDF2("THIS SHOULDN'T BE IN LOGS", "", { keySize: 256/32 });
         const { id, islandId, codeHash } = await hashSessionAndCode(name, options, params, SDK_VERSION);
         if (DEBUG.session) console.log(`Croquet sessionId for "${name}": ${id} viewId: ${this.viewId}`);
-        this.islandCreator = {...sessionSpec, options, name, islandId, codeHash };
 
-        let initSnapshot = false;
-        if (!this.islandCreator.snapshot) initSnapshot = true;
-        else if (this.islandCreator.snapshot.id !== id) {
-            const sameSession = this.islandCreator.snapshot.islandId === islandId;
-            console.warn(`Existing snapshot was for different ${sameSession ? "code base" : "session"}!`);
-            initSnapshot = true;
-        }
-        if (initSnapshot) this.islandCreator.snapshot = { id, time: 0, meta: { id, islandId, codeHash, created: (new Date()).toISOString() } };
+        this.islandCreator = { ...sessionSpec, options, name, id, islandId, codeHash }; // june 2021: added id for easy access from establishSession
 
-        const { msPerTick, multiplier} = this.getTickAndMultiplier();
+        const { msPerTick, multiplier } = this.getTickAndMultiplier();
         this.msPerTick = msPerTick;
         this.tickMultiplier = multiplier;
+    }
 
-        // create promise before join to prevent race
-        const synced = new Promise((resolve, reject) => this.islandCreator.sessionSynced = { resolve, reject } );
-        if (this.reboot) this.reboot(); // if reconnect in progress, continue on the await in SYNC
-        else this.join();   // when socket is ready, join server
-        const success = await synced;  // resolved after receiving `SYNC`, installing island, and replaying messages; false if connection was lost, or replay failed
-        return success && this.island.modelsByName;
+    /**
+     * Join or create a session by connecting to the reflector
+     */
+    async establishSession() {
+        // invoked only from session's rebootModelView, under the following circs:
+        //  a. on initial session setup
+        //  b. on reboot following a leave() triggered by a disconnection (through connectionInterrupted)
+        //  c. on reboot following a leave() triggered by SYNC when rejoin cannot proceed seamlessly
+        // it doesn't return until the session is successfully joined - however many
+        // connections/disconnections happen along the way.
+
+        // reset islandCreator.snapshot to a dummy in preparation for install()
+        // (its dummy status is detected by lack of a modelsById property)
+        const { id, islandId, codeHash } = this.islandCreator;
+        this.islandCreator.snapshot = { id, time: 0, meta: { id, islandId, codeHash, created: (new Date()).toISOString() } };
+        const joined = new Promise(resolve => this.islandCreator.sessionJoined = resolve);
+        // when we have reconnected after a break, and in the SYNC found that
+        // seamless rejoin is not going to work, SYNC forces a leave() and pauses
+        // until the subsequent reboot is complete (case (c) above).  if that's what
+        // brought us here, this is the place to signal reboot completion.
+        if (this.rebootSignal) this.rebootSignal();
+        else this.checkForConnection(false); // ensure connected unless we're blocked (e.g., in dormant state)
+        if (DEBUG.session) console.log(id, "waiting for SYNC");
+        await joined; // resolved in SYNC after installing the island and replaying any messages
     }
 
     lastKnownTime(islandOrSnapshot) { return Math.max(islandOrSnapshot.time, islandOrSnapshot.externalTime); }
@@ -694,6 +704,9 @@ export default class Controller {
         switch (action) {
             case 'SYNC': {
                 // We are joining an island session.
+                this.syncReceived = true; // from this point, any disconnection implies a leave()
+                Controllers.add(this);
+
                 const {messages, url, persisted, time, seq, /* snapshotTime, */ snapshotSeq, reflector} = args;
                 const timeline = args.timeline || args.reflectorSession; // renamed "reflectorSession" to "timeline"
                 const persistedOrSnapshot = persisted ? "persisted session" : "snapshot";
@@ -702,8 +715,6 @@ export default class Controller {
                 // meaning we have all the messages we missed while disconnected
                 let rejoining = !!this.island;
                 if (rejoining) {
-                    // cancel timeout
-                    if (this.rejoinTimeout) { clearTimeout(this.rejoinTimeout); this.rejoinTimeout = 0; }
                     // In theory we could try to preserve unsimulated messages but that would complicate the logic
                     // considerably, and only help in the rather unlikely case of a snapshot being taken while simulation
                     // was backlogged, in which case it might be better to start from the new snapshot anyways.
@@ -739,8 +750,9 @@ export default class Controller {
                         if (DEBUG.session) console.log(this.id, "cannot rejoin seamlessly, rebooting model/view");
                         this.leave(true); // keep controller but reset it, nulling out the island
                         if (DEBUG.session) console.log(this.id, "waiting for model/view reboot finished");
-                        await new Promise(resolve => this.reboot = () => {
-                            this.reboot = null;
+                        // wait here for establishSession (called from rebootModelView, which will have been invoked as part of leave() above) to parse options, hash code etc, and signal that it is ready to attempt the install & sync below.
+                        await new Promise(resolve => this.rebootSignal = () => {
+                            this.rebootSignal = null;
                             resolve();
                         });
                         if (DEBUG.session) console.log(this.id, "finished model/view reboot");
@@ -771,6 +783,7 @@ export default class Controller {
                 // if we were rejoining, then our work is done here: we got all the missing messages
                 if (rejoining) {
                     if (DEBUG.session) console.log(this.id, "seamless rejoin successful");
+                    this.islandCreator.sessionJoined();
                     return;
                 }
                 this.timeline = timeline || ''; // stored only on initial connection
@@ -805,11 +818,9 @@ export default class Controller {
                     fastForwardIsland();
                 });
                 if (success && DEBUG.session) console.log(`${this.id} fast-forwarded to ${Math.round(this.island.time)}`);
-                // return from establishSession(), successfully or otherwise
-                if (this.islandCreator.sessionSynced) {
-                    this.islandCreator.sessionSynced.resolve(success);
-                    delete this.islandCreator.sessionSynced;
-                }
+                // iff fast-forward was successful, trigger return from establishSession().
+                // otherwise, in due course we'll reconnect and try again.  it can keep waiting.
+                if (success) this.islandCreator.sessionJoined();
                 return;
             }
             case 'RECV': {
@@ -835,7 +846,7 @@ export default class Controller {
                     return;
                 }
                 this.networkQueue.push(msg);
-                if (!this.reboot) this.timeFromReflector(msg[0]); // not ready to advance time if rebooting
+                if (!this.rebootSignal) this.timeFromReflector(msg[0]); // only advance time if not rebooting
                 return;
             }
             case 'TICK': {
@@ -875,7 +886,7 @@ export default class Controller {
             try { return initFn(options, persistentData); }
             catch (error) {
                 displayAppError("initFn", error);
-                throw error;
+                throw error; // unrecoverable.  bring the whole tab to a halt.
             }
         });
         if (DEBUG.initsnapshot && !snapshot.modelsById) {
@@ -904,12 +915,12 @@ export default class Controller {
 
     // network queue
 
-    async join() {
-        this.checkForConnection(false); // don't force it
-        if (DEBUG.session) console.log(this.id, "awaiting connection promise");
-        await this.connection.connectionPromise; // wait until there is a connection
+    sendJoin() {
+        this.syncReceived = false; // until SYNC is received, a dropped connection doesn't require controller.leave()
 
-        Controllers.add(this);
+        // cancel rejoin timeout (if any) immediately.  now that we're reconnected, it
+        // would be messy to have a reboot triggered between now and the SYNC.
+        if (this.rejoinTimeout) { clearTimeout(this.rejoinTimeout); this.rejoinTimeout = 0; }
 
         if (DEBUG.session) console.log(this.id, 'Controller sending JOIN');
 
@@ -944,29 +955,34 @@ export default class Controller {
     }
 
     connectionInterrupted() {
-        // only leave if necessary, otherwise we try to seamlessly rejoin
-        if (this.shouldLeaveWhenDisconnected) this.leave();
-        else {
-            // limit smooth rejoin if requested
-            const { rejoinLimit } = this.islandCreator;
-            if (rejoinLimit && !this.rejoinTimeout) {
-                this.rejoinTimeout = setTimeout(() => {
-                    if (DEBUG.session) console.log(this.id, `rejoin timed out`);
-                    this.rejoinTimeout = 0;
-                    this.leave();
-                }, rejoinLimit);
-            }
+        // only need to leave if we have actually joined - or at least started
+        // the work of joining, in the 'SYNC' handler
+        if (!this.syncReceived) return;
+
+        if (this.shouldLeaveWhenDisconnected) this.leave(); // including if rejoinLimit=0
+        else if (!this.rejoinTimeout) {
+            // set up a timeout to leave unless the connection gets restored
+            // within rejoinLimit
+            this.rejoinTimeout = setTimeout(() => {
+                if (DEBUG.session) console.log(this.id, `rejoin timed out`);
+                this.rejoinTimeout = 0;
+                this.leave();
+            }, this.islandCreator.rejoinLimit);
         }
     }
 
-    // either the connection has been broken or the reflector has sent LEAVE
+    // either the connection has been broken (and seamless rejoin is not
+    // available), or the reflector has sent LEAVE.
+    // reset the controller.  unless keepController is true, remove it from
+    // the Controllers set (used for keepAlive, and for accessing the data
+    // upload/download functions from Data).
     leave(keepController=false) {
-        const {destroyerFn} = this.islandCreator;
+        const { rebootModelView } = this.islandCreator;
         this.reset();
         if (DEBUG.session) console.log(this.id, `resetting ${keepController ? "(but keeping)" : "and discarding"} controller`);
         if (!keepController) Controllers.delete(this);   // after reset so it does not re-enable the SYNC overlay
         if (!this.islandCreator) throw Error("do not discard islandCreator!");
-        if (destroyerFn) destroyerFn();
+        rebootModelView(); // if controller.leaving is set (user has triggered Session.leave), rMV will bail out after destroying the view
     }
 
     async encrypt(plaintext) {
@@ -1340,7 +1356,7 @@ const PULSE_TIMEOUT = 20000;
 /** warn about unsent outgoing bytes after this many ms */
 const UNSENT_TIMEOUT = 500;
 /** increase reconnect timeout exponentially up to this many ms */
-const RECONNECT_TIMEOUT_MAX = 30000;
+const RECONNECT_DELAY_MAX = 30000;
 
 
 class Connection {
@@ -1350,19 +1366,14 @@ class Connection {
         this.connectBlocked = false;
         this.connectRestricted = false;
         this.connectHasBeenCalled = false;
-        this.reconnectTimeout = 0;
+        this.reconnectDelay = 0;
         this.missingTickThreshold = Infinity;
-        this.setUpConnectionPromise();
     }
 
     get id() { return this.controller.id; }
 
     setTick(ms) {
         this.missingTickThreshold = Math.min(ms * 3, 45000); // send PULSE after
-    }
-
-    setUpConnectionPromise() {
-        this.connectionPromise = new Promise(resolve => this.resolveConnection = resolve);
     }
 
     get connected() { return this.socket && this.socket.readyState === WebSocket.OPEN; }
@@ -1380,8 +1391,9 @@ class Connection {
         this.connectToReflector();
     }
 
-    // this used to be async, but now just resolves this.connectionPromise once connected
     connectToReflector() {
+        if (this.socket || this.connectHasBeenCalled) return;
+
         this.connectHasBeenCalled = true;
         this.connectBlocked = false;
         this.connectRestricted = false;
@@ -1398,37 +1410,36 @@ class Connection {
         const socket = new WebSocket(`${reflectorUrl}${this.controller.id}${region}`);
         socket.onopen = _event => {
             this.socket = socket;
+            this.connectHasBeenCalled = false; // now that we have the socket
             if (DEBUG.session) console.log(this.id, this.socket.constructor.name, "connected to", this.socket.url);
-            this.reconnectTimeout = 0;
+            this.reconnectDelay = 0;
             Stats.connected(true);
-            // normally JOIN is sent in establishSession but when rejoining, the controller still is in the session
-            if (this.controller.island) {
-                if (DEBUG.session) console.log(this.id, "reconnected, trying to seamlessly rejoin");
-                this.controller.join();
-            }
-            this.resolveConnection(null); // the value itself isn't currently used
-            if (DEBUG.session) console.log(this.id, "resolved connection promise");
         };
         socket.onmessage = event => {
             this.receive(event.data);
         };
         socket.onerror = _event => {
+            // an error anywhere between here and the reflector once the socket
+            // connection has opened will also result in socket closure, and
+            // can therefore be handled in socket.onclose.  but if the socket was
+            // never opened successfully, we need to clear connectHasBeenCalled.
             if (DEBUG.session) console.log(this.id, socket.constructor.name, "connection error");
+            this.connectHasBeenCalled = false; // ready to try again
         };
         socket.onclose = event => {
-            // event codes from 4100 and up mean a disconnection from which the client
+            // with the introduction of seamless rejoin, the closure of the connection
+            // does not directly cause controller.leave() - dismantling the view, etc.
+            // controller.connectionInterrupted() sets an independent timer for invoking
+            // leave() iff the connection has not been restored within the rejoinLimit.
+
+            // event codes 4100 and up mean a disconnection from which the client
             // shouldn't automatically try to reconnect
             // e.g., 4100 is for out-of-date reflector protocol
-            const { islandCreator } = this.controller;
-            if (islandCreator.sessionSynced) {
-                islandCreator.sessionSynced.resolve(false);
-                delete islandCreator.sessionSynced;
-            }
-
+            // in addition, 1000 means user-triggered Session.leave().  everything stops.
             const autoReconnect = event.code !== 1000 && event.code < 4100;
             const dormant = event.code === 4110;
             // don't display error if going dormant or normal close or reconnecting
-            if (!dormant && event.code !== 1000 && !this.reconnectTimeout) {
+            if (!dormant && event.code !== 1000 && !this.reconnectDelay) {
                 // but also wait 500 ms to see if reconnect succeeded
                 setTimeout(() => {
                     if (this.connected) return; // yay - connected again
@@ -1442,16 +1453,22 @@ class Connection {
             else this.connectBlocked = true; // only reconnect using connectToReflector
             this.disconnected();
             if (autoReconnect) {
-                if (DEBUG.session) console.log(this.id, `reconnecting in ${this.reconnectTimeout} ms`);
-                window.setTimeout(() => this.connectToReflector(), this.reconnectTimeout);
+                // the logic above ensures that autoReconnect is only true in conjunction
+                // with connectBlocked=true.  therefore nothing else can cause a reconnection
+                // before the connectToReflector scheduled here.
+                if (DEBUG.session) console.log(this.id, `reconnecting in ${this.reconnectDelay} ms`);
+                this.reconnectTimeout = window.setTimeout(() => {
+                    delete this.reconnectTimeout;
+                    this.connectToReflector();
+                    }, this.reconnectDelay);
                 // we start reconnecting immediately once (0ms) and then back off exponentially
                 // also randomly to avoid hitting the dispatchers at the same time
-                this.reconnectTimeout = Math.min(RECONNECT_TIMEOUT_MAX, Math.round((this.reconnectTimeout + 100) * (1 + Math.random())));
+                this.reconnectDelay = Math.min(RECONNECT_DELAY_MAX, Math.round((this.reconnectDelay + 100) * (1 + Math.random())));
             }
         };
     }
 
-    // socket was disconnected, destroy the island
+    // from socket.onclose handling
     disconnected() {
         if (!this.socket) return;
         this.socket = null;
@@ -1459,7 +1476,6 @@ class Connection {
         this.lastSent = 0;
         this.stalledSince = 0;
         this.connectHasBeenCalled = false;
-        this.setUpConnectionPromise();
         this.controller.connectionInterrupted();
     }
 
@@ -1484,14 +1500,18 @@ class Connection {
     dormantDisconnect() {
         if (!this.connected) return; // not connected anyway
         if (DEBUG.session) console.log(this.id, "dormant; disconnecting from reflector");
-        this.socket.close(4110, 'Going dormant');
+        this.closeConnection(4110, 'Going dormant');
     }
 
     closeConnectionWithError(caller, error, code=4000) {
         console.error(error);
         console.warn('closing socket');
-        this.socket.close(code, 'Error in ' + caller);
+        this.closeConnection(code, 'Error in ' + caller);
         // closing with error code < 4100 will try to reconnect
+    }
+
+    closeConnection(code, message) {
+        this.socket.close(code, message);
     }
 
     PULSE(now) {
