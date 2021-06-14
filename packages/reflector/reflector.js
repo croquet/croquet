@@ -49,7 +49,13 @@ const USERS_INTERVAL = 200;   // time to gather user entries/exits before sendin
 
 const HOSTNAME = os.hostname();
 const HOSTIP = Object.values(os.networkInterfaces()).flat().filter(addr => !addr.internal && addr.family === 'IPv4')[0].address;
-const CLUSTER = fs.existsSync("/var/run/secrets/kubernetes.io") ? process.env.CLUSTER_NAME : "local";
+// if running locally, there is the option to run with or without using the session-
+// related storage (for snapshots, dispatcher records etc).
+// if "localWithStorage" is chosen, the reflector itself will create a dummy dispatcher
+// record the first time it sees a session, and will delete it when the session is
+// offloaded.
+const LOCAL_CONFIG = "localWithStorage"; // or "local" to run without storage dependency
+const CLUSTER = fs.existsSync("/var/run/secrets/kubernetes.io") ? process.env.CLUSTER_NAME : LOCAL_CONFIG;
 const CLUSTER_LABEL = process.env.CLUSTER_LABEL || CLUSTER;
 
 if (!CLUSTER) {
@@ -58,16 +64,17 @@ if (!CLUSTER) {
     process.exit(1);
 }
 
-const DISCONNECT_UNRESPONSIVE_CLIENTS = CLUSTER !== "local";
+const DISCONNECT_UNRESPONSIVE_CLIENTS = !CLUSTER.startsWith("local");
 const CHECK_INTERVAL = 5000;        // how often to checkForActivity
 const PING_INTERVAL = 5000;         // while inactive, send pings at this rate
 const SNAP_TIMEOUT = 30000;         // if no SNAP received after waiting this number of ms, disconnect
 const PING_THRESHOLD = 30000;       // if not heard from for this long, start pinging
 const DISCONNECT_THRESHOLD = 60000; // if not responding for this long, disconnect
-const LATE_DISPATCH_TIMEOUT = 1000; // time to allow clients to arrive from the dispatcher even though the session has been unregistered
+const DISPATCH_RECORD_RETENTION = 5000; // how long we must wait to delete a dispatch record (set on the bucket)
+const LATE_DISPATCH_DELAY = 1000;  // how long to allow for clients arriving from the dispatcher even though the session has been unregistered
 
 function logtime() {
-    if (CLUSTER !== "local" ) return "";
+    if (!CLUSTER.startsWith("local")) return "";
     const d = new Date();
     const dd = new Date(d - d.getTimezoneOffset() * 60 * 1000);
     return dd.toISOString().replace(/.*T/, "").replace("Z", " ");
@@ -76,7 +83,7 @@ function LOG( ...args) { console.log(`${logtime()}Reflector-${VERSION}(${CLUSTER
 function WARN(...args) { console.warn(`${logtime()}Reflector-${VERSION}(${CLUSTER}:${HOSTIP}):`, ...args); }
 function ERROR(...args) { console.error(`${logtime()}Reflector-${VERSION}(${CLUSTER}:${HOSTIP}):`, ...args); }
 function DEBUG(...args) { if (debugLogs) LOG(...args); }
-function LOCAL_DEBUG(...args) { if (debugLogs && CLUSTER === "local") LOG(...args); }
+function LOCAL_DEBUG(...args) { if (debugLogs && CLUSTER.startsWith("local")) LOG(...args); }
 
 
 const ARGS = {
@@ -110,7 +117,7 @@ const REASON = {};
 REASON.UNKNOWN_ISLAND = [4000, "unknown island"];
 REASON.UNRESPONSIVE = [4001, "client unresponsive"];
 REASON.INACTIVE = [4002, "client inactive"];
-REASON.RECONNECT = [4003, "please reconnect"];  // used in cloudflare reflector
+REASON.RECONNECT = [4003, "please reconnect"];  // also used in cloudflare reflector
 REASON.BAD_PROTOCOL = [4100, "outdated protocol"];
 REASON.BAD_APPID = [4101, "bad appId"];
 REASON.MALFORMED_MESSAGE = [4102, "malformed message"];
@@ -179,6 +186,20 @@ const webServer = http.createServer( async (req, res) => {
     });
     return res.end(body);
   });
+
+webServer.on('upgrade', (req, socket, _head) => {
+    const { sessionId } = sessionIdAndVersionFromUrl(req.url);
+    if (sessionId) {
+        const session = ALL_SESSIONS.get(sessionId);
+        if (session && session.stage === 'closed') {
+            // a request to delete the dispatcher record has already been sent.  reject this connection, forcing the client to ask the dispatchers again.
+            const clientAddr = `${socket.remoteAddress.replace(/^::ffff:/, '')}:${socket.remotePort}`;
+            LOG(`${sessionId}/${clientAddr} rejecting connection; session has been unregistered`);
+            socket.end('HTTP/1.1 404 Session Closed\r\n');
+        }
+    }
+});
+
 // the WebSocket.Server will intercept the UPGRADE request made by a ws:// websocket connection
 const server = new WebSocket.Server({ server: webServer });
 
@@ -228,9 +249,21 @@ function handleTerm() {
     if (!aborted) {
         aborted = true;
         const promises = [];
-        for (const [_id, island] of ALL_ISLANDS.entries()) {
-            if (island.deletionTimeout) clearTimeout(island.deletionTimeout);
-            promises.push(deleteIsland(island));
+        // if some island is waiting for its dispatcher record to be deletable,
+        // we need to wait it out here too.
+        for (const [id, session] of ALL_SESSIONS.entries()) {
+            const { timeout, earliestUnregister } = session;
+            if (timeout) clearTimeout(timeout); // we're in charge now
+            const now = Date.now();
+            const wait = now >= earliestUnregister
+                ? Promise.resolve()
+                : new Promise(resolve => setTimeout(resolve, earliestUnregister - now));
+            const island = ALL_ISLANDS.get(id);
+            const cleanup = wait.then(() => island
+                ? deleteIsland(island)
+                : unregisterSession(id, "emergency shutdown without island")
+                );
+            promises.push(cleanup);
         }
         if (promises.length) {
             DEBUG(`\nEMERGENCY SHUTDOWN OF ${promises.length} ISLAND(S)`);
@@ -244,7 +277,7 @@ process.on('SIGTERM', handleTerm);
 
 // start server
 startServer();
-if (CLUSTER === "local") watchStats();
+if (CLUSTER.startsWith("local")) watchStats();
 
 /**
  * @typedef ID - A random 128 bit hex ID
@@ -268,6 +301,17 @@ if (CLUSTER === "local") watchStats();
 
 /** @type {Map<ID,IslandData>} */
 const ALL_ISLANDS = new Map();
+
+/**
+ * @typedef SessionData
+ * @type {object}
+ * @property {string} stage - "runnable", "running", "closable", "closed"
+ * @property {number} earliestUnregister - estimate of Date.now() when dispatcher record can be removed
+ * @property {number} timeout - ID of system timeout in "runnable" or "closable" stages, to go ahead and close if no client joins
+ */
+
+/** @type {Map<ID,SessionData>} */
+const ALL_SESSIONS = new Map();
 
 /** Get current time for island
  * @param {IslandData} island
@@ -337,8 +381,35 @@ function JOIN(client, args) {
         return;
     }
     const id = client.sessionId;
+    const session = ALL_SESSIONS.get(id);
+    if (!session) {
+        // shouldn't normally happen, but perhaps possible due to network delays
+        LOG(`${id}/${client.addr} rejecting JOIN; unknown session`);
+        client.safeClose(...REASON.RECONNECT);
+        return;
+    }
+
+    switch (session.stage) {
+        case 'closed':
+            // a request to delete the dispatcher record has already been
+            // sent (but we didn't know that in time to prevent the
+            // client from connecting at all).  tell client to ask the
+            // dispatchers again.
+            LOG(`${id}/${client.addr} rejecting JOIN; session has been unregistered`);
+            client.safeClose(...REASON.RECONNECT);
+            return;
+        case 'runnable':
+        case 'closable':
+            session.stage = 'running';
+            clearTimeout(session.timeout);
+            session.timeout = null;
+            break;
+        default:
+    }
+
     // the connection log filter matches on (" connection " OR " JOIN ")
     LOG(`${id}/${client.addr} receiving JOIN ${JSON.stringify(args)}`);
+
     const { name, version, appId, islandId, user, location, heraldUrl, leaveDelay } = args;
     // new clients (>=0.3.3) send ticks in JOIN
     const syncWithoutSnapshot = 'ticks' in args;
@@ -385,12 +456,6 @@ function JOIN(client, args) {
             if (Array.isArray(user)) user.push(client.location);
             else if (typeof user === "object") user.location = client.location;
         }
-    }
-
-    // if we had provisionally scheduled deletion of the island, cancel that
-    if (island.deletionTimeout) {
-        clearTimeout(island.deletionTimeout);
-        island.deletionTimeout = null;
     }
 
     // start broadcasting messages to client
@@ -466,7 +531,7 @@ function START(island) {
         if (island.startClient !== client) return; // success
         client.safeClose(...REASON.UNRESPONSIVE);
         // the client's on('close') handler will call START again
-    }, SNAP_TIMEOUT);
+        }, SNAP_TIMEOUT);
 }
 
 function SYNC(island) {
@@ -916,21 +981,29 @@ async function heraldUsers(island, all, joined, left) {
 
 // impose a delay on island deletion, in case clients are only going away briefly
 function provisionallyDeleteIsland(island) {
-    if (!island.deletionTimeout) island.deletionTimeout = setTimeout(() => deleteIsland(island), DELETION_DEBOUNCE);
+    const { id } = island;
+    const session = ALL_SESSIONS.get(id);
+    if (session.stage !== 'running') {
+        DEBUG(`${id} ignoring out-of-sequence deletion (stage=${session.stage})`);
+        return;
+    }
+    session.stage = 'closable';
+    // NB: the deletion delay is currently safely longer than the retention on the dispatcher record
+    session.timeout = setTimeout(() => deleteIsland(island), DELETION_DEBOUNCE);
 }
 
 // delete our live record of the island, rewriting latest.json if necessary and
 // removing the dispatcher's record of the island being on this reflector.
 // in case some clients have been dispatched to here just as the record's deletion
-// is being requested, we maintain the island record for a brief period so we can
+// is being requested, we maintain the session record for a brief period so we can
 // tell those late-arriving clients that they must connect again (because any clients
 // *after* them will be dispatched afresh).  because the dispatchers could end up
 // assigning the session to this same reflector again, we only turn away clients
 // for a second or so after the unregistering has gone through.
 async function deleteIsland(island) {
     const { id, syncWithoutSnapshot, snapshotUrl, time, seq, storedUrl, storedSeq, messages } = island;
-    if (island.unregistered || !ALL_ISLANDS.has(id)) {
-        LOG(`${id} island already deleted, ignoring deleteIsland();`);
+    if (!ALL_ISLANDS.has(id)) {
+        DEBUG(`${id} island already deleted, ignoring deleteIsland();`);
         return;
     }
     if (island.usersTimer) {
@@ -940,15 +1013,14 @@ async function deleteIsland(island) {
     prometheusSessionGauge.dec();
     // stop ticking and delete
     stopTicker(island);
-    // house keeping below only in fleet mode
-    if (CLUSTER === "local") {
-        ALL_ISLANDS.delete(id);
-        LOG(`${id} island deleted`);
-        return;
-    }
-    // remove ourselves from session registry, ignoring errors
-    island.unregistered = true; // to turn away new clients
+    ALL_ISLANDS.delete(id);
+    LOG(`${id} island deleted`);
+
+    // remove session, including deleting dispatcher record if there is one
+    // (deleteIsland is only ever invoked after at least long enough to
+    // outlast the record's retention limit).
     const unregistered = unregisterSession(id, `@${time}#${seq}`);
+
     // if we've been told of a snapshot since the one (if any) stored in this
     // island's latest.json, or there are messages since the snapshot referenced
     // there, write a new latest.json.
@@ -961,19 +1033,50 @@ async function deleteIsland(island) {
             await uploadJSON(fileName, latestSpec);
         } catch (err) { LOG(`${id} failed to upload latest.json. ${err.code}: ${err.message}` ); }
     }
-    await unregistered;
-    setTimeout(() => ALL_ISLANDS.delete(id), LATE_DISPATCH_TIMEOUT);
+
+    await unregistered; // wait because in emergency shutdown we need to clean up before exiting
+}
+
+function scheduleUnregisterSession(id, targetTime, detail) {
+    const session = ALL_SESSIONS.get(id);
+    if (!session || session.stage === 'closed') {
+        const reason = session ? `stage=${session.stage}` : "no session record";
+        DEBUG(id, `not scheduling unregister: ${reason}`);
+        return;
+    }
+
+    if (session.timeout) clearTimeout(session.timeout);
+    const now = Date.now();
+    session.timeout = setTimeout(() => unregisterSession(id, detail), targetTime - now);
 }
 
 async function unregisterSession(id, detail) {
-    if (!DISPATCHER_BUCKET) return;
-    DEBUG(id, `unregistering session ${detail}`);
+    const session = ALL_SESSIONS.get(id);
+    if (!session || session.stage === 'closed') {
+        const reason = session ? `stage=${session.stage}` : "no session record";
+        DEBUG(id, `ignoring unregister: ${reason}`);
+        return;
+    }
+
+    DEBUG(id, `unregistering session - ${detail}`);
+
+    if (!DISPATCHER_BUCKET) {
+        // nothing to wait for
+        ALL_SESSIONS.delete(id);
+        return;
+    }
+
+    session.stage = 'closed';
+    let filename = `${id}.json`;
+    if (CLUSTER === "localWithStorage") filename = `testing/${filename}`;
     try {
-        await DISPATCHER_BUCKET.file(`${id}.json`).delete();
+        await DISPATCHER_BUCKET.file(filename).delete();
     } catch (err) {
         if (err.code === 404) LOG(`${id} failed to unregister. ${err.code}: ${err.message}`);
         else WARN(`${id} failed to unregister. ${err.code}: ${err.message}`);
     }
+
+    setTimeout(() => ALL_SESSIONS.delete(id), LATE_DISPATCH_DELAY);
 }
 
 function sessionIdAndVersionFromUrl(url) {
@@ -991,20 +1094,48 @@ server.on('error', err => ERROR(`Server Socket Error: ${err.message}`));
 server.on('connection', (client, req) => {
     const { version, sessionId } = sessionIdAndVersionFromUrl(req.url);
     if (!sessionId) { ERROR(`Missing session id in request "${req.url}"`); client.close(...REASON.BAD_PROTOCOL); return; }
-    client.addr = `${req.connection.remoteAddress.replace(/^::ffff:/, '')}:${req.connection.remotePort}`;
-    if (ALL_ISLANDS.has(sessionId)) {
-        const island = ALL_ISLANDS.get(sessionId);
-        if (island.deletionTimeout) {
-            // deletion was scheduled, but we're in time to stop it
-            clearTimeout(island.deletionTimeout);
-            island.deletionTimeout = null;
-        } else if (island.unregistered) {
-            // a request to delete the dispatcher record has already been
-            // sent.  tell client to ask the dispatchers again.
-            LOG(`${island.id}/${client.addr} rejecting connection; island has been unregistered`);
-            client.close(...REASON.RECONNECT);
-            return;
+    client.addr = `${req.socket.remoteAddress.replace(/^::ffff:/, '')}:${req.socket.remotePort}`;
+    const session = ALL_SESSIONS.get(sessionId);
+    if (session) {
+        switch (session.stage) {
+            case 'closed':
+                // a request to delete the dispatcher record has already been
+                // sent.  tell client to ask the dispatchers again.
+                LOG(`${sessionId}/${client.addr} rejecting connection; session has been unregistered`);
+                client.close(...REASON.RECONNECT); // safeClose doesn't exist yet
+                return;
+            case 'runnable':
+            case 'closable': {
+                // make sure the unregister timeout has at least 1000ms to run,
+                // to give this client a chance to join
+                const now = Date.now();
+                const targetTime = Math.max(session.earliestUnregister, now + 1000);
+                scheduleUnregisterSession(sessionId, targetTime, "no JOIN in time");
+                break;
+                }
+            default:
         }
+    } else {
+        let unregisterDelay = DISPATCH_RECORD_RETENTION + 2000; // be generous
+        if (CLUSTER === 'localWithStorage') {
+            // FOR TESTING WITH LOCAL REFLECTOR ONLY
+            // no dispatcher was involved in getting here.  create for ourselves a dummy
+            // record in the /testing sub-bucket.
+            unregisterDelay += 2000; // creating the record probably won't take longer than this
+            const filename = `testing/${sessionId}.json`;
+            const dummyContents = { dummy: "imadummy" };
+            const start = Date.now();
+            uploadJSON(filename, dummyContents, DISPATCHER_BUCKET)
+            .then(() => LOG(`${sessionId} dummy dispatcher record created in ${Date.now() - start}ms`))
+            .catch(err => ERROR(`${sessionId} failed to create dummy dispatcher record. ${err.code}: ${err.message}`));
+        }
+        const earliestUnregister = Date.now() + unregisterDelay;
+        const session = {
+            stage: 'runnable',
+            earliestUnregister
+            };
+        ALL_SESSIONS.set(sessionId, session);
+        scheduleUnregisterSession(sessionId, earliestUnregister, "no JOIN in time");
     }
     prometheusConnectionGauge.inc(); // connection accepted
     client.sessionId = sessionId;
@@ -1126,8 +1257,7 @@ server.on('connection', (client, req) => {
         // the connection log filter matches on (" connection " OR " JOIN ")
         LOG(`${client.sessionId}/${client.addr} closed connection ${JSON.stringify(reason)} ${JSON.stringify(client.stats)}`);
         const island = ALL_ISLANDS.get(client.sessionId);
-        if (!island) unregisterSession(client.sessionId, "on close"); // client never joined, apparently
-        else {
+        if (island) {
             if (island.startClient === client) {
                 DEBUG(`${island.id}/${client.addr} START client failed to respond`);
                 clearTimeout(island.startTimeout);
@@ -1162,11 +1292,11 @@ async function fetchJSON(filename) {
 }
 
 /** upload an object as JSON file to our storage bucket */
-async function uploadJSON(filename, object) {
+async function uploadJSON(filename, object, bucket=SESSION_BUCKET) {
     if (NO_STORAGE || (APPS_ONLY && !filename.startsWith('apps/'))) {
         throw Error("storage disabled but upload called?!");
     }
-    const file = SESSION_BUCKET.file(filename);
+    const file = bucket.file(filename);
     const stream = await file.createWriteStream({
         resumable: false,
         metadata: {
