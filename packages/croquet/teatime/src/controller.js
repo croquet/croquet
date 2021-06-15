@@ -1414,6 +1414,7 @@ class Connection {
             if (DEBUG.session) console.log(this.id, this.socket.constructor.name, "connected to", this.socket.url);
             this.reconnectDelay = 0;
             Stats.connected(true);
+            this.controller.sendJoin();
         };
         socket.onmessage = event => {
             this.receive(event.data);
