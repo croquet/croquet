@@ -1095,7 +1095,7 @@ server.on('connection', (client, req) => {
     const { version, sessionId } = sessionIdAndVersionFromUrl(req.url);
     if (!sessionId) { ERROR(`Missing session id in request "${req.url}"`); client.close(...REASON.BAD_PROTOCOL); return; }
     client.addr = `${req.socket.remoteAddress.replace(/^::ffff:/, '')}:${req.socket.remotePort}`;
-    const session = ALL_SESSIONS.get(sessionId);
+    let session = ALL_SESSIONS.get(sessionId);
     if (session) {
         switch (session.stage) {
             case 'closed':
@@ -1130,7 +1130,7 @@ server.on('connection', (client, req) => {
             .catch(err => ERROR(`${sessionId} failed to create dummy dispatcher record. ${err.code}: ${err.message}`));
         }
         const earliestUnregister = Date.now() + unregisterDelay;
-        const session = {
+        session = {
             stage: 'runnable',
             earliestUnregister
             };
