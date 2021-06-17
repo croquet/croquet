@@ -4,6 +4,7 @@ This is a private summary of changes. The public changes are in the SDK [README.
 
 # latest pre-releases
 
+* 0.5.1-3 workaround for unresponsive sockets sometimes seen if load balancer had to retry
 * 0.5.1-2 simplify controller synchronisation states
 * 0.5.1-1 distinguish consensus and dissidence in persistence uploads
 * 0.5.1-0 persistSession always increments tutti seq
