@@ -705,6 +705,8 @@ export default class Controller {
             case 'SYNC': {
                 // We are joining an island session.
                 this.syncReceived = true; // from this point, any disconnection implies a leave()
+                this.clearSyncReceiptTimeout();
+
                 Controllers.add(this);
 
                 const {messages, url, persisted, time, seq, /* snapshotTime, */ snapshotSeq, reflector} = args;
@@ -952,6 +954,20 @@ export default class Controller {
             action: 'JOIN',
             args,
         }));
+
+        this.syncReceiptTimeout = setTimeout(() => {
+            delete this.syncReceiptTimeout;
+            if (!this.syncReceived) {
+                this.connection.closeConnectionWithError('join', Error("SYNC not received in time"));
+            }
+            }, 500);
+    }
+
+    clearSyncReceiptTimeout() {
+        if (this.syncReceiptTimeout) {
+            clearTimeout(this.syncReceiptTimeout);
+            delete this.syncReceiptTimeout;
+        }
     }
 
     connectionInterrupted() {
@@ -1417,6 +1433,7 @@ class Connection {
             this.controller.sendJoin();
         };
         socket.onmessage = event => {
+            if (socket !== this.socket) return; // in case a socket that we've tried to close can still deliver a message
             this.receive(event.data);
         };
         socket.onerror = _event => {
@@ -1426,50 +1443,59 @@ class Connection {
             // never opened successfully, we need to clear connectHasBeenCalled.
             if (DEBUG.session) console.log(this.id, socket.constructor.name, "connection error");
             this.connectHasBeenCalled = false; // ready to try again
+            this.controller.clearSyncReceiptTimeout(); // if any
         };
         socket.onclose = event => {
-            // with the introduction of seamless rejoin, the closure of the connection
-            // does not directly cause controller.leave() - dismantling the view, etc.
-            // controller.connectionInterrupted() sets an independent timer for invoking
-            // leave() iff the connection has not been restored within the rejoinLimit.
-
-            // event codes 4100 and up mean a disconnection from which the client
-            // shouldn't automatically try to reconnect
-            // e.g., 4100 is for out-of-date reflector protocol
-            // in addition, 1000 means user-triggered Session.leave().  everything stops.
-            const autoReconnect = event.code !== 1000 && event.code < 4100;
-            const dormant = event.code === 4110;
-            // don't display error if going dormant or normal close or reconnecting
-            if (!dormant && event.code !== 1000 && !this.reconnectDelay) {
-                // but also wait 500 ms to see if reconnect succeeded
-                setTimeout(() => {
-                    if (this.connected) return; // yay - connected again
-                    // leave it there for 1 hour if unrecoverable
-                    displayError(`Connection closed: ${event.code} ${event.reason}`, { duration: autoReconnect ? undefined : 3600000 });
-                }, 500);
-            }
-            if (DEBUG.session) console.log(this.id, socket.constructor.name, "closed with code:", event.code, event.reason);
-            Stats.connected(false);
-            if (dormant) this.connectRestricted = true; // only reconnect on session step
-            else this.connectBlocked = true; // only reconnect using connectToReflector
-            this.disconnected();
-            if (autoReconnect) {
-                // the logic above ensures that autoReconnect is only true in conjunction
-                // with connectBlocked=true.  therefore nothing else can cause a reconnection
-                // before the connectToReflector scheduled here.
-                if (DEBUG.session) console.log(this.id, `reconnecting in ${this.reconnectDelay} ms`);
-                this.reconnectTimeout = window.setTimeout(() => {
-                    delete this.reconnectTimeout;
-                    this.connectToReflector();
-                    }, this.reconnectDelay);
-                // we start reconnecting immediately once (0ms) and then back off exponentially
-                // also randomly to avoid hitting the dispatchers at the same time
-                this.reconnectDelay = Math.min(RECONNECT_DELAY_MAX, Math.round((this.reconnectDelay + 100) * (1 + Math.random())));
-            }
+            // triggered when socket is closed from the far end.  when we close
+            // it from here, this handler is first nulled out.
+            this.socketClosed(event.code, event.reason);
         };
     }
 
-    // from socket.onclose handling
+    socketClosed(code, message) {
+        // with the introduction of seamless rejoin, the closure of the connection
+        // does not directly cause controller.leave() - dismantling the view, etc.
+        // controller.connectionInterrupted() sets an independent timer for invoking
+        // leave() iff the connection has not been restored within the rejoinLimit.
+
+        this.controller.clearSyncReceiptTimeout(); // if any
+
+        // event codes 4100 and up mean a disconnection from which the client
+        // shouldn't automatically try to reconnect
+        // e.g., 4100 is for out-of-date reflector protocol
+        // in addition, 1000 means user-triggered Session.leave().  everything stops.
+        const autoReconnect = code !== 1000 && code < 4100;
+        const dormant = code === 4110;
+        // don't display error if going dormant or normal close or reconnecting
+        if (!dormant && code !== 1000 && !this.reconnectDelay) {
+            // but also wait 500 ms to see if reconnect succeeded
+            setTimeout(() => {
+                if (this.connected) return; // yay - connected again
+                // leave it there for 1 hour if unrecoverable
+                displayError(`Connection closed: ${code} ${message}`, { duration: autoReconnect ? undefined : 3600000 });
+            }, 500);
+        }
+        if (DEBUG.session) console.log(this.id, `${this.socket ? this.socket.constructor.name + " closed" : "closed before opening,"} with code: ${code} ${message}`);
+        Stats.connected(false);
+        if (dormant) this.connectRestricted = true; // only reconnect on session step
+        else this.connectBlocked = true; // only reconnect using connectToReflector
+        this.disconnected();
+        if (autoReconnect) {
+            // the logic above ensures that autoReconnect is only true in conjunction
+            // with connectBlocked=true.  therefore nothing else can cause a reconnection
+            // before the connectToReflector scheduled here.
+            if (DEBUG.session) console.log(this.id, `reconnecting in ${this.reconnectDelay} ms`);
+            this.reconnectTimeout = window.setTimeout(() => {
+                delete this.reconnectTimeout;
+                this.connectToReflector();
+            }, this.reconnectDelay);
+            // we start reconnecting immediately once (0ms) and then back off exponentially
+            // also randomly to avoid hitting the dispatchers at the same time
+            this.reconnectDelay = Math.min(RECONNECT_DELAY_MAX, Math.round((this.reconnectDelay + 100) * (1 + Math.random())));
+        }
+    }
+
+    // from socketClosed handling, whether triggered by remote or local closure
     disconnected() {
         if (!this.socket) return;
         this.socket = null;
@@ -1512,7 +1538,16 @@ class Connection {
     }
 
     closeConnection(code, message) {
-        this.socket.close(code, message);
+        if (!this.socket) return;
+
+        // it turns out that a socket can get into a state in which sending close()
+        // doesn't trigger the onclose handler (even though its readyState is OPEN).
+        // therefore when the controller wants to force closure - and perhaps
+        // reconnection - we null out the handler before sending close(), and call
+        // the onclose handling directly.
+        this.socket.onclose = null;
+        this.socket.close(); // might work, might not
+        this.socketClosed(code, message); // we move on, regardless
     }
 
     PULSE(now) {
