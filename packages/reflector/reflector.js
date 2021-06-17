@@ -118,6 +118,7 @@ REASON.UNKNOWN_ISLAND = [4000, "unknown island"];
 REASON.UNRESPONSIVE = [4001, "client unresponsive"];
 REASON.INACTIVE = [4002, "client inactive"];
 REASON.RECONNECT = [4003, "please reconnect"];  // also used in cloudflare reflector
+// non-reconnect codes
 REASON.BAD_PROTOCOL = [4100, "outdated protocol"];
 REASON.BAD_APPID = [4101, "bad appId"];
 REASON.MALFORMED_MESSAGE = [4102, "malformed message"];
@@ -1139,6 +1140,10 @@ server.on('connection', (client, req) => {
     }
     prometheusConnectionGauge.inc(); // connection accepted
     client.sessionId = sessionId;
+    // if this is a forwarded connection, extract the forwarding headers for logging.
+    // if this connection is through a Croquet dispatcher, its proxy will have appended
+    // the address of its incoming connection - typically a load balancer - and will
+    // have added x-croquet-dispatcher with the name of the dispatcher's cluster.
     if (req.headers['x-forwarded-for']) client.forwarded = `via ${req.headers['x-croquet-dispatcher'||'']} (${req.headers['x-forwarded-for'].split(/\s*,\s*/).map(a => a.replace(/^::ffff:/, '')).join(', ')}) `;
     // location header is added by load balancer, see region-servers/apply-changes
     if (req.headers['x-location']) try {
