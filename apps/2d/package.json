@@ -2,7 +2,6 @@
   "name": "@croquet/2d",
   "version": "0.0.1",
   "description": "",
-  "main": "src/2d.js",
   "scripts": {
     "start": "parcel src/*.html -p 9009",
     "deploy": "./deploy.sh"
@@ -24,6 +23,6 @@
     "@croquet/croquet": "file:../libraries/packages/croquet"
   },
   "devDependencies": {
-    "parcel-bundler": "^1.12.4"
+    "parcel": "^2.0.0-beta.3.1"
   }
 }

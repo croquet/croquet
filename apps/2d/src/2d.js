@@ -248,7 +248,17 @@ async function go() {
     async function joinSession() {
         SessionButton.innerText = "Joining";
         SessionButton.onclick = null;
-        session = await Session.join(`2d-${App.autoSession("q")}`, Shapes, ShapesView, {step: "manual", tps: TPS, optionsFromUrl: ['n']});
+
+        session = await Session.join({
+            appId: "io.croquet.examples._2d",
+            name: App.autoSession(),
+            password: App.autoPassword(),
+            model: Shapes,
+            view: ShapesView,
+            tps: TPS,
+            step: "manual",
+            optionsFromUrl: ['n']
+            });
         window.requestAnimationFrame(frame);
         SessionButton.innerText = "Leave";
         SessionButton.onclick = leaveSession;

@@ -267,7 +267,17 @@ async function go() {
 
     const bounce = +new URL(window.location).searchParams.get("bounce");
 
-    const session = await Session.join(`avatars-${App.autoSession("q")}`, Shapes, ShapesView, { step: "manual", tps: TPS, options: { bounce: Math.max(1, bounce) } });
+    const session = await Session.join({
+        appId: "io.croquet.examples.avatars",
+        name: App.autoSession(),
+        password: App.autoPassword(),
+        model: Shapes,
+        view: ShapesView,
+        tps: TPS,
+        step: "manual",
+        options: { bounce: Math.max(1, bounce) }
+        });
+
     const controller = session.view.realm.island.controller;
 
     let users = 0;
