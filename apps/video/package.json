@@ -2,7 +2,6 @@
   "name": "@croquet/video",
   "version": "0.0.2",
   "description": "",
-  "main": "src/video.js",
   "scripts": {
     "start": "parcel src/*.html -p 9009"
   },
@@ -23,6 +22,6 @@
     "@croquet/croquet": "file:../libraries/packages/croquet"
   },
   "devDependencies": {
-    "parcel-bundler": "^1.12.4"
+    "parcel": "^2.0.0-beta.3.1"
   }
 }
