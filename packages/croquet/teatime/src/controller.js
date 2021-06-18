@@ -74,6 +74,7 @@ const NOCHEAT = urlOptions.nocheat;
 const SNAPSHOT_EVERY = 5000;
 // add this many ms for each external message scheduled
 const EXTERNAL_MESSAGE_CPU_PENALTY = 5;
+const JOIN_FAILED_DELAY = 5000; // time after which we conclude that our sending of JOIN failed
 
 // lag threshold in ms to publish "synced(true|false)" event (to start/stop rendering)
 const SYNCED_MIN = 200;        // synced if tick arrives within this many ms ...
@@ -960,7 +961,7 @@ export default class Controller {
             if (!this.syncReceived) {
                 this.connection.closeConnectionWithError('join', Error("SYNC not received in time"));
             }
-            }, 500);
+            }, JOIN_FAILED_DELAY);
     }
 
     clearSyncReceiptTimeout() {

@@ -1117,7 +1117,11 @@ server.on('connection', (client, req) => {
             default:
         }
     } else {
-        let unregisterDelay = DISPATCH_RECORD_RETENTION + 2000; // be generous
+        // add a buffer to how long we wait before trying to delete the dispatcher
+        // record.  one purpose served by this buffer is to stay available for a
+        // client that finds its socket isn't working (SYNC fails to arrive), and
+        // after 5 seconds will try to reconnect.
+        let unregisterDelay = DISPATCH_RECORD_RETENTION + 2000;
         if (CLUSTER === 'localWithStorage') {
             // FOR TESTING WITH LOCAL REFLECTOR ONLY
             // no dispatcher was involved in getting here.  create for ourselves a dummy
