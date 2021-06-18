@@ -6,7 +6,7 @@ We use semantic versioning, see semver.org
 
 * update non-public [CHANGELOG.md](./CHANGELOG.md)
   - add a line for this pre-release
-* update `version` in `package.info`
+* update `version` in `package.json`
   - e.g. `a.b.c-5` becomes `a.b.c-6`
 * commit these two files using that version number as the commit message
   - `[teatime] changelog and version bump to a.b.c-n`
