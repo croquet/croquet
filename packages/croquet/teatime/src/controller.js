@@ -675,7 +675,7 @@ export default class Controller {
                 // the message from the reflector will contain the tuttiSeq, a tally, and an array containing the id, selector and topic that it was told to use.
                 // if we have a record of supplying a value for this TUTTI, add it to the args.
                 const { tuttiSeq, tally, tallyTarget, missingClients } = msg[2];
-                if (missingClients) console.log(`${missingClients} ${missingClients === 1 ? "client" : "clients"} failed to participate in tally ${tuttiSeq}`); // purely for information
+                if ((DEBUG.messages || DEBUG.snapshot) && missingClients) console.log(`${missingClients} ${missingClients === 1 ? "client" : "clients"} failed to participate in tally ${tuttiSeq}`); // purely for information
                 const tuttiIndex = this.tuttiHistory.findIndex(hist => hist.tuttiSeq === tuttiSeq);
                 const local = tuttiIndex !== -1 && this.tuttiHistory.splice(tuttiIndex, 1)[0];
                 // if we participated, resolve our promise
