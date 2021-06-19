@@ -5,7 +5,7 @@ import { addConstantsHash } from "@croquet/util/hashing";
 
 import Model from "./model";
 import View from "./view";
-import Controller from "./controller";
+import Controller, { sessionController } from "./controller";
 import Island from "./island";
 import { Messenger } from "./messenger";
 
@@ -14,7 +14,9 @@ export function deprecatedStartSession(...args) {
     return Session.join(...args);
 }
 
-const Controllers = {};
+const DEFAULT_BALANCE_FPS = 60;
+const MAX_BALANCE_FPS = 120;
+let expectedSimFPS = DEFAULT_BALANCE_FPS;
 
 /**
  * _The Session API is under construction._
@@ -235,7 +237,7 @@ export class Session {
             view: null,
             // called from our own onAnimationFrame, or application if stepping manually
             step(frameTime) {
-                stepSession(frameTime, controller, session.view);
+                controller.stepSession(frameTime, session.view, expectedSimFPS);
             },
             leave() {
                 return Session.leave(session.id);
@@ -259,58 +261,9 @@ export class Session {
         let rebooting = false;
         await rebootModelView();
 
-        /** timestamp of last frame (in animationFrame timebase) */
-        let lastFrameTime = 0;
-        /** time of last frame in (in Date.now() timebase) */
-        let lastFrame = Date.now();
-        /** average duration of last step */
-        let recentFramesAverage = 0;
-        /** recentFramesAverage to be considered hidden */
-        const FRAME_AVERAGE_THRESHOLD = 20000;
-        /** tab hidden or no anim frames recently */
-        const isHidden = () => {
-            // report whether to consider this tab hidden - returning true if
-            //   - the visibilityState is "hidden", or
-            //   - the time gap since the last animationFrame is above threshold, or
-            //   - the responsive but decaying average of gaps between animation frames
-            //     is above threshold.
-            // i.e., a big frame gap can cause an immediate isHidden report, but
-            // if rapid frames resume, they will soon lead to !isHidden.
-            // sept 2020: Safari 13 (but not 14) drastically slows animation frames to
-            // a browser tab that is fully in view but is not focussed; inter-frame
-            // gaps of 10-15 seconds seem common.  to prevent these gaps from causing
-            // isHidden reports, the threshold time was raised from 1s to 20s, and the
-            // ceiling of the average calculation from 10s to 30s.
-            // a corollary is that frames that are off-screen on Q in Safari, which
-            // appears to send animation frames every 10s, will never go dormant.
-            return document.visibilityState === "hidden"
-                || Date.now() - lastFrame > FRAME_AVERAGE_THRESHOLD
-                || recentFramesAverage > FRAME_AVERAGE_THRESHOLD;
-            };
-        /** time that we were hidden */
-        let hiddenSince = 0;
-        /** timestamp of frame when we were hidden */
-        let frameTimeWhenHidden = 0;
-        /** hidden check and auto stepping */
-        const onAnimationFrame = frameTime => {
-            if (!Controllers[session.id]) return; // stop the loop; it's not coming back
+        const autoStepFn = parameters.step !== "manual" ? session.step : null;
+        controller.startRunning(autoStepFn, urlOptions.autoSleep);
 
-            // jump to larger v immediately, cool off slowly, limit to max
-            const coolOff = (v0, v1, t, max) => Math.min(max, Math.max(v1, v0 * (1 - t) + v1 * t)) | 0;
-            recentFramesAverage = coolOff(recentFramesAverage, frameTime - lastFrameTime, 0.1, 30000);
-            lastFrameTime = frameTime;
-            lastFrame = Date.now();
-            // having just recorded a lastFrame, isHidden will only be
-            // true if the recentFramesAverage is above threshold (or
-            // if visibilityState is explicitly "hidden", of course)
-            if (!isHidden()) {
-                controller.checkForConnection(true); // reconnect if disconnected and not blocked
-                if (parameters.step !== "manual") session.step(frameTime);
-            }
-            window.requestAnimationFrame(onAnimationFrame);
-            };
-        window.requestAnimationFrame(onAnimationFrame);
-        startHiddenChecker();
         return session;
 
         async function rebootModelView() {
@@ -338,7 +291,6 @@ export class Session {
             session.persistentId = controller.persistentId;
             session.versionId = controller.versionId;
             controller.session = session;
-            Controllers[session.id] = controller;
 
             App.makeSessionWidgets(session.id);
             controller.inViewRealm(() => {
@@ -358,43 +310,11 @@ export class Session {
             App.clearSessionMoniker();
             if (Messenger.ready) {Messenger.detach();}
         }
-
-        function startHiddenChecker() {
-            const DORMANT_DELAY_DEFAULT = 10000;
-            const noSleep = "autoSleep" in urlOptions && !urlOptions.autoSleep;
-            const dormantDelay = typeof urlOptions.autoSleep === "number" ? 1000 * urlOptions.autoSleep : DORMANT_DELAY_DEFAULT;
-            const interval = setInterval(() => {
-                if (!Controllers[session.id]) clearInterval(interval); // stop loop
-                else if (isHidden()) {
-                    if (!hiddenSince) {
-                        hiddenSince = Date.now();
-                        frameTimeWhenHidden = lastFrameTime + hiddenSince - lastFrame;
-                        // console.log("hidden");
-                    }
-                    const hiddenFor = Date.now() - hiddenSince;
-                    // if autoSleep is set to false or 0, don't go dormant even if the tab becomes
-                    // hidden.  also, run the simulation loop once per second to handle any events
-                    // that have arrived from the reflector.
-                    if (noSleep) {
-                        // make time appear as continuous as possible
-                        if (parameters.step !== "manual") session.step(frameTimeWhenHidden + hiddenFor);
-                    } else if (hiddenFor > dormantDelay) {
-                        // Controller doesn't mind being asked repeatedly to disconnect
-                        controller.dormantDisconnect();
-                    }
-                } else if (hiddenSince) {
-                    // reconnect happens in onAnimationFrame()
-                    hiddenSince = 0;
-                    // console.log("unhidden");
-                }
-            }, 1000);
-        }
     }
 
     static async leave(sessionId) {
-        const controller = Controllers[sessionId];
+        const controller = sessionController(sessionId);
         if (!controller) return false;
-        delete Controllers[sessionId];
         // make sure there is no lurking timeout that would cause the controller
         // to reconnect.
         if (controller.reconnectTimeout) {
@@ -404,7 +324,7 @@ export class Session {
         const leavePromise = new Promise(resolve => controller.leaving = resolve);
         const connection = controller.connection;
         if (!connection.connected) return false;
-        connection.socket.close(1000); // triggers the onclose which eventually calls rebootModelView to shut down the view
+        connection.closeConnection(1000); // calls socketClosed, and hence eventually rebootModelView to shut down the view
         return leavePromise;
     }
 
@@ -412,51 +332,6 @@ export class Session {
         const island = Island.current();
         return island ? island.id : "";
     }
-}
-
-// maximum amount of time in milliseconds the model get to spend running its simulation
-const MAX_SIMULATION_MS = 200;
-// time spent simulating the last few frames
-const simLoad = [0];
-// number of frames to spread load
-const LOAD_BALANCE_FRAMES = 4;
-// when average load is low, the balancer spreads simulation across frames by
-// simulating with a budget equal to the mean of the durations recorded from the
-// last LOAD_BALANCE_FRAMES simulations.
-// a session also has a value expectedSimFPS, from which we derive the maximum time
-// slice that the simulation can use on each frame while still letting the app
-// render on time.  whenever the controller is found to have a backlog greater than
-// LOAD_BALANCE_FRAMES times that per-frame slice, the balancer immediately
-// schedules a simulation boost with a budget of MAX_SIMULATION_MS.
-// expectedSimFPS can be set using session param expectedSimFPS; the higher
-// the value, the less of a backlog is needed to trigger a simulation boost.  but
-// if expectedSimFPS is set to zero, the balancer will attempt to clear any backlog
-// on every frame.
-const DEFAULT_BALANCE_FPS = 60;
-const MAX_BALANCE_FPS = 120;
-let expectedSimFPS = DEFAULT_BALANCE_FPS;
-
-function stepSession(frameTime, controller, view) {
-    const {backlog, latency, starvation, activity} = controller;
-    Stats.animationFrame(frameTime, {backlog, starvation, latency, activity, users: controller.users});
-
-    if (!controller.island) return;
-    const simStart = Date.now();
-    const simBudget = simLoad.reduce((a,b) => a + b, 0) / simLoad.length;
-    controller.simulate(simStart + Math.min(simBudget, MAX_SIMULATION_MS));
-    const allowableLag = expectedSimFPS === 0 ? 0 : LOAD_BALANCE_FRAMES * (1000 / expectedSimFPS);
-    if (controller.backlog > allowableLag) controller.simulate(simStart + MAX_SIMULATION_MS - simBudget);
-    simLoad.push(Date.now() - simStart);
-    if (simLoad.length > LOAD_BALANCE_FRAMES) simLoad.shift();
-
-    Stats.begin("update");
-    controller.processModelViewEvents();
-    Stats.end("update");
-
-    if (!view) return;
-    Stats.begin("render");
-    controller.inViewRealm(() => view.update(frameTime));
-    Stats.end("render");
 }
 
 /**

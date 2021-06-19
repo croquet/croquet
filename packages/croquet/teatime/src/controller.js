@@ -83,6 +83,25 @@ const SYNCED_MAX = 2000;       // unsynced if tick missing for this many ms ...
 const SYNCED_MAX_FACTOR = 0.2; // ... or msPerTick times this (e.g. 30s/tick => 6s)
 const SYNCED_ANNOUNCE_DELAY = 200; // ms to delay setting synced, mainly to accommodate immediate post-SYNC messages (notably "users") from reflector
 
+// maximum amount of time in milliseconds the model get to spend running its simulation
+const MAX_SIMULATION_MS = 200;
+// time spent simulating the last few frames
+const simLoad = [0];
+// number of frames to spread load
+const LOAD_BALANCE_FRAMES = 4;
+// when average load is low, the balancer spreads simulation across frames by
+// simulating with a budget equal to the mean of the durations recorded from the
+// last LOAD_BALANCE_FRAMES simulations.
+// a session also has a value expectedSimFPS, from which we derive the maximum time
+// slice that the simulation can use on each frame while still letting the app
+// render on time.  whenever the controller is found to have a backlog greater than
+// LOAD_BALANCE_FRAMES times that per-frame slice, the balancer immediately
+// schedules a simulation boost with a budget of MAX_SIMULATION_MS.
+// expectedSimFPS can be set using session param expectedSimFPS; the higher
+// the value, the less of a backlog is needed to trigger a simulation boost.  but
+// if expectedSimFPS is set to zero, the balancer will attempt to clear any backlog
+// on every frame.
+
 function randomString() { return Math.floor(Math.random() * 36**10).toString(36); }
 
 
@@ -105,6 +124,13 @@ export function sessionProps(sessionId) {
         }
     }
     return {};
+}
+
+export function sessionController(sessionId) {
+    for (const controller of Controllers) {
+        if (controller.id === sessionId) return controller;
+    }
+    return null;
 }
 
 export default class Controller {
@@ -814,6 +840,10 @@ export default class Controller {
                     const fastForwardIsland = () => {
                         if (!this.connected || !this.island) { console.log(this.id, 'disconnected during SYNC fast-forwarding'); resolve(false); return; }
                         const caughtUp = this.simulate(Date.now() + 200);
+                        if (caughtUp === "error") {
+                            resolve(false);
+                            return;
+                        }
                         const joined = this.viewId in this.island.views;
                         if (caughtUp && joined) resolve(true);
                         else setTimeout(fastForwardIsland, 0);
@@ -863,6 +893,7 @@ export default class Controller {
                 }
                 this.timeFromReflector(time);
                 if (this.tickMultiplier > 1) this.multiplyTick(time);
+                if (this.checkForDormancy) this.checkForDormancy(); // takes a while to get set up
                 return;
             }
             case 'INFO': {
@@ -1314,6 +1345,32 @@ export default class Controller {
         }
     }
 
+    // june 2021: moved from session.js
+    stepSession(frameTime, view, expectedSimFPS) {
+        const { backlog, latency, starvation, activity } = this;
+        Stats.animationFrame(frameTime, { backlog, starvation, latency, activity, users: this.users });
+
+        if (!this.island) return;
+        const simStart = Date.now();
+        const simBudget = simLoad.reduce((a, b) => a + b, 0) / simLoad.length;
+        let caughtUp = this.simulate(simStart + Math.min(simBudget, MAX_SIMULATION_MS));
+        if (caughtUp === "error") return;
+        const allowableLag = expectedSimFPS === 0 ? 0 : LOAD_BALANCE_FRAMES * (1000 / expectedSimFPS);
+        if (this.backlog > allowableLag) caughtUp = this.simulate(simStart + MAX_SIMULATION_MS - simBudget);
+        if (caughtUp === "error") return;
+        simLoad.push(Date.now() - simStart);
+        if (simLoad.length > LOAD_BALANCE_FRAMES) simLoad.shift();
+
+        Stats.begin("update");
+        this.processModelViewEvents();
+        Stats.end("update");
+
+        if (!view) return;
+        Stats.begin("render");
+        this.inViewRealm(() => view.update(frameTime));
+        Stats.end("render");
+    }
+
     applySyncChange(bool) {
         this.synced = bool;
         App.showSyncWait(!bool); // true if not synced
@@ -1356,6 +1413,100 @@ export default class Controller {
             if (DEBUG.ticks) console.log(this.id, 'Controller generate TICK ' + this.time, n);
             if (++n >= multiplier) { window.clearInterval(this.localTicker); this.localTicker = 0; }
         }, ms);
+    }
+
+    // june 2021: moved from session.js
+    startRunning(autoStepFn, autoSleep) {
+        /** timestamp of last frame (in animationFrame timebase) */
+        let lastFrameTime = 0;
+        /** time of last frame in (in Date.now() timebase) */
+        let lastFrame = Date.now();
+        /** average duration of last step */
+        let recentFramesAverage = 0;
+        /** recentFramesAverage to be considered hidden */
+        const FRAME_AVERAGE_THRESHOLD = 20000;
+        /** tab hidden or no anim frames recently */
+        const isHidden = () => {
+            // report whether to consider this tab hidden - returning true if
+            //   - the visibilityState is "hidden", or
+            //   - the time gap since the last animationFrame is above threshold, or
+            //   - the responsive but decaying average of gaps between animation frames
+            //     is above threshold.
+            // i.e., a big frame gap can cause an immediate isHidden report, but
+            // if rapid frames resume, they will soon lead to !isHidden.
+            // sept 2020: Safari 13 (but not 14) drastically slows animation frames to
+            // a browser tab that is fully in view but is not focussed; inter-frame
+            // gaps of 10-15 seconds seem common.  to prevent these gaps from causing
+            // isHidden reports, the threshold time was raised from 1s to 20s, and the
+            // ceiling of the average calculation from 10s to 30s.
+            // a corollary is that frames that are off-screen on Q in Safari, which
+            // appears to send animation frames every 10s, will never go dormant.
+            return document.visibilityState === "hidden"
+                || Date.now() - lastFrame > FRAME_AVERAGE_THRESHOLD
+                || recentFramesAverage > FRAME_AVERAGE_THRESHOLD;
+        };
+        /** time that we were hidden */
+        let hiddenSince = 0;
+        /** hidden check and auto stepping */
+        const onAnimationFrame = frameTime => {
+            if (this.leaving) return; // stop the loop; it's not coming back
+
+            // jump to larger v immediately, cool off slowly, limit to max
+            const coolOff = (v0, v1, t, max) => Math.min(max, Math.max(v1, v0 * (1 - t) + v1 * t)) | 0;
+            recentFramesAverage = coolOff(recentFramesAverage, frameTime - lastFrameTime, 0.1, 30000);
+            lastFrameTime = frameTime;
+            lastFrame = Date.now();
+            // having just recorded a lastFrame, isHidden will only be
+            // true if the recentFramesAverage is above threshold (or
+            // if visibilityState is explicitly "hidden", of course)
+            if (!isHidden()) {
+                this.checkForConnection(true); // reconnect if disconnected and not blocked
+                if (autoStepFn) autoStepFn(frameTime);
+            }
+            window.requestAnimationFrame(onAnimationFrame);
+        };
+        window.requestAnimationFrame(onAnimationFrame);
+
+        const DORMANT_DELAY_DEFAULT = 10000;
+        const noSleep = autoSleep !== undefined && !autoSleep;
+        const dormantDelay = typeof autoSleep === "number" ? 1000 * autoSleep : DORMANT_DELAY_DEFAULT;
+        let lastDormancyCheck = 0;
+        const checkForDormancy = this.checkForDormancy = () => {
+            // invoked on a 1000ms interval (which is reduced to once per
+            // minute by Chrome's aggressive throttling of backgrounded tabs
+            // since v88), and on every TICK.
+            const now = Date.now();
+            if (now - lastDormancyCheck < 980) return; // don't insist on 1000
+            lastDormancyCheck = now;
+            if (isHidden()) {
+                if (!hiddenSince) hiddenSince = now;
+                const hiddenFor = now - hiddenSince;
+                // if autoSleep is set to false or 0, don't go dormant even though
+                // the tab is hidden.  also, provided the app doesn't do manual
+                // session stepping, run the simulation loop once here with double
+                // the standard maximum time budget (given that it's infrequent),
+                // in the hope of keeping up with the advance of island time from
+                // the reflector, and taking snapshots as warranted.
+                if (noSleep) {
+                    if (autoStepFn) this.simulate(now + MAX_SIMULATION_MS * 2);
+                } else if (this.connected) {
+                    if (hiddenFor > dormantDelay) this.dormantDisconnect();
+                    // even if autoSleep is in effect, keep the simulation ticking
+                    // over to reduce the catch-up needed when the tab is unhidden
+                    // again.
+                    else if (autoStepFn) this.simulate(now + 5);
+                }
+            } else if (hiddenSince) {
+                // reconnect happens in onAnimationFrame()
+                hiddenSince = 0;
+                // console.log("unhidden");
+            }
+            };
+
+        const dormancyPoll = setInterval(() => {
+            if (this.leaving) clearInterval(dormancyPoll); // stop loop
+            else checkForDormancy();
+            }, 1000);
     }
 
     toString() { return `Controller[${this.id}]`; }
@@ -1547,7 +1698,7 @@ class Connection {
         // reconnection - we null out the handler before sending close(), and call
         // the onclose handling directly.
         this.socket.onclose = null;
-        this.socket.close(); // might work, might not
+        this.socket.close(code, message); // might work, might not
         this.socketClosed(code, message); // we move on, regardless
     }
 
@@ -1604,8 +1755,8 @@ REFLECTOR:
 
 CONTROLLER:
 
-    every 100ms:
-        if lastSent > 20000:
+    every 100ms (in a visible tab):
+        if lastSent > 20s:
             send PULSE to server
         else if lastReceived > min(3*TICK, 45s):
             send PULSE to server
