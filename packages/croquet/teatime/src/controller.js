@@ -362,7 +362,7 @@ export default class Controller {
     scheduleSnapshot() {
         // abandon if this call (delayed by up to 2s - possibly more, if browser is busy)
         // has been overtaken by a poll initiated by another client.  or if the controller
-        // has been reset.
+        // has been reset, or we're disconnected.
         if (!this.connected || !this.island) return;
 
         const now = this.island.time;
