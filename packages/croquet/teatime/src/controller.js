@@ -363,7 +363,7 @@ export default class Controller {
         // abandon if this call (delayed by up to 2s - possibly more, if browser is busy)
         // has been overtaken by a poll initiated by another client.  or if the controller
         // has been reset.
-        if (!this.island) return;
+        if (!this.connected || !this.island) return;
 
         const now = this.island.time;
         const sinceLast = now - this.island.lastSnapshotPoll;
