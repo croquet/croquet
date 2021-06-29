@@ -1329,7 +1329,7 @@ export default class Controller {
                     }
                 } else this.applySyncChange(false); // switch to out-of-sync is acted on immediately
             }
-            if (weHaveTime && this.cpuTime > SNAPSHOT_EVERY) { // won't be triggered during sync, because weHaveTime won't be true
+            if (this.synced && weHaveTime && this.cpuTime > SNAPSHOT_EVERY) { // important not to schedule (resetting cpuTime) if not synced
                 this.triggeringCpuTime = this.cpuTime;
                 this.cpuTime = 0;
                 // first level of defence against clients simultaneously deciding
