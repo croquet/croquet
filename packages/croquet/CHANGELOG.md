@@ -4,6 +4,7 @@ This is a private summary of changes. The public changes are in the SDK [README.
 
 # latest pre-releases
 
+* 0.5.1-6 improve dormancy logic for out-of-sight apps
 * 0.5.1-5 use TICK to help check for dormancy in backgrounded tabs
 * 0.5.1-4 wait longer before deciding a socket is unresponsive
 * 0.5.1-3 workaround for unresponsive sockets sometimes seen if load balancer had to retry
