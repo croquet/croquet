@@ -23,6 +23,7 @@
     "@croquet/croquet": "file:../libraries/packages/croquet"
   },
   "devDependencies": {
-    "parcel": "^2.0.0-beta.3.1"
+    "parcel": "^2.0.0-beta.3.1",
+    "parcel-plugin-clean-dist": "0.0.6"
   }
 }
