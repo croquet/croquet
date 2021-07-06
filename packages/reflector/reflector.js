@@ -986,6 +986,10 @@ async function heraldUsers(island, all, joined, left) {
 function provisionallyDeleteIsland(island) {
     const { id } = island;
     const session = ALL_SESSIONS.get(id);
+    if (!session) {
+        DEBUG(`${id} ignoring deletion of missing session`);
+        return;
+    }
     if (session.stage !== 'running') {
         DEBUG(`${id} ignoring out-of-sequence deletion (stage=${session.stage})`);
         return;
