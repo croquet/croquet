@@ -83,27 +83,18 @@ const SYNCED_MAX = 2000;       // unsynced if tick missing for this many ms ...
 const SYNCED_MAX_FACTOR = 0.2; // ... or msPerTick times this (e.g. 30s/tick => 6s)
 const SYNCED_ANNOUNCE_DELAY = 200; // ms to delay setting synced, mainly to accommodate immediate post-SYNC messages (notably "users") from reflector
 
-// maximum amount of time in milliseconds the model get to spend running its simulation
+// maximum amount of time in milliseconds the model gets to spend running its simulation
 const MAX_SIMULATION_MS = 200;
 // time spent simulating the last few frames
 const simLoad = [0];
 // number of frames to spread load
 const LOAD_BALANCE_FRAMES = 4;
-// when average load is low, the balancer spreads simulation across frames by
-// simulating with a budget equal to the mean of the durations recorded from the
-// last LOAD_BALANCE_FRAMES simulations.
-// a session also has a value expectedSimFPS, from which we derive the maximum time
-// slice that the simulation can use on each frame while still letting the app
-// render on time.  whenever the controller is found to have a backlog greater than
-// LOAD_BALANCE_FRAMES times that per-frame slice, the balancer immediately
-// schedules a simulation boost with a budget of MAX_SIMULATION_MS.
-// expectedSimFPS can be set using session param expectedSimFPS; the higher
-// the value, the less of a backlog is needed to trigger a simulation boost.  but
-// if expectedSimFPS is set to zero, the balancer will attempt to clear any backlog
-// on every frame.
+// number of steps to record for checking animation
+const ANIMATION_CHECK_FRAMES = 4;
+// maximum delay in ms since oldest step to count as being stepped regularly
+const ANIMATION_MAX_SPREAD = 1000;
 
 function randomString() { return Math.floor(Math.random() * 36**10).toString(36); }
-
 
 // start upload worker (upload.js)
 const UploadWorker = new UploadWorkerFactory();
@@ -201,6 +192,8 @@ export default class Controller {
         }
         /** @type {Array} recent TUTTI sends and their payloads, for matching up with incoming votes and divergence alerts */
         this.tuttiHistory = [];
+        /** @type {Array} timestamps of most recent frames (in Date.now() timebase) */
+        this.lastStepTimes = this.lastStepTimes || []; // needs to survive dormancy
 
         // controller (only) gets to subscribe to events using the shared viewId as the "subscriber" argument
         viewDomain.removeAllSubscriptionsFor(this.viewId); // in case we're recycling
@@ -382,7 +375,11 @@ export default class Controller {
         // !!! THIS IS BEING EXECUTED INSIDE THE SIMULATION LOOP!!!
         // !!! IT MUST NOT MODIFY ISLAND !!!
 
-        if (this.synced !== true) return;  // not going to vote, so don't waste time on creating the hash
+        if (this.synced !== true) {
+            // not going to vote, so don't waste time on creating the hash
+            this.triggeringCpuTime = null; // ...though unlikely to have been set
+            return;
+        }
 
         const localCpuTime = this.triggeringCpuTime || this.cpuTime;
         this.triggeringCpuTime = null;
@@ -839,7 +836,7 @@ export default class Controller {
                 const success = await new Promise(resolve => {
                     const fastForwardIsland = () => {
                         if (!this.connected || !this.island) { console.log(this.id, 'disconnected during SYNC fast-forwarding'); resolve(false); return; }
-                        const caughtUp = this.simulate(Date.now() + 200);
+                        const caughtUp = this.simulate(Date.now() + MAX_SIMULATION_MS);
                         if (caughtUp === "error") {
                             resolve(false);
                             return;
@@ -893,7 +890,7 @@ export default class Controller {
                 }
                 this.timeFromReflector(time);
                 if (this.tickMultiplier > 1) this.multiplyTick(time);
-                if (this.checkForDormancy) this.checkForDormancy(); // takes a while to get set up
+                if (this.simulateIfNeeded) this.simulateIfNeeded(); // takes a while to get set up
                 return;
             }
             case 'INFO': {
@@ -1251,26 +1248,6 @@ export default class Controller {
         return { msPerTick, multiplier, tick, delay };
     }
 
-    // /** request ticks from the server */
-    // requestTicks(args = {}) { // simpleapp can send { scale }
-    //     if (!this.connected || !this.island) return;
-    //     const { tick, delay } = this.getTickAndMultiplier();
-    //     args.tick = tick;
-    //     args.delay = delay;
-    //     this.connection.setTick(tick);
-    //     if (DEBUG.session) console.log(this.id, 'Controller requesting TICKS', args);
-    //     // args: {tick, delay, scale}
-    //     try {
-    //         this.connection.send(JSON.stringify({
-    //             id: this.id,
-    //             action: 'TICKS',
-    //             args,
-    //         }));
-    //     } catch (e) {
-    //         console.error('ERROR while sending', e);
-    //     }
-    // }
-
     /**
      * Process pending messages for this island and advance simulation
      * @param {Number} deadline CPU time deadline before interrupting simulation
@@ -1330,6 +1307,8 @@ export default class Controller {
                 } else this.applySyncChange(false); // switch to out-of-sync is acted on immediately
             }
             if (this.synced && weHaveTime && this.cpuTime > SNAPSHOT_EVERY) { // important not to schedule (resetting cpuTime) if not synced
+                // the triggeringCpuTime will be used whether or not this client
+                // ends up being the one that triggers the snapshot.
                 this.triggeringCpuTime = this.cpuTime;
                 this.cpuTime = 0;
                 // first level of defence against clients simultaneously deciding
@@ -1346,11 +1325,37 @@ export default class Controller {
     }
 
     // june 2021: moved from session.js
+    // this is invoked by session.step() - which is called from the default
+    // onAnimationFrame handler below, or by the application if it chooses
+    // to step manually
     stepSession(frameTime, view, expectedSimFPS) {
         const { backlog, latency, starvation, activity } = this;
         Stats.animationFrame(frameTime, { backlog, starvation, latency, activity, users: this.users });
 
+        this.lastStepTimes.push(Date.now());
+        if (this.lastStepTimes.length > ANIMATION_CHECK_FRAMES) this.lastStepTimes.shift();
+
+        if (!this.connected) {
+            if (!this.isOutOfSight() && this.isSteppingRegularly()) this.checkForConnection(true); // reconnect if not blocked
+            return;
+        }
+
         if (!this.island) return;
+
+        // when average load is low, the balancer spreads simulation across frames by
+        // simulating with a budget equal to the mean of the durations recorded from the
+        // last LOAD_BALANCE_FRAMES simulations.
+        // a session also has a value expectedSimFPS, from which we derive the maximum time
+        // slice that the simulation can use on each frame while still letting the app
+        // render on time.  whenever the controller is found to have a backlog greater than
+        // LOAD_BALANCE_FRAMES times that per-frame slice, the balancer immediately
+        // schedules a simulation boost with a budget of MAX_SIMULATION_MS.
+        // expectedSimFPS can be set using session param expectedSimFPS; the higher
+        // the value, the less of a backlog is needed to trigger a simulation boost.  but
+        // if expectedSimFPS is set to zero, the balancer will attempt to clear any backlog
+        // on every frame.
+        // expectedSimFPS was introduced for our Unity experiments, and is undocumented.
+        // as of july 2021, all apps are running with the default value of 60.
         const simStart = Date.now();
         const simBudget = simLoad.reduce((a, b) => a + b, 0) / simLoad.length;
         let caughtUp = this.simulate(simStart + Math.min(simBudget, MAX_SIMULATION_MS));
@@ -1417,96 +1422,82 @@ export default class Controller {
 
     // june 2021: moved from session.js
     startRunning(autoStepFn, autoSleep) {
-        /** timestamp of last frame (in animationFrame timebase) */
-        let lastFrameTime = 0;
-        /** time of last frame in (in Date.now() timebase) */
-        let lastFrame = Date.now();
-        /** average duration of last step */
-        let recentFramesAverage = 0;
-        /** recentFramesAverage to be considered hidden */
-        const FRAME_AVERAGE_THRESHOLD = 20000;
-        /** tab hidden or no anim frames recently */
-        const isHidden = () => {
-            // report whether to consider this tab hidden - returning true if
-            //   - the visibilityState is "hidden", or
-            //   - the time gap since the last animationFrame is above threshold, or
-            //   - the responsive but decaying average of gaps between animation frames
-            //     is above threshold.
-            // i.e., a big frame gap can cause an immediate isHidden report, but
-            // if rapid frames resume, they will soon lead to !isHidden.
-            // sept 2020: Safari 13 (but not 14) drastically slows animation frames to
-            // a browser tab that is fully in view but is not focussed; inter-frame
-            // gaps of 10-15 seconds seem common.  to prevent these gaps from causing
-            // isHidden reports, the threshold time was raised from 1s to 20s, and the
-            // ceiling of the average calculation from 10s to 30s.
-            // a corollary is that frames that are off-screen on Q in Safari, which
-            // appears to send animation frames every 10s, will never go dormant.
-            return document.visibilityState === "hidden"
-                || Date.now() - lastFrame > FRAME_AVERAGE_THRESHOLD
-                || recentFramesAverage > FRAME_AVERAGE_THRESHOLD;
-        };
-        /** time that we were hidden */
-        let hiddenSince = 0;
-        /** hidden check and auto stepping */
-        const onAnimationFrame = frameTime => {
-            if (this.leaving) return; // stop the loop; it's not coming back
+        /** intersection with the browser viewport */
+        let isVisibleInViewport = null;
+        /** whether to consider this tab visible, based on document.visibilityState and our IntersectionObserver */
+        this.isOutOfSight = () => document.visibilityState === "hidden" || !isVisibleInViewport;
+        /** whether to consider this tab as being stepped regularly, e.g. from animation frames */
+        this.isSteppingRegularly = () => this.lastStepTimes.length === ANIMATION_CHECK_FRAMES && Date.now() - this.lastStepTimes[0] < ANIMATION_MAX_SPREAD;
 
-            // jump to larger v immediately, cool off slowly, limit to max
-            const coolOff = (v0, v1, t, max) => Math.min(max, Math.max(v1, v0 * (1 - t) + v1 * t)) | 0;
-            recentFramesAverage = coolOff(recentFramesAverage, frameTime - lastFrameTime, 0.1, 30000);
-            lastFrameTime = frameTime;
-            lastFrame = Date.now();
-            // having just recorded a lastFrame, isHidden will only be
-            // true if the recentFramesAverage is above threshold (or
-            // if visibilityState is explicitly "hidden", of course)
-            if (!isHidden()) {
-                this.checkForConnection(true); // reconnect if disconnected and not blocked
-                if (autoStepFn) autoStepFn(frameTime);
-            }
+        /** auto stepping */
+        if (autoStepFn) {
+            const onAnimationFrame = frameTime => {
+                if (this.leaving) return; // stop the loop; it's not coming back
+
+                if (!this.isOutOfSight()) autoStepFn(frameTime);
+
+                window.requestAnimationFrame(onAnimationFrame);
+            };
             window.requestAnimationFrame(onAnimationFrame);
-        };
-        window.requestAnimationFrame(onAnimationFrame);
+        }
 
-        const DORMANT_DELAY_DEFAULT = 10000;
+        const intersectionChanged = (entries, _observer) => isVisibleInViewport = entries[0].isIntersecting;
+        const observer = new IntersectionObserver(intersectionChanged);
+        observer.observe(document.body);
+
         const noSleep = autoSleep !== undefined && !autoSleep;
-        const dormantDelay = typeof autoSleep === "number" ? 1000 * autoSleep : DORMANT_DELAY_DEFAULT;
-        let lastDormancyCheck = 0;
-        const checkForDormancy = this.checkForDormancy = () => {
-            // invoked on a 1000ms interval (which is reduced to once per
-            // minute by Chrome's aggressive throttling of backgrounded tabs
-            // since v88), and on every TICK.
-            const now = Date.now();
-            if (now - lastDormancyCheck < 980) return; // don't insist on 1000
-            lastDormancyCheck = now;
-            if (isHidden()) {
-                if (!hiddenSince) hiddenSince = now;
-                const hiddenFor = now - hiddenSince;
-                // if autoSleep is set to false or 0, don't go dormant even though
-                // the tab is hidden.  also, provided the app doesn't do manual
-                // session stepping, run the simulation loop once here with double
-                // the standard maximum time budget (given that it's infrequent),
-                // in the hope of keeping up with the advance of island time from
-                // the reflector, and taking snapshots as warranted.
-                if (noSleep) {
-                    if (autoStepFn) this.simulate(now + MAX_SIMULATION_MS * 2);
-                } else if (this.connected) {
-                    if (hiddenFor > dormantDelay) this.dormantDisconnect();
-                    // even if autoSleep is in effect, keep the simulation ticking
-                    // over to reduce the catch-up needed when the tab is unhidden
-                    // again.
-                    else if (autoStepFn) this.simulate(now + 5);
+        let checkForDormancy;
+        // only set up a dormancy check if needed
+        if (!noSleep) {
+            const DORMANT_DELAY_DEFAULT = 10000;
+            const dormantDelay = typeof autoSleep === "number" ? 1000 * autoSleep : DORMANT_DELAY_DEFAULT;
+            let lastDormancyCheck = 0;
+            let outOfSightSince = 0;
+            checkForDormancy = () => {
+                if (this.leaving) {
+                    if (dormancyPoll) {
+                        // stop the poll tidily, in case this is called multiple
+                        // times (via ticks) during the time it takes to leave.
+                        clearInterval(dormancyPoll);
+                        dormancyPoll = null;
+                    }
+                    return;
                 }
-            } else if (hiddenSince) {
-                // reconnect happens in onAnimationFrame()
-                hiddenSince = 0;
-                // console.log("unhidden");
+
+                const now = Date.now();
+                if (now - lastDormancyCheck < 980) return; // don't insist on 1000
+
+                lastDormancyCheck = now;
+                if (this.isOutOfSight()) {
+                    if (!outOfSightSince) outOfSightSince = now;
+                    if (this.connected && now - outOfSightSince > dormantDelay) this.dormantDisconnect();
+                } else if (outOfSightSince) {
+                    outOfSightSince = 0;
+                }
+                };
+
+            // check for dormancy conditions once per second (which is reduced
+            // to once per minute by Chrome's aggressive throttling of timers
+            // in backgrounded tabs since v88); in that situation, the check
+            // will be driven by simulateIfNeeded() below.
+            let dormancyPoll = setInterval(checkForDormancy, 1000);
+        }
+
+        this.simulateIfNeeded = () => {
+            // if session is connected but not being stepped (typically by
+            // animation frames), use ticks to trigger a dormancy check
+            // and, if still connected after that, run the simulation with
+            // a budget just below the tick interval.
+            if (this.isSteppingRegularly()) return; // animation is happening as usual
+
+            if (checkForDormancy) checkForDormancy();
+
+            const now = Date.now();
+            if (this.connected) {
+                const simBudget = Math.min(this.msPerTick * 0.9, MAX_SIMULATION_MS);
+                this.simulate(now + simBudget);
             }
             };
-
-        const dormancyPoll = setInterval(() => {
-            if (this.leaving) clearInterval(dormancyPoll); // stop loop
-            else checkForDormancy();
-            }, 1000);
     }
 
     toString() { return `Controller[${this.id}]`; }
