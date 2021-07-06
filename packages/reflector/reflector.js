@@ -190,15 +190,17 @@ const webServer = http.createServer( async (req, res) => {
 
 webServer.on('upgrade', (req, socket, _head) => {
     const { sessionId } = sessionIdAndVersionFromUrl(req.url);
+    const clientAddr = `${socket.remoteAddress.replace(/^::ffff:/, '')}:${socket.remotePort}`;
     if (sessionId) {
         const session = ALL_SESSIONS.get(sessionId);
         if (session && session.stage === 'closed') {
             // a request to delete the dispatcher record has already been sent.  reject this connection, forcing the client to ask the dispatchers again.
-            const clientAddr = `${socket.remoteAddress.replace(/^::ffff:/, '')}:${socket.remotePort}`;
-            LOG(`${sessionId}/${clientAddr} rejecting connection; session has been unregistered`);
+            LOG(`${sessionId}/${clientAddr} rejecting connection on upgrade; session has been unregistered`);
             socket.end('HTTP/1.1 404 Session Closed\r\n');
+            return;
         }
     }
+    LOG(`${sessionId}/${clientAddr} upgrading connection for ${req.url}`);
 });
 
 // the WebSocket.Server will intercept the UPGRADE request made by a ws:// websocket connection
