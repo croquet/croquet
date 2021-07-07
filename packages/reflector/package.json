@@ -9,15 +9,15 @@
     "start": "node reflector.js"
   },
   "dependencies": {
-    "@google-cloud/storage": "^5.8.3",
+    "@google-cloud/storage": "^5.8.5",
     "fast-crc32c": "^2.0.0",
     "node-fetch": "^2.6.1",
     "prom-client": "^13.1.0",
-    "ws": "^7.4.4"
+    "ws": "^7.5.2"
   },
   "devDependencies": {},
   "optionalDependencies": {
     "bufferutil": "^4.0.3",
-    "utf-8-validate": "^5.0.4"
+    "utf-8-validate": "^5.0.5"
   }
 }
