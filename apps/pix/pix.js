@@ -193,6 +193,9 @@ class PixView extends View {
             for (const file of imageinput.files) {
                 this.addFile(file);
             }
+            // with iOS camera images, the fake filename is always the same.
+            // clear it so we get another change event the next time
+            imageinput.value = "";
         };
 
         window.onresize = () => document.body.height = window.innerHeight;
