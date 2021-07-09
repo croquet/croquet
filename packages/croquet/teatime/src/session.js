@@ -257,12 +257,12 @@ export class Session {
             if (SESSION_PARAMS.includes(param)) sessionSpec[param] = value;
         }
         await controller.initFromSessionSpec(sessionSpec);
+        controller.setUpActivityChecks(urlOptions.autoSleep);
 
         let rebooting = false;
         await rebootModelView();
 
-        const autoStepFn = parameters.step !== "manual" ? session.step : null;
-        controller.startRunning(autoStepFn, urlOptions.autoSleep);
+        if (parameters.step !== "manual") controller.startStepping(session.step);
 
         return session;
 

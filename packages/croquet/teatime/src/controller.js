@@ -1420,26 +1420,24 @@ export default class Controller {
         }, ms);
     }
 
-    // june 2021: moved from session.js
-    startRunning(autoStepFn, autoSleep) {
+    startStepping(autoStepFn) {
+        const onAnimationFrame = frameTime => {
+            if (this.leaving) return; // stop the loop; it's not coming back
+
+            if (!this.isOutOfSight()) autoStepFn(frameTime);
+
+            window.requestAnimationFrame(onAnimationFrame);
+        };
+        window.requestAnimationFrame(onAnimationFrame);
+    }
+
+    setUpActivityChecks(autoSleep) {
         /** intersection with the browser viewport */
         let isVisibleInViewport = null;
         /** whether to consider this tab visible, based on document.visibilityState and our IntersectionObserver */
         this.isOutOfSight = () => document.visibilityState === "hidden" || !isVisibleInViewport;
         /** whether to consider this tab as being stepped regularly, e.g. from animation frames */
         this.isSteppingRegularly = () => this.lastStepTimes.length === ANIMATION_CHECK_FRAMES && Date.now() - this.lastStepTimes[0] < ANIMATION_MAX_SPREAD;
-
-        /** auto stepping */
-        if (autoStepFn) {
-            const onAnimationFrame = frameTime => {
-                if (this.leaving) return; // stop the loop; it's not coming back
-
-                if (!this.isOutOfSight()) autoStepFn(frameTime);
-
-                window.requestAnimationFrame(onAnimationFrame);
-            };
-            window.requestAnimationFrame(onAnimationFrame);
-        }
 
         const intersectionChanged = (entries, _observer) => isVisibleInViewport = entries[0].isIntersecting;
         const observer = new IntersectionObserver(intersectionChanged);
@@ -1454,6 +1452,8 @@ export default class Controller {
             let lastDormancyCheck = 0;
             let outOfSightSince = 0;
             checkForDormancy = () => {
+                if (!this.island) return;
+
                 if (this.leaving) {
                     if (dormancyPoll) {
                         // stop the poll tidily, in case this is called multiple
