@@ -759,7 +759,8 @@ export default class Controller {
                     if (DEBUG.messages) console.log(this.id, `rejoin: we have #${this.island.seq} SYNC has #${oldest}-#${newest}`);
                     const seamlessRejoin = sameSession        // must be same timeline (in case we are connected to stateless reflector)
                         && inSequence(oldest, this.island.seq)   // there must be no gap between our last message and the first synced message
-                        && inSequence(this.island.seq, newest);  // the reflector state must not be older than our island
+                        && inSequence(this.island.seq, newest)  // the reflector state must not be older than our island (presumably due to reflector crash and restart)
+                        && time >= this.time; // similarly, the reflector must not be providing an earlier time than we have already seen
                     if (seamlessRejoin) {
                         // rejoin is safe, discard duplicate messages
                         if (firstMessage && inSequence(firstMessage[1], this.island.seq)) {
@@ -838,19 +839,19 @@ export default class Controller {
                 if (DEBUG.session) console.log(`${this.id} fast-forwarding from ${Math.round(this.island.time)}`);
                 // execute pending events, up to (at least) our own view-join
                 const success = await new Promise(resolve => {
-                    const fastForwardIsland = () => {
-                        if (!this.connected || !this.island) { console.log(this.id, 'disconnected during SYNC fast-forwarding'); resolve(false); return; }
-                        const caughtUp = this.simulate(Date.now() + MAX_SIMULATION_MS);
-                        if (caughtUp === "error") {
+                    this.fastForwardHandler = caughtUp => {
+                        if (!this.connected || !this.island) {
+                            console.log(this.id, 'disconnected during SYNC fast-forwarding');
                             resolve(false);
-                            return;
+                        } else if (caughtUp === "error") {
+                            resolve(false);
+                        } else if (caughtUp && this.viewId in this.island.views) {
+                            resolve(true);
                         }
-                        const joined = this.viewId in this.island.views;
-                        if (caughtUp && joined) resolve(true);
-                        else setTimeout(fastForwardIsland, 0);
-                    };
-                    fastForwardIsland();
-                });
+                        };
+                    Promise.resolve().then(() => this.fastForward(MAX_SIMULATION_MS)); // immediate but not in the message handler
+                    });
+                delete this.fastForwardHandler;
                 if (success && DEBUG.session) console.log(`${this.id} fast-forwarded to ${Math.round(this.island.time)}`);
                 // iff fast-forward was successful, trigger return from establishSession().
                 // otherwise, in due course we'll reconnect and try again.  it can keep waiting.
@@ -894,7 +895,7 @@ export default class Controller {
                 }
                 this.timeFromReflector(time);
                 if (this.tickMultiplier > 1) this.multiplyTick(time);
-                if (this.simulateIfNeeded) this.simulateIfNeeded(); // takes a while to get set up
+                if (this.simulateIfNeeded) Promise.resolve().then(() => this.simulateIfNeeded()); // immediate but not in the message handler
                 return;
             }
             case 'INFO': {
@@ -952,6 +953,7 @@ export default class Controller {
 
     sendJoin() {
         this.syncReceived = false; // until SYNC is received, a dropped connection doesn't require controller.leave()
+        delete this.fastForwardHandler; // in case one was left
 
         // cancel rejoin timeout (if any) immediately.  now that we're reconnected, it
         // would be messy to have a reboot triggered between now and the SYNC.
@@ -1252,6 +1254,11 @@ export default class Controller {
         return { msPerTick, multiplier, tick, delay };
     }
 
+    fastForward(budget) {
+        const caughtUp = this.simulate(Date.now() + budget);
+        if (this.fastForwardHandler) this.fastForwardHandler(caughtUp);
+    }
+
     /**
      * Process pending messages for this island and advance simulation
      * @param {Number} deadline CPU time deadline before interrupting simulation
@@ -1293,7 +1300,10 @@ export default class Controller {
                 this.cpuTime += Math.max(0.01, Stats.end("simulate") - simStart); // ensure that we move forward even on a browser that rounds performance.now() to 1ms
             }
             Stats.backlog(this.backlog);
-            // synced will be non-boolean until this.time is given its first meaningful value from a message or tick
+            // synced is set to null in controller.reset, and is first set to false when
+            // this.time is given its first meaningful value from a message or tick.
+            // thereafter, synced will only be changed in either direction if there is
+            // currently a root view (which is set up and taken down in rebootModelView).
             const lag = this.lag;
             const syncedMin = Math.max(SYNCED_MIN, this.msPerTick * SYNCED_MIN_FACTOR);
             const syncedMax = Math.max(SYNCED_MAX, this.msPerTick * SYNCED_MAX_FACTOR);
@@ -1303,6 +1313,9 @@ export default class Controller {
                 if (nowSynced) {
                     // this will be triggered every cycle until synced is eventually set to true.  capture with one timeout.
                     if (!this.syncTimer) {
+                        // if we're backgrounded and timers are firing only once per minute,
+                        // the sync announcement will probably be delayed.  for now we assume
+                        // that that doesn't matter.
                         this.syncTimer = setTimeout(() => {
                             delete this.syncTimer;
                             if (this.lag < syncedMin) this.applySyncChange(true); // iff we haven't somehow dropped out of sync again
@@ -1318,7 +1331,11 @@ export default class Controller {
                 // first level of defence against clients simultaneously deciding
                 // that it's time to take a snapshot: stagger pollForSnapshot sends,
                 // so we might have heard from someone else before we send.
-                setTimeout(() => this.scheduleSnapshot(), Math.floor(Math.random()*2000));
+                // however, if we're backgrounded so that timers might be firing only once
+                // per minute, it would be wrong to wait.
+                if (this.isSteppingRegularly()) {
+                    setTimeout(() => this.scheduleSnapshot(), Math.floor(Math.random()*2000));
+                } else this.scheduleSnapshot();
             }
             return weHaveTime;
         } catch (error) {
@@ -1345,6 +1362,11 @@ export default class Controller {
         }
 
         if (!this.island) return;
+
+        if (!this.synced) {
+            this.fastForward(MAX_SIMULATION_MS); // it's ok if we end up delaying an animation frame
+            return;
+        }
 
         // when average load is low, the balancer spreads simulation across frames by
         // simulating with a budget equal to the mean of the durations recorded from the
@@ -1381,6 +1403,7 @@ export default class Controller {
     }
 
     applySyncChange(bool) {
+        if (DEBUG.session) console.log(this.id, `synced=${bool}`);
         this.synced = bool;
         App.showSyncWait(!bool); // true if not synced
         this.island.publishFromView(this.viewId, "synced", bool);
@@ -1447,27 +1470,15 @@ export default class Controller {
         const observer = new IntersectionObserver(intersectionChanged);
         observer.observe(document.body);
 
+        // only set up a dormancy check if needed
         const noSleep = autoSleep !== undefined && !autoSleep;
         let checkForDormancy;
-        // only set up a dormancy check if needed
         if (!noSleep) {
             const DORMANT_DELAY_DEFAULT = 10000;
             const dormantDelay = typeof autoSleep === "number" ? 1000 * autoSleep : DORMANT_DELAY_DEFAULT;
             let lastDormancyCheck = 0;
             let outOfSightSince = 0;
             checkForDormancy = () => {
-                if (!this.island) return;
-
-                if (this.leaving) {
-                    if (dormancyPoll) {
-                        // stop the poll tidily, in case this is called multiple
-                        // times (via ticks) during the time it takes to leave.
-                        clearInterval(dormancyPoll);
-                        dormancyPoll = null;
-                    }
-                    return;
-                }
-
                 const now = Date.now();
                 if (now - lastDormancyCheck < 980) return; // don't insist on 1000
 
@@ -1479,27 +1490,56 @@ export default class Controller {
                     outOfSightSince = 0;
                 }
                 };
-
-            // check for dormancy conditions once per second (which is reduced
-            // to once per minute by Chrome's aggressive throttling of timers
-            // in backgrounded tabs since v88); in that situation, the check
-            // will be driven by simulateIfNeeded() below.
-            let dormancyPoll = setInterval(checkForDormancy, 1000);
         }
 
-        this.simulateIfNeeded = () => {
-            // if session is connected but not being stepped (typically by
-            // animation frames), use ticks to trigger a dormancy check
-            // and, if still connected after that, run the simulation with
-            // a budget just below the tick interval.
-            if (this.isSteppingRegularly()) return; // animation is happening as usual
+        const checkAliveness = () => {
+            if (this.leaving) {
+                if (alivenessPoll) {
+                    // stop the poll tidily, in case this is called multiple
+                    // times (via ticks) during the time it takes to leave.
+                    clearInterval(alivenessPoll);
+                    alivenessPoll = null;
+                }
+                return;
+            }
+
+            if (!this.island) return;
 
             if (checkForDormancy) checkForDormancy();
 
-            const now = Date.now();
+            // if the session is not being animated regularly, the setInterval
+            // that normally triggers keepAlive probably isn't being stepped
+            // either.  do so from here.
+            if (this.connected && !this.isSteppingRegularly()) this.connection.keepAlive(Date.now());
+            };
+
+        // this poll is likely to be throttled to to once per minute in Chrome
+        // if this tab is backgrounded.  checkAliveness is therefore also sent
+        // by simulateIfNeeded if the tab is not being regularly stepped.
+        let alivenessPoll = setInterval(checkAliveness, 1000);
+
+        this.simulateIfNeeded = () => {
+            // if session is connected but not being stepped by animation
+            // frames, use ticks to trigger a liveness check and, if still
+            // connected after that, run the simulation.
+            if (this.isSteppingRegularly()) return; // animation is happening as usual
+
+            checkAliveness();
+
             if (this.connected) {
-                const simBudget = Math.min(this.msPerTick * 0.9, MAX_SIMULATION_MS);
-                this.simulate(now + simBudget);
+                // we set a simulation budget of 90% of the tick gap, capped at
+                // MAX_SIMULATION_MS unless this is a noSleep app, in which case
+                // we allow even a multi-second budget (if the tick is that slow)
+                // so that the simulation has all the resources we can throw at it.
+                // that said, an app that needs to do lots of simulation ought not
+                // to set a low tick rate.
+                let simBudget = this.msPerTick * 0.9;
+                if (!noSleep) simBudget = Math.min(simBudget, MAX_SIMULATION_MS);
+                if (!this.synced) {
+                    this.fastForward(simBudget); // will trigger the fastForwardHandler, if any
+                } else {
+                    this.simulate(Date.now() + simBudget);
+                }
             }
             };
     }
@@ -1706,6 +1746,7 @@ class Connection {
         if (!this.connected) return;
         if (this.socket.bufferedAmount === 0) {
             // only send a pulse if no other outgoing data pending
+            if (DEBUG.session) console.log(`${this.id} sending PULSE`);
             this.send(JSON.stringify({ action: 'PULSE' }));
             this.stalledSince = 0;
         } else if (this.stalledSince && now - this.stalledSince > UNSENT_TIMEOUT) {
@@ -1715,6 +1756,8 @@ class Connection {
     }
 
     keepAlive(now) {
+        // invoked either from a setInterval of (for now) 100ms, or on every app TICK if
+        // the view is not currently being animated.
         if (this.lastReceived === 0) return; // haven't yet consummated the connection
         // the reflector expects to hear from us at least every 30 seconds
         if (now - this.lastSent > PULSE_TIMEOUT) this.PULSE(now);
