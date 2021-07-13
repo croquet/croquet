@@ -424,7 +424,7 @@ export default class Controller {
         if (DEBUG.snapshot) console.log(this.id, "received snapshot votes", tally);
 
         const { numberOfGroups, shouldUpload, dissidentFlag } = this.analyzeTally(tally, 'cpuTime');
-        if (numberOfGroups > 1) console.warn(this.id, `Snapshots fall into ${numberOfGroups} groups`);
+        if (numberOfGroups > 1) console.error(this.id, `Session diverged! Snapshots fall into ${numberOfGroups} groups`);
         if (shouldUpload) this.serveSnapshot(dissidentFlag);
     }
 
