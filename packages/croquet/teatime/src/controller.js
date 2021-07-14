@@ -1605,7 +1605,7 @@ class Connection {
         let region = "";
         if (urlOptions.reflector) {
             const cloudflareColo = urlOptions.reflector.toUpperCase();
-            if (cloudflareColo === 'CF' || cloudflareColo.match(/^[A-Z]{3}/)) {
+            if (cloudflareColo === 'CF' || cloudflareColo.match(/^[A-Z]{3}$/)) {
                 reflectorUrl = DEBUG.reflector ? DEV_CLOUDFLARE_REFLECTOR : CLOUDFLARE_REFLECTOR;
                 if (cloudflareColo.length === 3) region = `?colo=${cloudflareColo}`;
             }
