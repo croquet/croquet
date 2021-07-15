@@ -1798,6 +1798,8 @@ LOGIC TO DETECT BROKEN CONNECTIONS
 
 REFLECTOR:
 
+    if no JOIN received 7s after client connects to a clientless island, delete the session
+
     every 5s, starting 37s after JOIN:
         if quiescence > 60s:
             disconnect client (code 4002, so reconnection is allowed)
@@ -1812,6 +1814,8 @@ REFLECTOR:
 
 
 CONTROLLER:
+
+    if no SYNC received 5s after sending JOIN, close connection and try again
 
     every 100ms in an animated tab; on every TICK and RECV if not animated (so at worst, on a 30s-interval TICK):
         if lastSent > 25s:

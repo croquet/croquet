@@ -1120,10 +1120,11 @@ server.on('connection', (client, req) => {
                 return;
             case 'runnable':
             case 'closable': {
-                // make sure the unregister timeout has at least 5s to run, to give
-                // this client a chance to join (even if it's in a very busy browser)
+                // make sure the unregister timeout has at least 7s to run - same as
+                // the initial unregisterDelay set up below - to give this client a
+                // chance to join (even if it's in a very busy browser)
                 const now = Date.now();
-                const targetTime = Math.max(session.earliestUnregister, now + 5000);
+                const targetTime = Math.max(session.earliestUnregister, now + 7000);
                 scheduleUnregisterSession(sessionId, targetTime, "no JOIN after connection");
                 break;
                 }
