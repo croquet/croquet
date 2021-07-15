@@ -417,6 +417,8 @@ function JOIN(client, args) {
     const { name, version, appId, islandId, user, location, heraldUrl, leaveDelay, dormantDelay } = args;
     // new clients (>=0.3.3) send ticks in JOIN
     const syncWithoutSnapshot = 'ticks' in args;
+    // clients >= 0.5.1 send dormantDelay, which we use as a reason not to send pings to inactive clients
+    const noInactivityPings = 'dormantDelay' in args;
     // create island data if this is the first client
     let island = ALL_ISLANDS.get(id);
     if (!island) {
@@ -437,6 +439,7 @@ function JOIN(client, args) {
             islandId,
             persistentUrl: '',   // url of persistent data
             syncWithoutSnapshot, // new protocol as of 0.3.3
+            noInactivityPings,   // new protocol as of 0.5.1
             timeline,            // if a stateless reflector resumes the session, this is the only way to tell
             location,            // send location data?
             messages: [],        // messages since last snapshot
@@ -455,7 +458,6 @@ function JOIN(client, args) {
     island.leaveDelay = leaveDelay || 0;
     island.dormantDelay = dormantDelay; // only provided by clients since 0.5.1
 
-    session.usePingIfNoPulse = dormantDelay === undefined; // earlier clients have less reliable PULSE logic
     client.island = island;
 
     if (user) {
@@ -1220,7 +1222,8 @@ server.on('connection', (client, req) => {
                     return;
                 }
 
-                if (session.usePingIfNoPulse) {
+                // joined is true, so client.island must have been set up
+                if (!client.island.noInactivityPings) {
                     DEBUG(`${sessionId}/${client.addr} inactive for ${quiescence} ms, sending ping`);
                     client.ping(now);
                     nextCheck = PING_INTERVAL;
