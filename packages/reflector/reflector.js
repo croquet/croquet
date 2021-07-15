@@ -68,7 +68,7 @@ const DISCONNECT_UNRESPONSIVE_CLIENTS = !CLUSTER.startsWith("local");
 const CHECK_INTERVAL = 5000;        // how often to checkForActivity
 const PING_INTERVAL = 5000;         // while inactive, send pings at this rate
 const SNAP_TIMEOUT = 30000;         // if no SNAP received after waiting this number of ms, disconnect
-const PING_THRESHOLD = 30000;       // if not heard from for this long, start pinging
+const PING_THRESHOLD = 35000;       // if a pre-background-aware client is not heard from for this long, start pinging
 const DISCONNECT_THRESHOLD = 60000; // if not responding for this long, disconnect
 const DISPATCH_RECORD_RETENTION = 5000; // how long we must wait to delete a dispatch record (set on the bucket)
 const LATE_DISPATCH_DELAY = 1000;  // how long to allow for clients arriving from the dispatcher even though the session has been unregistered
@@ -353,6 +353,7 @@ function nonSavableProps() {
         usersLeft: [],       // the users who left since last report
         usersTimer: null,    // timeout for sending USERS message
         leaveDelay: 0,       // delay in ms before leave event is generated
+        dormantDelay: 0,     // delay in s until a hidden client will go dormant
         heraldUrl: '',       // announce join/leave events
         ticker: null,        // interval for serving TICKs
         before: 0,           // last getTime() call
@@ -413,7 +414,7 @@ function JOIN(client, args) {
     // the connection log filter matches on (" connection " OR " JOIN ")
     LOG(`${id}/${client.addr} receiving JOIN ${JSON.stringify(args)}`);
 
-    const { name, version, appId, islandId, user, location, heraldUrl, leaveDelay } = args;
+    const { name, version, appId, islandId, user, location, heraldUrl, leaveDelay, dormantDelay } = args;
     // new clients (>=0.3.3) send ticks in JOIN
     const syncWithoutSnapshot = 'ticks' in args;
     // create island data if this is the first client
@@ -449,8 +450,12 @@ function JOIN(client, args) {
         prometheusSessionGauge.inc();
         if (syncWithoutSnapshot) TICKS(client, args.ticks); // client will not request ticks
     }
-    island.heraldUrl = heraldUrl || ''; // nonSavable, updated on every JOIN
-    island.leaveDelay = leaveDelay || 0; // nonSavable, updated on every JOIN
+    // the following are in the nonSavable list, and can be updated on every JOIN
+    island.heraldUrl = heraldUrl || '';
+    island.leaveDelay = leaveDelay || 0;
+    island.dormantDelay = dormantDelay; // only provided by clients since 0.5.1
+
+    session.usePingIfNoPulse = dormantDelay === undefined; // earlier clients have less reliable PULSE logic
     client.island = island;
 
     if (user) {
@@ -574,7 +579,7 @@ function announceUserDidJoin(client) {
     if (didLeave !== -1) island.usersLeft.splice(didLeave, 1);
     else island.usersJoined.push(client.user);
     scheduleUsersMessage(island);
-    LOCAL_DEBUG(`${island.id} user ${JSON.stringify(client.user)} did join`);
+    LOCAL_DEBUG(`${island.id} user ${JSON.stringify(client.user)} joined`);
 }
 
 function announceUserDidLeave(client) {
@@ -585,7 +590,7 @@ function announceUserDidLeave(client) {
     if (didJoin !== -1) island.usersJoined.splice(didJoin, 1);
     else island.usersLeft.push(client.user);
     scheduleUsersMessage(island);
-    LOCAL_DEBUG(`${island.id} user ${JSON.stringify(client.user)} did leave`);
+    LOCAL_DEBUG(`${island.id} user ${JSON.stringify(client.user)} left`);
 }
 
 function scheduleUsersMessage(island) {
@@ -1206,7 +1211,7 @@ server.on('connection', (client, req) => {
                 client.safeClose(...REASON.INACTIVE); // NB: close event won't arrive for a while
                 return;
             }
-            let nextCheck;
+            let nextCheck = CHECK_INTERVAL;
             if (quiescence > PING_THRESHOLD) {
                 if (!joined) {
                     DEBUG(`${sessionId}/${client.addr} did not join within ${quiescence} ms, disconnecting`);
@@ -1214,10 +1219,12 @@ server.on('connection', (client, req) => {
                     return;
                 }
 
-                DEBUG(`${sessionId}/${client.addr} inactive for ${quiescence} ms, sending ping`);
-                client.ping(now);
-                nextCheck = PING_INTERVAL;
-            } else nextCheck = CHECK_INTERVAL;
+                if (session.usePingIfNoPulse) {
+                    DEBUG(`${sessionId}/${client.addr} inactive for ${quiescence} ms, sending ping`);
+                    client.ping(now);
+                    nextCheck = PING_INTERVAL;
+                }
+            }
             setTimeout(checkForActivity, nextCheck);
         }
         setTimeout(checkForActivity, PING_THRESHOLD + 2000); // allow some time for establishing session

@@ -95,7 +95,7 @@ const simLoad = [0];
 const LOAD_BALANCE_FRAMES = 4;
 // number of steps to record for checking animation
 const ANIMATION_CHECK_FRAMES = 4;
-// maximum delay in ms since oldest step to count as being stepped regularly
+// maximum delay in ms since oldest step to count as being animated regularly
 const ANIMATION_MAX_SPREAD = 1000;
 
 function randomString() { return Math.floor(Math.random() * 36**10).toString(36); }
@@ -197,7 +197,7 @@ export default class Controller {
         /** @type {Array} recent TUTTI sends and their payloads, for matching up with incoming votes and divergence alerts */
         this.tuttiHistory = [];
         /** @type {Array} timestamps of most recent frames (in Date.now() timebase) */
-        this.lastStepTimes = this.lastStepTimes || []; // needs to survive dormancy
+        this.lastAnimationTimes = this.lastAnimationTimes || []; // needs to survive dormancy
 
         // controller (only) gets to subscribe to events using the shared viewId as the "subscriber" argument
         viewDomain.removeAllSubscriptionsFor(this.viewId); // in case we're recycling
@@ -264,11 +264,12 @@ export default class Controller {
      * @param {Function} sessionSpec.initFn - the island initializer `initFn(options)`
      * @param {Function} sessionSpec.rebootModelView - for taking down and rebuilding the model (i.e., the island) and view
      * @param {Object} sessionSpec.options - options to pass to the island initializer
-     * @param {Array<String>} sessionSpec.optionsFromUrl - names of additional island initializer options to take from URL
+     * @param {Array<String>} sessionSpec.optionsFromUrl - names of additional app-specific island initializer options to take from URL
      * @param {String} sessionSpec.appId - a unique identifier for an app
      * @param {String} sessionSpec.password - password for end-to-end encryption
      * @param {String} sessionSpec.viewIdDebugSuffix - suffix for viewIds to help debugging
      * @param {Number|String} sessionSpec.tps - ticks per second (can be overridden by `options.tps` or `urlOptions.tps`)
+     * @param {Number} sessionSpec.autoSleep - number of seconds of being hidden to trigger dormancy (or 0 to disable)
      */
     async initFromSessionSpec(sessionSpec) {
         // If we add more options here, add them to SESSION_PARAMS in session.js
@@ -281,7 +282,7 @@ export default class Controller {
         if (optionsFromUrl) for (const key of optionsFromUrl) {
             if (key in urlOptions) options[key] = urlOptions[key];
         }
-        // session parameters are additional properties that cause a new session
+        // gather additional properties that are hashed as part of deriving session ID
         const params = {};
         for (const key of [ 'tps' ]) {
             if (key in urlOptions) params[key] = urlOptions[key];
@@ -297,6 +298,8 @@ export default class Controller {
         const { msPerTick, multiplier } = this.getTickAndMultiplier();
         this.msPerTick = msPerTick;
         this.tickMultiplier = multiplier;
+
+        this.setUpActivityChecks();
     }
 
     /**
@@ -849,7 +852,7 @@ export default class Controller {
                             resolve(true);
                         }
                         };
-                    Promise.resolve().then(() => this.fastForward(MAX_SIMULATION_MS)); // immediate but not in the message handler
+                    Promise.resolve().then(() => this.stepSession("fastForward", { budget: MAX_SIMULATION_MS })); // immediate but not in the message handler
                     });
                 delete this.fastForwardHandler;
                 if (success && DEBUG.session) console.log(`${this.id} fast-forwarded to ${Math.round(this.island.time)}`);
@@ -881,7 +884,11 @@ export default class Controller {
                     return;
                 }
                 this.networkQueue.push(msg);
-                if (!this.rebootSignal) this.timeFromReflector(msg[0]); // only advance time if not rebooting
+                // only advance time, and perhaps the simulation, if not rebooting
+                if (!this.rebootSignal) {
+                    this.timeFromReflector(msg[0]);
+                    if (this.simulateIfNeeded) Promise.resolve().then(() => this.simulateIfNeeded()); // immediate but not in the message handler
+                }
                 return;
             }
             case 'TICK': {
@@ -962,13 +969,14 @@ export default class Controller {
         if (DEBUG.session) console.log(this.id, 'Controller sending JOIN');
 
         const { tick, delay } = this.getTickAndMultiplier();
-        const { name, codeHash, appId, islandId, heraldUrl, rejoinLimit } = this.islandCreator;
+        const { name, codeHash, appId, islandId, heraldUrl, rejoinLimit, autoSleep } = this.islandCreator;
 
         const args = {
             name,                   // for debugging only
             version: VERSION,       // protocol version
             user: this.viewId,      // see island.generateJoinExit() for getting location data
             ticks: { tick, delay },
+            dormantDelay: autoSleep, // not used yet, but tells reflector this client is >= 0.5.1
             url: App.referrerURL(), // for debugging only
             codeHash,               // for debugging only
             sdk: SDK_VERSION,       // for debugging only
@@ -1254,11 +1262,6 @@ export default class Controller {
         return { msPerTick, multiplier, tick, delay };
     }
 
-    fastForward(budget) {
-        const caughtUp = this.simulate(Date.now() + budget);
-        if (this.fastForwardHandler) this.fastForwardHandler(caughtUp);
-    }
-
     /**
      * Process pending messages for this island and advance simulation
      * @param {Number} deadline CPU time deadline before interrupting simulation
@@ -1333,7 +1336,7 @@ export default class Controller {
                 // so we might have heard from someone else before we send.
                 // however, if we're backgrounded so that timers might be firing only once
                 // per minute, it would be wrong to wait.
-                if (this.isSteppingRegularly()) {
+                if (this.isBeingAnimated()) {
                     setTimeout(() => this.scheduleSnapshot(), Math.floor(Math.random()*2000));
                 } else this.scheduleSnapshot();
             }
@@ -1349,56 +1352,73 @@ export default class Controller {
     // this is invoked by session.step() - which is called from the default
     // onAnimationFrame handler below, or by the application if it chooses
     // to step manually
-    stepSession(frameTime, view, expectedSimFPS) {
+    stepSession(stepType, parameters={}) {
         const { backlog, latency, starvation, activity } = this;
-        Stats.animationFrame(frameTime, { backlog, starvation, latency, activity, users: this.users });
+        if (stepType === "animation") {
+            Stats.animationFrame(parameters.frameTime, { backlog, starvation, latency, activity, users: this.users });
 
-        this.lastStepTimes.push(Date.now());
-        if (this.lastStepTimes.length > ANIMATION_CHECK_FRAMES) this.lastStepTimes.shift();
+            this.lastAnimationTimes.push(Date.now());
+            if (this.lastAnimationTimes.length > ANIMATION_CHECK_FRAMES) this.lastAnimationTimes.shift();
+        }
 
         if (!this.connected) {
-            if (!this.isOutOfSight() && this.isSteppingRegularly()) this.checkForConnection(true); // reconnect if not blocked
+            if (!this.isOutOfSight() && this.isBeingAnimated()) this.checkForConnection(true); // reconnect if not blocked
             return;
         }
 
         if (!this.island) return;
 
-        if (!this.synced) {
-            this.fastForward(MAX_SIMULATION_MS); // it's ok if we end up delaying an animation frame
-            return;
-        }
+        let caughtUp;
+        switch (stepType) {
+            case "animation": {
+                // when average load is low, the balancer spreads simulation across frames by
+                // simulating with a budget equal to the mean of the durations recorded from the
+                // last LOAD_BALANCE_FRAMES simulations.
+                // a session also has a value expectedSimFPS, from which we derive the maximum time
+                // slice that the simulation can use on each frame while still letting the app
+                // render on time.  whenever the controller is found to have a backlog greater than
+                // LOAD_BALANCE_FRAMES times that per-frame slice, the balancer immediately
+                // schedules a simulation boost with a budget of MAX_SIMULATION_MS.
+                // expectedSimFPS can be set using session param expectedSimFPS; the higher
+                // the value, the less of a backlog is needed to trigger a simulation boost.  but
+                // if expectedSimFPS is set to zero, the balancer will attempt to clear any backlog
+                // on every frame.
+                // expectedSimFPS was introduced for our Unity experiments, and is undocumented.
+                // as of july 2021, all apps are running with the default value of 60.
+                const expectedSimFPS = parameters.expectedSimFPS;
+                const simStart = Date.now();
+                const simBudget = simLoad.reduce((a, b) => a + b, 0) / simLoad.length;
+                caughtUp = this.simulate(simStart + Math.min(simBudget, MAX_SIMULATION_MS));
+                if (caughtUp === false) {
+                    // maybe take another bite
+                    const allowableLag = expectedSimFPS === 0 ? 0 : LOAD_BALANCE_FRAMES * (1000 / expectedSimFPS);
+                    if (this.backlog > allowableLag) caughtUp = this.simulate(simStart + MAX_SIMULATION_MS - simBudget);
+                }
+                if (caughtUp !== "error") {
+                    simLoad.push(Date.now() - simStart);
+                    if (simLoad.length > LOAD_BALANCE_FRAMES) simLoad.shift();
+                }
+                break;
+                }
+            case "fastForward":
+            case "background":
+                caughtUp = this.simulate(Date.now() + parameters.budget);
+                break;
+            default:
+                console.warn(stepType);
+            }
 
-        // when average load is low, the balancer spreads simulation across frames by
-        // simulating with a budget equal to the mean of the durations recorded from the
-        // last LOAD_BALANCE_FRAMES simulations.
-        // a session also has a value expectedSimFPS, from which we derive the maximum time
-        // slice that the simulation can use on each frame while still letting the app
-        // render on time.  whenever the controller is found to have a backlog greater than
-        // LOAD_BALANCE_FRAMES times that per-frame slice, the balancer immediately
-        // schedules a simulation boost with a budget of MAX_SIMULATION_MS.
-        // expectedSimFPS can be set using session param expectedSimFPS; the higher
-        // the value, the less of a backlog is needed to trigger a simulation boost.  but
-        // if expectedSimFPS is set to zero, the balancer will attempt to clear any backlog
-        // on every frame.
-        // expectedSimFPS was introduced for our Unity experiments, and is undocumented.
-        // as of july 2021, all apps are running with the default value of 60.
-        const simStart = Date.now();
-        const simBudget = simLoad.reduce((a, b) => a + b, 0) / simLoad.length;
-        let caughtUp = this.simulate(simStart + Math.min(simBudget, MAX_SIMULATION_MS));
+        if (this.fastForwardHandler) this.fastForwardHandler(caughtUp);
         if (caughtUp === "error") return;
-        const allowableLag = expectedSimFPS === 0 ? 0 : LOAD_BALANCE_FRAMES * (1000 / expectedSimFPS);
-        if (this.backlog > allowableLag) caughtUp = this.simulate(simStart + MAX_SIMULATION_MS - simBudget);
-        if (caughtUp === "error") return;
-        simLoad.push(Date.now() - simStart);
-        if (simLoad.length > LOAD_BALANCE_FRAMES) simLoad.shift();
 
         Stats.begin("update");
-        this.processModelViewEvents();
+        this.processModelViewEvents(stepType === "animation");
         Stats.end("update");
 
-        if (!view) return;
+        if (stepType !== "animation" || !parameters.view) return;
+
         Stats.begin("render");
-        this.inViewRealm(() => view.update(frameTime));
+        this.inViewRealm(() => parameters.view.update(parameters.frameTime));
         Stats.end("render");
     }
 
@@ -1417,9 +1437,9 @@ export default class Controller {
     /** call this from main loop to process queued model=>view events
      * @returns {Number} number of processed events
      */
-    processModelViewEvents() {
+    processModelViewEvents(isInAnimationStep) {
         if (this.island) {
-            return this.island.processModelViewEvents();
+            return this.island.processModelViewEvents(isInAnimationStep);
         }
         return 0;
     }
@@ -1458,24 +1478,23 @@ export default class Controller {
         window.requestAnimationFrame(onAnimationFrame);
     }
 
-    setUpActivityChecks(autoSleep) {
+    setUpActivityChecks() {
         /** intersection with the browser viewport */
         let isVisibleInViewport = null;
         /** whether to consider this tab visible, based on document.visibilityState and our IntersectionObserver */
         this.isOutOfSight = () => document.visibilityState === "hidden" || !isVisibleInViewport;
-        /** whether to consider this tab as being stepped regularly, e.g. from animation frames */
-        this.isSteppingRegularly = () => this.lastStepTimes.length === ANIMATION_CHECK_FRAMES && Date.now() - this.lastStepTimes[0] < ANIMATION_MAX_SPREAD;
+        /** whether to consider this tab as being animated regularly.  it takes about 1 second to detect that animation has stopped. */
+        this.isBeingAnimated = () => this.lastAnimationTimes.length === ANIMATION_CHECK_FRAMES && Date.now() - this.lastAnimationTimes[0] < ANIMATION_MAX_SPREAD;
 
         const intersectionChanged = (entries, _observer) => isVisibleInViewport = entries[0].isIntersecting;
         const observer = new IntersectionObserver(intersectionChanged);
         observer.observe(document.body);
 
         // only set up a dormancy check if needed
-        const noSleep = autoSleep !== undefined && !autoSleep;
+        const autoSleep = this.islandCreator.autoSleep; // seconds, or zero to disable
         let checkForDormancy;
-        if (!noSleep) {
-            const DORMANT_DELAY_DEFAULT = 10000;
-            const dormantDelay = typeof autoSleep === "number" ? 1000 * autoSleep : DORMANT_DELAY_DEFAULT;
+        if (autoSleep) {
+            const dormantDelay = 1000 * autoSleep;
             let lastDormancyCheck = 0;
             let outOfSightSince = 0;
             checkForDormancy = () => {
@@ -1510,7 +1529,7 @@ export default class Controller {
             // if the session is not being animated regularly, the setInterval
             // that normally triggers keepAlive probably isn't being stepped
             // either.  do so from here.
-            if (this.connected && !this.isSteppingRegularly()) this.connection.keepAlive(Date.now());
+            if (this.connected && !this.isBeingAnimated()) this.connection.keepAlive(Date.now());
             };
 
         // this poll is likely to be throttled to to once per minute in Chrome
@@ -1522,24 +1541,21 @@ export default class Controller {
             // if session is connected but not being stepped by animation
             // frames, use ticks to trigger a liveness check and, if still
             // connected after that, run the simulation.
-            if (this.isSteppingRegularly()) return; // animation is happening as usual
+            if (this.isBeingAnimated()) return; // animation is happening as usual
 
             checkAliveness();
 
             if (this.connected) {
                 // we set a simulation budget of 90% of the tick gap, capped at
-                // MAX_SIMULATION_MS unless this is a noSleep app, in which case
+                // MAX_SIMULATION_MS unless this app disables dormancy, in which case
                 // we allow even a multi-second budget (if the tick is that slow)
                 // so that the simulation has all the resources we can throw at it.
                 // that said, an app that needs to do lots of simulation ought not
                 // to set a low tick rate.
                 let simBudget = this.msPerTick * 0.9;
-                if (!noSleep) simBudget = Math.min(simBudget, MAX_SIMULATION_MS);
-                if (!this.synced) {
-                    this.fastForward(simBudget); // will trigger the fastForwardHandler, if any
-                } else {
-                    this.simulate(Date.now() + simBudget);
-                }
+                if (autoSleep) simBudget = Math.min(simBudget, MAX_SIMULATION_MS);
+                const stepType = this.synced ? "background" : "fastForward"; // doesn't currently make any difference
+                this.stepSession(stepType, { budget: simBudget });
             }
             };
     }
@@ -1555,7 +1571,7 @@ export default class Controller {
 /** send PULSEs using this interval until hearing back from server */
 const KEEP_ALIVE_INTERVAL = 100;
 /** if we haven't sent anything to the reflector for this long, send a PULSE to reassure it */
-const PULSE_TIMEOUT = 20000;
+const PULSE_TIMEOUT = 25000;
 /** warn about unsent outgoing bytes after this many ms */
 const UNSENT_TIMEOUT = 500;
 /** increase reconnect timeout exponentially up to this many ms */
@@ -1782,25 +1798,24 @@ LOGIC TO DETECT BROKEN CONNECTIONS
 
 REFLECTOR:
 
-    32s after JOIN:
-        every 5s:
-            if quiescence > 60s:
-                disconnect client
-            else if quiescence > 30s:
-                ping client
+    every 5s, starting 37s after JOIN:
+        if quiescence > 60s:
+            disconnect client (code 4002, so reconnection is allowed)
+        else if quiescence > 35s and not a recent, background-aware client:
+            ping client
 
     on pong from client:
         reset quiescence
 
-    on message from client:
+    on message from client (including PULSE):
         reset quiescence
 
 
 CONTROLLER:
 
-    every 100ms (in a visible tab):
-        if lastSent > 20s:
-            send PULSE to server
+    every 100ms in an animated tab; on every TICK and RECV if not animated (so at worst, on a 30s-interval TICK):
+        if lastSent > 25s:
+            send PULSE to server (max ~25s + 30s since last send)
         else if lastReceived > min(3*TICK, 45s):
             send PULSE to server
 

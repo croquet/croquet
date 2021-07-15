@@ -18,6 +18,8 @@ const DEFAULT_BALANCE_FPS = 60;
 const MAX_BALANCE_FPS = 120;
 let expectedSimFPS = DEFAULT_BALANCE_FPS;
 
+const DORMANCY_DEFAULT_SECONDS = 10;
+
 /**
  * _The Session API is under construction._
  *
@@ -220,10 +222,20 @@ export class Session {
             }
             urlOptions.debug = [...asArray(parameters.debug), ...asArray(urlOptions.debug)].join(',');
         }
-        if ("autoSleep" in parameters) urlOptions.autoSleep = parameters.autoSleep;
+        // verify and default autoSleep
+        if ("autoSleep" in parameters) {
+            const sleep = parameters.autoSleep;
+            const sleepType = typeof sleep;
+            if (sleepType === "number") {
+                if (sleep < 0) throw Error("an autoSleep value must be >= 0");
+            } else if (sleepType === "boolean") {
+                parameters.autoSleep = sleep ? DORMANCY_DEFAULT_SECONDS : 0;
+            } else throw Error("autoSleep must be numeric or boolean");
+        } else parameters.autoSleep = DORMANCY_DEFAULT_SECONDS;
         // now start
         if ("expectedSimFPS" in parameters) expectedSimFPS = Math.min(parameters.expectedSimFPS, MAX_BALANCE_FPS);
-        const SESSION_PARAMS = ['name', 'password', 'appId', 'tps', 'heraldUrl', 'rejoinLimit', 'optionsFromUrl', 'viewIdDebugSuffix'];
+        // parameters to be included in the session spec, if specified by app (or defaulted)
+        const SESSION_PARAMS = ['name', 'password', 'appId', 'tps', 'autoSleep', 'heraldUrl', 'rejoinLimit', 'optionsFromUrl', 'viewIdDebugSuffix'];
         freezeAndHashConstants();
         const controller = new Controller();
         // make sure options are JSONable
@@ -237,7 +249,7 @@ export class Session {
             view: null,
             // called from our own onAnimationFrame, or application if stepping manually
             step(frameTime) {
-                controller.stepSession(frameTime, session.view, expectedSimFPS);
+                controller.stepSession("animation", { frameTime, view: session.view, expectedSimFPS });
             },
             leave() {
                 return Session.leave(session.id);
@@ -257,7 +269,6 @@ export class Session {
             if (SESSION_PARAMS.includes(param)) sessionSpec[param] = value;
         }
         await controller.initFromSessionSpec(sessionSpec);
-        controller.setUpActivityChecks(urlOptions.autoSleep);
 
         let rebooting = false;
         await rebootModelView();

@@ -115,7 +115,7 @@ export class Domain {
     /** Process all queued and oncePerFrame events that were generated since the last invocation
      * @returns {Number} number of processed events
      */
-    processFrameEvents(controllerIsSynced) {
+    processFrameEvents(controllerIsInAnimationStep, controllerIsSynced) {
         let n = 0;
 
         const processSubs = (topic, data, accessor) => {
@@ -132,23 +132,26 @@ export class Domain {
             }
         };
 
-        // process queued events in order
+        // process queued events in order (for...of will include any added during the iteration)
         for (const {topic, data} of this.queuedEvents) processSubs(topic, data, 'queued');
         this.queuedEvents.length = 0;
 
-        // process oncePerFrame events in any order
-        for (const [topic, data] of this.perFrameEvents) processSubs(topic, data, 'oncePerFrame');
-        this.perFrameEvents.clear();
+        // only process per-frame events if this has been triggered by an animation step
+        if (controllerIsInAnimationStep) {
+            // process oncePerFrame events in any order
+            for (const [topic, data] of this.perFrameEvents) processSubs(topic, data, 'oncePerFrame');
+            this.perFrameEvents.clear();
 
-        // process oncePerFrameWhileSynced events in any order
-        if (controllerIsSynced) {
-            for (const [topic, data] of this.perSyncedFrameEvents) processSubs(topic, data, 'oncePerFrameWhileSynced');
-            this.perSyncedFrameEvents.clear();
+            // process oncePerFrameWhileSynced events in any order
+            if (controllerIsSynced) {
+                for (const [topic, data] of this.perSyncedFrameEvents) processSubs(topic, data, 'oncePerFrameWhileSynced');
+                this.perSyncedFrameEvents.clear();
+            }
+
+            // finally, process any newly queued events
+            for (const {topic, data} of this.queuedEvents) processSubs(topic, data, 'queued');
+            this.queuedEvents.length = 0;
         }
-
-        // finally, process any newly queued events
-        for (const {topic, data} of this.queuedEvents) processSubs(topic, data, 'queued');
-        this.queuedEvents.length = 0;
 
         return n;
     }

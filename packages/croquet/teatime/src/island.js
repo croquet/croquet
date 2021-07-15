@@ -584,9 +584,9 @@ export default class Island {
         }
     }
 
-    processModelViewEvents() {
+    processModelViewEvents(isInAnimationStep) {
         if (CurrentIsland) throw Error("cannot process view events in model code");
-        return inViewRealm(this, () => viewDomain.processFrameEvents(!!this.controller.synced));
+        return inViewRealm(this, () => viewDomain.processFrameEvents(isInAnimationStep, !!this.controller.synced));
     }
 
     // DEBUG SUPPORT - NORMALLY NOT USED
