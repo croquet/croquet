@@ -276,7 +276,10 @@ function handleTerm() {
 }
 process.on('SIGINT', handleTerm);
 process.on('SIGTERM', handleTerm);
-
+process.on('uncaughtException', err => {
+    LOG(err);
+    handleTerm();
+    });
 
 // start server
 startServer();
