@@ -1118,14 +1118,15 @@ server.on('connection', (client, req) => {
                 return;
             case 'runnable':
             case 'closable': {
-                // make sure the unregister timeout has at least 1000ms to run,
-                // to give this client a chance to join
+                // make sure the unregister timeout has at least 5s to run, to give
+                // this client a chance to join (even if it's in a very busy browser)
                 const now = Date.now();
-                const targetTime = Math.max(session.earliestUnregister, now + 1000);
-                scheduleUnregisterSession(sessionId, targetTime, "no JOIN in time");
+                const targetTime = Math.max(session.earliestUnregister, now + 5000);
+                scheduleUnregisterSession(sessionId, targetTime, "no JOIN after connection");
                 break;
                 }
             default:
+                // session must be 'running'.  just continue to set up the client.
         }
     } else {
         // add a buffer to how long we wait before trying to delete the dispatcher
@@ -1279,7 +1280,7 @@ server.on('connection', (client, req) => {
         // the connection log filter matches on (" connection " OR " JOIN ")
         LOG(`${client.sessionId}/${client.addr} closed connection ${JSON.stringify(reason)} ${JSON.stringify(client.stats)}`);
         const island = ALL_ISLANDS.get(client.sessionId);
-        if (island) {
+        if (island && island.clients.has(client)) {
             if (island.startClient === client) {
                 DEBUG(`${island.id}/${client.addr} START client failed to respond`);
                 clearTimeout(island.startTimeout);
