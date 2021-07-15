@@ -270,16 +270,21 @@ function handleTerm() {
         }
         if (promises.length) {
             DEBUG(`\nEMERGENCY SHUTDOWN OF ${promises.length} ISLAND(S)`);
-            Promise.all(promises).then(() => process.exit());
+            Promise.allSettled(promises).then(() => process.exit());
         } else process.exit();
     }
 }
 process.on('SIGINT', handleTerm);
 process.on('SIGTERM', handleTerm);
 process.on('uncaughtException', err => {
-    LOG(err);
+    ERROR("Uncaught", err);
     handleTerm();
-    });
+});
+process.on('unhandledRejection', (reason, promise) => {
+    WARN("Unhandled Rejection", reason, promise);
+    // TODO: call handleTerm();
+    // (not terminating yet, need to see what rejections we do not handle first)
+});
 
 // start server
 startServer();
