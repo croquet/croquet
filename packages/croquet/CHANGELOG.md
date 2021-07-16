@@ -4,6 +4,7 @@ This is a private summary of changes. The public changes are in the SDK [README.
 
 # latest pre-releases
 
+* 0.5.1-9 warn about new Date(), Date.now() etc. in model code
 * 0.5.1-8 more rationalisation of session stepping
 * 0.5.1-7 add cloudflare reflector url option `reflector=cf` or `reflector=FRA`
 * 0.5.1-6 improve dormancy logic for out-of-sight apps
