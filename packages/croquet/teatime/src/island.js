@@ -77,7 +77,9 @@ function patchBrowser() {
         }
         // copy static properties (length, name, prototype, now, parse, UTC)
         for (const prop of Object.getOwnPropertyNames(SystemDate)) {
-            Date_[prop] = SystemDate[prop];
+            if (prop === "length") continue;
+            try {  Date_[prop] = SystemDate[prop]; }
+            catch (ex) { /* ignore store into read-only properties */}
         }
         // override "now"
         Date_.now = now;
