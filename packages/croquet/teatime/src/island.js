@@ -976,6 +976,9 @@ class IslandHasher {
                     case "Float64Array":
                         this.hashArray(value, false);
                         return;
+                    case "Date":
+                        this.hash(+value);
+                        return;
                     case "Object":
                         if (value instanceof Model) this.hashModel(value);
                         else if (value.constructor === Object) this.hashObject(value, defer);
@@ -1140,6 +1143,8 @@ class IslandWriter {
                     case "Float32Array":
                     case "Float64Array":
                         return this.writeTypedArray(type, value);
+                    case "Date":
+                        return this.writeAs(type, value, +value, path);
                     case "Object": {
                         if (value instanceof Model) return this.writeModel(value, path);
                         if (value.constructor === Object || typeof value.constructor !== "function") return this.writeObject(value, path, defer);
@@ -1335,6 +1340,7 @@ class IslandReader {
         this.readers.set("Uint32Array", args => new Uint32Array(...args));
         this.readers.set("Float32Array", args => new Float32Array(...args));
         this.readers.set("Float64Array", args => new Float64Array(...args));
+        this.readers.set("Date", ms => new Date(ms));
     }
 
     addReader(classId, ClassOrSpec) {
