@@ -318,12 +318,7 @@ export default class Controller {
         const { id, islandId, codeHash } = this.islandCreator;
         this.islandCreator.snapshot = { id, time: 0, meta: { id, islandId, codeHash, created: (new Date()).toISOString() } };
         const joined = new Promise(resolve => this.islandCreator.sessionJoined = resolve);
-        // when we have reconnected after a break, and in the SYNC found that
-        // seamless rejoin is not going to work, SYNC forces a leave() and pauses
-        // until the subsequent reboot is complete (case (c) above).  if that's what
-        // brought us here, this is the place to signal reboot completion.
-        if (this.rebootSignal) this.rebootSignal();
-        else this.checkForConnection(false); // ensure connected unless we're blocked (e.g., in dormant state)
+        this.checkForConnection(false); // ensure connected unless we're blocked (e.g., in dormant state)
         if (DEBUG.session) console.log(id, "waiting for SYNC");
         await joined; // resolved in SYNC after installing the island and replaying any messages
     }
@@ -782,14 +777,7 @@ export default class Controller {
                     } else {
                         // likely a snapshot happened while disconnected. Reboot.
                         if (DEBUG.session) console.log(this.id, "cannot rejoin seamlessly, rebooting model/view");
-                        this.leave(true); // keep controller but reset it, nulling out the island
-                        if (DEBUG.session) console.log(this.id, "waiting for model/view reboot finished");
-                        // wait here for establishSession (called from rebootModelView, which will have been invoked as part of leave() above) to parse options, hash code etc, and signal that it is ready to attempt the install & sync below.
-                        await new Promise(resolve => this.rebootSignal = () => {
-                            this.rebootSignal = null;
-                            resolve();
-                        });
-                        if (DEBUG.session) console.log(this.id, "finished model/view reboot");
+                        this.leave(true); // keep controller but reset it, nulling out the island.  now runs straight through to the end of establishSession.
                         rejoining = false;
                     }
                 }
