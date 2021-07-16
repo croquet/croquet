@@ -24,10 +24,75 @@ function initDEBUG() {
     };
 }
 
+/** this shows up as "CroquetWarning" in the console */
+class CroquetWarning extends Error {}
+Object.defineProperty(CroquetWarning.prototype, 'name', { value: 'CroquetWarning' });
+
+/** patch Math and Date */
+function patchBrowser() {
+    // patch Math.random, and the transcendentals as defined in "@croquet/math"
+    if (!window.CroquetViewMath) {
+        // make random use CurrentIsland
+        window.CroquetMath.random = () => CurrentIsland.random();
+        // save all original Math methods
+        window.CroquetViewMath = {...Math};
+        // we keep the original Math object but replace the methods found in CroquetMath
+        // with a dispatch based on being executed in model or view code
+        for (const [funcName, modelFunc] of Object.entries(window.CroquetMath)) {
+            const viewFunc = Math[funcName];
+            Math[funcName] = modelFunc.length === 1
+                ? arg => CurrentIsland ? modelFunc(arg) : viewFunc(arg)
+                : (arg1, arg2) => CurrentIsland ? modelFunc(arg1, arg2) : viewFunc(arg1, arg2);
+        }
+    }
+    // patch Date.now to return Island time if called from Model code
+    if (!window.CroquetViewDate) {
+        // replace the original Date constructor function but return actual Date instances
+        const SystemDate = window.Date; // capture in closure
+        // warn only once
+        let warned = false;
+        function modelDateWarning(expr) {
+            if (warned) return;
+            // log CroquetWarning object to give developers a stack trace
+            console.warn(new CroquetWarning(`${expr} used in Model code`));
+            warned = true;
+        }
+        // our now() uses model or view time
+        function now() {
+            if (!CurrentIsland) return SystemDate.now();
+            modelDateWarning("Date.now()");
+            return CurrentIsland.time;
+        }
+        // Date replacement
+        function Date_(a, b, c, d, e, f, g) {
+            // written this way so Date_.length === 7 per spec
+            const args = [a, b, c, d, e, f, g];
+            args.length = arguments.length;
+            if (args.length === 0 && CurrentIsland) {
+                modelDateWarning(new.target ? "new Date()" : "Date()");
+                args.push(now());
+            }
+            const instance = new SystemDate(...args);
+            return new.target ? instance : instance.toString();
+        }
+        // copy static properties (length, name, prototype, now, parse, UTC)
+        for (const prop of Object.getOwnPropertyNames(SystemDate)) {
+            Date_[prop] = SystemDate[prop];
+        }
+        // override "now"
+        Date_.now = now;
+        // make original accessible
+        window.CroquetViewDate = SystemDate;
+        // switch
+        window.Date = Date_;
+    }
+}
+
 /** function cache */
 const QFuncs = {};
 
-/** to be used as callback, e.g. QFunc({foo}, bar => this.baz(foo, bar))
+/** QFuncs are a hack to allow functions (that is, non-methods) in Model code
+ * to be used as callback, e.g. QFunc({foo}, bar => this.baz(foo, bar))
  * @param {Object} vars - the captured variables
  * @param {Function} fn - the callback function
  */
@@ -94,23 +159,8 @@ export default class Island {
         return !!CurrentIsland;
     }
 
-    static installCustomMath() {
-        // patch Math.random, and transcendentals as defined in "@croquet/math"
-        if (!window.BrowserMath) {
-            window.CroquetMath.random = () => CurrentIsland.random();
-            window.BrowserMath = {};
-            for (const [funcName, croquetMath] of Object.entries(window.CroquetMath)) {
-                const browserMath = window.Math[funcName];
-                window.BrowserMath[funcName] = browserMath;
-                window.Math[funcName] = ["pow", "atan2"].includes(funcName)
-                    ? (arg1, arg2) => CurrentIsland ? croquetMath(arg1, arg2) : browserMath(arg1, arg2)
-                    : arg => CurrentIsland ? croquetMath(arg) : browserMath(arg);
-            }
-        }
-    }
-
     constructor(snapshot, initFn) {
-        Island.installCustomMath(); // trivial if already installed
+        patchBrowser(); // trivial if already installed
         initDEBUG();
 
         execOnIsland(this, () => {
