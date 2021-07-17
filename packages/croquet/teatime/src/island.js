@@ -66,14 +66,15 @@ function patchBrowser() {
         // Date replacement
         function Date_(a, b, c, d, e, f, g) {
             // written this way so Date_.length === 7 per spec
+            const calledWithNew = this instanceof Date_; // slightly more efficient than new.target after Babel
             const args = [a, b, c, d, e, f, g];
             args.length = arguments.length;
             if (args.length === 0 && CurrentIsland) {
-                modelDateWarning(new.target ? "new Date()" : "Date()");
+                modelDateWarning(calledWithNew ? "new Date()" : "Date()");
                 args.push(now());
             }
             const instance = new SystemDate(...args);
-            return new.target ? instance : instance.toString();
+            return calledWithNew ? instance : "" + instance;
         }
         // copy static properties (length, name, prototype, now, parse, UTC)
         for (const prop of Object.getOwnPropertyNames(SystemDate)) {
