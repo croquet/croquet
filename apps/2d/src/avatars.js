@@ -270,7 +270,7 @@ async function go() {
     const session = await Session.join({
         appId: "io.croquet.examples.avatars",
         name: App.autoSession(),
-        password: App.autoPassword(),
+        // password: App.autoPassword(),
         model: Shapes,
         view: ShapesView,
         tps: TPS,
