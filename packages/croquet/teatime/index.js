@@ -96,8 +96,40 @@ export { Messenger }  from "./src/messenger";
  *
  * If this is the main session, it also indicates that the scene was revealed (if data is `true`)
  * or hidden behind the overlay (if data is `false`).
- * ```
+ * ```js
  * this.subscribe(this.viewId, "synced", this.handleSynced);
+ * ```
+ * The default loading overlay is a CSS-only animation.
+ * You can either customize the appearance, or disable it completely and show your own in response to the `"synced"` event.
+ *
+ * **Customizing the default loading animation**
+ *
+ * The overlay is structured as
+ * ```html
+ * <div id="croquet_spinnerOverlay">
+ *     <div id="croquet_loader"></div>
+ * </div>
+ * ```
+ * so you can customize the appearance via CSS using
+ * ```css
+ * #croquet_spinnerOverlay { ... }
+ * #croquet_loader:before { ... }
+ * #croquet_loader { ... }
+ * #croquet_loader:after { ... }
+ * ```
+ * where the _overlay_ is the black background and the _loader_ with its `:before` and `:after` elements is the three animating dots.
+ *
+ * The overlay `<div>` is added to the document’s `<body>` by default.
+ * You can specify a different parent element by its `id` string or DOM element:
+ * ```js
+ * Croquet.App.root = element;   // DOM element or id string
+ * ```
+ * **Disabling the default overlay**
+ *
+ * To disable the overlay completely set the _App_ root to `false`.
+ * To show your own overlay, handle the `"synced"` event.
+ * ```js
+ * Croquet.App.root = false;
  * ```
  * @event synced
  * @property {String} scope - [`this.viewId`]{@link View#viewId}
