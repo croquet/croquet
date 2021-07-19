@@ -124,13 +124,14 @@ export { Messenger }  from "./src/messenger";
  * ```js
  * Croquet.App.root = element;   // DOM element or id string
  * ```
- * **Disabling the default overlay**
+ * **Replacing the default overlay**
  *
  * To disable the overlay completely set the _App_ root to `false`.
- * To show your own overlay, handle the `"synced"` event.
  * ```js
  * Croquet.App.root = false;
  * ```
+ * To show your own overlay, handle the `"synced"` event.
+ *
  * @event synced
  * @property {String} scope - [`this.viewId`]{@link View#viewId}
  * @property {String} event - `"synced"`
