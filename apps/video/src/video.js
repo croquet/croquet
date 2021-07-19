@@ -20,7 +20,7 @@ const SCRUB_THROTTLE = 1000 / 10; // min time between scrub events
 
 // handler for sharing and playing dropped-in video files
 class DragDropHandler {
-    constructor(options) {
+    constructor(_options) {
         this.rootView = null;
 
         // NB: per https://developer.mozilla.org/docs/Web/API/HTML_Drag_and_Drop_API/Drag_operations, one must cancel (e.g., preventDefault()) on dragenter and dragover events to indicate willingness to receive drop.
@@ -161,6 +161,7 @@ class TimeBarView {
 
         const canvas = this.element;
         const ctx = canvas.getContext('2d');
+        /* eslint-disable-next-line no-self-assign */
         canvas.width = canvas.width;
         ctx.fillStyle = '#ff4444';
         ctx.fillRect(0, 0, canvas.width * portion, canvas.height);
@@ -313,15 +314,15 @@ class SyncedVideoModel extends Model {
         const { hash, type, size, name } = this.asset;
         return {
             asset: { hash, type, size, name },
-            handles: Object.entries(this.handles).map(([hash, handle]) => [hash, Data.toId(handle)]),
+            handles: Object.entries(this.handles).map(([pHash, pHandle]) => [pHash, Data.toId(pHandle)]),
         };
     }
 
     restoreEverything(persistedData) {
         this.addAsset(persistedData.asset);
-        for (const [hash, id] of persistedData.handles) {
-            const handle = Data.fromId(id);
-            this.storedData({hash, handle});
+        for (const [pHash, pId] of persistedData.handles) {
+            const handle = Data.fromId(pId);
+            this.storedData({pHash, handle});
         }
     }
 }
@@ -380,7 +381,7 @@ class SyncedVideoView extends View {
             this.applyPlayState();
             this.lastTimingCheck = this.now() + 500; // let it settle before we try to adjust
 
-        } catch (err) { console.error(err) };
+        } catch (err) { console.error(err); }
     }
 
     adjustPlaybar() {
@@ -467,8 +468,8 @@ class SyncedVideoView extends View {
     }
 
     calculateVideoTime() {
-        const { isPlaying, startOffset } = this.latestPlayState;
-        if (!isPlaying) debugger;
+        const { isPlaying: _isP, startOffset } = this.latestPlayState;
+        // if (!isPlaying) debugger;
 
         const sessionNow = this.now();
         return (sessionNow - startOffset) / 1000;
@@ -637,7 +638,10 @@ class SyncedVideoView extends View {
     }
 
     async addFile(file) {
-        if (!file.type.startsWith('video/')) return View.displayWarning(`Not a video: "${file.name}" (${file.type})`);
+        if (!file.type.startsWith('video/')) {
+            View.displayWarning(`Not a video: "${file.name}" (${file.type})`);
+            return;
+        }
         const data = await new Promise(resolve => {
             const reader = new FileReader();
             reader.onload = () => resolve(reader.result);
