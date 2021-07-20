@@ -715,7 +715,7 @@ function SAVE(client, args) {
     // do *not* change our own session's persistentUrl!
     // we only upload this to be used to init the next session of this island
     const saved = { url };
-    if (STORE_PERSISTENT_DATA) uploadJSON(`apps/${appId}/${islandId}.json`, saved).catch(err => ERROR(`${id} failed to upload persistent data. ${err.code}: ${err.message}`));
+    if (STORE_PERSISTENT_DATA) uploadJSON(`apps/${appId}/${islandId}.json`, saved).catch(err => ERROR(`${id} failed to record persistent-data upload. ${err.code}: ${err.message}`));
 }
 
 /** send a message to all participants after time stamping it
