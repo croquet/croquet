@@ -1492,10 +1492,11 @@ export default class Controller {
                 lastDormancyCheck = now;
                 if (this.isOutOfSight()) {
                     if (!outOfSightSince) outOfSightSince = now;
-                    if (this.connected && now - outOfSightSince > dormantDelay) this.dormantDisconnect();
-                } else if (outOfSightSince) {
-                    outOfSightSince = 0;
-                }
+                    else if (now - outOfSightSince > dormantDelay) {
+                        this.dormantDisconnect();
+                        outOfSightSince = 0; // to force a new timeout if hidden immediately on reconnection
+                    }
+                } else outOfSightSince = 0;
                 };
         }
 
@@ -1510,14 +1511,14 @@ export default class Controller {
                 return;
             }
 
-            if (!this.island) return;
+            if (!this.connected || !this.island) return;
 
             if (checkForDormancy) checkForDormancy();
 
             // if the session is not being animated regularly, the setInterval
             // that normally triggers keepAlive probably isn't being stepped
             // either.  do so from here.
-            if (this.connected && !this.isBeingAnimated()) this.connection.keepAlive(Date.now());
+            if (!this.isBeingAnimated()) this.connection.keepAlive(Date.now());
             };
 
         // this poll is likely to be throttled to to once per minute in Chrome
