@@ -53,9 +53,9 @@ function patchBrowser() {
         let warned = false;
         function modelDateWarning(expr) {
             if (warned) return;
+            warned = true;
             // log CroquetWarning object to give developers a stack trace
             console.warn(new CroquetWarning(`${expr} used in Model code`));
-            warned = true;
         }
         // our now() uses model or view time
         function now() {
