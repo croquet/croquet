@@ -811,9 +811,8 @@ function TUTTI(client, args) {
 
     const [ sendTime, tuttiSeq, payload, firstMsg, wantsVote, tallyTarget ] = args;
 
-    const tallyHash = `${tuttiSeq}:${sendTime}`;
     function tallyComplete() {
-        const tally = island.tallies[tallyHash];
+        const tally = island.tallies[tuttiSeq];
         const { timeout, expecting: missing } = tally;
         clearTimeout(timeout);
         if (missing) DEBUG(`${id} missing ${missing} ${missing === 1 ? "client" : "clients"} from tally ${tuttiSeq}`);
@@ -822,12 +821,13 @@ function TUTTI(client, args) {
             const msg = [0, 0, payloads];
             SEND(island, [msg]);
         }
-        delete island.tallies[tallyHash];
+        delete island.tallies[tuttiSeq];
         const lastComplete = island.lastCompletedTally;
         if (lastComplete === null || after(lastComplete, tuttiSeq)) island.lastCompletedTally = tuttiSeq;
     }
 
-    if (!island.tallies[tallyHash]) { // either first client we've heard from, or one that's missed the party entirely
+    let tally = island.tallies[tuttiSeq];
+    if (!tally) { // either first client we've heard from, or one that's missed the party entirely
         const lastComplete = island.lastCompletedTally;
         if (lastComplete !== null && (tuttiSeq === lastComplete || after(tuttiSeq, lastComplete))) {
             // too late
@@ -836,14 +836,19 @@ function TUTTI(client, args) {
         }
 
         if (firstMsg) SEND(island, [firstMsg]);
-        island.tallies[tallyHash] = {
+
+        tally = island.tallies[tuttiSeq] = {
+            sendTime,
             expecting: island.clients.size, // we could ignore clients that are not active (i.e., still in the process of joining), but with a TALLY_INTERVAL of 1000ms it's painless to give them all a chance
             payloads: {},
             timeout: setTimeout(tallyComplete, TALLY_INTERVAL)
             };
+    } else if (tally.sendTime !== sendTime) {
+        // same tutti, different time
+        DEBUG(`${id}/${client.addr} rejecting tally ${tuttiSeq} @${sendTime} cf in-progress @${tally.sendTime}`);
+        return;
     }
 
-    const tally = island.tallies[tallyHash];
     tally.payloads[payload] = (tally.payloads[payload] || 0) + 1;
     if (--tally.expecting === 0) tallyComplete();
 }
