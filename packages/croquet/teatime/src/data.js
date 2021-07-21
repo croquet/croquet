@@ -2,10 +2,9 @@ import stableStringify from "fast-json-stable-stringify";
 import WordArray from "crypto-js/lib-typedarrays";
 import Base64 from "crypto-js/enc-base64";
 import SHA256 from "crypto-js/sha256";
-import { baseUrl } from "@croquet/util/hashing";
 import urlOptions from "@croquet/util/urlOptions";
 import Island from "./island";
-import { sessionProps } from "./controller";
+import { fileServerUrl, sessionProps } from "./controller";
 
 
 const VERSION = '2';
@@ -21,8 +20,8 @@ function debug(what) {
 }
 
 function dataUrl(path, hash) {
-    if (!path) return `${baseUrl('sessiondata')}${hash}`;              // deprecated
-    return `${baseUrl('apps')}${path}/data/${hash}`;
+    if (!path) return `${fileServerUrl('sessiondata')}${hash}`;              // deprecated
+    return `${fileServerUrl('apps')}${path}/data/${hash}`;
 }
 
 function hashFromUrl(url) {

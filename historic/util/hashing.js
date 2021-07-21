@@ -1,21 +1,6 @@
 import stableStringify from "fast-json-stable-stringify";
 import urlOptions from "./urlOptions";
 
-// croquet.io and pi.croquet.io provide file servers themselves
-// everything else uses croquet.io via CORS
-export const CROQUET_HOST = window.location.hostname.endsWith("croquet.io") ? window.location.host : "croquet.io";
-
-export function fileServer() {
-    const server = typeof urlOptions.files === "string" ? urlOptions.files : `https://${CROQUET_HOST}/files/v1`;
-    if (server.endsWith('/')) return server.slice(0, -1);
-    return server;
-}
-
-// we put everything into the "all/" directory
-// but replace 'localhost' and '*.ngrok.io' by 'dev/username' for developers
-export function baseUrl(what='code') {
-    return `${fileServer()}/${what}/`;
-}
 
 function funcSrc(func) {
     // this is used to provide the source code for hashing, and hence for generating

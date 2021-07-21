@@ -11,7 +11,7 @@ import pako from "pako"; // gzip-aware compressor
 import { Stats } from "@croquet/util/stats";
 import urlOptions from "@croquet/util/urlOptions";
 import { App, displayStatus, displayError, displayAppError } from "@croquet/util/html";
-import { baseUrl, hashSessionAndCode, hashString } from "@croquet/util/hashing";
+import { hashSessionAndCode, hashString } from "@croquet/util/hashing";
 import { inViewRealm } from "./realms";
 import { viewDomain } from "./domain";
 import Island, { Message, inSequence } from "./island";
@@ -49,6 +49,17 @@ const DEFAULT_REFLECTOR = process.env.CROQUET_REFLECTOR || PUBLIC_REFLECTOR;    
 const DEV_DEFAULT_REFLECTOR = "wss://croquet.io/reflector-dev/dev";
 const CLOUDFLARE_REFLECTOR = "wss://croquet.network/reflector/";
 const DEV_CLOUDFLARE_REFLECTOR = "wss://croquet.network/reflector/dev/";
+
+// croquet.io and pi.croquet.io provide file servers themselves
+// everything else uses croquet.io via CORS (unless overriden via urlOptions)
+const CROQUET_HOST = window.location.hostname.endsWith("croquet.io") ? window.location.host : "croquet.io";
+const DEFAULT_FILE_SERVER = `https://${CROQUET_HOST}/files/v1`;
+
+export function fileServerUrl(what) {
+    let fileServer = typeof urlOptions.files === "string" ? urlOptions.files : DEFAULT_FILE_SERVER;
+    if (fileServer.endsWith('/')) fileServer = fileServer.slice(0, -1);
+    return `${fileServer}/${what}/`;
+}
 
 const codeHashes = null; // individual codeHashes are not uploaded for now, will need to re-add for replay
 
@@ -493,7 +504,7 @@ export default class Controller {
     }
 
     snapshotUrl(time, seq, hash) {
-        const base = `${baseUrl('snapshots')}${this.id}`;
+        const base = `${fileServerUrl('snapshots')}${this.id}`;
         const pad = n => ("" + n).padStart(10, '0');
         // snapshot time is full precision. for storage name, we use full ms.
         const filename = `${pad(Math.ceil(time))}_${seq}-${hash}.snap`;
@@ -621,7 +632,7 @@ export default class Controller {
 
     persistentUrl(hash) {
         const { appId, islandId } = this.islandCreator;
-        return `${baseUrl('apps')}${appId}/${islandId}/save/${hash}`;
+        return `${fileServerUrl('apps')}${appId}/${islandId}/save/${hash}`;
     }
 
     async persist(time, seq, tuttiSeq, persistentString, persistentHash, ms) {
