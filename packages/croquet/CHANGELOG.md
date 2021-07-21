@@ -168,7 +168,7 @@ This is a private summary of changes. The public changes are in the SDK [README.
 
 # 2019-12-16: 0.2.6
 
-* switch to croquet.io/reflector/v1 and croquet.io/files-v1
+* switch to croquet.io/reflector/v1 and croquet.io/files/v1
 * fixes to work on Microsoft Edge
 * add `dev` url option to use croquet.io/reflector-dev/dev
 * `"synced"` event delayed by 200 ms
