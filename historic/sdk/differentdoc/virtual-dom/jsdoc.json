@@ -1,0 +1,50 @@
+{
+  "source": {
+    "include": [
+        "../../../authoring/apiDoc/top.md",
+        "../../../authoring/apiDoc/element-doc.js"
+    ]
+  },
+  "opts": {
+    "access": ["public"],
+    "template": "../../template",
+    "encoding": "utf8",
+    "recurse": false,
+    "verbose": true,
+    "destination": "../build/virtual-dom/"
+  },
+  "plugins": ["plugins/markdown"],
+  "markdown": {
+    "parser": "gfm",
+    "hardwrap": false,
+    "idInHeadings": true
+  },
+  "templates": {
+    "cleverLinks": false,
+    "monospaceLinks": false,
+    "default": {
+      "outputSourceFiles": false,
+      "includeDate": false,
+      "useLongnameInNav": true,
+      "staticFiles": {
+        "includePattern": "\\.(png|jpg)$"
+      }
+    }
+  },
+  "docdash": {
+    "static": true,
+    "sort": false,
+    "disqus": "",
+    "meta": {
+      "title": "Croquet Virtual DOM @CROQUET_VERSION@ Class References",
+      "description": "Documentation for the Croquet Virtual DOM Framework",
+      "keyword": "croquet,"
+    },
+    "search": true,
+    "collapse": true,
+    "typedefs": true,
+    "removeQuotes": "none",
+    "scripts": [],
+    "menuHome": "Home: <b>Croquet Virtual DOM</b>"
+  }
+}

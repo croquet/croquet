@@ -1,0 +1,14 @@
+{
+  "name": "croquet-docs",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "build": "./build.sh"
+  },
+  "author": "Croquet Corporation",
+  "license": "ISC",
+  "devDependencies": {
+    "jsdoc": "^3.6.6",
+    "npm-watch": "^0.9.0"
+  }
+}

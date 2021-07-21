@@ -1,0 +1,12 @@
+{
+    "compilerOptions": {
+        "module": "system",
+        "noImplicitAny": true,
+        "allowJs": true,
+        "preserveConstEnums": true,
+        "outFile": "./doc",
+        "sourceMap": false
+    },
+    "files": ["../../libraries/packages/croquet/types.d.ts"],
+    "exclude": ["node_modules", "/doc"]
+}

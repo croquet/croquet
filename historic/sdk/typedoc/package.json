@@ -1,0 +1,25 @@
+{
+  "name": "croquet-typedocs",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "npx typedoc --out build ../../libraries/packages/croquet/types.d.ts",
+    "watch": "npm-watch build"
+  },
+  "watch": {
+    "build": {
+      "patterns": [
+        "../../libraries/packages/croquet/types.d.ts",
+        "typedoc.json"
+      ],
+      "extensions": "ts,tsx,json",
+      "quiet": false
+    }
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "typedoc": "^0.21.4"
+  }
+}
