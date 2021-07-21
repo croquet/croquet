@@ -31,7 +31,7 @@ docs)
     PRE=""
     ;;
 prerelease)
-    PARCEL_OPT="--no-minify"
+    PARCEL_OPT="" #--no-minify
     ;;
 release)
     if $PRERELEASE ; then
@@ -73,20 +73,24 @@ fi
 DIR=../../servers/croquet-io-dev
 DOCS=$DIR/sdk/docs$PRE
 
-rm -rf build/*
-npx jsdoc -c jsdoc.json -d build || exit
+rm -rf differentdoc/build/*
 MINOR_VERSION=`echo $VERSION | sed 's/\.[^.]*$//'`
-sed -i '' "s/@CROQUET_VERSION@/$VERSION/;s/@CROQUET_VERSION_MINOR@/$MINOR_VERSION/;" build/*.html || exit
+
+(cd differentdoc; env "VERSION=$VERSION" MINOR_VERSION=$MINOR_VERSION ./deploy.sh)
+
+# sed -i '' "s/@CROQUET_VERSION@/$VERSION/;s/@CROQUET_VERSION_MINOR@/$MINOR_VERSION/;" build/*.html || exit
 
 # clean old docs
 rm -rf $DOCS/*
 # (fake conduct.html to fool parcel)
-touch build/conduct.html
-npx parcel build $PARCEL_OPT --public-url . --no-source-maps -d $DOCS build/*.html || exit
+# touch differentdoc/build/conduct.html
+# npx parcel differentdoc/build $PARCEL_OPT --public-url . --no-source-maps -d $DOCS differentdoc/build/*.html || exit
+
+rsync -r differentdoc/build/ $DOCS
 
 # (remove fake conduct.html and substitute proper link)
-rm $DOCS/conduct.html
-sed -i '' "s|conduct.html|/conduct.html|" $DOCS/index.html
+# rm $DOCS/conduct.html
+#sed -i '' "s|conduct.html|/conduct.html|" $DOCS/croquet/index.html
 
 $COMMIT || exit 0
 

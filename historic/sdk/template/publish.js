@@ -589,11 +589,14 @@ exports.publish = function(taffyData, opts, tutorials) {
     // copy the template's static files to outdir
     var fromDir = path.join(templatePath, 'static');
     var staticFiles = fs.ls(fromDir, 3);
+    debugger;
 
     staticFiles.forEach(function(fileName) {
         var toDir = fs.toDir( fileName.replace(fromDir, outdir) );
         fs.mkPath(toDir);
-        copyFile(fileName, path.join(toDir, path.basename(fileName)), function(err){if(err) console.err(err);});
+        copyFile(fileName, path.join(toDir, path.basename(fileName)), function(err) {
+            if(err) console.error(err);
+        });
     });
 
     // copy user-specified static files to outdir
@@ -614,9 +617,12 @@ exports.publish = function(taffyData, opts, tutorials) {
 
             extraStaticFiles.forEach(function(fileName) {
                 var sourcePath = fs.toDir(filePath);
+                sourcePath = path.resolve(sourcePath);
                 var toDir = fs.toDir( fileName.replace(sourcePath, outdir) );
                 fs.mkPath(toDir);
-                copyFile(fileName, path.join(toDir, path.basename(fileName)), function(err){if(err) console.err(err);});
+                copyFile(fileName, path.join(toDir, path.basename(fileName)), function(err) {
+                    if(err) console.err(err);
+                });
             });
         });
     }
