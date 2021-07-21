@@ -105,8 +105,8 @@ You do need to provide some session meta data, like an appId, session name, and 
 
 ```
 const appId = "com.example.myapp";
-const name = Croquet.Session.App.autoSession();
-const password = Croquet.Session.App.autoPassword();
+const name = Croquet.App.autoSession();
+const password = Croquet.App.autoPassword();
 Croquet.Session.join({appId, name, password, model: MyModel, view: MyView});
 ```
 That's it. You don't need to worry about setting up a server, or writing special synchronization code. _Croquet_ handles all of that invisibly, allowing you to concentrate on what your app _does_.
