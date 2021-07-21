@@ -46,9 +46,11 @@ onmessage = msg => {
     }
 
     function hash(bytes) {
+        const start = Date.now();
         const sha256 = SHA256(WordArray.create(bytes));
         const base64 = Base64.stringify(sha256);
         const base64url = base64.replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+        if (debug) console.log(`${id} ${what} hashed (${bytes.length} bytes) in ${Date.now() - start}ms`);
         return base64url;
     }
 
@@ -56,6 +58,7 @@ onmessage = msg => {
         try {
             const body = encrypt(gzip ? compress(buffer) : buffer);
             if (url.includes("%HASH%")) url = url.replace("%HASH%", hash(body));
+            const start = Date.now();
             const { ok, status, statusText} = await fetch(url, {
                 method: "PUT",
                 mode: "cors",
@@ -68,7 +71,7 @@ onmessage = msg => {
                 body
             });
             if (!ok) throw Error(`server returned ${status} ${statusText} for PUT ${url}`);
-            if (debug) console.log(`${id} uploaded ${what} (${status}) ${url}`);
+            if (debug) console.log(`${id} ${what} uploaded (${status}) in ${Date.now() - start}ms ${url}`);
             postMessage({job, url, ok, status, statusText});
         } catch (e) {
             if (debug) console.log(`${id} upload error ${e.message}`);
