@@ -11,7 +11,9 @@
     "build": {
       "patterns": [
         "../../../authoring/apiDoc/top.md",
-        "../../../authoring/apiDoc/element-doc.js"
+        "../../../authoring/apiDoc/element-doc.js",
+        "../../../authoring/apiDoc/tutorials/*",
+        "./jsdoc.json"
       ],
       "ignore": [
         "build"
