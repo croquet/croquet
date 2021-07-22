@@ -75,7 +75,7 @@ This mirroring is handled by **reflectors**. Reflectors are stateless, public me
 
 # Creating a _Croquet_ App
 
-To create a new a _Croquet_ app, you simply define your own models and views. These classes inherit from the base classes {@link Model} and {@link View} in the `croquet` library.
+To create a new a _Croquet_ app, you define your own models and views. These classes inherit from the base classes {@link Model} and {@link View} in the `croquet` library.
 
 A simple app often only has one model and one view. In that case, the view contains all your input and output code, and the model contains all your simulation code.
 
@@ -101,7 +101,7 @@ class MyView extends Croquet.View {
 
 You then join a session by calling {@link Session.join} and passing it your model and view classes. `Session.join` automatically connects to a nearby reflector, synchronizes your model with the models of any other users already in the same session, and starts executing.
 
-You do need to provide some session meta data, like an appId, session name, and a password. Below we use `autoSession`/`autoPassword` but you can instead use whatever makes most sense for your app. In the codepen example above we even use constants for all.
+You do need to provide some session meta data, like an appId, session name, and a password. Below we use `autoSession`/`autoPassword` but you can instead use whatever makes most sense for your app. In the tutorials we even often use constants for all, but you should not do that in production.
 
 ```
 const appId = "com.example.myapp";
@@ -132,7 +132,7 @@ See {@link Model} for the full class documentation.
 
 # Views
 
-When `Session.join()` creates the local root model and root view, it passes the view a reference to the model. This way the view can initialize itself to reflect whatever state the model may currently be in. Remember that when you join a session, your model might be initalized by running its `init()` method, or it might be initialized by loading an existing snapshot. Having direct access to the model allows the view to configure itself properly no matter how the model was initialized.
+When `Session.join()` creates the local root model and root view, it passes the view a reference to the model. This way the view can initialize itself to reflect whatever state the model may currently be in. Remember that when you join a session, your model might have been initalized by running its `init()` method, or it might have been loaded from an existing snapshot. Having direct access to the model allows the view to configure itself properly no matter how the model was initialized.
 ```
 class MyView extends Croquet.View {
     constructor(model) {
@@ -145,7 +145,7 @@ class MyView extends Croquet.View {
     }
 }
 ```
-This illustrates an important feature of _Croquet_: **A view can read directly from a model at any time.** A view doesn't need to receive an event from a model to update itself. It can just pull whatever data it needs directly from the model whenever it wants.  (Of course, a view shouldn't _write_ directly to a model, because that would break synchronization.)
+This illustrates an important feature of _Croquet_: **A view can read directly from a model at any time.** A view doesn't need to receive an event from a model to update itself. It can just pull whatever data it needs directly from the model whenever it wants.  (Of course, a view must never _write_ directly to a model, because that would break synchronization.)
 
 The root view's [`update()`]{@link View#update} method is called every time the application window requests an animation frame (usually 60 times a second). This allows the view to continually refresh itself even if the models are updating more slowly. `update()` receives the local system time at the start of the frame as its argument.
 
@@ -180,9 +180,9 @@ Events can be used to communicate between models themselves or views or any comb
 
 By mirroring view-to-model events through the reflector, _Croquet_ ensures that all replicas of the model stay in sync. All replicas of the model receive exactly the same stream of events in exactly the same order.
 
-**_Output events_ (published by a model and handled by a view) are queued up locally, and handled right before invoking `update()`.**
+**_Output events_ (published by a model and handled by a view) are queued up locally, and handled asynchronously.**
 
-This is to ensure a strict separation between model code execution and view code execution. The model code must be executed precisely the same for every user to stay in sync, no matter if there are views subscribed on that user's machine or not.
+This is to ensure a strict separation between model code execution and view code execution. The model code must be executed precisely the same for every user to stay in sync, no matter if there are views subscribed on that user's machine or not. All event handlers are before invoking `update()`.
 
 There are also two special events that are generated by the reflector itself: `view-join` and `view-exit`. These are broadcast whenever a user joins or leaves a session.
 
