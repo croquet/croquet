@@ -1,0 +1,57 @@
+{
+  "source": {
+    "include": [
+      "../../sdk/README.md",
+      "../../teatime/index.js",
+      "../../teatime/src/model.js",
+      "../../teatime/src/view.js",
+      "../../teatime/src/session.js"
+    ]
+  },
+  "opts": {
+    "access": ["public"],
+    "template": "../template",
+    "tutorials": "../../sdk/tutorials",
+    "encoding": "utf8",
+    "recurse": false,
+    "verbose": true,
+    "destination": "../build/croquet"
+  },
+  "plugins": ["plugins/markdown"],
+  "markdown": {
+    "parser": "gfm",
+    "hardwrap": false,
+    "idInHeadings": true
+  },
+  "templates": {
+    "cleverLinks": false,
+    "monospaceLinks": false,
+    "default": {
+      "outputSourceFiles": false,
+      "includeDate": false,
+      "useLongnameInNav": true,
+      "staticFiles": {
+        "include": [
+          "../../sdk/tutorials"
+        ],
+        "includePattern": "\\.(png|jpg)$"
+      }
+    }
+  },
+  "docdash": {
+    "static": true,
+    "sort": false,
+    "disqus": "",
+    "meta": {
+      "title": "Croquet SDK @CROQUET_VERSION@",
+      "description": "Documentation for the Croquet SDK",
+      "keyword": "croquet"
+    },
+    "search": true,
+    "collapse": true,
+    "typedefs": true,
+    "removeQuotes": "none",
+    "scripts": [],
+    "menuHome": "Home: <b>Croquet Basics</b>"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "croquet-doc-sdk",
+  "version": "0.5.0",
+  "description": "Croquet SDK Documentation",
+  "scripts": {
+    "start": "npm-watch",
+    "build": "jsdoc -c jsdoc.json -d build",
+    "watch": "npm-watch"
+  },
+  "watch": {
+    "build": {
+      "patterns": [
+          "../../sdk/README.md",
+          "../../teatime/index.js",
+          "../../teatime/src/model.js",
+          "../../teatime/src/view.js",
+          "../../teatime/src/session.js"
+      ],
+      "ignore": [
+        "build"
+      ],
+      "extensions": "js,json,html,css,tmpl,md",
+      "quiet": false
+    }
+  },
+  "author": "Croquet Corporation",
+  "license": "UNLICENSED"
+}
