@@ -130,7 +130,7 @@ class ViewRealm {
     }
 
     externalNow() {
-        return this.island.controller.time;
+        return this.island.controller.reflectorTime;
     }
 
     extrapolatedNow() {

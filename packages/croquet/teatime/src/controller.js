@@ -152,8 +152,8 @@ export default class Controller {
         this.connection = this.connection || new Connection(this);
         /** the messages received from reflector */
         this.networkQueue = [];
-        /** the time stamp of last message received from reflector */
-        this.time = 0;
+        /** the time stamp of last message received from reflector, or internal tick */
+        this.reflectorTime = 0;
         /** ms between expected ticks */
         this.msPerTick = this.msPerTick || 0;
         /** multiply reflector ticks if > 1 (a.k.a. "cheat beats") */
@@ -229,7 +229,7 @@ export default class Controller {
     get viewOnly() { return this.islandCreator.viewOnly; }
 
     /**  @type {Number} how many ms need to be simulated to catch up to latest time from the reflector */
-    get backlog() { return this.island ? this.time - this.island.time : 0; }
+    get backlog() { return this.island ? this.reflectorTime - this.island.time : 0; }
 
     /** @type {Number} how many ms passed since we received something from reflector */
     get starvation() { return Date.now() - this.lastReceived; }
@@ -786,7 +786,7 @@ export default class Controller {
                     const seamlessRejoin = sameSession        // must be same timeline (in case we are connected to stateless reflector)
                         && inSequence(oldest, this.island.seq)   // there must be no gap between our last message and the first synced message
                         && inSequence(this.island.seq, newest)  // the reflector state must not be older than our island (presumably due to reflector crash and restart)
-                        && time >= this.time; // similarly, the reflector must not be providing an earlier time than we have already seen
+                        && time >= this.reflectorTime; // similarly, the reflector must not be providing an earlier time than we have already seen
                     if (seamlessRejoin) {
                         // rejoin is safe, discard duplicate messages
                         if (firstMessage && inSequence(firstMessage[1], this.island.seq)) {
@@ -829,7 +829,7 @@ export default class Controller {
                     this.networkQueue.push(msg);
                 }
                 this.networkQueue.push(...messagesSinceSync);
-                if (time > this.time) this.timeFromReflector(time);
+                if (time > this.reflectorTime) this.timeFromReflector(time);
                 // if we were rejoining, then our work is done here: we got all the missing messages
                 if (rejoining) {
                     if (DEBUG.session) console.log(this.id, "seamless rejoin successful");
@@ -954,9 +954,9 @@ export default class Controller {
             const initialIslandSnap = JSON.stringify(newIsland.snapshot());
             newIsland = new Island(JSON.parse(initialIslandSnap), () => initFn(options));
         }
-       // our time is the latest of this.time (we may have received a tick already) and the island time in the snapshot
+       // our time is the latest of this.reflectorTime (we may have received a tick already) and the island time in the snapshot
         const islandTime = this.lastKnownTime(newIsland);
-        this.time = Math.max(this.time, islandTime);
+        this.reflectorTime = Math.max(this.reflectorTime, islandTime);
         this.setIsland(newIsland); // make this our island
     }
 
@@ -1297,7 +1297,7 @@ export default class Controller {
             const nothingToDo = this.networkQueue.length + this.island.messages.size === 0;
             if (nothingToDo) {
                 // only advance time, do not accumulate any cpuTime
-                weHaveTime = this.island.advanceTo(this.time, deadline);
+                weHaveTime = this.island.advanceTo(this.reflectorTime, deadline);
             } else {
                 // perform simulation accumulating cpuTime
                 const simStart = Stats.begin("simulate");
@@ -1322,12 +1322,12 @@ export default class Controller {
                     this.cpuTime += EXTERNAL_MESSAGE_CPU_PENALTY;
                 }
                 // finally, simulate up to last tick (whether received or generated)
-                if (weHaveTime) weHaveTime = this.island.advanceTo(this.time, deadline);
+                if (weHaveTime) weHaveTime = this.island.advanceTo(this.reflectorTime, deadline);
                 this.cpuTime += Math.max(0.01, Stats.end("simulate") - simStart); // ensure that we move forward even on a browser that rounds performance.now() to 1ms
             }
             Stats.backlog(this.backlog);
             // synced is set to null in controller.reset, and is first set to false when
-            // this.time is given its first meaningful value from a message or tick.
+            // this.reflectorTime is given its first meaningful value from a message or tick.
             // thereafter, synced will only be changed in either direction if there is
             // currently a root view (which is set up and taken down in rebootModelView).
             const lag = this.lag;
@@ -1469,9 +1469,9 @@ export default class Controller {
 
     /** Got the official time from reflector server, or local multiplier */
     timeFromReflector(time, src="reflector") {
-        if (time < this.time) { if (src !== "controller" || DEBUG.ticks) console.warn(`time is ${this.time}, ignoring time ${time} from ${src}`); return; }
+        if (time < this.reflectorTime) { if (src !== "controller" || DEBUG.ticks) console.warn(`time is ${this.reflectorTime}, ignoring time ${time} from ${src}`); return; }
         if (typeof this.synced !== "boolean") this.synced = false;
-        this.time = time;
+        this.reflectorTime = time;
         this.extrapolatedTimeBase = Date.now() - time;
         if (this.island) Stats.backlog(this.backlog);
         if (this.tickHook) this.tickHook();
@@ -1485,7 +1485,7 @@ export default class Controller {
         let n = 1;
         this.localTicker = window.setInterval(() => {
             this.timeFromReflector(Math.round(time + n * ms), "controller");
-            if (DEBUG.ticks) console.log(this.id, 'Controller generate TICK ' + this.time, n);
+            if (DEBUG.ticks) console.log(this.id, 'Controller generate TICK ' + this.reflectorTime, n);
             if (++n >= multiplier) { window.clearInterval(this.localTicker); this.localTicker = 0; }
         }, ms);
     }
