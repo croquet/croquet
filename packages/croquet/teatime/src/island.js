@@ -51,43 +51,44 @@ function patchBrowser() {
         const SystemDate = window.Date; // capture in closure
         // warn only once
         let warned = false;
-        function modelDateWarning(expr) {
-            if (warned) return;
-            warned = true;
-            // log CroquetWarning object to give developers a stack trace
-            console.warn(new CroquetWarning(`${expr} used in Model code`));
-        }
-        // our now() uses model or view time
-        function now() {
-            if (!CurrentIsland) return SystemDate.now();
-            modelDateWarning("Date.now()");
-            return CurrentIsland.time;
+        function modelDateWarning(expr, value) {
+            if (!warned) {
+                warned = true;
+                // log CroquetWarning object to give developers a stack trace
+                console.warn(new CroquetWarning(`${expr} used in Model code`));
+            }
+            return value;
         }
         // Date replacement
-        function Date_(a, b, c, d, e, f, g) {
-            // written this way so Date_.length === 7 per spec
-            const calledWithNew = this instanceof Date_; // slightly more efficient than new.target after Babel
+        function CroquetDate(a, b, c, d, e, f, g) {
+            // written this way so CroquetDate.length === 7 per spec
+            const calledWithNew = this instanceof CroquetDate; // slightly more efficient than new.target after Babel
             const args = [a, b, c, d, e, f, g];
             args.length = arguments.length;
-            if (args.length === 0 && CurrentIsland) {
+            if (CurrentIsland) {
+                // Alwys warn. Even when providing arguments, instances still use local timezone
+                // TODO: write complete replacement? Don't think so.
                 modelDateWarning(calledWithNew ? "new Date()" : "Date()");
-                args.push(now());
+                switch (arguments.length) {
+                    case 0: args.push(CurrentIsland.time); break;
+                    case 1: break;
+                    default:
+                        args[0] = SystemDate.UTC(...args);
+                        args.length = 1;
+                }
             }
             const instance = new SystemDate(...args);
             return calledWithNew ? instance : "" + instance;
         }
-        // copy static properties (length, name, prototype, now, parse, UTC)
-        for (const prop of Object.getOwnPropertyNames(SystemDate)) {
-            if (prop === "length") continue;
-            try {  Date_[prop] = SystemDate[prop]; }
-            catch (ex) { /* ignore store into read-only properties */}
-        }
-        // override "now"
-        Date_.now = now;
+        // implement static properties
+        CroquetDate.prototype = SystemDate.prototype;
+        CroquetDate.UTC = SystemDate.UTC;
+        CroquetDate.now =  () => CurrentIsland ? modelDateWarning("Date.now()", CurrentIsland.time) : SystemDate.now();
+        CroquetDate.parse = (...args) => CurrentIsland ? modelDateWarning("Date.parse()", 0) : SystemDate.parse(...args);
         // make original accessible
         window.CroquetViewDate = SystemDate;
         // switch
-        window.Date = Date_;
+        window.Date = CroquetDate;
     }
 }
 
@@ -977,9 +978,6 @@ class IslandHasher {
                     case "Float64Array":
                         this.hashArray(value, false);
                         return;
-                    case "Date":
-                        this.hash(+value);
-                        return;
                     case "Object":
                         if (value instanceof Model) this.hashModel(value);
                         else if (value.constructor === Object) this.hashObject(value, defer);
@@ -1144,8 +1142,6 @@ class IslandWriter {
                     case "Float32Array":
                     case "Float64Array":
                         return this.writeTypedArray(type, value);
-                    case "Date":
-                        return this.writeAs(type, value, +value, path);
                     case "Object": {
                         if (value instanceof Model) return this.writeModel(value, path);
                         if (value.constructor === Object || typeof value.constructor !== "function") return this.writeObject(value, path, defer);
@@ -1341,7 +1337,6 @@ class IslandReader {
         this.readers.set("Uint32Array", args => new Uint32Array(...args));
         this.readers.set("Float32Array", args => new Float32Array(...args));
         this.readers.set("Float64Array", args => new Float64Array(...args));
-        this.readers.set("Date", ms => new Date(ms));
     }
 
     addReader(classId, ClassOrSpec) {
