@@ -109,6 +109,9 @@ const ANIMATION_CHECK_FRAMES = 4;
 // maximum delay in ms since oldest step to count as being animated regularly
 const ANIMATION_MAX_SPREAD = 1000;
 
+// for loading snapshots from before we required passwords
+let DEPRECATED_DEFAULT_KEY; // initialized only when needed, for speed
+
 function randomString() { return Math.floor(Math.random() * 36**10).toString(36); }
 
 // start upload worker (upload.js)
@@ -300,7 +303,6 @@ export default class Controller {
             else if (key in sessionSpec) params[key] = sessionSpec[key];
         }
         this.key = PBKDF2(password, "", { keySize: 256/32 });
-        this.oldKey = PBKDF2("THIS SHOULDN'T BE IN LOGS", "", { keySize: 256/32 });
         const { id, islandId, codeHash } = await hashSessionAndCode(name, options, params, SDK_VERSION);
         if (DEBUG.session) console.log(`Croquet sessionId for "${name}": ${id} viewId: ${this.viewId}`);
 
@@ -1055,6 +1057,13 @@ export default class Controller {
         return encrypted;
     }
 
+    get deprecatedDefaultKey() {
+        if (!DEPRECATED_DEFAULT_KEY) {
+            DEPRECATED_DEFAULT_KEY = PBKDF2("THIS SHOULDN'T BE IN LOGS", "", { keySize: 256/32 });
+        }
+        return DEPRECATED_DEFAULT_KEY;
+    }
+
     decrypt(encrypted, key=this.key) {
         const iv = Base64.parse(encrypted.slice(0, 24));
         const mac = Base64.parse(encrypted.slice(24, 24 + 44));
@@ -1064,7 +1073,7 @@ export default class Controller {
         try { plaintext = Utf8.stringify(decrypted); } catch (err) { /* ignore */ }
         const hmac = HmacSHA256(plaintext, this.key);
         if (this.compareHmacs(mac.words, hmac.words)) return plaintext;
-        if (key !== this.oldKey) return this.decrypt(encrypted, this.oldKey);
+        if (key !== this.deprecatedDefaultKey) return this.decrypt(encrypted, this.deprecatedDefaultKey);
         throw Error('Decryption error');
     }
 
@@ -1092,7 +1101,7 @@ export default class Controller {
         decrypted.clamp(); // clamping manually because of bug in HmacSHA256
         const hmac = HmacSHA256(decrypted, key);
         if (this.compareHmacs(mac.words, hmac.words)) return this.cryptoJsWordArrayToUint8Array(decrypted);
-        if (key !== this.oldKey) return this.decryptBinary(buffer, this.oldKey);
+        if (key !== this.deprecatedDefaultKey) return this.decryptBinary(buffer, this.deprecatedDefaultKey);
         throw Error('Decryption error');
     }
 
