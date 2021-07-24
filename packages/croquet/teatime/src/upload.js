@@ -57,7 +57,7 @@ onmessage = msg => {
     async function getUploadUrl(path) {
         const url = `${server}/${path}`;
         if (!apiKey) return { url, uploadUrl: url };
-        const { fault, read, write } = await fetch(url, {
+        const response = await fetch(url, {
             headers: {
                 "X-Croquet-Auth": apiKey,
                 "X-Croquet-App": appId,
@@ -65,6 +65,7 @@ onmessage = msg => {
             },
             referrer
         });
+        const { fault, read, write } = await response.json();
         if (fault) throw Error(fault.faultstring);
         return { url: read, uploadUrl: write };
     }
