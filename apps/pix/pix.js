@@ -113,7 +113,7 @@ class PixModel extends Model {
                 thumb: asset.thumb,
                 data: Data.toId(asset.handle),
             })),
-            handles: Object.entries(this.handles).map(([hash, handle]) => [hash, Data.toId(handle)]),
+            handles: Object.entries(this.handles).sort((a, b) => a[0] < b[0] ? -1 : 1).map(([hash, handle]) => [hash, Data.toId(handle)]),
         };
     }
 
