@@ -55,6 +55,7 @@ onmessage = msg => {
     }
 
     async function getUploadUrl(path) {
+        const start = Date.now();
         const url = `${server}/${path}`;
         if (!apiKey) return { url, uploadUrl: url };
         const response = await fetch(url, {
@@ -67,6 +68,7 @@ onmessage = msg => {
         });
         const { fault, read, write } = await response.json();
         if (fault) throw Error(fault.faultstring);
+        if (debug) console.log(`${id} ${what} authorized in ${Date.now() - start}ms`);
         return { url: read, uploadUrl: write };
     }
 
