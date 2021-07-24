@@ -80,6 +80,9 @@ const NOCHEAT = urlOptions.nocheat;
 
 // schedule a snapshot after this many ms of CPU time have been used for simulation
 const SNAPSHOT_EVERY = 5000;
+// after reflecting one handlePollForSnapshot event, reflector will wait this many ms before allowing another
+const SNAPSHOT_POLL_DEBOUNCE = 5000;
+
 // add this many ms for each external message scheduled
 const EXTERNAL_MESSAGE_CPU_PENALTY = 5;
 const JOIN_FAILED_DELAY = 5000; // time after which we conclude that our sending of JOIN failed
@@ -332,9 +335,9 @@ export default class Controller {
     lastKnownTime(islandOrSnapshot) { return Math.max(islandOrSnapshot.time, islandOrSnapshot.externalTime); }
 
     // DEBUG SUPPORT - NORMALLY NOT USED
-    async syncCheck(time, tuttiSeq, summaryHash) {
+    async syncCheck(time, summaryHash) {
         if (this.synced !== true) return;
-        const tally = await this.sendTutti(time, tuttiSeq, summaryHash);
+        const tally = await this.sendTutti(time, 'syncCheck', summaryHash);
         const hashStrings = Object.keys(tally);
         if (hashStrings.length > 1) {
             console.warn("sync check failed:", hashStrings);
@@ -375,11 +378,11 @@ export default class Controller {
 
         const message = new Message(now, 0, this.island.id, "handlePollForSnapshot", []);
         // tell reflector only to reflect this message if no message with same ID has been sent in past 5000ms (wall-clock time)
-        this.sendTagged(message, { debounce: 5000, msgID: "pollForSnapshot" });
+        this.sendTagged(message, { debounce: SNAPSHOT_POLL_DEBOUNCE, msgID: "pollForSnapshot" });
         if (DEBUG.snapshot) console.log(this.id, 'requesting snapshot poll via reflector');
     }
 
-    handlePollForSnapshot(time, tuttiSeq) {
+    handlePollForSnapshot(time) {
         // !!! THIS IS BEING EXECUTED INSIDE THE SIMULATION LOOP!!!
         // !!! IT MUST NOT MODIFY ISLAND !!!
 
@@ -412,14 +415,14 @@ export default class Controller {
         if (DEBUG.snapshot) console.log(this.id, `Summary hashing took ${Math.ceil(ms)}ms`);
 
         // sending the vote is handled asynchronously, because we want to add a view-side random()
-        Promise.resolve().then(() => this.pollForSnapshot(time, tuttiSeq, voteData));
+        Promise.resolve().then(() => this.pollForSnapshot(time, voteData));
     }
 
-    async pollForSnapshot(time, tuttiSeq, voteData) {
+    async pollForSnapshot(time, voteData) {
         voteData.cpuTime += Math.random(); // fuzzify by 0-1ms to further reduce [already minuscule] risk of exact agreement.  NB: this is a view-side random().
         if (DEBUG.snapshot) console.log(this.id, 'sending snapshot vote', voteData);
 
-        const tally = await this.sendTutti(time, tuttiSeq, voteData);
+        const tally = await this.sendTutti(time, 'snapshot', voteData);
 
         if (this.synced !== true) {
             if (DEBUG.snapshot) console.log(this.id, "Ignoring snapshot vote during sync");
@@ -653,10 +656,10 @@ export default class Controller {
         return `apps/${appId}/${islandId}/save/${hash}`;
     }
 
-    async persist(time, seq, tuttiSeq, persistentString, persistentHash, ms) {
+    async pollForPersist(islandTime, persistTime, persistentString, persistentHash, ms) {
         if (!this.synced) return; // ignore during fast-forward
         if (!this.islandCreator.appId) throw Error('Persistence API requires appId');
-        const { shouldUpload, dissidentFlag } = await this.persistenceVoting(time, tuttiSeq, persistentHash, ms);
+        const { shouldUpload, dissidentFlag } = await this.persistenceVoting(islandTime, persistTime, persistentHash, ms);
         if (!shouldUpload) return;
 
         const url = await this.uploadEncrypted({
@@ -675,23 +678,23 @@ export default class Controller {
             this.connection.send(JSON.stringify({
                 id: this.id,
                 action: 'SAVE',
-                args: { time, seq, tuttiSeq, url, dissident: dissidentFlag },
+                args: { persistTime, url, dissident: dissidentFlag },
             }));
         } catch (e) {
             console.error('ERROR while sending', e);
         }
     }
 
-    async persistenceVoting(time, tuttiSeq, our_hash, our_ms) {
+    async persistenceVoting(islandTime, persistTime, our_hash, our_ms) {
         if (this.synced !== true) return false; // we don't participate unless we're synced
         const ourVote = {
             viewId: this.viewId,                // to identify our own vote
             hash: our_hash,                     // if this differs, each group will upload
             ms: our_ms + Math.random() * 0.001, // for sorting within a group, plus add a tiny bit of randomness
             };
-        if (DEBUG.snapshot) console.log(this.id, 'sending persistence vote', ourVote);
-        const tally = await this.sendTutti(time, tuttiSeq, ourVote);
-        if (DEBUG.snapshot) console.log(this.id, 'received persistence votes', tally);
+        if (DEBUG.snapshot) console.log(this.id, `sending persistence vote for time @${persistTime}`, ourVote);
+        const tally = await this.sendTutti(islandTime, "persist", ourVote);
+        if (DEBUG.snapshot) console.log(this.id, `received persistence votes for time @${persistTime}`, tally);
 
         const { numberOfGroups, shouldUpload, dissidentFlag } = this.analyzeTally(tally, 'ms');
         if (numberOfGroups > 1) console.warn(this.id, `Persistence records fall into ${numberOfGroups} groups`);
@@ -726,17 +729,24 @@ export default class Controller {
                 break;
             }
             case "tally": {
-                // the message from the reflector will contain the tuttiSeq, a tally, and an array containing the id, selector and topic that it was told to use.
-                // if we have a record of supplying a value for this TUTTI, add it to the args.
-                const { tuttiSeq, tally, tallyTarget, missingClients } = msg[2];
-                if ((DEBUG.messages || DEBUG.snapshot) && missingClients) console.log(`${missingClients} ${missingClients === 1 ? "client" : "clients"} failed to participate in tally ${tuttiSeq}`); // purely for information
-                const tuttiIndex = this.tuttiHistory.findIndex(hist => hist.tuttiSeq === tuttiSeq);
+                // an old reflector will send a property tuttiSeq containing the dummy
+                // sequence number that we provided; a new reflector will notice that we
+                // provided a tuttiKey, and will send just that.
+                // the reflector's message also contains the tally, and an array containing
+                // the id, selector and topic that it was told to use.
+                const { tuttiSeq, tuttiKey, tally, tallyTarget, missingClients } = msg[2];
+                if ((DEBUG.messages || DEBUG.snapshot) && missingClients) console.log(`${missingClients} ${missingClients === 1 ? "client" : "clients"} failed to participate in tally ${tuttiKey || tuttiSeq}`); // purely for information
+                const finder = tuttiKey
+                    ? (hist => hist.tuttiKey === tuttiKey)
+                    : (hist => hist.dummyTuttiSeq === tuttiSeq);
+                const tuttiIndex = this.tuttiHistory.findIndex(finder);
                 const local = tuttiIndex !== -1 && this.tuttiHistory.splice(tuttiIndex, 1)[0];
                 // if we participated, resolve our promise
                 if (local) local.resolve(tally);
                 // if a target message was passed, execute it
                 if (tallyTarget) {
-                    const convertedArgs = { tuttiSeq, tally };
+                    const convertedArgs = { tally };
+                    // if we have a record of supplying a value for this TUTTI, add it to the args.
                     if (local) convertedArgs._local = local.payload;
                     let topic;
                     [ receiver, selector, topic ] = tallyTarget;
@@ -1208,7 +1218,7 @@ export default class Controller {
      * @param {Message} msg
      * @returns {Promise} tally or null
     */
-    async sendTutti(time, tuttiSeq, data, firstMessage=null, wantsVote=true, tallyTarget=null) {
+    async sendTutti(time, topic, data, firstMessage=null, wantsVote=true, tallyTarget=null) {
         // TUTTI: Send a message that multiple instances are expected to send identically.
         // The reflector will optionally broadcast the first received message immediately,
         // then gather all messages up to a deadline and send a TALLY message summarising the results
@@ -1216,22 +1226,31 @@ export default class Controller {
         if (this.viewOnly) return null;
         // view sending events while connection is closing or rejoining
         if (!this.connected) {
-            if (this.island) this.sendBuffer.push(() => this.sendTutti(time, tuttiSeq, data, firstMessage, wantsVote, tallyTarget));
+            if (this.island) this.sendBuffer.push(() => this.sendTutti(time, topic, data, firstMessage, wantsVote, tallyTarget));
             return false;
         }
         const payload = stableStringify(data); // stable, to rule out platform differences
         if (DEBUG.sends) console.log(this.id, `sending TUTTI ${payload} ${firstMessage && firstMessage.asState()} ${tallyTarget}`);
         this.lastSent = Date.now();
         const encryptedMsg = firstMessage && await this.encryptMessage(firstMessage, this.viewId, this.lastSent); // [time, seq, payload]
+        // jul 2021: in case we're assigned to an old reflector, supply a dummy tuttiSeq in
+        // second place in the arg array.  the reflector expects an increasing 32-bit
+        // number, and the number must be safely ahead of any tuttiSeq already recorded
+        // in an old session's latest.json; we use the island time divided by 100 and
+        // offset by 1000000.  the 32-bit logic won't be confused as long as island time
+        // is below about 240 days... and this code should be long gone before any session
+        // can reach that.
+        const dummyTuttiSeq = 1000000 + Math.floor(time / 100);
+        const tuttiKey = `${topic}@${time}`; // for the benefit of a new reflector
         this.connection.send(JSON.stringify({
             id: this.id,
             action: 'TUTTI',
-            args: [time, tuttiSeq, payload, encryptedMsg, wantsVote, tallyTarget],
+            args: [time, dummyTuttiSeq, payload, encryptedMsg, wantsVote, tallyTarget, tuttiKey],
         }));
         // will resolve to tally
         return new Promise(resolve => {
             if (this.tuttiHistory.length > 100) this.tuttiHistory.shift();
-            this.tuttiHistory.push({ tuttiSeq, payload, resolve });
+            this.tuttiHistory.push({ time, tuttiKey, dummyTuttiSeq, payload, resolve });
         });
     }
 
@@ -1327,7 +1346,8 @@ export default class Controller {
             }
             Stats.backlog(this.backlog);
             // synced is set to null in controller.reset, and is first set to false when
-            // this.reflectorTime is given its first meaningful value from a message or tick.
+            // this.reflectorTime is given its first meaningful value from a message or
+            // tick, or in SYNC.
             // thereafter, synced will only be changed in either direction if there is
             // currently a root view (which is set up and taken down in rebootModelView).
             const lag = this.lag;

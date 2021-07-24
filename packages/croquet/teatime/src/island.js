@@ -150,6 +150,17 @@ const VOTE_SUFFIX = '#__vote'; // internal, for 'vote' handling; never seen by a
 const REFLECTED_SUFFIX = '#reflected';
 const DIVERGENCE_SUFFIX = '#divergence';
 
+// minimum ms (island time) between successive snapshot polls
+const SNAPSHOT_MIN_POLL_GAP = 5000;
+// minimum ms (island time) between successive persistence polls
+const PERSIST_MIN_POLL_GAP = 25000; // bearing in mind max tick interval of 30s
+
+const persistenceDetails = new WeakMap(); // map from island to a persistence-details object
+function setPersistenceCache(island, details) { persistenceDetails.set(island, details); }
+function getPersistenceCache(island) { return persistenceDetails.get(island); }
+function clearPersistenceCache(island) { persistenceDetails.set(island, null); }
+
+
 /** An island holds the models which are replicated by teatime,
  * a queue of messages, plus additional bookkeeping to make
  * uniform pub/sub between models and views possible.*/
@@ -166,6 +177,7 @@ export default class Island {
     constructor(snapshot, initFn) {
         patchBrowser(); // trivial if already installed
         initDEBUG();
+        clearPersistenceCache(this);
 
         execOnIsland(this, () => {
             inModelRealm(this, () => {
@@ -193,10 +205,12 @@ export default class Island {
                 this.externalSeq = this.seq;
                 /** @type {Number} sequence number for disambiguating future messages with same timestamp */
                 this.futureSeq = 0;
-                /** @type {Number} sequence number of last sent TUTTI */
-                this.tuttiSeq = 0;
-                /** @type {Number} simulation time when last pollForSnapshot was executed */
+                /** @type {Number} simulation time when last snapshot poll was taken */
                 this.lastSnapshotPoll = 0;
+                /** @type {Number} simulation time when last persistence poll was requested */
+                this.lastPersistencePoll = 0;
+                /** @type {Boolean} true when a future persistence poll has been scheduled */
+                this.inPersistenceCoolOff = false;
                 /** @type {String} hash of last persistent data upload */
                 this.persisted = '';
                 /** @type {Number} number for giving ids to model */
@@ -257,11 +271,6 @@ export default class Island {
     set(modelName, model) {
         if (CurrentIsland !== this) throw Error("You can only make a model well-known from model code!");
         this.modelsByName[modelName] = model;
-    }
-
-    getNextTuttiSeq() {
-        this.tuttiSeq = (this.tuttiSeq + 1) >>> 0;
-        return this.tuttiSeq;
     }
 
     // Send via reflector
@@ -556,7 +565,6 @@ export default class Island {
         // because making them async would mean having to use future messages
         if (CurrentIsland !== this) throw Error("handleModelEventInModel called from outside model code");
         if (reflect) {
-            const tuttiSeq = this.getNextTuttiSeq(); // increment, whether we send or not
             if (this.controller.synced !== true) return;
 
             const voteTopic = topic + VOTE_SUFFIX;
@@ -571,7 +579,7 @@ export default class Island {
             let tallyTarget;
             if (wantsVote) tallyTarget = [this.id, "handleModelEventInView", voteTopic];
             else tallyTarget = [this.id, "handleTuttiDivergence", divergenceTopic];
-            this.controller.sendTutti(this.time, tuttiSeq, data, firstMessage, wantsVote, tallyTarget);
+            this.controller.sendTutti(this.time, topic, data, firstMessage, wantsVote, tallyTarget);
         } else if (this.subscriptions[topic]) {
             for (const handler of this.subscriptions[topic]) {
                 const [id, ...rest] = handler.split('.');
@@ -646,29 +654,26 @@ export default class Island {
     // DEBUG SUPPORT - NORMALLY NOT USED
     pollToCheckSync() {
         const time = this.time;
-        const tuttiSeq = this.getNextTuttiSeq(); // move it along, even if we won't be using it
         if (this.controller.synced !== true) return;
         const before = Date.now();
         const data = this.getSummaryHash();
         const elapsed = Date.now() - before;
         this.controller.cpuTime -= elapsed; // give ourselves a time credit for the non-simulation work
-        Promise.resolve().then(() => this.controller.syncCheck(time, tuttiSeq, data));
+        Promise.resolve().then(() => this.controller.syncCheck(time, data));
     }
 
     handlePollForSnapshot() {
-        const tuttiSeq = this.getNextTuttiSeq(); // move it along, even if this client decides not to participate
-
         // make sure there isn't a clash between clients simultaneously deciding
         // that it's time for someone to take a snapshot.
         const now = this.time;
         const sinceLast = now - this.lastSnapshotPoll;
-        if (sinceLast < 5000) { // arbitrary - needs to be long enough to ensure this isn't part of the same batch
+        if (sinceLast < SNAPSHOT_MIN_POLL_GAP) { // arbitrary - needs to be long enough to ensure this isn't part of the same batch
             console.log(`rejecting snapshot poll ${sinceLast}ms after previous`);
             return;
         }
 
-        this.lastSnapshotPoll = now; // whether or not the controller agrees to participate
-        this.controller.handlePollForSnapshot(now, tuttiSeq);
+        this.lastSnapshotPoll = now;
+        this.controller.handlePollForSnapshot(now);
     }
 
     snapshot() {
@@ -689,17 +694,59 @@ export default class Island {
         const persistentHash = Data.hash(persistentString);
         const ms = Stats.end("snapshot") - start;
         const unchanged = this.persisted === persistentHash;
-        if (DEBUG.snapshot) console.log(`${this.id} persistent data collected, stringified and hashed in ${Math.ceil(ms)}ms${unchanged ? " (unchanged, ignoring)" : ""}`);
-        const tuttiSeq = this.getNextTuttiSeq(); // increase seq even if unchanged. If we have a divergence this should allow voting to continue
+        const persistTime = this.time;
+        if (DEBUG.snapshot) console.log(`${this.id} persistent data @${persistTime} collected, stringified and hashed in ${Math.ceil(ms)}ms${unchanged ? " (unchanged, ignoring)" : ""}`);
         if (unchanged) return;
-        this.persisted = persistentHash;
+
+        // we rely on a local, view-specific cache of persistence data that deserves
+        // to be uploaded, perhaps after a suitable cooloff period since the previous.
+        // newly joining clients will each populate that local cache if they simulate
+        // their way through the steps that cause the persistence call... but if there
+        // has been a snapshot since that call, a new client will not populate the cache.
+        // therefore we update the model with the new persistentHash as soon as it is
+        // generated, even though there is no guarantee that any client will survive
+        // long enough with the cached persistentString to upload it.  in the worst
+        // case, that iteration of the persistence will be lost.
+        setPersistenceCache(this, { persistTime, persistentString, persistentHash, ms });
+        this.persisted = persistentHash; // update the model, whatever happens
+
+        // figure out whether it's ok to go ahead immediately with a poll
+        if (this.inPersistenceCoolOff) {
+            if (DEBUG.snapshot) console.log(`${this.id} persistence poll postponed by cooloff`);
+        } else {
+            const timeUntilReady = this.lastPersistencePoll ? this.lastPersistencePoll + PERSIST_MIN_POLL_GAP - this.time : 0;
+            if (timeUntilReady > 0) {
+                if (DEBUG.snapshot) console.log(`${this.id} postponing persistence poll by ${timeUntilReady}ms`);
+                this.futureSend(timeUntilReady, this.id, "triggerPersistencePoll", []);
+                this.inPersistenceCoolOff = true;
+            } else {
+                // go right ahead
+                this.triggerPersistencePoll();
+            }
+        }
+    }
+
+    triggerPersistencePoll() {
+        this.inPersistenceCoolOff = false;
+        this.lastPersistencePoll = this.controller ? this.time : 0; // ignore during init()
+
+        const details = getPersistenceCache(this);
+        if (!details) return; // this client, at least, has nothing ready to upload
+
+        const { persistTime, persistentString, persistentHash, ms } = details;
+        clearPersistenceCache(this);
+
         // controller is unset only during init()
         // this lets us init the hash, but we won't upload the initial state
         if (!this.controller) return;
-        const time = this.time;
-        const seq = this.seq;
-        // run everything else outside of model
-        Promise.resolve().then(() => this.controller.persist(time, seq, tuttiSeq, persistentString, persistentHash, ms));
+
+        if (this.controller.synced) {
+            if (DEBUG.snapshot) console.log(`${this.id} asking controller to poll for persistence @${persistTime}`);
+
+            // run everything else outside of model
+            const islandTime = this.time;
+            Promise.resolve().then(() => this.controller.pollForPersist(islandTime, persistTime, persistentString, persistentHash, ms));
+        }
     }
 
     random() {

@@ -45,6 +45,8 @@ const REQU_SNAPSHOT = 6000;   // request a snapshot if this many messages retain
 const MIN_SCALE = 1 / 64;     // minimum ratio of island time to wallclock time
 const MAX_SCALE = 64;         // maximum ratio of island time to wallclock time
 const TALLY_INTERVAL = 1000;  // maximum time to wait to tally TUTTI contributions
+const MAX_TALLY_AGE = 60000;  // don't start a new tally if vote is more than this far behind
+const MAX_COMPLETED_TALLIES = 20; // maximum number of past tallies to remember
 const USERS_INTERVAL = 200;   // time to gather user entries/exits before sending a "users" message (a.k.a. view-join)
 
 const HOSTNAME = os.hostname();
@@ -453,7 +455,8 @@ function JOIN(client, args) {
             messages: [],        // messages since last snapshot
             lastTick: -1000,     // time of last TICK sent (-1000 to avoid initial delay)
             lastMsgTime: 0,      // time of last message reflected
-            lastCompletedTally: null,
+            lastCompletedTally: null, // jul 2021: deprecated, but old reflectors will expect it when initialising from latest.json
+            completedTallies: {}, // TUTTI sendTime keyed by tally key (or tuttiSeq, for old clients) for up to MAX_TALLY_AGE in the past.  capped at MAX_COMPLETED_TALLIES entries.
             ...nonSavableProps(),
             [Symbol.toPrimitive]: () => `${name} ${id}`,
             };
@@ -494,6 +497,11 @@ function JOIN(client, args) {
             if (!latestSpec.snapshotUrl && !latestSpec.syncWithoutSnapshot) throw Error("latest.json has no snapshot, ignoring");
             DEBUG(`${id} resuming from latest.json @${latestSpec.time}#${latestSpec.seq} messages: ${latestSpec.messages.length} snapshot: ${latestSpec.snapshotUrl || "<none>"}`);
             savableKeys(island).forEach(key => island[key] = latestSpec[key]);
+
+            // migrate from old stored data, if needed
+            if (island.lastCompletedTally) island.lastCompletedTally = null;
+            if (!island.completedTallies) island.completedTallies = {};
+
             island.before = Date.now();
             island.storedUrl = latestSpec.snapshotUrl;
             island.storedSeq = latestSpec.seq;
@@ -703,14 +711,16 @@ function SAVE(client, args) {
     const { appId, islandId } = island;
     if (!appId || !islandId) { client.safeClose(...REASON.BAD_APPID); return; }
 
-    const { time, seq, tuttiSeq, url, dissident } = args; // details of the persistent data that has been uploaded
+    // clients since 0.5.1 will send only persistTime in place of time, seq, tuttiSeq
+    const { persistTime, time, seq, tuttiSeq, url, dissident } = args; // details of the persistent data that has been uploaded
+    const descriptor = persistTime === undefined ? `@${time}#${seq} T${tuttiSeq}` : `@${persistTime}`;
 
     if (dissident) {
-        DEBUG(`${id}/${client.addr} dissident persistent data @${time}#${seq} T${tuttiSeq} ${url} ${JSON.stringify(dissident)}`);
+        DEBUG(`${id}/${client.addr} dissident persistent data for @${descriptor} ${url} ${JSON.stringify(dissident)}`);
         return;
     }
 
-    DEBUG(`${id}/${client.addr} got persistent data: @${time}#${seq} T${tuttiSeq} ${url}`);
+    DEBUG(`${id}/${client.addr} got persistent data for @${descriptor} ${url}`);
 
     // do *not* change our own session's persistentUrl!
     // we only upload this to be used to init the next session of this island
@@ -809,48 +819,77 @@ function TUTTI(client, args) {
     const island = ALL_ISLANDS.get(id);
     if (!island) { client.safeClose(...REASON.UNKNOWN_ISLAND); return; }
 
-    const [ sendTime, tuttiSeq, payload, firstMsg, wantsVote, tallyTarget ] = args;
+    // clients prior to 0.5.1 send a tutti sequence number in second place; later
+    // clients send a dummy sequence number in second place - so that an old reflector's
+    // sequence-checking logic will still work - but add a seventh argument that is
+    // a tutti key made up of a message topic or placeholder such as "snapshot" or
+    // "persist", suffixed with the sendTime.
+    // we keep a list of the sendTime and key/seq of completed tallies for up
+    // to 60s since the sendTime.  a vote on a previously unseen key and over 60s
+    // in the past will always be ignored.
+    const [ sendTime, tuttiSeq, payload, firstMsg, wantsVote, tallyTarget, tuttiKey ] = args;
 
+    const keyOrSeq = tuttiKey || tuttiSeq;
     function tallyComplete() {
-        const tally = island.tallies[tuttiSeq];
+        const tally = island.tallies[keyOrSeq];
         const { timeout, expecting: missing } = tally;
         clearTimeout(timeout);
-        if (missing) DEBUG(`${id} missing ${missing} ${missing === 1 ? "client" : "clients"} from tally ${tuttiSeq}`);
+        if (missing) DEBUG(`${id} missing ${missing} ${missing === 1 ? "client" : "clients"} from tally ${keyOrSeq}`);
         if (wantsVote || Object.keys(tally.payloads).length > 1) {
-            const payloads = { what: 'tally', tuttiSeq, tally: tally.payloads, tallyTarget, missingClients: missing };
+            const payloads = { what: 'tally', sendTime, tally: tally.payloads, tallyTarget, missingClients: missing };
+            // only include the tuttiSeq if the client didn't provide a tuttiKey
+            if (tuttiKey) payloads.tuttiKey = tuttiKey;
+            else payloads.tuttiSeq = tuttiSeq;
             const msg = [0, 0, payloads];
             SEND(island, [msg]);
         }
-        delete island.tallies[tuttiSeq];
-        const lastComplete = island.lastCompletedTally;
-        if (lastComplete === null || after(lastComplete, tuttiSeq)) island.lastCompletedTally = tuttiSeq;
+        delete island.tallies[keyOrSeq];
+        island.completedTallies[keyOrSeq] = sendTime;
+        cleanUpCompletedTallies(island);
     }
 
-    let tally = island.tallies[tuttiSeq];
+    let tally = island.tallies[keyOrSeq];
     if (!tally) { // either first client we've heard from, or one that's missed the party entirely
-        const lastComplete = island.lastCompletedTally;
-        if (lastComplete !== null && (tuttiSeq === lastComplete || after(tuttiSeq, lastComplete))) {
-            // too late
-            DEBUG(`${id}/${client.addr} rejecting tally of ${tuttiSeq} cf completed ${lastComplete}`);
+        const earliestToKeep = cleanUpCompletedTallies(island);
+        if (sendTime < earliestToKeep) {
+            DEBUG(`${id}/${client.addr} rejecting vote for old tally ${keyOrSeq} (${island.time - sendTime}ms)`);
+            return;
+        }
+        if (island.completedTallies[keyOrSeq]) {
+            DEBUG(`${id}/${client.addr} rejecting vote for completed tally ${keyOrSeq}`);
             return;
         }
 
         if (firstMsg) SEND(island, [firstMsg]);
 
-        tally = island.tallies[tuttiSeq] = {
+        tally = island.tallies[keyOrSeq] = {
             sendTime,
             expecting: island.clients.size, // we could ignore clients that are not active (i.e., still in the process of joining), but with a TALLY_INTERVAL of 1000ms it's painless to give them all a chance
             payloads: {},
             timeout: setTimeout(tallyComplete, TALLY_INTERVAL)
             };
-    } else if (tally.sendTime !== sendTime) {
-        // same tutti, different time
-        DEBUG(`${id}/${client.addr} rejecting tally ${tuttiSeq} @${sendTime} cf in-progress @${tally.sendTime}`);
-        return;
     }
 
     tally.payloads[payload] = (tally.payloads[payload] || 0) + 1;
     if (--tally.expecting === 0) tallyComplete();
+}
+
+function cleanUpCompletedTallies(island) {
+    // returns the sendTime of the earliest tally we're hanging on to
+    const completed = island.completedTallies;
+    const now = island.time;
+    let earliestToKeep = now - MAX_TALLY_AGE + 1;
+    const sendTimesToKeep = Object.values(completed).filter(time => time > earliestToKeep);
+    // in the [pathological] case of there being more tallies than we want to
+    // keep, discard the oldest ones.
+    if (sendTimesToKeep.length > MAX_COMPLETED_TALLIES) {
+        sendTimesToKeep.sort((a, b) => b - a); // descending, so most recent come first
+        earliestToKeep = sendTimesToKeep[MAX_COMPLETED_TALLIES - 1];
+    }
+    Object.keys(completed).forEach(keyOrSeq => {
+        if (completed[keyOrSeq] < earliestToKeep) delete completed[keyOrSeq];
+        });
+    return earliestToKeep;
 }
 
 // delay for the client to generate local ticks
@@ -1054,6 +1093,7 @@ async function deleteIsland(island) {
     if (STORE_SESSION && (syncWithoutSnapshot || snapshotUrl) && (snapshotUrl !== storedUrl || after(storedSeq, seq))) {
         const fileName = `${id}/latest.json`;
         DEBUG(id, `@${time}#${seq} uploading latest.json with ${messages.length} messages`);
+        cleanUpCompletedTallies(island);
         const latestSpec = {};
         savableKeys(island).forEach(key => latestSpec[key] = island[key]);
         try {
