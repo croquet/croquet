@@ -8,9 +8,9 @@ import WordArray from "crypto-js/lib-typedarrays";
 import HmacSHA256 from "crypto-js/hmac-sha256";
 
 onmessage = msg => {
-    const { job, cmd, url: templateUrl, buffer, keyBase64, gzip, referrer, id, appId, islandId, debug, what } = msg.data;
+    const { job, cmd, server, path: templatePath, apiKey, buffer, keyBase64, gzip, referrer, id, appId, islandId, debug, what } = msg.data;
     switch (cmd) {
-        case "uploadEncrypted": uploadEncrypted(templateUrl); break;
+        case "uploadEncrypted": uploadEncrypted(templatePath); break;
         default: console.error("Unknown worker command", cmd);
     }
 
@@ -54,23 +54,39 @@ onmessage = msg => {
         return base64url;
     }
 
-    async function uploadEncrypted(url) {
+    async function getUploadUrl(path) {
+        const url = `${server}/${path}`;
+        if (!apiKey) return { url, uploadUrl: url };
+        const { fault, read, write } = await fetch(url, {
+            headers: {
+                "X-Croquet-Auth": apiKey,
+                "X-Croquet-App": appId,
+                "X-Croquet-Id": islandId,
+            },
+            referrer
+        });
+        if (fault) throw Error(fault.faultstring);
+        return { url: read, uploadUrl: write };
+    }
+
+    async function uploadEncrypted(path) {
         try {
             const body = encrypt(gzip ? compress(buffer) : buffer);
-            if (url.includes("%HASH%")) url = url.replace("%HASH%", hash(body));
+            if (path.includes("%HASH%")) path = path.replace("%HASH%", hash(body));
+            const { uploadUrl, url } = await getUploadUrl(path);
             const start = Date.now();
-            const { ok, status, statusText} = await fetch(url, {
+            const { ok, status, statusText} = await fetch(uploadUrl, {
                 method: "PUT",
                 mode: "cors",
                 headers: {
                     "Content-Type": "application/octet-stream",
-                    'X-Croquet-App': appId,
-                    'X-Croquet-Id': islandId,
+                    "X-Croquet-App": appId,
+                    "X-Croquet-Id": islandId,
                 },
                 referrer,
                 body
             });
-            if (!ok) throw Error(`server returned ${status} ${statusText} for PUT ${url}`);
+            if (!ok) throw Error(`server returned ${status} ${statusText} for PUT ${uploadUrl}`);
             if (debug) console.log(`${id} ${what} uploaded (${status}) in ${Date.now() - start}ms ${url}`);
             postMessage({job, url, ok, status, statusText});
         } catch (e) {

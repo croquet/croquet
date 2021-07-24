@@ -50,16 +50,9 @@ const DEV_DEFAULT_REFLECTOR = "wss://croquet.io/reflector-dev/dev";
 const CLOUDFLARE_REFLECTOR = "wss://croquet.network/reflector/";
 const DEV_CLOUDFLARE_REFLECTOR = "wss://croquet.network/reflector/dev/";
 
-// croquet.io and pi.croquet.io provide file servers themselves
-// everything else uses croquet.io via CORS (unless overriden via urlOptions)
-const CROQUET_HOST = window.location.hostname.endsWith("croquet.io") ? window.location.host : "croquet.io";
-const DEFAULT_FILE_SERVER = `https://${CROQUET_HOST}/files/v1`;
-
-export function fileServerUrl(what) {
-    let fileServer = typeof urlOptions.files === "string" ? urlOptions.files : DEFAULT_FILE_SERVER;
-    if (fileServer.endsWith('/')) fileServer = fileServer.slice(0, -1);
-    return `${fileServer}/${what}/`;
-}
+const DEFAULT_FILE_SERVER = "https://files.croquet.io";     // all downloads, and signed uploads
+const UNAUTH_FILE_SERVER = "https://croquet.io/files/v1";   // uploads without apiKey
+const DEFAULT_SIGN_SERVER = "https://api.croquet.io/sign";  // get signed url for uploads with apiKey
 
 const codeHashes = null; // individual codeHashes are not uploaded for now, will need to re-add for replay
 
@@ -505,12 +498,13 @@ export default class Controller {
         this.uploadSnapshot(snapshot, dissidentFlag);
     }
 
-    snapshotUrl(time, seq, hash) {
-        const base = `${fileServerUrl('snapshots')}${this.id}`;
+    snapshotPath(time, seq, hash) {
         const pad = n => ("" + n).padStart(10, '0');
         // snapshot time is full precision. for storage name, we use full ms.
-        const filename = `${pad(Math.ceil(time))}_${seq}-${hash}.snap`;
-        return `${base}/${filename}`;
+        const filename = `${pad(Math.ceil(time))}_${seq}-${hash}`;
+        const { appId, islandId, apiKey } = this.islandCreator;
+        if (!apiKey) return `snapshots/${this.id}/${filename}.snap`;
+        return `apps/${appId}/${islandId}/snap/${filename}`;
     }
 
     hashSnapshot(snapshot) {
@@ -532,6 +526,23 @@ export default class Controller {
         return snapshot.meta.hashPromise;
     }
 
+    uploadServer() {
+        if (this.islandCreator.apiKey) return DEFAULT_SIGN_SERVER;
+        return this.overrideServer(UNAUTH_FILE_SERVER);
+    }
+
+    downloadServer() {
+        return this.overrideServer(DEFAULT_FILE_SERVER);
+    }
+
+    overrideServer(url) {
+        if (typeof urlOptions.files === "string") {
+            url = urlOptions.files;
+            if (url.endsWith('/')) url = url.slice(0, -1);
+        }
+        return url;
+    }
+
     /* upload a snapshot to the file server, optionally with a dissident argument that the reflector can interpret as meaning that this is not the snapshot to serve to new clients */
     async uploadSnapshot(snapshot, dissidentFlag=null) {
         await this.hashSnapshot(snapshot);
@@ -541,21 +552,20 @@ export default class Controller {
         if (DEBUG.snapshot) console.log(this.id, `snapshot stringified (${content.length} bytes) in ${Math.ceil(stringMS)}ms`);
 
         const {time, seq, hash} = snapshot.meta;
-        const url = this.snapshotUrl(time, seq, hash);
         const socket = this.connection.socket;
         try {
-            await this.uploadEncrypted({
-                url,
+            const url = await this.uploadEncrypted({
                 content,
+                path: this.snapshotPath(time, seq, hash),
                 key: this.key,
                 gzip: true,
                 debug: DEBUG.snapshot,
                 what: "snapshot",
             });
             if (this.connection.socket !== socket) { console.warn(this.id, "Controller was reset while trying to upload snapshot"); return false; }
+            this.announceSnapshotUrl(time, seq, hash, url, dissidentFlag);
+            return true;
         } catch (e) { console.error(this.id, "Failed to upload snapshot"); return false; }
-        this.announceSnapshotUrl(time, seq, hash, url, dissidentFlag);
-        return true;
     }
 
     // was sendSnapshotToReflector
@@ -576,7 +586,10 @@ export default class Controller {
         }
     }
 
-    async downloadEncrypted({url, gzip, key, debug, json, what}) {
+    async downloadEncrypted({url, path, gzip, key, debug, json, what}) {
+        // TODO: move to worker
+        if (!url) url = `${this.downloadServer()}/${path}`;
+        else if (url.startsWith(UNAUTH_FILE_SERVER)) url = url.replace(UNAUTH_FILE_SERVER, DEFAULT_FILE_SERVER);
         let timer = Date.now();
         const response = await fetch(url, {
             method: "GET",
@@ -598,26 +611,29 @@ export default class Controller {
 
     /** upload string or array buffer as binary encrypted, optionally gzipped
      *
-     * if url contains %HASH% it will be replaced by the hash after encryption
+     * if path contains %HASH% it will be replaced by the hash after encryption
      */
-    async uploadEncrypted({url, content, key, gzip, keep, debug, what}) {
+    async uploadEncrypted({content, path, key, gzip, keep, debug, what}) {
         // leave actual work to our UploadWorker
         const buffer = typeof content === "string" ? new TextEncoder().encode(content).buffer : content;
         const transfer = keep ? undefined : [buffer];
         const keyBase64 = typeof key === "string" ? key : Base64.stringify(key);
+        const { apiKey, appId, islandId } = this.islandCreator;
         const job = ++UploadJobs;
         return new Promise( (resolve, reject) => {
             UploadWorker.postMessage({
                 job,
                 cmd: "uploadEncrypted",
-                url,
+                server: this.uploadServer(),
+                path,
+                apiKey,
                 buffer,
                 keyBase64,
                 gzip,
                 referrer: App.referrerURL(),
                 id: this.id,
-                appId: this.islandCreator.appId,
-                islandId: this.islandCreator.islandId,
+                appId,
+                islandId,
                 debug,
                 what,
             }, transfer);
@@ -632,9 +648,9 @@ export default class Controller {
         });
     }
 
-    persistentUrl(hash) {
+    persistentPath(hash) {
         const { appId, islandId } = this.islandCreator;
-        return `${fileServerUrl('apps')}${appId}/${islandId}/save/${hash}`;
+        return `apps/${appId}/${islandId}/save/${hash}`;
     }
 
     async persist(time, seq, tuttiSeq, persistentString, persistentHash, ms) {
@@ -643,9 +659,8 @@ export default class Controller {
         const { shouldUpload, dissidentFlag } = await this.persistenceVoting(time, tuttiSeq, persistentHash, ms);
         if (!shouldUpload) return;
 
-        const url = this.persistentUrl(persistentHash);
-        await this.uploadEncrypted({
-            url,
+        const url = await this.uploadEncrypted({
+            path: this.persistentPath(persistentHash),
             content: persistentString,
             key: this.key,
             gzip: true,

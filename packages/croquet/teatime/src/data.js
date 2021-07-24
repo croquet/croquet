@@ -4,7 +4,7 @@ import Base64 from "crypto-js/enc-base64";
 import SHA256 from "crypto-js/sha256";
 import urlOptions from "@croquet/util/urlOptions";
 import Island from "./island";
-import { fileServerUrl, sessionProps } from "./controller";
+import { sessionProps } from "./controller";
 
 
 const VERSION = '2';
@@ -19,9 +19,9 @@ function debug(what) {
     return urlOptions.has("debug", what, false);
 }
 
-function dataUrl(path, hash) {
-    if (!path) return `${fileServerUrl('sessiondata')}${hash}`;              // deprecated
-    return `${fileServerUrl('apps')}${path}/data/${hash}`;
+function serverPath(path, hash) {
+    if (!path) return `sessiondata/${hash}`;              // deprecated
+    return `apps/${path}/data/${hash}`;
 }
 
 function hashFromUrl(url) {
@@ -61,7 +61,7 @@ export default class DataHandle {
         }
         const key = WordArray.random(32).toString(Base64);
         const path = appId && `${appId}/${islandId}`;
-        const url = await uploadEncrypted({ url: dataUrl(path, "%HASH%"), content: data, key, keep, debug: debug("data"), what: "data" });
+        const url = await uploadEncrypted({ path: serverPath(path, "%HASH%"), content: data, key, keep, debug: debug("data"), what: "data" });
         const hash = hashFromUrl(url);
         return new DataHandle(hash, key, path);
 
@@ -90,8 +90,7 @@ export default class DataHandle {
         const key = handle && handle[DATAHANDLE_KEY];
         const path = handle && handle[DATAHANDLE_PATH];
         if (typeof hash !== "string" ||typeof key !== "string") throw Error("Croquet.Data.fetch() called with invalid handle");
-        const url = dataUrl(path, hash);
-        return downloadEncrypted({ url, key, debug: debug("data"), what: "data" });
+        return downloadEncrypted({ path: serverPath(path, hash), key, debug: debug("data"), what: "data" });
     }
 
     /**

@@ -1,5 +1,4 @@
 import { App } from "@croquet/util/html";
-import { Stats } from "@croquet/util/stats";
 import urlOptions from "@croquet/util/urlOptions";
 import { addConstantsHash } from "@croquet/util/hashing";
 
@@ -235,7 +234,7 @@ export class Session {
         // now start
         if ("expectedSimFPS" in parameters) expectedSimFPS = Math.min(parameters.expectedSimFPS, MAX_BALANCE_FPS);
         // parameters to be included in the session spec, if specified by app (or defaulted)
-        const SESSION_PARAMS = ['name', 'password', 'appId', 'tps', 'autoSleep', 'heraldUrl', 'rejoinLimit', 'optionsFromUrl', 'viewIdDebugSuffix'];
+        const SESSION_PARAMS = ['name', 'password', 'apiKey', 'appId', 'tps', 'autoSleep', 'heraldUrl', 'rejoinLimit', 'optionsFromUrl', 'viewIdDebugSuffix'];
         freezeAndHashConstants();
         const controller = new Controller();
         // make sure options are JSONable
