@@ -4,6 +4,7 @@ This is a private summary of changes. The public changes are in the SDK [README.
 
 # latest pre-releases
 
+* 0.5.1-11 use files.squeak.org for downloads, and uploads if apiKey provided
 * 0.5.1-10 fix deadlock in failed seamless rejoin
 * 0.5.1-9 warn about Date usage in model code
 * 0.5.1-8 more rationalisation of session stepping
