@@ -61,7 +61,7 @@ export default class DataHandle {
         }
         const key = WordArray.random(32).toString(Base64);
         const path = appId && `${appId}/${islandId}`;
-        const url = await uploadEncrypted({ path: serverPath(path, "%HASH%"), content: data, key, keep, debug: debug("data"), what: "data" });
+        const url = await uploadEncrypted({ path: serverPath(path, "%HASH%"), content: data, key, keep, debug: debug("data"), what: "shared data" });
         const hash = hashFromUrl(url);
         return new DataHandle(hash, key, path);
 
@@ -90,7 +90,7 @@ export default class DataHandle {
         const key = handle && handle[DATAHANDLE_KEY];
         const path = handle && handle[DATAHANDLE_PATH];
         if (typeof hash !== "string" ||typeof key !== "string") throw Error("Croquet.Data.fetch() called with invalid handle");
-        return downloadEncrypted({ path: serverPath(path, hash), key, debug: debug("data"), what: "data" });
+        return downloadEncrypted({ path: serverPath(path, hash), key, debug: debug("data"), what: "shared data" });
     }
 
     /**
