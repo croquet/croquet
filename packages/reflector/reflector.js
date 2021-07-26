@@ -879,7 +879,7 @@ function cleanUpCompletedTallies(island) {
     const completed = island.completedTallies;
     const now = island.time;
     let earliestToKeep = now - MAX_TALLY_AGE + 1;
-    const sendTimesToKeep = Object.values(completed).filter(time => time > earliestToKeep);
+    const sendTimesToKeep = Object.values(completed).filter(time => time >= earliestToKeep);
     // in the [pathological] case of there being more tallies than we want to
     // keep, discard the oldest ones.
     if (sendTimesToKeep.length > MAX_COMPLETED_TALLIES) {
