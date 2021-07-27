@@ -63,7 +63,12 @@ let addedSpinnerStyle = false;
 function addSpinnerStyle() {
     if (addedSpinnerStyle) return;
     addedSpinnerStyle = true;
+    // unless this app is explicitly rejecting our default html additions by setting
+    // App.root to false (in which case the spinner won't be made), we add a default
+    // minimum height for document.body to help our IntersectionObserver (controller.js)
+    // make accurate judgements about whether an embedded app is in or out of view.
     const spinnerCSS = `
+        body { min-height: 100vh }
         #croquet_spinnerOverlay {
             z-index: 1000;
             position: fixed;
@@ -632,16 +637,6 @@ function displayStatsIfNeeded() {
 }
 
 function makeSessionWidgets(sessionId) {
-    // unless this app is explicitly rejecting our default html additions by setting
-    // App.root to false, we try to ensure that document.body has a minimum height
-    // equal to the viewport height.  this helps our IntersectionObserver (controller.js)
-    // make accurate judgements about whether an embedded app is in or out of view.
-    if (App.root !== false) {
-        // don't interfere if we find any value other than the browser default
-        if (window.getComputedStyle(document.body).minHeight === "0px") {
-            document.body.style.minHeight = "100vh";
-        }
-    }
     // sessionId can be undefined (in which case you won't get a badge)
     displayBadgeIfNeeded(sessionId);
     displayQRCodeIfNeeded();
@@ -657,8 +652,6 @@ function displaySpinner(enabled) {
     if (spinnerEnabled === enabled) return;
 
     if (App.sync === false) enabled = false;
-
-    if (enabled && !spinnerOverlay) spinnerOverlay = makeSpinner(); // lazily create when first enabled
 
     spinnerEnabled = enabled;
     if (enabled) {
@@ -752,7 +745,9 @@ export const App = {
     clearSessionMoniker,
 
     showSyncWait(bool) {
+        // usually first invoked with bool=true on controller construction in Session.join
         if (App.root === false) bool = false; // if root (now) false, only allow disabling
+        else if (!spinnerOverlay) spinnerOverlay = makeSpinner(); // includes our default style for document.body
 
         displaySpinner(bool);
     },
