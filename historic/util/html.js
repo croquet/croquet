@@ -632,6 +632,16 @@ function displayStatsIfNeeded() {
 }
 
 function makeSessionWidgets(sessionId) {
+    // unless this app is explicitly rejecting our default html additions by setting
+    // App.root to false, we try to ensure that document.body has a minimum height
+    // equal to the viewport height.  this helps our IntersectionObserver (controller.js)
+    // make accurate judgements about whether an embedded app is in or out of view.
+    if (App.root !== false) {
+        // don't interfere if we find any value other than the browser default
+        if (window.getComputedStyle(document.body).minHeight === "0px") {
+            document.body.style.minHeight = "100vh";
+        }
+    }
     // sessionId can be undefined (in which case you won't get a badge)
     displayBadgeIfNeeded(sessionId);
     displayQRCodeIfNeeded();
