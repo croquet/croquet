@@ -579,7 +579,7 @@ export default class Island {
             let tallyTarget;
             if (wantsVote) tallyTarget = [this.id, "handleModelEventInView", voteTopic];
             else tallyTarget = [this.id, "handleTuttiDivergence", divergenceTopic];
-            this.controller.sendTutti(this.time, topic, data, firstMessage, wantsVote, tallyTarget);
+            Promise.resolve().then(() => this.controller.sendTutti(this.time, topic, data, firstMessage, wantsVote, tallyTarget)); // break out of model code
         } else if (this.subscriptions[topic]) {
             for (const handler of this.subscriptions[topic]) {
                 const [id, ...rest] = handler.split('.');
