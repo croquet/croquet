@@ -824,9 +824,11 @@ function TUTTI(client, args) {
     // sequence-checking logic will still work - but add a seventh argument that is
     // a tutti key made up of a message topic or placeholder such as "snapshot" or
     // "persist", suffixed with the sendTime.
-    // we keep a list of the sendTime and key/seq of completed tallies for up
-    // to 60s since the sendTime.  a vote on a previously unseen key and over 60s
-    // in the past will always be ignored.
+    // we keep a list of the sendTime and key/seq of completed tallies for up to
+    // MAX_TALLY_AGE (currently 60s) since the sendTime.  a vote on a previously
+    // unseen key and more than MAX_TALLY_AGE in the past will always be ignored.
+    // see cleanUpCompletedTallies() for how we cope if the list accumulates more
+    // than MAX_COMPLETED_TALLIES recent entries.
     const [ sendTime, tuttiSeq, payload, firstMsg, wantsVote, tallyTarget, tuttiKey ] = args;
 
     const keyOrSeq = tuttiKey || tuttiSeq;
@@ -850,8 +852,8 @@ function TUTTI(client, args) {
 
     let tally = island.tallies[keyOrSeq];
     if (!tally) { // either first client we've heard from, or one that's missed the party entirely
-        const earliestToKeep = cleanUpCompletedTallies(island);
-        if (sendTime < earliestToKeep) {
+        const historyLimit = cleanUpCompletedTallies(island); // the limit of how far back we're currently tracking
+        if (sendTime < historyLimit) {
             DEBUG(`${id}/${client.addr} rejecting vote for old tally ${keyOrSeq} (${island.time - sendTime}ms)`);
             return;
         }
@@ -875,21 +877,30 @@ function TUTTI(client, args) {
 }
 
 function cleanUpCompletedTallies(island) {
-    // returns the sendTime of the earliest tally we're hanging on to
+    // in normal use we keep MAX_TALLY_AGE of history.
+    // in the [pathological] case of there being too many recent tallies to
+    // keep, discard the oldest ones and add a sentinel entry holding the
+    // time of the most recent entry that was discarded.  the time on the
+    // sentinel thus represents the limit of the history we're keeping.
     const completed = island.completedTallies;
     const now = island.time;
-    let earliestToKeep = now - MAX_TALLY_AGE + 1;
-    const sendTimesToKeep = Object.values(completed).filter(time => time >= earliestToKeep);
-    // in the [pathological] case of there being more tallies than we want to
-    // keep, discard the oldest ones.
+    let historyLimit = Math.max(0, now - MAX_TALLY_AGE + 1);
+    const sendTimesToKeep = Object.values(completed).filter(time => time >= historyLimit);
+    let newSentinel;
     if (sendTimesToKeep.length > MAX_COMPLETED_TALLIES) {
         sendTimesToKeep.sort((a, b) => b - a); // descending, so most recent come first
-        earliestToKeep = sendTimesToKeep[MAX_COMPLETED_TALLIES - 1];
+        historyLimit = sendTimesToKeep[MAX_COMPLETED_TALLIES - 2]; // leave room for sentinel
+        newSentinel = sendTimesToKeep[MAX_COMPLETED_TALLIES - 1];
     }
     Object.keys(completed).forEach(keyOrSeq => {
-        if (completed[keyOrSeq] < earliestToKeep) delete completed[keyOrSeq];
+        if (completed[keyOrSeq] < historyLimit) delete completed[keyOrSeq];
         });
-    return earliestToKeep;
+    if (newSentinel) completed['sentinel'] = newSentinel;
+
+    const sentinel = completed['sentinel']; // new or previous
+    if (sentinel) historyLimit = sentinel;
+
+    return historyLimit;
 }
 
 // delay for the client to generate local ticks
