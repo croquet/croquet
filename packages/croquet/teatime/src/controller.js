@@ -300,7 +300,11 @@ export default class Controller {
         }
         this.key = PBKDF2(password, "", { keySize: 256/32 });
         const { id, islandId, codeHash } = await hashSessionAndCode(name, options, params, SDK_VERSION);
-        if (DEBUG.session) console.log(`Croquet sessionId for "${name}": ${id} viewId: ${this.viewId}`);
+        if (DEBUG.session) console.log(`Croquet session "${name}":
+        sessionId=${id}${appId ? `
+        persistentId=${islandId}` : ""}
+        versionId=${codeHash}
+        viewId=${this.viewId}`);
 
         this.islandCreator = { ...sessionSpec, options, name, id, islandId, codeHash }; // june 2021: added id for easy access from establishSession
 
