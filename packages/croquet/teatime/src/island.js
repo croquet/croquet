@@ -313,7 +313,7 @@ export default class Island {
                 // ignore exit for multiple connections (see below)
                 if (this.views[id].extraConnections) {
                     this.views[id].extraConnections--;
-                    if (DEBUG.session) console.warn(`@${this.time}#${this.seq} view ${id} exited after joining twice, ignoring`);
+                    if (DEBUG.session) console.log(`${this.id} @${this.time}#${this.seq} view ${id} closed another connection`);
                     continue;
                 }
                 // otherwise this is a real exit
@@ -321,7 +321,7 @@ export default class Island {
                 this.publishFromModelOnly(this.id, "view-exit", id);
             } else {
                 // there is no way this could ever happen. If it does, something is seriously broken.
-                console.error(`@${this.time}#${this.seq} view ${id} exited without being present - this should not happen`);
+                console.error(`${this.id} @${this.time}#${this.seq} view ${id} exited without being present - this should not happen`);
                 this.controller.sendLog(`view-exit-mismatch @${this.time}#${this.seq} ${id} left without being present`);
             }
         }
@@ -330,7 +330,7 @@ export default class Island {
             if (this.views[id]) {
                 // this happens if a client rejoins but the reflector is still holding
                 // onto the old connection
-                if (DEBUG.session) console.warn(`@${this.time}#${this.seq} view ${id} joined but already present, ignoring`);
+                if (DEBUG.session) console.log(`${this.id} @${this.time}#${this.seq} view ${id} opened another connection`);
                 this.views[id].extraConnections = (this.views[id].extraConnections||0) + 1;
             } else {
                 // otherwise this is a real join
