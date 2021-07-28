@@ -304,7 +304,7 @@ export class Session {
 
             App.makeSessionWidgets(session.id);
             controller.inViewRealm(() => {
-                if (urlOptions.has("debug", "session", false)) console.log(session.id, 'Creating root view');
+                if (urlOptions.has("debug", "session", false)) console.log(session.id, 'creating root view');
                 session.view = new ViewRoot(session.model);
             });
         }
@@ -312,7 +312,7 @@ export class Session {
         function clear() {
             session.model = null;
             if (session.view) {
-                if (urlOptions.has("debug", "session", false)) console.log(session.id, 'Detaching root view');
+                if (urlOptions.has("debug", "session", false)) console.log(session.id, 'detaching root view');
                 session.view.detach();
                 if (session.view.id !== "") console.warn(`Croquet: ${session.view} did not call super.detach()`);
                 session.view = null;

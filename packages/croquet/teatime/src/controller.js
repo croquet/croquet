@@ -949,8 +949,10 @@ export default class Controller {
 
     // create the Island for this Controller, based on the islandCreator
     install(persistentData) {
-        if (DEBUG.session) console.log(`${this.id} installing island`);
+        const start = Date.now();
         const {snapshot, initFn, options} = this.islandCreator;
+        const [verb, noun] = snapshot.modelsById ? ["deserializ", "snapshot"] : ["initializ", "root model"];
+        if (DEBUG.session) console.log(`${this.id} ${verb}ing ${noun}`);
         let newIsland = new Island(snapshot, () => {
             try { return initFn(options, persistentData); }
             catch (error) {
@@ -958,13 +960,16 @@ export default class Controller {
                 throw error; // unrecoverable.  bring the whole tab to a halt.
             }
         });
+        if (DEBUG.session || (DEBUG.snapshot && snapshot.modelsById)) {
+            console.log(`${this.id} ${noun} ${verb}ed in ${Date.now() - start}ms`);
+        }
         if (DEBUG.initsnapshot && !snapshot.modelsById) {
             // exercise serializer if we came from initFn
             if (DEBUG.snapshot) console.log(`${this.id} exercising snapshot and restore after init()`);
             const initialIslandSnap = JSON.stringify(newIsland.snapshot());
             newIsland = new Island(JSON.parse(initialIslandSnap), () => initFn(options));
         }
-       // our time is the latest of this.reflectorTime (we may have received a tick already) and the island time in the snapshot
+        // our time is the latest of this.reflectorTime (we may have received a tick already) and the island time in the snapshot
         const islandTime = this.lastKnownTime(newIsland);
         this.reflectorTime = Math.max(this.reflectorTime, islandTime);
         this.setIsland(newIsland); // make this our island
