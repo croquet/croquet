@@ -387,7 +387,7 @@ function savableKeys(island) {
 
 /** A new island controller is joining
  * @param {Client} client - we received from this client
- * @param {{name: String, version: Number, appId?: string, islandId?: string, user: string}} args
+ * @param {{name: String, version: Number, appId?: string, persistentId?: string, user: string}} args
  */
 function JOIN(client, args) {
     if (typeof args === "number" || !args.version) {
@@ -424,7 +424,7 @@ function JOIN(client, args) {
     // the connection log filter matches on (" connection " OR " JOIN ")
     LOG(`${id}/${client.addr} receiving JOIN ${JSON.stringify(args)}`);
 
-    const { name, version, appId, islandId, user, location, heraldUrl, leaveDelay, dormantDelay } = args;
+    const { name, version, appId, persistentId, user, location, heraldUrl, leaveDelay, dormantDelay } = args;
     // new clients (>=0.3.3) send ticks in JOIN
     const syncWithoutSnapshot = 'ticks' in args;
     // clients >= 0.5.1 send dormantDelay, which we use as a reason not to send pings to inactive clients
@@ -446,7 +446,8 @@ function JOIN(client, args) {
             snapshotSeq: null,   // seq of last snapshot
             snapshotUrl: '',     // url of last snapshot
             appId,
-            islandId,
+            islandId: persistentId, // jul 2021: deprecated, but old reflectors will expect it when initialising from latest.json
+            persistentId,        // new protocol as of 0.5.1
             persistentUrl: '',   // url of persistent data
             syncWithoutSnapshot, // new protocol as of 0.3.3
             noInactivityPings,   // new protocol as of 0.5.1
@@ -501,6 +502,7 @@ function JOIN(client, args) {
             // migrate from old stored data, if needed
             if (island.lastCompletedTally) island.lastCompletedTally = null;
             if (!island.completedTallies) island.completedTallies = {};
+            if (!island.persistentId) island.persistentId = island.islandId;
 
             island.before = Date.now();
             island.storedUrl = latestSpec.snapshotUrl;
@@ -513,8 +515,8 @@ function JOIN(client, args) {
             if (!err.message) err.message = "<empty>";
             if (err.code !== 404) ERROR(`${id} failed to fetch latest.json: ${err.message}`);
             // this is a brand-new session, check if there is persistent data
-            const persistName = `apps/${appId}/${islandId}.json`;
-            const persistPromise = appId && islandId
+            const persistName = `apps/${appId}/${persistentId}.json`;
+            const persistPromise = appId && persistentId
                 ? fetchJSON(persistName).catch(() => { /* ignore */})
                 : Promise.resolve(false);
             persistPromise.then(persisted => {
@@ -708,8 +710,8 @@ function SAVE(client, args) {
     const id = client.sessionId;
     const island = ALL_ISLANDS.get(id);
     if (!island) { client.safeClose(...REASON.UNKNOWN_ISLAND); return; }
-    const { appId, islandId } = island;
-    if (!appId || !islandId) { client.safeClose(...REASON.BAD_APPID); return; }
+    const { appId, persistentId } = island;
+    if (!appId || !persistentId) { client.safeClose(...REASON.BAD_APPID); return; }
 
     // clients since 0.5.1 will send only persistTime in place of time, seq, tuttiSeq
     const { persistTime, time, seq, tuttiSeq, url, dissident } = args; // details of the persistent data that has been uploaded
@@ -725,7 +727,7 @@ function SAVE(client, args) {
     // do *not* change our own session's persistentUrl!
     // we only upload this to be used to init the next session of this island
     const saved = { url };
-    if (STORE_PERSISTENT_DATA) uploadJSON(`apps/${appId}/${islandId}.json`, saved).catch(err => ERROR(`${id} failed to record persistent-data upload. ${err.code}: ${err.message}`));
+    if (STORE_PERSISTENT_DATA) uploadJSON(`apps/${appId}/${persistentId}.json`, saved).catch(err => ERROR(`${id} failed to record persistent-data upload. ${err.code}: ${err.message}`));
 }
 
 /** send a message to all participants after time stamping it

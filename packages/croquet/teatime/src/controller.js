@@ -120,9 +120,9 @@ const Controllers = new Set();
 export function sessionProps(sessionId) {
     for (const controller of Controllers) {
         if (controller.id === sessionId) {
-            const { appId, islandId } = controller.islandCreator;
+            const { appId, persistentId } = controller.islandCreator;
             return {
-                appId, islandId,
+                appId, persistentId,
                 uploadEncrypted: opts => controller.uploadEncrypted(opts),
                 downloadEncrypted: opts => controller.downloadEncrypted(opts),
             };
@@ -219,9 +219,6 @@ export default class Controller {
     /** @type {String} the session id (same for all replicas running with same options on the same app version) */
     get id() { return this.island ? this.island.id : this.islandCreator.id; }
 
-    /** @type {String} the persistent id (same for all replicas with same options across app versions) */
-    get persistentId() { return this.islandCreator.islandId; }
-
     /** @type {String} identifies SDK version and app code */
     get versionId() { return this.islandCreator.codeHash; }
 
@@ -299,14 +296,14 @@ export default class Controller {
             else if (key in sessionSpec) params[key] = sessionSpec[key];
         }
         this.key = PBKDF2(password, "", { keySize: 256/32 });
-        const { id, islandId, codeHash } = await hashSessionAndCode(name, options, params, SDK_VERSION);
+        const { id, persistentId, codeHash } = await hashSessionAndCode(name, options, params, SDK_VERSION);
         if (DEBUG.session) console.log(`Croquet session "${name}":
         sessionId=${id}${appId ? `
-        persistentId=${islandId}` : ""}
+        persistentId=${persistentId}` : ""}
         versionId=${codeHash}
         viewId=${this.viewId}`);
 
-        this.islandCreator = { ...sessionSpec, options, name, id, islandId, codeHash }; // june 2021: added id for easy access from establishSession
+        this.islandCreator = { ...sessionSpec, options, name, id, persistentId, codeHash }; // june 2021: added id for easy access from establishSession
 
         const { msPerTick, multiplier } = this.getTickAndMultiplier();
         this.msPerTick = msPerTick;
@@ -328,8 +325,8 @@ export default class Controller {
 
         // reset islandCreator.snapshot to a dummy in preparation for install()
         // (its dummy status is detected by lack of a modelsById property)
-        const { id, islandId, codeHash } = this.islandCreator;
-        this.islandCreator.snapshot = { id, time: 0, meta: { id, islandId, codeHash, created: (new Date()).toISOString() } };
+        const { id, persistentId, codeHash } = this.islandCreator;
+        this.islandCreator.snapshot = { id, time: 0, meta: { id, persistentId, codeHash, created: (new Date()).toISOString() } };
         const joined = new Promise(resolve => this.islandCreator.sessionJoined = resolve);
         this.checkForConnection(false); // ensure connected unless we're blocked (e.g., in dormant state)
         if (DEBUG.session) console.log(id, "waiting for SYNC");
@@ -509,9 +506,9 @@ export default class Controller {
         const pad = n => ("" + n).padStart(10, '0');
         // snapshot time is full precision. for storage name, we use full ms.
         const filename = `${pad(Math.ceil(time))}_${seq}-${hash}`;
-        const { appId, islandId, apiKey } = this.islandCreator;
+        const { appId, persistentId, apiKey } = this.islandCreator;
         if (!apiKey) return `snapshots/${this.id}/${filename}.snap`;
-        return `apps/${appId}/${islandId}/snap/${filename}`;
+        return `apps/${appId}/${persistentId}/snap/${filename}`;
     }
 
     hashSnapshot(snapshot) {
@@ -603,7 +600,7 @@ export default class Controller {
             mode: "cors",
             headers: {
                 "X-Croquet-App": this.islandCreator.appId,
-                "X-Croquet-Id": this.islandCreator.islandId,
+                "X-Croquet-Id": this.islandCreator.persistentId,
             },
             referrer: App.referrerURL(),
         });
@@ -625,7 +622,7 @@ export default class Controller {
         const buffer = typeof content === "string" ? new TextEncoder().encode(content).buffer : content;
         const transfer = keep ? undefined : [buffer];
         const keyBase64 = typeof key === "string" ? key : Base64.stringify(key);
-        const { apiKey, appId, islandId } = this.islandCreator;
+        const { apiKey, appId, persistentId } = this.islandCreator;
         const job = ++UploadJobs;
         return new Promise( (resolve, reject) => {
             UploadWorker.postMessage({
@@ -640,7 +637,7 @@ export default class Controller {
                 referrer: App.referrerURL(),
                 id: this.id,
                 appId,
-                islandId,
+                persistentId,
                 debug,
                 what,
             }, transfer);
@@ -656,8 +653,8 @@ export default class Controller {
     }
 
     persistentPath(hash) {
-        const { appId, islandId } = this.islandCreator;
-        return `apps/${appId}/${islandId}/save/${hash}`;
+        const { appId, persistentId } = this.islandCreator;
+        return `apps/${appId}/${persistentId}/save/${hash}`;
     }
 
     async pollForPersist(islandTime, persistTime, persistentString, persistentHash, ms) {
@@ -1004,7 +1001,7 @@ export default class Controller {
         if (DEBUG.session) console.log(this.id, 'Controller sending JOIN');
 
         const { tick, delay } = this.getTickAndMultiplier();
-        const { name, codeHash, appId, islandId, heraldUrl, rejoinLimit, autoSleep } = this.islandCreator;
+        const { name, codeHash, appId, persistentId, heraldUrl, rejoinLimit, autoSleep } = this.islandCreator;
 
         const args = {
             name,                   // for debugging only
@@ -1018,7 +1015,7 @@ export default class Controller {
         };
         if (appId) Object.assign(args, {
             appId,                  // identifies developer/app
-            islandId,               // identifies island across sessions
+            persistentId,           // identifies island across sessions
         });
         if (heraldUrl) Object.assign(args, {
             heraldUrl,              // url to receive POST for join/leave events
@@ -1026,6 +1023,9 @@ export default class Controller {
         if (rejoinLimit) Object.assign(args, {
             leaveDelay: rejoinLimit + 250, // delay leave events
         });
+
+        // jul 2021: backwards compatibility until reflectors are all updated
+        args.islandId = args.persistentId;
 
         this.connection.send(JSON.stringify({
             id: this.id,

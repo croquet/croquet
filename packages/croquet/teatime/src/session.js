@@ -103,7 +103,7 @@ export class Session {
      * |               | `"sends"`      | sent to reflector, before encryption, raw messages are in the WebSocket debugger
      * |               | `"snapshot"`   | snapshot stats
      * |               | `"data"`       | data API stats
-     * |               | `"hashing"`    | code hashing to derive sessionId / islandId
+     * |               | `"hashing"`    | code hashing to derive sessionId / persistentId
      * |               | `"subscribe"`  | adding/removing subscriptions
      * |               | `"classes"`    | registering classes
      * |               | `"ticks"`      | each tick received

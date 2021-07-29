@@ -8,7 +8,7 @@ import WordArray from "crypto-js/lib-typedarrays";
 import HmacSHA256 from "crypto-js/hmac-sha256";
 
 onmessage = msg => {
-    const { job, cmd, server, path: templatePath, apiKey, buffer, keyBase64, gzip, referrer, id, appId, islandId, debug, what } = msg.data;
+    const { job, cmd, server, path: templatePath, apiKey, buffer, keyBase64, gzip, referrer, id, appId, persistentId, debug, what } = msg.data;
     switch (cmd) {
         case "uploadEncrypted": uploadEncrypted(templatePath); break;
         default: console.error("Unknown worker command", cmd);
@@ -62,7 +62,7 @@ onmessage = msg => {
             headers: {
                 "X-Croquet-Auth": apiKey,
                 "X-Croquet-App": appId,
-                "X-Croquet-Id": islandId,
+                "X-Croquet-Id": persistentId,
             },
             referrer
         });
@@ -84,7 +84,7 @@ onmessage = msg => {
                 headers: {
                     "Content-Type": "application/octet-stream",
                     "X-Croquet-App": appId,
-                    "X-Croquet-Id": islandId,
+                    "X-Croquet-Id": persistentId,
                 },
                 referrer,
                 body
