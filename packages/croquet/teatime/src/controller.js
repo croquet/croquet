@@ -120,7 +120,7 @@ const Controllers = new Set();
 export function sessionProps(sessionId) {
     for (const controller of Controllers) {
         if (controller.id === sessionId) {
-            const { appId, persistentId } = controller.islandCreator;
+            const { appId, persistentId } = controller.sessionSpec;
             return {
                 appId, persistentId,
                 uploadEncrypted: opts => controller.uploadEncrypted(opts),
@@ -217,16 +217,16 @@ export default class Controller {
     }
 
     /** @type {String} the session id (same for all replicas running with same options on the same app version) */
-    get id() { return this.island ? this.island.id : this.islandCreator.id; }
+    get id() { return this.island ? this.island.id : this.sessionSpec.id; }
 
     /** @type {String} identifies SDK version and app code */
-    get versionId() { return this.islandCreator.codeHash; }
+    get versionId() { return this.sessionSpec.codeHash; }
 
     /** @type {Number} the reflector time extrapolated beyond last received tick */
     get extrapolatedTime() { return Date.now() - this.extrapolatedTimeBase; }
 
     /** @type {Boolean} if true, sends to the reflector are disabled */
-    get viewOnly() { return this.islandCreator.viewOnly; }
+    get viewOnly() { return this.sessionSpec.viewOnly; }
 
     /**  @type {Number} how many ms need to be simulated to catch up to latest time from the reflector */
     get backlog() { return this.island ? this.reflectorTime - this.island.time : 0; }
@@ -249,7 +249,7 @@ export default class Controller {
     get connected() { return this.connection.connected; }
 
     /** @type {Boolean} should the connection call leave() when disconnected? */
-    get shouldLeaveWhenDisconnected() { return this.leaving || !this.canRejoinSeamlessly || this.islandCreator.rejoinLimit === 0; }
+    get shouldLeaveWhenDisconnected() { return this.leaving || !this.canRejoinSeamlessly || this.sessionSpec.rejoinLimit === 0; }
 
     /** @type {Boolean} does the reflector support seamless rejoin? */
     get canRejoinSeamlessly() { return !!this.timeline; }
@@ -303,7 +303,7 @@ export default class Controller {
         versionId=${codeHash}
         viewId=${this.viewId}`);
 
-        this.islandCreator = { ...sessionSpec, options, name, id, persistentId, codeHash }; // june 2021: added id for easy access from establishSession
+        this.sessionSpec = { ...sessionSpec, options, name, id, persistentId, codeHash }; // june 2021: added id for easy access from establishSession
 
         const { msPerTick, multiplier } = this.getTickAndMultiplier();
         this.msPerTick = msPerTick;
@@ -323,11 +323,11 @@ export default class Controller {
         // it doesn't return until the session is successfully joined - however many
         // connections/disconnections happen along the way.
 
-        // reset islandCreator.snapshot to a dummy in preparation for install()
+        // reset sessionSpec.snapshot to a dummy in preparation for install()
         // (its dummy status is detected by lack of a modelsById property)
-        const { id, persistentId, codeHash } = this.islandCreator;
-        this.islandCreator.snapshot = { id, time: 0, meta: { id, persistentId, codeHash, created: (new Date()).toISOString() } };
-        const joined = new Promise(resolve => this.islandCreator.sessionJoined = resolve);
+        const { id, persistentId, codeHash } = this.sessionSpec;
+        this.sessionSpec.snapshot = { id, time: 0, meta: { id, persistentId, codeHash, created: (new Date()).toISOString() } };
+        const joined = new Promise(resolve => this.sessionSpec.sessionJoined = resolve);
         this.checkForConnection(false); // ensure connected unless we're blocked (e.g., in dormant state)
         if (DEBUG.session) console.log(id, "waiting for SYNC");
         await joined; // resolved in SYNC after installing the island and replaying any messages
@@ -350,8 +350,8 @@ export default class Controller {
         const time = this.lastKnownTime(snapshot);
         const seq = snapshot.externalSeq;
         snapshot.meta = {
-            ...this.islandCreator.snapshot.meta,
-            options: this.islandCreator.options,
+            ...this.sessionSpec.snapshot.meta,
+            options: this.sessionSpec.options,
             time,
             seq,
             date: (new Date()).toISOString(),
@@ -506,7 +506,7 @@ export default class Controller {
         const pad = n => ("" + n).padStart(10, '0');
         // snapshot time is full precision. for storage name, we use full ms.
         const filename = `${pad(Math.ceil(time))}_${seq}-${hash}`;
-        const { appId, persistentId, apiKey } = this.islandCreator;
+        const { appId, persistentId, apiKey } = this.sessionSpec;
         if (!apiKey) return `snapshots/${this.id}/${filename}.snap`;
         return `apps/${appId}/${persistentId}/snap/${filename}`;
     }
@@ -531,7 +531,7 @@ export default class Controller {
     }
 
     uploadServer() {
-        if (this.islandCreator.apiKey) return DEFAULT_SIGN_SERVER;
+        if (this.sessionSpec.apiKey) return DEFAULT_SIGN_SERVER;
         return this.overrideServer(UNAUTH_FILE_SERVER);
     }
 
@@ -599,8 +599,8 @@ export default class Controller {
             method: "GET",
             mode: "cors",
             headers: {
-                "X-Croquet-App": this.islandCreator.appId,
-                "X-Croquet-Id": this.islandCreator.persistentId,
+                "X-Croquet-App": this.sessionSpec.appId,
+                "X-Croquet-Id": this.sessionSpec.persistentId,
             },
             referrer: App.referrerURL(),
         });
@@ -622,7 +622,7 @@ export default class Controller {
         const buffer = typeof content === "string" ? new TextEncoder().encode(content).buffer : content;
         const transfer = keep ? undefined : [buffer];
         const keyBase64 = typeof key === "string" ? key : Base64.stringify(key);
-        const { apiKey, appId, persistentId } = this.islandCreator;
+        const { apiKey, appId, persistentId } = this.sessionSpec;
         const job = ++UploadJobs;
         return new Promise( (resolve, reject) => {
             UploadWorker.postMessage({
@@ -653,13 +653,13 @@ export default class Controller {
     }
 
     persistentPath(hash) {
-        const { appId, persistentId } = this.islandCreator;
+        const { appId, persistentId } = this.sessionSpec;
         return `apps/${appId}/${persistentId}/save/${hash}`;
     }
 
     async pollForPersist(islandTime, persistTime, persistentString, persistentHash, ms) {
         if (!this.synced) return; // ignore during fast-forward
-        if (!this.islandCreator.appId) throw Error('Persistence API requires appId');
+        if (!this.sessionSpec.appId) throw Error('Persistence API requires appId');
         const { shouldUpload, dissidentFlag } = await this.persistenceVoting(islandTime, persistTime, persistentHash, ms);
         if (!shouldUpload) return;
 
@@ -844,7 +844,7 @@ export default class Controller {
                 // if we were rejoining, then our work is done here: we got all the missing messages
                 if (rejoining) {
                     if (DEBUG.session) console.log(this.id, "seamless rejoin successful");
-                    this.islandCreator.sessionJoined();
+                    this.sessionSpec.sessionJoined();
                     return;
                 }
                 this.timeline = timeline || ''; // stored only on initial connection
@@ -862,7 +862,7 @@ export default class Controller {
                     // run initFn() with persisted data, if any
                     this.install(data);
                 } else {
-                    if (data) this.islandCreator.snapshot = data;  // set snapshot for building the island
+                    if (data) this.sessionSpec.snapshot = data;  // set snapshot for building the island
                     this.install();  // will run initFn() if no snapshot
                 }
                 // after install() sets this.island, the main loop may also trigger simulation
@@ -885,7 +885,7 @@ export default class Controller {
                 if (success && DEBUG.session) console.log(`${this.id} fast-forwarded to ${Math.round(this.island.time)}`);
                 // iff fast-forward was successful, trigger return from establishSession().
                 // otherwise, in due course we'll reconnect and try again.  it can keep waiting.
-                if (success) this.islandCreator.sessionJoined();
+                if (success) this.sessionSpec.sessionJoined();
                 return;
             }
             case 'RECV': {
@@ -949,10 +949,10 @@ export default class Controller {
         }
     }
 
-    // create the Island for this Controller, based on the islandCreator
+    // create the Island for this Controller, based on the sessionSpec
     install(persistentData) {
         const start = Date.now();
-        const {snapshot, initFn, options} = this.islandCreator;
+        const {snapshot, initFn, options} = this.sessionSpec;
         const [verb, noun] = snapshot.modelsById ? ["deserializ", "snapshot"] : ["initializ", "root model"];
         if (DEBUG.session) console.log(`${this.id} ${verb}ing ${noun}`);
         let newIsland = new Island(snapshot, () => {
@@ -984,7 +984,7 @@ export default class Controller {
 
     // // create an island in its initial state
     // createCleanIsland() {
-    //     const { options, initFn } = this.islandCreator;
+    //     const { options, initFn } = this.sessionSpec;
     //     const snapshot = { id: this.id };
     //     return new Island(snapshot, () => initFn(options));
     // }
@@ -1002,7 +1002,7 @@ export default class Controller {
         if (DEBUG.session) console.log(this.id, 'Controller sending JOIN');
 
         const { tick, delay } = this.getTickAndMultiplier();
-        const { name, codeHash, appId, persistentId, heraldUrl, rejoinLimit, autoSleep } = this.islandCreator;
+        const { name, codeHash, appId, persistentId, heraldUrl, rejoinLimit, autoSleep } = this.sessionSpec;
 
         const args = {
             name,                   // for debugging only
@@ -1062,7 +1062,7 @@ export default class Controller {
                 if (DEBUG.session) console.log(this.id, `rejoin timed out`);
                 this.rejoinTimeout = 0;
                 this.leave();
-            }, this.islandCreator.rejoinLimit);
+            }, this.sessionSpec.rejoinLimit);
         }
     }
 
@@ -1072,11 +1072,11 @@ export default class Controller {
     // the Controllers set (used for keepAlive, and for accessing the data
     // upload/download functions from Data).
     leave(keepController=false) {
-        const { rebootModelView } = this.islandCreator;
+        const { rebootModelView } = this.sessionSpec;
         this.reset();
         if (DEBUG.session) console.log(this.id, `resetting ${keepController ? "(but keeping)" : "and discarding"} controller`);
         if (!keepController) Controllers.delete(this);   // after reset so it does not re-enable the SYNC overlay
-        if (!this.islandCreator) throw Error("do not discard islandCreator!");
+        if (!this.sessionSpec) throw Error("do not discard sessionSpec!");
         rebootModelView(); // if controller.leaving is set (user has triggered Session.leave), rMV will bail out after destroying the view
     }
 
@@ -1288,7 +1288,7 @@ export default class Controller {
 
     /** parse tps `ticks x multiplier` ticks are from server, multiplied by locally generated ticks
      *
-     * default taken from `islandCreator.tps` unless `islandCreator.options.tps` is present
+     * default taken from `sessionSpec.tps` unless `sessionSpec.options.tps` is present
      *
      * @returns {{
      *      msPerTick: Number,  // effective tick period in ms
@@ -1298,9 +1298,9 @@ export default class Controller {
      * }}
      */
     getTickAndMultiplier() {
-        const options = this.islandCreator.options;
+        const options = this.sessionSpec.options;
         const tps = ["number", "string"].includes(typeof options.tps) ? options.tps
-            : ["number", "string"].includes(typeof this.islandCreator.tps) ? this.islandCreator.tps
+            : ["number", "string"].includes(typeof this.sessionSpec.tps) ? this.sessionSpec.tps
             : 20;
         const [rate, mult] = (tps + "x").split('x').map(n => Number.parseFloat("0" + n));
         const tick = 1000 / Math.max(1/30, Math.min(60, rate));     // minimum 1 tick per 30 seconds
@@ -1544,7 +1544,7 @@ export default class Controller {
         observer.observe(document.body);
 
         // only set up a dormancy check if needed
-        const autoSleep = this.islandCreator.autoSleep; // seconds, or zero to disable
+        const autoSleep = this.sessionSpec.autoSleep; // seconds, or zero to disable
         let checkForDormancy;
         if (autoSleep) {
             const dormantDelay = 1000 * autoSleep;
