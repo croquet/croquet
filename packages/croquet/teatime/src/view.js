@@ -185,6 +185,7 @@ class View {
      * @public
      */
     subscribe(scope, eventSpec, callback) {
+        if (typeof callback === "string") callback = this[callback];
         callback = callback.bind(this);
         const {event, handling} = eventSpec.event ? eventSpec : {event: eventSpec};
         this.realm.subscribe(event, this.id, callback, scope, handling);
