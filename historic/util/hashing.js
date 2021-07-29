@@ -74,6 +74,7 @@ export async function hashString(string) {
 }
 
 const hashPromises = [];
+const codeHashCache = {}; // persistentID to { codeHashes, combinedCodeHash }, cached on first JOIN in case additional code or constants (presumably for a different session) get registered later, and the user explicitly leaves and re-joins
 
 export function addClassHash(cls, classId) {
     const source = funcSrc(cls);
@@ -110,24 +111,41 @@ export async function hashSessionAndCode(name, options, params, sdk_version) {
     if (!window.crypto || !window.crypto.subtle || typeof window.crypto.subtle.digest !== "function") {
         console.error(`Croquet: Crypto API not available.\nPlease access this page via https or localhost.`);
     }
-    // codeHashes are from registered user models and constants (in hashPromises)
-    const codeHashes = await Promise.all(hashPromises);
-    /** identifies the code being executed - user code, constants, SDK */
-    const codeHash = await hashString([sdk_version, ...codeHashes].join('|'));
     /** identifies the island (only true if name is unique, i.e., appId was provided) */
     const persistentId = await hashIsland(name, options);
+    // codeHashes are from registered user models and constants (in hashPromises).
+    // jul 2021: note that if multiple sessions are loaded in the same tab, *all*
+    // sessions' models and constants registered up to this point will be taken into
+    // account.  later we'd like to provide an interface (perhaps through App) for
+    // registering each session's resources separately.
+    let codeHashes;
+    /** identifies the code being executed - user code, constants, SDK */
+    let combinedCodeHash;
+    const cached = codeHashCache[persistentId];
+    let cacheAnnotation = "";
+    if (cached) {
+        // the cached codeHashes list is only used in logging, and logging will
+        // only happen if the final derived session ID has changed.
+        codeHashes = cached.codeHashes;
+        combinedCodeHash = cached.combinedCodeHash;
+        cacheAnnotation = " (code hashing from cache)";
+    } else {
+        codeHashes = await Promise.all(hashPromises);
+        combinedCodeHash = await hashString([sdk_version, ...codeHashes].join('|'));
+        codeHashCache[persistentId] = { codeHashes, combinedCodeHash };
+    }
     /** identifies the session */
-    const id = await hashString(persistentId + stableStringify(params) + codeHash);
+    const id = await hashString(persistentId + stableStringify(params) + combinedCodeHash);
     // log all hashes if debug=hashing
     if (debugHashing() && !logged.has(id)) {
         const charset = [...document.getElementsByTagName('meta')].find(el => el.getAttribute('charset'));
         if (!charset) console.warn('Missing <meta charset="..."> declaration. Croquet model code hashing might differ between browsers.');
-        debugHashes[codeHash].what = "Version ID";
+        debugHashes[combinedCodeHash].what = "Version ID";
         debugHashes[persistentId].what = "Persistent ID";
         debugHashes[id].what = "Session ID";
-        const allHashes = [...codeHashes, codeHash, persistentId, id].map(each => ({ hash: each, ...debugHashes[each]}));
-        console.log(`Debug Hashing for session ${id}`, allHashes);
+        const allHashes = [...codeHashes, combinedCodeHash, persistentId, id].map(each => ({ hash: each, ...debugHashes[each]}));
+        console.log(`Debug Hashing for session ${id}${cacheAnnotation}`, allHashes);
         logged.add(id);
     }
-    return { id, persistentId, codeHash };
+    return { id, persistentId, codeHash: combinedCodeHash };
 }
