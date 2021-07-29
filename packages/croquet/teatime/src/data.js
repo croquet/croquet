@@ -55,12 +55,12 @@ export default class DataHandle {
             data = sessionId;
         }
         if (Island.hasCurrent()) throw Error("Croquet.Data.store() called from Model code");
-        const  { appId, islandId, uploadEncrypted } = sessionProps(sessionId);
+        const  { appId, persistentId, uploadEncrypted } = sessionProps(sessionId);
         if (!appId) {
             console.warn("Deprecated: Croquet.Data API used without declaring appId in Croquet.Session.join()");
         }
         const key = WordArray.random(32).toString(Base64);
-        const path = appId && `${appId}/${islandId}`;
+        const path = appId && `${appId}/${persistentId}`;
         const url = await uploadEncrypted({ path: serverPath(path, "%HASH%"), content: data, key, keep, debug: debug("data"), what: "shared data" });
         const hash = hashFromUrl(url);
         return new DataHandle(hash, key, path);
