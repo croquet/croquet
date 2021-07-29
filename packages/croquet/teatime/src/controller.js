@@ -941,7 +941,8 @@ export default class Controller {
             }
             case 'REQU': {
                 // reflector requests a snapshot
-                this.cpuTime = 10000;
+                if (DEBUG.snapshot) console.log("received REQU (snapshot request) from reflector");
+                this.cpuTime = 12345; // a recognisable number, greater than SNAPSHOT_EVERY
                 return;
             }
             default: console.warn("Unknown action:", action, args);
