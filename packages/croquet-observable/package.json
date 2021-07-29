@@ -9,12 +9,15 @@
     "prepare": "tsc"
   },
   "dependencies": {
-    "@croquet/croquet": "^0.5.0"
+    "@croquet/croquet": "../croquet"
   },
   "author": "Croquet Corporation",
   "license": "ISC",
   "devDependencies": {
-    "typescript": "^3.5.3"
+    "@typescript-eslint/eslint-plugin": "^4.28.5",
+    "@typescript-eslint/parser": "^4.28.5",
+    "eslint": "^7.31.0",
+    "typescript": "^4.3.5"
   },
   "publishConfig": {
     "access": "public"

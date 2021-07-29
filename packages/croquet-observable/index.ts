@@ -4,6 +4,12 @@ export interface ObservableModel extends Model {
     publishPropertyChange(property: string): void;
 }
 
+interface Statics<T> {
+    create<T extends typeof Model>(this: T, options: any): InstanceType<T>;
+    register(classId:string): void;
+    wellKnownModel<M extends Model>(name: string): Model | undefined;
+}
+
 /**
  * Mixin that supplies a standard implementation for {@link ObservableModel#publishPropertyChange} into the given Model BaseClass.
  * This makes this method is available to all classes extending the mixed-in BaseClass, **allowing them to publish property changes as a {@link ObservableModel}**.
@@ -25,7 +31,7 @@ export interface ObservableModel extends Model {
  *
  * @param BaseClass
  */
-export function Observable<M extends Model>(BaseClass: ClassOf<M>): ClassOf<M & ObservableModel> {
+export function Observable<M extends Model>(BaseClass: ClassOf<M>): Statics<Model> & ClassOf<M & ObservableModel> {
     return class ObservableClass extends (BaseClass as ClassOf<Model>) {
         /**
          *
@@ -34,7 +40,7 @@ export function Observable<M extends Model>(BaseClass: ClassOf<M>): ClassOf<M & 
         publishPropertyChange(property: string) {
             this.publish(this.id + "#" + property, "changed", null);
         }
-    } as any;
+    } as Statics<Model> & ClassOf<M & ObservableModel>;
 }
 
 export interface ModelObserving<SubOptions> {
@@ -82,8 +88,6 @@ export function Observing<SubOptions>(BaseClass: ClassOf<PubSubParticipant<SubOp
         }
     };
 }
-
-
 
 const deepChangeProxyCache = new WeakMap();
 
@@ -162,7 +166,7 @@ function deepChangeProxy(object: any, onChangeAtAnyDepth: Function) {
  * }
  * ```
  */
-export function AutoObservableModel<S extends Object>(initialState: S): ClassOf<ObservableModel & S> {
+export function AutoObservableModel<S extends Object>(initialState: S): Statics<Model> & ClassOf<ObservableModel & S> {
     return AutoObservable(initialState)(Model);
 }
 
@@ -177,7 +181,7 @@ export function AutoObservableModel<S extends Object>(initialState: S): ClassOf<
  * so the main application for `AutoObservable` is actually through `AutoObservableModel`, which creates
  * a Model class consisting solely of automatically observable properties.
  */
-export function AutoObservable<S extends Object>(initialState: S): (BaseClass: typeof Model) => ClassOf<ObservableModel & S> {
+export function AutoObservable<S extends Object>(initialState: S): (BaseClass: typeof Model) => Statics<Model> & ClassOf<ObservableModel & S> {
     return (BaseClass) => {
         const cls = class ObservableClass extends Observable(BaseClass) {
             init(options: any) {
@@ -203,6 +207,6 @@ export function AutoObservable<S extends Object>(initialState: S): (BaseClass: t
             });
         }
 
-        return cls as any as new (...args: any[]) => (ObservableModel & S);
+	return cls as any as (Statics<Model> & ClassOf<ObservableModel & S>);
     }
 }
