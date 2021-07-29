@@ -54,7 +54,7 @@ const DEFAULT_FILE_SERVER = "https://files.croquet.io";     // all downloads, an
 const UNAUTH_FILE_SERVER = "https://croquet.io/files/v1";   // uploads without apiKey
 const DEFAULT_SIGN_SERVER = "https://api.croquet.io/sign";  // get signed url for uploads with apiKey
 
-const codeHashes = null; // individual codeHashes are not uploaded for now, will need to re-add for replay
+// const codeHashes = null; // individual codeHashes are not uploaded for now, will need to re-add for replay
 
 let DEBUG = null;
 
@@ -359,7 +359,7 @@ export default class Controller {
             sdk: SDK_VERSION,
         };
         delete snapshot.meta.hash; // old hash is invalid
-        if (codeHashes) snapshot.meta.code = codeHashes;
+        // if (codeHashes) snapshot.meta.code = codeHashes;
         return snapshot;
     }
 
