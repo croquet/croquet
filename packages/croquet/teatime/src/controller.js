@@ -219,6 +219,9 @@ export default class Controller {
     /** @type {String} the session id (same for all replicas running with same options on the same app version) */
     get id() { return this.island ? this.island.id : this.sessionSpec.id; }
 
+    /** @type {String} the persistent id (same for all replicas with same options across app versions) */
+    get persistentId() { return this.sessionSpec.persistentId; }
+
     /** @type {String} identifies SDK version and app code */
     get versionId() { return this.sessionSpec.codeHash; }
 
