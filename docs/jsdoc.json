@@ -1,7 +1,7 @@
 {
   "source": {
     "include": [
-      "../../sdk/README.md",
+      "README.md",
       "../../teatime/index.js",
       "../../teatime/src/model.js",
       "../../teatime/src/view.js",
@@ -11,7 +11,7 @@
   "opts": {
     "access": ["public"],
     "template": "../template",
-    "tutorials": "../../sdk/tutorials",
+    "tutorials": "tutorials",
     "encoding": "utf8",
     "recurse": false,
     "verbose": true,
@@ -32,7 +32,7 @@
       "useLongnameInNav": true,
       "staticFiles": {
         "include": [
-          "../../sdk/tutorials"
+          "tutorials"
         ],
         "includePattern": "\\.(png|jpg)$"
       }
@@ -43,8 +43,8 @@
     "sort": false,
     "disqus": "",
     "meta": {
-      "title": "Croquet SDK @CROQUET_VERSION@",
-      "description": "Documentation for the Croquet SDK",
+      "title": "Croquet @CROQUET_VERSION@",
+      "description": "Documentation for the Croquet client library",
       "keyword": "croquet"
     },
     "search": true,

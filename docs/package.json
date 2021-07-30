@@ -1,7 +1,7 @@
 {
-  "name": "croquet-doc-sdk",
-  "version": "0.5.0",
-  "description": "Croquet SDK Documentation",
+  "name": "croquet-client-docs",
+  "version": "1.0",
+  "description": "Croquet Client Documentation",
   "scripts": {
     "start": "npm-watch",
     "build": "jsdoc -c jsdoc.json -d build",
@@ -10,11 +10,13 @@
   "watch": {
     "build": {
       "patterns": [
-          "../../sdk/README.md",
+          "README.md",
           "../../teatime/index.js",
           "../../teatime/src/model.js",
           "../../teatime/src/view.js",
-          "../../teatime/src/session.js"
+          "../../teatime/src/session.js",
+          "tutorials",
+          "../template"
       ],
       "ignore": [
         "build"

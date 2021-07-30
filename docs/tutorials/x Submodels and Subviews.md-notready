@@ -1,0 +1,12 @@
+Copyright © 2020 Croquet Corporation
+
+We need to have a tutorial for creating and managing submodels and subviews
+
+## A surprise
+
+| time | 1st User RootModel | 1st User RootView | 1st User ChildModel | 1st User ChildView |
+|------| -----------------|-----------------|------------------|-----------------|
+| 0 | `init {`<br>`Child.create`<br>`publish "child-added"`<br>`}` | <br><br>(not subscribed yet) | <br>`init { x = 42 }`
+|   |                                            | `constructor{`<br>`subscribe "child-added"`<br>`}`
+| 1 | tick                 |
+|   |                      |  receive `child-added`

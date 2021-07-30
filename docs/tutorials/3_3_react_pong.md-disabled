@@ -1,0 +1,386 @@
+Copyright © 2020 Croquet Studios
+
+In this tutorial, we'll implement a simple multiplayer pong game. We will use the same technique as in the "Hello React" tutorial - a singular model containing all state - only that that model is now a lot more complex, containing and simulating the whole game state of Pong.
+
+We will also use several view components to delegate rendering the different game elements, but we will use a simple model of interaction between them and the Croquet model state, where only the top-level `PlayingField` component deals with Croquet interaction and simply passes the (live-updating) data from the model down to it's child components as parameters. This pattern of one smart high-level component that passes information down to "dumb" child components is quite idiomatic for React, but stops being convenient for even more complex apps. What to do in this case, we'll explore in the next tutorial.
+
+<iframe
+     src="https://codesandbox.io/embed/react-croquet-pong-hifx9?fontsize=14&module=%2Findex.jsx&theme=light"
+     style="width:100%; height:500px; border:0; border-radius: 4px; overflow:hidden;"
+     title="react croquet pong"
+     allow="geolocation; microphone; camera; midi; vr; accelerometer; gyroscope; payment; ambient-light-sensor; encrypted-media; usb"
+     sandbox="allow-modals allow-forms allow-popups allow-scripts allow-same-origin"
+   ></iframe>
+
+Our approach will be to use a single observable Model to represent all game state of a simple multiplayer Pong. After some configurable cnstants, we define the initial state, which also acts as a specification for what the state consists of:
+
+```
+const FIELD_HEIGHT = 1;
+const FIELD_WIDTH = 2;
+const BALL_INIT_VEL = 0.01;
+const PADDLE_HEIGHT = 0.3;
+const BALL_RADIUS = 0.05;
+const TICK_LENGTH = 10;
+
+const INITIAL_STATE = {
+  ballX: FIELD_WIDTH / 2,
+  ballVelX: -BALL_INIT_VEL,
+  ballY: FIELD_HEIGHT / 2,
+  ballVelY: 0,
+  leftPaddleY: 0.5,
+  leftPaddleVelY: 0,
+  rightPaddleY: 0.5,
+  rightPaddleVelY: 0,
+  leftPoints: 0,
+  leftPlayerId: null,
+  rightPoints: 0,
+  rightPlayerId: null,
+  spectators: [],
+  playerNames: {}
+};
+```
+
+The names of the state properties should be pretty descriptive, but we will see exactly how they're used when we implement the game behavior.
+
+We define our main model class, `PongModel` as an `AutoObservableModel` based on our initial state. As in the counter tutorial, this means that whenever we change one of these properties inside `PongModel`, a property change event will automatically be published, which we can subscribe to on the view side.
+
+```
+class PongModel extends AutoObservableModel(INITIAL_STATE) {
+```
+
+In our model's `init` initializer, we subscribe to session events for users joining or leaving the session, we define two custom events for setting a player's name and, most notably, moving the paddle (of either player). Finally, we call the `tick` method (which updates the game simulation) on the `PongModel`'s future self.
+
+```
+init() {
+  super.init();
+  this.subscribe(this.sessionId, "view-join", this.userEnter);
+  this.subscribe(this.sessionId, "view-exit", this.userExit);
+  this.subscribe("playerName", "set", this.setPlayerName);
+  this.subscribe("paddle", "move", this.movePaddle);
+  this.future(TICK_LENGTH).tick();
+}
+```
+
+Let's go through the implementations of the handlers for these messages to see exactly what's going on.
+
+`userEnter` and `userExit` implement a simple matchmaking/waiting logic, where as participants arrive in the session, they are either assinged to be the left or right player, or a spectator, if there already are two players. If a participant who is a player leaves, the longest waiting spectator will take his place as a player.
+
+```
+userEnter(enteringViewId) {
+  if (!this.leftPlayerId) {
+    this.leftPlayerId = enteringViewId;
+  } else if (!this.rightPlayerId) {
+    this.rightPlayerId = enteringViewId;
+  } else {
+    this.spectators.push(enteringViewId);
+  }
+}
+
+userExit(exitingViewId) {
+  if (this.leftPlayerId === exitingViewId)
+    this.leftPlayerId = this.spectators.shift() || null;
+  else if (this.rightPlayerId === exitingViewId)
+    this.rightPlayerId = this.spectators.shift() || null;
+  delete this.playerNames[exitingViewId];
+}
+```
+
+`setPlayerName` is really just a helper to store and communicate custom player names among participants.
+
+```
+setPlayerName({ playerId, name }) {
+  this.playerNames[playerId] = name;
+}
+```
+
+`movePaddle` takes a desired new Y position of the paddle controlled by `playerId`.
+
+```
+movePaddle({ newY, playerId }) {
+  if (this.leftPlayerId && playerId === this.leftPlayerId) {
+    this.leftPaddleVelY = newY - this.leftPaddleY;
+    this.leftPaddleY = newY;
+  } else if (this.rightPlayerId && playerId === this.rightPlayerId) {
+    this.rightPaddleVelY = newY - this.rightPaddleY;
+    this.rightPaddleY = newY;
+  }
+}
+```
+
+`tick` is the last and most interesting method, implementing "Pong physics", including moving paddles giving the ball a skewed hit - and the scoring system. In the end, `tick` calls itself again on the future version of `PongModel`, resulting in a continous update loop. This is the idiomatic way to handle continous simulations in Croquet!
+
+```
+tick() {
+  this.ballX += this.ballVelX;
+  this.ballY += this.ballVelY;
+  this.leftPaddleVelY *= 0.5;
+  this.rightPaddleVelY *= 0.5;
+
+  // bounce off top and bottom walls
+  if (this.ballY < 0) {
+    this.ballVelY *= -1;
+    this.ballY = 0;
+  } else if (this.ballY > FIELD_HEIGHT) {
+    this.ballVelY *= -1;
+    this.ballY = FIELD_HEIGHT;
+  }
+
+  if (this.ballX < 0) {
+    if (
+      Math.abs(this.ballY - this.leftPaddleY) - BALL_RADIUS <
+      PADDLE_HEIGHT / 2
+    ) {
+      this.ballVelX *= -1; // reflect off left paddle
+      this.ballVelY += 0.5 * this.leftPaddleVelY; // give it some "spin"
+      this.ballX = 0;
+    } else {
+      this.rightPoints += 1; // left missed
+      this.ballX = FIELD_WIDTH / 2;
+      this.ballY = FIELD_HEIGHT / 2;
+      this.ballVelX = BALL_INIT_VEL;
+      this.ballVelY = 0;
+    }
+  } else if (this.ballX > FIELD_WIDTH) {
+    if (
+      Math.abs(this.ballY - this.rightPaddleY) - BALL_RADIUS <
+      PADDLE_HEIGHT / 2
+    ) {
+      this.ballVelX *= -1; // reflect off right paddle
+      this.ballVelY += 0.5 * this.rightPaddleVelY; // give it some "spin"
+      this.ballX = FIELD_WIDTH;
+    } else {
+      this.leftPoints += 1; // right missed
+      this.ballX = FIELD_WIDTH / 2;
+      this.ballY = FIELD_HEIGHT / 2;
+      this.ballVelX = -BALL_INIT_VEL;
+      this.ballVelY = 0;
+    }
+  }
+
+  this.future(TICK_LENGTH).tick();
+}
+```
+
+Finally, we register our model so that whenever we change the game implementation, old snapshotted sessions that might still be around are recognized as incompatible with our new model code.
+
+```
+PongModel.register("PongModel");
+```
+
+Moving over to the view side, we first define our top-level component, `PongApp`, which starts a croquet session using our singular `PongModel` as the root model.
+
+```
+function PongApp() {
+  return (
+    <InCroquetSession name="pong" modelRoot={PongModel}>
+      <PlayingField />
+    </InCroquetSession>
+  );
+}
+```
+
+As mentioned in the intro, on the view side our approach will be to use a single "smart" component (`PlayingField`) that will be responsible for observing the game state, which will then pass down pieces of the game state to specialised "dumb" subcomponents, which don't have anything to do with croquet.
+
+In the `PlayingField` component, we first access the model root (and type annotate it as PongModel, to get better autocomplete) and use our main view id to identify ourselves as a user (actually setting player names is not implemented in this tutorial).
+
+```
+function PlayingField() {
+  /** @type {PongModel} */
+  const model = useModelRoot();
+  const user = { id: useViewId(), name: null };
+```
+We then use the `useObservable` hook to subscribe to property changes of the game state we are interested in. Like in the counter app, changes to any of these properties in `PongModel` will cause our component to be rerendered with fresh values for these properties.
+
+```
+  const {
+    leftPaddleY,
+    rightPaddleY,
+    ballX,
+    ballY,
+    leftPoints,
+    rightPoints,
+    leftPlayerId,
+    rightPlayerId,
+    playerNames
+  } = useObservable(model);
+```
+
+Next, we define a callback that publishes a correct paddle move event, taking into account which player the local user currently is, and converting the paddle position given as a fraction into absolute field coordinates. Similarly as for React's own `useCallback` hook, we specify `[leftPlayerId, rightPlayerId]` as state dependencies, because the callback should be recreated whenever one of these observed properties changes.
+
+```
+const publishMovePaddle = usePublish(
+  posFraction => {
+    if (user.id === leftPlayerId || user.id === rightPlayerId) {
+      return [
+        "paddle",
+        "move",
+        { newY: posFraction * FIELD_HEIGHT, playerId: user.id }
+      ];
+    }
+  },
+  [leftPlayerId, rightPlayerId]
+);
+```
+
+Finally, we return a bunch of child components, passing down pieces of observed game state and our `publishMovePaddle` callback.
+
+
+```
+return (
+  <PlayingFieldContainer onPaddleMove={publishMovePaddle}>
+    <Paddle y={leftPaddleY} side="left" />
+    <Paddle y={rightPaddleY} side="right" />
+    <Ball x={ballX} y={ballY} />
+    <ScoreBoard
+      left={leftPoints}
+      right={rightPoints}
+      leftPlayerId={leftPlayerId}
+      rightPlayerId={rightPlayerId}
+      playerNames={playerNames}
+    />
+  </PlayingFieldContainer>
+);
+```
+
+The `PlayingFieldContainer` component has two jobs: it acts as a layout container for the other visual game elements, and it listens to mouse events, passing converted coordinates onto its `onPaddleMove` callback parameter (to which we pass `publishMovePaddle` in `PlayingField`, which `PlayingFieldContainer` doesn't care about).
+
+```
+function PlayingFieldContainer({ onPaddleMove, children }) {
+  return (
+    <div style={{ position: "relative", width: "100vw", height: "50vw" }}>
+      <div
+        style={{
+          position: "absolute",
+          width: "80%",
+          height: "80%",
+          left: "10%",
+          top: "10%",
+          outline: "1px solid #aaa",
+          overflow: "visible"
+        }}
+        onMouseMove={event => {
+          const bounds = event.currentTarget.getBoundingClientRect();
+          onPaddleMove((event.clientY - bounds.top) / bounds.height);
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+```
+
+The `Paddle` component renders a paddle as a black rectangle, mostly just converting coordinates.
+
+```
+function Paddle({ y, side }) {
+  return (
+    <BlackRectangle
+      x={side === "left" ? -0.1 : FIELD_WIDTH}
+      y={y - PADDLE_HEIGHT / 2}
+      width={0.1}
+      height={PADDLE_HEIGHT}
+    />
+  );
+}
+```
+
+The `Ball` component similarly renders and positions the ball as a black square.
+
+```
+function Ball({ x, y }) {
+  return (
+    <BlackRectangle
+      x={x - BALL_RADIUS}
+      y={y - BALL_RADIUS}
+      width={2 * BALL_RADIUS}
+      height={2 * BALL_RADIUS}
+    />
+  );
+}
+```
+
+This is our helper function for rendering black rectangles at absolute positions on the field:
+
+```
+function BlackRectangle({ x, y, width, height }) {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: (x / FIELD_WIDTH) * 100 + "%",
+        top: (y / FIELD_HEIGHT) * 100 + "%",
+        width: (width / FIELD_WIDTH) * 100 + "%",
+        height: (height / FIELD_HEIGHT) * 100 + "%",
+        backgroundColor: "#000"
+      }}
+    />
+  );
+}
+```
+
+Finally, the `Scoreboard` component renders each player's score, and shows the player and spectator names.
+
+```
+function ScoreBoard({ left, right, leftPlayerId, rightPlayerId, playerNames }) {
+  const commonStyle = {
+    position: "absolute",
+    width: "10%",
+    textAlign: "center"
+  };
+  const spectators = Object.entries(playerNames)
+    .filter(
+      ([id, _]) =>
+        parseInt(id, 10) !== leftPlayerId && parseInt(id, 10) !== rightPlayerId
+    )
+    .map(([id, name]) => `${name} (${id})`);
+  return (
+    <div>
+      <div style={{ ...commonStyle, left: "20%", top: "1vw", fontSize: "5vw" }}>
+        {left}
+      </div>
+      <div
+        style={{ ...commonStyle, right: "20%", top: "1vw", fontSize: "5vw" }}
+      >
+        {right}
+      </div>
+      {leftPlayerId && (
+        <div
+          style={{ ...commonStyle, left: "20%", top: "6vw", fontSize: "2vw" }}
+        >
+          {playerNames[leftPlayerId]}
+          <br />
+          <span style={{ fontSize: "1vw" }}>({leftPlayerId})</span>
+        </div>
+      )}
+      {rightPlayerId && (
+        <div
+          style={{ ...commonStyle, right: "20%", top: "6vw", fontSize: "2vw" }}
+        >
+          {playerNames[rightPlayerId]}
+          <br />
+          <span style={{ fontSize: "1vw" }}>({rightPlayerId})</span>
+        </div>
+      )}
+      {spectators.length !== 0 && (
+        <div
+          style={{
+            position: "absolute",
+            left: "10%",
+            width: "80%",
+            textAlign: "center",
+            bottom: "1vw",
+            fontSize: "2vw"
+          }}
+        >
+          Spectators: {spectators.join(", ")}
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+This concludes our implementation of a simple multiplayer Pong game with `@croquet/react`.
+
+You might have noticed that we were really pushing the boundaries of how much state and logic you can fit into a single model. In the next tutorial, we will explore how to build a full application, making use of sub-models to represent different objects in our application and how to use a hierarchy of views where even subviews can be "smart" and observe changes to the submodels they care about.

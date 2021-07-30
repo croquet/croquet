@@ -1,0 +1,82 @@
+Copyright © 2020 Croquet Studios
+
+This tutorial directly corresponds to the "Hello World" tutorial of `@croquet/croquet` and the model side looks exactly the same. It will be assumed that you understood the main concepts presented there.
+
+The tutorials for `@croquet/react` will make use of CodeSandbox to be able to show a whole React project around each example, with the same structure as your own project would have locally. You can go ahead and change the code right in here and the running app should update accordingly.
+
+<iframe
+     src="https://codesandbox.io/embed/react-croquet-counter-t5gw9?fontsize=14&module=%2Findex.jsx&theme=light"
+     style="width:100%; height:500px; border:0; border-radius: 4px; overflow:hidden;"
+     title="react-croquet counter"
+     allow="geolocation; microphone; camera; midi; vr; accelerometer; gyroscope; payment; ambient-light-sensor; encrypted-media; usb"
+     sandbox="allow-modals allow-forms allow-popups allow-scripts allow-same-origin"
+   ></iframe>
+
+We start by importing React and croquet libraries, here as npm dependencies instead of the normal croquet library script import.
+
+The `CounterModel` looks very similar to that in the `@croquet/croquet` Hello World example, but uses the `AutoObservableModel` mixin to define `count` as an observable instance property on `CounterModel`. This means that whenever we write to that property, the corresponding property change event will be published. See the `@croquet/observable` Documentation for more details.
+
+```
+function CounterApp() {
+  return (
+    <InCroquetSession name="counter" modelRoot={CounterModel}>
+      <CounterDisplay />
+    </InCroquetSession>
+  );
+}
+```
+
+After the model, we define `CounterApp` as our top level React component. In it, we use the `InCroquetSession` component, which takes the role of `Session.join` in `@croquet/croquet`, takes the same parameters and then provides the running Croquet session to its child components.
+
+Next, we define the `CounterDisplay` component, which has two goals:
+
+ - rendering the live count of the replicated counter
+ - resetting the counter on click
+
+```
+ function CounterDisplay() {
+  const model = useModelRoot();
+```
+
+First, we use the `useModelRoot` hook, to get a hold of the `CounterModel` in our session. In more complex apps (such as in later tutorials) you will rarely want to interact with only the root model, instead looking up submodels and dealing with them, but for now we just have one counter model per session.
+
+Although the model returned by `useModelRoot` does always contain the most up-to-date state of the `CounterModel` (in our case), we do not yet have our component set up to rerender whenever the model changes. We could either do that manually by listening to model events and maintaining a copy of its state using React's `useState` hook (which does rerender the view), but since our `CounterModel` is observable, we can make use of the convenient `useObservable` hook:
+
+```
+const { count } = useObservable(model);
+```
+
+It seems to just re-expose the properties that we could already get from `model`, but internally, `useObservable` keeps track of all properties you pull out of the model you passed to it (`count` in our case) and automatically creates a subscription for changes to these properties. Whenever changes happen, it triggers React to rerender your component, which will then have access to the newest values for these properties.
+
+If we just wanted to render the up-to-date count, we could finish our component with
+
+```
+return <div>{count}</div>;
+```
+
+But, to explore how we can have information flow back from our component to the `CounterModel`, let's setup our component to reset the counter when we click the count.
+
+First, we create a callback that will publish the corresponding event like this:
+
+```
+const publishReset = usePublish(() => ["counter", "reset"], []);
+```
+
+When we call `publishReset()`, it will publish a "reset" event to the "counter" scope, which our `CounterModel` happens to listen to.
+
+All that's left to do is to use this callback in the onClick handler of our returned count element. Let's also add some styles to make the count more prominent.
+
+```
+return (
+<div
+    onClick={publishReset}
+    style={{ margin: "1em", fontSize: "3em", cursor: "pointer" }}
+>
+    {count}
+</div>
+);
+```
+
+Now, you should see a live ticking counter, which resets when you click it. You can open the URL shown in the preview section of the CodeSandbox embed in another tab or window and you should see the same live replicated counter as a second session participant.
+
+To see more interesting multi-user interaction, check out the next tutorial, where we're implementing a simple multiplayer pong game.
