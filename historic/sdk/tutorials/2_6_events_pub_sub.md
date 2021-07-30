@@ -30,7 +30,7 @@ _TODO: ... mention `model.id`, global scopes (`sessionId`, `viewId`) ..._
 
 ## Event Handling
 
-Depending on where the event originates and which objects are subscribed to it, the controller routes it differently:
+Depending on where the event originates and which objects are subscribed to it, the events are routed differently:
 
 - _Model-to-Model_ - The event handler is executed immediately, before the publish call returns.
 
@@ -40,7 +40,7 @@ Depending on where the event originates and which objects are subscribed to it, 
 
 - _View-to-Model_ - The event is transmitted to the reflector and mirrored to all users. It will be handled during the next model simulation.
 
-Note that multiple models and views can subscribe to the same event. The controller will take care of routing the event to each subscriber using the appropriate route, meaning that a view subscriber and a model subscriber will receive the event at slightly different times.
+Note that multiple models and views can subscribe to the same event. Croquet will take care of routing the event to each subscriber using the appropriate route, meaning that a view subscriber and a model subscriber will receive the event at slightly different times.
 
 ## Best practices
 
