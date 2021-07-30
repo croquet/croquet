@@ -5,7 +5,7 @@
   "scripts": {
     "start": "npm-run-all --parallel serve watch",
     "build": "rollup -c",
-    "watch": "rollup -c -w",
+    "watch": "rollup -c -w --no-watch.clearScreen",
     "serve": "serve"
   },
   "author": "Croquet Corporation",
