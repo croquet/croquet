@@ -511,7 +511,7 @@ export default class Controller {
         const filename = `${pad(Math.ceil(time))}_${seq}-${hash}`;
         const { appId, persistentId, apiKey } = this.sessionSpec;
         if (!apiKey) return `snapshots/${this.id}/${filename}.snap`;
-        return `apps/${appId}/${persistentId}/snap/${filename}`;
+        return `apps/${appId}/${persistentId}/snap/${this.id}/${filename}`;
     }
 
     hashSnapshot(snapshot) {
