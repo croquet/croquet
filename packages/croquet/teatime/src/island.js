@@ -313,7 +313,7 @@ export default class Island {
                 // ignore exit for multiple connections (see below)
                 if (this.views[id].extraConnections) {
                     this.views[id].extraConnections--;
-                    if (DEBUG.session) console.log(`${this.id} @${this.time}#${this.seq} view ${id} closed another connection`);
+                    if (DEBUG.session) console.log(`${this.id} @${this.time}#${this.seq} view ${id} closed extra connection`);
                     continue;
                 }
                 // otherwise this is a real exit
