@@ -102,8 +102,10 @@ const simLoad = [0];
 const LOAD_BALANCE_FRAMES = 4;
 // number of steps to record for checking animation
 const ANIMATION_CHECK_FRAMES = 4;
-// maximum delay in ms since oldest step to count as being animated regularly
-const ANIMATION_MAX_SPREAD = 1000;
+// don't assume animation has started until average inter-frame gap over ANIMATION_CHECK_FRAMES is less than this.  most browsers will be 33 or less, but there could be some slower-running systems out there (especially if app is stepping manually).
+const ANIMATION_REASONABLE_FRAME_GAP = 100;
+// assume animation has stopped if more than this delay in ms since end of most recent step
+const ANIMATION_EXCESSIVE_FRAME_GAP = ANIMATION_REASONABLE_FRAME_GAP * 2;
 
 // for loading snapshots from before we required passwords
 let DEPRECATED_DEFAULT_KEY; // initialized only when needed, for speed
@@ -206,8 +208,10 @@ export default class Controller {
         }
         /** @type {Array} recent TUTTI sends and their payloads, for matching up with incoming votes and divergence alerts */
         this.tuttiHistory = [];
-        /** @type {Array} timestamps of most recent frames (in Date.now() timebase) */
-        this.lastAnimationTimes = this.lastAnimationTimes || []; // needs to survive dormancy
+        /** Date.now() at end of last stepSession triggered by animation */
+        this.lastAnimationEnd = 0;
+        /** array of gaps between animation end and the next start.  replaced with the value true once rapid animation has been detected. */
+        this.animationGapCheck = [];
 
         // controller (only) gets to subscribe to events using the shared viewId as the "subscriber" argument
         viewDomain.removeAllSubscriptionsFor(this.viewId); // in case we're recycling
@@ -587,7 +591,7 @@ export default class Controller {
                 id: this.id,
                 action: 'SNAP',
                 args: {time, seq, hash, url, dissident: dissidentFlag},
-            }));
+            }), false); // no rate limiting
         } catch (e) {
             console.error('ERROR while sending', e);
         }
@@ -683,7 +687,7 @@ export default class Controller {
                 id: this.id,
                 action: 'SAVE',
                 args: { persistTime, url, dissident: dissidentFlag },
-            }));
+            }), false); // no rate limiting
         } catch (e) {
             console.error('ERROR while sending', e);
         }
@@ -857,7 +861,7 @@ export default class Controller {
                 if (url) try {
                     data = await this.downloadEncrypted({url, gzip: true, key: this.key, debug: DEBUG.snapshot, json: true, what: persistedOrSnapshot});
                 } catch (err) {
-                    this.connection.closeConnectionWithError('SYNC', Error(`failed to fetch ${persistedOrSnapshot}: ${err.message}`), 4200); // do not retry
+                    this.connection.closeConnectionWithError('SYNC', Error(`failed to fetch ${persistedOrSnapshot}: ${err.message}`), 4200); // do not retry.  synchronously nulls out socket.
                     return;
                 }
                 if (!this.connected) { console.log(this.id, 'disconnected during SYNC'); return; }
@@ -1035,7 +1039,7 @@ export default class Controller {
             id: this.id,
             action: 'JOIN',
             args,
-        }));
+        }), false); // no rate limiting (though shouldn't be an issue)
 
         this.syncReceiptTimeout = setTimeout(() => {
             delete this.syncReceiptTimeout;
@@ -1080,7 +1084,7 @@ export default class Controller {
         if (DEBUG.session) console.log(this.id, `resetting ${keepController ? "(but keeping)" : "and discarding"} controller`);
         if (!keepController) Controllers.delete(this);   // after reset so it does not re-enable the SYNC overlay
         if (!this.sessionSpec) throw Error("do not discard sessionSpec!");
-        rebootModelView(); // if controller.leaving is set (user has triggered Session.leave), rMV will bail out after destroying the view
+        rebootModelView(); // if controller.leaving is set (user has triggered Session.leave, or session has errored), rMV will bail out after destroying the view
     }
 
     async encrypt(plaintext) {
@@ -1185,22 +1189,30 @@ export default class Controller {
     /** send a Message to all island replicas via reflector
      * @param {Message} msg
     */
-    async sendMessage(msg) {
+    async sendMessage(msg, rateLimited=true) {
         // SEND: Broadcast a message to all participants.
         if (this.viewOnly) return;
+
+        // get the asynchronous encoding out of the way before the check that
+        // we're still connected.
+        const encryptedMsg = await this.encryptMessage(msg, this.viewId, this.lastSent); // [time, seq, payload]
+
         // view sending events while connection is closing or rejoining
         if (!this.connected) {
-            if (this.island) this.sendBuffer.push(() => this.sendMessage(msg));
+            if (this.island) {
+                if (DEBUG.sends) console.log(this.id, `buffering SEND ${msg.asState()}`);
+                this.sendBuffer.push(() => this.sendMessage(msg, false)); // no rate limit when clearing the buffered messages
+            }
             return;
         }
+
         if (DEBUG.sends) console.log(this.id, `sending SEND ${msg.asState()}`);
         this.lastSent = Date.now();
-        const encryptedMsg = await this.encryptMessage(msg, this.viewId, this.lastSent); // [time, seq, payload]
         this.connection.send(JSON.stringify({
             id: this.id,
             action: 'SEND',
             args: [...encryptedMsg, this.latency],
-        }));
+        }), rateLimited);
     }
 
     /** send a Message to all island replicas via reflector, subject to reflector preprocessing as determined by the tag(s)
@@ -1211,14 +1223,21 @@ export default class Controller {
         // reflector SEND protocol now allows for an additional tags property.  previous
         // reflector versions will handle as a standard SEND.
         if (this.viewOnly) return;
+
+        // get the asynchronous encoding out of the way before the check that
+        // we're still connected.
+        const encryptedMsg = await this.encryptMessage(msg, this.viewId, this.lastSent); // [time, seq, payload]
+
         // view sending events while connection is closing or rejoining
         if (!this.connected) {
-            if (this.island) this.sendBuffer.push(() => this.sendTagged(msg, tags));
+            if (this.island) {
+                if (DEBUG.sends) console.log(this.id, `buffering tagged SEND ${msg.asState()} with tags ${JSON.stringify(tags)}`);
+                this.sendBuffer.push(() => this.sendTagged(msg, tags));
+            }
             return;
         }
         if (DEBUG.sends) console.log(this.id, `sending tagged SEND ${msg.asState()} with tags ${JSON.stringify(tags)}`);
         this.lastSent = Date.now();
-        const encryptedMsg = await this.encryptMessage(msg, this.viewId, this.lastSent); // [time, seq, payload]
         this.connection.send(JSON.stringify({
             id: this.id,
             action: 'SEND',
@@ -1237,15 +1256,23 @@ export default class Controller {
         // then gather all messages up to a deadline and send a TALLY message summarising the results
         // (whatever those results, if wantsVote is true; otherwise, only if there is some variation among them).
         if (this.viewOnly) return null;
+
+        // get the asynchronous encoding out of the way before the check that
+        // we're still connected.
+        const encryptedMsg = firstMessage && await this.encryptMessage(firstMessage, this.viewId, this.lastSent); // [time, seq, payload]
+        const payload = stableStringify(data); // stable, to rule out platform differences
+
         // view sending events while connection is closing or rejoining
         if (!this.connected) {
-            if (this.island) this.sendBuffer.push(() => this.sendTutti(time, topic, data, firstMessage, wantsVote, tallyTarget));
+            if (this.island) {
+                if (DEBUG.sends) console.log(this.id, `buffering TUTTI ${payload} ${firstMessage && firstMessage.asState()} ${tallyTarget}`);
+                this.sendBuffer.push(() => this.sendTutti(time, topic, data, firstMessage, wantsVote, tallyTarget));
+            }
             return false;
         }
-        const payload = stableStringify(data); // stable, to rule out platform differences
+
         if (DEBUG.sends) console.log(this.id, `sending TUTTI ${payload} ${firstMessage && firstMessage.asState()} ${tallyTarget}`);
         this.lastSent = Date.now();
-        const encryptedMsg = firstMessage && await this.encryptMessage(firstMessage, this.viewId, this.lastSent); // [time, seq, payload]
         // jul 2021: in case we're assigned to an old reflector, supply a dummy tuttiSeq in
         // second place in the arg array.  the reflector expects an increasing 32-bit
         // number, and the number must be safely ahead of any tuttiSeq already recorded
@@ -1259,7 +1286,7 @@ export default class Controller {
             id: this.id,
             action: 'TUTTI',
             args: [time, dummyTuttiSeq, payload, encryptedMsg, wantsVote, tallyTarget, tuttiKey],
-        }));
+        }), false); // no rate limiting
         // will resolve to tally
         return new Promise(resolve => {
             if (this.tuttiHistory.length > 100) this.tuttiHistory.shift();
@@ -1269,11 +1296,15 @@ export default class Controller {
 
     sendLog(...args) {
         if (!this.connected) {
-            if (this.island) this.sendBuffer.push(() => this.sendLog(...args));
+            if (this.island) {
+                if (DEBUG.sends) console.log(this.id, `buffering LOG`);
+                this.sendBuffer.push(() => this.sendLog(...args));
+            }
             return;
         }
+        if (DEBUG.sends) console.log(this.id, `sending LOG`);
         if (args.length < 2) args = args[0];
-        this.connection.send(JSON.stringify({ action: 'LOG', args }));
+        this.connection.send(JSON.stringify({ action: 'LOG', args }), false); // no rate limiting
     }
 
     addToStatistics(timeSent, timeReceived) {
@@ -1413,12 +1444,32 @@ export default class Controller {
         if (stepType === "animation") {
             Stats.animationFrame(parameters.frameTime, { backlog, starvation, latency, activity, users: this.users });
 
-            this.lastAnimationTimes.push(Date.now());
-            if (this.lastAnimationTimes.length > ANIMATION_CHECK_FRAMES) this.lastAnimationTimes.shift();
+            const now = Date.now();
+            if (this.lastAnimationEnd) {
+                const thisGap = now - this.lastAnimationEnd;
+                // if regular animation had been detected, but this latest gap is
+                // unusually long, immediately drop the isBeingAnimated status and
+                // start counting frames again.
+                if (this.animationGapCheck === true && thisGap > ANIMATION_EXCESSIVE_FRAME_GAP) {
+                    this.animationGapCheck = [];
+                    if (DEBUG.session) console.log(`${this.id} animation has stopped (too long between steps)`);
+                }
+                if (this.animationGapCheck !== true) {
+                    const gaps = this.animationGapCheck;
+                    gaps.push(thisGap);
+                    if (gaps.length > ANIMATION_CHECK_FRAMES) gaps.shift();
+                    if (gaps.length === ANIMATION_CHECK_FRAMES && gaps.reduce((a, b) => a + b, 0) <= ANIMATION_CHECK_FRAMES * ANIMATION_REASONABLE_FRAME_GAP) {
+                        this.animationGapCheck = true;
+                        if (DEBUG.session) console.log(`${this.id} animation has started`);
+                    }
+                }
+            }
+
+            this.lastAnimationEnd = now; // will be replaced if we run through to the end
         }
 
         if (!this.connected) {
-            if (!this.isOutOfSight() && this.isBeingAnimated()) this.checkForConnection(true); // reconnect if not blocked
+            if (!this.isInBackground()) this.checkForConnection(true); // reconnect if not blocked
             return;
         }
 
@@ -1471,11 +1522,15 @@ export default class Controller {
         this.processModelViewEvents(stepType === "animation");
         Stats.end("update");
 
-        if (stepType !== "animation" || !parameters.view) return;
+        if (stepType !== "animation") return;
 
-        Stats.begin("render");
-        this.inViewRealm(() => parameters.view.update(parameters.frameTime));
-        Stats.end("render");
+        if (parameters.view) {
+            Stats.begin("render");
+            this.inViewRealm(() => parameters.view.update(parameters.frameTime));
+            Stats.end("render");
+        }
+
+        this.lastAnimationEnd = Date.now();
     }
 
     applySyncChange(bool) {
@@ -1500,7 +1555,7 @@ export default class Controller {
         return 0;
     }
 
-    /** Got the official time from reflector server, or local multiplier */
+    /** Got the official time from reflector (on SYNC, TICK or RECV), or local tick multiplier */
     timeFromReflector(time, src="reflector") {
         if (time < this.reflectorTime) { if (src !== "controller" || DEBUG.ticks) console.warn(`time is ${this.reflectorTime}, ignoring time ${time} from ${src}`); return; }
         if (typeof this.synced !== "boolean") this.synced = false;
@@ -1539,8 +1594,18 @@ export default class Controller {
         let isVisibleInViewport = null;
         /** whether to consider this tab visible, based on document.visibilityState and our IntersectionObserver */
         this.isOutOfSight = () => document.visibilityState === "hidden" || !isVisibleInViewport;
-        /** whether to consider this tab as being animated regularly.  it takes about 1 second to detect that animation has stopped. */
-        this.isBeingAnimated = () => this.lastAnimationTimes.length === ANIMATION_CHECK_FRAMES && Date.now() - this.lastAnimationTimes[0] < ANIMATION_MAX_SPREAD;
+        /** whether to consider this tab as being animated regularly.  it takes ANIMATION_EXCESSIVE_FRAME_GAP (200ms) to detect that animation has stopped, and ANIMATION_CHECK_FRAMES rapidly scheduled steps to signal that it has restarted. */
+        this.isBeingAnimated = () => {
+            const gapsOk = this.animationGapCheck === true;
+            const delayOk = Date.now() - this.lastAnimationEnd < ANIMATION_EXCESSIVE_FRAME_GAP;
+            if (gapsOk && !delayOk) {
+                this.animationGapCheck = []; // start counting again
+                if (DEBUG.session) console.log(`${this.id} animation has stopped (too long since last step)`);
+            }
+            return gapsOk && delayOk;
+            };
+        /** whether to consider this tab as being in the background. */
+        this.isInBackground = () => this.isOutOfSight() || !this.isBeingAnimated();
 
         const intersectionChanged = (entries, _observer) => isVisibleInViewport = entries[0].isIntersecting;
         const observer = new IntersectionObserver(intersectionChanged);
@@ -1634,11 +1699,19 @@ const UNSENT_TIMEOUT = 500;
 /** increase reconnect timeout exponentially up to this many ms */
 const RECONNECT_DELAY_MAX = 30000;
 
-
+const RATE_LIMIT_MAX = 60;             // max instantaneous send rate per second
+const RATE_LIMIT_WARNING = 30;         // warn user if more than this many messages in a second
+const RATE_LIMIT_BUFFER_WARNING = 30;  // warn user if more than this many messages in backlog (will take 500ms to clear)
+const RATE_LIMIT_BUFFER_MAX = 100;   // disconnect app if more than this many messages in backlog
+const RATE_LIMIT_UNBUFFERED_DISCONNECT_AFTER = 5; // seconds of excess sends to cause disconnection of a backgrounded app
 class Connection {
     constructor(controller) {
         this.controller = controller;
-        this.lastSent = 0;
+        this.socketLastSent = 0;        // only used for keepAlive check
+        this.rateLimitedSendTimes = []; // socket send times of last RATE_LIMIT_MAX events
+        this.rateLimitBuffer = [];      // events held back to avoid exceeding instantaneous send rate
+        this.rateLimitSoftWarned = false;
+        this.rateLimitBufferWarned = false;
         this.connectBlocked = false;
         this.connectRestricted = false;
         this.connectHasBeenCalled = false;
@@ -1652,7 +1725,7 @@ class Connection {
         this.missingTickThreshold = Math.min(ms * 3, 45000); // send PULSE after
     }
 
-    get connected() { return this.socket && this.socket.readyState === WebSocket.OPEN; }
+    get connected() { return !!(this.socket && this.socket.readyState === WebSocket.OPEN); }
 
     checkForConnection(force) {
         if (this.socket || this.connectHasBeenCalled) return;
@@ -1763,16 +1836,154 @@ class Connection {
     // from socketClosed handling, whether triggered by remote or local closure
     disconnected() {
         if (!this.socket) return;
+
         this.socket = null;
         this.lastReceived = 0;
-        this.lastSent = 0;
+        this.socketLastSent = 0;
+        this.rateLimitedSendTimes = [];
+        this.rateLimitBuffer = [];
+        this.rateLimitSoftWarned = false;
+        this.rateLimitBufferWarned = false;
+        delete this.rateLimitBackgroundTracker;
         this.stalledSince = 0;
         this.connectHasBeenCalled = false;
         this.controller.connectionInterrupted();
     }
 
-    send(data) {
-        this.lastSent = Date.now();
+    send(data, rateLimited=true) {
+        const now = Date.now();
+        if (rateLimited) {
+            const times = this.rateLimitedSendTimes;
+            const buffer = this.rateLimitBuffer;
+            const recordSendTime = time => {
+                // if controller isn't synced, don't push a duplicate time.
+                const isSynced = this.controller.synced;
+                if (isSynced || !times.length || times[times.length - 1] !== time) {
+                    times.push(time);
+                    if (times.length > RATE_LIMIT_MAX) times.shift();
+                }
+                if (this.controller.isInBackground() || !isSynced) {
+                    // if the tab is in the background, we don't throttle at all (we
+                    // can't rely on timers to clear the buffer), but we do watch the
+                    // rate of messages going out, and disconnect the app if over five
+                    // consecutive seconds it sends more than the permitted per-second
+                    // rate.  similarly while not synced, plus the above avoidance of
+                    // duplicate send times.
+                    if (times.length === RATE_LIMIT_MAX) {
+                        const pastSecondHadExcess = time - times[0] < 1000;
+                        const tracker = this.rateLimitBackgroundTracker;
+                        if (tracker) {
+                            if (time - tracker.periodStart >= 1000) {
+                                // a new second to check
+                                if (pastSecondHadExcess) {
+                                    const consecutive = tracker.seconds + 1;
+                                    if (consecutive === RATE_LIMIT_UNBUFFERED_DISCONNECT_AFTER) {
+                                        console.error(`${this.id} Disconnecting background app that attempted to sustain over ${RATE_LIMIT_MAX} sends to reflector per second.`);
+                                        this.closeConnectionWithError('SEND', Error(`Send rate exceeded`), 4200); // do not retry.  synchronously nulls out socket.
+                                        return;
+                                    }
+                                    if (DEBUG.session) console.log(`${this.id} Sends to reflector from background exceeded ${RATE_LIMIT_MAX} per second for ${consecutive} seconds`);
+                                    this.rateLimitBackgroundTracker = { periodStart: time, seconds: consecutive };
+                                } else {
+                                    delete this.rateLimitBackgroundTracker;
+                                }
+                            }
+                        } else if (pastSecondHadExcess) {
+                            this.rateLimitBackgroundTracker = { periodStart: time, seconds: 1 };
+                        }
+                    }
+                } else {
+                    delete this.rateLimitBackgroundTracker;
+
+                    if (!this.rateLimitSoftWarned && times.length >= RATE_LIMIT_WARNING && time - times[times.length - RATE_LIMIT_WARNING] < 1000) {
+                        console.log(`${this.id} Sends to reflector exceeded recommended limit of ${RATE_LIMIT_WARNING} within one second. If app attempts a sustained send rate above ${RATE_LIMIT_MAX} per second it will be disconnected.`);
+                        this.rateLimitSoftWarned = true;
+                    }
+                }
+                };
+
+            const sendFromBuffer = () => {
+                // in normal processing, any backlog in the buffer is serviced using
+                // chained timeouts that send one message at a time.
+                // if we find that the app is now in the background, the buffer is
+                // flushed because we can no longer rely on fine-grained timers.
+                if (!this.connected) return;
+
+                const buffered = buffer.length;
+                if (buffered) {
+                    const flushBuffer = this.controller.isInBackground();
+                    const numToProcess = flushBuffer ? buffered : 1;
+                    const laterNow = Date.now();
+                    for (let i=0; i < numToProcess; i++) {
+                        const sendData = buffer.shift();
+                        this.socketLastSent = laterNow;
+                        if (!flushBuffer) recordSendTime(laterNow); // could potentially disconnect
+                        if (this.connected) this.socket.send(sendData);
+                    }
+                    if (flushBuffer) recordSendTime(laterNow); // just one timestamp
+                    if (DEBUG.session && this.connected) {
+                        if (flushBuffer) {
+                            console.log(`${this.id} flushed ${numToProcess} entries from SEND rate-limit buffer`);
+                        } else {
+                            const nowBuffered = buffer.length;
+                            if (nowBuffered && nowBuffered % 10 === 0 && nowBuffered !== this.rateLimitLastLogged) {
+                                console.log(`${this.id} SEND rate-limit buffer has ${nowBuffered} entries`);
+                                this.rateLimitLastLogged = nowBuffered;
+                            }
+                        }
+                    }
+                }
+
+                // if buffer still has events, schedule again
+                if (buffer.length) setTimeout(sendFromBuffer, 1000 / RATE_LIMIT_MAX);
+                };
+
+            // if there are already events in the buffer, this message has to join the queue
+            if (buffer.length) {
+                buffer.push(data);
+                const buffered = buffer.length;
+                if (DEBUG.session && buffered % 10 === 0 && buffered !== this.rateLimitLastLogged) {
+                    console.log(`${this.id} SEND rate-limit buffer has ${buffered} entries`);
+                    this.rateLimitLastLogged = buffered;
+                }
+                // only check for buffer overflow if app is in foreground.  in a transition
+                // to background, it's possible that many extra message sends will happen
+                // before the sendFromBuffer timeout eventually gets fired.
+                if (!this.controller.isInBackground()) {
+                    if (buffered > RATE_LIMIT_BUFFER_MAX) {
+                        console.error(`${this.id} Disconnecting after sustained sends to reflector above ${RATE_LIMIT_MAX} per second.`);
+                        this.closeConnectionWithError('SEND', Error(`Send rate exceeded`), 4200); // do not retry.  synchronously nulls out socket.
+                        return;
+                    }
+                    if (!this.rateLimitBufferWarned && buffered > RATE_LIMIT_BUFFER_WARNING) {
+                        console.warn(`${this.id} Sends to reflector exceed hard limit of ${RATE_LIMIT_MAX} per second. Attempting to rate-limit through a buffer, but if app sustains the excessive rate it will be disconnected.`);
+                        this.rateLimitBufferWarned = true;
+                    }
+                }
+                return;
+            }
+
+            let delay = 0;
+            // once we have any record of recent sends, compare now to last send time.
+            // postpone if closer than allowed by the maximum instantaneous rate.
+            // avoid buffering if controller is not being animated, or if it is being
+            // synced.
+            if (times.length && this.controller.synced && !this.controller.isInBackground()) {
+                const lastSend = times[times.length - 1];
+                const stillToWait = 1000 / RATE_LIMIT_MAX - (now - lastSend);
+                if (stillToWait > 1) delay = Math.floor(stillToWait);
+            }
+            if (delay) {
+                buffer.push(data);
+                setTimeout(sendFromBuffer, delay);
+                return;
+            }
+
+            recordSendTime(now); // could potentially disconnect
+            if (!this.connected) return;
+        }
+
+        this.socketLastSent = now;
         this.socket.send(data);
     }
 
@@ -1798,11 +2009,13 @@ class Connection {
     closeConnectionWithError(caller, error, code=4000) {
         console.error(error);
         console.warn('closing socket');
+        if (code >= 4100 && code !== 4110) this.controller.leaving = () => {}; // dummy function to cause session to shut down irreversibly unless just going dormant
         this.closeConnection(code, 'Error in ' + caller);
         // closing with error code < 4100 will try to reconnect
     }
 
     closeConnection(code, message) {
+        // NB: if this.socket is non-null this method synchronously sends disconnect(), which nulls it out
         if (!this.socket) return;
 
         // it turns out that a socket can get into a state in which sending close()
@@ -1820,7 +2033,7 @@ class Connection {
         if (this.socket.bufferedAmount === 0) {
             // only send a pulse if no other outgoing data pending
             if (DEBUG.session) console.log(`${this.id} sending PULSE`);
-            this.send(JSON.stringify({ action: 'PULSE' }));
+            this.send(JSON.stringify({ action: 'PULSE' }), false); // no rate limiting
             this.stalledSince = 0;
         } else if (this.stalledSince && now - this.stalledSince > UNSENT_TIMEOUT) {
             // only warn about unsent data after a certain time
@@ -1833,7 +2046,7 @@ class Connection {
         // the view is not currently being animated.
         if (this.lastReceived === 0) return; // haven't yet consummated the connection
         // the reflector expects to hear from us at least every 30 seconds
-        if (now - this.lastSent > PULSE_TIMEOUT) this.PULSE(now);
+        if (now - this.socketLastSent > PULSE_TIMEOUT) this.PULSE(now);
         // also, if we are expecting steady ticks, prevent the connection from going idle,
         // which causes some router/computer combinations to buffer packets instead
         // of delivering them immediately (observed on AT&T Fiber + Mac)
@@ -1875,7 +2088,7 @@ CONTROLLER:
     if no SYNC received 5s after sending JOIN, close connection and try again
 
     every 100ms in an animated tab; on every TICK and RECV if not animated (so at worst, on a 30s-interval TICK):
-        if lastSent > 25s:
+        if socketLastSent > 25s:
             send PULSE to server (max ~25s + 30s since last send)
         else if lastReceived > min(3*TICK, 45s):
             send PULSE to server
@@ -1884,6 +2097,6 @@ CONTROLLER:
         reset lastReceived
 
     on any send to server:
-        reset lastSent
+        reset socketLastSent
 
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
