@@ -4,6 +4,7 @@ This is a private summary of changes. The public changes are in the SDK [README.
 
 # latest pre-releases
 
+* 0.5.1-15 use event bundling to raise allowable send rate
 * 0.5.1-14 add per-client rate limit on sends via reflector
 * 0.5.1-13 fix failure to transfer persistentId to session; allow string handlers in view subscribe
 * 0.5.1-12 replace tuttiSeq for identifying votes; cache code hash; various renames in Controller
