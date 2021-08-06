@@ -2056,7 +2056,7 @@ class Connection {
 
 window.setInterval(() => {
     for (const controller of Controllers) {
-        if (!controller.connected) continue;
+        if (!controller.connected || !controller.island) continue;
         controller.connection.keepAlive(Date.now());
     }
 }, KEEP_ALIVE_INTERVAL);
