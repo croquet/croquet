@@ -526,12 +526,11 @@ export default class Controller {
     }
 
     snapshotPath(time, seq, hash) {
-        const pad = n => ("" + n).padStart(10, '0');
         // snapshot time is full precision. for storage name, we use full ms.
-        const filename = `${pad(Math.ceil(time))}_${seq}-${hash}`;
-        const { appId, persistentId, apiKey } = this.sessionSpec;
-        if (!apiKey) return `snapshots/${this.id}/${filename}.snap`;
-        return `apps/${appId}/${persistentId}/snap/${this.id}/${filename}`;
+        const paddedTime = Math.ceil(time).toString().padStart(10, '0');
+        const { appId, persistentId, codeHash, apiKey } = this.sessionSpec;
+        if (!apiKey) return `snapshots/${this.id}/${paddedTime}_${seq}-${hash}.snap`;
+        return `apps/${appId}/snap/${codeHash}/${persistentId}.${this.id}/${paddedTime}_${seq}.${hash}`;
     }
 
     hashSnapshot(snapshot) {
