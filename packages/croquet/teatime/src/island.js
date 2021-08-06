@@ -560,6 +560,14 @@ export default class Island {
         this.handleViewEventInView(topic, data);
     }
 
+    handlePackedEvents(_topic, data) {
+        const { events } = data;
+        for (const msgState of events) {
+            const message = Message.fromState(msgState, this);
+            message.executeOn(this, true); // nested invocation
+        }
+    }
+
     handleModelEventInModel(topic, data, reflect=false) {
         // model=>model events are handled synchronously unless reflected
         // because making them async would mean having to use future messages
@@ -861,32 +869,31 @@ export class Message {
         return new Message(time, seq, receiver, selector, args);
     }
 
-    executeOn(island) {
+    executeOn(island, nested=false) {
+        const executor = nested
+            ? fn => fn()
+            : fn => execOnIsland(island, () => inModelRealm(island, fn));
         const { receiver, selector, args } = this;
         const object = island.lookUpModel(receiver);
         if (!object) displayWarning(`${this.shortString()} ${selector}(): receiver not found`);
         else if (selector[0] === '{') {
             const fn = bindQFunc(selector, object);
-            execOnIsland(island, () => {
-                inModelRealm(island, () => {
-                    try {
-                        fn(...args);
-                    } catch (error) {
-                        displayAppError(`${this.shortString()} ${fn}`, error);
-                    }
+            executor(() => {
+                try {
+                    fn(...args);
+                } catch (error) {
+                    displayAppError(`${this.shortString()} ${fn}`, error);
+                }
                 });
-            });
         } else if (typeof object[selector] !== "function") {
             displayWarning(`${this.shortString()} ${object}.${selector}(): method not found`);
-        } else execOnIsland(island, () => {
-            inModelRealm(island, () => {
-                try {
-                    object[selector](...args);
-                } catch (error) {
-                    displayAppError(`${this.shortString()} ${object}.${selector}()`, error);
-                }
+        } else executor(() => {
+            try {
+                object[selector](...args);
+            } catch (error) {
+                displayAppError(`${this.shortString()} ${object}.${selector}()`, error);
+            }
             });
-        });
     }
 
     shortString() {

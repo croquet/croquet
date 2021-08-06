@@ -107,6 +107,13 @@ const ANIMATION_REASONABLE_FRAME_GAP = 100;
 // assume animation has stopped if more than this delay in ms since end of most recent step
 const ANIMATION_EXCESSIVE_FRAME_GAP = ANIMATION_REASONABLE_FRAME_GAP * 2;
 
+const RATE_LIMIT_MAX = 30;          // max instantaneous send rate per second
+const RATE_LIMIT_WARNING = 30;      // warn user if more than this many sends in a second
+const RATE_LIMIT_BUFFER_MAX = 30;   // disconnect app if more than this many message bundles in backlog
+
+const PAYLOAD_LIMIT_RECOMMENDED = 4 * 1024;
+const PAYLOAD_LIMIT_MAX = 16 * 1024;
+
 // for loading snapshots from before we required passwords
 let DEPRECATED_DEFAULT_KEY; // initialized only when needed, for speed
 
@@ -212,6 +219,15 @@ export default class Controller {
         this.lastAnimationEnd = 0;
         /** array of gaps between animation end and the next start.  replaced with the value true once rapid animation has been detected. */
         this.animationGapCheck = [];
+        /** socket send times of last RATE_LIMIT_WARNING events */
+        this.rateLimitedSendTimes = [];
+        /** events held back and bundled to avoid exceeding instantaneous send rate */
+        this.rateLimitBuffer = [];
+        this.rateLimitSoftWarned = false;
+        this.rateLimitBufferWarned = false;
+        this.rateLimitLastLogged = 0;
+        this.payloadSizeWarned = false;
+// this.stats = {};
 
         // controller (only) gets to subscribe to events using the shared viewId as the "subscriber" argument
         viewDomain.removeAllSubscriptionsFor(this.viewId); // in case we're recycling
@@ -591,7 +607,7 @@ export default class Controller {
                 id: this.id,
                 action: 'SNAP',
                 args: {time, seq, hash, url, dissident: dissidentFlag},
-            }), false); // no rate limiting
+            }));
         } catch (e) {
             console.error('ERROR while sending', e);
         }
@@ -687,7 +703,7 @@ export default class Controller {
                 id: this.id,
                 action: 'SAVE',
                 args: { persistTime, url, dissident: dissidentFlag },
-            }), false); // no rate limiting
+            }));
         } catch (e) {
             console.error('ERROR while sending', e);
         }
@@ -1039,7 +1055,7 @@ export default class Controller {
             id: this.id,
             action: 'JOIN',
             args,
-        }), false); // no rate limiting (though shouldn't be an issue)
+        }));
 
         this.syncReceiptTimeout = setTimeout(() => {
             delete this.syncReceiptTimeout;
@@ -1189,30 +1205,166 @@ export default class Controller {
     /** send a Message to all island replicas via reflector
      * @param {Message} msg
     */
-    async sendMessage(msg, rateLimited=true) {
+    sendMessage(msg) {
         // SEND: Broadcast a message to all participants.
         if (this.viewOnly) return;
 
+        const payloadLength = msg.asState()[2].length;
+        if (payloadLength > PAYLOAD_LIMIT_MAX) {
+            console.warn(`${this.id} Message with payload of ${payloadLength} bytes exceeds maximum ${PAYLOAD_LIMIT_MAX} and will not be sent to reflector.`);
+            return;
+        }
+        if (!this.payloadSizeWarned && payloadLength > PAYLOAD_LIMIT_RECOMMENDED) {
+            console.log(`${this.id} Message with payload of ${payloadLength} bytes being sent to reflector. Maximum recommended is ${PAYLOAD_LIMIT_RECOMMENDED}.`);
+            this.payloadSizeWarned = true;
+        }
+
+        const now = Date.now();
+        const times = this.rateLimitedSendTimes;
+        const buffer = this.rateLimitBuffer;
+// const stats = this.stats;
+// stats.sentMsgs = (stats.sentMsgs || 0) + 1;
+
+        // if there are already events in the buffer, this message has to join the queue
+        if (buffer.length) {
+// this.stats.bufferedMsgs = (this.stats.bufferedMsgs || 0) + 1;
+            this.addToRateLimitBuffer(msg); // can potentially cause disconnection
+            return;
+        }
+
+        let delay = 0;
+        // once we have any record of recent sends, compare now to last send time.
+        // postpone if closer than allowed by the maximum instantaneous rate.
+        // avoid buffering if controller is being synced.
+        if (times.length && this.synced) {
+            const lastSend = times[times.length - 1];
+            const stillToWait = 1000 / RATE_LIMIT_MAX - (now - lastSend);
+            if (stillToWait > 1) delay = Math.ceil(stillToWait); // we want the timeout to be long enough to be sure to satisfy the gap
+        }
+        if (!delay) {
+            // go ahead immediately
+            this.recordRateLimitedSend(now);
+            this.socketSendMessage(msg);
+        } else {
+// this.stats.bufferedMsgs = (this.stats.bufferedMsgs || 0) + 1;
+            this.addToRateLimitBuffer(msg);
+            setTimeout(() => this.serviceRateLimitBuffer(), delay);
+        }
+    }
+
+    recordRateLimitedSend(time) {
+        const times = this.rateLimitedSendTimes;
+        // if controller isn't synced, don't push a duplicate time.
+        const isSynced = this.synced;
+        if (isSynced || !times.length || times[times.length - 1] !== time) {
+            times.push(time);
+            if (times.length > RATE_LIMIT_WARNING) times.shift();
+        }
+
+        // it's not a short gap between consecutive messages that should trigger a
+        // warning, but any sustained sending at the peak rate (whether or not we're
+        // using the buffer).
+        if (!this.rateLimitSoftWarned && times.length === RATE_LIMIT_WARNING && time - times[0] < 1010) { // close enough
+            console.log(`${this.id} Sends to reflector are at or above recommended limit of ${RATE_LIMIT_WARNING} within one second. Events will be bundled as necessary to keep to the limit.`);
+            this.rateLimitSoftWarned = true;
+        }
+    }
+
+    addToRateLimitBuffer(msg) {
+        // rateLimitBuffer is an array of { msgStates, totalPayload } bundles
+        const msgState = msg.asState(); // [time, seq, payload]
+        const payloadLength = msgState[2].length;
+        const buffer = this.rateLimitBuffer;
+        if (buffer.length) {
+            const lastBundle = buffer[buffer.length - 1];
+            const { msgStates, totalPayload } = lastBundle;
+            // add until the sum of payload sizes reaches our soft limit
+            if (totalPayload < PAYLOAD_LIMIT_RECOMMENDED) {
+                // ok to add
+                msgStates.push(msgState);
+                lastBundle.totalPayload += payloadLength;
+                return;
+            }
+        }
+
+        // start a new bundle
+        buffer.push({ msgStates: [msgState], totalPayload: payloadLength });
+        const buffered = buffer.length;
+        if (DEBUG.session && buffered % 5 === 0 && buffered !== this.rateLimitLastLogged) {
+            console.log(`${this.id} SEND rate-limit buffer grew to ${buffered} event bundles (max ${RATE_LIMIT_BUFFER_MAX})`);
+            this.rateLimitLastLogged = buffered;
+        }
+        if (buffered > RATE_LIMIT_BUFFER_MAX) {
+            console.error(`${this.id} Disconnecting after overflow of SEND rate-limit buffer.`);
+            this.connection.closeConnectionWithError('SEND', Error(`Send rate exceeded`), 4200); // do not retry.  synchronously nulls out socket.
+        } else if (!this.rateLimitBufferWarned && buffered > RATE_LIMIT_BUFFER_MAX / 2) {
+            console.warn(`${this.id} SEND rate-limit buffer is 50% full. If send rate does not drop, the app will be disconnected.`);
+            this.rateLimitBufferWarned = true;
+        }
+    }
+
+    serviceRateLimitBuffer() {
+        if (!this.connected) return;
+
+        const buffer = this.rateLimitBuffer;
+        const buffered = buffer.length;
+        if (!buffered) return;
+
+        const now = Date.now();
+        const minGap = 1000 / RATE_LIMIT_MAX;
+        const times = this.rateLimitedSendTimes;
+        if (times.length) {
+            const lastSend = times[times.length - 1];
+            const stillToWait = minGap - (now - lastSend);
+            if (stillToWait > 0) return;
+        }
+
+        const bundle = buffer.shift();
+        const { msgStates } = bundle;
+        const envelope = new Message(this.island.time, 0, this.island.id, "handlePackedEvents", ["dummy", { events: msgStates }]);
+        this.socketSendMessage(envelope);
+        this.recordRateLimitedSend(now);
+// this.stats.unbufferedMsgs = (this.stats.unbufferedMsgs || 0) + msgStates.length;
+
+        if (DEBUG.session && this.connected) {
+            const nowBuffered = buffer.length;
+            if (nowBuffered && nowBuffered % 5 === 0 && nowBuffered !== this.rateLimitLastLogged) {
+                console.log(`${this.id} SEND rate-limit buffer dropped to ${nowBuffered} event bundles`);
+                this.rateLimitLastLogged = nowBuffered;
+            }
+        }
+
+        // if there are still entries in the buffer, schedule a timeout to
+        // take another bite.
+        if (buffer.length) setTimeout(() => this.serviceRateLimitBuffer(), minGap);
+    }
+
+    async socketSendMessage(msg, tags=null) {
         // get the asynchronous encoding out of the way before the check that
         // we're still connected.
         const encryptedMsg = await this.encryptMessage(msg, this.viewId, this.lastSent); // [time, seq, payload]
 
+        const description = tags ? `tagged SEND ${msg.asState()} with tags ${JSON.stringify(tags)}` : `SEND ${msg.asState()}`;
+
         // view sending events while connection is closing or rejoining
         if (!this.connected) {
             if (this.island) {
-                if (DEBUG.sends) console.log(this.id, `buffering SEND ${msg.asState()}`);
-                this.sendBuffer.push(() => this.sendMessage(msg, false)); // no rate limit when clearing the buffered messages
+                if (DEBUG.sends) console.log(this.id, `buffering ${description}`);
+                this.sendBuffer.push(() => this.socketSendMessage(msg, tags));
             }
             return;
         }
 
-        if (DEBUG.sends) console.log(this.id, `sending SEND ${msg.asState()}`);
-        this.lastSent = Date.now();
-        this.connection.send(JSON.stringify({
+        if (DEBUG.sends) console.log(this.id, `sending ${description}`);
+
+        const toSend = {
             id: this.id,
             action: 'SEND',
             args: [...encryptedMsg, this.latency],
-        }), rateLimited);
+            };
+        if (tags) toSend.tags = tags;
+        this.lastSent = Date.now();
+        this.connection.send(JSON.stringify(toSend));
     }
 
     /** send a Message to all island replicas via reflector, subject to reflector preprocessing as determined by the tag(s)
@@ -1220,30 +1372,15 @@ export default class Controller {
      * @param {Object} tags
     */
     async sendTagged(msg, tags) {
-        // reflector SEND protocol now allows for an additional tags property.  previous
-        // reflector versions will handle as a standard SEND.
+        // reflector SEND protocol allows for an additional tags property.
+        // as of aug 2021, the only tagging is 'debounce'.  for example:
+        //    { debounce: 1000, msgID: "pollForSnapshot" }
+
+        // because the reflector can't see details of messages that are
+        // combined into bundles, tagged messages always bypass the buffering.
         if (this.viewOnly) return;
 
-        // get the asynchronous encoding out of the way before the check that
-        // we're still connected.
-        const encryptedMsg = await this.encryptMessage(msg, this.viewId, this.lastSent); // [time, seq, payload]
-
-        // view sending events while connection is closing or rejoining
-        if (!this.connected) {
-            if (this.island) {
-                if (DEBUG.sends) console.log(this.id, `buffering tagged SEND ${msg.asState()} with tags ${JSON.stringify(tags)}`);
-                this.sendBuffer.push(() => this.sendTagged(msg, tags));
-            }
-            return;
-        }
-        if (DEBUG.sends) console.log(this.id, `sending tagged SEND ${msg.asState()} with tags ${JSON.stringify(tags)}`);
-        this.lastSent = Date.now();
-        this.connection.send(JSON.stringify({
-            id: this.id,
-            action: 'SEND',
-            args: [...encryptedMsg, this.latency],
-            tags
-        }));
+        this.socketSendMessage(msg, tags);
     }
 
     /** send a TUTTI Message
@@ -1286,7 +1423,7 @@ export default class Controller {
             id: this.id,
             action: 'TUTTI',
             args: [time, dummyTuttiSeq, payload, encryptedMsg, wantsVote, tallyTarget, tuttiKey],
-        }), false); // no rate limiting
+        }));
         // will resolve to tally
         return new Promise(resolve => {
             if (this.tuttiHistory.length > 100) this.tuttiHistory.shift();
@@ -1304,7 +1441,7 @@ export default class Controller {
         }
         if (DEBUG.sends) console.log(this.id, `sending LOG`);
         if (args.length < 2) args = args[0];
-        this.connection.send(JSON.stringify({ action: 'LOG', args }), false); // no rate limiting
+        this.connection.send(JSON.stringify({ action: 'LOG', args }));
     }
 
     addToStatistics(timeSent, timeReceived) {
@@ -1440,6 +1577,13 @@ export default class Controller {
     // onAnimationFrame handler below, or by the application if it chooses
     // to step manually
     stepSession(stepType, parameters={}) {
+// const sec = Math.floor(Date.now() / 1000);
+// if (sec !== this.lastSec) {
+//     if (this.stats.sentMsgs) console.log((new Date()).toISOString(), JSON.stringify(this.stats));
+//     this.stats = {};
+//     this.lastSec = sec;
+// }
+
         const { backlog, latency, starvation, activity } = this;
         if (stepType === "animation") {
             Stats.animationFrame(parameters.frameTime, { backlog, starvation, latency, activity, users: this.users });
@@ -1521,6 +1665,14 @@ export default class Controller {
         Stats.begin("update");
         this.processModelViewEvents(stepType === "animation");
         Stats.end("update");
+
+        // the buffer for rate-limited SENDS is serviced by timeouts when
+        // the session is being animated, and will ignore additional
+        // invocations that don't fit its schedule.
+        // checking from here means it will also be called when the session
+        // is in the background, when we step on every TICK and RECV from
+        // the reflector.
+        this.serviceRateLimitBuffer();
 
         if (stepType !== "animation") return;
 
@@ -1699,19 +1851,10 @@ const UNSENT_TIMEOUT = 500;
 /** increase reconnect timeout exponentially up to this many ms */
 const RECONNECT_DELAY_MAX = 30000;
 
-const RATE_LIMIT_MAX = 60;             // max instantaneous send rate per second
-const RATE_LIMIT_WARNING = 30;         // warn user if more than this many messages in a second
-const RATE_LIMIT_BUFFER_WARNING = 30;  // warn user if more than this many messages in backlog (will take 500ms to clear)
-const RATE_LIMIT_BUFFER_MAX = 100;   // disconnect app if more than this many messages in backlog
-const RATE_LIMIT_UNBUFFERED_DISCONNECT_AFTER = 5; // seconds of excess sends to cause disconnection of a backgrounded app
 class Connection {
     constructor(controller) {
         this.controller = controller;
         this.socketLastSent = 0;        // only used for keepAlive check
-        this.rateLimitedSendTimes = []; // socket send times of last RATE_LIMIT_MAX events
-        this.rateLimitBuffer = [];      // events held back to avoid exceeding instantaneous send rate
-        this.rateLimitSoftWarned = false;
-        this.rateLimitBufferWarned = false;
         this.connectBlocked = false;
         this.connectRestricted = false;
         this.connectHasBeenCalled = false;
@@ -1840,150 +1983,13 @@ class Connection {
         this.socket = null;
         this.lastReceived = 0;
         this.socketLastSent = 0;
-        this.rateLimitedSendTimes = [];
-        this.rateLimitBuffer = [];
-        this.rateLimitSoftWarned = false;
-        this.rateLimitBufferWarned = false;
-        delete this.rateLimitBackgroundTracker;
         this.stalledSince = 0;
         this.connectHasBeenCalled = false;
         this.controller.connectionInterrupted();
     }
 
-    send(data, rateLimited=true) {
-        const now = Date.now();
-        if (rateLimited) {
-            const times = this.rateLimitedSendTimes;
-            const buffer = this.rateLimitBuffer;
-            const recordSendTime = time => {
-                // if controller isn't synced, don't push a duplicate time.
-                const isSynced = this.controller.synced;
-                if (isSynced || !times.length || times[times.length - 1] !== time) {
-                    times.push(time);
-                    if (times.length > RATE_LIMIT_MAX) times.shift();
-                }
-                if (this.controller.isInBackground() || !isSynced) {
-                    // if the tab is in the background, we don't throttle at all (we
-                    // can't rely on timers to clear the buffer), but we do watch the
-                    // rate of messages going out, and disconnect the app if over five
-                    // consecutive seconds it sends more than the permitted per-second
-                    // rate.  similarly while not synced, plus the above avoidance of
-                    // duplicate send times.
-                    if (times.length === RATE_LIMIT_MAX) {
-                        const pastSecondHadExcess = time - times[0] < 1000;
-                        const tracker = this.rateLimitBackgroundTracker;
-                        if (tracker) {
-                            if (time - tracker.periodStart >= 1000) {
-                                // a new second to check
-                                if (pastSecondHadExcess) {
-                                    const consecutive = tracker.seconds + 1;
-                                    if (consecutive === RATE_LIMIT_UNBUFFERED_DISCONNECT_AFTER) {
-                                        console.error(`${this.id} Disconnecting background app that attempted to sustain over ${RATE_LIMIT_MAX} sends to reflector per second.`);
-                                        this.closeConnectionWithError('SEND', Error(`Send rate exceeded`), 4200); // do not retry.  synchronously nulls out socket.
-                                        return;
-                                    }
-                                    if (DEBUG.session) console.log(`${this.id} Sends to reflector from background exceeded ${RATE_LIMIT_MAX} per second for ${consecutive} seconds`);
-                                    this.rateLimitBackgroundTracker = { periodStart: time, seconds: consecutive };
-                                } else {
-                                    delete this.rateLimitBackgroundTracker;
-                                }
-                            }
-                        } else if (pastSecondHadExcess) {
-                            this.rateLimitBackgroundTracker = { periodStart: time, seconds: 1 };
-                        }
-                    }
-                } else {
-                    delete this.rateLimitBackgroundTracker;
-
-                    if (!this.rateLimitSoftWarned && times.length >= RATE_LIMIT_WARNING && time - times[times.length - RATE_LIMIT_WARNING] < 1000) {
-                        console.log(`${this.id} Sends to reflector exceeded recommended limit of ${RATE_LIMIT_WARNING} within one second. If app attempts a sustained send rate above ${RATE_LIMIT_MAX} per second it will be disconnected.`);
-                        this.rateLimitSoftWarned = true;
-                    }
-                }
-                };
-
-            const sendFromBuffer = () => {
-                // in normal processing, any backlog in the buffer is serviced using
-                // chained timeouts that send one message at a time.
-                // if we find that the app is now in the background, the buffer is
-                // flushed because we can no longer rely on fine-grained timers.
-                if (!this.connected) return;
-
-                const buffered = buffer.length;
-                if (buffered) {
-                    const flushBuffer = this.controller.isInBackground();
-                    const numToProcess = flushBuffer ? buffered : 1;
-                    const laterNow = Date.now();
-                    for (let i=0; i < numToProcess; i++) {
-                        const sendData = buffer.shift();
-                        this.socketLastSent = laterNow;
-                        if (!flushBuffer) recordSendTime(laterNow); // could potentially disconnect
-                        if (this.connected) this.socket.send(sendData);
-                    }
-                    if (flushBuffer) recordSendTime(laterNow); // just one timestamp
-                    if (DEBUG.session && this.connected) {
-                        if (flushBuffer) {
-                            console.log(`${this.id} flushed ${numToProcess} entries from SEND rate-limit buffer`);
-                        } else {
-                            const nowBuffered = buffer.length;
-                            if (nowBuffered && nowBuffered % 10 === 0 && nowBuffered !== this.rateLimitLastLogged) {
-                                console.log(`${this.id} SEND rate-limit buffer has ${nowBuffered} entries`);
-                                this.rateLimitLastLogged = nowBuffered;
-                            }
-                        }
-                    }
-                }
-
-                // if buffer still has events, schedule again
-                if (buffer.length) setTimeout(sendFromBuffer, 1000 / RATE_LIMIT_MAX);
-                };
-
-            // if there are already events in the buffer, this message has to join the queue
-            if (buffer.length) {
-                buffer.push(data);
-                const buffered = buffer.length;
-                if (DEBUG.session && buffered % 10 === 0 && buffered !== this.rateLimitLastLogged) {
-                    console.log(`${this.id} SEND rate-limit buffer has ${buffered} entries`);
-                    this.rateLimitLastLogged = buffered;
-                }
-                // only check for buffer overflow if app is in foreground.  in a transition
-                // to background, it's possible that many extra message sends will happen
-                // before the sendFromBuffer timeout eventually gets fired.
-                if (!this.controller.isInBackground()) {
-                    if (buffered > RATE_LIMIT_BUFFER_MAX) {
-                        console.error(`${this.id} Disconnecting after sustained sends to reflector above ${RATE_LIMIT_MAX} per second.`);
-                        this.closeConnectionWithError('SEND', Error(`Send rate exceeded`), 4200); // do not retry.  synchronously nulls out socket.
-                        return;
-                    }
-                    if (!this.rateLimitBufferWarned && buffered > RATE_LIMIT_BUFFER_WARNING) {
-                        console.warn(`${this.id} Sends to reflector exceed hard limit of ${RATE_LIMIT_MAX} per second. Attempting to rate-limit through a buffer, but if app sustains the excessive rate it will be disconnected.`);
-                        this.rateLimitBufferWarned = true;
-                    }
-                }
-                return;
-            }
-
-            let delay = 0;
-            // once we have any record of recent sends, compare now to last send time.
-            // postpone if closer than allowed by the maximum instantaneous rate.
-            // avoid buffering if controller is not being animated, or if it is being
-            // synced.
-            if (times.length && this.controller.synced && !this.controller.isInBackground()) {
-                const lastSend = times[times.length - 1];
-                const stillToWait = 1000 / RATE_LIMIT_MAX - (now - lastSend);
-                if (stillToWait > 1) delay = Math.floor(stillToWait);
-            }
-            if (delay) {
-                buffer.push(data);
-                setTimeout(sendFromBuffer, delay);
-                return;
-            }
-
-            recordSendTime(now); // could potentially disconnect
-            if (!this.connected) return;
-        }
-
-        this.socketLastSent = now;
+    send(data) {
+        this.socketLastSent = Date.now();
         this.socket.send(data);
     }
 
@@ -2033,7 +2039,7 @@ class Connection {
         if (this.socket.bufferedAmount === 0) {
             // only send a pulse if no other outgoing data pending
             if (DEBUG.session) console.log(`${this.id} sending PULSE`);
-            this.send(JSON.stringify({ action: 'PULSE' }), false); // no rate limiting
+            this.send(JSON.stringify({ action: 'PULSE' }));
             this.stalledSince = 0;
         } else if (this.stalledSince && now - this.stalledSince > UNSENT_TIMEOUT) {
             // only warn about unsent data after a certain time
