@@ -173,6 +173,7 @@ class M {
     }
 
     startPublishingPointerMove() {
+        if (this._moveHandler) {return;}
         this._moveHandler = evt => this.send("pointerPosition", {x: evt.clientX, y: evt.clientY, type: evt.type});
         window.document.addEventListener("pointermove", this._moveHandler, true);
     }
