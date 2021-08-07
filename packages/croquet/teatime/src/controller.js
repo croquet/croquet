@@ -171,6 +171,8 @@ export default class Controller {
         this.extrapolatedTimeBase = Date.now();
         /** key generated from password, shared by all clients in session */
         this.key = this.key || null;
+        /** encrypted message used to verify all clients actually use the same key */
+        this.tove = this.tove || null;
         /** @type {String} the client id (different in each replica, but stays the same on reconnect) */
         this.viewId = this.viewId || randomString(); // todo: have reflector assign unique ids
         /** @type {String} stateless reflectors always start new session, this is the only way to notice that */
@@ -316,6 +318,7 @@ export default class Controller {
             else if (key in sessionSpec) params[key] = sessionSpec[key];
         }
         this.key = PBKDF2(password, "", { keySize: 256/32 });
+        this.tove = await this.encrypt(this.sessionId);
         const { id, persistentId, codeHash } = await hashSessionAndCode(name, options, params, SDK_VERSION);
         if (DEBUG.session) console.log(`Croquet session "${name}":
         sessionId=${id}${appId ? `
@@ -798,7 +801,15 @@ export default class Controller {
 
                 Controllers.add(this);
 
-                const {messages, url, persisted, time, seq, /* snapshotTime, */ snapshotSeq, reflector} = args;
+                const {messages, url, persisted, time, seq, /* snapshotTime, */ snapshotSeq, tove, reflector} = args;
+                // check that we are able to decode a shared secret (unless it's our own)
+                if (tove && tove !== this.tove) try {
+                    // decryptPayload will throw if it can't decrypt, which is the expected result if joining with a wrong password
+                    if (this.decryptPayload(tove) !== this.sessionId) throw Error("wrong sessionId in tove?!");
+                } catch {
+                    this.connection.closeConnectionWithError('SYNC', Error(`failed to decrypt session secret: ${err.message}`), 4200); // do not retry
+                    return;
+                }
                 const timeline = args.timeline || args.reflectorSession; // renamed "reflectorSession" to "timeline"
                 const persistedOrSnapshot = persisted ? "persisted session" : "snapshot";
                 if (DEBUG.session) console.log(this.id, `received SYNC from ${reflector} reflector: time ${time}, ${messages.length} messages, ${persistedOrSnapshot} ${url || "<none>"}`);
@@ -1034,6 +1045,7 @@ export default class Controller {
             user: this.viewId,      // see island.generateJoinExit() for getting location data
             ticks: { tick, delay },
             dormantDelay: autoSleep, // not used yet, but tells reflector this client is >= 0.5.1
+            tove: this.tove,        // an encrypted message the reflector will send to every client in SYNC
             url: App.referrerURL(), // for debugging only
             codeHash,               // for debugging only
             sdk: SDK_VERSION,       // for debugging only
