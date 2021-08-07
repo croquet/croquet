@@ -106,12 +106,9 @@ const ANIMATION_CHECK_FRAMES = 4;
 const ANIMATION_REASONABLE_FRAME_GAP = 100;
 // assume animation has stopped if more than this delay in ms since end of most recent step
 const ANIMATION_EXCESSIVE_FRAME_GAP = ANIMATION_REASONABLE_FRAME_GAP * 2;
-
-const RATE_LIMIT_MAX = 30;          // max instantaneous send rate per second
-const RATE_LIMIT_WARNING = 30;      // warn user if more than this many sends in a second
-const RATE_LIMIT_BUFFER_MAX = 30;   // disconnect app if more than this many message bundles in backlog
-
+// maximum recommended payload size (once string-encoded)
 const PAYLOAD_LIMIT_RECOMMENDED = 4 * 1024;
+// maximum allowed payload size
 const PAYLOAD_LIMIT_MAX = 16 * 1024;
 
 // for loading snapshots from before we required passwords
@@ -219,7 +216,7 @@ export default class Controller {
         this.lastAnimationEnd = 0;
         /** array of gaps between animation end and the next start.  replaced with the value true once rapid animation has been detected. */
         this.animationGapCheck = [];
-        /** socket send times of last RATE_LIMIT_WARNING events */
+        /** socket send times of recent events */
         this.rateLimitedSendTimes = [];
         /** events held back and bundled to avoid exceeding instantaneous send rate */
         this.rateLimitBuffer = [];
@@ -325,6 +322,11 @@ export default class Controller {
         persistentId=${persistentId}` : ""}
         versionId=${codeHash}
         viewId=${this.viewId}`);
+
+        // eventRateLimit and other (trivially) derived settings
+        this.eventRateLimit = sessionSpec.eventRateLimit; // max instantaneous send rate per second
+        this.eventHistoryLimit = this.eventRateLimit; // warn user if this many sends recorded in under a second
+        this.eventMaxBundles = this.eventRateLimit; // disconnect app if more than this many message bundles are waiting
 
         this.sessionSpec = { ...sessionSpec, options, name, id, persistentId, codeHash }; // june 2021: added id for easy access from establishSession
 
@@ -1237,7 +1239,7 @@ export default class Controller {
         // avoid buffering if controller is being synced.
         if (times.length && this.synced) {
             const lastSend = times[times.length - 1];
-            const stillToWait = 1000 / RATE_LIMIT_MAX - (now - lastSend);
+            const stillToWait = 1000 / this.eventRateLimit - (now - lastSend);
             if (stillToWait > 1) delay = Math.ceil(stillToWait); // we want the timeout to be long enough to be sure to satisfy the gap
         }
         if (!delay) {
@@ -1257,14 +1259,14 @@ export default class Controller {
         const isSynced = this.synced;
         if (isSynced || !times.length || times[times.length - 1] !== time) {
             times.push(time);
-            if (times.length > RATE_LIMIT_WARNING) times.shift();
+            if (times.length > this.eventHistoryLimit) times.shift();
         }
 
         // it's not a short gap between consecutive messages that should trigger a
         // warning, but any sustained sending at the peak rate (whether or not we're
         // using the buffer).
-        if (!this.rateLimitSoftWarned && times.length === RATE_LIMIT_WARNING && time - times[0] < 1010) { // close enough
-            console.log(`${this.id} Sends to reflector are at or above recommended limit of ${RATE_LIMIT_WARNING} within one second. Events will be bundled as necessary to keep to the limit.`);
+        if (!this.rateLimitSoftWarned && times.length === this.eventHistoryLimit && time - times[0] < 1010) { // close enough
+            console.log(`${this.id} Sends to reflector are at or above recommended limit of ${this.eventHistoryLimit} within one second. Events will be bundled as necessary to keep to the limit.`);
             this.rateLimitSoftWarned = true;
         }
     }
@@ -1290,13 +1292,13 @@ export default class Controller {
         buffer.push({ msgStates: [msgState], totalPayload: payloadLength });
         const buffered = buffer.length;
         if (DEBUG.session && buffered % 5 === 0 && buffered !== this.rateLimitLastLogged) {
-            console.log(`${this.id} SEND rate-limit buffer grew to ${buffered} event bundles (max ${RATE_LIMIT_BUFFER_MAX})`);
+            console.log(`${this.id} SEND rate-limit buffer grew to ${buffered} event bundles (max ${this.eventMaxBundles})`);
             this.rateLimitLastLogged = buffered;
         }
-        if (buffered > RATE_LIMIT_BUFFER_MAX) {
+        if (buffered > this.eventMaxBundles) {
             console.error(`${this.id} Disconnecting after overflow of SEND rate-limit buffer.`);
             this.connection.closeConnectionWithError('SEND', Error(`Send rate exceeded`), 4200); // do not retry.  synchronously nulls out socket.
-        } else if (!this.rateLimitBufferWarned && buffered > RATE_LIMIT_BUFFER_MAX / 2) {
+        } else if (!this.rateLimitBufferWarned && buffered > this.eventMaxBundles / 2) {
             console.warn(`${this.id} SEND rate-limit buffer is 50% full. If send rate does not drop, the app will be disconnected.`);
             this.rateLimitBufferWarned = true;
         }
@@ -1310,7 +1312,7 @@ export default class Controller {
         if (!buffered) return;
 
         const now = Date.now();
-        const minGap = 1000 / RATE_LIMIT_MAX;
+        const minGap = 1000 / this.eventRateLimit;
         const times = this.rateLimitedSendTimes;
         if (times.length) {
             const lastSend = times[times.length - 1];
