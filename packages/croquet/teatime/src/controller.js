@@ -318,8 +318,8 @@ export default class Controller {
             else if (key in sessionSpec) params[key] = sessionSpec[key];
         }
         this.key = PBKDF2(password, "", { keySize: 256/32 });
-        this.tove = await this.encrypt(this.sessionId);
         const { id, persistentId, codeHash } = await hashSessionAndCode(name, options, params, SDK_VERSION);
+        this.tove = await this.encrypt(id);
         if (DEBUG.session) console.log(`Croquet session "${name}":
         sessionId=${id}${appId ? `
         persistentId=${persistentId}` : ""}
@@ -804,9 +804,9 @@ export default class Controller {
                 const {messages, url, persisted, time, seq, /* snapshotTime, */ snapshotSeq, tove, reflector} = args;
                 // check that we are able to decode a shared secret (unless it's our own)
                 if (tove && tove !== this.tove) try {
-                    // decryptPayload will throw if it can't decrypt, which is the expected result if joining with a wrong password
-                    if (this.decryptPayload(tove) !== this.sessionId) throw Error("wrong sessionId in tove?!");
-                } catch {
+                    // decrypt will throw if it can't decrypt, which is the expected result if joining with a wrong password
+                    if (this.decrypt(tove) !== this.id) throw Error("wrong sessionId in tove?!");
+                } catch (err) {
                     this.connection.closeConnectionWithError('SYNC', Error(`failed to decrypt session secret: ${err.message}`), 4200); // do not retry
                     return;
                 }
