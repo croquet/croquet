@@ -424,7 +424,7 @@ function JOIN(client, args) {
     // the connection log filter matches on (" connection " OR " JOIN ")
     LOG(`${id}/${client.addr} receiving JOIN ${JSON.stringify(args)}`);
 
-    const { name, version, appId, persistentId, user, location, heraldUrl, leaveDelay, dormantDelay } = args;
+    const { name, version, appId, persistentId, user, location, heraldUrl, leaveDelay, dormantDelay, tove } = args;
     // new clients (>=0.3.3) send ticks in JOIN
     const syncWithoutSnapshot = 'ticks' in args;
     // clients >= 0.5.1 send dormantDelay, which we use as a reason not to send pings to inactive clients
@@ -452,6 +452,7 @@ function JOIN(client, args) {
             syncWithoutSnapshot, // new protocol as of 0.3.3
             noInactivityPings,   // new protocol as of 0.5.1
             timeline,            // if a stateless reflector resumes the session, this is the only way to tell
+            tove,                // an encrypted secret clients use to check if they have the right password
             location,            // send location data?
             messages: [],        // messages since last snapshot
             lastTick: -1000,     // time of last TICK sent (-1000 to avoid initial delay)
@@ -563,9 +564,9 @@ function START(island) {
 }
 
 function SYNC(island) {
-    const { id, seq, timeline, snapshotUrl: url, snapshotTime, snapshotSeq, persistentUrl, messages } = island;
+    const { id, seq, timeline, snapshotUrl: url, snapshotTime, snapshotSeq, persistentUrl, messages, tove } = island;
     const time = getTime(island, "SYNC");
-    const args = { url, messages, time, seq, reflector: CLUSTER, timeline, reflectorSession: timeline };  // TODO: remove reflectorSession after 0.4.1 release
+    const args = { url, messages, time, seq, tove, reflector: CLUSTER, timeline, reflectorSession: timeline };  // TODO: remove reflectorSession after 0.4.1 release
     if (url) {args.snapshotTime = snapshotTime; args.snapshotSeq = snapshotSeq; }
     else if (persistentUrl) { args.url = persistentUrl; args.persisted = true; }
     const response = JSON.stringify({ id, action: 'SYNC', args });
