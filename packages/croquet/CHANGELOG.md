@@ -4,6 +4,7 @@ This is a private summary of changes. The public changes are in the SDK [README.
 
 # latest pre-releases
 
+* 0.5.1-17 confirm session password in SYNC
 * 0.5.1-16 add eventRateLimit session option
 * 0.5.1-15 use event bundling to raise allowable send rate
 * 0.5.1-14 add per-client rate limit on sends via reflector
