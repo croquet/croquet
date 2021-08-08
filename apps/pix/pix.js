@@ -437,7 +437,7 @@ App.makeWidgetDock();
 const joinArgs = {
     appId: 'io.croquet.pix',
     name: App.autoSession(),
-    password: 'dummy-pass',
+    password: App.autoPassword({keyless: true}),
     model: PixModel,
     view: PixView,
     tps: 0

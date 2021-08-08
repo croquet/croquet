@@ -671,7 +671,7 @@ async function go() {
     Session.join({
         appId: "io.croquet.examples.video_demo",
         name: App.autoSession(),
-        password: App.autoPassword(),
+        password: App.autoPassword({keyless: true}),
         model: SyncedVideoModel,
         view: SyncedVideoView,
         tps: 4,

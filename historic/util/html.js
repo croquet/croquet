@@ -829,7 +829,7 @@ export const App = {
     // get password from url hash.
     // If found, remove it but keep in sessionURL for QR code
     // Note: independent of this, hard-coded in controller
-    autoPassword(options = { key: 'pw', scrub: false, keyless: true }) {
+    autoPassword(options = { key: 'pw', scrub: false, keyless: false }) {
         const key = options.key || 'pw';
         const scrub = options.scrub && !urlOptions.has("debug", "password");
         const keyless = options.keyless;
@@ -861,8 +861,9 @@ export const App = {
             App.sessionURL = url.href;
             // but scrub it from address bar
             if (scrub) url.hash = hash;
+            if (urlOptions.has("debug", "session")) console.log(`Croquet.App.autoPassword() generated "${App.sessionURL}"`);
         }
-        if (urlOptions.has("debug", "session")) console.log(`App.sessionUrl: ${App.sessionURL}`);
+        if (urlOptions.has("debug", "session")) console.log(`Croquet.App.sessionUrl: ${App.sessionURL}`);
         // change url bar if needed
         if (window.location.href !== url.href) window.history.replaceState({}, "", url.href);
         // decode % entities if possible
