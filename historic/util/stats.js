@@ -318,15 +318,21 @@ export const Stats = {
         const second = Math.floor(Date.now() / 1000);
         let result = null;
         if (second !== currentSecond.second) {
+            // don't report if no messages have been requested or sent
             if (currentSecond.second && report && (currentSecond.requestedMessages || currentSecond.sentMessagesTotal)) {
-                result = { sampleSeconds: second - currentSecond.second, ...currentSecond };
+                result = { ...currentSecond };
+                // if multiple seconds have passed, add a sampleSeconds property
+                const sampleSeconds = second - currentSecond.second;
+                if (sampleSeconds !== 1) result.sampleSeconds = sampleSeconds;
+                // average the size of bundles, and the delays in sending messages via a bundle
                 if (result.sentBundles) {
-                    result.averageDelay = (result.sendDelay / result.sentMessagesTotal).toFixed(1);
-                    result.averagePayload = (result.totalPayload / result.sentBundles).toFixed();
+                    result.averageDelay = Math.round(10 * result.sendDelay / result.sentMessagesTotal) / 10;
+                    result.averageBundlePayload = Math.round(result.sentBundlePayload / result.sentBundles);
                 }
+                // clean up
                 delete result.second;
                 delete result.sendDelay;
-                delete result.totalPayload;
+                delete result.sentBundlePayload;
             }
             currentSecond = { second };
         }

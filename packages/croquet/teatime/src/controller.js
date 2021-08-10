@@ -1256,7 +1256,7 @@ export default class Controller {
             // go ahead immediately
             this.recordRateLimitedSend(now);
             this.socketSendMessage(msg);
-            Stats.perSecondTally({ sentSingleMessages: 1, sentMessagesTotal: 1 });
+            Stats.perSecondTally({ sentSingleMessages: 1, sentMessagesTotal: 1, sentPayloadTotal: payloadLength });
         } else {
             this.addToRateLimitBuffer(msg);
             setTimeout(() => this.serviceRateLimitBuffer(), delay);
@@ -1344,7 +1344,7 @@ export default class Controller {
         const envelope = new Message(this.island.time, 0, this.island.id, "handleBundledEvents", ["dummy", { events }]);
         this.socketSendMessage(envelope);
         this.recordRateLimitedSend(now);
-        Stats.perSecondTally({ sentBundles: 1, sentMessagesTotal: msgStates.length, sendDelay: delay, totalPayload });
+        Stats.perSecondTally({ sentBundles: 1, sentMessagesTotal: msgStates.length, sendDelay: delay, sentBundlePayload: totalPayload, sentPayloadTotal: totalPayload });
 
         if (DEBUG.session && this.connected) {
             const nowBuffered = buffer.length;
