@@ -71,6 +71,7 @@ const frames = [];
 let maxBacklog = 0;
 let connected = false;
 let currentFrame = newFrame(0);
+let currentSecond = {};
 
 const oneFrame = 1000 / 60;
 function map(v) {
@@ -259,6 +260,9 @@ export const Stats = {
     animationFrame(timestamp, stats={}) {
         endCurrentFrame(timestamp);
         currentFrame = newFrame(timestamp);
+        // controller.stepSession invokes this with a stats object with entries
+        // { backlog, starvation, latency, activity, users }.  below are methods
+        // for each key, recording the supplied values in currentFrame.
         for (const [key, value] of Object.entries(stats)) this[key](value);
     },
     begin(item) {
@@ -307,4 +311,25 @@ export const Stats = {
             cleanupOverlayCanvases();
         }
     },
+    perSecondTally(stats = {}) {
+        for (const [key, value] of Object.entries(stats)) currentSecond[key] = (currentSecond[key] || 0) + value;
+    },
+    stepSession(_timestamp, report=false) {
+        const second = Math.floor(Date.now() / 1000);
+        let result = null;
+        if (second !== currentSecond.second) {
+            if (currentSecond.second && report && (currentSecond.requestedMessages || currentSecond.sentMessagesTotal)) {
+                result = { sampleSeconds: second - currentSecond.second, ...currentSecond };
+                if (result.sentBundles) {
+                    result.averageDelay = (result.sendDelay / result.sentMessagesTotal).toFixed(1);
+                    result.averagePayload = (result.totalPayload / result.sentBundles).toFixed();
+                }
+                delete result.second;
+                delete result.sendDelay;
+                delete result.totalPayload;
+            }
+            currentSecond = { second };
+        }
+        return result;
+    }
 };

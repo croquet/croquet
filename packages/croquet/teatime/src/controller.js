@@ -1235,12 +1235,10 @@ export default class Controller {
         const now = Date.now();
         const times = this.rateLimitedSendTimes;
         const buffer = this.rateLimitBuffer;
-// const stats = this.stats;
-// stats.sentMsgs = (stats.sentMsgs || 0) + 1;
+        Stats.perSecondTally({ requestedMessages: 1 });
 
         // if there are already events in the buffer, this message has to join the queue
         if (buffer.length) {
-// this.stats.bufferedMsgs = (this.stats.bufferedMsgs || 0) + 1;
             this.addToRateLimitBuffer(msg); // can potentially cause disconnection
             return;
         }
@@ -1258,8 +1256,8 @@ export default class Controller {
             // go ahead immediately
             this.recordRateLimitedSend(now);
             this.socketSendMessage(msg);
+            Stats.perSecondTally({ sentSingleMessages: 1, sentMessagesTotal: 1 });
         } else {
-// this.stats.bufferedMsgs = (this.stats.bufferedMsgs || 0) + 1;
             this.addToRateLimitBuffer(msg);
             setTimeout(() => this.serviceRateLimitBuffer(), delay);
         }
@@ -1284,6 +1282,8 @@ export default class Controller {
     }
 
     addToRateLimitBuffer(msg) {
+        Stats.perSecondTally({ bundledMessages: 1 });
+        const now = Date.now();
         // rateLimitBuffer is an array of { msgStates, totalPayload } bundles
         const msgState = msg.asState(); // [time, seq, payload]
         const payloadLength = msgState[2].length;
@@ -1294,14 +1294,15 @@ export default class Controller {
             // add until the sum of payload sizes reaches our soft limit
             if (totalPayload < PAYLOAD_LIMIT_RECOMMENDED) {
                 // ok to add
-                msgStates.push(msgState);
+                msgStates.push({ msgState, bufferTime: now });
                 lastBundle.totalPayload += payloadLength;
                 return;
             }
         }
 
         // start a new bundle
-        buffer.push({ msgStates: [msgState], totalPayload: payloadLength });
+        Stats.perSecondTally({ newBundles: 1 });
+        buffer.push({ msgStates: [{ msgState, bufferTime: now }], totalPayload: payloadLength });
         const buffered = buffer.length;
         if (DEBUG.session && buffered % 5 === 0 && buffered !== this.rateLimitLastLogged) {
             console.log(`${this.id} SEND rate-limit buffer grew to ${buffered} event bundles (max ${this.eventMaxBundles})`);
@@ -1333,11 +1334,17 @@ export default class Controller {
         }
 
         const bundle = buffer.shift();
-        const { msgStates } = bundle;
-        const envelope = new Message(this.island.time, 0, this.island.id, "handlePackedEvents", ["dummy", { events: msgStates }]);
+        const { msgStates, totalPayload } = bundle; // msgStates is an array of { msgState, bufferTime }
+        const events = [];
+        let delay = 0;
+        msgStates.forEach(m => {
+            events.push(m.msgState);
+            delay += now - m.bufferTime;
+            });
+        const envelope = new Message(this.island.time, 0, this.island.id, "handleBundledEvents", ["dummy", { events }]);
         this.socketSendMessage(envelope);
         this.recordRateLimitedSend(now);
-// this.stats.unbufferedMsgs = (this.stats.unbufferedMsgs || 0) + msgStates.length;
+        Stats.perSecondTally({ sentBundles: 1, sentMessagesTotal: msgStates.length, sendDelay: delay, totalPayload });
 
         if (DEBUG.session && this.connected) {
             const nowBuffered = buffer.length;
@@ -1585,17 +1592,14 @@ export default class Controller {
         }
     }
 
-    // june 2021: moved from session.js
     // this is invoked by session.step() - which is called from the default
     // onAnimationFrame handler below, or by the application if it chooses
     // to step manually
     stepSession(stepType, parameters={}) {
-// const sec = Math.floor(Date.now() / 1000);
-// if (sec !== this.lastSec) {
-//     if (this.stats.sentMsgs) console.log((new Date()).toISOString(), JSON.stringify(this.stats));
-//     this.stats = {};
-//     this.lastSec = sec;
-// }
+        if (window.logMessageStats) {
+            const report = Stats.stepSession(parameters.frameTime, true); // update the per-second stats, and get a report for each second
+            if (report) console.log(report);
+        }
 
         const { backlog, latency, starvation, activity } = this;
         if (stepType === "animation") {

@@ -560,7 +560,7 @@ export default class Island {
         this.handleViewEventInView(topic, data);
     }
 
-    handlePackedEvents(_topic, data) {
+    handleBundledEvents(_topic, data) {
         const { events } = data;
         for (const msgState of events) {
             const message = Message.fromState(msgState, this);
