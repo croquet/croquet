@@ -246,6 +246,7 @@ import {
         options,
         children
     } = params;
+      debugger;
 
     const [croquetContext, setCroquetContext] = useState<
       CroquetSession<CroquetReactView> | undefined
