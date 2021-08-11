@@ -1037,10 +1037,11 @@ export default class Controller {
         if (DEBUG.session) console.log(this.id, 'Controller sending JOIN');
 
         const { tick, delay } = this.getTickAndMultiplier();
-        const { name, codeHash, appId, persistentId, heraldUrl, rejoinLimit, autoSleep } = this.sessionSpec;
+        const { name, codeHash, appId, apiKey, persistentId, heraldUrl, rejoinLimit, autoSleep } = this.sessionSpec;
 
         const args = {
             name,                   // for debugging only
+            apiKey,                 // undefined in old clients
             version: VERSION,       // protocol version
             user: this.viewId,      // see island.generateJoinExit() for getting location data
             ticks: { tick, delay },
