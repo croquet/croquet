@@ -424,7 +424,10 @@ function JOIN(client, args) {
     // the connection log filter matches on (" connection " OR " JOIN ")
     LOG(`${id}/${client.addr} receiving JOIN ${JSON.stringify(args)}`);
 
-    const { name, version, appId, persistentId, user, location, heraldUrl, leaveDelay, dormantDelay, tove } = args;
+    const { name, version, appId, user, location, heraldUrl, leaveDelay, dormantDelay, tove } = args;
+    // islandId deprecated since 0.5.1, but old clients will send it rather than persistentId
+    const persistentId = args.persistentId || args.islandId;
+
     // new clients (>=0.3.3) send ticks in JOIN
     const syncWithoutSnapshot = 'ticks' in args;
     // clients >= 0.5.1 send dormantDelay, which we use as a reason not to send pings to inactive clients
@@ -503,7 +506,6 @@ function JOIN(client, args) {
             // migrate from old stored data, if needed
             if (island.lastCompletedTally) island.lastCompletedTally = null;
             if (!island.completedTallies) island.completedTallies = {};
-            if (!island.persistentId) island.persistentId = island.islandId;
 
             island.before = Date.now();
             island.storedUrl = latestSpec.snapshotUrl;
