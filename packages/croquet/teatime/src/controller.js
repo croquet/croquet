@@ -43,7 +43,10 @@ else console.log("%cCroquet%c SDK %c" + SDK_VERSION, "color:#F0493E", "color:inh
 // ...unless overridden by a "dev" url option, which selects the dev dispatcher and reflector
 // ...unless overridden by a "reflector=<url>" url option, which sets the specified url
 
-const PUBLIC_REFLECTOR_HOST = window.location.hostname.match(/^(.*\.)?croquet\.io$/i) ? window.location.host : "croquet.io";
+const appOnCroquetIo = !!window.location.hostname.match(/^(.*\.)?croquet\.io$/i);
+const appOnCroquetIoDev = appOnCroquetIo && window.location.pathname.startsWith('/dev/');
+
+const PUBLIC_REFLECTOR_HOST = appOnCroquetIo ? window.location.host : "croquet.io";
 const PUBLIC_REFLECTOR = `wss://${PUBLIC_REFLECTOR_HOST}/reflector/v${VERSION}`;
 const DEFAULT_REFLECTOR = process.env.CROQUET_REFLECTOR || PUBLIC_REFLECTOR;    // replaced by parcel at build time from app's .env file
 const DEV_DEFAULT_REFLECTOR = "wss://croquet.io/reflector-dev/dev";
@@ -63,7 +66,8 @@ function initDEBUG() {
     // call we simply redo this every time establishSession() is called
     // TODO: turn this into a reasonable API
     // enable some opts by default via dev flag or being on localhost-equivalent
-    const localDev = urlOptions.dev || (urlOptions.dev !== false && "localhost");
+    const devOrLocal = urlOptions.dev || (urlOptions.dev !== false && "localhost");
+    const devOrCroquetIoDev = urlOptions.dev || (urlOptions.dev !== false && appOnCroquetIoDev);
     DEBUG = {
         messages: urlOptions.has("debug", "messages", false),               // received messages
         sends: urlOptions.has("debug", "sends", false),                     // sent messages
@@ -71,8 +75,8 @@ function initDEBUG() {
         pong: urlOptions.has("debug", "pong", false),                       // received PONGs
         snapshot: urlOptions.has("debug", "snapshot", false),               // snapshotting, uploading etc
         session: urlOptions.has("debug", "session", false),                 // session logging
-        initsnapshot: urlOptions.has("debug", "initsnapshot", localDev),    // check snapshotting after initFn
-        reflector: urlOptions.has("debug", "reflector", localDev),          // use dev reflector
+        initsnapshot: urlOptions.has("debug", "initsnapshot", devOrLocal),  // check snapshotting after initFn
+        reflector: urlOptions.has("debug", "reflector", devOrCroquetIoDev), // use dev reflector
     };
 }
 
