@@ -109,7 +109,7 @@ const logged = new Set();
 
 export async function hashSessionAndCode(name, options, params, sdk_version) {
     if (!window.crypto || !window.crypto.subtle || typeof window.crypto.subtle.digest !== "function") {
-        console.error(`Croquet: Crypto API not available.\nPlease access this page via https or localhost.`);
+        throw Error(`Croquet: Crypto API not available.\nPlease access this page via https or localhost.`);
     }
     /** identifies the island (only true if name is unique, i.e., appId was provided) */
     const persistentId = await hashIsland(name, options);
