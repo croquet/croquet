@@ -1120,20 +1120,36 @@ async function deleteIsland(island) {
     await unregistered; // wait because in emergency shutdown we need to clean up before exiting
 }
 
-function scheduleUnregisterSession(id, targetTime, detail) {
-    const session = ALL_SESSIONS.get(id);
-    if (!session || session.stage === 'closed') {
-        const reason = session ? `stage=${session.stage}` : "no session record";
-        DEBUG(id, `not scheduling unregister: ${reason}`);
-        return;
-    }
-
+function scheduleShutdownIfNoJoin(id, targetTime, detail) {
+    // invoked on client connection, to schedule a cleanup in case no JOIN
+    // happens in time.
+    let session = ALL_SESSIONS.get(id);
     if (session.timeout) clearTimeout(session.timeout);
     const now = Date.now();
-    session.timeout = setTimeout(() => unregisterSession(id, detail), targetTime - now);
+    session.timeout = setTimeout(() => {
+        session = ALL_SESSIONS.get(id);
+        if (!session || (session.stage !== 'runnable' && session.stage !== 'closable')) {
+            const reason = session ? `stage=${session.stage}` : "no session record";
+            DEBUG(id, `ignoring shutdown (${detail}): ${reason}`);
+            return;
+        }
+        DEBUG(id, `shutting down session - ${detail}`);
+        if (session.stage === 'closable') {
+            // there is (supposedly) an island, but it has no clients
+            const island = ALL_ISLANDS.get(id);
+            if (island) {
+                deleteIsland(island); // will invoke unregisterSession
+                return;
+            }
+            DEBUG(id, `stage=closable but no island to delete`);
+        }
+        unregisterSession(id, "no island");
+        }, targetTime - now);
 }
 
 async function unregisterSession(id, detail) {
+    // invoked on a timeout from scheduleShutdownIfNoJoin, or in handleTerm
+    // for a session that doesn't have an island, or from deleteIsland.
     const session = ALL_SESSIONS.get(id);
     if (!session || session.stage === 'closed') {
         const reason = session ? `stage=${session.stage}` : "no session record";
@@ -1194,7 +1210,7 @@ server.on('connection', (client, req) => {
                 // chance to join (even if it's in a very busy browser)
                 const now = Date.now();
                 const targetTime = Math.max(session.earliestUnregister, now + 7000);
-                scheduleUnregisterSession(sessionId, targetTime, "no JOIN after connection");
+                scheduleShutdownIfNoJoin(sessionId, targetTime, "no JOIN after connection");
                 break;
                 }
             default:
@@ -1224,7 +1240,7 @@ server.on('connection', (client, req) => {
             earliestUnregister
             };
         ALL_SESSIONS.set(sessionId, session);
-        scheduleUnregisterSession(sessionId, earliestUnregister, "no JOIN in time");
+        scheduleShutdownIfNoJoin(sessionId, earliestUnregister, "no JOIN in time");
     }
     prometheusConnectionGauge.inc(); // connection accepted
     client.sessionId = sessionId;
