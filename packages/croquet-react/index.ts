@@ -258,7 +258,7 @@ type ClassOf<M> = new (...args: any[]) => M
  */
 export function InCroquetSession<M extends Model>(params: {
     appId: string,
-    name: string;
+    name: string|Promise<string>,
     password: string,
     modelRoot: ClassOf<M>;
     options?: CroquetModelOptions;

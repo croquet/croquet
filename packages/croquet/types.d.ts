@@ -1,6 +1,6 @@
 declare module "@croquet/croquet" {
     export abstract class PubSubParticipant<SubOptions> {
-        publish(scope: string, event: string, data: any): void;
+        publish(scope: string, event: string, data?: any): void;
         subscribe(scope: string, event: string | {event: string} | {event: string} & SubOptions, methodName: string | ((e: any) => void)): void;
         unsubscribe(scope: string, event: string): void;
         unsubscribeAll(): void;
@@ -223,7 +223,7 @@ declare module "@croquet/croquet" {
          * @param {*=} data can be any value or object
          * @public
          */
-        publish(scope: string, event: string, data: any): void;
+        publish(scope: string, event: string, data?: any): void;
 
         /**
          * **Register an event handler for an event published to a scope.**
@@ -733,4 +733,16 @@ declare module "@croquet/croquet" {
 
     }
 
+    interface IApp {
+	autoSession:(name:string) => Promise<string>;
+    }
+
+    /**
+     * The App API is under construction.
+     *
+     * @public
+     */
+
+    export var App:IApp;
+    
 }
