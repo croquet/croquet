@@ -113,6 +113,16 @@ export function useModelRoot(): Model {
     return croquetContext.view.model;
 }
 
+/** Hook that gives access to the Model specified by an id of this croquet session.
+ * Can be used to read Model properties (including other referenced Models),
+ * and to publish events to the Model or to subscribe to Model events using the other hooks.
+ */
+export function useModelById(id:string): Model|undefined {
+    const croquetContext = useContext(CroquetContext);
+    if (!croquetContext) throw new Error("No Croquet Context provided!");
+    return croquetContext.view.model.getModel(id);
+}
+
 /** Hook that returns a function that will have an event publishing effect.
  * Needs to be provided with a `publishCallback` that determines the event and data to be published,
  * by either returning `[scope, event, data]` or just `[scope, event]`.
