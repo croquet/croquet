@@ -1038,16 +1038,11 @@ class IslandHasher {
                         else {
                             const hasher = this.hashers.get(value.constructor);
                             if (hasher) hasher(value);
-                            else {
-                                console.error("Hashing", value);
-                                throw Error(`Don't know how to hash object ${value.constructor.name}`);
-                            }
+                            // no class error here, will be caught and reported by snapshot with full path
                         }
-                        return;
-                    case "Null": return;
-                    default:
-                        console.error("Hashing", value);
-                        throw Error(`Don't know how to hash ${type}`);
+                    // case "Null": not counted
+                    // ignore other errors here (e.g. Function), will be caught and reported by snapshot with full path
+                    /* no default */
                 }
             }
         }
@@ -1201,13 +1196,13 @@ class IslandWriter {
                         if (value.constructor === Object || typeof value.constructor !== "function") return this.writeObject(value, path, defer);
                         const writer = this.writers.get(value.constructor);
                         if (writer) return writer(value, path);
-                        console.error("Serializing", value);
-                        throw Error(`Don't know how to serialize object ${value.constructor.name} at ${path}`);
+                        console.error(`Croquet Snapshot: unknown class ${path}:`, value);
+                        throw Error(`Croquet Snapshot: class not registered in Model.types(): ${value.constructor.name}`);
                     }
                     case "Null": return value;
                     default:
-                        console.error("Serializing", value);
-                        throw Error(`Don't know how to serialize ${type} at ${path}`);
+                        console.error(`Croquet Snapshot: unsupported property ${path}:`, value);
+                        throw Error(`Croquet Snapshot: ${type}s are not supported as model properties`);
                 }
             }
         }
