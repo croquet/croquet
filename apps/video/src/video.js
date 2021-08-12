@@ -314,7 +314,7 @@ class SyncedVideoModel extends Model {
         const { hash, type, size, name } = this.asset;
         return {
             asset: { hash, type, size, name },
-            handles: Object.entries(this.handles).map(([pHash, pHandle]) => [pHash, Data.toId(pHandle)]),
+            handles: Object.entries(this.handles).map(([pHash, pHandle]) => [pHash, Data.toId(pHandle)])
         };
     }
 
