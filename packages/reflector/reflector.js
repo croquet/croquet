@@ -721,7 +721,7 @@ function SAVE(client, args) {
     const descriptor = persistTime === undefined ? `@${time}#${seq} T${tuttiSeq}` : `@${persistTime}`;
 
     if (dissident) {
-        DEBUG(`${id}/${client.addr} dissident persistent data for @${descriptor} ${url} ${JSON.stringify(dissident)}`);
+        DEBUG(`${id}/${client.addr} dissident persistent data for ${descriptor} ${url} ${JSON.stringify(dissident)}`);
         return;
     }
 
