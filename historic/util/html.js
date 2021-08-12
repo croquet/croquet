@@ -7,6 +7,7 @@ import { makeStats } from "./stats";
 
 
 const TOUCH = 'ontouchstart' in document.documentElement;
+const IFRAMED = window.parent !== window;
 const BAR_PROPORTION = 18; // height of dock, in % of content size
 const BUTTON_RIGHT = 2; // %
 const BUTTON_WIDTH = TOUCH ? 20 : 12; // %
@@ -66,9 +67,9 @@ function addSpinnerStyle() {
     // unless this app is explicitly rejecting our default html additions by setting
     // App.root to false (in which case the spinner won't be made), we add a default
     // minimum height for document.body to help our IntersectionObserver (controller.js)
-    // make accurate judgements about whether an embedded app is in or out of view.
+    // make accurate judgements about whether an iframed app is in or out of view.
     const spinnerCSS = `
-        body { min-height: 100vh }
+        ${IFRAMED ? "body { min-height: 100vh }" : ""}
         #croquet_spinnerOverlay {
             z-index: 1000;
             position: fixed;
@@ -329,7 +330,6 @@ function makeWidgetDock(options = {}) {
     if (urlOptions.nodock) return;
 
     const debug = options.debug || urlOptions.debug;
-    const iframed = window.parent !== window;
 
     const oldDockDiv = document.getElementById('croquet_dock');
     if (oldDockDiv) oldDockDiv.parentElement.removeChild(oldDockDiv);
@@ -342,7 +342,7 @@ function makeWidgetDock(options = {}) {
     const dockDiv = document.createElement('div');
     dockDiv.id = 'croquet_dock';
     if (debug) dockDiv.classList.add("debug");
-    if (iframed && !options.iframe) dockDiv.style.display = "none";
+    if (IFRAMED && !options.iframe) dockDiv.style.display = "none";
     dockParent.appendChild(dockDiv);
 
     const barDiv = document.createElement('div');
