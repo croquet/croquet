@@ -49,47 +49,47 @@ export function useObservable<M extends ObservableModel>(model: M): M {
     const [, forceUpdate] = useState({});
 
     const onChange = () => {
-	forceUpdate({});
+        forceUpdate({});
     };
 
     // once (on component mount), create an access-monitoring proxy and one-use-view
     const {proxy, oneUseView} = useMemo(
-	() => {
+        () => {
             const actuallyObservedProps: {
-		[prop: string]: true | undefined;
-		[prop: number]: true | undefined;
+                [prop: string]: true | undefined;
+                [prop: number]: true | undefined;
             } = {};
-	    
+            
             const oneUseView = new (Observing(View))(croquetContext.view.model);
 
             const proxy = new Proxy(model, {
-		// only start subscribing to property changes on properties
-		// that the component actually accesses.
-		get(target, prop) {
-		    if (typeof prop !== "symbol" && !actuallyObservedProps[prop]) {
-			oneUseView.subscribeToPropertyChange(
-			    model,
-			    prop.toString(),
-			    onChange,
-			    { handling: "oncePerFrame" }
-			);
-			actuallyObservedProps[prop] = true;
-		    }
-		    return (target as any)[prop];
-		}
+                // only start subscribing to property changes on properties
+                // that the component actually accesses.
+                get(target, prop) {
+                    if (typeof prop !== "symbol" && !actuallyObservedProps[prop]) {
+                        oneUseView.subscribeToPropertyChange(
+                            model,
+                            prop.toString(),
+                            onChange,
+                            { handling: "oncePerFrame" }
+                        );
+                        actuallyObservedProps[prop] = true;
+                    }
+                    return (target as any)[prop];
+                }
             });
 
             return {oneUseView, proxy};
-	},
-	[model, croquetContext.view]
+        },
+        [model, croquetContext.view]
     );
 
     // empty effect that is only used to ensure cleanup
     useEffect(() => {
-	// cleanup
-	return () => {
+        // cleanup
+        return () => {
             oneUseView.detach();
-	};
+        };
     }, [model, croquetContext.view]);
 
     return proxy;
@@ -162,14 +162,14 @@ export function usePublish(
     const croquetContext = useContext(CroquetContext);
     if (!croquetContext) throw new Error("No Croquet Context provided!");
     return useCallback(
-	(...args) => {
+        (...args) => {
             const result = publishCallback(...args);
             if (result && result.length >= 2) {
-		const [scope, event, data] = result;
-		croquetContext.view.publish(scope, event, data);
+                const [scope, event, data] = result;
+                croquetContext.view.publish(scope, event, data);
             }
-	},
-	[publishCallback, croquetContext.view, ...deps]
+        },
+        [publishCallback, croquetContext.view, ...deps]
     );
 }
 
@@ -197,13 +197,13 @@ export function useSubscribe(scope: string, eventSpec: string, callback: (data: 
     const croquetContext = useContext(CroquetContext);
     if (!croquetContext) throw new Error("No Croquet Context provided!");
     useEffect(() => {
-	const oneUseView = new View(croquetContext.view.model);
-	oneUseView.subscribe(scope, eventSpec, callback);
-	// cleanup on component unmount
-	return () => {
+        const oneUseView = new View(croquetContext.view.model);
+        oneUseView.subscribe(scope, eventSpec, callback);
+        // cleanup on component unmount
+        return () => {
             oneUseView.unsubscribe(scope, eventSpec);
             oneUseView.detach();
-	}
+        }
     }, [scope, eventSpec, callback, croquetContext.view, ...deps]);
 }
 
@@ -216,19 +216,19 @@ class CroquetReactView extends Observing(View) {
     updateCallback: UpdateCallback|null;
 
     constructor(model: Model) {
-	super(model);
-	this.model = model;
-	this.updateCallback = null;
+        super(model);
+        this.model = model;
+        this.updateCallback = null;
     }
 
     setUpdateCallback(callback:UpdateCallback|null) {
-	this.updateCallback = callback;
+        this.updateCallback = callback;
     }
 
     update(time:number) {
-	if (this.updateCallback !== null) {
+        if (this.updateCallback !== null) {
             this.updateCallback(time);
-	}
+        }
     }
 }
 
@@ -261,6 +261,7 @@ export function InCroquetSession<M extends Model>(params: {
     name: string|Promise<string>,
     password: string,
     modelRoot: ClassOf<M>;
+    eventRateLimit?: number,
     options?: CroquetModelOptions;
     children: React.ReactNode;
     updateCallback?: UpdateCallback;
@@ -270,37 +271,39 @@ export function InCroquetSession<M extends Model>(params: {
         name,
         password,
         modelRoot,
+        eventRateLimit,
         options,
         children,
-	updateCallback
+        updateCallback
     } = params;
 
     const [croquetContext, setCroquetContext] = useState<
-	CroquetSession<CroquetReactView> | undefined
-	>(undefined);
+        CroquetSession<CroquetReactView> | undefined
+        >(undefined);
     useEffect(() => {
-	Session.join({
+        Session.join({
             name,
             appId,
             password,
             model: modelRoot,
+            eventRateLimit,
             view: CroquetReactView,
             options
-	}).then(context => {
-	    if (updateCallback) {
-		context.view.setUpdateCallback(updateCallback);
-	    }
-	    setCroquetContext(context)
-	});
+        }).then(context => {
+            if (updateCallback) {
+                context.view.setUpdateCallback(updateCallback);
+            }
+            setCroquetContext(context)
+        });
     }, [name, modelRoot, options]);
 
     if (croquetContext) {
-	return createElement(
-	    CroquetContext.Provider,
-	    { value: croquetContext },
-	    children
-	);
+        return createElement(
+            CroquetContext.Provider,
+            { value: croquetContext },
+            children
+        );
     } else {
-	return createElement("div");
+        return createElement("div");
     }
 }

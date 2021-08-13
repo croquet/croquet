@@ -709,6 +709,7 @@ declare module "@croquet/croquet" {
         model: ClassOf<M>,
         view: ClassOf<V>,
         options?: CroquetModelOptions,
+        eventRateLimit?: number,
         step?: "auto" | "manual",
         tps?: number,
         joinLimit?: number,
@@ -734,7 +735,7 @@ declare module "@croquet/croquet" {
     }
 
     interface IApp {
-	autoSession:(name:string) => Promise<string>;
+        autoSession:(name:string) => Promise<string>;
     }
 
     /**
