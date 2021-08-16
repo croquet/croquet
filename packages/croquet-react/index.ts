@@ -90,7 +90,7 @@ export function useObservable<M extends ObservableModel>(model: M): M {
         return () => {
             oneUseView.detach();
         };
-    }, [model, croquetContext.view]);
+    }, [oneUseView]);
 
     return proxy;
 }
@@ -169,7 +169,8 @@ export function usePublish(
                 croquetContext.view.publish(scope, event, data);
             }
         },
-        [publishCallback, croquetContext.view, ...deps]
+	// deps are not in play here as publishCallback has to be fresh to capture what it depnds on
+        [publishCallback, croquetContext.view]
     );
 }
 
@@ -204,7 +205,8 @@ export function useSubscribe(scope: string, eventSpec: string, callback: (data: 
             oneUseView.unsubscribe(scope, eventSpec);
             oneUseView.detach();
         }
-    }, [scope, eventSpec, callback, croquetContext.view, ...deps]);
+	// deps is not in play here as callback has to capture what it depends on
+    }, [scope, eventSpec, callback, croquetContext.view]);
 }
 
 type UpdateCallback = ((time: number) => void)|null;
@@ -295,7 +297,7 @@ export function InCroquetSession<M extends Model>(params: {
             }
             setCroquetContext(context)
         });
-    }, [name, modelRoot, options]);
+    }, [name, modelRoot, options, appId, password, updateCallback, eventRateLimit]);
 
     if (croquetContext) {
         return createElement(
