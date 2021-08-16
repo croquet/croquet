@@ -169,7 +169,7 @@ export function usePublish(
                 croquetContext.view.publish(scope, event, data);
             }
         },
-	// deps are not in play here as publishCallback has to be fresh to capture what it depnds on
+        // deps are not in play here as publishCallback has to be fresh to capture what it depnds on
         [publishCallback, croquetContext.view]
     );
 }
@@ -205,7 +205,7 @@ export function useSubscribe(scope: string, eventSpec: string, callback: (data: 
             oneUseView.unsubscribe(scope, eventSpec);
             oneUseView.detach();
         }
-	// deps is not in play here as callback has to capture what it depends on
+        // deps is not in play here as callback has to capture what it depends on
     }, [scope, eventSpec, callback, croquetContext.view]);
 }
 
@@ -244,8 +244,8 @@ class CroquetReactView extends Observing(View) {
         super(model);
         this.model = model;
         this.updateCallback = null;
-	this.syncedCallback = null;
-	this.subscribe(this.viewId, "synced", this.synced);
+        this.syncedCallback = null;
+        this.subscribe(this.viewId, "synced", this.synced);
     }
 
     update(time:number) {
@@ -255,9 +255,9 @@ class CroquetReactView extends Observing(View) {
     }
 
     synced(flag:boolean) {
-	if (this.syncedCallback) {
+        if (this.syncedCallback) {
             this.syncedCallback(flag);
-	}
+        }
     }
 }
 
@@ -303,10 +303,14 @@ export function InCroquetSession<M extends Model>(params: {
         options,
         children,
     } = params;
+    console.log("InCroquetSession", modelRoot);
     const [croquetContext, setCroquetContext] = useState<
         CroquetSession<CroquetReactView> | undefined
         >(undefined);
     useEffect(() => {
+        console.log("InCroquetSession.effect", modelRoot);
+
+        let session: CroquetSession<CroquetReactView>|null = null;
         Session.join({
             name,
             appId,
@@ -315,7 +319,17 @@ export function InCroquetSession<M extends Model>(params: {
             eventRateLimit,
             view: CroquetReactView,
             options
-        }).then(setCroquetContext);
+        }).then(context => {
+            session = context;
+            setCroquetContext(context);
+        });
+        return () => {
+            debugger;
+            if (session) {
+                session.leave();
+                session = null;
+            }
+        };
     }, [name, modelRoot, options, appId, password, eventRateLimit]);
 
     if (croquetContext) {

@@ -731,7 +731,6 @@ declare module "@croquet/croquet" {
         static join<M extends Model, V extends View> (
             parameters: CroquetSessionParameters<M, V>
         ): Promise<CroquetSession<V>>;
-
     }
 
     interface IApp {
