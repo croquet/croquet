@@ -209,28 +209,55 @@ export function useSubscribe(scope: string, eventSpec: string, callback: (data: 
     }, [scope, eventSpec, callback, croquetContext.view]);
 }
 
-type UpdateCallback = ((time: number) => void)|null;
+type UpdateCallback = (time:number) => void;
+type SimpleCallback = () => void;
+type SyncedCallback = (flag:boolean) => void;
+
+/** Hook that sets up a callback for Croquet.View.update().
+ * The function will be called at each simulation cycle.
+ * ``` */
+
+export function useUpdateCallback(callback:UpdateCallback|null) {
+    const croquetContext = useContext(CroquetContext);
+    if (!croquetContext) throw new Error("No Croquet Context provided!");
+    croquetContext.view.updateCallback = callback;
+}
+
+/** Hook that sets up a callback for Croquet.View.synced().
+ * The function will be called when Croquet synced event occurs.
+ * ``` */
+
+export function useSyncedCallback(callback:SyncedCallback|null) {
+    const croquetContext = useContext(CroquetContext);
+    if (!croquetContext) throw new Error("No Croquet Context provided!");
+    croquetContext.view.syncedCallback = callback;
+}
 
 // our top level view that gets the root model
 // and from which we create our one-time-use views per component
 class CroquetReactView extends Observing(View) {
     model: Model;
     updateCallback: UpdateCallback|null;
+    syncedCallback: SyncedCallback|null;
 
     constructor(model: Model) {
         super(model);
         this.model = model;
         this.updateCallback = null;
-    }
-
-    setUpdateCallback(callback:UpdateCallback|null) {
-        this.updateCallback = callback;
+	this.syncedCallback = null;
+	this.subscribe(this.viewId, "synced", this.synced);
     }
 
     update(time:number) {
         if (this.updateCallback !== null) {
             this.updateCallback(time);
         }
+    }
+
+    synced(flag:boolean) {
+	if (this.syncedCallback) {
+            this.syncedCallback(flag);
+	}
     }
 }
 
@@ -266,7 +293,6 @@ export function InCroquetSession<M extends Model>(params: {
     eventRateLimit?: number,
     options?: CroquetModelOptions;
     children: React.ReactNode;
-    updateCallback?: UpdateCallback;
 }) {
     const {
         appId,
@@ -276,9 +302,7 @@ export function InCroquetSession<M extends Model>(params: {
         eventRateLimit,
         options,
         children,
-        updateCallback
     } = params;
-
     const [croquetContext, setCroquetContext] = useState<
         CroquetSession<CroquetReactView> | undefined
         >(undefined);
@@ -291,13 +315,8 @@ export function InCroquetSession<M extends Model>(params: {
             eventRateLimit,
             view: CroquetReactView,
             options
-        }).then(context => {
-            if (updateCallback) {
-                context.view.setUpdateCallback(updateCallback);
-            }
-            setCroquetContext(context)
-        });
-    }, [name, modelRoot, options, appId, password, updateCallback, eventRateLimit]);
+        }).then(setCroquetContext);
+    }, [name, modelRoot, options, appId, password, eventRateLimit]);
 
     if (croquetContext) {
         return createElement(
