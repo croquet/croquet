@@ -501,7 +501,13 @@ function JOIN(client, args) {
         .then(latestSpec => {
             if (!latestSpec.snapshotUrl && !latestSpec.syncWithoutSnapshot) throw Error("latest.json has no snapshot, ignoring");
             DEBUG(`${id} resuming from latest.json @${latestSpec.time}#${latestSpec.seq} messages: ${latestSpec.messages.length} snapshot: ${latestSpec.snapshotUrl || "<none>"}`);
-            savableKeys(island).forEach(key => island[key] = latestSpec[key]);
+            // as we migrate from one style of island properties to another, a
+            // latest.json does not necessarily have all the properties a freshly
+            // minted island has.
+            savableKeys(island).forEach(key => {
+                const value = latestSpec[key];
+                if (value !== undefined) island[key] = value;
+                });
 
             // migrate from old stored data, if needed
             if (island.lastCompletedTally) island.lastCompletedTally = null;
