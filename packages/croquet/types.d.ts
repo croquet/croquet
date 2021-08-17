@@ -711,7 +711,7 @@ declare module "@croquet/croquet" {
         options?: CroquetModelOptions,
         eventRateLimit?: number,
         step?: "auto" | "manual",
-        tps?: number,
+        tps?: number|string,
         joinLimit?: number,
         debug?: CroquetDebugOptions | Array<CroquetDebugOptions>
     }
@@ -734,7 +734,30 @@ declare module "@croquet/croquet" {
     }
 
     interface IApp {
+	sessionURL:string;
+	root:HTMLElement|null;
+	sync:boolean;
+	messages:boolean;
+	badge:boolean;
+	stats:boolean;
+	qrcode:boolean;
+	makeWidgetDock(options?:{debug?:boolean, iframe?:boolean, badge?:boolean, qrcode?:boolean, stats?:boolean, alwaysPinned?:boolean, fixedSize?:boolean}):void;
+	makeSessionWidgets(sessionId:string):void;
+	makeQRCanvas(options?:{text?:string, width?:number, height?:number, colorDark?:string, colorLight?:string, correctLevel?:("L"|"M"|"Q"|"H")}):any;
+	clearSessionMoniker():void;
+	showSyncWait(bool:boolean):void;
+	messageFunction(msg:string, options?:{
+	    duration?:number,
+	    gravity?:("bottom"|"top"),
+	    position?:("right"|"left"|"center"|"bottom"),
+	    backgroundColor?:string,
+	    stopOnFocus?:boolean
+	}):void;
+	showMessage(msg:string, options?:any):void;
+	isCroquetHost(hostname:string):boolean;
+	referrerURL():string;
         autoSession:(name:string) => Promise<string>;
+        autoPassword:(options?:{key?:string, scrub:boolean, keyless:boolean}) => Promise<string>;
     }
 
     /**
@@ -744,5 +767,19 @@ declare module "@croquet/croquet" {
      */
 
     export var App:IApp;
-    
+
+
+    interface DataHandle {
+	store(sessionId:string, data:(string|ArrayBuffer), keep?:boolean):Promise<DataHandle>;
+	fetch(sessionid:string, handle:DataHandle):string|ArrayBuffer;
+	hash(data:((...arg:any) => void|string|DataView|ArrayBuffer), output?:string):string;
+    }
+
+    /**
+     * The Data API is under construction.
+     *
+     * @public
+     */
+
+    export var Data:DataHandle;
 }
