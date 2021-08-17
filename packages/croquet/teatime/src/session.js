@@ -185,7 +185,7 @@ export class Session {
         const ModelRoot = parameters.model;
         if (!inherits(ModelRoot, Model)) throw Error("ModelRoot must inherit from Croquet.Model");
         // view defaults to View
-        const ViewRoot = parameters.view;
+        const ViewRoot = parameters.view || View;
         if (!inherits(ViewRoot, View)) throw Error("ViewRoot must inherit from Croquet.View");
         // check appId
         if (!parameters.appId) {
