@@ -1,7 +1,7 @@
 declare module "@croquet/croquet" {
     export abstract class PubSubParticipant<SubOptions> {
-        publish(scope: string, event: string, data?: any): void;
-        subscribe(scope: string, event: string | {event: string} | {event: string} & SubOptions, methodName: string | ((e: any) => void)): void;
+        publish<T>(scope: string, event: string, data?: T): void;
+        subscribe<T>(scope: string, event: string | {event: string} | {event: string} & SubOptions, methodName: string | ((e: T) => void)): void;
         unsubscribe(scope: string, event: string): void;
         unsubscribeAll(): void;
     }
@@ -223,7 +223,7 @@ declare module "@croquet/croquet" {
          * @param {*=} data can be any value or object
          * @public
          */
-        publish(scope: string, event: string, data?: any): void;
+        publish<T>(scope: string, event: string, data?: T): void;
 
         /**
          * **Register an event handler for an event published to a scope.**
@@ -515,7 +515,7 @@ declare module "@croquet/croquet" {
          * @param {*=} data can be any value or object (for view-to-model, must be serializable)
          * @public
          */
-        publish(scope: string, event: string, data?: any): void;
+        publish<T>(scope: string, event: string, data?: T): void;
 
         /**
          * **Register an event handler for an event published to a scope.**
