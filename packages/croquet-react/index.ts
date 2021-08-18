@@ -221,7 +221,7 @@ type DetachCallback = () => void;
 
 /** Hook that sets up a callback for Croquet.View.update().
  * The function will be called at each simulation cycle.
- * ``` */
+ */
 
 export function useUpdateCallback(callback:UpdateCallback|null):void {
     const croquetContext = useContext(CroquetContext);
@@ -241,7 +241,7 @@ export function useSyncedCallback(callback:SyncedCallback|null):void {
 
 /** Hook that sets up a callback for Croquet.View.detach().
  * The function will be called when the root View is detached.
- * ``` */
+ */
 
 export function useDetachCallback(callback:DetachCallback|null):void {
     const croquetContext = useContext(CroquetContext);
@@ -300,6 +300,7 @@ class CroquetReactView extends Observing(View) {
  *        name="mySession"
  *        password="secret"
  *        modelRoot={MyRootModel}
+          ...
  *      >
  *        // child elements that use hooks go here...
  *      </InCroquetSession>
