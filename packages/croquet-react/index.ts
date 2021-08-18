@@ -162,19 +162,22 @@ export function useModelById(id:string): Model|undefined {
  * }
  * ```
  */
-export function usePublish(
-    publishCallback: (...args: any[]) => [string, string] | [string, string, any],
+export function usePublish<T>(
+    publishCallback: (...args: any[]) => [string, string] | [string, string, T],
     deps?: any[]
-): (...args: any[]) => void {
+): (...args: any[]) => T|undefined {
     const croquetContext = useContext(CroquetContext);
     return useCallback(
         (...args) => {
             if (!croquetContext || !croquetContext.view) {throw new Error("No Crouqet Session found")}
             const result = publishCallback(...args);
+            let ret:T|undefined;
             if (result && result.length >= 2) {
                 const [scope, event, data] = result;
                 croquetContext.view.publish(scope, event, data);
+                ret = data;
             }
+            return ret;
         },
         // deps are not in play here as publishCallback has to be fresh to capture what it depnds on
         [publishCallback, croquetContext]
