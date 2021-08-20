@@ -6,6 +6,7 @@
   "types": "types.d.ts",
   "files": [
     "README.md",
+    "LICENSE.md",
     "cjs/croquet-croquet.js",
     "pub/croquet.min.js",
     "types.d.ts"
@@ -35,7 +36,7 @@
     }
   },
   "author": "Croquet Corporation",
-  "license": "UNLICENSED",
+  "license": "SEE LICENSE.md",
   "unpkg": "pub/croquet.min.js",
   "jsdelivr": "pub/croquet.min.js",
   "devDependencies": {

@@ -1,8 +1,10 @@
 # Croquet
 
-Live Collaboration for Web Apps
-* write only client-side code
-* ultra-low latency & bandwidth
-* cost-efficient & scalable
+Croquet enables multi-user webapps hosted as a static website, no server-side or networking code needed. Synchronization happens via Croquet's global reflector fleet.
 
-See croquet.io for SDK access.
+## Get Started ...
+
+* get a free developer key at croquet.io/keys
+* follow the documentation at croquet.io/docs
+
+## ... building Instantaneous Shared Experiences!
