@@ -24,17 +24,18 @@ case $VERSION in
 esac
 
 # publish pub/croquet.min.js to croquet.io/dev/sdk
-SDK=../../../../servers/croquet-io-dev/sdk
-SDKPRE=../../../../servers/croquet-io-dev/sdk-pre
-sed 's,//# sourceMappingURL.*,,' pub/croquet.min.js > $SDK/croquet-$VERSION.min.js
-$PRERELEASE && cat prerelease.js >> $SDK/croquet-$VERSION.min.js
-cp pub/croquet.min.js.map $SDK/croquet-$VERSION.min.js.map
+LIB=../../../../servers/croquet-io-dev/lib
+DOCS=../../../../servers/croquet-io-dev/docs
+DOCSPRE=../../../../servers/croquet-io-dev/docs-pre
+sed 's,//# sourceMappingURL.*,,' pub/croquet.min.js > $LIB/croquet-$VERSION.min.js
+$PRERELEASE && cat prerelease.js >> $LIB/croquet-$VERSION.min.js
+cp pub/croquet.min.js.map $LIB/croquet-$VERSION.min.js.map
 
 # always create croquet-latest-pre.txt
-(cd $SDK; ln -sf croquet-$VERSION.min.js croquet-latest-pre.min.js; echo $VERSION > croquet-latest-pre.txt)
+(cd $LIB; ln -sf croquet-$VERSION.min.js croquet-latest-pre.min.js; echo $VERSION > croquet-latest-pre.txt)
 
 # create croquet-latest.txt unless prerelease
-$PRERELEASE || (cd $SDK; echo $VERSION > croquet-latest.txt)
+$PRERELEASE || (cd $LIB; echo $VERSION > croquet-latest.txt)
 
 # deploy docs (no commit)
 if $PRERELEASE ; then
@@ -46,8 +47,8 @@ fi
 # commit
 FILES="cjs/croquet-croquet.js cjs/croquet-croquet.js.map pub/croquet.min.js pub/croquet.min.js.map"
 git update-index --no-assume-unchanged $FILES
-git add -A cjs/ pub/ $SDK/ $SDKPRE/
-git commit -m "[teatime] deploy $VERSION" cjs/ pub/ $SDK/ $SDKPRE|| exit
+git add -A cjs/ pub/ $LIB/ $DOCS/ $DOCSPRE/
+git commit -m "[teatime] deploy $VERSION" cjs/ pub/ $LIB/ DOCS/ $DOCSPRE/ || exit
 git update-index --assume-unchanged $FILES
 git --no-pager show --stat
 
