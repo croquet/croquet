@@ -1,8 +1,5 @@
-# Croquet
+# Croquet React Bindings
 
-Live Collaboration for Web Apps
-* write only client-side code
-* ultra-low latency & bandwidth
-* cost-efficient & scalable
+_to be documented_
 
-See croquet.io for SDK access.
+In the mean time see croquet.io/docs
