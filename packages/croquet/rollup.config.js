@@ -108,7 +108,7 @@ process.env.CROQUET_VERSION = public_build || prerelease ? pkg.version
     :  git_clean && (git_pushed || git_bumped) ? `${pkg.version}+${git_branch}.${git_commit}`
     : `${pkg.version}+${git_branch}.${git_commit}.${os.userInfo().username}.${bundle_date}`;
 
-console.log(`Building Croquet SDK ${process.env.CROQUET_VERSION}`);
+console.log(`Building Croquet ${process.env.CROQUET_VERSION}`);
 
 const config = {
     input: 'croquet.js',

@@ -1,4 +1,4 @@
-# Croquet SDK Deployment
+# Croquet Client Library Deployment
 
 We use semantic versioning, see semver.org
 
@@ -15,7 +15,7 @@ We use semantic versioning, see semver.org
 * `git push` to release to croquet.io/dev/sdk
   - the CI server will copy that to the croquet.io bucket
 * `deploy-from-dev-to-test.sh sdk` and `release-from-test-to-public.sh sdk`
-  - to copy sdk from croquet.io/dev/sdk to croquet.io/test/sdk and croquet.io/sdk
+  - to copy lib from croquet.io/dev/sdk to croquet.io/test/sdk and croquet.io/sdk
   - build scripts (e.g. in WorldCore) use version at croquet.io/sdk/croquet-latest-pre.txt
 
 ## Release a.b.c
@@ -27,7 +27,7 @@ We use semantic versioning, see semver.org
   - follow pre-release steps above but with release version number
 * deploy npm
   - ... to be written ...
-* publish new SDK docs:
+* publish new docs:
   - update public change log [sdk/README.md#changelog](../../../sdk/README.md#changelog)
     (select notable changes from our private [CHANGELOG.md](./CHANGELOG.md))
   - update tutorials `sdk/tutorials/*.md`

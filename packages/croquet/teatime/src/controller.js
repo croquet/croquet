@@ -28,8 +28,8 @@ const VERSION = 1;
 export const SDK_VERSION = process.env.CROQUET_VERSION || "<unknown>";
 
 // codepen cannot deal with styled console output
-if (window.location.hostname.match(/co?de?pe?n\.io/)) console.log("Croquet SDK " + SDK_VERSION);
-else console.log("%cCroquet%c SDK %c" + SDK_VERSION, "color:#F0493E", "color:inherit", `color:${SDK_VERSION.includes("+") ? "#909" : "inherit"}`);
+if (window.location.hostname.match(/co?de?pe?n\.io/)) console.log("Croquet " + SDK_VERSION);
+else console.log("%cCroquet%c %c" + SDK_VERSION, "color:#F0493E", "color:inherit", `color:${SDK_VERSION.includes("+") ? "#909" : "inherit"}`);
 
 // use dev reflectors for pre-release SDKs, unless dev=false given
 // (only needed for periods when code changes below require dev reflectors,
@@ -245,7 +245,7 @@ export default class Controller {
     /** @type {String} the persistent id (same for all replicas with same options across app versions) */
     get persistentId() { return this.sessionSpec.persistentId; }
 
-    /** @type {String} identifies SDK version and app code */
+    /** @type {String} identifies Croquet version and app code */
     get versionId() { return this.sessionSpec.codeHash; }
 
     /** @type {Number} the reflector time extrapolated beyond last received tick */

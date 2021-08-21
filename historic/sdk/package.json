@@ -1,8 +1,7 @@
 {
-  "name": "croquet-sdk",
+  "name": "croquet-docs",
   "version": "0.5.0",
-  "description": "Croquet SDK Documentation",
-  "main": "sdk.js",
+  "description": "Croquet Documentation",
   "private": true,
   "scripts": {
     "start": "npm-watch",

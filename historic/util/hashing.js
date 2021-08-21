@@ -119,7 +119,7 @@ export async function hashSessionAndCode(name, options, params, sdk_version) {
     // account.  later we'd like to provide an interface (perhaps through App) for
     // registering each session's resources separately.
     let codeHashes;
-    /** identifies the code being executed - user code, constants, SDK */
+    /** identifies the code being executed - user code, constants, croquet */
     let combinedCodeHash;
     const cached = codeHashCache[persistentId];
     let cacheAnnotation = "";

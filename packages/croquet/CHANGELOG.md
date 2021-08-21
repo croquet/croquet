@@ -1,6 +1,6 @@
 # Changelog
 
-This is a private summary of changes. The public changes are in the SDK [README.md](../../../sdk/README.md#changelog).
+This is a private summary of changes. The public changes are in the public [README.md](../../../sdk/README.md#changelog).
 
 # latest pre-releases
 
@@ -84,7 +84,7 @@ This is a private summary of changes. The public changes are in the SDK [README.
 * 0.3.4-21 include both commonjs and ready-to-use versions in npm
 * 0.3.4-20 allow reflector:region session option
 * 0.3.4-19 allow reflector=region url option
-* 0.3.4-18 fix SDK build, include sourcemaps
+* 0.3.4-18 fix build, include sourcemaps
 * 0.3.4-17 encrypt snapshots and data (still uses base64)
 * 0.3.4-16 ignore join/exit of same view in one event, rename island.users to views
 * 0.3.4-15 fix a potential exit mismatch, send view-exit-mismatch to reflector LOG
@@ -193,7 +193,7 @@ This is a private summary of changes. The public changes are in the SDK [README.
 
 * debug badge ("widget dock")
 * new `Croquet.App` API for debug UI etc.
-* send session URL, code hash, and SDK version when joining
+* send session URL, code hash, and Croquet version when joining
 
 # Ancient ...
 

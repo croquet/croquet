@@ -12,7 +12,7 @@ The tutorials for `@croquet/react` will make use of CodeSandbox to be able to sh
      sandbox="allow-modals allow-forms allow-popups allow-scripts allow-same-origin"
    ></iframe>
 
-We start by importing React and croquet libraries, here as npm dependencies instead of the normal croquet sdk script import.
+We start by importing React and croquet libraries, here as npm dependencies instead of the normal croquet library script import.
 
 The `CounterModel` looks very similar to that in the `@croquet/croquet` Hello World example, but uses the `AutoObservableModel` mixin to define `count` as an observable instance property on `CounterModel`. This means that whenever we write to that property, the corresponding property change event will be published. See the `@croquet/observable` Documentation for more details.
 

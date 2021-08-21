@@ -15,7 +15,7 @@ it is passed into `init` as second argument.
 session `name`, and session `options`. The `persistentId` for
 a session stays the same independent of code changes. In contrast,
 the `sessionId` is derived from the `persistentId` but also the hash of model
-code and the SDK version. When the reflector encounters a never-seen-before
+code and the Croquet version. When the reflector encounters a never-seen-before
 `sessionId`, it will pass the latest persisted data at that moment to the client.)
 
 Most simple apps can use `persistSession()` directly in the root model:

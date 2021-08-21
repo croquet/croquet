@@ -42,8 +42,8 @@
     "sort": false,
     "disqus": "",
     "meta": {
-      "title": "Croquet SDK @CROQUET_VERSION@",
-      "description": "Documentation for the Croquet SDK",
+      "title": "Croquet @CROQUET_VERSION@",
+      "description": "Documentation for the Croquet Client Library",
       "keyword": "croquet"
     },
     "search": true,

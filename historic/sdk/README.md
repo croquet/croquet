@@ -1,7 +1,7 @@
-The _Croquet SDK_ allows you to create **collaborative web** experiences without any server-side code, such as **multi-user apps** or **multi-player games**.
+_Croquet_ allows you to create **collaborative web** experiences without any server-side code, such as **multi-user apps** or **multi-player games**.
 These apps can be stand-alone, or they can be designed to take advantage of our _Greenlight_ collaborative environment (which itself is also built on Croquet).
 
-Scroll down for an **overview** of Croquet, and the [**SDK Changelog**](#changelog).
+Scroll down for an **overview** of Croquet, and the [**Changelog**](#changelog).
 
 Use the Navigation Panel to try our **Tutorials**, **Guides**, and **API docs**.
 
@@ -19,11 +19,11 @@ Also, please review our [**Code of Conduct**](/conduct.html) and
 - [Time](#time)
 - [Snapshots](#snapshots)
 - [Random](#random)
-- [**SDK Changelog**](#changelog)
+- [**Changelog**](#changelog)
 
 # Quickstart
 
-There are 3 main ways to use our SDK:
+There are 3 main ways to use Croquet:
 
 1. **CodePen:** play with our tutorials, click "Edit on CodePen", and develop your app there. To share it, change the view to full screen, and share the pen's url. Alternatively, click "Export" and choose "Export .zip" to download your app to your local computer for further editing and uploading to your own website.
 
@@ -34,7 +34,7 @@ There are 3 main ways to use our SDK:
 
     This will create the `Croquet` global to access `Croquet.Model` etc.
 
-    **NOTE:** See [unpkg.com](https://unpkg.com/) for ways to link to different versions or the latest version automatically. However, we do update the SDK quite often, and
+    **NOTE:** See [unpkg.com](https://unpkg.com/) for ways to link to different versions or the latest version automatically. However, we do update Croquet quite often, and
     cannot promise that pre-1.0 versions will keep working forever, so please keep your apps up-to-date.
 
 3. **NPM**: install the [`@croquet/croquet`](https://www.npmjs.com/package/@croquet/croquet) package:
@@ -47,7 +47,7 @@ There are 3 main ways to use our SDK:
 
     Again, make sure to specify `charset="utf-8"` for your HTML or your script tags.
 
-We frequently update the SDK so be sure to always use the latest (until we have a stable release).
+We frequently update Croquet so be sure to always use the latest (until we have a stable release).
 
 # What is Croquet?
 
@@ -255,4 +255,4 @@ Calls to `Math.random()` within a view will behave normally. Different instances
 
 Copyright © 2019, 2020 Croquet Corporation
 
-_THE CROQUET SDK IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE._
+_THE CROQUET CLIENT LIBRARY IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE._
