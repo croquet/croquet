@@ -57,8 +57,6 @@ const DEFAULT_FILE_SERVER = "https://files.croquet.io";     // all downloads, an
 const UNAUTH_FILE_SERVER = "https://croquet.io/files/v1";   // uploads without apiKey
 const DEFAULT_SIGN_SERVER = "https://api.croquet.io/sign";  // get signed url for uploads with apiKey
 
-// const codeHashes = null; // individual codeHashes are not uploaded for now, will need to re-add for replay
-
 let DEBUG = null;
 
 function initDEBUG() {
@@ -317,17 +315,18 @@ export default class Controller {
         }
         // gather additional properties that are hashed as part of deriving session ID
         const params = {};
-        for (const key of [ 'tps' ]) {
+        for (const key of [ 'tps', 'hashOverride' ]) {
             if (key in urlOptions) params[key] = urlOptions[key];
             else if (key in sessionSpec) params[key] = sessionSpec[key];
         }
         this.key = PBKDF2(password, "", { keySize: 256/32 });
-        const { id, persistentId, codeHash } = await hashSessionAndCode(name, options, params, SDK_VERSION);
+        const { id, persistentId, codeHash, computedCodeHash } = await hashSessionAndCode(name, options, params, SDK_VERSION);
         this.tove = await this.encrypt(id);
         if (DEBUG.session) console.log(`Croquet session "${name}":
         sessionId=${id}${appId ? `
         persistentId=${persistentId}` : ""}
-        versionId=${codeHash}
+        versionId=${codeHash === computedCodeHash ? codeHash : `${codeHash} (specified in hashOverride)
+        versionId=${computedCodeHash} (computed)`}
         viewId=${this.viewId}`);
 
         // eventRateLimit and other (trivially) derived settings
@@ -335,7 +334,7 @@ export default class Controller {
         this.eventHistoryLimit = this.eventRateLimit; // warn user if this many sends recorded in under a second
         this.eventMaxBundles = this.eventRateLimit; // disconnect app if more than this many message bundles are waiting
 
-        this.sessionSpec = { ...sessionSpec, options, name, id, persistentId, codeHash }; // june 2021: added id for easy access from establishSession
+        this.sessionSpec = { ...sessionSpec, options, name, id, persistentId, codeHash, computedCodeHash }; // june 2021: added id for easy access from establishSession
 
         const { msPerTick, multiplier } = this.getTickAndMultiplier();
         this.msPerTick = msPerTick;
@@ -391,7 +390,6 @@ export default class Controller {
             sdk: SDK_VERSION,
         };
         delete snapshot.meta.hash; // old hash is invalid
-        // if (codeHashes) snapshot.meta.code = codeHashes;
         return snapshot;
     }
 
@@ -1041,7 +1039,7 @@ export default class Controller {
         if (DEBUG.session) console.log(this.id, 'Controller sending JOIN');
 
         const { tick, delay } = this.getTickAndMultiplier();
-        const { name, codeHash, appId, apiKey, persistentId, heraldUrl, rejoinLimit, autoSleep } = this.sessionSpec;
+        const { name, codeHash, appId, apiKey, persistentId, heraldUrl, rejoinLimit, autoSleep, computedCodeHash } = this.sessionSpec;
 
         const args = {
             name,                   // for debugging only
@@ -1064,6 +1062,9 @@ export default class Controller {
         });
         if (rejoinLimit) Object.assign(args, {
             leaveDelay: rejoinLimit + 250, // delay leave events
+        });
+        if (computedCodeHash !== codeHash) Object.assign(args, {
+            computedCodeHash,       // for debugging only
         });
 
         // jul 2021: backwards compatibility until reflectors are all updated

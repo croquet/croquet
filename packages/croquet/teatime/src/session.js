@@ -222,6 +222,11 @@ export class Session {
             if (parameters.heraldUrl.length > 256) throw Error('heraldUrl can only be 256 characters');
             if (!parameters.heraldUrl.startsWith("https://")) throw Error('heraldUrl needs to be https');
         }
+        // verify hashOverride
+        if (parameters.hashOverride) {
+            if (parameters.hashOverride.length !== 43) throw Error('hashOverride must be 43 characters');
+            if (parameters.hashOverride.search(/[^-_a-zA-Z0-9]/) !== -1) throw Error('hashOverride must be base64url encoded');
+        }
         // also add debug parameters
         if (parameters.debug) {
             function asArray(a) {
@@ -243,7 +248,7 @@ export class Session {
         // now start
         if ("expectedSimFPS" in parameters) expectedSimFPS = Math.min(parameters.expectedSimFPS, MAX_BALANCE_FPS);
         // parameters to be included in the session spec, if specified by app (or defaulted)
-        const SESSION_PARAMS = ['name', 'password', 'apiKey', 'appId', 'tps', 'autoSleep', 'heraldUrl', 'rejoinLimit', 'eventRateLimit', 'optionsFromUrl', 'viewIdDebugSuffix'];
+        const SESSION_PARAMS = ['name', 'password', 'apiKey', 'appId', 'tps', 'autoSleep', 'heraldUrl', 'rejoinLimit', 'eventRateLimit', 'optionsFromUrl', 'viewIdDebugSuffix', 'hashOverride'];
         freezeAndHashConstants();
         const controller = new Controller();
         // make sure options are JSONable

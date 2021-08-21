@@ -74,7 +74,7 @@ export async function hashString(string) {
 }
 
 const hashPromises = [];
-const codeHashCache = {}; // persistentID to { codeHashes, combinedCodeHash }, cached on first JOIN in case additional code or constants (presumably for a different session) get registered later, and the user explicitly leaves and re-joins
+const codeHashCache = {}; // persistentID to { codeHashes, computedCodeHash }, cached on first JOIN in case additional code or constants (presumably for a different session) get registered later, and the user explicitly leaves and re-joins
 
 export function addClassHash(cls, classId) {
     const source = funcSrc(cls);
@@ -120,32 +120,40 @@ export async function hashSessionAndCode(name, options, params, sdk_version) {
     // registering each session's resources separately.
     let codeHashes;
     /** identifies the code being executed - user code, constants, croquet */
-    let combinedCodeHash;
+    let computedCodeHash;
     const cached = codeHashCache[persistentId];
     let cacheAnnotation = "";
     if (cached) {
         // the cached codeHashes list is only used in logging, and logging will
         // only happen if the final derived session ID has changed.
         codeHashes = cached.codeHashes;
-        combinedCodeHash = cached.combinedCodeHash;
+        computedCodeHash = cached.computedCodeHash;
         cacheAnnotation = " (code hashing from cache)";
     } else {
         codeHashes = await Promise.all(hashPromises);
-        combinedCodeHash = await hashString([sdk_version, ...codeHashes].join('|'));
-        codeHashCache[persistentId] = { codeHashes, combinedCodeHash };
+        computedCodeHash = await hashString([sdk_version, ...codeHashes].join('|'));
+        codeHashCache[persistentId] = { codeHashes, computedCodeHash };
     }
+    // let developer override hashing (at their own peril)
+    const { hashOverride, ...effectiveParams } = params;
+    const effectiveCodeHash = hashOverride || computedCodeHash;
     /** identifies the session */
-    const id = await hashString(persistentId + stableStringify(params) + combinedCodeHash);
+    const id = await hashString(persistentId + stableStringify(effectiveParams) + effectiveCodeHash);
     // log all hashes if debug=hashing
     if (debugHashing() && !logged.has(id)) {
         const charset = [...document.getElementsByTagName('meta')].find(el => el.getAttribute('charset'));
-        if (!charset) console.warn('Missing <meta charset="..."> declaration. Croquet model code hashing might differ between browsers.');
-        debugHashes[combinedCodeHash].what = "Version ID";
+        if (!charset) console.warn('Croquet: Missing <meta charset="..."> declaration. Croquet model code hashing might differ between browsers.');
+        debugHashes[computedCodeHash].what = "Version ID";
         debugHashes[persistentId].what = "Persistent ID";
         debugHashes[id].what = "Session ID";
-        const allHashes = [...codeHashes, combinedCodeHash, persistentId, id].map(each => ({ hash: each, ...debugHashes[each]}));
-        console.log(`Debug Hashing for session ${id}${cacheAnnotation}`, allHashes);
+        if (effectiveCodeHash !== computedCodeHash) {
+            codeHashes.push(computedCodeHash); // for allHashes
+            debugHashes[computedCodeHash].what = "Computed Version ID (replaced by overrideHash)";
+            debugHashes[effectiveCodeHash] = { what: "Version ID (as specified by overrideHash)"};
+        }
+        const allHashes = [...codeHashes, effectiveCodeHash, persistentId, id].map(each => ({ hash: each, ...debugHashes[each]}));
+        console.log(`Croquet: Debug Hashing for session ${id}${cacheAnnotation}`, allHashes);
         logged.add(id);
     }
-    return { id, persistentId, codeHash: combinedCodeHash };
+    return { id, persistentId, codeHash: effectiveCodeHash, computedCodeHash };
 }
