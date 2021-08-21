@@ -12,11 +12,11 @@ We use semantic versioning, see semver.org
   - `[teatime] changelog and version bump to a.b.c-n`
   - the deploy script checks that the repo is clean and this is the last commit
 * run `./deploy.sh` here
-* `git push` to release to croquet.io/dev/sdk
+* `git push` to release to croquet.io/dev/lib
   - the CI server will copy that to the croquet.io bucket
-* `deploy-from-dev-to-test.sh sdk` and `release-from-test-to-public.sh sdk`
-  - to copy lib from croquet.io/dev/sdk to croquet.io/test/sdk and croquet.io/sdk
-  - build scripts (e.g. in WorldCore) use version at croquet.io/sdk/croquet-latest-pre.txt
+* `deploy-from-dev-to-test.sh lib` and `release-from-test-to-public.sh lib`
+  - to copy lib from croquet.io/dev/lib to croquet.io/test/lib and croquet.io/lib
+  - build scripts (e.g. in WorldCore) use version at croquet.io/lib/croquet-latest-pre.txt
 
 ## Release a.b.c
 
