@@ -282,7 +282,7 @@ export class Session {
             await controller.establishSession(sessionSpec);
             rebooting = false;
 
-            session.model = controller.island.get("modelRoot");
+            session.model = controller.vm.get("modelRoot");
             session.id = controller.id;
             session.persistentId = controller.persistentId;
             session.versionId = controller.versionId;

@@ -89,7 +89,7 @@ This is a private summary of changes. The released changes are in the public [RE
 * 0.3.4-28 fix Base64 encoding of large buffers
 * 0.3.4-27 snapshot all kinds of TypedArray, ArrayBuffer as Base64
 * 0.3.4-26 separate data directories per app
-* 0.3.4-25 fix persistent islandId (should not depend on tps)
+* 0.3.4-25 fix persistentId (should not depend on tps)
 * 0.3.4-24 add persistSession()
 * 0.3.4-23 add extrapolatedNow(), add appId
 * 0.3.4-22 fix build
@@ -98,7 +98,7 @@ This is a private summary of changes. The released changes are in the public [RE
 * 0.3.4-19 allow reflector=region url option
 * 0.3.4-18 fix build, include sourcemaps
 * 0.3.4-17 encrypt snapshots and data (still uses base64)
-* 0.3.4-16 ignore join/exit of same view in one event, rename island.users to views
+* 0.3.4-16 ignore join/exit of same view in one event, rename .users to .views
 * 0.3.4-15 fix a potential exit mismatch, send view-exit-mismatch to reflector LOG
 * 0.3.4-14 gzip and upload snapshots in web worker
 * 0.3.4-13 remove simpleapp stuff, switch from parcel to rollup

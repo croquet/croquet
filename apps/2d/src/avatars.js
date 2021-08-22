@@ -278,7 +278,7 @@ async function go() {
         options: { bounce: Math.max(1, bounce) }
         });
 
-    const controller = session.view.realm.island.controller;
+    const controller = session.view.realm.vm.controller;
 
     let users = 0;
 
@@ -297,7 +297,7 @@ async function go() {
     }
 
     window.addEventListener("beforeunload", () => {
-        if (controller.island) window.top.postMessage({connected: -1}, "*");
+        if (controller.vm) window.top.postMessage({connected: -1}, "*");
     });
 }
 

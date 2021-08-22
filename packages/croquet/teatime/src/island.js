@@ -1103,7 +1103,7 @@ class IslandWriter {
         if (!inst) {
             inst = this.reusableInstance = new this(island);
         } else {
-            inst.island = island;
+            inst.vm = island;
             inst.nextRef = 1;
             inst.refs = new Map();
             inst.todo = [];
@@ -1118,7 +1118,7 @@ class IslandWriter {
     static resetInstance() { this.reusableInstance = null; }
 
     constructor(island) {
-        this.island = island;
+        this.vm = island;
         this.nextRef = 1;
         this.refs = new Map();
         this.todo = []; // we use breadth-first writing to limit stack depth
@@ -1343,7 +1343,7 @@ class IslandReader {
         if (!inst) {
             inst = this.reusableInstance = new this(island);
         } else {
-            inst.island = island;
+            inst.vm = island;
             inst.refs = new Map();
             inst.todo = [];
             inst.unresolved = [];
@@ -1358,7 +1358,7 @@ class IslandReader {
     static resetInstance() { this.reusableInstance = null; }
 
     constructor(island) {
-        this.island = island;
+        this.vm = island;
         this.refs = new Map();
         this.todo = [];   // we use breadth-first reading to limit stack depth
         this.unresolved = [];
@@ -1554,7 +1554,7 @@ class MessageArgumentDecoder extends IslandReader {
             if (this.refs.has(ref)) {
                 object[key] = this.refs.get(ref);
             } else {
-                const model = this.island.lookUpModel(ref);
+                const model = this.vm.lookUpModel(ref);
                 if (model) object[key] = model;
                 else throw Error(`Unresolved ref: ${ref} at ${path}[${JSON.stringify(key)}]`);
             }

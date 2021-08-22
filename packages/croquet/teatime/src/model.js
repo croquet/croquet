@@ -533,7 +533,7 @@ class Model {
      * @public
      */
     beWellKnownAs(name) {
-        currentRealm().island.set(name, this);
+        currentRealm().vm.set(name, this);
     }
 
     /**
@@ -545,7 +545,7 @@ class Model {
      * @public
      */
     getModel(id) {
-        return this.__realm.island.lookUpModel(id);
+        return this.__realm.vm.lookUpModel(id);
     }
 
     /**
@@ -560,7 +560,7 @@ class Model {
      * @public
      */
     wellKnownModel(name) {
-        return this.__realm.island.get(name);
+        return this.__realm.vm.get(name);
     }
 
     /**
@@ -576,7 +576,7 @@ class Model {
      * @public
      */
     modelOnly(msg) {
-        if (Island.current() === this.__realm.island) return true;
+        if (Island.current() === this.__realm.vm) return true;
         const error = Error(msg || `${this}.modelOnly() called from outside a model!`);
         displayAppError('view code', error);
         throw error;
@@ -597,7 +597,7 @@ class Model {
      * @public
      */
     get sessionId() {
-        return this.__realm.island.id;
+        return this.__realm.vm.id;
     }
 
     /**
@@ -617,7 +617,7 @@ class Model {
      * @public
      */
     get viewCount() {
-        return Object.keys(this.__realm.island.views).length;
+        return Object.keys(this.__realm.vm.views).length;
     }
 
     /**
@@ -648,7 +648,7 @@ class Model {
      */
     persistSession(collectDataFunc) {
         if (this !== this.wellKnownModel("modelRoot")) throw Error('persistSession() must only be called on the root model');
-        this.__realm.island.persist(this, collectDataFunc);
+        this.__realm.vm.persist(this, collectDataFunc);
     }
 
     [Symbol.toPrimitive]() {

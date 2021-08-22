@@ -14,36 +14,36 @@ let DEBUG = {
 class ModelRealm {
     constructor(island) {
         /** @type import('./island').default */
-        this.island = island;
+        this.vm = island;
     }
     register(model) {
-        return this.island.registerModel(model);
+        return this.vm.registerModel(model);
     }
     deregister(model) {
-        this.island.deregisterModel(model.id);
+        this.vm.deregisterModel(model.id);
     }
     publish(event, data, scope) {
-        this.island.publishFromModel(scope, event, data);
+        this.vm.publishFromModel(scope, event, data);
     }
     subscribe(model, scope, event, methodName) {
         if (DEBUG.subscribe) console.log(`Model.subscribe("${scope}:${event}", ${model} ${(""+methodName).replace(/\([\s\S]*/, '')})`);
-        return this.island.addSubscription(model, scope, event, methodName);
+        return this.vm.addSubscription(model, scope, event, methodName);
     }
     unsubscribe(model, scope, event, methodName='*') {
         if (DEBUG.subscribe) console.log(`Model.unsubscribe(${scope}:${event}", ${model} ${(""+methodName).replace(/\([\s\S]*/, '')})`);
-        this.island.removeSubscription(model, scope, event, methodName);
+        this.vm.removeSubscription(model, scope, event, methodName);
     }
     unsubscribeAll(model) {
         if (DEBUG.subscribe) console.log(`Model.unsubscribeAll(${model} ${model.id})`);
-        this.island.removeAllSubscriptionsFor(model);
+        this.vm.removeAllSubscriptionsFor(model);
     }
 
     future(model, tOffset, methodName, methodArgs) {
         if (__currentRealm && __currentRealm.equal(this)) {
-            return this.island.future(model, tOffset, methodName, methodArgs);
+            return this.vm.future(model, tOffset, methodName, methodArgs);
         }
         if (tOffset) throw Error("tOffset not supported from cross-realm future send yet.");
-        const island = this.island;
+        const island = this.vm;
         return new Proxy(model, {
             get(_target, property) {
                 if (typeof model[property] === "function") {
@@ -60,15 +60,15 @@ class ModelRealm {
     }
 
     random() {
-        return this.island.random();
+        return this.vm.random();
     }
 
     now() {
-        return this.island.time;
+        return this.vm.time;
     }
 
     equal(otherRealm) {
-        return otherRealm instanceof ModelRealm && otherRealm.island === this.island;
+        return otherRealm instanceof ModelRealm && otherRealm.vm === this.vm;
     }
 
     isViewRealm() { return false; }
@@ -77,7 +77,7 @@ class ModelRealm {
 class ViewRealm {
     constructor(island) {
         /** @type import('./island').default */
-        this.island = island;
+        this.vm = island;
     }
 
     register(view) {
@@ -89,7 +89,7 @@ class ViewRealm {
     }
 
     publish(event, data, scope) {
-        this.island.publishFromView(scope, event, data);
+        this.vm.publishFromView(scope, event, data);
     }
     subscribe(event, viewId, callback, scope, handling="queued") {
         if (DEBUG.subscribe) console.log(`View.subscribe("${scope}:${event}", ${viewId} ${callback.name || (""+callback).replace(/\([\s\S]*/, '')} [${handling}])`);
@@ -105,7 +105,7 @@ class ViewRealm {
     }
 
     future(view, tOffset) {
-        const island = this.island;
+        const island = this.vm;
         return new Proxy(view, {
             get(_target, property) {
                 if (typeof view[property] === "function") {
@@ -126,23 +126,23 @@ class ViewRealm {
     }
 
     now() {
-        return this.island.time;
+        return this.vm.time;
     }
 
     externalNow() {
-        return this.island.controller.reflectorTime;
+        return this.vm.controller.reflectorTime;
     }
 
     extrapolatedNow() {
-        return this.island.controller.extrapolatedTime;
+        return this.vm.controller.extrapolatedTime;
     }
 
     isSynced() {
-        return !!this.island.controller.synced;
+        return !!this.vm.controller.synced;
     }
 
     equal(otherRealm) {
-        return otherRealm instanceof ViewRealm && otherRealm.island === this.island;
+        return otherRealm instanceof ViewRealm && otherRealm.vm === this.vm;
     }
 
     isViewRealm() { return true; }

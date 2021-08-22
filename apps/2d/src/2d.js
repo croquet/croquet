@@ -279,7 +279,7 @@ async function go() {
         session.step(timestamp);
 
         if (session.view) {
-            const controller = session.view.realm.island.controller;
+            const controller = session.view.realm.vm.controller;
 
             session.view.showStatus(controller.backlog, controller.starvation, 100, 3000);
 

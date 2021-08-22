@@ -44,7 +44,7 @@ class View {
         if (typeof model !== "object" || !("__realm" in model)) console.warn(`Croquet: argument to View constructor needs to be a Model`);
         let realm = currentRealm("");
         if (!realm || !realm.isViewRealm()) {
-            realm = inViewRealm(model.__realm.island, () => currentRealm(), true);
+            realm = inViewRealm(model.__realm.vm, () => currentRealm(), true);
         }
         // read-only properties
         Object.defineProperty(this, "realm", { value: realm });
@@ -331,7 +331,7 @@ class View {
      * @public
      */
     wellKnownModel(name) {
-        return this.realm.island.get(name);
+        return this.realm.vm.get(name);
     }
 
     /**
@@ -347,7 +347,7 @@ class View {
      * @public
      */
     get sessionId() {
-        return this.realm.island.id;
+        return this.realm.vm.id;
     }
 
     /**
@@ -361,7 +361,7 @@ class View {
      * @notpublic (yet)
      */
     get session() {
-        return this.realm.island.controller.session;
+        return this.realm.vm.controller.session;
     }
 
 
@@ -385,7 +385,7 @@ class View {
      * @public
      */
     get viewId() {
-        return this.realm.island.controller.viewId;
+        return this.realm.vm.controller.viewId;
     }
 
     [Symbol.toPrimitive]() {

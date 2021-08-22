@@ -155,9 +155,9 @@ export default class Controller {
     }
 
     reset() {
-        if (window.ISLAND === this.island) delete window.ISLAND;
+        if (window.ISLAND === this.vm) delete window.ISLAND;
         /** @type {Island} */
-        this.island = null;
+        this.vm = null;
         /** @type {Session} the session object as returned from Session.join, set in session.js. Not to be used here but only so that View.session can find it. Needs redesign. */
         this.session = null;
         /**  @type {Connection} our websocket connection for talking to the reflector */
@@ -239,7 +239,7 @@ export default class Controller {
     }
 
     /** @type {String} the session id (same for all replicas running with same options on the same app version) */
-    get id() { return this.island ? this.island.id : this.sessionSpec.id; }
+    get id() { return this.vm ? this.vm.id : this.sessionSpec.id; }
 
     /** @type {String} the persistent id (same for all replicas with same options across app versions) */
     get persistentId() { return this.sessionSpec.persistentId; }
@@ -254,13 +254,13 @@ export default class Controller {
     get viewOnly() { return this.sessionSpec.viewOnly; }
 
     /**  @type {Number} how many ms need to be simulated to catch up to latest time from the reflector */
-    get backlog() { return this.island ? this.reflectorTime - this.island.time : 0; }
+    get backlog() { return this.vm ? this.reflectorTime - this.vm.time : 0; }
 
     /** @type {Number} how many ms passed since we received something from reflector */
     get starvation() { return Date.now() - this.lastReceived; }
 
     /**  @type {Number} how many ms the simulation is lagging behind extrapolated time, beyond expected tick interval */
-    get lag() { return this.island ? Math.max(0, this.extrapolatedTime - this.island.time - this.msPerTick): 0; }
+    get lag() { return this.vm ? Math.max(0, this.extrapolatedTime - this.vm.time - this.msPerTick): 0; }
 
     /** @type {Number} how many ms passed since we sent a message via the reflector */
     get activity() { return Date.now() - this.lastSent; }
@@ -378,7 +378,7 @@ export default class Controller {
     }
 
     takeSnapshot() {
-        const snapshot = this.island.snapshot();
+        const snapshot = this.vm.snapshot();
         const time = this.lastKnownTime(snapshot);
         const seq = snapshot.externalSeq;
         snapshot.meta = {
@@ -399,16 +399,16 @@ export default class Controller {
         // abandon if this call (delayed by up to 2s - possibly more, if browser is busy)
         // has been overtaken by a poll initiated by another client.  or if the controller
         // has been reset, or we're disconnected.
-        if (!this.connected || !this.island) return;
+        if (!this.connected || !this.vm) return;
 
-        const now = this.island.time;
-        const sinceLast = now - this.island.lastSnapshotPoll;
+        const now = this.vm.time;
+        const sinceLast = now - this.vm.lastSnapshotPoll;
         if (sinceLast < 5000) {
             if (DEBUG.snapshot) console.log(`not requesting snapshot poll (${sinceLast}ms since poll scheduled)`);
             return;
         }
 
-        const message = new Message(now, 0, this.island.id, "handlePollForSnapshot", []);
+        const message = new Message(now, 0, this.vm.id, "handlePollForSnapshot", []);
         // tell reflector only to reflect this message if no message with same ID has been sent in past 5000ms (wall-clock time)
         this.sendTagged(message, { debounce: SNAPSHOT_POLL_DEBOUNCE, msgID: "pollForSnapshot" });
         if (DEBUG.snapshot) console.log(this.id, 'requesting snapshot poll via reflector');
@@ -433,7 +433,7 @@ export default class Controller {
             start = Stats.begin("snapshot");
             voteData = {
                 cpuTime: localCpuTime,
-                hash: this.island.getSummaryHash(),
+                hash: this.vm.getSummaryHash(),
                 viewId: this.viewId,
             };
         } catch (error) {
@@ -819,7 +819,7 @@ export default class Controller {
                 if (DEBUG.session) console.log(this.id, `received SYNC from ${reflector} reflector: time ${time}, ${messages.length} messages, ${persistedOrSnapshot} ${url || "<none>"}`);
                 // if we are rejoining, check if we can do that seamlessly without taking down the view
                 // meaning we have all the messages we missed while disconnected
-                let rejoining = !!this.island;
+                let rejoining = !!this.vm;
                 if (rejoining) {
                     // In theory we could try to preserve unsimulated messages but that would complicate the logic
                     // considerably, and only help in the rather unlikely case of a snapshot being taken while simulation
@@ -832,16 +832,16 @@ export default class Controller {
                     const newest = seq;
                     const oldest = snapshotSeq !== undefined ? snapshotSeq
                         : firstMessage ? firstMessage[1] : newest;
-                    if (DEBUG.messages) console.log(this.id, `rejoin: we have #${this.island.seq} SYNC has #${oldest}-#${newest}`);
+                    if (DEBUG.messages) console.log(this.id, `rejoin: we have #${this.vm.seq} SYNC has #${oldest}-#${newest}`);
                     const seamlessRejoin = sameSession        // must be same timeline (in case we are connected to stateless reflector)
-                        && inSequence(oldest, this.island.seq)   // there must be no gap between our last message and the first synced message
-                        && inSequence(this.island.seq, newest)  // the reflector state must not be older than our island (presumably due to reflector crash and restart)
+                        && inSequence(oldest, this.vm.seq)   // there must be no gap between our last message and the first synced message
+                        && inSequence(this.vm.seq, newest)  // the reflector state must not be older than our island (presumably due to reflector crash and restart)
                         && time >= this.reflectorTime; // similarly, the reflector must not be providing an earlier time than we have already seen
                     if (seamlessRejoin) {
                         // rejoin is safe, discard duplicate messages
-                        if (firstMessage && inSequence(firstMessage[1], this.island.seq)) {
-                            const discard = this.island.seq - firstMessage[1] + 1 >>> 0; // 32 bit difference (!)
-                            if (DEBUG.messages) console.log(this.id, `rejoin: discarding ${discard} messages #${firstMessage[1]}-#${this.island.seq}`);
+                        if (firstMessage && inSequence(firstMessage[1], this.vm.seq)) {
+                            const discard = this.vm.seq - firstMessage[1] + 1 >>> 0; // 32 bit difference (!)
+                            if (DEBUG.messages) console.log(this.id, `rejoin: discarding ${discard} messages #${firstMessage[1]}-#${this.vm.seq}`);
                             messages.splice(0, discard);
                         }
                         // send out messages we buffered while disconnected
@@ -904,24 +904,24 @@ export default class Controller {
                     if (data) this.sessionSpec.snapshot = data;  // set snapshot for building the island
                     this.install();  // will run initFn() if no snapshot
                 }
-                // after install() sets this.island, the main loop may also trigger simulation
-                if (DEBUG.session) console.log(`${this.id} fast-forwarding from ${Math.round(this.island.time)}`);
+                // after install() sets this.vm, the main loop may also trigger simulation
+                if (DEBUG.session) console.log(`${this.id} fast-forwarding from ${Math.round(this.vm.time)}`);
                 // execute pending events, up to (at least) our own view-join
                 const success = await new Promise(resolve => {
                     this.fastForwardHandler = caughtUp => {
-                        if (!this.connected || !this.island) {
+                        if (!this.connected || !this.vm) {
                             console.log(this.id, 'disconnected during SYNC fast-forwarding');
                             resolve(false);
                         } else if (caughtUp === "error") {
                             resolve(false);
-                        } else if (caughtUp && this.viewId in this.island.views) {
+                        } else if (caughtUp && this.viewId in this.vm.views) {
                             resolve(true);
                         }
                         };
                     Promise.resolve().then(() => this.stepSession("fastForward", { budget: MAX_SIMULATION_MS })); // immediate but not in the message handler
                     });
                 delete this.fastForwardHandler;
-                if (success && DEBUG.session) console.log(`${this.id} fast-forwarded to ${Math.round(this.island.time)}`);
+                if (success && DEBUG.session) console.log(`${this.id} fast-forwarded to ${Math.round(this.vm.time)}`);
                 // iff fast-forward was successful, trigger return from establishSession().
                 // otherwise, in due course we'll reconnect and try again.  it can keep waiting.
                 if (success) this.sessionSpec.sessionJoined();
@@ -960,7 +960,7 @@ export default class Controller {
             case 'TICK': {
                 // We received a tick from reflector.
                 // Just set time so main loop knows how far it can advance.
-                if (!this.island) return; // ignore ticks before we are simulating (this also catches any ticks received during reboot)
+                if (!this.vm) return; // ignore ticks before we are simulating (this also catches any ticks received during reboot)
                 const time = (typeof args === 'number') ? args : args.time;
                 if (DEBUG.ticks) {
                     const expected = prevReceived && this.lastReceived - prevReceived - this.msPerTick * this.tickMultiplier | 0;
@@ -1017,8 +1017,8 @@ export default class Controller {
     }
 
     setIsland(island) {
-        this.island = island;
-        this.island.controller = this;
+        this.vm = island;
+        this.vm.controller = this;
     }
 
     // // create an island in its initial state
@@ -1346,7 +1346,7 @@ export default class Controller {
             events.push(m.msgState);
             delay += now - m.bufferTime;
             });
-        const envelope = new Message(this.island.time, 0, this.island.id, "handleBundledEvents", ["dummy", { events }]);
+        const envelope = new Message(this.vm.time, 0, this.vm.id, "handleBundledEvents", ["dummy", { events }]);
         this.socketSendMessage(envelope);
         this.recordRateLimitedSend(now);
         Stats.perSecondTally({ sentBundles: 1, sentMessagesTotal: msgStates.length, sendDelay: delay, sentBundlePayload: totalPayload, sentPayloadTotal: totalPayload });
@@ -1373,7 +1373,7 @@ export default class Controller {
 
         // view sending events while connection is closing or rejoining
         if (!this.connected) {
-            if (this.island) {
+            if (this.vm) {
                 if (DEBUG.sends) console.log(this.id, `buffering ${description}`);
                 this.sendBuffer.push(() => this.socketSendMessage(msg, tags));
             }
@@ -1426,7 +1426,7 @@ export default class Controller {
 
         // view sending events while connection is closing or rejoining
         if (!this.connected) {
-            if (this.island) {
+            if (this.vm) {
                 if (DEBUG.sends) console.log(this.id, `buffering TUTTI ${payload} ${firstMessage && firstMessage.asState()} ${tallyTarget}`);
                 this.sendBuffer.push(() => this.sendTutti(time, topic, data, firstMessage, wantsVote, tallyTarget));
             }
@@ -1458,7 +1458,7 @@ export default class Controller {
 
     sendLog(...args) {
         if (!this.connected) {
-            if (this.island) {
+            if (this.vm) {
                 if (DEBUG.sends) console.log(this.id, `buffering LOG`);
                 this.sendBuffer.push(() => this.sendLog(...args));
             }
@@ -1516,13 +1516,13 @@ export default class Controller {
      * @return {Boolean} true if simulation finished before deadline
      */
     simulate(deadline) {
-        if (!this.island) return true;     // we are probably still sync-ing
+        if (!this.vm) return true;     // we are probably still sync-ing
         try {
             let weHaveTime = true;
-            const nothingToDo = this.networkQueue.length + this.island.messages.size === 0;
+            const nothingToDo = this.networkQueue.length + this.vm.messages.size === 0;
             if (nothingToDo) {
                 // only advance time, do not accumulate any cpuTime
-                weHaveTime = this.island.advanceTo(this.reflectorTime, deadline);
+                weHaveTime = this.vm.advanceTo(this.reflectorTime, deadline);
             } else {
                 // perform simulation accumulating cpuTime
                 const simStart = Stats.begin("simulate");
@@ -1533,21 +1533,21 @@ export default class Controller {
                     // finish simulating internal messages up to message time
                     // (otherwise, external messages could end up in the future queue,
                     // making snapshots non-deterministic)
-                    weHaveTime = this.island.advanceTo(msgData[0], deadline);
+                    weHaveTime = this.vm.advanceTo(msgData[0], deadline);
                     if (!weHaveTime) break;
                     // Remove message from the network queue
                     this.networkQueue.shift();
                     // have the island decode and schedule that message
                     // it will end up first in the future message queue
-                    const msg = this.island.scheduleExternalMessage(msgData);
+                    const msg = this.vm.scheduleExternalMessage(msgData);
                     // simulate that message
-                    weHaveTime = this.island.advanceTo(msg.time, deadline);
+                    weHaveTime = this.vm.advanceTo(msg.time, deadline);
                     // boost cpuTime by a fixed cost per message, to impose an upper limit on
                     // the number of messages we'll accumulate before taking a snapshot
                     this.cpuTime += EXTERNAL_MESSAGE_CPU_PENALTY;
                 }
                 // finally, simulate up to last tick (whether received or generated)
-                if (weHaveTime) weHaveTime = this.island.advanceTo(this.reflectorTime, deadline);
+                if (weHaveTime) weHaveTime = this.vm.advanceTo(this.reflectorTime, deadline);
                 this.cpuTime += Math.max(0.01, Stats.end("simulate") - simStart); // ensure that we move forward even on a browser that rounds performance.now() to 1ms
             }
             Stats.backlog(this.backlog);
@@ -1639,7 +1639,7 @@ export default class Controller {
             return;
         }
 
-        if (!this.island) return;
+        if (!this.vm) return;
 
         let caughtUp;
         switch (stepType) {
@@ -1711,20 +1711,20 @@ export default class Controller {
         if (DEBUG.session) console.log(this.id, `synced=${bool}`);
         this.synced = bool;
         App.showSyncWait(!bool); // true if not synced
-        this.island.publishFromView(this.viewId, "synced", bool);
+        this.vm.publishFromView(this.viewId, "synced", bool);
     }
 
     /** execute something in the view realm */
     inViewRealm(fn) {
-        return inViewRealm(this.island, () => fn(this.island));
+        return inViewRealm(this.vm, () => fn(this.vm));
     }
 
     /** call this from main loop to process queued model=>view events
      * @returns {Number} number of processed events
      */
     processModelViewEvents(isInAnimationStep) {
-        if (this.island) {
-            return this.island.processModelViewEvents(isInAnimationStep);
+        if (this.vm) {
+            return this.vm.processModelViewEvents(isInAnimationStep);
         }
         return 0;
     }
@@ -1735,7 +1735,7 @@ export default class Controller {
         if (typeof this.synced !== "boolean") this.synced = false;
         this.reflectorTime = time;
         this.extrapolatedTimeBase = Date.now() - time;
-        if (this.island) Stats.backlog(this.backlog);
+        if (this.vm) Stats.backlog(this.backlog);
         if (this.tickHook) this.tickHook();
     }
 
@@ -1818,7 +1818,7 @@ export default class Controller {
                 return;
             }
 
-            if (!this.connected || !this.island) return;
+            if (!this.connected || !this.vm) return;
 
             if (checkForDormancy) checkForDormancy();
 
@@ -2084,7 +2084,7 @@ class Connection {
 
 window.setInterval(() => {
     for (const controller of Controllers) {
-        if (!controller.connected || !controller.island) continue;
+        if (!controller.connected || !controller.vm) continue;
         controller.connection.keepAlive(Date.now());
     }
 }, KEEP_ALIVE_INTERVAL);

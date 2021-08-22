@@ -361,7 +361,7 @@ async function go() {
     App.makeWidgetDock();
 
     const session = await Session.join(`tails-${App.autoSession("q")}`, Shapes, ShapesView, { step: "manual", tps: TPS });
-    const controller = session.view.realm.island.controller;
+    const controller = session.view.realm.vm.controller;
 
     let users = 0;
 
@@ -380,7 +380,7 @@ async function go() {
     }
 
     window.addEventListener("beforeunload", () => {
-        if (controller.island) window.top.postMessage({connected: -1}, "*");
+        if (controller.vm) window.top.postMessage({connected: -1}, "*");
     });
 }
 
