@@ -14,7 +14,7 @@ This is a private summary of changes. The public changes are in the public [READ
 * 0.5.1-14 add per-client rate limit on sends via reflector
 * 0.5.1-13 fix failure to transfer persistentId to session; allow string handlers in view subscribe
 * 0.5.1-12 replace tuttiSeq for identifying votes; cache code hash; various renames in Controller
-* 0.5.1-11 use files.squeak.org for downloads, and uploads if apiKey provided
+* 0.5.1-11 use files.croquet.org for downloads, and uploads if apiKey provided
 * 0.5.1-10 fix deadlock in failed seamless rejoin
 * 0.5.1-9 warn about Date usage in model code
 * 0.5.1-8 more rationalisation of session stepping
