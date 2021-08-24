@@ -163,7 +163,7 @@ export class Session {
      */
     static async join(parameters) {
         // old API: join(name, ModelRoot=Model, ViewRoot=View, parameters)
-        if (typeof parameters[0] !== "object") {
+        if (typeof parameters !== "object") {
             throw Error(`Croquet: please use new Session.join( {apiKey, ...} ) API. See https://croquet.io/sdk/docs/Session.html#.join`);
         }
         // resolve promises
