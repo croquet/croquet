@@ -101,7 +101,7 @@ const public_build = !is_dev_build && !pkg.version.includes('-');
 const prerelease = !is_dev_build && git_branch === "main" && git_bumped && git_clean;
 const bundle_date = public_build || prerelease ? git_date : moment().toISOString(true);
 
-if (public_build && (git_branch !== "main" || !git_clean)) throw Error(`Public build ${pkg.version} but ${git_clean ? "git is not clean" : "not on main branch"}`);
+if (public_build && (git_branch !== "main" || !git_clean)) throw Error(`Public build ${pkg.version} but ${!git_clean ? "git is not clean" : `not on main branch)`}`);
 
 // semantic versioning x.y.z-pre.release+meta.data https://semver.org/
 process.env.CROQUET_VERSION = public_build || prerelease ? pkg.version
