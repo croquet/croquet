@@ -236,7 +236,6 @@ export function InCroquetSession(params:CroquetReactSessionParameters
     const children = params.children;
 
     const sessionParams = useMemo(() => {
-	console.log("in memo");
 	const p = {...params, view: CroquetReactView};
 	delete p.children;
 	return p;
