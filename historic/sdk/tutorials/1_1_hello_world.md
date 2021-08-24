@@ -23,7 +23,7 @@ You will see that a simple Croquet app is indeed very simple.
 
 
 ## **Try it out!**
-![QR](https://chart.googleapis.com/chart?chs=50x50&amp;cht=qr&amp;chld=L|0&amp;chl=https://codepen.io/)
+![QR](https://chart.googleapis.com/chart?chs=70x70&cht=qr&chld=L|0&chl=https://codepen.io/croquet/full/bPNgMY)
 The first thing to do is click or scan the **QR code** near the top right
 of the CodePen window.
 This will launch a new CodePen instance of this session.
