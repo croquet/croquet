@@ -281,7 +281,7 @@ declare module "@croquet/croquet" {
          * @return {this}
          * @public
          */
-        subscribe(scope: string, event: string, methodName: string | ((e: any) => void)): void;
+        subscribe<T>(scope: string, event: string, methodName: string | ((e: T) => void)): void;
 
         /**
          * Unsubscribes this model's handler for the given event in the given scope.
@@ -703,9 +703,10 @@ declare module "@croquet/croquet" {
     type ClassOf<M> = new (...args: any[]) => M;
 
     export type CroquetSessionParameters<M extends Model, V extends View> = {
+	apiKey: string,
         appId: string,
         name: string|Promise<string>,
-        password: string|Promise<string>,
+        password?: string|Promise<string>,
         model: ClassOf<M>,
         view: ClassOf<V>,
         options?: CroquetModelOptions,

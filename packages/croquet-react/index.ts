@@ -1,10 +1,9 @@
-import {
+import React, {
     useState,
     useEffect,
     createContext,
     createElement,
     useContext,
-    useMemo,
     useCallback
   } from "react";
 
@@ -13,94 +12,18 @@ import {
     Session,
     CroquetSession,
     Model,
-    CroquetModelOptions,
-    CroquetDebugOptions,
-    // CroquetSessionParameters,
+    CroquetSessionParameters,
   } from "@croquet/croquet";
-import { ObservableModel, Observing } from "@croquet/observable";
 
-// just a type helper to make the documentation look cleaner and more descriptive
-type ClassOf<M> = new (...args: any[]) => M
-
-//type CroquetReactSessionParameters = CroquetSessionParameters<Model, CroquetReactView> & {view?:undefined, children:any};
+// InCroquetSession parameter is almost the same but omits `view`,
+// which is defaulted to CroquetReactView, but adds children
+type CroquetReactSessionParameters = Omit<CroquetSessionParameters<Model, CroquetReactView>, "view"> & {children:React.ReactNode|React.ReactNode[]};
 
 // A React context that stores the croquet session
 // Provided by `InCroquetSession`, consumed by all the hooks.
 export const CroquetContext = createContext<
     CroquetSession<CroquetReactView> | undefined
     >(undefined);
-
-/** Makes use of croquet-observable's convention for listening to property changes of {@link ObservableModels}
- * (whether those proeprty changes are published manually or automatically).
- *
- * On the surface, it simply returns all properties of the input model that you already had access to,
- * but the returned properties are in fact proxied, with the following effects:
- *
- *  * for every returned Model property that you access (by destructuring or direct access), a subscription to property changes to that property is automatically started
- *  * whenever one of these property change subscription gets called, the component using this hook gets rerendered by React, with the hook now returning fresh Model property values.
- *
- * This allows you to very declaratively listen to Model property changes with automatic rerendering.
- *
- * ```
- * function CounterView({counterModel}) {
- *    const {count} = useObservable(counterModel);
- *
- *    return <div>The current count is {count}</div>
- * }
- * ```
- */
-
-export function useObservable<M extends ObservableModel>(model: M): M {
-    const croquetContext = useContext(CroquetContext);
-    if (!croquetContext) throw new Error("No Croquet Context provided!");
-    const [, forceUpdate] = useState({});
-
-    const onChange = () => {
-        forceUpdate({});
-    };
-
-    // once (on component mount), create an access-monitoring proxy and one-use-view
-    const {proxy, oneUseView} = useMemo(
-        () => {
-            const actuallyObservedProps: {
-                [prop: string]: true | undefined;
-                [prop: number]: true | undefined;
-            } = {};
-            
-            const oneUseView = new (Observing(View))(croquetContext.view.model);
-
-            const proxy = new Proxy(model, {
-                // only start subscribing to property changes on properties
-                // that the component actually accesses.
-                get(target, prop) {
-                    if (typeof prop !== "symbol" && !actuallyObservedProps[prop]) {
-                        oneUseView.subscribeToPropertyChange(
-                            model,
-                            prop.toString(),
-                            onChange,
-                            { handling: "oncePerFrame" }
-                        );
-                        actuallyObservedProps[prop] = true;
-                    }
-                    return (target as any)[prop];
-                }
-            });
-
-            return {oneUseView, proxy};
-        },
-        [model, croquetContext.view]
-    );
-
-    // empty effect that is only used to ensure cleanup
-    useEffect(() => {
-        // cleanup
-        return () => {
-            oneUseView.detach();
-        };
-    }, [oneUseView]);
-
-    return proxy;
-}
 
 /** Hook that gives access to the id of the main view. This can be used as an identifier for different clients.
  */
@@ -134,16 +57,15 @@ export function useModelById(id:string): Model|undefined {
  * Needs to be provided with a `publishCallback` that determines the event and data to be published,
  * by either returning `[scope, event, data]` or just `[scope, event]`.
  * Any arguments passed to the function returned by the hook will be forwarded to `publishCallback` as-is.
- * Any state variables that the publish callback depends on internally need to be provided as `deps`,
- * like for React's own `useCallback` hook.
+ * Make sure that the callback function captures all its dependencies by creating one with useCallback, or pass a fresh function.
  *
+ * The hook is parameterized by the type of data it publishes. You can provide the same type for usePublish and subscribe on the model side to ensure the types are consistent.
  *
  * A simple example:
  * ```
  * function IncrementCounterButton({counterModel}) {
- *    const publishIncrement = usePublish(
- *      () => [counterModel.id, 'increment', 1],
- *      [counterModel]
+ *    const publishIncrement = usePublish<number>(
+ *      () => [counterModel.id, 'increment', 1]
  *    );
  *
  *    return <button onClick={publishIncrement} value="Increment"/>;
@@ -153,18 +75,15 @@ export function useModelById(id:string): Model|undefined {
  * Forwarding arguments:
  * ```
  * function IncrementCounterBy10Button({counterModel}) {
- *    const publishIncrement = usePublish(
- *      (incrementBy) => [counterModel.id, 'increment', incrementBy],
- *      [counterModel]
- *    );
+ *    const publishIncrement = usePublish<number>(
+ *      (incrementBy) => [counterModel.id, 'increment', incrementBy]);
  *
  *    return <button onClick={() => publishIncrement(10)} value="Increment by 10"/>;
  * }
  * ```
  */
 export function usePublish<T>(
-    publishCallback: (...args: any[]) => [string, string] | [string, string, T],
-    deps?: any[]
+    publishCallback: (...args: any[]) => [string, string] | [string, string, T]
 ): (...args: any[]) => T|undefined {
     const croquetContext = useContext(CroquetContext);
     return useCallback(
@@ -187,14 +106,14 @@ export function usePublish<T>(
 /** Hook that listens to events matching the provided `scope` and `eventSpec`.
  * Event data is passed as an argument to `callback`.
  * Automatically unsubscribes when the component is demounted.
- * Any state variables that `callback` uses internally need to be provided as `deps`,
- * like for React's own `useEffect` hook.
+ * Make sure that `callback` captures the dependencies by creating one with `useCallback` or pass a fresh function.
+ * The hook is parameterized by the type of data it receives.
  *
  * ```
  *  function StatusBar({counterModel}) {
  *    const [status, setStatus] = useState("Counting...");
  *
- *    useSubscribe(
+ *    useSubscribe<number>(
  *      counterModel.id,
  *      "maximumReached",
  *      (maximum) => {setStatus("Maximum reached!")},
@@ -204,7 +123,7 @@ export function usePublish<T>(
  *    return <div>Current Status: {status}</div>;
  *  }
  * ``` */
-export function useSubscribe(scope: string, eventSpec: string, callback: (data: any) => void, deps?: any[]):void {
+export function useSubscribe<T>(scope: string, eventSpec: string, callback: (data: T) => void):void {
     const croquetContext = useContext(CroquetContext);
     useEffect(() => {
         if (!croquetContext || !croquetContext.view) {throw new Error("No Crouqet Session found")}
@@ -214,7 +133,6 @@ export function useSubscribe(scope: string, eventSpec: string, callback: (data: 
             if (!croquetContext || !croquetContext.view) {throw new Error("No Crouqet Session found")}
             croquetContext.view.unsubscribe(scope, eventSpec);
         }
-        // deps is not in play here as callback has to capture what it depends on
     }, [scope, eventSpec, callback, croquetContext]);
 }
 
@@ -254,7 +172,7 @@ export function useDetachCallback(callback:DetachCallback|null):void {
 
 // our top level view that gets the root model
 // and from which we create our one-time-use views per component
-class CroquetReactView extends Observing(View) {
+class CroquetReactView extends View {
     model: Model;
     updateCallback: UpdateCallback|null;
     syncedCallback: SyncedCallback|null;
@@ -299,10 +217,11 @@ class CroquetReactView extends Observing(View) {
  * function MyApp() {
  *    return (
  *      <InCroquetSession
+ *        apiKey="1_123abc",
  *        appId="com.example.myapp"
  *        name="mySession"
  *        password="secret"
- *        modelRoot={MyRootModel}
+ *        model={MyRootModel}
           ...
  *      >
  *        // child elements that use hooks go here...
@@ -311,24 +230,14 @@ class CroquetReactView extends Observing(View) {
  * }
  * ```
  */
-export function InCroquetSession<M extends Model>(params:{
-    appId: string,
-    name: string|Promise<string>,
-    password: string,
-    modelRoot: ClassOf<M>;
-    children: React.ReactNode;
-    eventRateLimit?: number,
-    debug?:CroquetDebugOptions|CroquetDebugOptions[],
-    tps?:number|string;
-    step?:"auto"|"manual";
-    joinLimit?:number,
-    options?: CroquetModelOptions;
-}):JSX.Element {
+export function InCroquetSession(params:CroquetReactSessionParameters
+):JSX.Element {
     const {
+	apiKey,
         appId,
         name,
         password,
-        modelRoot,
+        model,
         children,
         eventRateLimit,
         debug,
@@ -344,10 +253,11 @@ export function InCroquetSession<M extends Model>(params:{
     useEffect(() => {
         let session: CroquetSession<CroquetReactView>|null = null;
         Session.join({
+            apiKey,
             appId,
             name,
             password,
-            model: modelRoot,
+            model,
             eventRateLimit,
             view: CroquetReactView,
             debug,
@@ -365,7 +275,7 @@ export function InCroquetSession<M extends Model>(params:{
                 session = null;
             }
         };
-    }, [appId, name, password, modelRoot, eventRateLimit, debug, tps, step, joinLimit, options]);
+    }, [apiKey, appId, name, password, model, eventRateLimit, debug, tps, step, joinLimit, options]);
 
     if (croquetContext) {
         return createElement(

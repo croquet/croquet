@@ -1,6 +1,6 @@
 {
   "name": "@croquet/observable",
-  "version": "0.5.0",
+  "version": "1.0.3",
   "description": "Automatic Change Events for Croquet",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
