@@ -4,7 +4,8 @@ import React, {
     createContext,
     createElement,
     useContext,
-    useCallback
+    useCallback,
+    useMemo
   } from "react";
 
 import {
@@ -232,40 +233,21 @@ class CroquetReactView extends View {
  */
 export function InCroquetSession(params:CroquetReactSessionParameters
 ):JSX.Element {
-    const {
-	apiKey,
-        appId,
-        name,
-        password,
-        model,
-        children,
-        eventRateLimit,
-        debug,
-        tps,
-        step,
-        joinLimit,
-        options,
-    } = params;
-    
+    const children = params.children;
+
+    const sessionParams = useMemo(() => {
+	console.log("in memo");
+	const p = {...params, view: CroquetReactView};
+	delete p.children;
+	return p;
+    }, [params]);
+
     const [croquetContext, setCroquetContext] = useState<
         CroquetSession<CroquetReactView> | undefined
         >(undefined);
     useEffect(() => {
-        let session: CroquetSession<CroquetReactView>|null = null;
-        Session.join({
-            apiKey,
-            appId,
-            name,
-            password,
-            model,
-            eventRateLimit,
-            view: CroquetReactView,
-            debug,
-            tps,
-            step,
-            joinLimit,
-            options
-        }).then(context => {
+        let session: CroquetSession<View>|null = null;
+        Session.join(sessionParams).then(context => {
             session = context;
             setCroquetContext(context);
         });
@@ -275,7 +257,7 @@ export function InCroquetSession(params:CroquetReactSessionParameters
                 session = null;
             }
         };
-    }, [apiKey, appId, name, password, model, eventRateLimit, debug, tps, step, joinLimit, options]);
+    }, [sessionParams]);
 
     if (croquetContext) {
         return createElement(
