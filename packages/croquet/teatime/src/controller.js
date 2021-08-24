@@ -1067,9 +1067,6 @@ export default class Controller {
             computedCodeHash,       // for debugging only
         });
 
-        // jul 2021: backwards compatibility until reflectors are all updated
-        args.islandId = args.persistentId;
-
         this.connection.send(JSON.stringify({
             id: this.id,
             action: 'JOIN',
