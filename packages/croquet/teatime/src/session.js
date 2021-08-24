@@ -173,28 +173,24 @@ export class Session {
             if (v instanceof Promise) parameters[k] = await v;
         }
         function inherits(A, B) { return A === B || A.prototype instanceof B; }
-        // sanitize name
+        // check apiKey
         if (typeof parameters.apiKey !== "string") throw Error("Croquet: no apiKey provided in Session.join()!");
+        if (parameters.apiKey.length > 128) throw Error("Croquet: apiKey > 128 characters in Session.join()!");
         // sanitize name
-        if (!parameters.name) throw Error("Croquet: no session name provided in Session.join()!");
+        if (typeof parameters.name !== "string") throw Error("Croquet: no session name provided in Session.join()!");
+        if (parameters.name.length > 128) throw Error("Croquet: session name > 128 characters in Session.join()!");
         // must pass a model
         const ModelRoot = parameters.model;
-        if (!inherits(ModelRoot, Model)) throw Error("ModelRoot must inherit from Croquet.Model");
+        if (typeof ModelRoot !== "function" || !inherits(ModelRoot, Model)) throw Error("Croquet: bad model class in Session.join()");
         // view defaults to View
         const ViewRoot = parameters.view || View;
-        if (!inherits(ViewRoot, View)) throw Error("ViewRoot must inherit from Croquet.View");
+        if (typeof ViewRoot !== "function" || !inherits(ViewRoot, View)) throw Error("Croquet: bad view class in Session.join()");
         // check appId
-        if (!parameters.appId) {
-            console.warn("Croquet: no appId provided in Session.join()");
-        } else if (!parameters.appId.match(/^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)+$/i)) {
-            throw Error(`Croquet: malformed appId "${parameters.appId}"`);
-        }
+        if (typeof parameters.appId !== "string") throw Error("Croquet: no appId provided in Session.join()");
+        if (!parameters.appId.length > 128) throw Error("Croquet: appId > 128 characters in Session.join()");
+        if (!parameters.appId.match(/^[a-z](-?[a-z0-9_])*(\.[a-z0-9_](-?[a-z0-9_])*)+$/i)) throw Error("Croquet: malformed appId in Session.join()");
         // check password
-        if (!parameters.password) {
-            console.warn("Croquet: no session password provided in Session.join()");
-            // if the default shows up in logs we have a problem
-            parameters.password = "THIS SHOULDN'T BE IN LOGS";
-        }
+        if (typeof parameters.password !== "string" || !parameters.password) throw Error("Croquet: no password provided in Session.join()");
         // put reflector param into urlOptions because that's where controller.js looks
         const reflector = urlOptions.reflector || parameters.reflector;
         if (reflector) {
