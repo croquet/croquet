@@ -4,6 +4,7 @@ This is a private summary of changes. The public changes are in the public [READ
 
 # 2021-08-23: 1.0.1
 
+* 1.0.2 fix session arg check
 * 1.0.1 rebuild
 * 1.0.0 enforce using apiKey, allow hashOverride
 * 0.5.1-18 message-sending stats displayed if window.logMessageStats

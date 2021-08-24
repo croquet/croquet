@@ -1,6 +1,6 @@
 {
   "name": "croquet-docs",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Croquet Documentation",
   "private": true,
   "scripts": {
