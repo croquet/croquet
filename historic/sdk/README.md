@@ -22,7 +22,7 @@ Also, please review our [**Code of Conduct**](/conduct.html) and
 
 # Quickstart
 
-***First, get a free API key from https://croquet.io/keys***
+***First, get a free API key from [croquet.io/keys](https://croquet.io/keys/)***
 
 There are 3 main ways to use Croquet:
 
