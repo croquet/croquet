@@ -2,10 +2,12 @@
 
 This is a private summary of changes. The public changes are in the public [README.md](../../../sdk/README.md#changelog).
 
-# 2021-08-23: 1.0.1
-
+# latest
+* 1.0.3 fix latency calculation
 * 1.0.2 fix session arg check
 * 1.0.1 rebuild
+
+# 2021-08-23: 1.0.0
 * 1.0.0 enforce using apiKey, allow hashOverride
 * 0.5.1-18 message-sending stats displayed if window.logMessageStats
 * 0.5.1-17 confirm session password in SYNC
