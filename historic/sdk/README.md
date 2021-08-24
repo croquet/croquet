@@ -1,5 +1,4 @@
 _Croquet_ allows you to create **collaborative web** experiences without any server-side code, such as **multi-user apps** or **multi-player games**.
-These apps can be stand-alone, or they can be designed to take advantage of our _Greenlight_ collaborative environment (which itself is also built on Croquet).
 
 Scroll down for an **overview** of Croquet, and the [**Changelog**](#changelog).
 
@@ -22,6 +21,8 @@ Also, please review our [**Code of Conduct**](/conduct.html) and
 - [**Changelog**](#changelog)
 
 # Quickstart
+
+***First, get a free API key from https://croquet.io/keys***
 
 There are 3 main ways to use Croquet:
 
@@ -104,10 +105,11 @@ You then join a session by calling {@link Session.join} and passing it your mode
 You do need to provide some session meta data, like an appId, session name, and a password. Below we use `autoSession`/`autoPassword` but you can instead use whatever makes most sense for your app. In the tutorials we even often use constants for all, but you should not do that in production.
 
 ```
+const apiKey = "your_api_key"; // paste from croquet.io/keys
 const appId = "com.example.myapp";
 const name = Croquet.App.autoSession();
 const password = Croquet.App.autoPassword();
-Croquet.Session.join({appId, name, password, model: MyModel, view: MyView});
+Croquet.Session.join({apiKey, appId, name, password, model: MyModel, view: MyView});
 ```
 That's it. You don't need to worry about setting up a server, or writing special synchronization code. _Croquet_ handles all of that invisibly, allowing you to concentrate on what your app _does_.
 
@@ -253,6 +255,6 @@ Calls to `Math.random()` within a view will behave normally. Different instances
 | 2019-06-27 | docs: [View.subscribe]{@link View#subscribe}, [startSession]{@link Session.join}
 | 2019-06-26 | **release 0.1.0**
 
-Copyright © 2019, 2020 Croquet Corporation
+Copyright © 2019-2021 Croquet Corporation
 
 _THE CROQUET CLIENT LIBRARY IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE._

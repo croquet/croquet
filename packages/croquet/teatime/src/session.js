@@ -88,6 +88,7 @@ export class Session {
      * #### Parameters
      * | parameter     | values         | Description
      * | --------------|----------------|------------
+     * | `apiKey`      | string         | API key from croquet.io/keys
      * | `appId`       | string         | unique application identifier as [dot-separated words](https://developer.android.com/studio/build/application-id) (e.g. `"com.example.myapp"`)
      * | `name`        | string         | a name for this session (e.g. `"123abc"`)
      * | `password`    | string         | a password for this session (used for end-to-end encryption of messages and snapshots)
@@ -112,6 +113,7 @@ export class Session {
      *
      * @async
      * @param {Object} parameters
+     * @param {String} parameters.apiKey - API key (from croquet.io/keys)
      * @param {String} parameters.appId - [application identifier](https://developer.android.com/studio/build/application-id)
      * @param {String} parameters.name - session name
      * @param {String} parameters.password - session password
@@ -140,6 +142,7 @@ export class Session {
      *  - `leave()` is an async function that forces this session to disconnect.
      * @example <caption>auto name, password, and main loop</caption>
      * Croquet.Session.join({
+     *     apiKey: "your_api_key",                 // paste from croquet.io/keys
      *     appId: "com.example.myapp",             // namespace for session names
      *     name: Croquet.App.autoSession(),        // session via URL arg
      *     password: Croquet.App.autoPassword(),   // password via URL arg
@@ -148,7 +151,7 @@ export class Session {
      *     debug: ["session"],
      * });
      * @example <caption>manual name, password, and WebXR main loop</caption>
-     * Croquet.Session.join({ appId: "com.example.myapp", name: "abc", password: "password", model: MyRootModel, view: MyRootView, step: "manual"}).then(session => {
+     * Croquet.Session.join({ apiKey: "your_api_key", appId: "com.example.myapp", name: "abc", password: "password", model: MyRootModel, view: MyRootView, step: "manual"}).then(session => {
      *     function xrAnimFrame(time, xrFrame) {
      *         session.step(time);
      *         ...
@@ -158,19 +161,10 @@ export class Session {
      * });
      * @public
      */
-    static async join(parameters, ...oldargs) {
-        // old API: join(name, ModelRoot=Model, ViewRoot=View, parameters) {
-        if (typeof parameters[0] === "string" || oldargs.length > 0) {
-            console.warn(`Croquet: please use new Session.join( {name, ...} ) API. See https://croquet.io/sdk/docs/Session.html#.join`);
-            const [n, m, v, p] = [parameters, ...oldargs];
-            parameters = p || {};
-            if (v && Object.getPrototypeOf(v) === Object.prototype && p === undefined) {
-                parameters = v;
-            } else {
-                parameters.view = v;
-            }
-            parameters.model = m;
-            parameters.name = n;
+    static async join(parameters) {
+        // old API: join(name, ModelRoot=Model, ViewRoot=View, parameters)
+        if (typeof parameters[0] !== "object") {
+            throw Error(`Croquet: please use new Session.join( {apiKey, ...} ) API. See https://croquet.io/sdk/docs/Session.html#.join`);
         }
         // resolve promises
         for (const [k,v] of Object.entries(parameters)) {
@@ -179,6 +173,8 @@ export class Session {
             if (v instanceof Promise) parameters[k] = await v;
         }
         function inherits(A, B) { return A === B || A.prototype instanceof B; }
+        // sanitize name
+        if (typeof parameters.apiKey !== "string") throw Error("Croquet: no apiKey provided in Session.join()!");
         // sanitize name
         if (!parameters.name) throw Error("Croquet: no session name provided in Session.join()!");
         // must pass a model

@@ -252,10 +252,11 @@ If it is not, then the view publishes a "reset" event in the "counter" scope. As
 
 This method is called whenever a new value of the count is published by the model. The view changes the textContent value of the "countDisplay" element to whatever count the model has sent.
 
-## Croquet.Session.join({ appId, name, password, model, view, options })
+## Croquet.Session.join({ apiKey, appId, name, password, model, view, options })
 
 ```
 Croquet.Session.join({
+  apiKey: "your_api_key",
   appId: "io.codepen.croquet.hello",
   name: "unnamed",
   password: "secret",
@@ -264,11 +265,11 @@ Croquet.Session.join({
 });
 ```
 
-Croquet.Session.join is where the application is actually launched. The arguments are the appId, session name, session password, the MyModel class, the MyView class, and any options you may wish to include.
+Croquet.Session.join is where the application is actually launched. The arguments are the [apiKey](https://croquet.io/keys), appId, session name, session password, the MyModel class, the MyView class, and any options you may wish to include.
 
 Starting the session will do the following things:
 
-1. Connect to a nearby public reflector
+1. Connect to a nearby public reflector using the provided [API key](https://croquet.io/keys)
 2. Instantiate the model
 3. a) Run the initialization code in the model's init routine<br>
    -or-<br>

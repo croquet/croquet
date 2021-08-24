@@ -30,15 +30,16 @@ The session name exists to distinguish multiple sessions per app. You may use ou
 The session password encrypts all data sent via the internet. If your app does not use data worth protecting, you still need to provide a dummy password. You may use our `autoPassword` helper which parses the URL hash and creates a new random password if necessary, appending it to the url for sharing. (Note: both `autoSession` and `autoPassword` return promises. `Session.join` waits for all promises to resolve). In production you probably want to add some UI letting users type in the password.
 
 ```
+const apiKey = "your_api_key";              // paste from croquet.io/keys
 const appId = "com.example.myapp";
 const name = Croquet.App.autoSession();
 const password = Croquet.App.autoPassword();
-Croquet.Session.join({ appId, name, password, model: MyModel, view: MyView });
+Croquet.Session.join({ apiKey, appId, name, password, model: MyModel, view: MyView });
 ```
 
 Starting the session will do the following things:
 
-1. Connect to a nearby public reflector
+1. Connect to a nearby public reflector using the provided [API key](https://croquet.io/keys)
 2. Instantiate the model
 3. a) Run the initialization code in the model's init routine -or-<br>
    b) Initialize the model from a saved snapshot
