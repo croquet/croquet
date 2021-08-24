@@ -1194,9 +1194,9 @@ export default class Controller {
         return result;
     }
 
-    async encryptMessage(msg, viewId, lastSent) {
+    async encryptMessage(msg, viewId, sendTime) {
         const [time, seq, msgPayload] = msg.asState();
-        const encryptedPayload = await this.encryptPayload([msgPayload, viewId, lastSent]);
+        const encryptedPayload = await this.encryptPayload([msgPayload, viewId, sendTime]);
         return [time, seq, encryptedPayload];
     }
 
@@ -1365,7 +1365,7 @@ export default class Controller {
     async socketSendMessage(msg, tags=null) {
         // get the asynchronous encoding out of the way before the check that
         // we're still connected.
-        const encryptedMsg = await this.encryptMessage(msg, this.viewId, this.lastSent); // [time, seq, payload]
+        const encryptedMsg = await this.encryptMessage(msg, this.viewId, Date.now()); // [time, seq, payload]
 
         const description = tags ? `tagged SEND ${msg.asState()} with tags ${JSON.stringify(tags)}` : `SEND ${msg.asState()}`;
 
@@ -1419,7 +1419,7 @@ export default class Controller {
 
         // get the asynchronous encoding out of the way before the check that
         // we're still connected.
-        const encryptedMsg = firstMessage && await this.encryptMessage(firstMessage, this.viewId, this.lastSent); // [time, seq, payload]
+        const encryptedMsg = firstMessage && await this.encryptMessage(firstMessage, this.viewId, Date.now()); // [time, seq, payload]
         const payload = stableStringify(data); // stable, to rule out platform differences
 
         // view sending events while connection is closing or rejoining
