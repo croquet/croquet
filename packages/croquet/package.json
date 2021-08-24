@@ -2,6 +2,20 @@
   "name": "@croquet/croquet",
   "version": "1.0.3",
   "description": "Live Collaboration for Web Apps without Server Code",
+  "keywords": [
+    "croquet",
+    "multiplayer",
+    "multiuser",
+    "collaboration",
+    "realtime",
+    "online",
+    "client",
+    "server",
+    "networking",
+    "multi-player",
+    "multi-user",
+    "real-time"
+  ],
   "main": "cjs/croquet-croquet.js",
   "types": "types.d.ts",
   "files": [
