@@ -48,7 +48,7 @@ fi
 FILES="cjs/croquet-croquet.js cjs/croquet-croquet.js.map pub/croquet.min.js pub/croquet.min.js.map"
 git update-index --no-assume-unchanged $FILES
 git add -A cjs/ pub/ $LIB/ $DOCS/ $DOCSPRE/
-git commit -m "[teatime] deploy $VERSION" cjs/ pub/ $LIB/ DOCS/ $DOCSPRE/ || exit
+git commit -m "[teatime] deploy $VERSION" cjs/ pub/ $LIB/ $DOCS/ $DOCSPRE/ || exit
 git update-index --assume-unchanged $FILES
 git --no-pager show --stat
 
