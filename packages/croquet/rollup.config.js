@@ -144,8 +144,8 @@ const config = {
         }),
         fixups(), // must be after terser
         license({
-            banner: `@license UNLICENSED
-Copyright Croquet Corporation ${ git_date.slice(0, 4) }
+            banner:
+`Copyright Croquet Corporation ${ git_date.slice(0, 4) }
 Bundle of ${ pkg.name }
 Date: ${ bundle_date.slice(0, 10) }
 Version: ${ process.env.CROQUET_VERSION }`,

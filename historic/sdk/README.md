@@ -228,7 +228,7 @@ Calls to `Math.random()` within a view will behave normally. Different instances
 
 | date       | item
 |------------|---
-| 2021-08-23 | **release 1.0.0** (bug fixes; require [API key](https://croquet.io/keys/), warn about `Date` usage in model code, event rate limit)
+| 2021-08-23 | **release 1.0.1** (bug fixes; require [API key](https://croquet.io/keys/), warn about `Date` usage in model code, event rate limit)
 | 2021-05-18 | **release 0.5.0** (bug fixes; [seamless rejoin]{@link Session.join} with default `rejoinLimit` of 1000ms, [`autoSession` / `autoPassword`]{@tutorial 2_2_writing_a_croquet_app} are `async` now; added [`viewCount`]{@link Model#viewCount} and [`static wellKnownModel`]{@link Model.wellKnownModel})
 | 2020-11-20 | **release 0.4.0** (bug fixes; enable encryption, {@link Session.join} takes named args, {@link Model.register} requires class id, [getModel()]{@link Model#getModel} and [extrapolatedNow()]{@link View#extrapolatedNow} added, removed wellKnownName arg from {@link Model.create})
 | 2020-09-03 | **release 0.3.3** (bug fixes; `session.leave()` returns promise, support for virtual-dom)
