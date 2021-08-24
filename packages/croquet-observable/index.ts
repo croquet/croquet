@@ -5,7 +5,7 @@ export interface ObservableModel extends Model {
 }
 
 interface ModelStatics {
-    create<T extends typeof Model>(this: T, options: any): InstanceType<Model>;
+    create<T extends typeof Model>(this: T, options: any): InstanceType<T>;
     register(classId:string): void;
     wellKnownModel<M extends Model>(name: string): M | undefined;
 }
