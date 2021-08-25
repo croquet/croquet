@@ -52,6 +52,8 @@ git commit -m "[teatime] deploy $VERSION" cjs/ pub/ $LIB/ $DOCS/ $DOCSPRE/ || ex
 git update-index --assume-unchanged $FILES
 git --no-pager show --stat
 
-
 echo "After pushing to dev, do not forget to"
-echo "    ../../../../docker/scripts/deploy-from-dev-to-test.sh sdk"
+echo "    ../../../../docker/scripts/deploy-from-dev-to-test.sh lib"
+echo "    ../../../../docker/scripts/deploy-from-dev-to-test.sh docs/croquet"
+echo "    ../../../../docker/scripts/release-from-test-to-public.sh lib"
+echo "    ../../../../docker/scripts/release-from-test-to-public.sh docs/croquet"
