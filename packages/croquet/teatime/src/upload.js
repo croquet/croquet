@@ -63,6 +63,7 @@ onmessage = msg => {
                 "X-Croquet-Auth": apiKey,
                 "X-Croquet-App": appId,
                 "X-Croquet-Id": persistentId,
+                "X-Croquet-Session": id,
             },
             referrer
         });
@@ -85,6 +86,7 @@ onmessage = msg => {
                     "Content-Type": "application/octet-stream",
                     "X-Croquet-App": appId,
                     "X-Croquet-Id": persistentId,
+                    "X-Croquet-Session": id,
                 },
                 referrer,
                 body

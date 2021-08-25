@@ -631,6 +631,7 @@ export default class Controller {
             headers: {
                 "X-Croquet-App": this.sessionSpec.appId,
                 "X-Croquet-Id": this.sessionSpec.persistentId,
+                "X-Croquet-Session": this.sessionSpec.id,
             },
             referrer: App.referrerURL(),
         });
