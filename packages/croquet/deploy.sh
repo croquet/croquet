@@ -52,6 +52,12 @@ git commit -m "[teatime] deploy $VERSION" cjs/ pub/ $LIB/ $DOCS/ $DOCSPRE/ || ex
 git update-index --assume-unchanged $FILES
 git --no-pager show --stat
 
+echo "Next, publish the npm:"
+if $PRERELEASE ; then
+    echo "    npm publish --tag pre"
+else
+    echo "    npm publish"
+fi
 echo "After pushing to dev, do not forget to"
 echo "    ../../../../docker/scripts/deploy-from-dev-to-test.sh lib"
 echo "    ../../../../docker/scripts/deploy-from-dev-to-test.sh docs/croquet"
