@@ -56,6 +56,7 @@ const DEV_CLOUDFLARE_REFLECTOR = "wss://croquet.network/reflector/dev/";
 const DEFAULT_FILE_SERVER = "https://files.croquet.io";     // all downloads, and signed uploads
 const UNAUTH_FILE_SERVER = "https://croquet.io/files/v1";   // uploads without apiKey
 const DEFAULT_SIGN_SERVER = "https://api.croquet.io/sign";  // get signed url for uploads with apiKey
+const DEV_SIGN_SERVER = "https://api.croquet.io/dev/sign";  // get signed url for uploads with apiKey
 
 let DEBUG = null;
 
@@ -560,7 +561,7 @@ export default class Controller {
     }
 
     uploadServer() {
-        if (this.sessionSpec.apiKey) return DEFAULT_SIGN_SERVER;
+        if (this.sessionSpec.apiKey) return DEBUG.reflector ? DEV_SIGN_SERVER : DEFAULT_SIGN_SERVER;
         return this.overrideServer(UNAUTH_FILE_SERVER);
     }
 
