@@ -3,7 +3,7 @@ import { currentRealm, inViewRealm } from "./realms";
 
 /**
  * Views are the non-replicated part of a Croquet Application.
- * Each device and browser window creates its own independend local view.
+ * Each device and browser window creates its own independent local view.
  * The view [subscribes]{@link View#subscribe} to events [published]{@link Model#publish}
  * by the replicated model, so it stays up to date in real time.
  *
@@ -202,7 +202,7 @@ class View {
     }
 
     /**
-     * Unsubscribes all of this views's handlers for any event in any scope.
+     * Unsubscribes all of this view's handlers for any event in any scope.
      * @public
      */
     unsubscribeAll() {
