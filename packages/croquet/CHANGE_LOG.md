@@ -3,6 +3,7 @@
 This is a private summary of changes. The public changes are in the public [README.md](../../../sdk/README.md#changelog).
 
 # latest
+* 1.0.4 stricter session parameter checks
 * 1.0.3 fix latency calculation
 * 1.0.2 fix session arg check
 * 1.0.1 rebuild

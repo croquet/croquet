@@ -1,6 +1,6 @@
 {
   "name": "@croquet/croquet",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Live Collaboration for Web Apps without Server Code",
   "keywords": [
     "croquet",
