@@ -24,9 +24,8 @@ case $VERSION in
 esac
 
 # publish pub/croquet.min.js to croquet.io/dev/sdk
-LIB=../../../../servers/croquet-io-dev/lib
-DOCS=../../../../servers/croquet-io-dev/docs
-DOCSPRE=../../../../servers/croquet-io-dev/docs-pre
+TARGET=../../../../servers/croquet-io-dev
+LIB=$TARGET/lib
 sed 's,//# sourceMappingURL.*,,' pub/croquet.min.js > $LIB/croquet-$VERSION.min.js
 $PRERELEASE && cat prerelease.js >> $LIB/croquet-$VERSION.min.js
 cp pub/croquet.min.js.map $LIB/croquet-$VERSION.min.js.map
@@ -38,17 +37,20 @@ cp pub/croquet.min.js.map $LIB/croquet-$VERSION.min.js.map
 $PRERELEASE || (cd $LIB; echo $VERSION > croquet-latest.txt)
 
 # deploy docs (no commit)
+DOCS=docs
 if $PRERELEASE ; then
     ../../../sdk/deploy.sh prerelease || exit
+    DOCS="docs-pre"
 else
     ../../../sdk/deploy.sh release || exit
+    DOCS="docs"
 fi
 
 # commit
 FILES="cjs/croquet-croquet.js cjs/croquet-croquet.js.map pub/croquet.min.js pub/croquet.min.js.map"
 git update-index --no-assume-unchanged $FILES
-git add -A cjs/ pub/ $LIB/ $DOCS/ $DOCSPRE/
-git commit -m "[teatime] deploy $VERSION" cjs/ pub/ $LIB/ $DOCS/ $DOCSPRE/ || exit
+git add -A cjs/ pub/ $LIB/ $TARGET/$DOCS/
+git commit -m "[teatime] deploy $VERSION" cjs/ pub/ $LIB/ $TARGET/$DOCS/ || exit
 git update-index --assume-unchanged $FILES
 git --no-pager show --stat
 
@@ -58,8 +60,8 @@ if $PRERELEASE ; then
 else
     echo "    npm publish"
 fi
-echo "After pushing to dev, do not forget to"
+echo "After pushing to dev, you might want to"
 echo "    ../../../../docker/scripts/deploy-from-dev-to-test.sh lib"
-echo "    ../../../../docker/scripts/deploy-from-dev-to-test.sh docs/croquet"
 echo "    ../../../../docker/scripts/release-from-test-to-public.sh lib"
-echo "    ../../../../docker/scripts/release-from-test-to-public.sh docs/croquet"
+echo "    ../../../../docker/scripts/deploy-from-dev-to-test.sh $DOCS/croquet"
+echo "    ../../../../docker/scripts/release-from-test-to-public.sh $DOCS/croquet"
