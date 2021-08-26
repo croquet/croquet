@@ -39,10 +39,10 @@ $PRERELEASE || (cd $LIB; echo $VERSION > croquet-latest.txt)
 # deploy docs (no commit)
 DOCS=docs
 if $PRERELEASE ; then
-    ../../../sdk/deploy.sh prerelease || exit
+    ../../../docs/deploy.sh prerelease || exit
     DOCS="docs-pre"
 else
-    ../../../sdk/deploy.sh release || exit
+    ../../../docs/deploy.sh release || exit
     DOCS="docs"
 fi
 
