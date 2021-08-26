@@ -1,6 +1,6 @@
 # Changelog
 
-This is a private summary of changes. The public changes are in the public [README.md](../../../sdk/README.md#changelog).
+This is a private summary of changes. The released changes are in the public [README.md](../../../docs/croquet/README.md#changelog).
 
 # latest
 
