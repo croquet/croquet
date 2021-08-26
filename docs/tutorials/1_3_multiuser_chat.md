@@ -93,7 +93,7 @@ There are five things we will learn here:
       this.publish("viewInfo", "refresh");
     }
   ```
-  When a user leaves the session, the model decrements the `participants` count, removes the users' entry in the view list, and publishes the same refresh event.
+  When a user leaves the session, the model decrements the `participants` count, removes the user's entry in the view list, and publishes the same refresh event.
 
 ## ChatModel.newPost(post)
 ```
