@@ -888,7 +888,7 @@ export default class Controller {
                 }
                 this.timeline = timeline || ''; // stored only on initial connection
                 // otherwise we need go to work
-                if (DEBUG.session && url) console.log(`${this.id} fetching ${persistedOrSnapshot} ${url}`);
+                if (DEBUG.snapshot && url) console.log(`${this.id} fetching ${persistedOrSnapshot} ${url}`);
                 let data;
                 if (url) try {
                     data = await this.downloadEncrypted({url, gzip: true, key: this.key, debug: DEBUG.snapshot, json: true, what: persistedOrSnapshot});
