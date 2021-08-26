@@ -26,12 +26,20 @@ export const CroquetContext = createContext<
     CroquetSession<CroquetReactView> | undefined
     >(undefined);
 
-/** Hook that gives access to the id of the main view. This can be used as an identifier for different clients.
+/** Hook that gives access to the id of the client. This can be used as an identifier for different clients.
  */
 export function useViewId():string {
     const croquetContext = useContext(CroquetContext);
     if (!croquetContext || !croquetContext.view) {throw new Error("No Crouqet Session found")}
     return croquetContext.view.viewId;
+}
+
+/** Hook that gives access to the sessionId.
+ */
+export function useSessionId():string {
+    const croquetContext = useContext(CroquetContext);
+    if (!croquetContext || !croquetContext.view) {throw new Error("No Crouqet Session found")}
+    return croquetContext.id;
 }
 
 /** Hook that gives access to the root Model of this croquet session.
