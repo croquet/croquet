@@ -108,18 +108,18 @@ export class Session {
      * @returns {Promise} Promise that resolves to an object describing the session:
      * ```
      * {
-     *     id,           // the session id
-     *     view,         // the ViewRoot instance
+     *     id,           // session id
+     *     view,         // view instance
      *     step(time),   // function for "manual" stepping
-     *     leave(),      // force leaving the session
+     *     leave(),      // function for leaving the session
      * }
      * ```
      *
      *   where
-     *  - `view` is an instance of the `ViewRoot` class
-     *  - `step(time)` is a function you need to call in each frame if you disabled automatic stepping.
-     *     The `time` argument is expected to be in milliseconds, monotonically increasing - for example, the time received by a function that you passed to `window.requestAnimationFrame`.
-     *  - `leave()` is an async function that forces this session to disconnect.
+     *  - `view` is an instance of the supplied view class, or of Croquet.View if no view class was given
+     *  - `step(time)` should be invoked regularly if you selected `manual` stepping, to nudge it to process the latest events from the reflector or generated internally.
+     *     The `time` argument is expected to be in milliseconds, monotonically increasing - for example, the time received by a function passed to `window.requestAnimationFrame`.
+     *  - `leave()` is an async function for requesting immediate, permanent disconnection from the session.
      * @example <caption>auto name, password, and main loop</caption>
      * Croquet.Session.join({
      *     apiKey: "your_api_key",                 // paste from croquet.io/keys
