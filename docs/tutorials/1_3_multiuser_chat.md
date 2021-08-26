@@ -1,4 +1,4 @@
-Copyright © 2020 Croquet Corporation
+Copyright © 2020-2021 Croquet Corporation
 
 This is an example of how to keep track of different users within the same session. It's a simple chat application that maintains a list of all currently connected users. New users are assigned a random nickname.
 
@@ -16,18 +16,20 @@ There are five things we will learn here:
 
 1. How to use `"view-join"` and `"view-exit"` events to track connections.
 2. How to use the `viewId` to store view-specific information inside the model.
-3. How to use the replicated `random()` function in the model.
-4. How to directly read from the model without breaking synchronization.
+3. How to directly read from the model without breaking synchronization.
+4. How to use `future()` messages and `model.now()` to schedule actions based on timeouts.
 5. How to use `modelOnly()` to prevent accidentally writing to the model.
 
 
 ## Simple Chat Model
 
-  Our Croquet application uses a single Model subclass named `ChatModel`. It does two things: It listens for `"view-join"` and `"view-exit"` events coming from the reflector, and it listens for `"newPost"` events coming from the view.
+  Our Croquet application uses a single Model subclass named `ChatModel`. The model can be thought of as doing four things: it maintains a mapping between the active views and their nicknames; it maintains the history of chat entries; it listens for chat-post or chat-reset events coming from views; and it unilaterally clears the chat after a period of inactivity.
 
-  A `"newPost"` event is sent by a view when its user enters a chat message. The event is reflected to all models in the session. Each user's model adds it to its chat history, and informs its local view to update its display.
+  A `"newPost"` event is sent by a view when its user enters a chat message. The event is reflected to the model of all users in the session. Each user's model adds the post to its chat history, and informs its local view to update its display.
 
-  `"view-join"` and `"view-exit"` are system-generated events. They don't originate inside your application. They come from the Teatime system itself. When a new user joins a session, a `"view-join"` event is sent to everyone in the session (including the user who just joined). Similiarly, whenever a user leaves, a `"view-exit"` event is sent. (The user who just left will not get this event because they are already gone!)
+  A `"reset"` event is sent by a view when its user types the special string "/reset", or when a newly joining view finds that it's alone, and with a chat history that it played no part in.
+
+  `"view-join"` and `"view-exit"` are system-generated events. They don't originate inside your application, but come from the Teatime system itself. When a new user joins a session, a `"view-join"` event is sent to the model of everyone in the session (including the user who just joined). Similarly, whenever a user leaves, a `"view-exit"` event is sent - though in this case the user who just left will not get the event, because they are already gone!
 
 ## ChatModel.init()
 
@@ -35,7 +37,9 @@ There are five things we will learn here:
   this.views = new Map();
   ```
 
-  `views` holds a list of nicknames indexed by unique view IDs (a map is a standard JavaScript data structure that holds key-data pairs).
+  `views` holds a list of nicknames indexed by the users' unique view IDs.
+
+  It would be possible to store the views in a standard JavaScript object (```{view1: "nick1"; view2: "nick2", ...}```), but a Map has the additional property that when serialized and deserialized it is guaranteed to maintain the order of its items. This particular app never needs to iterate over this list, but **to ensure that key-value collections held in models behave identically across users - whenever each user happened to join the session - we recommend using Maps instead of plain objects**. (For views, use whatever you like.  Views aren't obliged to behave identically.)
 
   ```
   this.participants = 0;
@@ -47,14 +51,14 @@ There are five things we will learn here:
   this.history = [];
   ```
 
-  `history` is an array of chat messages.
+  `history` is an array of items each holding a chat-post HTML string and the view ID of the user who posted it.
 
    ```
   this.subscribe(this.sessionId, "view-join", this.viewJoin);
   this.subscribe(this.sessionId, "view-exit", this.viewExit);
   ```
 
-  These subscriptions handle users entering or leaving. In both cases the scope is set to `this.sessionId` which is the default scope for all system-generated events. The data passed to both events is a `viewId`, which is a unique identifier for each participant in the session.
+  These subscriptions handle users entering or leaving. In both cases the scope is set to `this.sessionId`, which is the default scope for all system-generated events. The data passed to both events is the joining or exiting view's unique `viewId`.
 
   If a user's view leaves due to becoming inactive, then later re-enters (for example, if it is running on a phone that is put to sleep, then re-awakened), the `viewId` on re-entry will be the same as before.  On the other hand, if a user joins the session from multiple browser tabs even on the same device, the `viewId` for each tab will be different.
 
@@ -79,22 +83,27 @@ There are five things we will learn here:
     this.publish("viewInfo", "refresh");
   }
   ```
-  When a user joins the session, the model checks whether this `viewId` has already been seen.  If not, it generates a new random nickname and stores it in the view list using the `viewID` as the access key. It then increments the `participants` count and publishes an event that will trigger the view to refresh its display. (In this case we're using "viewInfo" as our scope. This allows us to use a generic word like "refresh" as our event.)
+  When a user joins the session, the model checks whether this `viewId` has already been seen.  If not, it generates a new random nickname and stores it in the view list using the `viewID` as the access key. It then increments the `participants` count and publishes an event that will trigger the view to refresh its display. (In this case we're using `"viewInfo"` as the scope; even a generic event name like `"refresh"` is safe to use, as long as the app assigns different scopes for any other uses of "refresh".)
 
 ## ChatModel.viewExit(viewId)
   ```
     viewExit(viewId) {
       this.participants--;
+      this.views.delete(viewId);
       this.publish("viewInfo", "refresh");
     }
   ```
-  When a user leaves the session, the model decrements the `participants` count and publishes the same update event.
+  When a user leaves the session, the model decrements the `participants` count, removes the users' entry in the view list, and publishes the same refresh event.
 
 ## ChatModel.newPost(post)
 ```
   newPost(post) {
-    const nickname = this.views.get(post.viewId);
-    this.addToHistory(`<b>${nickname}:</b> ${this.escape(post.text)}`);
+    const postingView = post.viewId;
+    const nickname = this.views.get(postingView);
+    const chatLine = `<b>${nickname}:</b> ${this.escape(post.text)}`;
+    this.addToHistory({ viewId: postingView, html: chatLine });
+    this.lastPostTime = this.now();
+    this.future(this.inactivity_timeout_ms).resetIfInactive();
   }
 
   addToHistory(item){
@@ -103,9 +112,54 @@ There are five things we will learn here:
     this.publish("history", "refresh");
   }
 ```
-  New posts are tagged with the sender's `viewId`. When the model receives a new post, it uses this ID to look up the user's nickname. It then builds a chat line that includes the nickname and the message, and adds it to the chat history. If there are more than 100 entries in the history, it discards the oldest entry to prevent the array from growing too large.
 
-  `newPost` then publishes an event to the view informing it that the history has changed. (Note that beause we use "history" as our scope, this refresh event won't interfere with the "viewInfo" refresh event.)
+  The data supplied with a `"newPost"` event includes the sender's `viewId`. When the model receives a new post, it uses this ID to look up the user's nickname. It then builds an HTML chat line that includes the nickname and the message, and invokes `addToHistory()` to append the line to the chat history along with the view ID, for later lookup.
+
+  `addToHistory` publishes an event to the view informing it that the history has changed (noting, as explained above, that the `"refresh"` event here uses the `"history"` scope, so there is no conflict with `"viewInfo"` events).  If there are more than 100 entries in the history, it discards the oldest entry to prevent the array from growing too large.
+
+  `newPost` then records `this.now()` in the model's `lastPostTime` property. This is the simulation time (which runs independently of wall-clock time; see the tutorial on [Simulation Time and Future Sends](./tutorial-2_5_sim_time_and_future.html)) at which this chat post arrived. It then schedules a "future send" to itself, the model object: specifically, at a simulation time that is exactly `this.inactivity_timeout_ms` milliseconds after the current simulation time, the method `this.resetIfInactive()` will be invoked.
+
+  `this.inactivity_timeout_ms` was set in `init()`, to a value corresponding to 20 minutes.
+
+## ChatModel.resetIfInactive()
+```
+  resetIfInactive() {
+    if (this.lastPostTime !== this.now() - this.inactivity_timeout_ms) return;
+
+    this.resetHistory("due to inactivity");
+  }
+
+```
+
+The aim of this method is to reset the chat when no-one has posted for a long time. It will be invoked, through the "future send" mechanism, a set interval - `this.inactivity_timeout_ms` simulation milliseconds - after each post. To go ahead with the reset, it must confirm that the whole interval since the post that triggered it has indeed passed without any later post arriving. To check that, we look at the current simulation time (`this.now()`) and see if it is exactly `inactivity_timeout_ms` after the value currently in `lastPostTime`. If it is, clearly no later posts did arrive, so the reset should go ahead.
+
+Instead of the original post time, or a more recent one, `lastPostTime` can also be `null` indicating that the history has been reset (see below).  In that case, too, there is no need to do anything here.
+
+Note that the handling of future sends, like that of messages from views, is guaranteed to be identical for every user's model instance. Every instance will make the same decision about whether to reset or not.
+
+## ChatModel.resetHistory(reason)
+```
+  resetHistory(reason) {
+    this.history = [{ html: `<i>chat reset ${reason}</i>` }];
+    this.lastPostTime = null;
+    this.publish("history", "refresh");
+  }
+```
+
+This is called in three circumstances:
+1. If `ChatModel.resetIfInactive()` is invoked and finds that `inactivity_timeout_ms` simulation milliseconds have passed since the last post.
+2. If a user types the text `/reset` as a chat line.
+3. If a user's `ChatView` constructor (see below) detects that they are the only user in the session, and that the existing chat contains no items that they posted.
+
+For the latter two cases, the invocation is the result of the model's subscription to the  `"reset"` event, that the affected view will have published:
+
+```
+  this.subscribe("input", "reset", this.resetHistory);
+```
+
+The view methods that publish this event are described below.
+
+After replacing the contents of the `history` array with a single entry displaying the reason for the reset, this method resets `lastPostTime` to null. This ensures that any outstanding future-send invocations of `resetIfInactive()` will see that they have nothing to do.
 
 ## ChatModel.randomName()
 
@@ -116,7 +170,7 @@ There are five things we will learn here:
   }
   ```
 
-When a new user joins, their nickname is picked at a random from an array. Note that even though a separate instance of this code is running locally for each user, each of the instances will "randomly" pick the same name. This is because **calls to `Math.random()` from inside the model are deterministic**. They will generate exactly the same sequence of random numbers in every instance of the model, ensuring they all stay in synch.
+When a new user joins, their nickname is picked at a random from an array. Note that even though a separate instance of this code is running locally for each user, each of the instances will "randomly" pick the same name. This is because - as also seen in the [Simple Animation](./tutorial-1_2_simple_animation.html) tutorial - **calls to `Math.random()` from inside the model are deterministic**. They will generate exactly the same sequence of random numbers in every instance of the model, ensuring they all stay in synch.
 
 ## ChatView.constructor(model)
 
@@ -131,31 +185,54 @@ We store a reference to the model so that we can use it later to pull data direc
 ```
   sendButton.onclick = () => this.send();
 ```
-This is the event handler for the HTML "Send" button. It is called when the user clicks the button.
+This is the event handler for the HTML "Send" button. It is called when the user clicks the button (or, thanks to our HTML setup, when the user presses Enter in the input field).
 
 ```
-    this.subscribe("history", "refresh", this.refreshHistory);
-    this.subscribe("viewInfo", "refresh", this.refreshViewInfo);
+  this.subscribe("history", "refresh", this.refreshHistory);
+  this.subscribe("viewInfo", "refresh", this.refreshViewInfo);
 ```
-We subscribe to two different refresh events from the model. One is sent when a new chat message is added to the chat history, and the other is sent when someone joins or exits the session.
+We subscribe to two different refresh events from the model. One is sent when the model has updated the chat history (either adding a message or performing a reset), and the other is sent when someone joins or exits the session.
 
-    this.refreshHistory();
-    this.refreshViewInfo();
+```
+  this.refreshHistory();
+  this.refreshViewInfo();
+```
 
-The final thing we do when the view starts is to pull the current history from the model and post it to the screen. We do this because when a user joins an existing chat session, there may already be a history of previous chat messages. We want to show this previous history right away instead of waiting for the next new message to refresh.
+When the view starts we pull the current history from the model and post it to the screen. We do this because when a user joins an existing chat session, there may already be a history of previous chat messages to be shown; it makes no sense to wait until someone adds a new post.
 
-We need to do the same for refreshing the view info because the model will likely process our own view-join event before the view is constructed, meaning the view will not see the `viewInfo` event generated in response to our joining. Views should always set themselves up completely from the model state before relying on events being processed.
+We do the same for refreshing the view info. **Croquet guarantees that the model will have processed this view's own view-join event before the view is constructed.** This means that a ChatView will never see a `viewInfo` event generated in response to its own joining, but it can assume during its own initialization that the ChatModel already has an entry for it.
+
+This is a general rule in Croquet development: **a newly constructed view should set itself up completely from the model state at the time of construction.**  After that, it should rely on its subscriptions to hear about updates in the model and to respond appropriately.
+
+```
+  if (model.participants === 1 &&
+    !model.history.find(item => item.viewId === this.viewId)) {
+    this.publish("input", "reset", "for new participants");
+  }
+```
+
+The final task for the constructor is to check for the condition of the view being alone in the session, with no messages contributed by itself in the chat history. In that case, it sends an event to reset the history.
+
+The necessary information is held by the model, and **the view is allowed to directly read from the model at any time.** Here it checks the number of participants, and iterates through the history in search of any items provided by itself.
+
+**The view must NEVER directly write to the model!** Because Croquet exposes the model to the view for read access, it is *possible* to author a Croquet application where the view directly writes to the model. However, doing so will break synchronization and prevent the application from functioning properly.
+
+If your view needs to change some information that is held by the model, it **must** do so by publishing an event that the model subscribes to. This will ensure that the change is mirrored by the reflector and executed identically by all instances of the model.
 
 ## ChatView.send()
   ```
   send() {
-    const post = {viewId: this.viewId, text: textIn.value};
-    this.publish("input", "newPost", post);
+    const text = textIn.value;
     textIn.value = "";
+    if (text === "/reset") {
+      this.publish("input", "reset", "at user request");
+    } else {
+      this.publish("input", "newPost", {viewId: this.viewId, text});
+    }
   }
   ```
 
-When the user presses the send button, we build a `"newPost"` event to send to the model. The event contains our `viewId` (so the model knows who is posting) along with the text contents of the post.
+When the user presses the send button, we examine the text contents of the input field. If it's the special value "/reset", we send a `"reset"` event to the model; for any other string (including an empty one) we send a `"newPost"` event. Only the latter event needs to include the `viewId` of the sending view, so that the model can tag the post with the appropriate user nickname.
 
 **Any class that inherits from `View` has `this.viewId` as a member.** It contains the unique `viewId` that was assigned to this user when they joined the session. We can use `this.viewId` whenever we want to tell the model that a particular user has done something.
 
@@ -167,24 +244,19 @@ When the user presses the send button, we build a `"newPost"` event to send to t
   }
 ```
 
-Here the view reaches directly into the model and gets information about its nickname and the total number of views currently connected. In the view's constructor we stored a pointer to the model just for this purpose.
-
-**The view is allowed to directly read from the model at any time.** In this case, the view uses `this.viewId` to get its own nickname from `this.model.views`. It then reads `this.model.participants` to determine how many active users there are.
-
-**The view must NEVER directly write to the model!** Because Croquet exposes the model to the view for read access, it is *possible* to author a Croquet application where the view directly writes to the model. However, doing so will break synchronization and prevent the application from functioning properly.
-
-If your view needs to change some information that is held by the model, it must publish an event that the model subscribes to. This will ensure that the change is mirrored by the reflector and executed identically by all instances of the model.
+Again the view reaches directly into the model, in this case to get its own nickname and the total number of views currently connected. In the view's constructor we stored a pointer to the model just for this purpose.
 
 ## ChatView.refreshHistory()
 ```
   refreshHistory() {
-    textOut.innerHTML = "<b>Welcome to Croquet Chat!</b><br><br>" + this.model.history.join("<br>");
+    textOut.innerHTML = "<b>Welcome to Croquet Chat!</b><br><br>" +
+      this.model.history.map(item => item.html).join("<br>");
     textOut.scrollTop = Math.max(10000, textOut.scrollHeight);
   }
 ```
 `refreshHistory()` is similar to `refreshViewInfo()` in that it reads the chat history directly from the model and posts it to the screen. It also makes sure that the chat window scrolls to the bottom when a new message arrives.
 
-`this.model.history.join("<br>")` is a JavaScript string operation that takes all the strings in the history array and concatenates them into a single output string. It inserts a line break between each of the combined strings.
+`this.model.history.map(item => item.html)` is a JavaScript array operation that extracts all the HTML strings from the history. The `join("<br>")` then concatenates them into a single output string, inserting a line break between each.
 
 ## Model Get/Set Routines & `modelOnly()`
 
