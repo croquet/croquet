@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    
+    
+    
+    
+    <meta charset="utf-8">
+    <title>Tutorial:  Hello World - Croquet SDK @CROQUET_VERSION@</title>
+    <meta name="description" content="Documentation for the Croquet SDK" />
+    
+        <meta name="keywords" content="croquet" />
+        <meta name="keyword" content="croquet" />
+    
+    <link rel="icon" type="image/png" href="images/icon.png">
+    
+    <script src="scripts/prettify/prettify.js"></script>
+    <script src="scripts/prettify/lang-css.js"></script>
+    <link type="text/css" rel="stylesheet" href="styles/prettify.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc.css">
+    <script src="scripts/nav.js" defer></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        nav img { max-width: 210px; margin-top: 10px; }
+        .corner-ribbon {
+            width: 200px;
+            background: #f33;
+            position: fixed;
+            top: 25px;
+            left: -50px;
+            text-align: center;
+            line-height: 50px;
+            letter-spacing: 1px;
+            color: #eee;
+            box-shadow: 0 0 5px rgba(0,0,0,.5);
+            transform: rotate(-45deg);
+            -webkit-transform: rotate(-45deg);
+        }
+        .corner-ribbon.top-right {
+            top: 25px;
+            right: -50px;
+            left: auto;
+            transform: rotate(45deg);
+            -webkit-transform: rotate(45deg);
+        }
+    </style>
+</head>
+<body>
+
+<input type="checkbox" id="nav-trigger" class="nav-trigger" />
+<label for="nav-trigger" class="navicon-button x">
+  <div class="navicon"></div>
+</label>
+
+<label for="nav-trigger" class="overlay"></label>
+
+<nav >
+    <a href="index.html"><img src="images/logotype.png"></a>
+    
+    <h2><a href="index.html#quickstart"><h3>QUICKSTART</h3></a></h2><h3>Globals</h3><ul><li><a href="global.html#Constants">Constants</a></li></ul><h3>Classes</h3><ul><li><a href="Model.html">Model</a><ul class='methods'><li data-type='method' style='display: none;'><a href="Model.html#.create">create</a></li><li data-type='method' style='display: none;'><a href="Model.html#.register">register</a></li><li data-type='method' style='display: none;'><a href="Model.html#.wellKnownModel">wellKnownModel</a></li><li data-type='method' style='display: none;'><a href="Model.html#.types">types</a></li><li data-type='method' style='display: none;'><a href="Model.html#init">init</a></li><li data-type='method' style='display: none;'><a href="Model.html#destroy">destroy</a></li><li data-type='method' style='display: none;'><a href="Model.html#publish">publish</a></li><li data-type='method' style='display: none;'><a href="Model.html#subscribe">subscribe</a></li><li data-type='method' style='display: none;'><a href="Model.html#unsubscribe">unsubscribe</a></li><li data-type='method' style='display: none;'><a href="Model.html#unsubscribeAll">unsubscribeAll</a></li><li data-type='method' style='display: none;'><a href="Model.html#future">future</a></li><li data-type='method' style='display: none;'><a href="Model.html#random">random</a></li><li data-type='method' style='display: none;'><a href="Model.html#now">now</a></li><li data-type='method' style='display: none;'><a href="Model.html#beWellKnownAs">beWellKnownAs</a></li><li data-type='method' style='display: none;'><a href="Model.html#getModel">getModel</a></li><li data-type='method' style='display: none;'><a href="Model.html#wellKnownModel">wellKnownModel</a></li><li data-type='method' style='display: none;'><a href="Model.html#modelOnly">modelOnly</a></li></ul></li><li><a href="View.html">View</a><ul class='methods'><li data-type='method' style='display: none;'><a href="View.html#detach">detach</a></li><li data-type='method' style='display: none;'><a href="View.html#publish">publish</a></li><li data-type='method' style='display: none;'><a href="View.html#subscribe">subscribe</a></li><li data-type='method' style='display: none;'><a href="View.html#unsubscribe">unsubscribe</a></li><li data-type='method' style='display: none;'><a href="View.html#unsubscribeAll">unsubscribeAll</a></li><li data-type='method' style='display: none;'><a href="View.html#future">future</a></li><li data-type='method' style='display: none;'><a href="View.html#random">random</a></li><li data-type='method' style='display: none;'><a href="View.html#now">now</a></li><li data-type='method' style='display: none;'><a href="View.html#externalNow">externalNow</a></li><li data-type='method' style='display: none;'><a href="View.html#extrapolatedNow">extrapolatedNow</a></li><li data-type='method' style='display: none;'><a href="View.html#update">update</a></li><li data-type='method' style='display: none;'><a href="View.html#wellKnownModel">wellKnownModel</a></li></ul></li><li><a href="Session.html">Session</a><ul class='methods'><li data-type='method' style='display: none;'><a href="Session.html#.join">join</a></li></ul></li></ul><h3>Events</h3><ul><li><a href="global.html#event:view-join">view-join</a></li><li><a href="global.html#event:view-exit">view-exit</a></li><li><a href="global.html#event:synced">synced</a></li></ul><h3>Tutorials</h3><ul><li><a href="tutorial-1_1_hello_world.html"> Hello World</a></li><li><a href="tutorial-1_2_simple_animation.html"> Simple Animation</a></li><li><a href="tutorial-1_3_multiuser_chat.html"> Multiuser Chat</a></li><li><a href="tutorial-1_4_view_smoothing.html"> View Smoothing</a></li><li><a href="tutorial-1_5_3d_animation.html"> 3D Animation</a></li><li><a href="tutorial-2_1_model_view_reflector.html"> Model-View-Reflector</a></li><li><a href="tutorial-2_2_writing_a_croquet_app.html"> Writing a Croquet Application</a></li><li><a href="tutorial-2_3_writing_a_croquet_view.html"> Writing a Croquet View</a></li><li><a href="tutorial-2_4_writing_a_croquet_model.html"> Writing a Croquet Model</a></li><li><a href="tutorial-2_5_sim_time_and_future.html"> Simulation Time and Future Sends</a></li><li><a href="tutorial-2_6_events_pub_sub.html"> Events & Publish/Subscribe</a></li><li><a href="tutorial-2_7_snapshots.html"> Snapshots</a></li><li><a href="tutorial-2_8_random.html"> Randomness & Determinism</a></li></ul>
+</nav>
+
+<div id="main">
+    
+    <h1 class="page-title">Tutorial:  Hello World</h1>
+    
+
+    <section>
+
+<header>
+    
+</header>
+
+<article>
+    <p>Copyright © 2020 Croquet Corporation</p>
+<h2 id="we-are-using-codepen-for-our-tutorials.">We are using CodePen for our tutorials.</h2>
+<p>That allows us to place a working example right in the tutorials for you to try out live.
+CodePen is extremely easy to use.
+You will certainly want to fork the tutorial code to try out your own ideas.
+Information for getting started is here:</p>
+<p><a href="https://codepen.io/hello">https://codepen.io/hello</a></p>
+<p>Below is the Croquet Hello World app running live in CodePen.
+Click the &quot;JS&quot; button to show the code (and maybe the &quot;Result&quot; button to make the code view wider).
+Scroll through the code.
+You will see that a simple Croquet app is indeed very simple.</p>
+<p class="codepen" data-height="512" data-theme-id="37190" data-default-tab="result" data-user="croquet" data-slug-hash="bPNgMY" data-editable="true" style="height: 512px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border: 2px solid; margin: 1em 0; padding: 1em;" data-pen-title="Hello World!">
+  <span>See the Pen <a href="https://codepen.io/croquet/pen/bPNgMY/">
+  Hello World!</a> by Croquet (<a href="https://codepen.io/croquet">@croquet</a>)
+  on <a href="https://codepen.io">CodePen</a>.</span>
+</p>
+<script async src="https://static.codepen.io/assets/embed/ei.js"></script>
+<h2 id="try-it-out!"><strong>Try it out!</strong></h2>
+<p><img src="https://chart.googleapis.com/chart?chs=50x50&amp;cht=qr&amp;chld=L%7C0&amp;chl=https://codepen.io/" alt="QR">
+The first thing to do is click or scan the <strong>QR code</strong> near the top right
+of the CodePen window.
+This will launch a new CodePen instance of this session.
+If you compare the two counters, you will see that they are identical.
+If you click the counter in either of these views, the counts in both will reset to 0.</p>
+<h2 id="edit-it!"><strong>Edit it!</strong></h2>
+<p>To make changes, click the &quot;Edit on CodePen&quot; button on the CodePen title bar.</p>
+<p><strong>NOTE:</strong> If you make a change to your own Croquet CodePen app,
+you MUST save it before you create a new instance/copy.
+Otherwise, you will have one instance in the same session running an older version,
+and they will not synchronize properly.</p>
+<p><img src="images/SessionBadge.png" alt="Session">
+The <strong>session badge</strong> (the colored rectangle near the QR code) indicates the session you are in.  The session is identified with two automatically assigned colors and a five-letter nonsense word.  Users who are participating in the same session - who are seeing the same badge - are guaranteed to be in sync.</p>
+<p>Any change to the model code will create a new session, with a different badge.  Only when other users load that changed code will they be able to join the new session.  If you are logged into CodePen and editing your own pen, you will find that switching the view to &quot;Debug Mode&quot;, for example, also creates a distinct session - in this case, shared by however many debug-mode views you create.</p>
+<h2 id="codepen-is-a-live-coding-environment">CodePen is a live coding environment</h2>
+<p>This means that it will often restart the app as you are editing text.
+This is usually not a problem, but can be a bit distracting.
+If you would rather edit your code without it being executed automatically,
+disable &quot;Auto-Updating Preview&quot; in your pen's Settings - Behavior tab.
+This will add a &quot;Run&quot; button that you press when you're finished editing.</p>
+<h1 id="there-are-three-things-we-will-learn-here">There are three things we will learn here</h1>
+<ol>
+<li>How to access and use the Croquet.js library.</li>
+<li>Adding the QR code to your app.</li>
+<li>Writing a proper model/view application.</li>
+</ol>
+<h2 id="using-the-croquet.js-library">Using the Croquet.js library</h2>
+<p>All of the Croquet support code is included within the Croquet.js library. Typically, to access it within your Javascript application you add it to your HTML:</p>
+<pre class="prettyprint source"><code>&lt;script src=&quot;https://unpkg.com/@croquet/croquet&quot;>&lt;/script>
+</code></pre>
+<p>When we use CodePen, we simply include the same library by adding it in the Pen Settings</p>
+<p><img src="images/HelloWorldSettings.png" alt="CodePen Settings"></p>
+<h2 id="using-a-qr-code-in-codepen">Using a QR code in CodePen</h2>
+<p>Croquet uses QR codes to assist in sharing a Croquet session.
+When set up properly, all you need to do is scan the QR code to find and load a new instance of the current session.
+This makes it particularly easy to test and share Croquet applications with mobile users.</p>
+<p><strong>Scanning a QR code</strong> is built into the default camera apps on iPhones and Android phones.</p>
+<p>If you created a new Pen from scratch (not forking one of the tutorials here) and you want the same join-by-QR functionality:</p>
+<ul>
+<li>add the Pen <code>https://codepen.io/croquet/pen/vYYyNed</code> as an additional JS resource (in the same way you included the Croquet.js library above) - it will automatically add a session badge, and a QR code linked to your Pen.</li>
+<li>you may also add that same Pen in the CSS settings for positioning of the session badge.
+Or, just copy the Pen's CSS so you can position it to fit your app.</li>
+<li>if you want the QR code to appear in another position, override the CSS settings of the <code>#widgets</code> element.  The Pen for the <a href="https://codepen.io/croquet/pen/NZjLzO">Multiuser Chat</a> includes an example of this.</li>
+</ul>
+<h2 id="writing-a-croquet-application">Writing a Croquet Application</h2>
+<p><em><strong>Every <em>Croquet</em> application consists of two parts:</strong></em></p>
+<ul>
+<li>The <strong>model</strong> handles all calculation and simulation. This is where the actual work of the application takes place. The model is guaranteed to run bit identical on every instance of a session. The model is also where save / load happens.</li>
+<li>The <strong>view</strong> handles user input and display output.
+It processes all keyboard / mouse / touch events, and determines what is displayed on the screen.</li>
+</ul>
+<p><em><strong>There are a few rules to start:</strong></em></p>
+<ul>
+<li>The model <strong>MUST NOT EVER</strong> communicate or directly access the view in <strong>ANY WAY</strong>.</li>
+<li>The view <strong>CAN READ</strong> from the model but <strong>MUST NOT EVER</strong> write directly into it.</li>
+</ul>
+<p>Instead we use messages sent via publish and subscribe.</p>
+<p>Our first <strong>Hello World</strong> app is very simple.
+It is simply a counter that increases by one every second.
+Any participant clicking on it resets the count to 0.
+All participants will see the exact same count and will see it reset when any of them clicks.
+A new user can join at any time and will be perfectly synced with the existing users.</p>
+<h2 id="model">Model</h2>
+<p>If you scroll all the way up in the CodePen JS tab, you will see the Model class code.</p>
+<p><em>Hint:</em> double-click the divider between the CSS and JS tabs to make the JS tab wider.</p>
+<pre class="prettyprint source"><code>class MyModel extends Croquet.Model {
+
+    init() {
+        this.count = 0;
+        this.subscribe(&quot;counter&quot;, &quot;reset&quot;, this.resetCounter);
+        this.future(1000).tick();
+    }
+
+    resetCounter() {
+        this.count = 0;
+        this.publish(&quot;counter&quot;, &quot;update&quot;, this.count);
+    }
+
+    tick() {
+        this.count++;
+        this.publish(&quot;counter&quot;, &quot;update&quot;, this.count);
+        this.future(1000).tick();
+    }
+
+}
+
+MyModel.register(&quot;MyModel&quot;);
+</code></pre>
+<p>Our new class MyModel is a subclass of <a href="Model.html">Croquet.Model</a>.
+Croquet.Model implements the core functionality required to ensure that MyModel works as a replicated object.
+Our new model has three functions, init(), resetCounter() and tick().
+All Croquet models must have an init function.
+The other two are used to run the simulation and respond to messages from the view.</p>
+<h3 id="mymodel.init()">MyModel.init()</h3>
+<p>We do not define a constructor.
+This is already defined in Croquet.Model and will be called automatically.
+The MyModel.init() function is called automatically when we start the session.
+MyModel.init() is only called once when a session first begins.
+After that, the model and its properties are automatically saved and loaded.
+init() will never be called again for this session, even in new browser tabs joining the session.</p>
+<p><code>this.count = 0;</code></p>
+<p>MyModel has one property called &quot;count&quot; initialized to 0.
+This is a very simple Croquet app, and that value contains its entire state.</p>
+<p><code>this.subscribe(&quot;counter&quot;, &quot;reset&quot;, this.resetCounter);</code></p>
+<p>MyModel subscribes to all &quot;reset&quot; events sent in the &quot;counter&quot; scope.
+This is the kind of event that this app's view will publish in response to a user click.
+When the model receives such an event, it will execute its resetCounter method.</p>
+<p><code>this.future(1000).tick();</code></p>
+<p>This is where the fun starts and the system comes to life.
+The tick function is where our simulation code lives.
+The future(1000) function is actually a way to delay the execution of the tick function for 1000 milliseconds - or one second.
+This &quot;future message&quot; is a key to how time works in Croquet - it is very simple, but extremely powerful.
+In this case, the first tick() function call will occur one second after the init() function is executed.</p>
+<h3 id="mymodel.resetcounter()">MyModel.resetCounter()</h3>
+<p>MyModel specified this method as the handler for &quot;reset&quot; events in the &quot;counter&quot; scope.
+The first job in handling the event is to reset this.count to 0.</p>
+<p><code>this.publish(&quot;counter&quot;, &quot;update&quot;, this.count);</code></p>
+<p>Now that the count has changed, the model publishes an event specifying the new count value.
+As seen below, the view subscribes to these &quot;update&quot; events, and handles them by modifying its display.</p>
+<h3 id="mymodel.tick()">MyModel.tick()</h3>
+<p>The tick method was called 1000 milliseconds in the future in the init function when the new Croquet model was created.
+The main job of tick() is to increment the count and then, like in resetCounter(), to publish an &quot;update&quot; event specifying the new value.</p>
+<p><code>this.future(1000).tick();</code></p>
+<p>Finally, tick() itself schedules a tick call for 1000 milliseconds in the future, just as the init function did earlier. This is how we keep the ticks going.
+What is really happening is that the model has an internal message queue, sorted by time.
+The future call inserts a message into the queue, timed for execution after a further 1000 milliseconds.</p>
+<h3 id="register()">register()</h3>
+<p><code>MyModel.register(&quot;MyModel&quot;);</code></p>
+<p>Every time you define a new model subclass, you must register() it so that Croquet knows it exists.</p>
+<h2 id="view">View</h2>
+<p>The HTML tab defines an element named <code>countDisplay</code>:</p>
+<pre class="prettyprint source"><code>&lt;div id=&quot;countDisplay&quot;>&lt;/div>
+</code></pre>
+<p>The view code in the JS tab references <code>countDisplay</code>:</p>
+<pre class="prettyprint source"><code>class MyView extends Croquet.View {
+
+    constructor(model) {
+        super(model);
+        countDisplay.onclick = event => this.onclick(event);
+        this.subscribe(&quot;counter&quot;, &quot;update&quot;, this.handleUpdate);
+    }
+
+    onclick() {
+        this.publish(&quot;counter&quot;, &quot;reset&quot;);
+    }
+
+    handleUpdate(data) {
+        countDisplay.textContent = data;
+    }
+
+}
+</code></pre>
+<p>Our MyView class is a subclass of the Croquet.View class. It has two responsibilities. First is to receive messages - for a start, from the model, so the view can interpret and display the state of the model to the user. Second is to receive input from the user and publish those events so that the model can then respond to them.</p>
+<h3 id="myview.constructor(model)">MyView.constructor(model)</h3>
+<p>Note that the model is an argument to the constructor. This object reference <strong>MUST</strong> be used solely for read-only access. Any modification to the model by the view here will very likely break the Croquet replication.</p>
+<p><code>super(model);</code></p>
+<p>Since myView is a subclass, we need to ensure that the base-class constructor is executed.</p>
+<p><code>countDisplay.onclick = event =&gt; this.onclick(event);</code></p>
+<p>This is a vanilla tracking of a user event and then calling the onclick function defined below.</p>
+<p><code>this.subscribe(&quot;counter&quot;, &quot;update&quot;, this.handleUpdate);</code></p>
+<p>This is where the published value of the counter reaches the view. This subscription will cause each &quot;update&quot; event to invoke handleUpdate(data), supplying the data (in this case, the counter value) that was supplied with the event.</p>
+<h3 id="myview.onclick(event)">MyView.onclick(event)</h3>
+<p>This first tests to ensure the event was not targeted at the QR code.</p>
+<p><code>this.publish(&quot;counter&quot;, &quot;reset&quot;);</code></p>
+<p>If it is not, then the view publishes a &quot;reset&quot; event in the &quot;counter&quot; scope. As detailed above, this is the kind of event that MyModel subscribes to. Croquet automatically ensures that every MyModel instance (i.e., the model for every user in this app session) receives the event, regardless of which user's view published it. This is crucial to how Croquet synchronization works.</p>
+<h3 id="myview.handleupdate(data)">MyView.handleUpdate(data)</h3>
+<p>This method is called whenever a new value of the count is published by the model. The view changes the textContent value of the &quot;countDisplay&quot; element to whatever count the model has sent.</p>
+<h2 id="croquet.session.join(%7B-appid%2C-name%2C-password%2C-model%2C-view%2C-options-%7D)">Croquet.Session.join({ appId, name, password, model, view, options })</h2>
+<pre class="prettyprint source"><code>Croquet.Session.join({
+  appId: &quot;io.codepen.croquet.hello&quot;,
+  name: &quot;unnamed&quot;,
+  password: &quot;secret&quot;,
+  model: MyModel,
+  view: MyView
+});
+</code></pre>
+<p>Croquet.Session.join is where the application is actually launched. The arguments are the appId, session name, session password, the MyModel class, the MyView class, and any options you may wish to include.</p>
+<p>Starting the session will do the following things:</p>
+<ol>
+<li>Connect to a nearby public reflector</li>
+<li>Instantiate the model</li>
+<li>a) Run the initialization code in the model's init routine<br>
+-or-<br>
+b) Initialize the model from a saved snapshot</li>
+<li>Instantiate the view, passing the view constructor a reference to the model</li>
+<li>Create a main event loop and begin executing</li>
+</ol>
+<h2 id="share-your-new-world!">Share your new world!</h2>
+<p>Once your Croquet session is operational, you need only copy the web page links to add a new user/instance.
+Every new user will have exactly the same model state and any action by any of them on the system will update everyone else's in exactly the same way.
+Your Croquet application is alive and running anywhere you send the URL.</p>
+</article>
+
+</section>
+
+
+    
+</div>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.6.7</a> using the <a href="https://github.com/clenemt/docdash">docdash</a> theme.
+</footer>
+
+<script>prettyPrint();</script>
+<script src="scripts/polyfill.js"></script>
+<script src="scripts/linenumber.js"></script>
+
+
+<script src="scripts/collapse.js" defer></script>
+
+
+</body>
+</html>

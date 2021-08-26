@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    
+    
+    
+    
+    <meta charset="utf-8">
+    <title>Tutorial:  Writing a Croquet Application - Croquet SDK @CROQUET_VERSION@</title>
+    <meta name="description" content="Documentation for the Croquet SDK" />
+    
+        <meta name="keywords" content="croquet" />
+        <meta name="keyword" content="croquet" />
+    
+    <link rel="icon" type="image/png" href="images/icon.png">
+    
+    <script src="scripts/prettify/prettify.js"></script>
+    <script src="scripts/prettify/lang-css.js"></script>
+    <link type="text/css" rel="stylesheet" href="styles/prettify.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc.css">
+    <script src="scripts/nav.js" defer></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        nav img { max-width: 210px; margin-top: 10px; }
+        .corner-ribbon {
+            width: 200px;
+            background: #f33;
+            position: fixed;
+            top: 25px;
+            left: -50px;
+            text-align: center;
+            line-height: 50px;
+            letter-spacing: 1px;
+            color: #eee;
+            box-shadow: 0 0 5px rgba(0,0,0,.5);
+            transform: rotate(-45deg);
+            -webkit-transform: rotate(-45deg);
+        }
+        .corner-ribbon.top-right {
+            top: 25px;
+            right: -50px;
+            left: auto;
+            transform: rotate(45deg);
+            -webkit-transform: rotate(45deg);
+        }
+    </style>
+</head>
+<body>
+
+<input type="checkbox" id="nav-trigger" class="nav-trigger" />
+<label for="nav-trigger" class="navicon-button x">
+  <div class="navicon"></div>
+</label>
+
+<label for="nav-trigger" class="overlay"></label>
+
+<nav >
+    <a href="index.html"><img src="images/logotype.png"></a>
+    
+    <h2><a href="index.html#quickstart"><h3>QUICKSTART</h3></a></h2><h3>Globals</h3><ul><li><a href="global.html#Constants">Constants</a></li></ul><h3>Classes</h3><ul><li><a href="Model.html">Model</a><ul class='methods'><li data-type='method' style='display: none;'><a href="Model.html#.create">create</a></li><li data-type='method' style='display: none;'><a href="Model.html#.register">register</a></li><li data-type='method' style='display: none;'><a href="Model.html#.wellKnownModel">wellKnownModel</a></li><li data-type='method' style='display: none;'><a href="Model.html#.types">types</a></li><li data-type='method' style='display: none;'><a href="Model.html#init">init</a></li><li data-type='method' style='display: none;'><a href="Model.html#destroy">destroy</a></li><li data-type='method' style='display: none;'><a href="Model.html#publish">publish</a></li><li data-type='method' style='display: none;'><a href="Model.html#subscribe">subscribe</a></li><li data-type='method' style='display: none;'><a href="Model.html#unsubscribe">unsubscribe</a></li><li data-type='method' style='display: none;'><a href="Model.html#unsubscribeAll">unsubscribeAll</a></li><li data-type='method' style='display: none;'><a href="Model.html#future">future</a></li><li data-type='method' style='display: none;'><a href="Model.html#random">random</a></li><li data-type='method' style='display: none;'><a href="Model.html#now">now</a></li><li data-type='method' style='display: none;'><a href="Model.html#beWellKnownAs">beWellKnownAs</a></li><li data-type='method' style='display: none;'><a href="Model.html#getModel">getModel</a></li><li data-type='method' style='display: none;'><a href="Model.html#wellKnownModel">wellKnownModel</a></li><li data-type='method' style='display: none;'><a href="Model.html#modelOnly">modelOnly</a></li></ul></li><li><a href="View.html">View</a><ul class='methods'><li data-type='method' style='display: none;'><a href="View.html#detach">detach</a></li><li data-type='method' style='display: none;'><a href="View.html#publish">publish</a></li><li data-type='method' style='display: none;'><a href="View.html#subscribe">subscribe</a></li><li data-type='method' style='display: none;'><a href="View.html#unsubscribe">unsubscribe</a></li><li data-type='method' style='display: none;'><a href="View.html#unsubscribeAll">unsubscribeAll</a></li><li data-type='method' style='display: none;'><a href="View.html#future">future</a></li><li data-type='method' style='display: none;'><a href="View.html#random">random</a></li><li data-type='method' style='display: none;'><a href="View.html#now">now</a></li><li data-type='method' style='display: none;'><a href="View.html#externalNow">externalNow</a></li><li data-type='method' style='display: none;'><a href="View.html#extrapolatedNow">extrapolatedNow</a></li><li data-type='method' style='display: none;'><a href="View.html#update">update</a></li><li data-type='method' style='display: none;'><a href="View.html#wellKnownModel">wellKnownModel</a></li></ul></li><li><a href="Session.html">Session</a><ul class='methods'><li data-type='method' style='display: none;'><a href="Session.html#.join">join</a></li></ul></li></ul><h3>Events</h3><ul><li><a href="global.html#event:view-join">view-join</a></li><li><a href="global.html#event:view-exit">view-exit</a></li><li><a href="global.html#event:synced">synced</a></li></ul><h3>Tutorials</h3><ul><li><a href="tutorial-1_1_hello_world.html"> Hello World</a></li><li><a href="tutorial-1_2_simple_animation.html"> Simple Animation</a></li><li><a href="tutorial-1_3_multiuser_chat.html"> Multiuser Chat</a></li><li><a href="tutorial-1_4_view_smoothing.html"> View Smoothing</a></li><li><a href="tutorial-1_5_3d_animation.html"> 3D Animation</a></li><li><a href="tutorial-2_1_model_view_reflector.html"> Model-View-Reflector</a></li><li><a href="tutorial-2_2_writing_a_croquet_app.html"> Writing a Croquet Application</a></li><li><a href="tutorial-2_3_writing_a_croquet_view.html"> Writing a Croquet View</a></li><li><a href="tutorial-2_4_writing_a_croquet_model.html"> Writing a Croquet Model</a></li><li><a href="tutorial-2_5_sim_time_and_future.html"> Simulation Time and Future Sends</a></li><li><a href="tutorial-2_6_events_pub_sub.html"> Events & Publish/Subscribe</a></li><li><a href="tutorial-2_7_snapshots.html"> Snapshots</a></li><li><a href="tutorial-2_8_random.html"> Randomness & Determinism</a></li></ul>
+</nav>
+
+<div id="main">
+    
+    <h1 class="page-title">Tutorial:  Writing a Croquet Application</h1>
+    
+
+    <section>
+
+<header>
+    
+</header>
+
+<article>
+    <p>Copyright © 2020 Croquet Corporation</p>
+<p>To create a <em>Croquet</em> application, you need to define two classes that inherit from the base classes <a href="Model.html">Model</a> and <a href="View.html">View</a> from the <code>croquet.js</code> library:</p>
+<pre class="prettyprint source"><code>class MyModel extends Croquet.Model {
+    init() {
+        ...
+    }
+}
+MyModel.register(&quot;MyModel&quot;);
+
+class MyView extends Croquet.View {
+    constructor(model) {
+        super(model);
+        ...
+    }
+}
+</code></pre>
+<p>Your view will contain all your input and output code, and your model will contain all your simulation code.</p>
+<p>(Note that every time you define a new model subclass, you must <code>register(&quot;name&quot;)</code> it so that <em>Croquet</em> knows it exists, and under which name to find its instances in a snapshot.)</p>
+<h2 id="launching-a-session">Launching a session</h2>
+<p>You launch a session by calling <a href="Session.html#.join">Session.join</a> from the <code>croquet.js</code> library.  Its arguments are the id of your app (which needs to be unique, so using a reverse-DNS name like <code>&quot;com.example.myapp&quot;</code> is good), name and password of the session you're creating, the class types of your model and your view, and a set of session options (described below).</p>
+<p>The session name exists to distinguish multiple sessions per app. You may use our <code>autoSession</code> helper which parses URL search parameters and creates a new random session name if necessary.
+The session password encrypts all data sent via the internet. If your app does not use data worth protecting, you still need to provide a dummy password. You may use our <code>autoPassword</code> helper which parses the URL hash and creates a new random password if necessary, appending it to the url for sharing. (Note: both <code>autoSession</code> and <code>autoPassword</code> return promises. <code>Session.join</code> waits for all promises to resolve). In production you probably want to add some UI letting users type in the password.</p>
+<pre class="prettyprint source"><code>const appId = &quot;com.example.myapp&quot;;
+const name = Croquet.App.autoSession();
+const password = Croquet.App.autoPassword();
+Croquet.Session.join({ appId, name, password, model: MyModel, view: MyView });
+</code></pre>
+<p>Starting the session will do the following things:</p>
+<ol>
+<li>Connect to a nearby public reflector</li>
+<li>Instantiate the model</li>
+<li>a) Run the initialization code in the model's init routine -or-<br>
+b) Initialize the model from a saved snapshot</li>
+<li>Instantiate the view, passing the view constructor a reference to the model</li>
+<li>Create a main event loop and begin executing</li>
+</ol>
+<p>The main loop runs each time the window performs an animation update — commonly, 60 times per second. On each iteration of the main loop, it will first process all pending events in the model, then process all pending events in the view, then call View#render.</p>
+<p><strong>Note that the code in your model's <code>init()</code> routine only runs the first time the application launches.</strong> If another user joins a session that's in progress, they will load the most recent snapshot of model state. The same is true if you quit a session and rejoin it later.</p>
+<p><strong>TODO:</strong> mention how session ids are derived from code hashes and url session slugs</p>
+<h2 id="advanced-topic%3A-creating-your-own-main-loop">Advanced Topic: Creating Your Own Main Loop</h2>
+<p>If you want more control over your main loop, you can pass out the <code>step: &quot;manual&quot;</code> directive and write a main loop yourself. For example:</p>
+<pre class="prettyprint source"><code>const session = await Croquet.Session.join({..., step: &quot;manual&quot;});
+window.requestAnimationFrame(frame);
+
+function frame(now) {
+    if (session.view) {
+        session.view.myInputMethod();
+        session.step(now);
+        session.view.myOutputMethod();
+    }
+    window.requestAnimationFrame(frame);
+}
+</code></pre>
+</article>
+
+</section>
+
+
+    
+</div>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.6.7</a> using the <a href="https://github.com/clenemt/docdash">docdash</a> theme.
+</footer>
+
+<script>prettyPrint();</script>
+<script src="scripts/polyfill.js"></script>
+<script src="scripts/linenumber.js"></script>
+
+
+<script src="scripts/collapse.js" defer></script>
+
+
+</body>
+</html>

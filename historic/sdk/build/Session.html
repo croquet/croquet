@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    
+    
+    
+    
+    <meta charset="utf-8">
+    <title>Session - Croquet SDK @CROQUET_VERSION@</title>
+    <meta name="description" content="Documentation for the Croquet SDK" />
+    
+        <meta name="keywords" content="croquet" />
+        <meta name="keyword" content="croquet" />
+    
+    <link rel="icon" type="image/png" href="images/icon.png">
+    
+    <script src="scripts/prettify/prettify.js"></script>
+    <script src="scripts/prettify/lang-css.js"></script>
+    <link type="text/css" rel="stylesheet" href="styles/prettify.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc.css">
+    <script src="scripts/nav.js" defer></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        nav img { max-width: 210px; margin-top: 10px; }
+        .corner-ribbon {
+            width: 200px;
+            background: #f33;
+            position: fixed;
+            top: 25px;
+            left: -50px;
+            text-align: center;
+            line-height: 50px;
+            letter-spacing: 1px;
+            color: #eee;
+            box-shadow: 0 0 5px rgba(0,0,0,.5);
+            transform: rotate(-45deg);
+            -webkit-transform: rotate(-45deg);
+        }
+        .corner-ribbon.top-right {
+            top: 25px;
+            right: -50px;
+            left: auto;
+            transform: rotate(45deg);
+            -webkit-transform: rotate(45deg);
+        }
+    </style>
+</head>
+<body>
+
+<input type="checkbox" id="nav-trigger" class="nav-trigger" />
+<label for="nav-trigger" class="navicon-button x">
+  <div class="navicon"></div>
+</label>
+
+<label for="nav-trigger" class="overlay"></label>
+
+<nav >
+    <a href="index.html"><img src="images/logotype.png"></a>
+    
+    <h2><a href="index.html#quickstart"><h3>QUICKSTART</h3></a></h2><h3>Globals</h3><ul><li><a href="global.html#Constants">Constants</a></li></ul><h3>Classes</h3><ul><li><a href="Model.html">Model</a><ul class='methods'><li data-type='method' style='display: none;'><a href="Model.html#.create">create</a></li><li data-type='method' style='display: none;'><a href="Model.html#.register">register</a></li><li data-type='method' style='display: none;'><a href="Model.html#.wellKnownModel">wellKnownModel</a></li><li data-type='method' style='display: none;'><a href="Model.html#.types">types</a></li><li data-type='method' style='display: none;'><a href="Model.html#init">init</a></li><li data-type='method' style='display: none;'><a href="Model.html#destroy">destroy</a></li><li data-type='method' style='display: none;'><a href="Model.html#publish">publish</a></li><li data-type='method' style='display: none;'><a href="Model.html#subscribe">subscribe</a></li><li data-type='method' style='display: none;'><a href="Model.html#unsubscribe">unsubscribe</a></li><li data-type='method' style='display: none;'><a href="Model.html#unsubscribeAll">unsubscribeAll</a></li><li data-type='method' style='display: none;'><a href="Model.html#future">future</a></li><li data-type='method' style='display: none;'><a href="Model.html#random">random</a></li><li data-type='method' style='display: none;'><a href="Model.html#now">now</a></li><li data-type='method' style='display: none;'><a href="Model.html#beWellKnownAs">beWellKnownAs</a></li><li data-type='method' style='display: none;'><a href="Model.html#getModel">getModel</a></li><li data-type='method' style='display: none;'><a href="Model.html#wellKnownModel">wellKnownModel</a></li><li data-type='method' style='display: none;'><a href="Model.html#modelOnly">modelOnly</a></li></ul></li><li><a href="View.html">View</a><ul class='methods'><li data-type='method' style='display: none;'><a href="View.html#detach">detach</a></li><li data-type='method' style='display: none;'><a href="View.html#publish">publish</a></li><li data-type='method' style='display: none;'><a href="View.html#subscribe">subscribe</a></li><li data-type='method' style='display: none;'><a href="View.html#unsubscribe">unsubscribe</a></li><li data-type='method' style='display: none;'><a href="View.html#unsubscribeAll">unsubscribeAll</a></li><li data-type='method' style='display: none;'><a href="View.html#future">future</a></li><li data-type='method' style='display: none;'><a href="View.html#random">random</a></li><li data-type='method' style='display: none;'><a href="View.html#now">now</a></li><li data-type='method' style='display: none;'><a href="View.html#externalNow">externalNow</a></li><li data-type='method' style='display: none;'><a href="View.html#extrapolatedNow">extrapolatedNow</a></li><li data-type='method' style='display: none;'><a href="View.html#update">update</a></li><li data-type='method' style='display: none;'><a href="View.html#wellKnownModel">wellKnownModel</a></li></ul></li><li><a href="Session.html">Session</a><ul class='methods'><li data-type='method' style='display: none;'><a href="Session.html#.join">join</a></li></ul></li></ul><h3>Events</h3><ul><li><a href="global.html#event:view-join">view-join</a></li><li><a href="global.html#event:view-exit">view-exit</a></li><li><a href="global.html#event:synced">synced</a></li></ul><h3>Tutorials</h3><ul><li><a href="tutorial-1_1_hello_world.html"> Hello World</a></li><li><a href="tutorial-1_2_simple_animation.html"> Simple Animation</a></li><li><a href="tutorial-1_3_multiuser_chat.html"> Multiuser Chat</a></li><li><a href="tutorial-1_4_view_smoothing.html"> View Smoothing</a></li><li><a href="tutorial-1_5_3d_animation.html"> 3D Animation</a></li><li><a href="tutorial-2_1_model_view_reflector.html"> Model-View-Reflector</a></li><li><a href="tutorial-2_2_writing_a_croquet_app.html"> Writing a Croquet Application</a></li><li><a href="tutorial-2_3_writing_a_croquet_view.html"> Writing a Croquet View</a></li><li><a href="tutorial-2_4_writing_a_croquet_model.html"> Writing a Croquet Model</a></li><li><a href="tutorial-2_5_sim_time_and_future.html"> Simulation Time and Future Sends</a></li><li><a href="tutorial-2_6_events_pub_sub.html"> Events & Publish/Subscribe</a></li><li><a href="tutorial-2_7_snapshots.html"> Snapshots</a></li><li><a href="tutorial-2_8_random.html"> Randomness & Determinism</a></li></ul>
+</nav>
+
+<div id="main">
+    
+    <h1 class="page-title">Session</h1>
+    
+
+    
+
+
+
+
+<section>
+
+<header>
+    
+        <h2>
+        Session
+        </h2>
+        
+            <div class="class-description"><p><em>The Session API is under construction.</em></p>
+<p>New in 0.4: <code>Session.join</code> takes a single argument object instead of multiple unnamed arguments</p>
+<p>New in 0.3: use <code>Session.join</code> instead of <code>startSession()</code>. The returned object has a new <code>leave()</code> method for leaving that session.</p></div>
+        
+    
+</header>
+
+<article>
+    
+
+    
+
+    
+
+    
+    
+    
+
+     
+
+    
+
+    
+
+    
+        <h3 class="subsection-title">Methods</h3>
+
+        
+            
+
+    
+
+    <h4 class="name" id=".join"><span class="type-signature">(async, static) </span>join<span class="signature">(parameters)</span><span class="type-signature"> &rarr; {Promise}</span></h4>
+
+    
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+<div class="description">
+    <p><strong>Join a Croquet session.</strong></p>
+<p>Joins a session by instantiating the root model (for a new session) or resuming from a snapshot, then constructs the view root instance.</p>
+<p>The <code>appId</code> identifies each Croquet app. It must be a globally unique identifier following
+the <a href="https://developer.android.com/studio/build/application-id">Android convention</a>,
+e.g. <code>&quot;com.example.myapp&quot;</code>. Each dot-separated segment must start
+with a letter, and only letters, digits, and underscores are allowed.</p>
+<p>The session <code>name</code> identifies individual sessions within an app.
+You can use it for example to create different sessions for different users.
+That is, a user in session <code>&quot;ABC&quot;</code> will not see a user in <code>&quot;DEF&quot;</code>.
+One simple way to create unique sessions is via <code>Croquet.App.autoSession()</code> which will
+use or generate a random name in the query part (<code>?...</code>) of the current url.
+(If you use a constant, then all users will end up in the same session.
+This is what we do in some of our tutorials for simplicity, but actual apps should manage sessions.)</p>
+<p>The session <code>password</code> is used for end-to-end encryption of all data leaving the client.
+If your app does not need to protect user data, you will still have to provide a constant dummy password.
+One simple way to have individual passwords is via <code>Croquet.App.autoPassword()</code> which will
+use or generate a random password in the hash part (<code>#...</code>) of the current url.</p>
+<p>A <a href="Model.html#sessionId">session id</a> is created from the given session <code>name</code>,
+and a hash of all the <a href="Model.html#.register">registered</a> Model classes and <a href="global.html#Constants">Constants</a>.
+This ensures that only users running the exact same source code end up in the same session,
+which is a prerequisite for perfectly replicated computation.</p>
+<p>The session id is used to connect to a reflector. If there is no ongoing session,
+an instance of the <code>model</code> class is <a href="Model.html#.create">created</a> (which in turn typically creates a number of submodels).
+Otherwise, the previously stored <a href="Model.html#beWellKnownAs">modelRoot</a> is deserialized from the snapshot,
+along with all additional models.</p>
+<p>That root model instance is passed to the <a href="View.html">constructor</a> of your root <code>view</code> class.
+The root view should set up the input and output operations of your application,
+and create any additional views as to match the application state as found in the models.</p>
+<p>Then the Croquet <strong>main loop</strong> is started (unless you pass in a <code>step: &quot;manual&quot;</code> parameter, e.g. for WebXR, see example below).
+This uses <a href="https://developer.mozilla.org/docs/Web/API/window/requestAnimationFrame">requestAnimationFrame()</a>
+for continuous updating. Each step of the main loop executes in three phases:</p>
+<ol>
+<li><em>Simulation:</em> the models execute the events received via the reflector,
+and the <a href="Model.html#future">future messages</a> up to the latest time stamp received from the reflector.
+The <a href="Model.html#publish">events</a> generated in this phase are put in a queue for the views to consume.</li>
+<li><em>Event Processing:</em> the queued events are processed by calling the view's <a href="View.html#subscribe">event handlers</a>.
+The views typically use these events to modify some view state, e.g. moving a DOM element or setting some
+attribute of a Three.js object.</li>
+<li><em>Updating/Rendering:</em> The view root's <a href="View.html#update">update()</a> method is called after all the queued events have been processed.
+In some applications, the update method will do nothing (e.g. DOM elements are rendered after returning control to the browser).
+When using other UI frameworks (e.g. Three.js), this is the place to perform the actual rendering.
+Also, polling input and other tasks that should happen in every frame should be placed here.</li>
+</ol>
+<h4 id="parameters">Parameters</h4>
+<table>
+<thead>
+<tr>
+<th>parameter</th>
+<th>values</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>appId</code></td>
+<td>string</td>
+<td>unique application identifier as <a href="https://developer.android.com/studio/build/application-id">dot-separated words</a> (e.g. <code>&quot;com.example.myapp&quot;</code>)</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>a name for this session (e.g. <code>&quot;123abc&quot;</code>)</td>
+</tr>
+<tr>
+<td><code>password</code></td>
+<td>string</td>
+<td>a password for this session (used for end-to-end encryption of messages and snapshots)</td>
+</tr>
+<tr>
+<td><code>model</code></td>
+<td>class</td>
+<td>the root Model class for your app</td>
+</tr>
+<tr>
+<td><code>view</code></td>
+<td>class</td>
+<td>the root View class for your app</td>
+</tr>
+<tr>
+<td><code>options</code></td>
+<td>JSON object</td>
+<td>passed into the root model's <a href="Model.html#init">init()</a> function (no default)</td>
+</tr>
+<tr>
+<td><code>step</code></td>
+<td><strong><code>&quot;auto&quot;</code></strong></td>
+<td>automatic stepping via <a href="https://developer.mozilla.org/docs/Web/API/window/requestAnimationFrame">requestAnimationFrame()</a> (default)</td>
+</tr>
+<tr>
+<td></td>
+<td><code>&quot;manual&quot;</code></td>
+<td>application-defined main loop is responsible for calling the session's <code>step()</code> function</td>
+</tr>
+<tr>
+<td><code>tps</code></td>
+<td><code>0</code>...<code>60</code></td>
+<td>heartbeat <em>ticks per second</em> generated by reflector when no messages are sent by any user (default <code>20</code>)</td>
+</tr>
+<tr>
+<td><code>rejoinLimit</code></td>
+<td><code>0</code>...<code>60000</code></td>
+<td>time in ms until view is destroyed while disconnected because immediate rejoin failed (default <code>1000</code>)</td>
+</tr>
+<tr>
+<td><code>debug</code></td>
+<td>array or string</td>
+<td>pass array of strings to enable multiple debug logs</td>
+</tr>
+<tr>
+<td></td>
+<td><code>&quot;session&quot;</code></td>
+<td>logs session id and connections</td>
+</tr>
+<tr>
+<td></td>
+<td><code>&quot;messages&quot;</code></td>
+<td>received from reflector, after decryption, raw messages are in the WebSocket debugger</td>
+</tr>
+<tr>
+<td></td>
+<td><code>&quot;sends&quot;</code></td>
+<td>sent to reflector, before encryption, raw messages are in the WebSocket debugger</td>
+</tr>
+<tr>
+<td></td>
+<td><code>&quot;snapshot&quot;</code></td>
+<td>snapshot stats</td>
+</tr>
+<tr>
+<td></td>
+<td><code>&quot;data&quot;</code></td>
+<td>data API stats</td>
+</tr>
+<tr>
+<td></td>
+<td><code>&quot;hashing&quot;</code></td>
+<td>code hashing to derive sessionId / islandId</td>
+</tr>
+<tr>
+<td></td>
+<td><code>&quot;subscribe&quot;</code></td>
+<td>adding/removing subscriptions</td>
+</tr>
+<tr>
+<td></td>
+<td><code>&quot;classes&quot;</code></td>
+<td>registering classes</td>
+</tr>
+<tr>
+<td></td>
+<td><code>&quot;ticks&quot;</code></td>
+<td>each tick received</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Examples</h5>
+    
+        <p class="code-caption">auto name, password, and main loop</p>
+    
+    <pre class="prettyprint"><code>Croquet.Session.join({
+    appId: "com.example.myapp",             // namespace for session names
+    name: Croquet.App.autoSession(),        // session via URL arg
+    password: Croquet.App.autoPassword(),   // password via URL arg
+    model: MyRootModel,
+    view: MyRootView,
+    debug: ["session"],
+});</code></pre>
+
+        <p class="code-caption">manual name, password, and WebXR main loop</p>
+    
+    <pre class="prettyprint"><code>Croquet.Session.join({ appId: "com.example.myapp", name: "abc", password: "password", model: MyRootModel, view: MyRootView, step: "manual"}).then(session => {
+    function xrAnimFrame(time, xrFrame) {
+        session.step(time);
+        ...
+        xrSession.requestAnimationFrame(xrAnimFrame);
+    }
+    xrSession.requestAnimationFrame(xrAnimFrame);
+});</code></pre>
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>parameters</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Object</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">
+                <h6>Properties</h6>
+                
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>appId</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">String</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p><a href="https://developer.android.com/studio/build/application-id">application identifier</a></p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>name</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">String</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>session name</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>password</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">String</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>session password</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>model</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a href="Model.html">Model</a></span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>root Model class</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>view</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a href="View.html">View</a></span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>root View class</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>options</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Object</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+                    &lt;nullable><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>options passed to root Model's init</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>step</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">String</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+                    &lt;nullable><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p><code>&quot;auto&quot; | &quot;manual&quot;</code></p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>tps</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Number</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+                    &lt;nullable><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>ticks per second (<code>0</code> to <code>60</code>)</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>rejoinLimit</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Number</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+                    &lt;nullable><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>ms until view is destroyed while disconnected</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>debug</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">String</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+                    &lt;nullable><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>enable debug logs</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+            </td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    <p>Promise that resolves to an object describing the session:</p>
+<pre class="prettyprint source"><code>{
+    id,           // the session id
+    view,         // the ViewRoot instance
+    step(time),   // function for &quot;manual&quot; stepping
+    leave(),      // force leaving the session
+}
+</code></pre>
+<p>where</p>
+<ul>
+<li><code>view</code> is an instance of the <code>ViewRoot</code> class</li>
+<li><code>step(time)</code> is a function you need to call in each frame if you disabled automatic stepping.
+The <code>time</code> argument is expected to be in milliseconds, monotonically increasing - for example, the time received by a function that you passed to <code>window.requestAnimationFrame</code>.</li>
+<li><code>leave()</code> is an async function that forces this session to disconnect.</li>
+</ul>
+</div>
+
+
+
+<dl class="param-type">
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Promise</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+        
+    
+
+    
+
+    
+</article>
+
+</section>
+
+
+
+
+
+    
+</div>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.6.7</a> using the <a href="https://github.com/clenemt/docdash">docdash</a> theme.
+</footer>
+
+<script>prettyPrint();</script>
+<script src="scripts/polyfill.js"></script>
+<script src="scripts/linenumber.js"></script>
+
+
+<script src="scripts/collapse.js" defer></script>
+
+
+</body>
+</html>

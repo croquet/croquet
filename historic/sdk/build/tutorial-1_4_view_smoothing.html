@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    
+    
+    
+    
+    <meta charset="utf-8">
+    <title>Tutorial:  View Smoothing - Croquet SDK @CROQUET_VERSION@</title>
+    <meta name="description" content="Documentation for the Croquet SDK" />
+    
+        <meta name="keywords" content="croquet" />
+        <meta name="keyword" content="croquet" />
+    
+    <link rel="icon" type="image/png" href="images/icon.png">
+    
+    <script src="scripts/prettify/prettify.js"></script>
+    <script src="scripts/prettify/lang-css.js"></script>
+    <link type="text/css" rel="stylesheet" href="styles/prettify.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc.css">
+    <script src="scripts/nav.js" defer></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        nav img { max-width: 210px; margin-top: 10px; }
+        .corner-ribbon {
+            width: 200px;
+            background: #f33;
+            position: fixed;
+            top: 25px;
+            left: -50px;
+            text-align: center;
+            line-height: 50px;
+            letter-spacing: 1px;
+            color: #eee;
+            box-shadow: 0 0 5px rgba(0,0,0,.5);
+            transform: rotate(-45deg);
+            -webkit-transform: rotate(-45deg);
+        }
+        .corner-ribbon.top-right {
+            top: 25px;
+            right: -50px;
+            left: auto;
+            transform: rotate(45deg);
+            -webkit-transform: rotate(45deg);
+        }
+    </style>
+</head>
+<body>
+
+<input type="checkbox" id="nav-trigger" class="nav-trigger" />
+<label for="nav-trigger" class="navicon-button x">
+  <div class="navicon"></div>
+</label>
+
+<label for="nav-trigger" class="overlay"></label>
+
+<nav >
+    <a href="index.html"><img src="images/logotype.png"></a>
+    
+    <h2><a href="index.html#quickstart"><h3>QUICKSTART</h3></a></h2><h3>Globals</h3><ul><li><a href="global.html#Constants">Constants</a></li></ul><h3>Classes</h3><ul><li><a href="Model.html">Model</a><ul class='methods'><li data-type='method' style='display: none;'><a href="Model.html#.create">create</a></li><li data-type='method' style='display: none;'><a href="Model.html#.register">register</a></li><li data-type='method' style='display: none;'><a href="Model.html#.wellKnownModel">wellKnownModel</a></li><li data-type='method' style='display: none;'><a href="Model.html#.types">types</a></li><li data-type='method' style='display: none;'><a href="Model.html#init">init</a></li><li data-type='method' style='display: none;'><a href="Model.html#destroy">destroy</a></li><li data-type='method' style='display: none;'><a href="Model.html#publish">publish</a></li><li data-type='method' style='display: none;'><a href="Model.html#subscribe">subscribe</a></li><li data-type='method' style='display: none;'><a href="Model.html#unsubscribe">unsubscribe</a></li><li data-type='method' style='display: none;'><a href="Model.html#unsubscribeAll">unsubscribeAll</a></li><li data-type='method' style='display: none;'><a href="Model.html#future">future</a></li><li data-type='method' style='display: none;'><a href="Model.html#random">random</a></li><li data-type='method' style='display: none;'><a href="Model.html#now">now</a></li><li data-type='method' style='display: none;'><a href="Model.html#beWellKnownAs">beWellKnownAs</a></li><li data-type='method' style='display: none;'><a href="Model.html#getModel">getModel</a></li><li data-type='method' style='display: none;'><a href="Model.html#wellKnownModel">wellKnownModel</a></li><li data-type='method' style='display: none;'><a href="Model.html#modelOnly">modelOnly</a></li></ul></li><li><a href="View.html">View</a><ul class='methods'><li data-type='method' style='display: none;'><a href="View.html#detach">detach</a></li><li data-type='method' style='display: none;'><a href="View.html#publish">publish</a></li><li data-type='method' style='display: none;'><a href="View.html#subscribe">subscribe</a></li><li data-type='method' style='display: none;'><a href="View.html#unsubscribe">unsubscribe</a></li><li data-type='method' style='display: none;'><a href="View.html#unsubscribeAll">unsubscribeAll</a></li><li data-type='method' style='display: none;'><a href="View.html#future">future</a></li><li data-type='method' style='display: none;'><a href="View.html#random">random</a></li><li data-type='method' style='display: none;'><a href="View.html#now">now</a></li><li data-type='method' style='display: none;'><a href="View.html#externalNow">externalNow</a></li><li data-type='method' style='display: none;'><a href="View.html#extrapolatedNow">extrapolatedNow</a></li><li data-type='method' style='display: none;'><a href="View.html#update">update</a></li><li data-type='method' style='display: none;'><a href="View.html#wellKnownModel">wellKnownModel</a></li></ul></li><li><a href="Session.html">Session</a><ul class='methods'><li data-type='method' style='display: none;'><a href="Session.html#.join">join</a></li></ul></li></ul><h3>Events</h3><ul><li><a href="global.html#event:view-join">view-join</a></li><li><a href="global.html#event:view-exit">view-exit</a></li><li><a href="global.html#event:synced">synced</a></li></ul><h3>Tutorials</h3><ul><li><a href="tutorial-1_1_hello_world.html"> Hello World</a></li><li><a href="tutorial-1_2_simple_animation.html"> Simple Animation</a></li><li><a href="tutorial-1_3_multiuser_chat.html"> Multiuser Chat</a></li><li><a href="tutorial-1_4_view_smoothing.html"> View Smoothing</a></li><li><a href="tutorial-1_5_3d_animation.html"> 3D Animation</a></li><li><a href="tutorial-2_1_model_view_reflector.html"> Model-View-Reflector</a></li><li><a href="tutorial-2_2_writing_a_croquet_app.html"> Writing a Croquet Application</a></li><li><a href="tutorial-2_3_writing_a_croquet_view.html"> Writing a Croquet View</a></li><li><a href="tutorial-2_4_writing_a_croquet_model.html"> Writing a Croquet Model</a></li><li><a href="tutorial-2_5_sim_time_and_future.html"> Simulation Time and Future Sends</a></li><li><a href="tutorial-2_6_events_pub_sub.html"> Events & Publish/Subscribe</a></li><li><a href="tutorial-2_7_snapshots.html"> Snapshots</a></li><li><a href="tutorial-2_8_random.html"> Randomness & Determinism</a></li></ul>
+</nav>
+
+<div id="main">
+    
+    <h1 class="page-title">Tutorial:  View Smoothing</h1>
+    
+
+    <section>
+
+<header>
+    
+</header>
+
+<article>
+    <p>Copyright © 2020 Croquet Corporation</p>
+<p>This is an example of how to smooth the view so that objects move continually even if the model only updates intermittently. It's also is a good technique to use if you want your application to cleanly handle hitches in connectivity over a poor internet connection.</p>
+<p class="codepen" data-height="512" data-theme-id="37190" data-default-tab="result" data-user="croquet" data-slug-hash="agayxz" data-editable="true" style="height: 512px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border: 2px solid; margin: 1em 0; padding: 1em;" data-pen-title="Chat">
+  <span>See the Pen <a href="https://codepen.io/croquet/pen/agayxz">
+  Chat</a> by Croquet (<a href="https://codepen.io/croquet">@croquet</a>)
+  on <a href="https://codepen.io">CodePen</a>.</span>
+</p>
+<script async src="https://static.codepen.io/assets/embed/ei.js"></script>
+<h2 id="try-it-out!"><strong>Try it out!</strong></h2>
+<p>The first thing to do is click or scan the QR code above. This will launch a new CodePen instance of this session. You'll see several moving colored dots. There is one dot for each device currently connected to the session. Some dots may even belong to other Croquet developers who are also reading this documentation right now.</p>
+<p>You can tell your dot where to go by clicking or tapping the screen.</p>
+<p><b>The unsmoothed position of your dot is shown in gray.</b> Note how it jumps forward every time the model performs an update. The view uses this information to calculate each dot's smoothed position. (For clarity, we're only showing the unsmoothed position of <i>your</i> dot. All other dots are drawn at their smoothed positions.)</p>
+<p>In this example, the model is only updating <b>twice per second.</b> Nevertheless the dots move smoothly at 60 frames per second because the view is interpolating their position between model updates.</p>
+<p>There are five things we will learn here:</p>
+<ol>
+<li>How to define global constants.</li>
+<li>How to safely share code between model and view.</li>
+<li>Using <code>&quot;oncePerFrame&quot;</code> to limit view updates.</li>
+<li>How to handle infrequent model updates.</li>
+<li>How to set the rate of heartbeat ticks coming from the reflector.</li>
+</ol>
+<h2 id="global-constants">Global Constants</h2>
+<p>Sometimes it's useful to declare a global constant that you can use throughout your code. However, any constants used by the model should also be included in the <a href="Session.html#.join">code hash</a>, to make sure the model stays synchronized. If they are included in the hash, changing the constants will create a new session. If the constants are not included in the hash, you might end up in the same session with older code and different constant values, which would lead to desynchronization.</p>
+<pre class="prettyprint source"><code>const Q = Croquet.Constants;
+Q.TICK_MS = 500;    // milliseconds per actor tick
+Q.SPEED = 0.15;     // dot movment speed in pixels per millisecond
+Q.CLOSE = 0.1;      // minimum distance in pixels to a new destination
+Q.SMOOTH = 0.05;    // weighting between old and new positions. 0 > SMOOTH >= 1
+</code></pre>
+<p><b>Croquet provides a data object called <a href="global.html#Constants">Croquet.Constants</a> that can be used to store constants.</b> The value of this object will contribute to the hash used to generate a session ID. To make your code easier to read, we recommend defining a short alias—in this case <code>Q</code>—to refer to <code>Croquet.Constants</code>.</p>
+<h2 id="pure-functions">Pure Functions</h2>
+<p>Sometimes it's useful to have a common set of utility functions that you can call from both the model and the view. For example, in this tutorial we have a common set of 2-D vector operations. These functions do things like adding two vectors together, or multiplying a vector by scale factor, or finding a vector's magnitude.</p>
+<pre class="prettyprint source"><code>...
+
+function add(a,b) {
+    return { x: (a.x + b.x), y: (a.y + b.y) };
+}
+
+function subtract(a,b) {
+    return { x: (a.x - b.x), y: (a.y - b.y) };
+}
+
+...
+</code></pre>
+<p><b>As long as a function is <i>purely functional</i> you're free to call it from both the model and the view.</b> A pure function doesn't read any parameters other than the ones passed to it, doesn't modify these parameters in any way, and doesn't save any state outside the scope of its own execution.</p>
+<p>Note that the code of these functions is not included in the session ID hash—Croquet doesn't know about them. That's not a problem typically if you don't change them frequently. Just be aware that two versions of your code that don't differ in the model classes but differ in the functions used by the model will end up in the same session. If those functions produce different results, the old and new session instances will likely not synchronize correctly.</p>
+<h2 id="rootmodel-%26-rootview">RootModel &amp; RootView</h2>
+<p>The root classes for model and view are fairly simple, and their functionality has largely been  covered in earlier tutorials. When a new user joins a session, <code>RootModel</code> spawns an <code>Actor</code> to control the movement of their dot. The new <code>Actor</code> sends an event to <code>RootView</code> telling it to spawn a corresponding <code>Pawn</code>.</p>
+<p>The same process happens in reverse when a user exits. <code>RootModel</code> removes that user's <code>Actor</code>, and the <code>Actor</code> sends an event to <code>RootView</code> telling it to remove the corresponding <code>Pawn</code>.</p>
+<p>Note, however, this line in the constructor for <code>RootView</code>:</p>
+<pre class="prettyprint source"><code>model.actors.forEach(actor => this.addPawn(actor));
+</code></pre>
+<p>When the view starts up, it checks to see if there are already any active actors in the model, and if there are, it spawns pawns for them. We need to do this because the view may be joining a session that's already in progress, or restoring from a saved snapshot. <b>During initialization, the view should never make any assumptions about the current state of the model.</b> It should always read the state of the model and build itself accordingly.</p>
+<h2 id="actor.goto(goal)">Actor.goto(goal)</h2>
+<p>Whenever the user generates an <code>onclick</code> event, <code>RootView</code> sends the position clicked to the actor as its new destintion.</p>
+<pre class="prettyprint source"><code>goto(goal) {
+   this.goal = goal;
+   const delta = subtract(goal, this.position);
+   if (magnitude(delta) &lt; Q.CLOSE) {
+       this.goto(randomPosition());
+   } else {
+       const unit = normalize(delta);
+       this.velocity = scale(unit, Q.SPEED);
+   }
+}
+</code></pre>
+<p><code>goto</code> calculates a vector that points from the actor's current position to its new goal. If the length of this vector is shorter than the constant <code>Q.CLOSE</code> it means that we're already at the goal, and we randomly pick a new one.</p>
+<p>If the goal isn't too close, then we calculate the velocity vector that will move us from our current position to our destination.</p>
+<h2 id="actor.arrived()">Actor.arrived()</h2>
+<pre class="prettyprint source"><code>arrived() {
+    const delta = subtract(this.goal, this.position);
+    return (dotProduct(this.velocity, delta) &lt;= 0);
+}
+</code></pre>
+<p>Each time the actor moves, it steps forward a fixed distance. This means we'll usually overshoot our goal instead of landing right on it. So, to determine if we've arrived, we don't check to see if our position equals our goal. Instead we check to see if the vector pointing from our position toward our goal has reversed direction.</p>
+<p>(The dot product of two vectors pointing in opposite directions is negative.)</p>
+<h2 id="actor.tick()">Actor.tick()</h2>
+<pre class="prettyprint source"><code>tick() {
+    this.position = add(this.position, scale(this.velocity, Q.TICK_MS));
+    if (this.arrived()) this.goto(this.randomPosition());
+    this.publish(this.id, &quot;moved&quot;, this.now());
+    this.future(Q.TICK_MS).tick();
+}
+</code></pre>
+<p>On every tick we move the actor forward by an amount equal to its velocity vector times the duration of the tick. If we've arrived, we pick a new destination. And we tell the view that this actor has moved.</p>
+<h2 id="pawn.constructor(model)">Pawn.constructor(model)</h2>
+<pre class="prettyprint source"><code>constructor(actor) {
+    super(actor);
+    this.actor = actor;
+    this.position = {...actor.position};
+    this.actorMoved();
+    this.subscribe(actor.id, {event: &quot;moved&quot;, handling: &quot;oncePerFrame&quot;}, this.actorMoved);
+}
+</code></pre>
+<p>When <code>RootView</code> spawns a pawn, it passes a reference to the pawns's actor. The actor's ID is used as scope in a subscription make sure the pawn only receives that actor's events. The pawn copies its initial position from the actor, and calls <code>actorMoved</code> to timestamp the position information.</p>
+<p><code>&quot;oncePerFrame&quot;</code> is a special option for how this subscription handles events (see <a href="View.html#subscribe">View.subscribe</a>). By default every single event is passed through the subscription. <b>But when <code>&quot;oncePerFrame&quot;</code> is turned on, only the last event of this type during the previous frame is passed to the view.</b> Prior events are discarded.</p>
+<p>This can be useful when the model is running at high speed to clear out a backlog. The model may generate a large number of <code>moved</code> events in a single frame, and since the view really only cares about the last one, there's no reason to process the others.</p>
+<h2 id="pawn.actormoved()">Pawn.actorMoved()</h2>
+<pre class="prettyprint source"><code>actorMoved() {
+    this.lastMoved = viewTime;
+}
+</code></pre>
+<p>This is called when the actor sends a <code>&quot;moved&quot;</code> event. All it does is save the timestamp of the current frame. This way when we want to extrapolate the position of the dot, we know what in what frame the model's position was last updated.</p>
+<h2 id="pawn.update()">Pawn.update()</h2>
+<pre class="prettyprint source"><code>update() {
+
+   if (this.actor.viewId === this.viewId) {
+       this.draw(this.actor.goal, null, this.actor.color);
+       this.draw(this.actor.position, &quot;lightgrey&quot;);
+   }
+
+   const delta = scale(this.actor.velocity, viewTime - this.lastMoved);
+   const extrapolation = add(this.actor.position, delta);
+   this.position = lerp(this.position, extrapolation, Q.SMOOTH);
+   this.draw(this.position, this.actor.color);
+}
+</code></pre>
+<p>This is called once for each pawn during the <code>RootView</code> update.</p>
+<p><b>The first part is special-case code that only runs for our own pawn</b>—the pawn that was spawned when we joined the session. The pawn knows it belongs to us because its actor has a stored <code>viewId</code> that matches the pawn's <code>viewId</code>. Every other pawn will have the same <code>viewId</code> (because it's running locally in our view) but a different <code>actor.viewId</code> (because it was spawned by a different view).</p>
+<p>The special-case code draws the actor's goal as a colored ring, and the actor's raw position as a light gray circle.</p>
+<p><b>The second part of this method does the actual smoothing.</b> It takes the actor's last known position and projects it forward using its last known velocity. It then performs an interpolation between the current pawn position and the newly calculated one.</p>
+<p>The reason we interpolate here is because sometimes the actor changes state in ways that the pawn can't predict. For example, if the actor reverse direction, by the time the pawn finds out, it will have already have moved several frames in the wrong direction. If we don't interpolate, the pawn will instantly &quot;pop&quot; to the right position to catch up.</p>
+<p><code>Q.SMOOTH</code> is a value between 0 and 1 that controls this interpolation. If it's set to 1, there won't be any interpolation at all. The dot will instantly pop to its current projection of the of the pawn's position. The lower the value of <code>Q.SMOOTH</code> the more &quot;mushy&quot; the pawn's movement becomes. It will move more smoothly, but also won't track the model as closely. (And if you set <code>Q.SMOOTH</code> to 0, the dot won't move at all!)</p>
+<p>The &quot;right&quot; value for <code>Q.SMOOTH</code> depends on many factors: how fast the actor is ticking, the actor's movement speed, the current latency to the reflector, and the level of responsiveness you need in your pawns. <b>A good rule of thumb is to tune <code>Q.SMOOTH</code> so the pawn spends about half its time behind the actor's position and half ahead.</b></p>
+<h2 id="setting-the-reflector-heartbeat-tick">Setting the reflector heartbeat tick</h2>
+<p>When the reflector doesn't have any normal events to send, it sends silent heartbeat ticks. This allows the model to keep running even if it's not receiving input from any users. These ticks don't consume much bandwidth, but they do consume some, so it can be useful to lower the tick rate to match the needs of your application.</p>
+<p>The option <code>tps</code> in <a href="Session.html#.join"><code>Session.join</code></a> is used to set the tick rate (a.k.a. &quot;ticks per second&quot;).</p>
+<pre class="prettyprint source"><code>Croquet.Session.join({
+  appId: &quot;io.codepen.croquet.smooth&quot;,
+  name: &quot;unnamed&quot;,
+  password: &quot;secret&quot;,
+  model: RootModel,
+  view: RootView,
+  tps: 1000/Q.TICK_MS,
+});
+</code></pre>
+<p>In this tutorial <code>Q.TICK_MS</code> is 500, so the reflector will generate a tick when no message from any user arrived in the last 500 milliseconds. This means it will send out heartbeat ticks twice a second at most (we could have written <code>tps: 2</code> instead of <code>tps: 1000/Q.TICK_MS</code>). In general, you should set the heartbeat rate to match the internal tick rate of your model. If your model is only changing 10 times a second, there's no point in having a faster heartbeat tick than <code>tps: 10</code>.</p>
+<p>The default setting for <code>tps</code> is 20 times per second, but the value can be set to any integer value between <code>1</code> and <code>60</code>.</p>
+<p><b>Note: Increasing the heartbeat tick rate will NOT make your Croquet app more responsive.</b> User input events from the view to the model are sent as soon as they are generated, and processed as soon as they are received. If you're sending control inputs 60 times per second, your model will respond to them 60 times per second. Heartbeat ticks only affect the update frequency of the model when it's not receiving any other events.</p>
+</article>
+
+</section>
+
+
+    
+</div>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.6.7</a> using the <a href="https://github.com/clenemt/docdash">docdash</a> theme.
+</footer>
+
+<script>prettyPrint();</script>
+<script src="scripts/polyfill.js"></script>
+<script src="scripts/linenumber.js"></script>
+
+
+<script src="scripts/collapse.js" defer></script>
+
+
+</body>
+</html>

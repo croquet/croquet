@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    
+    
+    
+    
+    <meta charset="utf-8">
+    <title>Home - Croquet SDK @CROQUET_VERSION@</title>
+    <meta name="description" content="Documentation for the Croquet SDK" />
+    
+        <meta name="keywords" content="croquet" />
+        <meta name="keyword" content="croquet" />
+    
+    <link rel="icon" type="image/png" href="images/icon.png">
+    
+    <script src="scripts/prettify/prettify.js"></script>
+    <script src="scripts/prettify/lang-css.js"></script>
+    <link type="text/css" rel="stylesheet" href="styles/prettify.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc.css">
+    <script src="scripts/nav.js" defer></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        nav img { max-width: 210px; margin-top: 10px; }
+        .corner-ribbon {
+            width: 200px;
+            background: #f33;
+            position: fixed;
+            top: 25px;
+            left: -50px;
+            text-align: center;
+            line-height: 50px;
+            letter-spacing: 1px;
+            color: #eee;
+            box-shadow: 0 0 5px rgba(0,0,0,.5);
+            transform: rotate(-45deg);
+            -webkit-transform: rotate(-45deg);
+        }
+        .corner-ribbon.top-right {
+            top: 25px;
+            right: -50px;
+            left: auto;
+            transform: rotate(45deg);
+            -webkit-transform: rotate(45deg);
+        }
+    </style>
+</head>
+<body>
+
+<input type="checkbox" id="nav-trigger" class="nav-trigger" />
+<label for="nav-trigger" class="navicon-button x">
+  <div class="navicon"></div>
+</label>
+
+<label for="nav-trigger" class="overlay"></label>
+
+<nav >
+    <a href="index.html"><img src="images/logotype.png"></a>
+    
+    <h2><a href="index.html#quickstart"><h3>QUICKSTART</h3></a></h2><h3>Globals</h3><ul><li><a href="global.html#Constants">Constants</a></li></ul><h3>Classes</h3><ul><li><a href="Model.html">Model</a><ul class='methods'><li data-type='method' style='display: none;'><a href="Model.html#.create">create</a></li><li data-type='method' style='display: none;'><a href="Model.html#.register">register</a></li><li data-type='method' style='display: none;'><a href="Model.html#.wellKnownModel">wellKnownModel</a></li><li data-type='method' style='display: none;'><a href="Model.html#.types">types</a></li><li data-type='method' style='display: none;'><a href="Model.html#init">init</a></li><li data-type='method' style='display: none;'><a href="Model.html#destroy">destroy</a></li><li data-type='method' style='display: none;'><a href="Model.html#publish">publish</a></li><li data-type='method' style='display: none;'><a href="Model.html#subscribe">subscribe</a></li><li data-type='method' style='display: none;'><a href="Model.html#unsubscribe">unsubscribe</a></li><li data-type='method' style='display: none;'><a href="Model.html#unsubscribeAll">unsubscribeAll</a></li><li data-type='method' style='display: none;'><a href="Model.html#future">future</a></li><li data-type='method' style='display: none;'><a href="Model.html#random">random</a></li><li data-type='method' style='display: none;'><a href="Model.html#now">now</a></li><li data-type='method' style='display: none;'><a href="Model.html#beWellKnownAs">beWellKnownAs</a></li><li data-type='method' style='display: none;'><a href="Model.html#getModel">getModel</a></li><li data-type='method' style='display: none;'><a href="Model.html#wellKnownModel">wellKnownModel</a></li><li data-type='method' style='display: none;'><a href="Model.html#modelOnly">modelOnly</a></li></ul></li><li><a href="View.html">View</a><ul class='methods'><li data-type='method' style='display: none;'><a href="View.html#detach">detach</a></li><li data-type='method' style='display: none;'><a href="View.html#publish">publish</a></li><li data-type='method' style='display: none;'><a href="View.html#subscribe">subscribe</a></li><li data-type='method' style='display: none;'><a href="View.html#unsubscribe">unsubscribe</a></li><li data-type='method' style='display: none;'><a href="View.html#unsubscribeAll">unsubscribeAll</a></li><li data-type='method' style='display: none;'><a href="View.html#future">future</a></li><li data-type='method' style='display: none;'><a href="View.html#random">random</a></li><li data-type='method' style='display: none;'><a href="View.html#now">now</a></li><li data-type='method' style='display: none;'><a href="View.html#externalNow">externalNow</a></li><li data-type='method' style='display: none;'><a href="View.html#extrapolatedNow">extrapolatedNow</a></li><li data-type='method' style='display: none;'><a href="View.html#update">update</a></li><li data-type='method' style='display: none;'><a href="View.html#wellKnownModel">wellKnownModel</a></li></ul></li><li><a href="Session.html">Session</a><ul class='methods'><li data-type='method' style='display: none;'><a href="Session.html#.join">join</a></li></ul></li></ul><h3>Events</h3><ul><li><a href="global.html#event:view-join">view-join</a></li><li><a href="global.html#event:view-exit">view-exit</a></li><li><a href="global.html#event:synced">synced</a></li></ul><h3>Tutorials</h3><ul><li><a href="tutorial-1_1_hello_world.html"> Hello World</a></li><li><a href="tutorial-1_2_simple_animation.html"> Simple Animation</a></li><li><a href="tutorial-1_3_multiuser_chat.html"> Multiuser Chat</a></li><li><a href="tutorial-1_4_view_smoothing.html"> View Smoothing</a></li><li><a href="tutorial-1_5_3d_animation.html"> 3D Animation</a></li><li><a href="tutorial-2_1_model_view_reflector.html"> Model-View-Reflector</a></li><li><a href="tutorial-2_2_writing_a_croquet_app.html"> Writing a Croquet Application</a></li><li><a href="tutorial-2_3_writing_a_croquet_view.html"> Writing a Croquet View</a></li><li><a href="tutorial-2_4_writing_a_croquet_model.html"> Writing a Croquet Model</a></li><li><a href="tutorial-2_5_sim_time_and_future.html"> Simulation Time and Future Sends</a></li><li><a href="tutorial-2_6_events_pub_sub.html"> Events & Publish/Subscribe</a></li><li><a href="tutorial-2_7_snapshots.html"> Snapshots</a></li><li><a href="tutorial-2_8_random.html"> Randomness & Determinism</a></li></ul>
+</nav>
+
+<div id="main">
+    
+    <h1 class="page-title">Croquet SDK @CROQUET_VERSION@</h1>
+    
+
+    
+
+
+
+    
+
+
+
+    <section class="readme">
+        <article><p>The Croquet SDK allows you to create collaborative web experiences without any server-side code, such as multi-user apps or multi-player games.
+These apps can be stand-alone, or they can be designed to take advantage of our <em>Greenlight</em> collaborative environment (which itself is also built on Croquet).</p>
+<p>Please take a moment to review our <a href="/conduct.html"><strong>Code of Conduct</strong></a> and
+join our <a href="https://join.slack.com/t/croquet-dev/shared_invite/zt-ns5gscrp-6nfDQSzxvpgoJyRg9DNfsQ"><strong>Developer Slack</strong> </a></p>
+<table>
+<thead>
+<tr>
+<th style="text-align:center">test</th>
+<th style="text-align:center">test</th>
+<th style="text-align:center">test</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center"><a href="#quickstart"><img src="../build/images/sdk/quickstart.png" alt="button"></a></td>
+<td style="text-align:center"><a href="#what-is-croquet%3F"><img src="../build/images/sdk/whatiscroquet.png" alt="button"></a></td>
+<td style="text-align:center"><a href="#main-concepts"><img src="../build/images/sdk/structure.png" alt="button"></a></td>
+</tr>
+</tbody>
+</table>
+<h1 id="what-is-croquet%3F">What is Croquet?</h1>
+<p>Croquet is a synchronization system for multiuser digital experiences. It allows multiple users to work or play together within a single shared distributed environment, and it guarantees that this distributed environment will remain bit-identical for every user.</p>
+<p>This synchronization is largely invisible to the developer. Creating a <em>Croquet</em> application does not require the developer to write separate client and server code, or deploy a server. Applications are developed as though they are local, single-user experiences, and the <em>Croquet</em> library takes care of the rest.</p>
+<h1 id="quickstart">Quickstart</h1>
+<p>There are 3 main ways to use our SDK:</p>
+<ol>
+<li>
+<p><strong>CodePen:</strong> play with our tutorials, click &quot;Edit on CodePen&quot;, and develop your app there. To share it, change the view to full screen, and share the pen's url. Alternatively, click &quot;Export&quot; and choose &quot;Export .zip&quot; to download your app to your local computer for further editing and uploading to your own website.</p>
+</li>
+<li>
+<p><strong>Script Tag</strong>: Add the following inside your page's <code>&lt;head&gt;</code> tag, possibly replacing <code>@@CROQUET_VERSION_MINOR@</code> with the version you want:</p>
+<pre><code>``&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;script src=&quot;https://unpkg.com/@croquet/croquet@@CROQUET_VERSION_MINOR@&quot;&gt;&lt;/script&gt;``
+</code></pre>
+<p>This will create the <code>Croquet</code> global to access <code>Croquet.Model</code> etc.</p>
+<p><strong>NOTE:</strong> See <a href="https://unpkg.com/">unpkg.com</a> for ways to link to different versions or the latest version automatically. However, we do update the SDK quite often, and
+cannot promise that pre-1.0 versions will keep working forever, so please keep your apps up-to-date.</p>
+</li>
+<li>
+<p><strong>NPM</strong>: install the <a href="https://www.npmjs.com/package/@croquet/croquet"><code>@croquet/croquet</code></a> package:</p>
+<pre><code> $ npm install @croquet/croquet
+</code></pre>
+<p>Then import it in your JS file:</p>
+<pre><code> import * as Croquet from &quot;@croquet/croquet&quot;
+</code></pre>
+<p>Again, make sure to specify <code>charset=&quot;utf-8&quot;</code> for your HTML or your script tags.</p>
+</li>
+</ol>
+<p>We frequently update the SDK so be sure to always use the latest (until we have a stable release).</p>
+<h1 id="main-concepts">Main Concepts</h1>
+<p>Every <em>Croquet</em> application consists of two parts:</p>
+<ul>
+<li>
+<p>The <strong>views</strong> handle user input and output. They process all keyboard / mouse / touch events, and determine what is displayed on the screen.</p>
+</li>
+<li>
+<p>The <strong>models</strong> handle all calculation and simulation. This is where the actual work of the application takes place. The models are saved, shared, and loaded automatically.</p>
+</li>
+</ul>
+<p><strong>Models are guaranteed to always be identical for all users.</strong> However, the views are not. Different users might be running on different hardware platforms, or might display different representations of the models.</p>
+<p>When you launch a <em>Croquet</em> application, you automatically join a shared <strong>session</strong>. As long as you're in the session, your models will be identical to the models of every other user in the session.</p>
+<p>To maintain this synchronization, the models and the views communicate through <strong>events</strong>. When you publish an event from a view, it's mirrored to everyone else in your session, so everyone's models receive exactly the same event stream.</p>
+<p>This mirroring is handled by <strong>reflectors</strong>. Reflectors are stateless, public message-passing services located in the cloud.</p>
+<p><strong>Snapshots</strong> are archived copies of all models in a session. <em>Croquet</em> apps periodically take snapshots and save them to the cloud. When you join an existing session, you sync with the other users by loading one of these snapshots.</p>
+<h1 id="creating-a-croquet-app">Creating a <em>Croquet</em> App</h1>
+<p>To create a new a <em>Croquet</em> app, you simply define your own models and views. These classes inherit from the base classes <a href="Model.html">Model</a> and <a href="View.html">View</a> in the <code>croquet</code> library.</p>
+<p>A simple app often only has one model and one view. In that case, the view contains all your input and output code, and the model contains all your simulation code.</p>
+<pre class="prettyprint source"><code>class MyModel extends Croquet.Model {
+    init() {
+        ...
+    }
+}
+MyModel.register(&quot;MyModel&quot;);
+
+class MyView extends Croquet.View {
+    constructor(model) {
+        super(model);
+        ...
+    }
+
+    update(time) {
+        ...
+    }
+}
+</code></pre>
+<p>You then join a session by calling <a href="Session.html#.join">Session.join</a> and passing it your model and view classes. <code>Session.join</code> automatically connects to a nearby reflector, synchronizes your model with the models of any other users already in the same session, and starts executing.</p>
+<p>You do need to provide some session meta data, like an appId, session name, and a password. Below we use <code>autoSession</code>/<code>autoPassword</code> but you can instead use whatever makes most sense for your app. In the codepen example above we even use constants for all.</p>
+<pre class="prettyprint source"><code>const appId = &quot;com.example.myapp&quot;;
+const name = Croquet.Session.App.autoSession();
+const password = Croquet.Session.App.autoPassword();
+Croquet.Session.join({appId, name, password, model: MyModel, view: MyView});
+</code></pre>
+<p>That's it. You don't need to worry about setting up a server, or writing special synchronization code. <em>Croquet</em> handles all of that invisibly, allowing you to concentrate on what your app <em>does</em>.</p>
+<h1 id="models">Models</h1>
+<p><em>Croquet</em> models are a little different from normal JavaScript classes. For one thing, instead of having a constructor, they have an <a href="Model.html#init"><code>init()</code></a> method. <code>init</code> only executes the <em>very first time</em> the model is instantiated within a brand new session. If you join a session that's already in progress, your model will be initialized from a snapshot instead.</p>
+<pre class="prettyprint source"><code>class MyModel extends Croquet.Model {
+    init() {
+        ...
+    }
+}
+MyModel.register(&quot;MyModel&quot;);
+</code></pre>
+<p>Also, every <em>Croquet</em> model class needs to have its static <a href="Model.html#.register"><code>register()</code></a> method called after it is defined. This registers the model class with <em>Croquet's</em> internal class database so it can be properly stored and retrieved when a snapshot is created.</p>
+<p>If your application uses multiple models, you instantiate them by calling <a href="Model.html#.create"><code>create()</code></a> instead of <code>new</code>.</p>
+<p>See <a href="Model.html">Model</a> for the full class documentation.</p>
+<h1 id="views">Views</h1>
+<p>When <code>Session.join()</code> creates the local root model and root view, it passes the view a reference to the model. This way the view can initialize itself to reflect whatever state the model may currently be in. Remember that when you join a session, your model might be initalized by running its <code>init()</code> method, or it might be initialized by loading an existing snapshot. Having direct access to the model allows the view to configure itself properly no matter how the model was initialized.</p>
+<pre class="prettyprint source"><code>class MyView extends Croquet.View {
+    constructor(model) {
+        super(model);
+        ...
+    }
+
+    update(time) {
+        ...
+    }
+}
+</code></pre>
+<p>This illustrates an important feature of <em>Croquet</em>: <strong>A view can read directly from a model at any time.</strong> A view doesn't need to receive an event from a model to update itself. It can just pull whatever data it needs directly from the model whenever it wants.  (Of course, a view shouldn't <em>write</em> directly to a model, because that would break synchronization.)</p>
+<p>The root view's <a href="View.html#update"><code>update()</code></a> method is called every time the application window requests an animation frame (usually 60 times a second). This allows the view to continually refresh itself even if the models are updating more slowly. <code>update()</code> receives the local system time at the start of the frame as its argument.</p>
+<p>If your app uses more than one view, you root view's <code>update</code> method needs to call all other views' <code>update</code>.</p>
+<p>See <a href="View.html">View</a> for the full class documentation.</p>
+<h1 id="events">Events</h1>
+<p>Even though views can read directly from their model, the primary way models views communicate is through events.</p>
+<p>To send an event, call <code>publish()</code> in either the model or the view:</p>
+<pre class="prettyprint source"><code>publish(scope, event, data)
+</code></pre>
+<ul>
+<li><em>Scope</em> is a namespace so you can use the same event in different contexts.</li>
+<li><em>Event</em> is the name of the event itself.</li>
+<li><em>Data</em> is an optional data object containing addtional information.</li>
+</ul>
+<p>And to receive an event, call <code>subscribe()</code>:</p>
+<pre class="prettyprint source"><code>subscribe(scope, event, this.handler)
+</code></pre>
+<ul>
+<li><em>Scope</em> is a namespace so you can use the same event in different contexts.</li>
+<li><em>Event</em> is the name of the event itself.</li>
+<li><em>Handler</em> is the method that will be called when the event is published. (The handler accepts the data object as an argument.)</li>
+</ul>
+<p>Events can be used to communicate between models themselves or views or any combination. However, events sent between models and views are handled specially:</p>
+<p><strong><em>Input events</em> (published by a view and handled by a model) are mirrored by the reflector and sent to every replica of the model in your current session.</strong></p>
+<p>By mirroring view-to-model events through the reflector, <em>Croquet</em> ensures that all replicas of the model stay in sync. All replicas of the model receive exactly the same stream of events in exactly the same order.</p>
+<p><strong><em>Output events</em> (published by a model and handled by a view) are queued up locally, and handled right before invoking <code>update()</code>.</strong></p>
+<p>This is to ensure a strict separation between model code execution and view code execution. The model code must be executed precisely the same for every user to stay in sync, no matter if there are views subscribed on that user's machine or not.</p>
+<p>There are also two special events that are generated by the reflector itself: <code>view-join</code> and <code>view-exit</code>. These are broadcast whenever a user joins or leaves a session.</p>
+<h1 id="time">Time</h1>
+<p>Models have no concept of real-world time. All they know about is <strong>simulation time</strong>.</p>
+<p>Every event that passes through the reflector is timestamped. The current simulation time in the model is simply the timestamp of the last event it received. This allows different replicas of the model to stay in sync even if their local real-world clocks diverge.</p>
+<p>Calling <code>this.now()</code> will return the current simulation time.</p>
+<p>In addition to normal events, the reflector also sends out a regular stream of <strong>heartbeat ticks</strong>. Heartbeat ticks advance the model's simulation time even if the view isn't sending any events. By default the reflector sends out heartbeat ticks 20 times a second, but you can change the frequency at session start.</p>
+<p>The method <code>this.future()</code> can be used to schedule an event in the future. For example, if you wanted to create an animation routine in a model that executes every 100 milliseconds, it would look like this:</p>
+<pre class="prettyprint source"><code>step() {
+    // ... do some stuff ...
+    this.future(100).step();
+}
+</code></pre>
+<p>Note that the ticks-per-second rate of the reflector is independent of the future interval used by your models. Individual models may use different future times.</p>
+<h1 id="snapshots">Snapshots</h1>
+<p>Snapshots are copies of the model that are saved to the cloud. When your <em>Croquet</em> application is running, the reflector will periodically tell it to perform a snapshot.</p>
+<p>Snapshots are used to synchronize other users when they join a session that's already in progress. But they also provide automatic save functionality. If you quit or reload while your application is running, it will automatically reload the last snapshot when the application restarts.</p>
+<p><em>Note: The snapshot code is currently unoptimized, so you may experience a performance hitch when the snapshot is taken. The Croquet team is working to resolve this issue and make snapshots invisible to both user and developer, but for the time being your application may occasionally pause if your model is very large.</em></p>
+<h1 id="random">Random</h1>
+<p>Croquet guarantees that the same sequence of random numbers is generated in every replica of your application. If you call <code>Math.random()</code> within a model it will return the same number for all replicas.</p>
+<p>Calls to <code>Math.random()</code> within a view will behave normally. Different instances will receive different random numbers.</p>
+<h1 id="changelog">Changelog</h1>
+<table>
+<thead>
+<tr>
+<th>date</th>
+<th>item</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2021-05-18</td>
+<td><strong>release 0.5.0</strong> (bug fixes; <a href="Session.html#.join">seamless rejoin</a> with default <code>rejoinLimit</code> of 1000ms, <a href="tutorial-2_2_writing_a_croquet_app.html"><code>autoSession</code> / <code>autoPassword</code></a> are <code>async</code> now; added <a href="Model.html#viewCount"><code>viewCount</code></a> and <a href="Model.html#.wellKnownModel"><code>static wellKnownModel</code></a>)</td>
+</tr>
+<tr>
+<td>2020-11-20</td>
+<td><strong>release 0.4.0</strong> (bug fixes; enable encryption, <a href="Session.html#.join">Session.join</a> takes named args, <a href="Model.html#.register">Model.register</a> requires class id, <a href="Model.html#getModel">getModel()</a> and <a href="View.html#extrapolatedNow">extrapolatedNow()</a> added, removed wellKnownName arg from <a href="Model.html#.create">Model.create</a>)</td>
+</tr>
+<tr>
+<td>2020-09-03</td>
+<td><strong>release 0.3.3</strong> (bug fixes; <code>session.leave()</code> returns promise, support for virtual-dom)</td>
+</tr>
+<tr>
+<td>2020-08-21</td>
+<td><strong>release 0.3.2</strong> (bug fixes; much faster session creation)</td>
+</tr>
+<tr>
+<td>2020-06-08</td>
+<td><strong>release 0.3.1</strong> (bug fixes; <a href="global.html#event:view-join"><code>&quot;view-join&quot;</code></a> and <a href="global.html#event:view-exit"><code>&quot;view-exit&quot;</code></a> events are now model-only)</td>
+</tr>
+<tr>
+<td>2020-05-18</td>
+<td><strong>release 0.3.0</strong> (bug fixes; <a href="Session.html#.join">Session.join</a> instead of <code>startSession</code>, adds <code>session.leave()</code>, <code>future</code> message arguments are passed by identity, not copied anymore)</td>
+</tr>
+<tr>
+<td>2020-03-24</td>
+<td><strong>release 0.2.7</strong> (bug fixes; <a href="Session.html#.join">startSession</a> supports passing <code>options</code> to root model's <a href="Model.html#init">init</a>, message replay no longer visible to app)</td>
+</tr>
+<tr>
+<td>2019-12-12</td>
+<td><strong>release 0.2.6</strong> (bug fixes; works on MS Edge)</td>
+</tr>
+<tr>
+<td>2019-10-18</td>
+<td><strong>release 0.2.5</strong> (bug fixes; new widget API) version aligned with npm</td>
+</tr>
+<tr>
+<td>2019-10-01</td>
+<td><strong>release 0.2.2</strong> (bug fixes; updated qr-code support)</td>
+</tr>
+<tr>
+<td>2019-09-13</td>
+<td><strong>release 0.2.1</strong> (bug fixes)</td>
+</tr>
+<tr>
+<td>2019-09-05</td>
+<td><strong>release 0.2.0</strong> (scalable reflector fleet, fully persistent sessions)</td>
+</tr>
+<tr>
+<td>2019-08-14</td>
+<td><strong>release 0.1.9</strong> (bug fixes; automatic reflector selection)</td>
+</tr>
+<tr>
+<td>2019-07-24</td>
+<td><strong>release 0.1.8</strong> (bug fixes)</td>
+</tr>
+<tr>
+<td>2019-07-24</td>
+<td><strong>release 0.1.7</strong> (bug fixes; reverted to 0.1.6 due to instabilities)</td>
+</tr>
+<tr>
+<td>2019-07-23</td>
+<td>new US east coast reflector available in <a href="Session.html#.join">startSession</a></td>
+</tr>
+<tr>
+<td>2019-07-18</td>
+<td><strong>release 0.1.6</strong> (bug fixes; documentation updates;<br/>inactive clients will now be disconnected after 10 seconds)</td>
+</tr>
+<tr>
+<td>2019-07-10</td>
+<td><strong>release 0.1.5</strong> (bug fixes)</td>
+</tr>
+<tr>
+<td>2019-07-09</td>
+<td><strong>release 0.1.4</strong> (bug fixes)</td>
+</tr>
+<tr>
+<td>2019-07-09</td>
+<td>tutorial fleshed out: <a href="tutorial-1_5_3d_animation.html"> 3D Animation</a></td>
+</tr>
+<tr>
+<td>2019-07-06</td>
+<td>new tutorial: <a href="tutorial-1_4_view_smoothing.html"> View Smoothing</a></td>
+</tr>
+<tr>
+<td>2019-07-01</td>
+<td><strong>release 0.1.3</strong> (bug fixes; add 5-letter moniker to session badge)</td>
+</tr>
+<tr>
+<td>2019-06-29</td>
+<td><strong>release 0.1.2</strong> (bug fixes)</td>
+</tr>
+<tr>
+<td>2019-06-28</td>
+<td><strong>release 0.1.1</strong> (bug fixes)</td>
+</tr>
+<tr>
+<td>2019-06-27</td>
+<td>docs: <a href="View.html#subscribe">View.subscribe</a>, <a href="Session.html#.join">startSession</a></td>
+</tr>
+<tr>
+<td>2019-06-26</td>
+<td><strong>release 0.1.0</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Copyright © 2019, 2020 Croquet Corporation</p>
+<p><em>THE CROQUET SDK IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.</em></p></article>
+    </section>
+
+
+
+
+
+
+
+    
+</div>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.6.7</a> using the <a href="https://github.com/clenemt/docdash">docdash</a> theme.
+</footer>
+
+<script>prettyPrint();</script>
+<script src="scripts/polyfill.js"></script>
+<script src="scripts/linenumber.js"></script>
+
+
+<script src="scripts/collapse.js" defer></script>
+
+
+</body>
+</html>

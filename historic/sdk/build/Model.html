@@ -1,0 +1,3008 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    
+    
+    
+    
+    <meta charset="utf-8">
+    <title>Model - Croquet SDK @CROQUET_VERSION@</title>
+    <meta name="description" content="Documentation for the Croquet SDK" />
+    
+        <meta name="keywords" content="croquet" />
+        <meta name="keyword" content="croquet" />
+    
+    <link rel="icon" type="image/png" href="images/icon.png">
+    
+    <script src="scripts/prettify/prettify.js"></script>
+    <script src="scripts/prettify/lang-css.js"></script>
+    <link type="text/css" rel="stylesheet" href="styles/prettify.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc.css">
+    <script src="scripts/nav.js" defer></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        nav img { max-width: 210px; margin-top: 10px; }
+        .corner-ribbon {
+            width: 200px;
+            background: #f33;
+            position: fixed;
+            top: 25px;
+            left: -50px;
+            text-align: center;
+            line-height: 50px;
+            letter-spacing: 1px;
+            color: #eee;
+            box-shadow: 0 0 5px rgba(0,0,0,.5);
+            transform: rotate(-45deg);
+            -webkit-transform: rotate(-45deg);
+        }
+        .corner-ribbon.top-right {
+            top: 25px;
+            right: -50px;
+            left: auto;
+            transform: rotate(45deg);
+            -webkit-transform: rotate(45deg);
+        }
+    </style>
+</head>
+<body>
+
+<input type="checkbox" id="nav-trigger" class="nav-trigger" />
+<label for="nav-trigger" class="navicon-button x">
+  <div class="navicon"></div>
+</label>
+
+<label for="nav-trigger" class="overlay"></label>
+
+<nav >
+    <a href="index.html"><img src="images/logotype.png"></a>
+    
+    <h2><a href="index.html#quickstart"><h3>QUICKSTART</h3></a></h2><h3>Globals</h3><ul><li><a href="global.html#Constants">Constants</a></li></ul><h3>Classes</h3><ul><li><a href="Model.html">Model</a><ul class='methods'><li data-type='method' style='display: none;'><a href="Model.html#.create">create</a></li><li data-type='method' style='display: none;'><a href="Model.html#.register">register</a></li><li data-type='method' style='display: none;'><a href="Model.html#.wellKnownModel">wellKnownModel</a></li><li data-type='method' style='display: none;'><a href="Model.html#.types">types</a></li><li data-type='method' style='display: none;'><a href="Model.html#init">init</a></li><li data-type='method' style='display: none;'><a href="Model.html#destroy">destroy</a></li><li data-type='method' style='display: none;'><a href="Model.html#publish">publish</a></li><li data-type='method' style='display: none;'><a href="Model.html#subscribe">subscribe</a></li><li data-type='method' style='display: none;'><a href="Model.html#unsubscribe">unsubscribe</a></li><li data-type='method' style='display: none;'><a href="Model.html#unsubscribeAll">unsubscribeAll</a></li><li data-type='method' style='display: none;'><a href="Model.html#future">future</a></li><li data-type='method' style='display: none;'><a href="Model.html#random">random</a></li><li data-type='method' style='display: none;'><a href="Model.html#now">now</a></li><li data-type='method' style='display: none;'><a href="Model.html#beWellKnownAs">beWellKnownAs</a></li><li data-type='method' style='display: none;'><a href="Model.html#getModel">getModel</a></li><li data-type='method' style='display: none;'><a href="Model.html#wellKnownModel">wellKnownModel</a></li><li data-type='method' style='display: none;'><a href="Model.html#modelOnly">modelOnly</a></li></ul></li><li><a href="View.html">View</a><ul class='methods'><li data-type='method' style='display: none;'><a href="View.html#detach">detach</a></li><li data-type='method' style='display: none;'><a href="View.html#publish">publish</a></li><li data-type='method' style='display: none;'><a href="View.html#subscribe">subscribe</a></li><li data-type='method' style='display: none;'><a href="View.html#unsubscribe">unsubscribe</a></li><li data-type='method' style='display: none;'><a href="View.html#unsubscribeAll">unsubscribeAll</a></li><li data-type='method' style='display: none;'><a href="View.html#future">future</a></li><li data-type='method' style='display: none;'><a href="View.html#random">random</a></li><li data-type='method' style='display: none;'><a href="View.html#now">now</a></li><li data-type='method' style='display: none;'><a href="View.html#externalNow">externalNow</a></li><li data-type='method' style='display: none;'><a href="View.html#extrapolatedNow">extrapolatedNow</a></li><li data-type='method' style='display: none;'><a href="View.html#update">update</a></li><li data-type='method' style='display: none;'><a href="View.html#wellKnownModel">wellKnownModel</a></li></ul></li><li><a href="Session.html">Session</a><ul class='methods'><li data-type='method' style='display: none;'><a href="Session.html#.join">join</a></li></ul></li></ul><h3>Events</h3><ul><li><a href="global.html#event:view-join">view-join</a></li><li><a href="global.html#event:view-exit">view-exit</a></li><li><a href="global.html#event:synced">synced</a></li></ul><h3>Tutorials</h3><ul><li><a href="tutorial-1_1_hello_world.html"> Hello World</a></li><li><a href="tutorial-1_2_simple_animation.html"> Simple Animation</a></li><li><a href="tutorial-1_3_multiuser_chat.html"> Multiuser Chat</a></li><li><a href="tutorial-1_4_view_smoothing.html"> View Smoothing</a></li><li><a href="tutorial-1_5_3d_animation.html"> 3D Animation</a></li><li><a href="tutorial-2_1_model_view_reflector.html"> Model-View-Reflector</a></li><li><a href="tutorial-2_2_writing_a_croquet_app.html"> Writing a Croquet Application</a></li><li><a href="tutorial-2_3_writing_a_croquet_view.html"> Writing a Croquet View</a></li><li><a href="tutorial-2_4_writing_a_croquet_model.html"> Writing a Croquet Model</a></li><li><a href="tutorial-2_5_sim_time_and_future.html"> Simulation Time and Future Sends</a></li><li><a href="tutorial-2_6_events_pub_sub.html"> Events & Publish/Subscribe</a></li><li><a href="tutorial-2_7_snapshots.html"> Snapshots</a></li><li><a href="tutorial-2_8_random.html"> Randomness & Determinism</a></li></ul>
+</nav>
+
+<div id="main">
+    
+    <h1 class="page-title">Model</h1>
+    
+
+    
+
+
+
+
+<section>
+
+<header>
+    
+        <h2>
+        Model
+        </h2>
+        
+            <div class="class-description"><p>Models are replicated objects in Croquet.
+They are automatically kept in sync for each user in the same <a href="Session.html#.join">session</a>.
+Models receive input by <a href="Model.html#subscribe">subscribing</a> to events published in a <a href="View.html">View</a>.
+Their output is handled by views subscribing to events <a href="Model.html#publish">published</a> by a model.
+Models advance time by sending messages into their <a href="Model.html#future">future</a>.</p>
+<h2 id="instance-creation-and-initialization">Instance Creation and Initialization</h2>
+<h3 id="do-not-create-a-%7B%40link-model%7D-instance-using-new-anddo-not-override-the-constructor!">Do <strong>NOT</strong> create a <a href="Model.html">Model</a> instance using <code>new</code> and<br>do <strong>NOT</strong> override the <code>constructor</code>!</h3>
+<p>To <strong>create</strong> a new instance, use <a href="Model.html#.create">create()</a>, for example:</p>
+<pre class="prettyprint source"><code>this.foo = FooModel.create({answer: 123});
+</code></pre>
+<p>To <strong>initialize</strong> an instance, override <a href="Model.html#init">init()</a>, for example:</p>
+<pre class="prettyprint source"><code>class FooModel extends Croquet.Model {
+    init(options={}) {
+        this.answer = options.answer || 42;
+    }
+}
+</code></pre>
+<p>The <strong>reason</strong> for this is that Models are only initialized by calling <code>init()</code>
+the first time the object comes into existence in the session.
+After that, when joining a session, the models are deserialized from the snapshot, which
+restores all properties automatically without calling <code>init()</code>. A constructor would
+be called all the time, not just when starting a session.</p></div>
+        
+    
+</header>
+
+<article>
+    
+
+    
+
+    
+
+    
+    
+    
+
+     
+
+    
+
+    
+        <h3 class="subsection-title">Members</h3>
+
+        
+            
+<h4 class="name" id="id"><span class="type-signature"></span>id<span class="type-signature"> :String</span></h4>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+<div class="description">
+    <p>Each model has an id which can be used to scope <a href="Model.html#publish">events</a>. It is unique within the session.</p>
+<p>This property is read-only. There will be an error if you try to assign to it.</p>
+<p>It is assigned in <a href="Model.html#.create">Model.create</a> before calling <a href="Model.html#init">init</a>.</p>
+</div>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">String</span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+    <h5>Example</h5>
+    
+    <pre class="prettyprint"><code>this.publish(this.id, "changed");</code></pre>
+
+
+
+        
+            
+<h4 class="name" id="sessionId"><span class="type-signature"></span>sessionId<span class="type-signature"> :String</span></h4>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+<div class="description">
+    <p><strong>Identifies the shared session of all users</strong><br>
+(as opposed to the <a href="View.html#viewId">viewId</a> which identifies the non-shared views of each user).</p>
+<p>The session id is used as &quot;global&quot; scope for events like <a href="global.html#event:view-join"><code>&quot;view-join&quot;</code></a>.</p>
+<p>See <a href="Session.html#.join">Session.join</a> for how the session id is generated.</p>
+<p>If your app has several sessions at the same time, each session id will be different.</p>
+</div>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">String</span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+    <h5>Example</h5>
+    
+    <pre class="prettyprint"><code>this.subscribe(this.sessionId, "view-join", this.addUser);</code></pre>
+
+
+
+        
+            
+<h4 class="name" id="viewCount"><span class="type-signature"></span>viewCount<span class="type-signature"> :Number</span></h4>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+    <dt class="tag-since">Since:</dt>
+    <dd class="tag-since"><ul class="dummy"><li>0.4.1</li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+<div class="description">
+    <p><strong>The number of users currently in this session.</strong></p>
+<p>All users in a session share the same Model (meaning all model objects) but each user has a different View
+(meaning all the non-model state). This is the number of views currently sharing this model.
+It increases by 1 for every <a href="global.html#event:view-join"><code>&quot;view-join&quot;</code></a>
+and decreases by 1 for every <a href="global.html#event:view-exit"><code>&quot;view-exit&quot;</code></a> event.</p>
+</div>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type">Number</span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+    <h5>Example</h5>
+    
+    <pre class="prettyprint"><code>this.subscribe(this.sessionId, "view-join", this.showUsers);
+this.subscribe(this.sessionId, "view-exit", this.showUsers);
+showUsers() { this.publish(this.sessionId, "view-count", this.viewCount); }</code></pre>
+
+
+
+        
+    
+
+    
+        <h3 class="subsection-title">Methods</h3>
+
+        
+            
+
+    
+
+    <h4 class="name" id=".create"><span class="type-signature">(static) </span>create<span class="signature">(options<span class="signature-attributes">opt</span>)</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+<div class="description">
+    <p><strong>Create an instance of a Model subclass.</strong></p>
+<p>The instance will be registered for automatical snapshotting, and is assigned an <a href="Model.html#id">id</a>.</p>
+<p>Then it will call the user-defined <a href="Model.html#init">init()</a> method to initialize the instance,
+passing the options.</p>
+<p><strong>Note:</strong> When your model instance is no longer needed, you must <a href="Model.html#destroy">destroy</a> it.
+Otherwise it will be kept in the snapshot forever.</p>
+<p><strong>Warning</strong>: never create a Model instance using <code>new</code>, or override its constructor. See <a href="Model.html">above</a>.</p>
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Example</h5>
+    
+    <pre class="prettyprint"><code>this.foo = FooModel.create({answer: 123});</code></pre>
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>options</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Object</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>option object to be passed to <a href="Model.html#init">init()</a>.
+There are no system-defined options as of now, you're free to define your own.</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".register"><span class="type-signature">(static) </span>register<span class="signature">(classId)</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+<div class="description">
+    <p><strong>Registers this model subclass with Croquet</strong></p>
+<p>It is necessary to register all Model subclasses so the serializer can recreate their instances from a snapshot.
+Since source code minification can change the actual class name, you have to pass a <code>classId</code> explicitly.</p>
+<p>Secondly, the <a href="Session.html#.join">session id</a> is derived by hashing the source code of all registered classes.
+This ensures that only clients running the same source code can be in the same session,
+so that the replicated computations are identical for each client.</p>
+<p><strong>Important</strong>: for the hashing to work reliably across browsers, be sure to specify <code>charset=&quot;utf-8&quot;</code> for your <code>&lt;html&gt;</code> or all <code>&lt;script&gt;</code> tags.</p>
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Example</h5>
+    
+    <pre class="prettyprint"><code>class MyModel extends Croquet.Model {
+  ...
+}
+MyModel.register("MyModel")</code></pre>
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>classId</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">String</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>Id for this model class. Must be unique. If you use the same class name in two files, use e.g. <code>&quot;file1/MyModel&quot;</code> and <code>&quot;file2/MyModel&quot;</code>.</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".wellKnownModel"><span class="type-signature">(static) </span>wellKnownModel<span class="signature">(name)</span><span class="type-signature"> &rarr; (nullable) {<a href="Model.html">Model</a>}</span></h4>
+
+    
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+    <dt class="tag-since">Since:</dt>
+    <dd class="tag-since"><ul class="dummy"><li>0.4.1</li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+<div class="description">
+    <p>Static version of <a href="Model.html#wellKnownModel">wellKnownModel()</a> for currently executing model.</p>
+<p>This can be used to emulate static accessors, e.g. for lazy initialization.</p>
+<p><strong>WARNING!</strong> Do not store the result in a static variable.
+Like any global state, that can lead to divergence.</p>
+<p>Will throw an error if called from outside model code.</p>
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Example</h5>
+    
+    <pre class="prettyprint"><code>static get Default() {
+    let default = this.wellKnownModel("DefaultModel");
+    if (!default) {
+        console.log("Creating default")
+        default = MyModel.create();
+        default.beWellKnownAs("DefaultModel");
+    }
+    return default;
+}</code></pre>
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>name</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">String</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>the name given in <a href="Model.html#beWellKnownAs">beWellKnownAs()</a></p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    <p>the model if found, or <code>undefined</code></p>
+</div>
+
+
+
+<dl class="param-type">
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type"><a href="Model.html">Model</a></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".types"><span class="type-signature">(static) </span>types<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+<div class="description">
+    <p><strong>Static declaration of how to serialize non-model classes.</strong></p>
+<p>The Croquet snapshot mechanism only knows about <a href="Model.html">Model</a> subclasses.
+If you want to store instances of non-model classes in your model, override this method.</p>
+<p><code>types()</code> needs to return an Object that maps <em>names</em> to <em>class descriptions</em>:</p>
+<ul>
+<li>the name can be any string, it just has to be unique within your app</li>
+<li>the class description can either be just the class itself (if the serializer should
+snapshot all its fields, see first example below), or an object with <code>write()</code> and <code>read()</code> methods to
+convert instances from and to their serializable form (see second example below).</li>
+<li>the serialized form answered by <code>write()</code> can be almost anything. E.g. if it answers an Array of objects
+then the serializer will be called for each of those objects. Conversely, these objects will be deserialized
+before passing the Array to <code>read()</code>.</li>
+</ul>
+<p>Declaring a type in any class makes that declaration available globally.
+The types only need to be declared once, even if several different Model subclasses are using them.</p>
+<p><strong>NOTE:</strong> This is currently the only way to customize serialization (for example to keep snapshots fast and small).
+The serialization of Model subclasses themselves can not be customized.</p>
+<p>Serialization types supported in addition to JSON:</p>
+<ul>
+<li><code>-0</code>, NaN, Infinity</li>
+<li><code>undefined</code></li>
+<li><code>ArrayBuffer</code>, <code>DataView</code>, <code>Int8Array</code>, <code>Uint8Array</code>, <code>Uint8ClampedArray</code>, <code>Int16Array</code>, <code>Uint16Array</code>, <code>Int32Array</code>, <code>Uint32Array</code>, <code>Float32Array</code>, <code>Float64Array</code></li>
+<li><code>Set</code>, <code>Map</code></li>
+</ul>
+<p>How to serialize...</p>
+<ul>
+<li>Functions: wrap them in non-model class, serialize as source-code, deserialize using <code>new Function(...)</code></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Examples</h5>
+    
+        <p class="code-caption">To use the default serializer just declare the class:</p>
+    
+    <pre class="prettyprint"><code>class MyModel extends Croquet.Model {
+  static types() {
+    return {
+      "SomeUniqueName": MyNonModelClass,
+      "THREE.Vector3": THREE.Vector3,        // serialized as '{"x":...,"y":...,"z":...}'
+      "THREE.Quaternion": THREE.Quaternion,
+    };
+  }
+}</code></pre>
+
+        <p class="code-caption">To define your own serializer, declare read and write functions:</p>
+    
+    <pre class="prettyprint"><code>class MyModel extends Croquet.Model {
+  static types() {
+    return {
+      "THREE.Vector3": {
+        cls: THREE.Vector3,
+        write: v => [v.x, v.y, v.z],        // serialized as '[...,...,...]' which is shorter than the default above
+        read: v => new THREE.Vector3(v[0], v[1], v[2]),
+      },
+      "THREE.Color": {
+        cls: THREE.Color,
+        write: color => '#' + color.getHexString(),
+        read: state => new THREE.Color(state)
+      },
+    }
+  }
+}</code></pre>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id="init"><span class="type-signature"></span>init<span class="signature">(options<span class="signature-attributes">opt</span>)</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+<div class="description">
+    <p>This is called by <a href="Model.html#.create">create()</a> to initialize a model instance.</p>
+<p>In your Model subclass this is the place to <a href="Model.html#subscribe">subscribe</a> to events,
+or start a <a href="Model.html#future">future</a> message chain.</p>
+<p>If you pass <code>{options:...}</code> to <a href="Session.html#.join">Session.join</a>, these will be passed to your root model's <code>init()</code>.</p>
+<p><strong>Note:</strong> When your model instance is no longer needed, you must <a href="Model.html#destroy">destroy</a> it.</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>options</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Object</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>there are no system-defined options, you're free to define your own</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id="destroy"><span class="type-signature"></span>destroy<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+<div class="description">
+    <p>Unsubscribes all <a href="Model.html#subscribe">subscriptions</a> this model has,
+unschedules all <a href="Model.html#future">future</a> messages,
+and removes it from future snapshots.</p>
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Example</h5>
+    
+    <pre class="prettyprint"><code>removeChild(child) {
+   const index = this.children.indexOf(child);
+   this.children.splice(index, 1);
+   child.destroy();
+}</code></pre>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id="publish"><span class="type-signature"></span>publish<span class="signature">(scope, event, data<span class="signature-attributes">opt</span>)</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+<div class="description">
+    <p><strong>Publish an event to a scope.</strong></p>
+<p>Events are the main form of communication between models and views in Croquet.
+Both models and views can publish events, and subscribe to each other's events.
+Model-to-model and view-to-view subscriptions are possible, too.</p>
+<p>See <a href="Model.html#subscribe">Model.subscribe</a>() for a discussion of <strong>scopes</strong> and <strong>event names</strong>.
+Refer to <a href="View.html#subscribe">View.subscribe</a>() for invoking event handlers <em>asynchronously</em> or <em>immediately</em>.</p>
+<p>Optionally, you can pass some <strong>data</strong> along with the event.
+For events published by a model, this can be any arbitrary value or object.
+See View's <a href="View.html#publish">publish</a> method for restrictions in passing data from a view to a model.</p>
+<p>Note that there is no way of testing whether subscriptions exist or not (because models can exist independent of views).
+Publishing an event that has no subscriptions is about as cheap as that test would be, so feel free to always publish,
+there is very little overhead.</p>
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Example</h5>
+    
+    <pre class="prettyprint"><code>this.publish("something", "changed");
+this.publish(this.id, "moved", this.pos);</code></pre>
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>scope</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">String</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>see <a href="Model.html#subscribe">subscribe</a>()</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>event</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">String</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>see <a href="Model.html#subscribe">subscribe</a>()</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>data</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">*</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>can be any value or object</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id="subscribe"><span class="type-signature"></span>subscribe<span class="signature">(scope, event, handler)</span><span class="type-signature"> &rarr; {this}</span></h4>
+
+    
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+<div class="description">
+    <p><strong>Register an event handler for an event published to a scope.</strong></p>
+<p>Both <code>scope</code> and <code>event</code> can be arbitrary strings.
+Typically, the scope would select the object (or groups of objects) to respond to the event,
+and the event name would select which operation to perform.</p>
+<p>A commonly used scope is <code>this.id</code> (in a model) and <code>model.id</code> (in a view) to establish
+a communication channel between a model and its corresponding view.</p>
+<p>You can use any literal string as a global scope, or use <a href="Model.html#sessionId"><code>this.sessionId</code></a> for a
+session-global scope (if your application supports multipe sessions at the same time).
+The predefined events <a href="global.html#event:view-join"><code>&quot;view-join&quot;</code></a> and <a href="global.html#event:view-exit"><code>&quot;view-exit&quot;</code></a>
+use this session scope.</p>
+<p>The handler must be a method of <code>this</code>, e.g. <code>subscribe(&quot;scope&quot;, &quot;event&quot;, this.methodName)</code> will schedule the
+invocation of <code>this[&quot;methodName&quot;](data)</code> whenever <code>publish(&quot;scope&quot;, &quot;event&quot;, data)</code> is executed.</p>
+<p>If <code>data</code> was passed to the <a href="Model.html#publish">publish</a> call, it will be passed as an argument to the handler method.
+You can have at most one argument. To pass multiple values, pass an Object or Array containing those values.
+Note that views can only pass serializable data to models, because those events are routed via a reflector server
+(see [View.publish)<a href="View.html#publish">View#publish</a>).</p>
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Examples</h5>
+    
+    <pre class="prettyprint"><code>this.subscribe("something", "changed", this.update);
+this.subscribe(this.id, "moved", this.handleMove);</code></pre>
+
+    <pre class="prettyprint"><code>class MyModel extends Croquet.Model {
+  init() {
+    this.subscribe(this.id, "moved", this.handleMove);
+  }
+  handleMove({x,y}) {
+    this.x = x;
+    this.y = y;
+  }
+}
+class MyView extends Croquet.View {
+  constructor(model) {
+    this.modelId = model.id;
+  }
+  onpointermove(evt) {
+     const x = evt.x;
+     const y = evt.y;
+     this.publish(this.modelId, "moved", {x,y});
+  }
+}</code></pre>
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>scope</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">String</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>the event scope (to distinguish between events of the same name used by different objects)</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>event</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">String</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>the event name (user-defined or system-defined)</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>handler</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">function</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>the event handler (must be a method of <code>this</code>)</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+
+
+<dl class="param-type">
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">this</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id="unsubscribe"><span class="type-signature"></span>unsubscribe<span class="signature">(scope, event)</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+<div class="description">
+    <p>Unsubscribes this model's handler for the given event in the given scope.</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>scope</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">String</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>see <a href="Model.html#subscribe">subscribe</a></p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>event</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">String</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>see <a href="Model.html#subscribe">subscribe</a></p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id="unsubscribeAll"><span class="type-signature"></span>unsubscribeAll<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+<div class="description">
+    <p>Unsubscribes all of this model's handlers for any event in any scope.</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id="future"><span class="type-signature"></span>future<span class="signature">(tOffset)</span><span class="type-signature"> &rarr; {this}</span></h4>
+
+    
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+<div class="description">
+    <p><strong>Schedule a message for future execution</strong></p>
+<p>Use a future message to automatically advance time in a model,
+for example for animations.
+The execution will be scheduled <code>tOffset</code> milliseconds into the future.
+It will run at precisely <code><a href="Model.html#now">this.now()</a> + tOffset</code>.</p>
+<p>Use the form <code>this.future(100).methodName(args)</code> to schedule the execution
+of <code>this.methodName(args)</code> at time <code>this.<a href="Model.html#now">now</a>() + tOffset</code>.</p>
+<p><strong>Hint</strong>: This would be an unusual use of <code>future()</code>, but the <code>tOffset</code> given may be <code>0</code>,
+in which case the execution will happen asynchronously before advancing time.
+This is the only way for asynchronous execution in the model since you must not
+use Promises or async functions in model code (because a snapshot may happen at any time
+and it would not capture those executions).</p>
+<p><strong>Note:</strong> the recommended form given above is equivalent to <code>this.future(100, &quot;methodName&quot;, arg1, arg2)</code>
+but makes it more clear that &quot;methodName&quot; is not just a string but the name of a method of this object.
+Technically, it answers a <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Proxy">Proxy</a>
+that captures the name and arguments of <code>.methodName(args)</code> for later execution.</p>
+<p>See this <a href="tutorial-1_1_hello_world.html">tutorial</a> for a complete example.</p>
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Examples</h5>
+    
+        <p class="code-caption">single invocation with two arguments</p>
+    
+    <pre class="prettyprint"><code>this.future(3000).say("hello", "world");</code></pre>
+
+        <p class="code-caption">repeated invocation with no arguments</p>
+    
+    <pre class="prettyprint"><code>tick() {
+    this.n++;
+    this.publish(this.id, "count", {time: this.now(), count: this.n)});
+    this.future(100).tick();
+}</code></pre>
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+        <th>Default</th>
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>tOffset</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Number</span>
+
+
+            
+            </td>
+
+            
+
+            
+                <td class="default">
+                
+                    <code>0</code>
+                
+                </td>
+            
+
+            <td class="description last"><p>time offset in milliseconds, must be &gt;= 0</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+
+
+<dl class="param-type">
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">this</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id="random"><span class="type-signature"></span>random<span class="signature">()</span><span class="type-signature"> &rarr; {Number}</span></h4>
+
+    
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+<div class="description">
+    <p><strong>Generate a replicated pseudo-random number</strong></p>
+<p>This returns a floating-point, pseudo-random number in the range 0–1 (inclusive of 0, but not 1) with approximately uniform distribution over that range
+(just like <a href="https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Math/random">Math.random</a>).</p>
+<p>Since the model computation is replicated for every user on their device, the sequence of random numbers generated must also
+be exactly the same for everyone. This method provides access to such a random number generator.</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+
+
+<dl class="param-type">
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Number</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id="now"><span class="type-signature"></span>now<span class="signature">()</span><span class="type-signature"> &rarr; {Number}</span></h4>
+
+    
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-see">See:</dt>
+    <dd class="tag-see">
+        <ul>
+            <li><p><a href="View.html#now">View.now()</a></p></li>
+        </ul>
+    </dd>
+    
+
+    
+</dl>
+
+
+
+
+
+<div class="description">
+    <p><strong>The model's current time</strong></p>
+<p>Time is discreet in Croquet, meaning it advances in steps.
+Every user's device performs the exact same computation at the exact same virtual time.
+This is what allows Croquet to do perfectly replicated computation.</p>
+<p>Every <a href="Model.html#subscribe">event handler</a> and <a href="Model.html#future">future message</a>
+is run at a precisely defined moment in virtual model time, and time stands still while this execution is happening.
+That means if you were to access <code>this.now()</code> in a loop, it would never answer a different value.</p>
+<p>The unit of <code>now</code> is milliseconds (1/1000 second) but the value can be fractional, it is a floating-point value.</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    <p>the model's time in milliseconds since the first user created the session.</p>
+</div>
+
+
+
+<dl class="param-type">
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Number</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id="beWellKnownAs"><span class="type-signature"></span>beWellKnownAs<span class="signature">(name)</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+<div class="description">
+    <p>Make this model globally accessible under the given name.
+It can be retrieved from any other model in the same session using <a href="Model.html#wellKnownModel">wellKnownModel()</a>.</p>
+<p>Hint: Another way to make a model well-known is to pass a name as second argument to <a href="Model.html#.create">Model.create</a>().</p>
+<p>Note: The instance of your root Model class is automatically made well-known as <code>&quot;modelRoot&quot;</code>
+and passed to the <a href="View.html">constructor</a> of your root View during <a href="Session.html#.join">Session.join</a>.</p>
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Example</h5>
+    
+    <pre class="prettyprint"><code>class FooManager extends Croquet.Model {
+  init() {
+    this.beWellKnownAs("UberFoo");
+  }
+}
+class Underlings extends Croquet.Model {
+  reportToManager(something) {
+    this.wellKnownModel("UberFoo").report(something);
+  }
+}</code></pre>
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>name</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">String</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>a name for the model</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id="getModel"><span class="type-signature"></span>getModel<span class="signature">(id)</span><span class="type-signature"> &rarr; {<a href="Model.html">Model</a>}</span></h4>
+
+    
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+<div class="description">
+    <p>Look up a model in the current session given its <code>id</code></p>
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Example</h5>
+    
+    <pre class="prettyprint"><code>const otherModel = this.getModel(otherId);</code></pre>
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>id</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">String</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>the model's <code>id</code></p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    <p>the model if found, or <code>undefined</code></p>
+</div>
+
+
+
+<dl class="param-type">
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type"><a href="Model.html">Model</a></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id="wellKnownModel"><span class="type-signature"></span>wellKnownModel<span class="signature">(name)</span><span class="type-signature"> &rarr; (nullable) {<a href="Model.html">Model</a>}</span></h4>
+
+    
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+<div class="description">
+    <p>Access a model that was registered previously using  <a href="Model.html#beWellKnownAs">beWellKnownAs()</a>.</p>
+<p>Note: The instance of your root Model class is automatically made well-known as <code>&quot;modelRoot&quot;</code>
+and passed to the <a href="View.html">constructor</a> of your root View during <a href="Session.html#.join">Session.join</a>.</p>
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Example</h5>
+    
+    <pre class="prettyprint"><code>const topModel = this.wellKnownModel("modelRoot");</code></pre>
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>name</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">String</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>the name given in <a href="Model.html#beWellKnownAs">beWellKnownAs()</a></p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    <p>the model if found, or <code>undefined</code></p>
+</div>
+
+
+
+<dl class="param-type">
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type"><a href="Model.html">Model</a></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id="modelOnly"><span class="type-signature"></span>modelOnly<span class="signature">(msg<span class="signature-attributes">opt</span>)</span><span class="type-signature"> &rarr; {Boolean}</span></h4>
+
+    
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+<div class="description">
+    <p>This methods checks if it is being called from a model, and throws an Error otherwise.</p>
+<p>Use this to protect some model code against accidentally being called from a view.</p>
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Example</h5>
+    
+    <pre class="prettyprint"><code>get foo() { return this._foo; }
+set foo(value) { this.modelOnly(); this._foo = value; }</code></pre>
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>msg</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">String</span>
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>error message to display</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Throws:</h5>
+
+        
+
+    <div class="param-desc">
+    
+        <p>Error if called from view</p>
+    
+    </div>
+
+
+    
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    <p>true (otherwise, throws Error)</p>
+</div>
+
+
+
+<dl class="param-type">
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Boolean</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+        
+    
+
+    
+
+    
+</article>
+
+</section>
+
+
+
+
+
+    
+</div>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.6.7</a> using the <a href="https://github.com/clenemt/docdash">docdash</a> theme.
+</footer>
+
+<script>prettyPrint();</script>
+<script src="scripts/polyfill.js"></script>
+<script src="scripts/linenumber.js"></script>
+
+
+<script src="scripts/collapse.js" defer></script>
+
+
+</body>
+</html>

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    
+    
+    
+    
+    <meta charset="utf-8">
+    <title>Tutorial:  Events & Publish/Subscribe - Croquet SDK @CROQUET_VERSION@</title>
+    <meta name="description" content="Documentation for the Croquet SDK" />
+    
+        <meta name="keywords" content="croquet" />
+        <meta name="keyword" content="croquet" />
+    
+    <link rel="icon" type="image/png" href="images/icon.png">
+    
+    <script src="scripts/prettify/prettify.js"></script>
+    <script src="scripts/prettify/lang-css.js"></script>
+    <link type="text/css" rel="stylesheet" href="styles/prettify.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc.css">
+    <script src="scripts/nav.js" defer></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        nav img { max-width: 210px; margin-top: 10px; }
+        .corner-ribbon {
+            width: 200px;
+            background: #f33;
+            position: fixed;
+            top: 25px;
+            left: -50px;
+            text-align: center;
+            line-height: 50px;
+            letter-spacing: 1px;
+            color: #eee;
+            box-shadow: 0 0 5px rgba(0,0,0,.5);
+            transform: rotate(-45deg);
+            -webkit-transform: rotate(-45deg);
+        }
+        .corner-ribbon.top-right {
+            top: 25px;
+            right: -50px;
+            left: auto;
+            transform: rotate(45deg);
+            -webkit-transform: rotate(45deg);
+        }
+    </style>
+</head>
+<body>
+
+<input type="checkbox" id="nav-trigger" class="nav-trigger" />
+<label for="nav-trigger" class="navicon-button x">
+  <div class="navicon"></div>
+</label>
+
+<label for="nav-trigger" class="overlay"></label>
+
+<nav >
+    <a href="index.html"><img src="images/logotype.png"></a>
+    
+    <h2><a href="index.html#quickstart"><h3>QUICKSTART</h3></a></h2><h3>Globals</h3><ul><li><a href="global.html#Constants">Constants</a></li></ul><h3>Classes</h3><ul><li><a href="Model.html">Model</a><ul class='methods'><li data-type='method' style='display: none;'><a href="Model.html#.create">create</a></li><li data-type='method' style='display: none;'><a href="Model.html#.register">register</a></li><li data-type='method' style='display: none;'><a href="Model.html#.wellKnownModel">wellKnownModel</a></li><li data-type='method' style='display: none;'><a href="Model.html#.types">types</a></li><li data-type='method' style='display: none;'><a href="Model.html#init">init</a></li><li data-type='method' style='display: none;'><a href="Model.html#destroy">destroy</a></li><li data-type='method' style='display: none;'><a href="Model.html#publish">publish</a></li><li data-type='method' style='display: none;'><a href="Model.html#subscribe">subscribe</a></li><li data-type='method' style='display: none;'><a href="Model.html#unsubscribe">unsubscribe</a></li><li data-type='method' style='display: none;'><a href="Model.html#unsubscribeAll">unsubscribeAll</a></li><li data-type='method' style='display: none;'><a href="Model.html#future">future</a></li><li data-type='method' style='display: none;'><a href="Model.html#random">random</a></li><li data-type='method' style='display: none;'><a href="Model.html#now">now</a></li><li data-type='method' style='display: none;'><a href="Model.html#beWellKnownAs">beWellKnownAs</a></li><li data-type='method' style='display: none;'><a href="Model.html#getModel">getModel</a></li><li data-type='method' style='display: none;'><a href="Model.html#wellKnownModel">wellKnownModel</a></li><li data-type='method' style='display: none;'><a href="Model.html#modelOnly">modelOnly</a></li></ul></li><li><a href="View.html">View</a><ul class='methods'><li data-type='method' style='display: none;'><a href="View.html#detach">detach</a></li><li data-type='method' style='display: none;'><a href="View.html#publish">publish</a></li><li data-type='method' style='display: none;'><a href="View.html#subscribe">subscribe</a></li><li data-type='method' style='display: none;'><a href="View.html#unsubscribe">unsubscribe</a></li><li data-type='method' style='display: none;'><a href="View.html#unsubscribeAll">unsubscribeAll</a></li><li data-type='method' style='display: none;'><a href="View.html#future">future</a></li><li data-type='method' style='display: none;'><a href="View.html#random">random</a></li><li data-type='method' style='display: none;'><a href="View.html#now">now</a></li><li data-type='method' style='display: none;'><a href="View.html#externalNow">externalNow</a></li><li data-type='method' style='display: none;'><a href="View.html#extrapolatedNow">extrapolatedNow</a></li><li data-type='method' style='display: none;'><a href="View.html#update">update</a></li><li data-type='method' style='display: none;'><a href="View.html#wellKnownModel">wellKnownModel</a></li></ul></li><li><a href="Session.html">Session</a><ul class='methods'><li data-type='method' style='display: none;'><a href="Session.html#.join">join</a></li></ul></li></ul><h3>Events</h3><ul><li><a href="global.html#event:view-join">view-join</a></li><li><a href="global.html#event:view-exit">view-exit</a></li><li><a href="global.html#event:synced">synced</a></li></ul><h3>Tutorials</h3><ul><li><a href="tutorial-1_1_hello_world.html"> Hello World</a></li><li><a href="tutorial-1_2_simple_animation.html"> Simple Animation</a></li><li><a href="tutorial-1_3_multiuser_chat.html"> Multiuser Chat</a></li><li><a href="tutorial-1_4_view_smoothing.html"> View Smoothing</a></li><li><a href="tutorial-1_5_3d_animation.html"> 3D Animation</a></li><li><a href="tutorial-2_1_model_view_reflector.html"> Model-View-Reflector</a></li><li><a href="tutorial-2_2_writing_a_croquet_app.html"> Writing a Croquet Application</a></li><li><a href="tutorial-2_3_writing_a_croquet_view.html"> Writing a Croquet View</a></li><li><a href="tutorial-2_4_writing_a_croquet_model.html"> Writing a Croquet Model</a></li><li><a href="tutorial-2_5_sim_time_and_future.html"> Simulation Time and Future Sends</a></li><li><a href="tutorial-2_6_events_pub_sub.html"> Events & Publish/Subscribe</a></li><li><a href="tutorial-2_7_snapshots.html"> Snapshots</a></li><li><a href="tutorial-2_8_random.html"> Randomness & Determinism</a></li></ul>
+</nav>
+
+<div id="main">
+    
+    <h1 class="page-title">Tutorial:  Events & Publish/Subscribe</h1>
+    
+
+    <section>
+
+<header>
+    
+</header>
+
+<article>
+    <p>Copyright © 2020 Croquet Corporation</p>
+<p>Models and Views communicate using events. They use the same syntax for sending and receiving events. These functions are only available to classes that are derived from <a href="Model.html">Model</a> or <a href="View.html">View</a>, so exposing them is one reason to define sub-models and sub-views.</p>
+<ul>
+<li><code>publish(scope, event, data)</code></li>
+<li><code>subscribe(scope, event, this.handler)</code></li>
+<li><code>unsubscribe(scope, event)</code></li>
+<li><code>unsubscribeAll()</code></li>
+</ul>
+<p><strong>Publish</strong> sends an event to all models and views that have subscribed to it.</p>
+<ul>
+<li><em>Scope</em> is a namespace so you can use the same event in different contexts (String).</li>
+<li><em>Event</em> is the name of the event itself (String).</li>
+<li><em>Data</em> is an optional argument containing additional information (any serializable type).</li>
+</ul>
+<p><strong>Subscribe</strong> registers a model or a view to receive the specified events.</p>
+<ul>
+<li><em>handler</em> is a function that accepts the event data structure as its argument.</li>
+<li>in a view, the handler can be any function</li>
+<li>in a model, the handler <em>must</em> use the form <code>this.someMethodName</code>.<br>
+That's because functions cannot be serialized so actually only <code>&quot;someMethodName&quot;</code> is extracted from the function and stored.</li>
+</ul>
+<p><strong>Unsubscribe</strong> unregisters the model or view so it will no longer receive the event.</p>
+<p><strong>UnsubscribeAll</strong> unregisters all current subscriptions. Called automatically when you <code>destroy</code> a model or a view.</p>
+<h2 id="scopes">Scopes</h2>
+<p><em>TODO: ... mention <code>model.id</code>, global scopes (<code>sessionId</code>, <code>viewId</code>) ...</em></p>
+<h2 id="event-handling">Event Handling</h2>
+<p>Depending on where the event originates and which objects are subscribed to it, the controller routes it differently:</p>
+<ul>
+<li>
+<p><em>Model-to-Model</em> - The event handler is executed immediately, before the publish call returns.</p>
+</li>
+<li>
+<p><em>Model-to-View</em> - By default, the event is queued and will be handled by the local view when the current model simulation has finished.</p>
+</li>
+<li>
+<p><em>View-to-View</em> - By default, the event is queued and will be handled in the same update cycle.</p>
+</li>
+<li>
+<p><em>View-to-Model</em> - The event is transmitted to the reflector and mirrored to all users. It will be handled during the next model simulation.</p>
+</li>
+</ul>
+<p>Note that multiple models and views can subscribe to the same event. The controller will take care of routing the event to each subscriber using the appropriate route, meaning that a view subscriber and a model subscriber will receive the event at slightly different times.</p>
+<h2 id="best-practices">Best practices</h2>
+<p>Publish and subscribe can be used to establish a direct communications channel between different parts of the model and the view. For example, suppose you have several hundred AI agents that are running independently in the model, and each one has a graphical representation in the view. If you call publish and subscribe using the agent's id as the scope, an event from a particular actor will only be delivered to its corresponding representation and vice versa.</p>
+<p>Avoid creating chains of events that run from the model to the view then back to the model. View events can be triggered by the user, or by a timer, or by some other external source, but they should never be triggered by the model. Doing so can trigger a large cascade of events that will choke the system.</p>
+</article>
+
+</section>
+
+
+    
+</div>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.6.7</a> using the <a href="https://github.com/clenemt/docdash">docdash</a> theme.
+</footer>
+
+<script>prettyPrint();</script>
+<script src="scripts/polyfill.js"></script>
+<script src="scripts/linenumber.js"></script>
+
+
+<script src="scripts/collapse.js" defer></script>
+
+
+</body>
+</html>
