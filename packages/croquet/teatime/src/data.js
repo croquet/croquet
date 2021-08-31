@@ -3,7 +3,7 @@ import WordArray from "crypto-js/lib-typedarrays";
 import Base64 from "crypto-js/enc-base64";
 import SHA256 from "crypto-js/sha256";
 import urlOptions from "@croquet/util/urlOptions";
-import Island from "./island";
+import VirtualMachine from "./vm";
 import { sessionProps } from "./controller";
 
 
@@ -54,7 +54,7 @@ export default class DataHandle {
             console.warn("Deprecated: Croquet.Data.store(sessionId, data) called without sessionId");
             data = sessionId;
         }
-        if (Island.hasCurrent()) throw Error("Croquet.Data.store() called from Model code");
+        if (VirtualMachine.hasCurrent()) throw Error("Croquet.Data.store() called from Model code");
         const  { appId, persistentId, uploadEncrypted } = sessionProps(sessionId);
         if (!appId) {
             console.warn("Deprecated: Croquet.Data API used without declaring appId in Croquet.Session.join()");
@@ -65,7 +65,7 @@ export default class DataHandle {
         const hash = hashFromUrl(url);
         return new DataHandle(hash, key, path);
 
-        // TODO: publish events and handle in island to track assets even if user code fails to do so
+        // TODO: publish events and handle in vm to track assets even if user code fails to do so
         // publish(sessionId, "data-storing", handle);
         // promise.then(() => publish(sessionId, "data-stored", handle));
     }
@@ -81,7 +81,7 @@ export default class DataHandle {
             console.warn("Deprecated: Croquet.Data.fetch(sessionId, handle) called without sessionId");
             handle = sessionId;
         }
-        if (Island.hasCurrent()) throw Error("Croquet.Data.fetch() called from Model code");
+        if (VirtualMachine.hasCurrent()) throw Error("Croquet.Data.fetch() called from Model code");
         const  { appId, downloadEncrypted } = sessionProps(sessionId);
         if (!appId) {
             console.warn("Deprecated: Croquet.Data API used without declaring appId in Croquet.Session.join()");

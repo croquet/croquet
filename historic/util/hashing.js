@@ -101,7 +101,7 @@ export function addConstantsHash(constants) {
     });
 }
 
-export async function hashIsland(name, options) {
+async function persistentHash(name, options) {
     return hashString(name + stableStringify(options));
 }
 
@@ -111,8 +111,8 @@ export async function hashSessionAndCode(name, options, params, sdk_version) {
     if (!window.crypto || !window.crypto.subtle || typeof window.crypto.subtle.digest !== "function") {
         throw Error(`Croquet: Crypto API not available.\nPlease access this page via https or localhost.`);
     }
-    /** identifies the island (only true if name is unique, i.e., appId was provided) */
-    const persistentId = await hashIsland(name, options);
+    /** identifies the vm (only true if name is unique, i.e., appId was provided) */
+    const persistentId = await persistentHash(name, options);
     // codeHashes are from registered user models and constants (in hashPromises).
     // jul 2021: note that if multiple sessions are loaded in the same tab, *all*
     // sessions' models and constants registered up to this point will be taken into

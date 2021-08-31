@@ -62,5 +62,5 @@ window.CroquetMath.pow = (x, y) => {
     };
 
 // if someone can figure out how to make this work properly with exports
-// then please change the import in island.js to the proper
+// then please change the import in vm.js to the proper
 // import * as CroquetMath from "@croquet/math";

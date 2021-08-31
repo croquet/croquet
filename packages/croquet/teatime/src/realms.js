@@ -12,9 +12,9 @@ let DEBUG = {
 
 
 class ModelRealm {
-    constructor(island) {
-        /** @type import('./island').default */
-        this.vm = island;
+    constructor(vm) {
+        /** @type import('./vm').default */
+        this.vm = vm;
     }
     register(model) {
         return this.vm.registerModel(model);
@@ -43,13 +43,13 @@ class ModelRealm {
             return this.vm.future(model, tOffset, methodName, methodArgs);
         }
         if (tOffset) throw Error("tOffset not supported from cross-realm future send yet.");
-        const island = this.vm;
+        const vm = this.vm;
         return new Proxy(model, {
             get(_target, property) {
                 if (typeof model[property] === "function") {
                     const methodProxy = new Proxy(model[property], {
                         apply(_method, _this, args) {
-                            island.callModelMethod(model.id, property, args);
+                            vm.callModelMethod(model.id, property, args);
                         }
                     });
                     return methodProxy;
@@ -75,9 +75,9 @@ class ModelRealm {
 }
 
 class ViewRealm {
-    constructor(island) {
-        /** @type import('./island').default */
-        this.vm = island;
+    constructor(vm) {
+        /** @type import('./vm').default */
+        this.vm = vm;
     }
 
     register(view) {
@@ -105,13 +105,13 @@ class ViewRealm {
     }
 
     future(view, tOffset) {
-        const island = this.vm;
+        const vm = this.vm;
         return new Proxy(view, {
             get(_target, property) {
                 if (typeof view[property] === "function") {
                     const methodProxy = new Proxy(view[property], {
                         apply(_method, _this, args) {
-                            setTimeout(() => { if (view.id) inViewRealm(island, () => view[property](...args), true); }, tOffset);
+                            setTimeout(() => { if (view.id) inViewRealm(vm, () => view[property](...args), true); }, tOffset);
                         }
                     });
                     return methodProxy;
@@ -158,25 +158,25 @@ export function currentRealm(errorIfNoRealm="Tried to execute code that requires
     return __currentRealm;
 }
 
-export function inModelRealm(island, callback) {
+export function inModelRealm(vm, callback) {
     if (__currentRealm !== null) {
         throw Error("Can't switch realms from inside realm");
     }
     try {
-        __currentRealm = new ModelRealm(island);
+        __currentRealm = new ModelRealm(vm);
         return callback();
     } finally {
         __currentRealm = null;
     }
 }
 
-export function inViewRealm(island, callback, force=false) {
+export function inViewRealm(vm, callback, force=false) {
     if (__currentRealm !== null && !force) {
         throw Error("Can't switch realms from inside realm");
     }
     const prevRealm = __currentRealm;
     try {
-        __currentRealm = new ViewRealm(island);
+        __currentRealm = new ViewRealm(vm);
         return callback();
     } finally {
         __currentRealm = prevRealm;

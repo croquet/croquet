@@ -2,7 +2,7 @@ import urlOptions from "@croquet/util/urlOptions";
 import { addClassHash } from "@croquet/util/hashing";
 import { displayAppError } from "@croquet/util";
 import { currentRealm } from "./realms";
-import Island, { resetReadersAndWriters } from "./island";
+import VirtualMachine, { resetReadersAndWriters } from "./vm";
 
 const DEBUG = {
     classes: urlOptions.has("debug", "classes", false),
@@ -174,8 +174,8 @@ class Model {
      * @public
      */
     static wellKnownModel(name) {
-        if (!Island.hasCurrent()) throw Error("static Model.wellKnownModel() called from outside model");
-        return Island.current().get(name);
+        if (!VirtualMachine.hasCurrent()) throw Error("static Model.wellKnownModel() called from outside model");
+        return VirtualMachine.current().get(name);
     }
 
     /**
@@ -242,7 +242,7 @@ class Model {
         return {};
     }
 
-    // for use by serializer (see island.js)
+    // for use by serializer (see vm.js)
     static classToID(cls) {  return classToID(cls); }
     static classFromID(id) { return classFromID(id); }
     static allClasses() { return allClasses(); }
@@ -576,7 +576,7 @@ class Model {
      * @public
      */
     modelOnly(msg) {
-        if (Island.current() === this.__realm.vm) return true;
+        if (VirtualMachine.current() === this.__realm.vm) return true;
         const error = Error(msg || `${this}.modelOnly() called from outside a model!`);
         displayAppError('view code', error);
         throw error;

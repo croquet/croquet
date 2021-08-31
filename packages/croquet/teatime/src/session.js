@@ -5,7 +5,7 @@ import { addConstantsHash } from "@croquet/util/hashing";
 import Model from "./model";
 import View from "./view";
 import Controller, { sessionController } from "./controller";
-import Island from "./island";
+import VirtualMachine from "./vm";
 import { Messenger } from "./messenger";
 
 export function deprecatedStartSession(...args) {
@@ -245,7 +245,7 @@ export class Session {
 
         const sessionSpec = {
             options,
-            /** executed inside the island to initialize session */
+            /** executed inside the vm to initialize session */
             initFn: (opts, persistentData) => ModelRoot.create(opts, persistentData, "modelRoot"),
             /** called by controller when leaving the session */
             rebootModelView
@@ -325,8 +325,8 @@ export class Session {
     }
 
     static thisSession() {
-        const island = Island.current();
-        return island ? island.id : "";
+        const vm = VirtualMachine.current();
+        return vm ? vm.id : "";
     }
 }
 

@@ -12,8 +12,8 @@ import Data, { DataHandleSpec } from "./data";
 
 /** @typedef { import('./controller').default } Controller */
 
-/** @type {Island} */
-let CurrentIsland = null;
+/** @type {VirtualMachine} */
+let CurrentVM = null;
 
 let DEBUG = null;
 function initDEBUG() {
@@ -32,8 +32,8 @@ Object.defineProperty(CroquetWarning.prototype, 'name', { value: 'CroquetWarning
 function patchBrowser() {
     // patch Math.random, and the transcendentals as defined in "@croquet/math"
     if (!window.CroquetViewMath) {
-        // make random use CurrentIsland
-        window.CroquetMath.random = () => CurrentIsland.random();
+        // make random use CurrentVM
+        window.CroquetMath.random = () => CurrentVM.random();
         // save all original Math methods
         window.CroquetViewMath = {...Math};
         // we keep the original Math object but replace the methods found in CroquetMath
@@ -41,11 +41,11 @@ function patchBrowser() {
         for (const [funcName, modelFunc] of Object.entries(window.CroquetMath)) {
             const viewFunc = Math[funcName];
             Math[funcName] = modelFunc.length === 1
-                ? arg => CurrentIsland ? modelFunc(arg) : viewFunc(arg)
-                : (arg1, arg2) => CurrentIsland ? modelFunc(arg1, arg2) : viewFunc(arg1, arg2);
+                ? arg => CurrentVM ? modelFunc(arg) : viewFunc(arg)
+                : (arg1, arg2) => CurrentVM ? modelFunc(arg1, arg2) : viewFunc(arg1, arg2);
         }
     }
-    // patch Date.now to return Island time if called from Model code
+    // patch Date.now to return VirtualMachine time if called from Model code
     if (!window.CroquetViewDate) {
         // replace the original Date constructor function but return actual Date instances
         const SystemDate = window.Date; // capture in closure
@@ -65,12 +65,12 @@ function patchBrowser() {
             const calledWithNew = this instanceof CroquetDate; // slightly more efficient than new.target after Babel
             const args = [a, b, c, d, e, f, g];
             args.length = arguments.length;
-            if (CurrentIsland) {
+            if (CurrentVM) {
                 // Alwys warn. Even when providing arguments, instances still use local timezone
                 // TODO: write complete replacement? Don't think so.
                 modelDateWarning(calledWithNew ? "new Date()" : "Date()");
                 switch (arguments.length) {
-                    case 0: args.push(CurrentIsland.time); break;
+                    case 0: args.push(CurrentVM.time); break;
                     case 1: break;
                     default:
                         args[0] = SystemDate.UTC(...args);
@@ -83,8 +83,8 @@ function patchBrowser() {
         // implement static properties
         CroquetDate.prototype = SystemDate.prototype;
         CroquetDate.UTC = SystemDate.UTC;
-        CroquetDate.now =  () => CurrentIsland ? modelDateWarning("Date.now()", CurrentIsland.time) : SystemDate.now();
-        CroquetDate.parse = (...args) => CurrentIsland ? modelDateWarning("Date.parse()", 0) : SystemDate.parse(...args);
+        CroquetDate.now =  () => CurrentVM ? modelDateWarning("Date.now()", CurrentVM.time) : SystemDate.now();
+        CroquetDate.parse = (...args) => CurrentVM ? modelDateWarning("Date.parse()", 0) : SystemDate.parse(...args);
         // make original accessible
         window.CroquetViewDate = SystemDate;
         // switch
@@ -120,28 +120,28 @@ function bindQFunc(qfunc, thisArg) {
 }
 
 
-// this is the only place allowed to set CurrentIsland
-function execOnIsland(island, fn) {
-    if (CurrentIsland) throw Error("Island confusion");
-    if (!(island instanceof Island)) throw Error("not an island: " + island);
-    const previousIsland = CurrentIsland;
+// this is the only place allowed to set CurrentVM
+function execInVM(vm, fn) {
+    if (CurrentVM) throw Error("VirtualMachine confusion");
+    if (!(vm instanceof VirtualMachine)) throw Error("not a VM: " + vm);
+    const previousVM = CurrentVM;
     try {
-        CurrentIsland = island;
-        window.ISLAND = island;
+        CurrentVM = vm;
+        window.CROQUETVM = vm;
         fn();
     } finally {
-        CurrentIsland = previousIsland;
+        CurrentVM = previousVM;
     }
 }
 
-function execOffIsland(fn) {
-    if (!CurrentIsland) throw Error("Island confusion");
-    const previousIsland = CurrentIsland;
+function execOutsideVM(fn) {
+    if (!CurrentVM) throw Error("VirtualMachine confusion");
+    const previousVM = CurrentVM;
     try {
-        CurrentIsland = null;
+        CurrentVM = null;
         fn();
     } finally {
-        CurrentIsland = previousIsland;
+        CurrentVM = previousVM;
     }
 }
 
@@ -150,28 +150,28 @@ const VOTE_SUFFIX = '#__vote'; // internal, for 'vote' handling; never seen by a
 const REFLECTED_SUFFIX = '#reflected';
 const DIVERGENCE_SUFFIX = '#divergence';
 
-// minimum ms (island time) between successive snapshot polls
+// minimum ms (vm time) between successive snapshot polls
 const SNAPSHOT_MIN_POLL_GAP = 5000;
-// minimum ms (island time) between successive persistence polls
+// minimum ms (vm time) between successive persistence polls
 const PERSIST_MIN_POLL_GAP = 25000; // bearing in mind max tick interval of 30s
 
-const persistenceDetails = new WeakMap(); // map from island to a persistence-details object
-function setPersistenceCache(island, details) { persistenceDetails.set(island, details); }
-function getPersistenceCache(island) { return persistenceDetails.get(island); }
-function clearPersistenceCache(island) { persistenceDetails.set(island, null); }
+const persistenceDetails = new WeakMap(); // map from vm to a persistence-details object
+function setPersistenceCache(vm, details) { persistenceDetails.set(vm, details); }
+function getPersistenceCache(vm) { return persistenceDetails.get(vm); }
+function clearPersistenceCache(vm) { persistenceDetails.set(vm, null); }
 
 
-/** An island holds the models which are replicated by teatime,
+/** An vm holds the models which are replicated by teatime,
  * a queue of messages, plus additional bookkeeping to make
  * uniform pub/sub between models and views possible.*/
-export default class Island {
+export default class VirtualMachine {
     static current() {
-        if (!CurrentIsland) console.warn(`Island.current() called from outside the island!`);
-        return CurrentIsland;
+        if (!CurrentVM) console.warn(`VirtualMachine.current() called from outside the vm!`);
+        return CurrentVM;
     }
 
     static hasCurrent() {
-        return !!CurrentIsland;
+        return !!CurrentVM;
     }
 
     constructor(snapshot, initFn) {
@@ -179,9 +179,9 @@ export default class Island {
         initDEBUG();
         clearPersistenceCache(this);
 
-        execOnIsland(this, () => {
+        execInVM(this, () => {
             inModelRealm(this, () => {
-                /** all the models in this island */
+                /** all the models in this vm */
                 this.modelsById = {};
                 /** named entry points to models (so a view can attach to it) */
                 this.modelsByName = {};
@@ -218,15 +218,15 @@ export default class Island {
                 /** @type {Controller} our controller, for sending messages. Excluded from snapshot */
                 this.controller = null;
                 if (snapshot.modelsById) {
-                    // read island from snapshot
-                    const reader = IslandReader.newOrRecycled(this);
-                    const islandData = reader.readIsland(snapshot, "$");
+                    // read vm from snapshot
+                    const reader = VMReader.newOrRecycled(this);
+                    const vmData = reader.readVM(snapshot, "$");
                     let messages = [];
                     // only read keys declared above
-                    for (const key of Object.keys(islandData)) {
+                    for (const key of Object.keys(vmData)) {
                         if (!(key in this) && key !== "meta") console.warn(`Ignoring property snapshot.${key}`);
-                        else if (key === "messages") messages = islandData.messages;
-                        else this[key] = islandData[key];
+                        else if (key === "messages") messages = vmData.messages;
+                        else this[key] = vmData[key];
                     }
                     // add messages array to priority queue
                     for (const msg of messages) this.messages.add(msg.convertIfNeeded(this));
@@ -242,7 +242,7 @@ export default class Island {
     }
 
     registerModel(model, id) {
-        if (CurrentIsland !== this) throw Error("You can only create models from model code!");
+        if (CurrentVM !== this) throw Error("You can only create models from model code!");
         if (!id) id = this.id + "/M" + ++this.modelsId;
         this.modelsById[id] = model;
         // not assigning the id here catches missing super calls in init() and load()
@@ -250,7 +250,7 @@ export default class Island {
     }
 
     deregisterModel(id) {
-        if (CurrentIsland !== this) throw Error("You can only destroy models from model code!");
+        if (CurrentVM !== this) throw Error("You can only destroy models from model code!");
         const model = this.modelsById;
         delete this.modelsById[id];
         for (const [name, value] of Object.entries(this.modelsByName)) {
@@ -269,13 +269,13 @@ export default class Island {
 
     get(modelName) { return this.modelsByName[modelName]; }
     set(modelName, model) {
-        if (CurrentIsland !== this) throw Error("You can only make a model well-known from model code!");
+        if (CurrentVM !== this) throw Error("You can only make a model well-known from model code!");
         this.modelsByName[modelName] = model;
     }
 
     // Send via reflector
     callModelMethod(modelId, selector, args) {
-        if (CurrentIsland) throw Error("You cannot make a reflector send from model code!");
+        if (CurrentVM) throw Error("You cannot make a reflector send from model code!");
         const model = this.lookUpModel(modelId);
         if (!model) { console.error(Error(`Model not found: ${modelId}`)); return; }
         const message = new Message(this.time, 0, model.id, selector, args);
@@ -370,7 +370,7 @@ export default class Island {
         if (tOffset.every) return this.futureRepeat(tOffset.every, receiverID, selector, args);
         if (tOffset < 0) throw Error("attempt to send future message into the past");
         // Wrapping below is fine because the message comparison function deals with it.
-        // To have a defined ordering between future messages generated on island
+        // To have a defined ordering between future messages generated on vm
         // and messages from the reflector, we create even sequence numbers here and
         // the reflector's sequence numbers are made odd on arrival
         this.futureSeq = (this.futureSeq + 1) >>> 0;
@@ -411,13 +411,13 @@ export default class Island {
         if (typeof methodName === "string") {
             return this.futureSend(tOffset, model.id, methodName, methodArgs);
         }
-        const island = this;
+        const vm = this;
         return new Proxy(model, {
             get(_target, property) {
                 if (typeof model[property] === "function") {
                     return (...args) => {
-                        if (island.lookUpModel(model.id) !== model) throw Error("future send to unregistered model");
-                        return island.futureSend(tOffset, model.id, property, args);
+                        if (vm.lookUpModel(model.id) !== model) throw Error("future send to unregistered model");
+                        return vm.futureSend(tOffset, model.id, property, args);
                     };
                 }
                 throw Error("Tried to call " + property + "() on future of " + Object.getPrototypeOf(model).constructor.name + " which is not a function");
@@ -426,14 +426,14 @@ export default class Island {
     }
 
     /**
-     * Process pending messages for this island and advance simulation time.
+     * Process pending messages for this vm and advance simulation time.
      * Must only be sent by controller!
      * @param {Number} newTime - simulate at most up to this time
      * @param {Number} deadline - CPU time deadline for interrupting simulation
      * @returns {Boolean} true if finished simulation before deadline
      */
     advanceTo(newTime, deadline) {
-        if (CurrentIsland) throw Error("cannot advance time from model code");
+        if (CurrentVM) throw Error("cannot advance time from model code");
         let count = 0;
         let message;
         // process each message in queue up to newTime
@@ -489,7 +489,7 @@ export default class Island {
     }
 
     addSubscription(model, scope, event, methodNameOrCallback) {
-        if (CurrentIsland !== this) throw Error("Cannot add a model subscription from outside model code");
+        if (CurrentVM !== this) throw Error("Cannot add a model subscription from outside model code");
         const methodName = this.asQFunc(model, methodNameOrCallback);
         if (typeof methodName !== "string") {
             throw Error(`Subscription handler for "${event}" must be a method name`);
@@ -508,7 +508,7 @@ export default class Island {
     }
 
     removeSubscription(model, scope, event, methodName) {
-        if (CurrentIsland !== this) throw Error("Cannot remove a model subscription from outside model code");
+        if (CurrentVM !== this) throw Error("Cannot remove a model subscription from outside model code");
         const topic = scope + ":" + event;
         const handler = model.id + "." + methodName;
         const handlers = this.subscriptions[topic];
@@ -537,7 +537,7 @@ export default class Island {
     }
 
     publishFromModel(scope, event, data) {
-        if (CurrentIsland !== this) throw Error("Cannot publish a model event from outside model code");
+        if (CurrentVM !== this) throw Error("Cannot publish a model event from outside model code");
         // @@ hack for forcing reflection of model-to-model messages
         const reflected = event.endsWith(REFLECTED_SUFFIX);
         if (reflected) event = event.slice(0, event.length - REFLECTED_SUFFIX.length);
@@ -548,13 +548,13 @@ export default class Island {
     }
 
     publishFromModelOnly(scope, event, data) {
-        if (CurrentIsland !== this) throw Error("Cannot publish a model event from outside model code");
+        if (CurrentVM !== this) throw Error("Cannot publish a model event from outside model code");
         const topic = scope + ":" + event;
         this.handleModelEventInModel(topic, data);
     }
 
     publishFromView(scope, event, data) {
-        if (CurrentIsland) throw Error("Cannot publish a view event from model code");
+        if (CurrentVM) throw Error("Cannot publish a view event from model code");
         const topic = scope + ":" + event;
         this.handleViewEventInModel(topic, data);
         this.handleViewEventInView(topic, data);
@@ -571,7 +571,7 @@ export default class Island {
     handleModelEventInModel(topic, data, reflect=false) {
         // model=>model events are handled synchronously unless reflected
         // because making them async would mean having to use future messages
-        if (CurrentIsland !== this) throw Error("handleModelEventInModel called from outside model code");
+        if (CurrentVM !== this) throw Error("handleModelEventInModel called from outside model code");
         if (reflect) {
             if (this.controller.synced !== true) return;
 
@@ -639,7 +639,7 @@ export default class Island {
     }
 
     handleModelEventInView(topic, data) {
-        viewDomain.handleEvent(topic, data, fn => execOffIsland(() => inViewRealm(this, fn, true)));
+        viewDomain.handleEvent(topic, data, fn => execOutsideVM(() => inViewRealm(this, fn, true)));
     }
 
     handleViewEventInView(topic, data) {
@@ -655,7 +655,7 @@ export default class Island {
     }
 
     processModelViewEvents(isInAnimationStep) {
-        if (CurrentIsland) throw Error("cannot process view events in model code");
+        if (CurrentVM) throw Error("cannot process view events in model code");
         return inViewRealm(this, () => viewDomain.processFrameEvents(isInAnimationStep, !!this.controller.synced));
     }
 
@@ -685,13 +685,13 @@ export default class Island {
     }
 
     snapshot() {
-        const writer = IslandWriter.newOrRecycled(this);
+        const writer = VMWriter.newOrRecycled(this);
         return writer.snapshot(this, "$");
     }
 
-    // return the stringification of an object describing the island - currently { oC, mC, nanC, infC, zC, nC, nH, sC, sL, fC } - for checking agreement between instances
+    // return the stringification of an object describing the vm - currently { oC, mC, nanC, infC, zC, nC, nH, sC, sL, fC } - for checking agreement between instances
     getSummaryHash() {
-        return stableStringify(new IslandHasher().getHash(this));
+        return stableStringify(new VMHasher().getHash(this));
     }
 
     persist(model, persistentDataFunc) {
@@ -751,19 +751,19 @@ export default class Island {
         if (this.controller.synced) {
             if (DEBUG.snapshot) console.log(`${this.id} asking controller to poll for persistence @${persistTime}`);
 
-            // run everything else outside of model
-            const islandTime = this.time;
-            Promise.resolve().then(() => this.controller.pollForPersist(islandTime, persistTime, persistentString, persistentHash, ms));
+            // run everything else outside of VM
+            const vmTime = this.time;
+            Promise.resolve().then(() => this.controller.pollForPersist(vmTime, persistTime, persistentString, persistentHash, ms));
         }
     }
 
     random() {
-        if (CurrentIsland !== this) throw Error("replicated random accessed from outside the model");
+        if (CurrentVM !== this) throw Error("replicated random accessed from outside the model");
         return this._random();
     }
 
     randomID() {
-        if (CurrentIsland !== this) throw Error("replicated random accessed from outside the model");
+        if (CurrentVM !== this) throw Error("replicated random accessed from outside the model");
         let id = '';
         for (let i = 0; i < 4; i++) {
             id += (this._random.int32() >>> 0).toString(16).padStart(8, '0');
@@ -771,7 +771,7 @@ export default class Island {
         return id;
     }
 
-    toString() { return `Island[${this.id}]`; }
+    toString() { return `VirtualMachine[${this.id}]`; }
 
     [Symbol.toPrimitive]() { return this.toString(); }
 }
@@ -785,12 +785,12 @@ function encode(receiver, selector, args) {
     return `${receiver}>${selector}${args.length > 0 ? JSON.stringify(args):""}`;
 }
 
-function decode(payload, island) {
+function decode(payload, vm) {
     const [_, msg, argString] = payload.match(/^([^[]+)(\[.*)?$/i);
     const [receiver, selector] = msg.split('>');
     let args = [];
     if (argString) {
-        const decoder = MessageArgumentDecoder.newOrRecycled(island);
+        const decoder = MessageArgumentDecoder.newOrRecycled(vm);
         args = decoder.decode(JSON.parse(argString));
     }
     return {receiver, selector, args};
@@ -823,10 +823,10 @@ export class Message {
         this.args = args;
     }
 
-    convertIfNeeded(island) {
+    convertIfNeeded(vm) {
         if (this.payload) {
             // before 0.3, messages always had an encoded payload
-            const {receiver, selector, args} = decode(this.payload, island);
+            const {receiver, selector, args} = decode(this.payload, vm);
             delete this.payload;
             this.receiver = receiver;
             this.selector = selector;
@@ -863,18 +863,18 @@ export class Message {
         return [this.time, this.seq, encode(this.receiver, this.selector, this.args)];
     }
 
-    static fromState(state, island) {
+    static fromState(state, vm) {
         const [time, seq, payload] = state;
-        const { receiver, selector, args } = decode(payload, island);
+        const { receiver, selector, args } = decode(payload, vm);
         return new Message(time, seq, receiver, selector, args);
     }
 
-    executeOn(island, nested=false) {
+    executeOn(vm, nested=false) {
         const executor = nested
             ? fn => fn()
-            : fn => execOnIsland(island, () => inModelRealm(island, fn));
+            : fn => execInVM(vm, () => inModelRealm(vm, fn));
         const { receiver, selector, args } = this;
-        const object = island.lookUpModel(receiver);
+        const object = vm.lookUpModel(receiver);
         if (!object) displayWarning(`${this.shortString()} ${selector}(): receiver not found`);
         else if (selector[0] === '{') {
             const fn = bindQFunc(selector, object);
@@ -930,9 +930,9 @@ const sumForFloat = (() => {
     };
     })();
 
-// IslandHasher walks the object tree gathering statistics intended to help
-// identify divergence between island instances.
-class IslandHasher {
+// VMHasher walks the object tree gathering statistics intended to help
+// identify divergence between vm instances.
+class VMHasher {
     constructor() {
         this.refs = new Map();
         this.todo = []; // we use breadth-first writing to limit stack depth
@@ -950,8 +950,8 @@ class IslandHasher {
         this.hashers.set(cls, obj => this.hashStructure(obj, write(obj)));
     }
 
-    /** @param {Island} island */
-    getHash(island) {
+    /** @param {VirtualMachine} vm */
+    getHash(vm) {
         this.hashState = {
             oC: 0, // count of JS Objects
             mC: 0, // count of models
@@ -965,7 +965,7 @@ class IslandHasher {
             fC: 0  // count of future messages
         };
 
-        for (const [key, value] of Object.entries(island)) {
+        for (const [key, value] of Object.entries(vm)) {
             if (key === "controller") continue;
             if (key === "meta") continue;
             if (key === "_random") this.hash(value.state(), false);
@@ -1097,13 +1097,13 @@ const floats = new Float64Array(2);
 const ints = new Uint32Array(floats.buffer);
 */
 
-class IslandWriter {
-    static newOrRecycled(island) {
+class VMWriter {
+    static newOrRecycled(vm) {
         let inst = this.reusableInstance;
         if (!inst) {
-            inst = this.reusableInstance = new this(island);
+            inst = this.reusableInstance = new this(vm);
         } else {
-            inst.vm = island;
+            inst.vm = vm;
             inst.nextRef = 1;
             inst.refs = new Map();
             inst.todo = [];
@@ -1117,8 +1117,8 @@ class IslandWriter {
 
     static resetInstance() { this.reusableInstance = null; }
 
-    constructor(island) {
-        this.vm = island;
+    constructor(vm) {
+        this.vm = vm;
         this.nextRef = 1;
         this.refs = new Map();
         this.todo = []; // we use breadth-first writing to limit stack depth
@@ -1136,13 +1136,13 @@ class IslandWriter {
         this.writers.set(cls, (obj, path) => this.writeAs(classId, obj, write(obj), path));
     }
 
-    /** @param {Island} island */
-    snapshot(island) {
+    /** @param {VirtualMachine} vm */
+    snapshot(vm) {
         const state = {
-            _random: island._random.state(),
-            messages: this.write(island.messages.asArray()),
+            _random: vm._random.state(),
+            messages: this.write(vm.messages.asArray()),
         };
-        for (const [key, value] of Object.entries(island)) {
+        for (const [key, value] of Object.entries(vm)) {
             if (key === "controller") continue;
             if (!state[key]) this.writeInto(state, key, value, "$");
         }
@@ -1337,13 +1337,13 @@ class IslandWriter {
     }
 }
 
-class IslandReader {
-    static newOrRecycled(island) {
+class VMReader {
+    static newOrRecycled(vm) {
         let inst = this.reusableInstance;
         if (!inst) {
-            inst = this.reusableInstance = new this(island);
+            inst = this.reusableInstance = new this(vm);
         } else {
-            inst.vm = island;
+            inst.vm = vm;
             inst.refs = new Map();
             inst.todo = [];
             inst.unresolved = [];
@@ -1357,8 +1357,8 @@ class IslandReader {
 
     static resetInstance() { this.reusableInstance = null; }
 
-    constructor(island) {
-        this.vm = island;
+    constructor(vm) {
+        this.vm = vm;
         this.refs = new Map();
         this.todo = [];   // we use breadth-first reading to limit stack depth
         this.unresolved = [];
@@ -1394,17 +1394,17 @@ class IslandReader {
         this.readers.set(classId, read);
     }
 
-    readIsland(snapshot, root) {
-        if (root !== "$") throw Error("Island must be root object");
-        const islandData = {
+    readVM(snapshot, root) {
+        if (root !== "$") throw Error("VirtualMachine must be root object");
+        const vmData = {
             _random: new SeedRandom(null, { state: snapshot._random }),
         };
         for (const [key, value] of Object.entries(snapshot)) {
-            if (!islandData[key]) this.readInto(islandData, key, value, root);
+            if (!vmData[key]) this.readInto(vmData, key, value, root);
         }
         this.readDeferred();
         this.resolveRefs();
-        return islandData;
+        return vmData;
     }
 
     readDeferred() {
@@ -1529,7 +1529,7 @@ class IslandReader {
     }
 }
 
-class MessageArgumentEncoder extends IslandWriter {
+class MessageArgumentEncoder extends VMWriter {
     encode(args) {
         const encoded = this.writeArray(args, '$');
         this.writeDeferred();
@@ -1541,7 +1541,7 @@ class MessageArgumentEncoder extends IslandWriter {
     }
 }
 
-class MessageArgumentDecoder extends IslandReader {
+class MessageArgumentDecoder extends VMReader {
     decode(args) {
         const decoded = this.readArray(args, '$');
         this.readDeferred();
@@ -1573,8 +1573,8 @@ export function gatherInternalClassTypes(dummyObject, prefix) {
 }
 
 export function resetReadersAndWriters() {
-    IslandReader.resetInstance();
-    IslandWriter.resetInstance();
+    VMReader.resetInstance();
+    VMWriter.resetInstance();
     MessageArgumentEncoder.resetInstance();
     MessageArgumentDecoder.resetInstance();
 }

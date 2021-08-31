@@ -22,7 +22,7 @@ const BallView = Clickable({
 })(Tracking()(PhysicalShape));
 
 export default function initMinipool() {
-    // called as part of installing the initial Island
+    // called as part of installing the initial VirtualMachine
     const room = Room.create();
     room.addElementManipulators = false;
     room.noNavigation = true;

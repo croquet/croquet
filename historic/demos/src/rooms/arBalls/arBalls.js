@@ -245,7 +245,7 @@ class RandomlyColoringGroupElementView extends GroupElementView {
 }
 
 export default function initARBalls() {
-    // called as part of installing the initial Island
+    // called as part of installing the initial VirtualMachine
     const room = Room.create();
     room.addElementManipulators = false;
 
