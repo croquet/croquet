@@ -316,7 +316,7 @@ export default class Controller {
         }
         // gather additional properties that are hashed as part of deriving session ID
         const params = {};
-        for (const key of [ 'tps', 'hashOverride' ]) {
+        for (const key of [ 'hashOverride' ]) {
             if (key in urlOptions) params[key] = urlOptions[key];
             else if (key in sessionSpec) params[key] = sessionSpec[key];
         }
