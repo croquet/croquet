@@ -4,6 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest
 
+* 1.0.5-4 verify apiKey on join, unique sessionId via developerId
 * 1.0.5-3 fix data API for regional buckets
 * 1.0.5-2 island => vitual machine (ISLAND => CROQUETVM)
 * 1.0.5-1 use dev-sign func if dev flag
