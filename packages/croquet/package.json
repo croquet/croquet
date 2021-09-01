@@ -1,7 +1,7 @@
 {
   "name": "@croquet/croquet",
-  "version": "1.0.5-2",
-  "description": "Live Collaboration for Web Apps without Server Code",
+  "version": "1.0.5-3",
+  "description": "Live Collaboration for Static Web Apps by Running Server Code in Client",
   "keywords": [
     "croquet",
     "multiplayer",
