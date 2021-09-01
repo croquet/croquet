@@ -4,24 +4,19 @@ import Base64 from "crypto-js/enc-base64";
 import SHA256 from "crypto-js/sha256";
 import urlOptions from "@croquet/util/urlOptions";
 import VirtualMachine from "./vm";
-import { sessionProps } from "./controller";
+import { sessionProps, OLD_DATA_SERVER } from "./controller";
 
 
-const VERSION = '2';
+const VERSION = '3';
 
 const DATAHANDLE_HASH = Symbol("hash");
 const DATAHANDLE_KEY = Symbol("key");
-const DATAHANDLE_PATH = Symbol("path");
+const DATAHANDLE_URL = Symbol("url");
 
 const HandleCache = new Map();      // map hash => handle
 
 function debug(what) {
     return urlOptions.has("debug", what, false);
-}
-
-function serverPath(path, hash) {
-    if (!path) return `sessiondata/${hash}`;              // deprecated
-    return `apps/${path}/data/${hash}`;
 }
 
 function hashFromUrl(url) {
@@ -56,14 +51,11 @@ export default class DataHandle {
         }
         if (VirtualMachine.hasCurrent()) throw Error("Croquet.Data.store() called from Model code");
         const  { appId, persistentId, uploadEncrypted } = sessionProps(sessionId);
-        if (!appId) {
-            console.warn("Deprecated: Croquet.Data API used without declaring appId in Croquet.Session.join()");
-        }
         const key = WordArray.random(32).toString(Base64);
-        const path = appId && `${appId}/${persistentId}`;
-        const url = await uploadEncrypted({ path: serverPath(path, "%HASH%"), content: data, key, keep, debug: debug("data"), what: "shared data" });
+        const path = `apps/${appId}/${persistentId}/data/"%HASH%"`;
+        const url = await uploadEncrypted({ path, content: data, key, keep, debug: debug("data"), what: "shared data" });
         const hash = hashFromUrl(url);
-        return new DataHandle(hash, key, path);
+        return new DataHandle(hash, key, url);
 
         // TODO: publish events and handle in vm to track assets even if user code fails to do so
         // publish(sessionId, "data-storing", handle);
@@ -82,15 +74,12 @@ export default class DataHandle {
             handle = sessionId;
         }
         if (VirtualMachine.hasCurrent()) throw Error("Croquet.Data.fetch() called from Model code");
-        const  { appId, downloadEncrypted } = sessionProps(sessionId);
-        if (!appId) {
-            console.warn("Deprecated: Croquet.Data API used without declaring appId in Croquet.Session.join()");
-        }
+        const  { downloadEncrypted } = sessionProps(sessionId);
         const hash = handle && handle[DATAHANDLE_HASH];
         const key = handle && handle[DATAHANDLE_KEY];
-        const path = handle && handle[DATAHANDLE_PATH];
-        if (typeof hash !== "string" ||typeof key !== "string") throw Error("Croquet.Data.fetch() called with invalid handle");
-        return downloadEncrypted({ path: serverPath(path, hash), key, debug: debug("data"), what: "shared data" });
+        const url = handle && handle[DATAHANDLE_URL];
+        if (typeof hash !== "string" || typeof key !== "string" || typeof url !== "string" ) throw Error("Croquet.Data.fetch() called with invalid handle");
+        return downloadEncrypted({ url, key, debug: debug("data"), what: "shared data" });
     }
 
     /**
@@ -118,27 +107,34 @@ export default class DataHandle {
     /** @private */
     static fromId(id) {
         const version = id.slice(0, 1);
+        let hash, key, url, path;
         switch (version) {
-            case '0': {
-                const hash = id.slice(1, 1 + 43);
-                const key = id.slice(1 + 43);
-                return new this(hash, key);
-            }
-            case '1': {
-                const hash = id.slice(1, 1 + 43);
-                const key = id.slice(1 + 43, 1 + 43 + 43) + '=';
-                const path = id.slice(1 + 43 + 43);
-                return new this(hash, key, path);
-            }
-            case '2': {
-                const hash = id.slice(1, 1 + 43);
-                const key = fromBase64Url(id.slice(1 + 43, 1 + 43 + 43));
-                const path = scramble(key, atob(fromBase64Url(id.slice(1 + 43 + 43))));
-                return new this(hash, key, path);
-            }
+            case '0':
+                hash = id.slice(1, 1 + 43);
+                key = id.slice(1 + 43);
+                url = `${OLD_DATA_SERVER}/sessiondata/${hash}`;
+                break;
+            case '1':
+                hash = id.slice(1, 1 + 43);
+                key = id.slice(1 + 43, 1 + 43 + 43) + '=';
+                path = id.slice(1 + 43 + 43);
+                url = `${OLD_DATA_SERVER}/apps/${path}/data/${hash}`;
+                break;
+            case '2':
+                hash = id.slice(1, 1 + 43);
+                key = fromBase64Url(id.slice(1 + 43, 1 + 43 + 43));
+                path = scramble(key, atob(fromBase64Url(id.slice(1 + 43 + 43))));
+                url = `${OLD_DATA_SERVER}/apps/${path}/data/${hash}`;
+                break;
+            case '3':
+                key = fromBase64Url(id.slice(1, 1 + 43));
+                url = scramble(key, atob(fromBase64Url(id.slice(1 + 43))));
+                hash = url.slice(-43);
+                break;
             default:
-                throw Error(`Croquet.Data expected handle v${VERSION} got v${version}`);
+                throw Error(`Croquet.Data expected handle v0-v${VERSION} got v${version}`);
         }
+        return new this(hash, key, url);
     }
 
     /** @private */
@@ -146,25 +142,26 @@ export default class DataHandle {
         if (!handle) return '';
         const hash = handle[DATAHANDLE_HASH];
         const key = handle[DATAHANDLE_KEY];
-        const path = handle[DATAHANDLE_PATH];
-        if (!path) return `0${hash}${key}`; // deprecated
+        const url = handle[DATAHANDLE_URL];
+        if (url.slice(-43) !== hash) throw Error("Croquet Data: malformed URL");
         // key is plain Base64, make it url-safe
         const encodedKey = toBase64Url(key);
         // the only reason for obfuscation here is so devs do not rely on any parts of the id
-        const encodedPath = toBase64Url(btoa(scramble(key, path)));
-        return `${VERSION}${hash}${encodedKey}${encodedPath}`;
+        const encodedUrl = toBase64Url(btoa(scramble(key, url)));
+        return `${VERSION}${encodedKey}${encodedUrl}`;
     }
 
-    constructor(hash, key, path) {
+    constructor(hash, key, url) {
         const existing = HandleCache.get(hash);
         if (existing) {
             if (debug("data")) console.log(`Croquet.Data: using cached handle for ${hash}`);
             return existing;
         }
+        if (url.slice(-43) !== hash) throw Error("Croquet Data: malformed URL");
         // stored under Symbol key to be invisible to user code
         Object.defineProperty(this, DATAHANDLE_HASH, { value: hash });
         Object.defineProperty(this, DATAHANDLE_KEY, { value: key });
-        if (path) Object.defineProperty(this, DATAHANDLE_PATH, { value: path });      // non-path is deprecated
+        Object.defineProperty(this, DATAHANDLE_URL, { value: url });
         HandleCache.set(hash, this);
         if (debug("data")) console.log(`Croquet.Data: created new handle for ${hash}`);
     }

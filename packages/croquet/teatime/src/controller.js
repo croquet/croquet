@@ -53,10 +53,12 @@ const DEV_DEFAULT_REFLECTOR = "wss://croquet.io/reflector-dev/dev";
 const CLOUDFLARE_REFLECTOR = "wss://croquet.network/reflector/";
 const DEV_CLOUDFLARE_REFLECTOR = "wss://croquet.network/reflector/dev/";
 
-const DEFAULT_FILE_SERVER = "https://files.croquet.io";     // all downloads, and signed uploads
-const UNAUTH_FILE_SERVER = "https://croquet.io/files/v1";   // uploads without apiKey
+const OLD_UPLOAD_SERVER = "https://croquet.io/files/v1";    // for uploads without apiKey (unused)
+const OLD_DOWNLOAD_SERVER = "https://files.croquet.io";     // downloads from old upload server (rewritten from old upload url)
 const DEFAULT_SIGN_SERVER = "https://api.croquet.io/sign";  // get signed url for uploads with apiKey
 const DEV_SIGN_SERVER = "https://api.croquet.io/dev/sign";  // get signed url for uploads with apiKey
+
+export const OLD_DATA_SERVER = OLD_DOWNLOAD_SERVER;
 
 let DEBUG = null;
 
@@ -561,15 +563,11 @@ export default class Controller {
     }
 
     uploadServer() {
-        if (this.sessionSpec.apiKey) return DEBUG.reflector ? DEV_SIGN_SERVER : DEFAULT_SIGN_SERVER;
-        return this.overrideServer(UNAUTH_FILE_SERVER);
-    }
-
-    downloadServer() {
-        return this.overrideServer(DEFAULT_FILE_SERVER);
-    }
-
-    overrideServer(url) {
+        // normal case with API keey
+        let url = DEBUG.reflector ? DEV_SIGN_SERVER : DEFAULT_SIGN_SERVER;
+        // we should always have an apiKey, just keeping the code for now
+        if (!this.sessionSpec.apiKey) url = OLD_UPLOAD_SERVER;
+        // still allow overrides (untested recently)
         if (typeof urlOptions.files === "string") {
             url = urlOptions.files;
             if (url.endsWith('/')) url = url.slice(0, -1);
@@ -620,10 +618,9 @@ export default class Controller {
         }
     }
 
-    async downloadEncrypted({url, path, gzip, key, debug, json, what}) {
+    async downloadEncrypted({url, gzip, key, debug, json, what}) {
         // TODO: move to worker
-        if (!url) url = `${this.downloadServer()}/${path}`;
-        else if (url.startsWith(UNAUTH_FILE_SERVER)) url = url.replace(UNAUTH_FILE_SERVER, DEFAULT_FILE_SERVER);
+        if (url.startsWith(OLD_UPLOAD_SERVER)) url = url.replace(OLD_UPLOAD_SERVER, OLD_DOWNLOAD_SERVER);
         let timer = Date.now();
         const response = await fetch(url, {
             method: "GET",
