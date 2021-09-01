@@ -11,7 +11,7 @@ import pako from "pako"; // gzip-aware compressor
 import { Stats } from "@croquet/util/stats";
 import urlOptions from "@croquet/util/urlOptions";
 import { App, displayStatus, displayError, displayAppError } from "@croquet/util/html";
-import { hashSessionAndCode, hashString } from "@croquet/util/hashing";
+import { hashNameAndOptions, hashSessionAndCode, hashString } from "@croquet/util/hashing";
 import { inViewRealm } from "./realms";
 import { viewDomain } from "./domain";
 import VirtualMachine, { Message, inSequence } from "./vm";
@@ -307,7 +307,7 @@ export default class Controller {
      */
     async initFromSessionSpec(sessionSpec) {
         // If we add more options here, add them to SESSION_PARAMS in session.js
-        const { name: n, optionsFromUrl, password, appId, viewIdDebugSuffix } = sessionSpec;
+        const { name: n, optionsFromUrl, password, appId, apiKey, viewIdDebugSuffix } = sessionSpec;
         const name = appId ? `${appId}/${n}` : n;
         if (viewIdDebugSuffix) this.viewId = this.viewId.replace(/_.*$/, '') + "_" + encodeURIComponent(("" + viewIdDebugSuffix).slice(0, 16))
             .replace(/[^a-z0-9]/ig, c => `_${c === '%' ? '' : c.charCodeAt(0).toString(16).toUpperCase()}`); // ensure only a-z0-9_ in suffix
@@ -323,7 +323,9 @@ export default class Controller {
             else if (key in sessionSpec) params[key] = sessionSpec[key];
         }
         this.key = PBKDF2(password, "", { keySize: 256/32 });
-        const { id, persistentId, codeHash, computedCodeHash } = await hashSessionAndCode(name, options, params, SDK_VERSION);
+        const persistentId = await hashNameAndOptions(name, options);
+        const developerId = await this.verifyApiKey(apiKey, appId, persistentId);
+        const { id, codeHash, computedCodeHash } = await hashSessionAndCode(persistentId, developerId, params, SDK_VERSION);
         this.tove = await this.encrypt(id);
         if (DEBUG.session) console.log(`Croquet session "${name}":
         sessionId=${id}${appId ? `
@@ -337,7 +339,7 @@ export default class Controller {
         this.eventHistoryLimit = this.eventRateLimit; // warn user if this many sends recorded in under a second
         this.eventMaxBundles = this.eventRateLimit; // disconnect app if more than this many message bundles are waiting
 
-        this.sessionSpec = { ...sessionSpec, options, name, id, persistentId, codeHash, computedCodeHash }; // june 2021: added id for easy access from establishSession
+        this.sessionSpec = { ...sessionSpec, options, name, id, persistentId, developerId, codeHash, computedCodeHash };
 
         const { msPerTick, multiplier } = this.getTickAndMultiplier();
         this.msPerTick = msPerTick;
@@ -365,6 +367,25 @@ export default class Controller {
         this.checkForConnection(false); // ensure connected unless we're blocked (e.g., in dormant state)
         if (DEBUG.session) console.log(id, "waiting for SYNC");
         await joined; // resolved in SYNC after installing the vm and replaying any messages
+    }
+
+    /** fetch developerId from sign function via meta protocol */
+    async verifyApiKey(apiKey, appId, persistentId) {
+        const url = DEBUG.reflector ? DEV_SIGN_SERVER : DEFAULT_SIGN_SERVER;
+        const response = await fetch(`${url}?meta=verify`, {
+            method: "GET",
+            mode: "cors",
+            headers: {
+                "X-Croquet-Auth": apiKey,
+                "X-Croquet-App": appId,
+                "X-Croquet-Id": persistentId,
+            },
+            referrer: App.referrerURL(),
+        });
+        const { error, developerId } = await response.json();
+        if (error) throw Error(`Croquet: Verifying API key: ${error}`);
+        if (DEBUG.session) console.log(`Croquet: verified API key`);
+        return developerId;
     }
 
     lastKnownTime(vmOrSnapshot) { return Math.max(vmOrSnapshot.time, vmOrSnapshot.externalTime); }

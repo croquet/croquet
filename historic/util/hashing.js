@@ -101,18 +101,17 @@ export function addConstantsHash(constants) {
     });
 }
 
-async function persistentHash(name, options) {
-    return hashString(name + stableStringify(options));
+/** generate persistentId for the vm */
+export async function hashNameAndOptions(appIdAndName, options) {
+    if (!window.crypto || !window.crypto.subtle || typeof window.crypto.subtle.digest !== "function") {
+        throw Error(`Croquet: Crypto API not available.\nPlease access this page via https or localhost.`);
+    }
+    return hashString(appIdAndName + stableStringify(options));
 }
 
 const logged = new Set();
 
-export async function hashSessionAndCode(name, options, params, sdk_version) {
-    if (!window.crypto || !window.crypto.subtle || typeof window.crypto.subtle.digest !== "function") {
-        throw Error(`Croquet: Crypto API not available.\nPlease access this page via https or localhost.`);
-    }
-    /** identifies the vm (only true if name is unique, i.e., appId was provided) */
-    const persistentId = await persistentHash(name, options);
+export async function hashSessionAndCode(persistentId, developerId, params, sdk_version) {
     // codeHashes are from registered user models and constants (in hashPromises).
     // jul 2021: note that if multiple sessions are loaded in the same tab, *all*
     // sessions' models and constants registered up to this point will be taken into
@@ -138,7 +137,7 @@ export async function hashSessionAndCode(name, options, params, sdk_version) {
     const { hashOverride, ...effectiveParams } = params;
     const effectiveCodeHash = hashOverride || computedCodeHash;
     /** identifies the session */
-    const id = await hashString(persistentId + stableStringify(effectiveParams) + effectiveCodeHash);
+    const id = await hashString(persistentId + '|' + developerId + stableStringify(effectiveParams) + effectiveCodeHash);
     // log all hashes if debug=hashing
     if (debugHashing() && !logged.has(id)) {
         const charset = [...document.getElementsByTagName('meta')].find(el => el.getAttribute('charset'));

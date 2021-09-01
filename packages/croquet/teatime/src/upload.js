@@ -67,8 +67,8 @@ onmessage = msg => {
             },
             referrer
         });
-        const { fault, read, write } = await response.json();
-        if (fault) throw Error(fault.faultstring);
+        const { error, read, write } = await response.json();
+        if (error) throw Error(error);
         if (debug) console.log(`${id} ${what} authorized in ${Date.now() - start}ms`);
         return { url: read, uploadUrl: write };
     }
