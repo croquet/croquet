@@ -3,20 +3,20 @@
   "version": "1.0.4",
   "description": "Croquet Client Documentation",
   "scripts": {
-    "start": "npm-watch",
-    "build": "jsdoc -c jsdoc.json -d build",
-    "watch": "npm-watch"
+    "start": "npx npm-watch",
+    "build": "../node_modules/.bin/jsdoc -c jsdoc.json -d build",
+    "watch": "npx npm-watch"
   },
   "watch": {
     "build": {
       "patterns": [
-          "README.md",
-          "../../teatime/index.js",
-          "../../teatime/src/model.js",
-          "../../teatime/src/view.js",
-          "../../teatime/src/session.js",
-          "tutorials",
-          "../template"
+        "README.md",
+        "../../teatime/index.js",
+        "../../teatime/src/model.js",
+        "../../teatime/src/view.js",
+        "../../teatime/src/session.js",
+        "tutorials",
+        "../template"
       ],
       "ignore": [
         "build"
