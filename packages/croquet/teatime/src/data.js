@@ -52,7 +52,7 @@ export default class DataHandle {
         if (VirtualMachine.hasCurrent()) throw Error("Croquet.Data.store() called from Model code");
         const  { appId, persistentId, uploadEncrypted } = sessionProps(sessionId);
         const key = WordArray.random(32).toString(Base64);
-        const path = `apps/${appId}/${persistentId}/data/"%HASH%"`;
+        const path = `apps/${appId}/${persistentId}/data/%HASH%`;
         const url = await uploadEncrypted({ path, content: data, key, keep, debug: debug("data"), what: "shared data" });
         const hash = hashFromUrl(url);
         return new DataHandle(hash, key, url);
