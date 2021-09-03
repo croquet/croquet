@@ -60,6 +60,7 @@ const LOCAL_CONFIG = "localWithStorage"; // or "local" to run without storage de
 const CLUSTER = fs.existsSync("/var/run/secrets/kubernetes.io") ? process.env.CLUSTER_NAME : LOCAL_CONFIG;
 const CLUSTER_LABEL = process.env.CLUSTER_LABEL || CLUSTER;
 const CLUSTER_IS_LOCAL = CLUSTER.startsWith("local");
+const IS_DEV = CLUSTER_IS_LOCAL || HOSTNAME.includes("-dev-");
 
 if (!CLUSTER) {
     // should have been injected to container via config map
@@ -125,6 +126,7 @@ REASON.RECONNECT = [4003, "please reconnect"];  // also used in cloudflare refle
 REASON.BAD_PROTOCOL = [4100, "outdated protocol"];
 REASON.BAD_APPID = [4101, "bad appId"];
 REASON.MALFORMED_MESSAGE = [4102, "malformed message"];
+REASON.BAD_APIKEY = [4103, "bad apiKey"];
 REASON.UNKNOWN_ERROR = [4109, "unknown error"];
 REASON.DORMANT = [4110, "dormant"]; // sent by client, will not display error
 REASON.NO_JOIN = [4121, "client never joined"];
@@ -359,6 +361,7 @@ function getTime(island, _reason) {
 function nonSavableProps() {
     return {
         lag: 0,              // aggregate ms lag in tick requests
+        apiKey: '',          // mandatory since 1.0
         clients: new Set(),  // connected web sockets
         usersJoined: [],     // the users who joined since last report
         usersLeft: [],       // the users who left since last report
@@ -425,7 +428,7 @@ function JOIN(client, args) {
     // the connection log filter matches on (" connection " OR " JOIN ")
     LOG(`${id}/${client.addr} receiving JOIN ${JSON.stringify(args)}`);
 
-    const { name, version, appId, user, location, heraldUrl, leaveDelay, dormantDelay, tove } = args;
+    const { name, version, apiKey, url, sdk, appId, user, location, heraldUrl, leaveDelay, dormantDelay, tove } = args;
     // islandId deprecated since 0.5.1, but old clients will send it rather than persistentId
     const persistentId = args.persistentId || args.islandId;
 
@@ -474,6 +477,23 @@ function JOIN(client, args) {
     island.heraldUrl = heraldUrl || '';
     island.leaveDelay = leaveDelay || 0;
     island.dormantDelay = dormantDelay; // only provided by clients since 0.5.1
+
+    // check API key
+    if (!apiKey) {
+        // old client - accept for now, but let them know
+        INFO(island, {
+            code: "MISSING_KEY",
+            msg: "Croquet versions before 1.0 will stop being supported soon. Please update your app now!",
+            options: { level: "warning" }
+        }, [client]);
+    } else if (apiKey !== island.apiKey) {
+        // first client, or joining with different key
+        island.apiKey = apiKey;
+        // this is a formality – the controller already checks the apiKey before sending join
+        // so we assume good intent and do not await result, to not delay SYNC unnecessarily
+        verifyApiKeyInBackground(apiKey, url, appId, persistentId, id, sdk, client);
+        // will disconnect everyone with error if failed
+    }
 
     client.island = island;
 
@@ -990,9 +1010,9 @@ function REQU(island) {
 }
 
 /** send INFO to all clients */
-function INFO(island, args) {
+function INFO(island, args, clients = island.clients) {
     const msg = JSON.stringify({ id: island.id, action: 'INFO', args });
-    island.clients.forEach(client => client.safeSend(msg));
+    clients.forEach(client => client.safeSend(msg));
 }
 
 /** client is requesting ticks for an island
@@ -1062,6 +1082,12 @@ async function heraldUsers(island, all, joined, left) {
             options: { level: "error" }
         });
     }
+}
+
+// shut down session (presumably because of unrecoverable error)
+function disconnectAllAndDeleteIsland(island, reason) {
+    for (const client of island.clients) client.safeClose(...reason);
+    provisionallyDeleteIsland(island);
 }
 
 // impose a delay on island deletion, in case clients are only going away briefly
@@ -1391,6 +1417,46 @@ server.on('connection', (client, req) => {
 
     client.on('error', err => ERROR(`Client Socket Error: ${err.message}`));
 });
+
+
+const DEFAULT_SIGN_SERVER = "https://api.croquet.io/sign";
+const DEV_SIGN_SERVER = "https://api.croquet.io/dev/sign";
+const API_SERVER_URL = IS_DEV ? DEV_SIGN_SERVER : DEFAULT_SIGN_SERVER;
+
+async function verifyApiKeyInBackground(apiKey, url, appId, persistentId, id, sdk, client) {
+    try {
+        const response = await fetch(`${API_SERVER_URL}/reflector/${CLUSTER}/${HOSTNAME}?meta=verify`, {
+            headers: {
+                "X-Croquet-Auth": apiKey,
+                "X-Croquet-App": appId,
+                "X-Croquet-Id": persistentId,
+                "X-Croquet-Session": id,
+                "X-Croquet-Version": sdk,
+                "Referrer": url,
+            },
+        });
+        // we don't reject clients because of HTTP Errors
+        if (!response.ok) {
+            throw Error(`HTTP Error ${response.status} ${response.statusText} ${await response.text()}`);
+        }
+        // even key-not-found is 200 OK, but sets JSON error property
+        const { developerId, error } = await response.json();
+        const island = ALL_ISLANDS.get(id); // fetch island now, in case it went away during await
+        if (developerId) {
+            LOG(`${id}/${client.addr} API key verified: ${developerId}`);
+        } else if (error && island) {
+            ERROR(`${id}/${client.addr} API key verification failed: ${error}`);
+            INFO(island, {
+                code: "KEY_VERIFICATION_FAILED",
+                msg: error,
+                options: { level: "error" }
+                });
+            disconnectAllAndDeleteIsland(island, REASON.BAD_APIKEY);
+        }
+    } catch (err) {
+        ERROR(`${id}/${client.addr} error verifying API key: ${err.message}`);
+    }
+}
 
 /** fetch a JSON-encoded object from our storage bucket */
 async function fetchJSON(filename) {
