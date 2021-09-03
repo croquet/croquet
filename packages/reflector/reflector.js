@@ -151,7 +151,7 @@ const webServer = http.createServer( async (req, res) => {
         return res.end(body);
     }
     if (req.url === '/sessions') {
-        const body = [...ALL_ISLANDS.values()].map(({id, clients, name, url}) => `${id} ${clients.size} ${name} ${url}\n`).join('');
+        const body = [...ALL_ISLANDS.values()].map(({id, clients, appId, name}) => `${id} ${clients.size} ${appId || name}\n`).join('');
         res.writeHead(200, {
             'Server': SERVER_HEADER,
             'Content-Length': body.length,
