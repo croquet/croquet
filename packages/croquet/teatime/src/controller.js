@@ -372,7 +372,7 @@ export default class Controller {
     /** fetch developerId from sign function via meta protocol */
     async verifyApiKey(apiKey, appId, persistentId) {
         const url = DEBUG.reflector ? DEV_SIGN_SERVER : DEFAULT_SIGN_SERVER;
-        const response = await fetch(`${url}?meta=verify`, {
+        const response = await fetch(`${url}/join?meta=verify`, {
             method: "GET",
             mode: "cors",
             headers: {
