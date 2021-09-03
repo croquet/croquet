@@ -10,7 +10,7 @@ This is a private summary of changes. The released changes are in the public [RE
 * 1.0.5-2 island => virtual machine (ISLAND => CROQUETVM)
 * 1.0.5-1 use dev-sign func if dev flag
 
-# 2021-08-24: 1.0.4
+# 2021-08-24: 1.0.4 a10c78054d3a75455362e3ffbc6be881052353ef
 
 * 1.0.4 stricter session parameter checks
 * 1.0.3 fix latency calculation
