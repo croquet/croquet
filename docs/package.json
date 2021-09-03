@@ -4,7 +4,8 @@
   "description": "Croquet Client Documentation",
   "scripts": {
     "start": "npx npm-watch",
-    "build": "../node_modules/.bin/jsdoc -c jsdoc.json -d build",
+    "build": "../node_modules/.bin/jsdoc -c jsdoc.json",
+    "build-win": "..\\node_modules\\.bin\\jsdoc -c jsdoc.json",
     "watch": "npx npm-watch"
   },
   "watch": {
