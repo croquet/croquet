@@ -491,7 +491,7 @@ function JOIN(client, args) {
         if (!specialCustomer) INFO(island, {
             code: "MISSING_KEY",
             msg: "Croquet versions before 1.0 will stop being supported soon. Please update your app now! croquet.io/docs/croquet",
-            options: { level: "warning" }
+            options: { level: "warning", only: "once" }
         }, [client]);
     } else if (apiKey !== island.apiKey) {
         // first client, or joining with different key
@@ -1456,7 +1456,7 @@ async function verifyApiKeyInBackground(apiKey, url, appId, persistentId, id, sd
             INFO(island, {
                 code: "KEY_VERIFICATION_FAILED",
                 msg: error,
-                options: { level: "error" }
+                options: { level: "error", only: "once" }
                 });
             disconnectAllAndDeleteIsland(island, REASON.BAD_APIKEY);
         }
