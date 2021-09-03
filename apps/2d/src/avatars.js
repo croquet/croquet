@@ -268,9 +268,10 @@ async function go() {
     const bounce = +new URL(window.location).searchParams.get("bounce");
 
     const session = await Session.join({
+        apiKey: "2DT9VCoCKtvXMKkBGZXNLrUEoZMn48ojXPC8XFAuuO",
         appId: "io.croquet.examples.avatars",
         name: App.autoSession(),
-        // password: App.autoPassword(),
+        password: "none",
         model: Shapes,
         view: ShapesView,
         tps: TPS,

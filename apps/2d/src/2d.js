@@ -250,9 +250,10 @@ async function go() {
         SessionButton.onclick = null;
 
         session = await Session.join({
-            appId: "io.croquet.examples._2d",
+            apiKey: "2DT9VCoCKtvXMKkBGZXNLrUEoZMn48ojXPC8XFAuuO",
+            appId: "io.croquet.examples.2d",
             name: App.autoSession(),
-            // password: App.autoPassword(),
+            password: "none",
             model: Shapes,
             view: ShapesView,
             tps: TPS,
