@@ -59,6 +59,7 @@ const HOSTIP = Object.values(os.networkInterfaces()).flat().filter(addr => !addr
 const LOCAL_CONFIG = "localWithStorage"; // or "local" to run without storage dependency
 const CLUSTER = fs.existsSync("/var/run/secrets/kubernetes.io") ? process.env.CLUSTER_NAME : LOCAL_CONFIG;
 const CLUSTER_LABEL = process.env.CLUSTER_LABEL || CLUSTER;
+const CLUSTER_IS_LOCAL = CLUSTER.startsWith("local");
 
 if (!CLUSTER) {
     // should have been injected to container via config map
@@ -66,7 +67,7 @@ if (!CLUSTER) {
     process.exit(1);
 }
 
-const DISCONNECT_UNRESPONSIVE_CLIENTS = !CLUSTER.startsWith("local");
+const DISCONNECT_UNRESPONSIVE_CLIENTS = CLUSTER_IS_LOCAL;
 const CHECK_INTERVAL = 5000;        // how often to checkForActivity
 const PING_INTERVAL = 5000;         // while inactive, send pings at this rate
 const SNAP_TIMEOUT = 30000;         // if no SNAP received after waiting this number of ms, disconnect
@@ -76,7 +77,7 @@ const DISPATCH_RECORD_RETENTION = 5000; // how long we must wait to delete a dis
 const LATE_DISPATCH_DELAY = 1000;  // how long to allow for clients arriving from the dispatcher even though the session has been unregistered
 
 function logtime() {
-    if (!CLUSTER.startsWith("local")) return "";
+    if (CLUSTER_IS_LOCAL) return "";
     const d = new Date();
     const dd = new Date(d - d.getTimezoneOffset() * 60 * 1000);
     return dd.toISOString().replace(/.*T/, "").replace("Z", " ");
@@ -85,7 +86,7 @@ function LOG( ...args) { console.log(`${logtime()}Reflector-${VERSION}(${CLUSTER
 function WARN(...args) { console.warn(`${logtime()}Reflector-${VERSION}(${CLUSTER}:${HOSTIP}):`, ...args); }
 function ERROR(...args) { console.error(`${logtime()}Reflector-${VERSION}(${CLUSTER}:${HOSTIP}):`, ...args); }
 function DEBUG(...args) { if (debugLogs) LOG(...args); }
-function LOCAL_DEBUG(...args) { if (debugLogs && CLUSTER.startsWith("local")) LOG(...args); }
+function LOCAL_DEBUG(...args) { if (debugLogs && CLUSTER_IS_LOCAL) LOG(...args); }
 
 
 const ARGS = {
@@ -290,7 +291,7 @@ process.on('unhandledRejection', (reason, promise) => {
 
 // start server
 startServer();
-if (CLUSTER.startsWith("local")) watchStats();
+if (CLUSTER_IS_LOCAL) watchStats();
 
 /**
  * @typedef ID - A random 128 bit hex ID
