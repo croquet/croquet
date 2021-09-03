@@ -5,7 +5,6 @@
   "scripts": {
     "start": "npx npm-watch",
     "build": "../node_modules/.bin/jsdoc -c jsdoc.json",
-    "build-win": "..\\node_modules\\.bin\\jsdoc -c jsdoc.json",
     "watch": "npx npm-watch"
   },
   "watch": {
