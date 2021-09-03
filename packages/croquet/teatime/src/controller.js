@@ -1062,24 +1062,23 @@ export default class Controller {
         if (DEBUG.session) console.log(this.id, 'Controller sending JOIN');
 
         const { tick, delay } = this.getTickAndMultiplier();
-        const { name, codeHash, appId, apiKey, persistentId, heraldUrl, rejoinLimit, autoSleep, computedCodeHash } = this.sessionSpec;
+        const { name, codeHash, appId, apiKey, persistentId, developerId, heraldUrl, rejoinLimit, autoSleep, computedCodeHash } = this.sessionSpec;
 
         const args = {
             name,                   // for debugging only
             apiKey,                 // undefined in old clients
+            appId,                  // for sign func
+            persistentId,           // for sign func
+            url: App.referrerURL(), // for sign func
+            sdk: CROQUET_VERSION,   // for sign func
+            developerId,            // for logging
             version: VERSION,       // protocol version
             user: this.viewId,      // see vm.generateJoinExit() for getting location data
             ticks: { tick, delay },
             dormantDelay: autoSleep, // not used yet, but tells reflector this client is >= 0.5.1
             tove: this.tove,        // an encrypted message the reflector will send to every client in SYNC
-            url: App.referrerURL(), // for debugging only
             codeHash,               // for debugging only
-            sdk: CROQUET_VERSION,   // for debugging only
         };
-        if (appId) Object.assign(args, {
-            appId,                  // identifies developer/app
-            persistentId,           // identifies vm across sessions
-        });
         if (heraldUrl) Object.assign(args, {
             heraldUrl,              // url to receive POST for join/leave events
         });
