@@ -435,6 +435,7 @@ window.document.addEventListener("wheel", evt => evt.preventDefault(), { passive
 App.messages = true;
 App.makeWidgetDock();
 const joinArgs = {
+    apiKey: '2DT9VCoCKtvXMKkBGZXNLrUEoZMn48ojXPC8XFAuuO',
     appId: 'io.croquet.pix',
     name: App.autoSession(),
     password: App.autoPassword({keyless: true}),
