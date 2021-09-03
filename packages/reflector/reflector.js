@@ -10,6 +10,12 @@ const fetch = require('node-fetch');
 const prometheus = require('prom-client');
 const { Storage } = require('@google-cloud/storage');
 
+// do not show pre 1.0 warning if these strings appear in session name or url
+const SPECIAL_CUSTOMERS = [
+    "queue",
+    "mathgenie",
+];
+
 // debugging (should read env vars)
 const collectRawSocketStats = false;
 const debugLogs = true;
@@ -480,10 +486,11 @@ function JOIN(client, args) {
 
     // check API key
     if (!apiKey) {
-        // old client - accept for now, but let them know
-        INFO(island, {
+        // old client: accept for now, but let them know. Unless they're special.
+        const specialCustomer = SPECIAL_CUSTOMERS.find(value => url.includes(value) || name.includes(value));
+        if (!specialCustomer) INFO(island, {
             code: "MISSING_KEY",
-            msg: "Croquet versions before 1.0 will stop being supported soon. Please update your app now!",
+            msg: "Croquet versions before 1.0 will stop being supported soon. Please update your app now! croquet.io/docs/croquet",
             options: { level: "warning" }
         }, [client]);
     } else if (apiKey !== island.apiKey) {
