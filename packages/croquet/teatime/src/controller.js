@@ -324,7 +324,7 @@ export default class Controller {
         }
         this.key = PBKDF2(password, "", { keySize: 256/32 });
         const persistentId = await hashNameAndOptions(name, options);
-        const developerId = await this.verifyApiKey(apiKey, appId, persistentId);
+        const { developerId, token } = await this.verifyApiKey(apiKey, appId, persistentId);
         const { id, codeHash, computedCodeHash } = await hashSessionAndCode(persistentId, developerId, params, CROQUET_VERSION);
         this.tove = await this.encrypt(id);
         if (DEBUG.session) console.log(`Croquet session "${name}":
@@ -339,7 +339,7 @@ export default class Controller {
         this.eventHistoryLimit = this.eventRateLimit; // warn user if this many sends recorded in under a second
         this.eventMaxBundles = this.eventRateLimit; // disconnect app if more than this many message bundles are waiting
 
-        this.sessionSpec = { ...sessionSpec, options, name, id, persistentId, developerId, codeHash, computedCodeHash };
+        this.sessionSpec = { ...sessionSpec, options, name, id, persistentId, developerId, token, codeHash, computedCodeHash };
 
         const { msPerTick, multiplier } = this.getTickAndMultiplier();
         this.msPerTick = msPerTick;
@@ -372,7 +372,7 @@ export default class Controller {
     /** fetch developerId from sign function via meta protocol */
     async verifyApiKey(apiKey, appId, persistentId) {
         const url = DEBUG.reflector ? DEV_SIGN_SERVER : DEFAULT_SIGN_SERVER;
-        const response = await fetch(`${url}/join?meta=verify`, {
+        const response = await fetch(`${url}/join?meta=login`, {
             method: "GET",
             mode: "cors",
             headers: {
@@ -383,10 +383,10 @@ export default class Controller {
             },
             referrer: App.referrerURL(),
         });
-        const { error, developerId } = await response.json();
+        const { error, developerId, token } = await response.json();
         if (error) throw Error(`Croquet: Verifying API key: ${error}`);
         if (DEBUG.session) console.log(`Croquet: verified API key`);
-        return developerId;
+        return { developerId, token };
     }
 
     lastKnownTime(vmOrSnapshot) { return Math.max(vmOrSnapshot.time, vmOrSnapshot.externalTime); }
@@ -1062,7 +1062,7 @@ export default class Controller {
         if (DEBUG.session) console.log(this.id, 'Controller sending JOIN');
 
         const { tick, delay } = this.getTickAndMultiplier();
-        const { name, codeHash, appId, apiKey, persistentId, developerId, heraldUrl, rejoinLimit, autoSleep, computedCodeHash } = this.sessionSpec;
+        const { name, codeHash, appId, apiKey, persistentId, developerId, token, heraldUrl, rejoinLimit, autoSleep, computedCodeHash } = this.sessionSpec;
 
         const args = {
             name,                   // for debugging only
@@ -1072,6 +1072,7 @@ export default class Controller {
             url: App.referrerURL(), // for sign func
             sdk: CROQUET_VERSION,   // for sign func
             developerId,            // for logging
+            token,                  // to prove the key was valid
             version: VERSION,       // protocol version
             user: this.viewId,      // see vm.generateJoinExit() for getting location data
             ticks: { tick, delay },
