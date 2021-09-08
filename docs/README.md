@@ -1,4 +1,4 @@
-_Croquet_ allows you to create **collaborative web** experiences without any server-side code, such as **multi-user apps** or **multi-player games**.
+Croquet allows you to create **collaborative web** experiences without any server-side code, such as **multi-user apps** or **multi-player games**.
 
 Scroll down for an **overview** of Croquet, and the [**Changelog**](#changelog).
 
@@ -11,7 +11,7 @@ Also, please review our [**Code of Conduct**](/conduct.html) and
 - [Quickstart](#quickstart)
 - [What is Croquet?](#what-is-croquet%3F)
 - [Main Concepts](#main-concepts)
-- [Creating a _Croquet_ App](#creating-a-croquet-app)
+- [Creating a Croquet App](#creating-a-croquet-app)
 - [Models](#models)
 - [Views](#views)
 - [Events](#events)
@@ -52,13 +52,13 @@ We frequently update Croquet so be sure to always use the latest (until we have 
 
 # What is Croquet?
 
-_Croquet_ is a synchronization system for multiuser digital experiences. It allows multiple users to work or play together within a single shared distributed environment, and it guarantees that this distributed environment will remain bit-identical for every user.
+Croquet is a synchronization system for multiuser digital experiences. It allows multiple users to work or play together within a single shared distributed environment, and it guarantees that this distributed environment will remain bit-identical for every user.
 
-This synchronization is largely invisible to the developer. Creating a _Croquet_ application does not require the developer to write any server-side or networking code. Applications are structured into a shared and a local part, but both parts are executed locally and developed using only client-side tools. The _Croquet_ library takes care of the rest.
+This synchronization is largely invisible to the developer. Creating a Croquet application does not require the developer to write any server-side or networking code. Applications are structured into a shared and a local part, but both parts are executed locally and developed using only client-side tools. The Croquet library takes care of the rest.
 
 # Main Concepts
 
-Every _Croquet_ application consists of two parts:
+Every Croquet application consists of two parts:
 
 - The **views** handle user input and output. They process all keyboard / mouse / touch events, and determine what is displayed on the screen.
 
@@ -66,17 +66,17 @@ Every _Croquet_ application consists of two parts:
 
 **Models are guaranteed to always be identical for all users.** However, the views are not. Different users might be running on different hardware platforms, or might display different representations of the models.
 
-When you launch a _Croquet_ application, you automatically join a shared **session**. As long as you're in the session, your models will be identical to the models of every other user in the session.
+When you launch a Croquet application, you automatically join a shared **session**. As long as you're in the session, your models will be identical to the models of every other user in the session.
 
 To maintain this synchronization, the models and the views communicate through **events**. When you publish an event from a view, it's mirrored to everyone else in your session, so everyone's models receive exactly the same event stream.
 
 This mirroring is handled by **reflectors**. Reflectors are stateless, public message-passing services located in the cloud.
 
-**Snapshots** are archived copies of all models in a session. _Croquet_ apps periodically take snapshots and save them to the cloud. When you join an existing session, you sync with the other users by loading one of these snapshots.
+**Snapshots** are archived copies of all models in a session. Croquet apps periodically take snapshots and save them to the cloud. When you join an existing session, you sync with the other users by loading one of these snapshots.
 
-# Creating a _Croquet_ App
+# Creating a Croquet App
 
-To create a new a _Croquet_ app, you define your own models and views. These classes inherit from the base classes {@link Model} and {@link View} in the `croquet` library.
+To create a new a Croquet app, you define your own models and views. These classes inherit from the base classes {@link Model} and {@link View} in the `croquet` library.
 
 A simple app often only has one model and one view. In that case, the view contains all your input and output code, and the model contains all your simulation code.
 
@@ -111,11 +111,11 @@ const name = Croquet.App.autoSession();
 const password = Croquet.App.autoPassword();
 Croquet.Session.join({apiKey, appId, name, password, model: MyModel, view: MyView});
 ```
-That's it. You don't need to worry about setting up a server, or writing special synchronization code. _Croquet_ handles all of that invisibly, allowing you to concentrate on what your app _does_.
+That's it. You don't need to worry about setting up a server, or writing special synchronization code. Croquet handles all of that invisibly, allowing you to concentrate on what your app _does_.
 
 # Models
 
-_Croquet_ models are a little different from normal JavaScript classes. For one thing, instead of having a constructor, they have an [`init()`]{@link Model#init} method. `init` only executes the _very first time_ the model is instantiated within a brand new session. If you join a session that's already in progress, your model will be initialized from a snapshot instead.
+Croquet models are a little different from normal JavaScript classes. For one thing, instead of having a constructor, they have an [`init()`]{@link Model#init} method. `init` only executes the _very first time_ the model is instantiated within a brand new session. If you join a session that's already in progress, your model will be initialized from a snapshot instead.
 
 ```
 class MyModel extends Croquet.Model {
@@ -126,7 +126,7 @@ class MyModel extends Croquet.Model {
 MyModel.register("MyModel");
 ```
 
-Also, every _Croquet_ model class needs to have its static [`register()`]{@link Model.register} method called after it is defined. This registers the model class with _Croquet's_ internal class database so it can be properly stored and retrieved when a snapshot is created.
+Also, every Croquet model class needs to have its static [`register()`]{@link Model.register} method called after it is defined. This registers the model class with _Croquet's_ internal class database so it can be properly stored and retrieved when a snapshot is created.
 
 If your application uses multiple models, you instantiate them by calling [`create()`]{@link Model.create} instead of `new`.
 
@@ -147,7 +147,7 @@ class MyView extends Croquet.View {
     }
 }
 ```
-This illustrates an important feature of _Croquet_: **A view can read directly from a model at any time.** A view doesn't need to receive an event from a model to update itself. It can just pull whatever data it needs directly from the model whenever it wants.  (Of course, a view must never _write_ directly to a model, because that would break synchronization.)
+This illustrates an important feature of Croquet: **A view can read directly from a model at any time.** A view doesn't need to receive an event from a model to update itself. It can just pull whatever data it needs directly from the model whenever it wants.  (Of course, a view must never _write_ directly to a model, because that would break synchronization.)
 
 The root view's [`update()`]{@link View#update} method is called every time the application window requests an animation frame (usually 60 times a second). This allows the view to continually refresh itself even if the models are updating more slowly. `update()` receives the local system time at the start of the frame as its argument.
 
@@ -180,7 +180,7 @@ Events can be used to communicate between models themselves or views or any comb
 
 **_Input events_ (published by a view and handled by a model) are mirrored by the reflector and sent to every replica of the model in your current session.**
 
-By mirroring view-to-model events through the reflector, _Croquet_ ensures that all replicas of the model stay in sync. All replicas of the model receive exactly the same stream of events in exactly the same order.
+By mirroring view-to-model events through the reflector, Croquet ensures that all replicas of the model stay in sync. All replicas of the model receive exactly the same stream of events in exactly the same order.
 
 **_Output events_ (published by a model and handled by a view) are generated by each replica simultaneously and do not require a reflector roundtrip. Typically they are queued and handled before each frame is rendered.**
 
@@ -211,7 +211,7 @@ Note that the ticks-per-second rate of the reflector is independent of the futur
 
 # Snapshots
 
-Snapshots are copies of the model that are saved to the cloud. When your _Croquet_ application is running, the reflector will periodically tell it to perform a snapshot.
+Snapshots are copies of the model that are saved to the cloud. When your Croquet application is running, the reflector will periodically tell it to perform a snapshot.
 
 Snapshots are used to synchronize other users when they join a session that's already in progress. But they also provide automatic save functionality. If you quit or reload while your application is running, it will automatically reload the last snapshot when the application restarts.
 

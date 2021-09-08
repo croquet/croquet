@@ -1,6 +1,6 @@
 Copyright © 2020 Croquet Corporation
 
-To create a _Croquet_ application, you need to define two classes that inherit from the base classes {@link Model} and {@link View} from the `croquet.js` library:
+To create a Croquet application, you need to define two classes that inherit from the base classes {@link Model} and {@link View} from the `croquet.js` library:
 
 ```
 class MyModel extends Croquet.Model {
@@ -20,7 +20,7 @@ class MyView extends Croquet.View {
 
 Your view will contain all your input and output code, and your model will contain all your simulation code.
 
-(Note that every time you define a new model subclass, you must `register("name")` it so that _Croquet_ knows it exists, and under which name to find its instances in a snapshot.)
+(Note that every time you define a new model subclass, you must `register("name")` it so that Croquet knows it exists, and under which name to find its instances in a snapshot.)
 
 ## Launching a session
 

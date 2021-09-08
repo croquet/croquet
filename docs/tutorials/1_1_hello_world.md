@@ -86,7 +86,7 @@ If you created a new Pen from scratch (not forking one of the tutorials here) an
 
 ## Writing a Croquet Application
 
-***Every _Croquet_ application consists of two parts:***
+***Every Croquet application consists of two parts:***
 
 - The **model** handles all calculation and simulation. This is where the actual work of the application takes place. The model is guaranteed to run bit identical on every instance of a session. The model is also where save / load happens.
 - The **view** handles user input and display output.

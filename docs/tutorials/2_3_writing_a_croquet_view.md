@@ -8,7 +8,7 @@ In order to update output quickly, the view has a reference to the model and can
 
 ## **The view must NEVER write directly to the model!**
 
-This is the **most important** rule of creating a stable _Croquet_ application. The view is given direct access to the model for efficiency, but in order for the local copy of the model to stay in synch with the remote copies of other users, _all changes to the model that originate in the view must be done through **events**_. That way they will be mirrored by the reflector to every user in the session.
+This is the **most important** rule of creating a stable Croquet application. The view is given direct access to the model for efficiency, but in order for the local copy of the model to stay in synch with the remote copies of other users, _all changes to the model that originate in the view must be done through **events**_. That way they will be mirrored by the reflector to every user in the session.
 
 ### Other good practices for writing views:
 
@@ -20,4 +20,4 @@ This is the **most important** rule of creating a stable _Croquet_ application. 
 
 **Don't reply to the model.** Avoid having the model send an event to the view that requires the view to send a "reply" event back. This will result in large cascades of events that will choke off normal execution.
 
-**Anticipate the model for immediate feedback.** Latency in _Croquet_ is low, but it's not zero. If you want your application to feel extremely responsive (for example, if the player is controlling a first-person avatar) drive the output directly from the input, then correct the output when you get the official simulation state from the updated model.
+**Anticipate the model for immediate feedback.** Latency in Croquet is low, but it's not zero. If you want your application to feel extremely responsive (for example, if the player is controlling a first-person avatar) drive the output directly from the input, then correct the output when you get the official simulation state from the updated model.

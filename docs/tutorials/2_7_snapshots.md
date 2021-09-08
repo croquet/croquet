@@ -1,6 +1,6 @@
 Copyright © 2020 Croquet Corporation
 
-Snapshots are copies of the model state that are saved to the cloud. When your _Croquet_ application is running, the reflector will periodically request one of the participants to perform a snapshot.
+Snapshots are copies of the model state that are saved to the cloud. When your Croquet application is running, the reflector will periodically request one of the participants to perform a snapshot.
 
 Snapshots provide automatic save functionality for your application. If you quit or reload while your application is running, it will automatically reload the last snapshot when the application restarts.
 
@@ -17,4 +17,4 @@ The combination of loading the last snapshot and replaying all the intervening e
 
 ## Snapshot Performance
 
-The snapshot code is currently unoptimized, so you may experience a performance hitch when the snapshot is taken. The _Croquet_ development team is working to resolve this issue and make snapshots invisible to both the user and developer, but for the time being you may see your application occasionally pause if your model is very large.
+The snapshot code is currently unoptimized, so you may experience a performance hitch when the snapshot is taken. The Croquet development team is working to resolve this issue and make snapshots invisible to both the user and developer, but for the time being you may see your application occasionally pause if your model is very large.
