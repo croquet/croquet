@@ -2044,10 +2044,11 @@ class Connection {
             catch (e) { this.closeConnectionWithError('receive', e); }
         } else switch (action) {
             case 'PONG': {
+                if (DEBUG.pong) console.log('PONG after', Date.now() - args, 'ms');
                 if (this.pongHook) {
                     try { this.pongHook(args); }
                     catch (e) { console.error(e); }
-                } else if (DEBUG.pong) console.log('PONG after', Date.now() - args, 'ms');
+                }
                 break;
                 }
             default: console.warn('Unknown action', action);
