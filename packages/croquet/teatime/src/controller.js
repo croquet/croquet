@@ -2043,8 +2043,13 @@ class Connection {
             try { this.controller.receive(action, args); }
             catch (e) { this.closeConnectionWithError('receive', e); }
         } else switch (action) {
-            case 'PONG': if (DEBUG.pong) console.log('PONG after', Date.now() - args, 'ms');
+            case 'PONG': {
+                if (this.pongHook) {
+                    try { this.pongHook(args); }
+                    catch (e) { console.error(e); }
+                } else if (DEBUG.pong) console.log('PONG after', Date.now() - args, 'ms');
                 break;
+                }
             default: console.warn('Unknown action', action);
         }
     }
@@ -2100,6 +2105,11 @@ class Connection {
         // which causes some router/computer combinations to buffer packets instead
         // of delivering them immediately (observed on AT&T Fiber + Mac)
         else if (now - this.lastReceived > this.missingTickThreshold) this.PULSE(now);
+    }
+
+    PING() {
+        if (!this.connected) return;
+        this.send(JSON.stringify({ action: 'PING', args: Date.now() }));
     }
 }
 
