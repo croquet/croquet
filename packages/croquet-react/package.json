@@ -1,6 +1,6 @@
 {
   "name": "@croquet/react",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "React bindings for Croquet",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -33,5 +33,11 @@
   },
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "keywords": [
+    "croquet",
+    "collaboration",
+    "realtime",
+    "framework"
+  ]
 }
