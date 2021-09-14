@@ -533,8 +533,8 @@ async function JOIN(client, args) {
     if (island.yetToCheckLatest) {
         island.yetToCheckLatest = false;
         const fileName = `${id}/latest.json`;
-        fetchJSON(fileName)
-        .then(latestSpec => {
+        try {
+            const latestSpec = await fetchJSON(fileName);
             if (!latestSpec.snapshotUrl && !latestSpec.syncWithoutSnapshot) throw Error("latest.json has no snapshot, ignoring");
             DEBUG(`${id} resuming from latest.json @${latestSpec.time}#${latestSpec.seq} messages: ${latestSpec.messages.length} snapshot: ${latestSpec.snapshotUrl || "<none>"}`);
             // as we migrate from one style of island properties to another, a
@@ -555,25 +555,21 @@ async function JOIN(client, args) {
             if (latestSpec.reflectorSession) island.timeline = latestSpec.reflectorSession; // TODO: remove reflectorSession after 0.4.1 release
             if (island.tick) startTicker(island, island.tick);
             if (island.syncClients.length > 0) SYNC(island);
-        }).catch(err => {
+        } catch (err) {
             if (typeof err !== "object") err = { message: ""+JSON.stringify(err) };
             if (!err.message) err.message = "<empty>";
             if (err.code !== 404) ERROR(`${id} failed to fetch latest.json: ${err.message}`);
             // this is a brand-new session, check if there is persistent data
             const persistName = `apps/${appId}/${persistentId}.json`;
-            const persistPromise = appId && persistentId
-                ? fetchJSON(persistName).catch(() => { /* ignore */})
-                : Promise.resolve(false);
-            persistPromise.then(persisted => {
-                if (persisted) {
-                    island.persistentUrl = persisted.url;
-                    DEBUG(`${id} resuming from persisted ${persistName}: ${island.persistentUrl || "<none>"}`);
-                }
-            }).finally(() => {
-                island.storedUrl = ''; // replace the null that means we haven't looked
-                START(island);
-            });
-        });
+            const persisted = appId && await fetchJSON(persistName).catch(() => { /* ignore */});
+            if (persisted) {
+                island.persistentUrl = persisted.url;
+                DEBUG(`${id} resuming from persisted ${persistName}: ${island.persistentUrl || "<none>"}`);
+            }
+        } finally {
+            island.storedUrl = ''; // replace the null that means we haven't looked
+            START(island);
+        }
 
         return;
     }
