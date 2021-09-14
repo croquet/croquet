@@ -8,6 +8,7 @@ const http = require('http');
 const WebSocket = require('ws');
 const fetch = require('node-fetch');
 const prometheus = require('prom-client');
+const jwt = require('jsonwebtoken');
 const { Storage } = require('@google-cloud/storage');
 const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
 
@@ -405,7 +406,7 @@ function savableKeys(island) {
  * @param {Client} client - we received from this client
  * @param {{name: String, version: Number, appId?: string, persistentId?: string, user: string}} args
  */
-async function JOIN(client, args) {
+async function JOIN(client, args, token) {
     if (typeof args === "number" || !args.version) {
         client.safeClose(...REASON.BAD_PROTOCOL);
         return;
@@ -490,6 +491,14 @@ async function JOIN(client, args) {
     island.leaveDelay = leaveDelay || 0;
     island.dormantDelay = dormantDelay; // only provided by clients since 0.5.1
 
+    let validToken;
+    if (token) try {
+        validToken = await verifyToken(token);
+        LOG(`${id}/${client.addr} token verified: ${JSON.stringify(validToken)}`);
+    } catch (err) {
+        ERROR(`${id}/${client.addr} token verification failed: ${err.message}`);
+    }
+
     // check API key
     let apiKeyPromise;
     if (!apiKey) {
@@ -508,6 +517,7 @@ async function JOIN(client, args) {
         // ... unless there is no token, in which case we await below
         apiKeyPromise = verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client);
         // will disconnect everyone with error if failed
+        if (!validToken) await apiKeyPromise;
     }
 
     client.island = island;
@@ -556,7 +566,7 @@ async function JOIN(client, args) {
             if (island.tick) startTicker(island, island.tick);
             if (island.syncClients.length > 0) SYNC(island);
         } catch (err) {
-            if (typeof err !== "object") err = { message: ""+JSON.stringify(err) };
+            if (typeof err !== "object") err = { message: ""+JSON.stringify(err) }; // eslint-disable-line no-ex-assign
             if (!err.message) err.message = "<empty>";
             if (err.code !== 404) ERROR(`${id} failed to fetch latest.json: ${err.message}`);
             // this is a brand-new session, check if there is persistent data
@@ -1237,7 +1247,7 @@ function parseUrl(req) {
 server.on('error', err => ERROR(`Server Socket Error: ${err.message}`));
 
 server.on('connection', (client, req) => {
-    const { version, sessionId } = parseUrl(req);
+    const { version, sessionId, token } = parseUrl(req);
     if (!sessionId) { ERROR(`Missing session id in request "${req.url}"`); client.close(...REASON.BAD_PROTOCOL); return; }
     client.addr = `${req.socket.remoteAddress.replace(/^::ffff:/, '')}:${req.socket.remotePort}`;
     let session = ALL_SESSIONS.get(sessionId);
@@ -1385,7 +1395,7 @@ server.on('connection', (client, req) => {
             try {
                 const { action, args, tags } = parsedMsg;
                 switch (action) {
-                    case 'JOIN': { joined = true; JOIN(client, args); break; }
+                    case 'JOIN': { joined = true; JOIN(client, args, token); break; }
                     case 'SEND': if (tags) SEND_TAGGED(client.island, args, tags); else SEND(client.island, [args]); break; // SEND accepts an array of messages
                     case 'TUTTI': TUTTI(client, args); break;
                     case 'TICKS': TICKS(client, args); break;
@@ -1442,6 +1452,15 @@ async function fetchSecret() {
     }
     LOG("fetched secret");
     return secret;
+}
+
+async function verifyToken(token) {
+    return new Promise((resolve, reject) => {
+        jwt.verify(token, SECRET, (err, decoded) => {
+            if (err) reject(err);
+            else resolve(decoded);
+        });
+    });
 }
 
 const DEFAULT_SIGN_SERVER = "https://api.croquet.io/sign";
