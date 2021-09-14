@@ -84,7 +84,7 @@ const DISPATCH_RECORD_RETENTION = 5000; // how long we must wait to delete a dis
 const LATE_DISPATCH_DELAY = 1000;  // how long to allow for clients arriving from the dispatcher even though the session has been unregistered
 
 function logtime() {
-    if (CLUSTER_IS_LOCAL) return "";
+    if (!CLUSTER_IS_LOCAL) return "";
     const d = new Date();
     const dd = new Date(d - d.getTimezoneOffset() * 60 * 1000);
     return dd.toISOString().replace(/.*T/, "").replace("Z", " ");
