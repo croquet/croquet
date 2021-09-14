@@ -9,6 +9,7 @@ const WebSocket = require('ws');
 const fetch = require('node-fetch');
 const prometheus = require('prom-client');
 const { Storage } = require('@google-cloud/storage');
+const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
 
 // do not show pre 1.0 warning if these strings appear in session name or url
 const SPECIAL_CUSTOMERS = [
@@ -108,6 +109,10 @@ for (const arg of process.argv.slice(2)) {
         process.exit(1);
     }
 }
+
+// secret shared with sign cloud func
+const SECRET_NAME = "projects/croquet-proj/secrets/signurl-jwt-hs256/versions/latest";
+let SECRET;
 
 const NO_STORAGE = CLUSTER === "local" || process.argv.includes(ARGS.NO_STORAGE); // no bucket access
 const NO_DISPATCHER = NO_STORAGE || process.argv.includes(ARGS.STANDALONE); // no session deregistration
@@ -217,7 +222,8 @@ webServer.on('upgrade', (req, socket, _head) => {
 // the WebSocket.Server will intercept the UPGRADE request made by a ws:// websocket connection
 const server = new WebSocket.Server({ server: webServer });
 
-function startServer() {
+async function startServer() {
+    SECRET = await fetchSecret();
     webServer.listen(PORT);
     LOG(`starting ${server.constructor.name} ws://${HOSTNAME}:${PORT}/`);
 }
@@ -1427,6 +1433,18 @@ server.on('connection', (client, req) => {
     client.on('error', err => ERROR(`Client Socket Error: ${err.message}`));
 });
 
+async function fetchSecret() {
+    let secret;
+    try {
+        const version = await new SecretManagerServiceClient().accessSecretVersion({ name: SECRET_NAME });
+        secret = version[0].payload.data;
+    } catch (err) {
+        ERROR(`failed to fetch secret: ${err}`);
+        process.exit(1);
+    }
+    LOG("fetched secret");
+    return secret;
+}
 
 const DEFAULT_SIGN_SERVER = "https://api.croquet.io/sign";
 const DEV_SIGN_SERVER = "https://api.croquet.io/dev/sign";
