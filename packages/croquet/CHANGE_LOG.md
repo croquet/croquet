@@ -4,7 +4,8 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest
 
-* 1.0.5-6 forward token and devId to reflector; send /join?meta=login to sign func; unpublicized client-to-reflector PING
+* send token via request url not JOIN
+* 1.0.5-6 send /join?meta=login to sign func; forward token and devId to reflector; unpublicized client-to-reflector PING
 * 1.0.5-5 fix typo in Data API
 * 1.0.5-4 verify apiKey on join, unique sessionId via developerId
 * 1.0.5-3 fix data API for regional buckets

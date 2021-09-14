@@ -47,8 +47,7 @@ const appOnCroquetIo = !!window.location.hostname.match(/^(.*\.)?croquet\.io$/i)
 const appOnCroquetIoDev = appOnCroquetIo && window.location.pathname.startsWith('/dev/');
 
 const PUBLIC_REFLECTOR_HOST = appOnCroquetIo ? window.location.host : "croquet.io";
-const PUBLIC_REFLECTOR = `wss://${PUBLIC_REFLECTOR_HOST}/reflector/v${VERSION}`;
-const DEFAULT_REFLECTOR = process.env.CROQUET_REFLECTOR || PUBLIC_REFLECTOR;    // replaced by parcel at build time from app's .env file
+const DEFAULT_REFLECTOR = `wss://${PUBLIC_REFLECTOR_HOST}/reflector/v${VERSION}`;
 const DEV_DEFAULT_REFLECTOR = "wss://croquet.io/reflector-dev/dev";
 const CLOUDFLARE_REFLECTOR = "wss://croquet.network/reflector/";
 const DEV_CLOUDFLARE_REFLECTOR = "wss://croquet.network/reflector/dev/";
@@ -1072,7 +1071,6 @@ export default class Controller {
             url: App.referrerURL(), // for sign func
             sdk: CROQUET_VERSION,   // for sign func
             developerId,            // for logging
-            token,                  // to prove the key was valid
             version: VERSION,       // protocol version
             user: this.viewId,      // see vm.generateJoinExit() for getting location data
             ticks: { tick, delay },
@@ -1933,21 +1931,25 @@ class Connection {
         this.connectBlocked = false;
         this.connectRestricted = false;
 
-        let reflectorUrl = DEBUG.reflector ? DEV_DEFAULT_REFLECTOR : DEFAULT_REFLECTOR;
-        let region = "";
+        let reflectorBase = DEBUG.reflector ? DEV_DEFAULT_REFLECTOR : DEFAULT_REFLECTOR;
+        const reflectorParams = {};
+        const token = this.controller.sessionSpec.token;
+        if (token) reflectorParams.token = token;
         if (urlOptions.reflector) {
             const cloudflareColo = urlOptions.reflector.toUpperCase();
             if (cloudflareColo === 'CF' || cloudflareColo.match(/^[A-Z]{3}$/)) {
-                reflectorUrl = DEBUG.reflector ? DEV_CLOUDFLARE_REFLECTOR : CLOUDFLARE_REFLECTOR;
-                if (cloudflareColo.length === 3) region = `?colo=${cloudflareColo}`;
+                reflectorBase = DEBUG.reflector ? DEV_CLOUDFLARE_REFLECTOR : CLOUDFLARE_REFLECTOR;
+                if (cloudflareColo.length === 3) reflectorParams.colo = cloudflareColo;
             }
-            else if (urlOptions.reflector.match(/^[-a-z0-9]+$/i)) region = `?${urlOptions.reflector}`;
-            else reflectorUrl = urlOptions.reflector;
+            else if (urlOptions.reflector.match(/^[-a-z0-9]+$/i)) reflectorParams.region = urlOptions.reflector;
+            else reflectorBase = urlOptions.reflector;
         }
-        if (!reflectorUrl.match(/^wss?:/)) throw Error('Cannot interpret reflector address ' + reflectorUrl);
-        if (!reflectorUrl.endsWith('/')) reflectorUrl += '/';
+        if (!reflectorBase.match(/^wss?:/)) throw Error('Cannot interpret reflector address ' + reflectorBase);
+        if (!reflectorBase.endsWith('/')) reflectorBase += '/';
+        const reflectorUrl = new URL(reflectorBase + this.id);
+        for (const [k,v] of Object.entries(reflectorParams)) reflectorUrl.searchParams.append(k, v);
 
-        const socket = new WebSocket(`${reflectorUrl}${this.controller.id}${region}`);
+        const socket = new WebSocket(reflectorUrl);
         socket.onopen = _event => {
             this.socket = socket;
             this.connectHasBeenCalled = false; // now that we have the socket
