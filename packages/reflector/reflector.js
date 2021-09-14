@@ -200,7 +200,7 @@ const webServer = http.createServer( async (req, res) => {
   });
 
 webServer.on('upgrade', (req, socket, _head) => {
-    const { sessionId } = sessionIdAndVersionFromUrl(req.url);
+    const { sessionId } = parseUrl(req);
     const clientAddr = `${socket.remoteAddress.replace(/^::ffff:/, '')}:${socket.remotePort}`;
     if (sessionId) {
         const session = ALL_SESSIONS.get(sessionId);
@@ -1218,20 +1218,22 @@ async function unregisterSession(id, detail) {
     setTimeout(() => ALL_SESSIONS.delete(id), LATE_DISPATCH_DELAY);
 }
 
-function sessionIdAndVersionFromUrl(url) {
-    // extract version and session from /foo/bar/v1/session?baz
-    const path = url.replace(/\?.*/, "");
-    const sessionId = path.replace(/.*\//, "");
-    const versionMatch = path.match(/\/(v[0-9]+[^/]*|dev)\/[^/]*$/);
-    const version = versionMatch ? versionMatch[1] : "v0";
-    return { sessionId, version };
+function parseUrl(req) {
+    // extract version, session, and token from /foo/bar/v1beta0/session?region=region&token=token
+    // (same func as in dispatcher.js)
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const sessionId = url.pathname.replace(/.*\//, "");
+    const versionMatch = url.pathname.match(/\/(v[0-9]+[^/]*|dev)\/[^/]*$/);
+    const version = versionMatch ? versionMatch[1] : "";
+    const token = url.searchParams.get("token");
+    return { sessionId, version, token };
 }
 
 
 server.on('error', err => ERROR(`Server Socket Error: ${err.message}`));
 
 server.on('connection', (client, req) => {
-    const { version, sessionId } = sessionIdAndVersionFromUrl(req.url);
+    const { version, sessionId } = parseUrl(req);
     if (!sessionId) { ERROR(`Missing session id in request "${req.url}"`); client.close(...REASON.BAD_PROTOCOL); return; }
     client.addr = `${req.socket.remoteAddress.replace(/^::ffff:/, '')}:${req.socket.remotePort}`;
     let session = ALL_SESSIONS.get(sessionId);
