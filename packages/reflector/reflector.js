@@ -405,7 +405,7 @@ function savableKeys(island) {
  * @param {Client} client - we received from this client
  * @param {{name: String, version: Number, appId?: string, persistentId?: string, user: string}} args
  */
-function JOIN(client, args) {
+async function JOIN(client, args) {
     if (typeof args === "number" || !args.version) {
         client.safeClose(...REASON.BAD_PROTOCOL);
         return;
@@ -491,6 +491,7 @@ function JOIN(client, args) {
     island.dormantDelay = dormantDelay; // only provided by clients since 0.5.1
 
     // check API key
+    let apiKeyPromise;
     if (!apiKey) {
         // old client: accept for now, but let them know. Unless they're special.
         const specialCustomer = SPECIAL_CUSTOMERS.find(value => url.includes(value) || name.includes(value));
@@ -502,9 +503,10 @@ function JOIN(client, args) {
     } else if (apiKey !== island.apiKey) {
         // first client, or joining with different key
         island.apiKey = apiKey;
-        // this is a formality – the controller already checks the apiKey before sending join
+        // this should be a formality – the controller already checks the apiKey before sending join
         // so we assume good intent and do not await result, to not delay SYNC unnecessarily
-        verifyApiKeyInBackground(apiKey, url, appId, persistentId, id, sdk, client);
+        // ... unless there is no token, in which case we await below
+        apiKeyPromise = verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client);
         // will disconnect everyone with error if failed
     }
 
@@ -1450,7 +1452,7 @@ const DEFAULT_SIGN_SERVER = "https://api.croquet.io/sign";
 const DEV_SIGN_SERVER = "https://api.croquet.io/dev/sign";
 const API_SERVER_URL = IS_DEV ? DEV_SIGN_SERVER : DEFAULT_SIGN_SERVER;
 
-async function verifyApiKeyInBackground(apiKey, url, appId, persistentId, id, sdk, client) {
+async function verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client) {
     try {
         const response = await fetch(`${API_SERVER_URL}/reflector/${CLUSTER}/${HOSTNAME}?meta=verify`, {
             headers: {
@@ -1468,10 +1470,12 @@ async function verifyApiKeyInBackground(apiKey, url, appId, persistentId, id, sd
         }
         // even key-not-found is 200 OK, but sets JSON error property
         const { developerId, error } = await response.json();
-        const island = ALL_ISLANDS.get(id); // fetch island now, in case it went away during await
         if (developerId) {
             LOG(`${id}/${client.addr} API key verified: ${developerId}`);
-        } else if (error && island) {
+            return developerId;
+        }
+        const island = ALL_ISLANDS.get(id); // fetch island now, in case it went away during await
+        if (error && island) {
             ERROR(`${id}/${client.addr} API key verification failed: ${error}`);
             INFO(island, {
                 code: "KEY_VERIFICATION_FAILED",
@@ -1483,6 +1487,7 @@ async function verifyApiKeyInBackground(apiKey, url, appId, persistentId, id, sd
     } catch (err) {
         ERROR(`${id}/${client.addr} error verifying API key: ${err.message}`);
     }
+    return false;
 }
 
 /** fetch a JSON-encoded object from our storage bucket */
