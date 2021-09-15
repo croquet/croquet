@@ -374,7 +374,6 @@ function getTime(island, _reason) {
 function nonSavableProps() {
     return {
         lag: 0,              // aggregate ms lag in tick requests
-        apiKey: '',          // mandatory since 1.0
         clients: new Set(),  // connected web sockets
         usersJoined: [],     // the users who joined since last report
         usersLeft: [],       // the users who left since last report
@@ -499,9 +498,11 @@ async function JOIN(client, args, token) {
         ERROR(`${id}/${client.addr} token verification failed: ${err.message}`);
     }
 
+    client.island = island; // set island before await
+
     // check API key
     let apiKeyPromise;
-    if (!apiKey) {
+    if (apiKey === undefined) {
         // old client: accept for now, but let them know. Unless they're special.
         const specialCustomer = SPECIAL_CUSTOMERS.find(value => url.includes(value) || name.includes(value));
         if (!specialCustomer) INFO(island, {
@@ -509,18 +510,14 @@ async function JOIN(client, args, token) {
             msg: "Croquet versions before 1.0 will stop being supported soon. Please update your app now! croquet.io/docs/croquet",
             options: { level: "warning", only: "once" }
         }, [client]);
-    } else if (apiKey !== island.apiKey) {
-        // first client, or joining with different key
-        island.apiKey = apiKey;
+    } else {
         // this should be a formality – the controller already checks the apiKey before sending join
         // so we assume good intent and do not await result, to not delay SYNC unnecessarily
         // ... unless there is no token, in which case we await below
         apiKeyPromise = verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client);
         // will disconnect everyone with error if failed
-        if (!validToken) await apiKeyPromise;
+        if (!validToken && !await apiKeyPromise) return;
     }
-
-    client.island = island;
 
     if (user) {
         client.user = user;
@@ -1105,12 +1102,6 @@ async function heraldUsers(island, all, joined, left) {
     }
 }
 
-// shut down session (presumably because of unrecoverable error)
-function disconnectAllAndDeleteIsland(island, reason) {
-    for (const client of island.clients) client.safeClose(...reason);
-    provisionallyDeleteIsland(island);
-}
-
 // impose a delay on island deletion, in case clients are only going away briefly
 function provisionallyDeleteIsland(island) {
     const { id } = island;
@@ -1444,13 +1435,13 @@ server.on('connection', (client, req) => {
 async function fetchSecret() {
     let secret;
     try {
+        LOG("fetching secret");
         const version = await new SecretManagerServiceClient().accessSecretVersion({ name: SECRET_NAME });
         secret = version[0].payload.data;
     } catch (err) {
         ERROR(`failed to fetch secret: ${err}`);
         process.exit(1);
     }
-    LOG("fetched secret");
     return secret;
 }
 
@@ -1489,15 +1480,18 @@ async function verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client) {
             LOG(`${id}/${client.addr} API key verified: ${developerId}`);
             return developerId;
         }
-        const island = ALL_ISLANDS.get(id); // fetch island now, in case it went away during await
-        if (error && island) {
+        if (error) {
             ERROR(`${id}/${client.addr} API key verification failed: ${error}`);
-            INFO(island, {
+            const island = ALL_ISLANDS.get(id); // fetch island now, in case it went away during await
+            // deal with no-island case
+            INFO(island || {id}, {
                 code: "KEY_VERIFICATION_FAILED",
                 msg: error,
                 options: { level: "error", only: "once" }
-                });
-            disconnectAllAndDeleteIsland(island, REASON.BAD_APIKEY);
+                },
+                [client]);
+            client.safeClose(...REASON.BAD_APIKEY);
+            if (island && island.clients.size === 0) provisionallyDeleteIsland(island);
         }
     } catch (err) {
         ERROR(`${id}/${client.addr} error verifying API key: ${err.message}`);
