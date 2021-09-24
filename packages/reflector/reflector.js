@@ -11,6 +11,31 @@ const jwt = require('jsonwebtoken');
 const { Storage } = require('@google-cloud/storage');
 const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
 
+// command line args
+
+const ARGS = {
+    NO_STORAGE: "--storage=none",
+    APPS_ONLY: "--storage=persist",
+    STANDALONE: "--standalone",
+    HTTPS: "--https",
+};
+
+for (const arg of process.argv.slice(2)) {
+    if (!Object.values(ARGS).includes(arg)) {
+        console.error(`Error: Unrecognized option ${arg}`);
+        process.exit(1);
+    }
+}
+
+const NO_STORAGE = process.argv.includes(ARGS.NO_STORAGE); // no bucket access
+const NO_DISPATCHER = NO_STORAGE || process.argv.includes(ARGS.STANDALONE); // no session deregistration
+const APPS_ONLY = !NO_STORAGE && process.argv.includes(ARGS.APPS_ONLY); // no session resume
+const USE_HTTPS = process.argv.includes(ARGS.HTTPS); // serve via https on port 443
+const VERIFY_TOKEN = !process.argv.includes(ARGS.STANDALONE);
+const STORE_SESSION = !NO_STORAGE && !APPS_ONLY;
+const STORE_MESSAGE_LOGS = !NO_STORAGE && !APPS_ONLY;
+const STORE_PERSISTENT_DATA = !NO_STORAGE;
+
 // do not show pre 1.0 warning if these strings appear in session name or url
 const SPECIAL_CUSTOMERS = [
     "queue",
@@ -63,7 +88,7 @@ const HOSTIP = Object.values(os.networkInterfaces()).flat().filter(addr => !addr
 // if "localWithStorage" is chosen, the reflector itself will create a dummy dispatcher
 // record the first time it sees a session, and will delete it when the session is
 // offloaded.
-const LOCAL_CONFIG = "localWithStorage"; // or "local" to run without storage dependency
+const LOCAL_CONFIG = NO_STORAGE ? "local" : "localWithStorage"; // todo: remove localWithStorage and use NO_STORAGE instead
 const CLUSTER = fs.existsSync("/var/run/secrets/kubernetes.io") ? process.env.CLUSTER_NAME : LOCAL_CONFIG;
 const CLUSTER_LABEL = process.env.CLUSTER_LABEL || CLUSTER;
 const CLUSTER_IS_LOCAL = CLUSTER.startsWith("local");
@@ -96,33 +121,9 @@ function ERROR(...args) { console.error(`${logtime()}Reflector-${VERSION}(${CLUS
 function DEBUG(...args) { if (debugLogs) LOG(...args); }
 function LOCAL_DEBUG(...args) { if (debugLogs && CLUSTER_IS_LOCAL) LOG(...args); }
 
-
-const ARGS = {
-    NO_STORAGE: "--storage=none",
-    APPS_ONLY: "--storage=persist",
-    STANDALONE: "--standalone",
-    HTTPS: "--https",
-};
-
-for (const arg of process.argv.slice(2)) {
-    if (!Object.values(ARGS).includes(arg)) {
-        console.error(`Error: Unrecognized option ${arg}`);
-        process.exit(1);
-    }
-}
-
 // secret shared with sign cloud func
 const SECRET_NAME = "projects/croquet-proj/secrets/signurl-jwt-hs256/versions/latest";
 let SECRET;
-
-const NO_STORAGE = CLUSTER === "local" || process.argv.includes(ARGS.NO_STORAGE); // no bucket access
-const NO_DISPATCHER = NO_STORAGE || process.argv.includes(ARGS.STANDALONE); // no session deregistration
-const APPS_ONLY = !NO_STORAGE && process.argv.includes(ARGS.APPS_ONLY); // no session resume
-const USE_HTTPS = process.argv.includes(ARGS.HTTPS); // serve via https on port 443
-const VERIFY_TOKEN = !process.argv.includes(ARGS.STANDALONE);
-const STORE_SESSION = !NO_STORAGE && !APPS_ONLY;
-const STORE_MESSAGE_LOGS = !NO_STORAGE && !APPS_ONLY;
-const STORE_PERSISTENT_DATA = !NO_STORAGE;
 
 // we use Google Cloud Storage for session state
 const storage = new Storage();
