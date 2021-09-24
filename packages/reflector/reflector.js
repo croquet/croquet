@@ -4,7 +4,6 @@
 
 const os = require('os');
 const fs = require('fs');
-const http = require('http');
 const WebSocket = require('ws');
 const fetch = require('node-fetch');
 const prometheus = require('prom-client');
@@ -102,6 +101,7 @@ const ARGS = {
     NO_STORAGE: "--storage=none",
     APPS_ONLY: "--storage=persist",
     STANDALONE: "--standalone",
+    HTTPS: "--https",
 };
 
 for (const arg of process.argv.slice(2)) {
@@ -118,6 +118,7 @@ let SECRET;
 const NO_STORAGE = CLUSTER === "local" || process.argv.includes(ARGS.NO_STORAGE); // no bucket access
 const NO_DISPATCHER = NO_STORAGE || process.argv.includes(ARGS.STANDALONE); // no session deregistration
 const APPS_ONLY = !NO_STORAGE && process.argv.includes(ARGS.APPS_ONLY); // no session resume
+const USE_HTTPS = process.argv.includes(ARGS.HTTPS); // serve via https on port 443
 const STORE_SESSION = !NO_STORAGE && !APPS_ONLY;
 const STORE_MESSAGE_LOGS = !NO_STORAGE && !APPS_ONLY;
 const STORE_PERSISTENT_DATA = !NO_STORAGE;
@@ -146,7 +147,18 @@ REASON.NO_JOIN = [4121, "client never joined"];
 // this webServer is only for http:// requests to the reflector url
 // (e.g. the load-balancer's health check),
 // not ws:// requests for an actual websocket connection
-const webServer = http.createServer( async (req, res) => {
+let webServer;
+const webServerModule = USE_HTTPS ? require("https") : require("http");
+if (USE_HTTPS) {
+    webServer = webServerModule.createServer({
+        key: fs.readFileSync('reflector-key.pem'),
+        cert: fs.readFileSync('reflector-cert.pem'),
+    }, requestListener);
+} else {
+    webServer = webServerModule.createServer(requestListener);
+}
+
+async function requestListener(req, res) {
     if (req.url === '/metrics') {
         const body = await prometheus.register.metrics();
         res.writeHead(200, {
@@ -203,7 +215,7 @@ const webServer = http.createServer( async (req, res) => {
       "X-Hacker-Girls": "Unite!",
     });
     return res.end(body);
-  });
+}
 
 webServer.on('upgrade', (req, socket, _head) => {
     const { sessionId } = parseUrl(req);
@@ -226,7 +238,7 @@ const server = new WebSocket.Server({ server: webServer });
 async function startServer() {
     SECRET = await fetchSecret();
     webServer.listen(PORT);
-    LOG(`starting ${server.constructor.name} ws://${HOSTNAME}:${PORT}/`);
+    LOG(`starting ${server.constructor.name} ${USE_HTTPS ? "wss" : "ws"}://${CLUSTER_IS_LOCAL ? "localhost" : HOSTNAME}:${PORT}/`);
 }
 
 const STATS_TO_AVG = ["RECV", "SEND", "TICK", "IN", "OUT"];
