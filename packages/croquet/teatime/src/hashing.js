@@ -1,6 +1,35 @@
 import stableStringify from "fast-json-stable-stringify";
+import WordArray from "crypto-js/lib-typedarrays";
+import sha256 from "crypto-js/sha256";
 import urlOptions from "./urlOptions";
 
+let digest;
+if (window.crypto && window.crypto.subtle && typeof window.crypto.subtle.digest === "function") {
+    digest = window.crypto.subtle.digest.bind(window.crypto.subtle);
+} else {
+    digest = (algorithm, arrayBuffer) => {
+        if (algorithm !== "SHA-256") throw Error("Croquet: only SHA-256 available");
+        const inputWordArray = WordArray.create(arrayBuffer);
+        const outputWordArray = sha256(inputWordArray);
+        const bytes = cryptoJsWordArrayToUint8Array(outputWordArray);
+        return bytes.buffer;
+    };
+}
+
+export function cryptoJsWordArrayToUint8Array(wordArray) {
+    const l = wordArray.sigBytes;
+    const words = wordArray.words;
+    const result = new Uint8Array(l);
+    let i = 0, j = 0;
+    while (i < l) {
+        const w = words[j++];
+        result[i++] = (w & 0xff000000) >>> 24; if (i === l) break;
+        result[i++] = (w & 0x00ff0000) >>> 16; if (i === l) break;
+        result[i++] = (w & 0x0000ff00) >>> 8;  if (i === l) break;
+        result[i++] = (w & 0x000000ff);
+    }
+    return result;
+}
 
 function funcSrc(func) {
     // this is used to provide the source code for hashing, and hence for generating
@@ -55,7 +84,7 @@ export function toBase64url(bits) {
 export async function hashBuffer(buffer) {
     // MS Edge does not like empty buffer
     if (buffer.length === 0) return "47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU";
-    const bits = await window.crypto.subtle.digest("SHA-256", buffer);
+    const bits = await digest("SHA-256", buffer);
     return toBase64url(bits);
 }
 
@@ -103,9 +132,6 @@ export function addConstantsHash(constants) {
 
 /** generate persistentId for the vm */
 export async function hashNameAndOptions(appIdAndName, options) {
-    if (!window.crypto || !window.crypto.subtle || typeof window.crypto.subtle.digest !== "function") {
-        throw Error(`Croquet: Crypto API not available.\nPlease access this page via https or localhost.`);
-    }
     return hashString(appIdAndName + stableStringify(options));
 }
 

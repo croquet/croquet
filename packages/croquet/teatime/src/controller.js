@@ -10,7 +10,7 @@ import pako from "pako"; // gzip-aware compressor
 import { Stats } from "./stats";
 import urlOptions from "./urlOptions";
 import { App, displayStatus, displayError, displayAppError } from "./html";
-import { hashNameAndOptions, hashSessionAndCode, hashString } from "./hashing";
+import { hashNameAndOptions, hashSessionAndCode, hashString, cryptoJsWordArrayToUint8Array } from "./hashing";
 import { inViewRealm } from "./realms";
 import { viewDomain } from "./domain";
 import VirtualMachine, { Message, inSequence } from "./vm";
@@ -1194,24 +1194,9 @@ export default class Controller {
         }
         decrypted.clamp(); // clamping manually because of bug in HmacSHA256
         const hmac = HmacSHA256(decrypted, key);
-        if (this.compareHmacs(mac.words, hmac.words)) return this.cryptoJsWordArrayToUint8Array(decrypted);
+        if (this.compareHmacs(mac.words, hmac.words)) return cryptoJsWordArrayToUint8Array(decrypted);
         if (key !== this.deprecatedDefaultKey) return this.decryptBinary(buffer, this.deprecatedDefaultKey);
         throw Error('Decryption error');
-    }
-
-    cryptoJsWordArrayToUint8Array(wordArray) {
-        const l = wordArray.sigBytes;
-        const words = wordArray.words;
-        const result = new Uint8Array(l);
-        let i = 0, j = 0;
-        while (i < l) {
-            const w = words[j++];
-            result[i++] = (w & 0xff000000) >>> 24; if (i === l) break;
-            result[i++] = (w & 0x00ff0000) >>> 16; if (i === l) break;
-            result[i++] = (w & 0x0000ff00) >>> 8;  if (i === l) break;
-            result[i++] = (w & 0x000000ff);
-        }
-        return result;
     }
 
     async encryptMessage(msg, viewId, sendTime) {
