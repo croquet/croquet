@@ -119,6 +119,7 @@ const NO_STORAGE = CLUSTER === "local" || process.argv.includes(ARGS.NO_STORAGE)
 const NO_DISPATCHER = NO_STORAGE || process.argv.includes(ARGS.STANDALONE); // no session deregistration
 const APPS_ONLY = !NO_STORAGE && process.argv.includes(ARGS.APPS_ONLY); // no session resume
 const USE_HTTPS = process.argv.includes(ARGS.HTTPS); // serve via https on port 443
+const VERIFY_TOKEN = !process.argv.includes(ARGS.STANDALONE);
 const STORE_SESSION = !NO_STORAGE && !APPS_ONLY;
 const STORE_MESSAGE_LOGS = !NO_STORAGE && !APPS_ONLY;
 const STORE_PERSISTENT_DATA = !NO_STORAGE;
@@ -236,7 +237,7 @@ webServer.on('upgrade', (req, socket, _head) => {
 const server = new WebSocket.Server({ server: webServer });
 
 async function startServer() {
-    SECRET = await fetchSecret();
+    if (VERIFY_TOKEN) SECRET = await fetchSecret();
     webServer.listen(PORT);
     LOG(`starting ${server.constructor.name} ${USE_HTTPS ? "wss" : "ws"}://${CLUSTER_IS_LOCAL ? "localhost" : HOSTNAME}:${PORT}/`);
 }
@@ -503,7 +504,7 @@ async function JOIN(client, args, token) {
     island.dormantDelay = dormantDelay; // only provided by clients since 0.5.1
 
     let validToken;
-    if (token) try {
+    if (VERIFY_TOKEN && token) try {
         validToken = await verifyToken(token);
         LOG(`${id}/${client.addr} token verified: ${JSON.stringify(validToken)}`);
     } catch (err) {
