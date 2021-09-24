@@ -1,6 +1,6 @@
-import { App } from "@croquet/util/html";
-import urlOptions from "@croquet/util/urlOptions";
-import { addConstantsHash } from "@croquet/util/hashing";
+import { App } from "./html";
+import urlOptions from "./urlOptions";
+import { addConstantsHash } from "./hashing";
 
 import Model from "./model";
 import View from "./view";

@@ -1,6 +1,3 @@
-import "./deduplicate";
-
-
 const sessionFromPath = window.location.hostname.endsWith("croquet.studio");
 let sessionApp = "";
 let sessionArgs = "";

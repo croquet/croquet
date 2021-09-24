@@ -1,6 +1,6 @@
 import Toastify from 'toastify-js';
 import SeedRandom from "seedrandom/seedrandom";
-import QRCode from "./thirdparty-patched/qrcodejs/qrcode";
+import QRCode from "../thirdparty-patched/qrcodejs/qrcode";
 import urlOptions from "./urlOptions";
 import { toBase64url } from "./hashing";
 import { makeStats } from "./stats";

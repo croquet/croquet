@@ -1,4 +1,3 @@
-import "@croquet/util/deduplicate";
 import stableStringify from "fast-json-stable-stringify";
 import Base64 from "crypto-js/enc-base64";
 import Utf8 from "crypto-js/enc-utf8";
@@ -8,10 +7,10 @@ import WordArray from "crypto-js/lib-typedarrays";
 import HmacSHA256 from "crypto-js/hmac-sha256";
 
 import pako from "pako"; // gzip-aware compressor
-import { Stats } from "@croquet/util/stats";
-import urlOptions from "@croquet/util/urlOptions";
-import { App, displayStatus, displayError, displayAppError } from "@croquet/util/html";
-import { hashNameAndOptions, hashSessionAndCode, hashString } from "@croquet/util/hashing";
+import { Stats } from "./stats";
+import urlOptions from "./urlOptions";
+import { App, displayStatus, displayError, displayAppError } from "./html";
+import { hashNameAndOptions, hashSessionAndCode, hashString } from "./hashing";
 import { inViewRealm } from "./realms";
 import { viewDomain } from "./domain";
 import VirtualMachine, { Message, inSequence } from "./vm";

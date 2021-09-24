@@ -1,10 +1,10 @@
 import stableStringify from "fast-json-stable-stringify";
 import SeedRandom from "seedrandom/seedrandom";
-import PriorityQueue from "@croquet/util/priorityQueue";
-import { Stats } from "@croquet/util/stats";
 import "@croquet/math"; // creates window.CroquetMath
-import { displayWarning, displayAppError } from "@croquet/util/html";
-import urlOptions from "@croquet/util/urlOptions";
+import PriorityQueue from "./priorityQueue";
+import { Stats } from "./stats";
+import { displayWarning, displayAppError } from "./html";
+import urlOptions from "./urlOptions";
 import Model from "./model";
 import { inModelRealm, inViewRealm } from "./realms";
 import { viewDomain } from "./domain";

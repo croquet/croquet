@@ -1,4 +1,4 @@
-import urlOptions from "@croquet/util/urlOptions";
+import urlOptions from "./urlOptions";
 import { viewDomain } from "./domain";
 
 

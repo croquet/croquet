@@ -1,6 +1,6 @@
-import urlOptions from "@croquet/util/urlOptions";
-import { addClassHash } from "@croquet/util/hashing";
-import { displayAppError } from "@croquet/util";
+import urlOptions from "./urlOptions";
+import { addClassHash } from "./hashing";
+import { displayAppError } from "./html";
 import { currentRealm } from "./realms";
 import VirtualMachine, { resetReadersAndWriters } from "./vm";
 
