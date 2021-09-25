@@ -88,7 +88,7 @@ function fixups() {
     }
 }
 
-const deps = ["../../../teatime",  "../../../util", "../../../math"];
+const deps = ["../../../teatime", "../../../math"];
 const git_branch = execSync("git rev-parse --abbrev-ref HEAD").toString().trim();
 const git_commit = execSync("git rev-parse HEAD").toString().trim();                          // last commit hash
 const git_message = execSync("git show --format='%s' -s " + git_commit).toString().trim();    // last commit message

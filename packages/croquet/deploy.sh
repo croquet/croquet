@@ -1,7 +1,6 @@
 #!/bin/sh
 cd `dirname "$0"`
 rm -rf cjs/ pub/
-(cd ../../../util ; npm ci --production)
 (cd ../../../math ; npm ci --production)
 (cd ../../../teatime ; npm ci --production)
 npm ci

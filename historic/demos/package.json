@@ -24,7 +24,6 @@
   },
   "dependencies": {
     "@croquet/kit": "file:../kit",
-    "@croquet/util": "file:../util",
     "seedrandom": "^3.0.1"
   },
   "devDependencies": {
