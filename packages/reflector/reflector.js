@@ -81,8 +81,6 @@ const MAX_TALLY_AGE = 60000;  // don't start a new tally if vote is more than th
 const MAX_COMPLETED_TALLIES = 20; // maximum number of past tallies to remember
 const USERS_INTERVAL = 200;   // time to gather user entries/exits before sending a "users" message (a.k.a. view-join)
 
-const HOSTNAME = os.hostname();
-const HOSTIP = Object.values(os.networkInterfaces()).flat().filter(addr => !addr.internal && addr.family === 'IPv4')[0].address;
 // if running locally, there is the option to run with or without using the session-
 // related storage (for snapshots, dispatcher records etc).
 // if "localWithStorage" is chosen, the reflector itself will create a dummy dispatcher
@@ -92,6 +90,8 @@ const LOCAL_CONFIG = NO_STORAGE ? "local" : "localWithStorage"; // todo: remove 
 const CLUSTER = fs.existsSync("/var/run/secrets/kubernetes.io") ? process.env.CLUSTER_NAME : LOCAL_CONFIG;
 const CLUSTER_LABEL = process.env.CLUSTER_LABEL || CLUSTER;
 const CLUSTER_IS_LOCAL = CLUSTER.startsWith("local");
+const HOSTNAME = os.hostname();
+const HOSTIP = CLUSTER_IS_LOCAL ? "localhost" : Object.values(os.networkInterfaces()).flat().filter(addr => !addr.internal && addr.family === 'IPv4')[0].address;
 const IS_DEV = CLUSTER_IS_LOCAL || HOSTNAME.includes("-dev-");
 
 if (!CLUSTER) {
