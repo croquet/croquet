@@ -816,6 +816,7 @@ export const App = {
             window.history.replaceState({}, "", href);
             App.sessionURL = href;
         }
+        if (urlOptions.has("debug", "session")) console.log(`Croquet.App.autoSession: "${fragment}"`);
         // return Promise for future-proofing
         const retVal = Promise.resolve(fragment);
         // warn about using it directly
@@ -861,13 +862,13 @@ export const App = {
             App.sessionURL = url.href;
             // but scrub it from address bar
             if (scrub) url.hash = hash;
-            if (urlOptions.has("debug", "session")) console.log(`Croquet.App.autoPassword() generated "${App.sessionURL}"`);
         }
         if (urlOptions.has("debug", "session")) console.log(`Croquet.App.sessionUrl: ${App.sessionURL}`);
         // change url bar if needed
         if (window.location.href !== url.href) window.history.replaceState({}, "", url.href);
         // decode % entities if possible
         if (password) try { password = decodeURIComponent(password); } catch (ex) { /* ignore */ }
+        if (urlOptions.has("debug", "session")) console.log(`Croquet.App.autoPassword: "${password}"`);
         // return Promise for future-proofing
         const retVal = Promise.resolve(password);
         // warn about using it directly
