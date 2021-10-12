@@ -113,6 +113,17 @@ function addSpinnerStyle() {
         }
         #croquet_loader::before { left: -3.5em; animation-delay: -0.32s; }
         #croquet_loader::after { left: 3.5em; }
+        #croquet_spinnerOverlay.croquet_error>*,
+        #croquet_spinnerOverlay.croquet_error>*::before,
+        #croquet_spinnerOverlay.croquet_error>*::after {
+            color: #f00;
+        }
+        #croquet_spinnerOverlay.croquet_fatal>*,
+        #croquet_spinnerOverlay.croquet_fatal>*::before,
+        #croquet_spinnerOverlay.croquet_fatal>*::after {
+            color: #f00;
+            box-shadow: 0 2.5em 0 0 !important;
+        }
 `;
     const spinnerStyle = document.createElement("style");
     spinnerStyle.innerHTML = spinnerCSS;
@@ -665,6 +676,9 @@ function displaySpinner(enabled) {
             parent.appendChild(spinnerOverlay);
 
             spinnerOverlay.style.opacity = 0.9; // animate into view
+            if (spinnerEnabled === "error") spinnerOverlay.className = "croquet_error";
+            else if (spinnerEnabled === "fatal") spinnerOverlay.className = "croquet_fatal";
+            else spinnerOverlay.className = "";
         }, 500);
     } else {
         if (!spinnerOverlay) return;
@@ -672,6 +686,7 @@ function displaySpinner(enabled) {
         clearTimeout(spinnerTimeout);
 
         spinnerOverlay.style.opacity = 0.0; // start the animated fade
+        spinnerOverlay.className = "";
 
         // set timer to remove the overlay after 500ms iff still disabled
         spinnerTimeout = setTimeout(() => {
