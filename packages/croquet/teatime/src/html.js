@@ -217,14 +217,8 @@ function addToastifyStyle() {
     document.head.insertBefore(toastifyStyle, document.head.getElementsByTagName("style")[0]);
 }
 
-const seenMessages = new Set();
-
 // this is the default App.messageFunction
 export function showMessageAsToast(msg, options = {}) {
-    if (options.only === "once") {
-        if (seenMessages.has(msg)) return null;
-        seenMessages.add(msg);
-    }
     const level = options.level;
     let color;
     if (level === 'error') { color = 'red'; console.error(msg); }
@@ -725,6 +719,8 @@ function findElement(value, ifNotFoundDo) {
     return ifNotFoundDo ? ifNotFoundDo() : null;
 }
 
+const seenMessages = new Set();
+
 export const App = {
     sessionURL: window.location.href,
     root: null, // root for messages, the sync spinner, and the info dock (defaults to document.body)
@@ -773,7 +769,11 @@ export const App = {
     showMessage(msg, options={}) {
         // thin layer on top of messageFunction, to discard messages if there's nowhere
         // (or no permission) to show them, as well as add non-toastify features like
-        // { level: "fatal" } or { showSyncWait: "error" }
+        // { only: "once" } or { level: "fatal" } or { showSyncWait: "error" }
+        if (options.only === "once") {
+            if (seenMessages.has(msg)) return null;
+            seenMessages.add(msg);
+        }
         if (options.level === "fatal") {
             options.level = "error";
             options.showSyncWait = "fatal";
