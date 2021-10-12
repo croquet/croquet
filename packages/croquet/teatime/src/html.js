@@ -772,7 +772,16 @@ export const App = {
 
     showMessage(msg, options={}) {
         // thin layer on top of messageFunction, to discard messages if there's nowhere
-        // (or no permission) to show them.
+        // (or no permission) to show them, as well as add non-toastify features like
+        // { level: "fatal" } or { showSyncWait: "error" }
+        if (options.level === "fatal") {
+            options.level = "error";
+            options.showSyncWait = "fatal";
+        }
+        if (options.showSyncWait) {
+            if (options.showSyncWait === "fatal" && !options.duration) options.duration = -1;
+            App.showSyncWait(options.showSyncWait);
+        }
         if (urlOptions.nomessages || App.root === false || App.messages === false || !App.messageFunction) {
             if (options.level === "warning") console.warn(msg);
             if (options.level === "error") console.error(msg);
