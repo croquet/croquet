@@ -773,7 +773,11 @@ export const App = {
     showMessage(msg, options={}) {
         // thin layer on top of messageFunction, to discard messages if there's nowhere
         // (or no permission) to show them.
-        if (urlOptions.nomessages || App.root === false || App.messages === false || !App.messageFunction) return null;
+        if (urlOptions.nomessages || App.root === false || App.messages === false || !App.messageFunction) {
+            if (options.level === "warning") console.warn(msg);
+            if (options.level === "error") console.error(msg);
+            return null;
+        }
 
         return App.messageFunction(msg, options);
     },
