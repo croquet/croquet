@@ -1060,7 +1060,7 @@ export default class Controller {
         if (DEBUG.session) console.log(this.id, 'Controller sending JOIN');
 
         const { tick, delay } = this.getTickAndMultiplier();
-        const { name, codeHash, appId, apiKey, persistentId, developerId, token, heraldUrl, rejoinLimit, autoSleep, computedCodeHash } = this.sessionSpec;
+        const { name, codeHash, appId, apiKey, persistentId, developerId, heraldUrl, rejoinLimit, autoSleep, computedCodeHash } = this.sessionSpec;
 
         const args = {
             name,                   // for debugging only
