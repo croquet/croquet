@@ -85,17 +85,17 @@ function addSpinnerStyle() {
             transition: opacity 1.0s ease-out;
         }
         /* https://github.com/lukehaas/css-loaders */
-        @keyframes dots {
+        @keyframes croquet_dots {
             0%, 80%, 100% { box-shadow: 0 2.5em 0 -1.3em; }
             40% { box-shadow: 0 2.5em 0 0; }
         }
         #croquet_loader,
-        #croquet_loader:before,
-        #croquet_loader:after {
+        #croquet_loader::before,
+        #croquet_loader::after {
           border-radius: 50%;
           width: 2.5em;
           height: 2.5em;
-          animation: dots 1.8s infinite ease-in-out;
+          animation: croquet_dots 1.8s infinite ease-in-out;
         }
         #croquet_loader {
           color: #fff;
@@ -105,14 +105,14 @@ function addSpinnerStyle() {
           text-indent: -9999em;
           animation-delay: -0.16s;
         }
-        #croquet_loader:before,
-        #croquet_loader:after {
+        #croquet_loader::before,
+        #croquet_loader::after {
           content: '';
           position: absolute;
           top: 0;
         }
-        #croquet_loader:before { left: -3.5em; animation-delay: -0.32s; }
-        #croquet_loader:after { left: 3.5em; }
+        #croquet_loader::before { left: -3.5em; animation-delay: -0.32s; }
+        #croquet_loader::after { left: 3.5em; }
 `;
     const spinnerStyle = document.createElement("style");
     spinnerStyle.innerHTML = spinnerCSS;
