@@ -656,6 +656,9 @@ let spinnerTimeout = 0; // used to debounce.  only act on enabled true/false if 
 function displaySpinner(enabled) {
     if (spinnerEnabled === enabled) return;
 
+    // don't overwrite "error" or "fatal" status
+    if (typeof spinnerEnabled === "string" && enabled === true) return;
+
     if (App.sync === false) enabled = false;
 
     spinnerEnabled = enabled;
