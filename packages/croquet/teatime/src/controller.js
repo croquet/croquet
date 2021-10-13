@@ -9,7 +9,7 @@ import HmacSHA256 from "crypto-js/hmac-sha256";
 import pako from "pako"; // gzip-aware compressor
 import { Stats } from "./stats";
 import urlOptions from "./urlOptions";
-import { App, displayStatus, displayError, displayAppError } from "./html";
+import { App, displayStatus, displayAppError } from "./html";
 import { hashNameAndOptions, hashSessionAndCode, hashString, cryptoJsWordArrayToUint8Array } from "./hashing";
 import { inViewRealm } from "./realms";
 import { viewDomain } from "./domain";
@@ -1981,8 +1981,9 @@ class Connection {
             // but also wait 500 ms to see if reconnect succeeded
             setTimeout(() => {
                 if (this.connected) return; // yay - connected again
-                // leave it there for 1 hour if unrecoverable
-                displayError(`Connection closed: ${code} ${message}`, { duration: autoReconnect ? undefined : 3600000 });
+                App.showMessage(`Connection closed: ${code} ${message}`, {
+                    level: autoReconnect ? "error" : "fatal",
+                });
             }, 500);
         }
         if (DEBUG.session) console.log(this.id, `${this.socket ? this.socket.constructor.name + " closed" : "closed before opening,"} with code: ${code} ${message}`);
