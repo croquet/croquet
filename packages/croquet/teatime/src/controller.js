@@ -369,22 +369,26 @@ export default class Controller {
 
     /** fetch developerId from sign function via meta protocol */
     async verifyApiKey(apiKey, appId, persistentId) {
-        const url = DEBUG.reflector ? DEV_SIGN_SERVER : DEFAULT_SIGN_SERVER;
-        const response = await fetch(`${url}/join?meta=login`, {
-            method: "GET",
-            mode: "cors",
-            headers: {
-                "X-Croquet-Auth": apiKey,
-                "X-Croquet-App": appId,
-                "X-Croquet-Id": persistentId,
-                "X-Croquet-Version": CROQUET_VERSION,
-            },
-            referrer: App.referrerURL(),
-        });
-        const { error, developerId, token } = await response.json();
-        if (error) throw Error(`Croquet: Verifying API key: ${error}`);
-        if (DEBUG.session) console.log(`Croquet: verified API key`);
-        return { developerId, token };
+        try {
+            const url = DEBUG.reflector ? DEV_SIGN_SERVER : DEFAULT_SIGN_SERVER;
+            const response = await fetch(`${url}/join?meta=login`, {
+                method: "GET",
+                mode: "cors",
+                headers: {
+                    "X-Croquet-Auth": apiKey,
+                    "X-Croquet-App": appId,
+                    "X-Croquet-Id": persistentId,
+                    "X-Croquet-Version": CROQUET_VERSION,
+                },
+                referrer: App.referrerURL(),
+            });
+            const { error, developerId, token } = await response.json();
+            if (error) throw Error(error);
+            if (DEBUG.session) console.log(`Croquet: verified API key`);
+            return { developerId, token };
+        } catch (err) {
+            throw Error(`Error verifying Croquet API key: ${err.message}`);
+        }
     }
 
     lastKnownTime(vmOrSnapshot) { return Math.max(vmOrSnapshot.time, vmOrSnapshot.externalTime); }
