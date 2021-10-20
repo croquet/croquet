@@ -220,12 +220,12 @@ function addToastifyStyle() {
 // this is the default App.messageFunction
 export function showMessageAsToast(msg, options = {}) {
     const level = options.level;
-    let color;
-    if (level === 'error') { color = 'red'; console.error(msg); }
-    else if (level === 'warning') { color = 'gold'; console.warn(msg); }
-    else color = '#aaa';
+    let gradient;
+    if (level === 'error') { gradient = 'orangered,red'; console.error(msg); }
+    else if (level === 'warning') { gradient = 'gold,orange'; console.warn(msg); }
+    else gradient = 'silver,gray';
 
-    return displayToast(msg, { backgroundColor: color, ...options });
+    return displayToast(msg, { style: { background: `linear-gradient(90deg,${gradient})`}, ...options });
 }
 
 export function displayError(msg, options={}) {
@@ -262,7 +262,6 @@ function displayToast(msg, options) {
         //close: true,
         gravity: 'bottom', // `top` or `bottom`
         position: 'right', // `left`, `center` or `right`
-        backgroundColor: 'linear-gradient(to right, #00b09b, #96c93d)',
         stopOnFocus: true, // Prevents dismissing of toast on hover
         ...options };
 
