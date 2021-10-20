@@ -1288,7 +1288,7 @@ export default class Controller {
         // warning, but any sustained sending at the peak rate (whether or not we're
         // using the buffer).
         if (!this.rateLimitSoftWarned && times.length === this.eventHistoryLimit && time - times[0] < 1010) { // close enough
-            console.log(`${this.id} Sends to reflector are at or above recommended limit of ${this.eventHistoryLimit} within one second. Events will be bundled as necessary to keep to the limit.`);
+            console.warn(`${this.id} Sends to reflector are at or above recommended limit of ${this.eventHistoryLimit} within one second. Events will be bundled as necessary to keep to the limit.`);
             this.rateLimitSoftWarned = true;
         }
     }
