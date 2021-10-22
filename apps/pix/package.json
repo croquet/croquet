@@ -11,7 +11,7 @@
   "author": "Croquet Corporation",
   "license": "ISC",
   "dependencies": {
-    "@croquet/croquet": "file:../libraries/packages/croquet",
+    "@croquet/croquet": "^1.0.5",
     "hammerjs": "^2.0.8",
     "pretty-bytes": "^5.4.1",
     "sweetalert2": "^10.15.6"
