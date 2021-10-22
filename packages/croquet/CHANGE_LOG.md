@@ -4,6 +4,8 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest
 
+# 2021-11-21: 1.0.5
+
 * 1.0.5-9 tweak error logging, update dependencies
 * 1.0.5-8 always log errors, stop spinner and make it red if fatal error
 * 1.0.5-7 send token via request url not JOIN; make work on unsecure origin
