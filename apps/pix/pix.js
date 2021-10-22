@@ -438,9 +438,16 @@ const joinArgs = {
     apiKey: '2DT9VCoCKtvXMKkBGZXNLrUEoZMn48ojXPC8XFAuuO',
     appId: 'io.croquet.pix',
     name: App.autoSession(),
-    password: App.autoPassword({keyless: true}),
+    password: 'dummy-pass',
     model: PixModel,
     view: PixView,
     tps: 0
     };
 Session.join(joinArgs);
+
+
+// TODO: use per-session passwords
+//    password: App.autoPassword(),
+// without breaking existing sessions!
+// probably need to pass 'dummy-pass' as 'oldPassword:'
+// to be used when decryption fails
