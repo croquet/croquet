@@ -15,8 +15,8 @@
         "../../teatime/src/model.js",
         "../../teatime/src/view.js",
         "../../teatime/src/session.js",
-        "tutorials",
-        "../template"
+        "./tutorials",
+        "../clean-jsdoc-theme"
       ],
       "ignore": [
         "build"
