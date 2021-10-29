@@ -669,6 +669,7 @@ async function go() {
     App.makeWidgetDock();
 
     Session.join({
+        apiKey: "2DT9VCoCKtvXMKkBGZXNLrUEoZMn48ojXPC8XFAuuO",
         appId: "io.croquet.examples.video_demo",
         name: App.autoSession(),
         password: App.autoPassword({keyless: true}),
