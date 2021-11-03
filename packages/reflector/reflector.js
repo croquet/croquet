@@ -430,7 +430,7 @@ function nonSavableProps() {
 
 function savableKeys(island) {
     const nonSavable = nonSavableProps(); // make a new one
-    return Object.keys(island).filter(key => !Object.prototype.hasOwnProperty.call(nonSavable, key));
+    return Object.keys(island).filter(key => !(key in nonSavable));
 }
 
 /** A new island controller is joining
