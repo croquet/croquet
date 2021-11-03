@@ -423,6 +423,7 @@ function nonSavableProps() {
         syncClients: [],     // clients waiting to SYNC
         tallies: {},
         tagRecords: {},
+        developerId: null,
         [Symbol.toPrimitive]: () => "dummy",
         };
 }
@@ -553,7 +554,7 @@ async function JOIN(client, args, token) {
         developerId = await apiKeyPromise;
         if (!developerId) return;
 
-        LOG({'session-id': id, 'client-address': client.addr, 'developer-id': developerId}, 'Api key verified');
+        island.developerId = developerId;
     }
 
     if (user) {
@@ -1451,8 +1452,18 @@ server.on('connection', (client, req) => {
     client.on('close', (...reason) => {
         prometheusConnectionGauge.dec();
         // the connection log filter matches on (" connection " OR " JOIN ")
-        LOG({'session-id': client.sessionId, 'client-address': client.addr, 'stats': client.stats}, `closed connection ${JSON.stringify(reason)}`);
         const island = ALL_ISLANDS.get(client.sessionId);
+
+        const logData = {
+            'session-id': client.sessionId,
+            'client-address': client.addr,
+            'stats': client.stats,
+            'developer-id': island.developerId,
+            'client-ip': client.forwarded ? client.forwarded.split(',')[0] : null
+        };
+
+        LOG(logData, `closed connection ${JSON.stringify(reason)}`);
+        
         if (island && island.clients.has(client)) {
             if (island.startClient === client) {
                 DEBUG({'session-id': island.id, 'client-address': client.addr}, `${island.id}/${client.addr} START client failed to respond`);
