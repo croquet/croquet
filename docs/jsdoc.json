@@ -19,7 +19,6 @@
     "theme_opts": {
         "title": "Croquet @CROQUET_VERSION@",
         "theme": "light",
-        "static_dir": ["../static"],
         "include_css": ["../clean-jsdoc-theme/static/styles/index.css"]
     }
   },
