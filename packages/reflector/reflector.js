@@ -424,6 +424,7 @@ function nonSavableProps() {
         tallies: {},
         tagRecords: {},
         developerId: null,
+        apiKey: null,
         [Symbol.toPrimitive]: () => "dummy",
         };
 }
@@ -543,6 +544,7 @@ async function JOIN(client, args, token) {
             options: { level: "warning", only: "once" }
         }, [client]);
     } else {
+        island.apiKey = apiKey;
         // this should be a formality – the controller already checks the apiKey before sending join
         // so we assume good intent and do not await result, to not delay SYNC unnecessarily
         // ... unless there is no token, in which case we await below
@@ -1334,7 +1336,13 @@ server.on('connection', (client, req) => {
     // if this connection is through a Croquet dispatcher, its proxy will have appended
     // the address of its incoming connection - typically a load balancer - and will
     // have added x-croquet-dispatcher with the name of the dispatcher's cluster.
-    if (req.headers['x-forwarded-for']) client.forwarded = `via ${req.headers['x-croquet-dispatcher'||'']} (${req.headers['x-forwarded-for'].split(/\s*,\s*/).map(a => a.replace(/^::ffff:/, '')).join(', ')}) `;
+    if (req.headers['x-forwarded-for']) {
+        client.dispatcher = req.headers['x-croquet-dispatcher'] || 'none';
+        client.userIp = req.headers['x-forwarded-for'].split(',')[0].replace(/^::ffff:/, '');
+    } else {
+        client.dispatcher = 'none';
+        client.userIp = req.socket.remoteAddress.replace(/^::ffff:/, '');
+    }
     // location header is added by load balancer, see region-servers/apply-changes
     if (req.headers['x-location']) try {
         const [region, city, lat, lng] = req.headers['x-location'].split(",");
@@ -1365,7 +1373,8 @@ server.on('connection', (client, req) => {
         client._socket.on('data', buf => client.stats.ri += buf.length);
     }
     // the connection log filter matches on (" connection " OR " JOIN ")
-    LOG({'session-id': sessionId}, `opened connection ${version} ${client.forwarded||''}${req.headers['x-location']||''}`);
+    const forwarded = `via ${req.headers['x-croquet-dispatcher']} (${(req.headers['x-forwarded-for'] || '').split(/\s*,\s*/).map(a => a.replace(/^::ffff:/, '')).join(', ')}) `;
+    LOG({'session-id': sessionId}, `opened connection ${version} ${forwarded||''}${req.headers['x-location']||''}`);
     STATS.USERS = Math.max(STATS.USERS, server.clients.size);
 
     let lastActivity = Date.now();
@@ -1456,11 +1465,15 @@ server.on('connection', (client, req) => {
         const island = ALL_ISLANDS.get(client.sessionId);
 
         const logData = {
-            'session-id': client.sessionId,
-            'client-address': client.addr,
-            'stats': client.stats,
-            'developer-id': island.developerId,
-            'client-ip': client.forwarded ? client.forwarded.split(',')[0] : null
+            sessionId: client.sessionId,
+            connection: client.addr,
+            stats: client.stats,
+            developerId: island.developerId,
+            userIp: client.userIp,
+            dispatcher: client.dispatcher,
+            appId: island.appId,
+            persistentId: island.persistentId,
+            apiKey: island.apiKey
         };
 
         LOG(logData, `closed connection ${JSON.stringify(reason)}`);
