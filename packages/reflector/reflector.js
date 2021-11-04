@@ -132,11 +132,30 @@ function createLogString(additionalMetadata, ...args) {
     return `${logtime()}${JSON.stringify(logObj)}`;
 }
 
-function LOG(metadata, ...args) { console.log(createLogString(metadata, ...args)); }
-function WARN(metadata, ...args) { console.warn(createLogString(metadata, ...args)); }
-function ERROR(metadata, ...args) { console.error(createLogString(metadata, ...args)); }
-function DEBUG(metadata, ...args) { if (debugLogs) LOG(metadata, ...args); }
-function LOCAL_DEBUG(metadata, ...args) { if (debugLogs && CLUSTER_IS_LOCAL) LOG(metadata, ...args); }
+function LOG(metadata, ...args) {
+    metadata.severity = 'INFO';
+    console.log(createLogString(metadata, ...args));
+}
+
+function WARN(metadata, ...args) {
+    metadata.severity = 'WARNING';
+    console.warn(createLogString(metadata, ...args));
+}
+
+function ERROR(metadata, ...args) {
+    metadata.severity = 'ERROR';
+    console.error(createLogString(metadata, ...args));
+}
+
+function DEBUG(metadata, ...args) {
+    metadata.severity = 'DEBUG';
+    if (debugLogs) console.log(createLogString(metadata, ...args));
+}
+
+function LOCAL_DEBUG(metadata, ...args) {
+    metadata.severity = 'DEBUG';
+    if (debugLogs && CLUSTER_IS_LOCAL) console.log(createLogString(metadata, ...args));
+}
 
 // secret shared with sign cloud func
 const SECRET_NAME = "projects/croquet-proj/secrets/signurl-jwt-hs256/versions/latest";
