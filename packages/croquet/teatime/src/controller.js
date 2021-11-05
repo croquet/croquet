@@ -1020,7 +1020,7 @@ export default class Controller {
         let newVM = new VirtualMachine(snapshot, () => {
             try { return initFn(options, persistentData); }
             catch (error) {
-                displayAppError("initFn", error);
+                displayAppError("init", error, "fatal");
                 throw error; // unrecoverable.  bring the whole tab to a halt.
             }
         });
@@ -1030,8 +1030,18 @@ export default class Controller {
         if (DEBUG.initsnapshot && !snapshot.modelsById) {
             // exercise serializer if we came from initFn
             if (DEBUG.snapshot) console.log(`${this.id} exercising snapshot and restore after init()`);
-            const initialSnapshot = JSON.stringify(newVM.snapshot());
-            newVM = new VirtualMachine(JSON.parse(initialSnapshot), () => initFn(options));
+            let initialSnapshot = null;
+            try { initialSnapshot = JSON.stringify(newVM.snapshot()); }
+            catch (error) {
+                displayAppError("initial snapshot", error, "fatal");
+                throw error; // unrecoverable.  bring the whole tab to a halt
+            }
+            try {
+                newVM = new VirtualMachine(JSON.parse(initialSnapshot), () => initFn(options));
+            } catch (error) {
+                displayAppError("initial snapshot resume", error, "fatal");
+                throw error; // unrecoverable.  bring the whole tab to a halt
+            }
         }
         // our time is the latest of this.reflectorTime (we may have received a tick already) and the vm time in the snapshot
         const vmTime = this.lastKnownTime(newVM);

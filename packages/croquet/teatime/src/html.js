@@ -241,12 +241,12 @@ export function displayStatus(msg, options={}) {
     return msg && App.showMessage(msg, { ...options, level: 'status' });
 }
 
-export function displayAppError(where, error) {
+export function displayAppError(where, error, level = "error") {
     console.error(`Error during ${where}`, error);
     const userStack = (error.stack || '').split("\n").filter(l => !l.match(/croquet-.*\.min.js/)).join('\n');
-    App.showMessage(`<b>Error during ${where}: ${error.message}</b>\n\n${userStack}`.replace(/\n/g, "<br>"),  {
-        level: 'error',
-        duration: 10000,
+    App.showMessage(`Error during ${where}: ${error.message}\n\n${userStack}`,  {
+        level,
+        duration: level === "error" ? 10000 : undefined,
         stopOnFocus: true,
     });
 }
