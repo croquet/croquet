@@ -123,6 +123,7 @@ function addSpinnerStyle() {
         #croquet_spinnerOverlay.croquet_fatal>*::after {
             color: #f00;
             box-shadow: 0 2.5em 0 0 !important;
+            animation: none !important;
         }
 `;
     const spinnerStyle = document.createElement("style");
