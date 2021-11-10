@@ -1480,8 +1480,7 @@ server.on('connection', (client, req) => {
 
     client.on('close', (...reason) => {
         prometheusConnectionGauge.dec();
-        // the connection log filter matches on (" connection " OR " JOIN ")
-        const island = ALL_ISLANDS.get(client.sessionId);
+        const island = client.island || ALL_ISLANDS.get(client.sessionId) || {};
 
         const logData = {
             sessionId: client.sessionId,
@@ -1495,6 +1494,7 @@ server.on('connection', (client, req) => {
             apiKey: island.apiKey
         };
 
+        // the connection log filter matches on (" connection " OR " JOIN ")
         LOG(logData, `closed connection ${JSON.stringify(reason)}`);
         
         if (island && island.clients.has(client)) {
