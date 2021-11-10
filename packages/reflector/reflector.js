@@ -1497,7 +1497,7 @@ server.on('connection', (client, req) => {
         // the connection log filter matches on (" connection " OR " JOIN ")
         LOG(logData, `closed connection ${JSON.stringify(reason)}`);
         
-        if (island && island.clients.has(client)) {
+        if (island && island.clients && island.clients.has(client)) {
             if (island.startClient === client) {
                 DEBUG({sessionId: island.id, clientAddress: client.addr}, `${island.id}/${client.addr} START client failed to respond`);
                 clearTimeout(island.startTimeout);
