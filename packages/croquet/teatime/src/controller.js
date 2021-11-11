@@ -1242,7 +1242,8 @@ export default class Controller {
     */
     sendMessage(msg) {
         // SEND: Broadcast a message to all participants.
-        if (this.viewOnly) return;
+        // ignore if controller is not allowed to send, or has been reset
+        if (this.viewOnly || !this.vm) return;
 
         const payloadLength = msg.asState()[2].length;
         if (payloadLength > PAYLOAD_LIMIT_MAX) {
@@ -1277,7 +1278,7 @@ export default class Controller {
         if (!delay) {
             // go ahead immediately
             this.recordRateLimitedSend(now);
-            this.socketSendMessage(msg);
+            this.socketSendMessage(msg); // will be added to sendBuffer if we're currently disconnected (with the chance of a reconnect, since this.vm is still set)
             Stats.perSecondTally({ sentSingleMessages: 1, sentMessagesTotal: 1, sentPayloadTotal: payloadLength });
         } else {
             this.addToRateLimitBuffer(msg);
