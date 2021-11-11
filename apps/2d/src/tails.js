@@ -360,10 +360,19 @@ async function go() {
     App.messages = true;
     App.makeWidgetDock();
 
-    const session = await Session.join(`tails-${App.autoSession("q")}`, Shapes, ShapesView, { step: "manual", tps: TPS });
-    const controller = session.view.realm.vm.controller;
-
     let users = 0;
+
+    const session = await Session.join({
+        apiKey: "2DT9VCoCKtvXMKkBGZXNLrUEoZMn48ojXPC8XFAuuO",
+        appId: "io.croquet.examples.tails",
+        name: App.autoSession(),
+        password: "none",
+        model: Shapes,
+        view: ShapesView,
+        tps: TPS,
+        step: "manual"
+        });
+    const controller = session.view.realm.vm.controller;
 
     window.requestAnimationFrame(frame);
     function frame(timestamp) {
