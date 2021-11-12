@@ -83,6 +83,9 @@ function fixups() {
                 { bad: 'regeneratorRuntime=', good: 'globalThis.regeneratorRuntime=' },
                 // work around stupid check in FastPriorityQueue
                 { bad: 'require.main', good: 'undefined' },
+                // remove unused global require call in seedrandom
+                { bad: 'require("crypto")', good: 'undefined'},
+                { bad: "require('crypto')", good: 'undefined'},
             ]);
         }
     }
