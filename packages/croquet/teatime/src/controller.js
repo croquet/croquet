@@ -1364,8 +1364,13 @@ export default class Controller {
             events.push(m.msgState);
             delay += now - m.bufferTime;
             });
-        const envelope = new Message(this.vm.time, 0, this.vm.id, "handleBundledEvents", ["dummy", { events }]);
-        this.socketSendMessage(envelope);
+        if (events.length === 1) { console.log("1!");
+            const msg = Message.fromState(events[0], this.vm);
+            this.socketSendMessage(msg);
+        } else {
+            const envelope = new Message(this.vm.time, 0, this.vm.id, "handleBundledEvents", ["dummy", { events }]);
+            this.socketSendMessage(envelope);
+        }
         this.recordRateLimitedSend(now);
         Stats.perSecondTally({ sentBundles: 1, sentMessagesTotal: msgStates.length, sendDelay: delay, sentBundlePayload: totalPayload, sentPayloadTotal: totalPayload });
 
@@ -1619,10 +1624,10 @@ export default class Controller {
     // onAnimationFrame handler below, or by the application if it chooses
     // to step manually
     stepSession(stepType, parameters={}) {
-        if (window.logMessageStats) {
-            const report = Stats.stepSession(parameters.frameTime, true); // update the per-second stats, and get a report for each second
-            if (report) console.log(report);
-        }
+        // iff window.logMessageStats is truthy, the Stats object will be gathering
+        // per-second message stats and will return a tally once per second.
+        const report = Stats.stepSession(parameters.frameTime, true);
+        if (report) console.log(report);
 
         const { backlog, latency, starvation, activity } = this;
         if (stepType === "animation") {

@@ -311,11 +311,23 @@ export const Stats = {
             cleanupOverlayCanvases();
         }
     },
+    // the stats gathered here (iff window.logMessageStats is truthy) are reported by
+    // Stats.stepSession (below), which is invoked by controller.stepSession on every step.
     perSecondTally(stats = {}) {
+        if (!window.logMessageStats) return;
+
         for (const [key, value] of Object.entries(stats)) currentSecond[key] = (currentSecond[key] || 0) + value;
     },
     stepSession(_timestamp, report=false) {
         const second = Math.floor(Date.now() / 1000);
+
+        if (!window.logMessageStats) {
+            // no reporting needed.  keep updating the per-second record, ready for logging
+            // to start.
+            currentSecond = { second };
+            return null;
+        }
+
         let result = null;
         if (second !== currentSecond.second) {
             // don't report if no messages have been requested or sent
