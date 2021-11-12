@@ -1364,7 +1364,7 @@ export default class Controller {
             events.push(m.msgState);
             delay += now - m.bufferTime;
             });
-        if (events.length === 1) { console.log("1!");
+        if (events.length === 1) {
             const msg = Message.fromState(events[0], this.vm);
             this.socketSendMessage(msg);
         } else {
