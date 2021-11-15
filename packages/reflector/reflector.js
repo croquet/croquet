@@ -490,8 +490,14 @@ async function JOIN(client, args, token) {
         default:
     }
 
+    const logObj = {
+        sessionId: id,
+        clientAddress: client.addr,
+        ...args
+    };
+    
     // the connection log filter matches on (" connection " OR " JOIN ")
-    LOG({sessionId: id, clientAddress: client.addr}, `receiving JOIN ${JSON.stringify(args)}`);
+    LOG(logObj, `receiving JOIN `);
 
     const { name, version, apiKey, url, sdk, appId, user, location, heraldUrl, leaveDelay, dormantDelay, tove } = args;
     // islandId deprecated since 0.5.1, but old clients will send it rather than persistentId
