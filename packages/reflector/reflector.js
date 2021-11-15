@@ -444,6 +444,7 @@ function nonSavableProps() {
         tagRecords: {},
         developerId: null,
         apiKey: null,
+        url: null,
         [Symbol.toPrimitive]: () => "dummy",
         };
 }
@@ -541,6 +542,7 @@ async function JOIN(client, args, token) {
     island.heraldUrl = heraldUrl || '';
     island.leaveDelay = leaveDelay || 0;
     island.dormantDelay = dormantDelay; // only provided by clients since 0.5.1
+    island.url = url;
 
     let validToken;
     if (VERIFY_TOKEN && token) try {
@@ -1491,7 +1493,8 @@ server.on('connection', (client, req) => {
             dispatcher: client.dispatcher,
             appId: island.appId,
             persistentId: island.persistentId,
-            apiKey: island.apiKey
+            apiKey: island.apiKey,
+            url: island.url,
         };
 
         // the connection log filter matches on (" connection " OR " JOIN ")
