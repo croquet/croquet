@@ -1615,7 +1615,7 @@ export default class Controller {
                         // that that doesn't matter.
                         this.syncTimer = setTimeout(() => {
                             delete this.syncTimer;
-                            if (this.lag < syncedMin) this.applySyncChange(true); // iff we haven't somehow dropped out of sync again
+                            if (this.connected && this.lag < syncedMin) this.applySyncChange(true); // iff we haven't somehow dropped out of sync again
                             }, SYNCED_ANNOUNCE_DELAY);
                     }
                 } else this.applySyncChange(false); // switch to out-of-sync is acted on immediately
