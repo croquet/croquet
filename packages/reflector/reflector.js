@@ -494,7 +494,7 @@ async function JOIN(client, args, token) {
     const logObj = {
         sessionId: id,
         clientAddress: client.addr,
-        ...args
+        args,
     };
     
     // the connection log filter matches on (" connection " OR " JOIN ")
