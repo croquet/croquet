@@ -1977,6 +1977,12 @@ class Connection {
 
         const socket = new WebSocket(reflectorUrl);
         socket.onopen = _event => {
+            // under some conditions (e.g., switching a device between networks) a new
+            // socket can be opened before the old one has been told
+            const oldSocket = this.socket;
+            if (oldSocket) {
+                oldSocket.onopen = oldSocket.onmessage = oldSocket.onerror = oldSocket.onclose = null;
+            }
             this.socket = socket;
             this.connectHasBeenCalled = false; // now that we have the socket
             if (DEBUG.session) console.log(this.id, this.socket.constructor.name, "connected to", this.socket.url);
