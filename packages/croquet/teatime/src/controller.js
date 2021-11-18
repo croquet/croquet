@@ -2122,7 +2122,6 @@ class Connection {
         if (!this.connected) return;
         if (this.socket.bufferedAmount === 0) {
             // only send a pulse if no other outgoing data pending
-            if (DEBUG.session) console.log(`${this.id} sending PULSE`);
             this.send(JSON.stringify({ action: 'PULSE' }));
             this.stalledSince = 0;
         } else if (this.stalledSince && now - this.stalledSince > UNSENT_TIMEOUT) {
