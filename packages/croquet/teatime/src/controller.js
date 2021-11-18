@@ -856,17 +856,39 @@ export default class Controller {
                     const oldest = snapshotSeq !== undefined ? snapshotSeq
                         : firstMessage ? firstMessage[1] : newest;
                     if (DEBUG.messages) console.log(this.id, `rejoin: we have #${this.vm.seq} SYNC has #${oldest}-#${newest}`);
-                    const seamlessRejoin = sameSession        // must be same timeline (in case we are connected to stateless reflector)
+                    let seamlessRejoin = sameSession         // must be same timeline (in case we are connected to stateless reflector)
                         && inSequence(oldest, this.vm.seq)   // there must be no gap between our last message and the first synced message
-                        && inSequence(this.vm.seq, newest)  // the reflector state must not be older than our vm (presumably due to reflector crash and restart)
+                        && inSequence(this.vm.seq, newest)   // the reflector state must not be older than our vm (presumably due to reflector crash and restart)
                         && time >= this.reflectorTime; // similarly, the reflector must not be providing an earlier time than we have already seen
                     if (seamlessRejoin) {
-                        // rejoin is safe, discard duplicate messages
+                        // rejoin appears safe.  figure out what messages (if any) in the SYNC have already
+                        // been processed here.
+                        let toDiscard = 0;
                         if (firstMessage && inSequence(firstMessage[1], this.vm.seq)) {
-                            const discard = this.vm.seq - firstMessage[1] + 1 >>> 0; // 32 bit difference (!)
-                            if (DEBUG.messages) console.log(this.id, `rejoin: discarding ${discard} messages #${firstMessage[1]}-#${this.vm.seq}`);
-                            messages.splice(0, discard);
+                            toDiscard = this.vm.seq - firstMessage[1] + 1 >>> 0; // 32 bit difference (!)
                         }
+
+                        // if the messages to be processed to catch up include a 'users' event
+                        // reporting that this view has left, rejoin is not safe after all.
+                        // this is a conservative check; it's possible that the event represents
+                        // a harmless and ignorable view-exit for a duplicate connection.  but
+                        // attempting to replicate the VM's extraConnections logic here feels
+                        // like overkill.
+                        for (let i = toDiscard; seamlessRejoin && i < messages.length; i++) {
+                            const payload = messages[i][2];
+                            if (typeof payload !== "string" && payload.what === "users" && payload.left && payload.left.includes(this.viewId)) {
+                                if (DEBUG.session) console.log(this.id, "reflector reports that this view has left");
+                                seamlessRejoin = false;
+                            }
+                        }
+
+                        if (seamlessRejoin && toDiscard) {
+                            // we're going ahead with seamless rejoin.  discard the duplicates found above.
+                            if (DEBUG.messages) console.log(this.id, `rejoin: discarding ${toDiscard} messages #${firstMessage[1]}-#${this.vm.seq}`);
+                            messages.splice(0, toDiscard);
+                        }
+                    }
+                    if (seamlessRejoin) {
                         // send out messages we buffered while disconnected
                         if (this.sendBuffer.length > 0) {
                             const sends = this.sendBuffer;
@@ -876,8 +898,8 @@ export default class Controller {
                         }
                         // proceed to enqueue the messages we missed while disconnected
                     } else {
-                        // likely a snapshot happened while disconnected. Reboot.
-                        if (DEBUG.session) console.log(this.id, "cannot rejoin seamlessly, rebooting model/view");
+                        // one of the checks above has found that seamless rejoin cannot happen.  reboot.
+                        if (DEBUG.session) console.log(this.id, "cannot rejoin seamlessly; rebooting model/view");
                         this.leave(true); // keep controller but reset it, nulling out the vm.  now runs straight through to the end of establishSession.
                         rejoining = false;
                     }
