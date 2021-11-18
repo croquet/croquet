@@ -445,7 +445,7 @@ function nonSavableProps() {
         developerId: null,
         apiKey: null,
         url: null,
-        dateInitialized: null, // session init/resume time, needed for billing to count number of sessions
+        resumed: new Date(), // session init/resume time, needed for billing to count number of sessions
         [Symbol.toPrimitive]: () => "dummy",
         };
 }
@@ -550,7 +550,6 @@ async function JOIN(client, args, token) {
     island.leaveDelay = leaveDelay || 0;
     island.dormantDelay = dormantDelay; // only provided by clients since 0.5.1
     island.url = url;
-    island.dateInitialized = new Date();
 
     let validToken;
     if (VERIFY_TOKEN && token) try {
@@ -1503,7 +1502,7 @@ server.on('connection', (client, req) => {
             persistentId: island.persistentId,
             apiKey: island.apiKey,
             url: island.url,
-            dateInitialized: island.dateInitialized,
+            resumed: island.resumed,
         };
 
         // the connection log filter matches on (" connection " OR " JOIN ")
