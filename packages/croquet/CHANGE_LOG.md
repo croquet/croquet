@@ -4,6 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest
 
+* 1.1.0-2 fix seamless rejoin; no sync=true if disconnected; old socket clean up; do not log PULSE
 * 1.1.0-1 stop spinner even on Safari; make init() errors fatal; ignore sends() after controler was reset; send single-message bundles as regular message; remove require("crypto")
 
 # 2021-11-21: 1.0.5
