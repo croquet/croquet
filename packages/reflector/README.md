@@ -71,6 +71,10 @@ As it relates to logging, both island and session ids are logged as "sessionId".
 
 ### Problems on M1 Macbook
 
+    > node reflector.js
+    dyld[17909]: missing symbol called
+    [1]    17909 abort      node reflector.js
+
 One of the dependencies (fast-crc32c) has a bug due to an upstream dependency not working on the new M1 chip architecture. To fix the issue, you can simply uninstall the fast-crc32c module by running `npm uninstall fast-crc32c`. However, do not commit that change, as the dependency is used in the production environment. 
 
 Another fix is to go into the node_modules directory and modify the fast-crc32c code (`node_modules/fast-crc32c/loader.js`) by commenting out the sse4_crc32c implementation from the array of implementations. It should look like this:
