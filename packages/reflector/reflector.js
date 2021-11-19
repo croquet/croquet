@@ -207,7 +207,7 @@ async function requestListener(req, res) {
         return res.end(body);
     }
     if (req.url === '/sessions') {
-        const body = [...ALL_ISLANDS.values()].map(({id, clients, appId, name}) => `${id} ${clients.size} ${appId || name}\n`).join('');
+        const body = [...ALL_ISLANDS.values()].map(({id, clients, appId, name, url}) => `${id} ${clients.size} ${appId || name} ${url}\n`).join('');
         res.writeHead(200, {
             'Server': SERVER_HEADER,
             'Content-Length': body.length,
