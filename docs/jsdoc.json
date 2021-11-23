@@ -16,8 +16,8 @@
     "recurse": false,
     "verbose": true,
     "destination": "../build/croquet",
+    "mainpagetitle": "Croquet @CROQUET_VERSION@",
     "theme_opts": {
-        "title": "Croquet @CROQUET_VERSION@",
         "theme": "light",
         "include_css": ["../clean-jsdoc-theme/static/styles/index.css"]
     }
