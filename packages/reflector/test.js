@@ -2,9 +2,9 @@ const test = require('tape');
 const { spawn } = require('child_process');
 const concat = require('concat-stream');
 
-test('reflector.js should log a "process start" event upon start', function (t) {
+test('reflector.js should log "process" notices with event "start" and "end"', function (t) {
     // we plan for 1 assertion. See https://github.com/substack/tape#tplann
-    t.plan(1);
+    t.plan(2);
     
     const reflector = spawn('node', ['./reflector.js', '--standalone', '--no-logtime']);
 
@@ -12,8 +12,10 @@ test('reflector.js should log a "process start" event upon start', function (t) 
     const concatStream = concat({encoding: 'string'}, stdoutBuffered => {
         const lines = stdoutBuffered.trim().split('\n');
         const logObjects = lines.map(JSON.parse);
-        const found = logObjects.find(logObj => logObj.scope === 'process' && logObj.event == 'start');
-        t.ok(found, "should find a log object with scope=process and event=start");
+        const foundStart = logObjects.find(logObj => logObj.scope === 'process' && logObj.event == 'start');
+        t.ok(foundStart, "should find a log object with scope=process and event=start");
+        const foundEnd = logObjects.find(logObj => logObj.scope === 'process' && logObj.event == 'end');
+        t.ok(foundEnd, "should find a log object with scope=process and event=end");
     });
 
     reflector.stdout.pipe(concatStream);
@@ -24,6 +26,6 @@ test('reflector.js should log a "process start" event upon start', function (t) 
 
     // give the server 2 seconds to start up before sending a kill signal.
     const timeoutID = setTimeout(() => {
-        reflector.kill('SIGHUP'); // Send SIGHUP to process.
+        reflector.kill('SIGTERM'); // Send SIGTERM to process.
     }, 2000);
 });

@@ -355,8 +355,14 @@ function handleTerm() {
         }
         if (promises.length) {
             DEBUG({}, `\nEMERGENCY SHUTDOWN OF ${promises.length} ISLAND(S)`);
-            Promise.allSettled(promises).then(() => process.exit());
-        } else process.exit();
+            Promise.allSettled(promises).then(() => {
+                NOTICE("process", "end");
+                process.exit();
+            });
+        } else {
+            NOTICE("process", "end");
+            process.exit();
+        }
     }
 }
 process.on('SIGINT', handleTerm);
