@@ -18,6 +18,7 @@ const ARGS = {
     APPS_ONLY: "--storage=persist",
     STANDALONE: "--standalone",
     HTTPS: "--https",
+    NO_LOGTIME: "--no-logtime",
 };
 
 for (const arg of process.argv.slice(2)) {
@@ -35,6 +36,7 @@ const VERIFY_TOKEN = !process.argv.includes(ARGS.STANDALONE);
 const STORE_SESSION = !NO_STORAGE && !APPS_ONLY;
 const STORE_MESSAGE_LOGS = !NO_STORAGE && !APPS_ONLY;
 const STORE_PERSISTENT_DATA = !NO_STORAGE;
+const NO_LOGTIME = process.argv.includes(ARGS.NO_LOGTIME); // don't prepend the time to each log
 
 // do not show pre 1.0 warning if these strings appear in session name or url
 const SPECIAL_CUSTOMERS = [
@@ -110,7 +112,7 @@ const DISPATCH_RECORD_RETENTION = 5000; // how long we must wait to delete a dis
 const LATE_DISPATCH_DELAY = 1000;  // how long to allow for clients arriving from the dispatcher even though the session has been unregistered
 
 function logtime() {
-    if (!CLUSTER_IS_LOCAL) return "";
+    if (!CLUSTER_IS_LOCAL || NO_LOGTIME) return "";
     const d = new Date();
     const dd = new Date(d - d.getTimezoneOffset() * 60 * 1000);
     return dd.toISOString().replace(/.*T/, "").replace("Z", " ");
@@ -137,6 +139,18 @@ function LOG(metadata, ...args) {
     console.log(createLogString(metadata, ...args));
 }
 
+/** Log a NOTICE event. Normal but significant events, such as start up, shut down, or a configuration change.
+ * @param {string} scope - "process", "session", "connection"
+ * @param {string} event - "start", "end", any
+ */
+function NOTICE(scope, event, metadata, ...args) {
+    metadata = metadata || {};
+    metadata.severity = 'NOTICE';
+    metadata.scope = scope;
+    metadata.event = event;
+    console.log(createLogString(metadata, ...args));
+}
+
 function WARN(metadata, ...args) {
     metadata.severity = 'WARNING';
     console.warn(createLogString(metadata, ...args));
@@ -156,6 +170,9 @@ function LOCAL_DEBUG(metadata, ...args) {
     metadata.severity = 'DEBUG';
     if (debugLogs && CLUSTER_IS_LOCAL) console.log(createLogString(metadata, ...args));
 }
+
+// Logging out the initial start-up event message
+NOTICE("process", "start");
 
 // secret shared with sign cloud func
 const SECRET_NAME = "projects/croquet-proj/secrets/signurl-jwt-hs256/versions/latest";

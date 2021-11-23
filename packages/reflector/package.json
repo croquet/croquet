@@ -6,7 +6,8 @@
   "author": "Croquet Corporation",
   "license": "UNLICENSED",
   "scripts": {
-    "start": "node reflector.js"
+    "start": "node reflector.js",
+    "test": "tape test.js | tap-nirvana"
   },
   "dependencies": {
     "@google-cloud/secret-manager": "^3.10.1",
@@ -17,7 +18,11 @@
     "prom-client": "^13.1.0",
     "ws": "^7.5.2"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "concat-stream": "^2.0.0",
+    "tap-nirvana": "^1.1.0",
+    "tape": "^5.3.2"
+  },
   "optionalDependencies": {
     "bufferutil": "^4.0.3",
     "utf-8-validate": "^5.0.5"
