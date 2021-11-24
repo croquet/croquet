@@ -1425,7 +1425,7 @@ server.on('connection', (client, req) => {
     }
     // the connection log filter matches on (" connection " OR " JOIN ")
     const forwarded = `via ${req.headers['x-croquet-dispatcher']} (${(req.headers['x-forwarded-for'] || '').split(/\s*,\s*/).map(a => a.replace(/^::ffff:/, '')).join(', ')}) `;
-    LOG({sessionId}, `opened connection ${version} ${forwarded||''}${req.headers['x-location']||''}`);
+    NOTICE('connection', 'start', {sessionId}, `opened connection ${version} ${forwarded||''}${req.headers['x-location']||''}`);
     STATS.USERS = Math.max(STATS.USERS, server.clients.size);
 
     let lastActivity = Date.now();
@@ -1529,7 +1529,7 @@ server.on('connection', (client, req) => {
         };
 
         // the connection log filter matches on (" connection " OR " JOIN ")
-        LOG(logData, `closed connection ${JSON.stringify(reason)}`);
+        NOTICE('connection', 'end', logData, `closed connection ${JSON.stringify(reason)}`);
         
         if (island && island.clients && island.clients.has(client)) {
             if (island.startClient === client) {
