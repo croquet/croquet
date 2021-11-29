@@ -1,6 +1,6 @@
-# Persistence
+# Persistence (as of Croquet 1.0.5)
 
-You may have noticed that while a Croquet session automatically stores all model data,
+You may have noticed that while Croquet automatically snapshots and stores all model data,
 whenever you change some model code, everything is lost and initialized from scratch.
 
 To persist Croquet sessions across code changes, the app needs to
@@ -11,8 +11,8 @@ When a session is joined for the first time, the root model's `init` function is
 called. If persisted data exists for a previous session of the same name,
 it is passed into `init` as second argument.
 
-(Sidenote: Data is stored under a `persistentId` that is derived from the `appId`,
-session `name`, and session `options`. The `persistentId` for
+(Sidenote: Data is stored under a `persistentId` that is derived from the `appId` and
+session `name`. The `persistentId` for
 a session stays the same independent of code changes. In contrast,
 the `sessionId` is derived from the `persistentId` but also the hash of model
 code and the Croquet version. When the reflector encounters a never-seen-before
@@ -101,10 +101,10 @@ the persistence format later.
             }
         }
     ​
-        fromSaveData() {
+        fromSaveData(persisted) {
             switch (persisted.version) {
                 case 1:
-                    const { documents } = persisted;
+                    const documents = persisted.documents;
                     this.submodelA = SubModel.create(subopts, documents.a);
                     this.submodelB = SubModel.create(subopts, documents.b);
                     break;
@@ -116,4 +116,8 @@ the persistence format later.
 
 TODO:
 
-* mention strategies for when to call `persistSession()`
+* strategies for when to call `persistSession()`
+* testing / debugging techniques
+* logging via `debug: "session"`
+* persisted data is end-to-end encrypted just like snapshots
+* interaction with Data API
