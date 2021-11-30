@@ -145,7 +145,7 @@ Once you determine that your application needs to persist data, you need to cons
 ## How to test and debug
 For testing and debugging purposes, it is important to recall how the persistent mechanism works. That is, *when* a 'never-seen-before sessionId` is encountered, *then* the reflector looks up the persistent data for the persistentId and passes it to Model's `init()` if it is available.
 
-An implication of this is that if your test version of app had a bug and had written an invalid persistent data for a `persistentId`, fixing code afterwards would be too late, as critical user contents is lost already. You need to safegurding against this.
+An implication of this is that if your test version of app had a bug and had written an invalid persistent data for a `persistentId`, fixing code afterwards could be too late, as critical user contents could lost already if you cannot find the right combination of code that produces the same sessionId. It is good to safegurding against this:
 
 To do so, you write `init()` as follows:
 
