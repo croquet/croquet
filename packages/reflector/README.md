@@ -20,6 +20,13 @@ $ node reflector.js --standalone
 
 This will open a web socket server on `ws://localhost:9090/`. To route a client application to your locally running reflector, modify the client's url in the browser to point to the local web socket server. For example, we can take this example application called "2d" at the following url https://croquet.io/2d/index.html, and change it to the url https://croquet.io/2d/index.html?&debug=session,snapshots&reflector=ws://localhost:9090.
 
+## Running Tests
+
+To run tests locally, simply run:
+
+```
+$ npm test
+```
 
 ## Deploying the reflector to a test environment
 
@@ -31,7 +38,7 @@ TODO
 
 ## Logging
 
-[reflector.js](./reflector.js) contains multiple logging functions (LOG, WARN, ERROR, DEBUG, etc.), use the corresponding function depending on the severity level. See Google Cloud docs on [LogSeverity](https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry#LogSeverity) for more.
+[reflector.js](./reflector.js) contains multiple logging functions (LOG, NOTICE, WARN, ERROR, DEBUG, etc.), use the corresponding function depending on the severity level. See Google Cloud docs on [LogSeverity](https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry#LogSeverity) for more.
 
 Many of the logs are useful for troubleshooting. Some logs, however, are aggregated and used for billing data as well as feeding developer dashboards.
 
@@ -59,6 +66,20 @@ Here are some of the key pieces we log (data types are strings unless noted othe
   * identifies the persisted session
 * apiKey
   * the API key of the developer of the client application
+
+
+### The NOTICE function
+
+Logs that designate a significant event (often associated with log queries), should use the NOTICE function. The NOTICE function requires both a "scope" and an "event" to be passed in. At this time, "scope" could be one of "process", "session", or "connection" to indicate that the event relates to either the reflector process itself, a session, or a connection. The "event" can be anything, but it often is simply "start" or "end".
+
+```javascript
+// we might want to indicate that a session has started:
+NOTICE("session", "start");
+
+// similar to the other log functions, we can also pass a metadata object and a message
+NOTICE("session", "start", {sessionId: id}, "recieving JOIN");
+```
+
 
 ## Other stuff
 

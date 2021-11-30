@@ -521,7 +521,7 @@ async function JOIN(client, args, token) {
     };
     
     // the connection log filter matches on (" connection " OR " JOIN ")
-    LOG(logObj, `receiving JOIN `);
+    NOTICE("session", "start", logObj, `receiving JOIN `);
 
     const { name, version, apiKey, url, sdk, appId, user, location, heraldUrl, leaveDelay, dormantDelay, tove } = args;
     // islandId deprecated since 0.5.1, but old clients will send it rather than persistentId
@@ -1233,7 +1233,8 @@ async function deleteIsland(island) {
     // stop ticking and delete
     stopTicker(island);
     ALL_ISLANDS.delete(id);
-    LOG({sessionId: id}, `island deleted`);
+
+    NOTICE("session", "end", {sessionId: id}, `island deleted`);
 
     // remove session, including deleting dispatcher record if there is one
     // (deleteIsland is only ever invoked after at least long enough to
