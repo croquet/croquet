@@ -2,7 +2,7 @@
     <head>
         <meta charset="utf-8">
         <title>Data test</title>
-        <script src="https://unpkg.com/@croquet/croquet@0.5"></script>
+        <script src="https://unpkg.com/@croquet/croquet"></script>
     </head>
     <body style="background-color: #666; background-size: contain; background-repeat: no-repeat; background-position: center;" onclick="imageinput.click()">
         <input id="imageinput" type="file" accept="image/*" style="display:none;">
@@ -81,6 +81,7 @@ class DataTestView extends Croquet.View {
 Croquet.App.makeWidgetDock();
 Croquet.Session.join({
     appId: "com.example.datatest", // replace with your own!
+    apiKey: '2DT9VCoCKtvXMKkBGZXNLrUEoZMn48ojXPC8XFAuuO',
     name: Croquet.App.autoSession(),
     password: Croquet.App.autoPassword(),
     model: DataTestModel,
