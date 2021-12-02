@@ -5,7 +5,7 @@ Scroll down for an **overview** of Croquet, and the [**Changelog**](#changelog).
 Use the Navigation Panel to try our **Tutorials and guides** and **API docs**.
 
 Please review our [**Code of Conduct**](/conduct.html) and
-**join** our [**Developer Slack** ![Slack](images/slack.png)](https://join.slack.com/t/croquet-dev/shared_invite/zt-ns5gscrp-6nfDQSzxvpgoJyRg9DNfsQ)
+**join** our [**Developer Slack** <img alt="Slack" style="height: 1.5em" src="images/slack.png"/>](https://join.slack.com/t/croquet-dev/shared_invite/zt-ns5gscrp-6nfDQSzxvpgoJyRg9DNfsQ)
 
 -   [Quickstart](#quickstart)
 -   [What is Croquet?](#what-is-croquet%3F)
@@ -27,15 +27,17 @@ There are 3 main ways to use Croquet:
 
 1.  **CodePen:** play with our tutorials, click "Edit on CodePen", and develop your app there. To share it, change the view to full screen, and share the pen's url. Alternatively, click "Export" and choose "Export .zip" to download your app to your local computer for further editing and uploading to your own website.
 
-2.  **Script Tag**: Add the following inside your page's `<head>` tag, possibly replacing `@@CROQUET_VERSION_MINOR@` with the version you want:
+2.  **Script Tag**: Add the following inside your page's `<head>` tag.
 
-       <meta charset="utf-8">
-       <script src="https://unpkg.com/@croquet/croquet@@CROQUET_VERSION_MINOR@"></script>
+~~~~ HTML
+       &lt;meta charset="utf-8"&gt;
+       &lt;script src="https://unpkg.com/@croquet/croquet"&gt;&lt/script&gt;
+~~~~
 
-    This will create the `Croquet` global to access `Croquet.Model` etc.
+This will create the `Croquet` global to access `Croquet.Model` etc.
 
-    **NOTE:** See [unpkg.com](https://unpkg.com/) for ways to link to different versions or the latest version automatically. However, we do update Croquet quite often, and
-    cannot promise that pre-1.0 versions will keep working forever, so please keep your apps up-to-date.
+**NOTE:** See [unpkg.com](https://unpkg.com/) for ways to link to different versions or the latest version automatically. However, we do update Croquet quite often, and
+cannot promise that pre-1.0 versions will keep working forever, so please keep your apps up-to-date.
 
 3.  **NPM**: install the [`@croquet/croquet`](https://www.npmjs.com/package/@croquet/croquet) package:
 
