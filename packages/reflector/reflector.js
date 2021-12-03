@@ -1432,6 +1432,7 @@ server.on('connection', (client, req) => {
         connection: client.addr,
         userIp: client.userIp,
         dispatcher: client.dispatcher,
+        location: client.location,
     };
     NOTICE('connection', 'start', logData, `opened connection ${version} ${forwarded||''}${req.headers['x-location']||''}`);
     STATS.USERS = Math.max(STATS.USERS, server.clients.size);
