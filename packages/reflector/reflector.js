@@ -1426,7 +1426,13 @@ server.on('connection', (client, req) => {
     }
     // the connection log filter matches on (" connection " OR " JOIN ")
     const forwarded = `via ${req.headers['x-croquet-dispatcher']} (${(req.headers['x-forwarded-for'] || '').split(/\s*,\s*/).map(a => a.replace(/^::ffff:/, '')).join(', ')}) `;
-    NOTICE('connection', 'start', {sessionId}, `opened connection ${version} ${forwarded||''}${req.headers['x-location']||''}`);
+    const logData = {
+        sessionId,
+        connection: client.addr,
+        userIp: client.userIp,
+        dispatcher: client.dispatcher,
+    };
+    NOTICE('connection', 'start', logData, `opened connection ${version} ${forwarded||''}${req.headers['x-location']||''}`);
     STATS.USERS = Math.max(STATS.USERS, server.clients.size);
 
     let lastActivity = Date.now();
