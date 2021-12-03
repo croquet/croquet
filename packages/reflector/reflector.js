@@ -162,7 +162,7 @@ function LOCAL_DEBUG(metadata, ...args) {
 }
 
 // Logging out the initial start-up event message
-NOTICE("process", "start");
+NOTICE("process", "start", {}, "reflector started");
 
 // secret shared with sign cloud func
 const SECRET_NAME = "projects/croquet-proj/secrets/signurl-jwt-hs256/versions/latest";
@@ -346,11 +346,11 @@ function handleTerm() {
         if (promises.length) {
             DEBUG({}, `\nEMERGENCY SHUTDOWN OF ${promises.length} ISLAND(S)`);
             Promise.allSettled(promises).then(() => {
-                NOTICE("process", "end");
+                NOTICE("process", "end", {}, "reflector shutdown");
                 process.exit();
             });
         } else {
-            NOTICE("process", "end");
+            NOTICE("process", "end", {}, "reflector shutdown");
             process.exit();
         }
     }
