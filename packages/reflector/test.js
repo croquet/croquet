@@ -33,7 +33,7 @@ test('reflector.js should log "process" notices with event "start" and "end"', f
 
 
 test('reflector should log "connection" notices with event "start" and "end"', function (t) {
-    t.plan(2);
+    t.plan(5);
     
     const reflector = spawn('node', ['./reflector.js', '--standalone', '--no-logtime']);
 
@@ -44,6 +44,11 @@ test('reflector should log "connection" notices with event "start" and "end"', f
         t.ok(foundStart, "should find a log object with scope=connection and event=start");
         const foundEnd = logObjects.find(logObj => logObj.scope === 'connection' && logObj.event === 'end');
         t.ok(foundEnd, "should find a log object with scope=connection and event=end");
+        const startId = foundStart.connection;
+        t.ok(startId, "start object should have a connection id");
+        const endId = foundEnd.connection;
+        t.ok(endId, "end object should have a connection id");
+        t.ok(startId === endId, "both start and end should have matching connection ids");
     });
 
     reflector.stdout.pipe(concatStream);
@@ -74,7 +79,7 @@ test('reflector should log "connection" notices with event "start" and "end"', f
 });
 
 test('reflector should log "session" notices with event "start" and "end"', function (t) {
-    t.plan(2);
+    t.plan(5);
 
     const reflector = spawn('node', ['./reflector.js', '--standalone', '--no-logtime']);
 
@@ -85,6 +90,11 @@ test('reflector should log "session" notices with event "start" and "end"', func
         t.ok(foundStart, "should find a log object with scope=session and event=start");
         const foundEnd = logObjects.find(logObj => logObj.scope === 'session' && logObj.event === 'end');
         t.ok(foundEnd, "should find a log object with scope=session and event=end");
+        const startId = foundStart.sessionId;
+        t.ok(startId, "start object should have a session id");
+        const endId = foundEnd.sessionId;
+        t.ok(endId, "end object should have a session id");
+        t.ok(startId === endId, "both start and end should have matching session ids");
     });
 
     reflector.stdout.pipe(concatStream);
