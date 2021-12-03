@@ -1434,7 +1434,7 @@ server.on('connection', (client, req) => {
         dispatcher: client.dispatcher,
         location: client.location,
     };
-    NOTICE('connection', 'start', logData, `opened connection ${version} ${forwarded||''}${req.headers['x-location']||''}`);
+    NOTICE("connection", "start", logData, `opened connection ${version} ${forwarded||''}${req.headers['x-location']||''}`);
     STATS.USERS = Math.max(STATS.USERS, server.clients.size);
 
     let lastActivity = Date.now();
@@ -1538,7 +1538,7 @@ server.on('connection', (client, req) => {
         };
 
         // the connection log filter matches on (" connection " OR " JOIN ")
-        NOTICE('connection', 'end', logData, `closed connection ${JSON.stringify(reason)}`);
+        NOTICE("connection", "end", logData, `closed connection ${JSON.stringify(reason)}`);
         
         if (island && island.clients && island.clients.has(client)) {
             if (island.startClient === client) {
