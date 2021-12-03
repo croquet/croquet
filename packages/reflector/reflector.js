@@ -264,17 +264,17 @@ async function requestListener(req, res) {
 
 webServer.on('upgrade', (req, socket, _head) => {
     const { sessionId } = parseUrl(req);
-    const clientAddr = `${socket.remoteAddress.replace(/^::ffff:/, '')}:${socket.remotePort}`;
+    const connection = `${socket.remoteAddress.replace(/^::ffff:/, '')}:${socket.remotePort}`;
     if (sessionId) {
         const session = ALL_SESSIONS.get(sessionId);
         if (session && session.stage === 'closed') {
             // a request to delete the dispatcher record has already been sent.  reject this connection, forcing the client to ask the dispatchers again.
-            LOG({sessionId, clientAddr}, `rejecting connection on upgrade; session has been unregistered`);
+            LOG({sessionId, connection}, `rejecting socket on upgrade; session has been unregistered`);
             socket.end('HTTP/1.1 404 Session Closed\r\n');
             return;
         }
     }
-    LOG({sessionId, clientAddress: clientAddr}, `upgrading connection for ${req.url}`);
+    LOG({sessionId, connection}, `upgrading socket for ${req.url}`);
 });
 
 // the WebSocket.Server will intercept the UPGRADE request made by a ws:// websocket connection
@@ -481,7 +481,7 @@ async function JOIN(client, args, token) {
     const session = ALL_SESSIONS.get(id);
     if (!session) {
         // shouldn't normally happen, but perhaps possible due to network delays
-        LOG({sessionId: id, clientAddress: client.addr}, `rejecting JOIN; unknown session`);
+        LOG({sessionId: id, connection: client.addr}, `rejecting JOIN; unknown session`);
         client.safeClose(...REASON.RECONNECT);
         return;
     }
@@ -492,7 +492,7 @@ async function JOIN(client, args, token) {
             // sent (but we didn't know that in time to prevent the
             // client from connecting at all).  tell client to ask the
             // dispatchers again.
-            LOG({sessionId: id, clientAddress: client.addr}, `rejecting JOIN; session has been unregistered`);
+            LOG({sessionId: id, connection: client.addr}, `rejecting JOIN; session has been unregistered`);
             client.safeClose(...REASON.RECONNECT);
             return;
         case 'runnable':
@@ -506,7 +506,7 @@ async function JOIN(client, args, token) {
 
     const logObj = {
         sessionId: id,
-        clientAddress: client.addr,
+        connection: client.addr,
         args,
     };
     
@@ -567,9 +567,9 @@ async function JOIN(client, args, token) {
     let validToken;
     if (VERIFY_TOKEN && token) try {
         validToken = await verifyToken(token);
-        LOG({sessionId: id, clientAddress: client.addr}, `token verified: ${JSON.stringify(validToken)}`);
+        LOG({sessionId: id, connection: client.addr}, `token verified: ${JSON.stringify(validToken)}`);
     } catch (err) {
-        ERROR({sessionId: id, clientAddress: client.addr}, `token verification failed: ${err.message}`);
+        ERROR({sessionId: id, connection: client.addr}, `token verification failed: ${err.message}`);
     }
 
     client.island = island; // set island before await
@@ -669,7 +669,7 @@ async function JOIN(client, args, token) {
 
     // otherwise, nothing to do at this point.  log that this client is waiting
     // for a snapshot either from latest.json or from a STARTed client.
-    DEBUG({sessionId: id, clientAddress: client.addr}, `waiting for snapshot`);
+    DEBUG({sessionId: id, connection: client.addr}, `waiting for snapshot`);
 }
 
 function START(island) {
@@ -683,7 +683,7 @@ function START(island) {
     const client = island.startClient;
     const msg = JSON.stringify({ id: island.id, action: 'START' });
     client.safeSend(msg);
-    DEBUG({sessionId: island.id, clientAddress: client.addr}, `sending START ${msg}`);
+    DEBUG({sessionId: island.id, connection: client.addr}, `sending START ${msg}`);
     // if the client does not provide a snapshot in time, we need to start over
     if (DISCONNECT_UNRESPONSIVE_CLIENTS) island.startTimeout = setTimeout(() => {
         if (island.startClient !== client) return; // success
@@ -703,10 +703,10 @@ function SYNC(island) {
     for (const syncClient of island.syncClients) {
         if (syncClient.readyState === WebSocket.OPEN) {
             syncClient.safeSend(response);
-            DEBUG({sessionId: id, clientAddress: syncClient.addr}, `sending SYNC @${time}#${seq} ${response.length} bytes, ${messages.length} messages${range}, ${args.persisted ? "persisted" : "snapshot"} ${args.url || "<none>"}`);
+            DEBUG({sessionId: id, connection: syncClient.addr}, `sending SYNC @${time}#${seq} ${response.length} bytes, ${messages.length} messages${range}, ${args.persisted ? "persisted" : "snapshot"} ${args.url || "<none>"}`);
             announceUserDidJoin(syncClient);
         } else {
-            DEBUG({sessionId: id, clientAddress: syncClient.addr}, `socket closed before SYNC`);
+            DEBUG({sessionId: id, connection: syncClient.addr}, `socket closed before SYNC`);
         }
     }
     // synced all that were waiting
@@ -765,7 +765,7 @@ function SNAP(client, args) {
     const { time, seq, hash, url, dissident } = args; // details of the snapshot that has been uploaded
 
     if (dissident) {
-        DEBUG({sessionId: id, clientAddress: client.addr}, `dissident snapshot @${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'} ${JSON.stringify(dissident)}`);
+        DEBUG({sessionId: id, connection: client.addr}, `dissident snapshot @${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'} ${JSON.stringify(dissident)}`);
         return;
     }
 
@@ -773,11 +773,11 @@ function SNAP(client, args) {
     // compare times rather than message seq, since (at least in principle) a new
     // snapshot can be taken after some elapsed time but no additional external messages.
     if (time <= island.snapshotTime) {
-        DEBUG({sessionId: id, clientAddress: client.addr}, `ignoring snapshot @${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'}`);
+        DEBUG({sessionId: id, connection: client.addr}, `ignoring snapshot @${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'}`);
         return;
     }
 
-    DEBUG({sessionId: id, clientAddress: client.addr}, `got snapshot @${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'}`);
+    DEBUG({sessionId: id, connection: client.addr}, `got snapshot @${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'}`);
 
     if (island.syncWithoutSnapshot || island.snapshotUrl) {
         // forget older messages, setting aside the ones that need to be stored
@@ -786,10 +786,10 @@ function SNAP(client, args) {
         if (msgs.length > 0) {
             const firstToKeep = msgs.findIndex(msg => after(seq, msg[1]));
             if (firstToKeep > 0) {
-                DEBUG({sessionId: id, clientAddress: client.addr}, id, `forgetting ${firstToKeep} of ${msgs.length} messages #${msgs[0][1] >>> 0} to #${msgs[firstToKeep - 1][1] >>> 0} (keeping #${msgs[firstToKeep][1] >>> 0})`);
+                DEBUG({sessionId: id, connection: client.addr}, id, `forgetting ${firstToKeep} of ${msgs.length} messages #${msgs[0][1] >>> 0} to #${msgs[firstToKeep - 1][1] >>> 0} (keeping #${msgs[firstToKeep][1] >>> 0})`);
                 messagesToStore = msgs.splice(0, firstToKeep); // we'll store all those we're forgetting
             } else if (firstToKeep === -1) {
-                DEBUG({sessionId: id, clientAddress: client.addr}, id, `forgetting all of ${msgs.length} messages (#${msgs[0][1] >>> 0} to #${msgs[msgs.length - 1][1] >>> 0})`);
+                DEBUG({sessionId: id, connection: client.addr}, id, `forgetting all of ${msgs.length} messages (#${msgs[0][1] >>> 0} to #${msgs[msgs.length - 1][1] >>> 0})`);
                 messagesToStore = msgs.slice();
                 msgs.length = 0;
             } // else if firstToKeep is 0 there's nothing to do
@@ -807,19 +807,19 @@ function SNAP(client, args) {
             const pad = n => (""+n).padStart(10, '0');
             const firstSeq = messagesToStore[0][1] >>> 0;
             const logName = `${id}/${pad(Math.ceil(time))}_${firstSeq}-${seq}-${hash}.json`;
-            DEBUG({sessionId: id, clientAddress: client.addr}, id, `uploading ${messagesToStore.length} messages #${firstSeq} to #${seq} as ${logName}`);
+            DEBUG({sessionId: id, connection: client.addr}, id, `uploading ${messagesToStore.length} messages #${firstSeq} to #${seq} as ${logName}`);
             uploadJSON(logName, messageLog).catch(err => ERROR({sessionId: id}, `failed to upload messages. ${err.code}: ${err.message}`));
         }
     } else if (island.startClient === client) {
         // this is the initial snapshot from the user we sent START
-        DEBUG({sessionId: id, clientAddress: client.addr}, id, `@${island.time}#${island.seq} init ${time}#${seq} from SNAP`);
+        DEBUG({sessionId: id, connection: client.addr}, id, `@${island.time}#${island.seq} init ${time}#${seq} from SNAP`);
         island.time = time;
         island.seq = seq;
         island.before = Date.now();
         announceUserDidJoin(client);
     } else {
         // this is the initial snapshot, but it's an old client (<=0.2.5) that already requested TICKS()
-        DEBUG({sessionId: id, clientAddress: client.addr}, id, `@${island.time}#${island.seq} not initializing time from snapshot (old client)`);
+        DEBUG({sessionId: id, connection: client.addr}, id, `@${island.time}#${island.seq} not initializing time from snapshot (old client)`);
     }
 
     // keep snapshot
@@ -848,16 +848,16 @@ function SAVE(client, args) {
     const descriptor = persistTime === undefined ? `@${time}#${seq} T${tuttiSeq}` : `@${persistTime}`;
 
     if (dissident) {
-        DEBUG({sessionId: id, clientAddress: client.addr}, `dissident persistent data for ${descriptor} ${url} ${JSON.stringify(dissident)}`);
+        DEBUG({sessionId: id, connection: client.addr}, `dissident persistent data for ${descriptor} ${url} ${JSON.stringify(dissident)}`);
         return;
     }
 
-    DEBUG({sessionId: id, clientAddress: client.addr}, `got persistent data for @${descriptor} ${url}`);
+    DEBUG({sessionId: id, connection: client.addr}, `got persistent data for @${descriptor} ${url}`);
 
     // do *not* change our own session's persistentUrl!
     // we only upload this to be used to init the next session of this island
     const saved = { url };
-    if (STORE_PERSISTENT_DATA) uploadJSON(`apps/${appId}/${persistentId}.json`, saved).catch(err => ERROR({sessionId: id, clientAddress: client.addr}, `failed to record persistent-data upload. ${err.code}: ${err.message}`));
+    if (STORE_PERSISTENT_DATA) uploadJSON(`apps/${appId}/${persistentId}.json`, saved).catch(err => ERROR({sessionId: id, connection: client.addr}, `failed to record persistent-data upload. ${err.code}: ${err.message}`));
 }
 
 /** send a message to all participants after time stamping it
@@ -986,11 +986,11 @@ function TUTTI(client, args) {
     if (!tally) { // either first client we've heard from, or one that's missed the party entirely
         const historyLimit = cleanUpCompletedTallies(island); // the limit of how far back we're currently tracking
         if (sendTime < historyLimit) {
-            DEBUG({sessionId: id, clientAddress: client.addr}, `rejecting vote for old tally ${keyOrSeq} (${island.time - sendTime}ms)`);
+            DEBUG({sessionId: id, connection: client.addr}, `rejecting vote for old tally ${keyOrSeq} (${island.time - sendTime}ms)`);
             return;
         }
         if (island.completedTallies[keyOrSeq]) {
-            DEBUG({sessionId: id, clientAddress: client.addr}, `rejecting vote for completed tally ${keyOrSeq}`);
+            DEBUG({sessionId: id, connection: client.addr}, `rejecting vote for completed tally ${keyOrSeq}`);
             return;
         }
 
@@ -1127,7 +1127,7 @@ function TICKS(client, args) {
     if (!island.syncWithoutSnapshot && !island.snapshotUrl) {
          // this must be an old client (<=0.2.5) that requests TICKS before sending a snapshot
         const { time, seq } = args;
-        DEBUG({sessionId: id, clientAddress: client.addr}, `@${island.time}#${island.seq} init ${time}#${seq} from TICKS (old client)`);
+        DEBUG({sessionId: id, connection: client.addr}, `@${island.time}#${island.seq} init ${time}#${seq} from TICKS (old client)`);
         island.time = typeof time === "number" ? Math.ceil(time) : 0;
         island.seq = typeof seq === "number" ? seq : 0;
         island.before = Date.now();
@@ -1330,7 +1330,7 @@ server.on('connection', (client, req) => {
             case 'closed':
                 // a request to delete the dispatcher record has already been
                 // sent.  tell client to ask the dispatchers again.
-                LOG({sessionId, clientAddress: client.addr}, `rejecting connection; session has been unregistered`);
+                LOG({sessionId, connection: client.addr}, `rejecting connection; session has been unregistered`);
                 client.close(...REASON.RECONNECT); // safeClose doesn't exist yet
                 return;
             case 'runnable':
@@ -1428,7 +1428,7 @@ server.on('connection', (client, req) => {
     let lastActivity = Date.now();
     client.on('pong', time => {
         lastActivity = Date.now();
-        DEBUG({sessionId, clientAddress: client.addr}, `receiving pong after ${Date.now() - time} ms`);
+        DEBUG({sessionId, connection: client.addr}, `receiving pong after ${Date.now() - time} ms`);
         });
     setTimeout(() => client.readyState === WebSocket.OPEN && client.ping(Date.now()), 100);
 
@@ -1439,21 +1439,21 @@ server.on('connection', (client, req) => {
             const now = Date.now();
             const quiescence = now - lastActivity;
             if (quiescence > DISCONNECT_THRESHOLD) {
-                DEBUG({sessionId, clientAddress: client.addr}, `inactive for ${quiescence} ms, disconnecting`);
+                DEBUG({sessionId, connection: client.addr}, `inactive for ${quiescence} ms, disconnecting`);
                 client.safeClose(...REASON.INACTIVE); // NB: close event won't arrive for a while
                 return;
             }
             let nextCheck = CHECK_INTERVAL;
             if (quiescence > PING_THRESHOLD) {
                 if (!joined) {
-                    DEBUG({sessionId, clientAddress: client.addr}, `did not join within ${quiescence} ms, disconnecting`);
+                    DEBUG({sessionId, connection: client.addr}, `did not join within ${quiescence} ms, disconnecting`);
                     client.safeClose(...REASON.NO_JOIN);
                     return;
                 }
 
                 // joined is true, so client.island must have been set up
                 if (!client.island.noInactivityPings) {
-                    DEBUG({sessionId, clientAddress: client.addr}, `inactive for ${quiescence} ms, sending ping`);
+                    DEBUG({sessionId, connection: client.addr}, `inactive for ${quiescence} ms, sending ping`);
                     client.ping(now);
                     nextCheck = PING_INTERVAL;
                 }
@@ -1475,7 +1475,7 @@ server.on('connection', (client, req) => {
                 parsedMsg = JSON.parse(incomingMsg);
                 if (typeof parsedMsg !== "object") throw Error("JSON did not contain an object");
             } catch (error) {
-                ERROR({sessionId, clientAddress: client.addr}, `message parsing error: ${error.message}`, incomingMsg);
+                ERROR({sessionId, connection: client.addr}, `message parsing error: ${error.message}`, incomingMsg);
                 client.close(...REASON.MALFORMED_MESSAGE);
                 return;
             }
@@ -1488,13 +1488,13 @@ server.on('connection', (client, req) => {
                     case 'TICKS': TICKS(client, args); break;
                     case 'SNAP': SNAP(client, args); break;
                     case 'SAVE': SAVE(client, args); break;
-                    case 'LOG': LOG({sessionId, clientAddress: client.addr}, `LOG ${typeof args === "string" ? args : JSON.stringify(args)}`); break;
+                    case 'LOG': LOG({sessionId, connection: client.addr}, `LOG ${typeof args === "string" ? args : JSON.stringify(args)}`); break;
                     case 'PING': PONG(client, args); break;
-                    case 'PULSE': LOCAL_DEBUG({sessionId, clientAddress: client.addr}, `receiving PULSE`); break; // sets lastActivity, otherwise no-op
-                    default: WARN({sessionId, clientAddress: client.addr}, `unknown action ${JSON.stringify(action)}`);
+                    case 'PULSE': LOCAL_DEBUG({sessionId, connection: client.addr}, `receiving PULSE`); break; // sets lastActivity, otherwise no-op
+                    default: WARN({sessionId, connection: client.addr}, `unknown action ${JSON.stringify(action)}`);
                 }
             } catch (error) {
-                ERROR({sessionId, clientAddress: client.addr}, `message handling error: ${error.message}`, error);
+                ERROR({sessionId, connection: client.addr}, `message handling error: ${error.message}`, error);
                 client.close(...REASON.UNKNOWN_ERROR);
             }
         };
@@ -1530,7 +1530,7 @@ server.on('connection', (client, req) => {
         
         if (island && island.clients && island.clients.has(client)) {
             if (island.startClient === client) {
-                DEBUG({sessionId: island.id, clientAddress: client.addr}, `${island.id}/${client.addr} START client failed to respond`);
+                DEBUG({sessionId: island.id, connection: client.addr}, `${island.id}/${client.addr} START client failed to respond`);
                 clearTimeout(island.startTimeout);
                 island.startTimeout = null;
                 island.startClient = null;
@@ -1589,11 +1589,11 @@ async function verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client) {
         // even key-not-found is 200 OK, but sets JSON error property
         const { developerId, error } = await response.json();
         if (developerId) {
-            LOG({sessionId: id, clientAddress: client.addr, developerId}, `API key verified`);
+            LOG({sessionId: id, connection: client.addr, developerId}, `API key verified`);
             return developerId;
         }
         if (error) {
-            ERROR({sessionId: id, clientAddress: client.addr}, `API key verification failed: ${error}`);
+            ERROR({sessionId: id, connection: client.addr}, `API key verification failed: ${error}`);
             const island = ALL_ISLANDS.get(id); // fetch island now, in case it went away during await
             // deal with no-island case
             INFO(island || {id}, {
@@ -1606,7 +1606,7 @@ async function verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client) {
             if (island && island.clients.size === 0) provisionallyDeleteIsland(island);
         }
     } catch (err) {
-        ERROR({sessionId: id, clientAddress: client.addr}, `error verifying API key: ${err.message}`);
+        ERROR({sessionId: id, connection: client.addr}, `error verifying API key: ${err.message}`);
     }
     return false;
 }
