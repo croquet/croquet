@@ -520,14 +520,14 @@ async function JOIN(client, args, token) {
             apiKey, 
             url, 
             sdk, 
-            heraldUrl, 
+            heraldUrl,
+            user: typeof user === "string" ? user : JSON.stringify(user), // BigQuery wants a single data type
         },
         allArgs: JSON.stringify(args),
     };
+    // the (old) connection log filter matches on (" connection " OR " JOIN ")
+    NOTICE("connection", "join", logObj, `receiving JOIN `);
     
-    // the connection log filter matches on (" connection " OR " JOIN ")
-    NOTICE("session", "start", logObj, `receiving JOIN `);
-
     // new clients (>=0.3.3) send ticks in JOIN
     const syncWithoutSnapshot = 'ticks' in args;
     // clients >= 0.5.1 send dormantDelay, which we use as a reason not to send pings to inactive clients
@@ -632,11 +632,31 @@ async function JOIN(client, args, token) {
     // if we haven't yet checked latest.json, look there first
     if (island.yetToCheckLatest) {
         island.yetToCheckLatest = false;
+
+        const logMeta = {
+            sessionId: id,
+            appId,
+            persistentId,
+            codeHash,
+            developerId: island.developerId,
+            url, 
+            sdk, 
+            heraldUrl,
+        }    
+
         const fileName = `${id}/latest.json`;
         try {
             const latestSpec = await fetchJSON(fileName);
             if (!latestSpec.snapshotUrl && !latestSpec.syncWithoutSnapshot) throw Error("latest.json has no snapshot, ignoring");
-            DEBUG({sessionId: id}, `resuming from latest.json @${latestSpec.time}#${latestSpec.seq} messages: ${latestSpec.messages.length} snapshot: ${latestSpec.snapshotUrl || "<none>"}`);
+            NOTICE("session", "start", {
+                ...logMeta,
+                snapshot: {
+                    time: latestSpec.time,
+                    seq: latestSpec.seq,
+                    messages: latestSpec.messages.length,
+                    url: latestSpec.snapshotUrl,
+                },
+            }, `resuming session from latest.json`);
             // as we migrate from one style of island properties to another, a
             // latest.json does not necessarily have all the properties a freshly
             // minted island has.
@@ -664,7 +684,14 @@ async function JOIN(client, args, token) {
             const persisted = appId && await fetchJSON(persistName).catch(() => { /* ignore */});
             if (persisted) {
                 island.persistentUrl = persisted.url;
-                DEBUG({sessionId: id}, `resuming from persisted ${persistName}: ${island.persistentUrl || "<none>"}`);
+                NOTICE("session", "start", {
+                    ...logMeta,
+                    persisted: {
+                        url: island.persistentUrl,
+                    },
+                }, `resuming session from persisted data`);
+            } else {
+                NOTICE("session", "start", logMeta, `starting fresh session`);
             }
         } finally {
             island.storedUrl = ''; // replace the null that means we haven't looked
