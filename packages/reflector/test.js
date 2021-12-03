@@ -13,9 +13,9 @@ test('reflector.js should log "process" notices with event "start" and "end"', f
     const concatStream = concat({encoding: 'string'}, stdoutBuffered => {
         const lines = stdoutBuffered.trim().split('\n');
         const logObjects = lines.map(JSON.parse);
-        const foundStart = logObjects.find(logObj => logObj.scope === 'process' && logObj.event == 'start');
+        const foundStart = logObjects.find(logObj => logObj.scope === 'process' && logObj.event === 'start');
         t.ok(foundStart, "should find a log object with scope=process and event=start");
-        const foundEnd = logObjects.find(logObj => logObj.scope === 'process' && logObj.event == 'end');
+        const foundEnd = logObjects.find(logObj => logObj.scope === 'process' && logObj.event === 'end');
         t.ok(foundEnd, "should find a log object with scope=process and event=end");
     });
 
@@ -40,9 +40,9 @@ test('reflector should log "connection" notices with event "start" and "end"', f
     const concatStream = concat({encoding: 'string'}, stdoutBuffered => {
         const lines = stdoutBuffered.trim().split('\n');
         const logObjects = lines.map(JSON.parse);
-        const foundStart = logObjects.find(logObj => logObj.scope === 'connection' && logObj.event == 'start');
+        const foundStart = logObjects.find(logObj => logObj.scope === 'connection' && logObj.event === 'start');
         t.ok(foundStart, "should find a log object with scope=connection and event=start");
-        const foundEnd = logObjects.find(logObj => logObj.scope === 'connection' && logObj.event == 'end');
+        const foundEnd = logObjects.find(logObj => logObj.scope === 'connection' && logObj.event === 'end');
         t.ok(foundEnd, "should find a log object with scope=connection and event=end");
     });
 
@@ -81,9 +81,9 @@ test('reflector should log "session" notices with event "start" and "end"', func
     const concatStream = concat({encoding: 'string'}, stdoutBuffered => {
         const lines = stdoutBuffered.trim().split('\n');
         const logObjects = lines.map(JSON.parse);
-        const foundStart = logObjects.find(logObj => logObj.scope === 'session' && logObj.event == 'start');
+        const foundStart = logObjects.find(logObj => logObj.scope === 'session' && logObj.event === 'start');
         t.ok(foundStart, "should find a log object with scope=session and event=start");
-        const foundEnd = logObjects.find(logObj => logObj.scope === 'session' && logObj.event == 'end');
+        const foundEnd = logObjects.find(logObj => logObj.scope === 'session' && logObj.event === 'end');
         t.ok(foundEnd, "should find a log object with scope=session and event=end");
     });
 
