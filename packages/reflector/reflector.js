@@ -118,19 +118,9 @@ function logtime() {
     return dd.toISOString().replace(/.*T/, "").replace("Z", " ");
 }
 
-function createLogString(additionalMetadata, ...args) {
+function createLogString(metadata, ...args) {
     const message = args.join(' ');
-    
-    const metadata = {
-        reflectorVersion: VERSION,
-        cluster: CLUSTER,
-        hostIp: HOSTIP,
-        message: message
-    };
-
-    // create the final log object by combining additional data with the provided metadata
-    const logObj = Object.assign(metadata, additionalMetadata);
-
+    const logObj = {...metadata, message};
     return `${logtime()}${JSON.stringify(logObj)}`;
 }
 
