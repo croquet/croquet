@@ -504,18 +504,29 @@ async function JOIN(client, args, token) {
         default:
     }
 
+    const { name, version, apiKey, url, sdk, appId, codeHash, user, location, heraldUrl, leaveDelay, dormantDelay, tove } = args;
+    // islandId deprecated since 0.5.1, but old clients will send it rather than persistentId
+    const persistentId = args.persistentId || args.islandId;
+
     const logObj = {
         sessionId: id,
         connection: client.addr,
-        args,
+        token,
+        // BigQuery wants a specific schema, so don't simply log everything
+        args: {
+            appId,
+            persistentId,
+            codeHash,
+            apiKey, 
+            url, 
+            sdk, 
+            heraldUrl, 
+        },
+        allArgs: JSON.stringify(args),
     };
     
     // the connection log filter matches on (" connection " OR " JOIN ")
     NOTICE("session", "start", logObj, `receiving JOIN `);
-
-    const { name, version, apiKey, url, sdk, appId, user, location, heraldUrl, leaveDelay, dormantDelay, tove } = args;
-    // islandId deprecated since 0.5.1, but old clients will send it rather than persistentId
-    const persistentId = args.persistentId || args.islandId;
 
     // new clients (>=0.3.3) send ticks in JOIN
     const syncWithoutSnapshot = 'ticks' in args;
