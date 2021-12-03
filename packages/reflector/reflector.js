@@ -1258,10 +1258,10 @@ function scheduleShutdownIfNoJoin(id, targetTime, detail) {
         session = ALL_SESSIONS.get(id);
         if (!session || (session.stage !== 'runnable' && session.stage !== 'closable')) {
             const reason = session ? `stage=${session.stage}` : "no session record";
-            DEBUG({sessionId: id}, id, `ignoring shutdown (${detail}): ${reason}`);
+            DEBUG({sessionId: id}, `ignoring shutdown (${detail}): ${reason}`);
             return;
         }
-        DEBUG({sessionId: id}, id, `shutting down session - ${detail}`);
+        DEBUG({sessionId: id}, `shutting down session - ${detail}`);
         if (session.stage === 'closable') {
             // there is (supposedly) an island, but it has no clients
             const island = ALL_ISLANDS.get(id);
@@ -1269,7 +1269,7 @@ function scheduleShutdownIfNoJoin(id, targetTime, detail) {
                 deleteIsland(island); // will invoke unregisterSession
                 return;
             }
-            DEBUG({sessionId: id}, id, `stage=closable but no island to delete`);
+            DEBUG({sessionId: id}, `stage=closable but no island to delete`);
         }
         unregisterSession(id, "no island");
         }, targetTime - now);
@@ -1281,11 +1281,11 @@ async function unregisterSession(id, detail) {
     const session = ALL_SESSIONS.get(id);
     if (!session || session.stage === 'closed') {
         const reason = session ? `stage=${session.stage}` : "no session record";
-        DEBUG({sessionId: id}, id, `ignoring unregister: ${reason}`);
+        DEBUG({sessionId: id}, `ignoring unregister: ${reason}`);
         return;
     }
 
-    DEBUG({sessionId: id}, id, `unregistering session - ${detail}`);
+    DEBUG({sessionId: id}, `unregistering session - ${detail}`);
 
     if (!DISPATCHER_BUCKET) {
         // nothing to wait for
