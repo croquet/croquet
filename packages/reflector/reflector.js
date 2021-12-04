@@ -8,6 +8,7 @@ const WebSocket = require('ws');
 const fetch = require('node-fetch');
 const prometheus = require('prom-client');
 const jwt = require('jsonwebtoken');
+const pino = require('pino');
 const { Storage } = require('@google-cloud/storage');
 const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
 
@@ -46,7 +47,6 @@ const SPECIAL_CUSTOMERS = [
 
 // debugging (should read env vars)
 const collectRawSocketStats = false;
-const debugLogs = true;
 
 // collect metrics in Prometheus format
 const prometheusConnectionGauge = new prometheus.Gauge({
@@ -111,22 +111,33 @@ const DISCONNECT_THRESHOLD = 60000; // if not responding for this long, disconne
 const DISPATCH_RECORD_RETENTION = 5000; // how long we must wait to delete a dispatch record (set on the bucket)
 const LATE_DISPATCH_DELAY = 1000;  // how long to allow for clients arriving from the dispatcher even though the session has been unregistered
 
-function logtime() {
-    if (!CLUSTER_IS_LOCAL || NO_LOGTIME) return "";
-    const d = new Date();
-    const dd = new Date(d - d.getTimezoneOffset() * 60 * 1000);
-    return dd.toISOString().replace(/.*T/, "").replace("Z", " ");
-}
 
-function createLogString(metadata, ...args) {
-    const message = args.join(' ');
-    const logObj = {...metadata, message};
-    return `${logtime()}${JSON.stringify(logObj)}`;
-}
+// Map pino levels to GCP, https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry#LogSeverity
+const GCP_SEVERITY = {
+    trace:  'DEBUG',
+    debug:  'DEBUG',
+    info:   'INFO',
+    notice: 'NOTICE',
+    warn:   'WARNING',
+    error:  'ERROR',
+    fatal:  'CRITICAL',
+};
+  
+const logger = pino({
+    base: null,
+    messageKey: 'message',
+    timestamp: CLUSTER_IS_LOCAL && !NO_LOGTIME,
+    level: process.env.LOG_LEVEL ? process.env.LOG_LEVEL.toLowerCase() : CLUSTER_IS_LOCAL ? 'trace' : 'debug',
+    customLevels: {
+        notice: 35,
+    },
+    formatters: {
+        level: label => ({ severity: GCP_SEVERITY[label] || 'DEFAULT'}),
+    },
+});
 
 function LOG(metadata, ...args) {
-    metadata.severity = 'INFO';
-    console.log(createLogString(metadata, ...args));
+    logger.info(metadata, args.join(' '));
 }
 
 /** Log a NOTICE event. Normal but significant events, such as start up, shut down, or a configuration change.
@@ -134,31 +145,23 @@ function LOG(metadata, ...args) {
  * @param {string} event - "start", "end", any
  */
 function NOTICE(scope, event, metadata, ...args) {
-    metadata = metadata || {};
-    metadata.severity = 'NOTICE';
-    metadata.scope = scope;
-    metadata.event = event;
-    console.log(createLogString(metadata, ...args));
+    logger.notice({...metadata, scope, event}, args.join(' '));
 }
 
 function WARN(metadata, ...args) {
-    metadata.severity = 'WARNING';
-    console.warn(createLogString(metadata, ...args));
+    logger.warn(metadata, args.join(' '));
 }
 
 function ERROR(metadata, ...args) {
-    metadata.severity = 'ERROR';
-    console.error(createLogString(metadata, ...args));
+    logger.error(metadata, args.join(' '));
 }
 
 function DEBUG(metadata, ...args) {
-    metadata.severity = 'DEBUG';
-    if (debugLogs) console.log(createLogString(metadata, ...args));
+    logger.debug(metadata, args.join(' '));
 }
 
-function LOCAL_DEBUG(metadata, ...args) {
-    metadata.severity = 'DEBUG';
-    if (debugLogs && CLUSTER_IS_LOCAL) console.log(createLogString(metadata, ...args));
+function TRACE(metadata, ...args) {
+    logger.trace(metadata, args.join(' '));
 }
 
 // Logging out the initial start-up event message
@@ -429,7 +432,7 @@ function getTime(island, _reason) {
         }
         island.time += Math.round(island.scale * advance);
         island.before = now;
-        //LOCAL_DEBUG(`${island.id} getTime(${_reason}) => ${island.time}`);
+        //TRACE(`${island.id} getTime(${_reason}) => ${island.time}`);
     }
     return island.time;
 }
@@ -767,7 +770,7 @@ function announceUserDidJoin(client) {
     if (didLeave !== -1) island.usersLeft.splice(didLeave, 1);
     else island.usersJoined.push(client.user);
     scheduleUsersMessage(island);
-    LOCAL_DEBUG({sessionId: island.id}, `user ${JSON.stringify(client.user)} joined`);
+    TRACE({sessionId: island.id}, `user ${JSON.stringify(client.user)} joined`);
 }
 
 function announceUserDidLeave(client) {
@@ -778,7 +781,7 @@ function announceUserDidLeave(client) {
     if (didJoin !== -1) island.usersJoined.splice(didJoin, 1);
     else island.usersLeft.push(client.user);
     scheduleUsersMessage(island);
-    LOCAL_DEBUG({sessionId: island.id}, `user ${JSON.stringify(client.user)} left`);
+    TRACE({sessionId: island.id}, `user ${JSON.stringify(client.user)} left`);
 }
 
 function scheduleUsersMessage(island) {
@@ -944,7 +947,7 @@ function SEND(island, messages) {
         message[0] = time;
         message[1] = island.seq = (island.seq + 1) >>> 0; // seq is always uint32
         const msg = JSON.stringify({ id: island.id, action: 'RECV', args: message });
-        LOCAL_DEBUG({sessionId: island.id}, `broadcasting RECV ${JSON.stringify(message)}`);
+        TRACE({sessionId: island.id}, `broadcasting RECV ${JSON.stringify(message)}`);
         prometheusMessagesCounter.inc();
         STATS.RECV++;
         STATS.SEND += island.clients.size;
@@ -1079,10 +1082,10 @@ function DELAY_SEND(island, delay, messages) {
         stopTicker(island);
         island.delayed = [];
         setTimeout(() => DELAYED_SEND(island), delay);
-        LOCAL_DEBUG({sessionId: island.id}, `last tick: @${island.lastTick}, delaying for ${delay} ms`);
+        TRACE({sessionId: island.id}, `last tick: @${island.lastTick}, delaying for ${delay} ms`);
     }
     island.delayed.push(...messages);
-    if (debugLogs) for (const msg of messages) LOCAL_DEBUG({sessionId: island.id}, `delaying ${JSON.stringify(msg)}`);
+    for (const msg of messages) TRACE({sessionId: island.id}, `delaying ${JSON.stringify(msg)}`);
 }
 
 function DELAYED_SEND(island) {
@@ -1177,7 +1180,7 @@ function TICKS(client, args) {
 }
 
 function startTicker(island, tick) {
-    LOCAL_DEBUG({sessionId: island.id}, `${island.ticker ? "restarting" : "started"} ticker: ${tick} ms`);
+    TRACE({sessionId: island.id}, `${island.ticker ? "restarting" : "started"} ticker: ${tick} ms`);
     if (island.ticker) stopTicker(island);
     island.tick = tick;
     island.ticker = setInterval(() => TICK(island), tick);
@@ -1529,7 +1532,7 @@ server.on('connection', (client, req) => {
                     case 'SAVE': SAVE(client, args); break;
                     case 'LOG': LOG({sessionId, connection: client.addr}, `LOG ${typeof args === "string" ? args : JSON.stringify(args)}`); break;
                     case 'PING': PONG(client, args); break;
-                    case 'PULSE': LOCAL_DEBUG({sessionId, connection: client.addr}, `receiving PULSE`); break; // sets lastActivity, otherwise no-op
+                    case 'PULSE': TRACE({sessionId, connection: client.addr}, `receiving PULSE`); break; // sets lastActivity, otherwise no-op
                     default: WARN({sessionId, connection: client.addr}, `unknown action ${JSON.stringify(action)}`);
                 }
             } catch (error) {
