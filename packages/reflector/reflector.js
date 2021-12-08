@@ -122,7 +122,7 @@ const GCP_SEVERITY = {
     error:  'ERROR',
     fatal:  'CRITICAL',
 };
-  
+
 const logger = pino({
     base: null,
     messageKey: 'message',
@@ -520,9 +520,9 @@ async function JOIN(client, args, token) {
             appId,
             persistentId,
             codeHash,
-            apiKey, 
-            url, 
-            sdk, 
+            apiKey,
+            url,
+            sdk,
             heraldUrl,
             user: typeof user === "string" ? user : JSON.stringify(user), // BigQuery wants a single data type
         },
@@ -530,7 +530,7 @@ async function JOIN(client, args, token) {
     };
     // the (old) connection log filter matches on (" connection " OR " JOIN ")
     NOTICE("connection", "join", logObj, `receiving JOIN `);
-    
+
     // new clients (>=0.3.3) send ticks in JOIN
     const syncWithoutSnapshot = 'ticks' in args;
     // clients >= 0.5.1 send dormantDelay, which we use as a reason not to send pings to inactive clients
@@ -642,10 +642,10 @@ async function JOIN(client, args, token) {
             persistentId,
             codeHash,
             developerId: island.developerId,
-            url, 
-            sdk, 
+            url,
+            sdk,
             heraldUrl,
-        }    
+        };
 
         const fileName = `${id}/latest.json`;
         try {
@@ -1553,7 +1553,7 @@ server.on('connection', (client, req) => {
         prometheusConnectionGauge.dec();
         const island = client.island || ALL_ISLANDS.get(client.sessionId) || {};
 
-        const logData = {
+        const logMeta = {
             sessionId: client.sessionId,
             connection: client.addr,
             stats: client.stats,
@@ -1568,8 +1568,8 @@ server.on('connection', (client, req) => {
         };
 
         // the connection log filter matches on (" connection " OR " JOIN ")
-        NOTICE("connection", "end", logData, `closed connection ${JSON.stringify(reason)}`);
-        
+        NOTICE("connection", "end", logMeta, `closed connection ${JSON.stringify(reason)}`);
+
         if (island && island.clients && island.clients.has(client)) {
             if (island.startClient === client) {
                 DEBUG({sessionId: island.id, connection: client.addr}, `${island.id}/${client.addr} START client failed to respond`);

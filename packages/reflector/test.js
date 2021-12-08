@@ -1,12 +1,13 @@
+/* eslint-disable import/no-extraneous-dependencies */
 const test = require('tape-catch');
 const { spawn } = require('child_process');
 const concat = require('concat-stream');
 const WebSocket = require('ws');
 
-test('reflector.js should log "process" notices with event "start" and "end"', function (t) {
+test('reflector.js should log "process" notices with event "start" and "end"', t => {
     // we plan for 1 assertion. See https://github.com/substack/tape#tplann
     t.plan(2);
-    
+
     const reflector = spawn('node', ['./reflector.js', '--standalone', '--no-logtime']);
 
     // we use concatStream to buffer stdout so we can parse/search it more easily.
@@ -21,20 +22,16 @@ test('reflector.js should log "process" notices with event "start" and "end"', f
 
     reflector.stdout.pipe(concatStream);
 
-    reflector.on('close', (code, signal) => {
-        t.end();
-    });
+    reflector.on('close', () => t.end());
 
     // give the server 2 seconds to start up before sending a kill signal.
-    const timeoutID = setTimeout(() => {
-        reflector.kill('SIGTERM'); // Send SIGTERM to process.
-    }, 2000);
+    setTimeout(() => reflector.kill('SIGTERM'), 2000);
 });
 
 
-test('reflector should log "connection" notices with event "start" and "end"', function (t) {
+test('reflector should log "connection" notices with event "start" and "end"', t => {
     t.plan(5);
-    
+
     const reflector = spawn('node', ['./reflector.js', '--standalone', '--no-logtime']);
 
     const concatStream = concat({encoding: 'string'}, stdoutBuffered => {
@@ -53,32 +50,23 @@ test('reflector should log "connection" notices with event "start" and "end"', f
 
     reflector.stdout.pipe(concatStream);
 
-    reflector.on('close', (code, signal) => {
-        t.end();
-    });
+    reflector.on('close', () => t.end());
 
-    t.teardown(() => {
-        reflector.kill('SIGTERM');
-    });
+    t.teardown(() => reflector.kill('SIGTERM'));
 
     // we set a timeout before trying to connect to the web socket server.
     // without this, we would get an error because the server wouldn't be ready yet.
-    const timeoutID = setTimeout(() => {
+    setTimeout(() => {
         const ws = new WebSocket('ws://localhost:9090/test-session-id');
 
-        ws.on('open', function open() {
-            // after opening, we now want to close the connection
-            this.close();
-        });
+        ws.on('open', () => ws.close());
 
-        ws.on('close', function close() {
-            reflector.kill('SIGTERM');
-        });
+        ws.on('close', () => reflector.kill('SIGTERM'));
     }, 1000);
-    
+
 });
 
-test('reflector should log "session" notices with event "start" and "end"', function (t) {
+test('reflector should log "session" notices with event "start" and "end"', t => {
     t.plan(5);
 
     const reflector = spawn('node', ['./reflector.js', '--standalone', '--no-logtime']);
@@ -99,20 +87,16 @@ test('reflector should log "session" notices with event "start" and "end"', func
 
     reflector.stdout.pipe(concatStream);
 
-    reflector.on('close', (code, signal) => {
-        t.end();
-    });
+    reflector.on('close', () => t.end());
 
-    t.teardown(() => {
-        reflector.kill('SIGTERM');
-    });
+    t.teardown(() => reflector.kill('SIGTERM'));
 
     // we set a timeout before trying to connect to the web socket server.
     // without this, we would get an error because the server wouldn't be ready yet.
-    const timeoutID = setTimeout(() => {
+    setTimeout(() => {
         const ws = new WebSocket('ws://localhost:9090/test-session-id');
 
-        ws.on('open', function open() {
+        ws.on('open', () => {
             // first we send a JOIN action
             ws.send(JSON.stringify({
                 action: 'JOIN',
@@ -122,11 +106,9 @@ test('reflector should log "session" notices with event "start" and "end"', func
             }));
 
             // close the connection
-            this.close();
+            ws.close();
         });
 
-        ws.on('close', function close() {
-            reflector.kill('SIGTERM');
-        });
+        ws.on('close', () => reflector.kill('SIGTERM'));
     }, 1000);
 });
