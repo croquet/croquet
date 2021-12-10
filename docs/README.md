@@ -27,16 +27,21 @@ There are 3 main ways to use Croquet:
 
 1.  **CodePen:** play with our tutorials, click "Edit on CodePen", and develop your app there. To share it, change the view to full screen, and share the pen's url. Alternatively, click "Export" and choose "Export .zip" to download your app to your local computer for further editing and uploading to your own website.
 
-2.  **Script Tag**: Add the following inside your page's `<head>` tag, replacing `@@CROQUET_VERSION_MINOR@` with the exact version you want:
+2.  **Script Tag**: Add the following inside your page's `<head>` tag, replacing `@@CROQUET_VERSION@` with the version you want:
 
 ~~~~ HTML
        &lt;meta charset="utf-8"&gt;
-       &lt;script src="https://unpkg.com/@croquet/croquet@@CROQUET_VERSION_MINOR@"&gt;&lt/script&gt;
+       &lt;script src="https://unpkg.com/@croquet/croquet@@CROQUET_VERSION@"&gt;&lt/script&gt;
 ~~~~
 
 This will create the `Croquet` global to access `Croquet.Model` etc.
 
-**NOTE:** See [unpkg.com](https://unpkg.com/) for ways to link to different versions or the latest version automatically. We do update Croquet quite often, so please keep your apps up-to-date.
+**NOTE:** This way of specifying the Croquet script URL will automatically redirect to the actual script file.
+
+*In production*, you should use a full path like `https://unpkg.com/@croquet/croquet@@CROQUET_VERSION@/pub/croquet.min.js` to avoid the cost of the redirect
+(the full path is what your browser's address bar will show when you click the abbreviated [script link](https://unpkg.com/@croquet/croquet@@CROQUET_VERSION@).
+
+See [unpkg.com](https://unpkg.com/) for ways to link to different versions or the latest version automatically. We do update Croquet quite often, so please keep your apps up-to-date.
 
 3.  **NPM**: install the [`@croquet/croquet`](https://www.npmjs.com/package/@croquet/croquet) package:
 
@@ -68,13 +73,13 @@ Every Croquet application consists of two parts:
 
 When you launch a Croquet application, you automatically join a shared **session**. As long as you're in the session, your models will be identical to the models of every other user in the session.
 
-To maintain this synchronization, models for all users execute in lockstep based on a shared  session **time**. 
+To maintain this synchronization, models for all users execute in lockstep based on a shared  session **time**.
 
 The views interact with the models through **events**. When you publish an event from a view, it's mirrored to everyone else in your session, so everyone's models receive exactly the same event stream.
 
 ## Behind the scenes
 
-Internally, the shared time and event mirroring is handled by a network connection to **reflectors**. Reflectors are stateless, public message-passing services located in the cloud. 
+Internally, the shared time and event mirroring is handled by a network connection to **reflectors**. Reflectors are stateless, public message-passing services located in the cloud.
 
 **Snapshots** are archived copies of all models in a session. Croquet apps periodically take snapshots and save them to the cloud. When you join an existing session, you sync with the other users by loading one of these snapshots.
 
@@ -166,7 +171,7 @@ See {@link View} for the full class documentation.
 
 # Events
 
-Even though views can read directly from models, the only way for a view to interact with a model is through events. 
+Even though views can read directly from models, the only way for a view to interact with a model is through events.
 
 To send an event, call `publish()`:
 
@@ -204,7 +209,7 @@ This allows you to use pub/sub inside of your model, if that makes sense for you
 
 **_View events_ (published by a view and handled by a view) are also generated and handled locally. They are not sent via the network. Typically they are queued and handled before each frame is rendered.**
 
-Again, this allows you to use pub/sub inside your view. It is *not* a way to communicate between different clients, for that, both clients need to communicate with the shared model. 
+Again, this allows you to use pub/sub inside your view. It is *not* a way to communicate between different clients, for that, both clients need to communicate with the shared model.
 
 Both models and views can subscribe to the same event. This can be used to implement immediate user feedback: the local view can update itself by listening to the same input event it is sending via the reflector to the model, anticipating what will happen once the event comes back from the reflector. Care has to be taken to handle the case that another event arrives in the mean time.
 
