@@ -123,8 +123,12 @@ const GCP_SEVERITY = {
     fatal:  'CRITICAL',
 };
 
-const logger = pino({
-    base: null,
+// the global logger. we have per-session and per-connection child loggers, too.
+// every log entry should have scope and event properties, as well as a message.
+// the scope is "session" if we have a sessionId, "connection" if we have
+// a connectionId (client address), and "process" if we don't have either.
+const global_logger = pino({
+    base: { scope: "process" },
     messageKey: 'message',
     timestamp: CLUSTER_IS_LOCAL && !NO_LOGTIME,
     level: process.env.LOG_LEVEL ? process.env.LOG_LEVEL.toLowerCase() : CLUSTER_IS_LOCAL ? 'trace' : 'debug',
@@ -136,36 +140,8 @@ const logger = pino({
     },
 });
 
-function LOG(metadata, ...args) {
-    logger.info(metadata, args.join(' '));
-}
-
-/** Log a NOTICE event. Normal but significant events, such as start up, shut down, or a configuration change.
- * @param {string} scope - "process", "session", "connection"
- * @param {string} event - "start", "end", any
- */
-function NOTICE(scope, event, metadata, ...args) {
-    logger.notice({...metadata, scope, event}, args.join(' '));
-}
-
-function WARN(metadata, ...args) {
-    logger.warn(metadata, args.join(' '));
-}
-
-function ERROR(metadata, ...args) {
-    logger.error(metadata, args.join(' '));
-}
-
-function DEBUG(metadata, ...args) {
-    logger.debug(metadata, args.join(' '));
-}
-
-function TRACE(metadata, ...args) {
-    logger.trace(metadata, args.join(' '));
-}
-
 // Logging out the initial start-up event message
-NOTICE("process", "start", {}, "reflector started");
+global_logger.notice({ event: "start" }, "reflector started");
 
 // secret shared with sign cloud func
 const SECRET_NAME = "projects/croquet-proj/secrets/signurl-jwt-hs256/versions/latest";
@@ -239,7 +215,12 @@ async function requestListener(req, res) {
     }
     // we don't log any of the above or health checks
     const is_health_check = req.url.endsWith('/healthz');
-    if (!is_health_check) LOG({}, `GET ${req.url} ${JSON.stringify(req.headers)}`);
+    if (!is_health_check) global_logger.info({
+        event: "request",
+        method: req.method,
+        url: req.url,
+        headers: req.headers,
+    }, `GET ${req.url}`);
     // otherwise, show host and cluster
     const body = `Croquet reflector-${VERSION} ${HOSTIP} ${CLUSTER_LABEL}\n\nAh, ha, ha, ha, stayin' alive!`;
     res.writeHead(200, {
@@ -272,12 +253,28 @@ webServer.on('upgrade', (req, socket, _head) => {
         const session = ALL_SESSIONS.get(sessionId);
         if (session && session.stage === 'closed') {
             // a request to delete the dispatcher record has already been sent.  reject this connection, forcing the client to ask the dispatchers again.
-            LOG({sessionId, connection}, `rejecting socket on upgrade; session has been unregistered`);
+            global_logger.debug({
+                scope: "connection",
+                event: "upgrade-rejected",
+                method: req.method,
+                url: req.url,
+                headers: req.headers,
+                sessionId,
+                connection
+            }, `rejecting socket on upgrade; session has been unregistered`);
             socket.end('HTTP/1.1 404 Session Closed\r\n');
             return;
         }
     }
-    LOG({sessionId, connection}, `upgrading socket for ${req.url}`);
+    global_logger.debug({
+        scope: "connection",
+        event: "upgrade",
+        method: req.method,
+        url: req.url,
+        headers: req.headers,
+        sessionId,
+        connection
+    }, `upgrading socket for ${req.url}`);
 });
 
 // the WebSocket.Server will intercept the UPGRADE request made by a ws:// websocket connection
@@ -286,7 +283,9 @@ const server = new WebSocket.Server({ server: webServer });
 async function startServer() {
     if (VERIFY_TOKEN) SECRET = await fetchSecret();
     webServer.listen(PORT);
-    LOG({}, `starting ${server.constructor.name} ${USE_HTTPS ? "wss" : "ws"}://${CLUSTER_IS_LOCAL ? "localhost" : HOSTNAME}:${PORT}/`);
+    global_logger.info({
+        event: "listen",
+    }, `starting ${server.constructor.name} ${USE_HTTPS ? "wss" : "ws"}://${CLUSTER_IS_LOCAL ? "localhost" : HOSTNAME}:${PORT}/`);
 }
 
 const STATS_TO_AVG = ["RECV", "SEND", "TICK", "IN", "OUT"];
@@ -317,7 +316,7 @@ function watchStats() {
             sum += STATS[key];
         }
         if (sum === 0) return;
-        LOG({}, out.join(', '));
+        global_logger.trace({ event: "stats" }, out.join(', '));
         for (const key of STATS_KEYS) STATS[key] = 0;
     }
 }
@@ -347,13 +346,16 @@ function handleTerm() {
             promises.push(cleanup);
         }
         if (promises.length) {
-            DEBUG({}, `\nEMERGENCY SHUTDOWN OF ${promises.length} ISLAND(S)`);
+            global_logger.warn({
+                event: "shutdown",
+                sessionCount: promises.length,
+            }, `EMERGENCY SHUTDOWN OF ${promises.length} ISLAND(S)`);
             Promise.allSettled(promises).then(() => {
-                NOTICE("process", "end", {}, "reflector shutdown");
+                global_logger.notice({ event: "end" }, "reflector shutdown");
                 process.exit();
             });
         } else {
-            NOTICE("process", "end", {}, "reflector shutdown");
+            global_logger.notice({ event: "end" }, "reflector shutdown");
             process.exit();
         }
     }
@@ -361,11 +363,17 @@ function handleTerm() {
 process.on('SIGINT', handleTerm);
 process.on('SIGTERM', handleTerm);
 process.on('uncaughtException', err => {
-    ERROR({errorStacktrace: err.stack}, "Uncaught", err);
+    global_logger.error({
+        event: "uncaught-exception",
+        err
+    }, `Uncaught exception: ${err.message}`);
     handleTerm();
 });
-process.on('unhandledRejection', (reason, promise) => {
-    WARN({}, "Unhandled Rejection", reason, promise);
+process.on('unhandledRejection', (err, _promise) => {
+    global_logger.warn({
+        event: "unhandled-rejection",
+        err,
+    }, `Unhandled rejection: ${err.message}`);
     // TODO: call handleTerm();
     // (not terminating yet, need to see what rejections we do not handle first)
 });
@@ -462,6 +470,7 @@ function nonSavableProps() {
         apiKey: null,
         url: null,
         resumed: new Date(), // session init/resume time, needed for billing to count number of sessions
+        logger: null,        // the logger for this session (shared with ALL_SESSIONS[id])
         [Symbol.toPrimitive]: () => "dummy",
         };
 }
@@ -475,7 +484,7 @@ function savableKeys(island) {
  * @param {Client} client - we received from this client
  * @param {{name: String, version: Number, appId?: string, persistentId?: string, user: string}} args
  */
-async function JOIN(client, args, token) {
+async function JOIN(client, args) {
     if (typeof args === "number" || !args.version) {
         client.safeClose(...REASON.BAD_PROTOCOL);
         return;
@@ -484,7 +493,7 @@ async function JOIN(client, args, token) {
     const session = ALL_SESSIONS.get(id);
     if (!session) {
         // shouldn't normally happen, but perhaps possible due to network delays
-        LOG({sessionId: id, connection: client.addr}, `rejecting JOIN; unknown session`);
+        client.logger.info({event: "reject-join"}, "rejecting JOIN; unknown session");
         client.safeClose(...REASON.RECONNECT);
         return;
     }
@@ -495,7 +504,7 @@ async function JOIN(client, args, token) {
             // sent (but we didn't know that in time to prevent the
             // client from connecting at all).  tell client to ask the
             // dispatchers again.
-            LOG({sessionId: id, connection: client.addr}, `rejecting JOIN; session has been unregistered`);
+            client.logger.info({ event: "reject-join" }, "rejecting JOIN; session has been unregistered");
             client.safeClose(...REASON.RECONNECT);
             return;
         case 'runnable':
@@ -511,10 +520,9 @@ async function JOIN(client, args, token) {
     // islandId deprecated since 0.5.1, but old clients will send it rather than persistentId
     const persistentId = args.persistentId || args.islandId;
 
-    const logObj = {
-        sessionId: id,
-        connection: client.addr,
-        token,
+    // the (old) connection log filter matches on (" connection " OR " JOIN ")
+    client.logger.notice({
+        event: "join",
         // BigQuery wants a specific schema, so don't simply log everything
         args: {
             appId,
@@ -527,9 +535,7 @@ async function JOIN(client, args, token) {
             user: typeof user === "string" ? user : JSON.stringify(user), // BigQuery wants a single data type
         },
         allArgs: JSON.stringify(args),
-    };
-    // the (old) connection log filter matches on (" connection " OR " JOIN ")
-    NOTICE("connection", "join", logObj, `receiving JOIN `);
+    }, `receiving JOIN `);
 
     // new clients (>=0.3.3) send ticks in JOIN
     const syncWithoutSnapshot = 'ticks' in args;
@@ -568,6 +574,7 @@ async function JOIN(client, args, token) {
             ...nonSavableProps(),
             [Symbol.toPrimitive]: () => `${name} ${id}`,
             };
+        island.logger = session.logger;
         ALL_ISLANDS.set(id, island);
         prometheusSessionGauge.inc();
         if (syncWithoutSnapshot) TICKS(client, args.ticks); // client will not request ticks
@@ -578,15 +585,16 @@ async function JOIN(client, args, token) {
     island.dormantDelay = dormantDelay; // only provided by clients since 0.5.1
     island.url = url;
 
+    client.island = island; // set island before await
+
+    const { token } = client.meta;
     let validToken;
     if (VERIFY_TOKEN && token) try {
         validToken = await verifyToken(token);
-        LOG({sessionId: id, connection: client.addr}, `token verified: ${JSON.stringify(validToken)}`);
+        client.logger.info({ event: "token-verified" }, "token verified");
     } catch (err) {
-        ERROR({sessionId: id, connection: client.addr}, `token verification failed: ${err.message}`);
+        client.logger.warn({ event: "token-verify-failed", err }, `token verification failed: ${err.message}`);
     }
-
-    client.island = island; // set island before await
 
     // check API key
     let apiKeyPromise;
@@ -617,9 +625,9 @@ async function JOIN(client, args, token) {
 
     if (user) {
         client.user = user;
-        if (island.location && client.location) {
-            if (Array.isArray(user)) user.push(client.location);
-            else if (typeof user === "object") user.location = client.location;
+        if (island.location && client.meta.location) {
+            if (Array.isArray(user)) user.push(client.meta.location);
+            else if (typeof user === "object") user.location = client.meta.location;
         }
     }
 
@@ -636,8 +644,8 @@ async function JOIN(client, args, token) {
     if (island.yetToCheckLatest) {
         island.yetToCheckLatest = false;
 
-        const logMeta = {
-            sessionId: id,
+        island.logger = global_logger.child({
+            ...session.logger.bindings(),
             appId,
             persistentId,
             codeHash,
@@ -645,21 +653,27 @@ async function JOIN(client, args, token) {
             url,
             sdk,
             heraldUrl,
-        };
+        });
+        session.logger = island.logger;
+        // client loggers need to be updated now that session logger has more meta data
+        for (const each of island.clients) {
+            each.logger = session.logger.child(each.meta);
+        }
+        // new clients will be based on new session.logger
 
         const fileName = `${id}/latest.json`;
         try {
             const latestSpec = await fetchJSON(fileName);
             if (!latestSpec.snapshotUrl && !latestSpec.syncWithoutSnapshot) throw Error("latest.json has no snapshot, ignoring");
-            NOTICE("session", "start", {
-                ...logMeta,
+            island.logger.notice({
+                event: "start",
                 snapshot: {
                     time: latestSpec.time,
                     seq: latestSpec.seq,
                     messages: latestSpec.messages.length,
                     url: latestSpec.snapshotUrl,
                 },
-            }, `resuming session from latest.json`);
+            }, "resuming session from latest.json");
             // as we migrate from one style of island properties to another, a
             // latest.json does not necessarily have all the properties a freshly
             // minted island has.
@@ -681,20 +695,20 @@ async function JOIN(client, args, token) {
         } catch (err) {
             if (typeof err !== "object") err = { message: ""+JSON.stringify(err) }; // eslint-disable-line no-ex-assign
             if (!err.message) err.message = "<empty>";
-            if (err.code !== 404) ERROR({sessionId: id}, `failed to fetch latest.json: ${err.message}`);
+            if (err.code !== 404) island.logger.error({event: "fetch-latest-failed", err}, `failed to fetch latest.json: ${err.message}`);
             // this is a brand-new session, check if there is persistent data
             const persistName = `apps/${appId}/${persistentId}.json`;
             const persisted = appId && await fetchJSON(persistName).catch(() => { /* ignore */});
             if (persisted) {
                 island.persistentUrl = persisted.url;
-                NOTICE("session", "start", {
-                    ...logMeta,
+                island.logger.notice({
+                    event: "start",
                     persisted: {
                         url: island.persistentUrl,
                     },
-                }, `resuming session from persisted data`);
+                }, "resuming session from persisted data");
             } else {
-                NOTICE("session", "start", logMeta, `starting fresh session`);
+                island.logger.notice({event: "start"}, "starting fresh session");
             }
         } finally {
             island.storedUrl = ''; // replace the null that means we haven't looked
@@ -710,7 +724,7 @@ async function JOIN(client, args, token) {
 
     // otherwise, nothing to do at this point.  log that this client is waiting
     // for a snapshot either from latest.json or from a STARTed client.
-    DEBUG({sessionId: id, connection: client.addr}, `waiting for snapshot`);
+    client.logger.debug({event: "waiting-for-snapshot"}, "waiting for snapshot");
 }
 
 function START(island) {
@@ -724,7 +738,7 @@ function START(island) {
     const client = island.startClient;
     const msg = JSON.stringify({ id: island.id, action: 'START' });
     client.safeSend(msg);
-    DEBUG({sessionId: island.id, connection: client.addr}, `sending START ${msg}`);
+    client.logger.debug({event: "send-start"}, `sending START ${msg}`);
     // if the client does not provide a snapshot in time, we need to start over
     if (DISCONNECT_UNRESPONSIVE_CLIENTS) island.startTimeout = setTimeout(() => {
         if (island.startClient !== client) return; // success
@@ -744,10 +758,16 @@ function SYNC(island) {
     for (const syncClient of island.syncClients) {
         if (syncClient.readyState === WebSocket.OPEN) {
             syncClient.safeSend(response);
-            DEBUG({sessionId: id, connection: syncClient.addr}, `sending SYNC @${time}#${seq} ${response.length} bytes, ${messages.length} messages${range}, ${args.persisted ? "persisted" : "snapshot"} ${args.url || "<none>"}`);
+            syncClient.logger.debug({
+                event: "send-sync",
+                data: args.url,
+                persMsg: args.persisted,
+                msgCount: messages.length,
+                bytes: response.length,
+            }, `sending SYNC @${time}#${seq} ${response.length} bytes, ${messages.length} messages${range}, ${args.persisted ? "persisted" : "snapshot"} ${args.url || "<none>"}`);
             announceUserDidJoin(syncClient);
         } else {
-            DEBUG({sessionId: id, connection: syncClient.addr}, `socket closed before SYNC`);
+            syncClient.logger.debug({event: "send-sync-skipped"}, `socket closed before SYNC`);
         }
     }
     // synced all that were waiting
@@ -770,7 +790,10 @@ function announceUserDidJoin(client) {
     if (didLeave !== -1) island.usersLeft.splice(didLeave, 1);
     else island.usersJoined.push(client.user);
     scheduleUsersMessage(island);
-    TRACE({sessionId: island.id}, `user ${JSON.stringify(client.user)} joined`);
+    client.logger.trace({
+        event: "user-joined",
+        user: typeof client.user === "string" ? client.user : JSON.stringify(client.user), // BigQuery wants a single data type
+    }, `user ${JSON.stringify(client.user)} joined`);
 }
 
 function announceUserDidLeave(client) {
@@ -781,7 +804,10 @@ function announceUserDidLeave(client) {
     if (didJoin !== -1) island.usersJoined.splice(didJoin, 1);
     else island.usersLeft.push(client.user);
     scheduleUsersMessage(island);
-    TRACE({sessionId: island.id}, `user ${JSON.stringify(client.user)} left`);
+    client.logger.trace({
+        event: "user-left",
+        user: typeof client.user === "string" ? client.user : JSON.stringify(client.user), // BigQuery wants a single data type
+    }, `user ${JSON.stringify(client.user)} left`);
 }
 
 function scheduleUsersMessage(island) {
@@ -804,9 +830,16 @@ function SNAP(client, args) {
     if (!island) { client.safeClose(...REASON.UNKNOWN_ISLAND); return; }
 
     const { time, seq, hash, url, dissident } = args; // details of the snapshot that has been uploaded
+    const teatime = `@${time}#${seq}`;
 
     if (dissident) {
-        DEBUG({sessionId: id, connection: client.addr}, `dissident snapshot @${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'} ${JSON.stringify(dissident)}`);
+        client.logger.debug({
+            event: "snapshot-dissident",
+            teatime,
+            hash,
+            data: url,
+            dissident: JSON.stringify(dissident),
+        }, "dissident snapshot");
         return;
     }
 
@@ -814,11 +847,21 @@ function SNAP(client, args) {
     // compare times rather than message seq, since (at least in principle) a new
     // snapshot can be taken after some elapsed time but no additional external messages.
     if (time <= island.snapshotTime) {
-        DEBUG({sessionId: id, connection: client.addr}, `ignoring snapshot @${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'}`);
+        client.logger.debug({
+            event: "snapshot-ignored",
+            teatime,
+            hash,
+            data: url
+        }, "ignoring snapshot");
         return;
     }
 
-    DEBUG({sessionId: id, connection: client.addr}, `got snapshot @${time}#${seq} (hash: ${hash || 'no hash'}): ${url || 'no url'}`);
+    client.logger.debug({
+        event: "snapshot",
+        teatime,
+        hash,
+        data: url
+    }, "got snapshot");
 
     if (island.syncWithoutSnapshot || island.snapshotUrl) {
         // forget older messages, setting aside the ones that need to be stored
@@ -827,10 +870,21 @@ function SNAP(client, args) {
         if (msgs.length > 0) {
             const firstToKeep = msgs.findIndex(msg => after(seq, msg[1]));
             if (firstToKeep > 0) {
-                DEBUG({sessionId: id, connection: client.addr}, id, `forgetting ${firstToKeep} of ${msgs.length} messages #${msgs[0][1] >>> 0} to #${msgs[firstToKeep - 1][1] >>> 0} (keeping #${msgs[firstToKeep][1] >>> 0})`);
+                island.logger.trace({
+                    event: "purging-messages",
+                    fromSeq: msgs[0][1] >>> 0,
+                    toSeq: msgs[firstToKeep - 1][1] >>> 0,
+                    keepSeq: msgs[firstToKeep][1] >>> 0,
+                    msgCount: msgs.length,
+                }, `forgetting ${firstToKeep} of ${msgs.length} messages`);
                 messagesToStore = msgs.splice(0, firstToKeep); // we'll store all those we're forgetting
             } else if (firstToKeep === -1) {
-                DEBUG({sessionId: id, connection: client.addr}, id, `forgetting all of ${msgs.length} messages (#${msgs[0][1] >>> 0} to #${msgs[msgs.length - 1][1] >>> 0})`);
+                island.logger.trace({
+                    event: "purging-messages",
+                    fromSeq: msgs[0][1] >>> 0,
+                    toSeq: msgs[firstToKeep - 1][1] >>> 0,
+                    msgCount: msgs.length,
+                }, `forgetting all of ${msgs.length} messages`);
                 messagesToStore = msgs.slice();
                 msgs.length = 0;
             } // else if firstToKeep is 0 there's nothing to do
@@ -848,19 +902,24 @@ function SNAP(client, args) {
             const pad = n => (""+n).padStart(10, '0');
             const firstSeq = messagesToStore[0][1] >>> 0;
             const logName = `${id}/${pad(Math.ceil(time))}_${firstSeq}-${seq}-${hash}.json`;
-            DEBUG({sessionId: id, connection: client.addr}, id, `uploading ${messagesToStore.length} messages #${firstSeq} to #${seq} as ${logName}`);
-            uploadJSON(logName, messageLog).catch(err => ERROR({sessionId: id}, `failed to upload messages. ${err.code}: ${err.message}`));
+            island.logger.debug({
+                event: "upload-messages",
+                fromSeq: firstSeq,
+                toSeq: seq,
+                path: logName,
+            }, `uploading ${messagesToStore.length} messages #${firstSeq} to #${seq} as ${logName}`);
+            uploadJSON(logName, messageLog).catch(err => island.logger.error({event: "upload-messages-failed", err}, `failed to upload messages. ${err.code}: ${err.message}`));
         }
     } else if (island.startClient === client) {
-        // this is the initial snapshot from the user we sent START
-        DEBUG({sessionId: id, connection: client.addr}, id, `@${island.time}#${island.seq} init ${time}#${seq} from SNAP`);
+        // the initial snapshot from the user we sent START (only old clients)
+        client.logger.debug({event: "init-time", teatime}, `init ${teatime} from SNAP (old client)`);
         island.time = time;
         island.seq = seq;
         island.before = Date.now();
         announceUserDidJoin(client);
     } else {
-        // this is the initial snapshot, but it's an old client (<=0.2.5) that already requested TICKS()
-        DEBUG({sessionId: id, connection: client.addr}, id, `@${island.time}#${island.seq} not initializing time from snapshot (old client)`);
+        // this is the initial snapshot, but it's an even older client (<=0.2.5) that already requested TICKS()
+        client.logger.debug({event: "init-time", teatime}, `not initializing time from snapshot (very old client)`);
     }
 
     // keep snapshot
@@ -889,16 +948,30 @@ function SAVE(client, args) {
     const descriptor = persistTime === undefined ? `@${time}#${seq} T${tuttiSeq}` : `@${persistTime}`;
 
     if (dissident) {
-        DEBUG({sessionId: id, connection: client.addr}, `dissident persistent data for ${descriptor} ${url} ${JSON.stringify(dissident)}`);
+        client.logger.debug({
+            event: "persist-dissident",
+            persistTime: descriptor,
+            data: url,
+            dissident: JSON.stringify(dissident),
+        }, "dissident persistent data");
         return;
     }
 
-    DEBUG({sessionId: id, connection: client.addr}, `got persistent data for @${descriptor} ${url}`);
+    client.logger.debug({
+        event: "persist",
+        persistTime: descriptor,
+        data: url,
+    }, "got persistent data");
 
     // do *not* change our own session's persistentUrl!
     // we only upload this to be used to init the next session of this island
-    const saved = { url };
-    if (STORE_PERSISTENT_DATA) uploadJSON(`apps/${appId}/${persistentId}.json`, saved).catch(err => ERROR({sessionId: id, connection: client.addr}, `failed to record persistent-data upload. ${err.code}: ${err.message}`));
+    if (STORE_PERSISTENT_DATA) {
+        const saved = { url };
+        const path = `apps/${appId}/${persistentId}.json`;
+        uploadJSON(path, saved)
+        .then(() => client.logger.debug({event: "persist-uploaded", persistTime: descriptor, data: url, path}, "uploaded persistent data"))
+        .catch(err => client.logger.error({event: "persist-failed", persistTime: descriptor, err}, `failed to record persistent-data upload. ${err.code}: ${err.message}`));
+    }
 }
 
 /** send a message to all participants after time stamping it
@@ -926,7 +999,10 @@ function SEND(island, messages) {
         // 9600,9630,9660,9690,9720,9740,9760,9780,9800,9810,9820,9830,9840,9850,9860,9870,9880,9890,9900
         // the last 100 times before buffer is full it will be every message
         if (island.messages.length % every === 0) {
-            WARN({sessionId: island.id}, `reached ${island.messages.length} messages, sending REQU`);
+            island.logger.warn({
+                event: "request-snapshot",
+                msgCount: island.messages.length,
+            }, `reached ${island.messages.length} messages, sending REQU`);
             REQU(island);
             // send warnings if safety buffer is less than 25%
             if (headroom < (MAX_MESSAGES - REQU_SNAPSHOT) / 4) INFO(island, {
@@ -947,7 +1023,7 @@ function SEND(island, messages) {
         message[0] = time;
         message[1] = island.seq = (island.seq + 1) >>> 0; // seq is always uint32
         const msg = JSON.stringify({ id: island.id, action: 'RECV', args: message });
-        TRACE({sessionId: island.id}, `broadcasting RECV ${JSON.stringify(message)}`);
+        island.logger.trace({event: "reflect-message", t: time, seq: island.seq}, `broadcasting RECV ${JSON.stringify(message)}`);
         prometheusMessagesCounter.inc();
         STATS.RECV++;
         STATS.SEND += island.clients.size;
@@ -974,7 +1050,7 @@ function SEND_TAGGED(island, message, tags) {
         if (!msgRecord || (now - msgRecord > tags.debounce)) {
             island.tagRecords[msgID] = now;
         } else {
-            DEBUG({sessionId: island.id}, island.id, `debounce suppressed: ${JSON.stringify(message)}`);
+            island.logger.trace({ event: "debounce-suppressed", message: JSON.stringify(message)}, `debounce suppressed: ${JSON.stringify(message)}`);
             return;
         }
     }
@@ -1009,7 +1085,11 @@ function TUTTI(client, args) {
         const tally = island.tallies[keyOrSeq];
         const { timeout, expecting: missing } = tally;
         clearTimeout(timeout);
-        if (missing) DEBUG({sessionId: id}, `missing ${missing} ${missing === 1 ? "client" : "clients"} from tally ${keyOrSeq}`);
+        if (missing) island.logger.debug({
+            event: "tutti-missing",
+            tutti: keyOrSeq,
+            missingCount: missing
+        }, `missing ${missing} ${missing === 1 ? "client" : "clients"} from tally ${keyOrSeq}`);
         if (wantsVote || Object.keys(tally.payloads).length > 1) {
             const payloads = { what: 'tally', sendTime, tally: tally.payloads, tallyTarget, missingClients: missing };
             // only include the tuttiSeq if the client didn't provide a tuttiKey
@@ -1027,11 +1107,11 @@ function TUTTI(client, args) {
     if (!tally) { // either first client we've heard from, or one that's missed the party entirely
         const historyLimit = cleanUpCompletedTallies(island); // the limit of how far back we're currently tracking
         if (sendTime < historyLimit) {
-            DEBUG({sessionId: id, connection: client.addr}, `rejecting vote for old tally ${keyOrSeq} (${island.time - sendTime}ms)`);
+            client.logger.debug({event: "tutti-reject", tutti: keyOrSeq}, `rejecting vote for old tally ${keyOrSeq} (${island.time - sendTime}ms)`);
             return;
         }
         if (island.completedTallies[keyOrSeq]) {
-            DEBUG({sessionId: id, connection: client.addr}, `rejecting vote for completed tally ${keyOrSeq}`);
+            client.logger.debug({event: "tutti-reject", tutti: keyOrSeq},  `rejecting vote for completed tally ${keyOrSeq}`);
             return;
         }
 
@@ -1082,10 +1162,9 @@ function DELAY_SEND(island, delay, messages) {
         stopTicker(island);
         island.delayed = [];
         setTimeout(() => DELAYED_SEND(island), delay);
-        TRACE({sessionId: island.id}, `last tick: @${island.lastTick}, delaying for ${delay} ms`);
+        island.logger.trace({event: "delay-send", delay}, `last tick: @${island.lastTick}, delaying for ${delay} ms`);
     }
     island.delayed.push(...messages);
-    for (const msg of messages) TRACE({sessionId: island.id}, `delaying ${JSON.stringify(msg)}`);
 }
 
 function DELAYED_SEND(island) {
@@ -1111,7 +1190,15 @@ function USERS(island) {
         // do not trigger a SEND before someone successfully joined
         const msg = [0, 0, payload];
         SEND(island, [msg]);
-        DEBUG({sessionId: id}, `Users ${island}: +${usersJoined.length}-${usersLeft.length}=${active}/${total} (total ${ALL_ISLANDS.size} islands, ${server.clients.size} users)`);
+        island.logger.debug({
+            event: "send-users",
+            joinedCount: usersJoined.length,
+            leftCount: usersLeft.length,
+            activeCount: active,
+            clientCount: total,
+            allSessionCount: ALL_ISLANDS.size,
+            allClientCount: server.clients.size,
+        }, `Users: +${usersJoined.length}-${usersLeft.length}=${active}/${total} (total ${ALL_ISLANDS.size} islands, ${server.clients.size} users)`);
     }
     if (heraldUrl) heraldUsers(island, activeClients.map(each => each.user), payload.joined, payload.left);
     usersJoined.length = 0;
@@ -1168,7 +1255,7 @@ function TICKS(client, args) {
     if (!island.syncWithoutSnapshot && !island.snapshotUrl) {
          // this must be an old client (<=0.2.5) that requests TICKS before sending a snapshot
         const { time, seq } = args;
-        DEBUG({sessionId: id, connection: client.addr}, `@${island.time}#${island.seq} init ${time}#${seq} from TICKS (old client)`);
+        island.logger.debug({event: "init-time", teatime: `@${time}#${seq}`}, "init from TICKS (old client)");
         island.time = typeof time === "number" ? Math.ceil(time) : 0;
         island.seq = typeof seq === "number" ? seq : 0;
         island.before = Date.now();
@@ -1180,7 +1267,7 @@ function TICKS(client, args) {
 }
 
 function startTicker(island, tick) {
-    TRACE({sessionId: island.id}, `${island.ticker ? "restarting" : "started"} ticker: ${tick} ms`);
+    island.logger.trace({event: "start-ticker", tick}, `${island.ticker ? "restarting" : "started"} ticker: ${tick} ms`);
     if (island.ticker) stopTicker(island);
     island.tick = tick;
     island.ticker = setInterval(() => TICK(island), tick);
@@ -1198,7 +1285,11 @@ async function heraldUsers(island, all, joined, left) {
     let success = false;
     try {
         const logdetail = `${payload.time}: +${joined&&joined.length||0}-${left&&left.length||0}=${all.length}`;
-        DEBUG({sessionId: id}, `heralding users ${logdetail} ${body.length} bytes to ${heraldUrl}`);
+        island.logger.debug({
+            event: "heralding",
+            endpoint: heraldUrl,
+            bytes: body.length,
+        }, `heralding users ${logdetail} ${body.length} bytes to ${heraldUrl}`);
         const response = await fetch(heraldUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1363,15 +1454,38 @@ server.on('error', err => ERROR({}, `Server Socket Error: ${err.message}`));
 
 server.on('connection', (client, req) => {
     const { version, sessionId, token } = parseUrl(req);
-    if (!sessionId) { ERROR({}, `Missing session id in request "${req.url}"`); client.close(...REASON.BAD_PROTOCOL); return; }
-    client.addr = `${req.socket.remoteAddress.replace(/^::ffff:/, '')}:${req.socket.remotePort}`;
+    // set up client meta data (also used for logging)
+    client.sessionId = sessionId;
+    const addr = req.socket.remoteAddress.replace(/^::ffff:/, '');
+    const port = req.socket.remotePort;
+    client.meta = {
+        scope: "connection",
+        connection: `${addr}:${port}`,
+        dispatcher: req.headers['x-croquet-dispatcher'],
+        userIp: (req.headers['x-forwarded-for'] || '').split(',')[0].replace(/^::ffff:/, '') || addr,
+        token,
+        url: req.url,
+    };
+    // location header is added by load balancer, see region-servers/apply-changes
+    if (req.headers['x-location']) try {
+        const [region, city, lat, lng] = req.headers['x-location'].split(",");
+        client.meta.location = { region };
+        if (city) client.meta.location.city = { name: city, lat: +lat, lng: +lng };
+    } catch (ex) { /* ignore */}
+
+    if (!sessionId) {
+        global_logger.warn({ event: "session-missing", ...client.meta }, `Missing session id in request "${req.url}"`);
+        client.close(...REASON.BAD_PROTOCOL);
+        return;
+    }
+
     let session = ALL_SESSIONS.get(sessionId);
     if (session) {
         switch (session.stage) {
             case 'closed':
                 // a request to delete the dispatcher record has already been
                 // sent.  tell client to ask the dispatchers again.
-                LOG({sessionId, connection: client.addr}, `rejecting connection; session has been unregistered`);
+                session.logger.info({ event: "session-unregistered", ...client.meta }, "rejecting connection; session has been unregistered");
                 client.close(...REASON.RECONNECT); // safeClose doesn't exist yet
                 return;
             case 'runnable':
@@ -1402,36 +1516,24 @@ server.on('connection', (client, req) => {
             const dummyContents = { dummy: "imadummy" };
             const start = Date.now();
             uploadJSON(filename, dummyContents, DISPATCHER_BUCKET)
-            .then(() => LOG({sessionId}, `dummy dispatcher record created in ${Date.now() - start}ms`))
-            .catch(err => ERROR({sessionId}, `failed to create dummy dispatcher record. ${err.code}: ${err.message}`));
+            .then(() => global_logger.info({event: "dummy-register"}, `dummy dispatcher record created in ${Date.now() - start}ms`))
+            .catch(err => global_logger.error({event: "dummy-register-failed", err}, `failed to create dummy dispatcher record. ${err.code}: ${err.message}`));
         }
         const earliestUnregister = Date.now() + unregisterDelay;
         session = {
             stage: 'runnable',
-            earliestUnregister
-            };
+            earliestUnregister,
+            logger: global_logger.child({
+                scope: "session",
+                sessionId,
+                url: req.url,
+            }),
+        };
         ALL_SESSIONS.set(sessionId, session);
         scheduleShutdownIfNoJoin(sessionId, earliestUnregister, "no JOIN in time");
     }
     prometheusConnectionGauge.inc(); // connection accepted
-    client.sessionId = sessionId;
-    // if this is a forwarded connection, extract the forwarding headers for logging.
-    // if this connection is through a Croquet dispatcher, its proxy will have appended
-    // the address of its incoming connection - typically a load balancer - and will
-    // have added x-croquet-dispatcher with the name of the dispatcher's cluster.
-    if (req.headers['x-forwarded-for']) {
-        client.dispatcher = req.headers['x-croquet-dispatcher'] || 'none';
-        client.userIp = req.headers['x-forwarded-for'].split(',')[0].replace(/^::ffff:/, '');
-    } else {
-        client.dispatcher = 'none';
-        client.userIp = req.socket.remoteAddress.replace(/^::ffff:/, '');
-    }
-    // location header is added by load balancer, see region-servers/apply-changes
-    if (req.headers['x-location']) try {
-        const [region, city, lat, lng] = req.headers['x-location'].split(",");
-        client.location = { region };
-        if (city) client.location.city = { name: city, lat: +lat, lng: +lng };
-    } catch (ex) { /* ignore */}
+    client.logger = session.logger.child(client.meta);
     client.stats = { mi: 0, mo: 0, bi: 0, bo: 0 }; // messages / bytes, in / out
     client.safeSend = data => {
         if (client.readyState !== WebSocket.OPEN) return;
@@ -1457,20 +1559,13 @@ server.on('connection', (client, req) => {
     }
     // the connection log filter matches on (" connection " OR " JOIN ")
     const forwarded = `via ${req.headers['x-croquet-dispatcher']} (${(req.headers['x-forwarded-for'] || '').split(/\s*,\s*/).map(a => a.replace(/^::ffff:/, '')).join(', ')}) `;
-    const logData = {
-        sessionId,
-        connection: client.addr,
-        userIp: client.userIp,
-        dispatcher: client.dispatcher,
-        location: client.location,
-    };
-    NOTICE("connection", "start", logData, `opened connection ${version} ${forwarded||''}${req.headers['x-location']||''}`);
+    client.logger.notice({ event: "start" }, `opened connection ${version} ${forwarded||''}${req.headers['x-location']||''}`);
     STATS.USERS = Math.max(STATS.USERS, server.clients.size);
 
     let lastActivity = Date.now();
     client.on('pong', time => {
         lastActivity = Date.now();
-        DEBUG({sessionId, connection: client.addr}, `receiving pong after ${Date.now() - time} ms`);
+        DEBUG({sessionId, connection: client.meta.connection}, `receiving pong after ${Date.now() - time} ms`);
         });
     setTimeout(() => client.readyState === WebSocket.OPEN && client.ping(Date.now()), 100);
 
@@ -1481,21 +1576,21 @@ server.on('connection', (client, req) => {
             const now = Date.now();
             const quiescence = now - lastActivity;
             if (quiescence > DISCONNECT_THRESHOLD) {
-                DEBUG({sessionId, connection: client.addr}, `inactive for ${quiescence} ms, disconnecting`);
+                DEBUG({sessionId, connection: client.meta.connection}, `inactive for ${quiescence} ms, disconnecting`);
                 client.safeClose(...REASON.INACTIVE); // NB: close event won't arrive for a while
                 return;
             }
             let nextCheck = CHECK_INTERVAL;
             if (quiescence > PING_THRESHOLD) {
                 if (!joined) {
-                    DEBUG({sessionId, connection: client.addr}, `did not join within ${quiescence} ms, disconnecting`);
+                    DEBUG({sessionId, connection: client.meta.connection}, `did not join within ${quiescence} ms, disconnecting`);
                     client.safeClose(...REASON.NO_JOIN);
                     return;
                 }
 
                 // joined is true, so client.island must have been set up
                 if (!client.island.noInactivityPings) {
-                    DEBUG({sessionId, connection: client.addr}, `inactive for ${quiescence} ms, sending ping`);
+                    DEBUG({sessionId, connection: client.meta.connection}, `inactive for ${quiescence} ms, sending ping`);
                     client.ping(now);
                     nextCheck = PING_INTERVAL;
                 }
@@ -1517,26 +1612,30 @@ server.on('connection', (client, req) => {
                 parsedMsg = JSON.parse(incomingMsg);
                 if (typeof parsedMsg !== "object") throw Error("JSON did not contain an object");
             } catch (error) {
-                ERROR({sessionId, connection: client.addr}, `message parsing error: ${error.message}`, incomingMsg);
+                ERROR({sessionId, connection: client.meta.connection}, `message parsing error: ${error.message}`, incomingMsg);
                 client.close(...REASON.MALFORMED_MESSAGE);
                 return;
             }
             try {
                 const { action, args, tags } = parsedMsg;
                 switch (action) {
-                    case 'JOIN': { joined = true; JOIN(client, args, token); break; }
+                    case 'JOIN': { joined = true; JOIN(client, args); break; }
                     case 'SEND': if (tags) SEND_TAGGED(client.island, args, tags); else SEND(client.island, [args]); break; // SEND accepts an array of messages
                     case 'TUTTI': TUTTI(client, args); break;
                     case 'TICKS': TICKS(client, args); break;
                     case 'SNAP': SNAP(client, args); break;
                     case 'SAVE': SAVE(client, args); break;
-                    case 'LOG': LOG({sessionId, connection: client.addr}, `LOG ${typeof args === "string" ? args : JSON.stringify(args)}`); break;
+                    case 'LOG': LOG({sessionId, connection: client.meta.connection}, `LOG ${typeof args === "string" ? args : JSON.stringify(args)}`); break;
                     case 'PING': PONG(client, args); break;
-                    case 'PULSE': TRACE({sessionId, connection: client.addr}, `receiving PULSE`); break; // sets lastActivity, otherwise no-op
-                    default: WARN({sessionId, connection: client.addr}, `unknown action ${JSON.stringify(action)}`);
+                    case 'PULSE': TRACE({sessionId, connection: client.meta.connection}, `receiving PULSE`); break; // sets lastActivity, otherwise no-op
+                    default: client.logger.warn({
+                        event: "unknown-action",
+                        action: typeof action === "string" ? action : JSON.stringify(action),
+                        incomingMsg
+                    }, `unknown action ${JSON.stringify(action)}`);
                 }
             } catch (error) {
-                ERROR({sessionId, connection: client.addr}, `message handling error: ${error.message}`, error);
+                ERROR({sessionId, connection: client.meta.connection}, `message handling error: ${error.message}`, error);
                 client.close(...REASON.UNKNOWN_ERROR);
             }
         };
@@ -1555,11 +1654,11 @@ server.on('connection', (client, req) => {
 
         const logMeta = {
             sessionId: client.sessionId,
-            connection: client.addr,
+            connection: client.meta.connection,
             stats: client.stats,
             developerId: island.developerId,
-            userIp: client.userIp,
-            dispatcher: client.dispatcher,
+            userIp: client.meta.userIp,
+            dispatcher: client.meta.dispatcher,
             appId: island.appId,
             persistentId: island.persistentId,
             apiKey: island.apiKey,
@@ -1572,7 +1671,7 @@ server.on('connection', (client, req) => {
 
         if (island && island.clients && island.clients.has(client)) {
             if (island.startClient === client) {
-                DEBUG({sessionId: island.id, connection: client.addr}, `${island.id}/${client.addr} START client failed to respond`);
+                DEBUG({sessionId: island.id, connection: client.meta.connection}, `${island.id}/${client.meta.connection} START client failed to respond`);
                 clearTimeout(island.startTimeout);
                 island.startTimeout = null;
                 island.startClient = null;
@@ -1631,11 +1730,11 @@ async function verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client) {
         // even key-not-found is 200 OK, but sets JSON error property
         const { developerId, error } = await response.json();
         if (developerId) {
-            LOG({sessionId: id, connection: client.addr, developerId}, `API key verified`);
+            LOG({sessionId: id, connection: client.meta.connection, developerId}, `API key verified`);
             return developerId;
         }
         if (error) {
-            ERROR({sessionId: id, connection: client.addr}, `API key verification failed: ${error}`);
+            ERROR({sessionId: id, connection: client.meta.connection}, `API key verification failed: ${error}`);
             const island = ALL_ISLANDS.get(id); // fetch island now, in case it went away during await
             // deal with no-island case
             INFO(island || {id}, {
@@ -1648,7 +1747,7 @@ async function verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client) {
             if (island && island.clients.size === 0) provisionallyDeleteIsland(island);
         }
     } catch (err) {
-        ERROR({sessionId: id, connection: client.addr}, `error verifying API key: ${err.message}`);
+        ERROR({sessionId: id, connection: client.meta.connection}, `error verifying API key: ${err.message}`);
     }
     return false;
 }
