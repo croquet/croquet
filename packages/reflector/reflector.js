@@ -1178,7 +1178,7 @@ function DELAYED_SEND(island) {
 */
 function USERS(island) {
     island.usersTimer = null;
-    const { id, clients, usersJoined, usersLeft, heraldUrl } = island;
+    const { clients, usersJoined, usersLeft, heraldUrl } = island;
     if (usersJoined.length + usersLeft.length === 0) return; // someone joined & left
     const activeClients = [...clients].filter(each => each.active); // a client in the set but not active is between JOIN and SYNC
     const active = activeClients.length;
@@ -1287,6 +1287,7 @@ async function heraldUsers(island, all, joined, left) {
         const logdetail = `${payload.time}: +${joined&&joined.length||0}-${left&&left.length||0}=${all.length}`;
         island.logger.debug({
             event: "heralding",
+            heraldId: payload.time,
             endpoint: heraldUrl,
             bytes: body.length,
         }, `heralding users ${logdetail} ${body.length} bytes to ${heraldUrl}`);
@@ -1297,9 +1298,22 @@ async function heraldUsers(island, all, joined, left) {
             size: 512, // limit response size
         });
         success = response.ok;
-        if (success) DEBUG({sessionId: id}, `heralding success ${payload.time}: ${response.status} ${response.statusText}`);
-        else {
-            LOG({sessionId: id}, `heralding failed ${payload.time}: ${response.status} ${response.statusText}`);
+        if (success) {
+            island.logger.debug({
+                event: "heralded",
+                heraldId: payload.time,
+                endpoint: heraldUrl,
+                responseStatus: response.status,
+                responseStatusText: response.statusText,
+            }, `heralding success ${payload.time}: ${response.status} ${response.statusText}`);
+        } else {
+            island.logger.warn({
+                event: "herald-failed",
+                heraldId: payload.time,
+                endpoint: heraldUrl,
+                responseStatus: response.status,
+                responseStatusText: response.statusText,
+            }, `heralding failed ${payload.time}: ${response.status} ${response.statusText}`);
             INFO(island, {
                 code: "HERALDING_FAILED",
                 msg: `POST ${body.length} bytes to heraldUrl "${heraldUrl}" failed: ${response.status} ${response.statusText}`,
@@ -1307,7 +1321,12 @@ async function heraldUsers(island, all, joined, left) {
             });
         }
     } catch (err) {
-        ERROR({sessionId: id}, `heralding error ${payload.time}: ${err.message}`);
+        island.logger.error({
+            event: "herald-error",
+            heraldId: payload.time,
+            endpoint: heraldUrl,
+            err,
+        }, `heralding error ${payload.time}: ${err.message}`);
         if (!success) INFO(island, {
             code: "HERALDING_FAILED",
             msg: `POST ${body.length} bytes to heraldUrl "${heraldUrl}" failed: ${err.message}`,
@@ -1321,11 +1340,11 @@ function provisionallyDeleteIsland(island) {
     const { id } = island;
     const session = ALL_SESSIONS.get(id);
     if (!session) {
-        DEBUG({sessionId: id}, `ignoring deletion of missing session`);
+        island.logger.debug({event: "delete-ignored", reason: "session-missing"}, `ignoring deletion of missing session`);
         return;
     }
     if (session.stage !== 'running') {
-        DEBUG({sessionId: id}, `ignoring out-of-sequence deletion (stage=${session.stage})`);
+        island.logger.debug({event: "delete-ignored", reason: `stage=${session.stage}`}, `ignoring out-of-sequence deletion (stage=${session.stage})`);
         return;
     }
     session.stage = 'closable';
@@ -1344,7 +1363,7 @@ function provisionallyDeleteIsland(island) {
 async function deleteIsland(island) {
     const { id, syncWithoutSnapshot, snapshotUrl, time, seq, storedUrl, storedSeq, messages } = island;
     if (!ALL_ISLANDS.has(id)) {
-        DEBUG({sessionId: id}, `island already deleted, ignoring deleteIsland();`);
+        island.logger.debug({event: "delete-ignored", reason: "already-deleted"}, `island already deleted, ignoring deleteIsland();`);
         return;
     }
     if (island.usersTimer) {
@@ -1356,25 +1375,39 @@ async function deleteIsland(island) {
     stopTicker(island);
     ALL_ISLANDS.delete(id);
 
-    NOTICE("session", "end", {sessionId: id}, `island deleted`);
+    island.logger.notice({event: "end"}, `island deleted`);
 
     // remove session, including deleting dispatcher record if there is one
     // (deleteIsland is only ever invoked after at least long enough to
     // outlast the record's retention limit).
-    const unregistered = unregisterSession(id, `@${time}#${seq}`);
+    const teatime = `@${time}#${seq}`;
+    const unregistered = unregisterSession(id, teatime);
 
     // if we've been told of a snapshot since the one (if any) stored in this
     // island's latest.json, or there are messages since the snapshot referenced
     // there, write a new latest.json.
     if (STORE_SESSION && (syncWithoutSnapshot || snapshotUrl) && (snapshotUrl !== storedUrl || after(storedSeq, seq))) {
         const fileName = `${id}/latest.json`;
-        DEBUG({sessionId: id}, id, `@${time}#${seq} uploading latest.json with ${messages.length} messages`);
+        island.logger.debug({
+            event: "upload-latest",
+            teatime,
+            msgCount: messages.length,
+            path: fileName,
+        }, `uploading latest.json with ${messages.length} messages`);
         cleanUpCompletedTallies(island);
         const latestSpec = {};
         savableKeys(island).forEach(key => latestSpec[key] = island[key]);
         try {
             await uploadJSON(fileName, latestSpec);
-        } catch (err) { LOG({sessionId: id}, `failed to upload latest.json. ${err.code}: ${err.message}` ); }
+        } catch (err) {
+            island.logger.error({
+                event: "upload-latest-failed",
+                teatime,
+                msgCount: messages.length,
+                path: fileName,
+                err
+            }, `failed to upload latest.json. ${err.code}: ${err.message}`);
+        }
     }
 
     await unregistered; // wait because in emergency shutdown we need to clean up before exiting
@@ -1388,12 +1421,21 @@ function scheduleShutdownIfNoJoin(id, targetTime, detail) {
     const now = Date.now();
     session.timeout = setTimeout(() => {
         session = ALL_SESSIONS.get(id);
-        if (!session || (session.stage !== 'runnable' && session.stage !== 'closable')) {
-            const reason = session ? `stage=${session.stage}` : "no session record";
-            DEBUG({sessionId: id}, `ignoring shutdown (${detail}): ${reason}`);
+        if (!session) {
+            global_logger.debug({
+                scope: "session",
+                sessionId: id,
+                event: "delete-ignored",
+                reason: "session-missing",
+                detail,
+            }, `ignoring shutdown (${detail}): no session record`);
             return;
         }
-        DEBUG({sessionId: id}, `shutting down session - ${detail}`);
+        if (session.stage !== 'runnable' && session.stage !== 'closable') {
+            session.logger.debug({event: "delete-ignored", reason: `stage=${session.stage}`, detail}, `ignoring shutdown (${detail}): stage=${session.stage}`);
+            return;
+        }
+        session.logger.debug({event: "delete", detail}, `shutting down session - ${detail}`);
         if (session.stage === 'closable') {
             // there is (supposedly) an island, but it has no clients
             const island = ALL_ISLANDS.get(id);
@@ -1401,7 +1443,11 @@ function scheduleShutdownIfNoJoin(id, targetTime, detail) {
                 deleteIsland(island); // will invoke unregisterSession
                 return;
             }
-            DEBUG({sessionId: id}, `stage=closable but no island to delete`);
+            session.logger.debug({
+                event: "delete-ignored",
+                reason: "island-missing",
+                detail,
+            }, `stage=closable but no island to delete`);
         }
         unregisterSession(id, "no island");
         }, targetTime - now);
@@ -1413,11 +1459,11 @@ async function unregisterSession(id, detail) {
     const session = ALL_SESSIONS.get(id);
     if (!session || session.stage === 'closed') {
         const reason = session ? `stage=${session.stage}` : "no session record";
-        DEBUG({sessionId: id}, `ignoring unregister: ${reason}`);
+        global_logger.debug({scope: "session", sessionId: id, event: "unregister-ignored", reason, detail}, `ignoring unregister: ${reason}`);
         return;
     }
 
-    DEBUG({sessionId: id}, `unregistering session - ${detail}`);
+    session.logger.debug({event: "unregister", detail}, `unregistering session - ${detail}`);
 
     if (!DISPATCHER_BUCKET) {
         // nothing to wait for
@@ -1431,8 +1477,8 @@ async function unregisterSession(id, detail) {
     try {
         await DISPATCHER_BUCKET.file(filename).delete();
     } catch (err) {
-        if (err.code === 404) LOG({sessionId: id}, `failed to unregister. ${err.code}: ${err.message}`);
-        else WARN({sessionId: id}, `failed to unregister. ${err.code}: ${err.message}`);
+        if (err.code === 404) session.logger.log({event: "unregister-failed", err}, `failed to unregister. ${err.code}: ${err.message}`);
+        else session.logger.warn({event: "unregister-failed", err}, `failed to unregister. ${err.code}: ${err.message}`);
     }
 
     setTimeout(() => ALL_SESSIONS.delete(id), LATE_DISPATCH_DELAY);
@@ -1450,7 +1496,7 @@ function parseUrl(req) {
 }
 
 
-server.on('error', err => ERROR({}, `Server Socket Error: ${err.message}`));
+server.on('error', err => global_logger({event: "server-error", err}, `Server Socket Error: ${err.message}`));
 
 server.on('connection', (client, req) => {
     const { version, sessionId, token } = parseUrl(req);
@@ -1474,7 +1520,7 @@ server.on('connection', (client, req) => {
     } catch (ex) { /* ignore */}
 
     if (!sessionId) {
-        global_logger.warn({ event: "session-missing", ...client.meta }, `Missing session id in request "${req.url}"`);
+        global_logger.warn({ event: "request-session-missing", ...client.meta }, `Missing session id in request "${req.url}"`);
         client.close(...REASON.BAD_PROTOCOL);
         return;
     }
@@ -1565,7 +1611,8 @@ server.on('connection', (client, req) => {
     let lastActivity = Date.now();
     client.on('pong', time => {
         lastActivity = Date.now();
-        DEBUG({sessionId, connection: client.meta.connection}, `receiving pong after ${Date.now() - time} ms`);
+        const latency = lastActivity - time;
+        client.logger.debug({event: "pong", latency}, `receiving pong after ${latency} ms`);
         });
     setTimeout(() => client.readyState === WebSocket.OPEN && client.ping(Date.now()), 100);
 
@@ -1576,21 +1623,21 @@ server.on('connection', (client, req) => {
             const now = Date.now();
             const quiescence = now - lastActivity;
             if (quiescence > DISCONNECT_THRESHOLD) {
-                DEBUG({sessionId, connection: client.meta.connection}, `inactive for ${quiescence} ms, disconnecting`);
+                client.logger.debug({event: "disconnecting", reason: "inactive", quiescence}, `inactive for ${quiescence} ms, disconnecting`);
                 client.safeClose(...REASON.INACTIVE); // NB: close event won't arrive for a while
                 return;
             }
             let nextCheck = CHECK_INTERVAL;
             if (quiescence > PING_THRESHOLD) {
                 if (!joined) {
-                    DEBUG({sessionId, connection: client.meta.connection}, `did not join within ${quiescence} ms, disconnecting`);
+                    client.logger.debug({event: "disconnecting", reason: "no-join", quiescence}, `did not join within ${quiescence} ms, disconnecting`);
                     client.safeClose(...REASON.NO_JOIN);
                     return;
                 }
 
                 // joined is true, so client.island must have been set up
                 if (!client.island.noInactivityPings) {
-                    DEBUG({sessionId, connection: client.meta.connection}, `inactive for ${quiescence} ms, sending ping`);
+                    client.logger.debug({event: "ping", quiescence}, `inactive for ${quiescence} ms, sending ping`);
                     client.ping(now);
                     nextCheck = PING_INTERVAL;
                 }
@@ -1611,8 +1658,8 @@ server.on('connection', (client, req) => {
             try {
                 parsedMsg = JSON.parse(incomingMsg);
                 if (typeof parsedMsg !== "object") throw Error("JSON did not contain an object");
-            } catch (error) {
-                ERROR({sessionId, connection: client.meta.connection}, `message parsing error: ${error.message}`, incomingMsg);
+            } catch (err) {
+                client.logger.error({event: "message-parsing-failed", err, incomingMsg}, `message parsing error: ${err.message}`);
                 client.close(...REASON.MALFORMED_MESSAGE);
                 return;
             }
@@ -1625,17 +1672,25 @@ server.on('connection', (client, req) => {
                     case 'TICKS': TICKS(client, args); break;
                     case 'SNAP': SNAP(client, args); break;
                     case 'SAVE': SAVE(client, args); break;
-                    case 'LOG': LOG({sessionId, connection: client.meta.connection}, `LOG ${typeof args === "string" ? args : JSON.stringify(args)}`); break;
                     case 'PING': PONG(client, args); break;
-                    case 'PULSE': TRACE({sessionId, connection: client.meta.connection}, `receiving PULSE`); break; // sets lastActivity, otherwise no-op
+                    case 'PULSE': client.logger.trace({event: 'pulse'}, `receiving PULSE`); break; // sets lastActivity, otherwise no-op
+                    case 'LOG': {
+                            const clientLog = typeof args === "string" ? args : JSON.stringify(args);
+                            client.logger.info({
+                                event: "client-log",
+                                reason: clientLog.replace(/ .*/,''),
+                                clientLog,
+                            }, `LOG ${clientLog}`);
+                        }
+                        break;
                     default: client.logger.warn({
                         event: "unknown-action",
                         action: typeof action === "string" ? action : JSON.stringify(action),
                         incomingMsg
                     }, `unknown action ${JSON.stringify(action)}`);
                 }
-            } catch (error) {
-                ERROR({sessionId, connection: client.meta.connection}, `message handling error: ${error.message}`, error);
+            } catch (err) {
+                client.logger.error({event: "message-handling-failed", err}, `message handling failed: ${err.message}`);
                 client.close(...REASON.UNKNOWN_ERROR);
             }
         };
