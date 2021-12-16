@@ -1710,7 +1710,7 @@ server.on('connection', (client, req) => {
             stats: client.stats,
             code,
             reason,
-        }, `closed connection ${[code, reason]}]`);
+        }, `closed connection [${code},"${reason}"]`);
 
         if (island && island.clients && island.clients.has(client)) {
             if (island.startClient === client) {
