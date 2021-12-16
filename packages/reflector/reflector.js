@@ -1496,7 +1496,7 @@ function parseUrl(req) {
 }
 
 
-server.on('error', err => global_logger({event: "server-error", err}, `Server Socket Error: ${err.message}`));
+server.on('error', err => global_logger({event: "server-socket-error", err}, `Server Socket Error: ${err.message}`));
 
 server.on('connection', (client, req) => {
     const { version, sessionId, token } = parseUrl(req);
@@ -1703,30 +1703,22 @@ server.on('connection', (client, req) => {
         }
     });
 
-    client.on('close', (...reason) => {
+    client.on('close', (code, reason) => {
         prometheusConnectionGauge.dec();
         const island = client.island || ALL_ISLANDS.get(client.sessionId) || {};
 
-        const logMeta = {
-            sessionId: client.sessionId,
-            connection: client.meta.connection,
-            stats: client.stats,
-            developerId: island.developerId,
-            userIp: client.meta.userIp,
-            dispatcher: client.meta.dispatcher,
-            appId: island.appId,
-            persistentId: island.persistentId,
-            apiKey: island.apiKey,
-            url: island.url,
-            resumed: island.resumed,
-        };
-
         // the connection log filter matches on (" connection " OR " JOIN ")
-        NOTICE("connection", "end", logMeta, `closed connection ${JSON.stringify(reason)}`);
+        client.logger.notice({
+            event: "end",
+            stats: client.stats,
+            code,
+            reason,
+        }, `closed connection ${[code, reason]}]`);
 
         if (island && island.clients && island.clients.has(client)) {
             if (island.startClient === client) {
-                DEBUG({sessionId: island.id, connection: client.meta.connection}, `${island.id}/${client.meta.connection} START client failed to respond`);
+                // old client
+                client.logger.debug({event: "start-failed"}, "START client failed to respond");
                 clearTimeout(island.startTimeout);
                 island.startTimeout = null;
                 island.startClient = null;
@@ -1737,17 +1729,17 @@ server.on('connection', (client, req) => {
         }
     });
 
-    client.on('error', err => ERROR({}, `Client Socket Error: ${err.message}`));
+    client.on('error', err => client.logger.error({event: "client-socket-error", err}, `Client Socket Error: ${err.message}`));
 });
 
 async function fetchSecret() {
     let secret;
     try {
-        LOG({}, "fetching secret");
+        global_logger.info({event: "fetching-secret", name: SECRET_NAME}, "fetching secret");
         const version = await new SecretManagerServiceClient().accessSecretVersion({ name: SECRET_NAME });
         secret = version[0].payload.data;
     } catch (err) {
-        ERROR({}, `failed to fetch secret: ${err}`);
+        global_logger.error({event: "fetch-secret-failed", err}, `failed to fetch secret: ${err.message}`);
         process.exit(1);
     }
     return secret;
@@ -1785,11 +1777,11 @@ async function verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client) {
         // even key-not-found is 200 OK, but sets JSON error property
         const { developerId, error } = await response.json();
         if (developerId) {
-            LOG({sessionId: id, connection: client.meta.connection, developerId}, `API key verified`);
+            client.logger.info({event: "apikey-verified", developerId}, `API key verified`);
             return developerId;
         }
         if (error) {
-            ERROR({sessionId: id, connection: client.meta.connection}, `API key verification failed: ${error}`);
+            client.logger.warn({event: "apikey-verify-failed", error}, `API key verification failed: ${error}`);
             const island = ALL_ISLANDS.get(id); // fetch island now, in case it went away during await
             // deal with no-island case
             INFO(island || {id}, {
@@ -1802,7 +1794,7 @@ async function verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client) {
             if (island && island.clients.size === 0) provisionallyDeleteIsland(island);
         }
     } catch (err) {
-        ERROR({sessionId: id, connection: client.meta.connection}, `error verifying API key: ${err.message}`);
+        client.logger.error({event: "apikey-verify-error", err}, `error verifying API key: ${err.message}`);
     }
     return false;
 }
