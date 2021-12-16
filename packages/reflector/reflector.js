@@ -1509,8 +1509,6 @@ server.on('connection', (client, req) => {
         connection: `${addr}:${port}`,
         dispatcher: req.headers['x-croquet-dispatcher'],
         userIp: (req.headers['x-forwarded-for'] || '').split(',')[0].replace(/^::ffff:/, '') || addr,
-        token,
-        url: req.url,
     };
     // location header is added by load balancer, see region-servers/apply-changes
     if (req.headers['x-location']) try {
@@ -1520,7 +1518,7 @@ server.on('connection', (client, req) => {
     } catch (ex) { /* ignore */}
 
     if (!sessionId) {
-        global_logger.warn({ event: "request-session-missing", ...client.meta }, `Missing session id in request "${req.url}"`);
+        global_logger.warn({ event: "request-session-missing", ...client.meta, url: req.url }, `Missing session id in request "${req.url}"`);
         client.close(...REASON.BAD_PROTOCOL);
         return;
     }
@@ -1572,7 +1570,6 @@ server.on('connection', (client, req) => {
             logger: global_logger.child({
                 scope: "session",
                 sessionId,
-                url: req.url,
             }),
         };
         ALL_SESSIONS.set(sessionId, session);
@@ -1605,7 +1602,7 @@ server.on('connection', (client, req) => {
     }
     // the connection log filter matches on (" connection " OR " JOIN ")
     const forwarded = `via ${req.headers['x-croquet-dispatcher']} (${(req.headers['x-forwarded-for'] || '').split(/\s*,\s*/).map(a => a.replace(/^::ffff:/, '')).join(', ')}) `;
-    client.logger.notice({ event: "start" }, `opened connection ${version} ${forwarded||''}${req.headers['x-location']||''}`);
+    client.logger.notice({ event: "start", token, url: req.url }, `opened connection ${version} ${forwarded||''}${req.headers['x-location']||''}`);
     STATS.USERS = Math.max(STATS.USERS, server.clients.size);
 
     let lastActivity = Date.now();
