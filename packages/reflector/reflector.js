@@ -123,12 +123,11 @@ const GCP_SEVERITY = {
     fatal:  'CRITICAL',
 };
 
-// the global logger. we have per-session and per-connection child loggers, too.
 // every log entry should have scope and event properties, as well as a message.
 // the scope is "session" if we have a sessionId, "connection" if we have
 // a connectionId (client address), and "process" if we don't have either.
-const global_logger = pino({
-    base: { scope: "process" },
+const empty_logger = pino({
+    base: null,
     messageKey: 'message',
     timestamp: CLUSTER_IS_LOCAL && !NO_LOGTIME,
     level: process.env.LOG_LEVEL ? process.env.LOG_LEVEL.toLowerCase() : CLUSTER_IS_LOCAL ? 'trace' : 'debug',
@@ -139,6 +138,12 @@ const global_logger = pino({
         level: label => ({ severity: GCP_SEVERITY[label] || 'DEFAULT'}),
     },
 });
+
+// the global logger. we have per-session and per-connection loggers, too,
+// but they are all children of the empty_logger to avoid duplication of
+// properties in the JSON which causes problems in StackDriver
+// (e.g. {scope: "session", scope: "connection"} arrives as {scope: "connect"})
+const global_logger = empty_logger.child({ scope: "process" });
 
 // Logging out the initial start-up event message
 global_logger.notice({ event: "start" }, "reflector started");
@@ -520,22 +525,25 @@ async function JOIN(client, args) {
     // islandId deprecated since 0.5.1, but old clients will send it rather than persistentId
     const persistentId = args.persistentId || args.islandId;
 
+    // BigQuery wants a single data type, but user can be strign or object or array
+    client.meta.user = typeof user === "string" ? user : JSON.stringify(user);
+    // recreate client logger with data from JOIN
+    // NOTE: if this is the first client, then the session logger does not have the JOIN args yet
+    // in that case, the client loggers for the session will be recreated again below
+    client.logger = empty_logger.child({...session.logger.bindings(), ...client.meta});
+
     // the (old) connection log filter matches on (" connection " OR " JOIN ")
     client.logger.notice({
         event: "join",
-        // BigQuery wants a specific schema, so don't simply log everything
-        args: {
-            appId,
-            persistentId,
-            codeHash,
-            apiKey,
-            url,
-            sdk,
-            heraldUrl,
-            user: typeof user === "string" ? user : JSON.stringify(user), // BigQuery wants a single data type
-        },
-        allArgs: JSON.stringify(args),
-    }, `receiving JOIN `);
+        appId,
+        persistentId,
+        codeHash,
+        apiKey,
+        url,
+        sdk,
+        heraldUrl,
+        allArgs: JSON.stringify(args),  //  BigQuery wants a specific schema, so don't simply log all args separately
+    }, `receiving JOIN ${client.meta.user}`);
 
     // new clients (>=0.3.3) send ticks in JOIN
     const syncWithoutSnapshot = 'ticks' in args;
@@ -644,7 +652,8 @@ async function JOIN(client, args) {
     if (island.yetToCheckLatest) {
         island.yetToCheckLatest = false;
 
-        island.logger = global_logger.child({
+        const sessionMeta = {
+            ...global_logger.bindings(),
             ...session.logger.bindings(),
             appId,
             persistentId,
@@ -653,11 +662,12 @@ async function JOIN(client, args) {
             url,
             sdk,
             heraldUrl,
-        });
-        session.logger = island.logger;
+        };
+        session.logger = empty_logger.child(sessionMeta);
+        island.logger = session.logger;
         // client loggers need to be updated now that session logger has more meta data
         for (const each of island.clients) {
-            each.logger = session.logger.child(each.meta);
+            each.logger = empty_logger.child({...sessionMeta, ...each.meta});
         }
         // new clients will be based on new session.logger
 
@@ -1567,7 +1577,8 @@ server.on('connection', (client, req) => {
         session = {
             stage: 'runnable',
             earliestUnregister,
-            logger: global_logger.child({
+            logger: empty_logger.child({
+                ...global_logger.bindings(),
                 scope: "session",
                 sessionId,
             }),
@@ -1576,7 +1587,7 @@ server.on('connection', (client, req) => {
         scheduleShutdownIfNoJoin(sessionId, earliestUnregister, "no JOIN in time");
     }
     prometheusConnectionGauge.inc(); // connection accepted
-    client.logger = session.logger.child(client.meta);
+    client.logger = empty_logger.child({...session.logger.bindings(), ...client.meta});
     client.stats = { mi: 0, mo: 0, bi: 0, bo: 0 }; // messages / bytes, in / out
     client.safeSend = data => {
         if (client.readyState !== WebSocket.OPEN) return;
