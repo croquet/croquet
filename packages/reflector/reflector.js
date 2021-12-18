@@ -1487,7 +1487,7 @@ async function unregisterSession(id, detail) {
     try {
         await DISPATCHER_BUCKET.file(filename).delete();
     } catch (err) {
-        if (err.code === 404) session.logger.log({event: "unregister-failed", err}, `failed to unregister. ${err.code}: ${err.message}`);
+        if (err.code === 404) session.logger.info({event: "unregister-failed", err}, `failed to unregister. ${err.code}: ${err.message}`);
         else session.logger.warn({event: "unregister-failed", err}, `failed to unregister. ${err.code}: ${err.message}`);
     }
 
