@@ -143,10 +143,10 @@ const empty_logger = pino({
 // but they are all children of the empty_logger to avoid duplication of
 // properties in the JSON which causes problems in StackDriver
 // (e.g. {scope: "session", scope: "connection"} arrives as {scope: "connect"})
-const global_logger = empty_logger.child({ scope: "process" });
+const global_logger = empty_logger.child({ scope: "process", hostIp: HOSTIP });
 
 // Logging out the initial start-up event message
-global_logger.notice({ event: "start" }, "reflector started");
+global_logger.notice({ event: "start" }, `reflector started ${CLUSTER_LABEL} ${HOSTIP}`);
 
 // secret shared with sign cloud func
 const SECRET_NAME = "projects/croquet-proj/secrets/signurl-jwt-hs256/versions/latest";
