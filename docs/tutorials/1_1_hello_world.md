@@ -120,12 +120,12 @@ class MyModel extends Croquet.Model {
 
     resetCounter() {
         this.count = 0;
-        this.publish("counter", "update", this.count);
+        this.publish("counter", "changed");
     }
 
     tick() {
         this.count++;
-        this.publish("counter", "update", this.count);
+        this.publish("counter", "changed");
         this.future(1000).tick();
     }
 
@@ -173,15 +173,15 @@ MyModel specified this method as the handler for "reset" events in the "counter"
 The first job in handling the event is to reset this.count to 0.
 
 
-```this.publish("counter", "update", this.count);```
+```this.publish("counter", "changed");```
 
-Now that the count has changed, the model publishes an event specifying the new count value.
-As seen below, the view subscribes to these "update" events, and handles them by modifying its display.
+Now the model publishes an event notifying the view that the count has changed.
+As seen below, the view subscribes to these "changed" events, and handles them by modifying its display.
 
 ### MyModel.tick()
 
 The tick method was called 1000 milliseconds in the future in the init function when the new Croquet model was created.
-The main job of tick() is to increment the count and then, like in resetCounter(), to publish an "update" event specifying the new value.
+The main job of tick() is to increment the count and then, like in resetCounter(), to publish an "changed" event specifying the new value.
 
 ```this.future(1000).tick();```
 
@@ -207,16 +207,18 @@ class MyView extends Croquet.View {
 
     constructor(model) {
         super(model);
-        countDisplay.onclick = event => this.onclick(event);
-        this.subscribe("counter", "update", this.handleUpdate);
+        this.model = model;
+        countDisplay.onclick = event => this.counterReset();
+        this.subscribe("counter", "changed", this.counterChanged);
+        this.counterChanged();
     }
 
-    onclick() {
+    counterReset() {
         this.publish("counter", "reset");
     }
 
-    handleUpdate(data) {
-        countDisplay.textContent = data;
+    counterChanged() {
+        countDisplay.textContent = this.model.count;
     }
 
 }
@@ -232,25 +234,39 @@ Note that the model is an argument to the constructor. This object reference **M
 
 Since myView is a subclass, we need to ensure that the base-class constructor is executed.
 
-```countDisplay.onclick = event => this.onclick(event);```
+```this.model = model;```
 
-This is a vanilla tracking of a user event and then calling the onclick function defined below.
+We keep a reference to the model around so we later can read from it.
 
-```this.subscribe("counter", "update", this.handleUpdate);```
+```countDisplay.onclick = event => this.counterReset();```
 
-This is where the published value of the counter reaches the view. This subscription will cause each "update" event to invoke handleUpdate(data), supplying the data (in this case, the counter value) that was supplied with the event.
+This is a vanilla tracking of a user event and then calling the counterReset function defined below.
 
-### MyView.onclick(event)
+```this.subscribe("counter", "changed", this.counterChanged);```
 
-This first tests to ensure the event was not targeted at the QR code.
+This subscription will cause each "changed" event to invoke counterChanged().
+
+```this.counterChanged();```
+
+This updates the displayed value to match what the model's count is right on session start.
+Otherwise, the displayed value would be wrong until the first "changed" event was received.
+
+### MyView.counterReset()
+
+In response to user input, the view will publish an event.
+Subscribing in the model to an event published by a view is the only way to affect the model's behavior from the outside, everything else in the model is fully deterministic.
 
 ```this.publish("counter", "reset");```
 
-If it is not, then the view publishes a "reset" event in the "counter" scope. As detailed above, this is the kind of event that MyModel subscribes to. Croquet automatically ensures that every MyModel instance (i.e., the model for every user in this app session) receives the event, regardless of which user's view published it. This is crucial to how Croquet synchronization works.
+The view publishes a "reset" event in the "counter" scope. As detailed above, this is the kind of event that MyModel subscribes to. Croquet automatically ensures that every MyModel instance (i.e., the model for every user in this app session) receives the event, regardless of which user's view published it. This is crucial to how Croquet synchronization works.
 
-### MyView.handleUpdate(data)
+### MyView.counterChanged()
 
-This method is called whenever a new value of the count is published by the model. The view changes the textContent value of the "countDisplay" element to whatever count the model has sent.
+This method is called whenever the model has adjusted its count and published a "changed" event.
+The view changes the textContent value of the "countDisplay" element to whatever count the model has.
+
+Note that we are reading directly from the model state here.
+Unlike in traditional server/client computing, where the server state is not directly accessible by the client, the replication architecture of Croquet ensures that all clients are already up-to-date.
 
 ## Croquet.Session.join({ apiKey, appId, name, password, model, view, options })
 
