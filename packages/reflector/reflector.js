@@ -543,7 +543,7 @@ async function JOIN(client, args) {
         sdk,
         heraldUrl,
         allArgs: JSON.stringify(args),  //  BigQuery wants a specific schema, so don't simply log all args separately
-    }, `receiving JOIN ${client.meta.user}`);
+    }, `receiving JOIN ${client.meta.user} ${url}`);
 
     // new clients (>=0.3.3) send ticks in JOIN
     const syncWithoutSnapshot = 'ticks' in args;
