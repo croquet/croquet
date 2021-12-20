@@ -892,7 +892,7 @@ function SNAP(client, args) {
                 island.logger.trace({
                     event: "purging-messages",
                     fromSeq: msgs[0][1] >>> 0,
-                    toSeq: msgs[firstToKeep - 1][1] >>> 0,
+                    toSeq: msgs[msgs.length - 1][1] >>> 0,
                     msgCount: msgs.length,
                 }, `forgetting all of ${msgs.length} messages`);
                 messagesToStore = msgs.slice();
