@@ -4,6 +4,7 @@
 
 const os = require('os');
 const fs = require('fs');
+const { performance } = require("perf_hooks");
 const WebSocket = require('ws');
 const fetch = require('node-fetch');
 const prometheus = require('prom-client');
@@ -425,7 +426,7 @@ const ALL_SESSIONS = new Map();
  * @param {IslandData} island
  */
 function getTime(island, _reason) {
-    const now = Date.now();
+    const now = performance.now();
     const delta = now - island.before;     // might be < 0 if system clock went backwards
     if (delta > 0) {
         // tick requests usually come late; sometimes tens of ms late.  keep track of such overruns, and whenever there is a net lag inject a small addition to the delta (before scaling) to help the island catch up.
@@ -443,9 +444,10 @@ function getTime(island, _reason) {
                 island.lag -= boost;
             }
         }
-        island.time += Math.round(island.scale * advance);
+        const scaledAdvance = Math.round(island.scale * advance);
+        island.time += scaledAdvance;
         island.before = now;
-        //TRACE(`${island.id} getTime(${_reason}) => ${island.time}`);
+        // island.logger.trace({event: "advance-time", ms: scaledAdvance, newTime: island.time}, `getTime(${_reason}) => ${island.time}`);
     }
     return island.time;
 }
@@ -696,7 +698,7 @@ async function JOIN(client, args) {
             if (island.lastCompletedTally) island.lastCompletedTally = null;
             if (!island.completedTallies) island.completedTallies = {};
 
-            island.before = Date.now();
+            island.before = performance.now();
             island.storedUrl = latestSpec.snapshotUrl;
             island.storedSeq = latestSpec.seq;
             if (latestSpec.reflectorSession) island.timeline = latestSpec.reflectorSession; // TODO: remove reflectorSession after 0.4.1 release
@@ -925,7 +927,7 @@ function SNAP(client, args) {
         client.logger.debug({event: "init-time", teatime}, `init ${teatime} from SNAP (old client)`);
         island.time = time;
         island.seq = seq;
-        island.before = Date.now();
+        island.before = performance.now();
         announceUserDidJoin(client);
     } else {
         // this is the initial snapshot, but it's an even older client (<=0.2.5) that already requested TICKS()
@@ -1269,7 +1271,7 @@ function TICKS(client, args) {
         island.logger.debug({event: "init-time", teatime: `@${time}#${seq}`}, "init from TICKS (old client)");
         island.time = typeof time === "number" ? Math.ceil(time) : 0;
         island.seq = typeof seq === "number" ? seq : 0;
-        island.before = Date.now();
+        island.before = performance.now();
         announceUserDidJoin(client);
     }
     if (delay > 0) island.delay = delay;
