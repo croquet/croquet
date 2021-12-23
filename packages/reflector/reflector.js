@@ -1227,7 +1227,15 @@ function PONG(client, args) {
  * @param {IslandData} island
  */
 function TICK(island) {
-    if (island.clients.size === 0) return; // probably in provisional island deletion
+    // we will send ticks if a client has joined, and the socket is open, and it is not backlogged
+    const sendingTicksTo = client => client.active && client.readyState === WebSocket.OPEN && !client.bufferedAmount;
+    // avoid advancing time if nobody hears us
+    let anyoneListening = false;
+    for (const each of island.clients) if (sendingTicksTo(each)) {
+        anyoneListening = true;
+        break;
+    }
+    if (!anyoneListening) return; // probably in provisional island deletion
 
     const time = getTime(island, "TICK");
     // const { id, lastMsgTime, tick, scale } = island;
@@ -1237,7 +1245,7 @@ function TICK(island) {
     prometheusTicksCounter.inc();
     island.clients.forEach(client => {
         // only send ticks if joined and not back-logged
-        if (client.active && !client.bufferedAmount) {
+        if (sendingTicksTo(client)) {
             client.safeSend(msg);
             STATS.TICK++;
         }
