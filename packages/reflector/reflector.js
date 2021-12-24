@@ -732,7 +732,7 @@ async function JOIN(client, args) {
         } finally {
             island.storedUrl = ''; // replace the null that means we haven't looked
             // as of 0.3.3, clients do not want START but SYNC with an empty snapshot
-            if (island.syncWithoutSnapshot) SYNC(island);
+            if (island.syncWithoutSnapshot) { setTimeout(() => SYNC(island), 1000); }
             else START(island);
         }
 
@@ -802,6 +802,10 @@ function clientLeft(client) {
     const island = ALL_ISLANDS.get(client.sessionId);
     if (!island) return;
     island.clients.delete(client);
+    client.logger.debug({
+        event: "deleted",
+        clientCount: island.clients.size,
+    }, `client deleted, ${island.clients.size} remaining`);
     if (island.clients.size === 0) provisionallyDeleteIsland(island);
     announceUserDidLeave(client);
 }
@@ -1389,6 +1393,10 @@ function provisionallyDeleteIsland(island) {
         return;
     }
     session.stage = 'closable';
+    island.logger.debug({
+        event: "schedule-delete",
+        delay: DELETION_DEBOUNCE,
+    }, `provisionally scheduling session end`);
     // NB: the deletion delay is currently safely longer than the retention on the dispatcher record
     session.timeout = setTimeout(() => deleteIsland(island), DELETION_DEBOUNCE);
 }
@@ -1764,6 +1772,10 @@ server.on('connection', (client, req) => {
                 // start next client
                 START(island);
             }
+            client.logger.debug({
+                event: "schedule-delete",
+                delay: island.leaveDelay,
+            }, `scheduling client deletion in ${island.leaveDelay} ms`);
             setTimeout(() => clientLeft(client), island.leaveDelay);
         }
     });
