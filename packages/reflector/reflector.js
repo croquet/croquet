@@ -725,7 +725,9 @@ async function JOIN(client, args) {
             }
         } finally {
             island.storedUrl = ''; // replace the null that means we haven't looked
-            START(island);
+            // as of 0.3.3, clients do not want START but SYNC with an empty snapshot
+            if (island.syncWithoutSnapshot) SYNC(island);
+            else START(island);
         }
 
         return;
@@ -741,8 +743,6 @@ async function JOIN(client, args) {
 }
 
 function START(island) {
-    // as of 0.3.3, clients do not want START but SYNC with an empty snapshot
-    if (island.syncWithoutSnapshot) { SYNC(island); return; }
     // find next client
     do {
         island.startClient = island.syncClients.shift();
