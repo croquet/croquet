@@ -526,6 +526,7 @@ async function JOIN(client, args) {
     const { name, version, apiKey, url, sdk, appId, codeHash, user, location, heraldUrl, leaveDelay, dormantDelay, tove } = args;
     // islandId deprecated since 0.5.1, but old clients will send it rather than persistentId
     const persistentId = args.persistentId || args.islandId;
+    const unverifiedDeveloperId = args.developerId;
 
     // BigQuery wants a single data type, but user can be strign or object or array
     client.meta.user = typeof user === "string" ? user : JSON.stringify(user);
@@ -621,7 +622,7 @@ async function JOIN(client, args) {
         // this should be a formality – the controller already checks the apiKey before sending join
         // so we assume good intent and do not await result, to not delay SYNC unnecessarily
         // ... unless there is no token, in which case we await below
-        apiKeyPromise = verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client);
+        apiKeyPromise = verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client, unverifiedDeveloperId);
         // unless we have a valid token, do not let the client proceed
         if (validToken) {
             island.developerId = validToken.developerId;
@@ -1777,7 +1778,8 @@ const DEFAULT_SIGN_SERVER = "https://api.croquet.io/sign";
 const DEV_SIGN_SERVER = "https://api.croquet.io/dev/sign";
 const API_SERVER_URL = IS_DEV ? DEV_SIGN_SERVER : DEFAULT_SIGN_SERVER;
 
-async function verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client) {
+async function verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client, unverifiedDeveloperId) {
+    if (!VERIFY_TOKEN) return unverifiedDeveloperId;
     try {
         const response = await fetch(`${API_SERVER_URL}/reflector/${CLUSTER}/${HOSTNAME}?meta=verify`, {
             headers: {
