@@ -1482,14 +1482,11 @@ export default class Controller {
 
         if (DEBUG.sends) console.log(this.id, `sending TUTTI ${payload} ${firstMessage && firstMessage.asState()} ${tallyTarget}`);
         this.lastSent = Date.now();
-        // jul 2021: in case we're assigned to an old reflector, supply a dummy tuttiSeq in
-        // second place in the arg array.  the reflector expects an increasing 32-bit
-        // number, and the number must be safely ahead of any tuttiSeq already recorded
-        // in an old session's latest.json; we use the vm time divided by 100 and
-        // offset by 1000000.  the 32-bit logic won't be confused as long as vm time
-        // is below about 240 days... and this code should be long gone before any session
-        // can reach that.
-        const dummyTuttiSeq = 1000000 + Math.floor(time / 100);
+        // jul 2021: in case we were assigned to an old reflector, we supplied a dummy
+        // tuttiSeq in second place in the arg array.  as of late 2021 all deployed
+        // reflectors check for a seventh-place argument instead, but will still
+        // recognise a pre-0.5.1 app's second-place tuttiSeq.
+        const dummyTuttiSeq = 0;
         const tuttiKey = `${topic}@${time}`; // for the benefit of a new reflector
         this.connection.send(JSON.stringify({
             id: this.id,
