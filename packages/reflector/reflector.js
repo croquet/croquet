@@ -478,6 +478,8 @@ function nonSavableProps() {
         url: null,
         resumed: new Date(), // session init/resume time, needed for billing to count number of sessions
         logger: null,        // the logger for this session (shared with ALL_SESSIONS[id])
+        flags: {},           // flags for experimental reflector features.  currently only "rawtime" is checked
+        rawStart: 0,         // start time for rawtime feature
         [Symbol.toPrimitive]: () => "dummy",
         };
 }
@@ -523,12 +525,12 @@ async function JOIN(client, args) {
         default:
     }
 
-    const { name, version, apiKey, url, sdk, appId, codeHash, user, location, heraldUrl, leaveDelay, dormantDelay, tove } = args;
+    const { name, version, apiKey, url, sdk, appId, codeHash, user, location, heraldUrl, leaveDelay, dormantDelay, tove, flags } = args;
     // islandId deprecated since 0.5.1, but old clients will send it rather than persistentId
     const persistentId = args.persistentId || args.islandId;
     const unverifiedDeveloperId = args.developerId;
 
-    // BigQuery wants a single data type, but user can be strign or object or array
+    // BigQuery wants a single data type, but user can be string or object or array
     client.meta.user = typeof user === "string" ? user : JSON.stringify(user);
     // recreate client logger with data from JOIN
     // NOTE: if this is the first client, then the session logger does not have the JOIN args yet
@@ -595,6 +597,10 @@ async function JOIN(client, args) {
     island.leaveDelay = leaveDelay || 0;
     island.dormantDelay = dormantDelay; // only provided by clients since 0.5.1
     island.url = url;
+    island.flags = {};
+    // set flags only for the features this reflector can support
+    ['rawtime'].forEach(prop => { if ((flags || {})[prop]) island.flags[prop] = true; });
+    if (island.flags.rawtime && !island.rawStart) island.rawStart = Math.floor(performance.now());
 
     client.island = island; // set island before await
 
@@ -766,9 +772,9 @@ function START(island) {
 }
 
 function SYNC(island) {
-    const { id, seq, timeline, snapshotUrl: url, snapshotTime, snapshotSeq, persistentUrl, messages, tove } = island;
+    const { id, seq, timeline, snapshotUrl: url, snapshotTime, snapshotSeq, persistentUrl, messages, tove, flags } = island;
     const time = getTime(island, "SYNC");
-    const args = { url, messages, time, seq, tove, reflector: CLUSTER, timeline, reflectorSession: timeline };  // TODO: remove reflectorSession after 0.4.1 release
+    const args = { url, messages, time, seq, tove, reflector: CLUSTER, timeline, reflectorSession: timeline, flags };  // TODO: remove reflectorSession after 0.4.1 release
     if (url) {args.snapshotTime = snapshotTime; args.snapshotSeq = snapshotSeq; }
     else if (persistentUrl) { args.url = persistentUrl; args.persisted = true; }
     const response = JSON.stringify({ id, action: 'SYNC', args });
@@ -1040,8 +1046,10 @@ function SEND(island, messages) {
         // message = [time, seq, payload, ...] - keep whatever controller.sendMessage sends
         message[0] = time;
         message[1] = island.seq = (island.seq + 1) >>> 0; // seq is always uint32
-        const wall = Math.floor(performance.now());
-        message[message.length - 1] = wall; // overwrite the latency information from the controller
+        if (island.flags.rawtime) {
+            const rawTime = Math.floor(performance.now() - island.rawStart);
+            message[message.length - 1] = rawTime; // overwrite the latency information from the controller
+        }
         const msg = JSON.stringify({ id: island.id, action: 'RECV', args: message });
         island.logger.trace({event: "reflect-message", t: time, seq: island.seq}, `broadcasting RECV ${JSON.stringify(message)}`);
         prometheusMessagesCounter.inc();
@@ -1115,6 +1123,7 @@ function TUTTI(client, args) {
             if (tuttiKey) payloads.tuttiKey = tuttiKey;
             else payloads.tuttiSeq = tuttiSeq;
             const msg = [0, 0, payloads];
+            if (island.flags.rawtime) msg.push(0); // will be overwritten with time value
             SEND(island, [msg]);
         }
         delete island.tallies[keyOrSeq];
@@ -1134,7 +1143,11 @@ function TUTTI(client, args) {
             return;
         }
 
-        if (firstMsg) SEND(island, [firstMsg]);
+        if (firstMsg) {
+            const sendableMsg = [...firstMsg];
+            if (island.flags.rawtime) sendableMsg.push(0); // will be overwritten with time value
+            SEND(island, [sendableMsg]);
+        }
 
         tally = island.tallies[keyOrSeq] = {
             sendTime,
@@ -1208,6 +1221,7 @@ function USERS(island) {
     if (active) {
         // do not trigger a SEND before someone successfully joined
         const msg = [0, 0, payload];
+        if (island.flags.rawtime) msg.push(0); // will be overwritten with time value
         SEND(island, [msg]);
         island.logger.debug({
             event: "send-users",
