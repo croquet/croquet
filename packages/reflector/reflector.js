@@ -1035,8 +1035,9 @@ function SEND(island, messages) {
         // message = [time, seq, payload, ...] - keep whatever controller.sendMessage sends
         message[0] = time;
         message[1] = island.seq = (island.seq + 1) >>> 0; // seq is always uint32
-        const wall = Math.round(performance.now());
-        const msg = JSON.stringify({ id: island.id, action: 'RECV', args: message, wall });
+        const wall = Math.floor(performance.now());
+        message[message.length - 1] = wall; // overwrite the latency information from the controller
+        const msg = JSON.stringify({ id: island.id, action: 'RECV', args: message });
         island.logger.trace({event: "reflect-message", t: time, seq: island.seq}, `broadcasting RECV ${JSON.stringify(message)}`);
         prometheusMessagesCounter.inc();
         STATS.RECV++;
