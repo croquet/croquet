@@ -184,8 +184,6 @@ export default class Controller {
         if (this.rejoinTimeout) clearTimeout(this.rejoinTimeout);
         /** timeout rejoin if rejoinLimit has been requested */
         this.rejoinTimeout = 0;
-        /** during a rejoin for which seamless isn't available, a function for signalling that reboot has completed */
-        this.rebootSignal = null;
         /** @type {Function[]} buffered sends to reflector while reconnecting */
         this.sendBuffer = [];
         /** the number of concurrent users in our vm (excluding spectators) */
@@ -302,6 +300,7 @@ export default class Controller {
      * @param {String} sessionSpec.viewIdDebugSuffix - suffix for viewIds to help debugging
      * @param {Number|String} sessionSpec.tps - ticks per second (can be overridden by `options.tps` or `urlOptions.tps`)
      * @param {Number} sessionSpec.autoSleep - number of seconds of being hidden to trigger dormancy (or 0 to disable)
+     * @param {Object} sessionSpec.flags - features to request from the reflector
      */
     async initFromSessionSpec(sessionSpec) {
         // If we add more options here, add them to SESSION_PARAMS in session.js
@@ -828,7 +827,7 @@ export default class Controller {
 
                 Controllers.add(this);
 
-                const {messages, url, persisted, time, seq, /* snapshotTime, */ snapshotSeq, tove, reflector} = args;
+                const {messages, url, persisted, time, seq, /* snapshotTime, */ snapshotSeq, tove, reflector, flags} = args;
                 // check that we are able to decode a shared secret (unless it's our own)
                 if (tove && tove !== this.tove) try {
                     // decrypt will throw if it can't decrypt, which is the expected result if joining with a wrong password
@@ -838,6 +837,7 @@ export default class Controller {
                     return;
                 }
                 const timeline = args.timeline || args.reflectorSession; // renamed "reflectorSession" to "timeline"
+                this.flags = flags || {};
                 const persistedOrSnapshot = persisted ? "persisted session" : "snapshot";
                 if (DEBUG.session) console.log(this.id, `received SYNC from ${reflector} reflector: time ${time}, ${messages.length} messages, ${persistedOrSnapshot} ${url || "<none>"}`);
                 // if we are rejoining, check if we can do that seamlessly without taking down the view
@@ -924,7 +924,7 @@ export default class Controller {
                     this.networkQueue.push(msg);
                 }
                 this.networkQueue.push(...messagesSinceSync);
-                if (time > this.reflectorTime) this.timeFromReflector(time);
+                if (time > this.reflectorTime) this.timeFromReflector(time, "reflector");
                 // if we were rejoining, then our work is done here: we got all the missing messages
                 if (rejoining) {
                     if (DEBUG.session) console.log(this.id, "seamless rejoin successful");
@@ -995,11 +995,10 @@ export default class Controller {
                     return;
                 }
                 this.networkQueue.push(msg);
-                // only advance time, and perhaps the simulation, if not rebooting
-                if (!this.rebootSignal) {
-                    this.timeFromReflector(msg[0]);
-                    if (this.simulateIfNeeded) Promise.resolve().then(() => this.simulateIfNeeded()); // immediate but not in the message handler
-                }
+                let rawTime;
+                if (this.flags.rawtime) rawTime = msg[msg.length - 1];
+                this.timeFromReflector(msg[0], "reflector", rawTime);
+                if (this.simulateIfNeeded) Promise.resolve().then(() => this.simulateIfNeeded()); // immediate but not in the message handler
                 return;
             }
             case 'TICK': {
@@ -1011,7 +1010,7 @@ export default class Controller {
                     const expected = prevReceived && this.lastReceived - prevReceived - this.msPerTick * this.tickMultiplier | 0;
                     console.log(this.id, `Controller received TICK ${time} ${Math.abs(expected) < 5 ? "on time" : expected < 0 ? "early" : "late"} (${expected} ms)`);
                 }
-                this.timeFromReflector(time);
+                this.timeFromReflector(time, "reflector");
                 if (this.tickMultiplier > 1) this.multiplyTick(time);
                 if (this.simulateIfNeeded) Promise.resolve().then(() => this.simulateIfNeeded()); // immediate but not in the message handler
                 return;
@@ -1096,7 +1095,7 @@ export default class Controller {
         if (DEBUG.session) console.log(this.id, 'Controller sending JOIN');
 
         const { tick, delay } = this.getTickAndMultiplier();
-        const { name, codeHash, appId, apiKey, persistentId, developerId, heraldUrl, rejoinLimit, autoSleep, computedCodeHash } = this.sessionSpec;
+        const { name, codeHash, appId, apiKey, persistentId, developerId, heraldUrl, rejoinLimit, autoSleep, computedCodeHash, flags } = this.sessionSpec;
 
         const args = {
             name,                   // for debugging only
@@ -1121,6 +1120,9 @@ export default class Controller {
         });
         if (computedCodeHash !== codeHash) Object.assign(args, {
             computedCodeHash,       // for debugging only
+        });
+        if (flags) Object.assign(args, {
+            flags,                  // flags for requesting reflector features
         });
 
         this.connection.send(JSON.stringify({
@@ -1774,14 +1776,14 @@ export default class Controller {
         return 0;
     }
 
-    /** Got the official time from reflector (on SYNC, TICK or RECV), or local tick multiplier */
-    timeFromReflector(time, src="reflector") {
+    /** Got the official time from reflector (on SYNC, TICK or RECV), or local tick multiplier.  src is "reflector" or "controller".  rawTime is reflector performance.now() since the resumption of the session, currently (dec 2021) defined in experimental reflectors on RECV events only, if flag "rawtime" is requested on join(). */
+    timeFromReflector(time, src, rawTime) {
         if (time < this.reflectorTime) { if (src !== "controller" || DEBUG.ticks) console.warn(`time is ${this.reflectorTime}, ignoring time ${time} from ${src}`); return; }
         if (typeof this.synced !== "boolean") this.synced = false;
         this.reflectorTime = time;
         this.extrapolatedTimeBase = Date.now() - time;
         if (this.vm) Stats.backlog(this.backlog);
-        if (this.tickHook) this.tickHook();
+        if (this.tickHook) this.tickHook(time, rawTime);
     }
 
     /** we received a tick from reflector, generate local ticks */

@@ -226,10 +226,21 @@ export class Session {
                 parameters.autoSleep = sleep ? DORMANCY_DEFAULT_SECONDS : 0;
             } else throw Error("autoSleep must be numeric or boolean");
         } else parameters.autoSleep = DORMANCY_DEFAULT_SECONDS;
+        // turn flags from a single string, a separated string or an array into an object
+        if (parameters.flags) {
+            let props = parameters.flags;
+            if (typeof props === "string") props = props.split(',');
+            props = props ? (Array.isArray(props) ? props : [props]) : []; // copied from debug above
+            props = props.filter(prop => typeof prop !== "object");
+            if (props.length) {
+                parameters.flags = {};
+                props.forEach(prop => parameters.flags[prop] = true);
+            } else parameters.flags = null;
+        }
         // now start
         if ("expectedSimFPS" in parameters) expectedSimFPS = Math.min(parameters.expectedSimFPS, MAX_BALANCE_FPS);
         // parameters to be included in the session spec, if specified by app (or defaulted)
-        const SESSION_PARAMS = ['name', 'password', 'apiKey', 'appId', 'tps', 'autoSleep', 'heraldUrl', 'rejoinLimit', 'eventRateLimit', 'optionsFromUrl', 'viewIdDebugSuffix', 'hashOverride'];
+        const SESSION_PARAMS = ['name', 'password', 'apiKey', 'appId', 'tps', 'autoSleep', 'heraldUrl', 'rejoinLimit', 'eventRateLimit', 'optionsFromUrl', 'viewIdDebugSuffix', 'hashOverride', 'flags'];
         freezeAndHashConstants();
         const controller = new Controller();
         // make sure options are JSONable
