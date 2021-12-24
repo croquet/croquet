@@ -1089,10 +1089,9 @@ function TUTTI(client, args) {
     if (!island) { client.safeClose(...REASON.UNKNOWN_ISLAND); return; }
 
     // clients prior to 0.5.1 send a tutti sequence number in second place; later
-    // clients send a dummy sequence number in second place - so that an old reflector's
-    // sequence-checking logic will still work - but add a seventh argument that is
-    // a tutti key made up of a message topic or placeholder such as "snapshot" or
-    // "persist", suffixed with the sendTime.
+    // clients instead use a seventh argument that is a tutti key made up of a
+    // message topic or placeholder such as "snapshot" or "persist", suffixed with
+    // the sendTime.
     // we keep a list of the sendTime and key/seq of completed tallies for up to
     // MAX_TALLY_AGE (currently 60s) since the sendTime.  a vote on a previously
     // unseen key and more than MAX_TALLY_AGE in the past will always be ignored.
