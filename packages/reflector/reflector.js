@@ -734,8 +734,13 @@ async function JOIN(client, args) {
     }
 
     // if we've checked latest.json, and updated storedUrl (but not snapshotUrl,
-    // as checked above), this must be a brand new island.  send a START.
-    if (island.storedUrl !== null && !island.startTimeout) { START(island); return; }
+    // as checked above), this must be a brand new island.  send a START or SYNC,
+    // as appropriate.
+    if (island.storedUrl !== null && !island.startTimeout) {
+        if (island.syncWithoutSnapshot) SYNC(island);
+        else START(island);
+        return;
+    }
 
     // otherwise, nothing to do at this point.  log that this client is waiting
     // for a snapshot either from latest.json or from a STARTed client.
