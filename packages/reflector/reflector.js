@@ -499,10 +499,11 @@ async function JOIN(client, args) {
         return;
     }
     const id = client.sessionId;
+    const connectedFor = Date.now() - client.since;
     const session = ALL_SESSIONS.get(id);
     if (!session) {
         // shouldn't normally happen, but perhaps possible due to network delays
-        client.logger.info({event: "reject-join"}, "rejecting JOIN; unknown session");
+        client.logger.info({event: "reject-join", connectedFor}, "rejecting JOIN; unknown session");
         client.safeClose(...REASON.RECONNECT);
         return;
     }
@@ -513,7 +514,7 @@ async function JOIN(client, args) {
             // sent (but we didn't know that in time to prevent the
             // client from connecting at all).  tell client to ask the
             // dispatchers again.
-            client.logger.info({ event: "reject-join" }, "rejecting JOIN; session has been unregistered");
+            client.logger.info({ event: "reject-join", connectedFor}, "rejecting JOIN; session has been unregistered");
             client.safeClose(...REASON.RECONNECT);
             return;
         case 'runnable':
@@ -548,6 +549,7 @@ async function JOIN(client, args) {
         sdk,
         heraldUrl,
         allArgs: JSON.stringify(args),  //  BigQuery wants a specific schema, so don't simply log all args separately
+        connectedFor,
     }, `receiving JOIN ${client.meta.user} ${url}`);
 
     // new clients (>=0.3.3) send ticks in JOIN
@@ -789,6 +791,7 @@ function SYNC(island) {
                 what,
                 msgCount: messages.length,
                 bytes: response.length,
+                connectedFor: Date.now() - syncClient.since,
             }, `sending SYNC @${time}#${seq} ${response.length} bytes, ${messages.length} messages${range}, ${what} ${args.url || "<none>"}`);
             announceUserDidJoin(syncClient);
         } else {
@@ -1553,6 +1556,7 @@ server.on('connection', (client, req) => {
     const { version, sessionId, token } = parseUrl(req);
     // set up client meta data (also used for logging)
     client.sessionId = sessionId;
+    client.since = Date.now();
     const addr = req.socket.remoteAddress.replace(/^::ffff:/, '');
     const port = req.socket.remotePort;
     client.meta = {
