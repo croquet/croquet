@@ -779,16 +779,17 @@ function SYNC(island) {
     else if (persistentUrl) { args.url = persistentUrl; args.persisted = true; }
     const response = JSON.stringify({ id, action: 'SYNC', args });
     const range = !messages.length ? '' : ` (#${messages[0][1]}...${messages[messages.length - 1][1]})`;
+    const what = args.persisted ? "persisted" : "snapshot";
     for (const syncClient of island.syncClients) {
         if (syncClient.readyState === WebSocket.OPEN) {
             syncClient.safeSend(response);
             syncClient.logger.debug({
                 event: "send-sync",
                 data: args.url,
-                persMsg: args.persisted,
+                what,
                 msgCount: messages.length,
                 bytes: response.length,
-            }, `sending SYNC @${time}#${seq} ${response.length} bytes, ${messages.length} messages${range}, ${args.persisted ? "persisted" : "snapshot"} ${args.url || "<none>"}`);
+            }, `sending SYNC @${time}#${seq} ${response.length} bytes, ${messages.length} messages${range}, ${what} ${args.url || "<none>"}`);
             announceUserDidJoin(syncClient);
         } else {
             syncClient.logger.debug({event: "send-sync-skipped"}, `socket closed before SYNC`);
