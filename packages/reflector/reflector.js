@@ -801,7 +801,8 @@ function SYNC(island) {
 function clientLeft(client) {
     const island = ALL_ISLANDS.get(client.sessionId);
     if (!island) return;
-    island.clients.delete(client);
+    const wasClient = island.clients.delete(client);
+    if (!wasClient) return;
     client.logger.debug({
         event: "deleted",
         clientCount: island.clients.size,
@@ -1568,7 +1569,7 @@ server.on('connection', (client, req) => {
 
     if (!sessionId) {
         global_logger.warn({ event: "request-session-missing", ...client.meta, url: req.url }, `Missing session id in request "${req.url}"`);
-        client.close(...REASON.BAD_PROTOCOL);
+        client.close(...REASON.BAD_PROTOCOL); // safeClose doesn't exist yet
         return;
     }
 
@@ -1637,8 +1638,12 @@ server.on('connection', (client, req) => {
         client.stats.bo += data.length;     // bytes out
     };
     client.safeClose = (code, data) => {
-        if (client.readyState !== WebSocket.OPEN) return;
-        client.close(code, data);
+        try {
+            client.close(code, data);
+        } catch (err) {
+            client.logger.error({event: "close-failed", err}, `failed to close client socket. ${err.code}: ${err.message}`);
+            clientLeft(client); // normally invoked by onclose handler
+        }
     };
     if (collectRawSocketStats) {
         client.stats.ri = 0;
@@ -1707,7 +1712,7 @@ server.on('connection', (client, req) => {
                 if (typeof parsedMsg !== "object") throw Error("JSON did not contain an object");
             } catch (err) {
                 client.logger.error({event: "message-parsing-failed", err, incomingMsg}, `message parsing error: ${err.message}`);
-                client.close(...REASON.MALFORMED_MESSAGE);
+                client.safeClose(...REASON.MALFORMED_MESSAGE);
                 return;
             }
             try {
@@ -1738,7 +1743,7 @@ server.on('connection', (client, req) => {
                 }
             } catch (err) {
                 client.logger.error({event: "message-handling-failed", err}, `message handling failed: ${err.message}`);
-                client.close(...REASON.UNKNOWN_ERROR);
+                client.safeClose(...REASON.UNKNOWN_ERROR);
             }
         };
 
@@ -1843,7 +1848,6 @@ async function verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client, u
                 },
                 [client]);
             client.safeClose(...REASON.BAD_APIKEY);
-            if (island && island.clients.size === 0) provisionallyDeleteIsland(island);
         }
     } catch (err) {
         client.logger.error({event: "apikey-verify-error", err}, `error verifying API key: ${err.message}`);
