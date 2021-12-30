@@ -1098,7 +1098,7 @@ function SEND(island, messages) {
             message[message.length - 1] = rawTime; // overwrite the latency information from the controller
         }
         const msg = JSON.stringify({ id: island.id, action: 'RECV', args: message });
-        island.logger.trace({event: "reflect-message", t: time, seq: island.seq}, `broadcasting RECV ${JSON.stringify(message)}`);
+        island.logger.trace({event: "broadcast-message", t: time, seq: island.seq}, `broadcasting RECV ${JSON.stringify(message)}`);
         prometheusMessagesCounter.inc();
         STATS.RECV++;
         STATS.SEND += island.clients.size;
