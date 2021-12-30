@@ -157,9 +157,13 @@ let SECRET;
 const storage = new Storage();
 const SESSION_BUCKET = NO_STORAGE ? null : storage.bucket('croquet-sessions-v1');
 const DISPATCHER_BUCKET = NO_DISPATCHER ? null : storage.bucket('croquet-reflectors-v1');
+
+// pointer to latest persistent data is stored in user buckets
+// direct bucket access (instead of going via load-balancer as clients do)
+// avoids CDN caching
 const FILE_BUCKETS = {
-    us: STORE_PERSISTENT_DATA ? null : storage.bucket('files.us.croquet.io'),
-    eu: STORE_PERSISTENT_DATA ? null : storage.bucket('files.eu.croquet.io'),
+    us: STORE_PERSISTENT_DATA ? storage.bucket('files.us.croquet.io') : null,
+    eu: STORE_PERSISTENT_DATA ? storage.bucket('files.eu.croquet.io') : null,
 };
 FILE_BUCKETS.default = FILE_BUCKETS.us;
 
@@ -1036,8 +1040,8 @@ function SAVE(client, args) {
         const bucket = developerId ? FILE_BUCKETS[region] || FILE_BUCKETS.default : SESSION_BUCKET;
         const path = developerId ? `u/${developerId}/${appId}/${persistentId}/saved.json` : `apps/${appId}/${persistentId}.json`;
         uploadJSON(path, saved, bucket)
-        .then(() => client.logger.debug({event: "persist-uploaded", persistTime: descriptor, data: url, bucket: bucket.name, path}, "uploaded persistent data"))
-        .catch(err => client.logger.error({event: "persist-failed", persistTime: descriptor, data: url, bucket: bucket.name, path, err}, `failed to record persistent-data upload. ${err.code}: ${err.message}`));
+        .then(() => client.logger.debug({event: "persist-uploaded", persistTime: descriptor, data: url, region, bucket: bucket.name, path}, "uploaded persistent data"))
+        .catch(err => client.logger.error({event: "persist-failed", persistTime: descriptor, data: url, region, bucket: bucket.name, path, err}, `failed to record persistent-data upload. ${err.code}: ${err.message}`));
     }
 }
 
