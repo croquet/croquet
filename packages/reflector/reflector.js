@@ -484,6 +484,7 @@ function nonSavableProps() {
         tagRecords: {},
         developerId: null,
         apiKey: null,
+        region: "default",   // the apiKey region for persisted data
         url: null,
         resumed: new Date(), // session init/resume time, needed for billing to count number of sessions
         logger: null,        // the logger for this session (shared with ALL_SESSIONS[id])
@@ -573,7 +574,6 @@ async function JOIN(client, args) {
             id,                  // the island id
             name,                // the island name, including options (or could be null)
             version,             // the client version
-            region: "default",   // the apiKey region for persisted data (set below)
             time: 0,             // the current simulation time
             seq: INITIAL_SEQ,    // sequence number for messages (uint32, wraps around)
             scale: 1,            // ratio of island time to wallclock time
