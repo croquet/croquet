@@ -1247,8 +1247,13 @@ function USERS(island) {
     usersLeft.length = 0;
 }
 
-/** send back arguments as received */
+/** send back arguments as received.  iff the "rawtime" feature has been enabled for this client's session, and the client has supplied an object argument, add the time as a rawTime property on that object */
 function PONG(client, args) {
+    const island = client.island || ALL_ISLANDS.get(client.sessionId);
+    if (island && island.flags.rawtime && typeof args === 'object') {
+        const rawTime = Math.floor(performance.now() - island.rawStart);
+        args.rawTime = rawTime;
+    }
     client.safeSend(JSON.stringify({ action: 'PONG', args }));
 }
 

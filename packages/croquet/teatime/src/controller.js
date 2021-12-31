@@ -2141,9 +2141,9 @@ class Connection {
         else if (now - this.lastReceived > this.missingTickThreshold) this.PULSE(now);
     }
 
-    PING() {
+    PING(args = Date.now()) {
         if (!this.connected) return;
-        this.send(JSON.stringify({ action: 'PING', args: Date.now() }));
+        this.send(JSON.stringify({ action: 'PING', args }));
     }
 }
 
