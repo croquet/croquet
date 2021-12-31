@@ -158,6 +158,15 @@ const storage = new Storage();
 const SESSION_BUCKET = NO_STORAGE ? null : storage.bucket('croquet-sessions-v1');
 const DISPATCHER_BUCKET = NO_DISPATCHER ? null : storage.bucket('croquet-reflectors-v1');
 
+// pointer to latest persistent data is stored in user buckets
+// direct bucket access (instead of going via load-balancer as clients do)
+// avoids CDN caching
+const FILE_BUCKETS = {
+    us: STORE_PERSISTENT_DATA ? storage.bucket('files.us.croquet.io') : null,
+    eu: STORE_PERSISTENT_DATA ? storage.bucket('files.eu.croquet.io') : null,
+};
+FILE_BUCKETS.default = FILE_BUCKETS.us;
+
 // return codes for closing connection
 // client wil try to reconnect for codes < 4100
 const REASON = {};
@@ -564,6 +573,7 @@ async function JOIN(client, args) {
             id,                  // the island id
             name,                // the island name, including options (or could be null)
             version,             // the client version
+            region: "default",   // the apiKey region for persisted data (set below)
             time: 0,             // the current simulation time
             seq: INITIAL_SEQ,    // sequence number for messages (uint32, wraps around)
             scale: 1,            // ratio of island time to wallclock time
@@ -634,11 +644,13 @@ async function JOIN(client, args) {
         // unless we have a valid token, do not let the client proceed
         if (validToken) {
             island.developerId = validToken.developerId;
+            if (validToken.region && island.region === "default") island.region = validToken.region;
         } else {
             // will disconnect everyone with error if failed (await could throw an exception)
-            const developerId = await apiKeyPromise;
-            if (!developerId) return;
-            island.developerId = developerId;
+            const apiResponse = await apiKeyPromise;
+            if (!apiResponse) return;
+            island.developerId = apiResponse.developerId;
+            if (apiResponse.region && island.region === "default") island.region = apiResponse.region;
         }
     }
 
@@ -718,8 +730,33 @@ async function JOIN(client, args) {
             if (!err.message) err.message = "<empty>";
             if (err.code !== 404) island.logger.error({event: "fetch-latest-failed", err}, `failed to fetch latest.json: ${err.message}`);
             // this is a brand-new session, check if there is persistent data
-            const persistName = `apps/${appId}/${persistentId}.json`;
-            const persisted = appId && await fetchJSON(persistName).catch(() => { /* ignore */});
+            let persisted;
+            if (island.developerId) {
+                // new location for persistent data is in regional files buckets
+                const bucket = FILE_BUCKETS[island.region] || FILE_BUCKETS.default;
+                const path = `u/${island.developerId}/${appId}/${persistentId}/saved.json`;
+                persisted = await fetchJSON(path, bucket).catch(ex => {
+                    if (ex.code !== 404) island.logger.error({
+                        event: "fetch-saved-failed",
+                        bucket: bucket.name,
+                        path,
+                        err: ex,
+                    }, `failed to fetch saved.json: ${ex.message}`);
+                });
+            }
+            if (!persisted && appId) {
+                // old location for persistent data in sessions bucket
+                const path = `apps/${appId}/${persistentId}.json`;
+                const bucket = SESSION_BUCKET;
+                persisted = await fetchJSON(path, bucket).catch(ex => {
+                    if (ex.code !== 404) island.logger.error({
+                        event: "fetch-persist-failed",
+                        bucket: bucket.name,
+                        path,
+                        err: ex,
+                    }, `failed to fetch old persistence: ${ex.message}`);
+                });
+            }
             if (persisted) {
                 island.persistentUrl = persisted.url;
                 island.logger.notice({
@@ -973,7 +1010,7 @@ function SAVE(client, args) {
     const id = client.sessionId;
     const island = ALL_ISLANDS.get(id);
     if (!island) { client.safeClose(...REASON.UNKNOWN_ISLAND); return; }
-    const { appId, persistentId } = island;
+    const { developerId, region, appId, persistentId } = island;
     if (!appId || !persistentId) { client.safeClose(...REASON.BAD_APPID); return; }
 
     // clients since 0.5.1 will send only persistTime in place of time, seq, tuttiSeq
@@ -1000,10 +1037,11 @@ function SAVE(client, args) {
     // we only upload this to be used to init the next session of this island
     if (STORE_PERSISTENT_DATA) {
         const saved = { url };
-        const path = `apps/${appId}/${persistentId}.json`;
-        uploadJSON(path, saved)
-        .then(() => client.logger.debug({event: "persist-uploaded", persistTime: descriptor, data: url, path}, "uploaded persistent data"))
-        .catch(err => client.logger.error({event: "persist-failed", persistTime: descriptor, err}, `failed to record persistent-data upload. ${err.code}: ${err.message}`));
+        const bucket = developerId ? FILE_BUCKETS[region] || FILE_BUCKETS.default : SESSION_BUCKET;
+        const path = developerId ? `u/${developerId}/${appId}/${persistentId}/saved.json` : `apps/${appId}/${persistentId}.json`;
+        uploadJSON(path, saved, bucket)
+        .then(() => client.logger.debug({event: "persist-uploaded", persistTime: descriptor, data: url, region, bucket: bucket.name, path}, "uploaded persistent data"))
+        .catch(err => client.logger.error({event: "persist-failed", persistTime: descriptor, data: url, region, bucket: bucket.name, path, err}, `failed to record persistent-data upload. ${err.code}: ${err.message}`));
     }
 }
 
@@ -1060,7 +1098,7 @@ function SEND(island, messages) {
             message[message.length - 1] = rawTime; // overwrite the latency information from the controller
         }
         const msg = JSON.stringify({ id: island.id, action: 'RECV', args: message });
-        island.logger.trace({event: "reflect-message", t: time, seq: island.seq}, `broadcasting RECV ${JSON.stringify(message)}`);
+        island.logger.trace({event: "broadcast-message", t: time, seq: island.seq}, `broadcasting RECV ${JSON.stringify(message)}`);
         prometheusMessagesCounter.inc();
         STATS.RECV++;
         STATS.SEND += island.clients.size;
@@ -1825,7 +1863,7 @@ const DEV_SIGN_SERVER = "https://api.croquet.io/dev/sign";
 const API_SERVER_URL = IS_DEV ? DEV_SIGN_SERVER : DEFAULT_SIGN_SERVER;
 
 async function verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client, unverifiedDeveloperId) {
-    if (!VERIFY_TOKEN) return unverifiedDeveloperId;
+    if (!VERIFY_TOKEN) return { developerId: unverifiedDeveloperId, region: "default" };
     try {
         const response = await fetch(`${API_SERVER_URL}/reflector/${CLUSTER}/${HOSTNAME}?meta=verify`, {
             headers: {
@@ -1842,10 +1880,10 @@ async function verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client, u
             throw Error(`HTTP Error ${response.status} ${response.statusText} ${await response.text()}`);
         }
         // even key-not-found is 200 OK, but sets JSON error property
-        const { developerId, error } = await response.json();
+        const { developerId, region, error } = await response.json();
         if (developerId) {
-            client.logger.info({event: "apikey-verified", developerId}, `API key verified`);
-            return developerId;
+            client.logger.info({event: "apikey-verified", developerId, region}, `API key verified`);
+            return { developerId, region };
         }
         if (error) {
             client.logger.warn({event: "apikey-verify-failed", error}, `API key verification failed: ${error}`);
@@ -1866,12 +1904,12 @@ async function verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client, u
 }
 
 /** fetch a JSON-encoded object from our storage bucket */
-async function fetchJSON(filename) {
+async function fetchJSON(filename, bucket=SESSION_BUCKET) {
     // somewhat of a hack to not having to guard the fetchJSON calls in JOIN()
     if (NO_STORAGE || (APPS_ONLY && !filename.startsWith('apps/'))) {
         return Promise.reject(Object.assign(new Error("fetch disabled"), { code: 404 }));
     }
-    const file = SESSION_BUCKET.file(filename);
+    const file = bucket.file(filename);
     const stream = await file.createReadStream();
     return new Promise((resolve, reject) => {
         try {
