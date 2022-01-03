@@ -269,7 +269,6 @@ webServer.on('upgrade', (req, socket, _head) => {
         if (session && session.stage === 'closed') {
             // a request to delete the dispatcher record has already been sent.  reject this connection, forcing the client to ask the dispatchers again.
             global_logger.debug({
-                scope: "connection",
                 event: "upgrade-rejected",
                 method: req.method,
                 url: req.url,
@@ -282,7 +281,6 @@ webServer.on('upgrade', (req, socket, _head) => {
         }
     }
     global_logger.debug({
-        scope: "connection",
         event: "upgrade",
         method: req.method,
         url: req.url,
@@ -1520,7 +1518,6 @@ function scheduleShutdownIfNoJoin(id, targetTime, detail) {
         session = ALL_SESSIONS.get(id);
         if (!session) {
             global_logger.debug({
-                scope: "session",
                 sessionId: id,
                 event: "delete-ignored",
                 reason: "session-missing",
@@ -1556,7 +1553,7 @@ async function unregisterSession(id, detail) {
     const session = ALL_SESSIONS.get(id);
     if (!session || session.stage === 'closed') {
         const reason = session ? `stage=${session.stage}` : "no session record";
-        global_logger.debug({scope: "session", sessionId: id, event: "unregister-ignored", reason, detail}, `ignoring unregister: ${reason}`);
+        global_logger.debug({sessionId: id, event: "unregister-ignored", reason, detail}, `ignoring unregister: ${reason}`);
         return;
     }
 
