@@ -718,8 +718,6 @@ async function JOIN(client, args) {
             island.storedUrl = latestSpec.snapshotUrl;
             island.storedSeq = latestSpec.seq;
             if (latestSpec.reflectorSession) island.timeline = latestSpec.reflectorSession; // TODO: remove reflectorSession after 0.4.1 release
-            if (island.tick) startTicker(island, island.tick);
-            if (island.syncClients.length > 0) SYNC(island);
         } catch (err) {
             if (typeof err !== "object") err = { message: ""+JSON.stringify(err) }; // eslint-disable-line no-ex-assign
             if (!err.message) err.message = "<empty>";
@@ -766,7 +764,7 @@ async function JOIN(client, args) {
         } finally {
             island.storedUrl = ''; // replace the null that means we haven't looked
             // as of 0.3.3, clients do not want START but SYNC with an empty snapshot
-            if (island.syncWithoutSnapshot) { setTimeout(() => SYNC(island), 1000); }
+            if (island.syncWithoutSnapshot) SYNC(island);
             else START(island);
         }
 
@@ -1323,7 +1321,7 @@ function TICK(island) {
 /** send REQU to all clients */
 function REQU(island) {
     const msg = JSON.stringify({ id: island.id, action: 'REQU' });
-    island.clients.forEach(client => client.safeSend(msg));
+    island.clients.forEach(client => client.active && client.safeSend(msg));
 }
 
 /** send INFO to all clients */
