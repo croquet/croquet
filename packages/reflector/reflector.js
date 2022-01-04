@@ -660,9 +660,6 @@ async function JOIN(client, args) {
         }
     }
 
-    // start broadcasting messages to client
-    island.clients.add(client);
-
     // we need to SYNC
     island.syncClients.push(client);
 
@@ -828,6 +825,7 @@ function SYNC(island) {
                 bytes: response.length,
                 connectedFor: Date.now() - syncClient.since,
             }, `sending SYNC @${time}#${seq} ${response.length} bytes, ${messages.length} messages${range}, ${what} ${args.url || "<none>"}`);
+            island.clients.add(syncClient);
             announceUserDidJoin(syncClient);
         } else {
             syncClient.logger.debug({event: "send-sync-skipped"}, `socket closed before SYNC`);
