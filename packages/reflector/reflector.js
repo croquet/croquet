@@ -832,6 +832,8 @@ function SYNC(island) {
     }
     // synced all that were waiting
     island.syncClients.length = 0;
+    // delete island if nobody actually joined
+    if (island.clients.size === 0) provisionallyDeleteIsland(island);
 }
 
 function clientLeft(client) {
