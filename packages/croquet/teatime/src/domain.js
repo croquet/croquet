@@ -1,3 +1,7 @@
+/* eslint-disable-next-line */
+const NODE = _IS_NODE_; // replaced by rollup
+if (NODE && !globalThis.crypto) globalThis.crypto = require('crypto'); // eslint-disable-line global-require
+
 const VOTE_SUFFIX = '#__vote'; // internal, for 'vote' handling; never seen by user
 
 /** A domain manages subscriptions */
@@ -175,7 +179,8 @@ function _removeSubscriber(subscriptions, subscriber) {
 export const viewDomain = new Domain();
 
 function uuidv4() {
+    const getByte = NODE ? () => crypto.randomBytes(1)[0] : () => crypto.getRandomValues(new Uint8Array(1))[0];
     return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, c => {
-        return (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16);
+        return (c ^ getByte() & 15 >> c / 4).toString(16);
     });
 }

@@ -1,6 +1,7 @@
 import babel from '@rollup/plugin-babel';
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
+import replace from '@rollup/plugin-replace';
 import license from 'rollup-plugin-license';
 import { terser } from 'rollup-plugin-terser';
 import worker_loader from 'rollup-plugin-web-worker-loader';
@@ -14,49 +15,51 @@ require('dotenv-flow').config({
 });
 
 const is_dev_build = process.env.NODE_ENV !== "production";
+const is_node = process.env.CROQUET_PLATFORM === "node";
 
-// costum rollup plugin to resolve "process.env" references
+// custom rollup plugin to resolve "process.env" references
 // it fakes a "process" module that exports "env" and imports that module everywhere
 // https://github.com/rollup/rollup/issues/487#issuecomment-486229172
-const COSTUM_MODULE_ID = '\0croquet-costum';    // prefix \0 hides us from other plugins
+const CUSTOM_MODULE_ID = '\0croquet-custom';    // prefix \0 hides us from other plugins
 function inject_process() {
     return {
-        name: 'croquet-costum-plugin',
+        name: 'croquet-custom-plugin',
         resolveId(id) {
             // do not resolve our custom module via file lookup, we "load" it below
-            if (id === COSTUM_MODULE_ID) {
-                return COSTUM_MODULE_ID;
+            if (id === CUSTOM_MODULE_ID) {
+                return CUSTOM_MODULE_ID;
             }
-            // also pretend we have a "crypto" module which some node packages try to load
-            if (id === "crypto") return "crypto";
+            // in the browser, also pretend we have a "crypto" module which some node packages try to load
+            if (!is_node && id === "crypto") return "crypto";
         },
         load(id) {
             // create source code of our custom module
-            if (id === COSTUM_MODULE_ID) {
+            if (id === CUSTOM_MODULE_ID) {
                 const exportEnv =`
 // rollup will remove unused entries in production builds
 export const env = ${JSON.stringify(Object.keys(process.env).filter(key => key.match(/^[A-Z]/)).sort()
-    .reduce((obj, key) => ({...obj, [key]: process.env[key]}), {}), null, 4)};\n`;
+    .reduce((obj, key) => ({...obj, [key]: process.env[key]}), {}), null, 4)};
+`;
                 if (is_dev_build) return exportEnv;
                 // only include regenerator in production builds
                 const importRegenerator = `import "regenerator-runtime/runtime.js";\n`;
                 return importRegenerator + exportEnv;
             }
-            // also generate an empty "crypto" module which some node packages try to load
-            if (id === "crypto") return "";
+            // in the browser, also generate an empty "crypto" module which some node packages try to load
+            if (!is_node && id === "crypto") return "";
         },
         // patch other modules
         transform(code, id) {
             // Only inject in our own teatime modules
             // Tree-shaking will make sure the import is removed from most modules later.
-            if (id.includes("/teatime/")) {
+            if (id.includes("/teatime/src/")) {
                 const magicString = new MagicString(code);
-                magicString.prepend(`import * as process from '${COSTUM_MODULE_ID}';\n`);
+                magicString.prepend(`import * as croquet_build_process from '${CUSTOM_MODULE_ID}';`);
                 return { code: magicString.toString(), map: magicString.generateMap({ hires: true }) };
             }
         }
-    }
-};
+    };
+}
 
 function magic_replace(code, fixes) {
     const magicString = new MagicString(code);
@@ -73,6 +76,8 @@ function magic_replace(code, fixes) {
 
 // custom plugin to fix up generated code
 function fixups() {
+    // for Node.js, we don't want to do some of the replacements
+    const replaceBlocker = is_node ? '$$' : '';
     return {
         name: 'fixup-plugin',
         renderChunk(code, chunk) {
@@ -84,11 +89,11 @@ function fixups() {
                 // work around stupid check in FastPriorityQueue
                 { bad: 'require.main', good: 'undefined' },
                 // remove unused global require call in seedrandom
-                { bad: 'require("crypto")', good: 'undefined'},
-                { bad: "require('crypto')", good: 'undefined'},
+                { bad: replaceBlocker + 'require("crypto")', good: 'undefined'},
+                { bad: replaceBlocker + "require('crypto')", good: 'undefined'},
             ]);
         }
-    }
+    };
 }
 
 const deps = ["../../../teatime", "../../../math"];
@@ -113,47 +118,73 @@ process.env.CROQUET_VERSION = public_build || prerelease ? pkg.version
 
 console.log(`Building Croquet ${process.env.CROQUET_VERSION}`);
 
-const config = {
+const browserOutputs = [
+    // commonjs build for bundlers
+    {
+        file: 'cjs/croquet-croquet.js',
+        format: 'cjs',
+        sourcemap: true,    // not included in npm bundle by explicit "files" section in package.json
+    },
+    // bundled build for direct inclusion in script tag, e.g. via unpkg.com
+    {
+        file: 'pub/croquet.min.js',
+        format: 'iife',
+        name: 'Croquet',
+        sourcemap: true,    // not included in npm bundle by explicit "files" section in package.json
+    }
+    ];
+
+const nodeOutputs = [
+    {
+        file: 'cjs/croquet-croquet-node.js',
+        format: 'cjs',
+        sourcemap: true,    // not included in npm bundle by explicit "files" section in package.json
+    },
+    ];
+
+const config = () => ({
+    inlineDynamicImports: true,
     input: 'croquet.js',
-    output: [
-        // commonjs build for bundlers
-        {
-            file: 'cjs/croquet-croquet.js',
-            format: 'cjs',
-            sourcemap: true,    // not included in npm bundle by explicit "files" section in package.json
-        },
-        // bundled build for direct inclusion in script tag, e.g. via unpkg.com
-        {
-            file: 'pub/croquet.min.js',
-            format: 'iife',
-            name: 'Croquet',
-            sourcemap: true,    // not included in npm bundle by explicit "files" section in package.json
-        },
-    ],
+    output: is_node ? nodeOutputs : browserOutputs,
+    external: is_node ? ['node:fs', 'node:http', 'node:https', 'node:path', 'node:stream', 'node:url', 'node:util', 'node:worker_threads', 'node:zlib'] : [],
     plugins: [
-        resolve(),
+        replace({
+            preventAssignment: true,
+            '_IS_NODE_': is_node.toString(),
+            '_ENSURE_WEBSOCKET_': (is_node ? `\nimport WebSocket from 'ws'\n` : ''),
+            '_ENSURE_FETCH_': (is_node ? `\nimport fetch from 'node-fetch'\n` : ''),
+            '_HTML_MODULE_': (is_node ? 'node-html' : 'html'),
+            '_URLOPTIONS_MODULE_': (is_node ? 'node-urlOptions' : 'urlOptions'),
+            '_STATS_MODULE_': (is_node ? 'node-stats' : 'stats'),
+            '_MESSENGER_MODULE_': (is_node ? 'node-messenger' : 'messenger')
+        }),
+        resolve({
+            browser: !is_node,
+            exportConditions: is_node ? ['node'] : [],
+            preferBuiltins: is_node
+        }),
         commonjs(),
         worker_loader({
-            targetPlatform: "browser",
+            targetPlatform: (is_node ? "node" : "browser"),
             sourcemap: is_dev_build,
         }),
-        inject_process(), // must be after commonjs and worker_loader
-        !is_dev_build && babel({
+        inject_process(is_node), // must be after commonjs and worker_loader
+        !is_node && !is_dev_build && babel({
             babelHelpers: 'bundled',
             presets: [['@babel/env', { "targets": "> 0.25%" }]],
         }),
-        !is_dev_build && terser({
+        !is_node && !is_dev_build && terser({
             output: {comments: false},
         }),
-        fixups(), // must be after terser
+        fixups(is_node), // must be after terser
         license({
             banner:
-`Copyright Croquet Corporation ${ git_date.slice(0, 4) }
-Bundle of ${ pkg.name }
-Date: ${ bundle_date.slice(0, 10) }
-Version: ${ process.env.CROQUET_VERSION }`,
+`Copyright Croquet Corporation ${git_date.slice(0, 4)}
+Bundle of ${pkg.name}
+Date: ${bundle_date.slice(0, 10)}
+Version: ${process.env.CROQUET_VERSION}`,
         })
     ]
-};
+});
 
 export default config;

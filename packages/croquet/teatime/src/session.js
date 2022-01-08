@@ -1,12 +1,16 @@
-import { App } from "./html";
-import urlOptions from "./urlOptions";
+/* global croquet_build_process */
+import { App } from "./_HTML_MODULE_"; // eslint-disable-line import/no-unresolved
+import urlOptions from "./_URLOPTIONS_MODULE_"; // eslint-disable-line import/no-unresolved
+import { Messenger } from "./_MESSENGER_MODULE_"; // eslint-disable-line import/no-unresolved
+
 import { addConstantsHash } from "./hashing";
 
 import Model from "./model";
 import View from "./view";
 import Controller, { sessionController } from "./controller";
 import VirtualMachine from "./vm";
-import { Messenger } from "./messenger";
+
+const NODE = croquet_build_process.env.CROQUET_PLATFORM === 'node';
 
 export function deprecatedStartSession(...args) {
     App.showMessage("Croquet.startSession() is deprecated, please use Croquet.Session.join()", { level: "warning", only: "once"});
@@ -185,6 +189,10 @@ export class Session {
         if (reflector) {
             if (reflector.includes("://") || reflector.match(/^[-a-z0-9]+$/i)) urlOptions.reflector = reflector;
             else console.warn(`Croquet: Not a valid websocket url, ignoring reflector "${reflector}"`);
+        }
+        // verify manual stepping for Node
+        if (NODE && parameters.step !== "manual") {
+            throw Error("stepping must be manual in a Node.js app");
         }
         // verify and default rejoinLimit
         if ("rejoinLimit" in parameters) {

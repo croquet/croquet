@@ -1,10 +1,10 @@
 import stableStringify from "fast-json-stable-stringify";
 import SeedRandom from "seedrandom/seedrandom";
-import "@croquet/math"; // creates window.CroquetMath
+import "@croquet/math"; // creates globalThis.CroquetMath
 import PriorityQueue from "./priorityQueue";
-import { Stats } from "./stats";
-import { displayWarning, displayAppError } from "./html";
-import urlOptions from "./urlOptions";
+import { Stats } from "./_STATS_MODULE_"; // eslint-disable-line import/no-unresolved
+import { displayWarning, displayAppError } from "./_HTML_MODULE_"; // eslint-disable-line import/no-unresolved
+import urlOptions from "./_URLOPTIONS_MODULE_"; // eslint-disable-line import/no-unresolved
 import Model from "./model";
 import { inModelRealm, inViewRealm } from "./realms";
 import { viewDomain } from "./domain";
@@ -31,14 +31,14 @@ Object.defineProperty(CroquetWarning.prototype, 'name', { value: 'CroquetWarning
 /** patch Math and Date */
 function patchBrowser() {
     // patch Math.random, and the transcendentals as defined in "@croquet/math"
-    if (!window.CroquetViewMath) {
+    if (!globalThis.CroquetViewMath) {
         // make random use CurrentVM
-        window.CroquetMath.random = () => CurrentVM.random();
+        globalThis.CroquetMath.random = () => CurrentVM.random();
         // save all original Math methods
-        window.CroquetViewMath = {...Math};
+        globalThis.CroquetViewMath = {...Math};
         // we keep the original Math object but replace the methods found in CroquetMath
         // with a dispatch based on being executed in model or view code
-        for (const [funcName, modelFunc] of Object.entries(window.CroquetMath)) {
+        for (const [funcName, modelFunc] of Object.entries(globalThis.CroquetMath)) {
             const viewFunc = Math[funcName];
             Math[funcName] = modelFunc.length === 1
                 ? arg => CurrentVM ? modelFunc(arg) : viewFunc(arg)
@@ -46,9 +46,9 @@ function patchBrowser() {
         }
     }
     // patch Date.now to return VirtualMachine time if called from Model code
-    if (!window.CroquetViewDate) {
+    if (!globalThis.CroquetViewDate) {
         // replace the original Date constructor function but return actual Date instances
-        const SystemDate = window.Date; // capture in closure
+        const SystemDate = globalThis.Date; // capture in closure
         // warn only once
         let warned = false;
         function modelDateWarning(expr, value) {
@@ -86,9 +86,9 @@ function patchBrowser() {
         CroquetDate.now =  () => CurrentVM ? modelDateWarning("Date.now()", CurrentVM.time) : SystemDate.now();
         CroquetDate.parse = (...args) => CurrentVM ? modelDateWarning("Date.parse()", 0) : SystemDate.parse(...args);
         // make original accessible
-        window.CroquetViewDate = SystemDate;
+        globalThis.CroquetViewDate = SystemDate;
         // switch
-        window.Date = CroquetDate;
+        globalThis.Date = CroquetDate;
     }
 }
 
@@ -127,7 +127,7 @@ function execInVM(vm, fn) {
     const previousVM = CurrentVM;
     try {
         CurrentVM = vm;
-        window.CROQUETVM = vm;
+        globalThis.CROQUETVM = vm;
         fn();
     } finally {
         CurrentVM = previousVM;
@@ -1609,11 +1609,11 @@ function arrayBufferToBase64(buffer) {
     for (let i = 0; i < n; i++) {
         string += String.fromCharCode(array[i]);
     }
-    return window.btoa(string);
+    return globalThis.btoa(string);
 }
 
 function base64ToArrayBuffer(base64) {
-    const string = window.atob(base64);
+    const string = globalThis.atob(base64);
     const n = string.length;
     const array = new Uint8Array(n);
     for (let i = 0; i < n; i++) {

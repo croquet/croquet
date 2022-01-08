@@ -2,7 +2,7 @@ import stableStringify from "fast-json-stable-stringify";
 import WordArray from "crypto-js/lib-typedarrays";
 import Base64 from "crypto-js/enc-base64";
 import SHA256 from "crypto-js/sha256";
-import urlOptions from "./urlOptions";
+import urlOptions from "./_URLOPTIONS_MODULE_"; // eslint-disable-line import/no-unresolved
 import VirtualMachine from "./vm";
 import { sessionProps, OLD_DATA_SERVER } from "./controller";
 

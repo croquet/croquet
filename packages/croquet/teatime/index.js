@@ -3,13 +3,13 @@ export { default as Model } from "./src/model";
 export { default as View } from "./src/view";
 export { default as Data } from "./src/data";
 export { Session, Constants, deprecatedStartSession as startSession } from "./src/session";
-export { App } from "./src/html";
+export { App } from "./src/_HTML_MODULE_"; // eslint-disable-line import/no-unresolved
 
 // unofficial exports
 export { default as Controller } from "./src/controller";
 export { currentRealm } from "./src/realms";
 export { QFunc, gatherInternalClassTypes } from "./src/vm";
-export { Messenger }  from "./src/messenger";
+export { Messenger } from "./src/_MESSENGER_MODULE_"; // eslint-disable-line import/no-unresolved
 
 // putting event documentation here because JSDoc errors when parsing controller.js at the moment
 

@@ -1,4 +1,4 @@
-import { displayStatus, displayWarning, displayError } from "./html";
+import { displayStatus, displayWarning, displayError } from "./_HTML_MODULE_"; // eslint-disable-line import/no-unresolved
 import { currentRealm, inViewRealm } from "./realms";
 
 /**
@@ -217,7 +217,7 @@ class View {
      * This method is here for symmetry with [Model.future]{@link Model#future}.
      *
      * It simply schedules the execution using
-     * [window.setTimeout]{@link https://developer.mozilla.org/docs/Web/API/WindowOrWorkerGlobalScope/setTimeout}.
+     * [globalThis.setTimeout]{@link https://developer.mozilla.org/docs/Web/API/WindowOrWorkerGlobalScope/setTimeout}.
      * The only advantage to using this over setTimeout() is consistent style.
      *
      * @param {Number} tOffset - time offset in milliseconds

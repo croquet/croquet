@@ -1,6 +1,6 @@
-import urlOptions from "./urlOptions";
+import urlOptions from "./_URLOPTIONS_MODULE_"; // eslint-disable-line import/no-unresolved
+import { displayAppError } from "./_HTML_MODULE_"; // eslint-disable-line import/no-unresolved
 import { addClassHash } from "./hashing";
-import { displayAppError } from "./html";
 import { currentRealm } from "./realms";
 import VirtualMachine, { resetReadersAndWriters } from "./vm";
 

@@ -1,6 +1,6 @@
 
-if (typeof window.TextEncoder === "undefined") {
-    window.TextEncoder=function TextEncoder(){};
+if (typeof globalThis.TextEncoder === "undefined") {
+    globalThis.TextEncoder=function TextEncoder(){};
     TextEncoder.prototype.encode = function encode(str) {
         "use strict";
         var Len = str.length, resPos = -1;

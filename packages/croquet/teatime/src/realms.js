@@ -1,4 +1,4 @@
-import urlOptions from "./urlOptions";
+import urlOptions from "./_URLOPTIONS_MODULE_"; // eslint-disable-line import/no-unresolved
 import { viewDomain } from "./domain";
 
 

@@ -28,13 +28,28 @@
   "scripts": {
     "start": "npm run watch",
     "watch": "npm-watch build-dev",
+    "start-node": "npm-watch build-dev-node",
     "build-dev": "rollup -c --environment NODE_ENV:development",
+    "build-dev-node": "rollup -c --environment NODE_ENV:development --environment CROQUET_PLATFORM:node",
     "build-prod": "rollup -c --environment NODE_ENV:production",
     "prepublishOnly": "npm run clean ; sed -i '' 's,//# sourceMappingURL.*,,' cjs/*.js pub/*.js",
     "clean": "rm -f cjs/* pub/* ; git checkout cjs/ pub/ package-lock.json ; npm ci"
   },
   "watch": {
     "build-dev": {
+      "patterns": [
+        ".",
+        "../../../teatime",
+        "../../../math"
+      ],
+      "ignore": [
+        "./cjs",
+        "./pub"
+      ],
+      "extensions": "js,json",
+      "quiet": false
+    },
+    "build-dev-node": {
       "patterns": [
         ".",
         "../../../teatime",
@@ -58,6 +73,7 @@
     "@rollup/plugin-babel": "^5.3.0",
     "@rollup/plugin-commonjs": "^21.0.1",
     "@rollup/plugin-node-resolve": "^13.0.6",
+    "@rollup/plugin-replace": "^3.0.1",
     "dotenv-flow": "^3.2.0",
     "magic-string": "^0.25.7",
     "moment": "^2.29.1",

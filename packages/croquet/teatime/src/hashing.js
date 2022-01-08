@@ -1,11 +1,14 @@
+/* global croquet_build_process */
 import stableStringify from "fast-json-stable-stringify";
 import WordArray from "crypto-js/lib-typedarrays";
 import sha256 from "crypto-js/sha256";
-import urlOptions from "./urlOptions";
+import urlOptions from "./_URLOPTIONS_MODULE_"; // eslint-disable-line import/no-unresolved
+
+const NODE = croquet_build_process.env.CROQUET_PLATFORM === 'node';
 
 let digest;
-if (window.crypto && window.crypto.subtle && typeof window.crypto.subtle.digest === "function") {
-    digest = window.crypto.subtle.digest.bind(window.crypto.subtle);
+if (globalThis.crypto && globalThis.crypto.subtle && typeof globalThis.crypto.subtle.digest === "function") {
+    digest = globalThis.crypto.subtle.digest.bind(globalThis.crypto.subtle);
 } else {
     digest = (algorithm, arrayBuffer) => {
         if (algorithm !== "SHA-256") throw Error("Croquet: only SHA-256 available");
@@ -166,7 +169,7 @@ export async function hashSessionAndCode(persistentId, developerId, params, sdk_
     const id = await hashString(persistentId + '|' + developerId + stableStringify(effectiveParams) + effectiveCodeHash);
     // log all hashes if debug=hashing
     if (debugHashing() && !logged.has(id)) {
-        const charset = [...document.getElementsByTagName('meta')].find(el => el.getAttribute('charset'));
+        const charset = NODE ? 'utf-8' : [...document.getElementsByTagName('meta')].find(el => el.getAttribute('charset'));
         if (!charset) console.warn('Croquet: Missing <meta charset="..."> declaration. Croquet model code hashing might differ between browsers.');
         debugHashes[computedCodeHash].what = "Version ID";
         debugHashes[persistentId].what = "Persistent ID";

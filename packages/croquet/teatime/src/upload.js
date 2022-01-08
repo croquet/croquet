@@ -7,7 +7,24 @@ import SHA256 from "crypto-js/sha256";
 import WordArray from "crypto-js/lib-typedarrays";
 import HmacSHA256 from "crypto-js/hmac-sha256";
 
-onmessage = msg => {
+/* eslint-disable-next-line */
+const NODE = _IS_NODE_; // replaced by rollup
+
+let fetcher, poster, https;
+if (NODE) {
+    /* eslint-disable global-require */
+    https = require('https');
+    const { parentPort } = require('worker_threads');
+    parentPort.on('message', msg => handleMessage({ data: msg }));
+    fetcher = nodeFetch;
+    poster = msg => parentPort.postMessage({ data: msg });
+} else {
+    onmessage = handleMessage;
+    fetcher = fetch;
+    poster = postMessage;
+}
+
+function handleMessage(msg) {
     const { job, cmd, server, path: templatePath, apiKey, buffer, keyBase64, gzip,
         referrer, id, appId, persistentId, CROQUET_VERSION, debug, what } = msg.data;
     switch (cmd) {
@@ -59,7 +76,8 @@ onmessage = msg => {
         const start = Date.now();
         const url = `${server}/${path}`;
         if (!apiKey) return { url, uploadUrl: url };
-        const response = await fetch(url, {
+
+        const response = await fetcher(url, {
             headers: {
                 "X-Croquet-Auth": apiKey,
                 "X-Croquet-App": appId,
@@ -68,7 +86,11 @@ onmessage = msg => {
                 "X-Croquet-Version": CROQUET_VERSION,
             },
             referrer
-        });
+            });
+
+        const { ok, status, statusText } = response;
+        if (!ok) throw Error(`Error in signing URL: ${status} - ${statusText}`);
+
         const { error, read, write } = await response.json();
         if (error) throw Error(error);
         if (debug) console.log(`${id} ${what} authorized in ${Date.now() - start}ms`);
@@ -77,11 +99,12 @@ onmessage = msg => {
 
     async function uploadEncrypted(path) {
         try {
-            const body = encrypt(gzip ? compress(buffer) : buffer);
+            let body = encrypt(gzip ? compress(buffer) : buffer);
+            if (NODE) body = new Uint8Array(body); // buffer needs to be put in an array
             if (path.includes("%HASH%")) path = path.replace("%HASH%", hash(body));
             const { uploadUrl, url } = await getUploadUrl(path);
             const start = Date.now();
-            const { ok, status, statusText} = await fetch(uploadUrl, {
+            const { ok, status, statusText } = await fetcher(uploadUrl, {
                 method: "PUT",
                 mode: "cors",
                 headers: {
@@ -96,10 +119,47 @@ onmessage = msg => {
             });
             if (!ok) throw Error(`server returned ${status} ${statusText} for PUT ${uploadUrl}`);
             if (debug) console.log(`${id} ${what} uploaded (${status}) in ${Date.now() - start}ms ${url}`);
-            postMessage({job, url, ok, status, statusText});
+            poster({ job, url, ok, status, statusText });
         } catch (e) {
             if (debug) console.log(`${id} upload error ${e.message}`);
-            postMessage({job, ok: false, status: -1, statusText: e.message});
+            poster({ job, ok: false, status: -1, statusText: e.message });
         }
     }
-};
+}
+
+function nodeFetch(requestUrl, options) {
+    // send a native https request, and respond with an object providing the bare
+    // interface of a fetch() response: { ok, status, statusText, json() }.
+    // json() is only added if ok is true.
+    // options.referrer is currently ignored.
+    return new Promise((resolve, reject) => {
+        const urlObj = new URL(requestUrl);
+        const requestOptions = {
+            hostname: urlObj.hostname,
+            port: 443,
+            path: urlObj.pathname + urlObj.search,
+            method: options.method || 'PUT',
+            headers: options.headers,
+            };
+
+        const req = https.request(requestOptions, res => {
+            let json = '';
+            res.on('data', chunk => json += chunk);
+
+            res.on('end', () => {
+                const { statusCode, statusMessage } = res;
+                const ok = statusCode >= 200 && statusCode < 300;
+                const report = { ok, status: statusCode, statusText: statusMessage };
+                if (ok) report.json = () => JSON.parse(json); // will give an error if json is empty.  caveat emptor.
+                resolve(report);
+                });
+            });
+
+        req.on('error', error => {
+            reject(error);
+            });
+
+        if (options.body) req.write(options.body);
+        req.end();
+    });
+}

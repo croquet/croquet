@@ -3399,12 +3399,12 @@ var tanh_1 = tanh;
 
 var lib$1c = tanh_1;
 
-if (typeof window.CroquetMath === "undefined") window.CroquetMath = {};
-Object.assign(window.CroquetMath, { acos: lib$4, acosh: lib$y, asin: lib$3, asinh: lib$A, atan: lib$C, atanh: lib$D, atan2: lib$J, cbrt: lib$L, cos: lib$_, cosh: lib$12, exp: lib$11, expm1: lib$14, log: lib$x, log1p: lib$v, log10: lib$16, log2: lib$17, sin: lib$18, sinh: lib$19, tan: lib$1b, tanh: lib$1c });
+if (typeof globalThis.CroquetMath === "undefined") globalThis.CroquetMath = {};
+Object.assign(globalThis.CroquetMath, { acos: lib$4, acosh: lib$y, asin: lib$3, asinh: lib$A, atan: lib$C, atanh: lib$D, atan2: lib$J, cbrt: lib$L, cos: lib$_, cosh: lib$12, exp: lib$11, expm1: lib$14, log: lib$x, log1p: lib$v, log10: lib$16, log2: lib$17, sin: lib$18, sinh: lib$19, tan: lib$1b, tanh: lib$1c });
 const mathPow = Math.pow;
 function isInfinite$1(x) { return x === Infinity || x === -Infinity; }
 function isInteger(x) { return Number.isInteger(x); }
-window.CroquetMath.pow = (x, y) => {
+globalThis.CroquetMath.pow = (x, y) => {
     if (isNaN(x) || isNaN(y)) return NaN;
     if (isInfinite$1(x) || isInfinite$1(y)) return mathPow(x, y);
     if (x === 0 || y === 0) return mathPow(x, y);
@@ -3418,6 +3418,6 @@ window.CroquetMath.pow = (x, y) => {
         x *= -1;
         signResult = mathPow(-1, y);
     }
-    const absPow = window.CroquetMath.exp(window.CroquetMath.log(x) * y);
+    const absPow = globalThis.CroquetMath.exp(globalThis.CroquetMath.log(x) * y);
     return absPow * signResult;
     };
