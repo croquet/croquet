@@ -32,6 +32,7 @@
     "build-dev": "rollup -c --environment NODE_ENV:development",
     "build-dev-node": "rollup -c --environment NODE_ENV:development --environment CROQUET_PLATFORM:node",
     "build-prod": "rollup -c --environment NODE_ENV:production",
+    "build-prod-node": "rollup -c --environment NODE_ENV:production --environment CROQUET_PLATFORM:node",
     "prepublishOnly": "npm run clean ; sed -i '' 's,//# sourceMappingURL.*,,' cjs/*.js pub/*.js",
     "clean": "rm -f cjs/* pub/* ; git checkout cjs/ pub/ package-lock.json ; npm ci"
   },
