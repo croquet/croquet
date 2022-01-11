@@ -1,4 +1,5 @@
-const minimist = require('minimist');
+// const minimist = require('minimist');
+import minimist from 'minimist';
 const argObj = minimist(process.argv.slice(2));
 
 const actualHostname = "localhost";
