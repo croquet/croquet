@@ -676,6 +676,7 @@ async function JOIN(client, args) {
             appId,
             persistentId,
             codeHash,
+            apiKey,
             developerId: island.developerId,
             url,
             sdk,
@@ -684,7 +685,7 @@ async function JOIN(client, args) {
         session.logger = empty_logger.child(sessionMeta);
         island.logger = session.logger;
         // client loggers need to be updated now that session logger has more meta data
-        for (const each of island.clients) {
+        for (const each of island.syncClients) {
             each.logger = empty_logger.child({...sessionMeta, ...each.meta});
         }
         // new clients will be based on new session.logger
@@ -831,6 +832,8 @@ function SYNC(island) {
     }
     // synced all that were waiting
     island.syncClients.length = 0;
+    // delete island if nobody actually joined
+    if (island.clients.size === 0) provisionallyDeleteIsland(island);
 }
 
 function clientLeft(client) {
@@ -1806,6 +1809,7 @@ server.on('connection', (client, req) => {
             stats: client.stats,
             code,
             reason,
+            resumed: island.resumed, // to identify session starts
         }, `closed connection [${code},"${reason}"]`);
 
         if (island && island.clients && island.clients.has(client)) {
