@@ -1930,6 +1930,8 @@ export default class Controller {
 const KEEP_ALIVE_INTERVAL = 100;
 /** if we haven't sent anything to the reflector for this long, send a PULSE to reassure it */
 const PULSE_TIMEOUT = 25000;
+/** if we haven't heard anything from the reflector for this long, try reconnecting */
+const REFLECTOR_ALIVE_TIMEOUT = 50000;
 /** warn about unsent outgoing bytes after this many ms */
 const UNSENT_TIMEOUT = 500;
 /** increase reconnect timeout exponentially up to this many ms */
@@ -1995,7 +1997,7 @@ class Connection {
         const socket = new WebSocket(reflectorUrl);
         socket.onopen = _event => {
             // under some conditions (e.g., switching a device between networks) a new
-            // socket can be opened before the old one has been told
+            // socket can be opened without the old one receiving a close event
             const oldSocket = this.socket;
             if (oldSocket) {
                 oldSocket.onopen = oldSocket.onmessage = oldSocket.onerror = oldSocket.onclose = null;
@@ -2153,9 +2155,12 @@ class Connection {
         if (this.lastReceived === 0) return; // haven't yet consummated the connection
         // the reflector expects to hear from us at least every 30 seconds
         if (now - this.socketLastSent > PULSE_TIMEOUT) this.PULSE(now);
-        // also, if we are expecting steady ticks, prevent the connection from going idle,
-        // which causes some router/computer combinations to buffer packets instead
-        // of delivering them immediately (observed on AT&T Fiber + Mac)
+        // if we haven't heard anything from the reflector in 50s, assume that somehow the
+        // connection dropped (even though our end of the socket hasn't registered the break)
+        else if (now - this.lastReceived > REFLECTOR_ALIVE_TIMEOUT) this.closeConnectionWithError('connection', Error("Reflector has gone away"));
+        // also, if we are expecting steady ticks, PULSE if ticks are missing.  goal is to
+        // prevent the connection from going idle, because otherwise some router/computer
+        // combinations will start to buffer packets instead of delivering them immediately
         else if (now - this.lastReceived > this.missingTickThreshold) this.PULSE(now);
     }
 
@@ -2201,6 +2206,8 @@ CONTROLLER:
     every 100ms in an animated tab; on every TICK and RECV if not animated (so at worst, on a 30s-interval TICK):
         if socketLastSent > 25s:
             send PULSE to server (max ~25s + 30s since last send)
+        else if lastReceived > 50s:
+            assume that server connection is broken, and reconnect
         else if lastReceived > min(3*TICK, 45s):
             send PULSE to server
 
