@@ -15,8 +15,6 @@
     "pako": "^2.0.4",
     "seedrandom": "^3.0.5",
     "toastify-js": "^1.11.2",
-    "web-worker": "^1.2.0",
-    "worker-threads": "^1.0.0",
     "ws": "^8.4.0"
   }
 }
