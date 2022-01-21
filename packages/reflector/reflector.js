@@ -101,7 +101,7 @@ const prometheusTicksCounter = new prometheus.Counter({
     help: 'The number of ticks generated.'
 });
 const prometheusLatencyHistogram = new prometheus.Histogram({
-    name: 'reflector_latency_ms',
+    name: 'reflector_latencies_ms',
     help: 'Latency measurements in ms.',
     buckets: LATENCY_BUCKETS,
 });
