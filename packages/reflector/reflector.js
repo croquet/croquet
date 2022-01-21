@@ -49,6 +49,40 @@ const SPECIAL_CUSTOMERS = [
 // debugging (should read env vars)
 const collectRawSocketStats = false;
 
+const LATENCY_BUCKET_0 = 8;
+const LATENCY_BUCKET_1 = 10;
+const LATENCY_BUCKET_2 = 13;
+const LATENCY_BUCKET_3 = 17;
+const LATENCY_BUCKET_4 = 22;
+const LATENCY_BUCKET_5 = 29;
+const LATENCY_BUCKET_6 = 38;
+const LATENCY_BUCKET_7 = 50;
+const LATENCY_BUCKET_8 = 66;
+const LATENCY_BUCKET_9 = 87;
+const LATENCY_BUCKET_10 = 115;
+const LATENCY_BUCKET_11 = 153;
+const LATENCY_BUCKET_12 = 203;
+const LATENCY_BUCKET_13 = 270;
+const LATENCY_BUCKET_14 = 360;
+
+const LATENCY_BUCKETS = [
+    LATENCY_BUCKET_0,
+    LATENCY_BUCKET_1,
+    LATENCY_BUCKET_2,
+    LATENCY_BUCKET_3,
+    LATENCY_BUCKET_4,
+    LATENCY_BUCKET_5,
+    LATENCY_BUCKET_6,
+    LATENCY_BUCKET_7,
+    LATENCY_BUCKET_8,
+    LATENCY_BUCKET_9,
+    LATENCY_BUCKET_10,
+    LATENCY_BUCKET_11,
+    LATENCY_BUCKET_12,
+    LATENCY_BUCKET_13,
+    LATENCY_BUCKET_14,
+];
+
 // collect metrics in Prometheus format
 const prometheusConnectionGauge = new prometheus.Gauge({
     name: 'reflector_connections',
@@ -65,6 +99,11 @@ const prometheusMessagesCounter = new prometheus.Counter({
 const prometheusTicksCounter = new prometheus.Counter({
     name: 'reflector_ticks',
     help: 'The number of ticks generated.'
+});
+const prometheusLatencyHistogram = new prometheus.Histogram({
+    name: 'reflector_latency',
+    help: 'Latency measurements in ms.',
+    buckets: LATENCY_BUCKETS,
 });
 prometheus.collectDefaultMetrics(); // default metrics like process start time, heap usage etc
 
@@ -886,6 +925,10 @@ function scheduleUsersMessage(island) {
 function after(seqA, seqB) {
     const seqDelta = (seqB - seqA) >>> 0; // make unsigned
     return seqDelta > 0 && seqDelta < 0x8000000;
+}
+
+function recordLatency(client, ms) {
+    prometheusLatencyHistogram.observe(ms);
 }
 
 /** client uploaded a snapshot
@@ -1769,13 +1812,22 @@ server.on('connection', (client, req) => {
                 const { action, args, tags } = parsedMsg;
                 switch (action) {
                     case 'JOIN': { joined = true; JOIN(client, args); break; }
-                    case 'SEND': if (tags) SEND_TAGGED(client.island, args, tags); else SEND(client.island, [args]); break; // SEND accepts an array of messages
+                    case 'SEND': {
+                        const latency = args[args.length - 1];  // might be modified in-place by rawtime logic
+                        if (tags) SEND_TAGGED(client.island, args, tags);
+                        else SEND(client.island, [args]); // SEND accepts an array of messages
+                        if (latency > 0) recordLatency(client, latency);  // record after broadcasting
+                        break;
+                    }
                     case 'TUTTI': TUTTI(client, args); break;
                     case 'TICKS': TICKS(client, args); break;
                     case 'SNAP': SNAP(client, args); break;
                     case 'SAVE': SAVE(client, args); break;
                     case 'PING': PONG(client, args); break;
-                    case 'PULSE': client.logger.trace({event: 'pulse'}, `receiving PULSE`); break; // sets lastActivity, otherwise no-op
+                    case 'PULSE':  // sets lastActivity, otherwise no-op
+                        if (args && args.latency > 0) recordLatency(client, args.latency); // not actually sent by clients yet
+                        client.logger.trace({event: 'pulse'}, `receiving PULSE`);
+                        break;
                     case 'LOG': {
                             const clientLog = typeof args === "string" ? args : JSON.stringify(args);
                             client.logger.info({
