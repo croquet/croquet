@@ -429,35 +429,37 @@ const ALL_ISLANDS = new Map();
 /** @type {Map<ID,SessionData>} */
 const ALL_SESSIONS = new Map();
 
-/** Get current time for island
+/** Set and return current (integer) time for island, advancing at the island's current scale
  * @param {IslandData} island
  */
-function getTime(island, _reason) {
-    const now = performance.now();
-    const delta = now - island.before;     // might be < 0 if system clock went backwards
-    if (delta > 0) {
-        // tick requests usually come late; sometimes tens of ms late.  keep track of such overruns, and whenever there is a net lag inject a small addition to the delta (before scaling) to help the island catch up.
-        const desiredTick = island.tick; // can be fractional ms
-        let advance = delta; // default
-        if (delta > desiredTick / 2) { // don't interfere with rapid-fire message-driven requests
-            const over = delta - desiredTick;
-            if (over > 0) {
-                advance = desiredTick; // lower limit, subject to possible adjustment below
-                if (over < 100) island.lag += Math.ceil(over); // don't try to cater for very large delays (e.g., at startup)
-            }
-            if (island.lag > 0) {
-                const boost = 4; // seems to be about the smallest that will rein things in
-                advance += boost;
-                island.lag -= boost;
-            }
-        }
-        const scaledAdvance = Math.round(island.scale * advance);
-        island.time += scaledAdvance;
-        island.before = now;
-        // island.logger.trace({event: "advance-time", ms: scaledAdvance, newTime: island.time}, `getTime(${_reason}) => ${island.time}`);
-    }
+function advanceTime(island, _reason) {
+    // const prevTime = island.time;
+    const scaledTime = Math.floor(getScaledTime(island));
+    island.time = scaledTime;
+    // const scaledAdvance = island.time - prevTime;
+    // island.logger.trace({event: "advance-time", ms: scaledAdvance, newTime: island.time}, `advanceTime(${_reason}) => ${island.time}`);
     return island.time;
 }
+
+/** Get (integer) raw time for island, as ms since it was set up on this reflector
+ * @param {IslandData} island
+ */
+function getRawTime(island) {
+    const now = performance.now();
+    const rawTime = Math.floor(now - island.rawStart);
+    return rawTime;
+}
+
+/** Get (float) current time for island, advancing at the island's scale
+ * @param {IslandData} island
+ */
+function getScaledTime(island) {
+    const now = performance.now();
+    const sinceStart = now - island.scaledStart;
+    const scaledTime = sinceStart * island.scale;
+    return scaledTime;
+}
+
 
 function nonSavableProps() {
     return {
@@ -470,7 +472,6 @@ function nonSavableProps() {
         dormantDelay: 0,     // delay in s until a hidden client will go dormant
         heraldUrl: '',       // announce join/leave events
         ticker: null,        // interval for serving TICKs
-        before: 0,           // last getTime() call
         yetToCheckLatest: true, // flag used while fetching latest.json during startup
         storedUrl: null,     // url of snapshot in latest.json (null before we've checked latest.json)
         storedSeq: INITIAL_SEQ, // seq of last message in latest.json message addendum
@@ -487,7 +488,8 @@ function nonSavableProps() {
         resumed: new Date(), // session init/resume time, needed for billing to count number of sessions
         logger: null,        // the logger for this session (shared with ALL_SESSIONS[id])
         flags: {},           // flags for experimental reflector features.  currently only "rawtime" is checked
-        rawStart: 0,         // start time for rawtime feature
+        rawStart: 0,         // performance.now() for start of this session
+        scaledStart: 0,      // synthetic performance.now() for session start at current scale
         [Symbol.toPrimitive]: () => "dummy",
         };
 }
@@ -597,6 +599,7 @@ async function JOIN(client, args) {
             ...nonSavableProps(),
             [Symbol.toPrimitive]: () => `${name} ${id}`,
             };
+        island.rawStart = island.scaledStart = Math.floor(performance.now()); // before TICKS()
         island.logger = session.logger;
         ALL_ISLANDS.set(id, island);
         prometheusSessionGauge.inc();
@@ -610,7 +613,6 @@ async function JOIN(client, args) {
     island.flags = {};
     // set flags only for the features this reflector can support
     ['rawtime'].forEach(prop => { if ((flags || {})[prop]) island.flags[prop] = true; });
-    if (island.flags.rawtime && !island.rawStart) island.rawStart = Math.floor(performance.now());
 
     client.island = island; // set island before await
 
@@ -715,7 +717,6 @@ async function JOIN(client, args) {
             if (island.lastCompletedTally) island.lastCompletedTally = null;
             if (!island.completedTallies) island.completedTallies = {};
 
-            island.before = performance.now();
             island.storedUrl = latestSpec.snapshotUrl;
             island.storedSeq = latestSpec.seq;
             if (latestSpec.reflectorSession) island.timeline = latestSpec.reflectorSession; // TODO: remove reflectorSession after 0.4.1 release
@@ -806,7 +807,7 @@ function START(island) {
 
 function SYNC(island) {
     const { id, seq, timeline, snapshotUrl: url, snapshotTime, snapshotSeq, persistentUrl, messages, tove, flags } = island;
-    const time = getTime(island, "SYNC");
+    const time = advanceTime(island, "SYNC");
     const args = { url, messages, time, seq, tove, reflector: CLUSTER, timeline, reflectorSession: timeline, flags };  // TODO: remove reflectorSession after 0.4.1 release
     if (url) {args.snapshotTime = snapshotTime; args.snapshotSeq = snapshotSeq; }
     else if (persistentUrl) { args.url = persistentUrl; args.persisted = true; }
@@ -982,7 +983,6 @@ function SNAP(client, args) {
         client.logger.debug({event: "init-time", teatime}, `init ${teatime} from SNAP (old client)`);
         island.time = time;
         island.seq = seq;
-        island.before = performance.now();
         announceUserDidJoin(client);
     } else {
         // this is the initial snapshot, but it's an even older client (<=0.2.5) that already requested TICKS()
@@ -1081,7 +1081,7 @@ function SEND(island, messages) {
         }
     }
 
-    const time = getTime(island, "SEND");
+    const time = advanceTime(island, "SEND");
     if (island.delay) {
         const delay = island.lastTick + island.delay + 0.1 - time;    // add 0.1 ms to combat rounding errors
         if (island.delayed || delay > 0) { DELAY_SEND(island, delay, messages); return; }
@@ -1091,7 +1091,7 @@ function SEND(island, messages) {
         message[0] = time;
         message[1] = island.seq = (island.seq + 1) >>> 0; // seq is always uint32
         if (island.flags.rawtime) {
-            const rawTime = Math.floor(performance.now() - island.rawStart);
+            const rawTime = getRawTime(island);
             message[message.length - 1] = rawTime; // overwrite the latency information from the controller
         }
         const msg = JSON.stringify({ id: island.id, action: 'RECV', args: message });
@@ -1286,7 +1286,7 @@ function USERS(island) {
 function PONG(client, args) {
     const island = client.island || ALL_ISLANDS.get(client.sessionId);
     if (island && island.flags.rawtime && typeof args === 'object') {
-        const rawTime = Math.floor(performance.now() - island.rawStart);
+        const rawTime = getRawTime(island);
         args.rawTime = rawTime;
     }
     client.safeSend(JSON.stringify({ action: 'PONG', args }));
@@ -1306,7 +1306,7 @@ function TICK(island) {
     }
     if (!anyoneListening) return; // probably in provisional island deletion
 
-    const time = getTime(island, "TICK");
+    const time = advanceTime(island, "TICK");
     // const { id, lastMsgTime, tick, scale } = island;
     // if (time - lastMsgTime < tick * scale) return;
     island.lastTick = time;
@@ -1339,7 +1339,7 @@ function INFO(island, args, clients = island.clients) {
  */
 function TICKS(client, args) {
     const id = client.sessionId;
-    const { tick, delay, scale } = args;
+    const { tick, delay, scale } = args; // jan 2022: for all recent clients, scale is undefined
     const island = ALL_ISLANDS.get(id);
     if (!island) { client.safeClose(...REASON.UNKNOWN_ISLAND); return; }
     if (!island.syncWithoutSnapshot && !island.snapshotUrl) {
@@ -1348,11 +1348,17 @@ function TICKS(client, args) {
         island.logger.debug({event: "init-time", teatime: `@${time}#${seq}`}, "init from TICKS (old client)");
         island.time = typeof time === "number" ? Math.ceil(time) : 0;
         island.seq = typeof seq === "number" ? seq : 0;
-        island.before = performance.now();
         announceUserDidJoin(client);
     }
     if (delay > 0) island.delay = delay;
-    if (scale > 0) island.scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale));
+    if (scale !== undefined && scale !== 1 && scale > 0) {
+        const currentScaledTime = getScaledTime(island);
+        island.scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale));
+        const now = performance.now();
+        // we maintain the scaledStart property at full precision, so there should be no
+        // risk of time slipping back even by 1ms when scale is changed.
+        island.scaledStart = now - currentScaledTime / scale;
+    } else island.scaledStart = island.rawStart;
     if (tick > 0) startTicker(island, tick);
 }
 
