@@ -927,8 +927,79 @@ function after(seqA, seqB) {
     return seqDelta > 0 && seqDelta < 0x8000000;
 }
 
+/** keep a histogram of observed latencies */
+
+const Latencies = new Map();
+
+// log latencies every 15 min
+setInterval(logLatencies, 15 * 60 * 1000);
+
+function logLatencies() {
+    if (!Latencies.size) return;
+    let ms = Date.now();
+    for (const entry of Latencies.values()) {
+        entry.latency.limits = LATENCY_BUCKETS;
+        let count = 0;
+        for (let i = 0; i < LATENCY_BUCKETS.length; i++) count += entry.latency.hist[i];
+        global_logger.notice(entry, `Latency ${Math.ceil(entry.latency.sum / count)} ms (${entry.latency.min}-${entry.latency.max} ms)`);
+    }
+    ms = Date.now() - ms;
+    global_logger.notice({event: "latencies", ms, count: Latencies.size}, `Logged latency for ${Latencies.size} IP addresses in ${ms} ms`);
+    Latencies.clear();
+}
+
 function recordLatency(client, ms) {
+    // global latency
     prometheusLatencyHistogram.observe(ms);
+
+    // fine-grained latency by IP address
+    const userIp = client.meta.userIp;
+    let entry = Latencies.get(userIp);
+    if (!entry) {
+        // directly used as log entry meta data
+        entry = {
+            event: "latency",
+            latency: {
+                min: ms,
+                max: ms,
+                sum: 0,
+                hist: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            },
+            userIp,
+        };
+        if (client.meta.dispatcher) entry.dispatcher = client.meta.dispatcher;
+        if (client.meta.location) Object.assign(entry, client.meta.location);
+        Latencies.set(userIp, entry);
+    }
+
+    const bucket = (ms <= LATENCY_BUCKET_7
+        ? (ms <= LATENCY_BUCKET_3
+            ? (ms <= LATENCY_BUCKET_1
+                ? (ms <= LATENCY_BUCKET_0 ? 0 : 1)
+                : (ms <= LATENCY_BUCKET_2 ? 2 : 3)
+            )
+            : (ms <= LATENCY_BUCKET_5
+                ? (ms <= LATENCY_BUCKET_4 ? 4 : 5)
+                : (ms <= LATENCY_BUCKET_6 ? 6 : 7)
+            )
+        )
+        : (ms <= LATENCY_BUCKET_11
+            ? (ms <= LATENCY_BUCKET_9
+                ? (ms <= LATENCY_BUCKET_8 ? 8 : 9)
+                : (ms <= LATENCY_BUCKET_10 ? 10 : 11)
+            )
+            : (ms <= LATENCY_BUCKET_13
+                ? (ms <= LATENCY_BUCKET_12 ? 12 : 13)
+                : (ms <= LATENCY_BUCKET_14 ? 14 : 15)
+            )
+        )
+    );
+
+    const latency = entry.latency;
+    latency.hist[bucket]++;
+    latency.sum += ms;
+    if (ms < latency.min) latency.min = ms;
+    if (ms > latency.max) latency.max = ms;
 }
 
 /** client uploaded a snapshot
