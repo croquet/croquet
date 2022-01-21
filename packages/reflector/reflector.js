@@ -756,6 +756,7 @@ async function JOIN(client, args) {
             if (island.lastCompletedTally) island.lastCompletedTally = null;
             if (!island.completedTallies) island.completedTallies = {};
 
+            island.scaledStart = performance.now() - island.time / island.scale;
             island.storedUrl = latestSpec.snapshotUrl;
             island.storedSeq = latestSpec.seq;
             if (latestSpec.reflectorSession) island.timeline = latestSpec.reflectorSession; // TODO: remove reflectorSession after 0.4.1 release
@@ -1096,6 +1097,7 @@ function SNAP(client, args) {
         // the initial snapshot from the user we sent START (only old clients)
         client.logger.debug({event: "init-time", teatime}, `init ${teatime} from SNAP (old client)`);
         island.time = time;
+        island.scaledStart = performance.now() - island.time / island.scale;
         island.seq = seq;
         announceUserDidJoin(client);
     } else {
@@ -1461,18 +1463,18 @@ function TICKS(client, args) {
         const { time, seq } = args;
         island.logger.debug({event: "init-time", teatime: `@${time}#${seq}`}, "init from TICKS (old client)");
         island.time = typeof time === "number" ? Math.ceil(time) : 0;
+        island.scaledStart = performance.now() - island.time / island.scale; // will be re-calculated below
         island.seq = typeof seq === "number" ? seq : 0;
         announceUserDidJoin(client);
     }
     if (delay > 0) island.delay = delay;
-    if (scale !== undefined && scale !== 1 && scale > 0) {
-        const currentScaledTime = getScaledTime(island);
-        island.scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale));
-        const now = performance.now();
-        // we maintain the scaledStart property at full precision, so there should be no
-        // risk of time slipping back even by 1ms when scale is changed.
-        island.scaledStart = now - currentScaledTime / scale;
-    } else island.scaledStart = island.rawStart;
+    const currentScaledTime = getScaledTime(island);
+    let scaleToApply = 1;
+    if (scale !== undefined && scale > 0) scaleToApply = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale));
+    island.scale = scaleToApply;
+    // we maintain the scaledStart property at full precision, so there should be no
+    // risk of time slipping back even by 1ms when scale is changed.
+    island.scaledStart = performance.now() - currentScaledTime / scaleToApply;
     if (tick > 0) startTicker(island, tick);
 }
 
