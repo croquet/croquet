@@ -101,9 +101,9 @@ const prometheusTicksCounter = new prometheus.Counter({
     help: 'The number of ticks generated.'
 });
 const prometheusLatencyHistogram = new prometheus.Histogram({
-    name: 'reflector_latencies_ms',
-    help: 'Latency measurements in ms.',
-    buckets: LATENCY_BUCKETS,
+    name: 'reflector_latencies_seconds',
+    help: 'Latency measurements in seconds.',
+    buckets: LATENCY_BUCKETS.map(ms => +(ms * 0.001).toFixed(3)),
 });
 prometheus.collectDefaultMetrics(); // default metrics like process start time, heap usage etc
 
@@ -951,7 +951,7 @@ function logLatencies() {
 
 function recordLatency(client, ms) {
     // global latency
-    prometheusLatencyHistogram.observe(ms);
+    prometheusLatencyHistogram.observe(ms * 0.001);
 
     // fine-grained latency by IP address
     const userIp = client.meta.userIp;
