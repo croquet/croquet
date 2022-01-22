@@ -430,9 +430,11 @@ process.on('unhandledRejection', (err, _promise) => {
     // (not terminating yet, need to see what rejections we do not handle first)
 });
 
-// start server
-startServer();
-if (CLUSTER_IS_LOCAL) watchStats();
+function openToClients() {
+    // start server
+    startServer();
+    if (CLUSTER_IS_LOCAL) watchStats();
+}
 
 /**
  * @typedef ID - A random 128 bit hex ID
@@ -484,7 +486,7 @@ function advanceTime(island, _reason) {
  * @param {IslandData} island
  */
 function getRawTime(island) {
-    const now = performance.now();
+    const now = stabilizedPerformanceNow();
     const rawTime = Math.floor(now - island.rawStart);
     return rawTime;
 }
@@ -493,7 +495,7 @@ function getRawTime(island) {
  * @param {IslandData} island
  */
 function getScaledTime(island) {
-    const now = performance.now();
+    const now = stabilizedPerformanceNow();
     const sinceStart = now - island.scaledStart;
     const scaledTime = sinceStart * island.scale;
     return scaledTime;
@@ -527,8 +529,8 @@ function nonSavableProps() {
         resumed: new Date(), // session init/resume time, needed for billing to count number of sessions
         logger: null,        // the logger for this session (shared with ALL_SESSIONS[id])
         flags: {},           // flags for experimental reflector features.  currently only "rawtime" is checked
-        rawStart: 0,         // performance.now() for start of this session
-        scaledStart: 0,      // synthetic performance.now() for session start at current scale
+        rawStart: 0,         // stabilizedPerformanceNow() for start of this session
+        scaledStart: 0,      // synthetic stabilizedPerformanceNow() for session start at current scale
         [Symbol.toPrimitive]: () => "dummy",
         };
 }
@@ -638,7 +640,7 @@ async function JOIN(client, args) {
             ...nonSavableProps(),
             [Symbol.toPrimitive]: () => `${name} ${id}`,
             };
-        island.rawStart = island.scaledStart = Math.floor(performance.now()); // before TICKS()
+        island.rawStart = island.scaledStart = Math.floor(stabilizedPerformanceNow()); // before TICKS()
         island.logger = session.logger;
         ALL_ISLANDS.set(id, island);
         prometheusSessionGauge.inc();
@@ -756,7 +758,7 @@ async function JOIN(client, args) {
             if (island.lastCompletedTally) island.lastCompletedTally = null;
             if (!island.completedTallies) island.completedTallies = {};
 
-            island.scaledStart = performance.now() - island.time / island.scale;
+            island.scaledStart = stabilizedPerformanceNow() - island.time / island.scale;
             island.storedUrl = latestSpec.snapshotUrl;
             island.storedSeq = latestSpec.seq;
             if (latestSpec.reflectorSession) island.timeline = latestSpec.reflectorSession; // TODO: remove reflectorSession after 0.4.1 release
@@ -1097,7 +1099,7 @@ function SNAP(client, args) {
         // the initial snapshot from the user we sent START (only old clients)
         client.logger.debug({event: "init-time", teatime}, `init ${teatime} from SNAP (old client)`);
         island.time = time;
-        island.scaledStart = performance.now() - island.time / island.scale;
+        island.scaledStart = stabilizedPerformanceNow() - island.time / island.scale;
         island.seq = seq;
         announceUserDidJoin(client);
     } else {
@@ -1404,6 +1406,7 @@ function PONG(client, args) {
     if (island && island.flags.rawtime && typeof args === 'object') {
         const rawTime = getRawTime(island);
         args.rawTime = rawTime;
+args.perfNowAdjust = performanceNowAdjustment; // DEBUG
     }
     client.safeSend(JSON.stringify({ action: 'PONG', args }));
 }
@@ -1463,7 +1466,7 @@ function TICKS(client, args) {
         const { time, seq } = args;
         island.logger.debug({event: "init-time", teatime: `@${time}#${seq}`}, "init from TICKS (old client)");
         island.time = typeof time === "number" ? Math.ceil(time) : 0;
-        island.scaledStart = performance.now() - island.time / island.scale; // will be re-calculated below
+        island.scaledStart = stabilizedPerformanceNow() - island.time / island.scale; // will be re-calculated below
         island.seq = typeof seq === "number" ? seq : 0;
         announceUserDidJoin(client);
     }
@@ -1474,7 +1477,7 @@ function TICKS(client, args) {
     island.scale = scaleToApply;
     // we maintain the scaledStart property at full precision, so there should be no
     // risk of time slipping back even by 1ms when scale is changed.
-    island.scaledStart = performance.now() - currentScaledTime / scaleToApply;
+    island.scaledStart = stabilizedPerformanceNow() - currentScaledTime / scaleToApply;
     if (tick > 0) startTicker(island, tick);
 }
 
@@ -2071,6 +2074,64 @@ async function uploadJSON(filename, object, bucket=SESSION_BUCKET) {
         } catch (err) { reject(err); }
     });
 }
+
+// to provide a close-to-real rate of advance of teatime and raw time on Docker, which has a known clock-drift issue that they work around with periodic NTP-based compensatory jumps of Date.now, we set aside about a minute at startup to watch for telltale jumps of Date.now against performance.now.  once we've seen two jumps (on MacOS they appear to happen 30s apart) we calculate a smoothed rate of drift and use that to start accumulating continuously an offset (performanceNowAdjustment) to be applied to all performance.now queries on this reflector.  at that point we open the reflector to client connections.  we continue to monitor the jumps, in case the rate of drift somehow changes.
+// if no jumps have been seen after the first 70s, that suggests we're not running on a platform that does Docker-like adjustments... so we go ahead and open to clients anyway.  but we keep checking, in case jumps are happening but on a sparser schedule.
+let performanceNowAdjustment = 0;
+function stabilizedPerformanceNow() { return performance.now() + performanceNowAdjustment; }
+
+let serverStarted = false;
+const timeJumpHistory = []; // { date, jump, timeRatio }
+const baseDate = Date.now();
+let dateAdjustmentRatio = 0;
+let lastOffset = null;
+let lastCheck = null;
+function measureDatePerformanceOffset() {
+    const now = Date.now();
+    const perfNow = performance.now(); // could try to stabilise this too, but 2nd-order effects should be negligible
+    const newOffset = now - perfNow;
+    if (lastOffset !== null) {
+        let ready = false; // ready for clients?
+        const jump = newOffset - lastOffset;
+        if (Math.abs(jump) > 2) { // only interested in real corrections
+            const jumpRecord = { perfNow, jump };
+            timeJumpHistory.push(jumpRecord);
+            if (timeJumpHistory.length > 1) {
+                // accept the first gap between jumps as providing a reasonable starting point.
+                // thereafter, only replace dateAdjustmentRatio if the two latest jumps
+                // bespeak a ratio within 1% of each other.
+                const prev = timeJumpHistory[0];
+                // dateBoostRatio is the rate at which Docker has decided Date.now should be boosted relative to performance.now.  if it is positive (the Date jumps are positive), performance.now must be running behind.
+                const dateBoostRatio = jump / (perfNow - prev.perfNow);
+                jumpRecord.dateBoostRatio = dateBoostRatio;
+                if (prev.dateBoostRatio === undefined || Math.abs((dateBoostRatio - prev.dateBoostRatio) / dateBoostRatio) < 0.01) {
+                    console.log('BOOST PERCENT:', (dateBoostRatio * 100).toFixed(4));
+                    dateAdjustmentRatio = dateBoostRatio;
+                }
+                timeJumpHistory.shift();
+                ready = true;
+            }
+        }
+        if (!serverStarted) {
+            const JUMP_CHECK_TIMEOUT = 70000; // start anyway if we haven't managed to calibrate in this time (on MacOS Docker we typically see a jump every 30s)
+            if (ready || now - baseDate >= JUMP_CHECK_TIMEOUT) {
+                serverStarted = true;
+                openToClients();
+            }
+        }
+    }
+    lastOffset = newOffset;
+    if (lastCheck !== null) {
+        const gap = perfNow - lastCheck;
+        // if dateAdjustmentRatio is positive, performance.now is running slow and should be boosted.
+        const extraDateAdjustment = gap * dateAdjustmentRatio; // how much Docker would have boosted Date.now during this gap
+        performanceNowAdjustment += extraDateAdjustment;
+    }
+    lastCheck = perfNow;
+}
+
+console.log('STARTING TIME CALIBRATION');
+setInterval(measureDatePerformanceOffset, 1000); // keeps going as long as the reflector is running
 
 exports.server = server;
 exports.Socket = WebSocket.Socket;
