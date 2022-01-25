@@ -21,6 +21,7 @@ const ARGS = {
     STANDALONE: "--standalone",
     HTTPS: "--https",
     NO_LOGTIME: "--no-logtime",
+    TIME_STABILIZED: "--time-stabilized"
 };
 
 for (const arg of process.argv.slice(2)) {
@@ -39,6 +40,7 @@ const STORE_SESSION = !NO_STORAGE && !APPS_ONLY;
 const STORE_MESSAGE_LOGS = !NO_STORAGE && !APPS_ONLY;
 const STORE_PERSISTENT_DATA = !NO_STORAGE;
 const NO_LOGTIME = process.argv.includes(ARGS.NO_LOGTIME); // don't prepend the time to each log
+const TIME_STABILIZED = process.argv.includes(ARGS.TIME_STABILIZED); // watch for jumps in Date.now and use them to rescale performance.now (needed for Docker standalone)
 
 // do not show pre 1.0 warning if these strings appear in session name or url
 const SPECIAL_CUSTOMERS = [
@@ -2075,63 +2077,70 @@ async function uploadJSON(filename, object, bucket=SESSION_BUCKET) {
     });
 }
 
-// to provide a close-to-real rate of advance of teatime and raw time on Docker, which has a known clock-drift issue that they work around with periodic NTP-based compensatory jumps of Date.now, we set aside about a minute at startup to watch for telltale jumps of Date.now against performance.now.  once we've seen two jumps (on MacOS they appear to happen 30s apart) we calculate a smoothed rate of drift and use that to start accumulating continuously an offset (performanceNowAdjustment) to be applied to all performance.now queries on this reflector.  at that point we open the reflector to client connections.  we continue to monitor the jumps, in case the rate of drift somehow changes.
-// if no jumps have been seen after the first 70s, that suggests we're not running on a platform that does Docker-like adjustments... so we go ahead and open to clients anyway.  but we keep checking, in case jumps are happening but on a sparser schedule.
 let performanceNowAdjustment = 0;
 function stabilizedPerformanceNow() { return performance.now() + performanceNowAdjustment; }
 
-let serverStarted = false;
-const timeJumpHistory = []; // { date, jump, timeRatio }
-const baseDate = Date.now();
-let dateAdjustmentRatio = 0;
-let lastOffset = null;
-let lastCheck = null;
-function measureDatePerformanceOffset() {
-    const now = Date.now();
-    const perfNow = performance.now(); // could try to stabilise this too, but 2nd-order effects should be negligible
-    const newOffset = now - perfNow;
-    if (lastOffset !== null) {
-        let ready = false; // ready for clients?
-        const jump = newOffset - lastOffset;
-        if (Math.abs(jump) > 2) { // only interested in real corrections
-            const jumpRecord = { perfNow, jump };
-            timeJumpHistory.push(jumpRecord);
-            if (timeJumpHistory.length > 1) {
-                // accept the first gap between jumps as providing a reasonable starting point.
-                // thereafter, only replace dateAdjustmentRatio if the two latest jumps
-                // bespeak a ratio within 1% of each other.
-                const prev = timeJumpHistory[0];
-                // dateBoostRatio is the rate at which Docker has decided Date.now should be boosted relative to performance.now.  if it is positive (the Date jumps are positive), performance.now must be running behind.
-                const dateBoostRatio = jump / (perfNow - prev.perfNow);
-                jumpRecord.dateBoostRatio = dateBoostRatio;
-                if (prev.dateBoostRatio === undefined || Math.abs((dateBoostRatio - prev.dateBoostRatio) / dateBoostRatio) < 0.01) {
-                    console.log('BOOST PERCENT:', (dateBoostRatio * 100).toFixed(4));
-                    dateAdjustmentRatio = dateBoostRatio;
+if (!TIME_STABILIZED) openToClients();
+else {
+    // to provide a close-to-real rate of advance of teatime and raw time on Docker, which has a known clock-drift issue that they work around with periodic NTP-based compensatory jumps of Date.now, we set aside about a minute at startup to watch for telltale jumps of Date.now against performance.now.  once we've seen two jumps (on MacOS they appear to happen 30s apart) we calculate a smoothed rate of drift and use that to start accumulating continuously an offset (performanceNowAdjustment) to be applied to all performance.now queries on this reflector.  at that point we open the reflector to client connections.  we continue to monitor the jumps, in case the rate of drift somehow changes.
+    // if no jumps have been seen after the first 70s, that suggests that adjustments are not needed... so we go ahead and open to clients anyway.  but we keep checking, in case jumps are happening but on a sparser schedule.
+    let serverStarted = false;
+    const timeJumpHistory = []; // { date, jump, timeRatio }
+    const baseDate = Date.now();
+    let dateAdjustmentRatio = 0;
+    let lastOffset = null;
+    let lastCheck = null;
+    function measureDatePerformanceOffset() {
+        const now = Date.now();
+        const perfNow = performance.now(); // could try to stabilise this too, but 2nd-order effects should be negligible
+        const newOffset = now - perfNow;
+        if (lastOffset !== null) {
+            let ready = false; // ready for clients?
+            const jump = newOffset - lastOffset;
+            if (Math.abs(jump) > 2) { // only interested in real corrections
+                const jumpRecord = { perfNow, jump };
+                timeJumpHistory.push(jumpRecord);
+                if (timeJumpHistory.length > 1) {
+                    // accept the first gap between jumps as providing a reasonable starting point.
+                    // thereafter, only replace dateAdjustmentRatio if the two latest jumps
+                    // bespeak a ratio within 1% of each other.
+                    const prev = timeJumpHistory[0];
+                    // dateBoostRatio is the rate at which Docker has decided Date.now should be boosted relative to performance.now.  if it is positive (the Date jumps are positive), performance.now must be running behind.
+                    const dateBoostRatio = jump / (perfNow - prev.perfNow);
+                    jumpRecord.dateBoostRatio = dateBoostRatio;
+                    if (prev.dateBoostRatio === undefined || Math.abs((dateBoostRatio - prev.dateBoostRatio) / dateBoostRatio) < 0.01) {
+                        global_logger.notice({
+                            event: "stabilization-result",
+                        }, `performance time will be boosted by ${(dateBoostRatio * 100).toFixed(4)}%`);
+                        dateAdjustmentRatio = dateBoostRatio;
+                    }
+                    timeJumpHistory.shift();
+                    ready = true;
                 }
-                timeJumpHistory.shift();
-                ready = true;
+            }
+            if (!serverStarted) {
+                const JUMP_CHECK_TIMEOUT = 70000; // start anyway if we haven't managed to calibrate in this time (on MacOS Docker we typically see a jump every 30s)
+                if (ready || now - baseDate >= JUMP_CHECK_TIMEOUT) {
+                    serverStarted = true;
+                    openToClients();
+                }
             }
         }
-        if (!serverStarted) {
-            const JUMP_CHECK_TIMEOUT = 70000; // start anyway if we haven't managed to calibrate in this time (on MacOS Docker we typically see a jump every 30s)
-            if (ready || now - baseDate >= JUMP_CHECK_TIMEOUT) {
-                serverStarted = true;
-                openToClients();
-            }
+        lastOffset = newOffset;
+        if (lastCheck !== null) {
+            const gap = perfNow - lastCheck;
+            // if dateAdjustmentRatio is positive, performance.now is running slow and should be boosted.
+            const extraDateAdjustment = gap * dateAdjustmentRatio; // how much Docker would have boosted Date.now during this gap
+            performanceNowAdjustment += extraDateAdjustment;
         }
+        lastCheck = perfNow;
     }
-    lastOffset = newOffset;
-    if (lastCheck !== null) {
-        const gap = perfNow - lastCheck;
-        // if dateAdjustmentRatio is positive, performance.now is running slow and should be boosted.
-        const extraDateAdjustment = gap * dateAdjustmentRatio; // how much Docker would have boosted Date.now during this gap
-        performanceNowAdjustment += extraDateAdjustment;
-    }
-    lastCheck = perfNow;
-}
 
-console.log('STARTING TIME CALIBRATION');
-setInterval(measureDatePerformanceOffset, 1000); // keeps going as long as the reflector is running
+    global_logger.notice({
+        event: "stabilization-start",
+    }, "starting time-stabilization watcher");
+    setInterval(measureDatePerformanceOffset, 1000); // keeps going as long as the reflector is running
+}
 
 exports.server = server;
 exports.Socket = WebSocket.Socket;
