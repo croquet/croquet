@@ -591,7 +591,7 @@ async function JOIN(client, args) {
     // in that case, the client loggers for the session will be recreated again below
     client.logger = empty_logger.child({...session.logger.bindings(), ...client.meta});
 
-    // the (old) connection log filter matches on (" connection " OR " JOIN ")
+    // connection log sink filters on scope="connection" and event="start|join|end"
     client.logger.notice({
         event: "join",
         appId,
@@ -946,6 +946,7 @@ function logLatencies() {
         entry.latency.limits = LATENCY_BUCKETS;
         let count = 0;
         for (let i = 0; i < LATENCY_BUCKETS.length; i++) count += entry.latency.hist[i];
+        // latency log sink filters on scope="process" and event="latency"
         global_logger.notice(entry, `Latency ${Math.ceil(entry.latency.sum / count)} ms (${entry.latency.min}-${entry.latency.max} ms)`);
     }
     ms = Date.now() - ms;
@@ -962,6 +963,7 @@ function recordLatency(client, ms) {
     let entry = Latencies.get(userIp);
     if (!entry) {
         // directly used as log entry meta data
+        // latency log sink filters on scope="process" and event="latency"
         entry = {
             event: "latency",
             latency: {
@@ -1826,7 +1828,7 @@ server.on('connection', (client, req) => {
         };
         client._socket.on('data', buf => client.stats.ri += buf.length);
     }
-    // the connection log filter matches on (" connection " OR " JOIN ")
+    // connection log sink filters on scope="connection" and event="start|join|end"
     const forwarded = `via ${req.headers['x-croquet-dispatcher']} (${(req.headers['x-forwarded-for'] || '').split(/\s*,\s*/).map(a => a.replace(/^::ffff:/, '')).join(', ')}) `;
     client.logger.notice({ event: "start", token, url: req.url }, `opened connection ${version} ${forwarded||''}${req.headers['x-location']||''}`);
     STATS.USERS = Math.max(STATS.USERS, server.clients.size);
@@ -1939,7 +1941,7 @@ server.on('connection', (client, req) => {
         prometheusConnectionGauge.dec();
         const island = client.island || ALL_ISLANDS.get(client.sessionId) || {};
 
-        // the connection log filter matches on (" connection " OR " JOIN ")
+        // connection log sink filters on scope="connection" and event="start|join|end"
         client.logger.notice({
             event: "end",
             stats: client.stats,
