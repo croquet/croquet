@@ -231,6 +231,8 @@ If someone feels like going through these changes, please do so.
 * 2019-09-13: 0.2.1
 * 2019-09-06: 0.2.0
 * 2019-08-14: 0.1.9 controller sends PULSE
+* 2019-07-26: dispatcher working: it's alive!
+* 2019-07-17: napkin sketch of reflector network
 * 2019-07-24: 0.1.7
 * 2019-07-18: 0.1.6
 * 2019-07-10: 0.1.5
