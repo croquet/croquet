@@ -4,7 +4,7 @@ We use semantic versioning, see semver.org
 
 ## Pre-releases a.b.c-n
 
-* update non-public [CHANGELOG.md](./CHANGELOG.md)
+* update non-public [CHANGE_LOG.md](./CHANGE_LOG.md)
   - add a line for this pre-release
 * update `version` in `package.json`
   - e.g. `a.b.c-5` becomes `a.b.c-6`
@@ -17,19 +17,21 @@ We use semantic versioning, see semver.org
 * `deploy-from-dev-to-test.sh lib` and `release-from-test-to-public.sh lib`
   - to copy lib from croquet.io/dev/lib to croquet.io/test/lib and croquet.io/lib
   - build scripts (e.g. in WorldCore) use version at croquet.io/lib/croquet-latest-pre.txt
+* deploy npm
+  - ... to be written ...
 
 ## Release a.b.c
 
-* make sure `types.d.ts` reflects changed API (see our private [CHANGELOG.md](./CHANGELOG.md))
+* make sure `types.d.ts` reflects changed API (see our private [CHANGE_LOG.md](./CHANGE_LOG.md))
 * make sure JSDoc comments reflect changed API (`teatime/index.js`, `teatime/src/{model|view|session}.js`)
-  - test using `(cd sdk; ./deploy.sh docs)` and check generated `servers/croquet-io-dev/sdk/docs/*.html`
+  - test using `(cd docs; ./deploy.sh docs)` and check generated `servers/croquet-io-dev/sdk/docs/*.html`
+* publish new docs:
+  - update public change log [docs/croquet/README.md#changelog](../../../docs/croquet/README.md#changelog)
+    (select notable changes from our private [CHANGE_LOG.md](./CHANGE_LOG.md))
+  - update tutorials `docs/croquet/tutorials/*.md`
+  - test using `(cd docs; ./deploy.sh docs)` and check generated `servers/croquet-io-dev/docs/croquet/*.html`
+  - deployed automatically below, or using `(cd docs; ./deploy.sh docs --commit)`
 * deploy release
   - follow pre-release steps above but with release version number
 * deploy npm
   - ... to be written ...
-* publish new docs:
-  - update public change log [sdk/README.md#changelog](../../../sdk/README.md#changelog)
-    (select notable changes from our private [CHANGELOG.md](./CHANGELOG.md))
-  - update tutorials `sdk/tutorials/*.md`
-  - test using `(cd sdk; ./deploy.sh docs)` and check generated `servers/croquet-io-dev/sdk/docs/*.html`
-  - deploy using `(cd sdk; ./deploy.sh docs --commit)`
