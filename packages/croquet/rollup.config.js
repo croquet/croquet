@@ -173,7 +173,7 @@ const config = () => ({
             babelHelpers: 'bundled',
             presets: [['@babel/env', { "targets": "> 0.25%" }]],
         }),
-        !is_node && !is_dev_build && terser({
+        !is_dev_build && terser({
             output: {comments: false},
         }),
         fixups(is_node), // must be after terser
