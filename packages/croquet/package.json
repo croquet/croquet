@@ -16,12 +16,14 @@
     "multi-user",
     "real-time"
   ],
-  "main": "cjs/croquet-croquet.js",
+  "browser": "cjs/croquet-croquet.js",
+  "main": "cjs/croquet-croquet-node.js",
   "types": "types.d.ts",
   "files": [
     "README.md",
     "LICENSE.md",
     "cjs/croquet-croquet.js",
+    "cjs/croquet-croquet-node.js",
     "pub/croquet.min.js",
     "types.d.ts"
   ],
