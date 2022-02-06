@@ -45,7 +45,7 @@ See [unpkg.com](https://unpkg.com/) for ways to link to different versions or th
 
 3.  **NPM**: install the [`@croquet/croquet`](https://www.npmjs.com/package/@croquet/croquet) package:
 
-        $ npm install @croquet/croquet
+        npm install @croquet/croquet
 
     Then import it in your JS file:
 
