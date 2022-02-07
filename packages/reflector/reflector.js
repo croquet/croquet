@@ -158,13 +158,14 @@ const LATE_DISPATCH_DELAY = 1000;  // how long to allow for clients arriving fro
 
 // Map pino levels to GCP, https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry#LogSeverity
 const GCP_SEVERITY = {
-    trace:  'DEBUG',
-    debug:  'DEBUG',
-    info:   'INFO',
-    notice: 'NOTICE',
-    warn:   'WARNING',
-    error:  'ERROR',
-    fatal:  'CRITICAL',
+    trace:  'DEFAULT',  // 10 default min on local
+    meter:  'DEFAULT',  // 15 default min otherwise
+    debug:  'DEBUG',    // 20
+    info:   'INFO',     // 30
+    notice: 'NOTICE',   // 35 not a pino level
+    warn:   'WARNING',  // 40
+    error:  'ERROR',    // 50
+    fatal:  'CRITICAL', // 60
 };
 
 // every log entry should have scope and event properties, as well as a message.
@@ -174,8 +175,9 @@ const empty_logger = pino({
     base: null,
     messageKey: 'message',
     timestamp: CLUSTER_IS_LOCAL && !NO_LOGTIME,
-    level: process.env.LOG_LEVEL ? process.env.LOG_LEVEL.toLowerCase() : CLUSTER_IS_LOCAL ? 'trace' : 'debug',
+    level: process.env.LOG_LEVEL ? process.env.LOG_LEVEL.toLowerCase() : CLUSTER_IS_LOCAL ? 'trace' : 'meter',
     customLevels: {
+        meter: 25,
         notice: 35,
     },
     formatters: {
@@ -961,7 +963,7 @@ function recordLatency(client, ms) {
     prometheusLatencyHistogram.observe(ms);
 
     if (PER_MESSAGE_LATENCY) {
-        client.logger.notice({event: "message-latency", ms}, `Latency ${ms} ms`);
+        client.logger.meter({event: "message-latency", ms}, `Latency ${ms} ms`);
     }
 
     // fine-grained latency by IP address
