@@ -480,10 +480,28 @@ const ALL_SESSIONS = new Map();
  * @param {IslandData} island
  */
 function advanceTime(island, _reason) {
-    // const prevTime = island.time;
+    const prevTime = island.time;
+
+    // this is the actual advance, everything else is just debug code
     const scaledTime = Math.floor(getScaledTime(island));
     island.time = scaledTime;
-    // const scaledAdvance = island.time - prevTime;
+
+    // warn about time jumps
+    const scaledAdvance = island.time - prevTime;
+    if (scaledAdvance < 0 || scaledAdvance > 60000) {
+        island.warn({
+            event: "time-jump",
+            scaledAdvance,
+            islandPrev: prevTime,
+            islandTime: island.time,
+            islandStart: island.scaledStart,
+            islandScale: island.scale,
+            performanceNowAdjustment,
+            stabilizedPerformanceNow: stabilizedPerformanceNow(),
+            tickMS: island.tick,
+            reason: _reason,
+        }, `time jumped by ${scaledAdvance} ms`);
+    }
     // island.logger.trace({event: "advance-time", ms: scaledAdvance, newTime: island.time}, `advanceTime(${_reason}) => ${island.time}`);
     return island.time;
 }
