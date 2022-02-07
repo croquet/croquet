@@ -21,6 +21,7 @@ const ARGS = {
     STANDALONE: "--standalone",
     HTTPS: "--https",
     NO_LOGTIME: "--no-logtime",
+    NO_LOGLATENCY: "--no-loglatency",
     TIME_STABILIZED: "--time-stabilized"
 };
 
@@ -39,7 +40,8 @@ const VERIFY_TOKEN = !process.argv.includes(ARGS.STANDALONE);
 const STORE_SESSION = !NO_STORAGE && !APPS_ONLY;
 const STORE_MESSAGE_LOGS = !NO_STORAGE && !APPS_ONLY;
 const STORE_PERSISTENT_DATA = !NO_STORAGE;
-const NO_LOGTIME = process.argv.includes(ARGS.NO_LOGTIME); // don't prepend the time to each log
+const NO_LOGTIME = process.argv.includes(ARGS.NO_LOGTIME); // don't prepend the time to each log even when running locally
+const PER_MESSAGE_LATENCY = !process.argv.includes(ARGS.NO_LOGLATENCY); // log latency of each message
 const TIME_STABILIZED = process.argv.includes(ARGS.TIME_STABILIZED); // watch for jumps in Date.now and use them to rescale performance.now (needed for Docker standalone)
 
 // do not show pre 1.0 warning if these strings appear in session name or url
@@ -957,6 +959,10 @@ function logLatencies() {
 function recordLatency(client, ms) {
     // global latency
     prometheusLatencyHistogram.observe(ms);
+
+    if (PER_MESSAGE_LATENCY) {
+        client.logger.notice({event: "message-latency", ms}, `Latency ${ms} ms`);
+    }
 
     // fine-grained latency by IP address
     const userIp = client.meta.userIp;
