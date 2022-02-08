@@ -146,7 +146,7 @@ if (!CLUSTER) {
     process.exit(1);
 }
 
-const DISCONNECT_UNRESPONSIVE_CLIENTS = CLUSTER_IS_LOCAL;
+const DISCONNECT_UNRESPONSIVE_CLIENTS = !CLUSTER_IS_LOCAL;
 const CHECK_INTERVAL = 5000;        // how often to checkForActivity
 const PING_INTERVAL = 5000;         // while inactive, send pings at this rate
 const SNAP_TIMEOUT = 30000;         // if no SNAP received after waiting this number of ms, disconnect
