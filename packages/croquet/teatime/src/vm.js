@@ -476,6 +476,8 @@ export default class VirtualMachine {
                 }
                 obj = Object.getPrototypeOf(obj);
             }
+            // otherwise, assume it's an inline function
+            displayWarning(`subscription handler is not a method of ${model}: ${func}\n`, { only: "once" });
             // if passing (foo) => this.bar(baz)
             // match:                (   foo             )   =>  this .  bar              (    baz               )
             const HANDLER_REGEX = /^\(?([a-z][a-z0-9]*)?\)? *=> *this\.([a-z][a-z0-9]*) *\( *([a-z][a-z0-9]*)? *\) *$/i;
