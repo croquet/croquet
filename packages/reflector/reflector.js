@@ -681,10 +681,9 @@ async function JOIN(client, args) {
 
     client.island = island; // set island before await
 
-    const { token } = client.meta;
     let validToken;
-    if (VERIFY_TOKEN && token) try {
-        validToken = await verifyToken(token);
+    if (client.tokenPromise) try {
+        validToken = await client.tokenPromise;
         client.logger.info({ event: "token-verified" }, "token verified");
     } catch (err) {
         client.logger.warn({ event: "token-verify-failed", err }, `token verification failed: ${err.message}`);
@@ -1995,6 +1994,11 @@ server.on('connection', (client, req) => {
     });
 
     client.on('error', err => client.logger.error({event: "client-socket-error", err}, `Client Socket Error: ${err.message}`));
+
+    // start validating token now (awaited in JOIN)
+    if (VERIFY_TOKEN && token) {
+        client.tokenPromise = verifyToken(token);
+    }
 });
 
 async function fetchSecret() {
