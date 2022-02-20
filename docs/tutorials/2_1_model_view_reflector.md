@@ -1,8 +1,10 @@
 Copyright © 2020 Croquet Corporation
 
+![Croquet Overview](croquet_overview.svg)
+
 Every Croquet application consists of two parts:
 
-- The **view** handles user input and output.
+- The **view** handles user input and output by interacting with the DOM.
   It processes all keyboard / mouse / touch events, and determines what is displayed on the screen.
 
 - The **model** handles all calculation and simulation. This is where the actual work of the application takes place.
