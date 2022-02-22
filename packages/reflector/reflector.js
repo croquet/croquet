@@ -217,7 +217,7 @@ FILE_BUCKETS.default = FILE_BUCKETS.us;
 // return codes for closing connection
 // client wil try to reconnect for codes < 4100
 const REASON = {};
-REASON.UNKNOWN_ISLAND = [4000, "unknown island"];
+REASON.UNKNOWN_SESSION = [4000, "unknown session"];
 REASON.UNRESPONSIVE = [4001, "client unresponsive"];
 REASON.INACTIVE = [4002, "client inactive"];
 REASON.RECONNECT = [4003, "please reconnect"];  // also used in cloudflare reflector
@@ -1045,7 +1045,7 @@ function recordLatency(client, ms) {
 function SNAP(client, args) {
     const id = client.sessionId;
     const island = ALL_ISLANDS.get(id);
-    if (!island) { client.safeClose(...REASON.UNKNOWN_ISLAND); return; }
+    if (!island) { client.safeClose(...REASON.UNKNOWN_SESSION); return; }
 
     const { time, seq, hash, url, dissident } = args; // details of the snapshot that has been uploaded
     const teatime = `@${time}#${seq}`;
@@ -1157,7 +1157,7 @@ function SNAP(client, args) {
 function SAVE(client, args) {
     const id = client.sessionId;
     const island = ALL_ISLANDS.get(id);
-    if (!island) { client.safeClose(...REASON.UNKNOWN_ISLAND); return; }
+    if (!island) { client.safeClose(...REASON.UNKNOWN_SESSION); return; }
     const { developerId, region, appId, persistentId } = island;
     if (!appId || !persistentId) { client.safeClose(...REASON.BAD_APPID); return; }
 
@@ -1289,7 +1289,7 @@ function SEND_TAGGED(island, message, tags) {
 function TUTTI(client, args) {
     const id = client.sessionId;
     const island = ALL_ISLANDS.get(id);
-    if (!island) { client.safeClose(...REASON.UNKNOWN_ISLAND); return; }
+    if (!island) { client.safeClose(...REASON.UNKNOWN_SESSION); return; }
 
     // clients prior to 0.5.1 send a tutti sequence number in second place; later
     // clients instead use a seventh argument that is a tutti key made up of a
@@ -1493,7 +1493,7 @@ function TICKS(client, args) {
     const id = client.sessionId;
     const { tick, delay, scale } = args; // jan 2022: for all recent clients, scale is undefined
     const island = ALL_ISLANDS.get(id);
-    if (!island) { client.safeClose(...REASON.UNKNOWN_ISLAND); return; }
+    if (!island) { client.safeClose(...REASON.UNKNOWN_SESSION); return; }
     if (!island.syncWithoutSnapshot && !island.snapshotUrl) {
          // this must be an old client (<=0.2.5) that requests TICKS before sending a snapshot
         const { time, seq } = args;
