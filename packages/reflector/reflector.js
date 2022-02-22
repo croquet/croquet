@@ -978,6 +978,8 @@ function logLatencies() {
 }
 
 function recordLatency(client, ms) {
+    if (ms >= 60000) return; // ignore > 1 min (likely old client sending time stamp not latency)
+
     // global latency
     prometheusLatencyHistogram.observe(ms);
 
