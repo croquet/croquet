@@ -32,11 +32,13 @@ for (const arg of process.argv.slice(2)) {
     }
 }
 
+const GCP_PROJECT = process.env.GCP_PROJECT; // only set if we're running on Google Cloud
+
 const NO_STORAGE = process.argv.includes(ARGS.NO_STORAGE); // no bucket access
 const NO_DISPATCHER = NO_STORAGE || process.argv.includes(ARGS.STANDALONE); // no session deregistration
 const APPS_ONLY = !NO_STORAGE && process.argv.includes(ARGS.APPS_ONLY); // no session resume
 const USE_HTTPS = process.argv.includes(ARGS.HTTPS); // serve via https on port 443
-const VERIFY_TOKEN = !process.argv.includes(ARGS.STANDALONE);
+const VERIFY_TOKEN = GCP_PROJECT && !process.argv.includes(ARGS.STANDALONE);
 const STORE_SESSION = !NO_STORAGE && !APPS_ONLY;
 const STORE_MESSAGE_LOGS = !NO_STORAGE && !APPS_ONLY;
 const STORE_PERSISTENT_DATA = !NO_STORAGE;
@@ -195,7 +197,7 @@ const global_logger = empty_logger.child({ scope: "process", hostIp: HOSTIP });
 global_logger.notice({ event: "start" }, `reflector started ${CLUSTER_LABEL} ${HOSTIP}`);
 
 // secret shared with sign cloud func
-const SECRET_NAME = "projects/croquet-proj/secrets/signurl-jwt-hs256/versions/latest";
+const SECRET_NAME = `projects/${GCP_PROJECT}/secrets/signurl-jwt-hs256/versions/latest`;
 let SECRET;
 
 // we use Google Cloud Storage for session state
