@@ -909,11 +909,13 @@ function clientLeft(client) {
     if (!island) return;
     const wasClient = island.clients.delete(client);
     if (!wasClient) return;
+    const remaining = island.clients.size + island.syncClients.length;
     client.logger.debug({
         event: "deleted",
         clientCount: island.clients.size,
-    }, `client deleted, ${island.clients.size} remaining`);
-    if (island.clients.size === 0) provisionallyDeleteIsland(island);
+        syncClientCount: island.syncClients.length,
+    }, `client deleted, ${remaining} remaining`);
+    if (remaining === 0) provisionallyDeleteIsland(island);
     announceUserDidLeave(client);
 }
 
