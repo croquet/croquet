@@ -7,6 +7,8 @@ const THROTTLE = 1000 / 20;     // mouse event throttling
 const STEP_MS = 1000 / 30;      // bouncing ball step time in ms
 const SPEED = 10;               // bouncing ball speed in virtual pixels / step
 
+const RECONNECT = +new URL(window.location).searchParams.get("reconnect");
+
 
 ////// Models /////
 
@@ -263,6 +265,7 @@ async function go() {
         window.requestAnimationFrame(frame);
         SessionButton.innerText = "Leave";
         SessionButton.onclick = leaveSession;
+        if (RECONNECT > 0) setTimeout(() => SessionButton.innerText === "Leave" && leaveSession(), RECONNECT);
     }
 
     async function leaveSession() {
@@ -272,6 +275,7 @@ async function go() {
         session = null;
         SessionButton.innerText = "Join";
         SessionButton.onclick = joinSession;
+        if (RECONNECT > 0) setTimeout(() => SessionButton.innerText === "Join" && joinSession(), RECONNECT);
     }
 
     function frame(timestamp) {
