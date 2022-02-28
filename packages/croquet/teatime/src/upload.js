@@ -138,7 +138,7 @@ function nodeFetch(requestUrl, options) {
             hostname: urlObj.hostname,
             port: 443,
             path: urlObj.pathname + urlObj.search,
-            method: options.method || 'PUT',
+            method: options.method || 'GET',
             headers: options.headers,
             };
 
