@@ -47,11 +47,8 @@ else
 fi
 
 # commit
-FILES="cjs/croquet-croquet.js cjs/croquet-croquet.js.map pub/croquet.min.js pub/croquet.min.js.map"
-git update-index --no-assume-unchanged $FILES
 git add -A cjs/ pub/ $LIB/ $TARGET/$DOCS/
 git commit -m "[teatime] deploy $VERSION" cjs/ pub/ $LIB/ $TARGET/$DOCS/ || exit
-git update-index --assume-unchanged $FILES
 git --no-pager show --stat
 
 echo "Next, publish the npm:"
