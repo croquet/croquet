@@ -132,6 +132,7 @@ function nodeFetch(requestUrl, options) {
     // interface of a fetch() response: { ok, status, statusText, json() }.
     // json() is only added if ok is true.
     // options.referrer is currently ignored.
+    // We could send the "Referer" [sic] header but in Node there typically is no referrer URL
     return new Promise((resolve, reject) => {
         const urlObj = new URL(requestUrl);
         const requestOptions = {

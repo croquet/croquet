@@ -2043,7 +2043,7 @@ async function verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client, u
                 "X-Croquet-Id": persistentId,
                 "X-Croquet-Session": id,
                 "X-Croquet-Version": sdk,
-                "Referrer": url,
+                "Referer": url, // [sic]
             },
         });
         // we don't reject clients because of HTTP Errors
