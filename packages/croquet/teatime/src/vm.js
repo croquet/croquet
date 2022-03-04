@@ -619,21 +619,23 @@ export default class VirtualMachine {
                     }
                     continue;
                 }
-                if (methodName.indexOf('.') === -1) {
-                    if (typeof model[methodName] !== "function") {
-                        displayAppError(`event ${topic} ${model}.${methodName}(): method not found`);
-                        continue;
-                    } else {
-                        try {
-                            model[methodName](data);
-                        } catch (error) {
-                            displayAppError(`event ${topic} ${model}.${methodName}()`, error);
-                        }
+                if (methodName.indexOf('.') >= 0) {
+                    const i = methodName.indexOf('.');
+                    const head = methodName.slice(0, i);
+                    const tail = methodName.slice(i + 1);
+                    try {
+                        model.call(head, tail, data);
+                    } catch (error) {
+                        displayAppError(`event ${topic} ${model}.call(${JSON.stringify(head)}, ${JSON.stringify(tail)})`, error);
                     }
+                    continue;
+                }
+                if (typeof model[methodName] !== "function") {
+                    displayAppError(`event ${topic} ${model}.${methodName}(): method not found`);
+                    continue;
                 } else {
                     try {
-                        const split = methodName.split('.');
-                        model.call(split[0], split[1], data);
+                        model[methodName](data);
                     } catch (error) {
                         displayAppError(`event ${topic} ${model}.${methodName}()`, error);
                     }
@@ -895,6 +897,17 @@ export class Message {
                     fn(...args);
                 } catch (error) {
                     displayAppError(`${this.shortString()} ${fn}`, error);
+                }
+                });
+        } else if (selector.indexOf('.') >= 0) {
+            executor(() => {
+                const i = selector.indexOf('.');
+                const head = selector.slice(0, i);
+                const tail = selector.slice(i + 1);
+                try {
+                    object.call(head, tail, ...args);
+                } catch (error) {
+                    displayAppError(`${this.shortString()} ${object}.call(${JSON.stringify(head)}, ${JSON.stringify(tail)})`, error);
                 }
                 });
         } else if (typeof object[selector] !== "function") {

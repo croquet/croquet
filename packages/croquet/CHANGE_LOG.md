@@ -4,7 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest
 
-* disallow arbitrary methods to be invoked via reflector
+* disallow arbitrary methods to be invoked via reflector, allow dot calls in future sends
 * 1.1.0-4 clients detect loss of contact with reflector; warn about inline functions as model handlers; buildable for Node.js as well as browser
 * 1.1.0-3 flags on JOIN (to be able to request reflector raw time); handling raw time on PONG
 * 1.1.0-2 fix seamless rejoin; no sync=true if disconnected; old socket clean up; do not log PULSE
