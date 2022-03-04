@@ -273,15 +273,6 @@ export default class VirtualMachine {
         this.modelsByName[modelName] = model;
     }
 
-    // Send via reflector
-    callModelMethod(modelId, selector, args) {
-        if (CurrentVM) throw Error("You cannot make a reflector send from model code!");
-        const model = this.lookUpModel(modelId);
-        if (!model) { console.error(Error(`Model not found: ${modelId}`)); return; }
-        const message = new Message(this.time, 0, model.id, selector, args);
-        this.controller.sendMessage(message);
-    }
-
     // used in Controller.convertReflectorMessage()
     noop() {}
 
@@ -362,8 +353,26 @@ export default class VirtualMachine {
         this.externalTime = message.time; // we have all external messages up to this time
         this.externalSeq = message.seq; // we have all external messages up to this sequence number
         message.seq = message.seq * 2 + 1;  // make odd sequence for external messages
+        this.verifyExternal(message); // may throw
         this.messages.add(message);
         return message;
+    }
+
+    /** limit the methods that can be triggered directly via reflector */
+    verifyExternal(msg) {
+        if (msg.receiver !== this.id) throw Error(`invalid receiver in external message: ${msg}`);
+        // the common case (triggers handlers in models and views)
+        if (msg.selector === "handleModelEventInModel") return;
+        // the case if bundled, will verify each unbundled message
+        if (msg.selector === "handleBundledEvents") return;
+        // triggers handlers in only model (specifically, the VM's __views__ event handler)
+        if (msg.selector === "publishFromModelOnly") return;
+        // snapshot polling
+        if (msg.selector === "handlePollForSnapshot") return;
+        // TUTTI results from reflector are handled in controller, converted to noops
+        if (msg.selector === "noop") return;
+        // otherwise it's an error
+        throw Error(`unexpected external message: ${msg.selector}`);
     }
 
     futureSend(tOffset, receiverID, selector, args) {
@@ -566,6 +575,7 @@ export default class VirtualMachine {
         const { events } = data;
         for (const msgState of events) {
             const message = Message.fromState(msgState, this);
+            this.verifyExternal(message); // may throw
             message.executeOn(this, true); // nested invocation
         }
     }

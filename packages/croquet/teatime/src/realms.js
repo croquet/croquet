@@ -42,21 +42,7 @@ class ModelRealm {
         if (__currentRealm && __currentRealm.equal(this)) {
             return this.vm.future(model, tOffset, methodName, methodArgs);
         }
-        if (tOffset) throw Error("tOffset not supported from cross-realm future send yet.");
-        const vm = this.vm;
-        return new Proxy(model, {
-            get(_target, property) {
-                if (typeof model[property] === "function") {
-                    const methodProxy = new Proxy(model[property], {
-                        apply(_method, _this, args) {
-                            vm.callModelMethod(model.id, property, args);
-                        }
-                    });
-                    return methodProxy;
-                }
-                throw Error("Tried to call " + property + "() on future of " + Object.getPrototypeOf(model).constructor.name + " which is not a function");
-            }
-        });
+        throw Error(`Model.future() called from outside: ${model}`);
     }
 
     random() {
