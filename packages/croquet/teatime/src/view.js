@@ -186,19 +186,28 @@ class View {
      */
     subscribe(scope, eventSpec, callback) {
         if (typeof callback === "string") callback = this[callback];
-        callback = callback.bind(this);
+        const unbound = callback;
+        callback = unbound.bind(this);
+        callback.unbound = unbound;
         const {event, handling} = eventSpec.event ? eventSpec : {event: eventSpec};
         this.realm.subscribe(event, this.id, callback, scope, handling);
     }
 
     /**
-     * Unsubscribes this view's handlers for the given event in the given scope.
+     * Unsubscribes this view's handler(s) for the given event in the given scope.
+     *
+     * To unsubscribe only a specific handler, pass it as the third argument.
+     * @example
+     * this.unsubscribe("something", "changed");
+     * this.unsubscribe("something", "changed", this.handleMove);
      * @param {String} scope see [subscribe]{@link View#subscribe}
      * @param {String} event see [subscribe]{@link View#subscribe}
+     * @param {Function?} handler the handler to unsubscribe (optional)
      * @public
      */
-    unsubscribe(scope, event) {
-        this.realm.unsubscribe(event, this.id, null, scope);
+    unsubscribe(scope, event, callback=null) {
+        if (typeof callback === "string") callback = this[callback];
+        this.realm.unsubscribe(event, this.id, callback, scope);
     }
 
     /**

@@ -64,11 +64,11 @@ export class Domain {
      * @param {String} event - a name for the event
      * @param {*} subscriber - the owner of this subscription
      */
-    removeSubscription(scope, event, subscriber) {
+    removeSubscription(scope, event, subscriber, callback=null) {
         const topic = scope + ":" + event;
         const subs = this.subscriptions[topic];
         if (subs) {
-            const remaining = _removeSubscriber(subs, subscriber);
+            const remaining = _removeSubscriber(subs, subscriber, callback);
             if (remaining === 0) delete this.subscriptions[topic];
         }
 
@@ -163,10 +163,12 @@ export class Domain {
 }
 
 
-function _removeSubscriber(subscriptions, subscriber) {
+function _removeSubscriber(subscriptions, subscriber, callback=null) {
     function removeHandler(handlers) {
         for (const handler of handlers) {
-            if (handler.for === subscriber) handlers.delete(handler);
+            if ((callback !== null && handler.unbound === callback) || (callback === null && handler.for === subscriber)) {
+                handlers.delete(handler);
+            }
         }
     }
     removeHandler(subscriptions.immediate);
