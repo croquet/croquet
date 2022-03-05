@@ -408,14 +408,20 @@ class Model {
     }
 
     /**
-     * Unsubscribes this model's handler for the given event in the given scope.
+     * Unsubscribes this model's handler(s) for the given event in the given scope.
+     *
+     * To unsubscribe only a specific handler, pass it as the third argument.
+     * @example
+     * this.unsubscribe("something", "changed");
+     * this.unsubscribe(this.id, "moved", this.handleMove);
      * @param {String} scope see [subscribe]{@link Model#subscribe}
      * @param {String} event see [subscribe]{@link Model#subscribe}
+     * @param {Function?} handler the handler to unsubscribe (optional)
      * @public
      */
-    unsubscribe(scope, event) {
+    unsubscribe(scope, event, methodName='*') {
         if (!this.__realm) this.__realmError();
-        this.__realm.unsubscribe(this, scope, event);
+        this.__realm.unsubscribe(this, scope, event, methodName);
     }
 
     /**

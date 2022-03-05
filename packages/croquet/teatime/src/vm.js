@@ -518,15 +518,30 @@ export default class VirtualMachine {
         this.subscriptions[topic].push(handler);
     }
 
-    removeSubscription(model, scope, event, methodName) {
+    removeSubscription(model, scope, event, methodName='*') {
         if (CurrentVM !== this) throw Error("Cannot remove a model subscription from outside model code");
         const topic = scope + ":" + event;
-        const handler = model.id + "." + methodName;
         const handlers = this.subscriptions[topic];
         if (handlers) {
-            const indexToRemove = handlers.indexOf(handler);
-            handlers.splice(indexToRemove, 1);
-            if (handlers.length === 0) delete this.subscriptions[topic];
+            if (methodName === '*') {
+                const remaining = handlers.filter(handler => {
+                    const [modelID] = handler.split(".");
+                    return modelID !== model.id;
+                });
+                if (remaining.length === 0) delete this.subscriptions[topic];
+                else this.subscriptions[topic] = remaining;
+            } else {
+                const nameString = this.asQFunc(model, methodName);
+                if (typeof nameString !== "string") {
+                    throw Error(`Invalid unsubscribe args for "${event}" in ${model}: ${methodName}`);
+                }
+                const handler = model.id + "." + nameString;
+                const indexToRemove = handlers.indexOf(handler);
+                if (indexToRemove !== -1) {
+                    handlers.splice(indexToRemove, 1);
+                    if (handlers.length === 0) delete this.subscriptions[topic];
+                }
+            }
         }
     }
 
