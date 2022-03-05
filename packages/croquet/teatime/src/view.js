@@ -202,7 +202,7 @@ class View {
      * this.unsubscribe("something", "changed", this.handleMove);
      * @param {String} scope see [subscribe]{@link View#subscribe}
      * @param {String} event see [subscribe]{@link View#subscribe}
-     * @param {Function?} handler the handler to unsubscribe (optional)
+     * @param {Function?} handler (optional) the handler to unsubscribe (added in 1.1)
      * @public
      */
     unsubscribe(scope, event, callback=null) {

@@ -416,7 +416,7 @@ class Model {
      * this.unsubscribe(this.id, "moved", this.handleMove);
      * @param {String} scope see [subscribe]{@link Model#subscribe}
      * @param {String} event see [subscribe]{@link Model#subscribe}
-     * @param {Function?} handler the handler to unsubscribe (optional)
+     * @param {Function?} handler (optional) the handler to unsubscribe (added in 1.1)
      * @public
      */
     unsubscribe(scope, event, methodName='*') {
