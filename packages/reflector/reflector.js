@@ -161,7 +161,7 @@ const LATE_DISPATCH_DELAY = 1000;  // how long to allow for clients arriving fro
 // Map pino levels to GCP, https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry#LogSeverity
 const GCP_SEVERITY = {
     trace:  'DEFAULT',  // 10 default min on local
-    meter:  'DEFAULT',  // 15 default min otherwise
+    meter:  'DEFAULT',  // 15 not a pino level, default min
     debug:  'DEBUG',    // 20
     info:   'INFO',     // 30
     notice: 'NOTICE',   // 35 not a pino level
@@ -179,7 +179,7 @@ const empty_logger = pino({
     timestamp: CLUSTER_IS_LOCAL && !NO_LOGTIME,
     level: process.env.LOG_LEVEL ? process.env.LOG_LEVEL.toLowerCase() : CLUSTER_IS_LOCAL ? 'trace' : 'meter',
     customLevels: {
-        meter: 25,
+        meter: 15,
         notice: 35,
     },
     formatters: {
