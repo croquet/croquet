@@ -927,7 +927,7 @@ function announceUserDidJoin(client) {
     if (didLeave !== -1) island.usersLeft.splice(didLeave, 1);
     else island.usersJoined.push(client.user);
     scheduleUsersMessage(island);
-    client.logger.trace({
+    client.logger.debug({
         event: "user-joined",
         user: typeof client.user === "string" ? client.user : JSON.stringify(client.user), // BigQuery wants a single data type
     }, `user ${JSON.stringify(client.user)} joined`);
@@ -941,7 +941,7 @@ function announceUserDidLeave(client) {
     if (didJoin !== -1) island.usersJoined.splice(didJoin, 1);
     else island.usersLeft.push(client.user);
     scheduleUsersMessage(island);
-    client.logger.trace({
+    client.logger.debug({
         event: "user-left",
         user: typeof client.user === "string" ? client.user : JSON.stringify(client.user), // BigQuery wants a single data type
     }, `user ${JSON.stringify(client.user)} left`);
