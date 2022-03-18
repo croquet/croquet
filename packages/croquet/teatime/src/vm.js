@@ -633,7 +633,14 @@ export default class VirtualMachine {
             let tallyTarget;
             if (wantsVote) tallyTarget = [this.id, "handleModelEventInView", voteTopic];
             else tallyTarget = [this.id, "handleTuttiDivergence", divergenceTopic];
-            Promise.resolve().then(() => this.controller.sendTutti(this.time, topic, data, firstMessage, wantsVote, tallyTarget)); // break out of model code
+            Promise.resolve().then(() => this.controller.sendTutti({
+                time: this.time,
+                topic,
+                data,
+                firstMessage,
+                wantsVote,
+                tallyTarget
+                })); // break out of model code
         } else if (this.subscriptions[topic]) {
             for (const handler of this.subscriptions[topic]) {
                 const [id, ...rest] = handler.split('.');
