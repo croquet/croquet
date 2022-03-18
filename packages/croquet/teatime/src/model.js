@@ -179,6 +179,13 @@ class Model {
     }
 
     /**
+     * Evaluates func inside of a temporary VM to get bit-identical results, e.g. to init [Constants]{@link Constants}.
+    */
+    static evaluate(func) {
+        return VirtualMachine.evaluate(func);
+    }
+
+    /**
      * __Static declaration of how to serialize non-model classes.__
      *
      * The Croquet snapshot mechanism only knows about {@link Model} subclasses.

@@ -160,8 +160,14 @@ function setPersistenceCache(vm, details) { persistenceDetails.set(vm, details);
 function getPersistenceCache(vm) { return persistenceDetails.get(vm); }
 function clearPersistenceCache(vm) { persistenceDetails.set(vm, null); }
 
+/** A fake VM is used to run bit-identical code outside of the model, e.g. for Constant init */
+class FakeVM {
+    random() {
+        throw Error("Math.random() cannot be used in Model.evaluate()");
+    }
+}
 
-/** An vm holds the models which are replicated by teatime,
+/** A VM holds the models which are replicated by teatime,
  * a queue of messages, plus additional bookkeeping to make
  * uniform pub/sub between models and views possible.*/
 export default class VirtualMachine {
@@ -172,6 +178,19 @@ export default class VirtualMachine {
 
     static hasCurrent() {
         return !!CurrentVM;
+    }
+
+    /** exposed as Model.evaluate() */
+    static evaluate(fn) {
+        if (CurrentVM) return fn();
+        patchBrowser(); // trivial if already installed
+        const previousVM = CurrentVM;
+        try {
+            CurrentVM = new FakeVM();
+            return fn();
+        } finally {
+            CurrentVM = previousVM;
+        }
     }
 
     constructor(snapshot, initFn) {
