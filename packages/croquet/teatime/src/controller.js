@@ -438,8 +438,8 @@ export default class Controller {
     scheduleSnapshot() {
         // abandon if this call (delayed by up to 2s - possibly more, if browser is busy)
         // has been overtaken by a poll initiated by another client.  or if the controller
-        // has been reset, or we're disconnected.
-        if (!this.connected || !this.vm) return;
+        // has been reset, or we're disconnected, or viewOnly.
+        if (!this.connected || !this.vm || this.viewOnly) return;
 
         const now = this.vm.time;
         const sinceLast = now - this.vm.lastSnapshotPoll;
@@ -458,7 +458,7 @@ export default class Controller {
         // !!! THIS IS BEING EXECUTED INSIDE THE SIMULATION LOOP!!!
         // !!! IT MUST NOT MODIFY VM !!!
 
-        if (this.synced !== true) {
+        if (this.synced !== true || this.viewOnly) {
             // not going to vote, so don't waste time on creating the hash
             this.triggeringCpuTime = null; // ...though unlikely to have been set
             return;
