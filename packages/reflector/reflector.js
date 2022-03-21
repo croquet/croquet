@@ -202,8 +202,8 @@ let SECRET;
 
 // we use Google Cloud Storage for session state
 const storage = new Storage();
-const SESSION_BUCKET = NO_STORAGE ? null : storage.bucket('croquet-sessions-v1');
-const DISPATCHER_BUCKET = NO_DISPATCHER ? null : storage.bucket('croquet-reflectors-v1');
+const SESSION_BUCKET = NO_STORAGE ? null : storage.bucket(`${GCP_PROJECT}-sessions-v1`);
+const DISPATCHER_BUCKET = NO_DISPATCHER ? null : storage.bucket(`${GCP_PROJECT}-reflectors-v1`);
 
 // pointer to latest persistent data is stored in user buckets
 // direct bucket access (instead of going via load-balancer as clients do)
