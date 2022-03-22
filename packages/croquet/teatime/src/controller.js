@@ -401,22 +401,6 @@ export default class Controller {
 
     lastKnownTime(vmOrSnapshot) { return Math.max(vmOrSnapshot.time, vmOrSnapshot.externalTime); }
 
-    // DEBUG SUPPORT - NORMALLY NOT USED
-    syncCheck(time, summaryHash) {
-        if (this.synced !== true) return;
-        this.sendTutti({
-            time,
-            topic: 'syncCheck',
-            data: summaryHash,
-            tallyCallback: tally => {
-                const hashStrings = Object.keys(tally);
-                if (hashStrings.length > 1) {
-                    console.warn("sync check failed:", hashStrings);
-                } else console.log("sync check ok");
-                }
-            });
-    }
-
     takeSnapshot() {
         const snapshot = this.vm.snapshot();
         const time = this.lastKnownTime(snapshot);

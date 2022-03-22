@@ -714,17 +714,6 @@ export default class VirtualMachine {
         return inViewRealm(this, () => viewDomain.processFrameEvents(isInAnimationStep, !!this.controller.synced));
     }
 
-    // DEBUG SUPPORT - NORMALLY NOT USED
-    pollToCheckSync() {
-        const time = this.time;
-        if (this.controller.synced !== true) return;
-        const before = Date.now();
-        const data = this.getSummaryHash();
-        const elapsed = Date.now() - before;
-        this.controller.cpuTime -= elapsed; // give ourselves a time credit for the non-simulation work
-        Promise.resolve().then(() => this.controller.syncCheck(time, data));
-    }
-
     handlePollForSnapshot() {
         // make sure there isn't a clash between clients simultaneously deciding
         // that it's time for someone to take a snapshot.
