@@ -290,13 +290,13 @@ class SyncedVideoModel extends Model {
     }
 
     // 'stored-data' is published when the upload finished
-    storedData({hash, handle}) {
+    storedData({hash, handle}, persist=true) {
         this.handles[hash] = handle;
         if (this.asset && this.asset.hash === hash) {
             this.asset.handle = handle;
             this.publish(this.id, 'asset-changed');
         }
-        this.persistSession(this.getEverything);
+        if (persist) this.persistSession(this.getEverything);
     }
 
     // the SyncedVideoView sends 'set-play-state' events when the user plays, pauses or scrubs the video.  the interface location of the user action responsible for this change of state is specified in actionSpec.
@@ -322,7 +322,7 @@ class SyncedVideoModel extends Model {
         this.addAsset(persistedData.asset);
         for (const [pHash, pId] of persistedData.handles) {
             const handle = Data.fromId(pId);
-            this.storedData({pHash, handle});
+            this.storedData({hash: pHash, handle}, false); // don't re-capture state
         }
     }
 }
