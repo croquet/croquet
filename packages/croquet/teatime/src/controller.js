@@ -521,16 +521,17 @@ export default class Controller {
 
         const hashGroups = Object.keys(votesByHash);
         const numberOfGroups = hashGroups.length;
-        let consensusHash = hashGroups[0];
+        let consensusIndex = 0;
         if (numberOfGroups > 1) {
             // decide consensus by majority vote; in a tie, summary hash first in
             // lexicographic order is taken as the consensus.
             hashGroups.sort((a, b) => votesByHash[b].length - votesByHash[a].length); // descending order of number of matching votes
             if (votesByHash[hashGroups[0]].length === votesByHash[hashGroups[1]].length) {
                 if (DEBUG.snapshot) console.log(this.id, `Deciding consensus by tie-break`);
-                consensusHash = hashGroups[0] < hashGroups[1] ? hashGroups[0] : hashGroups[1];
+                if (hashGroups[1] < hashGroups[0]) consensusIndex = 1;
             }
         }
+        const consensusHash = hashGroups[consensusIndex];
 
         // figure out whether this client should do the upload for the group (if any)
         // that it's in.
