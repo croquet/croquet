@@ -750,7 +750,7 @@ export default class Controller {
 
         const { numberOfGroups, shouldUpload, dissidentFlag } = this.analyzeTally(tally, 'ms');
         if (numberOfGroups > 1) console.warn(this.id, `Persistence records fall into ${numberOfGroups} groups`);
-        if (!shouldUpload) return;
+        if (!shouldUpload || !localContext) return;
 
         const { persistTime, persistentHash, persistentString } = localContext;
         const url = await this.uploadEncrypted({
