@@ -2029,9 +2029,10 @@ async function verifyToken(token) {
     });
 }
 
-const DEFAULT_SIGN_SERVER = "https://api.croquet.io/sign";
-const DEV_SIGN_SERVER = "https://api.croquet.io/dev/sign";
-const API_SERVER_URL = IS_DEV ? DEV_SIGN_SERVER : DEFAULT_SIGN_SERVER;
+
+const PROD_SIGN_SERVER = "https://api.croquet.io/sign";
+const DEV_SIGN_SERVER = `https://api.${GCP_PROJECT}.croquet.dev/sign`;
+const API_SERVER_URL = GCP_PROJECT === 'croquet-proj' ? PROD_SIGN_SERVER : DEV_SIGN_SERVER;
 
 async function verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client, unverifiedDeveloperId) {
     if (!VERIFY_TOKEN) return { developerId: unverifiedDeveloperId, region: "default" };
