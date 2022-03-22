@@ -388,7 +388,9 @@ export default class VirtualMachine {
         if (msg.selector === "publishFromModelOnly") return;
         // snapshot polling
         if (msg.selector === "handlePollForSnapshot") return;
-        // TUTTI results from reflector are handled in controller, converted to noops
+        // processing of TUTTI
+        if (msg.selector === "handleTuttiResult") return;
+        // can't really object to noop
         if (msg.selector === "noop") return;
         // otherwise it's an error
         throw Error(`unexpected external message: ${msg.selector}`);
@@ -702,6 +704,8 @@ export default class VirtualMachine {
     }
 
     handleTuttiDivergence(divergenceTopic, data) {
+        // for a reflected model message foo#reflected, by default divergence triggers any model
+        // subscriptions for foo#divergence.
         if (this.subscriptions[divergenceTopic]) this.handleModelEventInModel(divergenceTopic, data);
         else {
             const event = divergenceTopic.split(":").slice(-1)[0];
@@ -726,6 +730,18 @@ export default class VirtualMachine {
 
         this.lastSnapshotPoll = now;
         this.controller.handlePollForSnapshot(now);
+    }
+
+    handleTuttiResult(_topic, data) {
+        this.controller.handleTuttiResult(data);
+    }
+
+    handleSnapshotVote(_topic, data) {
+        this.controller.handleSnapshotVote(data);
+    }
+
+    handlePersistVote(_topic, data) {
+        this.controller.handlePersistVote(data);
     }
 
     snapshot() {

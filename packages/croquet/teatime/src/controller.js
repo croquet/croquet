@@ -410,7 +410,7 @@ export default class Controller {
             options: this.sessionSpec.options,
             time,
             seq,
-            date: (new Date()).toISOString(),
+            date: (new globalThis.CroquetViewDate()).toISOString(), // mar 2022: this is now running in Model code
             host: NODE ? 'localhost' : window.location.hostname,
             sdk: CROQUET_VERSION,
         };
@@ -476,24 +476,26 @@ export default class Controller {
 
     pollForSnapshot(time, voteData) {
         voteData.cpuTime += Math.random(); // fuzzify by 0-1ms to further reduce [already minuscule] risk of exact agreement.  NB: this is a view-side random().
+        const voteMessage = [this.id, "handleSnapshotVote", "snapshotVote"]; // direct message to the VM (3rd arg - topic - will be ignored)
         if (DEBUG.snapshot) console.log(this.id, 'sending snapshot vote', voteData);
+        this.sendTutti({ time, topic: "snapshot", data: voteData, tallyTarget: voteMessage });
+    }
 
-        this.sendTutti({
-            time,
-            topic: 'snapshot',
-            data: voteData,
-            tallyCallback: tally => {
-                if (this.synced !== true) {
-                    if (DEBUG.snapshot) console.log(this.id, "Ignoring snapshot vote during sync");
-                    return;
-                }
-                if (DEBUG.snapshot) console.log(this.id, "received snapshot votes", tally);
+    handleSnapshotVote(data) {
+        // !!! THIS IS BEING EXECUTED INSIDE THE SIMULATION LOOP!!!
 
-                const { numberOfGroups, shouldUpload, dissidentFlag } = this.analyzeTally(tally, 'cpuTime');
-                if (numberOfGroups > 1) console.error(this.id, `Session diverged! Snapshots fall into ${numberOfGroups} groups`);
-                if (shouldUpload) this.serveSnapshot(dissidentFlag);
-                }
-            });
+        if (this.synced !== true) {
+            if (DEBUG.snapshot) console.log(this.id, "Ignoring snapshot vote during sync");
+            return;
+        }
+
+        const { tally } = data;
+
+        if (DEBUG.snapshot) console.log(this.id, "received snapshot votes", tally);
+
+        const { numberOfGroups, shouldUpload, dissidentFlag } = this.analyzeTally(tally, 'cpuTime');
+        if (numberOfGroups > 1) console.error(this.id, `Session diverged! Snapshots fall into ${numberOfGroups} groups`);
+        if (shouldUpload) this.serveSnapshot(dissidentFlag);
     }
 
     analyzeTally(tally, timeProperty) {
@@ -721,12 +723,36 @@ export default class Controller {
         return `apps/${appId}/${persistentId}/save/${hash}`;
     }
 
-    async pollForPersist(vmTime, persistTime, persistentString, persistentHash, ms) {
+    pollForPersist(vmTime, persistTime, persistentString, persistentHash, ms) {
         if (!this.synced) return; // ignore during fast-forward
         if (!this.sessionSpec.appId) throw Error('Persistence API requires appId');
-        const { shouldUpload, dissidentFlag } = await this.persistenceVoting(vmTime, persistTime, persistentHash, ms);
+
+        const ourVote = {
+            viewId: this.viewId,                // to identify our own vote
+            hash: persistentHash,               // if this differs, each group will upload
+            ms: ms + Math.random() * 0.001,     // for sorting within a group, plus add a tiny bit of randomness
+            };
+        const localContext = { persistTime, persistentHash, persistentString }; // will be supplied with the tally
+        const voteMessage = [this.id, "handlePersistVote", "persistVote"]; // direct message to the VM (3rd arg - topic - will be ignored)
+        if (DEBUG.snapshot) console.log(this.id, `sending persistence vote for time @${persistTime}`, ourVote);
+        this.sendTutti({ time: vmTime, topic: "persist", data: ourVote, localContext, tallyTarget: voteMessage });
+    }
+
+    async handlePersistVote(data) {
+        // !!! THIS IS BEING EXECUTED INSIDE THE SIMULATION LOOP!!!
+
+        const { tally, localContext } = data;
+        if (DEBUG.snapshot) {
+            const tookPart = !!localContext;
+            const timeString = tookPart ? `for time @${localContext.persistTime}` : "that we didn't participate in";
+            console.log(this.id, `received persistence vote ${timeString}`, tally);
+        }
+
+        const { numberOfGroups, shouldUpload, dissidentFlag } = this.analyzeTally(tally, 'ms');
+        if (numberOfGroups > 1) console.warn(this.id, `Persistence records fall into ${numberOfGroups} groups`);
         if (!shouldUpload) return;
 
+        const { persistTime, persistentHash, persistentString } = localContext;
         const url = await this.uploadEncrypted({
             path: this.persistentPath(persistentHash),
             content: persistentString,
@@ -748,30 +774,6 @@ export default class Controller {
         } catch (e) {
             console.error('ERROR while sending', e);
         }
-    }
-
-    persistenceVoting(vmTime, persistTime, our_hash, our_ms) {
-        if (this.synced !== true) return { shouldUpload: false }; // we don't participate unless we're synced
-        const ourVote = {
-            viewId: this.viewId,                // to identify our own vote
-            hash: our_hash,                     // if this differs, each group will upload
-            ms: our_ms + Math.random() * 0.001, // for sorting within a group, plus add a tiny bit of randomness
-            };
-        if (DEBUG.snapshot) console.log(this.id, `sending persistence vote for time @${persistTime}`, ourVote);
-        return new Promise(resolve => {
-            this.sendTutti({
-                time: vmTime,
-                topic: 'persist',
-                data: ourVote,
-                tallyCallback: tally => {
-                    if (DEBUG.snapshot) console.log(this.id, `received persistence votes for time @${persistTime}`, tally);
-
-                    const { numberOfGroups, shouldUpload, dissidentFlag } = this.analyzeTally(tally, 'ms');
-                    if (numberOfGroups > 1) console.warn(this.id, `Persistence records fall into ${numberOfGroups} groups`);
-                    resolve({ shouldUpload, dissidentFlag });
-                    }
-                });
-            });
     }
 
     // convert a message generated by the reflector itself to our own format
@@ -805,26 +807,13 @@ export default class Controller {
                 // an old reflector will send a property tuttiSeq containing the dummy
                 // sequence number that we provided; a new reflector will notice that we
                 // provided a tuttiKey, and will send just that.
-                // the reflector's message also contains the tally, and an array containing
-                // the id, selector and topic that it was told to use.
+                // the reflector's message also contains the tally, and optionally a tallyTarget
+                // message to be dispatched by the VM.
                 const { tuttiSeq, tuttiKey, tally, tallyTarget, missingClients } = msg[2];
                 if ((DEBUG.messages || DEBUG.snapshot) && missingClients) console.log(`${missingClients} ${missingClients === 1 ? "client" : "clients"} failed to participate in tally ${tuttiKey || tuttiSeq}`); // purely for information
-                const finder = tuttiKey
-                    ? (hist => hist.tuttiKey === tuttiKey)
-                    : (hist => hist.dummyTuttiSeq === tuttiSeq);
-                const tuttiIndex = this.tuttiHistory.findIndex(finder);
-                const local = tuttiIndex !== -1 && this.tuttiHistory.splice(tuttiIndex, 1)[0];
-                // if we participated, supplying a callback, invoke that now
-                if (local && local.tallyCallback) local.tallyCallback(tally);
-                // if a target message was passed, execute it
-                if (tallyTarget) {
-                    const convertedArgs = { tally };
-                    // if we have a record of supplying a value for this TUTTI, add it to the args.
-                    if (local) convertedArgs._local = local.payload;
-                    let topic;
-                    [ receiver, selector, topic ] = tallyTarget;
-                    args = [ topic, convertedArgs ];
-                }
+                receiver = this.id;
+                selector = "handleTuttiResult";
+                args = [ "dummyTopic", { tuttiSeq, tuttiKey, tally, tallyTarget } ];
                 break;
             }
             // no default
@@ -832,6 +821,32 @@ export default class Controller {
         // convert to serialized state
         const message = new Message(0, 0, receiver, selector, args);
         msg[2] = message.asState()[2];
+    }
+
+    handleTuttiResult(data) {
+        const { tuttiSeq, tuttiKey, tally, tallyTarget } = data;
+        const finder = tuttiKey
+            ? (hist => hist.tuttiKey === tuttiKey)
+            : (hist => hist.dummyTuttiSeq === tuttiSeq);
+        const tuttiIndex = this.tuttiHistory.findIndex(finder);
+        const local = tuttiIndex !== -1 && this.tuttiHistory.splice(tuttiIndex, 1)[0];
+        // if we have a record of supplying a vote for this TUTTI, retrieve our contribution and any local context
+        let localPayload = null, localContext = null;
+        if (local) {
+            localPayload = local.payload;  // stringified
+            localContext = local.localContext;
+        }
+        if (tallyTarget) {
+            const [receiver, selector, topic] = tallyTarget;
+            const args = [ topic, { tally, localPayload, localContext } ];
+            const message = new Message(0, 0, receiver, selector, args);
+            // the only vm-direct messages allowed are the usual collection, plus those explicitly referenced at the library level in TUTTI handling
+            if (message.receiver === this.id &&
+                !(["handleModelEventInView", "handleTuttiDivergence", "handleSnapshotVote", "handlePersistVote"].includes(message.selector))) {
+                    this.vm.verifyExternal(message);
+            }
+            message.executeOn(this.vm, true); // true => nested
+        }
     }
 
     // handle messages from reflector
@@ -1477,11 +1492,27 @@ export default class Controller {
     /** send a TUTTI Message
      * @param {Object} spec
     */
-    async sendTutti({ time, topic, data, firstMessage=null, wantsVote=true, tallyTarget=null, tallyCallback=null }) {
-        // TUTTI: Send a message that multiple instances are expected to send identically.
-        // The reflector will optionally broadcast the first received message immediately,
-        // then gather all messages up to a deadline and send a TALLY message summarising the results
-        // (whatever those results, if wantsVote is true; otherwise, only if there is some variation among them).
+    async sendTutti({ time, topic, data, localContext=null, firstMessage=null, wantsVote=true, tallyTarget=null }) {
+        // TUTTI: Send a message that multiple clients are expected to send identically.
+        // This method is called directly by system-level features that use voting (currently for snapshot
+        // and persistence).  It is also invoked implicitly from handleModelEventInModel, if the
+        // published event name has the #reflected suffix.
+        // The reflector will optionally broadcast the first received message immediately, then
+        // gather all messages up to a deadline and send a TALLY message summarising the results
+        // (whatever those results, if wantsVote is true; otherwise, only if there is some divergence
+        // among them).
+
+        // When called via handleModelEventInModel for a published event scope:foo#reflected
+        //  - firstMessage will be handleModelEventInModel(scope:foo) iff there is a model subscription
+        //    for scope:foo
+        //  - wantsVote will be true iff there is a view subscription for scope:foo#__vote.  in this case,
+        //    tallyTarget will be handleModelEventInView(scope:foo#__vote)
+        //  - if wantsVote is false - meaning that the tallyTarget will only be invoked if there is
+        //    divergence - the tallyTarget is handleTuttiDivergence, which invokes any model-level
+        //    subscription for scope:foo#divergence or, if none, prints an "uncaptured divergence" warning.
+
+        // The optional localContext is for arbitrary values that this client wants to have at hand when
+        // the vote comes in, but not to send to the reflector.  The values don't need to be serialisable.
         if (this.viewOnly) return;
 
         // get the asynchronous encoding out of the way before the check that
@@ -1492,13 +1523,13 @@ export default class Controller {
         // view sending events while connection is closing or rejoining
         if (!this.connected) {
             if (this.vm) {
-                if (DEBUG.sends) console.log(this.id, `buffering TUTTI ${payload} ${firstMessage && firstMessage.asState()} ${tallyTarget}`);
-                this.sendBuffer.push(() => this.sendTutti({ time, topic, data, firstMessage, wantsVote, tallyTarget, tallyCallback }));
+                if (DEBUG.sends) console.log(this.id, `buffering "${topic}" TUTTI ${payload} ${firstMessage && firstMessage.asState()}`);
+                this.sendBuffer.push(() => this.sendTutti({ time, topic, data, localContext, firstMessage, wantsVote, tallyTarget }));
             }
             return;
         }
 
-        if (DEBUG.sends) console.log(this.id, `sending TUTTI ${payload} ${firstMessage && firstMessage.asState()} ${tallyTarget}`);
+        if (DEBUG.sends) console.log(this.id, `sending "${topic}" TUTTI ${payload} ${firstMessage && firstMessage.asState()}`);
         this.lastSent = Date.now();
         // jul 2021: in case we were assigned to an old reflector, we supplied a dummy
         // tuttiSeq in second place in the arg array.  as of late 2021 all deployed
@@ -1512,7 +1543,7 @@ export default class Controller {
             args: [time, dummyTuttiSeq, payload, encryptedMsg, wantsVote, tallyTarget, tuttiKey],
         }));
         if (this.tuttiHistory.length > 100) this.tuttiHistory.shift();
-        this.tuttiHistory.push({ time, tuttiKey, dummyTuttiSeq, payload, tallyCallback });
+        this.tuttiHistory.push({ time, tuttiKey, dummyTuttiSeq, payload, localContext });
     }
 
     sendLog(...args) {
