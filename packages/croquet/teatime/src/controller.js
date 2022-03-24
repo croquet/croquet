@@ -71,7 +71,7 @@ function getBackendUrls() {
     if (backend) {
         return {
             SIGN_SERVER: `https://api.${backend}.croquet.dev/sign`,
-            REFLECTOR: `wss://reflector.${backend}.croquet.dev/reflector/v${VERSION}`
+            REFLECTOR: `wss://api.${backend}.croquet.dev/reflector/v${VERSION}`
         };
     }
 
@@ -82,7 +82,7 @@ function getBackendUrls() {
         const project = hostname.split('.croquet.dev')[0];
         return {
             SIGN_SERVER: `https://api.${project}.croquet.dev/sign`,
-            REFLECTOR: `wss://reflector.${project}.croquet.dev/reflector/v${VERSION}`
+            REFLECTOR: `wss://api.${project}.croquet.dev/reflector/v${VERSION}`
         };
     }
 
