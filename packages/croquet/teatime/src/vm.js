@@ -1250,7 +1250,7 @@ class VMWriter {
                     case "ArrayBuffer": return this.writeArrayBuffer(value);
                     case "Set":
                     case "Map":
-                        return this.writeAs(type, value, [...value], path);
+                        return this.writeAs(type, value, [...value].flat(), path); // flatten to single array [key, value, key, value, ...]
                     case "DataView":
                     case "Int8Array":
                     case "Uint8Array":
@@ -1444,7 +1444,7 @@ class VMReader {
         this.readers.set("Infinity", sign => sign * Infinity);
         this.readers.set("NegZero", () => -0);
         this.readers.set("Set", array => new Set(array));
-        this.readers.set("Map", array => new Map(array));
+        this.readers.set("Map", array => { const m = new Map(); for (let i = 0; i < array.length; i +=2) m.set(array[i], array[i + 1]); return m; });
         this.readers.set("Array", array => array.slice(0));
         this.readers.set("ArrayBuffer", data => base64ToArrayBuffer(data));
         this.readers.set("DataView", args => new DataView(...args));
@@ -1552,7 +1552,7 @@ class VMReader {
     readAs(classID, state, path) {
         let temp = {};
         const unresolved = new Map();
-        if ("$value" in state) temp = this.read(state.$value, path, 2);     // Map needs to resolve array of arrays, so 2
+        if ("$value" in state) temp = this.read(state.$value, path, 1);
         else for (const [key, value] of Object.entries(state)) {
             if (key[0] === "$") continue;
             const ref = value && value.$ref;
