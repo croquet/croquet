@@ -262,7 +262,7 @@ export default class VirtualMachine {
 
     registerModel(model, id) {
         if (CurrentVM !== this) throw Error("You can only create models from model code!");
-        if (!id) id = this.id + "/M" + ++this.modelsId;
+        if (!id) id = "M" + ++this.modelsId;
         this.modelsById[id] = model;
         // not assigning the id here catches missing super calls in init() and load()
         return id;
