@@ -402,6 +402,7 @@ export default class Controller {
     lastKnownTime(vmOrSnapshot) { return Math.max(vmOrSnapshot.time, vmOrSnapshot.externalTime); }
 
     takeSnapshot() {
+        // !!! THIS IS BEING EXECUTED INSIDE THE SIMULATION LOOP!!!
         const snapshot = this.vm.snapshot();
         const time = this.lastKnownTime(snapshot);
         const seq = snapshot.externalSeq;
@@ -415,6 +416,23 @@ export default class Controller {
             sdk: CROQUET_VERSION,
         };
         delete snapshot.meta.hash; // old hash is invalid
+        return snapshot;
+    }
+
+    takeSnapshotHandleErrors() {
+        // !!! THIS IS BEING EXECUTED INSIDE THE SIMULATION LOOP!!!
+
+        let start, ms, snapshot;
+        try {
+            start = Stats.begin("snapshot");
+            snapshot = this.takeSnapshot();
+        } catch (error) {
+            displayAppError("snapshot", error);
+            return null;
+        } finally {
+            ms = Stats.end("snapshot") - start;
+        }
+        if (DEBUG.snapshot) console.log(this.id, `snapshot taken in ${Math.ceil(ms)} ms`);
         return snapshot;
     }
 
@@ -495,10 +513,16 @@ export default class Controller {
 
         const { numberOfGroups, shouldUpload, dissidentFlag } = this.analyzeTally(tally, 'cpuTime');
         if (numberOfGroups > 1) console.error(this.id, `Session diverged! Snapshots fall into ${numberOfGroups} groups`);
-        if (shouldUpload) this.serveSnapshot(dissidentFlag);
+        if (shouldUpload) {
+            const snapshot = this.takeSnapshotHandleErrors();
+            // switch out of the simulation loop
+            if (snapshot) Promise.resolve().then(() => this.uploadSnapshot(snapshot, dissidentFlag));
+        }
     }
 
     analyzeTally(tally, timeProperty) {
+        // !!! THIS IS BEING EXECUTED INSIDE THE SIMULATION LOOP!!!
+
         // analyse the results of a tutti vote for either a snapshot or persistence,
         // in which the tally keys are JSONified vote objects that are guaranteed to be
         // unique.
@@ -548,21 +572,6 @@ export default class Controller {
         }
 
         return { numberOfGroups, shouldUpload, dissidentFlag };
-    }
-
-    serveSnapshot(dissidentFlag) {
-        let start, ms, snapshot;
-        try {
-            start = Stats.begin("snapshot");
-            snapshot = this.takeSnapshot();
-        } catch (error) {
-            displayAppError("snapshot", error);
-            return;
-        } finally {
-            ms = Stats.end("snapshot") - start;
-        }
-        if (DEBUG.snapshot) console.log(this.id, `snapshot taken in ${Math.ceil(ms)} ms`);
-        this.uploadSnapshot(snapshot, dissidentFlag);
     }
 
     snapshotPath(time, seq, hash) {
