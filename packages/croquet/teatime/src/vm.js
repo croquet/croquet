@@ -1431,7 +1431,7 @@ class VMReader {
     constructor(vm) {
         this.vm = vm;
         this.refs = new Map();
-        this.todo = [];   // we use breadth-first reading to limit stack depth
+        this.todo = [];   // we use breadth-first deferred reading to limit stack depth
         this.unresolved = [];
         this.readers = new Map();
         this.addReader("Teatime:Message", Message);
@@ -1481,7 +1481,7 @@ class VMReader {
     readDeferred() {
         while (this.todo.length > 0) {
             const {object, key, value, path} = this.todo.shift();
-            this.readInto(object, key, value, path, 1);
+            this.readInto(object, key, value, path, false);
         }
     }
 
@@ -1495,7 +1495,7 @@ class VMReader {
         }
     }
 
-    read(value, path, nodefer=0) {
+    read(value, path, defer=true) {
         switch (typeof value) {
             case "number":
             case "string":
@@ -1504,14 +1504,14 @@ class VMReader {
             default: {
                 const type = Object.prototype.toString.call(value).slice(8, -1);
                 switch (type) {
-                    case "Array": return this.readArray(value, path, nodefer);
+                    case "Array": return this.readArray(value, path, defer);
                     case "Null": return null;
                     case "Object": {
                         const { $class, $model, $ref } = value;
                         if ($ref) throw Error("refs should have been handled in readInto()");
                         if ($model) return this.readModel(value, path);
                         if ($class) return this.readAs($class, value, path);
-                        return this.readObject(Object, value, path, nodefer);
+                        return this.readObject(Object, value, path, defer);
                     }
                     default:
                         throw Error(`Don't know how to deserialize ${type} at ${path}`);
@@ -1530,21 +1530,21 @@ class VMReader {
         return model;
     }
 
-    readObject(Class, state, path, nodefer=0) {
+    readObject(Class, state, path, defer=true) {
         const object = new Class();
         if (state.$id) this.refs.set(state.$id, object);
         for (const [key, value] of Object.entries(state)) {
             if (key[0] === "$") continue;
-            this.readInto(object, key, value, path, nodefer);
+            this.readInto(object, key, value, path, defer);
         }
         return object;
     }
 
-    readArray(array, path, nodefer=0) {
+    readArray(array, path, defer=true) {
         const result = [];
         if (array.$id) this.refs.set(array.$id, result);
         for (let i = 0; i < array.length; i++) {
-            if (array[i] !== undefined) this.readInto(result, i, array[i], path, nodefer); // allow for missing indices
+            if (array[i] !== undefined) this.readInto(result, i, array[i], path, defer); // allow for missing indices
         }
         return result;
     }
@@ -1552,7 +1552,7 @@ class VMReader {
     readAs(classID, state, path) {
         let temp = {};
         const unresolved = new Map();
-        if ("$value" in state) temp = this.read(state.$value, path, 1);
+        if ("$value" in state) temp = this.read(state.$value, path, false);
         else for (const [key, value] of Object.entries(state)) {
             if (key[0] === "$") continue;
             const ref = value && value.$ref;
@@ -1563,7 +1563,7 @@ class VMReader {
                     unresolved.set(ref, key);
                 }
             } else {
-                this.readInto(temp, key, value, path, 1);
+                this.readInto(temp, key, value, path, false);
             }
         }
         const reader = this.readers.get(classID);
@@ -1588,15 +1588,15 @@ class VMReader {
         return true;
     }
 
-    readInto(object, key, value, path, nodefer=0) {
+    readInto(object, key, value, path, defer=true) {
         if (this.readRef(object, key, value, path)) return;
-        if (nodefer === 0 && typeof value === "object") {
+        if (defer && typeof value === "object") {
             this.todo.push({object, key, value, path});
             return;
         }
         const simpleKey = typeof key === "string" && key.match(/^[_a-z][_a-z0-9]*$/i);
         const newPath = path + (simpleKey ? `.${key}` : `[${JSON.stringify(key)}]`);
-        object[key] = this.read(value, newPath, nodefer > 0 ? nodefer - 1 : 0);
+        object[key] = this.read(value, newPath); // always deferred
     }
 }
 
