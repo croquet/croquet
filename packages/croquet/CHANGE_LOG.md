@@ -4,6 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest
 
+* 1.1.0-7 fix Map deserialization
 * 1.1.0-6 add Model.evaluate()
 * 1.1.0-5 disallow arbitrary methods to be invoked via reflector, allow dot calls in future sends, unsubscribe specific handlers
 * 1.1.0-4 clients detect loss of contact with reflector; warn about inline functions as model handlers; buildable for Node.js as well as browser
