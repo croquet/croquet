@@ -843,8 +843,8 @@ export default class Controller {
             localContext = local.localContext;
         }
         if (tallyTarget) {
-            const [selector] = tallyTarget;
-            const args = [ { tally, localPayload, localContext } ];
+            const [selector, ...optionalTopic] = tallyTarget;
+            const args = [ ...optionalTopic, { tally, localPayload, localContext } ];
             const message = new Message(0, 0, "_", selector, args);
             this.vm.verifyExternal(message); // may throw
             message.executeOn(this.vm, true); // true => nested
