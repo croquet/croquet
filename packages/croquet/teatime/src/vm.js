@@ -239,7 +239,7 @@ export default class VirtualMachine {
                 if (snapshot.modelsById) {
                     // read vm from snapshot
                     const reader = VMReader.newOrRecycled(this);
-                    const vmData = reader.readVM(snapshot, "$");
+                    const vmData = reader.readVM(snapshot, "_");
                     let messages = [];
                     // only read keys declared above
                     for (const key of Object.keys(vmData)) {
@@ -279,7 +279,7 @@ export default class VirtualMachine {
     }
 
     lookUpModel(id) {
-        if (id === this.id) return this;
+        if (id === "_") return this;
         const model = this.modelsById[id];
         if (model) return model;
         const [_, modelID, partId] = id.match(/^([^#]+)#(.*)$/);
@@ -379,7 +379,7 @@ export default class VirtualMachine {
 
     /** limit the methods that can be triggered directly via reflector */
     verifyExternal(msg) {
-        if (msg.receiver !== this.id) throw Error(`invalid receiver in external message: ${msg}`);
+        if (msg.receiver !== "_") throw Error(`invalid receiver in external message: ${msg}`);
         const ALLOWED_MESSAGES = [
             "handleModelEventInModel",   // the common case (triggers handlers in models and views)
             "handleBundledEvents",       // the case if bundled, will verify each unbundled message
@@ -529,7 +529,8 @@ export default class VirtualMachine {
             if (methodName[0] !== '{') throw Error(`Subscriber method for "${event}" not found: ${model}.${methodName}()`);
         }
         const topic = scope + ":" + event;
-        const handler = model.id + "." + methodName;
+        const id = model === this ? "_" : model.id;
+        const handler = id + "." + methodName;
         // model subscriptions need to be ordered, so we're using an array
         if (!this.subscriptions[topic]) this.subscriptions[topic] = [];
         else if (this.subscriptions[topic].indexOf(handler) !== -1) {
@@ -626,13 +627,13 @@ export default class VirtualMachine {
             const wantsVote = !!viewDomain.subscriptions[voteTopic], wantsFirst = !!this.subscriptions[topic], wantsDiverge = !!this.subscriptions[divergenceTopic];
             if (wantsVote && wantsDiverge) console.log(`divergence subscription for ${topic} overridden by vote subscription`);
             // iff there are subscribers to a first message, build a candidate for the message that should be broadcast
-            const firstMessage = wantsFirst ? new Message(this.time, 0, this.id, "handleModelEventInModel", [topic, data]) : null;
+            const firstMessage = wantsFirst ? new Message(this.time, 0, "_", "handleModelEventInModel", [topic, data]) : null;
             // provide the receiver, selector and topic for any eventual tally response from the reflector.
             // if there are subscriptions to a vote, it'll be a handleModelEventInView with
             // the vote-augmented topic.  if not, default to our handleTuttiDivergence.
             let tallyTarget;
-            if (wantsVote) tallyTarget = [this.id, "handleModelEventInView", voteTopic];
-            else tallyTarget = [this.id, "handleTuttiDivergence", divergenceTopic];
+            if (wantsVote) tallyTarget = ["handleModelEventInView", voteTopic];
+            else tallyTarget = ["handleTuttiDivergence", divergenceTopic];
             Promise.resolve().then(() => this.controller.sendTutti({
                 time: this.time,
                 topic,
@@ -688,7 +689,7 @@ export default class VirtualMachine {
     handleViewEventInModel(topic, data) {
         // view=>model events are converted to model=>model events via reflector
         if (this.subscriptions[topic]) {
-            const message = new Message(this.time, 0, this.id, "handleModelEventInModel", [topic, data]);
+            const message = new Message(this.time, 0, "_", "handleModelEventInModel", [topic, data]);
             this.controller.sendMessage(message);
         }
     }
@@ -744,7 +745,7 @@ export default class VirtualMachine {
 
     snapshot() {
         const writer = VMWriter.newOrRecycled(this);
-        return writer.snapshot(this, "$");
+        return writer.snapshot(this, "_");
     }
 
     // return the stringification of an object describing the vm - currently { oC, mC, nanC, infC, zC, nC, nH, sC, sL, fC } - for checking agreement between instances
@@ -1213,7 +1214,7 @@ class VMWriter {
         };
         for (const [key, value] of Object.entries(vm)) {
             if (key === "controller") continue;
-            if (!state[key]) this.writeInto(state, key, value, "$");
+            if (!state[key]) this.writeInto(state, key, value, "_");
         }
         this.writeDeferred();
         return state;
@@ -1464,7 +1465,7 @@ class VMReader {
     }
 
     readVM(snapshot, root) {
-        if (root !== "$") throw Error("VirtualMachine must be root object");
+        if (root !== "_") throw Error("VirtualMachine must be root object");
         const vmData = {
             _random: new SeedRandom(null, { state: snapshot._random }),
         };
