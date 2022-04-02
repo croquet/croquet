@@ -851,11 +851,7 @@ export default class Controller {
             const [receiver, selector] = tallyTarget;
             const args = [ { tally, localPayload, localContext } ];
             const message = new Message(0, 0, receiver, selector, args);
-            // the only vm-direct messages allowed are the usual collection, plus those explicitly referenced at the library level in TUTTI handling
-            if (message.receiver === this.id &&
-                !(["handleModelEventInView", "handleTuttiDivergence", "handleSnapshotVote", "handlePersistVote"].includes(message.selector))) {
-                    this.vm.verifyExternal(message);
-            }
+            this.vm.verifyExternal(message); // may throw
             message.executeOn(this.vm, true); // true => nested
         }
     }

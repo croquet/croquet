@@ -380,20 +380,19 @@ export default class VirtualMachine {
     /** limit the methods that can be triggered directly via reflector */
     verifyExternal(msg) {
         if (msg.receiver !== this.id) throw Error(`invalid receiver in external message: ${msg}`);
-        // the common case (triggers handlers in models and views)
-        if (msg.selector === "handleModelEventInModel") return;
-        // the case if bundled, will verify each unbundled message
-        if (msg.selector === "handleBundledEvents") return;
-        // triggers handlers in only model (specifically, the VM's __views__ event handler)
-        if (msg.selector === "publishFromModelOnly") return;
-        // snapshot polling
-        if (msg.selector === "handlePollForSnapshot") return;
-        // processing of TUTTI
-        if (msg.selector === "handleTuttiResult") return;
-        // can't really object to noop
-        if (msg.selector === "noop") return;
-        // otherwise it's an error
-        throw Error(`unexpected external message: ${msg.selector}`);
+        const ALLOWED_MESSAGES = [
+            "handleModelEventInModel",   // the common case (triggers handlers in models and views)
+            "handleBundledEvents",       // the case if bundled, will verify each unbundled message
+            "publishFromModelOnly",      // triggers handlers in only model (specifically, the VM's __views__ event handler)
+            "handlePollForSnapshot",     // snapshot polling
+            "handleTuttiResult",         // processing of TUTTI
+            "handleTuttiDivergence",     // processing of TUTTI
+            "handleSnapshotVote",        // snapshot voting
+            "handlePersistVote",         // persist voting
+            "handleModelEventInView",    // view subscription for TUTTI votes (unofficial API)
+            "noop"                       // can't really object to noop (used in convertReflectorMessage)
+        ];
+        if (!(ALLOWED_MESSAGES.includes(msg.selector))) throw Error(`unexpected external message: ${msg.selector}`);
     }
 
     futureSend(tOffset, receiverID, selector, args) {
