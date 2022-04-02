@@ -607,8 +607,7 @@ export default class VirtualMachine {
         this.handleViewEventInView(topic, data);
     }
 
-    handleBundledEvents(_topic, data) {
-        const { events } = data;
+    handleBundledEvents(events) {
         for (const msgState of events) {
             const message = Message.fromState(msgState, this);
             this.verifyExternal(message); // may throw
@@ -732,15 +731,15 @@ export default class VirtualMachine {
         this.controller.handlePollForSnapshot(now);
     }
 
-    handleTuttiResult(_topic, data) {
+    handleTuttiResult(data) {
         this.controller.handleTuttiResult(data);
     }
 
-    handleSnapshotVote(_topic, data) {
+    handleSnapshotVote(data) {
         this.controller.handleSnapshotVote(data);
     }
 
-    handlePersistVote(_topic, data) {
+    handlePersistVote(data) {
         this.controller.handlePersistVote(data);
     }
 

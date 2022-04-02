@@ -501,6 +501,7 @@ export default class Controller {
 
     handleSnapshotVote(data) {
         // !!! THIS IS BEING EXECUTED INSIDE THE SIMULATION LOOP!!!
+        // !!! IT MUST NOT MODIFY VM !!!
 
         if (this.synced !== true) {
             if (DEBUG.snapshot) console.log(this.id, "Ignoring snapshot vote during sync");
@@ -822,7 +823,7 @@ export default class Controller {
                 if ((DEBUG.messages || DEBUG.snapshot) && missingClients) console.log(`${missingClients} ${missingClients === 1 ? "client" : "clients"} failed to participate in tally ${tuttiKey || tuttiSeq}`); // purely for information
                 receiver = this.id;
                 selector = "handleTuttiResult";
-                args = [ "dummyTopic", { tuttiSeq, tuttiKey, tally, tallyTarget } ];
+                args = [ { tuttiSeq, tuttiKey, tally, tallyTarget } ];
                 break;
             }
             // no default
@@ -833,6 +834,7 @@ export default class Controller {
     }
 
     handleTuttiResult(data) {
+        // !!! THIS IS BEING EXECUTED INSIDE THE SIMULATION LOOP!!!
         const { tuttiSeq, tuttiKey, tally, tallyTarget } = data;
         const finder = tuttiKey
             ? (hist => hist.tuttiKey === tuttiKey)
@@ -846,8 +848,8 @@ export default class Controller {
             localContext = local.localContext;
         }
         if (tallyTarget) {
-            const [receiver, selector, topic] = tallyTarget;
-            const args = [ topic, { tally, localPayload, localContext } ];
+            const [receiver, selector] = tallyTarget;
+            const args = [ { tally, localPayload, localContext } ];
             const message = new Message(0, 0, receiver, selector, args);
             // the only vm-direct messages allowed are the usual collection, plus those explicitly referenced at the library level in TUTTI handling
             if (message.receiver === this.id &&
@@ -1435,7 +1437,7 @@ export default class Controller {
             const msg = Message.fromState(events[0], this.vm);
             this.socketSendMessage(msg);
         } else {
-            const envelope = new Message(this.vm.time, 0, this.vm.id, "handleBundledEvents", ["dummy", { events }]);
+            const envelope = new Message(this.vm.time, 0, this.vm.id, "handleBundledEvents", [events]);
             this.socketSendMessage(envelope);
         }
         this.recordRateLimitedSend(now);
