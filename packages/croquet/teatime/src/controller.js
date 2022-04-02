@@ -240,7 +240,7 @@ export default class Controller {
 
         // controller (only) gets to subscribe to events using the shared viewId as the "subscriber" argument
         viewDomain.removeAllSubscriptionsFor(this.viewId); // in case we're recycling
-        viewDomain.addSubscription(this.viewId, "__views__", this.viewId, data => displayStatus(`users now ${data.count}`), "oncePerFrameWhileSynced");
+        viewDomain.addSubscription(this.viewId, "__peers__", this.viewId, data => displayStatus(`users now ${data.count}`), "oncePerFrameWhileSynced");
         // "leaving" is set in session.js if we are leaving by user's request (rather than going dormant/reconnecting)
         if (!this.leaving) App.showSyncWait(true); // enable (i.e., not synced)
     }
@@ -797,8 +797,8 @@ export default class Controller {
                 this.users = active;
                 this.usersTotal = total;
                 // create event
-                const scope = this.id;
-                const event = "__views__";
+                const scope = "__VM__";
+                const event = "__peers__";
                 const data = {entered: joined||[], exited: left||[], count: active};
                 // create event message
                 selector = "publishFromModelOnly";

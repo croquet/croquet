@@ -254,7 +254,7 @@ export default class VirtualMachine {
                     this._random = new SeedRandom(snapshot.id, { state: true });
                     // creates root model and puts it in modelsByName as "rootModel"
                     initFn(this);
-                    this.addSubscription(this, this.id, "__views__", this.generateJoinExit);
+                    this.addSubscription(this, "__VM__", "__peers__", this.generateJoinExit);
                 }
             });
         });
@@ -382,8 +382,8 @@ export default class VirtualMachine {
         if (msg.receiver !== "_") throw Error(`invalid receiver in external message: ${msg}`);
         const ALLOWED_MESSAGES = [
             "handleModelEventInModel",   // the common case (triggers handlers in models and views)
+            "publishFromModelOnly",      // triggers handlers in models only (specifically, join/exit)
             "handleBundledEvents",       // the case if bundled, will verify each unbundled message
-            "publishFromModelOnly",      // triggers handlers in only model (specifically, the VM's __views__ event handler)
             "handlePollForSnapshot",     // snapshot polling
             "handleTuttiResult",         // processing of TUTTI
             "handleTuttiDivergence",     // processing of TUTTI
