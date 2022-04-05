@@ -1381,7 +1381,7 @@ class VMWriter {
         if (Array.isArray(state)) {
             // usually, extra properties on arrays don't get serialized to JSON
             // so we use this hack that does a one-time replacement of toJSON
-            // on this particular array
+            // on this particular array (and restore it in readAsArray() below)
             state.toJSON = function () {
                 return {
                     $id: this.$id,
@@ -1444,7 +1444,6 @@ class VMReader {
         this.readers.set("NegZero", () => -0);
         this.readers.set("Set", array => new Set(array));
         this.readers.set("Map", array => { const m = new Map(); for (let i = 0; i < array.length; i +=2) m.set(array[i], array[i + 1]); return m; });
-        this.readers.set("Array", array => array.slice(0));
         this.readers.set("ArrayBuffer", data => base64ToArrayBuffer(data));
         this.readers.set("DataView", args => new DataView(...args));
         this.readers.set("Int8Array", args => new Int8Array(...args));
@@ -1509,6 +1508,7 @@ class VMReader {
                         const { $class, $model, $ref } = value;
                         if ($ref) throw Error("refs should have been handled in readInto()");
                         if ($model) return this.readModel(value, path);
+                        if ($class === "Array") return this.readAsArray(value, path, defer); // see writeRef()
                         if ($class) return this.readAs($class, value, path);
                         return this.readObject(Object, value, path, defer);
                     }
@@ -1546,6 +1546,15 @@ class VMReader {
             if (array[i] !== undefined) this.readInto(result, i, array[i], path, defer); // allow for missing indices
         }
         return result;
+    }
+
+    // special case for arrays with a $id property which is not preserved by JSON
+    // instead they were serialized as { $class: "Array", $value: [...], $id: ... }
+    // in writeRef(), so we restore the $id property here
+    readAsArray(state, path, defer=true) {
+        const array = state.$value;
+        if (state.$id) array.$id = state.$id;
+        return this.readArray(array, path, defer);
     }
 
     readAs(classID, state, path) {
