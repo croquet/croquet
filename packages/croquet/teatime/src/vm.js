@@ -1436,9 +1436,6 @@ class VMReader {
         this.readers = new Map();
         this.addReader("Teatime:Message", Message);
         this.addReader("Teatime:Data", DataHandleSpec);
-        for (const [classId, ClassOrSpec] of Model.allClassTypes()) {
-            this.addReader(classId, ClassOrSpec);
-        }
         this.readers.set("Undefined", () => undefined);
         this.readers.set("NaN", () => NaN);
         this.readers.set("Infinity", sign => sign * Infinity);
@@ -1454,6 +1451,9 @@ class VMReader {
         this.readers.set("Uint32Array", args => new Uint32Array(...args));
         this.readers.set("Float32Array", args => new Float32Array(...args));
         this.readers.set("Float64Array", args => new Float64Array(...args));
+        for (const [classId, ClassOrSpec] of Model.allClassTypes()) {
+            this.addReader(classId, ClassOrSpec);
+        }
     }
 
     addReader(classId, ClassOrSpec) {
