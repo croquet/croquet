@@ -1248,6 +1248,7 @@ class VMWriter {
                     case "Array": return this.writeArray(value, path, defer);
                     case "ArrayBuffer": return this.writeArrayBuffer(value);
                     case "Set":
+                        return this.writeAs(type, value, [...value], path);
                     case "Map":
                         return this.writeAs(type, value, [...value].flat(), path); // flatten to single array [key, value, key, value, ...]
                     case "DataView":
