@@ -1442,8 +1442,6 @@ class VMReader {
         this.readers.set("NaN", () => NaN);
         this.readers.set("Infinity", sign => sign * Infinity);
         this.readers.set("NegZero", () => -0);
-        this.readers.set("Set", array => new Set(array));
-        this.readers.set("Map", array => { const m = new Map(); for (let i = 0; i < array.length; i +=2) m.set(array[i], array[i + 1]); return m; });
         this.readers.set("ArrayBuffer", data => base64ToArrayBuffer(data));
         this.readers.set("DataView", args => new DataView(...args));
         this.readers.set("Int8Array", args => new Int8Array(...args));
@@ -1494,6 +1492,8 @@ class VMReader {
     }
 
     read(value, path, defer=true) {
+        // if defer is false, this is the $value property of an object,
+        // which is either a plain Array or a plain Object
         switch (typeof value) {
             case "number":
             case "string":
@@ -1508,7 +1508,6 @@ class VMReader {
                         const { $class, $model, $ref } = value;
                         if ($ref) throw Error("refs should have been handled in readInto()");
                         if ($model) return this.readModel(value, path);
-                        if ($class === "Array") return this.readAsArray(value, path, defer); // see writeRef()
                         if ($class) return this.readAs($class, value, path);
                         return this.readObject(Object, value, path, defer);
                     }
@@ -1557,7 +1556,23 @@ class VMReader {
         return this.readArray(array, path, defer);
     }
 
-    readAs(classID, state, path) {
+    readAsSet(state, path) {
+        const set = new Set();
+        if (state.$id) this.refs.set(state.$id, set);
+        const contents = this.read(state.$value, path, false);
+        for (const item of contents) set.add(item);
+        return set;
+    }
+
+    readAsMap(state, path) {
+        const map = new Map();
+        if (state.$id) this.refs.set(state.$id, map);
+        const contents = this.read(state.$value, path, false);
+        for (let i = 0; i < contents.length; i +=2) map.set(contents[i], contents[i + 1]);
+        return map;
+    }
+
+    readAsClass(classID, state, path) {
         let temp = {};
         const unresolved = new Map();
         if ("$value" in state) temp = this.read(state.$value, path, false);
@@ -1582,6 +1597,15 @@ class VMReader {
             this.unresolved.push({object, key, ref, path});
         }
         return object;
+    }
+
+    readAs(classID, state, path) {
+        switch (classID) {
+            case "Array": return this.readAsArray(state, path);
+            case "Set": return this.readAsSet(state, path);
+            case "Map": return this.readAsMap(state, path);
+            default: return this.readAsClass(classID, state, path);
+        }
     }
 
     readRef(object, key, value, path) {
