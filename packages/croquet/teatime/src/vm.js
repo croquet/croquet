@@ -689,7 +689,9 @@ export default class VirtualMachine {
     handleViewEventInModel(topic, data) {
         // view=>model events are converted to model=>model events via reflector
         if (this.subscriptions[topic]) {
-            const message = new Message(this.time, 0, "_", "handleModelEventInModel", [topic, data]);
+            const args = [topic];
+            if (data !== undefined) args.push(data); // avoid {"$class":"Undefined"}
+            const message = new Message(this.time, 0, "_", "handleModelEventInModel", args);
             this.controller.sendMessage(message);
         }
     }
