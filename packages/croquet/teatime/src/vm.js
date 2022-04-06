@@ -150,6 +150,31 @@ const VOTE_SUFFIX = '#__vote'; // internal, for 'vote' handling; never seen by a
 const REFLECTED_SUFFIX = '#reflected';
 const DIVERGENCE_SUFFIX = '#divergence';
 
+// messages invoked via reflector (encoded as single digit, not full string)
+const ENCODED_MESSAGES = [
+    "handleModelEventInModel",   // 0: the common case (triggers handlers in models and views)
+    "handleBundledEvents",       // 1: the case if bundled, will verify each unbundled message
+
+    // below are encoded for consistency but not directly sent to reflector
+    "publishFromModelOnly",      // 2: triggers handlers in models only (specifically, join/exit)
+    "handlePollForSnapshot",     // 3: snapshot polling
+    "handleTuttiResult",         // 4: processing of TUTTI
+    "handleTuttiDivergence",     // 5: processing of TUTTI
+    "handleSnapshotVote",        // 6: snapshot voting
+    "handlePersistVote",         // 7: persist voting
+    "handleModelEventInView",    // 8: view subscription for TUTTI votes (unofficial API)
+    "noop",                      // 9: unused (was used in convertReflectorMessage)
+    // we're counting in Base36  // A: ...
+    //                           // B: ...
+    // must not have more than 36 to keep it single-digit (or update encode/decode)
+];
+
+// map of message names to index for encoding
+const ENCODE_MESSAGE = {};
+for (let i = 0; i < ENCODED_MESSAGES.length; i++) {
+    ENCODE_MESSAGE[ENCODED_MESSAGES[i]] = i;
+}
+
 // minimum ms (vm time) between successive snapshot polls
 const SNAPSHOT_MIN_POLL_GAP = 5000;
 // minimum ms (vm time) between successive persistence polls
@@ -380,19 +405,7 @@ export default class VirtualMachine {
     /** limit the methods that can be triggered directly via reflector */
     verifyExternal(msg) {
         if (msg.receiver !== "_") throw Error(`invalid receiver in external message: ${msg}`);
-        const ALLOWED_MESSAGES = [
-            "handleModelEventInModel",   // the common case (triggers handlers in models and views)
-            "publishFromModelOnly",      // triggers handlers in models only (specifically, join/exit)
-            "handleBundledEvents",       // the case if bundled, will verify each unbundled message
-            "handlePollForSnapshot",     // snapshot polling
-            "handleTuttiResult",         // processing of TUTTI
-            "handleTuttiDivergence",     // processing of TUTTI
-            "handleSnapshotVote",        // snapshot voting
-            "handlePersistVote",         // persist voting
-            "handleModelEventInView",    // view subscription for TUTTI votes (unofficial API)
-            "noop"                       // can't really object to noop (used in convertReflectorMessage)
-        ];
-        if (!(ALLOWED_MESSAGES.includes(msg.selector))) throw Error(`unexpected external message: ${msg.selector}`);
+        if (!(msg.selector in ENCODE_MESSAGE)) throw Error(`unexpected external message: ${msg.selector}`);
     }
 
     futureSend(tOffset, receiverID, selector, args) {
@@ -839,16 +852,34 @@ export default class VirtualMachine {
 
 
 function encode(receiver, selector, args) {
+    let encoded;
+    if (receiver === "_") {
+        const index = ENCODE_MESSAGE[selector];
+        if (typeof index === "number") encoded = index.toString(36); // Base36
+    }
+    if (encoded === undefined) encoded = `${receiver}>${selector}`;
     if (args.length > 0) {
         const encoder = MessageArgumentEncoder.newOrRecycled();
-        args = encoder.encode(args);
+        encoded += JSON.stringify(encoder.encode(args));
     }
-    return `${receiver}>${selector}${args.length > 0 ? JSON.stringify(args):""}`;
+    return encoded;
 }
 
 function decode(payload, vm) {
-    const [_, msg, argString] = payload.match(/^([^[]+)(\[.*)?$/i);
-    const [receiver, selector] = msg.split('>');
+    let receiver, selector, argString;
+    if (payload.length === 1 || payload[1] === "[") {
+        const index = parseInt(payload[0], 36); // Base36
+        receiver = "_";
+        selector = ENCODED_MESSAGES[index];
+        argString = payload.slice(1);
+    } else {
+        const selPos = payload.indexOf(">");
+        let argPos = payload.indexOf("[");
+        if (argPos === -1) argPos = payload.length;
+        receiver = payload.slice(0, selPos);
+        selector = payload.slice(selPos + 1, argPos);
+        argString = payload.slice(argPos);
+    }
     let args = [];
     if (argString) {
         const decoder = MessageArgumentDecoder.newOrRecycled(vm);
