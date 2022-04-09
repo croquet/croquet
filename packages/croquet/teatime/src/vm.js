@@ -10,7 +10,7 @@ import { inModelRealm, inViewRealm } from "./realms";
 import { viewDomain } from "./domain";
 import Data, { DataHandleSpec } from "./data";
 
-/** @typedef { import('./controller').default } Controller */
+/** @typedef { import("./controller").default } Controller */
 
 /** @type {VirtualMachine} */
 let CurrentVM = null;
@@ -26,7 +26,7 @@ function initDEBUG() {
 
 /** this shows up as "CroquetWarning" in the console */
 class CroquetWarning extends Error {}
-Object.defineProperty(CroquetWarning.prototype, 'name', { value: 'CroquetWarning' });
+Object.defineProperty(CroquetWarning.prototype, "name", { value: "CroquetWarning" });
 
 /** patch Math and Date */
 function patchBrowser() {
@@ -146,9 +146,9 @@ function execOutsideVM(fn) {
 }
 
 const INITIAL_SEQ = 0xFFFFFFF0; // initial sequence number, must match reflector.js
-const VOTE_SUFFIX = '#__vote'; // internal, for 'vote' handling; never seen by apps
-const REFLECTED_SUFFIX = '#reflected';
-const DIVERGENCE_SUFFIX = '#divergence';
+const VOTE_SUFFIX = "#__vote"; // internal, for "vote" handling; never seen by apps
+const REFLECTED_SUFFIX = "#reflected";
+const DIVERGENCE_SUFFIX = "#divergence";
 
 // messages invoked via reflector (encoded as single digit, not full string)
 const ENCODED_MESSAGES = [
@@ -256,7 +256,7 @@ export default class VirtualMachine {
                 /** @type {Boolean} true when a future persistence poll has been scheduled */
                 this.inPersistenceCoolOff = false;
                 /** @type {String} hash of last persistent data upload */
-                this.persisted = '';
+                this.persisted = "";
                 /** @type {Number} number for giving ids to model */
                 this.modelsId = 0;
                 /** @type {Controller} our controller, for sending messages. Excluded from snapshot */
@@ -541,9 +541,9 @@ export default class VirtualMachine {
         if (methodName.indexOf('.') < 0 && typeof model[methodName] !== "function") {
             if (methodName[0] !== '{') throw Error(`Subscriber method for "${event}" not found: ${model}.${methodName}()`);
         }
-        const topic = scope + ":" + event;
+        const topic = scope + ':' + event;
         const id = model === this ? "_" : model.id;
-        const handler = id + "." + methodName;
+        const handler = id + '.' + methodName;
         // model subscriptions need to be ordered, so we're using an array
         if (!this.subscriptions[topic]) this.subscriptions[topic] = [];
         else if (this.subscriptions[topic].indexOf(handler) !== -1) {
@@ -552,14 +552,14 @@ export default class VirtualMachine {
         this.subscriptions[topic].push(handler);
     }
 
-    removeSubscription(model, scope, event, methodName='*') {
+    removeSubscription(model, scope, event, methodName="*") {
         if (CurrentVM !== this) throw Error("Cannot remove a model subscription from outside model code");
-        const topic = scope + ":" + event;
+        const topic = scope + ':' + event;
         const handlers = this.subscriptions[topic];
         if (handlers) {
-            if (methodName === '*') {
+            if (methodName === "*") {
                 const remaining = handlers.filter(handler => {
-                    const [modelID] = handler.split(".");
+                    const [modelID] = handler.split('.');
                     return modelID !== model.id;
                 });
                 if (remaining.length === 0) delete this.subscriptions[topic];
@@ -569,7 +569,7 @@ export default class VirtualMachine {
                 if (typeof nameString !== "string") {
                     throw Error(`Invalid unsubscribe args for "${event}" in ${model}: ${methodName}`);
                 }
-                const handler = model.id + "." + nameString;
+                const handler = model.id + '.' + nameString;
                 const indexToRemove = handlers.indexOf(handler);
                 if (indexToRemove !== -1) {
                     handlers.splice(indexToRemove, 1);
@@ -602,20 +602,20 @@ export default class VirtualMachine {
         const reflected = event.endsWith(REFLECTED_SUFFIX);
         if (reflected) event = event.slice(0, event.length - REFLECTED_SUFFIX.length);
 
-        const topic = scope + ":" + event;
+        const topic = scope + ':' + event;
         this.handleModelEventInModel(topic, data, reflected);
         this.handleModelEventInView(topic, data);
     }
 
     publishFromModelOnly(scope, event, data) {
         if (CurrentVM !== this) throw Error("Cannot publish a model event from outside model code");
-        const topic = scope + ":" + event;
+        const topic = scope + ':' + event;
         this.handleModelEventInModel(topic, data);
     }
 
     publishFromView(scope, event, data) {
         if (CurrentVM) throw Error("Cannot publish a view event from model code");
-        const topic = scope + ":" + event;
+        const topic = scope + ':' + event;
         this.handleViewEventInModel(topic, data);
         this.handleViewEventInView(topic, data);
     }
@@ -722,7 +722,7 @@ export default class VirtualMachine {
         // subscriptions for foo#divergence.
         if (this.subscriptions[divergenceTopic]) this.handleModelEventInModel(divergenceTopic, data);
         else {
-            const event = divergenceTopic.split(":").slice(-1)[0];
+            const event = divergenceTopic.split(':').slice(-1)[0];
             console.warn(`uncaptured divergence in ${event}:`, data);
         }
     }
@@ -838,7 +838,7 @@ export default class VirtualMachine {
 
     randomID() {
         if (CurrentVM !== this) throw Error("replicated random accessed from outside the model");
-        let id = '';
+        let id = "";
         for (let i = 0; i < 4; i++) {
             id += (this._random.int32() >>> 0).toString(16).padStart(8, '0');
         }
@@ -867,14 +867,14 @@ function encode(receiver, selector, args) {
 
 function decode(payload, vm) {
     let receiver, selector, argString;
-    if (payload.length === 1 || payload[1] === "[") {
+    if (payload.length === 1 || payload[1] === '[') {
         const index = parseInt(payload[0], 36); // Base36
         receiver = "_";
         selector = ENCODED_MESSAGES[index];
         argString = payload.slice(1);
     } else {
-        const selPos = payload.indexOf(">");
-        let argPos = payload.indexOf("[");
+        const selPos = payload.indexOf('>');
+        let argPos = payload.indexOf('[');
         if (argPos === -1) argPos = payload.length;
         receiver = payload.slice(0, selPos);
         selector = payload.slice(selPos + 1, argPos);
@@ -1000,14 +1000,14 @@ export class Message {
     }
 
     shortString() {
-        return `${this.isExternal() ? 'External' : 'Future'}Message`;
+        return `${this.isExternal() ? "External" : "Future"}Message`;
     }
 
     toString() {
         const { receiver, selector, args } = this;
         const ext = this.isExternal();
         const seq = ext ? this.externalSeq : this.internalSeq;
-        return `${ext ? 'External' : 'Future'}Message[${this.time}${':#'[+ext]}${seq} ${receiver}.${selector}(${args.map(JSON.stringify).join(', ')})]`;
+        return `${ext ? "External" : "Future"}Message[${this.time}${":#"[+ext]}${seq} ${receiver}.${selector}(${args.map(JSON.stringify).join(", ")})]`;
     }
 
     [Symbol.toPrimitive]() { return this.toString(); }
@@ -1264,16 +1264,16 @@ class VMWriter {
         switch (typeof value) {
             case "number":
                 // JSON disallows NaN and Infinity, and writes -0 as "0"
-                if (Object.is(value, -0)) return {$class: 'NegZero'};
+                if (Object.is(value, -0)) return {$class: "NegZero"};
                 if (Number.isSafeInteger(value)) return value;
-                if (Number.isNaN(value)) return {$class: 'NaN'};
-                if (!Number.isFinite(value)) return {$class: 'Infinity', $value: Math.sign(value)};
+                if (Number.isNaN(value)) return {$class: "NaN"};
+                if (!Number.isFinite(value)) return {$class: "Infinity", $value: Math.sign(value)};
                 return this.writeFloat(value);
             case "string":
             case "boolean":
                 return value;
             case "undefined":
-                return {$class: 'Undefined'};
+                return {$class: "Undefined"};
             default: {
                 if (this.refs.has(value)) return this.writeRef(value);
                 const type = Object.prototype.toString.call(value).slice(8, -1);
@@ -1556,7 +1556,7 @@ class VMReader {
         const model = Model.instantiateClassID(state.$model, state.id);
         if (state.$id) this.refs.set(state.$id, model);
         for (const [key, value] of Object.entries(state)) {
-            if (key === "id" || key[0] === "$") continue;
+            if (key === "id" || key[0] === '$') continue;
             this.readInto(model, key, value, path);
         }
         return model;
@@ -1566,7 +1566,7 @@ class VMReader {
         const object = new Class();
         if (state.$id) this.refs.set(state.$id, object);
         for (const [key, value] of Object.entries(state)) {
-            if (key[0] === "$") continue;
+            if (key[0] === '$') continue;
             this.readInto(object, key, value, path, defer);
         }
         return object;
@@ -1611,7 +1611,7 @@ class VMReader {
         const unresolved = new Map();
         if ("$value" in state) temp = this.read(state.$value, path, false);
         else for (const [key, value] of Object.entries(state)) {
-            if (key[0] === "$") continue;
+            if (key[0] === '$') continue;
             const ref = value && value.$ref;
             if (ref) {
                 if (this.refs.has(ref)) temp[key] = this.refs.get(ref);
@@ -1668,7 +1668,7 @@ class VMReader {
 
 class MessageArgumentEncoder extends VMWriter {
     encode(args) {
-        const encoded = this.writeArray(args, '$');
+        const encoded = this.writeArray(args, "$");
         this.writeDeferred();
         return encoded;
     }
@@ -1680,7 +1680,7 @@ class MessageArgumentEncoder extends VMWriter {
 
 class MessageArgumentDecoder extends VMReader {
     decode(args) {
-        const decoded = this.readArray(args, '$');
+        const decoded = this.readArray(args, "$");
         this.readDeferred();
         this.resolveRefs();
         return decoded;
@@ -1724,7 +1724,7 @@ function gatherInternalClassTypesRec(dummyObject, prefix="", gatheredClasses={},
         });
     for (const obj of newObjects) {
         seen.add(obj);
-        const className = prefix + "." + obj.constructor.name;
+        const className = prefix + '.' + obj.constructor.name;
         if (gatheredClasses[className]) {
             if (gatheredClasses[className] !== obj.constructor) {
                 throw new Error("Class with name " + className + " already gathered, but new one has different identity");
@@ -1742,7 +1742,7 @@ function gatherInternalClassTypesRec(dummyObject, prefix="", gatheredClasses={},
 function arrayBufferToBase64(buffer) {
     const array = new Uint8Array(buffer);
     const n = array.byteLength;
-    let string = '';
+    let string = "";
     for (let i = 0; i < n; i++) {
         string += String.fromCharCode(array[i]);
     }
