@@ -1185,7 +1185,7 @@ class VMHasher {
     }
 
     hashEntry(key, value, defer = true) {
-        if (key[0] === '$') { displayWarning(`hash: ignoring property ${key}`, { only: "once" }); return; }
+        if (key[0] === '$') return;
         if (defer && typeof value === "object") {
             this.todo.push({ key, value });
             return;
@@ -1231,7 +1231,18 @@ class VMWriter {
         for (const [classId, ClassOrSpec] of Model.allClassTypes()) {
             this.addWriter(classId, ClassOrSpec);
         }
-    }
+        this.okayToIgnore = {};
+        for (const Class of Model.allClasses()) {
+            if (Object.prototype.hasOwnProperty.call(Class, "okayToIgnore")) {
+                const props = Class.okayToIgnore();
+                if (!Array.isArray(props)) throw new Error("okayToIgnore() must return an array");
+                for (const prop of props) {
+                    if (prop[0] !== '$') throw Error(`okayToIgnore: ignored prop "${prop}" must start with '$'`);
+                    this.okayToIgnore[prop] = true;
+                }
+            }
+        }
+}
 
     addWriter(classId, ClassOrSpec) {
         const {cls, write} = (Object.getPrototypeOf(ClassOrSpec) === Object.prototype) ? ClassOrSpec
@@ -1429,7 +1440,13 @@ class VMWriter {
     }
 
     writeInto(state, key, value, path, defer=true) {
-        if (key[0] === '$') { displayWarning(`snapshot: ignoring property ${key}`, { only: "once" }); return; }
+        if (key[0] === '$') {
+            if (!this.okayToIgnore[key]) {
+                displayWarning(`snapshot: ignoring property ${key} (declare as okayToIgnore to suppress warning)`, { only: "once" });
+                this.okayToIgnore[key] = true;
+            }
+            return;
+        }
         if (defer && typeof value === "object") {
             this.todo.push({state, key, value, path});
             return;

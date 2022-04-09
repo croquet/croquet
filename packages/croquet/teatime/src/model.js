@@ -250,6 +250,7 @@ class Model {
     }
 
     // for use by serializer (see vm.js)
+    static okayToIgnore() { return []; }
     static classToID(cls) {  return classToID(cls); }
     static classFromID(id) { return classFromID(id); }
     static allClasses() { return allClasses(); }
