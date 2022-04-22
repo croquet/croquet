@@ -418,6 +418,7 @@ export default class Controller {
                     "X-Croquet-Version": CROQUET_VERSION,
                 },
                 referrer: App.referrerURL(),
+                referrerPolicy: 'no-referrer-when-downgrade',
             });
             const { error, developerId, token } = await response.json();
             if (error) throw Error(error);
