@@ -2039,12 +2039,13 @@ async function verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client, u
     try {
         const response = await fetch(`${API_SERVER_URL}/reflector/${CLUSTER}/${HOSTNAME}?meta=verify`, {
             headers: {
+                "Origin": (new URL(url)).origin,
+                "Referer": url, // [sic]
                 "X-Croquet-Auth": apiKey,
                 "X-Croquet-App": appId,
                 "X-Croquet-Id": persistentId,
                 "X-Croquet-Session": id,
                 "X-Croquet-Version": sdk,
-                "Referer": url, // [sic]
             },
         });
         // we don't reject clients because of HTTP Errors
