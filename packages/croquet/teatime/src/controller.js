@@ -52,6 +52,7 @@ else console.log("%cCroquet%c %c" + CROQUET_VERSION, "color:#F0493E", "color:inh
 
 const appOnCroquetIo = !NODE && !!window.location.hostname.match(/^(.*\.)?croquet\.io$/i);
 const appOnCroquetIoDev = appOnCroquetIo && window.location.pathname.startsWith("/dev/");
+const appOnCroquetDev = !NODE && !!window.location.hostname.match(/^(.*\.)?croquet\.dev$/i);
 
 const PUBLIC_REFLECTOR_HOST = appOnCroquetIo ? window.location.host : "croquet.io";
 const DEFAULT_REFLECTOR = `wss://${PUBLIC_REFLECTOR_HOST}/reflector/v${VERSION}`;
@@ -75,11 +76,13 @@ function getBackendUrls() {
         };
     }
 
+    // below written so it works on NODE where we can't access window.location
+
     // if the backend query param was not set, we go off of the hostname
     // For dev projects (<PROJECT>.croquet.dev) we can grab the project off of the url
-    const hostname = window.location.hostname;
-    if (hostname.match(/croquet\.dev$/)) {
-        const project = hostname.split('.croquet.dev')[0];
+    if (appOnCroquetDev) {
+        const hostname = window.location.hostname;
+        const project = hostname.slice(0, -12); // '.croquet.dev'.length === 12
         return {
             SIGN_SERVER: `https://api.${project}.croquet.dev/sign`,
             REFLECTOR: `wss://api.${project}.croquet.dev/reflector/v${VERSION}`
