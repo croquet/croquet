@@ -89,6 +89,14 @@ function getBackendUrls() {
         };
     }
 
+    // old-style croquet.io/dev/ deploys use keys from prod firebase
+    if (appOnCroquetIoDev || urlOptions.dev) {
+        return {
+            SIGN_SERVER: "https://api.croquet.io/dev/sign",
+            REFLECTOR: "wss://croquet.io/reflector-dev/dev",
+        };
+    }
+
     // Otherwise we assume prod and use the default reflector/sign urls.
     return {
         SIGN_SERVER: DEFAULT_SIGN_SERVER,
@@ -106,7 +114,7 @@ function initDEBUG() {
     // TODO: turn this into a reasonable API
     // enable some opts by default via dev flag or being on localhost-equivalent
     const devOrLocal = urlOptions.dev || (urlOptions.dev !== false && "localhost");
-    const devOrCroquetIoDev = urlOptions.dev || (urlOptions.dev !== false && appOnCroquetIoDev);
+    const devOrCroquetIoDev = urlOptions.dev || (urlOptions.dev !== false && (appOnCroquetIoDev || appOnCroquetDev));
     DEBUG = {
         messages: urlOptions.has("debug", "messages", false),               // received messages
         sends: urlOptions.has("debug", "sends", false),                     // sent messages
