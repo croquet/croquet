@@ -427,6 +427,7 @@ export default class Controller {
                     "X-Croquet-App": appId,
                     "X-Croquet-Id": persistentId,
                     "X-Croquet-Version": CROQUET_VERSION,
+                    "X-Croquet-Path": (new URL(App.referrerURL())).pathname,
                 },
                 referrer: App.referrerURL(),
                 referrerPolicy: 'no-referrer-when-downgrade',
