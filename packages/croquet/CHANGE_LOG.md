@@ -4,6 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest
 
+* 1.1.0-11 send app path to cloudfunc
 * 1.1.0-10 use new dev backends
 * 1.1.0-9 add okayToIgnore dollar props
 * 1.1.0-8 more deserialization fixes; removed sessionId from model and view IDs; shorter reflector messages
