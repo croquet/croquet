@@ -2041,10 +2041,14 @@ const API_SERVER_URL = IS_DEV ? DEV_SIGN_SERVER : DEFAULT_SIGN_SERVER;
 async function verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client, unverifiedDeveloperId) {
     if (!VERIFY_TOKEN) return { developerId: unverifiedDeveloperId, region: "default" };
     try {
+        const urlObj = new URL(url);
+        const origin = urlObj.origin;
+        const path = urlObj.pathname;
         const response = await fetch(`${API_SERVER_URL}/reflector/${CLUSTER}/${HOSTNAME}?meta=verify`, {
             headers: {
-                "Origin": (new URL(url)).origin,
+                "Origin": origin,
                 "Referer": url, // [sic]
+                "X-Croquet-Path": path,
                 "X-Croquet-Auth": apiKey,
                 "X-Croquet-App": appId,
                 "X-Croquet-Id": persistentId,
