@@ -722,10 +722,29 @@ function findElement(value, ifNotFoundDo) {
     return ifNotFoundDo ? ifNotFoundDo() : null;
 }
 
+function defaultSessionURL() {
+    // use window.location.href unless there is a canonical url
+
+    let canonicalUrl = null;
+    const metas = document.getElementsByTagName('link');
+    for (const meta of metas) {
+        if (meta.getAttribute('rel') === 'canonical') {
+            canonicalUrl = meta.getAttribute('href');
+            break;
+        }
+    }
+
+    if (!canonicalUrl) {
+        return window.location.href;
+    }
+
+    return canonicalUrl;
+}
+
 const seenMessages = new Set();
 
 export const App = {
-    sessionURL: window.location.href,
+    sessionURL: defaultSessionURL(),
     root: null, // root for messages, the sync spinner, and the info dock (defaults to document.body)
     sync: true, // whether to show the sync spinner while starting a session, or catching up
     messages: false, // whether to show status messages (e.g., as toasts)
@@ -815,7 +834,7 @@ export const App = {
         if (typeof options === "string") options = { key: options };
         if (!options) options = {};
         const key = options.key || 'q';
-        const url = new URL(window.location);
+        const url = new URL(App.sessionURL);
         // fragment comes from ?key=fragment or ?fragment or #fragment
         let fragment = '';
         // Note: cannot use url.searchParams because browsers differ for malformed % sequences
@@ -865,7 +884,7 @@ export const App = {
         const key = options.key || 'pw';
         const scrub = options.scrub && !urlOptions.has("debug", "password");
         const keyless = options.keyless;
-        const url = new URL(window.location);
+        const url = new URL(App.sessionURL);
         let password = '';
         const hash = url.hash.slice(1);
         if (hash) {
