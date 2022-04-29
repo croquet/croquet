@@ -188,7 +188,9 @@ class Model {
     /**
      * __Static declaration of how to serialize non-model classes.__
      *
-     * The Croquet snapshot mechanism only knows about {@link Model} subclasses.
+     * The Croquet snapshot mechanism knows about {@link Model} subclasses, as well as many JS built-in types (see below),
+     * it handles circular references, and it works recursively by converting all non-JSON types to JSON.
+     *
      * If you want to store instances of non-model classes in your model, override this method.
      *
      * `types()` needs to return an Object that maps _names_ to _class descriptions_:
@@ -196,24 +198,34 @@ class Model {
      * - the class description can either be just the class itself (if the serializer should
      *   snapshot all its fields, see first example below), or an object with `write()` and `read()` methods to
      *   convert instances from and to their serializable form (see second example below).
-     * - the serialized form answered by `write()` can be almost anything. E.g. if it answers an Array of objects
-     *   then the serializer will be called for each of those objects. Conversely, these objects will be deserialized
-     *   before passing the Array to `read()`.
+     * - the serialized form answered by `write()` should return a simpler representation,
+     *   but it can still contain references to other objects, which will be resolved by the serializer.
+     *   E.g. if it answers an Array of objects then the serializer will be called for each of those objects.
+     *   Conversely, these objects will be deserialized before passing the reconstructed Array to `read()`.
      *
      * Declaring a type in any class makes that declaration available globally.
      * The types only need to be declared once, even if several different Model subclasses are using them.
      *
      * __NOTE:__ This is currently the only way to customize serialization (for example to keep snapshots fast and small).
-     * The serialization of Model subclasses themselves can not be customized.
+     * The serialization of Model subclasses themselves can not be customized, except through "dollar properties":
      *
-     * Serialization types supported in addition to JSON:
-     * - `-0`, NaN, Infinity
+     * __All properties starting with `$` are ignored, e.g. `$foo`.__
+     * This can be used for caching big objects that should not appear in the snapshot,
+     * but care needs to be taken to make sure that the cache is reconstructed whenever used.
+     *
+     * Serialization types supported:
+     * -  all JSON types: `number`, `string`, `boolean`, `null`, `Array`, plain `Object`
+     * - `-0`, `NaN`, `Infinity`, `-Infinity`
      * - `undefined`
      * - `ArrayBuffer`, `DataView`, `Int8Array`, `Uint8Array`, `Uint8ClampedArray`, `Int16Array`, `Uint16Array`, `Int32Array`, `Uint32Array`, `Float32Array`, `Float64Array`
      * - `Set`, `Map`
      *
-     * How to serialize...
-     * - Functions: wrap them in non-model class, serialize as source-code, deserialize using `new Function(...)`
+     * Not supported:
+     * - `Date`: the built-in Date type is dangerous because it implicitly depends on the current timezone which can lead to divergence.
+     * - `RegExp`: to-do
+     * - `Function`: there is no generic way to serialize functions because closures can not be introspected in JS.
+     *    If you need this, either wrap them in a non-model class and serialize as source-code, deserialize using `new Function(...)`,
+     *    or store the source in a regular property, the function in a dollar property, and recreate the function lazily when needed.
      *
      * @example <caption>To use the default serializer just declare the class:</caption>
      * class MyModel extends Croquet.Model {
