@@ -624,6 +624,7 @@ async function JOIN(client, args) {
         sessionName: name,
         appId,
         persistentId,
+        developerId: unverifiedDeveloperId,
         codeHash,
         apiKey,
         url,
