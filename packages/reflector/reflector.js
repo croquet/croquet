@@ -2047,6 +2047,7 @@ async function verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client, u
         const response = await fetch(`${API_SERVER_URL}/reflector/${CLUSTER}/${HOSTNAME}?meta=verify`, {
             headers: {
                 "Origin": origin,
+                "Referer": url, // [sic]
                 "X-Croquet-Path": path,
                 "X-Croquet-Auth": apiKey,
                 "X-Croquet-App": appId,
