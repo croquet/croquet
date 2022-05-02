@@ -603,13 +603,17 @@ async function JOIN(client, args) {
         default:
     }
 
-    const { name: appIdAndName, version, apiKey, url, sdk, appId, codeHash, user, location, heraldUrl, leaveDelay, dormantDelay, tove, flags } = args;
+    const { name: appIdAndName, version, apiKey, url, sdk, appId, codeHash, user, location, heraldUrl, leaveDelay, dormantDelay, tove } = args;
     // split name from `${appId}/${name}`
     let name = appIdAndName;    // for older clients without appId
     if (appId && name[appId.length] === '/' && name.startsWith(appId)) name = name.slice(appId.length + 1);
     // islandId deprecated since 0.5.1, but old clients will send it rather than persistentId
     const persistentId = args.persistentId || args.islandId;
     const unverifiedDeveloperId = args.developerId;
+
+    const flags = {};
+    // set flags only for the features this reflector can support
+    if (args.flags) ['rawtime', 'microverse'].forEach(flag => { if (args.flags[flag]) flags[flag] = true; });
 
     // BigQuery wants a single data type, but user can be string or object or array
     client.meta.user = typeof user === "string" ? user : JSON.stringify(user);
@@ -625,6 +629,7 @@ async function JOIN(client, args) {
         appId,
         persistentId,
         developerId: unverifiedDeveloperId,
+        flags,
         codeHash,
         apiKey,
         url,
@@ -682,9 +687,6 @@ async function JOIN(client, args) {
     island.leaveDelay = leaveDelay || 0;
     island.dormantDelay = dormantDelay; // only provided by clients since 0.5.1
     island.url = url;
-    island.flags = {};
-    // set flags only for the features this reflector can support
-    ['rawtime'].forEach(prop => { if ((flags || {})[prop]) island.flags[prop] = true; });
 
     client.island = island; // set island before await
 
@@ -752,6 +754,7 @@ async function JOIN(client, args) {
             codeHash,
             apiKey,
             developerId: island.developerId,
+            flags,
             url,
             sdk,
             heraldUrl,
