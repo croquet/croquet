@@ -7,7 +7,8 @@
 // will respond to clicks from any user in the same session. The current value of the
 // counter is automatically saved to the cloud.
 
-import * as Croquet from "@croquet/croquet";
+// silence eslint – we've loaded Croquet as script in the HTML
+/* global Croquet */
 
 //------------------------------------------------------------------------------------------
 // Define our model. MyModel has a tick method that executes once per second. It updates the value
@@ -68,4 +69,11 @@ class MyView extends Croquet.View {
 // Join the Teatime session and spawn our model and view.
 //------------------------------------------------------------------------------------------
 
-Croquet.Session.join("hello", MyModel, MyView);
+Croquet.Session.join({
+    apiKey: "2DT9VCoCKtvXMKkBGZXNLrUEoZMn48ojXPC8XFAuuO",
+    appId: "io.croquet.hello",
+    name: Croquet.App.autoSession(),
+    password: Croquet.App.autoPassword(),
+    model: MyModel,
+    view: MyView,
+});
