@@ -82,7 +82,13 @@ function getBackendUrls() {
     // For dev projects (<PROJECT>.croquet.dev) we can grab the project off of the url
     if (appOnCroquetDev) {
         const hostname = window.location.hostname;
-        const project = hostname.slice(0, -12); // '.croquet.dev'.length === 12
+        let project = hostname.slice(0, -12); // '.croquet.dev'.length === 12
+
+        if (!project) {
+            // if there's no project in the url it must just be the top level croquet.dev, which is the croquet-dev project
+            project = 'croquet-dev';
+        }
+
         return {
             SIGN_SERVER: `https://api.${project}.croquet.dev/sign`,
             REFLECTOR: `wss://api.${project}.croquet.dev/reflector/v${VERSION}`
