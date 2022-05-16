@@ -437,7 +437,7 @@ export default class Controller {
             if (DEBUG.session) console.log(`Croquet: verified API key`);
             return { developerId, token };
         } catch (err) {
-            throw Error(`Error verifying Croquet API key: ${err.message}`);
+            throw Error(`Croquet API key validation failed: ${err.message}`);
         }
     }
 
