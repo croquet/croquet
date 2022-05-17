@@ -1,6 +1,6 @@
 Copyright © 2020 Croquet Corporation
 
-![Croquet Overview](croquet_overview.svg)
+<img alt="Croquet Overview" style="width: 80%" src="images/croquet_overview.svg"/>
 
 Every Croquet application consists of two parts:
 
