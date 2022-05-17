@@ -5,7 +5,7 @@ Scroll down for an **overview** of Croquet, and the [**Changelog**](#changelog).
 Use the Navigation Panel to try our **Tutorials and guides** and **API docs**.
 
 Please review our [**Code of Conduct**](/conduct.html) and
-**join** our [**Developer Slack** <img alt="Slack" style="height: 1.5em" src="images/slack.png"/>](https://join.slack.com/t/croquet-dev/shared_invite/zt-ns5gscrp-6nfDQSzxvpgoJyRg9DNfsQ)
+**join** our [**Developer Discord** <img alt="Discord" style="height: 1.5em" src="images/discord.png"/>](https://discord.gg/UWEYdqFnta)
 
 -   [Quickstart](#quickstart)
 -   [What is Croquet?](#what-is-croquet%3F)
