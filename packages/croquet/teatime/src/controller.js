@@ -54,14 +54,11 @@ const appOnCroquetIo = !NODE && !!window.location.hostname.match(/^(.*\.)?croque
 const appOnCroquetIoDev = appOnCroquetIo && window.location.pathname.startsWith("/dev/");
 const appOnCroquetDev = !NODE && !!window.location.hostname.match(/^(.*\.)?croquet\.dev$/i);
 
-const PUBLIC_REFLECTOR_HOST = appOnCroquetIo ? window.location.host : "croquet.io";
-const DEFAULT_REFLECTOR = `wss://${PUBLIC_REFLECTOR_HOST}/reflector/v${VERSION}`;
 const CLOUDFLARE_REFLECTOR = "wss://croquet.network/reflector/";
 const DEV_CLOUDFLARE_REFLECTOR = "wss://croquet.network/reflector/dev/";
 
 const OLD_UPLOAD_SERVER = "https://croquet.io/files/v1";    // for uploads without apiKey (unused)
 const OLD_DOWNLOAD_SERVER = "https://files.croquet.io";     // downloads from old upload server (rewritten from old upload url)
-const DEFAULT_SIGN_SERVER = "https://api.croquet.io/sign";  // get signed url for uploads with apiKey
 
 const {SIGN_SERVER, REFLECTOR} = getBackendUrls();
 
@@ -78,23 +75,6 @@ function getBackendUrls() {
 
     // below written so it works on NODE where we can't access window.location
 
-    // if the backend query param was not set, we go off of the hostname
-    // For dev projects (<PROJECT>.croquet.dev) we can grab the project off of the url
-    if (appOnCroquetDev) {
-        const hostname = window.location.hostname;
-        let project = hostname.slice(0, -12); // '.croquet.dev'.length === 12
-
-        if (!project) {
-            // if there's no project in the url it must just be the top level croquet.dev, which is the croquet-dev project
-            project = 'croquet-dev';
-        }
-
-        return {
-            SIGN_SERVER: `https://api.${project}.croquet.dev/sign`,
-            REFLECTOR: `wss://api.${project}.croquet.dev/reflector/v${VERSION}`
-        };
-    }
-
     // old-style croquet.io/dev/ deploys use keys from prod firebase
     if (appOnCroquetIoDev || urlOptions.dev) {
         return {
@@ -103,10 +83,13 @@ function getBackendUrls() {
         };
     }
 
-    // Otherwise we assume prod and use the default reflector/sign urls.
+    // if the backend query param was not set, we go off of the hostname.
+    // This covers both top-level croquet.dev and croquet.io as well as subdomains of either.
+    const hostname = window.location.hostname;
+
     return {
-        SIGN_SERVER: DEFAULT_SIGN_SERVER,
-        REFLECTOR: DEFAULT_REFLECTOR
+        SIGN_SERVER: `https://api.${hostname}/sign`,
+        REFLECTOR: `wss://api.${hostname}/reflector/v${VERSION}`
     };
 }
 
