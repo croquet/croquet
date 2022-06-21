@@ -74,17 +74,15 @@ function getBackendUrls() {
     }
 
     // below written so it works on NODE where we can't access window.location
-
-    // old-style croquet.io/dev/ deploys use keys from prod firebase
-    if (appOnCroquetIoDev || urlOptions.dev) {
+    if (NODE) {
         return {
-            SIGN_SERVER: "https://api.croquet.io/dev/sign",
-            REFLECTOR: "wss://croquet.io/reflector-dev/dev",
+            SIGN_SERVER: "https://api.croquet.io/sign",
+            REFLECTOR: `wss://api.croquet.io/reflector/v${VERSION}`,
         };
     }
 
     // if the backend query param was not set, we go off of the hostname.
-    // This covers both top-level croquet.dev and croquet.io as well as subdomains of either.
+    // This covers both top-level croquet.dev and croquet.io as well as subdomains of either (such as staging.croquet.io)
     const hostname = window.location.hostname;
 
     return {
