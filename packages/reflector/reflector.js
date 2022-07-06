@@ -603,10 +603,17 @@ async function JOIN(client, args) {
         default:
     }
 
-    const { name, version, apiKey, url, sdk, appId, codeHash, user, location, heraldUrl, leaveDelay, dormantDelay, tove, flags } = args;
+    const { name: appIdAndName, version, apiKey, url, sdk, appId, codeHash, user, location, heraldUrl, leaveDelay, dormantDelay, tove } = args;
+    // split name from `${appId}/${name}`
+    let name = appIdAndName;    // for older clients without appId
+    if (appId && name[appId.length] === '/' && name.startsWith(appId)) name = name.slice(appId.length + 1);
     // islandId deprecated since 0.5.1, but old clients will send it rather than persistentId
     const persistentId = args.persistentId || args.islandId;
     const unverifiedDeveloperId = args.developerId;
+
+    const flags = {};
+    // set flags only for the features this reflector can support
+    if (args.flags) ['rawtime', 'microverse'].forEach(flag => { if (args.flags[flag]) flags[flag] = true; });
 
     // BigQuery wants a single data type, but user can be string or object or array
     client.meta.user = typeof user === "string" ? user : JSON.stringify(user);
@@ -618,8 +625,11 @@ async function JOIN(client, args) {
     // connection log sink filters on scope="connection" and event="start|join|end"
     client.logger.notice({
         event: "join",
+        sessionName: name,
         appId,
         persistentId,
+        developerId: unverifiedDeveloperId,
+        flags,
         codeHash,
         apiKey,
         url,
@@ -639,7 +649,7 @@ async function JOIN(client, args) {
         let timeline = ''; do timeline = Math.random().toString(36).substring(2); while (!timeline);
         island = {
             id,                  // the island id
-            name,                // the island name, including options (or could be null)
+            name,                // the island name (or could be null)
             version,             // the client version
             time: 0,             // the current simulation time
             seq: INITIAL_SEQ,    // sequence number for messages (uint32, wraps around)
@@ -677,9 +687,7 @@ async function JOIN(client, args) {
     island.leaveDelay = leaveDelay || 0;
     island.dormantDelay = dormantDelay; // only provided by clients since 0.5.1
     island.url = url;
-    island.flags = {};
-    // set flags only for the features this reflector can support
-    ['rawtime'].forEach(prop => { if ((flags || {})[prop]) island.flags[prop] = true; });
+    island.flags = flags;
 
     client.island = island; // set island before await
 
@@ -695,7 +703,7 @@ async function JOIN(client, args) {
     let apiKeyPromise;
     if (apiKey === undefined) {
         // old client: accept for now, but let them know. Unless they're special.
-        const specialCustomer = SPECIAL_CUSTOMERS.find(value => url.includes(value) || name.includes(value));
+        const specialCustomer = SPECIAL_CUSTOMERS.find(value => url.includes(value) || appIdAndName.includes(value));
         if (!specialCustomer) INFO(island, {
             code: "MISSING_KEY",
             msg: "Croquet versions before 1.0 will stop being supported soon. Please update your app now! croquet.io/docs/croquet",
@@ -741,11 +749,13 @@ async function JOIN(client, args) {
         const sessionMeta = {
             ...global_logger.bindings(),
             ...session.logger.bindings(),
+            sessionName: name,
             appId,
             persistentId,
             codeHash,
             apiKey,
             developerId: island.developerId,
+            flags,
             url,
             sdk,
             heraldUrl,
@@ -2037,14 +2047,19 @@ const API_SERVER_URL = GCP_PROJECT === 'croquet-proj' ? PROD_SIGN_SERVER : DEV_S
 async function verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client, unverifiedDeveloperId) {
     if (!VERIFY_TOKEN) return { developerId: unverifiedDeveloperId, region: "default" };
     try {
+        const urlObj = new URL(url);
+        const origin = urlObj.origin;
+        const path = urlObj.pathname;
         const response = await fetch(`${API_SERVER_URL}/reflector/${CLUSTER}/${HOSTNAME}?meta=verify`, {
             headers: {
+                "Origin": origin,
+                "Referer": url, // [sic]
+                "X-Croquet-Path": path,
                 "X-Croquet-Auth": apiKey,
                 "X-Croquet-App": appId,
                 "X-Croquet-Id": persistentId,
                 "X-Croquet-Session": id,
                 "X-Croquet-Version": sdk,
-                "Referer": url, // [sic]
             },
         });
         // we don't reject clients because of HTTP Errors

@@ -4,6 +4,12 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest
 
+* 1.1.0-12 use <link rel="canonical" href="..."> for App.sessionURL (if present)
+* 1.1.0-11 send app path to cloudfunc
+* 1.1.0-10 use new dev backends
+* 1.1.0-9 add okayToIgnore dollar props
+* 1.1.0-8 more deserialization fixes; removed sessionId from model and view IDs; shorter reflector messages
+* 1.1.0-7 fix Map deserialization
 * 1.1.0-6 add Model.evaluate()
 * 1.1.0-5 disallow arbitrary methods to be invoked via reflector, allow dot calls in future sends, unsubscribe specific handlers
 * 1.1.0-4 clients detect loss of contact with reflector; warn about inline functions as model handlers; buildable for Node.js as well as browser

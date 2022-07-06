@@ -24,7 +24,7 @@ export class Domain {
     }
 
     register(_object) {
-        return this.id + "/V" + ++this.lastId;
+        return "V" + ++this.lastId;
     }
 
     deregister(_object) {

@@ -39,12 +39,15 @@ $PRERELEASE || (cd $LIB; echo $VERSION > croquet-latest.txt)
 # deploy docs (no commit)
 DOCS=docs
 if $PRERELEASE ; then
-    ../../../docs/deploy.sh prerelease || exit
     DOCS="docs-pre"
 else
-    ../../../docs/deploy.sh release || exit
     DOCS="docs"
 fi
+(
+    cd ../../../docs
+    npm ci
+    ../node_modules/.bin/jsdoc -c jsdoc.json -d ../../../servers/croquet-io-dev/docs-pre/croquet/
+)
 
 # commit
 git add -A cjs/ pub/ $LIB/ $TARGET/$DOCS/
@@ -56,9 +59,8 @@ if $PRERELEASE ; then
     echo "    npm publish --tag pre"
 else
     echo "    npm publish"
+    echo "and then deploy the docs"
+    # echo "After pushing to dev, you might want to"
+    # echo "    ../../../../docker/scripts/deploy-from-dev-to-test.sh $DOCS/croquet"
+    # echo "    ../../../../docker/scripts/release-from-test-to-public.sh $DOCS/croquet"
 fi
-echo "After pushing to dev, you might want to"
-echo "    ../../../../docker/scripts/deploy-from-dev-to-test.sh lib"
-echo "    ../../../../docker/scripts/release-from-test-to-public.sh lib"
-echo "    ../../../../docker/scripts/deploy-from-dev-to-test.sh $DOCS/croquet"
-echo "    ../../../../docker/scripts/release-from-test-to-public.sh $DOCS/croquet"
