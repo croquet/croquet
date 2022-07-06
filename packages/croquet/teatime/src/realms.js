@@ -78,11 +78,11 @@ class ViewRealm {
         this.vm.publishFromView(scope, event, data);
     }
     subscribe(event, viewId, callback, scope, handling="queued") {
-        if (DEBUG.subscribe) console.log(`View.subscribe("${scope}:${event}", ${viewId} ${callback.name || (""+callback).replace(/\([\s\S]*/, '')} [${handling}])`);
+        if (DEBUG.subscribe) console.log(`View.subscribe("${scope}:${event}", ${viewId} ${callback ? callback.name || (""+callback).replace(/\([\s\S]*/, '') : ""+callback} [${handling}])`);
         viewDomain.addSubscription(scope, event, viewId, callback, handling);
     }
-    unsubscribe(event, viewId, callback, scope) {
-        if (DEBUG.subscribe) console.log(`View.unsubscribe("${scope}:${event}", ${viewId} ${callback.name || (""+callback).replace(/\([\s\S]*/, '')})`);
+    unsubscribe(event, viewId, callback=null, scope) {
+        if (DEBUG.subscribe) console.log(`View.unsubscribe("${scope}:${event}", ${viewId} ${callback ? callback.name || (""+callback).replace(/\([\s\S]*/, '') : "*"})`);
         viewDomain.removeSubscription(scope, event, viewId, callback);
     }
     unsubscribeAll(viewId) {

@@ -687,6 +687,7 @@ async function JOIN(client, args) {
     island.leaveDelay = leaveDelay || 0;
     island.dormantDelay = dormantDelay; // only provided by clients since 0.5.1
     island.url = url;
+    island.flags = flags;
 
     client.island = island; // set island before await
 

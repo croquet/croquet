@@ -76,24 +76,14 @@ function getBackendUrls() {
         };
     }
 
-    // below written so it works on NODE where we can't access window.location
-
     // if the backend query param was not set, we go off of the hostname
     // For dev projects (<PROJECT>.croquet.dev) we can grab the project off of the url
-    if (appOnCroquetDev) {
-        const hostname = window.location.hostname;
-        const project = hostname.slice(0, -12); // '.croquet.dev'.length === 12
+    const hostname = window.location.hostname;
+    if (hostname.match(/croquet\.dev$/)) {
+        const project = hostname.split('.croquet.dev')[0];
         return {
             SIGN_SERVER: `https://api.${project}.croquet.dev/sign`,
             REFLECTOR: `wss://api.${project}.croquet.dev/reflector/v${VERSION}`
-        };
-    }
-
-    // old-style croquet.io/dev/ deploys use keys from prod firebase
-    if (appOnCroquetIoDev || urlOptions.dev) {
-        return {
-            SIGN_SERVER: "https://api.croquet.io/dev/sign",
-            REFLECTOR: "wss://croquet.io/reflector-dev/dev",
         };
     }
 
@@ -437,7 +427,7 @@ export default class Controller {
             if (DEBUG.session) console.log(`Croquet: verified API key`);
             return { developerId, token };
         } catch (err) {
-            throw Error(`Error verifying Croquet API key: ${err.message}`);
+            throw Error(`Croquet API key validation failed: ${err.message}`);
         }
     }
 
