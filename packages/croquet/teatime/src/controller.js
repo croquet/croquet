@@ -85,10 +85,54 @@ function getBackendUrls() {
     // This covers both top-level croquet.dev and croquet.io as well as subdomains of either (such as staging.croquet.io)
     const hostname = window.location.hostname;
 
+    // if the app is on localhost or a file:// url then we'll use prod backend.
+    // if it's a file:// url then hostname will be falsey.
+    if (isLocalUrl(hostname) || !hostname) {
+        return {
+            SIGN_SERVER: `https://api.croquet.io/sign`,
+            REFLECTOR: `wss://api.croquet.io/reflector/v${VERSION}`
+        };
+    }
+
     return {
         SIGN_SERVER: `https://api.${hostname}/sign`,
         REFLECTOR: `wss://api.${hostname}/reflector/v${VERSION}`
     };
+}
+
+
+function isLocalUrl(hostname) {
+    const IP_RANGES = [
+        // 10.0.0.0 - 10.255.255.255
+        /^(:{2}f{4}:)?10(?:\.\d{1,3}){3}$/,
+        // 127.0.0.0 - 127.255.255.255
+        /^(:{2}f{4}:)?127(?:\.\d{1,3}){3}$/,
+        // 169.254.1.0 - 169.254.254.255
+        /^(::f{4}:)?169\.254\.([1-9]|1?\d\d|2[0-4]\d|25[0-4])\.\d{1,3}$/,
+        // 172.16.0.0 - 172.31.255.255
+        /^(:{2}f{4}:)?(172\.1[6-9]|172\.2\d|172\.3[01])(?:\.\d{1,3}){2}$/,
+        // 192.168.0.0 - 192.168.255.255
+        /^(:{2}f{4}:)?192\.168(?:\.\d{1,3}){2}$/,
+        // fc00::/7
+        /^f[cd][\da-f]{2}(::1$|:[\da-f]{1,4}){1,7}$/,
+        // fe80::/10
+        /^fe[89ab][\da-f](::1$|:[\da-f]{1,4}){1,7}$/,
+        // ::1
+        /^::1$/,
+    ];
+
+    // Concat all RegExes from above into one
+    const IP_TESTER_RE = new RegExp(
+        `^(${IP_RANGES.map(re => re.source).join('|')})$`,
+    );
+
+    if (hostname === 'localhost') {
+        return true;
+    }
+
+    const isLocal =  IP_TESTER_RE.test(hostname);
+
+    return isLocal;
 }
 
 export const OLD_DATA_SERVER = OLD_DOWNLOAD_SERVER;
