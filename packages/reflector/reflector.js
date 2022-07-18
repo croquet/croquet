@@ -202,15 +202,23 @@ let SECRET;
 
 // we use Google Cloud Storage for session state
 const storage = new Storage();
-const SESSION_BUCKET = NO_STORAGE ? null : storage.bucket(`${GCP_PROJECT}-sessions-v1`);
-const DISPATCHER_BUCKET = NO_DISPATCHER ? null : storage.bucket(`${GCP_PROJECT}-reflectors-v1`);
+
+const SESSION_BUCKET = NO_STORAGE ? null
+                        : GCP_PROJECT === 'croquet-proj' ? storage.bucket(`croquet-sessions-v1`)
+                        : storage.bucket(`${GCP_PROJECT}-sessions-v1`);
+
+const DISPATCHER_BUCKET = NO_DISPATCHER ? null
+                            : GCP_PROJECT === 'croquet-proj' ? storage.bucket(`croquet-reflectors-v1`)
+                            : storage.bucket(`${GCP_PROJECT}-reflectors-v1`);
 
 // pointer to latest persistent data is stored in user buckets
 // direct bucket access (instead of going via load-balancer as clients do)
 // avoids CDN caching
+const US_BUCKET = GCP_PROJECT === 'croquet-proj' ? 'files.us.croquet.io' : `files.us.${GCP_PROJECT}.croquet.dev`;
+const EU_BUCKET = GCP_PROJECT === 'croquet-proj' ? 'files.eu.croquet.io' : `files.eu.${GCP_PROJECT}.croquet.dev`;
 const FILE_BUCKETS = {
-    us: STORE_PERSISTENT_DATA ? storage.bucket('files.us.croquet.io') : null,
-    eu: STORE_PERSISTENT_DATA ? storage.bucket('files.eu.croquet.io') : null,
+    us: STORE_PERSISTENT_DATA ? storage.bucket(US_BUCKET) : null,
+    eu: STORE_PERSISTENT_DATA ? storage.bucket(EU_BUCKET) : null,
 };
 FILE_BUCKETS.default = FILE_BUCKETS.us;
 
