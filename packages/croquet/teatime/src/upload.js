@@ -84,6 +84,7 @@ function handleMessage(msg) {
                 "X-Croquet-Id": persistentId,
                 "X-Croquet-Session": id,
                 "X-Croquet-Version": CROQUET_VERSION,
+                "X-Croquet-Path": (new URL(referrer)).pathname,
             },
             referrer
             });
