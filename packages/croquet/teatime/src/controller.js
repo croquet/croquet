@@ -94,9 +94,18 @@ function getBackendUrls() {
         };
     }
 
+    // if the site is coming from one of our domains, we select the backend based on the hostname
+    if (hostname.endsWith('croquet.dev') || hostname.endsWith('croquet.io')) {
+        return {
+            SIGN_SERVER: `https://api.${hostname}/sign`,
+            REFLECTOR: `wss://api.${hostname}/reflector/v${VERSION}`
+        };
+    }
+
+    // otherwise we use prod backend
     return {
-        SIGN_SERVER: `https://api.${hostname}/sign`,
-        REFLECTOR: `wss://api.${hostname}/reflector/v${VERSION}`
+        SIGN_SERVER: `https://api.croquet.io/sign`,
+        REFLECTOR: `wss://api.croquet.io/reflector/v${VERSION}`
     };
 }
 
