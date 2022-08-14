@@ -54,14 +54,11 @@ const appOnCroquetIo = !NODE && !!window.location.hostname.match(/^(.*\.)?croque
 const appOnCroquetIoDev = appOnCroquetIo && window.location.pathname.startsWith("/dev/");
 const appOnCroquetDev = !NODE && !!window.location.hostname.match(/^(.*\.)?croquet\.dev$/i);
 
-const PUBLIC_REFLECTOR_HOST = appOnCroquetIo ? window.location.host : "croquet.io";
-const DEFAULT_REFLECTOR = `wss://${PUBLIC_REFLECTOR_HOST}/reflector/v${VERSION}`;
 const CLOUDFLARE_REFLECTOR = "wss://croquet.network/reflector/";
 const DEV_CLOUDFLARE_REFLECTOR = "wss://croquet.network/reflector/dev/";
 
 const OLD_UPLOAD_SERVER = "https://croquet.io/files/v1";    // for uploads without apiKey (unused)
 const OLD_DOWNLOAD_SERVER = "https://files.croquet.io";     // downloads from old upload server (rewritten from old upload url)
-const DEFAULT_SIGN_SERVER = "https://api.croquet.io/sign";  // get signed url for uploads with apiKey
 
 const {SIGN_SERVER, REFLECTOR} = getBackendUrls();
 
@@ -77,31 +74,74 @@ function getBackendUrls() {
     }
 
     // below written so it works on NODE where we can't access window.location
-
-    // if the backend query param was not set, we go off of the hostname
-    // For dev projects (<PROJECT>.croquet.dev) we can grab the project off of the url
-    if (appOnCroquetDev) {
-        const hostname = window.location.hostname;
-        const project = hostname.slice(0, -12); // '.croquet.dev'.length === 12
+    if (NODE) {
         return {
-            SIGN_SERVER: `https://api.${project}.croquet.dev/sign`,
-            REFLECTOR: `wss://api.${project}.croquet.dev/reflector/v${VERSION}`
+            SIGN_SERVER: "https://api.croquet.io/sign",
+            REFLECTOR: `wss://api.croquet.io/reflector/v${VERSION}`,
         };
     }
 
-    // old-style croquet.io/dev/ deploys use keys from prod firebase
-    if (appOnCroquetIoDev || urlOptions.dev) {
+    // if the backend query param was not set, we go off of the hostname.
+    // This covers both top-level croquet.dev and croquet.io as well as subdomains of either (such as staging.croquet.io)
+    const hostname = window.location.hostname;
+
+    // if the app is on localhost or a file:// url then we'll use prod backend.
+    // if it's a file:// url then hostname will be falsey.
+    if (isLocalUrl(hostname) || !hostname) {
         return {
-            SIGN_SERVER: "https://api.croquet.io/dev/sign",
-            REFLECTOR: "wss://croquet.io/reflector-dev/dev",
+            SIGN_SERVER: `https://api.croquet.io/sign`,
+            REFLECTOR: `wss://api.croquet.io/reflector/v${VERSION}`
         };
     }
 
-    // Otherwise we assume prod and use the default reflector/sign urls.
+    // if the site is coming from one of our domains, we select the backend based on the hostname
+    if (hostname.endsWith('croquet.dev') || hostname.endsWith('croquet.io')) {
+        return {
+            SIGN_SERVER: `https://api.${hostname}/sign`,
+            REFLECTOR: `wss://api.${hostname}/reflector/v${VERSION}`
+        };
+    }
+
+    // otherwise we use prod backend
     return {
-        SIGN_SERVER: DEFAULT_SIGN_SERVER,
-        REFLECTOR: DEFAULT_REFLECTOR
+        SIGN_SERVER: `https://api.croquet.io/sign`,
+        REFLECTOR: `wss://api.croquet.io/reflector/v${VERSION}`
     };
+}
+
+
+function isLocalUrl(hostname) {
+    const IP_RANGES = [
+        // 10.0.0.0 - 10.255.255.255
+        /^(:{2}f{4}:)?10(?:\.\d{1,3}){3}$/,
+        // 127.0.0.0 - 127.255.255.255
+        /^(:{2}f{4}:)?127(?:\.\d{1,3}){3}$/,
+        // 169.254.1.0 - 169.254.254.255
+        /^(::f{4}:)?169\.254\.([1-9]|1?\d\d|2[0-4]\d|25[0-4])\.\d{1,3}$/,
+        // 172.16.0.0 - 172.31.255.255
+        /^(:{2}f{4}:)?(172\.1[6-9]|172\.2\d|172\.3[01])(?:\.\d{1,3}){2}$/,
+        // 192.168.0.0 - 192.168.255.255
+        /^(:{2}f{4}:)?192\.168(?:\.\d{1,3}){2}$/,
+        // fc00::/7
+        /^f[cd][\da-f]{2}(::1$|:[\da-f]{1,4}){1,7}$/,
+        // fe80::/10
+        /^fe[89ab][\da-f](::1$|:[\da-f]{1,4}){1,7}$/,
+        // ::1
+        /^::1$/,
+    ];
+
+    // Concat all RegExes from above into one
+    const IP_TESTER_RE = new RegExp(
+        `^(${IP_RANGES.map(re => re.source).join('|')})$`,
+    );
+
+    if (hostname === 'localhost') {
+        return true;
+    }
+
+    const isLocal =  IP_TESTER_RE.test(hostname);
+
+    return isLocal;
 }
 
 export const OLD_DATA_SERVER = OLD_DOWNLOAD_SERVER;
