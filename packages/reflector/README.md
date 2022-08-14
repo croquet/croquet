@@ -9,23 +9,40 @@ See [../../docker/reflectors/README.md](../../docker/reflectors/README.md) for m
 First install dependencies:
 
 ```
-$ npm i
+npm ci
 ```
 
 To run the reflector locally:
 
 ```
-$ node reflector.js --standalone
+node reflector.js --standalone --storage=none | node node_modules/pino-pretty/bin.js -Sctlm message
 ```
 
 This will open a web socket server on `ws://localhost:9090/`. To route a client application to your locally running reflector, modify the client's url in the browser to point to the local web socket server. For example, we can take this example application called "2d" at the following url https://croquet.io/2d/index.html, and change it to the url https://croquet.io/2d/index.html?&debug=session,snapshots&reflector=ws://localhost:9090.
+
+## Running via https
+
+You can use the built-in https server using the `--https` command line flag.
+However, you need to [create a key and certificate](https://nodejs.org/en/knowledge/HTTP/servers/how-to-create-a-HTTPS-server/) first:
+
+```
+openssl genrsa -out reflector-key.pem
+openssl req -new -key reflector-key.pem -out csr.pem
+openssl x509 -req -days 9999 -in csr.pem -signkey reflector-key.pem -out reflector-cert.pem
+rm csr.pem
+```
+After you have the `reflector-key.pem` and `reflector-cert.pem` files in the reflector directory, run it:
+```
+node reflector.js --https --standalone --storage=none | node node_modules/pino-pretty/bin.js -Sctlm message
+```
+
 
 ## Running Tests
 
 To run tests locally, simply run:
 
 ```
-$ npm test
+npm test
 ```
 
 ## Deploying the reflector to a test environment
@@ -96,7 +113,7 @@ As it relates to logging, both island and session ids are logged as "sessionId".
     dyld[17909]: missing symbol called
     [1]    17909 abort      node reflector.js
 
-One of the dependencies (fast-crc32c) has a bug due to an upstream dependency not working on the new M1 chip architecture. To fix the issue, you can simply uninstall the fast-crc32c module by running `npm uninstall fast-crc32c`. However, do not commit that change, as the dependency is used in the production environment. 
+One of the dependencies (fast-crc32c) has a bug due to an upstream dependency not working on the new M1 chip architecture. To fix the issue, you can simply uninstall the fast-crc32c module by running `npm uninstall fast-crc32c`. However, do not commit that change, as the dependency is used in the production environment.
 
 Another fix is to go into the node_modules directory and modify the fast-crc32c code (`node_modules/fast-crc32c/loader.js`) by commenting out the sse4_crc32c implementation from the array of implementations. It should look like this:
 

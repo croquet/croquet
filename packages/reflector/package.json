@@ -6,7 +6,7 @@
   "author": "Croquet Corporation",
   "license": "UNLICENSED",
   "scripts": {
-    "start": "node reflector.js --standalone --storage=none | pino-pretty -Sctlm message",
+    "start": "node reflector.js --standalone --storage=none | node node_modules/pino-pretty/bin.js -Sctlm message",
     "test": "tape test.js | tap-nirvana"
   },
   "dependencies": {
