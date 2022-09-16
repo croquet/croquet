@@ -43,12 +43,10 @@ else console.log("%cCroquet%c %c" + CROQUET_VERSION, "color:#F0493E", "color:inh
 // comment out once deployed to production reflectors)
 // if (!("dev" in urlOptions) && (CROQUET_VERSION === "<unknown>" || CROQUET_VERSION.includes('-'))) urlOptions.dev = true;
 
-// *croquet.io/reflector/v1 is used as reflector for pages served from *croquet.io
-// (specifically, pi.croquet.io must use its own reflector)
-// everything else uses croquet.io/reflector/v1
-// ...unless overridden by a CROQUET_REFLECTOR setting in the .env
-// ...unless overridden by a "dev" url option, which selects the dev dispatcher and reflector
-// ...unless overridden by a "reflector=<url>" url option, which sets the specified url
+// dev or staging reflectors are used for pages served from dev or staging
+// everything else uses api.croquet.io/reflector/v1
+// ...unless overridden by a "backend" url option, which uses api.${backend}.croquet.dev
+// ...unless overridden by a "reflector=<url|region>" url option, which sets the specified url or region
 
 const appOnCroquetIo = !NODE && !!window.location.hostname.match(/^(.*\.)?croquet\.io$/i);
 const appOnCroquetIoDev = appOnCroquetIo && window.location.pathname.startsWith("/dev/");
@@ -57,14 +55,22 @@ const appOnCroquetDev = !NODE && !!window.location.hostname.match(/^(.*\.)?croqu
 const CLOUDFLARE_REFLECTOR = "wss://croquet.network/reflector/";
 const DEV_CLOUDFLARE_REFLECTOR = "wss://croquet.network/reflector/dev/";
 
-const OLD_UPLOAD_SERVER = "https://croquet.io/files/v1";    // for uploads without apiKey (unused)
-const OLD_DOWNLOAD_SERVER = "https://files.croquet.io";     // downloads from old upload server (rewritten from old upload url)
+const OLD_UPLOAD_SERVER = "https://croquet.io/files/v1";    // url base of files created before we had API keys
+const OLD_DOWNLOAD_SERVER = "https://files.croquet.io";     // downloads from old bucket (rewritten from old upload url)
 
 const {SIGN_SERVER, REFLECTOR} = getBackendUrls();
 
 function getBackendUrls() {
     // First check if the "backend" query param was set
     const backend = urlOptions.backend;
+    const overridden = urlOptions.reflector && urlOptions.reflector.match(/^wss?:/);
+
+    if (backend === "none" || overridden) {
+        return {
+            SIGN_SERVER: "none",
+            REFLECTOR: "overridden",
+        };
+    }
 
     if (backend) {
         return {
@@ -73,43 +79,21 @@ function getBackendUrls() {
         };
     }
 
-    // below written so it works on NODE where we can't access window.location
-    if (NODE) {
-        return {
-            SIGN_SERVER: "https://api.croquet.io/sign",
-            REFLECTOR: `wss://api.croquet.io/reflector/v${VERSION}`,
-        };
+    // if the backend query param was not set, we go off of the hostname
+    let hostname = NODE ? "localhost" : window.location.hostname;
+
+    // unless dev or staging, use prod
+    if (hostname !== "croquet.dev" && hostname !== "staging.croquet.io") {
+        hostname = "croquet.io";
     }
 
-    // if the backend query param was not set, we go off of the hostname.
-    // This covers both top-level croquet.dev and croquet.io as well as subdomains of either (such as staging.croquet.io)
-    const hostname = window.location.hostname;
-
-    // if the app is on localhost or a file:// url then we'll use prod backend.
-    // if it's a file:// url then hostname will be falsey.
-    if (isLocalUrl(hostname) || !hostname) {
-        return {
-            SIGN_SERVER: `https://api.croquet.io/sign`,
-            REFLECTOR: `wss://api.croquet.io/reflector/v${VERSION}`
-        };
-    }
-
-    // if the site is coming from one of our domains, we select the backend based on the hostname
-    if (hostname.endsWith('croquet.dev') || hostname.endsWith('croquet.io')) {
-        return {
-            SIGN_SERVER: `https://api.${hostname}/sign`,
-            REFLECTOR: `wss://api.${hostname}/reflector/v${VERSION}`
-        };
-    }
-
-    // otherwise we use prod backend
     return {
-        SIGN_SERVER: `https://api.croquet.io/sign`,
-        REFLECTOR: `wss://api.croquet.io/reflector/v${VERSION}`
+        SIGN_SERVER: `https://api.${hostname}/sign`,
+        REFLECTOR: `wss://api.${hostname}/reflector/v${VERSION}`
     };
 }
 
-
+/*
 function isLocalUrl(hostname) {
     const IP_RANGES = [
         // 10.0.0.0 - 10.255.255.255
@@ -143,6 +127,7 @@ function isLocalUrl(hostname) {
 
     return isLocal;
 }
+*/
 
 export const OLD_DATA_SERVER = OLD_DOWNLOAD_SERVER;
 
@@ -457,6 +442,7 @@ export default class Controller {
 
     /** fetch developerId from sign function via meta protocol */
     async verifyApiKey(apiKey, appId, persistentId) {
+        if (SIGN_SERVER === "none") return { developerId: "unknown_dev_id" };
         try {
             const url = SIGN_SERVER;
             const response = await fetch(`${url}/join?meta=login`, {
@@ -683,17 +669,18 @@ export default class Controller {
         return snapshot.meta.hashPromise;
     }
 
-    uploadServer() {
-        // normal case with API keey
-        let url = SIGN_SERVER;
-        // we should always have an apiKey, just keeping the code for now
-        if (!this.sessionSpec.apiKey) url = OLD_UPLOAD_SERVER;
-        // still allow overrides (untested recently)
+    uploadServer(apiKey) {
+        // allow overrides (untested recently, probably broken)
         if (typeof urlOptions.files === "string") {
-            url = urlOptions.files;
+            let url = urlOptions.files;
             if (url.endsWith('/')) url = url.slice(0, -1);
+            return { url, apiKey: null };
         }
-        return url;
+        const url = SIGN_SERVER;
+        if (url === "none") {
+            throw Error("no file server configured");
+        }
+        return { url, apiKey };
     }
 
     /* upload a snapshot to the file server, optionally with a dissident argument that the reflector can interpret as meaning that this is not the snapshot to serve to new clients */
@@ -781,9 +768,8 @@ export default class Controller {
             UploadWorker.postMessage({
                 job,
                 cmd: "uploadEncrypted",
-                server: this.uploadServer(),
+                server: this.uploadServer(apiKey),
                 path,
-                apiKey,
                 buffer,
                 keyBase64,
                 gzip,

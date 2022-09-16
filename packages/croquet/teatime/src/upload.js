@@ -25,7 +25,7 @@ if (NODE) {
 }
 
 function handleMessage(msg) {
-    const { job, cmd, server, path: templatePath, apiKey, buffer, keyBase64, gzip,
+    const { job, cmd, server, path: templatePath, buffer, keyBase64, gzip,
         referrer, id, appId, persistentId, CROQUET_VERSION, debug, what } = msg.data;
     switch (cmd) {
         case "uploadEncrypted": uploadEncrypted(templatePath); break;
@@ -74,12 +74,12 @@ function handleMessage(msg) {
 
     async function getUploadUrl(path) {
         const start = Date.now();
-        const url = `${server}/${path}`;
-        if (!apiKey) return { url, uploadUrl: url };
+        const url = `${server.url}/${path}`;
+        if (!server.apiKey) return { url, uploadUrl: url };
 
         const response = await fetcher(url, {
             headers: {
-                "X-Croquet-Auth": apiKey,
+                "X-Croquet-Auth": server.apiKey,
                 "X-Croquet-App": appId,
                 "X-Croquet-Id": persistentId,
                 "X-Croquet-Session": id,
