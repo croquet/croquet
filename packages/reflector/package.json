@@ -10,24 +10,24 @@
     "test": "tape test.js | tap-nirvana"
   },
   "dependencies": {
-    "@google-cloud/secret-manager": "^3.10.1",
-    "@google-cloud/storage": "^5.8.5",
+    "@google-cloud/secret-manager": "^4.1.2",
+    "@google-cloud/storage": "^6.5.0",
     "fast-crc32c": "^2.0.0",
     "jsonwebtoken": "^8.5.1",
-    "node-fetch": "^2.6.1",
-    "pino": "^7.5.1",
-    "prom-client": "^13.1.0",
-    "ws": "^7.5.2"
+    "node-fetch": "^2.6.7",
+    "pino": "^8.5.0",
+    "prom-client": "^14.1.0",
+    "ws": "^8.8.1"
   },
   "devDependencies": {
     "concat-stream": "^2.0.0",
-    "pino-pretty": "^7.5.3",
+    "pino-pretty": "^9.1.0",
     "tap-nirvana": "^1.1.0",
-    "tape": "^5.3.2",
+    "tape": "^5.6.0",
     "tape-catch": "^1.0.6"
   },
   "optionalDependencies": {
-    "bufferutil": "^4.0.3",
-    "utf-8-validate": "^5.0.5"
+    "bufferutil": "^4.0.6",
+    "utf-8-validate": "^5.0.9"
   }
 }
