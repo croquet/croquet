@@ -712,12 +712,13 @@ function hasID(cls) {
 
 function classToID(cls) {
     if (hasID(cls)) return cls[CLASS_ID];
-    throw Error(`Class "${cls.name}" not found, did you call ${cls.name}.register("${cls.name}")?`);
+    const name = cls.name || 'ClassName';
+    throw Error(`Model class not registered, did you call ${name}.register("${name}")?`);
 }
 
 function classFromID(classID) {
     if (ModelClasses[classID]) return ModelClasses[classID];
-    throw Error(`Class "${classID}" in snapshot, but not found in current source?`);
+    throw Error(`Model class "${classID}" in snapshot, but not registered?`);
 }
 
 function registerClass(cls, classId) {

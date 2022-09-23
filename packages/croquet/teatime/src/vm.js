@@ -1324,10 +1324,15 @@ class VMWriter {
     }
 
     writeModel(model, path) {
-        const state = {
-            $model: Model.classToID(model.constructor),
-        };
+        const state = {};
         this.refs.set(model, state);      // register ref before recursing
+
+        try {
+            state.$model = Model.classToID(model.constructor);
+        } catch (err) {
+            console.error(`unregistered model class at ${path}:`, model);
+            throw err;
+        }
 
         /* see comment in writeObject
         const descriptors = Object.getOwnPropertyDescriptors(model);
