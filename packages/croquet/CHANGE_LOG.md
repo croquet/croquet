@@ -4,6 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest
 
+* 1.1.0-13 add backend URL parameter; use dev and staging backends automatically; better error messages
 * 1.1.0-12 use <link rel="canonical" href="..."> for App.sessionURL (if present)
 * 1.1.0-11 send app path to cloudfunc
 * 1.1.0-10 use new dev backends
