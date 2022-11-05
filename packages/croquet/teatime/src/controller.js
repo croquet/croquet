@@ -61,10 +61,9 @@ const OLD_DOWNLOAD_SERVER = "https://files.croquet.io";     // downloads from ol
 const {SIGN_SERVER, REFLECTOR} = getBackendUrls();
 
 function getBackendUrls() {
-    // First check if the "backend" query param was set
-    const backend = urlOptions.backend;
-    const overridden = urlOptions.reflector && urlOptions.reflector.match(/^wss?:/);
+    let backend = urlOptions.backend || "";
 
+    const overridden = urlOptions.reflector && urlOptions.reflector.match(/^wss?:/);
     if (backend === "none" || overridden) {
         return {
             SIGN_SERVER: "none",
@@ -72,24 +71,26 @@ function getBackendUrls() {
         };
     }
 
-    if (backend) {
-        return {
-            SIGN_SERVER: `https://api.${backend}.croquet.dev/sign`,
-            REFLECTOR: `wss://api.${backend}.croquet.dev/reflector/v${VERSION}`
-        };
+    // go off the hostname for dev and staging
+    if (!backend && !NODE) switch (window.location.hostname) {
+        case "croquet.dev": backend = "dev"; break;
+        case "staging.croquet.io": backend = "staging"; break;
+        /* no default */
     }
 
-    // if the backend query param was not set, we go off of the hostname
-    let hostname = NODE ? "localhost" : window.location.hostname;
-
-    // unless dev or staging, use prod
-    if (hostname !== "croquet.dev" && hostname !== "staging.croquet.io") {
-        hostname = "croquet.io";
+    // map backend to api domain
+    let apidomain;
+    switch (backend) {
+        case "":
+        case "prod": apidomain = "croquet.io"; break;
+        case "staging": apidomain = "staging.croquet.io"; break;
+        case "dev": apidomain = "croquet.dev"; break;
+        default: apidomain = `${backend}.croquet.dev`; break;
     }
 
     return {
-        SIGN_SERVER: `https://api.${hostname}/sign`,
-        REFLECTOR: `wss://api.${hostname}/reflector/v${VERSION}`
+        SIGN_SERVER: `https://api.${apidomain}/sign`,
+        REFLECTOR: `wss://api.${apidomain}/reflector/v${VERSION}`
     };
 }
 
