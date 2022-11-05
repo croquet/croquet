@@ -46,7 +46,8 @@ fi
 (
     cd ../../../docs
     npm ci
-    ../node_modules/.bin/jsdoc -c jsdoc.json -d ../../../servers/croquet-io-dev/docs-pre/croquet/
+    cd croquet
+    npx jsdoc -c jsdoc.json -d ../../../servers/croquet-io-dev/docs-pre/croquet/
 )
 
 # commit
