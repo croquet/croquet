@@ -58,16 +58,17 @@ const DEV_CLOUDFLARE_REFLECTOR = "wss://croquet.network/reflector/dev/";
 const OLD_UPLOAD_SERVER = "https://croquet.io/files/v1";    // url base of files created before we had API keys
 const OLD_DOWNLOAD_SERVER = "https://files.croquet.io";     // downloads from old bucket (rewritten from old upload url)
 
-const {SIGN_SERVER, REFLECTOR} = getBackendUrls();
-
-function getBackendUrls() {
-    let backend = urlOptions.backend || "";
-
+function getBackend(apiKeyWithBackend) {
+    const split = apiKeyWithBackend.lastIndexOf(':');
+    const apiKey = split === -1 ? apiKeyWithBackend : apiKeyWithBackend.slice(split + 1);
+    const keyBackend = split === -1 ? "" : apiKeyWithBackend.slice(0, split);
+    let backend = urlOptions.backend || keyBackend;
     const overridden = urlOptions.reflector && urlOptions.reflector.match(/^wss?:/);
     if (backend === "none" || overridden) {
         return {
-            SIGN_SERVER: "none",
-            REFLECTOR: "overridden",
+            apiKey,
+            signServer: "none",
+            reflector: "overridden",
         };
     }
 
@@ -89,8 +90,9 @@ function getBackendUrls() {
     }
 
     return {
-        SIGN_SERVER: `https://api.${apidomain}/sign`,
-        REFLECTOR: `wss://api.${apidomain}/reflector/v${VERSION}`
+        apiKey,
+        signServer: `https://api.${apidomain}/sign`,
+        reflector: `wss://api.${apidomain}/reflector/v${VERSION}`
     };
 }
 
@@ -373,6 +375,7 @@ export default class Controller {
      * @param {Function} sessionSpec.rebootModelView - for taking down and rebuilding the model (i.e., the vm) and view
      * @param {Object} sessionSpec.options - options to pass to the vm initializer
      * @param {Array<String>} sessionSpec.optionsFromUrl - names of additional app-specific vm initializer options to take from URL
+     * @param {String} sessionSpec.apiKey - an API key of the form `backend:secret` (or just `secret` if backend is `prod`)
      * @param {String} sessionSpec.appId - a unique identifier for an app
      * @param {String} sessionSpec.password - password for end-to-end encryption
      * @param {String} sessionSpec.viewIdDebugSuffix - suffix for viewIds to help debugging
@@ -445,11 +448,11 @@ export default class Controller {
     }
 
     /** fetch developerId from sign function via meta protocol */
-    async verifyApiKey(apiKey, appId, persistentId) {
-        if (SIGN_SERVER === "none") return { developerId: "unknown_dev_id" };
+    async verifyApiKey(apiKeyWithBackend, appId, persistentId) {
+        const {signServer, apiKey} = getBackend(apiKeyWithBackend);
+        if (signServer === "none") return { developerId: "unknown_dev_id" };
         try {
-            const url = SIGN_SERVER;
-            const response = await fetch(`${url}/join?meta=login`, {
+            const response = await fetch(`${signServer}/join?meta=login`, {
                 method: "GET",
                 mode: "cors",
                 headers: {
@@ -467,7 +470,7 @@ export default class Controller {
             if (DEBUG.session) console.log(`Croquet: verified API key`);
             return { developerId, token };
         } catch (err) {
-            throw Error(`Croquet API key validation failed: ${err.message}`);
+            throw Error(`Croquet API key validation failed for "${apiKeyWithBackend}": ${err.message}`);
         }
     }
 
@@ -673,18 +676,18 @@ export default class Controller {
         return snapshot.meta.hashPromise;
     }
 
-    uploadServer(apiKey) {
+    uploadServer(apiKeyWithBackend) {
         // allow overrides (untested recently, probably broken)
         if (typeof urlOptions.files === "string") {
             let url = urlOptions.files;
             if (url.endsWith('/')) url = url.slice(0, -1);
             return { url, apiKey: null };
         }
-        const url = SIGN_SERVER;
-        if (url === "none") {
+        const {apiKey, signServer} = getBackend(apiKeyWithBackend);
+        if (signServer === "none") {
             throw Error("no file server configured");
         }
-        return { url, apiKey };
+        return { url: signServer, apiKey };
     }
 
     /* upload a snapshot to the file server, optionally with a dissident argument that the reflector can interpret as meaning that this is not the snapshot to serve to new clients */
@@ -1203,7 +1206,8 @@ export default class Controller {
         if (DEBUG.session) console.log(this.id, "Controller sending JOIN");
 
         const { tick, delay } = this.getTickAndMultiplier();
-        const { name, codeHash, appId, apiKey, persistentId, developerId, heraldUrl, rejoinLimit, autoSleep, computedCodeHash, flags } = this.sessionSpec;
+        const { name, codeHash, appId, apiKey: apiKeyWithBackend, persistentId, developerId, heraldUrl, rejoinLimit, autoSleep, computedCodeHash, flags } = this.sessionSpec;
+        const { apiKey } = getBackend(apiKeyWithBackend);
 
         const args = {
             name,                   // for debugging only
@@ -2081,7 +2085,7 @@ class Connection {
         this.connectBlocked = false;
         this.connectRestricted = false;
 
-        let reflectorBase = REFLECTOR;
+        let reflectorBase = getBackend(this.controller.sessionSpec.apiKey).reflector;
         const reflectorParams = {};
         const token = this.controller.sessionSpec.token;
         if (token) reflectorParams.token = token;
