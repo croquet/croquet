@@ -824,7 +824,8 @@ export const App = {
     referrerURL() {
         const url = new URL(App.sessionURL);
         const sameOrigin = this.isCroquetHost(url.hostname);
-        return `${url.origin}${url.pathname}${sameOrigin ? url.search : ""}`;
+        // can't use url.origin because Firefox answers "null" for file:// URLs
+        return `${url.protocol}//${url.host}${url.pathname}${sameOrigin ? url.search : ""}`;
     },
 
     // session name is typically `${app}-${fragment}` where
