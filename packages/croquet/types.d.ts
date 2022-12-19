@@ -703,17 +703,18 @@ declare module "@croquet/croquet" {
     type ClassOf<M> = new (...args: any[]) => M;
 
     export type CroquetSessionParameters<M extends Model, V extends View> = {
-	apiKey: string,
+        apiKey: string,
         appId: string,
         name: string|Promise<string>,
         password?: string|Promise<string>,
         model: ClassOf<M>,
         view: ClassOf<V>,
         options?: CroquetModelOptions,
-        eventRateLimit?: number,
         step?: "auto" | "manual",
         tps?: number|string,
-        joinLimit?: number,
+        autoSleep?: number|boolean,
+        rejoinLimit?: number,
+        eventRateLimit?: number,
         debug?: CroquetDebugOptions | Array<CroquetDebugOptions>
     }
 
