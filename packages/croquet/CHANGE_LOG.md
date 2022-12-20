@@ -4,6 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest
 
+* 1.1.0-15 fix file:// URLs on Firefox, add autoSleep and rejoinLimit to types.d.ts
 * 1.1.0-14 get backend from API key
 * 1.1.0-13 add backend URL parameter; use dev and staging backends automatically; better error messages
 * 1.1.0-12 use <link rel="canonical" href="..."> for App.sessionURL (if present)
