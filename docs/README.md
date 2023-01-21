@@ -31,17 +31,12 @@ There are 3 main ways to use Croquet:
 
 ~~~~ HTML
        &lt;meta charset="utf-8"&gt;
-       &lt;script src="https://unpkg.com/@croquet/croquet@@CROQUET_VERSION@"&gt;&lt/script&gt;
+       &lt;script src="https://cdn.jsdelivr.net/npm/@croquet/croquet@@CROQUET_VERSION@"&gt;&lt/script&gt;
 ~~~~
 
 This will create the `Croquet` global to access `Croquet.Model` etc.
 
-**NOTE:** This way of specifying the Croquet script URL will automatically redirect to the actual script file.
-
-*In production*, you should use a full path like `https://unpkg.com/@croquet/croquet@@CROQUET_VERSION@/pub/croquet.min.js` to avoid the cost of the redirect
-(the full path is what your browser's address bar will show when you click the abbreviated [script link](https://unpkg.com/@croquet/croquet@@CROQUET_VERSION@).
-
-See [unpkg.com](https://unpkg.com/) for ways to link to different versions or the latest version automatically. We do update Croquet quite often, so please keep your apps up-to-date.
+See [jsdelivr.com](https://jsdelivr.com/) for ways to link to different versions or the latest version automatically. We recommend to link to a specific version in production.
 
 3.  **NPM**: install the [`@croquet/croquet`](https://www.npmjs.com/package/@croquet/croquet) package:
 
@@ -52,8 +47,6 @@ See [unpkg.com](https://unpkg.com/) for ways to link to different versions or th
         import * as Croquet from "@croquet/croquet"
 
     Again, make sure to specify `charset="utf-8"` for your HTML or your script tags.
-
-We frequently update Croquet so be sure to always use the latest (until we have a stable release).
 
 # What is Croquet?
 
@@ -286,6 +279,6 @@ Calls to `Math.random()` within a view will behave normally. Different instances
 | 2019-06-27 | docs: [View.subscribe]{@link View#subscribe}, [startSession]{@link Session.join}                                                                                                                                                                                                                       |
 | 2019-06-26 | **release 0.1.0**                                                                                                                                                                                                                                                                                      |
 
-Copyright © 2019-2021 Croquet Corporation
+Copyright © 2019-2023 Croquet Corporation
 
 _THE CROQUET CLIENT LIBRARY IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE._

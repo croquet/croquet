@@ -11,7 +11,7 @@ Following is a full example of the Data API.
     <head>
         <meta charset="utf-8">
         <title>Data test</title>
-        <script src="https://unpkg.com/@croquet/croquet"></script>
+        <script src="https://cdn.jsdelivr.net/npm/@croquet/croquet@1.0.5"></script>
     </head>
     <body style="background-color: #666; background-size: contain; background-repeat: no-repeat; background-position: center;" onclick="imageinput.click()">
         <input id="imageinput" type="file" accept="image/*" style="display:none;">
