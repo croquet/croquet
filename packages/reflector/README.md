@@ -39,7 +39,7 @@ node reflector.js --https --standalone --storage=none | node node_modules/pino-p
 
 ## Running Tests
 
-To run tests locally, simply run:
+To run tests locally, execute:
 
 ```
 npm test
@@ -87,14 +87,14 @@ Here are some of the key pieces we log (data types are strings unless noted othe
 
 ### The NOTICE function
 
-Logs that designate a significant event (often associated with log queries), should use the NOTICE function. The NOTICE function requires both a "scope" and an "event" to be passed in. At this time, "scope" could be one of "process", "session", or "connection" to indicate that the event relates to either the reflector process itself, a session, or a connection. The "event" can be anything, but it often is simply "start" or "end".
+Logs that designate a significant event (often associated with log queries), should use the NOTICE function. The NOTICE function requires both a "scope" and an "event" to be passed in. At this time, "scope" could be one of "process", "session", or "connection" to indicate that the event relates to either the reflector process itself, a session, or a connection. The "event" can be anything, but common ones are "start" and "end".
 
 ```javascript
 // we might want to indicate that a session has started:
 NOTICE("session", "start");
 
 // similar to the other log functions, we can also pass a metadata object and a message
-NOTICE("session", "start", {sessionId: id}, "recieving JOIN");
+NOTICE("session", "start", {sessionId: id}, "receiving JOIN");
 ```
 
 
@@ -113,7 +113,7 @@ As it relates to logging, both island and session ids are logged as "sessionId".
     dyld[17909]: missing symbol called
     [1]    17909 abort      node reflector.js
 
-One of the dependencies (fast-crc32c) has a bug due to an upstream dependency not working on the new M1 chip architecture. To fix the issue, you can simply uninstall the fast-crc32c module by running `npm uninstall fast-crc32c`. However, do not commit that change, as the dependency is used in the production environment.
+One of the dependencies (fast-crc32c) has a bug due to an upstream dependency not working on the new M1 chip architecture. To work around the issue, uninstall the fast-crc32c module by running `npm uninstall fast-crc32c`. However, do not commit that change, as the dependency is used in the production environment.
 
 Another fix is to go into the node_modules directory and modify the fast-crc32c code (`node_modules/fast-crc32c/loader.js`) by commenting out the sse4_crc32c implementation from the array of implementations. It should look like this:
 
