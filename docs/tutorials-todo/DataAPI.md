@@ -106,7 +106,7 @@ Croquet.Session.join({
 
 When you drop an image file from Exploror or Finder onto the browser window, or click in the window to get the file dialog and choose a file, the `addFile()` of the `DataTestView` is invoked. The  `addFile()` method calls `Croquet.Data.store()` with `this.sessionId` and `data` as an `ArrayBuffer`. `Croquet.Data.store()` returns asynchronously the data handle, which can be sent to the model over a Croquet message.
 
-In this example, the data handle is simply forwarded back to views from the model in `addAsset()` of the model. The view fetches the data from the file server by calling `Croquet.Data.fetch()`.In this example, it creates a `Blob` object and use it as the `background-image` CSS style.
+In this example, the data handle is forwarded back to views from the model in `addAsset()` of the model. The view fetches the data from the file server by calling `Croquet.Data.fetch()`.In this example, it creates a `Blob` object and use it as the `background-image` CSS style.
 
 `Croquet.Data.store()` takes optional third boolean flag argument that specifies whether to keep the `ArrayBuffer` data in the main thread, or transfer it to the WebWorker that handles uploading data.  If you need to process the same data after you call `Croquet.Data.store()`, pass `true` as the third "keep" flag.
 

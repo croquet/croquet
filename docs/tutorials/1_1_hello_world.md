@@ -65,7 +65,7 @@ All of the Croquet support code is included within the Croquet.js library. Typic
 <script src="https://unpkg.com/@croquet/croquet"></script>
 ```
 
-When we use CodePen, we simply include the same library by adding it in the Pen Settings
+When we use CodePen, we include the same library by adding it in the Pen Settings
 
 ![CodePen Settings](images/HelloWorldSettings.png)
 
@@ -99,7 +99,7 @@ If you created a new Pen from scratch (not forking one of the tutorials here) an
 Instead we use messages sent via publish and subscribe.
 
 Our first **Hello World** app is very simple.
-It is simply a counter that increases by one every second.
+It is a counter that increases by one every second.
 Any participant clicking on it resets the count to 0.
 All participants will see the exact same count and will see it reset when any of them clicks.
 A new user can join at any time and will be perfectly synced with the existing users.

@@ -38,7 +38,7 @@ The tutorial demonstrates the following:
 
 ## Initializing the Library-Defined Services
 
-  Stated simply, Three.js provides a collection of classes that enable an application to set up a scene filled with 3D objects, and to render those objects - as seen from a virtual camera at a specified position in the scene - in each animation frame (for example, 60 times per second). Rendering takes place onto a `<canvas>` element that the app developer adds to the HTML document.
+  Three.js provides a collection of classes that enable an application to set up a scene filled with 3D objects, and to render those objects - as seen from a virtual camera at a specified position in the scene - in each animation frame (for example, 60 times per second). Rendering takes place onto a `<canvas>` element that the app developer adds to the HTML document.
 
   This app uses Three.js purely on the view side: that is, for creating a 3D rendering of the bouncing balls and of the central sphere that they bounce off.
 
