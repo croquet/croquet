@@ -125,7 +125,7 @@ const browserOutputs = [
         format: 'cjs',
         sourcemap: true,    // not included in npm bundle by explicit "files" section in package.json
     },
-    // bundled build for direct inclusion in script tag, e.g. via unpkg.com
+    // bundled build for direct inclusion in script tag, e.g. via jsdelivr
     {
         file: 'pub/croquet.min.js',
         format: 'iife',
