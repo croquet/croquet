@@ -264,7 +264,7 @@ export default class VirtualMachine {
                 if (snapshot.modelsById) {
                     // read vm from snapshot
                     const reader = VMReader.newOrRecycled(this);
-                    const vmData = reader.readVM(snapshot, "_");
+                    const vmData = reader.readVM(snapshot, "vm");
                     let messages = [];
                     // only read keys declared above
                     for (const key of Object.keys(vmData)) {
@@ -1254,11 +1254,11 @@ class VMWriter {
     snapshot(vm) {
         const state = {
             _random: vm._random.state(),
-            messages: this.write(vm.messages.asArray()),
+            messages: this.write(vm.messages.asArray(), "vm.messages"),
         };
         for (const [key, value] of Object.entries(vm)) {
             if (key === "controller") continue;
-            if (!state[key]) this.writeInto(state, key, value, "_");
+            if (!state[key]) this.writeInto(state, key, value, `vm.${key}`);
         }
         this.writeDeferred();
         return state;
@@ -1311,13 +1311,13 @@ class VMWriter {
                         if (value.constructor === Object || typeof value.constructor !== "function") return this.writeObject(value, path, defer);
                         const writer = this.writers.get(value.constructor);
                         if (writer) return writer(value, path);
-                        console.error(`Croquet Snapshot: unknown class ${path}:`, value);
-                        throw Error(`Croquet Snapshot: class not registered in Model.types(): ${value.constructor.name}`);
+                        console.error(`Croquet: unknown class at ${path}:`, value);
+                        throw Error(`Croquet: class not registered in Model.types(): ${value.constructor.name}`);
                     }
                     case "Null": return value;
                     default:
-                        console.error(`Croquet Snapshot: unsupported property ${path}:`, value);
-                        throw Error(`Croquet Snapshot: ${type}s are not supported as model properties`);
+                        console.error(`Croquet: unsupported property at ${path}:`, value);
+                        throw Error(`Croquet: serialization of ${type}s is not supported`);
                 }
             }
         }
@@ -1518,12 +1518,12 @@ class VMReader {
     }
 
     readVM(snapshot, root) {
-        if (root !== "_") throw Error("VirtualMachine must be root object");
+        if (root !== "vm") throw Error("VirtualMachine must be root object");
         const vmData = {
             _random: new SeedRandom(null, { state: snapshot._random }),
         };
         for (const [key, value] of Object.entries(snapshot)) {
-            if (!vmData[key]) this.readInto(vmData, key, value, root);
+            if (!vmData[key]) this.readInto(vmData, key, value, `vm.${key}`);
         }
         this.readDeferred();
         this.resolveRefs();
@@ -1690,7 +1690,7 @@ class VMReader {
 
 class MessageArgumentEncoder extends VMWriter {
     encode(args) {
-        const encoded = this.writeArray(args, "$");
+        const encoded = this.writeArray(args, "args");
         this.writeDeferred();
         return encoded;
     }
@@ -1702,7 +1702,7 @@ class MessageArgumentEncoder extends VMWriter {
 
 class MessageArgumentDecoder extends VMReader {
     decode(args) {
-        const decoded = this.readArray(args, "$");
+        const decoded = this.readArray(args, "args");
         this.readDeferred();
         this.resolveRefs();
         return decoded;
