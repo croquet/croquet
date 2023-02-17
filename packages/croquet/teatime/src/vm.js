@@ -1763,10 +1763,10 @@ function gatherInternalClassTypesRec(dummyObject, prefix="", gatheredClasses={},
 
 function arrayBufferToBase64(buffer) {
     const array = new Uint8Array(buffer);
-    const n = array.byteLength;
-    const dest = new Array(n);
-    for (let i = 0; i < n; i++) {
-        dest[i] = String.fromCharCode(array[i]);
+    const dest = [];
+    for (let i = 0; i < array.byteLength; i += 4096) {
+        const chunk = array.subarray(i, i + 4096);
+        dest.push(String.fromCharCode.apply(null, chunk));
     }
     return globalThis.btoa(dest.join(''));
 }
