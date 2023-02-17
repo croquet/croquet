@@ -1764,11 +1764,11 @@ function gatherInternalClassTypesRec(dummyObject, prefix="", gatheredClasses={},
 function arrayBufferToBase64(buffer) {
     const array = new Uint8Array(buffer);
     const n = array.byteLength;
-    let string = "";
+    const dest = new Array(n);
     for (let i = 0; i < n; i++) {
-        string += String.fromCharCode(array[i]);
+        dest[i] = String.fromCharCode(array[i]);
     }
-    return globalThis.btoa(string);
+    return globalThis.btoa(dest.join(''));
 }
 
 function base64ToArrayBuffer(base64) {
