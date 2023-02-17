@@ -316,6 +316,7 @@ declare module "@croquet/croquet" {
          *
          * **Note:** the recommended form given above is equivalent to `this.future(100, "methodName", arg1, arg2)`
          * but makes it more clear that "methodName" is not just a string but the name of a method of this object.
+         * Also, this will survive minification.
          * Technically, it answers a [Proxy]{@link https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Proxy}
          * that captures the name and arguments of `.methodName(args)` for later execution.
          *
@@ -338,6 +339,25 @@ declare module "@croquet/croquet" {
          * @public
          */
         future(tOffset?:number, methodName?: string, ...args: any[]): this;
+
+        /**
+         * **Cancel a previously scheduled future message**
+         *
+         * This unschedules the invocation of a message that was scheduled with [future]{@link Model#future}.
+         * It is okay to call this method even if the message was already executed or if it was never scheduled.
+         *
+         * **Note:** as with [future]{@link Model#future}, the recommended form is to pass the method itself,
+         * but you can also pass the name of the method as a string.
+         *
+         * @example
+         * this.future(3000).say("hello", "world");
+         * ...
+         * this.cancelFuture(this.say);
+         * @param {Function} method - the method (must be a method of `this`)
+         * @since 1.1.0-16
+         * @public
+        */
+        cancelFuture(method: ((...args: any[]) => void) | string): void;
 
         /** **Generate a replicated pseudo-random number**
          *

@@ -45,6 +45,13 @@ class ModelRealm {
         throw Error(`Model.future() called from outside: ${model}`);
     }
 
+    cancelFuture(model, methodOrMessage) {
+        if (__currentRealm && __currentRealm.equal(this)) {
+            return this.vm.cancelFuture(model, methodOrMessage);
+        }
+        throw Error(`Model.cancelFuture() called from outside: ${model}`);
+    }
+
     random() {
         return this.vm.random();
     }

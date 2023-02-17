@@ -421,6 +421,18 @@ export default class VirtualMachine {
         return message;
     }
 
+    cancelFuture(model, methodOrMessage) {
+        const messages = this.messages;
+        if ("time" in methodOrMessage) {
+            const { time, seq } = methodOrMessage;
+            messages.removeOne(msg => msg.time === time && msg.seq === seq);
+        } else {
+            const methodName = this.asQFunc(model, methodOrMessage);
+            const receiverID = model.id;
+            messages.removeOne(msg => msg.receiver === receiverID && msg.selector === methodName);
+        }
+    }
+
     futureRepeat(tOffset, receiverID, selector, args) {
         this.futureSend(tOffset, this.id, "futureExecAndRepeat", [tOffset, receiverID, selector, args]);
     }
