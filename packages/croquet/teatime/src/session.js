@@ -281,6 +281,7 @@ export class Session {
         for (const [param, value] of Object.entries(parameters)) {
             if (SESSION_PARAMS.includes(param)) sessionSpec[param] = value;
         }
+        if (parameters.progressReporter) sessionSpec.progressReporter = parameters.progressReporter;
         await controller.initFromSessionSpec(sessionSpec);
 
         let rebooting = false;

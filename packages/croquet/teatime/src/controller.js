@@ -938,6 +938,10 @@ export default class Controller {
 
                 Controllers.add(this);
 
+                // if join request included a progressReporter, prepare to call it
+                const { progressReporter } = this.sessionSpec;
+                const reportProgress = progressReporter || (() => {});
+
                 const {messages, url, persisted, time, seq, /* snapshotTime, */ snapshotSeq, tove, reflector, flags} = args;
                 // check that we are able to decode a shared secret (unless it's our own)
                 if (tove && tove !== this.tove) try {
@@ -945,6 +949,7 @@ export default class Controller {
                     if (this.decrypt(tove) !== this.id) throw Error("wrong sessionId in tove?!");
                 } catch (err) {
                     this.connection.closeConnectionWithError('SYNC', Error(`failed to decrypt session secret: ${err.message}`), 4200); // do not retry
+                    reportProgress(-1); // failure
                     return;
                 }
                 const timeline = args.timeline || args.reflectorSession; // renamed "reflectorSession" to "timeline"
@@ -1029,6 +1034,7 @@ export default class Controller {
                         msg[2] = this.decryptPayload(msg[2])[0];
                     } catch (err) {
                         this.connection.closeConnectionWithError('SYNC', Error(`failed to decrypt message: ${err.message}`), 4200); // do not retry
+                        reportProgress(-1); // failure
                         return;
                     }
                     if (DEBUG.messages) console.log(this.id, "received in SYNC " + JSON.stringify(msg));
@@ -1036,7 +1042,7 @@ export default class Controller {
                 }
                 this.networkQueue.push(...messagesSinceSync);
                 if (time > this.reflectorTime) this.timeFromReflector(time, "reflector");
-                // if we were rejoining, then our work is done here: we got all the missing messages
+                // if we were rejoining, then our work is done here: we got all the missing messages (and no need to report join progress)
                 if (rejoining) {
                     if (DEBUG.session) console.log(this.id, "seamless rejoin successful");
                     this.sessionSpec.sessionJoined();
@@ -1050,9 +1056,15 @@ export default class Controller {
                     data = await this.downloadEncrypted({url, gzip: true, key: this.key, debug: DEBUG.snapshot, json: true, what: persistedOrSnapshot});
                 } catch (err) {
                     this.connection.closeConnectionWithError('SYNC', Error(`failed to fetch ${persistedOrSnapshot}: ${err.message}`), 4200); // do not retry.  synchronously nulls out socket.
+                    reportProgress(-1); // failure
                     return;
                 }
-                if (!this.connected) { console.log(this.id, "disconnected during SYNC"); return; }
+                if (!this.connected) {
+                    // socket connection went away while we were fetching
+                    console.log(this.id, "disconnected during SYNC");
+                    reportProgress(-1); // failure
+                    return;
+                }
                 if (persisted) {
                     // run initFn() with persisted data, if any
                     this.install(data);
@@ -1062,16 +1074,25 @@ export default class Controller {
                 }
                 // after install() sets this.vm, the main loop may also trigger simulation
                 if (DEBUG.session) console.log(`${this.id} fast-forwarding from ${Math.round(this.vm.time)}`);
+                const fastForwardStart = this.vm.time;
                 // execute pending events, up to (at least) our own view-join
                 const success = await new Promise(resolve => {
                     this.fastForwardHandler = caughtUp => {
                         if (!this.connected || !this.vm) {
                             console.log(this.id, "disconnected during SYNC fast-forwarding");
+                            reportProgress(-1); // failure
                             resolve(false);
                         } else if (caughtUp === "error") {
+                            reportProgress(-1); // failure
                             resolve(false);
                         } else if (caughtUp && this.viewId in this.vm.views) {
+                            reportProgress(1); // success
                             resolve(true);
+                        } else if (this.vm.time !== this.reflectorTime) {
+                            // we avoid reporting progress=1 until the
+                            // resolve(true) condition above is met
+                            const progress = (this.vm.time - fastForwardStart) / (this.reflectorTime - fastForwardStart);
+                            reportProgress(parseFloat(progress.toFixed(3)));
                         }
                         };
                     Promise.resolve().then(() => this.stepSession("fastForward", { budget: MAX_SIMULATION_MS })); // immediate but not in the message handler
