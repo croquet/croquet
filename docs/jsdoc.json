@@ -39,7 +39,7 @@
         "include": [
           "tutorials"
         ],
-        "includePattern": "\\.(png|jpg|svg)$"
+        "includePattern": "\\.(png|jpg|svg|gif)$"
       }
     }
   }
