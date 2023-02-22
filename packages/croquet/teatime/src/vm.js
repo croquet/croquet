@@ -1025,16 +1025,6 @@ export class Message {
     [Symbol.toPrimitive]() { return this.toString(); }
 }
 
-/*
-const sumForFloat = (() => {
-    const float = new Float64Array(1);
-    const ints = new Int32Array(float.buffer);
-    return fl => {
-        float[0] = fl;
-        return ints[0] + ints[1];
-        };
-    })();
-*/
 const sumForFloat = (() => {
     // use DataView so we can enforce little-endian interpretation of float as ints on any platform
     const buffer = new ArrayBuffer(8);
@@ -1127,14 +1117,14 @@ class VMHasher {
                         this.hashArray(value, defer);
                         return;
                     case "ArrayBuffer":
-                        this.hashArray(new Uint8Array(value), false);
+                        this.hashIntArray(new Uint8Array(value), false);
                         return;
                     case "Set":
                     case "Map":
                         this.hashStructure(value, [...value]);
                         return;
                     case "DataView":
-                        this.hashArray(new Uint8Array(value.buffer, value.byteOffset, value.byteLength), false);
+                        this.hashIntArray(new Uint8Array(value.buffer, value.byteOffset, value.byteLength), false);
                         return;
                     case "Int8Array":
                     case "Uint8Array":
@@ -1143,6 +1133,8 @@ class VMHasher {
                     case "Uint16Array":
                     case "Int32Array":
                     case "Uint32Array":
+                        this.hashIntArray(value, false);
+                        return;
                     case "Float32Array":
                     case "Float64Array":
                         this.hashArray(value, false);
@@ -1187,6 +1179,18 @@ class VMHasher {
         this.refs.set(array, true);       // register ref before recursing
         for (let i = 0; i < array.length; i++) {
             this.hashEntry(i, array[i], defer);
+        }
+    }
+
+    hashIntArray(array) {
+        this.refs.set(array, true);       // register ref
+        for (let i = 0; i < array.length; i++) {
+            const value = array[i];
+            if (value === 0) this.hashState.zC++;
+            else {
+                this.hashState.nC++;
+                this.hashState.nH += value;
+            }
         }
     }
 
