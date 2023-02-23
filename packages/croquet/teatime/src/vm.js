@@ -488,7 +488,6 @@ export default class VirtualMachine {
      */
     advanceTo(newTime, deadline) {
         if (CurrentVM) throw Error("cannot advance time from model code");
-        let count = 0;
         let message;
         // process each message in queue up to newTime
         while ((message = this.messages.peek()) && message.time <= newTime) {
@@ -505,8 +504,8 @@ export default class VirtualMachine {
             this.time = message.time;
             // execute future or external message
             message.executeOn(this);
-            // make date check cheaper by only checking every 100 messages
-            if (++count > 100) { count = 0; if (Date.now() > deadline) return false; }
+            // if we're out of time, bail out
+            if (globalThis.CroquetViewDate.now() >= deadline) return false;
         }
         // we processed all messages up to newTime
         this.time = newTime;

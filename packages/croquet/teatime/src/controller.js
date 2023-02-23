@@ -1073,7 +1073,7 @@ export default class Controller {
                     this.install();  // will run initFn() if no snapshot
                 }
                 // after install() sets this.vm, the main loop may also trigger simulation
-                if (DEBUG.session) console.log(`${this.id} fast-forwarding from ${Math.round(this.vm.time)}`);
+                if (DEBUG.session) console.log(`${this.id} fast-forwarding from ${Math.round(this.vm.time)} to at least ${time}`);
                 const fastForwardStart = this.vm.time;
                 // execute pending events, up to (at least) our own view-join
                 const success = await new Promise(resolve => {
@@ -1085,14 +1085,25 @@ export default class Controller {
                         } else if (caughtUp === "error") {
                             reportProgress(-1); // failure
                             resolve(false);
-                        } else if (caughtUp && this.viewId in this.vm.views) {
-                            reportProgress(1); // success
-                            resolve(true);
-                        } else if (this.vm.time !== this.reflectorTime) {
-                            // we avoid reporting progress=1 until the
-                            // resolve(true) condition above is met
-                            const progress = (this.vm.time - fastForwardStart) / (this.reflectorTime - fastForwardStart);
-                            reportProgress(parseFloat(progress.toFixed(3)));
+                        } else {
+                            // even if caughtUp is true, we can only decide whether
+                            // fast-forward is complete after yielding execution
+                            // to allow any accumulated ticks and events from the
+                            // reflector to be ingested, pushing ahead reflectorTime.
+                            setTimeout(() => {
+                                let runAgain = true;
+                                if (this.vm.time === this.reflectorTime) {
+                                    if (this.viewId in this.vm.views) {
+                                        reportProgress(1); // success
+                                        resolve(true);
+                                        runAgain = false;
+                                    }
+                                } else {
+                                    const progress = (this.vm.time - fastForwardStart) / (this.reflectorTime - fastForwardStart);
+                                    reportProgress(progress);
+                                }
+                                if (runAgain) this.stepSession("fastForward", { budget: MAX_SIMULATION_MS });
+                            }, 0);
                         }
                         };
                     Promise.resolve().then(() => this.stepSession("fastForward", { budget: MAX_SIMULATION_MS })); // immediate but not in the message handler
@@ -2032,6 +2043,8 @@ export default class Controller {
             if (this.isBeingAnimated()) return; // animation is happening as usual
 
             checkAliveness();
+
+            if (this.fastForwardHandler) return; // leave simulation to being driven by the fast-forward loop
 
             if (this.connected) {
                 // we set a simulation budget of 90% of the tick gap, capped at
