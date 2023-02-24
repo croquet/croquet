@@ -1077,6 +1077,27 @@ export default class Controller {
                 const fastForwardStart = this.vm.time;
                 // execute pending events, up to (at least) our own view-join
                 const success = await new Promise(resolve => {
+                    const { port1, port2 } = new MessageChannel();
+                    port1.onmessage = () => {
+                        // function to be called from fastForwardHandler below, using channel
+                        // messaging so that we first yield execution to allow any
+                        // accumulated ticks and events from the reflector to be ingested.
+                        // this will work even in cases where setTimeout(0) would not.
+                        let runAgain = true;
+                        if (this.vm.time === this.reflectorTime) {
+                            if (this.viewId in this.vm.views) {
+                                reportProgress(1); // success
+                                resolve(true);
+                                runAgain = false;
+                            }
+                        } else {
+                            const progress = (this.vm.time - fastForwardStart) / (this.reflectorTime - fastForwardStart);
+                            reportProgress(progress);
+                        }
+                        if (runAgain) this.stepSession("fastForward", { budget: MAX_SIMULATION_MS });
+                    };
+                    const checkAfterServicingTicks = () => port2.postMessage('tick');
+
                     this.fastForwardHandler = caughtUp => {
                         if (!this.connected || !this.vm) {
                             console.log(this.id, "disconnected during SYNC fast-forwarding");
@@ -1086,26 +1107,10 @@ export default class Controller {
                             reportProgress(-1); // failure
                             resolve(false);
                         } else {
-                            // even if caughtUp is true, we can only decide whether
-                            // fast-forward is complete after yielding execution
-                            // to allow any accumulated ticks and events from the
-                            // reflector to be ingested, pushing ahead reflectorTime.
-                            setTimeout(() => {
-                                let runAgain = true;
-                                if (this.vm.time === this.reflectorTime) {
-                                    if (this.viewId in this.vm.views) {
-                                        reportProgress(1); // success
-                                        resolve(true);
-                                        runAgain = false;
-                                    }
-                                } else {
-                                    const progress = (this.vm.time - fastForwardStart) / (this.reflectorTime - fastForwardStart);
-                                    reportProgress(progress);
-                                }
-                                if (runAgain) this.stepSession("fastForward", { budget: MAX_SIMULATION_MS });
-                            }, 0);
+                            checkAfterServicingTicks();
                         }
-                        };
+                    };
+
                     Promise.resolve().then(() => this.stepSession("fastForward", { budget: MAX_SIMULATION_MS })); // immediate but not in the message handler
                     });
                 delete this.fastForwardHandler;
