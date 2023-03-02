@@ -514,12 +514,13 @@ class Model {
      * ...
      * this.cancelFuture(this.say);
      * @param {Function} method - the method (must be a method of `this`)
+     * @returns {Boolean} true if the message was found and canceled, false if it was not found
      * @since 1.1.0-16
      * @public
     */
     cancelFuture(methodOrMessage) {
         if (!this.__realm) this.__realmError();
-        this.__realm.cancelFuture(this, methodOrMessage);
+        return this.__realm.cancelFuture(this, methodOrMessage);
     }
 
     /**

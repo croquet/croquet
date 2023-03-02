@@ -423,14 +423,17 @@ export default class VirtualMachine {
 
     cancelFuture(model, methodOrMessage) {
         const messages = this.messages;
+        let removed;
         if ("time" in methodOrMessage) {
             const { time, seq } = methodOrMessage;
-            messages.removeOne(msg => msg.time === time && msg.seq === seq);
+            removed = messages.removeOne(msg => msg.time === time && msg.seq === seq);
         } else {
-            const methodName = this.asQFunc(model, methodOrMessage);
+            const methodName = this.asQFunc(model, methodOrMessage, "cancelFuture message");
             const receiverID = model.id;
-            messages.removeOne(msg => msg.receiver === receiverID && msg.selector === methodName);
+            removed = messages.removeOne(msg => msg.receiver === receiverID && msg.selector === methodName
+                || msg.receiver === "_" && msg.selector === "futureExecAndRepeat" && msg.args[1] === receiverID && msg.args[2] === methodName);
         }
+        return removed !== undefined;
     }
 
     futureRepeat(tOffset, receiverID, selector, args) {
@@ -462,7 +465,7 @@ export default class VirtualMachine {
     // or model.future(tOffset, "property",...args)
     // into this.futureSend(tOffset, model.id, "property", args)
     future(model, tOffset, methodNameOrCallback, methodArgs) {
-        const methodName = this.asQFunc(model, methodNameOrCallback);
+        const methodName = this.asQFunc(model, methodNameOrCallback, "future message");
         if (typeof methodName === "string") {
             return this.futureSend(tOffset, model.id, methodName, methodArgs);
         }
@@ -515,7 +518,7 @@ export default class VirtualMachine {
 
     // Pub-sub
 
-    asQFunc(model, func) {
+    asQFunc(model, func, handler = "subscription handler") {
         // if a string was passed in, assume it's a method name
         if (typeof func === "string") return func;
         // if a function was passed in, hope it was a method
@@ -531,7 +534,7 @@ export default class VirtualMachine {
                 obj = Object.getPrototypeOf(obj);
             }
             // otherwise, assume it's an inline function
-            displayWarning(`subscription handler is not a method of ${model}: ${func}\n`, { only: "once" });
+            displayWarning(`${handler} is not a method of ${model}: ${func}\n`, { only: "once" });
             // if passing (foo) => this.bar(baz)
             // match:                (   foo             )   =>  this .  bar              (    baz               )
             const HANDLER_REGEX = /^\(?([a-z][a-z0-9]*)?\)? *=> *this\.([a-z][a-z0-9]*) *\( *([a-z][a-z0-9]*)? *\) *$/i;

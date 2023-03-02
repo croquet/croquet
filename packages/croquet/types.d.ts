@@ -354,10 +354,11 @@ declare module "@croquet/croquet" {
          * ...
          * this.cancelFuture(this.say);
          * @param {Function} method - the method (must be a method of `this`)
+         * @returns {Boolean} true if the message was found and canceled, false otherwise
          * @since 1.1.0-16
          * @public
         */
-        cancelFuture(method: ((...args: any[]) => void) | string): void;
+        cancelFuture(method: ((...args: any[]) => void) | string): boolean;
 
         /** **Generate a replicated pseudo-random number**
          *
