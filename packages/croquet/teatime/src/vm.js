@@ -814,7 +814,7 @@ export default class VirtualMachine {
             const timeUntilReady = this.lastPersistencePoll ? this.lastPersistencePoll + PERSIST_MIN_POLL_GAP - this.time : 0;
             if (timeUntilReady > 0) {
                 if (DEBUG.snapshot) console.log(`${this.id} postponing persistence poll by ${timeUntilReady}ms`);
-                this.futureSend(timeUntilReady, this.id, "triggerPersistencePoll", []);
+                this.futureSend(timeUntilReady, "_", "triggerPersistencePoll", []);
                 this.inPersistenceCoolOff = true;
             } else {
                 // go right ahead
