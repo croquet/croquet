@@ -140,7 +140,7 @@ class Model {
     static register(classId) {
         if (!classId) {
             classId = this.name;
-            console.warn(`Deprecation warning: ${this.name}.register(classId) called without classId. See https://croquet.io/sdk/docs/Model.html#.register`);
+            console.warn(`Deprecation warning: ${this.name}.register(classId) called without classId. See https://croquet.io/docs/croquet/Model.html#.register`);
         }
         resetReadersAndWriters();
         addClassHash(this, classId);
