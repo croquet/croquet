@@ -434,7 +434,8 @@ export default class VirtualMachine {
     }
 
     futureRepeat(tOffset, receiverID, selector, args) {
-        this.futureSend(tOffset, this.id, "futureExecAndRepeat", [tOffset, receiverID, selector, args]);
+        // "_ " is a special receiver that means "this VM"
+        this.futureSend(tOffset, "_", "futureExecAndRepeat", [tOffset, receiverID, selector, args]);
     }
 
     futureExecAndRepeat(tOffset, receiverID, selector, args) {
