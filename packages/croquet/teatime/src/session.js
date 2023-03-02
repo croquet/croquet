@@ -159,6 +159,12 @@ export class Session {
         if (typeof parameters !== "object") {
             throw Error(`Croquet: please use new Session.join( {apiKey, ...} ) API. See https://croquet.io/docs/croquet/Session.html#.join`);
         }
+        // defaults
+        if (!parameters.appId) parameters.appId = 'no.appId'; // must match warning in VM.persist()
+        if (!parameters.name && !parameters.password) parameters.password = App.autoPassword();
+        if (!parameters.name) parameters.name = App.autoSession(); // name but no password throws an error below
+        if (!parameters.model) parameters.model = Model.lastRegistered;
+        if (!parameters.view) parameters.view = View;
         // resolve promises
         for (const [k,v] of Object.entries(parameters)) {
             // rewriting this using Promise.all does not seem worth the trouble so ...

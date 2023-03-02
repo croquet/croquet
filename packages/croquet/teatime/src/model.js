@@ -145,6 +145,7 @@ class Model {
         resetReadersAndWriters();
         addClassHash(this, classId);
         registerClass(this, classId);
+        Model.lastRegistered = this;
         return this;
     }
 

@@ -784,6 +784,7 @@ export default class VirtualMachine {
     }
 
     persist(model, persistentDataFunc) {
+        if (this.controller && this.controller.sessionSpec.appId === 'no.appId') console.warn("Croquet: appId should be provided in Session.join() to not overwrite another apps's persistent data");
         const start = Stats.begin("snapshot");
         const persistentData = typeof persistentDataFunc === "function" ? persistentDataFunc.call(model) : persistentDataFunc;
         if (typeof persistentData !== "object") throw Error(`Croquet: persistSession() can only persist objects (got ${typeof persistentData})`);
