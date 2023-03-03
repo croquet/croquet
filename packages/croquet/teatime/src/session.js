@@ -161,8 +161,10 @@ export class Session {
         }
         // defaults
         if (!parameters.appId) parameters.appId = 'no.appId'; // must match warning in VM.persist()
-        if (!parameters.name && !parameters.password) parameters.password = App.autoPassword();
-        if (!parameters.name) parameters.name = App.autoSession(); // name but no password throws an error below
+        if (!parameters.name) { // auto password only if no name given
+            parameters.name = App.autoSession();
+            if (!parameters.password) parameters.password = App.autoPassword();
+        }
         if (!parameters.model) parameters.model = Model.lastRegistered;
         if (!parameters.view) parameters.view = View;
         // resolve promises
