@@ -750,6 +750,7 @@ export default class Controller {
         });
         const encrypted = await response.arrayBuffer();
         if (debug) console.log(this.id, `${what} fetched (${encrypted.byteLength} bytes) in ${-timer + (timer = Date.now())}ms`);
+        Stats.addNetworkTraffic(`${what}_in`, encrypted.byteLength);
         const decrypted = this.decryptBinary(encrypted, key); // Uint8Array
         if (debug) console.log(this.id, `${what} decrypted (${decrypted.length} bytes) in ${-timer + (timer = Date.now())}ms`);
         const uncompressed = gzip ? pako.inflate(decrypted) : decrypted;
@@ -790,7 +791,8 @@ export default class Controller {
             }, transfer);
             const onmessage = msg => {
                 if (job !== msg.data.job) return; // will be dealt with by that job's listener
-                const {url: urlWithHash, ok, status, statusText} = msg.data;
+                const {url: urlWithHash, ok, status, statusText, bytes} = msg.data;
+                Stats.addNetworkTraffic(`${what}_out`, bytes);
                 UploadWorker[remover]("message", onmessage);
                 if (ok) resolve(urlWithHash);
                 else reject(Error(`${status}: ${statusText}`));
@@ -842,7 +844,7 @@ export default class Controller {
             key: this.key,
             gzip: true,
             debug: DEBUG.snapshot,
-            what: "persistent data",
+            what: "persistence",
         });
         if (DEBUG.snapshot) {
             const logProps = dissidentFlag ? ` (as dissident; ${JSON.stringify(dissidentFlag)})` : "";
@@ -954,7 +956,7 @@ export default class Controller {
                 }
                 const timeline = args.timeline || args.reflectorSession; // renamed "reflectorSession" to "timeline"
                 this.flags = flags || {};
-                const persistedOrSnapshot = persisted ? "persisted session" : "snapshot";
+                const persistedOrSnapshot = persisted ? "persistence" : "snapshot"; // used as Stats key too
                 if (DEBUG.session) console.log(this.id, `received SYNC from ${reflector} reflector: time ${time}, ${messages.length} messages, ${persistedOrSnapshot} ${url || "<none>"}`);
                 // if we are rejoining, check if we can do that seamlessly without taking down the view
                 // meaning we have all the messages we missed while disconnected
@@ -2158,6 +2160,7 @@ class Connection {
             this.controller.sendJoin();
         };
         socket.onmessage = event => {
+            Stats.addNetworkTraffic("reflector_in", event.data.length);
             if (socket !== this.socket) return; // in case a socket that we've tried to close can still deliver a message
             this.receive(event.data);
         };
@@ -2236,6 +2239,7 @@ class Connection {
     send(data) {
         this.socketLastSent = Date.now();
         this.socket.send(data);
+        Stats.addNetworkTraffic("reflector_out", data.length);
     }
 
     receive(data) {

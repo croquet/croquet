@@ -120,7 +120,7 @@ function handleMessage(msg) {
             });
             if (!ok) throw Error(`server returned ${status} ${statusText} for PUT ${uploadUrl}`);
             if (debug) console.log(`${id} ${what} uploaded (${status}) in ${Date.now() - start}ms ${url}`);
-            poster({ job, url, ok, status, statusText });
+            poster({ job, url, ok, status, statusText, bytes: NODE ? body.length : body.byteLength });
         } catch (e) {
             if (debug) console.log(`${id} upload error ${e.message}`);
             poster({ job, ok: false, status: -1, statusText: e.message });

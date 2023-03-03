@@ -53,7 +53,7 @@ export default class DataHandle {
         const  { appId, persistentId, uploadEncrypted } = sessionProps(sessionId);
         const key = WordArray.random(32).toString(Base64);
         const path = `apps/${appId}/${persistentId}/data/%HASH%`;
-        const url = await uploadEncrypted({ path, content: data, key, keep, debug: debug("data"), what: "shared data" });
+        const url = await uploadEncrypted({ path, content: data, key, keep, debug: debug("data"), what: "data" });
         const hash = hashFromUrl(url);
         return new DataHandle(hash, key, url);
 
@@ -79,7 +79,7 @@ export default class DataHandle {
         const key = handle && handle[DATAHANDLE_KEY];
         const url = handle && handle[DATAHANDLE_URL];
         if (typeof hash !== "string" || typeof key !== "string" || typeof url !== "string" ) throw Error("Croquet.Data.fetch() called with invalid handle");
-        return downloadEncrypted({ url, key, debug: debug("data"), what: "shared data" });
+        return downloadEncrypted({ url, key, debug: debug("data"), what: "data" });
     }
 
     /**

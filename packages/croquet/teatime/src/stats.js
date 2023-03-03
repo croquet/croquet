@@ -71,7 +71,6 @@ const frames = [];
 let maxBacklog = 0;
 let connected = false;
 let currentFrame = newFrame(0);
-let currentSecond = {};
 
 const oneFrame = 1000 / 60;
 function map(v) {
@@ -254,9 +253,14 @@ function endCurrentFrame(timestamp) {
     if (PLOT_BACKLOG) statsDiv.style.bottom = mapBacklog(Math.max(1000, maxBacklog)) - 350;
 }
 
-const stack = [];
+const stack = []; // stack of current timing items (begin/end pairs)
+
+const networkTraffic = {}; // network stats accumulators
+let currentSecond = {}; // message bundling stats logged per second
 
 export const Stats = {
+    frames, // only to expose it for testing
+
     animationFrame(timestamp, stats={}) {
         endCurrentFrame(timestamp);
         currentFrame = newFrame(timestamp);
@@ -311,6 +315,13 @@ export const Stats = {
             cleanupOverlayCanvases();
         }
     },
+
+    // accumulate network traffic
+    networkTraffic,
+    addNetworkTraffic(key, bytes) {
+        networkTraffic[key] = (networkTraffic[key] || 0) + bytes;
+    },
+
     // the stats gathered here (iff window.logMessageStats is truthy) are reported by
     // Stats.stepSession (below), which is invoked by controller.stepSession on every step.
     perSecondTally(stats = {}) {
@@ -351,3 +362,5 @@ export const Stats = {
         return result;
     }
 };
+
+globalThis.CROQUETSTATS = Stats;
