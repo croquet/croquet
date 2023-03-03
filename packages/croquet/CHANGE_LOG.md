@@ -4,6 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest
 
+* 1.1.0-18 typo
 * 1.1.0-17 network stats, cancelFuture returns bool, defaults for session join
 * 1.1.0-16 better serialization errors, optimize arrayBuffer snapshots, add cancelFuture
 * 1.1.0-15 fix file:// URLs on Firefox, add autoSleep and rejoinLimit to types.d.ts
