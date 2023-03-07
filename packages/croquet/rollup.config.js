@@ -36,8 +36,8 @@ function inject_process() {
             // create source code of our custom module
             if (id === CUSTOM_MODULE_ID) {
                 const exportEnv =`
-// rollup will remove unused entries in production builds
-export const env = ${JSON.stringify(Object.keys(process.env).filter(key => key.match(/^[A-Z]/)).sort()
+// CROQUET_* env vars from build process
+export const env = ${JSON.stringify(Object.keys(process.env).filter(key => key.match(/^CROQUET_/)).sort()
     .reduce((obj, key) => ({...obj, [key]: process.env[key]}), {}), null, 4)};
 `;
                 if (is_dev_build) return exportEnv;
