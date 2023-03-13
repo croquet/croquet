@@ -4,6 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest
 
+* 1.1.0-19 fix view.unsubscribe(), don't include whole build env, docs use "synchronized" not "replicated"
 * 1.1.0-18 typo
 * 1.1.0-17 network stats, cancelFuture returns bool, defaults for session join
 * 1.1.0-16 better serialization errors, optimize arrayBuffer snapshots, add cancelFuture
