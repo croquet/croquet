@@ -166,7 +166,7 @@ export class Domain {
 function _removeSubscriber(subscriptions, subscriber, callback=null) {
     function removeHandler(handlers) {
         for (const handler of handlers) {
-            if ((callback !== null && handler.unbound === callback) || (callback === null && handler.for === subscriber)) {
+            if (handler.for === subscriber && (callback === null || handler.unbound === callback)) {
                 handlers.delete(handler);
             }
         }
