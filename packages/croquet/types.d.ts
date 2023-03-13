@@ -7,7 +7,8 @@ declare module "@croquet/croquet" {
     }
 
     /**
-     * Models are replicated objects in Croquet.
+     * Models are synchronized objects in Croquet.
+     *
      * They are automatically kept in sync for each user in the same [session]{@link Session.join}.
      * Models receive input by [subscribing]{@link Model#subscribe} to events published in a {@link View}.
      * Their output is handled by views subscribing to events [published]{@link Model#publish} by a model.
@@ -360,13 +361,13 @@ declare module "@croquet/croquet" {
         */
         cancelFuture(method: ((...args: any[]) => void) | string): boolean;
 
-        /** **Generate a replicated pseudo-random number**
+        /** **Generate a synchronized pseudo-random number**
          *
          * This returns a floating-point, pseudo-random number in the range 0–1 (inclusive of 0, but not 1)
          * with approximately uniform distribution over that range
          * (just like [Math.random](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/random)).
          *
-         * Since the model computation is replicated for every user on their device, the sequence of random numbers
+         * Since the model computation is synchronized for every user on their device, the sequence of random numbers
          * generated must also be exactly the same for everyone. This method provides access to such a random number generator.
         */
         random(): number;

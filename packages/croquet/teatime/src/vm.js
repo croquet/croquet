@@ -192,7 +192,7 @@ class FakeVM {
     }
 }
 
-/** A VM holds the models which are replicated by teatime,
+/** A VM holds the models which are synchronized by teatime,
  * a queue of messages, plus additional bookkeeping to make
  * uniform pub/sub between models and views possible.*/
 export default class VirtualMachine {
@@ -848,12 +848,12 @@ export default class VirtualMachine {
     }
 
     random() {
-        if (CurrentVM !== this) throw Error("replicated random accessed from outside the model");
+        if (CurrentVM !== this) throw Error("synchronized random accessed from outside the model");
         return this._random();
     }
 
     randomID() {
-        if (CurrentVM !== this) throw Error("replicated random accessed from outside the model");
+        if (CurrentVM !== this) throw Error("synchronized random accessed from outside the model");
         let id = "";
         for (let i = 0; i < 4; i++) {
             id += (this._random.int32() >>> 0).toString(16).padStart(8, '0');

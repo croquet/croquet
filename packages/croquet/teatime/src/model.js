@@ -16,7 +16,8 @@ let SECRET = Symbol("SECRET");
 const SuperInitNotCalled = new WeakSet();
 
 /**
- * Models are replicated objects in Croquet.
+ * Models are synchronized objects in Croquet.
+ *
  * They are automatically kept in sync for each user in the same [session]{@link Session.join}.
  * Models receive input by [subscribing]{@link Model#subscribe} to events published in a {@link View}.
  * Their output is handled by views subscribing to events [published]{@link Model#publish} by a model.
@@ -126,7 +127,7 @@ class Model {
      *
      * Secondly, the [session id]{@link Session.join} is derived by hashing the source code of all registered classes.
      * This ensures that only clients running the same source code can be in the same session,
-     * so that the replicated computations are identical for each client.
+     * so that the synchronized computations are identical for each client.
      *
      * **Important**: for the hashing to work reliably across browsers, be sure to specify `charset="utf-8"` for your `<html>` or all `<script>` tags.
      * @example
@@ -525,12 +526,12 @@ class Model {
     }
 
     /**
-     * **Generate a replicated pseudo-random number**
+     * **Generate a synchronized pseudo-random number**
      *
      * This returns a floating-point, pseudo-random number in the range 0–1 (inclusive of 0, but not 1) with approximately uniform distribution over that range
      * (just like [Math.random]{@link https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Math/random}).
      *
-     * Since the model computation is replicated for every user on their device, the sequence of random numbers generated must also
+     * Since the model computation is synchronized for every user on their device, the sequence of random numbers generated must also
      * be exactly the same for everyone. This method provides access to such a random number generator.
      *
      * @returns {Number}
@@ -545,7 +546,7 @@ class Model {
      *
      * Time is discreet in Croquet, meaning it advances in steps.
      * Every user's device performs the exact same computation at the exact same virtual time.
-     * This is what allows Croquet to do perfectly replicated computation.
+     * This is what allows Croquet to do perfectly synchronized computation.
      *
      * Every [event handler]{@link Model#subscribe} and [future message]{@link Model#future}
      * is run at a precisely defined moment in virtual model time, and time stands still while this execution is happening.

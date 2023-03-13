@@ -92,7 +92,7 @@ export { Messenger } from "./src/_MESSENGER_MODULE_"; // eslint-disable-line imp
 /**
  * **Published when the session backlog crosses a threshold.** (see {@link View#externalNow} for backlog)
  *
- * This is a non-replicated view-only event.
+ * This is a non-synchronized view-only event.
  *
  * If this is the main session, it also indicates that the scene was revealed (if data is `true`)
  * or hidden behind the overlay (if data is `false`).

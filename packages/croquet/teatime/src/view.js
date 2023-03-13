@@ -2,16 +2,16 @@ import { displayStatus, displayWarning, displayError } from "./_HTML_MODULE_"; /
 import { currentRealm, inViewRealm } from "./realms";
 
 /**
- * Views are the non-replicated part of a Croquet Application.
+ * Views are the local, non-synchronized part of a Croquet Application.
  * Each device and browser window creates its own independent local view.
  * The view [subscribes]{@link View#subscribe} to events [published]{@link Model#publish}
- * by the replicated model, so it stays up to date in real time.
+ * by the synchronized model, so it stays up to date in real time.
  *
  * What the view is showing, however, is completely up to the application developer.
  * The view can adapt to the device it's running on and show very different things.
  *
  * **Croquet makes no assumptions about the UI framework you use** - be it plain HTML or Three.js or React or whatever.
- * Croquet only provides the publish/subscribe mechanism to hook into the replicated model simulation.
+ * Croquet only provides the publish/subscribe mechanism to hook into the synchronized model simulation.
  *
  * It's possible for a single view instance to handle all the events, you don't event have to subclass Croquet.View for that.
  * That being said, a common pattern is to make a hierarchy of `Croquet.View` subclasses to mimic your hierarchy of {@link Model} subclasses.
@@ -383,7 +383,7 @@ class View {
      * It is sent as argument in the model-only [`"view-join"`]{@link event:view-join} and [`"view-exit"`]{@link event:view-exit}
      * events.
      *
-     * The `viewId` is also used as a scope for non-replicated events, for example [`"synced"`]{@link event:synced}.
+     * The `viewId` is also used as a scope for local events, for example [`"synced"`]{@link event:synced}.
      *
      * **Note:** `this.viewId` is different from [`this.id`]{@link View#id} which identifies each individual view object
      * (if you create multiple views in your code). `this.viewId` identifies the local user, so it will be the same
