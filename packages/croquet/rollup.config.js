@@ -171,7 +171,7 @@ const config = () => ({
         inject_process(is_node), // must be after commonjs and worker_loader
         !is_node && !is_dev_build && babel({
             babelHelpers: 'bundled',
-            presets: [['@babel/env', { "targets": "> 0.25%" }]],
+            presets: [['@babel/env', { "targets": "defaults and supports es6-module" }]],
         }),
         !is_dev_build && terser({
             output: {comments: false},
