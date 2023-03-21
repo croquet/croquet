@@ -25,6 +25,7 @@ function endCurrentFrame(timestamp) {
 }
 
 const stack = [];
+const networkTraffic = {}; // network stats accumulators
 
 export const Stats = {
     animationFrame(timestamp, stats={}) {
@@ -76,6 +77,11 @@ export const Stats = {
     },
     connected(bool) {
         currentFrame.connected = connected = bool;
+    },
+    // accumulate network traffic
+    networkTraffic,
+    addNetworkTraffic(key, bytes) {
+        networkTraffic[key] = (networkTraffic[key] || 0) + bytes;
     },
     // the stats gathered here (iff globalThis.logMessageStats is truthy) are reported by
     // Stats.stepSession (below), which is invoked by controller.stepSession on every step.
