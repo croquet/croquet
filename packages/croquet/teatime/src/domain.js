@@ -57,10 +57,7 @@ export class Domain {
         if (!handlers[handling]) throw Error(`Unknown subscribe() option: handling="${handling}"`);
         handlers[handling].add(handler);
         let topics = this.subscribers.get(subscriberId);
-        if (!topics) {
-            topics = new Set();
-            this.subscribers.set(subscriberId, topics);
-        }
+        if (!topics) this.subscribers.set(subscriberId, topics = new Set());
         topics.add(topic);
     }
 
@@ -81,11 +78,6 @@ export class Domain {
                 const topics = this.subscribers.get(subscriberId);
                 topics.delete(topic);
                 if (topics.size === 0) this.subscribers.delete(subscriberId);
-            }
-        } else {
-            const topics = this.subscribers.get(subscriberId);
-            if (topics?.has(topic)) {
-                console.error(`Croquet: no handlers but topic ${topic} found in subscriptions table for ${subscriberId} during removeSubscription()`);
             }
         }
         if (!event.endsWith(VOTE_SUFFIX)) this.removeSubscription(scope, event + VOTE_SUFFIX, subscriberId);

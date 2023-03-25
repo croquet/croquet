@@ -231,8 +231,10 @@ export default class VirtualMachine {
                 this.modelsByName = {};
                 /** pending messages, sorted by time and sequence number */
                 this.messages = new PriorityQueue((a, b) => a.before(b));
-                /** @type {{"scope:event": Array<String>}} model subscriptions */
+                /** @type {{"scope:event": Array<String>}} model subscriptions, maps topic to handlers */
                 this.subscriptions = {};
+                /** @type {Map<String, Set<String>>} maps models to subscribed topics. Excluded from snapshot */
+                this.subscribers = new Map();
                 /** @type {{[id:string]: {extraConnections?: Number}}} viewIds of active reflector connections */
                 this.views = {};
                 /** @type {SeedRandom} our synced pseudo random stream */
@@ -274,6 +276,15 @@ export default class VirtualMachine {
                     }
                     // add messages array to priority queue
                     for (const msg of messages) this.messages.add(msg.convertIfNeeded(this));
+                    // recreate subscribers from subscriptions
+                    for (const [topic, handlers] of Object.entries(this.subscriptions)) {
+                        for (const handler of handlers) {
+                            const [modelId] = handler.split('.');
+                            let topics = this.subscribers.get(modelId);
+                            if (!topics) this.subscribers.set(modelId, topics = new Set());
+                            topics.add(topic);
+                        }
+                    }
                 } else {
                     // seed with session id so different sessions get different random streams
                     this._random = new SeedRandom(snapshot.id, { state: true });
@@ -565,49 +576,55 @@ export default class VirtualMachine {
             throw Error(`${model}.${methodName} already subscribed to ${event}`);
         }
         this.subscriptions[topic].push(handler);
+        let topics = this.subscribers.get(id);
+        if (!topics) this.subscribers.set(id, topics = new Set());
+        topics.add(topic);
     }
 
     removeSubscription(model, scope, event, methodName="*") {
         if (CurrentVM !== this) throw Error("Cannot remove a model subscription from outside model code");
         const topic = scope + ':' + event;
-        const handlers = this.subscriptions[topic];
+        let handlers = this.subscriptions[topic];
         if (handlers) {
+            const handlerPrefix = model.id + '.';
             if (methodName === "*") {
-                const remaining = handlers.filter(handler => {
-                    const [modelID] = handler.split('.');
-                    return modelID !== model.id;
-                });
-                if (remaining.length === 0) delete this.subscriptions[topic];
-                else this.subscriptions[topic] = remaining;
+                handlers = handlers.filter(h => !h.startsWith(handlerPrefix));
+                if (handlers.length === 0) delete this.subscriptions[topic];
+                else this.subscriptions[topic] = handlers;
             } else {
                 const nameString = this.asQFunc(model, methodName);
                 if (typeof nameString !== "string") {
                     throw Error(`Invalid unsubscribe args for "${event}" in ${model}: ${methodName}`);
                 }
-                const handler = model.id + '.' + nameString;
+                const handler = handlerPrefix + nameString;
                 const indexToRemove = handlers.indexOf(handler);
                 if (indexToRemove !== -1) {
                     handlers.splice(indexToRemove, 1);
                     if (handlers.length === 0) delete this.subscriptions[topic];
                 }
+                // if there are remaining handlers, do not remove the topic for this model
+                if (handlers.find(h => h.startsWith(handlerPrefix))) {
+                    return;
+                }
             }
+            // all handlers of this model for the topic are gone, remove the topic
+            const topics = this.subscribers.get(model.id);
+            topics.delete(topic);
+            if (topics.size === 0) this.subscribers.delete(model.id);
         }
     }
 
     removeAllSubscriptionsFor(model) {
-        const topicPrefix = `${model.id}:`;
-        const handlerPrefix = `${model.id}.`;
-        // TODO: optimize this - reverse lookup table?
-        for (const [topic, handlers] of Object.entries(this.subscriptions)) {
-            if (topic.startsWith(topicPrefix)) delete this.subscriptions[topic];
-            else {
-                for (let i = handlers.length - 1; i >= 0; i--) {
-                    if (handlers[i].startsWith(handlerPrefix)) {
-                        handlers.splice(i, 1);
-                    }
-                }
-                if (handlers.size === 0) delete this.subscriptions[topic];
+        const topics = this.subscribers.get(model.id);
+        if (topics) {
+            const handlerPrefix =  model.id + '.';
+            for (const topic of topics) {
+                let handlers = this.subscriptions[topic];
+                handlers = handlers.filter(h => !h.startsWith(handlerPrefix));
+                if (handlers.length === 0) delete this.subscriptions[topic];
+                else this.subscriptions[topic] = handlers;
             }
+            this.subscribers.delete(model.id);
         }
     }
 
@@ -1275,10 +1292,12 @@ class VMWriter {
         const state = {
             _random: vm._random.state(),
             messages: this.write(vm.messages.asArray(), "vm.messages"),
+            subscribers: undefined, // do not write subscribers
+            controller: undefined, // do not write controller
         };
         for (const [key, value] of Object.entries(vm)) {
-            if (key === "controller") continue;
-            if (!state[key]) this.writeInto(state, key, value, `vm.${key}`);
+            if (key in state) continue;
+            this.writeInto(state, key, value, `vm.${key}`);
         }
         this.writeDeferred();
         return state;
