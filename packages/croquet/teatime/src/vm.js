@@ -288,9 +288,9 @@ export default class VirtualMachine {
                 } else {
                     // seed with session id so different sessions get different random streams
                     this._random = new SeedRandom(snapshot.id, { state: true });
+                    this.addSubscription(this, "__VM__", "__peers__", this.generateJoinExit);
                     // creates root model and puts it in modelsByName as "rootModel"
                     initFn(this);
-                    this.addSubscription(this, "__VM__", "__peers__", this.generateJoinExit);
                 }
             });
         });
