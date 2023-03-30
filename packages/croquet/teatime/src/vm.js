@@ -549,6 +549,7 @@ export default class VirtualMachine {
             // if passing (foo) => this.bar(baz)
             // match:                (   foo             )   =>  this .  bar              (    baz               )
             const HANDLER_REGEX = /^\(?([a-z][a-z0-9]*)?\)? *=> *this\.([a-z][a-z0-9]*) *\( *([a-z][a-z0-9]*)? *\) *$/i;
+            // captures:               [      1       ]                [       2      ]      [      3       ]
             const source = func.toString();
             const match = source.match(HANDLER_REGEX);
             if (match && (!match[3] || match[3] === match[1])) return match[2];

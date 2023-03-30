@@ -56,7 +56,7 @@ export class Session {
      * A [session id]{@link Model#sessionId} is created from the given session `name`,
      * and a hash of all the [registered]{@link Model.register} Model classes and {@link Constants}.
      * This ensures that only users running the exact same source code end up in the same session,
-     * which is a prerequisite for perfectly replicated computation.
+     * which is a prerequisite for perfectly synchronized computation.
      *
      * The session id is used to connect to a reflector. If there is no ongoing session,
      * an instance of the `model` class is [created]{@link Model.create} (which in turn typically creates a number of submodels).
