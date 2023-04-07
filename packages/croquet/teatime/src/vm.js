@@ -585,13 +585,18 @@ export default class VirtualMachine {
     removeSubscription(model, scope, event, methodName="*") {
         if (CurrentVM !== this) throw Error("Cannot remove a model subscription from outside model code");
         const topic = scope + ':' + event;
-        let handlers = this.subscriptions[topic];
+        const handlers = this.subscriptions[topic];
         if (handlers) {
             const handlerPrefix = model.id + '.';
             if (methodName === "*") {
-                handlers = handlers.filter(h => !h.startsWith(handlerPrefix));
+                // modify the array in place so the loop in handleModelEventInModel()
+                // will not execute removed handlers
+                for (let i = handlers.length - 1; i >= 0; i--) {
+                    if (handlers[i].startsWith(handlerPrefix)) {
+                        handlers.splice(i, 1);
+                    }
+                }
                 if (handlers.length === 0) delete this.subscriptions[topic];
-                else this.subscriptions[topic] = handlers;
             } else {
                 const nameString = this.asQFunc(model, methodName);
                 if (typeof nameString !== "string") {
@@ -618,12 +623,17 @@ export default class VirtualMachine {
     removeAllSubscriptionsFor(model) {
         const topics = this.subscribers.get(model.id);
         if (topics) {
-            const handlerPrefix =  model.id + '.';
+            const handlerPrefix = model.id + '.';
             for (const topic of topics) {
-                let handlers = this.subscriptions[topic];
-                handlers = handlers.filter(h => !h.startsWith(handlerPrefix));
+                const handlers = this.subscriptions[topic];
+                // modify the array in place so the loop in handleModelEventInModel()
+                // will not execute removed handlers
+                for (let i = handlers.length - 1; i >= 0; i--) {
+                    if (handlers[i].startsWith(handlerPrefix)) {
+                        handlers.splice(i, 1);
+                    }
+                }
                 if (handlers.length === 0) delete this.subscriptions[topic];
-                else this.subscriptions[topic] = handlers;
             }
             this.subscribers.delete(model.id);
         }
