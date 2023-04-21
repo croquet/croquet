@@ -1991,6 +1991,9 @@ server.on('connection', (client, req) => {
         prometheusConnectionGauge.dec();
         const island = client.island || ALL_ISLANDS.get(client.sessionId) || {};
 
+        // connection duration in seconds
+        client.stats.s = Math.ceil((Date.now() - client.since) / 1000);
+
         // connection log sink filters on scope="connection" and event="start|join|end"
         client.logger.notice({
             event: "end",
