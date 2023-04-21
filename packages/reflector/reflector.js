@@ -988,7 +988,7 @@ function logLatencies() {
     for (const entry of Latencies.values()) {
         entry.latency.limits = LATENCY_BUCKETS;
         let count = 0;
-        for (let i = 0; i < LATENCY_BUCKETS.length; i++) count += entry.latency.hist[i];
+        for (let i = 0; i < LATENCY_BUCKETS.length + 1; i++) count += entry.latency.hist[i];
         // latency log sink filters on scope="process" and event="latency"
         global_logger.notice(entry, `Latency ${Math.ceil(entry.latency.sum / count)} ms (${entry.latency.min}-${entry.latency.max} ms)`);
     }
