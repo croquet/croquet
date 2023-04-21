@@ -318,7 +318,10 @@ async function requestListener(req, res) {
 
 webServer.on('upgrade', (req, socket, _head) => {
     const { sessionId } = parseUrl(req);
-    const connection = `${socket.remoteAddress.replace(/^::ffff:/, '')}:${socket.remotePort}`;
+    // connection is a unique identifier used to group all log entries for this connection
+    // it is a combination of the dispatcher address, port, and a timestamp in seconds because port numbers are reused
+    const connection = `${socket.remoteAddress.replace(/^::ffff:/, '')}:${socket.remotePort}.${Math.floor(Date.now()/1000).toString(36)}`;
+    socket.connectionId = connection;
     if (sessionId) {
         const session = ALL_SESSIONS.get(sessionId);
         if (session && session.stage === 'closed') {
@@ -1774,13 +1777,11 @@ server.on('connection', (client, req) => {
     // set up client meta data (also used for logging)
     client.sessionId = sessionId;
     client.since = Date.now();
-    const addr = req.socket.remoteAddress.replace(/^::ffff:/, '');
-    const port = req.socket.remotePort;
     client.meta = {
         scope: "connection",
-        connection: `${addr}:${port}`,
+        connection: req.socket.connectionId, // assigned during upgrade
         dispatcher: req.headers['x-croquet-dispatcher'],
-        userIp: (req.headers['x-forwarded-for'] || '').split(',')[0].replace(/^::ffff:/, '') || addr,
+        userIp: (req.headers['x-forwarded-for'] || req.socket.remoteAddress).split(',')[0].replace(/^::ffff:/, ''),
     };
     // location header is added by load balancer, see region-servers/apply-changes
     if (req.headers['x-location']) try {
