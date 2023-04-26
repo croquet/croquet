@@ -12,7 +12,6 @@
     "access": ["public"],
     "template": "../clean-jsdoc-theme",
     "tutorials": "tutorials",
-    "technicalsupport": "technicalsupport",
     "encoding": "utf8",
     "recurse": false,
     "verbose": true,
@@ -38,8 +37,7 @@
       "useLongnameInNav": true,
       "staticFiles": {
         "include": [
-          "tutorials",
-          "technicalsupport"
+          "tutorials"
         ],
         "includePattern": "\\.(png|jpg|svg|gif)$"
       }

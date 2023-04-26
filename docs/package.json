@@ -4,7 +4,7 @@
   "description": "Croquet Client Documentation",
   "scripts": {
     "start": "npx npm-watch",
-    "build": "jsdoc -c jsdoc.json",
+    "build": "../node_modules/.bin/jsdoc -c jsdoc.json",
     "watch": "npx npm-watch"
   },
   "watch": {
@@ -16,7 +16,6 @@
         "../../teatime/src/view.js",
         "../../teatime/src/session.js",
         "./tutorials",
-        "./technicalsupport",
         "../clean-jsdoc-theme"
       ],
       "ignore": [
