@@ -17,7 +17,8 @@ Please review our [**Code of Conduct**](/conduct.html) and
 -   [Time](#time)
 -   [Snapshots](#snapshots)
 -   [Random](#random)
--   [**Changelog**](#changelog)
+-   [Technical FAQ](#technical-faq)
+-   [Changelog](#changelog)
 
 # Quickstart
 
