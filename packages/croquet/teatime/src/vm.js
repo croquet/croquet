@@ -1326,6 +1326,7 @@ class VMWriter {
     }
 
     write(value, path, defer=true) {
+        // NOTE: finite numbers, strings, and booleans typically are handled already
         switch (typeof value) {
             case "number":
                 // JSON disallows NaN and Infinity, and writes -0 as "0"
@@ -1402,7 +1403,11 @@ class VMWriter {
         for (const key of Object.keys(model).sort()) {
             if (key === "__realm") continue; // not enumerable in a Model, but is set directly in a ModelPart
             const value = model[key];
-            this.writeInto(state, key, value, path);
+            if (((typeof value === "number" && Number.isFinite(value) && !Object.is(value, -0)) || typeof value === "string" || typeof value === "boolean") && key[0] !== '$') {
+                state[key] = value;
+            } else {
+                this.writeInto(state, key, value, path);
+            }
         }
 
         return state;
@@ -1411,22 +1416,13 @@ class VMWriter {
     writeObject(object, path, defer=true) {
         const state = {};
         this.refs.set(object, state);      // register ref before recursing
-
-        /* (ael & bf, aug 2019)
-            originally went through property descriptors, which is slower than Object.keys.
-            not sure if there was a particular reason for doing so.
-        const descriptors = Object.getOwnPropertyDescriptors(object);
-        for (const key of Object.keys(descriptors).sort()) {
-            const descriptor = descriptors[key];
-            if (descriptor.value !== undefined) {
-                this.writeInto(state, key, descriptor.value, path, defer);
-            }
-        }
-        */
-
         for (const key of Object.keys(object).sort()) {
             const value = object[key];
-            this.writeInto(state, key, value, path, defer);
+            if (((typeof value === "number" && Number.isFinite(value) && !Object.is(value, -0)) || typeof value === "string" || typeof value === "boolean") && key[0] !== '$') {
+                state[key] = value;
+            } else {
+                this.writeInto(state, key, value, path, defer);
+            }
         }
 
         return state;
@@ -1436,7 +1432,12 @@ class VMWriter {
         const state = [];
         this.refs.set(array, state);       // register ref before recursing
         for (let i = 0; i < array.length; i++) {
-            this.writeInto(state, i, array[i], path, defer);
+            const value = array[i];
+            if ((typeof value === "number" && Number.isFinite(value) && !Object.is(value, -0)) || typeof value === "string" || typeof value === "boolean") {
+                state[i] = value;
+            } else {
+                this.writeInto(state, i, value, path, defer);
+            }
         }
         return state;
     }
