@@ -742,13 +742,13 @@ function classToID(cls) {
     throw Error(`Model class not registered, did you call ${name}.register("${name}")?`);
 }
 
-function classFromID(classID) {
-    if (ModelClasses[classID]) return ModelClasses[classID];
-    throw Error(`Model class "${classID}" in snapshot, but not registered?`);
+function classFromID(classId) {
+    if (ModelClasses[classId]) return ModelClasses[classId];
+    throw Error(`Model class "${classId}" in snapshot, but not registered?`);
 }
 
 function registerClass(cls, classId) {
-    // create a classID for this class
+    // create a classId for this class
     const dupe = ModelClasses[classId];
     if (dupe && dupe !== cls) throw Error(`Registering model class ${cls.name} failed, id "${classId}" already used by ${dupe.name}`);
     if (hasID(cls)) {

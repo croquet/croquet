@@ -275,7 +275,7 @@ export default class VirtualMachine {
                         else this[key] = vmData[key];
                     }
                     // add messages array to priority queue
-                    for (const msg of messages) this.messages.add(msg.convertIfNeeded(this));
+                    for (const msg of messages) this.messages.add(msg);
                     // recreate subscribers from subscriptions
                     for (const [topic, handlers] of Object.entries(this.subscriptions)) {
                         for (const handler of handlers) {
@@ -959,18 +959,6 @@ export class Message {
         this.args = args;
     }
 
-    convertIfNeeded(vm) {
-        if (this.payload) {
-            // before 0.3, messages always had an encoded payload
-            const {receiver, selector, args} = decode(this.payload, vm);
-            delete this.payload;
-            this.receiver = receiver;
-            this.selector = selector;
-            this.args = args;
-        }
-        return this;
-    }
-
     // Messages are generally sorted by time
     // For the same time stamp, we sort reflected messages after future messages
     // because otherwise it would depend on timing where the external message is put
@@ -1244,11 +1232,6 @@ class VMHasher {
     }
 }
 
-/*
-// conversion buffer for writeFloat()
-const floats = new Float64Array(2);
-const ints = new Uint32Array(floats.buffer);
-*/
 
 class VMWriter {
     static newOrRecycled(vm) {
@@ -1292,7 +1275,7 @@ class VMWriter {
                 }
             }
         }
-}
+    }
 
     addWriter(classId, ClassOrSpec) {
         const {cls, write} = (Object.getPrototypeOf(ClassOrSpec) === Object.prototype) ? ClassOrSpec
@@ -1331,10 +1314,9 @@ class VMWriter {
             case "number":
                 // JSON disallows NaN and Infinity, and writes -0 as "0"
                 if (Object.is(value, -0)) return {$class: "NegZero"};
-                if (Number.isSafeInteger(value)) return value;
+                if (Number.isFinite(value)) return value;
                 if (Number.isNaN(value)) return {$class: "NaN"};
-                if (!Number.isFinite(value)) return {$class: "Infinity", $value: Math.sign(value)};
-                return this.writeFloat(value);
+                return {$class: "Infinity", $value: Math.sign(value)};
             case "string":
             case "boolean":
                 return value;
@@ -1460,18 +1442,9 @@ class VMWriter {
         return state;
     }
 
-    writeFloat(value) {
-        /* original test of serialization.  never found an error.  disabled for now.
-        floats[0] = value;
-        floats[1] = JSON.parse(JSON.stringify(value));
-        if (ints[0] !== ints[2] || ints[1] !== ints[3]) throw Error("Float serialization error");
-        */
-        return value;
-    }
-
-    writeAs(classID, object, value, path) {
+    writeAs(classId, object, value, path) {
         if (value === undefined) return value;
-        const state = { $class: classID };
+        const state = { $class: classId };
         this.refs.set(object, state);      // register ref before recursing
         const written = this.write(value, path, false);
         // only use $value property if necessary
@@ -1685,7 +1658,7 @@ class VMReader {
         return map;
     }
 
-    readAsClass(classID, state, path) {
+    readAsClass(classId, state, path) {
         let temp = {};
         const unresolved = new Map();
         if ("$value" in state) temp = this.read(state.$value, path, false);
@@ -1702,9 +1675,9 @@ class VMReader {
                 this.readInto(temp, key, value, path, false);
             }
         }
-        const reader = this.readers.get(classID);
+        const reader = this.readers.get(classId);
         const object = reader(temp, path);
-        if (!object && classID !== "Undefined" && classID !== "NaN" && classID !== "NegZero") console.warn(`Reading "${classID}" returned ${object} at ${path}`);
+        if (!object && classId !== "Undefined" && classId !== "NaN" && classId !== "NegZero") console.warn(`Reading "${classId}" returned ${object} at ${path}`);
         if (state.$id) this.refs.set(state.$id, object);
         for (const [ref, key] of unresolved.entries()) {
             this.unresolved.push({object, key, ref, path});
@@ -1712,12 +1685,12 @@ class VMReader {
         return object;
     }
 
-    readAs(classID, state, path) {
-        switch (classID) {
+    readAs(classId, state, path) {
+        switch (classId) {
             case "Array": return this.readAsArray(state, path);
             case "Set": return this.readAsSet(state, path);
             case "Map": return this.readAsMap(state, path);
-            default: return this.readAsClass(classID, state, path);
+            default: return this.readAsClass(classId, state, path);
         }
     }
 
