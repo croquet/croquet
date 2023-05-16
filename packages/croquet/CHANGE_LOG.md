@@ -4,6 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest
 
+* 1.1.0-22 improve snapshot performance, work around performance bug on Chrome
 * 1.1.0-21 modify subscription lists in-place to avoid invoking handlers of destroyed objects
 * 1.1.0-20 make work on node 19, transpile keeps some es6 features, optimize unsubscribeAll/destroy
 * 1.1.0-19 fix view.unsubscribe(), don't include whole build env, docs use "synchronized" not "replicated"
