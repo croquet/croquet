@@ -1139,14 +1139,16 @@ class VMHasher {
                         this.hashArray(value, defer);
                         return;
                     case "ArrayBuffer":
-                        this.hashIntArray(new Uint8Array(value), false);
+                        this.hashIntArray(new Uint8Array(value));
                         return;
                     case "Set":
-                    case "Map":
                         this.hashStructure(value, [...value]);
                         return;
+                    case "Map":
+                        this.hashStructure(value, [...value], false);
+                        return;
                     case "DataView":
-                        this.hashIntArray(new Uint8Array(value.buffer, value.byteOffset, value.byteLength), false);
+                        this.hashIntArray(new Uint8Array(value.buffer, value.byteOffset, value.byteLength));
                         return;
                     case "Int8Array":
                     case "Uint8Array":
@@ -1155,7 +1157,7 @@ class VMHasher {
                     case "Uint16Array":
                     case "Int32Array":
                     case "Uint32Array":
-                        this.hashIntArray(value, false);
+                        this.hashIntArray(value);
                         return;
                     case "Float32Array":
                     case "Float64Array":
@@ -1216,10 +1218,10 @@ class VMHasher {
         }
     }
 
-    hashStructure(object, value) {
+    hashStructure(object, value, defer = true) {
         if (value === undefined) return;
         this.done.add(object);      // mark done before recursing
-        this.hash(value, false);
+        this.hash(value, defer);
     }
 
     hashEntry(key, value, defer = true) {
@@ -1228,7 +1230,7 @@ class VMHasher {
             this.todo.push({ key, value });
             return;
         }
-        this.hash(value);
+        this.hash(value, defer);
     }
 }
 
