@@ -1117,10 +1117,12 @@ class VMHasher {
     }
 
     hashDeferred() {
-        while (this.todo.length > 0) {
-            const { key, value } = this.todo.shift();
+        let index = 0;
+        while (index < this.todo.length) {
+            const { key, value } = this.todo[index++];
             this.hashEntry(key, value, false);
         }
+        this.todo.length = 0;
     }
 
     hash(value, defer = true) {
@@ -1315,10 +1317,12 @@ class VMWriter {
     }
 
     writeDeferred() {
-        while (this.todo.length > 0) {
-            const {state, key, value, path} = this.todo.shift();
+        let index = 0;
+        while (index < this.todo.length) {
+            const { state, key, value, path } = this.todo[index++];
             this.writeInto(state, key, value, path, false);
         }
+        this.todo.length = 0;
     }
 
     write(value, path, defer=true) {
@@ -1581,10 +1585,12 @@ class VMReader {
     }
 
     readDeferred() {
-        while (this.todo.length > 0) {
-            const {object, key, value, path} = this.todo.shift();
+        let index = 0;
+        while (index < this.todo.length) {
+            const {object, key, value, path} = this.todo[index++];
             this.readInto(object, key, value, path, false);
         }
+        this.todo.length = 0;
     }
 
     resolveRefs() {
