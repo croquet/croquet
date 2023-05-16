@@ -1059,7 +1059,7 @@ const sumForFloat = (() => {
 // identify divergence between vm instances.
 class VMHasher {
     constructor() {
-        this.refs = new Map();
+        this.done = new Set();
         this.todo = []; // we use breadth-first writing to limit stack depth
         this.hashers = new Map();
         this.addHasher("Teatime:Message", Message);
@@ -1132,7 +1132,7 @@ class VMHasher {
             case "undefined":
                 return;
             default: {
-                if (this.refs.has(value)) return;
+                if (this.done.has(value)) return;
                 const type = Object.prototype.toString.call(value).slice(8, -1);
                 switch (type) {
                     case "Array":
@@ -1179,7 +1179,7 @@ class VMHasher {
 
     hashModel(model) {
         this.hashState.mC++;
-        this.refs.set(model, true);      // register ref before recursing
+        this.done.add(model);      // mark done before recursing
         // note: for the hash as currently taken, all tallies are additive
         // so order is not important
         for (const [key, value] of Object.entries(model)) {
@@ -1190,7 +1190,7 @@ class VMHasher {
 
     hashObject(object, defer = true) {
         this.hashState.oC++;
-        this.refs.set(object, true);      // register ref before recursing
+        this.done.add(object);      // mark done before recursing
         // see comment in hashModel re order
         for (const [key, value] of Object.entries(object)) {
             if (value !== undefined) this.hashEntry(key, value, defer);
@@ -1198,14 +1198,14 @@ class VMHasher {
     }
 
     hashArray(array, defer = true) {
-        this.refs.set(array, true);       // register ref before recursing
+        this.done.add(array);       // mark done before recursing
         for (let i = 0; i < array.length; i++) {
             this.hashEntry(i, array[i], defer);
         }
     }
 
     hashIntArray(array) {
-        this.refs.set(array, true);       // register ref
+        this.done.add(array);       // mark done before recursing
         for (let i = 0; i < array.length; i++) {
             const value = array[i];
             if (value === 0) this.hashState.zC++;
@@ -1218,7 +1218,7 @@ class VMHasher {
 
     hashStructure(object, value) {
         if (value === undefined) return;
-        this.refs.set(object, true);      // register ref before recursing
+        this.done.add(object);      // mark done before recursing
         this.hash(value, false);
     }
 
