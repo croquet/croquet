@@ -478,6 +478,7 @@ export default class VirtualMachine {
     future(model, tOffset, methodNameOrCallback, methodArgs) {
         const methodName = this.asQFunc(model, methodNameOrCallback, "future message");
         if (typeof methodName === "string") {
+            if (this.lookUpModel(model.id) !== model) throw Error(`future send to unregistered model ${model}`);
             return this.futureSend(tOffset, model.id, methodName, methodArgs);
         }
         const vm = this;
@@ -485,7 +486,7 @@ export default class VirtualMachine {
             get(_target, property) {
                 if (typeof model[property] === "function") {
                     return (...args) => {
-                        if (vm.lookUpModel(model.id) !== model) throw Error("future send to unregistered model");
+                        if (vm.lookUpModel(model.id) !== model) throw Error(`future send to unregistered model ${model}`);
                         return vm.futureSend(tOffset, model.id, property, args);
                     };
                 }
