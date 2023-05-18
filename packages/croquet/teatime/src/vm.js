@@ -696,7 +696,18 @@ export default class VirtualMachine {
                 tallyTarget
                 })); // break out of model code
         } else if (this.subscriptions[topic]) {
-            for (const handler of this.subscriptions[topic]) {
+            // live handlers may be added or removed during the loop
+            // we skip both removed and added handlers for this event cycle
+            const liveHandlers = this.subscriptions[topic];
+            const handlers = liveHandlers.slice(); // O(n)
+            for (let i = 0; i < handlers.length; i++) {
+                const handler = handlers[i];
+                // the includes() in this loop makes it O(n^2), but we only do it
+                // when a handler is removed while iterating, which is rare.
+                // Devs can avoid this by using future(0) to unsubscribe/destroy
+                if (handler !== liveHandlers[i] && !liveHandlers.includes(handler)) {
+                    continue; // handler was removed
+                }
                 const [id, ...rest] = handler.split('.');
                 const methodName = rest.join('.');
                 const model = this.lookUpModel(id);
