@@ -950,7 +950,7 @@ export default class Controller {
                     // decrypt will throw if it can't decrypt, which is the expected result if joining with a wrong password
                     if (this.decrypt(tove) !== this.id) throw Error("wrong sessionId in tove?!");
                 } catch (err) {
-                    this.connection.closeConnectionWithError('SYNC', Error(`failed to decrypt session secret: ${err.message}`), 4200); // do not retry
+                    this.connection.closeConnectionWithError('SYNC', Error(`session password check: ${err.message}`), 4200); // do not retry
                     reportProgress(-1); // failure
                     return;
                 }
@@ -1035,7 +1035,7 @@ export default class Controller {
                     } else try {
                         msg[2] = this.decryptPayload(msg[2])[0];
                     } catch (err) {
-                        this.connection.closeConnectionWithError('SYNC', Error(`failed to decrypt message: ${err.message}`), 4200); // do not retry
+                        this.connection.closeConnectionWithError('SYNC', Error(`session password decrypt: ${err.message}`), 4200); // do not retry
                         reportProgress(-1); // failure
                         return;
                     }
@@ -1141,7 +1141,7 @@ export default class Controller {
                     if (viewId === this.viewId) this.addToStatistics(lastSent, this.lastReceived);
                     if (DEBUG.messages) console.log(this.id, "received " + JSON.stringify(msg));
                 } catch (err) {
-                    this.connection.closeConnectionWithError("RECV", Error(`failed to decrypt message: ${err.message}`), 4200); // do not retry
+                    this.connection.closeConnectionWithError("RECV", Error(`session password decrypt: ${err.message}`), 4200); // do not retry
                     return;
                 }
                 this.networkQueue.push(msg);
@@ -1285,7 +1285,7 @@ export default class Controller {
         this.syncReceiptTimeout = setTimeout(() => {
             delete this.syncReceiptTimeout;
             if (!this.syncReceived) {
-                this.connection.closeConnectionWithError("join", Error("SYNC not received in time"));
+                this.connection.closeConnectionWithError("join", Error("SYNC timed out"));
             }
             }, JOIN_FAILED_DELAY);
     }
@@ -2271,7 +2271,7 @@ class Connection {
         console.error(error);
         console.warn("closing socket");
         if (code >= 4100 && code !== 4110) this.controller.leaving = () => {}; // dummy function to cause session to shut down irreversibly unless just going dormant
-        this.closeConnection(code, "Error in " + caller);
+        this.closeConnection(code, `Error in ${caller}: ${error.message || error}`);
         // closing with error code < 4100 will try to reconnect
     }
 
