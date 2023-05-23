@@ -478,6 +478,7 @@ export default class VirtualMachine {
     // or model.future(tOffset, "property",...args)
     // into this.futureSend(tOffset, model.id, "property", args)
     future(model, tOffset, methodNameOrCallback, methodArgs) {
+        if (!this.lookUpModel(model.id)) throw Error(`future send to unregistered model ${model}`);
         if (methodNameOrCallback === undefined) {
             const vm = this;
             return new Proxy(model, {
@@ -486,7 +487,6 @@ export default class VirtualMachine {
         }
         const methodName = this.asQFunc(model, methodNameOrCallback, "future message");
         if (typeof methodName !== "string") throw Error(`future message to ${model} ${methodName} is not a string`);
-        if (this.lookUpModel(model.id) !== model) throw Error(`future send to unregistered model ${model}`);
         if (typeof model[methodName] !== "function" && methodName.indexOf('.') < 0 && methodName[0] !== '{') throw Error(`future send to ${model} with unknown method ${methodName}()`);
         return this.futureSend(tOffset, model.id, methodName, methodArgs);
     }
