@@ -24,11 +24,15 @@ if (NODE) {
     poster = postMessage;
 }
 
+const offlineFiles = new Map();
+
 function handleMessage(msg) {
     const { job, cmd, server, path: templatePath, buffer, keyBase64, gzip,
-        referrer, id, appId, persistentId, CROQUET_VERSION, debug, what } = msg.data;
+        referrer, id, appId, persistentId, CROQUET_VERSION, debug, what, offline } = msg.data;
+    if (offline) fetcher = offlineStore;
     switch (cmd) {
         case "uploadEncrypted": uploadEncrypted(templatePath); break;
+        case "getOfflineFile": getOfflineFile(msg.data.url); break;
         default: console.error("Unknown worker command", cmd);
     }
 
@@ -73,6 +77,10 @@ function handleMessage(msg) {
     }
 
     async function getUploadUrl(path) {
+        if (offline) {
+            const url = `offline:///${path}`;
+            return { url, uploadUrl: url };
+        }
         const start = Date.now();
         const url = `${server.url}/${path}`;
         if (!server.apiKey) return { url, uploadUrl: url };
@@ -122,9 +130,26 @@ function handleMessage(msg) {
             if (debug) console.log(`${id} ${what} uploaded (${status}) in ${Date.now() - start}ms ${url}`);
             poster({ job, url, ok, status, statusText, bytes: NODE ? body.length : body.byteLength });
         } catch (e) {
-            if (debug) console.log(`${id} upload error ${e.message}`);
+            if (debug) console.error(`${id} upload error ${e.message}`);
             poster({ job, ok: false, status: -1, statusText: e.message });
         }
+    }
+
+    function offlineStore(requestUrl, options) {
+        if (debug) console.log(`${id} storing ${requestUrl}`);
+        offlineFiles.set(requestUrl, options.body);
+        return { ok: true, status: 201, statusText: "Offline created" };
+    }
+
+    function getOfflineFile(requestUrl) {
+        const body = offlineFiles.get(requestUrl);
+        if (!body) {
+            if (debug) console.error(`${id} file not found ${requestUrl}`);
+            poster({ job, ok: false, status: -1, statusText: "Offline file not found" });
+            return;
+        }
+        if (debug) console.log(`${id} retrieved ${requestUrl}`);
+        poster({ job, ok: true, status: 200, statusText: "Offline file found", body, bytes: NODE ? body.length : body.byteLength });
     }
 }
 

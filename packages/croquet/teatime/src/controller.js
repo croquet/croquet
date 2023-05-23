@@ -7,8 +7,8 @@ import PBKDF2 from "crypto-js/pbkdf2";
 import AES from "crypto-js/aes";
 import WordArray from "crypto-js/lib-typedarrays";
 import HmacSHA256 from "crypto-js/hmac-sha256";
-
 import pako from "pako"; // gzip-aware compressor
+import { OfflineSocket } from "./offline";
 
 // the rollup config will replace the lines below with imports in the case of a Node.js build
 // _ENSURE_WEBSOCKET_
@@ -57,6 +57,30 @@ const DEV_CLOUDFLARE_REFLECTOR = "wss://croquet.network/reflector/dev/";
 
 const OLD_UPLOAD_SERVER = "https://croquet.io/files/v1";    // url base of files created before we had API keys
 const OLD_DOWNLOAD_SERVER = "https://files.croquet.io";     // downloads from old bucket (rewritten from old upload url)
+export const OLD_DATA_SERVER = OLD_DOWNLOAD_SERVER;
+
+let DEBUG = null;
+
+function initDEBUG() {
+    // to capture whatever was passed to th latest Session.join({debug:...})
+    // call we simply redo this every time establishSession() is called
+    // TODO: turn this into a reasonable API
+    // enable some opts by default via dev flag or being on localhost-equivalent
+    const devOrLocal = urlOptions.dev || (urlOptions.dev !== false && "localhost");
+    const devOrCroquetIoDev = urlOptions.dev || (urlOptions.dev !== false && (appOnCroquetIoDev || appOnCroquetDev));
+    DEBUG = {
+        messages: urlOptions.has("debug", "messages", false),               // received messages
+        sends: urlOptions.has("debug", "sends", false),                     // sent messages
+        ticks: urlOptions.has("debug", "ticks", false),                     // received ticks
+        pong: urlOptions.has("debug", "pong", false),                       // received PONGs
+        snapshot: urlOptions.has("debug", "snapshot", false),               // snapshotting, uploading etc
+        session: urlOptions.has("debug", "session", false),                 // session logging
+        initsnapshot: urlOptions.has("debug", "initsnapshot", devOrLocal),  // check snapshotting after initFn
+        reflector: urlOptions.has("debug", "reflector", devOrCroquetIoDev), // use dev reflector
+        offline: urlOptions.has("debug", "offline", urlOptions.offline),    // short-circuit all requests
+    };
+    if (DEBUG.offline) App.showMessage("Croquet: offline mode enabled, no multiuser", { level: "warning"});
+}
 
 function getBackend(apiKeyWithBackend) {
     const split = apiKeyWithBackend.lastIndexOf(':');
@@ -64,7 +88,7 @@ function getBackend(apiKeyWithBackend) {
     const keyBackend = split === -1 ? "" : apiKeyWithBackend.slice(0, split);
     let backend = urlOptions.backend || keyBackend;
     const overridden = urlOptions.reflector && urlOptions.reflector.match(/^wss?:/);
-    if (backend === "none" || overridden) {
+    if (backend === "none" || overridden || DEBUG.offline) {
         return {
             apiKey,
             signServer: "none",
@@ -134,29 +158,6 @@ function isLocalUrl(hostname) {
     return isLocal;
 }
 */
-
-export const OLD_DATA_SERVER = OLD_DOWNLOAD_SERVER;
-
-let DEBUG = null;
-
-function initDEBUG() {
-    // to capture whatever was passed to th latest Session.join({debug:...})
-    // call we simply redo this every time establishSession() is called
-    // TODO: turn this into a reasonable API
-    // enable some opts by default via dev flag or being on localhost-equivalent
-    const devOrLocal = urlOptions.dev || (urlOptions.dev !== false && "localhost");
-    const devOrCroquetIoDev = urlOptions.dev || (urlOptions.dev !== false && (appOnCroquetIoDev || appOnCroquetDev));
-    DEBUG = {
-        messages: urlOptions.has("debug", "messages", false),               // received messages
-        sends: urlOptions.has("debug", "sends", false),                     // sent messages
-        ticks: urlOptions.has("debug", "ticks", false),                     // received ticks
-        pong: urlOptions.has("debug", "pong", false),                       // received PONGs
-        snapshot: urlOptions.has("debug", "snapshot", false),               // snapshotting, uploading etc
-        session: urlOptions.has("debug", "session", false),                 // session logging
-        initsnapshot: urlOptions.has("debug", "initsnapshot", devOrLocal),  // check snapshotting after initFn
-        reflector: urlOptions.has("debug", "reflector", devOrCroquetIoDev), // use dev reflector
-    };
-}
 
 const NOCHEAT = urlOptions.nocheat;
 
@@ -684,7 +685,7 @@ export default class Controller {
             return { url, apiKey: null };
         }
         const {apiKey, signServer} = getBackend(apiKeyWithBackend);
-        if (signServer === "none") {
+        if (signServer === "none" && !DEBUG.offline) {
             throw Error("no file server configured");
         }
         return { url: signServer, apiKey };
@@ -736,8 +737,9 @@ export default class Controller {
     async downloadEncrypted({url, gzip, key, debug, json, what}) {
         // TODO: move to worker
         if (url.startsWith(OLD_UPLOAD_SERVER)) url = url.replace(OLD_UPLOAD_SERVER, OLD_DOWNLOAD_SERVER);
+        const offline = url.startsWith("offline:");
         let timer = Date.now();
-        const response = await fetch(url, {
+        const response = await (offline ? this.fetchOffline(url, what, debug) : fetch(url, {
             method: "GET",
             mode: "cors",
             headers: {
@@ -747,7 +749,7 @@ export default class Controller {
                 "X-Croquet-Version": CROQUET_VERSION,
             },
             referrer: App.referrerURL(),
-        });
+        }));
         const encrypted = await response.arrayBuffer();
         if (debug) console.log(this.id, `${what} fetched (${encrypted.byteLength} bytes) in ${-timer + (timer = Date.now())}ms`);
         Stats.addNetworkTraffic(`${what}_in`, encrypted.byteLength);
@@ -756,6 +758,37 @@ export default class Controller {
         const uncompressed = gzip ? pako.inflate(decrypted) : decrypted;
         if (debug && gzip) console.log(this.id, `${what} inflated (${uncompressed.length} bytes) in ${-timer + (timer = Date.now())}ms`);
         return json ? JSON.parse(new TextDecoder().decode(uncompressed)) : uncompressed;
+    }
+
+    async fetchOffline(url, what, debug) {
+        // offline files are stored in the upload worker
+        const job = ++UploadJobs;
+        return new Promise( (resolve, reject) => {
+            // subtle difference in available methods
+            const adder = NODE ? "addListener" : "addEventListener";
+            const remover = NODE ? "removeListener" : "removeEventListener";
+            UploadWorker.postMessage({
+                job,
+                cmd: "getOfflineFile",
+                url,
+                id: this.id,
+                what,
+                debug,
+                offline: DEBUG.offline,
+            });
+            const onmessage = msg => {
+                if (job !== msg.data.job) return; // will be dealt with by that job's listener
+                const {ok, status, statusText, body, bytes} = msg.data;
+                Stats.addNetworkTraffic(`${what}_out`, bytes);
+                UploadWorker[remover]("message", onmessage);
+                if (ok) resolve({ arrayBuffer: () => body });
+                else reject(Error(`${status}: ${statusText}`));
+            };
+            try {
+                UploadWorker[adder]("message", onmessage);
+            } catch (e) { console.log("failed to add listener", e); }
+        });
+
     }
 
     /** upload string or array buffer as binary encrypted, optionally gzipped
@@ -788,6 +821,7 @@ export default class Controller {
                 CROQUET_VERSION,
                 debug,
                 what,
+                offline: DEBUG.offline,
             }, transfer);
             const onmessage = msg => {
                 if (job !== msg.data.job) return; // will be dealt with by that job's listener
@@ -812,6 +846,7 @@ export default class Controller {
     pollForPersist(vmTime, persistTime, persistentString, persistentHash, ms) {
         if (!this.synced) return; // ignore during fast-forward
         if (!this.sessionSpec.appId) throw Error("Persistence API requires appId");
+        if (DEBUG.offline) return; // don't bother if offline
 
         const ourVote = {
             viewId: this.viewId,                // to identify our own vote
@@ -1782,7 +1817,7 @@ export default class Controller {
                     }
                 } else this.applySyncChange(false); // switch to out-of-sync is acted on immediately
             }
-            if (this.synced && weHaveTime && this.cpuTime > SNAPSHOT_EVERY) { // important not to schedule (resetting cpuTime) if not synced
+            if (this.synced && weHaveTime && this.cpuTime > SNAPSHOT_EVERY && !DEBUG.offline) { // important not to schedule (resetting cpuTime) if not synced
                 // the triggeringCpuTime will be used whether or not this client
                 // ends up being the one that triggers the snapshot.
                 this.triggeringCpuTime = this.cpuTime;
@@ -2126,25 +2161,31 @@ class Connection {
         this.connectBlocked = false;
         this.connectRestricted = false;
 
-        let reflectorBase = getBackend(this.controller.sessionSpec.apiKey).reflector;
-        const reflectorParams = {};
-        const token = this.controller.sessionSpec.token;
-        if (token) reflectorParams.token = token;
-        if (urlOptions.reflector) {
-            const cloudflareColo = urlOptions.reflector.toUpperCase();
-            if (cloudflareColo === "CF" || cloudflareColo.match(/^[A-Z]{3}$/)) {
-                reflectorBase = DEBUG.reflector ? DEV_CLOUDFLARE_REFLECTOR : CLOUDFLARE_REFLECTOR;
-                if (cloudflareColo.length === 3) reflectorParams.colo = cloudflareColo;
-            }
-            else if (urlOptions.reflector.match(/^[-a-z0-9]+$/i)) reflectorParams.region = urlOptions.reflector;
-            else reflectorBase = urlOptions.reflector;
-        }
-        if (!reflectorBase.match(/^wss?:/)) throw Error("Cannot interpret reflector address " + reflectorBase);
-        if (!reflectorBase.endsWith('/')) reflectorBase += '/';
-        const reflectorUrl = new URL(reflectorBase + this.id);
-        for (const [k,v] of Object.entries(reflectorParams)) reflectorUrl.searchParams.append(k, v);
+        let socket;
 
-        const socket = new WebSocket(reflectorUrl);
+        if (DEBUG.offline) {
+            socket = new OfflineSocket();
+        } else {
+            let reflectorBase = getBackend(this.controller.sessionSpec.apiKey).reflector;
+            const reflectorParams = {};
+            const token = this.controller.sessionSpec.token;
+            if (token) reflectorParams.token = token;
+            if (urlOptions.reflector) {
+                const cloudflareColo = urlOptions.reflector.toUpperCase();
+                if (cloudflareColo === "CF" || cloudflareColo.match(/^[A-Z]{3}$/)) {
+                    reflectorBase = DEBUG.reflector ? DEV_CLOUDFLARE_REFLECTOR : CLOUDFLARE_REFLECTOR;
+                    if (cloudflareColo.length === 3) reflectorParams.colo = cloudflareColo;
+                }
+                else if (urlOptions.reflector.match(/^[-a-z0-9]+$/i)) reflectorParams.region = urlOptions.reflector;
+                else reflectorBase = urlOptions.reflector;
+            }
+            if (!reflectorBase.match(/^wss?:/)) throw Error("Cannot interpret reflector address " + reflectorBase);
+            if (!reflectorBase.endsWith('/')) reflectorBase += '/';
+            const reflectorUrl = new URL(reflectorBase + this.id);
+            for (const [k,v] of Object.entries(reflectorParams)) reflectorUrl.searchParams.append(k, v);
+
+            socket = new WebSocket(reflectorUrl);
+        }
         socket.onopen = _event => {
             // under some conditions (e.g., switching a device between networks) a new
             // socket can be opened without the old one receiving a close event
