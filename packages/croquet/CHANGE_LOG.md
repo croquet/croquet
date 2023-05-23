@@ -4,6 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest
 
+* 1.1.0-24 support debug=offline
 * 1.1.0-23 fix handler invocations during unsubscribe, better error messages
 * 1.1.0-22 improve snapshot performance, work around performance bug on Chrome
 * 1.1.0-21 modify subscription lists in-place to avoid invoking handlers of destroyed objects
