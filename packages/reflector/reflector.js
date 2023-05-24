@@ -175,7 +175,7 @@ const GCP_SEVERITY = {
 // a connectionId (client address), and "process" if we don't have either.
 const empty_logger = pino({
     base: null,
-    messageKey: 'message',
+    messageKey: CLUSTER_IS_LOCAL ? 'msg' : 'message',
     timestamp: CLUSTER_IS_LOCAL && !NO_LOGTIME,
     level: process.env.LOG_LEVEL ? process.env.LOG_LEVEL.toLowerCase() : CLUSTER_IS_LOCAL ? 'trace' : 'meter',
     customLevels: {
@@ -183,7 +183,7 @@ const empty_logger = pino({
         notice: 35,
     },
     formatters: {
-        level: label => ({ severity: GCP_SEVERITY[label] || 'DEFAULT'}),
+        level: label => (CLUSTER_IS_LOCAL ? {level: label} : { severity: GCP_SEVERITY[label] || 'DEFAULT'}),
     },
 });
 
@@ -338,7 +338,7 @@ webServer.on('upgrade', (req, socket, _head) => {
             return;
         }
     }
-    global_logger.debug({
+    global_logger.info({
         event: "upgrade",
         method: req.method,
         url: req.url,
@@ -502,7 +502,7 @@ function advanceTime(island, _reason) {
     // warn about time jumps
     const scaledAdvance = island.time - prevTime;
     if (scaledAdvance < 0 || scaledAdvance > 60000) {
-        island.warn({
+        island.logger.warn({
             event: "time-jump",
             scaledAdvance,
             islandPrev: prevTime,

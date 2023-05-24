@@ -12,10 +12,10 @@ First install dependencies:
 npm ci
 ```
 
-To run the reflector locally:
+To run the reflector locally (with nicer logs via the `.pino-prettyrc` in this directory):
 
 ```
-node reflector.js --standalone --storage=none | node node_modules/pino-pretty/bin.js -Sctlm message
+node reflector.js --standalone --storage=none | npx pino-pretty
 ```
 
 This will open a web socket server on `ws://localhost:9090/`. To route a client application to your locally running reflector, modify the client's url in the browser to point to the local web socket server. For example, we can take this example application called "2d" at the following url https://croquet.io/2d/index.html, and change it to the url https://croquet.io/2d/index.html?&debug=session,snapshots&reflector=ws://localhost:9090.
