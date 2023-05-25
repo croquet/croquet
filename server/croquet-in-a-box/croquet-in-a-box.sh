@@ -1,11 +1,17 @@
 #!/bin/bash
 cd $(dirname "$0")
 
-echo "web: http://localhost:8000"
-echo "files: http://localhost:8000/files"
-echo "reflector: http://localhost:8000/reflector"
+# figure out IP address, or use localhost
+IP=`ifconfig | grep "inet .* broadcast" | head -1 | awk '{print $2}'`
+if [[ -z "$IP" ]] ; then
+    IP=localhost
+fi
+
+echo "web: http://$IP:8000"
+echo "files: http://$IP:8000/files"
+echo "reflector: http://$IP:8000/reflector"
 echo
-echo "example: http://localhost:8000/guardians/?reflector=ws://localhost:8000/reflector&files=http://localhost:8000/files/"
+echo "example: http://$IP:8000/guardians/?reflector=ws://$IP:8000/reflector&files=http://$IP:8000/files/"
 echo
 echo "Press Ctrl-C to stop"
 echo
