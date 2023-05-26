@@ -87,10 +87,10 @@ function getBackend(apiKeyWithBackend) {
     const apiKey = split === -1 ? apiKeyWithBackend : apiKeyWithBackend.slice(split + 1);
     const keyBackend = split === -1 ? "" : apiKeyWithBackend.slice(0, split);
     let backend = urlOptions.backend || keyBackend;
-    const overridden = urlOptions.reflector && urlOptions.reflector.match(/^wss?:/);
+    const overridden = urlOptions.reflector?.includes("/");
     if (backend === "none" || overridden || DEBUG.offline) {
         return {
-            apiKey,
+            apiKey, // without api key even stand-alone reflectors currently send a warning
             signServer: "none",
             reflector: "overridden",
         };
@@ -678,9 +678,9 @@ export default class Controller {
     }
 
     uploadServer(apiKeyWithBackend) {
-        // allow overrides (untested recently, probably broken)
+        // allow overrides (should also allow override via backend?)
         if (typeof urlOptions.files === "string") {
-            let url = urlOptions.files;
+            let url = new URL(urlOptions.files, window.location).href;
             if (url.endsWith('/')) url = url.slice(0, -1);
             return { url, apiKey: null };
         }
@@ -2177,11 +2177,11 @@ class Connection {
                     if (cloudflareColo.length === 3) reflectorParams.colo = cloudflareColo;
                 }
                 else if (urlOptions.reflector.match(/^[-a-z0-9]+$/i)) reflectorParams.region = urlOptions.reflector;
-                else reflectorBase = urlOptions.reflector;
+                else reflectorBase = new URL(urlOptions.reflector, window.location.href).href.replace(/^http/, 'ws');
             }
             if (!reflectorBase.match(/^wss?:/)) throw Error("Cannot interpret reflector address " + reflectorBase);
             if (!reflectorBase.endsWith('/')) reflectorBase += '/';
-            const reflectorUrl = new URL(reflectorBase + this.id);
+            const reflectorUrl = new URL(reflectorBase + this.id, window.location);
             for (const [k,v] of Object.entries(reflectorParams)) reflectorUrl.searchParams.append(k, v);
 
             socket = new WebSocket(reflectorUrl);

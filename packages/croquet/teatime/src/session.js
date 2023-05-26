@@ -195,10 +195,13 @@ export class Session {
         if (typeof parameters.password !== "string" || !parameters.password) throw Error("Croquet: no password provided in Session.join()");
         // put reflector param into urlOptions because that's where controller.js looks
         const reflector = urlOptions.reflector || parameters.reflector;
-        if (reflector) {
-            if (reflector.includes("://") || reflector.match(/^[-a-z0-9]+$/i)) urlOptions.reflector = reflector;
-            else console.warn(`Croquet: Not a valid websocket url, ignoring reflector "${reflector}"`);
-        }
+        if (reflector) urlOptions.reflector = reflector;
+        // same for files
+        const files = urlOptions.files || parameters.files;
+        if (files) urlOptions.files = files;
+        // and backend
+        const backend = urlOptions.backend || parameters.backend;
+        if (backend) urlOptions.backend = backend;
         // verify manual stepping for Node
         if (NODE && parameters.step !== "manual") {
             throw Error("stepping must be manual in a Node.js app");
