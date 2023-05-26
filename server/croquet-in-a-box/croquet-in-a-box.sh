@@ -2,6 +2,7 @@
 # usage: ./croquet-in-a-box.sh [port]
 
 cd $(dirname "$0")
+WONDERLAND=$(git rev-parse --show-toplevel)
 
 # these are used inside docker-compose.yml
 export HOST_PORT=${1:-8000}
@@ -25,7 +26,6 @@ echo "Press Ctrl-C to stop"
 echo
 
 # create Docker definition into ./dist
-WONDERLAND=$(git rev-parse --show-toplevel)
 REFLECTOR=$WONDERLAND/croquet/reflector
 $REFLECTOR/gen-obfuscated-docker.sh --storage=none --standalone --no-loglatency --no-logtime
 
