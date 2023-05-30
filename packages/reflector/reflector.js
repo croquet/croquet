@@ -982,8 +982,8 @@ function after(seqA, seqB) {
 
 const Latencies = new Map();
 
-// log latencies every 15 min
-setInterval(logLatencies, 15 * 60 * 1000);
+// log latencies every 5 minutes
+setInterval(logLatencies, 5 * 60 * 1000);
 
 function logLatencies() {
     if (!Latencies.size) return;
@@ -996,7 +996,7 @@ function logLatencies() {
         global_logger.notice(entry, `Latency ${Math.ceil(entry.latency.sum / count)} ms (${entry.latency.min}-${entry.latency.max} ms)`);
     }
     ms = Date.now() - ms;
-    global_logger.notice({event: "latencies", ms, count: Latencies.size}, `Logged latency for ${Latencies.size} IP addresses in ${ms} ms`);
+    global_logger.debug({event: "latencies", ms, count: Latencies.size}, `Logged latency for ${Latencies.size} IP addresses in ${ms} ms`);
     Latencies.clear();
 }
 

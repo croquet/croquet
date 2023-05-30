@@ -5,7 +5,7 @@ cd $(dirname "$0")
 WONDERLAND=$(git rev-parse --show-toplevel)
 
 # these are used inside docker-compose.yml
-export HOST_PORT=${1:-8000}
+export HOST_PORT=${1:-8888}
 export WEB_ROOT_PATH=$WONDERLAND/servers/croquet-io-dev
 export REFLECTOR_LABEL=`hostname`
 
@@ -25,9 +25,26 @@ echo
 echo "Press Ctrl-C to stop"
 echo
 
-# create Docker definition into ./dist
-REFLECTOR=$WONDERLAND/croquet/reflector
-$REFLECTOR/gen-obfuscated-docker.sh --storage=none --standalone --no-loglatency --no-logtime
+REFLECTOR_ARGS="--storage=none --standalone --no-loglatency --no-logtime"
+$WONDERLAND/croquet/reflector/gen-obfuscated-docker.sh $REFLECTOR_ARGS
+cp ../reflector-standalone/.pino-prettyrc dist/
+cat > dist/Dockerfile <<-EOF
+FROM node:18-alpine AS BUILD_IMAGE
+WORKDIR /usr/src/reflector
+COPY package*.json reflector.js .pino-prettyrc ./
+RUN npm ci \
+    && echo "#!/bin/sh" > reflector.sh \
+    && echo "node reflector.js $REFLECTOR_ARGS | npx pino-pretty" >> reflector.sh \
+    && chmod +x reflector.sh
+
+FROM node:18-alpine
+ENV LOG_LEVEL=info
+ENV CLUSTER_LABEL=somewhere
+WORKDIR /usr/src/reflector
+COPY --from=BUILD_IMAGE /usr/src/reflector/ ./
+EXPOSE 9090
+CMD [ "./reflector.sh" ]
+EOF
 
 # run reflector and nginx as defined in docker-compose.yml
 docker compose up
