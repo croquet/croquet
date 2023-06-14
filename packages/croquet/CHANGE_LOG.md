@@ -4,6 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest
 
+* 1.1.0-26 allow custom serialization of unsupported types, cancelFuture("*")
 * 1.1.0-25 support overriding reflector and file server in Session.join, accept relative URLs for them
 * 1.1.0-24 support debug=offline
 * 1.1.0-23 fix handler invocations during unsubscribe, better error messages
