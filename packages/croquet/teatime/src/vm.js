@@ -436,7 +436,7 @@ export default class VirtualMachine {
     cancelFuture(model, methodOrMessage) {
         const messages = this.messages;
         let removed;
-        if ("time" in methodOrMessage) {
+        if (typeof methodOrMessage.time === "number") {
             const { time, seq } = methodOrMessage;
             removed = messages.removeOne(msg => msg.time === time && msg.seq === seq);
         } else {
