@@ -1365,9 +1365,12 @@ class VMWriter {
                         throw Error(`Croquet: class not registered in Model.types(): ${value.constructor.name}`);
                     }
                     case "Null": return value;
-                    default:
+                    default: {
+                        const writer = this.writers.get(type);
+                        if (writer) return writer(value, path);
                         console.error(`Croquet: unsupported property at ${path}:`, value);
                         throw Error(`Croquet: serialization of ${type}s is not supported`);
+                    }
                 }
             }
         }
