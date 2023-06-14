@@ -705,8 +705,7 @@ class Model {
 
     [Symbol.toPrimitive]() {
         const className = this.constructor[CLASS_ID] || this.constructor.name;
-        if (className.includes('Model')) return `${className}#${this.id}`;
-        return `${className}[Model]#${this.id}`;
+        return `${className}#${this.id}`;
     }
 }
 // Model.register("Croquet.Model");
