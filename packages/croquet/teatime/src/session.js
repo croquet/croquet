@@ -260,7 +260,7 @@ export class Session {
         // now start
         if ("expectedSimFPS" in parameters) expectedSimFPS = Math.min(parameters.expectedSimFPS, MAX_BALANCE_FPS);
         // parameters to be included in the session spec, if specified by app (or defaulted)
-        const SESSION_PARAMS = ['name', 'password', 'apiKey', 'appId', 'tps', 'autoSleep', 'heraldUrl', 'rejoinLimit', 'eventRateLimit', 'optionsFromUrl', 'viewIdDebugSuffix', 'hashOverride', 'flags'];
+        const SESSION_PARAMS = ['name', 'password', 'apiKey', 'appId', 'tps', 'autoSleep', 'heraldUrl', 'rejoinLimit', 'eventRateLimit', 'optionsFromUrl', 'viewIdDebugSuffix', 'hashOverride', 'flags', 'progressReporter'];
         freezeAndHashConstants();
         const controller = new Controller();
         // make sure options are JSONable
@@ -293,7 +293,6 @@ export class Session {
         for (const [param, value] of Object.entries(parameters)) {
             if (SESSION_PARAMS.includes(param)) sessionSpec[param] = value;
         }
-        if (parameters.progressReporter) sessionSpec.progressReporter = parameters.progressReporter;
         await controller.initFromSessionSpec(sessionSpec);
 
         let rebooting = false;

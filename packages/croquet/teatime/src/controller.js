@@ -115,7 +115,7 @@ function getBackend(apiKeyWithBackend) {
 
     return {
         apiKey,
-        signServer: `https://api.${apidomain}/sign`,
+        signServer: `https://api.${apidomain}/sign`,    // sign server generates file upload/download urls
         reflector: `wss://api.${apidomain}/reflector/v${VERSION}`
     };
 }
@@ -1320,7 +1320,7 @@ export default class Controller {
         this.syncReceiptTimeout = setTimeout(() => {
             delete this.syncReceiptTimeout;
             if (!this.syncReceived) {
-                this.connection.closeConnectionWithError("join", Error("SYNC timed out"));
+                this.connection.closeConnectionWithError("JOIN", Error("Initial reflector connection timed out"));
             }
             }, JOIN_FAILED_DELAY);
     }
