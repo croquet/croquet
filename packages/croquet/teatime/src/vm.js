@@ -439,6 +439,9 @@ export default class VirtualMachine {
         if (typeof methodOrMessage.time === "number") {
             const { time, seq } = methodOrMessage;
             removed = messages.removeOne(msg => msg.time === time && msg.seq === seq);
+        } else if (methodOrMessage === "*") {
+            removed = messages.removeMany(msg => msg.receiver === model.id);
+            return removed.length > 0;
         } else {
             const methodName = this.asQFunc(model, methodOrMessage, "cancelFuture message");
             const receiverID = model.id;
