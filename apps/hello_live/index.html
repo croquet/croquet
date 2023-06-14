@@ -1,0 +1,130 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Croquet: Hello Live</title>
+        <style>
+            body {
+                display: flex;
+                user-select: none
+            }
+            #counter {
+                margin: auto;
+                font: 100px sans-serif;
+            }
+        </style>
+        <script src="https://cdn.jsdelivr.net/npm/@croquet/croquet@1.1.0-26"></script>
+    </head>
+    <body>
+        <div id="counter"></div>
+        <script>
+
+class Wonderland extends Croquet.Model {
+    init(_, persisted) {
+        super.init();
+        this.subscribe(this.sessionId, "set-method", this.setMethod);
+        if (persisted) {
+            for (let method of persisted.methods) {
+                this.setMethod(method, false);
+            }
+            if (this.setup) this.setup(persisted);
+        }
+    }
+
+    get methods() {
+        return Object.values(this).filter(fn => typeof fn === "function").map(fn => fn.toString());
+    }
+
+    setMethod(source, run = "setup") {
+        const {name, fn} = Wonderland.compile(source);
+        this[name] = fn;
+        this.persistSession({ methods: this.methods });
+        if (name === run) this[name]();
+    }
+
+    static parse(source) {
+        const [name, params, body] = source.match(/(\w+)\s*\(([^)]*)\)\s*{([\s\S]*)}/).slice(1);
+        return {name, params: params.trim(), body: body.trim()};
+    }
+
+    static compile(source) {
+        const {name, params, body} = this.parse(source);
+        const fn = Function(params, body);
+        return {name, fn};
+    }
+
+    static normalize(fn, nm) {
+        const {name, params, body} = this.parse(fn.toString());
+        const source = `${nm||name}(${params}) {${body}}`;
+        return {name, params, body, source};
+    }
+
+    static types() {
+        return {
+            "Method": {
+                cls: "Function",
+                write: fn => this.normalize(fn).source,
+                read: source => this.compile(source).fn,
+            }
+        };
+    }
+}
+Wonderland.register("Wonderland");
+
+const LIVE_CODE = {
+    teardown() {
+        this.unsubscribeAll();
+        this.cancelFuture("*");
+        this.init();
+    },
+    setCounter(value) {
+        this.counter = value;
+        this.publish(this.id, "counter-changed", this.counter);
+    },
+    tick(inc) {
+        this.setCounter(this.counter + inc);
+        this.future(1000).tick(inc);
+    },
+    setup() {
+        this.teardown();
+        this.counter = this.counter || 0;
+        this.subscribe(this.id, "set-counter", this.setCounter);
+        this.tick(1);
+    },
+};
+
+class Display extends Croquet.View {
+    constructor(model) {
+        super(model);
+        this.model = model;
+        this.setCode(Object.values(LIVE_CODE));
+        document.onclick = () => this.publish(model.id, "set-counter", 0);
+        this.subscribe(model.id, "counter-changed", (value) => {
+            document.getElementById("counter").innerHTML = value;
+        });
+    }
+
+    setCode(methods) {
+        for (const method of methods) {
+            const {name, source} = Wonderland.normalize(method);
+            const current = this.model[name];
+            const currentSource = current && Wonderland.normalize(current, name).source;
+            if (currentSource !== source) {
+                this.publish(this.sessionId, "set-method", source);
+            }
+        }
+    }
+}
+
+Croquet.App.messages = true;
+Croquet.App.makeWidgetDock();
+
+Croquet.Session.join({
+    apiKey: "2DT9VCoCKtvXMKkBGZXNLrUEoZMn48ojXPC8XFAuuO",
+    appId: "io.croquet.hello-live",
+    model: Wonderland,
+    view: Display,
+});
+
+        </script>
+    </body>
+</html>
