@@ -38,8 +38,17 @@
         <code id="editor" class="language-javascript"></code>
         <button id="accept">Accept</button>
         <script>
+// This is an example of a simple live coding environment built with Croquet.
 
-class Wonderland extends Croquet.Model {
+// LiveCode is a "universal" Model that accepts method additions/changes at runtime.
+// The live-coded "setup" method is called after the code is changed,
+// it should be used to initialize subscriptions and future messages.
+// All previous user subscriptions and future messages are being cancelled automatically,
+// and there can be a "teardown" method for cleaning up properties.
+// Since "setup" is being re-run on any code change, it should only initialize properties that are not already set.
+// The live coded methods are persisted to survive changes to this file which create a different session.
+
+class LiveCode extends Croquet.Model {
     init(_, persisted) {
         super.init();
         this.subscribe(this.sessionId, "set-code", this.setCode);
@@ -52,7 +61,7 @@ class Wonderland extends Croquet.Model {
     get methods() {
         return Object.entries(this)
             .filter(m => typeof m[1] === "function")
-            .map(m => Wonderland.normalize(m[1], m[0]));
+            .map(m => LiveCode.normalize(m[1], m[0]));
     }
 
     setCode(methods) {
@@ -65,7 +74,7 @@ class Wonderland extends Croquet.Model {
         for (const method of methods) {
             const name = method.match(/^\w+/)[0];
             if (method === name) delete this[name];
-            else this[name] = Wonderland.compile(method).fn;
+            else this[name] = LiveCode.compile(method).fn;
             this.publish(this.sessionId, "code-changed", name);
         }
         // restart everything
@@ -106,56 +115,61 @@ class Wonderland extends Croquet.Model {
         };
     }
 }
-Wonderland.register("Wonderland");
+LiveCode.register("LiveCode");
 
+
+// This example code will be loaded if it's a new session
 const EXAMPLE = `
 setup() {
     this.counter = this.counter || 0;
-    this.subscribe(this.id, "set-counter", this.setCounter);
-    this.tick(1);
+    this.subscribe("counter", "set", this.setCounter);
+    this.tick();
 }
 
 setCounter(value) {
     this.counter = value;
-    this.publish(this.id, "counter-changed", this.counter);
+    this.publish("counter", "changed", this.counter);
 }
 
-tick(inc) {
-    this.setCounter(this.counter + inc);
-    this.future(1000).tick(inc);
+tick() {
+    this.setCounter(this.counter + 1);
+    this.future(1000).tick();
 }
 `;
 
+// The view is a simple code editor
+// It also takes care of the counter example UI
+// because that part isn't live coded yet
+
 let editor;
 
-class Display extends Croquet.View {
+class LiveView extends Croquet.View {
     constructor(model) {
         super(model);
         this.model = model;
-        // Editing
+        // Live coding UI
         if (!editor) {
             hljs.configure({ ignoreUnescapedHTML: true }); // ¯\_(ツ)_/¯
             editor = CodeJar(document.getElementById('editor'), hljs.highlightElement);
-            document.getElementById('editor').onkeydown = (e) => {
-                // if cmd-s or ctrl-s pressed, save
-                if ((window.navigator.platform.match("Mac") ? e.metaKey : e.ctrlKey) && e.keyCode == 83) {
-                    e.preventDefault();
-                    this.acceptCode(editor.toString());
-                }
-            };
-            document.getElementById('accept').onclick = () => {
-                document.getElementById('editor').blur();
-                this.acceptCode(editor.toString());
-            };
         }
+        document.getElementById('editor').onkeydown = (e) => {
+            if ((window.navigator.platform.match("Mac") ? e.metaKey : e.ctrlKey) && e.keyCode == 83) {
+                e.preventDefault();
+                this.acceptCode(editor.toString());
+            }
+        };
+        document.getElementById('accept').onclick = () => {
+            document.getElementById('editor').blur(); // hide keyboard on mobile
+            this.acceptCode(editor.toString());
+        };
         if (model.methods.length > 0) this.showCode();
         else this.acceptCode(EXAMPLE);
         this.subscribe(this.sessionId, { event: "code-changed", handling: "oncePerFrame" }, this.showCode);
         this.subscribe(this.sessionId, "code-error", this.showError);
 
         // Example View Code (todo: make live-editable)
-        document.getElementById("counter").onclick = () => this.publish(model.id, "set-counter", 0);
-        this.subscribe(model.id, "counter-changed", (value) => {
+        document.getElementById("counter").onclick = () => this.publish("counter", "set", 0);
+        this.subscribe("counter", "changed", (value) => {
             document.getElementById("counter").innerHTML = value;
         });
     }
@@ -174,12 +188,12 @@ class Display extends Croquet.View {
     }
 
     acceptCode(code) {
-       try {
+        try {
             const compiled = new Function(`return class Model {${code}}`)();
             const newMethods = Object.fromEntries(
                 Object.entries(Object.getOwnPropertyDescriptors(compiled.prototype))
                 .filter(m => typeof m[1].value === "function" && m[0] !== "constructor")
-                .map(m => [m[0], Wonderland.normalize(m[1].value, m[0])]));
+                .map(m => [m[0], LiveCode.normalize(m[1].value, m[0])]));
             const edits = [];
             const todo = new Set(Object.keys(newMethods));
             for (const method of this.model.methods) {
@@ -194,9 +208,9 @@ class Display extends Croquet.View {
                 edits.push(newMethods[name].source);
             }
             this.publish(this.sessionId, "set-code", edits);
-       } catch (e) {
+        } catch (e) {
             Croquet.App.showMessage(e.message, { level: "warning" });
-       }
+        }
     }
 }
 
@@ -206,8 +220,8 @@ Croquet.App.makeWidgetDock();
 Croquet.Session.join({
     apiKey: "2DT9VCoCKtvXMKkBGZXNLrUEoZMn48ojXPC8XFAuuO",
     appId: "io.croquet.hello-live",
-    model: Wonderland,
-    view: Display,
+    model: LiveCode,
+    view: LiveView,
 });
 
         </script>
