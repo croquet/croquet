@@ -1,11 +1,24 @@
 <html>
     <head>
         <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
         <title>Croquet: Hello Live</title>
         <style>
             body {
                 display: flex;
-                user-select: none
+                flex-direction: column;
+                min-height: 100%;
+                max-height: 100%;
+                margin: 0;
+                user-select: none;
+            }
+            code {
+                flex: 1;
+                overflow: scroll;
+            }
+            button {
+                height: 50px;
+                font-size: 20px;
             }
             #counter {
                 margin: auto;
@@ -13,42 +26,67 @@
             }
         </style>
         <script src="https://cdn.jsdelivr.net/npm/@croquet/croquet@1.1.0-26"></script>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.8.0/build/styles/shades-of-purple.min.css">
+        <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.8.0/build/highlight.min.js"></script>
+        <script type="module">
+            import {CodeJar} from 'https://cdn.jsdelivr.net/npm/codejar@3/codejar.min.js';
+            window.CodeJar = CodeJar;
+        </script>
     </head>
     <body>
-        <div id="counter"></div>
+        <div id="counter">...</div>
+        <code id="editor" class="language-javascript"></code>
+        <button id="accept">Accept</button>
         <script>
 
 class Wonderland extends Croquet.Model {
     init(_, persisted) {
         super.init();
-        this.subscribe(this.sessionId, "set-method", this.setMethod);
-        if (persisted) {
-            for (let method of persisted.methods) {
-                this.setMethod(method, false);
-            }
-            if (this.setup) this.setup(persisted);
-        }
+        this.subscribe(this.sessionId, "set-code", this.setCode);
+        if (persisted) this.setCode(persisted.methods);
     }
+
+    setup() {}
+    teardown() {}
 
     get methods() {
-        return Object.values(this).filter(fn => typeof fn === "function").map(fn => fn.toString());
+        return Object.entries(this)
+            .filter(m => typeof m[1] === "function")
+            .map(m => Wonderland.normalize(m[1], m[0]));
     }
 
-    setMethod(source, run = "setup") {
-        const {name, fn} = Wonderland.compile(source);
-        this[name] = fn;
-        this.persistSession({ methods: this.methods });
-        if (name === run) this[name]();
+    setCode(methods) {
+        // shut down everything
+        try { this.teardown(); }
+        catch (error) { this.publish(this.sessionId, "code-error", {in: "teardown", error}); }
+        this.unsubscribeAll();
+        this.cancelFuture("*");
+        // apply edits
+        for (const method of methods) {
+            const name = method.match(/^\w+/)[0];
+            if (method === name) delete this[name];
+            else this[name] = Wonderland.compile(method).fn;
+            this.publish(this.sessionId, "code-changed", name);
+        }
+        // restart everything
+        this.init();
+        try {
+            this.setup();
+            // if successful, persist
+            this.persistSession({ methods: this.methods.map(m => m.source) });
+        } catch (error) {
+            this.publish(this.sessionId, "code-error", {in: "setup", error});
+        }
     }
 
     static parse(source) {
         const [name, params, body] = source.match(/(\w+)\s*\(([^)]*)\)\s*{([\s\S]*)}/).slice(1);
-        return {name, params: params.trim(), body: body.trim()};
+        return {name, params, body};
     }
 
-    static compile(source) {
-        const {name, params, body} = this.parse(source);
-        const fn = Function(params, body);
+    static compile(code) {
+        const {name, source} = this.normalize(code);
+        const fn = (Function(`return function ${source};`))();
         return {name, fn};
     }
 
@@ -70,48 +108,95 @@ class Wonderland extends Croquet.Model {
 }
 Wonderland.register("Wonderland");
 
-const LIVE_CODE = {
-    teardown() {
-        this.unsubscribeAll();
-        this.cancelFuture("*");
-        this.init();
-    },
-    setCounter(value) {
-        this.counter = value;
-        this.publish(this.id, "counter-changed", this.counter);
-    },
-    tick(inc) {
-        this.setCounter(this.counter + inc);
-        this.future(1000).tick(inc);
-    },
-    setup() {
-        this.teardown();
-        this.counter = this.counter || 0;
-        this.subscribe(this.id, "set-counter", this.setCounter);
-        this.tick(1);
-    },
-};
+const EXAMPLE = `
+setup() {
+    this.counter = this.counter || 0;
+    this.subscribe(this.id, "set-counter", this.setCounter);
+    this.tick(1);
+}
+
+setCounter(value) {
+    this.counter = value;
+    this.publish(this.id, "counter-changed", this.counter);
+}
+
+tick(inc) {
+    this.setCounter(this.counter + inc);
+    this.future(1000).tick(inc);
+}
+`;
+
+let editor;
 
 class Display extends Croquet.View {
     constructor(model) {
         super(model);
         this.model = model;
-        this.setCode(Object.values(LIVE_CODE));
-        document.onclick = () => this.publish(model.id, "set-counter", 0);
+        // Editing
+        if (!editor) {
+            hljs.configure({ ignoreUnescapedHTML: true }); // ¯\_(ツ)_/¯
+            editor = CodeJar(document.getElementById('editor'), hljs.highlightElement);
+            document.getElementById('editor').onkeydown = (e) => {
+                // if cmd-s or ctrl-s pressed, save
+                if ((window.navigator.platform.match("Mac") ? e.metaKey : e.ctrlKey) && e.keyCode == 83) {
+                    e.preventDefault();
+                    this.acceptCode(editor.toString());
+                }
+            };
+            document.getElementById('accept').onclick = () => {
+                document.getElementById('editor').blur();
+                this.acceptCode(editor.toString());
+            };
+        }
+        if (model.methods.length > 0) this.showCode();
+        else this.acceptCode(EXAMPLE);
+        this.subscribe(this.sessionId, { event: "code-changed", handling: "oncePerFrame" }, this.showCode);
+        this.subscribe(this.sessionId, "code-error", this.showError);
+
+        // Example View Code (todo: make live-editable)
+        document.getElementById("counter").onclick = () => this.publish(model.id, "set-counter", 0);
         this.subscribe(model.id, "counter-changed", (value) => {
             document.getElementById("counter").innerHTML = value;
         });
     }
 
-    setCode(methods) {
-        for (const method of methods) {
-            const {name, source} = Wonderland.normalize(method);
-            const current = this.model[name];
-            const currentSource = current && Wonderland.normalize(current, name).source;
-            if (currentSource !== source) {
-                this.publish(this.sessionId, "set-method", source);
+    showCode() {
+        const sources = this.model.methods.map(m => m.source);
+        const code = sources.join("\n\n");
+        if (editor.toString().trim() === code) return;
+        let pos; try { pos = editor.save(); } catch (_) {} // ¯\_(ツ)_/¯
+        editor.updateCode(code);
+        if (pos) editor.restore(pos);
+    }
+
+    showError({in: where, error}) {
+        Croquet.App.showMessage(`Error during ${where}():\n${error.message}\n\n${error.stack}`, {level: "error"});
+    }
+
+    acceptCode(code) {
+       try {
+            const compiled = new Function(`return class Model {${code}}`)();
+            const newMethods = Object.fromEntries(
+                Object.entries(Object.getOwnPropertyDescriptors(compiled.prototype))
+                .filter(m => typeof m[1].value === "function" && m[0] !== "constructor")
+                .map(m => [m[0], Wonderland.normalize(m[1].value, m[0])]));
+            const edits = [];
+            const todo = new Set(Object.keys(newMethods));
+            for (const method of this.model.methods) {
+                if (!newMethods[method.name]) {
+                    edits.push(method.name); // delete
+                } else if (newMethods[method.name].source !== method.source) {
+                    edits.push(newMethods[method.name].source);
+                }
+                todo.delete(method.name);
             }
-        }
+            for (const name of todo) {
+                edits.push(newMethods[name].source);
+            }
+            this.publish(this.sessionId, "set-code", edits);
+       } catch (e) {
+            Croquet.App.showMessage(e.message, { level: "warning" });
+       }
     }
 }
 
