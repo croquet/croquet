@@ -275,7 +275,7 @@ class Model {
     }
 
     constructor(secret) {
-        if (secret !== SECRET) throw Error(`You must create ${this} using create() not "new"!`);
+        if (secret !== SECRET) throw Error(`You must create Croquet Models using create() not "new"!`);
     }
 
     /**

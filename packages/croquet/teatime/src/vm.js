@@ -368,8 +368,11 @@ export default class VirtualMachine {
                 this.publishFromModelOnly(this.id, "view-exit", id);
             } else {
                 // there is no way this could ever happen. If it does, something is seriously broken.
-                console.error(`${this.id} @${this.time}#${this.seq} view ${id} exited without being present - this should not happen`);
-                this.controller.sendLog(`view-exit-mismatch @${this.time}#${this.seq} ${id} left without being present`);
+                const { time, seq } = this;
+                console.error(`${this.id} @${time}#${seq} view ${id} exited without being present - this should not happen`);
+                Promise.resolve().then(() => {
+                    this.controller.sendLog(`view-exit-mismatch @${time}#${seq} ${id} left without being present`);
+                });
             }
         }
         // then joins
@@ -388,8 +391,11 @@ export default class VirtualMachine {
         // sanity check: the active number of connections on the reflector should match our count
         const connections = Object.values(this.views).reduce((n, view) => n + 1 + (view.extraConnections || 0), 0);
         if (count !== connections) {
-            console.error(`@${this.time}#${this.seq} view count mismatch (model: ${connections}, reflector: ${count}) - this should not happen`);
-            this.controller.sendLog(`view-exit-mismatch @${this.time}#${this.seq} connections model: ${connections} reflector: ${count}`);
+            const { time, seq } = this;
+            console.error(`@${time}#${seq} view count mismatch (model: ${connections}, reflector: ${count}) - this should not happen`);
+            Promise.resolve().then(() => {
+                this.controller.sendLog(`view-exit-mismatch @${time}#${seq} connections model: ${connections} reflector: ${count}`);
+            });
         }
         // BTW: if the view sent to reflector in controller.join() was an object or array
         // instead of a plain string, then reflector may have added the
