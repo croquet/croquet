@@ -430,7 +430,7 @@ export default class VirtualMachine {
         this.futureSeq = (this.futureSeq + 1) >>> 0;
         const message = new Message(this.time + tOffset, 2 * this.futureSeq, receiverID, selector, args);
         this.messages.add(message);
-        return message;
+        return { time: message.time, seq: message.seq }; // for cancelFuture
     }
 
     cancelFuture(model, methodOrMessage) {
