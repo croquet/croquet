@@ -338,6 +338,22 @@ export default class VirtualMachine {
     // leaving a session so we generate those when the first view resumes a session
     // keeping track of views in the currently not exposed this.views property
     generateJoinExit({entered, exited, count}) {
+        // if location was enabled in session options then controller.join() sent
+        // an array as user instead of a plain viewId string, so the reflector
+        // may have added the location as {region, city: {name, lat, lng}},
+        // see JOIN() in reflector.js
+        const viewdata = {};
+        for (const user of entered) {
+            if (!Array.isArray(user)) continue;
+            const loc = user[1] || {};
+            if (loc.region) {
+                loc.country = loc.region.slice(0, 2);
+                loc.region = loc.region.slice(2);
+            }
+            viewdata[user[0]] = { loc };
+        }
+        entered = entered.map(user => Array.isArray(user) ? user[0] : user);
+        exited = exited.map(user => Array.isArray(user) ? user[0] : user);
         // if entered = count then the reflector just resumed the session
         // synthesize exit events for old views stored in snapshot
         if (entered.length === count) {
@@ -384,7 +400,7 @@ export default class VirtualMachine {
                 this.views[id].extraConnections = (this.views[id].extraConnections||0) + 1;
             } else {
                 // otherwise this is a real join
-                this.views[id] = {};
+                this.views[id] = viewdata[id] || {};
                 this.publishFromModelOnly(this.id, "view-join", id);
             }
         }
@@ -397,10 +413,6 @@ export default class VirtualMachine {
                 this.controller.sendLog(`view-exit-mismatch @${time}#${seq} connections model: ${connections} reflector: ${count}`);
             });
         }
-        // BTW: if the view sent to reflector in controller.join() was an object or array
-        // instead of a plain string, then reflector may have added the
-        // location as {region, city: {name, lat, lng}}, see JOIN() in reflector.js
-        // for now, we are using plain string ids, so no location is sent
     }
 
     /** decode msgData and sort it into future queue

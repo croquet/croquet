@@ -1280,8 +1280,9 @@ export default class Controller {
         if (DEBUG.session) console.log(this.id, "Controller sending JOIN");
 
         const { tick, delay } = this.getTickAndMultiplier();
-        const { name, codeHash, appId, apiKey: apiKeyWithBackend, persistentId, developerId, heraldUrl, rejoinLimit, autoSleep, computedCodeHash, flags } = this.sessionSpec;
+        const { name, codeHash, appId, apiKey: apiKeyWithBackend, persistentId, developerId, heraldUrl, rejoinLimit, autoSleep, computedCodeHash, location, flags } = this.sessionSpec;
         const { apiKey } = getBackend(apiKeyWithBackend);
+        const user = location ? [this.viewId] : this.viewId;
 
         const args = {
             name,                   // for debugging only
@@ -1292,7 +1293,8 @@ export default class Controller {
             sdk: CROQUET_VERSION,   // for sign func
             developerId,            // for logging
             version: VERSION,       // protocol version
-            user: this.viewId,      // see vm.generateJoinExit() for getting location data
+            user,                   // viewId
+            location,               // enable location data in reflector
             ticks: { tick, delay },
             dormantDelay: autoSleep, // not used yet, but tells reflector this client is >= 0.5.1
             tove: this.tove,        // an encrypted message the reflector will send to every client in SYNC
