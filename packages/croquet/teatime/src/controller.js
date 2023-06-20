@@ -2169,6 +2169,7 @@ class Connection {
             socket = new OfflineSocket();
         } else {
             let reflectorBase = getBackend(this.controller.sessionSpec.apiKey).reflector;
+            const ourUrl = NODE ? undefined : window.location.href;
             const reflectorParams = {};
             const token = this.controller.sessionSpec.token;
             if (token) reflectorParams.token = token;
@@ -2179,11 +2180,11 @@ class Connection {
                     if (cloudflareColo.length === 3) reflectorParams.colo = cloudflareColo;
                 }
                 else if (urlOptions.reflector.match(/^[-a-z0-9]+$/i)) reflectorParams.region = urlOptions.reflector;
-                else reflectorBase = new URL(urlOptions.reflector, !NODE && window.location.href).href.replace(/^http/, 'ws');
+                else reflectorBase = new URL(urlOptions.reflector, ourUrl).href.replace(/^http/, 'ws');
             }
             if (!reflectorBase.match(/^wss?:/)) throw Error("Cannot interpret reflector address " + reflectorBase);
             if (!reflectorBase.endsWith('/')) reflectorBase += '/';
-            const reflectorUrl = new URL(reflectorBase + this.id, !NODE && window.location.href);
+            const reflectorUrl = new URL(reflectorBase + this.id, ourUrl);
             for (const [k,v] of Object.entries(reflectorParams)) reflectorUrl.searchParams.append(k, v);
 
             socket = new WebSocket(reflectorUrl);
