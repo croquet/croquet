@@ -271,6 +271,7 @@ export class Session {
             id: '',
             persistentId: '',
             versionId: '',
+            name: parameters.name,
             model: null,
             view: null,
             // called from our own onAnimationFrame, or application if stepping manually
