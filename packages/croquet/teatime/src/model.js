@@ -285,13 +285,19 @@ class Model {
      * or start a [future]{@link Model#future} message chain.
      *
      * If you pass `{options:...}` to [Session.join]{@link Session.join}, these will be passed to your root model's `init()`.
+     * Note that this affects the session's `persistentId` – in most cases using [Croquet.Constants]{@link Constants} is a better choice.
+     *
+     * If you called [persistSession]{@link Model#persistSession} in a previous session (same name, same options, different code base),
+     * that data will be passed as `persistentData` to your root model's `init()`. Based on that data you should re-create submodels,
+     * subscriptions, future messages etc. to start the new session in a state similar to when it was last saved.
      *
      * **Note:** When your model instance is no longer needed, you must [destroy]{@link Model#destroy} it.
      *
-     * @param {Object=} options - there are no system-defined options, you're free to define your own
+     * @param {Object=} options - if passed to [Session.join]{@link Session.join}
+     * @param {Object=} persistentData - data previously stored by [persistSession]{@link Model#persistSession}
      * @public
      */
-    init(options) { /* eslint-disable-line no-unused-vars */
+    init(options, persistentData) { /* eslint-disable-line no-unused-vars */
         // for reporting errors if user forgot to call super.init()
         SuperInitNotCalled.delete(this);
         // eslint-disable-next-line no-constant-condition
@@ -310,15 +316,6 @@ class Model {
             // don't know how to otherwise add documentation
         }
     }
-
-    /* ONCE THE PERSISTENCE API IS PUBLIC, ADD THIS ABOVE
-     *
-     * If you called [persistSession]{@link Model#persistSession} in a previous session (same name, same options, different code base),
-     * that data will be passed as `persistentData` to your root model's `init()`. Based on that data you should re-create submodels,
-     * subscriptions, future messages etc. to start the new session in a state similar to when it was last saved.
-     *
-     * @param {Object=} persistentData - data previously stored by [persistSession]{@link Model#persistSession}
-     */
 
     /**
      * Unsubscribes all [subscriptions]{@link Model#subscribe} this model has,
@@ -696,7 +693,7 @@ class Model {
      * dataForExport() { return { version: 1, payload: { propA: "value", propB: ["values"] } }; }
      * @param {Function} collectDataFunc - method returning information to be stored, will be stringified as JSON
      * @since 0.3.4
-     * @notpublic (yet)
+     * @public
      */
     persistSession(collectDataFunc) {
         if (this !== this.wellKnownModel("modelRoot")) throw Error('persistSession() must only be called on the root model');
