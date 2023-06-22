@@ -271,6 +271,7 @@ export default class VirtualMachine {
                     // only read keys declared above
                     for (const key of Object.keys(vmData)) {
                         if (!(key in this) && key !== "meta") console.warn(`Ignoring property snapshot.${key}`);
+                        else if (key === "_random") this[key] = new SeedRandom(null, { state: vmData[key] });
                         else if (key === "messages") messages = vmData.messages;
                         else this[key] = vmData[key];
                     }
@@ -1317,7 +1318,7 @@ class VMWriter {
     /** @param {VirtualMachine} vm */
     snapshot(vm) {
         const state = {
-            _random: vm._random.state(),
+            _random: vm._random.state(), // _random is a function
             messages: this.write(vm.messages.asArray(), "vm.messages"),
             subscribers: undefined, // do not write subscribers
             controller: undefined, // do not write controller
@@ -1585,15 +1586,10 @@ class VMReader {
 
     readVM(snapshot, root) {
         if (root !== "vm") throw Error("VirtualMachine must be root object");
-        const vmData = {
-            _random: new SeedRandom(null, { state: snapshot._random }),
-        };
-        for (const [key, value] of Object.entries(snapshot)) {
-            if (!vmData[key]) this.readInto(vmData, key, value, `vm.${key}`);
-        }
-        this.readDeferred();
-        this.resolveRefs();
-        this.doPostprocess();
+        const vmData = this.read(snapshot, root, false); // shallow read root props
+        this.readDeferred();  // 1st pass: breadth-first, use UNRESOLVED placeholder for forward refs
+        this.resolveRefs();   // 2nd pass: resolve forward refs
+        this.doPostprocess(); // 3rd pass: fill Sets and Maps with resolved temp content arrays
         return vmData;
     }
 
