@@ -1525,6 +1525,8 @@ class VMWriter {
     }
 }
 
+const UNRESOLVED = Symbol("croquet:unresolved");
+
 class VMReader {
     static newOrRecycled(vm) {
         let inst = this.reusableInstance;
@@ -1535,6 +1537,7 @@ class VMReader {
             inst.refs = new Map();
             inst.todo = [];
             inst.unresolved = [];
+            inst.postprocess = [];
         }
         return inst;
     }
@@ -1548,8 +1551,9 @@ class VMReader {
     constructor(vm) {
         this.vm = vm;
         this.refs = new Map();
-        this.todo = [];   // we use breadth-first deferred reading to limit stack depth
-        this.unresolved = [];
+        this.todo = [];        // we use breadth-first deferred reading to limit stack depth
+        this.unresolved = [];  // some refs can only be resolved in 2nd pass
+        this.postprocess = []; // 3rd pass fills Sets and Maps that had unresolved refs
         this.readers = new Map();
         this.addReader("Teatime:Message", Message);
         this.addReader("Teatime:Data", DataHandleSpec);
@@ -1589,6 +1593,7 @@ class VMReader {
         }
         this.readDeferred();
         this.resolveRefs();
+        this.doPostprocess();
         return vmData;
     }
 
@@ -1609,6 +1614,15 @@ class VMReader {
                 throw Error(`Unresolved ref: ${ref} at ${path}[${JSON.stringify(key)}]`);
             }
         }
+        this.unresolved.length = 0;
+        this.refs.clear();
+    }
+
+    doPostprocess() {
+        for (const fn of this.postprocess) {
+            fn();
+        }
+        this.postprocess.length = 0;
     }
 
     read(value, path, defer=true) {
@@ -1679,16 +1693,34 @@ class VMReader {
     readAsSet(state, path) {
         const set = new Set();
         if (state.$id) this.refs.set(state.$id, set);
+        const before = this.unresolved.length;
         const contents = this.read(state.$value, path, false);
-        for (const item of contents) set.add(item);
+        const fillContents = () => {
+            for (const item of contents) set.add(item);
+        };
+        if (this.unresolved.length === before) {
+            fillContents();
+        } else {
+            // resolving refs only updates the contents array, so we need to defer this
+            this.postprocess.push(fillContents);
+        }
         return set;
     }
 
     readAsMap(state, path) {
         const map = new Map();
         if (state.$id) this.refs.set(state.$id, map);
+        const before = this.unresolved.length;
         const contents = this.read(state.$value, path, false);
-        for (let i = 0; i < contents.length; i +=2) map.set(contents[i], contents[i + 1]);
+        const fillContents = () => {
+            for (let i = 0; i < contents.length; i += 2) map.set(contents[i], contents[i + 1]);
+        };
+        if (this.unresolved.length === before) {
+            fillContents();
+        } else {
+            // resolving refs only updates the contents array, so we need to defer this
+            this.postprocess.push(fillContents);
+        }
         return map;
     }
 
@@ -1702,7 +1734,7 @@ class VMReader {
             if (ref) {
                 if (this.refs.has(ref)) temp[key] = this.refs.get(ref);
                 else {
-                    temp[key] = "<unresolved>";
+                    temp[key] = UNRESOLVED;
                     unresolved.set(ref, key);
                 }
             } else {
@@ -1734,7 +1766,7 @@ class VMReader {
         if (this.refs.has(ref)) {
             object[key] = this.refs.get(ref);
         } else {
-            object[key] = "<unresolved>";
+            object[key] = UNRESOLVED;
             this.unresolved.push({object, key, ref, path});
         }
         return true;
@@ -1769,6 +1801,7 @@ class MessageArgumentDecoder extends VMReader {
         const decoded = this.readArray(args, "args");
         this.readDeferred();
         this.resolveRefs();
+        this.doPostprocess();
         return decoded;
     }
 
