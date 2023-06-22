@@ -4,6 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest
 
+* 1.1.0-29 fix deserialization of circular Set and Map refs
 * 1.1.0-28 allow location data to be enabled (not officially exposed yet), expose session name
 * 1.1.0-27 add viewOptions to Session.join()
 * 1.1.0-26 allow custom serialization of unsupported types, cancelFuture("*")
