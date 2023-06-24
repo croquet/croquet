@@ -743,8 +743,11 @@ function defaultSessionURL() {
 
 const seenMessages = new Set();
 
+let _sessionURL = defaultSessionURL();
+
 export const App = {
-    sessionURL: defaultSessionURL(),
+    get sessionURL() { return _sessionURL; },
+    set sessionURL(url) { _sessionURL = url; displayQRCodeIfNeeded(); },
     root: null, // root for messages, the sync spinner, and the info dock (defaults to document.body)
     sync: true, // whether to show the sync spinner while starting a session, or catching up
     messages: false, // whether to show status messages (e.g., as toasts)
