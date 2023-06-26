@@ -1163,7 +1163,10 @@ class VMHasher {
                 return;
             default: {
                 if (this.done.has(value)) return;
+                if (value === null) return; // not counted
+                if (this.hashers.has(value.constructor)) { this.hashers.get(value.constructor)(value); return; }
                 const type = Object.prototype.toString.call(value).slice(8, -1);
+                if (this.hashers.has(type)) { this.hashers.get(type)(value); return; }
                 switch (type) {
                     case "Array":
                         this.hashArray(value, defer);
@@ -1196,12 +1199,7 @@ class VMHasher {
                     case "Object":
                         if (value instanceof Model) this.hashModel(value);
                         else if (value.constructor === Object) this.hashObject(value, defer);
-                        else {
-                            const hasher = this.hashers.get(value.constructor);
-                            if (hasher) hasher(value);
-                            // no class error here, will be caught and reported by snapshot with full path
-                        }
-                    // case "Null": not counted
+                        // no class error here, will be caught and reported by snapshot with full path
                     // ignore other errors here (e.g. Function), will be caught and reported by snapshot with full path
                     /* no default */
                 }
@@ -1356,7 +1354,12 @@ class VMWriter {
                 return {$class: "Undefined"};
             default: {
                 if (this.refs.has(value)) return this.writeRef(value);
+                if (value === null) return value;
+                // allow override of default writers
+                if (this.writers.has(value.constructor)) return this.writers.get(value.constructor)(value, path);
                 const type = Object.prototype.toString.call(value).slice(8, -1);
+                if (this.writers.has(type)) return this.writers.get(type)(value, path);
+                // default writers
                 switch (type) {
                     case "Array": return this.writeArray(value, path, defer);
                     case "ArrayBuffer": return this.writeArrayBuffer(value);
@@ -1378,15 +1381,12 @@ class VMWriter {
                     case "Object": {
                         if (value instanceof Model) return this.writeModel(value, path);
                         if (value.constructor === Object || typeof value.constructor !== "function") return this.writeObject(value, path, defer);
-                        const writer = this.writers.get(value.constructor);
-                        if (writer) return writer(value, path);
+                        // no writer has been registered for this class
                         console.error(`Croquet: unknown class at ${path}:`, value);
                         throw Error(`Croquet: class not registered in Model.types(): ${value.constructor.name}`);
                     }
-                    case "Null": return value;
                     default: {
-                        const writer = this.writers.get(type);
-                        if (writer) return writer(value, path);
+                        // no writer has been registered for this type
                         console.error(`Croquet: unsupported property at ${path}:`, value);
                         throw Error(`Croquet: serialization of ${type}s is not supported`);
                     }
