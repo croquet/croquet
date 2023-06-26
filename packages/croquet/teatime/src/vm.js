@@ -1148,7 +1148,7 @@ class VMHasher {
             case "number":
                 if (Number.isNaN(value)) this.hashState.nanC++;
                 else if (!Number.isFinite(value)) this.hashState.infC++;
-                else if (value===0) this.hashState.zC++;
+                else if (value === 0) this.hashState.zC++;
                 else {
                     this.hashState.nC++;
                     this.hashState.nH += sumForFloat(value);
@@ -1161,6 +1161,18 @@ class VMHasher {
             case "boolean":
             case "undefined":
                 return;
+            case "bigint": {
+                if (value === 0n) this.hashState.zC++;
+                else {
+                    this.hashState.nC++;
+                    const limit = value < 0 ? -1n : 0n;
+                    while (value !== limit) {
+                        this.hashState.nH += Number(value & 0xFFFFFFFFn);
+                        value >>= 32n;
+                    }
+                }
+                return;
+            }
             default: {
                 if (this.done.has(value)) return;
                 if (value === null) return; // not counted
@@ -1352,6 +1364,8 @@ class VMWriter {
                 return value;
             case "undefined":
                 return {$class: "Undefined"};
+            case "bigint":
+                return {$class: "BigInt", $value: value.toString()};
             default: {
                 if (this.refs.has(value)) return this.writeRef(value);
                 if (value === null) return value;
@@ -1562,6 +1576,7 @@ class VMReader {
         this.readers.set("NaN", () => NaN);
         this.readers.set("Infinity", sign => sign * Infinity);
         this.readers.set("NegZero", () => -0);
+        this.readers.set("BigInt", value => BigInt(value));
         this.readers.set("ArrayBuffer", data => base64ToArrayBuffer(data));
         this.readers.set("DataView", args => new DataView(...args));
         this.readers.set("Int8Array", args => new Int8Array(...args));
