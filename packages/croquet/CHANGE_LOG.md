@@ -4,6 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest
 
+* 1.1.0-32 make session.view available during root view construction
 * 1.1.0-31 add BigInt snapshotting
 * 1.1.0-30 update QR code when session URL changed
 * 1.1.0-29 fix deserialization of circular Set and Map refs
