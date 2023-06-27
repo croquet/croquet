@@ -38,6 +38,7 @@ class View {
      * Otherwise it will be kept in memory forever.
      *
      * @param {Model} model - the view's model
+     * @param {Object?} viewOptions - if `viewOptions` where given in {@link Session.join}
      * @public
      */
     constructor(model) {
