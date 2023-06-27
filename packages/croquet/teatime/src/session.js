@@ -333,7 +333,8 @@ export class Session {
             App.makeSessionWidgets(session.id);
             controller.inViewRealm(() => {
                 if (urlOptions.has("debug", "session", false)) console.log(session.id, 'creating root view');
-                session.view = new ViewRoot(session.model, sessionSpec.viewOptions);
+                /* session.view = */ new ViewRoot(session.model, sessionSpec.viewOptions);
+                // constructor stores the view into session.view
             });
         }
 

@@ -50,6 +50,9 @@ class View {
         // read-only properties
         Object.defineProperty(this, "realm", { value: realm });
         Object.defineProperty(this, "id", {  value: realm.register(this), configurable: true });
+        // hack to get root view into session object before constructor finishes
+        const session = realm.vm.controller.session;
+        if (!session.view) session.view = this;
         // eslint-disable-next-line no-constant-condition
         if (false) {
             /** Each view has an id which can be used to scope [events]{@link View#publish} between views.
