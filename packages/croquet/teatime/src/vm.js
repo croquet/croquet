@@ -1754,7 +1754,7 @@ class VMReader {
         }
         const reader = this.readers.get(classId);
         const object = reader(temp, path);
-        if (!object && classId !== "Undefined" && classId !== "NaN" && classId !== "NegZero") console.warn(`Reading "${classId}" returned ${object} at ${path}`);
+        if (!object && classId !== "Undefined" && classId !== "BigInt" && classId !== "NaN" && classId !== "NegZero") console.warn(`Reading "${classId}" returned ${object} at ${path}`);
         if (state.$id) this.refs.set(state.$id, object);
         for (const [ref, key] of unresolved.entries()) {
             this.unresolved.push({object, key, ref, path});
