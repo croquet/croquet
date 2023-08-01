@@ -1492,7 +1492,6 @@ class VMWriter {
     }
 
     writeAs(classId, object, value, path) {
-        if (value === undefined) return value;
         const state = { $class: classId };
         this.refs.set(object, state);      // register ref before recursing
         const written = this.write(value, path, false);
@@ -1536,7 +1535,7 @@ class VMWriter {
         const simpleKey = typeof key === "string" && key.match(/^[_a-z][_a-z0-9]*$/i);
         const newPath = path + (simpleKey ? `.${key}` : `[${JSON.stringify(key)}]`);
         const written = this.write(value, newPath);
-        if (written !== undefined) state[key] = written;
+        state[key] = written;
     }
 }
 
