@@ -285,7 +285,8 @@ class Model {
      * or start a [future]{@link Model#future} message chain.
      *
      * If you pass `{options:...}` to [Session.join]{@link Session.join}, these will be passed to your root model's `init()`.
-     * Note that this affects the session's `persistentId` – in most cases using [Croquet.Constants]{@link Constants} is a better choice.
+     * Note that `options` affect the session's `persistentId` – in most cases, using [Croquet.Constants]{@link Constants}
+     * is a better choice to customize what happens in `init()`.
      *
      * If you called [persistSession]{@link Model#persistSession} in a previous session (same name, same options, different code base),
      * that data will be passed as `persistentData` to your root model's `init()`. Based on that data you should re-create submodels,
