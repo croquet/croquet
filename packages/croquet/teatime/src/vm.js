@@ -1496,7 +1496,7 @@ class VMWriter {
         this.refs.set(object, state);      // register ref before recursing
         const written = this.write(value, path, false);
         // only use $value property if necessary
-        if (typeof written !== "object" || written.$class || Array.isArray(written)) state.$value = written;
+        if (typeof written !== "object" || written === null || written.$class || Array.isArray(written)) state.$value = written;
         else Object.assign(state, written);
         return state;
     }
