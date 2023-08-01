@@ -4,6 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest
 
+* 1.1.0-34 fix snapshot if custom writer returns null
 * 1.1.0-33 fix snapshot if custom writer returns undefined
 * 1.1.0-32 make session.view available during root view construction
 * 1.1.0-31 add BigInt snapshotting
