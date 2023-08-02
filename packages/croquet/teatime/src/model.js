@@ -218,16 +218,19 @@ class Model {
      * Serialization types supported:
      * -  all JSON types: `number`, `string`, `boolean`, `null`, `Array`, plain `Object`
      * - `-0`, `NaN`, `Infinity`, `-Infinity`
+     * - `BigInt` (since 1.1.0-31)
      * - `undefined`
      * - `ArrayBuffer`, `DataView`, `Int8Array`, `Uint8Array`, `Uint8ClampedArray`, `Int16Array`, `Uint16Array`, `Int32Array`, `Uint32Array`, `Float32Array`, `Float64Array`
      * - `Set`, `Map`
      *
      * Not supported:
      * - `Date`: the built-in Date type is dangerous because it implicitly depends on the current timezone which can lead to divergence.
-     * - `RegExp`: to-do
+     * - `RegExp`: this has built-in state that can not be introspected and recreated in JS.
      * - `Function`: there is no generic way to serialize functions because closures can not be introspected in JS.
-     *    If you need this, either wrap them in a non-model class and serialize as source-code, deserialize using `new Function(...)`,
-     *    or store the source in a regular property, the function in a dollar property, and recreate the function lazily when needed.
+     *    Even just for the source code, browsers differ in how they convert functions to strings.
+     *    Either wrap the source and function in a custom type (where `read` would compile the source saved by `write`),
+     *    or store the source in a regular property, the function in a dollar property,
+     *    and have an accessor that recreates the function lazily when needed.
      *
      * @example <caption>To use the default serializer just declare the class:</caption>
      * class MyModel extends Croquet.Model {
