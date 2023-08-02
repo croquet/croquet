@@ -1485,7 +1485,7 @@ class VMWriter {
     writeTypedArray(type, array) {
         const state = {
             $class: type,
-            $value: [this.writeArrayBuffer(array.buffer), array.byteOffset, type === "DataView" ? array.byteLength : array.length],
+            $value: [this.write(array.buffer), array.byteOffset, type === "DataView" ? array.byteLength : array.length],
         };
         this.refs.set(array, state);
         return state;
