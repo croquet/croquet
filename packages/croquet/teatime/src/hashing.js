@@ -93,7 +93,7 @@ export async function hashBuffer(buffer) {
 
 function debugHashing() { return urlOptions.has("debug", "hashing", false); }
 
-const debugHashes = {};
+let debugHashes = {};
 
 const encoder = new TextEncoder();
 
@@ -101,7 +101,7 @@ const encoder = new TextEncoder();
 export async function hashString(string) {
     const buffer = encoder.encode(string);
     const hash = await hashBuffer(buffer);
-    if (debugHashing()) debugHashes[hash] = {string, buffer};
+    debugHashes[hash] = {string, buffer};
     return hash;
 }
 
@@ -112,10 +112,7 @@ export function addClassHash(cls, classId) {
     const source = funcSrc(cls);
     const hashPromise = hashString(`${classId}:${source}`);
     hashPromises.push(hashPromise);
-    if (debugHashing()) hashPromise.then(hash => {
-        // console.log(`hashing model class ${classId}: ${hash}`);
-        debugHashes[hash].what = `Class ${classId}`;
-    });
+    hashPromise.then(hash => debugHashes[hash].what = `Class ${classId}`);
 }
 
 export function addConstantsHash(constants) {
@@ -127,10 +124,7 @@ export function addConstantsHash(constants) {
     const string = stableStringify(obj);
     const hashPromise = hashString(string);
     hashPromises.push(hashPromise);
-    if (debugHashing()) hashPromise.then(hash => {
-        //console.log(`hashing Croquet.Constants(${Object.keys(obj).join(', ')}): ${hash}`);
-        debugHashes[hash].what = "Croquet Constants";
-    });
+    hashPromise.then(hash => debugHashes[hash].what = "Croquet Constants");
 }
 
 /** generate persistentId for the vm */
@@ -183,5 +177,6 @@ export async function hashSessionAndCode(persistentId, developerId, params, sdk_
         console.log(`Croquet: Debug Hashing for session ${id}${cacheAnnotation}`, allHashes);
         logged.add(id);
     }
+    if (!debugHashing()) debugHashes = {}; // clear debugHashes to save memory
     return { id, persistentId, codeHash: effectiveCodeHash, computedCodeHash };
 }
