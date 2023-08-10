@@ -53,7 +53,7 @@ export class Session {
      * One simple way to have individual passwords is via `Croquet.App.autoPassword()` which will
      * use or generate a random password in the hash part (`#...`) of the current url.
      *
-     * A [session id]{@link Model#sessionId} is created from the given session `name`,
+     * A [session id]{@link Model#sessionId} is created from the given session `name` and `options`,
      * and a hash of all the [registered]{@link Model.register} Model classes and {@link Constants}.
      * This ensures that only users running the exact same source code end up in the same session,
      * which is a prerequisite for perfectly synchronized computation.
