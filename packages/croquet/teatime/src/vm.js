@@ -34,8 +34,11 @@ function patchBrowser() {
     if (!globalThis.CroquetViewMath) {
         // make random use CurrentVM
         globalThis.CroquetMath.random = () => CurrentVM.random();
-        // save all original Math methods
-        globalThis.CroquetViewMath = {...Math};
+        // save all original Math properties
+        globalThis.CroquetViewMath = {};
+        for (const [funcName, descriptor] of Object.entries(Object.getOwnPropertyDescriptors(Math))) {
+            globalThis.CroquetViewMath[funcName] = descriptor.value;
+        }
         // we keep the original Math object but replace the methods found in CroquetMath
         // with a dispatch based on being executed in model or view code
         for (const [funcName, modelFunc] of Object.entries(globalThis.CroquetMath)) {
