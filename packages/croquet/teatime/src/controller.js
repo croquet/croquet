@@ -578,17 +578,21 @@ export default class Controller {
         // !!! THIS IS BEING EXECUTED INSIDE THE SIMULATION LOOP!!!
         // !!! IT MUST NOT MODIFY VM !!!
 
-        if (this.synced !== true) {
-            if (DEBUG.snapshot) console.log(this.id, "Ignoring snapshot vote during sync");
-            return;
-        }
-
         const { tally } = data;
 
         if (DEBUG.snapshot) console.log(this.id, "received snapshot votes", tally);
 
         const { numberOfGroups, shouldUpload, dissidentFlag } = this.analyzeTally(tally, "cpuTime");
-        if (numberOfGroups > 1) console.error(this.id, `Session diverged! Snapshots fall into ${numberOfGroups} groups`);
+        if (numberOfGroups > 1) {
+            if (!this.diverged) this.diverged = new Map(); // for debugging snapshot URLs
+            console.error(this.id, `Session diverged! Snapshots fall into ${numberOfGroups} groups`);
+        }
+
+        if (this.synced !== true) {
+            if (DEBUG.snapshot) console.log(this.id, "Ignoring snapshot vote during sync");
+            return;
+        }
+
         if (shouldUpload) {
             const snapshot = this.takeSnapshotHandleErrors();
             // switch out of the simulation loop
@@ -731,6 +735,51 @@ export default class Controller {
             }));
         } catch (e) {
             console.error("ERROR while sending", e);
+        }
+        if (this.diverged) {
+            // for debugging: send snapshot URLs to all peers
+            this.vm.publishFromView("__VM__", "__diverged__", { key: `@${time}#${seq}`, url, dissident: dissidentFlag });
+            // VM calls diffDivergedSnapshots() once 2 URLs have been received
+        }
+    }
+
+
+    async diffDivergedSnapshots(urls) {
+        // could force reload here, but for now we just do a diff
+        const snapshots = await Promise.all(urls.map(url => this.downloadEncrypted({url, gzip: true, key: this.key, debug: DEBUG.snapshot, json: true, what: "diverged snapshot"})));
+        for (const snapshot of snapshots) delete snapshot.meta;
+        // we could deserialize the snapshots and compare the resulting VMs,
+        // but for now we just compare the JSON, which is simpler and faster
+        let same = true;
+        diffJSON(snapshots[0], snapshots[1], "CROQUETVM");
+        if (same) console.log("... but diverged snapshots are identical?!");
+        debugger;
+
+        function diffJSON(a, b, path) {
+            if (typeof a !== typeof b) {
+                console.log(`${path} diverged (${typeof a} vs ${typeof b}):`, a, b);
+                same = false;
+            } else if (Array.isArray(a) !== Array.isArray(b)) {
+                console.log(`${path} diverged (array vs object):`, a, b);
+                same = false;
+            } else if (typeof a === "object") {
+                const aKeys = a ? Object.keys(a) : [];
+                const bKeys = b ? Object.keys(b) : [];
+                const aOnly = aKeys.filter(k => !bKeys.includes(k));
+                const bOnly = bKeys.filter(k => !aKeys.includes(k));
+                if (aOnly.length || bOnly.length) {
+                    console.log(`${path} diverged (keys mismatch):\n`, aOnly, bOnly);
+                    same = false;
+                }
+                for (const k of aKeys) if (bKeys.includes(k)) {
+                    const subscript = Array.isArray(a) ? `[${k}]` :
+                        k.match(/^[a-z_$][a-z0-9_$]*$/i) ? `.${k}` : `["${k}"]`;
+                    diffJSON(a[k], b[k], `${path}${subscript}`);
+                }
+            } else if (a !== b) {
+                console.log(`${path} diverged (value mismatch):\n`, a, b);
+                same = false;
+            }
         }
     }
 
@@ -1152,6 +1201,7 @@ export default class Controller {
                     });
                 delete this.fastForwardHandler;
                 if (success && DEBUG.session) console.log(`${this.id} fast-forwarded to ${Math.round(this.vm.time)}`);
+                if (success && this.vm.diverged) App.showMessage("Croquet: session had diverged", { level: "warning", only: "once" });
                 // iff fast-forward was successful, trigger return from establishSession().
                 // otherwise, in due course we'll reconnect and try again.  it can keep waiting.
                 if (success) this.sessionSpec.sessionJoined();

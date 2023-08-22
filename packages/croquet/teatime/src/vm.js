@@ -264,6 +264,8 @@ export default class VirtualMachine {
                 this.persisted = "";
                 /** @type {Number} number for giving ids to model */
                 this.modelsId = 0;
+                /** @type {Map<String, Array<String>} if session diverged, maps timestamps to snapshot urls */
+                this.diverged = null;
                 /** @type {Controller} our controller, for sending messages. Excluded from snapshot */
                 this.controller = null;
                 if (snapshot.modelsById) {
@@ -293,6 +295,7 @@ export default class VirtualMachine {
                     // seed with session id so different sessions get different random streams
                     this._random = new SeedRandom(snapshot.id, { state: true });
                     this.addSubscription(this, "__VM__", "__peers__", this.generateJoinExit);
+                    this.addSubscription(this, "__VM__", "__diverged__", this.handleSessionDiverged);
                     // creates root model and puts it in modelsByName as "rootModel"
                     initFn(this);
                 }
@@ -801,6 +804,22 @@ export default class VirtualMachine {
             const event = divergenceTopic.split(':').slice(-1)[0];
             console.warn(`uncaptured divergence in ${event}:`, data);
         }
+    }
+
+    handleSessionDiverged(data) {
+        const { key, url } = data;
+        if (!this.diverged) this.diverged = new Map();
+        let urls = this.diverged.get(key);
+        if (!urls) this.diverged.set(key, urls = []);
+        urls.push(url);
+        if (urls.length === 2 && this.controller && !this.controller.fastForwardHandler) this.debugDiverged(key);
+    }
+
+    debugDiverged(key) {
+        if (!key) key = this.diverged.keys().next().value;
+        const urls = this.diverged.get(key);
+        if (!urls || urls.length < 2) throw Error(`no diverged urls for snapshot ${key}`);
+        Promise.resolve().then(() => this.controller.diffDivergedSnapshots(urls));
     }
 
     processModelViewEvents(isInAnimationStep) {
