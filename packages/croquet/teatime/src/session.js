@@ -97,7 +97,8 @@ export class Session {
      * @param {(Number|Boolean)?} parameters.autoSleep - number of seconds of app being hidden (e.g., in a tab that is behind others) before it should go dormant - disconnecting from the reflector, and staying that way until it is made visible again (`0` or `false` mean the app will never voluntarily go dormant; `true` means default value of `10`s; otherwise any non-negative number)
      * @param {Number?} parameters.rejoinLimit - time in milliseconds until view is destroyed after a disconnection, to allow for short network glitches to be smoothly passed over (default `1000`)
      * @param {Number?} parameters.eventRateLimit - maximum number of events (single or bundled) sent to reflector per second (`1` to `60`; default `20`)
-     * @param {String|String[]} parameters.debug - array, or comma-separated string, containing one or more of the following values to enable console logging of the corresponding details:
+     * @param {String|String[]} parameters.debug - array, or comma-separated string, containing one or more of the following values to enable console logging of the corresponding details
+     * (note that you can also enable these temporarily for a deployed app via the `debug` URL parameter, e.g. `?debug=session,snapshot`):
      * | value         | description
      * |----------------|------------
      * | `"session"`    | session ID and connections/disconnections
