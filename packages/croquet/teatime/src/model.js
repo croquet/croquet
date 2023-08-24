@@ -71,13 +71,7 @@ class Model {
     static create(options, persistentData, modelRootName) {
         if (!hasID(this)) throw Error(`Model class "${this.name}" not registered`);
         const ModelClass = this;
-        const realm = currentRealm();
-        const model = new ModelClass(SECRET);
-        // read-only props
-        if (DEBUG.write === undefined) DEBUG.write = urlOptions.has("debug", "write", false);
-        // debug proxying does not work for non-writable object props
-        Object.defineProperty(model, "__realm", { value: realm, writable: DEBUG.write });
-        Object.defineProperty(model, "id", { value: realm.register(model), enumerable: true });
+        const model = this.createNoInit();
         SuperInitNotCalled.add(model);
         if (typeof persistentData === "string") {
             console.warn(`Croquet: Model.create(..., "${persistentData}") with a well-known name argument is deprecated!`);
@@ -110,8 +104,10 @@ class Model {
         const ModelClass = this;
         const realm = currentRealm();
         const model = new ModelClass(SECRET);
-        // read-only props
-        Object.defineProperty(model, "__realm", { value: realm });
+        if (!id) id = realm.register(model);
+        // debug proxying does not work for non-writable object props
+        if (DEBUG.write === undefined) DEBUG.write = urlOptions.has("debug", "write", false);
+        Object.defineProperty(model, "__realm", { value: realm, writable: DEBUG.write });
         Object.defineProperty(model, "id", { value: id, enumerable: true });
         return model;
     }
