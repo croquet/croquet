@@ -4,6 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest
 
+* 1.1.0-37 add write debug option to catch model writes from view code
 * 1.1.0-36 log snapshot diff on divergence
 * 1.1.0-35 fix debug hashing, and snapshotting shared buffer in typed arrays
 * 1.1.0-34 fix snapshot if custom writer returns null
