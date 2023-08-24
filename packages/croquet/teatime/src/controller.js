@@ -751,11 +751,11 @@ export default class Controller {
         for (const snapshot of snapshots) delete snapshot.meta;
         // we could deserialize the snapshots and compare the resulting VMs,
         // but for now we just compare the JSON, which is simpler and faster
-        let differences = 0
+        let differences = 0;
         diffJSON(snapshots[0], snapshots[1], "CROQUETVM");
         if (!differences) console.log("... but diverged snapshots are identical?!");
         else console.log(`Total ${differences} differences between diverged snapshots:`, snapshots.slice(0, 2));
-        debugger;
+        debugger; // eslint-disable-line no-debugger
 
         function diffJSON(a, b, path) {
             if (typeof a !== typeof b) {
