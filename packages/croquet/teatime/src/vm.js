@@ -26,6 +26,7 @@ function initDEBUG() {
 }
 
 const DEBUG_WRITES_TARGET = Symbol("DEBUG_WRITES_TARGET");
+let DEBUG_WRITES_PROXIES = null;
 
 /** this shows up as "CroquetWarning" in the console */
 class CroquetWarning extends Error {}
@@ -335,7 +336,7 @@ export default class VirtualMachine {
 
     get(modelName) {
         const model = this.modelsByName[modelName];
-        if (CurrentVM !== this && DEBUG.write) return this.writeProxy(this, model);
+        if (CurrentVM !== this && DEBUG.write) return this.debugWriteProxy(this, model);
         return model;
     }
 
@@ -344,11 +345,12 @@ export default class VirtualMachine {
         this.modelsByName[modelName] = model;
     }
 
-    writeProxy(vm, object) {
+    debugWriteProxy(vm, object) {
         if (typeof object !== "object" || object === null) return object;
-        if (!this.$writeProxyHandler) {
+        if (!this.$debugWriteProxyHandler) {
+            if (!DEBUG_WRITES_PROXIES) DEBUG_WRITES_PROXIES = new WeakMap();
             function writeError() { throw Error("Attempt to modify Croquet model state from outside!"); }
-            this.$writeProxyHandler = {
+            this.$debugWriteProxyHandler = {
                 set(target, property, value) {
                     if (CurrentVM !== vm) writeError();
                     target[property] = value;
@@ -364,27 +366,32 @@ export default class VirtualMachine {
                     if (CurrentVM !== vm) {
                         if (typeof value === "object" && value !== null) {
                             if (value instanceof Map) {
-                                const map = new Map([...value.entries()].map(([key, val]) => [vm.writeProxy(vm, key), vm.writeProxy(vm, val)]));
+                                const map = new Map([...value.entries()].map(([key, val]) => [vm.debugWriteProxy(vm, key), vm.debugWriteProxy(vm, val)]));
                                 map[DEBUG_WRITES_TARGET] = value;
                                 map.set = writeError;
                                 map.delete = writeError;
                                 return map;
                             }
                             if (value instanceof Set) {
-                                const set = new Set([...value.entries()].map(val => vm.writeProxy(vm, val)));
+                                const set = new Set([...value.entries()].map(val => vm.debugWriteProxy(vm, val)));
                                 set[DEBUG_WRITES_TARGET] = value;
                                 set.set = writeError;
                                 set.delete = writeError;
                                 return set;
                             }
-                            return vm.writeProxy(vm, value);
+                            return vm.debugWriteProxy(vm, value);
                         }
                     }
                     return value;
                 }
             };
         }
-        return new Proxy(object, this.$writeProxyHandler);
+        let proxy = DEBUG_WRITES_PROXIES.get(object);
+        if (!proxy) {
+            proxy = new Proxy(object, this.$debugWriteProxyHandler);
+            DEBUG_WRITES_PROXIES.set(object, proxy);
+        }
+        return proxy;
     }
 
     // used in Controller.convertReflectorMessage()
@@ -840,7 +847,7 @@ export default class VirtualMachine {
     }
 
     handleModelEventInView(topic, data) {
-        if (DEBUG.write) data = this.writeProxy(this, data);
+        if (DEBUG.write) data = this.debugWriteProxy(this, data);
         viewDomain.handleEvent(topic, data, fn => execOutsideVM(() => inViewRealm(this, fn, true)));
     }
 
@@ -1380,7 +1387,7 @@ class VMWriter {
         for (const [classId, ClassOrSpec] of Model.allClassTypes()) {
             this.addWriter(classId, ClassOrSpec);
         }
-        this.okayToIgnore = {};
+        this.okayToIgnore = { $debugWriteProxyHandler: true };
         for (const Class of Model.allClasses()) {
             if (Object.prototype.hasOwnProperty.call(Class, "okayToIgnore")) {
                 const props = Class.okayToIgnore();
