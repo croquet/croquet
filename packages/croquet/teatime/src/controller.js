@@ -584,8 +584,9 @@ export default class Controller {
 
         const { numberOfGroups, shouldUpload, dissidentFlag } = this.analyzeTally(tally, "cpuTime");
         if (numberOfGroups > 1) {
-            if (!this.diverged) this.diverged = new Map(); // for debugging snapshot URLs
-            console.error(this.id, `Session diverged! Snapshots fall into ${numberOfGroups} groups`);
+            this.diverged = true;
+            const previous = this.vm.diverged ? this.vm.diverged.size : 0;
+            console.error(this.id, `Session diverged (#${previous})! Snapshots fall into ${numberOfGroups} groups`);
         }
 
         if (this.synced !== true) {
@@ -750,26 +751,27 @@ export default class Controller {
         for (const snapshot of snapshots) delete snapshot.meta;
         // we could deserialize the snapshots and compare the resulting VMs,
         // but for now we just compare the JSON, which is simpler and faster
-        let same = true;
+        let differences = 0
         diffJSON(snapshots[0], snapshots[1], "CROQUETVM");
-        if (same) console.log("... but diverged snapshots are identical?!");
+        if (!differences) console.log("... but diverged snapshots are identical?!");
+        else console.log(`Total ${differences} differences between diverged snapshots:`, snapshots.slice(0, 2));
         debugger;
 
         function diffJSON(a, b, path) {
             if (typeof a !== typeof b) {
                 console.log(`${path} diverged (${typeof a} vs ${typeof b}):`, a, b);
-                same = false;
+                differences++;
             } else if (Array.isArray(a) !== Array.isArray(b)) {
                 console.log(`${path} diverged (array vs object):`, a, b);
-                same = false;
+                differences++;
             } else if (typeof a === "object") {
                 const aKeys = a ? Object.keys(a) : [];
                 const bKeys = b ? Object.keys(b) : [];
                 const aOnly = aKeys.filter(k => !bKeys.includes(k));
                 const bOnly = bKeys.filter(k => !aKeys.includes(k));
                 if (aOnly.length || bOnly.length) {
-                    console.log(`${path} diverged (keys mismatch):\n`, aOnly, bOnly);
-                    same = false;
+                    console.log(`${path} diverged (keys mismatch):`, aOnly, bOnly);
+                    differences++;
                 }
                 for (const k of aKeys) if (bKeys.includes(k)) {
                     const subscript = Array.isArray(a) ? `[${k}]` :
@@ -777,8 +779,8 @@ export default class Controller {
                     diffJSON(a[k], b[k], `${path}${subscript}`);
                 }
             } else if (a !== b) {
-                console.log(`${path} diverged (value mismatch):\n`, a, b);
-                same = false;
+                console.log(`${path} diverged (value mismatch):`, a, b);
+                differences++;
             }
         }
     }
