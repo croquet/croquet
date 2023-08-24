@@ -21,6 +21,7 @@ function initDEBUG() {
     DEBUG = {
         snapshot: urlOptions.has("debug", "snapshot", false),               // snapshotting, uploading etc
         session: urlOptions.has("debug", "session", false),                 // session logging
+        write: urlOptions.has("debug", "write", false),                     // check writes into model by proxying
     };
 }
 
@@ -330,10 +331,38 @@ export default class VirtualMachine {
         return model && model.lookUp(partId);
     }
 
-    get(modelName) { return this.modelsByName[modelName]; }
+    get(modelName) {
+        const model = this.modelsByName[modelName];
+        if (CurrentVM !== this && DEBUG.write && model) return this.writeProxy(this, model);
+        return model;
+    }
+
     set(modelName, model) {
         if (CurrentVM !== this) throw Error("You can only make a model well-known from model code!");
         this.modelsByName[modelName] = model;
+    }
+
+    writeProxy(vm, model) {
+        if (!this.$writeProxyHandler) {
+            this.$writeProxyHandler = {
+                set(target, property, value) {
+                    if (CurrentVM !== vm) throw Error("Attempt to modify Croquet model state from outside!");
+                    target[property] = value;
+                },
+                deleteProperty(target, property) {
+                    if (CurrentVM !== vm) throw Error("Attempt to modify Croquet model state from outside!");
+                    delete target[property];
+                },
+                get(target, property) {
+                    const value = target[property];
+                    if (CurrentVM !== vm && typeof value === "object" && value !== null) {
+                        return vm.writeProxy(vm, value);
+                    }
+                    return value;
+                }
+            };
+        }
+        return new Proxy(model, this.$writeProxyHandler);
     }
 
     // used in Controller.convertReflectorMessage()
@@ -789,6 +818,7 @@ export default class VirtualMachine {
     }
 
     handleModelEventInView(topic, data) {
+        if (DEBUG.write && typeof data === "object" && data !== null) data = this.writeProxy(this, data);
         viewDomain.handleEvent(topic, data, fn => execOutsideVM(() => inViewRealm(this, fn, true)));
     }
 
