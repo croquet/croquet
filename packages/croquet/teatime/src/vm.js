@@ -25,6 +25,8 @@ function initDEBUG() {
     };
 }
 
+const DEBUG_WRITES_TARGET = Symbol("DEBUG_WRITES_TARGET");
+
 /** this shows up as "CroquetWarning" in the console */
 class CroquetWarning extends Error {}
 Object.defineProperty(CroquetWarning.prototype, "name", { value: "CroquetWarning" });
@@ -333,7 +335,7 @@ export default class VirtualMachine {
 
     get(modelName) {
         const model = this.modelsByName[modelName];
-        if (CurrentVM !== this && DEBUG.write && model) return this.writeProxy(this, model);
+        if (CurrentVM !== this && DEBUG.write) return this.writeProxy(this, model);
         return model;
     }
 
@@ -342,27 +344,47 @@ export default class VirtualMachine {
         this.modelsByName[modelName] = model;
     }
 
-    writeProxy(vm, model) {
+    writeProxy(vm, object) {
+        if (typeof object !== "object" || object === null) return object;
         if (!this.$writeProxyHandler) {
+            function writeError() { throw Error("Attempt to modify Croquet model state from outside!"); }
             this.$writeProxyHandler = {
                 set(target, property, value) {
-                    if (CurrentVM !== vm) throw Error("Attempt to modify Croquet model state from outside!");
+                    if (CurrentVM !== vm) writeError();
                     target[property] = value;
                 },
                 deleteProperty(target, property) {
-                    if (CurrentVM !== vm) throw Error("Attempt to modify Croquet model state from outside!");
+                    if (CurrentVM !== vm) writeError();
                     delete target[property];
                 },
                 get(target, property) {
+                    if (property === DEBUG_WRITES_TARGET) return target;
                     const value = target[property];
-                    if (CurrentVM !== vm && typeof value === "object" && value !== null) {
-                        return vm.writeProxy(vm, value);
+                    if (value && value[DEBUG_WRITES_TARGET]) return value;
+                    if (CurrentVM !== vm) {
+                        if (typeof value === "object" && value !== null) {
+                            if (value instanceof Map) {
+                                const map = new Map([...value.entries()].map(([key, val]) => [vm.writeProxy(vm, key), vm.writeProxy(vm, val)]));
+                                map[DEBUG_WRITES_TARGET] = value;
+                                map.set = writeError;
+                                map.delete = writeError;
+                                return map;
+                            }
+                            if (value instanceof Set) {
+                                const set = new Set([...value.entries()].map(val => vm.writeProxy(vm, val)));
+                                set[DEBUG_WRITES_TARGET] = value;
+                                set.set = writeError;
+                                set.delete = writeError;
+                                return set;
+                            }
+                            return vm.writeProxy(vm, value);
+                        }
                     }
                     return value;
                 }
             };
         }
-        return new Proxy(model, this.$writeProxyHandler);
+        return new Proxy(object, this.$writeProxyHandler);
     }
 
     // used in Controller.convertReflectorMessage()
@@ -818,7 +840,7 @@ export default class VirtualMachine {
     }
 
     handleModelEventInView(topic, data) {
-        if (DEBUG.write && typeof data === "object" && data !== null) data = this.writeProxy(this, data);
+        if (DEBUG.write) data = this.writeProxy(this, data);
         viewDomain.handleEvent(topic, data, fn => execOutsideVM(() => inViewRealm(this, fn, true)));
     }
 
