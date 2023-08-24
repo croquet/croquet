@@ -6,6 +6,7 @@ import VirtualMachine, { resetReadersAndWriters } from "./vm";
 
 const DEBUG = {
     classes: urlOptions.has("debug", "classes", false),
+    write: undefined, // set in Model.create
 };
 
 
@@ -73,7 +74,9 @@ class Model {
         const realm = currentRealm();
         const model = new ModelClass(SECRET);
         // read-only props
-        Object.defineProperty(model, "__realm", { value: realm });
+        if (DEBUG.write === undefined) DEBUG.write = urlOptions.has("debug", "write", false);
+        // debug proxying does not work for non-writable object props
+        Object.defineProperty(model, "__realm", { value: realm, writable: DEBUG.write });
         Object.defineProperty(model, "id", { value: realm.register(model), enumerable: true });
         SuperInitNotCalled.add(model);
         if (typeof persistentData === "string") {
