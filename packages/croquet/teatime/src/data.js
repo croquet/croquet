@@ -14,6 +14,7 @@ const DATAHANDLE_KEY = Symbol("key");
 const DATAHANDLE_URL = Symbol("url");
 
 const HandleCache = new Map();      // map hash => handle
+let fetchCount = 0;
 
 function debug(what) {
     return urlOptions.has("debug", what, false);
@@ -42,7 +43,7 @@ export default class DataHandle {
      * @param {String} sessionId the sessionId for authentication
      * @param {ArrayBuffer} data the data to be stored
      * @param {Boolean} keep if true, keep the data intact (do not detach buffer)
-     * @returns {Promise<DataHandle>} return promise for the handle. If requested, `handle.stored` will be another promise that resolves when uploading is done.
+     * @returns {Promise<DataHandle>} return promise for the handle
      */
     static async store(sessionId, data, keep=false) {
         if (typeof sessionId === "object") {
@@ -53,9 +54,13 @@ export default class DataHandle {
         const  { appId, persistentId, uploadEncrypted } = sessionProps(sessionId);
         const key = WordArray.random(32).toString(Base64);
         const path = `apps/${appId}/${persistentId}/data/%HASH%`;
-        const url = await uploadEncrypted({ path, content: data, key, keep, debug: debug("data"), what: "data" });
+        const what = `data#${++fetchCount}`;
+        if (debug("data")) console.log(`Croquet.Data: storing ${what} ${data.byteLength} bytes`);
+        const url = await uploadEncrypted({ path, content: data, key, keep, debug: debug("data"), what });
         const hash = hashFromUrl(url);
-        return new DataHandle(hash, key, url);
+        const handle = new DataHandle(hash, key, url);
+        if (debug("data")) console.log(`Croquet.Data: stored ${what} as ${this.toId(handle)}`);
+        return handle;
 
         // TODO: publish events and handle in vm to track assets even if user code fails to do so
         // publish(sessionId, "data-storing", handle);
@@ -79,7 +84,9 @@ export default class DataHandle {
         const key = handle && handle[DATAHANDLE_KEY];
         const url = handle && handle[DATAHANDLE_URL];
         if (typeof hash !== "string" || typeof key !== "string" || typeof url !== "string" ) throw Error("Croquet.Data.fetch() called with invalid handle");
-        return downloadEncrypted({ url, key, debug: debug("data"), what: "data" });
+        const what = `data#${++fetchCount}`;
+        if (debug("data")) console.log(`Croquet.Data: fetching ${what} ${this.toId(handle)}`);
+        return downloadEncrypted({ url, key, debug: debug("data"), what });
     }
 
     /**
@@ -154,7 +161,7 @@ export default class DataHandle {
     constructor(hash, key, url) {
         const existing = HandleCache.get(hash);
         if (existing) {
-            if (debug("data")) console.log(`Croquet.Data: using cached handle for ${hash}`);
+            // if (debug("data")) console.log(`Croquet.Data: using cached handle for ${hash}`);
             return existing;
         }
         if (url.slice(-43) !== hash) throw Error("Croquet Data: malformed URL");
@@ -163,7 +170,7 @@ export default class DataHandle {
         Object.defineProperty(this, DATAHANDLE_KEY, { value: key });
         Object.defineProperty(this, DATAHANDLE_URL, { value: url });
         HandleCache.set(hash, this);
-        if (debug("data")) console.log(`Croquet.Data: created new handle for ${hash}`);
+        // if (debug("data")) console.log(`Croquet.Data: created new handle for ${hash}`);
     }
 
     // no other methods - API is static

@@ -72,7 +72,7 @@ function handleMessage(msg) {
         const sha256 = SHA256(WordArray.create(bytes));
         const base64 = Base64.stringify(sha256);
         const base64url = base64.replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
-        if (debug) console.log(`${id} ${what} hashed (${bytes.length} bytes) in ${Date.now() - start}ms`);
+        if (debug) console.log(`${id} ${what} hashed (${bytes.byteLength} bytes) in ${Date.now() - start}ms`);
         return base64url;
     }
 
@@ -102,7 +102,7 @@ function handleMessage(msg) {
 
         const { error, read, write } = await response.json();
         if (error) throw Error(error);
-        if (debug) console.log(`${id} ${what} authorized in ${Date.now() - start}ms`);
+        if (debug) console.log(`${id} ${what} upload authorized in ${Date.now() - start}ms`);
         return { url: read, uploadUrl: write };
     }
 
