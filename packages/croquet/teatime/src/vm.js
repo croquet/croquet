@@ -28,6 +28,11 @@ function initDEBUG() {
 const DEBUG_WRITES_TARGET = Symbol("DEBUG_WRITES_TARGET");
 let DEBUG_WRITES_PROXIES = null;
 
+export function propertyAccessor(object, property) {
+    return Array.isArray(object) || typeof property !== "string" ? `[${property}]` :
+        property.match(/^[a-z_$][a-z0-9_$]*$/i) ? `.${property}` : `["${property}"]`;
+}
+
 /** this shows up as "CroquetWarning" in the console */
 class CroquetWarning extends Error {}
 Object.defineProperty(CroquetWarning.prototype, "name", { value: "CroquetWarning" });
@@ -1613,9 +1618,7 @@ class VMWriter {
             this.todo.push({state, key, value, path});
             return;
         }
-        const simpleKey = typeof key === "string" && key.match(/^[_a-z][_a-z0-9]*$/i);
-        const newPath = path + (simpleKey ? `.${key}` : `[${JSON.stringify(key)}]`);
-        const written = this.write(value, newPath);
+        const written = this.write(value, path + propertyAccessor(state, key));
         state[key] = written;
     }
 }
@@ -1869,9 +1872,7 @@ class VMReader {
             this.todo.push({object, key, value, path});
             return;
         }
-        const simpleKey = typeof key === "string" && key.match(/^[_a-z][_a-z0-9]*$/i);
-        const newPath = path + (simpleKey ? `.${key}` : `[${JSON.stringify(key)}]`);
-        object[key] = this.read(value, newPath); // always deferred
+        object[key] = this.read(value, path + propertyAccessor(object, key)); // always deferred
     }
 }
 
