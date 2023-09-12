@@ -358,10 +358,12 @@ export default class VirtualMachine {
             this.$debugWriteProxyHandler = {
                 set(target, property, value) {
                     if (CurrentVM !== vm) writeError();
+                    else { console.warn("Croquet debug write protection inside model - this should not happen!"); }
                     target[property] = value;
                 },
                 deleteProperty(target, property) {
                     if (CurrentVM !== vm) writeError();
+                    else { console.warn("Croquet debug write protection inside model - this should not happen!"); }
                     delete target[property];
                 },
                 get(target, property) {
@@ -375,18 +377,22 @@ export default class VirtualMachine {
                                 map[DEBUG_WRITES_TARGET] = value;
                                 map.set = writeError;
                                 map.delete = writeError;
+                                map.clear = writeError;
                                 return map;
                             }
                             if (value instanceof Set) {
-                                const set = new Set([...value.entries()].map(val => vm.debugWriteProxy(vm, val)));
+                                const set = new Set([...value.values()].map(val => vm.debugWriteProxy(vm, val)));
                                 set[DEBUG_WRITES_TARGET] = value;
-                                set.set = writeError;
+                                set.add = writeError;
                                 set.delete = writeError;
+                                set.clear = writeError;
                                 return set;
                             }
+                            // TODO: Proxies for TypedArrays, DataView, ArrayBuffer, etc
+                            // (Array appears to work, it internally calls proxy.get() for e.g. slice())
                             return vm.debugWriteProxy(vm, value);
                         }
-                    }
+                    } else { console.warn("Croquet debug write protection inside model - this should not happen!"); }
                     return value;
                 }
             };
