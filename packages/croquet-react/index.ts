@@ -5,7 +5,6 @@ import React, {
     createElement,
     useContext,
     useCallback,
-    useMemo
   } from "react";
 
 import {
@@ -13,6 +12,18 @@ import {
     Session,
     CroquetSession,
     Model,
+    CroquetSessionParameters,
+  } from "@croquet/croquet";
+
+export {
+    Model,
+    View,
+    Data,
+    Session,
+    Constants,
+    App,
+    Controller,
+    CroquetSession,
     CroquetSessionParameters,
   } from "@croquet/croquet";
 
@@ -240,31 +251,30 @@ class CroquetReactView extends View {
  * ```
  */
 export function InCroquetSession(params:CroquetReactSessionParameters
-):JSX.Element {
+                                ):JSX.Element {
     const children = params.children;
-
-    const sessionParams = useMemo(() => {
-	const p = {...params, view: CroquetReactView};
-	delete p.children;
-	return p;
-    }, [params]);
+    const sessionParams = {...params, view: CroquetReactView};
+    delete sessionParams.children;
 
     const [croquetContext, setCroquetContext] = useState<
-        CroquetSession<CroquetReactView> | undefined
-        >(undefined);
+        CroquetSession<CroquetReactView> | undefined>(undefined);
+    const [joining, setJoining] = useState(false);
     useEffect(() => {
-        let session: CroquetSession<View>|null = null;
-        Session.join(sessionParams).then(context => {
-            session = context;
-            setCroquetContext(context);
+        setJoining((old) => {
+            if (old) {return old;}
+            if (joining) {return old;}
+            const sessionParams = {...params, view: CroquetReactView};
+            delete sessionParams.children;
+            Session.join({...sessionParams}).then(setCroquetContext);
+            return true;
         });
         return () => {
-            if (session) {
-                session.leave();
-                session = null;
-            }
+            // we don't have to reset the session object or such. 
+            // The same Croquet session should be kept during the life time of the page
+            // unless it is explicitly destroyed.
+            // console.log("unmount");
         };
-    }, [sessionParams]);
+    }, [joining, params]);
 
     if (croquetContext) {
         return createElement(
@@ -272,7 +282,6 @@ export function InCroquetSession(params:CroquetReactSessionParameters
             { value: croquetContext },
             children
         );
-    } else {
-        return createElement("div");
     }
+    return createElement("div");
 }
