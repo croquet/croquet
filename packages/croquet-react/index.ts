@@ -22,7 +22,6 @@ export {
     Session,
     Constants,
     App,
-    Controller,
     CroquetSession,
     CroquetSessionParameters,
   } from "@croquet/croquet";
@@ -250,8 +249,7 @@ class CroquetReactView extends View {
  * }
  * ```
  */
-export function InCroquetSession(params:CroquetReactSessionParameters
-                                ):JSX.Element {
+export function InCroquetSession(params:CroquetReactSessionParameters):JSX.Element {
     const children = params.children;
     const sessionParams = {...params, view: CroquetReactView};
     delete sessionParams.children;

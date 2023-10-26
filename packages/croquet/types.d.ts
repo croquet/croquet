@@ -806,4 +806,6 @@ declare module "@croquet/croquet" {
      */
 
     export var Data:DataHandle;
+
+    export var Constants:Object;
 }
