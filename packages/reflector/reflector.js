@@ -711,7 +711,6 @@ async function JOIN(client, args) {
     }
 
     // check API key
-    let apiKeyPromise;
     if (apiKey === undefined) {
         // old client: accept for now, but let them know. Unless they're special.
         const specialCustomer = SPECIAL_CUSTOMERS.find(value => url.includes(value) || appIdAndName.includes(value));
@@ -722,17 +721,13 @@ async function JOIN(client, args) {
         }, [client]);
     } else {
         island.apiKey = apiKey;
-        // this should be a formality – the controller already checks the apiKey before sending join
-        // so we assume good intent and do not await result, to not delay SYNC unnecessarily
-        // ... unless there is no token, in which case we await below
-        apiKeyPromise = verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client, unverifiedDeveloperId);
-        // unless we have a valid token, do not let the client proceed
+        // if there is no valid token, we check the API key ourselves
         if (validToken) {
             island.developerId = validToken.developerId;
             if (validToken.region && island.region === "default") island.region = validToken.region;
         } else {
             // will disconnect everyone with error if failed (await could throw an exception)
-            const apiResponse = await apiKeyPromise;
+            const apiResponse = await verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client, unverifiedDeveloperId);
             if (!apiResponse) return;
             island.developerId = apiResponse.developerId;
             if (apiResponse.region && island.region === "default") island.region = apiResponse.region;
