@@ -4,6 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest
 
+* 1.1.0-40 typo
 * 1.1.0-39 force snapshot if reflector needs one
 * 1.1.0-38 fix write debug
 * 1.1.0-37 add write debug option to catch model writes from view code
