@@ -530,7 +530,7 @@ export default class Controller {
             // the reflector really needs a snapshot so SOME clients need to schedule
             // we'll pick three viewIds, and if we're one of them we'll schedule
             // (if the simulation is behind then this will not be toatally identical but what can we do?)
-            const viewIds = this.vm.viewIds();
+            const viewIds = Object.keys(this.vm.views);
             viewIds.sort();
             if (viewIds[0] === this.viewId || viewIds[1] === this.viewId || viewIds[2] === this.viewId) {
                 if (DEBUG.snapshot) console.log(`forcing snapshot poll`);
