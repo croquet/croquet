@@ -513,7 +513,7 @@ export default class Controller {
     }
 
     // we have spent a certain amount of CPU time on simulating, so schedule a snapshot
-    scheduleSnapshot() {
+    scheduleSnapshot(force=false) {
         // abandon if this call (delayed by up to 2s - possibly more, if browser is busy)
         // has been overtaken by a poll initiated by another client.  or if the controller
         // has been reset, or we're disconnected, or viewOnly.
@@ -521,9 +521,23 @@ export default class Controller {
 
         const now = this.vm.time;
         const sinceLast = now - this.vm.lastSnapshotPoll;
-        if (sinceLast < 5000) {
+        if (sinceLast < 5000 && !force) {
             if (DEBUG.snapshot) console.log(`not requesting snapshot poll (${sinceLast}ms since poll scheduled)`);
             return;
+        }
+
+        if (force) {
+            // the reflector really needs a snapshot so SOME clients need to schedule
+            // we'll pick three viewIds, and if we're one of them we'll schedule
+            // (if the simulation is behind then this will not be toatally identical but what can we do?)
+            const viewIds = this.vm.viewIds();
+            viewIds.sort();
+            if (viewIds[0] === this.viewId || viewIds[1] === this.viewId || viewIds[2] === this.viewId) {
+                if (DEBUG.snapshot) console.log(`forcing snapshot poll`);
+            } else {
+                if (DEBUG.snapshot) console.log(`not forcing snapshot poll (not one of the three)`);
+                return;
+            }
         }
 
         const message = new Message(now, 0, "_", "handlePollForSnapshot", []);
@@ -1260,7 +1274,7 @@ export default class Controller {
             case 'REQU': {
                 // reflector requests a snapshot
                 if (DEBUG.snapshot) console.log("received REQU (snapshot request) from reflector");
-                this.cpuTime = 12345; // a recognisable number, greater than SNAPSHOT_EVERY
+                this.reflectorNeedsSnapshot = true;
                 return;
             }
             default: console.warn("Unknown action:", action, args);
@@ -1869,19 +1883,28 @@ export default class Controller {
                     }
                 } else this.applySyncChange(false); // switch to out-of-sync is acted on immediately
             }
-            if (this.synced && weHaveTime && this.cpuTime > SNAPSHOT_EVERY && !DEBUG.offline) { // important not to schedule (resetting cpuTime) if not synced
-                // the triggeringCpuTime will be used whether or not this client
-                // ends up being the one that triggers the snapshot.
-                this.triggeringCpuTime = this.cpuTime;
-                this.cpuTime = 0;
-                // first level of defence against clients simultaneously deciding
-                // that it's time to take a snapshot: stagger pollForSnapshot sends,
-                // so we might have heard from someone else before we send.
-                // however, if we're backgrounded so that timers might be firing only once
-                // per minute, it would be wrong to wait.
-                if (this.isBeingAnimated()) {
-                    setTimeout(() => this.scheduleSnapshot(), Math.floor(Math.random()*2000));
-                } else this.scheduleSnapshot();
+            // only snapshot if not offline
+            if (!DEBUG.offline) {
+                // important not to schedule (resetting cpuTime) if not synced
+                if (this.synced && weHaveTime && this.cpuTime > SNAPSHOT_EVERY) {
+                    // the triggeringCpuTime will be used whether or not this client
+                    // ends up being the one that triggers the snapshot.
+                    this.triggeringCpuTime = this.cpuTime;
+                    this.cpuTime = 0;
+                    // first level of defence against clients simultaneously deciding
+                    // that it's time to take a snapshot: stagger pollForSnapshot sends,
+                    // so we might have heard from someone else before we send.
+                    // however, if we're backgrounded so that timers might be firing only once
+                    // per minute, it would be wrong to wait.
+                    if (this.isBeingAnimated()) {
+                        setTimeout(() => this.scheduleSnapshot(), Math.floor(Math.random()*2000));
+                    } else this.scheduleSnapshot();
+                } else if (this.reflectorNeedsSnapshot) {
+                    // the reflector is desparate for a snapshot, so we force scheduling one
+                    this.triggeringCpuTime = this.synced ? this.cpuTime : 12345; // prefer synced clients
+                    this.scheduleSnapshot(true);
+                    this.reflectorNeedsSnapshot = false;
+                }
             }
             return weHaveTime;
         } catch (error) {
