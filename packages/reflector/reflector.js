@@ -120,8 +120,8 @@ const DELETION_DEBOUNCE = 10000; // time in ms to wait before deleting an island
 const TICK_MS = 1000 / 5;     // default tick interval
 const INITIAL_SEQ = 0xFFFFFFF0; // initial sequence number, must match island.js
 const ARTIFICIAL_DELAY = 0;   // delay messages randomly by 50% to 150% of this
-const MAX_MESSAGES = 10000;   // messages per island to retain since last snapshot
-const REQU_SNAPSHOT = 6000;   // request a snapshot if this many messages retained
+const MAX_MESSAGES = 100000;   // messages per island to retain since last snapshot
+const REQU_SNAPSHOT = 60000;   // request a snapshot if this many messages retained
 const MIN_SCALE = 1 / 64;     // minimum ratio of island time to wallclock time
 const MAX_SCALE = 64;         // maximum ratio of island time to wallclock time
 const TALLY_INTERVAL = 1000;  // maximum time to wait to tally TUTTI contributions
@@ -177,7 +177,7 @@ const empty_logger = pino({
     base: null,
     messageKey: CLUSTER_IS_LOCAL ? 'msg' : 'message',
     timestamp: CLUSTER_IS_LOCAL && !NO_LOGTIME,
-    level: process.env.LOG_LEVEL ? process.env.LOG_LEVEL.toLowerCase() : CLUSTER_IS_LOCAL ? 'trace' : 'meter',
+    level: 'debug',
     customLevels: {
         meter: 15,
         notice: 35,
@@ -387,7 +387,7 @@ function watchStats() {
             sum += STATS[key];
         }
         if (sum === 0) return;
-        global_logger.trace({ event: "stats" }, out.join(', '));
+        global_logger.debug({ event: "stats" }, out.join(', '));
         for (const key of STATS_KEYS) STATS[key] = 0;
     }
 }

@@ -23,4 +23,25 @@ Substitute your IP address for `localhost` to be able to join from other devices
 As defined in the `docker-compose.yml` file it runs two docker images – one for the reflector, and one for the webserver/fileserver.
 
 On [localhost:8000](http://localhost:8000/) is the web server (serving the same files as croquet.io/dev),
-[localhost:8000/files](http://localhost:8000/files/) is the file serever (upload and download), and [localhost:8000/reflector](http://localhost:8000/reflector) is the reflector.
+[localhost:8000/files](http://localhost:8000/files/) is the file server (upload and download), and [localhost:8000/reflector](http://localhost:8000/reflector) is the reflector.
+
+
+## WIP: running on GCP via Cloud Run
+
+prep:
+
+    gcloud config set project PROJECTNAME
+    gcloud config set run/region REGION
+
+reflector only:
+
+*   edit reflector to run on port 8080
+
+
+    cd dist/
+    gcloud run deploy reflector --source .
+
+fileserver
+
+    cd fileserver/
+    gcloud run deploy fileserver --source .
