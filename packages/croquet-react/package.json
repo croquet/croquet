@@ -1,6 +1,6 @@
 {
   "name": "@croquet/react",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "React bindings for Croquet",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -11,25 +11,17 @@
   "author": "Croquet Corporation",
   "license": "ISC",
   "dependencies": {
-    "@croquet/croquet": "^1.1.0-38"
+    "@croquet/croquet": "^1.1.0-40"
   },
   "peerDependencies": {
     "react": "^18.2.0"
   },
   "devDependencies": {
-    "@babel/core": "^7.12.7",
-    "@babel/plugin-transform-runtime": "^7.12.1",
-    "@babel/preset-env": "^7.12.7",
-    "@types/react": "^17.0.1",
+    "@types/react": "^18.2.0",
     "@typescript-eslint/eslint-plugin": "^4.29.1",
     "eslint-plugin-react": "^7.21.3",
     "eslint-plugin-react-hooks": "^4.2.0",
-    "rollup": "^2.33.3",
-    "rollup-plugin-babel": "^4.3.3",
-    "rollup-plugin-license": "^2.2.0",
-    "rollup-plugin-node-resolve": "^5.2.0",
-    "rollup-plugin-terser": "^7.0.2",
-    "typescript": "^4.3.0"
+    "typescript": "^5.2.2"
   },
   "publishConfig": {
     "access": "public"
