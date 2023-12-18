@@ -178,7 +178,7 @@ declare module "@croquet/croquet" {
          * @param options - there are no system-defined options, you're free to define your own
          * @public
          */
-        init(_options: any): void;
+        init(_options: any, persistentData?: any): void;
 
         /**
          * Unsubscribes all [subscriptions]{@link Model#subscribe} this model has,
@@ -434,6 +434,8 @@ declare module "@croquet/croquet" {
          * set foo(value) { this.modelOnly(); this._foo = value; }
          * ```*/
         modelOnly(errorMessage?: string): boolean;
+
+        persistSession(func: () => any): void;
 
         /** **Identifies the shared session of all users**
          *
