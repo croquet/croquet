@@ -101,7 +101,7 @@ const git_branch = execSync("git rev-parse --abbrev-ref HEAD").toString().trim()
 const git_commit = execSync("git rev-parse HEAD").toString().trim();                          // last commit hash
 const git_message = execSync("git show --format='%s' -s " + git_commit).toString().trim();    // last commit message
 const git_date = execSync("git show --format='%as' -s " + git_commit).toString().trim();      // last commit date
-const git_pushed = execSync("git branch -r --contains " + git_commit).toString().trim();      // last commit was pushed
+const git_pushed = !!execSync("git branch -r --contains " + git_commit).toString().trim();    // last commit was pushed
 const git_bumped = git_message.endsWith(pkg.version);                                         // last commit was bump
 const git_clean = !execSync("git status --porcelain -- " + deps.join(" ")).toString().trim(); // all deps are committed
 
@@ -117,6 +117,7 @@ process.env.CROQUET_VERSION = public_build || prerelease ? pkg.version
     : `${pkg.version}+${git_branch}.${git_commit}.${os.userInfo().username}.${bundle_date}`;
 
 console.log(`Building Croquet ${process.env.CROQUET_VERSION}`);
+console.log(`  prod: ${!is_dev_build}, pushed: ${git_pushed}, bumped: ${git_bumped}, clean: ${git_clean}`);
 
 const browserOutputs = [
     // commonjs build for bundlers
