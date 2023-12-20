@@ -257,14 +257,11 @@ An app built with Croquet OS will make network connections to the Croquet infras
 | Parameter    | Data                                                                                                        |
 |--------------|-------------------------------------------------------------------------------------------------------------|
 | Domain       | `croquet.io` (and subdomains)                                                                               |
-| Hosts        | `croquet.io`, `api.croquet.io`, `files.us.croquet.io`, `files.eu.croquet.io`, `files.*.croquet.io` (future) |
-| IP Addresses | `34.102.167.79`                                                                                             |
-| Port         | `443`                                                                                                       |
-| Protocols    | `https`, `wss`                                                                                              |
-| HTTP Methods | `GET`, `HEAD`, `PUT`, `OPTIONS`, `UPGRADE`                                                                  |
-| HTTP Headers | `x-croquet-app`, `x-croquet-auth`, `x-croquet-id`, `x-croquet-session`, `x-croquet-version`                 |
+| Hosts        | `croquet.io`, `api.croquet.io`, `files.us.croquet.io`, `files.eu.croquet.io` (likely more `files.*.croquet.io` in the future) |
+| Port         | `443` (https)                                                                                               |
+| IP Addresses | `34.102.167.79` (subject to change, you should prefer the names above)                                      |
 
-We last updated this information on 2023-04-26.
+We last updated this information on 2023-05-02.
 
 # Changelog
 
