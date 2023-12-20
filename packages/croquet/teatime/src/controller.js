@@ -1268,7 +1268,7 @@ export default class Controller {
                 // information the reflector wants us to know
                 // for the moment just show it
                 const { msg, options } = args;
-                App.showMessage(msg, options);
+                App.showMessage("Croquet Reflector: " + msg, options);
                 return;
             }
             case 'REQU': {
