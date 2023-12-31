@@ -71,6 +71,7 @@ class ViewRealm {
     constructor(vm) {
         /** @type import('./vm').default */
         this.vm = vm;
+        this.vd = viewDomain;
     }
 
     register(view) {

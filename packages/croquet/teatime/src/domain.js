@@ -193,4 +193,4 @@ function removeHandlers(handlers, subscriberId, callback=null) {
     return remaining;
 }
 
-export const viewDomain = new Domain();
+export const viewDomain = globalThis.CROQUETVD = new Domain();
