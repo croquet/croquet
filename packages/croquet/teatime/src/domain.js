@@ -73,7 +73,7 @@ export class Domain {
         const handlers = this.subscriptions[topic];
         if (handlers) {
             const remaining = removeHandlers(handlers, subscriberId, callback);
-            if (!remaining) delete this.subscriptions[topic];
+            if (remaining === "none") delete this.subscriptions[topic];
             if (remaining !== "subscriber") {
                 const topics = this.subscribers.get(subscriberId);
                 topics.delete(topic);
