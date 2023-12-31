@@ -1668,7 +1668,7 @@ export default class Controller {
         // we're still connected.
         const encryptedMsg = await this.encryptMessage(msg, this.viewId, Date.now()); // [time, seq, payload]
 
-        const description = tags ? `tagged SEND ${msg.asState()} with tags ${JSON.stringify(tags)}` : `SEND ${msg.asState()}`;
+        const description = DEBUG.sends && (tags ? `tagged SEND ${msg.asState()} with tags ${JSON.stringify(tags)}` : `SEND ${msg.asState()}`);
 
         // view sending events while connection is closing or rejoining
         if (!this.connected) {
