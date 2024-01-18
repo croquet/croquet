@@ -1765,7 +1765,7 @@ function parseUrl(req) {
 }
 
 
-server.on('error', err => global_logger({event: "server-socket-error", err}, `Server Socket Error: ${err.message}`));
+server.on('error', err => global_logger.error({event: "server-socket-error", err}, `Server Socket Error: ${err.message}`));
 
 server.on('connection', (client, req) => {
     const { version, sessionId, token } = parseUrl(req);
