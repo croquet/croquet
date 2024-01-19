@@ -88,7 +88,7 @@ function getBackend(apiKeyWithBackend) {
     const keyBackend = split === -1 ? "" : apiKeyWithBackend.slice(0, split);
     let backend = urlOptions.backend || keyBackend;
     const overridden = urlOptions.reflector?.includes("/");
-    if (backend === "none" || overridden || DEBUG.offline) {
+    if (backend === "none" || DEBUG.offline) {
         return {
             apiKey, // without api key even stand-alone reflectors currently send a warning
             signServer: "none",
@@ -113,10 +113,11 @@ function getBackend(apiKeyWithBackend) {
         default: apidomain = `${backend}.croquet.dev`; break;
     }
 
+    const reflector = overridden ? "overridden" : `wss://api.${apidomain}/reflector/v${VERSION}`;
     return {
         apiKey,
         signServer: `https://api.${apidomain}/sign`,    // sign server generates file upload/download urls
-        reflector: `wss://api.${apidomain}/reflector/v${VERSION}`
+        reflector
     };
 }
 
