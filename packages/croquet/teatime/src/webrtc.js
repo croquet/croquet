@@ -18,6 +18,9 @@ export class WebRTCConnection {
         this.onmessage = null;
         this.onerror = null;
         this.onclose = null;
+
+        this.url = "webrtc"; // dummy value for logging
+        this.bufferedAmount = 0; // keep the PULSE logic happy
     }
 
     isConnected() {
@@ -131,9 +134,13 @@ export class WebRTCConnection {
 
     async createPeerConnection() {
         // fetch STUN and TURN details from Open Relay (https://www.metered.ca/tools/openrelay/)
-        const response = await fetch(process.env.ICE_SERVERS_URL); // Croquet's free API key
-        // const iceServers = await response.json(); $$$
-        this.pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }); // $$$
+        const response = await fetch(process.env.ICE_SERVERS_URL);
+        // (previous) const response = await fetch(process.env.ICE_SERVERS_URL); // Croquet's free API key
+        const iceServers = await response.json();
+        this.pc = new RTCPeerConnection({
+            iceServers
+            // iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+        });
         this.pc.oniceconnectionstatechange = e => {
             const state = this.pc.iceConnectionState;
             console.log(`ICE connection state: ${state}`);
