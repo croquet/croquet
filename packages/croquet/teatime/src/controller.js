@@ -9,6 +9,7 @@ import WordArray from "crypto-js/lib-typedarrays";
 import HmacSHA256 from "crypto-js/hmac-sha256";
 import pako from "pako"; // gzip-aware compressor
 import { OfflineSocket } from "./offline";
+import { WebRTCConnection } from "./webrtc";
 
 // the rollup config will replace the lines below with imports in the case of a Node.js build
 // _ENSURE_WEBSOCKET_
@@ -160,6 +161,7 @@ function isLocalUrl(hostname) {
 }
 */
 
+const WEBRTC = urlOptions.webrtc;
 const NOCHEAT = urlOptions.nocheat;
 
 // schedule a snapshot after this many ms of CPU time have been used for simulation
@@ -1365,6 +1367,9 @@ export default class Controller {
             tove: this.tove,        // an encrypted message the reflector will send to every client in SYNC
             codeHash,               // for debugging only
         };
+        // on a WebRTC connection, the reflector has no prior knowledge
+        // of the session for which the client is connecting.
+        if (WEBRTC) args.sessionId = this.id;
         if (heraldUrl) Object.assign(args, {
             heraldUrl,              // url to receive POST for join/leave events
         });
@@ -2215,7 +2220,7 @@ class Connection {
         this.missingTickThreshold = Math.min(ms * 3, 45000); // send PULSE after
     }
 
-    get connected() { return !!(this.socket && this.socket.readyState === WebSocket.OPEN); }
+    get connected() { return !!(this.socket && this.socket.isConnected()); }
 
     checkForConnection(force) {
         if (this.socket || this.connectHasBeenCalled) return;
@@ -2241,6 +2246,9 @@ class Connection {
 
         if (DEBUG.offline) {
             socket = new OfflineSocket();
+        } else if (WEBRTC) {
+            socket = new WebRTCConnection();
+            socket.openConnection(); // async
         } else {
             let reflectorBase = getBackend(this.controller.sessionSpec.apiKey).reflector;
             const ourUrl = NODE ? undefined : window.location.href;
@@ -2262,6 +2270,7 @@ class Connection {
             for (const [k,v] of Object.entries(reflectorParams)) reflectorUrl.searchParams.append(k, v);
 
             socket = new WebSocket(reflectorUrl);
+            socket.isConnected = () => socket.readyState === WebSocket.OPEN;
         }
         socket.onopen = _event => {
             // under some conditions (e.g., switching a device between networks) a new
@@ -2294,7 +2303,7 @@ class Connection {
         socket.onclose = event => {
             // triggered when socket is closed from the far end.  when we close
             // it from here, this handler is first nulled out.
-            this.socketClosed(event.code, event.reason);
+            this.socketClosed(event?.code, event?.reason);
         };
     }
 
@@ -2397,7 +2406,7 @@ class Connection {
         // NB: if this.socket is non-null this method synchronously sends disconnect(), which nulls it out
         if (!this.socket) return;
 
-        // it turns out that a socket can get into a state in which sending close()
+        // it turns out that a WebSocket can get into a state in which sending close()
         // doesn't trigger the onclose handler (even though its readyState is OPEN).
         // therefore when the controller wants to force closure - and perhaps
         // reconnection - we null out the handler before sending close(), and call
