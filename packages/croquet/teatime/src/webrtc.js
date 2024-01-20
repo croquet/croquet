@@ -9,17 +9,31 @@ function getRandomString(length) {
 export class WebRTCConnection {
     constructor() {
         this.clientId = getRandomString(4);
+        console.log(`${this.clientId} WebRTCConnection created`);
 
         this.pc = null;
         this.dataChannel = null;
         this.signaling = null;
         this.connectionTypes = {}; // { local: t, remote: t }
+
+        // handlers supplied by the Controller (Connection).  'open' and
+        // 'message' depend on the state of the data channel alone, while
+        // 'error' and 'close' are triggered by:
+        //   - the signalling channel
+        //   - the RTCPeerConnection
+        //   - the RTCDataChannel
         this.onopen = null;
         this.onmessage = null;
         this.onerror = null;
         this.onclose = null;
 
-        this.url = "webrtc"; // dummy value for logging
+        // the controller also supplies a custom handler for this kind of
+        // connection, because it happens in two stages: establishing
+        // the socket, then negotiating the data channel.  onconnected
+        // serves the latter stage.
+        this.onconnected = null;
+
+        this.url = "reflector"; // dummy value for logging
         this.bufferedAmount = 0; // keep the PULSE logic happy
     }
 
@@ -29,16 +43,22 @@ export class WebRTCConnection {
 
     async openConnection() {
         await this.openSignalingChannel();
+        console.log(`${this.clientId} signaling channel opened`);
+        if (this.onopen) this.onopen(); // tell the controller that it has a socket (though not yet a connection to the reflector)
         await this.createPeerConnection();
+        console.log(`${this.clientId} peer channel created`);
 
         this.dataChannel = this.pc.createDataChannel(`client-${this.clientId}`);
+        console.log(`${this.clientId} data channel created`);
         this.dataChannel.onopen = evt => this.onDataChannelOpen(evt);
         this.dataChannel.onmessage = evt => this.onDataChannelMessage(evt);
         this.dataChannel.onclose = evt => this.onDataChannelClose(evt);
         this.dataChannel.onerror = evt => this.onDataChannelError(evt);
 
         const offer = await this.pc.createOffer();
-        this.signalToRemote({ type: 'offer', sdp: offer.sdp });
+        if (this.signaling?.readyState !== WebSocket.OPEN) return; // already lost the connection
+
+        this.signalToSessionManager({ type: 'offer', sdp: offer.sdp });
         await this.pc.setLocalDescription(offer);
 
         // for some reason, the sctp property of the connection isn't set immediately
@@ -52,6 +72,7 @@ export class WebRTCConnection {
         // made, whatever the current connection state.
         const iceTransport = this.pc.sctp.transport.iceTransport;
         iceTransport.onselectedcandidatepairchange = e => {
+            console.log(`${this.clientId} ICE candidate pair changed`);
             const pair = iceTransport.getSelectedCandidatePair();
             this.connectionTypes.local = pair.local.type;
             this.connectionTypes.remote = pair.remote.type;
@@ -61,7 +82,7 @@ export class WebRTCConnection {
 
     openSignalingChannel() {
         if (this.signaling) {
-            console.warn(`signaling channel already open`);
+            console.warn(`${this.clientId} signaling channel already open`);
             return Promise.resolve();
         }
 
@@ -72,7 +93,7 @@ export class WebRTCConnection {
             this.signaling.onopen = resolve;
             this.signaling.onmessage = rawMsg => {
                 const msgData = JSON.parse(rawMsg.data);
-                console.log(`received signal of type "${msgData.type}"`);
+                console.log(`${this.clientId} received signal of type "${msgData.type}"`);
                 switch (msgData.type) {
                     case 'offer':
                         // we don't expect this, since our client always makes the opening offer
@@ -92,44 +113,76 @@ export class WebRTCConnection {
                         break;
                 }
             };
-            this.signaling.onclose = e => console.log(`signaling socket closed (${e.code})`);
-            this.signaling.onerror = e => console.warn(`signaling socket error: ${e}`, e);
+            this.signaling.onclose = e => {
+                // if we closed the socket on purpose, this handler will have
+                // been removed - so this represents an unexpected closure,
+                // presumably by the session manager (for example, on finding
+                // that there is no reflector to serve the session).
+                console.log(`${this.clientId} signaling socket closed unexpectedly (${e.code})`);
+                this.reflectorDisconnected(e.code, e.reason);
+            };
+            this.signaling.onerror = e => {
+                console.error(`${this.clientId} WebRTC signaling socket error`, e);
+                this.reflectorError();
+            };
         });
     }
 
-    signalToRemote(msg) {
+    signalToSessionManager(msg) {
         msg.id = this.clientId;
         const msgStr = JSON.stringify(msg);
-        // console.log(`attempting to signal: ${msgStr}`);
-        if (!this.signaling) {
-            console.warn(`no channel for signaling message: ${msgStr}`);
-            return;
-        }
-        if (this.signaling.readyState !== WebSocket.OPEN) {
-            console.warn(`signaling socket not open for message: ${msgStr}`);
-            return;
-        }
         try {
             this.signaling.send(msgStr);
-        } catch (e) { console.error(`error on signaling socket send:`, e); }
+        } catch (e) {
+            console.error(`${this.clientId} WebRTC signaling send error`, e);
+            // a socket-send error could just be a malformed message,
+            // so don't invoke reflectorError() which would trash the
+            // connection.
+        }
     }
 
     logConnectionState() {
-        console.log(`${this.dataChannel.readyState}: client connection="${this.connectionTypes.local || ''}"; reflector connection="${this.connectionTypes.remote || ''}"`);
+        console.log(`${this.clientId} RTCDataChannel connection state: "${this.dataChannel.readyState}" (client connection="${this.connectionTypes.local || ''}"; reflector connection="${this.connectionTypes.remote || ''}")`);
     }
 
-    close(code, message) {
-        // $$$ explicitly tell the reflector?
-        this.disconnect();
+    close(_code, _message) {
+        // sent by connection.closeConnection, triggered by various error
+        // conditions in the controller or related to the connection itself
+        // (e.g., dormancy detection).
+        // the controller will be acting on the supplied code to decide whether
+        // to trigger an automatic reconnection.
+        this.cleanUpConnection();
     }
 
-    async disconnect() {
+    reflectorDisconnected(code = 1006, reason = 'connection to reflector lost') {
+        // triggered by a 'close' event from the signalling channel or data
+        // channel.
+        this.cleanUpConnection();
+        if (this.onclose) this.onclose({ code, reason });
+    }
+
+    reflectorError() {
+        // the controller assumes that on any reported error, the connection to
+        // the reflector will already have been lost.  make sure that's the case.
+        this.cleanUpConnection();
+        if (this.onerror) this.onerror();
+    }
+
+    cleanUpConnection() {
+        this.closeSignalingChannel();
         if (this.pc) {
             this.pc.close();
             this.pc = null;
         }
         this.dataChannel = null;
-        console.log('Reflector connection is closed');
+    }
+
+    closeSignalingChannel() {
+        if (this.signaling) {
+            this.signaling.onclose = null; // don't trigger
+            this.signaling.close();
+            this.signaling = null;
+        }
     }
 
     async createPeerConnection() {
@@ -143,23 +196,35 @@ export class WebRTCConnection {
         });
         this.pc.oniceconnectionstatechange = e => {
             const state = this.pc.iceConnectionState;
-            console.log(`ICE connection state: ${state}`);
-            if (state === 'disconnected') this.disconnect();
+            const dataChannelState = this.dataChannel.readyState;
+            console.log(`${this.clientId} ICE connection state: "${state}"; data channel: "${dataChannelState}"`);
+            // if (state === 'disconnected') {
+                /* note from https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/iceConnectionState:
+                Checks to ensure that components are still connected failed for at least one component of the RTCPeerConnection. This is a less stringent test than failed and may trigger intermittently and resolve just as spontaneously on less reliable networks, or during temporary disconnections. When the problem resolves, the connection may return to the connected state.
+                */
+                // this.reflectorDisconnected();  by the above reasoning, no.
+            // }
         };
         this.pc.onicecandidate = e => {
             // an ICE candidate (or null) has been generated locally.  our reflector's
             // node-datachannel API can't handle empty or null candidates (even though
             // the protocol says they can be used to indicate the end of the candidates)
             // - so we don't bother forwarding them.
-            if (e.candidate) {
+            // also ignore these if the signalling connection has been lost.
+            if (e.candidate && this.signaling?.readyState === WebSocket.OPEN) {
                 const message = {
                     type: 'candidate',
                     candidate: e.candidate.candidate,
                     sdpMid: e.candidate.sdpMid,
                     sdpMLineIndex: e.candidate.sdpMLineIndex
                 };
-                this.signalToRemote(message);
+                this.signalToSessionManager(message);
             }
+        };
+        this.pc.onicecandidateerror = e => {
+            // it appears that these are generally not fatal.  report and
+            // carry on.
+            console.log(`${this.clientId} ICE error: ${e.errorText}`);
         };
     }
 
@@ -191,16 +256,15 @@ export class WebRTCConnection {
         if (this.dataChannel) {
             this.dataChannel.send(data);
         } else {
-            console.warn(`no data channel to send: ${data}`);
+            console.warn(`${this.clientId} no data channel to send: ${data}`);
         }
     }
 
     onDataChannelOpen(event) {
-        console.log("data channel open");
-        this.signaling.close(); // (sometimes?) raises an error on Safari, for unknown reasons
-        this.signaling = null;
+        console.log(`${this.clientId} RTCDataChannel open; closing signaling channel`);
+        if (this.onconnected) this.onconnected();
+        this.closeSignalingChannel();
         this.logConnectionState();
-        if (this.onopen) this.onopen(event);
     }
 
     onDataChannelMessage(event) {
@@ -218,16 +282,16 @@ export class WebRTCConnection {
     }
 
     onDataChannelError(event) {
-        if (this.onerror) this.onerror(event);
-        else console.error("unhandled dataChannel error:", event);
+        console.error(`${this.clientId} RTCDataChannel error`, event);
+        this.reflectorError();
     }
 
     onDataChannelClose(event) {
+        // unexpected drop in the data channel
         if (!this.pc) return; // connection has already gone
 
-        console.log("data channel closed");
-        if (this.onclose) this.onclose(event);
-        this.disconnect();
+        console.log(`${this.clientId} data channel closed`);
+        this.reflectorDisconnected();
     }
 
     async defunct_readConnectionType() {

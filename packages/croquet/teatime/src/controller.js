@@ -2244,10 +2244,23 @@ class Connection {
 
         let socket;
 
+        const connectionIsReady = () => {
+            if (DEBUG.session) console.log(this.id, this.socket.constructor.name, "connected to", this.socket.url);
+            this.reconnectDelay = 0;
+            Stats.connected(true);
+            this.controller.sendJoin();
+        }
+
         if (DEBUG.offline) {
             socket = new OfflineSocket();
+            socket.openImpliesConnected = true;
         } else if (WEBRTC) {
+            // the "socket" is a home-grown class that connects by WebSocket
+            // to a manager to negotiate a WebRTC data-channel connection
+            // to a reflector.
             socket = new WebRTCConnection();
+            socket.openImpliesConnected = false;
+            socket.onconnected = connectionIsReady; // see below
             socket.openConnection(); // async
         } else {
             let reflectorBase = getBackend(this.controller.sessionSpec.apiKey).reflector;
@@ -2270,9 +2283,15 @@ class Connection {
             for (const [k,v] of Object.entries(reflectorParams)) reflectorUrl.searchParams.append(k, v);
 
             socket = new WebSocket(reflectorUrl);
+            socket.openImpliesConnected = true;
             socket.isConnected = () => socket.readyState === WebSocket.OPEN;
         }
         socket.onopen = _event => {
+            // this is triggered when the WebSocket first opens.  in the case
+            // of standard WebSocket reflectors, this also implies that the
+            // connection is ready for use.  but in the case of WebRTC, the
+            // connection isn't ready until the RTCDataChannel has opened.
+
             // under some conditions (e.g., switching a device between networks) a new
             // socket can be opened without the old one receiving a close event
             const oldSocket = this.socket;
@@ -2281,10 +2300,7 @@ class Connection {
             }
             this.socket = socket;
             this.connectHasBeenCalled = false; // now that we have the socket
-            if (DEBUG.session) console.log(this.id, this.socket.constructor.name, "connected to", this.socket.url);
-            this.reconnectDelay = 0;
-            Stats.connected(true);
-            this.controller.sendJoin();
+            if (socket.openImpliesConnected) connectionIsReady();
         };
         socket.onmessage = event => {
             Stats.addNetworkTraffic("reflector_in", event.data.length);
@@ -2303,7 +2319,7 @@ class Connection {
         socket.onclose = event => {
             // triggered when socket is closed from the far end.  when we close
             // it from here, this handler is first nulled out.
-            this.socketClosed(event?.code, event?.reason);
+            this.socketClosed(event.code, event.reason);
         };
     }
 
