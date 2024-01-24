@@ -6,7 +6,7 @@ function getRandomString(length) {
         .substring(2, 2 + length);
 }
 
-export class WebRTCConnection {
+export class CroquetWebRTCConnection {
     constructor() {
         this.clientId = getRandomString(4);
         console.log(`${this.clientId} WebRTCConnection created`);
@@ -27,10 +27,10 @@ export class WebRTCConnection {
         this.onerror = null;
         this.onclose = null;
 
-        // the controller also supplies a custom handler for this kind of
+        // the controller also supplies a custom handler for a WebRTC
         // connection, because it happens in two stages: establishing
-        // the socket, then negotiating the data channel.  onconnected
-        // serves the latter stage.
+        // the socket, then negotiating and opening the data channel.
+        // onconnected serves the latter stage.
         this.onconnected = null;
 
         this.url = "reflector"; // dummy value for logging
@@ -41,8 +41,8 @@ export class WebRTCConnection {
         return this.dataChannel?.readyState === 'open';
     }
 
-    async openConnection() {
-        await this.openSignalingChannel();
+    async openConnection(sessionId) {
+        await this.openSignalingChannel(sessionId); // will never resolve if open fails
         console.log(`${this.clientId} signaling channel opened`);
         if (this.onopen) this.onopen(); // tell the controller that it has a socket (though not yet a connection to the reflector)
         await this.createPeerConnection();
@@ -80,7 +80,7 @@ export class WebRTCConnection {
         };
     }
 
-    openSignalingChannel() {
+    openSignalingChannel(sessionId) {
         if (this.signaling) {
             console.warn(`${this.clientId} signaling channel already open`);
             return Promise.resolve();
@@ -89,8 +89,11 @@ export class WebRTCConnection {
         return new Promise(resolve => {
             // for the dummy session manager we encode in the connection URL the fact that
             // this is a client, and our ID.
-            this.signaling = new WebSocket(`${LIZZIE_SERVER}/client/${this.clientId}`);
-            this.signaling.onopen = resolve;
+            this.signaling = new WebSocket(`${LIZZIE_SERVER}/client/${this.clientId}/${sessionId}`);
+            this.signaling.onopen = () => {
+                console.log(`${this.clientId} signaling socket opened`);
+                resolve();
+            };
             this.signaling.onmessage = rawMsg => {
                 const msgData = JSON.parse(rawMsg.data);
                 console.log(`${this.clientId} received signal of type "${msgData.type}"`);
@@ -105,9 +108,6 @@ export class WebRTCConnection {
                     case 'candidate':
                         this.handleCandidate(msgData); // async
                         break;
-                    // case 'bye':
-                    //     signaling.close();
-                    //     break;
                     default:
                         console.log(`unhandled: ${msgData.type}`);
                         break;
@@ -122,7 +122,10 @@ export class WebRTCConnection {
                 this.reflectorDisconnected(e.code, e.reason);
             };
             this.signaling.onerror = e => {
-                console.error(`${this.clientId} WebRTC signaling socket error`, e);
+                // as discussed at https://stackoverflow.com/questions/38181156/websockets-is-an-error-event-always-followed-by-a-close-event,
+                // an error during opening is not *necessarily* followed by a close
+                // event.  so our reflectorError() handling forces closure anyway.
+                console.log(`${this.clientId} signaling socket error`, e);
                 this.reflectorError();
             };
         });
@@ -161,11 +164,11 @@ export class WebRTCConnection {
         if (this.onclose) this.onclose({ code, reason });
     }
 
-    reflectorError() {
-        // the controller assumes that on any reported error, the connection to
-        // the reflector will already have been lost.  make sure that's the case.
-        this.cleanUpConnection();
+    reflectorError(errorDetail) {
+        // the controller assumes that with any reported error, the connection to
+        // the reflector will be lost.  make sure that's the case.
         if (this.onerror) this.onerror();
+        this.reflectorDisconnected(undefined, errorDetail); // ensures that the controller's onclose is called
     }
 
     cleanUpConnection() {
@@ -194,6 +197,15 @@ export class WebRTCConnection {
             iceServers
             // iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
         });
+        this.pc.onnegotiationneeded = _e => {
+            console.log(`negotiationneeded event fired`);
+        };
+        this.pc.onsignalingstatechange = _e => {
+            console.log(`signaling state: "${this.pc.signalingState}"`);
+        };
+        this.pc.onconnectionstatechange = _e => {
+            console.log(`connection state: "${this.pc.connectionState}" (cf. ICE connection state: "${this.pc.iceConnectionState}")`);
+        };
         this.pc.oniceconnectionstatechange = e => {
             const state = this.pc.iceConnectionState;
             const dataChannelState = this.dataChannel.readyState;
@@ -204,6 +216,10 @@ export class WebRTCConnection {
                 */
                 // this.reflectorDisconnected();  by the above reasoning, no.
             // }
+            if (state === 'failed') {
+                // https://developer.mozilla.org/en-US/docs/Web/API/WebRTC_API/Perfect_negotiation
+                this.pc.restartIce();
+            }
         };
         this.pc.onicecandidate = e => {
             // an ICE candidate (or null) has been generated locally.  our reflector's
@@ -263,7 +279,7 @@ export class WebRTCConnection {
     onDataChannelOpen(event) {
         console.log(`${this.clientId} RTCDataChannel open; closing signaling channel`);
         if (this.onconnected) this.onconnected();
-        this.closeSignalingChannel();
+        // this.closeSignalingChannel(); $$$ what if we keep it open?
         this.logConnectionState();
     }
 
@@ -283,10 +299,10 @@ export class WebRTCConnection {
 
     onDataChannelError(event) {
         console.error(`${this.clientId} RTCDataChannel error`, event);
-        this.reflectorError();
+        this.reflectorError(event.errorDetail); // will also close the connection
     }
 
-    onDataChannelClose(event) {
+    onDataChannelClose(_event) {
         // unexpected drop in the data channel
         if (!this.pc) return; // connection has already gone
 

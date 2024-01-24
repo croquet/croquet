@@ -9,7 +9,7 @@ import WordArray from "crypto-js/lib-typedarrays";
 import HmacSHA256 from "crypto-js/hmac-sha256";
 import pako from "pako"; // gzip-aware compressor
 import { OfflineSocket } from "./offline";
-import { WebRTCConnection } from "./webrtc";
+import { CroquetWebRTCConnection } from "./webrtc";
 
 // the rollup config will replace the lines below with imports in the case of a Node.js build
 // _ENSURE_WEBSOCKET_
@@ -447,7 +447,7 @@ export default class Controller {
         this.sessionSpec.snapshot = { id, time: 0, meta: { id, persistentId, codeHash, created: (new Date()).toISOString() } };
         const joined = new Promise(resolve => this.sessionSpec.sessionJoined = resolve);
         this.checkForConnection(false); // ensure connected unless we're blocked (e.g., in dormant state)
-        if (DEBUG.session) console.log(id, "waiting for SYNC");
+        if (DEBUG.session) console.log(id, "waiting for join and SYNC");
         await joined; // resolved in SYNC after installing the vm and replaying any messages
     }
 
@@ -2249,7 +2249,7 @@ class Connection {
             this.reconnectDelay = 0;
             Stats.connected(true);
             this.controller.sendJoin();
-        }
+        };
 
         if (DEBUG.offline) {
             socket = new OfflineSocket();
@@ -2258,10 +2258,11 @@ class Connection {
             // the "socket" is a home-grown class that connects by WebSocket
             // to a manager to negotiate a WebRTC data-channel connection
             // to a reflector.
-            socket = new WebRTCConnection();
+            socket = new CroquetWebRTCConnection();
             socket.openImpliesConnected = false;
             socket.onconnected = connectionIsReady; // see below
-            socket.openConnection(); // async
+            console.log(`SESSION this: ${this.id} c: ${this.controller.id}`); // $$$
+            socket.openConnection(this.id); // async
         } else {
             let reflectorBase = getBackend(this.controller.sessionSpec.apiKey).reflector;
             const ourUrl = NODE ? undefined : window.location.href;
@@ -2309,9 +2310,9 @@ class Connection {
         };
         socket.onerror = _event => {
             // an error anywhere between here and the reflector once the socket
-            // connection has opened will also result in socket closure, and
-            // can therefore be handled in socket.onclose.  but if the socket was
-            // never opened successfully, we need to clear connectHasBeenCalled.
+            // connection has opened will also result in socket closure, and can
+            // therefore be handled in socket.onclose.  but in case the socket was
+            // never opened successfully, we clear connectHasBeenCalled here.
             if (DEBUG.session) console.log(this.id, socket.constructor.name, "connection error");
             this.connectHasBeenCalled = false; // ready to try again
             this.controller.clearSyncReceiptTimeout(); // if any
