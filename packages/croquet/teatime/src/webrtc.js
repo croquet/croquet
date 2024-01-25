@@ -7,7 +7,7 @@ function getRandomString(length) {
 }
 
 export class CroquetWebRTCConnection {
-    constructor() {
+    constructor(managerURL) {
         this.clientId = getRandomString(4);
         console.log(`${this.clientId} WebRTCConnection created`);
 
@@ -32,17 +32,24 @@ export class CroquetWebRTCConnection {
         // the socket, then negotiating and opening the data channel.
         // onconnected serves the latter stage.
         this.onconnected = null;
+        this.twoStageConnection = true;
 
         this.url = "reflector"; // dummy value for logging
         this.bufferedAmount = 0; // keep the PULSE logic happy
+
+        this.openConnection(managerURL);
+    }
+
+    isConnecting() {
+        return this.signaling?.readyState === WebSocket.OPEN;
     }
 
     isConnected() {
         return this.dataChannel?.readyState === 'open';
     }
 
-    async openConnection(sessionId) {
-        await this.openSignalingChannel(sessionId); // will never resolve if open fails
+    async openConnection(managerURL) {
+        await this.openSignalingChannel(managerURL); // will never resolve if open fails
         console.log(`${this.clientId} signaling channel opened`);
         if (this.onopen) this.onopen(); // tell the controller that it has a socket (though not yet a connection to the reflector)
         await this.createPeerConnection();
@@ -81,7 +88,7 @@ export class CroquetWebRTCConnection {
         };
     }
 
-    openSignalingChannel(sessionId) {
+    openSignalingChannel(managerURL) {
         if (this.signaling) {
             console.warn(`${this.clientId} signaling channel already open`);
             return Promise.resolve();
@@ -93,19 +100,21 @@ export class CroquetWebRTCConnection {
         return new Promise(resolve => {
             // for the dummy session manager we encode in the connection URL the fact that
             // this is a client, and our ID.
-            this.signaling = new WebSocket(`${LIZZIE_SERVER}/client/${this.clientId}/${sessionId}`);
+            this.signaling = new WebSocket(managerURL);
             this.signaling.onopen = () => {
                 console.log(`${this.clientId} signaling socket opened`);
                 resolve();
             };
             this.signaling.onmessage = rawMsg => {
                 const msgData = JSON.parse(rawMsg.data);
+                // $$$ temporary handling for errors passed through signalling
+                if (msgData.error) {
+                    console.error("error received through signaling", msgData.error);
+                    return;
+                }
                 console.log(`${this.clientId} received signal of type "${msgData.type}"`);
+                // console.log(`${this.clientId} received message`, msgData);
                 switch (msgData.type) {
-                    case 'offer':
-                        // we don't expect this, since our client always makes the opening offer
-                        this.handleOffer(msgData); // async
-                        break;
                     case 'answer':
                         this.handleAnswer(msgData); // async
                         break;
@@ -114,7 +123,6 @@ export class CroquetWebRTCConnection {
                         break;
                     case 'gathering-complete':
                         this.reflectorGatheringComplete = true;
-                        this.closeSignalingIfComplete();
                         break;
                     default:
                         console.log(`unhandled: ${msgData.type}`);
@@ -140,7 +148,6 @@ export class CroquetWebRTCConnection {
     }
 
     signalToSessionManager(msg) {
-        msg.id = this.clientId;
         const msgStr = JSON.stringify(msg);
         try {
             this.signaling.send(msgStr);
@@ -241,7 +248,6 @@ export class CroquetWebRTCConnection {
             // reflector has finished too.
             if (!e.candidate) {
                 this.localGatheringComplete = true;
-                this.closeSignalingIfComplete();
                 return;
             }
 
@@ -286,12 +292,6 @@ export class CroquetWebRTCConnection {
         }
     }
 
-    closeSignalingIfComplete() {
-        if (this.reflectorGatheringComplete && this.localGatheringComplete) {
-            this.closeSignalingChannel();
-        }
-    }
-
     send(data) {
         // console.log("attempt to send", data, !!this.dataChannel);
         if (this.dataChannel) {
@@ -302,13 +302,24 @@ export class CroquetWebRTCConnection {
     }
 
     onDataChannelOpen(event) {
-        console.log(`${this.clientId} RTCDataChannel open; closing signaling channel`);
+        console.log(`${this.clientId} RTCDataChannel open`);
         if (this.onconnected) this.onconnected();
         this.logConnectionState();
     }
 
     onDataChannelMessage(event) {
         if (!this.onmessage) return;
+
+        // once messages are flowing and candidate gathering is complete at
+        // both ends, make sure the signalling channel is closed.
+        // we check this here, rather than on some connection-status change,
+        // to guarantee that the reflector has this channel in its server.clients
+        // and therefore won't kill the entire peer connection when the signalling
+        // shuts down.
+        if (this.signaling && this.reflectorGatheringComplete && this.localGatheringComplete) {
+            console.log(`${this.clientId} closing signaling channel`);
+            this.closeSignalingChannel();
+        }
 
         const msg = event.data;
         // special case: if we receive "ping@<time>", immediately return "pong@<time>"

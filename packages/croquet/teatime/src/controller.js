@@ -161,7 +161,24 @@ function isLocalUrl(hostname) {
 }
 */
 
-const WEBRTC = urlOptions.webrtc;
+/*
+    Query string parameters for DePIN:
+        depin=true
+        api=... - DePIN API URL (defaults to wss://croquet.network/depin)
+            (e.g., ?depin=true&api=localhost:6969)
+*/
+
+const DEPIN = urlOptions.depin;
+let DEPIN_API;
+if (DEPIN) {
+    // get DEPIN_API from the url options, or use the default
+    DEPIN_API = urlOptions.api || 'wss://croquet.network/depin';
+    if (DEPIN_API.endsWith('/')) DEPIN_API = DEPIN_API.slice(0, -1);
+    DEPIN_API = DEPIN_API.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
+    if (!DEPIN_API.startsWith('ws')) DEPIN_API = 'ws://' + DEPIN_API;
+    console.log(`DEPIN_API=${DEPIN_API}`);
+}
+
 const NOCHEAT = urlOptions.nocheat;
 
 // schedule a snapshot after this many ms of CPU time have been used for simulation
@@ -1367,9 +1384,9 @@ export default class Controller {
             tove: this.tove,        // an encrypted message the reflector will send to every client in SYNC
             codeHash,               // for debugging only
         };
-        // on a WebRTC connection, the reflector has no prior knowledge
+        // on a DEPIN WebRTC connection, the reflector has no prior knowledge
         // of the session for which the client is connecting.
-        if (WEBRTC) args.sessionId = this.id;
+        if (DEPIN) args.sessionId = this.id;
         if (heraldUrl) Object.assign(args, {
             heraldUrl,              // url to receive POST for join/leave events
         });
@@ -2253,16 +2270,13 @@ class Connection {
 
         if (DEBUG.offline) {
             socket = new OfflineSocket();
-            socket.openImpliesConnected = true;
-        } else if (WEBRTC) {
+        } else if (DEPIN) {
             // the "socket" is a home-grown class that connects by WebSocket
             // to a manager to negotiate a WebRTC data-channel connection
             // to a reflector.
-            socket = new CroquetWebRTCConnection();
-            socket.openImpliesConnected = false;
+            const sessionId = this.id;
+            socket = new CroquetWebRTCConnection(`${DEPIN_API}/clients/connect/${sessionId}`);
             socket.onconnected = connectionIsReady; // see below
-            console.log(`SESSION this: ${this.id} c: ${this.controller.id}`); // $$$
-            socket.openConnection(this.id); // async
         } else {
             let reflectorBase = getBackend(this.controller.sessionSpec.apiKey).reflector;
             const ourUrl = NODE ? undefined : window.location.href;
@@ -2284,7 +2298,6 @@ class Connection {
             for (const [k,v] of Object.entries(reflectorParams)) reflectorUrl.searchParams.append(k, v);
 
             socket = new WebSocket(reflectorUrl);
-            socket.openImpliesConnected = true;
             socket.isConnected = () => socket.readyState === WebSocket.OPEN;
         }
         socket.onopen = _event => {
@@ -2301,7 +2314,7 @@ class Connection {
             }
             this.socket = socket;
             this.connectHasBeenCalled = false; // now that we have the socket
-            if (socket.openImpliesConnected) connectionIsReady();
+            if (!socket.twoStageConnection) connectionIsReady();
         };
         socket.onmessage = event => {
             Stats.addNetworkTraffic("reflector_in", event.data.length);
@@ -2342,7 +2355,7 @@ class Connection {
         if (!dormant && code !== 1000 && !this.reconnectDelay) {
             // but also wait 500 ms to see if reconnect succeeded
             setTimeout(() => {
-                if (this.connected) return; // yay - connected again
+                if (this.connected || this.socket?.isConnecting?.()) return; // yay - connected again
                 App.showMessage(`Connection closed: ${code} ${message}`, {
                     level: autoReconnect ? "error" : "fatal",
                 });
