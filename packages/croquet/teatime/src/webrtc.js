@@ -52,6 +52,7 @@ export class CroquetWebRTCConnection {
         console.log(`${this.clientId} data channel created`);
         this.dataChannel.onopen = evt => this.onDataChannelOpen(evt);
         this.dataChannel.onmessage = evt => this.onDataChannelMessage(evt);
+        this.dataChannel.onclosing = evt => this.onDataChannelClosing(evt);
         this.dataChannel.onclose = evt => this.onDataChannelClose(evt);
         this.dataChannel.onerror = evt => this.onDataChannelError(evt);
 
@@ -86,6 +87,9 @@ export class CroquetWebRTCConnection {
             return Promise.resolve();
         }
 
+        this.reflectorGatheringComplete = false;
+        this.localGatheringComplete = false;
+
         return new Promise(resolve => {
             // for the dummy session manager we encode in the connection URL the fact that
             // this is a client, and our ID.
@@ -107,6 +111,10 @@ export class CroquetWebRTCConnection {
                         break;
                     case 'candidate':
                         this.handleCandidate(msgData); // async
+                        break;
+                    case 'gathering-complete':
+                        this.reflectorGatheringComplete = true;
+                        this.closeSignalingIfComplete();
                         break;
                     default:
                         console.log(`unhandled: ${msgData.type}`);
@@ -183,6 +191,7 @@ export class CroquetWebRTCConnection {
     closeSignalingChannel() {
         if (this.signaling) {
             this.signaling.onclose = null; // don't trigger
+            this.signaling.onerror = null;
             this.signaling.close();
             this.signaling = null;
         }
@@ -204,9 +213,11 @@ export class CroquetWebRTCConnection {
             console.log(`signaling state: "${this.pc.signalingState}"`);
         };
         this.pc.onconnectionstatechange = _e => {
-            console.log(`connection state: "${this.pc.connectionState}" (cf. ICE connection state: "${this.pc.iceConnectionState}")`);
+            const { connectionState, iceConnectionState } = this.pc;
+            console.log(`connection state: "${connectionState}" (cf. ICE connection state: "${iceConnectionState}")`);
+            if (connectionState === 'disconnected' || connectionState === 'failed') this.reflectorDisconnected();
         };
-        this.pc.oniceconnectionstatechange = e => {
+        this.pc.oniceconnectionstatechange = _e => {
             const state = this.pc.iceConnectionState;
             const dataChannelState = this.dataChannel.readyState;
             console.log(`${this.clientId} ICE connection state: "${state}"; data channel: "${dataChannelState}"`);
@@ -225,9 +236,17 @@ export class CroquetWebRTCConnection {
             // an ICE candidate (or null) has been generated locally.  our reflector's
             // node-datachannel API can't handle empty or null candidates (even though
             // the protocol says they can be used to indicate the end of the candidates)
-            // - so we don't bother forwarding them.
-            // also ignore these if the signalling connection has been lost.
-            if (e.candidate && this.signaling?.readyState === WebSocket.OPEN) {
+            // - so we don't bother forwarding them.  but note that we've finished
+            // gathering candidates, and can close the signalling connection if the
+            // reflector has finished too.
+            if (!e.candidate) {
+                this.localGatheringComplete = true;
+                this.closeSignalingIfComplete();
+                return;
+            }
+
+            // also ignore if the signalling connection has been lost.
+            if (this.signaling?.readyState === WebSocket.OPEN) {
                 const message = {
                     type: 'candidate',
                     candidate: e.candidate.candidate,
@@ -267,6 +286,12 @@ export class CroquetWebRTCConnection {
         }
     }
 
+    closeSignalingIfComplete() {
+        if (this.reflectorGatheringComplete && this.localGatheringComplete) {
+            this.closeSignalingChannel();
+        }
+    }
+
     send(data) {
         // console.log("attempt to send", data, !!this.dataChannel);
         if (this.dataChannel) {
@@ -279,7 +304,6 @@ export class CroquetWebRTCConnection {
     onDataChannelOpen(event) {
         console.log(`${this.clientId} RTCDataChannel open; closing signaling channel`);
         if (this.onconnected) this.onconnected();
-        // this.closeSignalingChannel(); $$$ what if we keep it open?
         this.logConnectionState();
     }
 
@@ -300,6 +324,17 @@ export class CroquetWebRTCConnection {
     onDataChannelError(event) {
         console.error(`${this.clientId} RTCDataChannel error`, event);
         this.reflectorError(event.errorDetail); // will also close the connection
+    }
+
+    onDataChannelClosing(_event) {
+        // unexpected drop in the data channel.
+        // this event sometimes (??) arrives as soon as the remote end goes away -
+        // whereas the next event (ICE connection state => "disconnected")
+        // isn't triggered for another 5 or 6 seconds.
+        if (!this.pc) return; // connection has already gone
+
+        console.log(`${this.clientId} data channel closing`);
+        this.reflectorDisconnected();
     }
 
     onDataChannelClose(_event) {
