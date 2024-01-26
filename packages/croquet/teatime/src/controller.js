@@ -163,16 +163,24 @@ function isLocalUrl(hostname) {
 
 /*
     Query string parameters for DePIN:
-        depin=true
-        api=... - DePIN API URL (defaults to wss://croquet.network/depin)
-            (e.g., ?depin=true&api=localhost:6969)
+        depin=true   (means wss://croquet.network/depin)
+        or
+        depin=dev    (means wss://dev.croquet.network/depin)
+        or
+        depin=<websocket url>
+        or
+        depin=false  (to revert to websocket network)
 */
 
+const DEPIN_API_DEFAULT = 'wss://croquet.network/depin';
+const DEPIN_API_DEV = 'wss://dev.croquet.network/depin';
 const DEPIN = urlOptions.depin;
 let DEPIN_API;
 if (DEPIN) {
     // get DEPIN_API from the url options, or use the default
-    DEPIN_API = urlOptions.api || 'wss://croquet.network/depin';
+    DEPIN_API = DEPIN === true ? DEPIN_API_DEFAULT
+        : DEPIN === 'dev' ? DEPIN_API_DEV
+        : DEPIN;
     if (DEPIN_API.endsWith('/')) DEPIN_API = DEPIN_API.slice(0, -1);
     DEPIN_API = DEPIN_API.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
     if (!DEPIN_API.startsWith('ws')) DEPIN_API = 'ws://' + DEPIN_API;
