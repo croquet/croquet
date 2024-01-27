@@ -36,14 +36,40 @@ function scramble(key, string) {
     return string.replace(/[\s\S]/g, c => String.fromCharCode(c.charCodeAt(0) ^ key.charCodeAt(0)));
 }
 
-/** exposed as Data in API */
-export default class DataHandle {
+class DataHandle extends Data {}
+
+/** *Secure bulk data storage.*
+*
+* This `Data` API allows encrypted bulk data storage. E.g. if a user drops a file into a Croquet
+* application, the contents of that file can be handed off to the Data API for storage.
+* It will be encrypted and uploaded to a file server. Other participants will download and
+* decrypt the data.
+*
+* The [`store()`]{@link Data.store} method returns a *data handle* that is to be stored in the model as
+* via [`publish()`]{@link View#publish}, and then other participants can [`fetch()`]{@link Data.fetch}
+* the stored data.
+*
+* Off-loading the actual bits of data to a file server and keeping only the meta data
+* (including the data handle) in the replicated model meta is a lot more efficient than
+* trying to send that data via [`publish()`]{@link View#publish}/[`subscribe()`]{@link Model#subscribe}.
+* It also allows caching.
+*
+* Just like snapshots and persistent data, data uploaded via the Data API is encrypted so
+* that only the users who have access to the session can decrypt the data.
+*
+* See this [tutorial]{@tutorial 2_9_data} for a complete example.
+*
+* @public
+*/
+class Data {
     /**
      * Store data and return an (opaque) handle.
      * @param {String} sessionId the sessionId for authentication
      * @param {ArrayBuffer} data the data to be stored
-     * @param {Boolean} keep if true, keep the data intact (do not detach buffer)
+     * @param {Boolean} [keep=false] if true, keep the data intact (do not detach buffer)
      * @returns {Promise<DataHandle>} return promise for the handle
+     * @tutorial 2_9_data
+     * @public
      */
     static async store(sessionId, data, keep=false) {
         if (typeof sessionId === "object") {
@@ -70,8 +96,10 @@ export default class DataHandle {
     /**
      * Fetch data for a given data handle
      * @param {String} sessionId the sessionId for authentication
-     * @param {DataHandle} handle created by {@link Data.store}
+     * @param {DataHandle} dataHandle created by {@link Data.store}
      * @returns {Promise<ArrayBuffer>} the data
+     * @tutorial 2_9_data
+     * @public
      */
     static async fetch(sessionId, handle) {
         if (typeof sessionId === "object") {

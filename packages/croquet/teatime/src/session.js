@@ -110,6 +110,7 @@ export class Session {
      * | `"subscribe"`  | subscription additions/removals
      * | `"classes"`    | class registrations
      * | `"ticks"`      | each tick received
+     * | `"write"`      | detect accidental writes from view code to model properties
      * | `"offline"`    | disable multiuser
      *
      * @returns {Promise} Promise that resolves to an object describing the session:

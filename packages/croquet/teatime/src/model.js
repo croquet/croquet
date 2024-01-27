@@ -66,7 +66,8 @@ class Model {
      * @example this.foo = FooModel.create({answer: 123});
      * @public
      * @param {Object=} options - option object to be passed to [init()]{@link Model#init}.
-     *     There are no system-defined options as of now, you're free to define your own.
+     *     There are no system-defined `options`, you're free to define your own.
+     * @param {Object=} persistentData - passed to [init()]{@link Model#init}, if provided.
      */
     static create(options, persistentData, modelRootName) {
         if (!hasID(this)) throw Error(`Model class "${this.name}" not registered`);
@@ -171,7 +172,6 @@ class Model {
      * }
      * @param {String} name - the name given in [beWellKnownAs()]{@link Model#beWellKnownAs}
      * @returns {Model?} the model if found, or `undefined`
-     * @since 0.4.1
      * @public
      */
     static wellKnownModel(name) {
@@ -181,6 +181,10 @@ class Model {
 
     /**
      * Evaluates func inside of a temporary VM to get bit-identical results, e.g. to init [Constants]{@link Constants}.
+     * @param {Function} func - function to evaluate
+     * @returns {*} result of func
+     * @since 1.1.0
+     * @public
     */
     static evaluate(func) {
         return VirtualMachine.evaluate(func);
@@ -217,7 +221,7 @@ class Model {
      * Serialization types supported:
      * -  all JSON types: `number`, `string`, `boolean`, `null`, `Array`, plain `Object`
      * - `-0`, `NaN`, `Infinity`, `-Infinity`
-     * - `BigInt` (since 1.1.0-31)
+     * - `BigInt` (since 1.1.0)
      * - `undefined`
      * - `ArrayBuffer`, `DataView`, `Int8Array`, `Uint8Array`, `Uint8ClampedArray`, `Int16Array`, `Uint16Array`, `Int32Array`, `Uint32Array`, `Float32Array`, `Float64Array`
      * - `Set`, `Map`
@@ -515,9 +519,9 @@ class Model {
      * this.future(3000).say("hello", "world");
      * ...
      * this.cancelFuture(this.say);
-     * @param {Function} method - the method (must be a method of `this`)
+     * @param {Function} method - the method (must be a method of `this`) or "*" to cancel all of this object's future messages
      * @returns {Boolean} true if the message was found and canceled, false if it was not found
-     * @since 1.1.0-16
+     * @since 1.1.0
      * @public
     */
     cancelFuture(methodOrMessage) {
@@ -665,7 +669,6 @@ class Model {
      * this.subscribe(this.sessionId, "view-exit", this.showUsers);
      * showUsers() { this.publish(this.sessionId, "view-count", this.viewCount); }
      * @type {Number}
-     * @since 0.4.1
      * @public
      */
     get viewCount() {
@@ -689,14 +692,32 @@ class Model {
      * Similarly, only your root model's `init` will receive that persisted data.
      * It should recreate submodels as necessary.
      *
-     * Croquet will not interpret this data in any way. It is stringified, encrypted, and stored.
+     * Croquet will not interpret this data in any way (e.g. not even the `version` property in the example below).
+     * It is stringified, encrypted, and stored.
      *
      * @example
-     * save() { this.persistSession(this.dataForExport); }
-     * dataForExport() { return { version: 1, payload: { propA: "value", propB: ["values"] } }; }
-     * @param {Function} collectDataFunc - method returning information to be stored, will be stringified as JSON
-     * @since 0.3.4
+     * class SimpleAppRootModel {
+     *     init(options, persisted) {
+     *         ...                         // regular setup
+     *         if (persisted) {
+     *             if (persisted.version === 1) {
+     *                 ...                 // init from persisted data
+     *             }
+     *         }
+     *     }
+     *
+     *     save() {
+     *         this.persistSession(() => {
+     *             const data = {
+     *                version: 1,         // for future migrations
+     *                ...                 // data to persist
+     *             };
+     *             return data;
+     *         });
+     *     }
+     * }
      * @public
+     * @param {Function} collectDataFunc - method returning information to be stored, will be stringified as JSON
      */
     persistSession(collectDataFunc) {
         if (this !== this.wellKnownModel("modelRoot")) throw Error('persistSession() must only be called on the root model');

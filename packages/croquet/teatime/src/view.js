@@ -370,8 +370,7 @@ class View {
      * Same as returned by {@link Session.join}.
      *
      * @type {Object}
-     * @since 0.4.1-19
-     * @notpublic (yet)
+     * @public
      */
     get session() {
         return this.realm.vm.controller.session;
