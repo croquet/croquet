@@ -1,8 +1,8 @@
-# Croquet Data API
+Copyright © 2020 Croquet Corporation
 
-Croquet offers a cloud storage service for apps. A Croquet application can upload a file, typically a media content or a document file, to the Croquet file server. The `store()` function returns a *data handle* that can be sent to replicated models over a Croquet message, and then other participants can `fetch()` the stored data. By off-loading the actual bits of data to a file server and keeping only the data handle, a snapshot of the app can be kept small.
+Croquet offers secure bulk data storage service for apps. A Croquet application can upload a file, typically media content or a document file, to the Croquet file server. The `store()` function returns a *data handle* that can be sent to replicated models in a Croquet message, and then other participants can `fetch()` the stored data. Off-loading the actual bits of data to a file server and keeping only its meta data in the model is a lot more efficient than trying to send that data via `publish`/`subscribe`. It also allows caching.
 
-As snapshot and persistent data, data uploaded via the Data API is encrypted so that only the users who has access to the session can decrypt the data.
+Just like snapshot and persistent data, data uploaded via the Data API is encrypted so that only the users who have access to the session can decrypt the data.
 
 Following is a full example of the Data API.
 

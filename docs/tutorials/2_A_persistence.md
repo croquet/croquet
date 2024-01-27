@@ -1,4 +1,4 @@
-# Persistence (as of Croquet 1.0.5)
+Copyright © 2024 Croquet Corporation
 
 You may have noticed that while Croquet automatically snapshots and
 stores all model data, whenever you change some model code, the model

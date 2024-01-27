@@ -5,7 +5,8 @@
       "../../teatime/index.js",
       "../../teatime/src/model.js",
       "../../teatime/src/view.js",
-      "../../teatime/src/session.js"
+      "../../teatime/src/session.js",
+      "../../teatime/src/data.js"
     ]
   },
   "opts": {

@@ -259,7 +259,6 @@ An app built with Croquet OS will make network connections to the Croquet infras
 | Domain       | `croquet.io` (and subdomains)                                                                               |
 | Hosts        | `croquet.io`, `api.croquet.io`, `files.us.croquet.io`, `files.eu.croquet.io` (likely more `files.*.croquet.io` in the future) |
 | Port         | `443` (https)                                                                                               |
-| IP Addresses | `34.102.167.79` (subject to change, you should prefer the names above)                                      |
 
 We last updated this information on 2023-05-02.
 
@@ -267,6 +266,7 @@ We last updated this information on 2023-05-02.
 
 | date       | item                                                                                                                                                                                                                                                                                                   |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2024-01-29 | **release 1.1.0** (bug fixes, otpimizations, nodejs support, `BigInt` support, added secure [Persistence]{@link Model#persistSession} and [Bulk Data]{@link Data} APIs, added [Model.cancelFuture]{@Link Model#cancelFuture}, [Model.evaluate]{@link Model.evaluate}, [View.session]{@link View#session}, `debug=write,offline` and `viewOptions` for [Session.join]{@link Session.join}, also [Model.unsubscribe]{@link Model#unsubscribe} and [View.unsubscribe]{@link View#unsubscribe} can take a handler arg |
 | 2021-11-25 | **release 1.0.5** (bug fixes, better error reporting, works on insecure origin)                                                                                                                                                                                                                        |
 | 2021-08-24 | **release 1.0.4** (stricter Session parameter checks)                                                                                                                                                                                                                                                  |
 | 2021-08-23 | **release 1.0.3** (bug fixes; require [API key](https://croquet.io/keys/), warn about `Date` usage in model code, event rate limit)                                                                                                                                                                    |
