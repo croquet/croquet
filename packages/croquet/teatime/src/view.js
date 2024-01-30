@@ -51,7 +51,7 @@ class View {
         Object.defineProperty(this, "realm", { value: realm });
         Object.defineProperty(this, "id", {  value: realm.register(this), configurable: true });
         // hack to get root view into session object before constructor finishes
-        const session = realm.vm.controller.session;
+        const session = realm.controller.session;
         if (!session.view) session.view = this;
         // eslint-disable-next-line no-constant-condition
         if (false) {
@@ -360,20 +360,22 @@ class View {
      * @public
      */
     get sessionId() {
-        return this.realm.vm.id;
+        return this.realm.controller.sessionSpec.id;
     }
 
     /**
      * **The session object**
      *
-     * Accessor for info shared by all views in session.
      * Same as returned by {@link Session.join}.
      *
-     * @type {Object}
+     * WILL BE UNDEFINED WHEN DISCONNECTED! In callbacks that can still be executed
+     * after a disconnect, you should check `if (!this.session) return` to avoid errors.
+     *
+     * @type {Object|undefined}
      * @public
      */
     get session() {
-        return this.realm.vm.controller.session;
+        return this.realm.controller.session;
     }
 
 
@@ -397,7 +399,7 @@ class View {
      * @public
      */
     get viewId() {
-        return this.realm.vm.controller.viewId;
+        return this.realm.controller.viewId;
     }
 
     [Symbol.toPrimitive]() {

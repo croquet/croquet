@@ -70,9 +70,11 @@ class ModelRealm {
 class ViewRealm {
     constructor(vm) {
         /** @type import('./vm').default */
-        this.vm = vm;
         this.vd = viewDomain;
+        this.controller = vm.controller; // controller stays the same even across reconnects
     }
+
+    get vm() { return this.controller.vm; }
 
     register(view) {
         return viewDomain.register(view);
