@@ -1,4 +1,4 @@
-const LIZZIE_SERVER = 'ws://138.68.6.125:9909';
+const NEGOTIATION_FAILED_DELAY = 5000; // maximum ms between sending our offer and the data channel being connected.  analogous to the controller's JOIN_FAILED_DELAY, between sending of JOIN and receipt of SYNC.
 
 function getRandomString(length) {
     return Math.random()
@@ -7,8 +7,8 @@ function getRandomString(length) {
 }
 
 export class CroquetWebRTCConnection {
-    constructor(managerURL) {
-        this.clientId = getRandomString(4);
+    constructor(registryURL) {
+        this.clientId = getRandomString(4); // used only locally, to tag console messages for debug purposes
         console.log(`${this.clientId} WebRTCConnection created`);
 
         this.pc = null;
@@ -37,7 +37,7 @@ export class CroquetWebRTCConnection {
         this.url = "reflector"; // dummy value for logging
         this.bufferedAmount = 0; // keep the PULSE logic happy
 
-        this.openConnection(managerURL);
+        this.openConnection(registryURL);
     }
 
     isConnecting() {
@@ -48,8 +48,8 @@ export class CroquetWebRTCConnection {
         return this.dataChannel?.readyState === 'open';
     }
 
-    async openConnection(managerURL) {
-        await this.openSignalingChannel(managerURL); // will never resolve if open fails
+    async openConnection(registryURL) {
+        await this.openSignalingChannel(registryURL); // will never resolve if open fails
         console.log(`${this.clientId} signaling channel opened`);
         if (this.onopen) this.onopen(); // tell the controller that it has a socket (though not yet a connection to the reflector)
         await this.createPeerConnection();
@@ -66,7 +66,15 @@ export class CroquetWebRTCConnection {
         const offer = await this.pc.createOffer();
         if (this.signaling?.readyState !== WebSocket.OPEN) return; // already lost the connection
 
-        this.signalToSessionManager({ type: 'offer', sdp: offer.sdp });
+        // set a deadline by which we expect to have completed ICE negotiation
+        // and started using the data channel.  if the deadline passes, we tell
+        // the controller to scrap the connection altogether and try again.
+        this.negotiationTimeout = setTimeout(() => {
+            delete this.negotiationTimeout;
+            this.reflectorDisconnected(1006, "ICE negotiation timed out");
+        }, NEGOTIATION_FAILED_DELAY);
+
+        this.signalToRegistry({ type: 'offer', sdp: offer.sdp });
         await this.pc.setLocalDescription(offer);
 
         // for some reason, the sctp property of the connection isn't set immediately
@@ -88,7 +96,7 @@ export class CroquetWebRTCConnection {
         };
     }
 
-    openSignalingChannel(managerURL) {
+    openSignalingChannel(registryURL) {
         if (this.signaling) {
             console.warn(`${this.clientId} signaling channel already open`);
             return Promise.resolve();
@@ -98,9 +106,7 @@ export class CroquetWebRTCConnection {
         this.localGatheringComplete = false;
 
         return new Promise(resolve => {
-            // for the dummy session manager we encode in the connection URL the fact that
-            // this is a client, and our ID.
-            this.signaling = new WebSocket(managerURL);
+            this.signaling = new WebSocket(registryURL);
             this.signaling.onopen = () => {
                 console.log(`${this.clientId} signaling socket opened`);
                 resolve();
@@ -132,7 +138,7 @@ export class CroquetWebRTCConnection {
             this.signaling.onclose = e => {
                 // if we closed the socket on purpose, this handler will have
                 // been removed - so this represents an unexpected closure,
-                // presumably by the session manager (for example, on finding
+                // presumably by the session registry (for example, on finding
                 // that there is no reflector to serve the session).
                 console.log(`${this.clientId} signaling socket closed unexpectedly (${e.code})`);
                 this.reflectorDisconnected(e.code, e.reason);
@@ -147,7 +153,14 @@ export class CroquetWebRTCConnection {
         });
     }
 
-    signalToSessionManager(msg) {
+    clearNegotiationTimeout() {
+        if (this.negotiationTimeout) {
+            clearTimeout(this.negotiationTimeout);
+            delete this.negotiationTimeout;
+        }
+    }
+
+    signalToRegistry(msg) {
         const msgStr = JSON.stringify(msg);
         try {
             this.signaling.send(msgStr);
@@ -174,7 +187,7 @@ export class CroquetWebRTCConnection {
 
     reflectorDisconnected(code = 1006, reason = 'connection to reflector lost') {
         // triggered by a 'close' event from the signalling channel or data
-        // channel.
+        // channel, or timeout of the ICE negotiation.
         this.cleanUpConnection();
         if (this.onclose) this.onclose({ code, reason });
     }
@@ -196,6 +209,10 @@ export class CroquetWebRTCConnection {
     }
 
     closeSignalingChannel() {
+        // closure either means that data-channel negotiation has completed
+        // successfully, or that there was some kind of error during negotiation
+        // that we are treating as fatal.
+        this.clearNegotiationTimeout();
         if (this.signaling) {
             this.signaling.onclose = null; // don't trigger
             this.signaling.onerror = null;
@@ -259,7 +276,7 @@ export class CroquetWebRTCConnection {
                     sdpMid: e.candidate.sdpMid,
                     sdpMLineIndex: e.candidate.sdpMLineIndex
                 };
-                this.signalToSessionManager(message);
+                this.signalToRegistry(message);
             }
         };
         this.pc.onicecandidateerror = e => {
