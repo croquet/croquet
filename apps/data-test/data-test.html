@@ -1,8 +1,9 @@
 <html>
     <head>
         <meta charset="utf-8">
-        <title>Data test</title>
-        <script src="https://cdn.jsdelivr.net/npm/@croquet/croquet@1.0.5"></script>
+        <title>Data + Persistence Example</title>
+        <!-- <script src="https://cdn.jsdelivr.net/npm/@croquet/croquet@1.1.0"></script> -->
+        <script src="./croquet.min.js"></script>
     </head>
     <body style="background-color: #666; background-size: contain; background-repeat: no-repeat; background-position: center;" onclick="imageinput.click()">
         <input id="imageinput" type="file" accept="image/*" style="display:none;">
@@ -12,18 +13,32 @@
 
 class DataTestModel extends Croquet.Model {
 
-    init() {
+    init(options, persisted) {                                  // <== Croquet Persistence
         this.subscribe("global", "add-asset", this.addAsset);
+        if (persisted) this.restoreData(persisted);
     }
 
     addAsset(asset) {
         this.asset = asset;
         this.publish("global", "asset-added", asset);
+        this.persistSession(this.saveData);                     // <== Croquet Persistence
     }
 
+    saveData() {
+        const { name, type, size, handle } = this.asset;
+        const id = Croquet.Data.toId(handle);
+        return { name, type, size, id };
+    }
+
+    restoreData(saved) {
+        const { name, type, size, id } = saved;
+        const handle = Croquet.Data.fromId(id);
+        this.asset = { name, type, size, handle };
+    }
 }
 DataTestModel.register("DataTestModel");
 
+let deferredUpload = null;
 
 class DataTestView extends Croquet.View {
 
@@ -31,6 +46,10 @@ class DataTestView extends Croquet.View {
         super(model);
         this.subscribe("global", "asset-added", this.assetAdded);
         if (model.asset) this.assetAdded(model.asset);
+        if (deferredUpload) {
+            this.uploadFile(...deferredUpload);
+            deferredUpload = null;
+        }
 
         window.ondragover = event => event.preventDefault();
         window.ondrop = event => {
@@ -39,22 +58,30 @@ class DataTestView extends Croquet.View {
         }
         imageinput.onchange = () => {
             this.addFile(imageinput.files[0]);
-            imageinput.value = ''; // otherwise upload of another camera images won't trigger onchange
+            imageinput.value = ''; // otherwise upload of another camera image won't trigger onchange
         };
     }
 
-    // only uploading user does this
     async addFile(file) {
         if (!file.type.startsWith('image/')) return this.showMessage(`Not an image: "${file.name}" (${file.type})`);
+        // grab file data now, even if we're disconnected
         this.showMessage(`reading "${file.name}" (${file.type})`);
         const data = await new Promise(resolve => {
             const reader = new FileReader();
             reader.onload = () => resolve(reader.result);
             reader.readAsArrayBuffer(file);
         });
-        this.showMessage(`sending "${file.name}" (${data.byteLength} bytes}`);
-        const handle = await Croquet.Data.store(this.sessionId, data); // <== Croquet.Data API
-        const asset = { name: file.name, type: file.type, size: data.byteLength, handle };
+        // the session may have been disconnected while the file chooser dialog was open
+        if (this.session?.view === this) this.uploadFile(file, data);
+        else deferredUpload = [file, data]; // upload as soon as the session is back
+    }
+
+    // only uploading user does this
+    async uploadFile(file, data) {
+        this.showMessage(`uploading "${file.name}" (${data.byteLength} bytes}`);
+        const size = data.byteLength; // get size before store() destroys the data
+        const handle = await this.session.data.store(data);                     // <== Croquet Data API
+        const asset = { name: file.name, type: file.type, size: size, handle };
         this.publish("global", "add-asset", asset);
     }
 
@@ -70,7 +97,7 @@ class DataTestView extends Croquet.View {
     }
 
     async showImage(asset) {
-        const data = await Croquet.Data.fetch(this.sessionId, asset.handle);  // <== Croquet.Data API
+        const data = await this.session.data.fetch(asset.handle);               // <== Croquet Data API
         this.showMessage(`fetched "${asset.name}" (${data.byteLength} bytes)`);
         const blob = new Blob([data], { type: asset.type });
         document.body.style.backgroundImage = `url(${URL.createObjectURL(blob)})`;
@@ -82,13 +109,11 @@ Croquet.App.makeWidgetDock();
 Croquet.Session.join({
     appId: "com.example.datatest", // replace with your own!
     apiKey: '2DT9VCoCKtvXMKkBGZXNLrUEoZMn48ojXPC8XFAuuO',
-    name: Croquet.App.autoSession(),
-    password: Croquet.App.autoPassword(),
     model: DataTestModel,
     view: DataTestView,
+    autoSleep: 60,
     tps: 0,
 });
-
 
         </script>
     </body>
