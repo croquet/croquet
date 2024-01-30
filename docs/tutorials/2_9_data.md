@@ -1,8 +1,12 @@
-Copyright © 2020 Croquet Corporation
-
+Copyright © 2024 Croquet Corporation
+💡
 Croquet offers secure bulk data storage service for apps. A Croquet application can upload a file, typically media content or a document file, to the Croquet file server. The `store()` function returns a *data handle* that can be sent to replicated models in a Croquet message, and then other participants can `fetch()` the stored data. Off-loading the actual bits of data to a file server and keeping only its meta data in the model is a lot more efficient than trying to send that data via `publish`/`subscribe`. It also allows caching.
 
-Just like snapshot and persistent data, data uploaded via the Data API is encrypted so that only the users who have access to the session can decrypt the data.
+Just like snapshot and persistent data, data uploaded via the Data API is encrypted.
+**However**, each data is encrypted individually with a random key, which becomes part of the data handle.
+The data handle should be safely stored in the model, where it can only be accessed by users in the end-to-end encrypted session.
+If the data handle is lost, the data can not be accessed or decrypted anmore. If the handle leaks, anyone can download and decrypt the data.
+Its string form can also be shared between sessions and even apps.
 
 Following is a full example of the Data API.
 
@@ -10,29 +14,42 @@ Following is a full example of the Data API.
 <html>
     <head>
         <meta charset="utf-8">
-        <title>Data test</title>
-        <script src="https://cdn.jsdelivr.net/npm/@croquet/croquet@1.0.5"></script>
+        <title>Data + Persistence Example</title>
+        <script src="https://cdn.jsdelivr.net/npm/@croquet/croquet@1.1.0"></script>
     </head>
     <body style="background-color: #666; background-size: contain; background-repeat: no-repeat; background-position: center;" onclick="imageinput.click()">
         <input id="imageinput" type="file" accept="image/*" style="display:none;">
         <span id="message" style="background-color: rgb(255,255,255,0.5);">click to import picture, or drag-and-drop one</i></span>
         <script>
 
-
 class DataTestModel extends Croquet.Model {
 
-    init() {
+    init(options, persisted) {                                  // <== Croquet Persistence
         this.subscribe("global", "add-asset", this.addAsset);
+        if (persisted) this.restoreData(persisted);
     }
 
     addAsset(asset) {
         this.asset = asset;
         this.publish("global", "asset-added", asset);
+        this.persistSession(this.saveData);                     // <== Croquet Persistence
     }
 
+    saveData() {
+        const { name, type, size, handle } = this.asset;
+        const id = Croquet.Data.toId(handle);
+        return { name, type, size, id };
+    }
+
+    restoreData(saved) {
+        const { name, type, size, id } = saved;
+        const handle = Croquet.Data.fromId(id);
+        this.asset = { name, type, size, handle };
+    }
 }
 DataTestModel.register("DataTestModel");
 
+let deferredUpload = null;
 
 class DataTestView extends Croquet.View {
 
@@ -40,6 +57,10 @@ class DataTestView extends Croquet.View {
         super(model);
         this.subscribe("global", "asset-added", this.assetAdded);
         if (model.asset) this.assetAdded(model.asset);
+        if (deferredUpload) {
+            this.uploadFile(...deferredUpload);
+            deferredUpload = null;
+        }
 
         window.ondragover = event => event.preventDefault();
         window.ondrop = event => {
@@ -48,22 +69,30 @@ class DataTestView extends Croquet.View {
         }
         imageinput.onchange = () => {
             this.addFile(imageinput.files[0]);
-            imageinput.value = ''; // otherwise upload of another camera images won't trigger onchange
+            imageinput.value = ''; // otherwise upload of another camera image won't trigger onchange
         };
     }
 
-    // only uploading user does this
     async addFile(file) {
         if (!file.type.startsWith('image/')) return this.showMessage(`Not an image: "${file.name}" (${file.type})`);
+        // grab file data now, even if we're disconnected
         this.showMessage(`reading "${file.name}" (${file.type})`);
         const data = await new Promise(resolve => {
             const reader = new FileReader();
             reader.onload = () => resolve(reader.result);
             reader.readAsArrayBuffer(file);
         });
-        this.showMessage(`sending "${file.name}" (${data.byteLength} bytes}`);
-        const handle = await Croquet.Data.store(this.sessionId, data); // <== Croquet.Data API
-        const asset = { name: file.name, type: file.type, size: data.byteLength, handle };
+        // the session may have been disconnected while the file chooser dialog was open
+        if (this.session?.view === this) this.uploadFile(file, data);
+        else deferredUpload = [file, data]; // upload as soon as the session is back
+    }
+
+    // only uploading user does this
+    async uploadFile(file, data) {
+        this.showMessage(`uploading "${file.name}" (${data.byteLength} bytes}`);
+        const size = data.byteLength; // get size before store() destroys the data
+        const handle = await this.session.data.store(data);                     // <== Croquet Data API
+        const asset = { name: file.name, type: file.type, size: size, handle };
         this.publish("global", "add-asset", asset);
     }
 
@@ -79,7 +108,7 @@ class DataTestView extends Croquet.View {
     }
 
     async showImage(asset) {
-        const data = await Croquet.Data.fetch(this.sessionId, asset.handle);  // <== Croquet.Data API
+        const data = await this.session.data.fetch(asset.handle);               // <== Croquet Data API
         this.showMessage(`fetched "${asset.name}" (${data.byteLength} bytes)`);
         const blob = new Blob([data], { type: asset.type });
         document.body.style.backgroundImage = `url(${URL.createObjectURL(blob)})`;
@@ -87,36 +116,33 @@ class DataTestView extends Croquet.View {
 }
 
 
-Croquet.App.makeWidgetDock();
+Croquet.App.makeWidgetDock();       // show QR code
 Croquet.Session.join({
-    appId: "com.example.datatest", // replace with your own!
-    apiKey: "insert your key here",
-    name: Croquet.App.autoSession(),
-    password: Croquet.App.autoPassword(),
+    appId: "com.example.datatest",
+    apiKey: "<fill in>",            // get an API key from croquet.io/keys
     model: DataTestModel,
     view: DataTestView,
     tps: 0,
 });
+
         </script>
     </body>
 </html>
-
-
 ~~~~
 
-When you drop an image file from Exploror or Finder onto the browser window, or click in the window to get the file dialog and choose a file, the `addFile()` of the `DataTestView` is invoked. The  `addFile()` method calls `Croquet.Data.store()` with `this.sessionId` and `data` as an `ArrayBuffer`. `Croquet.Data.store()` returns asynchronously the data handle, which can be sent to the model over a Croquet message.
+When a user drops an image file onto the browser window, or clicks in the window to get the file dialog and chooses a file, the `addFile()` of the `DataTestView` is invoked. It calls [data.store()]{@link Data#store} with `data` as an `ArrayBuffer`. [data.store()]{@link Data#store} returns asynchronously the data handle, then an `"add-asset"` event with the handle is published and the handle gets stored in the model by the `addAsset()` event handler. In addition to the handle, this example also stores some meta data, like file name, MIME type, and file size.
 
-In this example, the data handle is forwarded back to views from the model in `addAsset()` of the model. The view fetches the data from the file server by calling `Croquet.Data.fetch()`.In this example, it creates a `Blob` object and use it as the `background-image` CSS style.
+In `addAsset()`, the model also publishes an `"asset-added"` event for all views. The views fetch the data from the file server by calling [data.fetch()]{@link Data#fetch}. Then they create a `Blob` object and use it as the `background-image` CSS style. Now the views of every user show the first user's image.
 
-`Croquet.Data.store()` takes optional third boolean flag argument that specifies whether to keep the `ArrayBuffer` data in the main thread, or transfer it to the WebWorker that handles uploading data.  If you need to process the same data after you call `Croquet.Data.store()`, pass `true` as the third "keep" flag.
+By default, [data.store()]{@link Data#store} does not preserve the `ArrayBuffer` data when it passes it to the WebWorker that handles uploading data. This is done for efficiency, and the reason why we put the file's size into a variable beforehand (after storing it would be `0`). If you need to process the same data after you call [data.store()]{@link Data#store}, pass `true` as its second argument, which will make a copy instead.
 
-Most likely that you would like to store a data handle in persistent data so that information about the data handle can be stored and loaded into a new session with the same `appId` and session `name` but with modified code. In that case, you use `Croquet.Data.toId()` to create a transferable string representation of the handle, and recreate the equivalent data handle by calling `Croquet.Data.fromId()`.  (See an example in pix and other apps.)
+To be able to access the uploaded data even when the app code changes, the data handle needs to be persisted, so the data handle can be recreated in a new session with the same `appId` and session `name` but modified code. Since persistenmce needs JSON data, we use [data.toId()]{@link Data.toId} to create a string representation of the handle, and recreate the equivalent data handle by calling [data.fromId()]{@link Data.fromId}.
 
 # Best Practices
-Keep in mind that accessing external services is responsibility of the view, as the model should be concerned with the logical data.  Calling `Croquet.Data.store()` and `Croquet.Data.fetch()` is done by the view asynchronously, and the view notifies the model via a Croquet message.
+Keep in mind that accessing external services is responsibility of the view, as the model should be concerned with the logical data.  Calling [data.store()]{@link Data#store} and  [data.fetch()]{@link Data#fetch} is done by the view asynchronously, and the view notifies the model via a Croquet message.
 
-You will most likely to store the `id` for the data handle created by `Croquet.Data.toId()` for persistent data. It is indeed fine to store the id in the model as the primary data, and the view creates the data handle from it by calling `Croquet.Data.fromId()` before fetching data.
+You will most likely to store the `id` for the data handle created by [data.toId()]{@link Data.toId} for persistent data. It is indeed fine to store the id in the model as the primary data, and the view creates the data handle from it by calling [data.fromId()]{@link Data.fromId} before fetching data.
 
-As in the example above, you can use an `input` DOM element with `type="file"` to get the browser's file dialog or camera roll dialog. However, while the browser file dialog is opened, the JavaScript execution is suspended and the Croquet network connection may disconnect while the user takes a long time, over 30 seconds, to select a file. It is recommended to handle this case by storing the information of the chosen file in a global variable, and view's `synced` handler picks it up. (see an example in the Piix.)
+As in the example above, you can use an `input` DOM element with `type="file"` to get the browser's file dialog or camera roll dialog. However, while the dialog is opened, on some systems (like iOS) the JavaScript execution is suspended and the Croquet network connection may disconnect while the user takes a long time to select a file or take a photo. We handle this case by storing the information of the chosen file in a global variable, and upload it when the view gets constructed again.
 
-Notice that `init()` of the view calls `assetAdded` when there already is `model.asset` so that a view that joined later shows the same image. This is a common pattern that is not limited to apps that uses Data API, but a useful tip to know to make a late comers to the session be synchronized.
+Notice that `init()` of the view calls `assetAdded` when there already is `model.asset` so that a view that joined later shows the same image. This is a common pattern that is not limited to apps that uses Data API, but in general Croquet views should be initialized to reflect the current model state when constructed, without relying on events.
