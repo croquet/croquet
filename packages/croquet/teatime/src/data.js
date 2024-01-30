@@ -36,41 +36,66 @@ function scramble(key, string) {
     return string.replace(/[\s\S]/g, c => String.fromCharCode(c.charCodeAt(0) ^ key.charCodeAt(0)));
 }
 
-class DataHandle extends Data {}
-
-/** *Secure bulk data storage.*
-*
-* This `Data` API allows encrypted bulk data storage. E.g. if a user drops a file into a Croquet
-* application, the contents of that file can be handed off to the Data API for storage.
-* It will be encrypted and uploaded to a file server. Other participants will download and
-* decrypt the data.
-*
-* The [`store()`]{@link Data.store} method returns a *data handle* that is to be stored in the model as
-* via [`publish()`]{@link View#publish}, and then other participants can [`fetch()`]{@link Data.fetch}
-* the stored data.
-*
-* Off-loading the actual bits of data to a file server and keeping only the meta data
-* (including the data handle) in the replicated model meta is a lot more efficient than
-* trying to send that data via [`publish()`]{@link View#publish}/[`subscribe()`]{@link Model#subscribe}.
-* It also allows caching.
-*
-* Just like snapshots and persistent data, data uploaded via the Data API is encrypted so
-* that only the users who have access to the session can decrypt the data.
-*
-* See this [tutorial]{@tutorial 2_9_data} for a complete example.
-*
-* @public
-*/
+/**
+ * **Secure bulk data storage**
+ *
+ * This Data API allows encrypted bulk data storage. E.g. if a user drops a file into a Croquet
+ * application, the contents of that file can be handed off to the Data API for storage.
+ * It will be encrypted and uploaded to a file server. Other participants will download and
+ * decrypt the data.
+ *
+ * The [session.data.store()]{@link Data#store} method returns a *data handle* that is to be stored in the model
+ * via [view.publish()]{@link View#publish}, and then other participants fetch the stored data via
+ * [session.data.fetch()]{@link Data#fetch}, passing the handle from the model.
+ *
+ * Off-loading the actual bits of data to a file server and keeping only the meta data
+ * (including the data handle) in the replicated model meta is a lot more efficient than
+ * trying to send that data via [publish]{@link View#publish}/[subscribe]{@link Model#subscribe}.
+ * It also allows caching.
+ *
+ * **Warning:** Each piece of data uploaded via the Data API is encrypted with a random key that is
+ * stored in the data handle. This means that the data can be shared with other sessions or apps,
+ * but it must be stored only in the model where it is protected by the session's end-to-end encryption.
+ * If the handle leaks, anyone can download and decrypt the data.
+ * It also means that if the data handle is lost, the data is lost. Again:
+ *
+ * **THE DATA IS ENCRYPTED INDEPENDENTLY, THE HANDLE INCLUDES THE DECRYPTION KEY**
+ *
+ * **Note:** The Data API is not available in `Model` code, only available in `View` code.
+ * Typically, you would access the Data API in a view as `this.session.data.store()` and `this.session.data.fetch()`.
+ *
+ * See this [tutorial]{@tutorial 2_9_data} for a complete example.
+ *
+ * @public
+ */
 class Data {
     /**
      * Store data and return an (opaque) handle.
-     * @param {String} sessionId the sessionId for authentication
      * @param {ArrayBuffer} data the data to be stored
      * @param {Boolean} [keep=false] if true, keep the data intact (do not detach buffer)
      * @returns {Promise<DataHandle>} return promise for the handle
      * @tutorial 2_9_data
+     * @example
+     * // in a view, perhaps after a file drop event
+     * const handle = await this.session.data.store(arrayBuffer);
+     * this.publish("set-file", handle);
      * @public
      */
+    async store() {/* dummy */ }
+
+    /**
+     * Fetch data for a given data handle
+     * @param {DataHandle} dataHandle created by [session.data.store()]{@link Data#store}
+     * @returns {Promise<ArrayBuffer>} the data
+     * @tutorial 2_9_data
+     * @example
+     * // in a view, perhaps after a "got-file" event from the model
+     * const handle = this.model.handle;
+     * const arrayBuffer = await this.session.data.fetch(handle);
+     * @public
+     */
+    async fetch() { /* dummy */ }
+
     static async store(sessionId, data, keep=false) {
         if (typeof sessionId === "object") {
             console.warn("Deprecated: Croquet.Data.store(sessionId, data) called without sessionId");
@@ -93,14 +118,6 @@ class Data {
         // promise.then(() => publish(sessionId, "data-stored", handle));
     }
 
-    /**
-     * Fetch data for a given data handle
-     * @param {String} sessionId the sessionId for authentication
-     * @param {DataHandle} dataHandle created by {@link Data.store}
-     * @returns {Promise<ArrayBuffer>} the data
-     * @tutorial 2_9_data
-     * @public
-     */
     static async fetch(sessionId, handle) {
         if (typeof sessionId === "object") {
             console.warn("Deprecated: Croquet.Data.fetch(sessionId, handle) called without sessionId");
@@ -139,7 +156,13 @@ class Data {
         }
     }
 
-    /** @private */
+    /**
+     * Create a data handle from a string id.
+     *
+     * @param {String} id an id created by [Data.toId()]{@link Data.toId}
+     * @returns {DataHandle} a handle to be used with [session.data.fetch()]{@link Data#fetch}
+     * @public
+     */
     static fromId(id) {
         const version = id.slice(0, 1);
         let hash, key, url, path;
@@ -172,7 +195,14 @@ class Data {
         return new this(hash, key, url);
     }
 
-    /** @private */
+    /**
+     * Create a string id from a data handle.
+     *
+     * This base64url-encoded id is a string that includes the data location and decryption key.
+     * @param {DataHandle} handle a handle created by [session.data.store()]{@link Data#store}
+     * @returns {String} id an id to be used with [Data.fromId()]{@link Data.fromId}
+     * @public
+     */
     static toId(handle) {
         if (!handle) return '';
         const hash = handle[DATAHANDLE_HASH];
@@ -203,6 +233,9 @@ class Data {
 
     // no other methods - API is static
 }
+
+
+export default class DataHandle extends Data {}
 
 export const DataHandleSpec = {
     cls: DataHandle,
