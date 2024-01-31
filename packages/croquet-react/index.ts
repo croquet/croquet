@@ -55,7 +55,7 @@ export function useSessionId():string {
  * Can be used to read Model properties (including other referenced Models),
  * and to publish events to the Model or to subscribe to Model events using the other hooks.
  */
-export function useModelRoot(): Model|null {
+export function useModelRoot(): Model {
     const croquetView = useContext(CroquetContext);
     if (!croquetView) {throw new Error("No Crouqet Session found");}
     return croquetView.model;
