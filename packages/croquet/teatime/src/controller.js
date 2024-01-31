@@ -1151,7 +1151,7 @@ export default class Controller {
                 }
                 this.timeline = timeline || ""; // stored only on initial connection
                 // otherwise we need go to work
-                if (DEBUG.snapshot && url) console.log(`${this.id} fetching ${persistedOrSnapshot} ${url}`);
+                if (DEBUG.snapshot && url) console.log(this.id, `fetching ${persistedOrSnapshot} ${url}`);
                 let data;
                 if (url) try {
                     data = await this.downloadEncrypted({url, gzip: true, key: this.key, debug: DEBUG.snapshot, json: true, what: persistedOrSnapshot});
@@ -1174,7 +1174,7 @@ export default class Controller {
                     this.install();  // will run initFn() if no snapshot
                 }
                 // after install() sets this.vm, the main loop may also trigger simulation
-                if (DEBUG.session) console.log(`${this.id} fast-forwarding from ${Math.round(this.vm.time)} to at least ${time}`);
+                if (DEBUG.session) console.log(this.id, `fast-forwarding from ${Math.round(this.vm.time)} to at least ${time}`);
                 const fastForwardStart = this.vm.time;
                 // execute pending events, up to (at least) our own view-join
                 const success = await new Promise(resolve => {
@@ -1215,7 +1215,7 @@ export default class Controller {
                     Promise.resolve().then(() => this.stepSession("fastForward", { budget: MAX_SIMULATION_MS })); // immediate but not in the message handler
                     });
                 delete this.fastForwardHandler;
-                if (success && DEBUG.session) console.log(`${this.id} fast-forwarded to ${Math.round(this.vm.time)}`);
+                if (success && DEBUG.session) console.log(this.id, `fast-forwarded to ${Math.round(this.vm.time)}`);
                 if (success && this.vm.diverged) App.showMessage("Croquet: session had diverged", { level: "warning", only: "once" });
                 // iff fast-forward was successful, trigger return from establishSession().
                 // otherwise, in due course we'll reconnect and try again.  it can keep waiting.
@@ -1287,7 +1287,7 @@ export default class Controller {
         const start = Date.now();
         const {snapshot, initFn, options} = this.sessionSpec;
         const [verb, noun] = snapshot.modelsById ? ["deserializ", "snapshot"] : ["initializ", "root model"];
-        if (DEBUG.session) console.log(`${this.id} ${verb}ing ${noun}`);
+        if (DEBUG.session) console.log(this.id, `${verb}ing ${noun}`);
         let newVM = new VirtualMachine(snapshot, () => {
             try { return initFn(options, persistentData); }
             catch (error) {
@@ -1296,11 +1296,11 @@ export default class Controller {
             }
         });
         if (DEBUG.session || (DEBUG.snapshot && snapshot.modelsById)) {
-            console.log(`${this.id} ${noun} ${verb}ed in ${Date.now() - start}ms`);
+            console.log(this.id, `${noun} ${verb}ed in ${Date.now() - start}ms`);
         }
         if (DEBUG.initsnapshot && !snapshot.modelsById) {
             // exercise serializer if we came from initFn
-            if (DEBUG.snapshot) console.log(`${this.id} exercising snapshot and restore after init()`);
+            if (DEBUG.snapshot) console.log(this.id, `exercising snapshot and restore after init()`);
             let initialSnapshot = null;
             try { initialSnapshot = JSON.stringify(newVM.snapshot()); }
             catch (error) {
@@ -1524,11 +1524,11 @@ export default class Controller {
 
         const payloadLength = msg.asState()[2].length;
         if (payloadLength > PAYLOAD_LIMIT_MAX) {
-            console.warn(`${this.id} Message with payload of ${payloadLength} bytes exceeds maximum ${PAYLOAD_LIMIT_MAX} and will not be sent to reflector.`);
+            console.warn(this.id, `Message with payload of ${payloadLength} bytes exceeds maximum ${PAYLOAD_LIMIT_MAX} and will not be sent to reflector.`);
             return;
         }
         if (!this.payloadSizeWarned && payloadLength > PAYLOAD_LIMIT_RECOMMENDED) {
-            console.log(`${this.id} Message with payload of ${payloadLength} bytes being sent to reflector. Maximum recommended is ${PAYLOAD_LIMIT_RECOMMENDED}.`);
+            console.log(this.id, `Message with payload of ${payloadLength} bytes being sent to reflector. Maximum recommended is ${PAYLOAD_LIMIT_RECOMMENDED}.`);
             this.payloadSizeWarned = true;
         }
 
@@ -1576,7 +1576,7 @@ export default class Controller {
         // warning, but any sustained sending at the peak rate (whether or not we're
         // using the buffer).
         if (!this.rateLimitSoftWarned && times.length === this.eventHistoryLimit && time - times[0] < 1010) { // close enough
-            console.warn(`${this.id} Sends to reflector are at or above recommended limit of ${this.eventHistoryLimit} within one second. Events will be bundled as necessary to keep to the limit.`);
+            console.warn(this.id, `Sends to reflector are at or above recommended limit of ${this.eventHistoryLimit} within one second. Events will be bundled as necessary to keep to the limit.`);
             this.rateLimitSoftWarned = true;
         }
     }
@@ -1605,14 +1605,14 @@ export default class Controller {
         buffer.push({ msgStates: [{ msgState, bufferTime: now }], totalPayload: payloadLength });
         const buffered = buffer.length;
         if (DEBUG.session && buffered % 5 === 0 && buffered !== this.rateLimitLastLogged) {
-            console.log(`${this.id} SEND rate-limit buffer grew to ${buffered} event bundles (max ${this.eventMaxBundles})`);
+            console.log(this.id, `SEND rate-limit buffer grew to ${buffered} event bundles (max ${this.eventMaxBundles})`);
             this.rateLimitLastLogged = buffered;
         }
         if (buffered > this.eventMaxBundles) {
-            console.error(`${this.id} Disconnecting after overflow of SEND rate-limit buffer.`);
+            console.error(this.id, `Disconnecting after overflow of SEND rate-limit buffer.`);
             this.connection.closeConnectionWithError("SEND", Error(`Send rate exceeded`), 4200); // do not retry.  synchronously nulls out socket.
         } else if (!this.rateLimitBufferWarned && buffered > this.eventMaxBundles / 2) {
-            console.warn(`${this.id} SEND rate-limit buffer is 50% full. If send rate does not drop, the app will be disconnected.`);
+            console.warn(this.id, `SEND rate-limit buffer is 50% full. If send rate does not drop, the app will be disconnected.`);
             this.rateLimitBufferWarned = true;
         }
     }
@@ -1654,7 +1654,7 @@ export default class Controller {
         if (DEBUG.session && this.connected) {
             const nowBuffered = buffer.length;
             if (nowBuffered && nowBuffered % 5 === 0 && nowBuffered !== this.rateLimitLastLogged) {
-                console.log(`${this.id} SEND rate-limit buffer dropped to ${nowBuffered} event bundles`);
+                console.log(this.id, `SEND rate-limit buffer dropped to ${nowBuffered} event bundles`);
                 this.rateLimitLastLogged = nowBuffered;
             }
         }
@@ -1936,7 +1936,7 @@ export default class Controller {
                 // start counting frames again.
                 if (this.animationGapCheck === true && thisGap > ANIMATION_EXCESSIVE_FRAME_GAP) {
                     this.animationGapCheck = [];
-                    if (DEBUG.session) console.log(`${this.id} animation has stopped (too long between steps)`);
+                    if (DEBUG.session) console.log(this.id, `animation has stopped (too long between steps)`);
                 }
                 if (this.animationGapCheck !== true) {
                     const gaps = this.animationGapCheck;
@@ -1944,7 +1944,7 @@ export default class Controller {
                     if (gaps.length > ANIMATION_CHECK_FRAMES) gaps.shift();
                     if (gaps.length === ANIMATION_CHECK_FRAMES && gaps.reduce((a, b) => a + b, 0) <= ANIMATION_CHECK_FRAMES * ANIMATION_REASONABLE_FRAME_GAP) {
                         this.animationGapCheck = true;
-                        if (DEBUG.session) console.log(`${this.id} animation has started`);
+                        if (DEBUG.session) console.log(this.id, `animation has started`);
                     }
                 }
             }
@@ -2093,7 +2093,7 @@ export default class Controller {
             const delayOk = Date.now() - this.lastAnimationEnd < ANIMATION_EXCESSIVE_FRAME_GAP;
             if (gapsOk && !delayOk) {
                 this.animationGapCheck = []; // start counting again
-                if (DEBUG.session) console.log(`${this.id} animation has stopped (too long since last step)`);
+                if (DEBUG.session) console.log(this.id, `animation has stopped (too long since last step)`);
             }
             return gapsOk && delayOk;
             };
@@ -2415,7 +2415,7 @@ class Connection {
             this.stalledSince = 0;
         } else if (this.stalledSince && now - this.stalledSince > UNSENT_TIMEOUT) {
             // only warn about unsent data after a certain time
-            console.log(`${this.id} Reflector connection stalled: ${this.socket.bufferedAmount} bytes unsent for ${now - this.stalledSince} ms`);
+            console.log(this.id, `Reflector connection stalled: ${this.socket.bufferedAmount} bytes unsent for ${now - this.stalledSince} ms`);
         } else this.stalledSince = Date.now();
     }
 

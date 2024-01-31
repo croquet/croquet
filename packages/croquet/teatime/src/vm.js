@@ -452,7 +452,7 @@ export default class VirtualMachine {
                 // ignore exit for multiple connections (see below)
                 if (this.views[id].extraConnections) {
                     this.views[id].extraConnections--;
-                    if (DEBUG.session) console.log(`${this.id} @${this.time}#${this.seq} view ${id} closed extra connection`);
+                    if (DEBUG.session) console.log(this.id, `@${this.time}#${this.seq} view ${id} closed extra connection`);
                     continue;
                 }
                 // otherwise this is a real exit
@@ -472,7 +472,7 @@ export default class VirtualMachine {
             if (this.views[id]) {
                 // this happens if a client rejoins but the reflector is still holding
                 // onto the old connection
-                if (DEBUG.session) console.log(`${this.id} @${this.time}#${this.seq} view ${id} opened another connection`);
+                if (DEBUG.session) console.log(this.id, `@${this.time}#${this.seq} view ${id} opened another connection`);
                 this.views[id].extraConnections = (this.views[id].extraConnections||0) + 1;
             } else {
                 // otherwise this is a real join
@@ -943,7 +943,7 @@ export default class VirtualMachine {
         const ms = Stats.end("snapshot") - start;
         const unchanged = this.persisted === persistentHash;
         const persistTime = this.time;
-        if (DEBUG.snapshot) console.log(`${this.id} persistent data @${persistTime} collected, stringified and hashed in ${Math.ceil(ms)}ms${unchanged ? " (unchanged, ignoring)" : ""}`);
+        if (DEBUG.snapshot) console.log(this.id, `persistent data @${persistTime} collected, stringified and hashed in ${Math.ceil(ms)}ms${unchanged ? " (unchanged, ignoring)" : ""}`);
         if (unchanged) return;
 
         // we rely on a local, view-specific cache of persistence data that deserves
@@ -960,11 +960,11 @@ export default class VirtualMachine {
 
         // figure out whether it's ok to go ahead immediately with a poll
         if (this.inPersistenceCoolOff) {
-            if (DEBUG.snapshot) console.log(`${this.id} persistence poll postponed by cooloff`);
+            if (DEBUG.snapshot) console.log(this.id, `persistence poll postponed by cooloff`);
         } else {
             const timeUntilReady = this.lastPersistencePoll ? this.lastPersistencePoll + PERSIST_MIN_POLL_GAP - this.time : 0;
             if (timeUntilReady > 0) {
-                if (DEBUG.snapshot) console.log(`${this.id} postponing persistence poll by ${timeUntilReady}ms`);
+                if (DEBUG.snapshot) console.log(this.id, `postponing persistence poll by ${timeUntilReady}ms`);
                 this.futureSend(timeUntilReady, "_", "triggerPersistencePoll", []);
                 this.inPersistenceCoolOff = true;
             } else {
@@ -989,7 +989,7 @@ export default class VirtualMachine {
         if (!this.controller) return;
 
         if (this.controller.synced) {
-            if (DEBUG.snapshot) console.log(`${this.id} asking controller to poll for persistence @${persistTime}`);
+            if (DEBUG.snapshot) console.log(this.id, `asking controller to poll for persistence @${persistTime}`);
 
             // run everything else outside of VM
             const vmTime = this.time;

@@ -56,14 +56,14 @@ function handleMessage(msg) {
                 view.setInt32(i, word, false); i += 4;
             }
         }
-        if (debug) console.log(`${id} ${what} encrypted (${encrypted.byteLength} bytes) in ${Date.now() - start}ms`);
+        if (debug) console.log(id, `${what} encrypted (${encrypted.byteLength} bytes) in ${Date.now() - start}ms`);
         return encrypted;
     }
 
     function compress(bytes) {
         const start = Date.now();
         const compressed = deflate(bytes, { gzip: true, level: 1 }); // sloppy but quick
-        if (debug) console.log(`${id} ${what} compressed (${compressed.length} bytes) in ${Date.now() - start}ms`);
+        if (debug) console.log(id, `${what} compressed (${compressed.length} bytes) in ${Date.now() - start}ms`);
         return compressed;
     }
 
@@ -72,7 +72,7 @@ function handleMessage(msg) {
         const sha256 = SHA256(WordArray.create(bytes));
         const base64 = Base64.stringify(sha256);
         const base64url = base64.replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
-        if (debug) console.log(`${id} ${what} hashed (${bytes.byteLength} bytes) in ${Date.now() - start}ms`);
+        if (debug) console.log(id, `${what} hashed (${bytes.byteLength} bytes) in ${Date.now() - start}ms`);
         return base64url;
     }
 
@@ -102,7 +102,7 @@ function handleMessage(msg) {
 
         const { error, read, write } = await response.json();
         if (error) throw Error(error);
-        if (debug) console.log(`${id} ${what} upload authorized in ${Date.now() - start}ms`);
+        if (debug) console.log(id, `${what} upload authorized in ${Date.now() - start}ms`);
         return { url: read, uploadUrl: write };
     }
 
@@ -127,7 +127,7 @@ function handleMessage(msg) {
                 body
             });
             if (!ok) throw Error(`server returned ${status} ${statusText} for PUT ${uploadUrl}`);
-            if (debug) console.log(`${id} ${what} uploaded (${status}) in ${Date.now() - start}ms ${url}`);
+            if (debug) console.log(id, `${what} uploaded (${status}) in ${Date.now() - start}ms ${url}`);
             poster({ job, url, ok, status, statusText, bytes: NODE ? body.length : body.byteLength });
         } catch (e) {
             if (debug) console.error(`${id} upload error ${e.message}`);
@@ -136,7 +136,7 @@ function handleMessage(msg) {
     }
 
     function offlineStore(requestUrl, options) {
-        if (debug) console.log(`${id} storing ${requestUrl}`);
+        if (debug) console.log(id, `storing ${requestUrl}`);
         offlineFiles.set(requestUrl, options.body);
         return { ok: true, status: 201, statusText: "Offline created" };
     }
@@ -148,7 +148,7 @@ function handleMessage(msg) {
             poster({ job, ok: false, status: -1, statusText: "Offline file not found" });
             return;
         }
-        if (debug) console.log(`${id} retrieved ${requestUrl}`);
+        if (debug) console.log(id, `retrieved ${requestUrl}`);
         poster({ job, ok: true, status: 200, statusText: "Offline file found", body, bytes: NODE ? body.length : body.byteLength });
     }
 }
