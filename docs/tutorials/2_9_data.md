@@ -2,11 +2,11 @@ Copyright © 2024 Croquet Corporation
 💡
 Croquet offers secure bulk data storage service for apps. A Croquet application can upload a file, typically media content or a document file, to the Croquet file server. The `store()` function returns a *data handle* that can be sent to replicated models in a Croquet message, and then other participants can `fetch()` the stored data. Off-loading the actual bits of data to a file server and keeping only its meta data in the model is a lot more efficient than trying to send that data via `publish`/`subscribe`. It also allows caching.
 
-Just like snapshot and persistent data, data uploaded via the Data API is encrypted.
-**However**, each data is encrypted individually with a random key, which becomes part of the data handle.
-The data handle should be safely stored in the model, where it can only be accessed by users in the end-to-end encrypted session.
-If the data handle is lost, the data can not be accessed or decrypted anmore. If the handle leaks, anyone can download and decrypt the data.
-Its string form can also be shared between sessions and even apps.
+Just like snapshot and persistent data, data uploaded via the Data API is end-to-end encrypted with the session password. That means it can only be decoded from within the session.
+
+Optionally, you can create a *shareable handle* where each data is encrypted individually with a random key, which becomes part of the data handle.
+Its string form can be shared between sessions and even apps. If you keep this kind of handle stored in the model it is protected by the general end-to-end encryption of the session.
+If it leaks, however, anyone will be able to access and decrypt that data, unlike with the default, non-shareable handle.
 
 Following is a full example of the Data API.
 
@@ -83,7 +83,7 @@ class DataTestView extends Croquet.View {
             reader.readAsArrayBuffer(file);
         });
         // the session may have been disconnected while the file chooser dialog was open
-        if (this.session?.view === this) this.uploadFile(file, data);
+        if (this.session) this.uploadFile(file, data);
         else deferredUpload = [file, data]; // upload as soon as the session is back
     }
 
@@ -134,9 +134,9 @@ When a user drops an image file onto the browser window, or clicks in the window
 
 In `addAsset()`, the model also publishes an `"asset-added"` event for all views. The views fetch the data from the file server by calling [data.fetch()]{@link Data#fetch}. Then they create a `Blob` object and use it as the `background-image` CSS style. Now the views of every user show the first user's image.
 
-By default, [data.store()]{@link Data#store} does not preserve the `ArrayBuffer` data when it passes it to the WebWorker that handles uploading data. This is done for efficiency, and the reason why we put the file's size into a variable beforehand (after storing it would be `0`). If you need to process the same data after you call [data.store()]{@link Data#store}, pass `true` as its second argument, which will make a copy instead.
+By default, [data.store()]{@link Data#store} does not preserve the `ArrayBuffer` data when it passes it to the WebWorker that handles uploading data. This is done for efficiency, and the reason why we put the file's size into a variable beforehand (after storing it would be `0`). If you need to process the same data after you call [data.store()]{@link Data#store}, pass `{keep: true}` as in the store options, which will make a copy instead.
 
-To be able to access the uploaded data even when the app code changes, the data handle needs to be persisted, so the data handle can be recreated in a new session with the same `appId` and session `name` but modified code. Since persistenmce needs JSON data, we use [data.toId()]{@link Data.toId} to create a string representation of the handle, and recreate the equivalent data handle by calling [data.fromId()]{@link Data.fromId}.
+To be able to access the uploaded data even when the app code changes, the data handle needs to be persisted, so the data handle can be recreated in a new session with the same `appId` and session `name` but modified code. Since persistence needs JSON data, we use [Data.toId()]{@link Data.toId} to create a string representation of the handle, and recreate the equivalent data handle by calling [Data.fromId()]{@link Data.fromId}.
 
 # Best Practices
 Keep in mind that accessing external services is responsibility of the view, as the model should be concerned with the logical data.  Calling [data.store()]{@link Data#store} and  [data.fetch()]{@link Data#fetch} is done by the view asynchronously, and the view notifies the model via a Croquet message.
