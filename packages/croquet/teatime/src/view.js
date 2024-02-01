@@ -375,6 +375,7 @@ class View {
      * @public
      */
     get session() {
+        if (!this.id || !this.realm.valid()) return undefined; // undefined after detach
         return this.realm.controller.session;
     }
 
