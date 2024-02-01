@@ -72,7 +72,7 @@ class DataTestView extends Croquet.View {
             reader.readAsArrayBuffer(file);
         });
         // the session may have been disconnected while the file chooser dialog was open
-        if (this.session?.view === this) this.uploadFile(file, data);
+        if (this.session) this.uploadFile(file, data);
         else deferredUpload = [file, data]; // upload as soon as the session is back
     }
 
@@ -111,7 +111,6 @@ Croquet.Session.join({
     apiKey: '2DT9VCoCKtvXMKkBGZXNLrUEoZMn48ojXPC8XFAuuO',
     model: DataTestModel,
     view: DataTestView,
-    autoSleep: 60,
     tps: 0,
 });
 

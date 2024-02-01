@@ -285,8 +285,8 @@ export class Session {
                 return Session.leave(session.id);
             },
             data: {
-                fetch: (...args) => Data.fetch(session.id, ...args),
-                store: (...args) => Data.store(session.id, ...args),
+                store: (data, dataOpts) => Data.store(data, {...dataOpts, sessionId: session.id}),
+                fetch: (handle, dataOpts) => Data.fetch(handle, {...dataOpts, sessionId: session.id}),
             },
             get latency() { return controller.latency; },
             get latencies() { return controller.latencies; },

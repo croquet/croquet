@@ -7,7 +7,7 @@ import VirtualMachine from "./vm";
 import { sessionProps, OLD_DATA_SERVER } from "./controller";
 
 
-const VERSION = '3';
+const MAXVERSION = '4';
 
 const DATAHANDLE_HASH = Symbol("hash");
 const DATAHANDLE_KEY = Symbol("key");
@@ -33,6 +33,7 @@ function fromBase64Url(base64url) {
 }
 
 function scramble(key, string) {
+    if (!key) key = '*';
     return string.replace(/[\s\S]/g, c => String.fromCharCode(c.charCodeAt(0) ^ key.charCodeAt(0)));
 }
 
@@ -44,22 +45,23 @@ function scramble(key, string) {
  * It will be encrypted and uploaded to a file server. Other participants will download and
  * decrypt the data.
  *
- * The [session.data.store()]{@link Data#store} method returns a *data handle* that is to be stored in the model
+ * The [Data.store()]{@link Data#store} method returns a *data handle* that is to be stored in the model
  * via [view.publish()]{@link View#publish}, and then other participants fetch the stored data via
- * [session.data.fetch()]{@link Data#fetch}, passing the handle from the model.
+ * [Data.fetch()]{@link Data#fetch}, passing the handle from the model.
  *
  * Off-loading the actual bits of data to a file server and keeping only the meta data
  * (including the data handle) in the replicated model meta is a lot more efficient than
  * trying to send that data via [publish]{@link View#publish}/[subscribe]{@link Model#subscribe}.
  * It also allows caching.
  *
- * **Warning:** Each piece of data uploaded via the Data API is encrypted with a random key that is
- * stored in the data handle. This means that the data can be shared with other sessions or apps,
- * but it must be stored only in the model where it is protected by the session's end-to-end encryption.
- * If the handle leaks, anyone can download and decrypt the data.
- * It also means that if the data handle is lost, the data is lost. Again:
+ * **Shareable handles:** By default, data handles are not shareable outside the session.
+ * The uploaded data is encrypted with the session password, just like snapshots, messages, etc.
+ * If you set the `shareable` option to `true`, the data handle will include the decryption key
+ * so it can be decrypted by anyone who has the handle, even without the session password.
+ * It is not protected by the session's end-to-end encryption. If the handle leaks, anyone can
+ * download and decrypt the data. Again:
  *
- * **THE DATA IS ENCRYPTED INDEPENDENTLY, THE HANDLE INCLUDES THE DECRYPTION KEY**
+ * **IF MADE SHAREABLE, THE DATA IS ENCRYPTED INDEPENDENTLY, THE HANDLE INCLUDES THE DECRYPTION KEY**
  *
  * **Note:** The Data API is not available in `Model` code, only available in `View` code.
  * Typically, you would access the Data API in a view as `this.session.data.store()` and `this.session.data.fetch()`.
@@ -71,8 +73,16 @@ function scramble(key, string) {
 class Data {
     /**
      * Store data and return an (opaque) handle.
+     *
+     * If `options.shareable` is `true`, the handle will include the decryption key and can be shared (see warning above).
+     *
+     * **By default, `data` will become unusable after this call,** because it is moved to a web worker for encryption and upload.
+     * Set `options.keep` to `true` to make a copy instead of moving the data.
+     *
      * @param {ArrayBuffer} data the data to be stored
-     * @param {Boolean} [keep=false] if true, keep the data intact (do not detach buffer)
+     * @param {Object} [options=null]
+     * @param {Boolean} [options.shareable=false] create datahandle that can be shared outside this session
+     * @param {Boolean} [options.keep=false] if true, keep the data intact (do not detach buffer)
      * @returns {Promise<DataHandle>} return promise for the handle
      * @tutorial 2_9_data
      * @example
@@ -85,7 +95,7 @@ class Data {
 
     /**
      * Fetch data for a given data handle
-     * @param {DataHandle} dataHandle created by [session.data.store()]{@link Data#store}
+     * @param {DataHandle} dataHandle created by [Data.store()]{@link Data#store}
      * @returns {Promise<ArrayBuffer>} the data
      * @tutorial 2_9_data
      * @example
@@ -96,20 +106,30 @@ class Data {
      */
     async fetch() { /* dummy */ }
 
-    static async store(sessionId, data, keep=false) {
-        if (typeof sessionId === "object") {
-            console.warn("Deprecated: Croquet.Data.store(sessionId, data) called without sessionId");
-            data = sessionId;
-        }
+    static async store(data, options, deprecatedKeep) {
         if (VirtualMachine.hasCurrent()) throw Error("Croquet.Data.store() called from Model code");
-        const  { appId, persistentId, uploadEncrypted } = sessionProps(sessionId);
-        const key = WordArray.random(32).toString(Base64);
-        const path = `apps/${appId}/${persistentId}/data/%HASH%`;
+        // signature used to be (sessionId, data, keep)
+        let sessionId, shareable, keep;
+        if (typeof data === "string") {
+            sessionId = data;
+            data = options;
+            shareable = true;
+            keep = deprecatedKeep;
+        } else {
+            sessionId = options && options.sessionId; // optional, sessionProps() will use any session
+            shareable = options && options.shareable;
+            keep = options && options.keep;
+        }
+        if (!(data instanceof ArrayBuffer)) throw Error("Croquet.Data.store() called with non-ArrayBuffer data");
+
+        const { appId, persistentId, key: sessionKey, uploadEncrypted } = sessionProps(sessionId);
+        const key = shareable ? WordArray.random(32).toString(Base64) : Base64.stringify(sessionKey);
+        const path = `apps/${appId}/${persistentId}/data/%HASH%`; // %HASH% will be replaced by uploadEncrypted()
         const what = `data#${++fetchCount}`;
         if (debug("data")) console.log(`Croquet.Data: storing ${what} ${data.byteLength} bytes`);
         const url = await uploadEncrypted({ path, content: data, key, keep, debug: debug("data"), what });
         const hash = hashFromUrl(url);
-        const handle = new DataHandle(hash, key, url);
+        const handle = new DataHandle(hash, shareable && key, url);
         if (debug("data")) console.log(`Croquet.Data: stored ${what} as ${this.toId(handle)}`);
         return handle;
 
@@ -118,15 +138,19 @@ class Data {
         // promise.then(() => publish(sessionId, "data-stored", handle));
     }
 
-    static async fetch(sessionId, handle) {
-        if (typeof sessionId === "object") {
-            console.warn("Deprecated: Croquet.Data.fetch(sessionId, handle) called without sessionId");
-            handle = sessionId;
+    static async fetch(handle, options) {
+        // signature used to be (sessionId, handle)
+        let sessionId;
+        if (typeof options === "string") {
+            sessionId = handle;
+            handle = options;
+        } else {
+            sessionId = options && options.sessionId; // optional, sessionProps() will use any session
         }
         if (VirtualMachine.hasCurrent()) throw Error("Croquet.Data.fetch() called from Model code");
-        const  { downloadEncrypted } = sessionProps(sessionId);
+        const  { downloadEncrypted, key: sessionKey } = sessionProps(sessionId);
         const hash = handle && handle[DATAHANDLE_HASH];
-        const key = handle && handle[DATAHANDLE_KEY];
+        const key = handle && handle[DATAHANDLE_KEY] || Base64.stringify(sessionKey);
         const url = handle && handle[DATAHANDLE_URL];
         if (typeof hash !== "string" || typeof key !== "string" || typeof url !== "string" ) throw Error("Croquet.Data.fetch() called with invalid handle");
         const what = `data#${++fetchCount}`;
@@ -160,7 +184,7 @@ class Data {
      * Create a data handle from a string id.
      *
      * @param {String} id an id created by [Data.toId()]{@link Data.toId}
-     * @returns {DataHandle} a handle to be used with [session.data.fetch()]{@link Data#fetch}
+     * @returns {DataHandle} a handle to be used with [Data.fetch()]{@link Data#fetch}
      * @public
      */
     static fromId(id) {
@@ -189,8 +213,13 @@ class Data {
                 url = scramble(key, atob(fromBase64Url(id.slice(1 + 43))));
                 hash = url.slice(-43);
                 break;
+            case '4':
+                key = null; // use session key
+                url = scramble(key, atob(fromBase64Url(id.slice(1))));
+                hash = url.slice(-43);
+                break;
             default:
-                throw Error(`Croquet.Data expected handle v0-v${VERSION} got v${version}`);
+                throw Error(`Croquet.Data expected handle v0-v${MAXVERSION} got v${version}`);
         }
         return new this(hash, key, url);
     }
@@ -199,7 +228,7 @@ class Data {
      * Create a string id from a data handle.
      *
      * This base64url-encoded id is a string that includes the data location and decryption key.
-     * @param {DataHandle} handle a handle created by [session.data.store()]{@link Data#store}
+     * @param {DataHandle} handle a handle created by [Data.store()]{@link Data#store}
      * @returns {String} id an id to be used with [Data.fromId()]{@link Data.fromId}
      * @public
      */
@@ -210,13 +239,13 @@ class Data {
         const url = handle[DATAHANDLE_URL];
         if (url.slice(-43) !== hash) throw Error("Croquet Data: malformed URL");
         // key is plain Base64, make it url-safe
-        const encodedKey = toBase64Url(key);
+        const encodedKey = key && toBase64Url(key);
         // the only reason for obfuscation here is so devs do not rely on any parts of the id
         const encodedUrl = toBase64Url(btoa(scramble(key, url)));
-        return `${VERSION}${encodedKey}${encodedUrl}`;
+        return key ? `3${encodedKey}${encodedUrl}` : `4${encodedUrl}`;
     }
 
-    constructor(hash, key, url) {
+    constructor(hash, key=null, url) {
         const existing = HandleCache.get(hash);
         if (existing) {
             // if (debug("data")) console.log(`Croquet.Data: using cached handle for ${hash}`);
@@ -225,7 +254,7 @@ class Data {
         if (url.slice(-43) !== hash) throw Error("Croquet Data: malformed URL");
         // stored under Symbol key to be invisible to user code
         Object.defineProperty(this, DATAHANDLE_HASH, { value: hash });
-        Object.defineProperty(this, DATAHANDLE_KEY, { value: key });
+        if (key) Object.defineProperty(this, DATAHANDLE_KEY, { value: key });
         Object.defineProperty(this, DATAHANDLE_URL, { value: url });
         HandleCache.set(hash, this);
         // if (debug("data")) console.log(`Croquet.Data: created new handle for ${hash}`);

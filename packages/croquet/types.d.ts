@@ -715,6 +715,10 @@ declare module "@croquet/croquet" {
         view: V,
         step: (time: number) => void,
         leave: () => Promise<void>,
+        data: {
+            fetch: (handle: DataHandle) => Promise<ArrayBuffer>,
+            store: (data: ArrayBuffer, options?: { shareable?: boolean, keep?: boolean }) => Promise<DataHandle>
+        }
     }
 
     export type CroquetModelOptions = {
@@ -722,7 +726,8 @@ declare module "@croquet/croquet" {
 
     export type CroquetDebugOptions =
         "session" | "messages" | "sends" | "snapshot" |
-        "data" | "hashing" | "subscribe" | "classes" | "ticks";
+        "data" | "hashing" | "subscribe" | "classes" | "ticks" |
+        "write" | "offline";
 
     type ClassOf<M> = new (...args: any[]) => M;
 
