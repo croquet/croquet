@@ -74,14 +74,14 @@ class Data {
     /**
      * Store data and return an (opaque) handle.
      *
-     * If `options.shareable` is `true`, the handle will include the decryption key and can be shared (see warning above).
+     * If `options.shareable` is `true`, the handle will include the decryption key and can be shared (see security/privacy warning above).
      *
-     * **By default, `data` will become unusable after this call,** because it is moved to a web worker for encryption and upload.
+     * By default, `data` will become unusable after this call, because the ArrayBuffer is detached when being [transferred]{@link https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/ArrayBuffer#transferring_arraybuffers} to a web worker for encryption and upload.
      * Set `options.keep` to `true` to make a copy instead of moving the data.
      *
      * @param {ArrayBuffer} data the data to be stored
      * @param {Object} [options=null]
-     * @param {Boolean} [options.shareable=false] create datahandle that can be shared outside this session
+     * @param {Boolean} [options.shareable=false] create data handle that can be shared outside this session
      * @param {Boolean} [options.keep=false] if true, keep the data intact (do not detach buffer)
      * @returns {Promise<DataHandle>} return promise for the handle
      * @tutorial 2_9_data
