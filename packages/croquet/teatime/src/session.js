@@ -287,6 +287,9 @@ export class Session {
             data: {
                 store: (data, dataOpts) => Data.store(data, {...dataOpts, sessionId: session.id}),
                 fetch: (handle, dataOpts) => Data.fetch(handle, {...dataOpts, sessionId: session.id}),
+                hash: data => Data.hash(data),
+                toId: handle => Data.toId(handle),
+                fromId: id => Data.fromId(id),
             },
             get latency() { return controller.latency; },
             get latencies() { return controller.latencies; },

@@ -91,7 +91,7 @@ class Data {
      * this.publish("set-file", handle);
      * @public
      */
-    async store() {/* dummy */ }
+    async store() { throw Error("Data.store() needs to be called from session.data"); }
 
     /**
      * Fetch data for a given data handle
@@ -104,7 +104,7 @@ class Data {
      * const arrayBuffer = await this.session.data.fetch(handle);
      * @public
      */
-    async fetch() { /* dummy */ }
+    async fetch() { throw Error("Data.fetch() needs to be called from session.data"); }
 
     static async store(data, options, deprecatedKeep) {
         if (VirtualMachine.hasCurrent()) throw Error("Croquet.Data.store() called from Model code");
