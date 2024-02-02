@@ -1,5 +1,5 @@
 Copyright © 2024 Croquet Corporation
-💡
+
 Croquet offers secure bulk data storage service for apps. A Croquet application can upload a file, typically media content or a document file, to the Croquet file server. The `store()` function returns a *data handle* that can be sent to replicated models in a Croquet message, and then other participants can `fetch()` the stored data. Off-loading the actual bits of data to a file server and keeping only its meta data in the model is a lot more efficient than trying to send that data via `publish`/`subscribe`. It also allows caching.
 
 Just like snapshots and persistent data, data uploaded via the Data API is end-to-end encrypted with the session password. That means it can only be decoded from within the session.
