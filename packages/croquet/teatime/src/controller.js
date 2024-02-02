@@ -208,16 +208,23 @@ let UploadJobs = 0;
 
 const Controllers = new Set();
 
-export function sessionProps(sessionId) {
+export function sessionProps(sessionId="") {
+    let found = null;
     for (const controller of Controllers) {
+        if (!found) found = controller;
         if (controller.id === sessionId) {
-            const { appId, persistentId } = controller.sessionSpec;
-            return {
-                appId, persistentId,
-                uploadEncrypted: opts => controller.uploadEncrypted(opts),
-                downloadEncrypted: opts => controller.downloadEncrypted(opts),
-            };
+            found = controller;
+            break;
         }
+    }
+    if (found) {
+        const { appId, persistentId } = found.sessionSpec;
+        return {
+            appId, persistentId,
+            key: found.key,
+            uploadEncrypted: opts => found.uploadEncrypted(opts),
+            downloadEncrypted: opts => found.downloadEncrypted(opts),
+        };
     }
     return {};
 }
