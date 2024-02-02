@@ -716,6 +716,8 @@ class Model {
      *         });
      *     }
      * }
+     * @tutorial 2_A_persistence
+     * @tutorial 2_9_data
      * @public
      * @param {Function} collectDataFunc - method returning information to be stored, will be stringified as JSON
      */
