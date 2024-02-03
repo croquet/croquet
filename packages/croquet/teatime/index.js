@@ -16,7 +16,7 @@ export { Messenger } from "./src/_MESSENGER_MODULE_"; // eslint-disable-line imp
 /**
  * **Published when a new user enters the session, or re-enters after being temporarily disconnected.**
  *
- * This is a model-only event, meaning views can not handle it directly (as of **0.3.1**).
+ * This is a model-only event, meaning views can not handle it directly.
  *
  * **Note:** Each `"view-join"` event is guaranteed to be followed by a [`"view-exit"`]{@link event:view-exit}
  * event when that user leaves the session, or when the session is cold-started from a persistent snapshot.
@@ -66,7 +66,7 @@ export { Messenger } from "./src/_MESSENGER_MODULE_"; // eslint-disable-line imp
 /**
  * **Published when a user leaves the session, or is disconnected.**
  *
- * This is a model-only event, meaning views can not handle it directly (as of **0.3.1**).
+ * This is a model-only event, meaning views can not handle it directly.
  *
  * This event will be published when a view tab is closed, or is disconnected due
  * to network interruption or inactivity.  A view is deemed to be inactive if
