@@ -1,4 +1,4 @@
-Copyright © 2024 Croquet Corporation
+Copyright © 2024 Croquet Labs
 
 Croquet automatically snapshots and
 restores all model data. When you leave a session and come back later,

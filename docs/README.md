@@ -7,18 +7,18 @@ Use the Navigation Panel to try our **Tutorials and guides** and **API docs**.
 Please review our [**Code of Conduct**](/conduct.html) and
 **join** our [**Developer Discord** <img alt="Discord" style="height: 1.5em" src="images/discord.png"/>](https://croquet.io/discord/)
 
--   [Quickstart](#quickstart)
--   [What is Croquet?](#what-is-croquet%3F)
--   [Main Concepts](#main-concepts)
--   [Creating a Croquet App](#creating-a-croquet-app)
--   [Models](#models)
--   [Views](#views)
--   [Events](#events)
--   [Time](#time)
--   [Snapshots](#snapshots)
--   [Random](#random)
--   [Technical FAQ](#technical-faq)
--   [Changelog](#changelog)
+* [Quickstart](#quickstart)
+* [What is Croquet?](#what-is-croquet%3F)
+* [Main Concepts](#main-concepts)
+* [Creating a Croquet App](#creating-a-croquet-app)
+* [Models](#models)
+* [Views](#views)
+* [Events](#events)
+* [Time](#time)
+* [Snapshots](#snapshots)
+* [Random](#random)
+* [Technical FAQ](#technical-faq)
+* [Changelog](#changelog)
 
 # Quickstart
 
@@ -30,22 +30,24 @@ There are 3 main ways to use Croquet:
 
 2.  **Script Tag**: Add the following inside your page's `<head>` tag, replacing `@@CROQUET_VERSION@` with the version you want:
 
-~~~~ HTML
-       &lt;meta charset="utf-8"&gt;
-       &lt;script src="https://cdn.jsdelivr.net/npm/@croquet/croquet@@CROQUET_VERSION@"&gt;&lt/script&gt;
-~~~~
+    ```HTML
+    <meta charset="utf-8">
+    <script src="https://cdn.jsdelivr.net/npm/@croquet/croquet@@CROQUET_VERSION@"></script>
+    ```
 
-This will create the `Croquet` global to access `Croquet.Model` etc.
+    This will create the `Croquet` global to access `Croquet.Model` etc.
 
-See [jsdelivr.com](https://jsdelivr.com/) for ways to link to different versions or the latest version automatically. We recommend to link to a specific version in production.
+    See [jsdelivr.com](https://jsdelivr.com/) for ways to link to different versions or the latest version automatically. We recommend to link to a specific version in production.
 
 3.  **NPM**: install the [`@croquet/croquet`](https://www.npmjs.com/package/@croquet/croquet) package:
-
-        npm install @croquet/croquet
+    ```SH
+    npm install @croquet/croquet
+    ```
 
     Then import it in your JS file:
-
-        import * as Croquet from "@croquet/croquet"
+    ```JS
+    import * as Croquet from "@croquet/croquet"
+    ```
 
     Again, make sure to specify `charset="utf-8"` for your HTML or your script tags.
 
@@ -59,9 +61,9 @@ This synchronization is largely invisible to the developer. *Creating a Croquet 
 
 Every Croquet application consists of two parts:
 
--   The **views** handle user input and output. They process all keyboard / mouse / touch events, and determine what is displayed on the screen.
+* The **views** handle user input and output. They process all keyboard / mouse / touch events, and determine what is displayed on the screen.
 
--   The **models** handle all calculation and simulation. This is where the actual work of the application takes place. The models are saved, shared, and loaded automatically.
+* The **models** handle all calculation and simulation. This is where the actual work of the application takes place. The models are saved, shared, and loaded automatically.
 
 **Models are guaranteed to always be identical for all users.** However, the views are not. Different users might be running on different hardware platforms, or might display different representations of the models.
 
@@ -81,11 +83,11 @@ Your **API Key** gives your app access to Croquet's reflectors, as well as to Cr
 
 # Creating a Croquet App
 
-To create a new a Croquet app, you define your own models and views. These classes inherit from the base classes {@link Model} and {@link View} in the `croquet` library.
+To create a new a Croquet app, you define your own models and views. These classes inherit from the base classes {@link Model} and {@link View} in the Croquet library.
 
 A simple app often only has one model and one view. In that case, the view contains all your input and output code, and the model contains all your simulation code.
 
-```
+```JS
 class MyModel extends Croquet.Model {
     init() {
         ...
@@ -105,11 +107,11 @@ class MyView extends Croquet.View {
 }
 ```
 
-You then join a session by calling {@link Session.join} and passing it your model and view classes. `Session.join` automatically connects to a nearby reflector, synchronizes your model with the models of any other users already in the same session, and starts executing.
+You then join a session by calling [Session.join()]{@link Session.join} and passing it your model and view classes. `Session.join` automatically connects to a nearby reflector, synchronizes your model with the models of any other users already in the same session, and starts executing.
 
 You do need to provide some session meta data, like your API key, an appId, session name, and a password. Below we use `autoSession`/`autoPassword` but you can instead use whatever makes most sense for your app. In the tutorials we even often use constants for all, but you should not do that in production.
 
-```
+```JS
 const apiKey = "your_api_key"; // paste from croquet.io/keys
 const appId = "com.example.myapp";
 const name = Croquet.App.autoSession();
@@ -121,9 +123,9 @@ That's it. You don't need to worry about setting up a server, or writing special
 
 # Models
 
-Croquet models are a little different from normal JavaScript classes. For one thing, instead of having a constructor, they have an [`init()`]{@link Model#init} method. `init` only executes the _very first time_ the model is instantiated within a brand new session. If you join a session that's already in progress, your model will be initialized from a snapshot instead.
+Croquet models are a little different from normal JavaScript classes. For one thing, instead of having a constructor, they have an [init()]{@link Model#init} method. `init` only executes the _very first time_ the model is instantiated within a brand new session. If you join a session that's already in progress, your model will be initialized from a snapshot instead.
 
-```
+```JS
 class MyModel extends Croquet.Model {
     init() {
         ...
@@ -132,17 +134,17 @@ class MyModel extends Croquet.Model {
 MyModel.register("MyModel");
 ```
 
-Also, every Croquet model class needs to have its static [`register()`]{@link Model.register} method called after it is defined. This registers the model class with _Croquet's_ internal class database so it can be properly stored and retrieved when a snapshot is created.
+Also, every Croquet model class needs to have its static [register()]{@link Model.register} method called after it is defined. This registers the model class with Croquet's internal class database so it can be properly stored and retrieved when a snapshot is created.
 
-The root model of your app (the one named in `Session.join()`) is instantiated automatically. If your application uses multiple models, you instantiate them by calling [`create()`]{@link Model.create} instead of `new`.
+The root model of your app (the one named in `Session.join()`) is instantiated automatically. If your application uses multiple models, you instantiate them by calling [create()]{@link Model.create} instead of `new`.
 
 See {@link Model} for the full class documentation.
 
 # Views
 
-When `Session.join()` creates the local root model and root view, it passes the view a reference to the model. This way the view can initialize itself to reflect whatever state the model may currently be in. Remember that when you join a session, your model might have been initalized by running its `init()` method, or it might have been loaded from an existing snapshot. Having direct access to the model allows the view to configure itself properly no matter how the model was initialized.
+When {@link Session.join} creates the local root model and root view, it passes the view a reference to the model. This way the view can initialize itself to reflect whatever state the model may currently be in. Remember that when you join a session, your model might have been initalized by running its `init()` method, or it might have been loaded from an existing snapshot. Having direct access to the model allows the view to configure itself properly no matter how the model was initialized.
 
-```
+```JS
 class MyView extends Croquet.View {
     constructor(model) {
         super(model);
@@ -157,7 +159,7 @@ class MyView extends Croquet.View {
 
 This illustrates an important feature of Croquet: **A view can read directly from a model at any time.** A view doesn't need to receive an event from a model to update itself. It can just pull whatever data it needs directly from the model whenever it wants. (Of course, a view must never _write_ directly to a model, because that would break synchronization.)
 
-The root view's [`update()`]{@link View#update} method is called automatically for every animation frame (usually 60 times a second). This allows the view to continually refresh itself, which is useful for continuous animation (as opposed to updating only when an event is received). Internally this uses a callback via the browser's `requestAnimationFrame` function, and the callback timestamp is passed as `update(timestamp)`.
+The root view's [update()]{@link View#update} method is called automatically for every animation frame (usually 60 times a second). This allows the view to continually refresh itself, which is useful for continuous animation (as opposed to updating only when an event is received). Internally this uses a callback via the browser's `requestAnimationFrame` function, and the callback timestamp is passed as `update(timestamp)`.
 
 If your app uses hierarchical views, your root view's `update` method needs to call all other views' `update`.
 
@@ -169,45 +171,41 @@ Even though views can read directly from models, the only way for a view to inte
 
 To send an event, call `publish()`:
 
-```
-publish(scope, event, data)
-```
+    this.publish(scope, event, data)
 
--   _Scope_ is a namespace so you can use the same event in different contexts.
--   _Event_ is the name of the event itself.
--   _Data_ is an optional data object containing addtional information.
+* _Scope_ is a namespace so you can use the same event in different contexts.
+* _Event_ is the name of the event itself.
+* _Data_ is an optional data object containing addtional information.
 
 And to receive an event, call `subscribe()`:
 
-```
-subscribe(scope, event, this.handler)
-```
+    this.subscribe(scope, event, this.handler)
 
--   _Scope_ is a namespace so you can use the same event in different contexts.
--   _Event_ is the name of the event itself.
--   _Handler_ is the method that will be called when the event is published. (The handler accepts the data object as an argument.)
+* _Scope_ is a namespace so you can use the same event in different contexts.
+* _Event_ is the name of the event itself.
+* _Handler_ is the method that will be called when the event is published. (The handler accepts the data object as an argument.)
 
 An event is routed automatically based on who publishes and who subscribes to it:
 
-**_Input events_ (published by a view and handled by a model) are sent to every replica of the model in your current session.**
+**_Input events_ ([published]{@link View#publish} by a view and [handled]{@link Model#subscribe} by a model) are sent to every replica of the model in your current session.**
 
 By sending view-to-model events to each participant, Croquet ensures that all replicas of the model stay in sync. All replicas of the model receive exactly the same stream of events in exactly the same order.
 
-**_Output events_ (published by a model and handled by a view) are generated by each replica simultaneously and do not require a network roundtrip. Typically they are queued and handled before each frame is rendered.**
+**_Output events_ ([published]{@link Model#publish} by a model and [handled]{@link View#subscribe} by a view) are generated by each replica simultaneously and do not require a network roundtrip. Typically they are queued and handled before each frame is rendered.**
 
 This is to ensure a strict separation between model code execution and view code execution. The model code must be executed precisely the same for every user to stay in sync, no matter if there are views subscribed on that user's machine or not. All event handlers are executed before invoking `update()`.
 
-**_Model events_ (published by a model and handled by a model) are generated and handled by each replica locally. They are not sent via the network. Event handlers are invoked synchronously during publish.**
+**_Model events_ ([published]{@link Model#publish} by a model and [handled]{@link Model#subscribe} by a model) are generated and handled by each replica locally. They are not sent via the network. Event handlers are invoked synchronously during publish.**
 
 This allows you to use pub/sub inside of your model, if that makes sense for your app. It is equivalent to calling another model's method directly.
 
-**_View events_ (published by a view and handled by a view) are also generated and handled locally. They are not sent via the network. Typically they are queued and handled before each frame is rendered.**
+**_View events_ ([published]{@link View#publish} by a view and [handled]{@link View#subscribe} by a view) are also generated and handled locally. They are not sent via the network. Typically they are queued and handled before each frame is rendered.**
 
 Again, this allows you to use pub/sub inside your view. It is *not* a way to communicate between different clients, for that, both clients need to communicate with the shared model.
 
 Both models and views can subscribe to the same event. This can be used to implement immediate user feedback: the local view can update itself by listening to the same input event it is sending via the reflector to the model, anticipating what will happen once the event comes back from the reflector. Care has to be taken to handle the case that another event arrives in the mean time.
 
-There are also two special events that are generated by the system itself: `view-join` and `view-exit`. These are broadcast whenever a user joins or leaves a session.
+There are also two special events that are generated by the system itself: ["view-join"]{@link event:view-join} and ["view-exit"]{@link event:view-exit}. These are broadcast whenever a user joins or leaves a session.
 
 # Time
 
@@ -215,13 +213,13 @@ Models have no concept of real-world time. All they know about is **simulation t
 
 Every event that passes through the reflector is timestamped. The simulation time in the model is advanced up to the last event it received. This allows different replicas of the model to stay in sync even if their local real-world clocks diverge.
 
-Calling `this.now()` will return the current simulation time.
+Calling [this.now()]{@link Model#now} will return the current simulation time.
 
 In addition to normal events, the reflector also sends out a regular stream of **heartbeat ticks**. Heartbeat ticks advance the model's simulation time even if no view is sending any events. By default the reflector sends out heartbeat ticks 20 times a second, but you can change the frequency at session start.
 
-The method `this.future()` can be used to schedule an event in the future. For example, if you wanted to create an animation routine in a model that executes every 100 milliseconds of simulation time, it would look like this:
+The method [future()]{@link Model#future} can be used to schedule an event in the future. For example, if you wanted to create an animation routine in a model that executes every 100 milliseconds of simulation time, it would look like this:
 
-```
+```JS
 step() {
     // ... do some stuff ...
     this.future(100).step();
@@ -230,13 +228,13 @@ step() {
 
 Note that the ticks-per-second rate of the reflector is independent of the future interval used by your models. Individual models may use different future times.
 
-# Snapshots
+# Snapshots & Persistence
 
 Snapshots are copies of the model that are saved to the cloud. When your Croquet application is running, the reflector will periodically tell it to perform a snapshot.
 
-Snapshots are used to synchronize other users when they join a session that's already in progress. But they also provide automatic save functionality. If you quit or reload while your application is running, it will automatically reload the last snapshot when the application restarts.
+Snapshots are used to synchronize other users when they join a session that's already in progress. They also provide automatic save functionality. If you quit or reload while your application is running, it will automatically reload the last snapshot when the application restarts. _However_, snapshots are only valid until you upldate the application code. Use [explicit persistence]{@link Model#persistSession} to preserve long-lived user data.
 
-Automatic snapshotting is the reason your model state needs to be stored as object properties, as opposed to a more functional style. All the properties of your model objects are serialized automatically (except those whose names start with a dollar sign like `this.$foo`). JavaScript can not serialize functions, and does not provide access to closure variables, so these cannot be used to hold model state. The view code has no such restrictions, you can use any style you like, object-oriented or not.
+Automatic snapshotting is the reason your model state needs to be stored as object properties, as opposed to a more functional style. All the properties of your model objects are serialized automatically (except those whose names start with a dollar sign like `this.$foo`). JavaScript can not serialize functions, and does not provide access to closure variables, so these cannot be used to hold model state (see {@link Model.types} for what types are supported out-of-the-box by the Croquet snapshot mechanism, and how to add support for custom types). The view code has no such restrictions, you can use any style you like, object-oriented or not.
 
 _Note: The snapshot code is currently unoptimized, so you may experience a performance hitch when the snapshot is taken. The Croquet team is working to resolve this issue and make snapshots invisible to both user and developer, but for the time being your application may occasionally pause if your model is very large._
 
@@ -264,38 +262,38 @@ We last updated this information on 2023-05-02.
 
 # Changelog
 
-| date       | item                                                                                                                                                                                                                                                                                                   |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| date       | item                                                                                                    |
+| ---------- |-------------------------------------------------------------------------------------------------------- |
 | 2024-02-05 | **release 1.1.0** (bug fixes, optimizations, Node.js support, `BigInt` support, added secure [Persistence]{@tutorial 2_A_persistence} and [Bulk Data]{@tutorial 2_9_data} APIs, added [Model.cancelFuture]{@Link Model#cancelFuture}, [Model.evaluate]{@link Model.evaluate}, [View.session]{@link View#session}, `debug=write,offline` and `viewOptions` for [Session.join]{@link Session.join}, also [Model.unsubscribe]{@link Model#unsubscribe} and [View.unsubscribe]{@link View#unsubscribe} can take a handler arg) |
-| 2021-11-25 | **release 1.0.5** (bug fixes, better error reporting, works on insecure origin)                                                                                                                                                                                                                        |
-| 2021-08-24 | **release 1.0.4** (stricter Session parameter checks)                                                                                                                                                                                                                                                  |
-| 2021-08-23 | **release 1.0.3** (bug fixes; require [API key](https://croquet.io/keys/), warn about `Date` usage in model code, event rate limit)                                                                                                                                                                    |
+| 2021-11-25 | **release 1.0.5** (bug fixes, better error reporting, works on insecure origin)                         |
+| 2021-08-24 | **release 1.0.4** (stricter Session parameter checks)                                                   |
+| 2021-08-23 | **release 1.0.3** (bug fixes; require [API key](https://croquet.io/keys/), warn about `Date` usage in model code, event rate limit) |
 | 2021-05-18 | **release 0.5.0** (bug fixes; [seamless rejoin]{@link Session.join} with default `rejoinLimit` of 1000ms, [`autoSession` / `autoPassword`]{@tutorial 2_2_writing_a_croquet_app} are `async` now; added [`viewCount`]{@link Model#viewCount} and [`static wellKnownModel`]{@link Model.wellKnownModel}) |
-| 2020-11-20 | **release 0.4.0** (bug fixes; enable encryption, {@link Session.join} takes named args, {@link Model.register} requires class id, [getModel()]{@link Model#getModel} and [extrapolatedNow()]{@link View#extrapolatedNow} added, removed wellKnownName arg from {@link Model.create})                   |
-| 2020-09-03 | **release 0.3.3** (bug fixes; `session.leave()` returns promise, support for virtual-dom)                                                                                                                                                                                                              |
-| 2020-08-21 | **release 0.3.2** (bug fixes; much faster session creation)                                                                                                                                                                                                                                            |
-| 2020-06-08 | **release 0.3.1** (bug fixes; [`"view-join"`]{@link event:view-join} and [`"view-exit"`]{@link event:view-exit} events are now model-only)                                                                                                                                                             |
-| 2020-05-18 | **release 0.3.0** (bug fixes; [Session.join]{@link Session.join} instead of `startSession`, adds `session.leave()`, `future` message arguments are passed by identity, not copied anymore)                                                                                                             |
-| 2020-03-24 | **release 0.2.7** (bug fixes; [startSession]{@link Session.join} supports passing `options` to root model's [init]{@link Model#init}, message replay no longer visible to app)                                                                                                                         |
-| 2019-12-12 | **release 0.2.6** (bug fixes; works on MS Edge)                                                                                                                                                                                                                                                        |
-| 2019-10-18 | **release 0.2.5** (bug fixes; new widget API) version aligned with npm                                                                                                                                                                                                                                 |
-| 2019-10-01 | **release 0.2.2** (bug fixes; updated qr-code support)                                                                                                                                                                                                                                                 |
-| 2019-09-13 | **release 0.2.1** (bug fixes)                                                                                                                                                                                                                                                                          |
-| 2019-09-05 | **release 0.2.0** (scalable reflector fleet, fully persistent sessions)                                                                                                                                                                                                                                |
-| 2019-08-14 | **release 0.1.9** (bug fixes; automatic reflector selection)                                                                                                                                                                                                                                           |
-| 2019-07-24 | **release 0.1.8** (bug fixes)                                                                                                                                                                                                                                                                          |
-| 2019-07-24 | **release 0.1.7** (bug fixes; reverted to 0.1.6 due to instabilities)                                                                                                                                                                                                                                  |
-| 2019-07-23 | new US east coast reflector available in [startSession]{@link Session.join}                                                                                                                                                                                                                            |
-| 2019-07-18 | **release 0.1.6** (bug fixes; documentation updates;<br/>inactive clients will now be disconnected after 10 seconds)                                                                                                                                                                                   |
-| 2019-07-10 | **release 0.1.5** (bug fixes)                                                                                                                                                                                                                                                                          |
-| 2019-07-09 | **release 0.1.4** (bug fixes)                                                                                                                                                                                                                                                                          |
-| 2019-07-09 | tutorial fleshed out: {@tutorial 1_5_3d_animation}                                                                                                                                                                                                                                                     |
-| 2019-07-06 | new tutorial: {@tutorial 1_4_view_smoothing}                                                                                                                                                                                                                                                           |
-| 2019-07-01 | **release 0.1.3** (bug fixes; add 5-letter moniker to session badge)                                                                                                                                                                                                                                   |
-| 2019-06-29 | **release 0.1.2** (bug fixes)                                                                                                                                                                                                                                                                          |
-| 2019-06-28 | **release 0.1.1** (bug fixes)                                                                                                                                                                                                                                                                          |
-| 2019-06-27 | docs: [View.subscribe]{@link View#subscribe}, [startSession]{@link Session.join}                                                                                                                                                                                                                       |
-| 2019-06-26 | **release 0.1.0**                                                                                                                                                                                                                                                                                      |
+| 2020-11-20 | **release 0.4.0** (bug fixes; enable encryption, {@link Session.join} takes named args, {@link Model.register} requires class id, [getModel()]{@link Model#getModel} and [extrapolatedNow()]{@link View#extrapolatedNow} added, removed wellKnownName arg from {@link Model.create})            |
+| 2020-09-03 | **release 0.3.3** (bug fixes; `session.leave()` returns promise, support for virtual-dom)               |
+| 2020-08-21 | **release 0.3.2** (bug fixes; much faster session  creation)                                            |
+| 2020-06-08 | **release 0.3.1** (bug fixes; [`"view-join"`]{@link event:view-join} and [`"view-exit"`]{@link event:view-exit} events are now model-only) |
+| 2020-05-18 | **release 0.3.0** (bug fixes; [Session.join]{@link Session.join} instead of `startSession`, adds `session.leave()`, `future` message arguments are passed by identity, not copied anymore) |
+| 2020-03-24 | **release 0.2.7** (bug fixes; [startSession]{@link Session.join} supports passing `options` to root model's [init]{@link Model#init}, message replay no longer visible to app) |
+| 2019-12-12 | **release 0.2.6** (bug fixes; works on MS Edge)                                                         |
+| 2019-10-18 | **release 0.2.5** (bug fixes; new widget API) version aligned with npm                                  |
+| 2019-10-01 | **release 0.2.2** (bug fixes; updated qr-code support)                                                  |
+| 2019-09-13 | **release 0.2.1** (bug fixes)                                                                           |
+| 2019-09-05 | **release 0.2.0** (scalable reflector fleet, fully persistent sessions)                                 |
+| 2019-08-14 | **release 0.1.9** (bug fixes; automatic reflector selection)                                            |
+| 2019-07-24 | **release 0.1.8** (bug fixes)                                                                           |
+| 2019-07-24 | **release 0.1.7** (bug fixes; reverted to 0.1.6 due to instabilities)                                   |
+| 2019-07-23 | new US east coast reflector available in [startSession]{@link Session.join}                             |
+| 2019-07-18 | **release 0.1.6** (bug fixes; documentation updates;<br/>inactive clients will now be disconnected after 10 seconds) |
+| 2019-07-10 | **release 0.1.5** (bug fixes)                                                                           |
+| 2019-07-09 | **release 0.1.4** (bug fixes)                                                                           |
+| 2019-07-09 | tutorial fleshed out: {@tutorial 1_5_3d_animation}                                                      |
+| 2019-07-06 | new tutorial: {@tutorial 1_4_view_smoothing}                                                            |
+| 2019-07-01 | **release 0.1.3** (bug fixes; add 5-letter moniker to session badge)                                    |
+| 2019-06-29 | **release 0.1.2** (bug fixes)                                                                           |
+| 2019-06-28 | **release 0.1.1** (bug fixes)                                                                           |
+| 2019-06-27 | docs: [View.subscribe]{@link View#subscribe}, [startSession]{@link Session.join}                        |
+| 2019-06-26 | **release 0.1.0**                                                                                       |
 
 Copyright © 2019-2023 Croquet Corporation
 
