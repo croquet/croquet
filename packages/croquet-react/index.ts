@@ -271,7 +271,7 @@ class CroquetReactView extends View {
  * }
  * ```
  */
-export function InCroquetSession(params:CroquetReactSessionParameters):JSX.Element {
+export function InCroquetSession(params:CroquetReactSessionParameters):JSX.Element|null {
     const children = params.children;
     const [croquetContext, setCroquetContext] = useState<
         CroquetSession<CroquetReactView> | undefined>(undefined);
