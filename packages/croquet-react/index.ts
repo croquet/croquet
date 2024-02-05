@@ -355,7 +355,7 @@ export function createCroquetSession(params:CroquetReactSessionParameters) {
 /** CroquetRoot component implements the default implementation of the logic described for createCroquetSession function.
 */
 
-export function CroquetRoot(props:any) {
+export function CroquetRoot(props:any):JSX.Element|null {
     const [croquetSession, setCroquetSession] = useState<object | null>(null);
     const [croquetView, setCroquetView] = useState<CroquetReactView|null>(null);
     const [croquetReady, setCroquetReady] = useState<boolean>(false);
