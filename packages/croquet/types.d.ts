@@ -703,6 +703,14 @@ declare module "@croquet/croquet" {
          * ```
          */
         wellKnownModel<M extends Model>(name: string): Model | undefined;
+
+        /** Access the session object.
+         *
+         * Note: The view instance may be taken down and reconstructed during the lifetime of a session. the `view` property of the session may differ from `this`, when you store the view instance in our data structure outside of Croquet and access it sometime later.
+         * @public
+         */
+
+        get session(): CroquetSession<View>;
     }
 
     /** helper that traverses a dummy object and gathers all object classes,
