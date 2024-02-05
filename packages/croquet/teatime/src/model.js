@@ -231,9 +231,11 @@ class Model {
      * - `RegExp`: this has built-in state that can not be introspected and recreated in JS.
      * - `Function`: there is no generic way to serialize functions because closures can not be introspected in JS.
      *    Even just for the source code, browsers differ in how they convert functions to strings.
-     *    Either wrap the source and function in a custom type (where `read` would compile the source saved by `write`),
+     *    If you need to store functions in the model (e.g. for live coding),
+     *    either wrap the source and function in a custom type (where `read` would compile the source saved by `write`),
      *    or store the source in a regular property, the function in a dollar property,
-     *    and have an accessor that recreates the function lazily when needed.
+     *    and have an accessor that compiles the function lazily when needed.
+     *    (see the source of [croquet.io/live]{@link https://croquet.io/live/} for a simple live-coding example)
      *
      * @example <caption>To use the default serializer just declare the class:</caption>
      * class MyModel extends Croquet.Model {
