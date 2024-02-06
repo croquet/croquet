@@ -726,6 +726,8 @@ declare module "@croquet/croquet" {
         data: {
             fetch: (handle: DataHandle) => Promise<ArrayBuffer>,
             store: (data: ArrayBuffer, options?: { shareable?: boolean, keep?: boolean }) => Promise<DataHandle>
+            toId: (handle: DataHandle) => string,
+            fromId: (id: string) => DataHandle,
         }
     }
 
