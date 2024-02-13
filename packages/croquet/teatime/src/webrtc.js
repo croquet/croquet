@@ -49,51 +49,53 @@ export class CroquetWebRTCConnection {
     }
 
     async openConnection(registryURL) {
-        await this.openSignalingChannel(registryURL); // will never resolve if open fails
-        console.log(`${this.clientId} signaling channel opened`);
-        if (this.onopen) this.onopen(); // tell the controller that it has a socket (though not yet a connection to the reflector)
-        await this.createPeerConnection();
-        console.log(`${this.clientId} peer channel created`);
+        try {
+            await this.openSignalingChannel(registryURL); // will never resolve if open fails
+            console.log(`${this.clientId} signaling channel opened`);
+            if (this.onopen) this.onopen(); // tell the controller that it has a socket (though not yet a connection to the reflector)
+            await this.createPeerConnection();
+            console.log(`${this.clientId} peer channel created`);
 
-        this.dataChannel = this.pc.createDataChannel(`client-${this.clientId}`);
-        console.log(`${this.clientId} data channel created`);
-        this.dataChannel.onopen = evt => this.onDataChannelOpen(evt);
-        this.dataChannel.onmessage = evt => this.onDataChannelMessage(evt);
-        this.dataChannel.onclosing = evt => this.onDataChannelClosing(evt);
-        this.dataChannel.onclose = evt => this.onDataChannelClose(evt);
-        this.dataChannel.onerror = evt => this.onDataChannelError(evt);
+            this.dataChannel = this.pc.createDataChannel(`client-${this.clientId}`);
+            console.log(`${this.clientId} data channel created`);
+            this.dataChannel.onopen = evt => this.onDataChannelOpen(evt);
+            this.dataChannel.onmessage = evt => this.onDataChannelMessage(evt);
+            this.dataChannel.onclosing = evt => this.onDataChannelClosing(evt);
+            this.dataChannel.onclose = evt => this.onDataChannelClose(evt);
+            this.dataChannel.onerror = evt => this.onDataChannelError(evt);
 
-        const offer = await this.pc.createOffer();
-        if (this.signaling?.readyState !== WebSocket.OPEN) return; // already lost the connection
+            const offer = await this.pc.createOffer();
+            if (this.signaling?.readyState !== WebSocket.OPEN) return; // already lost the connection
 
-        // set a deadline by which we expect to have completed ICE negotiation
-        // and started using the data channel.  if the deadline passes, we tell
-        // the controller to scrap the connection altogether and try again.
-        this.negotiationTimeout = setTimeout(() => {
-            delete this.negotiationTimeout;
-            this.reflectorDisconnected(1006, "ICE negotiation timed out");
-        }, NEGOTIATION_FAILED_DELAY);
+            // set a deadline by which we expect to have completed ICE negotiation
+            // and started using the data channel.  if the deadline passes, we tell
+            // the controller to scrap the connection altogether and try again.
+            this.negotiationTimeout = setTimeout(() => {
+                delete this.negotiationTimeout;
+                this.reflectorDisconnected(1006, "ICE negotiation timed out");
+            }, NEGOTIATION_FAILED_DELAY);
 
-        this.signalToRegistry({ type: 'offer', sdp: offer.sdp });
-        await this.pc.setLocalDescription(offer);
+            this.signalToRegistry({ type: 'offer', sdp: offer.sdp });
+            await this.pc.setLocalDescription(offer);
 
-        // for some reason, the sctp property of the connection isn't set immediately
-        // in createDataChannel... but after the calls above it seems to be reliably there.
-        // ...except in Firefox.  Firefox just doesn't implement this stuff like the others.
-        if (!this.pc.sctp) return; // probably Firefox
+            // for some reason, the sctp property of the connection isn't set immediately
+            // in createDataChannel... but after the calls above it seems to be reliably there.
+            // ...except in Firefox.  Firefox just doesn't implement this stuff like the others.
+            if (!this.pc.sctp) return; // probably Firefox
 
-        // it also turns out that - at least in Chrome - the end of negotiation (signalled by
-        // dataChannel's open event) happens some time before the transport's selected-pair
-        // property is updated with the final choice.  so we watch all the choices as they're
-        // made, whatever the current connection state.
-        const iceTransport = this.pc.sctp.transport.iceTransport;
-        iceTransport.onselectedcandidatepairchange = e => {
-            console.log(`${this.clientId} ICE candidate pair changed`);
-            const pair = iceTransport.getSelectedCandidatePair();
-            this.connectionTypes.local = pair.local.type;
-            this.connectionTypes.remote = pair.remote.type;
-            this.logConnectionState();
-        };
+            // it also turns out that - at least in Chrome - the end of negotiation (signalled by
+            // dataChannel's open event) happens some time before the transport's selected-pair
+            // property is updated with the final choice.  so we watch all the choices as they're
+            // made, whatever the current connection state.
+            const iceTransport = this.pc.sctp.transport.iceTransport;
+            iceTransport.onselectedcandidatepairchange = e => {
+                console.log(`${this.clientId} ICE candidate pair changed`);
+                const pair = iceTransport.getSelectedCandidatePair();
+                this.connectionTypes.local = pair.local.type;
+                this.connectionTypes.remote = pair.remote.type;
+                this.logConnectionState();
+            };
+        } catch (e) { this.reflectorDisconnected(4000, e.message); }
     }
 
     openSignalingChannel(registryURL) {
@@ -104,6 +106,8 @@ export class CroquetWebRTCConnection {
 
         this.reflectorGatheringComplete = false;
         this.localGatheringComplete = false;
+        this.signalingCloseScheduled = false;
+        this.signalingKey = Math.random(); // so we don't get confused by multiple openings and closings
 
         return new Promise(resolve => {
             this.signaling = new WebSocket(registryURL);
@@ -333,9 +337,20 @@ export class CroquetWebRTCConnection {
         // to guarantee that the reflector has this channel in its server.clients
         // and therefore won't kill the entire peer connection when the signalling
         // shuts down.
-        if (this.signaling && this.reflectorGatheringComplete && this.localGatheringComplete) {
-            console.log(`${this.clientId} closing signaling channel`);
-            this.closeSignalingChannel();
+        // because Chrome, at least, has a habit of choosing a candidate pair
+        // early then switching later, we delay this handling by 1 second to
+        // increase the probability that ICE has indeed fully settled.
+        if (!this.signalingCloseScheduled && this.reflectorGatheringComplete && this.localGatheringComplete) {
+            this.signalingCloseScheduled = true;
+            this.clearNegotiationTimeout(); // negotiation has successfully completed
+            console.log(`${this.clientId} signaling channel closure scheduled`);
+            const { signalingKey } = this;
+            setTimeout(() => {
+                if (signalingKey === this.signalingKey) {
+                    console.log(`${this.clientId} closing signaling channel`);
+                    this.closeSignalingChannel();
+                }
+            }, 1000);
         }
 
         const msg = event.data;
