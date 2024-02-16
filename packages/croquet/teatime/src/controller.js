@@ -208,6 +208,12 @@ let UploadJobs = 0;
 
 const Controllers = new Set();
 
+// for debugging: make controller accessible as CROQUETVD.controller
+Object.defineProperty(viewDomain, "controller", {
+    get() { return this.controllers.values().next().value; }
+});
+viewDomain.controllers = Controllers;
+
 export function sessionProps(sessionId="") {
     let found = null;
     for (const controller of Controllers) {
