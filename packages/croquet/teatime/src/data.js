@@ -108,8 +108,8 @@ class Data {
 
     static async store(data, options, deprecatedKeep) {
         if (VirtualMachine.hasCurrent()) throw Error("Croquet.Data.store() called from Model code");
-        // signature used to be (sessionId, data, keep)
         let sessionId, shareable, keep;
+        // signature used to be (sessionId, data, optionalKeep) and only shareable
         if (typeof data === "string") {
             sessionId = data;
             data = options;
@@ -139,9 +139,9 @@ class Data {
     }
 
     static async fetch(handle, options) {
-        // signature used to be (sessionId, handle)
         let sessionId;
-        if (typeof options === "string") {
+        // signature used to be (sessionId, handle)
+        if (options && options[DATAHANDLE_URL]) {
             sessionId = handle;
             handle = options;
         } else {
