@@ -16,7 +16,7 @@
     "encoding": "utf8",
     "recurse": false,
     "verbose": true,
-    "destination": "../build/croquet",
+    "destination": "../dist/croquet",
     "mainpagetitle": "Croquet @CROQUET_VERSION@",
     "theme_opts": {
         "theme": "light",
