@@ -1,3 +1,5 @@
+/* eslint-disable object-shorthand */
+/* eslint-disable prefer-arrow-callback */
 // when running on node, 'ws' is the actual web socket module
 // when running in browser, 'ws' is our own './ws.js'
 // (in-browser mode is not supported right now)
@@ -22,7 +24,8 @@ const ARGS = {
     HTTPS: "--https",
     NO_LOGTIME: "--no-logtime",
     NO_LOGLATENCY: "--no-loglatency",
-    TIME_STABILIZED: "--time-stabilized"
+    TIME_STABILIZED: "--time-stabilized",
+    DEPIN: "--depin", // optionally followed by DePIN Registry arg, e.g. --depin localhost:8787
 };
 
 for (const arg of process.argv.slice(2)) {
@@ -45,6 +48,13 @@ const STORE_PERSISTENT_DATA = !NO_STORAGE;
 const NO_LOGTIME = process.argv.includes(ARGS.NO_LOGTIME); // don't prepend the time to each log even when running locally
 const PER_MESSAGE_LATENCY = !process.argv.includes(ARGS.NO_LOGLATENCY); // log latency of each message
 const TIME_STABILIZED = process.argv.includes(ARGS.TIME_STABILIZED); // watch for jumps in Date.now and use them to rescale performance.now (needed for Docker standalone)
+let DEPIN = process.argv.includes(ARGS.DEPIN);
+if (DEPIN) {
+    const depinArg = process.argv[process.argv.indexOf(ARGS.DEPIN) + 1];
+    if (depinArg && !depinArg.startsWith('-')) {
+        DEPIN = depinArg;
+    }
+}
 
 // do not show pre 1.0 warning if these strings appear in session name or url
 const SPECIAL_CUSTOMERS = [
@@ -91,23 +101,23 @@ const LATENCY_BUCKETS = [
 
 // collect metrics in Prometheus format
 const prometheusConnectionGauge = new prometheus.Gauge({
-    name: 'reflector_connections',
-    help: 'The number of client connections to the reflector.'
+    name: 'synchronizer_connections',
+    help: 'The number of client connections to the synchronizer.'
 });
 const prometheusSessionGauge = new prometheus.Gauge({
-    name: 'reflector_sessions',
-    help: 'The number of concurrent sessions on reflector.'
+    name: 'synchronizer_sessions',
+    help: 'The number of concurrent sessions on synchronizer.'
 });
 const prometheusMessagesCounter = new prometheus.Counter({
-    name: 'reflector_messages',
+    name: 'synchronizer_messages',
     help: 'The number of messages received.'
 });
 const prometheusTicksCounter = new prometheus.Counter({
-    name: 'reflector_ticks',
+    name: 'synchronizer_ticks',
     help: 'The number of ticks generated.'
 });
 const prometheusLatencyHistogram = new prometheus.Histogram({
-    name: 'reflector_latency',
+    name: 'synchronizer_latency',
     help: 'Latency measurements in milliseconds.',
     buckets: LATENCY_BUCKETS,
 });
@@ -115,7 +125,7 @@ prometheus.collectDefaultMetrics(); // default metrics like process start time, 
 
 const PORT = 9090;
 const VERSION = "v1";
-const SERVER_HEADER = `croquet-reflector-${VERSION}`;
+const SERVER_HEADER = `croquet-synchronizer-${VERSION}`;
 const DELETION_DEBOUNCE = 10000; // time in ms to wait before deleting an island
 const TICK_MS = 1000 / 5;     // default tick interval
 const INITIAL_SEQ = 0xFFFFFFF0; // initial sequence number, must match island.js
@@ -131,7 +141,7 @@ const USERS_INTERVAL = 200;   // time to gather user entries/exits before sendin
 
 // if running locally, there is the option to run with or without using the session-
 // related storage (for snapshots, dispatcher records etc).
-// if "localWithStorage" is chosen, the reflector itself will create a dummy dispatcher
+// if "localWithStorage" is chosen, the synchronizer itself will create a dummy dispatcher
 // record the first time it sees a session, and will delete it when the session is
 // offloaded.
 const LOCAL_CONFIG = NO_STORAGE ? "local" : "localWithStorage"; // todo: remove localWithStorage and use NO_STORAGE instead
@@ -150,8 +160,6 @@ if (!CLUSTER) {
 
 const DISCONNECT_UNRESPONSIVE_CLIENTS = !CLUSTER_IS_LOCAL;
 const CHECK_INTERVAL = 5000;        // how often to checkForActivity
-const PING_INTERVAL = 5000;         // while inactive, send pings at this rate
-const SNAP_TIMEOUT = 30000;         // if no SNAP received after waiting this number of ms, disconnect
 const PING_THRESHOLD = 35000;       // if a pre-background-aware client is not heard from for this long, start pinging
 const DISCONNECT_THRESHOLD = 60000; // if not responding for this long, disconnect
 const DISPATCH_RECORD_RETENTION = 5000; // how long we must wait to delete a dispatch record (set on the bucket)
@@ -192,9 +200,8 @@ const empty_logger = pino({
 // properties in the JSON which causes problems in StackDriver
 // (e.g. {scope: "session", scope: "connection"} arrives as {scope: "connect"})
 const global_logger = empty_logger.child({ scope: "process", hostIp: HOSTIP });
-
 // Logging out the initial start-up event message
-global_logger.notice({ event: "start" }, `reflector started ${CLUSTER_LABEL} ${HOSTIP}`);
+global_logger.notice({ event: "start" }, `synchronizer started ${CLUSTER_LABEL} ${HOSTIP}`);
 
 // secret shared with sign cloud func
 const SECRET_NAME = `projects/${GCP_PROJECT}/secrets/signurl-jwt-hs256/versions/latest`;
@@ -228,7 +235,7 @@ const REASON = {};
 REASON.UNKNOWN_SESSION = [4000, "unknown session"];
 REASON.UNRESPONSIVE = [4001, "client unresponsive"];
 REASON.INACTIVE = [4002, "client inactive"];
-REASON.RECONNECT = [4003, "please reconnect"];  // also used in cloudflare reflector
+REASON.RECONNECT = [4003, "please reconnect"];  // also used in cloudflare synchronizer
 // non-reconnect codes
 REASON.BAD_PROTOCOL = [4100, "outdated protocol"];
 REASON.BAD_APPID = [4101, "bad appId"];
@@ -238,120 +245,516 @@ REASON.UNKNOWN_ERROR = [4109, "unknown error"];
 REASON.DORMANT = [4110, "dormant"]; // sent by client, will not display error
 REASON.NO_JOIN = [4121, "client never joined"];
 
-// this webServer is only for http:// requests to the reflector url
-// (e.g. the load-balancer's health check),
-// not ws:// requests for an actual websocket connection
-let webServer;
-const webServerModule = USE_HTTPS ? require("https") : require("http");
-if (USE_HTTPS) {
-    webServer = webServerModule.createServer({
-        key: fs.readFileSync('reflector-key.pem'),
-        cert: fs.readFileSync('reflector-cert.pem'),
-    }, requestListener);
-} else {
-    webServer = webServerModule.createServer(requestListener);
-}
 
-async function requestListener(req, res) {
-    if (req.url === '/metrics') {
-        const body = await prometheus.register.metrics();
-        res.writeHead(200, {
-            'Server': SERVER_HEADER,
-            'Content-Length': body.length,
-            'Content-Type': prometheus.register.contentType,
-        });
-        return res.end(body);
-    }
-    if (req.url === '/sessions') {
-        const body = [...ALL_ISLANDS.values()].map(({id, clients, appId, name, url}) => `${id} ${clients.size} ${appId || name} ${url}\n`).join('');
-        res.writeHead(200, {
-            'Server': SERVER_HEADER,
-            'Content-Length': body.length,
-            'Content-Type': 'text/plain',
-        });
-        return res.end(body);
-    }
-    if (req.url.includes('/users/')) {
-        const id = req.url.replace(/.*\//, '');
-        const island = ALL_ISLANDS.get(id);
-        const users = (island ? [...island.clients] : []).map(client => client.user);
-        const body = JSON.stringify(users);
-        res.writeHead(200, {
-            'Server': SERVER_HEADER,
-            'Content-Length': body.length,
-            'Content-Type': 'text/json',
-        });
-        return res.end(body);
-    }
-    // we don't log any of the above or health checks
-    const is_health_check = req.url.endsWith('/healthz');
-    if (!is_health_check) global_logger.info({
-        event: "request",
-        method: req.method,
-        url: req.url,
-        headers: req.headers,
-    }, `GET ${req.url}`);
-    // otherwise, show host and cluster
-    const body = `Croquet reflector-${VERSION} ${HOSTIP} ${CLUSTER_LABEL}\n\nAh, ha, ha, ha, stayin' alive!`;
-    res.writeHead(200, {
-      "Server": SERVER_HEADER,
-      "Content-Length": body.length,
-      "Content-Type": "text/plain",
-      "X-Powered-By": "Croquet",
-      "X-Croquet-0": ":             .'\\   /`.             ",
-      "X-Croquet-1": ":           .'.-.`-'.-.`.           ",
-      "X-Croquet-2": ":      ..._:   .-. .-.   :_...      ",
-      "X-Croquet-3": ":    .'    '-.(o ) (o ).-'    `.    ",
-      "X-Croquet-4": ":   :  _    _ _`~(_)~`_ _    _  :   ",
-      "X-Croquet-5": ":  :  /:   ' .-=_   _=-. `   ;\\  :  ",
-      "X-Croquet-6": ":  :   :|-.._  '     `  _..-|:   :  ",
-      "X-Croquet-7": ":   :   `:| |`:-:-.-:-:'| |:'   :   ",
-      "X-Croquet-8": ":    `.   `.| | | | | | |.'   .'    ",
-      "X-Croquet-9": ":      `.   `-:_| | |_:-'   .'      ",
-      "X-Croquet-A": ":   jgs  `-._   ````    _.-'        ",
-      "X-Croquet-B": ":            ``-------''            ",
-      "X-Hiring": "Seems like you enjoy poking around in http headers. You might have even more fun working with us. Let us know via jobs@croquet.io!",
-      "X-Hacker-Girls": "Unite!",
+let server;
+
+// ============ DEPIN-specific initialisation ===========
+
+async function startServerForDePIN() {
+    let endpointId = ''; // will be filled in once synchronizer is running
+
+    // in advance, get the iceServers that we'll be using on all connections
+    const iceServers = [];
+    const response = await fetch(process.env.ICE_SERVERS_URL);
+    // (previous) const response = await fetch(process.env.ICE_SERVERS_URL);
+    const iceServersRaw = await response.json();
+
+    /*
+    Examples of what the node-datachannel setup is expecting
+    STUN Server Example          : stun:stun.l.google.com:19302
+    TURN Server Example          : turn:USERNAME:PASSWORD@TURN_IP_OR_ADDRESS:PORT
+    TURN Server Example (TCP)    : turn:USERNAME:PASSWORD@TURN_IP_OR_ADDRESS:PORT?transport=tcp
+    TURN Server Example (TLS)    : turns:USERNAME:PASSWORD@TURN_IP_OR_ADDRESS:PORT
+
+    ...so we need to do some transforming on this kind of response:
+    [   {"urls":"stun:stun.relay.metered.ca:80"},
+        {"urls":"turn:standard.relay.metered.ca:80","username":"d05d...f84e","credential":"b3Da...G6sI"},
+        {"urls":"turn:standard.relay.metered.ca:80?transport=tcp","username":"d05d...f84e","credential":"b3Da...G6sI"},
+        {"urls":"turn:standard.relay.metered.ca:443","username":"d05d...f84e","credential":"b3Da...G6sI"},
+        {"urls":"turns:standard.relay.metered.ca:443?transport=tcp","username":"d05d...f84e","credential":"b3Da...G6sI"}]
+    */
+    iceServersRaw.forEach(spec => {
+        if (typeof spec === "string") iceServers.push(spec);
+        else {
+            const { urls, username, credential } = spec;
+            if (!username) iceServers.push(urls);
+            else {
+                const splitUrl = urls.split(':');
+                const type = splitUrl.shift();
+                const newSpec = `${type}:${username}:${credential}@${splitUrl.join(':')}`;
+                iceServers.push(newSpec);
+            }
+        }
     });
-    return res.end(body);
-}
 
-webServer.on('upgrade', (req, socket, _head) => {
-    const { sessionId } = parseUrl(req);
-    // connection is a unique identifier used to group all log entries for this connection
-    // it is a combination of the dispatcher address, port, and a timestamp in seconds because port numbers are reused
-    const connection = `${socket.remoteAddress.replace(/^::ffff:/, '')}:${socket.remotePort}.${Math.floor(Date.now()/1000).toString(36)}`;
-    socket.connectionId = connection;
-    if (sessionId) {
-        const session = ALL_SESSIONS.get(sessionId);
-        if (session && session.stage === 'closed') {
-            // a request to delete the dispatcher record has already been sent.  reject this connection, forcing the client to ask the dispatchers again.
-            global_logger.debug({
-                event: "upgrade-rejected",
-                method: req.method,
-                url: req.url,
-                headers: req.headers,
-                sessionId,
-                connection
-            }, `rejecting socket on upgrade; session has been unregistered`);
-            socket.end('HTTP/1.1 404 Session Closed\r\n');
+    console.log(JSON.stringify(iceServers));
+
+    // note: API described at https://github.com/murat-dogan/node-datachannel/blob/c8197e28b39fd81f55818c0301995414fa877ff9/API.md
+    // also see https://github.com/murat-dogan/node-datachannel/blob/c8197e28b39fd81f55818c0301995414fa877ff9/lib/index.d.ts
+    const nodeDataChannel = await import('node-datachannel'); // can't (and in fact don't want to) use static require()
+    nodeDataChannel.initLogger('Info'); // $$$ 'Debug');
+    nodeDataChannel.preload();
+
+    // Signaling connection
+
+    // Precedence: --depin command line arg, DEPIN env var, default
+    if (typeof DEPIN !== 'string') DEPIN = process.env.DEPIN || 'wss://croquet.network/depin';
+
+    // be nice and accommodate a trailing slash, http(s)://, or missing protocol
+    if (DEPIN.endsWith('/')) DEPIN = DEPIN.slice(0, -1);
+    DEPIN = DEPIN.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
+    if (!DEPIN.startsWith('ws')) DEPIN = 'ws://' + DEPIN;
+
+    const PING_DELAY = 1000;
+    const PONG_DELAY_LIMIT = 30000; // $$$ 5000;
+
+    let signaling = null;
+    let reconnectDelay = 0;
+    const ENDPOINT_RECONNECT_DELAY_MAX = 30000;
+    const sendToEndpoint = msgObject => {
+        if (!signaling) return;
+        if (signaling.readyState !== WebSocket.OPEN) {
+            console.warn(`attempt to send ${msgObject.what} on unconnected signaling channel`);
             return;
         }
+
+        signaling.send(JSON.stringify(msgObject));
+    };
+    const signalToClient = (clientId, signalObject) => {
+        const msgObject = { id: clientId, what: "MSG", data: JSON.stringify(signalObject) };
+        sendToEndpoint(msgObject);
+    };
+    const connectToEndpoint = () => {
+        let lastMsg = Date.now();
+        let keepAliveTimeout;
+
+        function keepAlive(ms=PING_DELAY) {
+            clearTimeout(keepAliveTimeout);
+            keepAliveTimeout = setTimeout(() => {
+                if (Date.now() - lastMsg > PONG_DELAY_LIMIT) {
+                    console.log('No pong from Registry in 60 seconds, reconnecting');
+                    signaling.close();
+                    return;
+                }
+                sendToEndpoint({what: "PING"}); // endpoint looks for exactly the string '{"what":"PING"}'
+                keepAlive();
+            }, ms);
+        }
+
+        signaling = new WebSocket(`${DEPIN}/synchronizers/register?id=${endpointId}`, {
+            perMessageDeflate: false, // this was in the node-datachannel example; not sure if it's helping
+        });
+
+        signaling.on('open', () => {
+            console.log(`signaling WebSocket connected to Registry ${DEPIN}`);
+            reconnectDelay = 0;
+            lastMsg = Date.now();
+            keepAlive();
+        });
+
+        signaling.on('error', function onError(err) {
+            console.log('signaling WebSocket error: ', err);
+        });
+
+        signaling.on('message', function onMessage(depinStr) {
+            // console.log(`DePIN message: ${depinStr}`);
+            lastMsg = Date.now();
+            keepAlive();
+            const depinMsg = JSON.parse(depinStr);
+            const clientId = depinMsg.id;
+            switch (depinMsg.what) {
+                case "REGISTERED": {
+                    const id = depinMsg.endpointId;
+                    if (endpointId && endpointId !== id) throw Error(`re-registered with id ${id} instead of previous ${endpointId}`);
+
+                    console.log(`${endpointId ? 're-registered' : 'registered'} with id ${id}`);
+
+                    endpointId = id;
+                    process.parentPort.postMessage(JSON.stringify({ type: 'endpointId', id }));
+                    break;
+                }
+                case "CONNECT":
+                    console.log(`new signaling connection from client#${clientId}`);
+                    break;
+                case "DISCONNECT":
+                    console.log(`closed signaling connection from client#${clientId}`);
+                    // if the client already has a data channel, this disconnection
+                    // has probably been triggered by the client deciding that the channel
+                    // setup is now complete - so it's not a client disconnection at all.
+                    if (server.clients.get(clientId)) {
+                        // by the same token, this is likely to be a reasonable time
+                        // to report on the channel's selected ICE candidates.
+                        const peerConnection = server.peerConnections.get(clientId);
+                        if (peerConnection) console.log(JSON.stringify(peerConnection.getSelectedCandidatePair(), null, 2));
+                        return; // nothing more to do
+                    }
+
+                    // if there isn't a data channel, this might be the only disconnection
+                    // signal we'll get.  make sure to tidy up.
+                    server.removeClient(clientId);
+                    break;
+                case "MSG": {
+                    let msg;
+                    try {
+                        msg = JSON.parse(depinMsg.data);
+                    } catch (e) {
+                        console.log(`error parsing message from client#${clientId}: ${depinMsg.data}`);
+                        return;
+                    }
+                    console.log(`signaling message from client#${clientId}: ${msg.type} ${JSON.stringify({msg, type: undefined})}`);
+                    switch (msg.type) {
+                    case 'offer':
+                        createPeerConnection(clientId);
+                        server.peerConnections.get(clientId).setRemoteDescription(msg.sdp, msg.type);
+                        break;
+                    case 'candidate':
+                        // the API for PeerConnection doesn't understand empty or null candidate
+                        if (msg.candidate) {
+                            server.peerConnections.get(clientId).addRemoteCandidate(msg.candidate, msg.sdpMid);
+                        }
+                        break;
+                    default:
+                        console.warn(`unhandled signaling message type ${msg.type}`);
+                        break;
+                    }
+                    break;
+                }
+                case 'PING':
+                    sendToEndpoint({what: 'PONG'});
+                    break;
+                case 'PONG':
+                    // lastMsg already set above
+                    break;
+                case 'STATS': {
+                    const { type, options } = depinMsg;
+                    switch (type) {
+                        case 'metrics':
+                            gatherMetricsStats(options).then(metrics => sendStats('metrics', metrics));
+                            break;
+                        case 'sessions':
+                            sendStats('sessions', gatherSessionsStats());
+                            break;
+                        case 'users':
+                            sendStats('users', gatherUsersStats(options));
+                            break;
+                        case 'healthz':
+                        default:
+                            sendStats('healthz', `Croquet synchronizer-${VERSION}`);
+                            break;
+                    }
+                    break;
+                }
+                default:
+                    console.warn(`unhandled DePIN message "${depinStr}"`);
+                    break;
+            }
+        });
+
+        signaling.on('close', function onClose() {
+            // we don't intentionally close the socket connection to the manager,
+            // so this must be due to a network glitch.  re-establish the connection,
+            // using an increasing backoff delay.
+            // $$$ in principle this needn't have any impact on our existing dataChannel
+            // connections to clients that have completed ICE negotiation.
+            // any clients with a peerConnection but no dataChannel should, however,
+            // be discarded because their negotiations are now in doubt.
+            clearTimeout(keepAliveTimeout);
+            signaling = null;
+            const allConnectedClients = server.peerConnections.keys();
+            let disconnected = 0;
+            for (const clientId of allConnectedClients) {
+                if (!server.clients.has(clientId)) {
+                    server.removeClient(clientId);
+                    disconnected++;
+                }
+            }
+            const disconnectMsg = disconnected ? ` and ${disconnected} unconnected clients discarded` : '';
+            console.log(`signaling socket closed${disconnectMsg}.  retrying after ${reconnectDelay}ms`);
+            setTimeout(connectToEndpoint, reconnectDelay);
+            reconnectDelay = Math.min(ENDPOINT_RECONNECT_DELAY_MAX, Math.round((reconnectDelay + 100) * (1 + Math.random())));
+        });
+    };
+    connectToEndpoint();
+
+    // create a fake server.  the body of the synchronizer code expects it to have
+    // a meaningful value for...
+    //   server.clients.size // number of clients we're actively talking to
+    // ...so we keep maps from client id to RTCPeerConnection and, separately,
+    // client id to RTCDataChannel.
+    server = {
+        peerConnections: new Map(), // client id => peerConnection
+        clients: new Map(),         // client id => dataChannel
+        removeClient: function(clientId) {
+            const dataChannel = this.clients.get(clientId);
+            if (dataChannel) {
+                try {
+                    dataChannel.close();
+                    console.log(`closed data channel for client ${clientId}`);
+                }
+                catch (e) { /* */ }
+                this.clients.delete(clientId);
+            }
+
+            const peerConnection = this.peerConnections.get(clientId);
+            if (peerConnection) {
+                try {
+                    peerConnection.close();
+                    console.log(`closed peer connection for client ${clientId}`);
+                }
+                catch (e) { /* */ }
+                this.peerConnections.delete(clientId);
+            }
+        }
+    };
+
+    function createPeerConnection(clientId) {
+        // triggered by receiving an ICE offer from a client
+        const peerConnection = new nodeDataChannel.PeerConnection('synchronizer', {
+            iceServers
+            // iceServers: ['stun:stun.l.google.com:19302']
+            // ['stun:freeturn.net:3478', 'turn:free:free@freeturn.net:3478']
+        });
+        server.peerConnections.set(clientId, peerConnection);
+        peerConnection.onStateChange(state => {
+            console.log(`connection state (${clientId}): "${state}"`);
+            if (state === 'closed') {
+                // note: once a client's data channel has been established, any
+                // disconnection must be handled by the 'close' handler that we
+                // install on it (see the call to setUpClientHandlers below).  until that
+                // point - i.e., if the link has dropped early in ICE negotiation - we
+                // just silently clean up this peerConnection.
+                if (server.clients.get(clientId)) return;
+
+                server.removeClient(clientId);
+            }
+        });
+        peerConnection.onGatheringStateChange(state => {
+            console.log(`gathering state (${clientId}): "${state}"`);
+            // $$$ sometimes we see another couple of candidates *after* this event
+            // has fired.  if the client reacts quickly to the 'gathering-complete'
+            // event by closing the signalling channel, it might not receive them.
+            // in theory a synchronizer could be behind some obscure form of NAT such
+            // that this would cause the connection to fail overall.
+            if (state === 'complete') signalToClient(clientId, { type: 'gathering-complete' });
+        });
+        peerConnection.onLocalDescription((sdp, type) => {
+            signalToClient(clientId, { type, sdp });
+        });
+        peerConnection.onLocalCandidate((candidate, sdpMid) => {
+console.log(`new candidate: ${JSON.stringify(candidate)}`); // $$$ temporary debug
+            if (!candidate) console.log(`empty local candidate: ${candidate}`);
+            signalToClient(clientId, { type: 'candidate', candidate, sdpMid });
+        });
+        peerConnection.onDataChannel(dataChannel => {
+            console.log(`DataChannel from ${clientId} with label "${dataChannel.getLabel()}" and protocol "${dataChannel.getProtocol()}"`);
+            const client = createClient(clientId, peerConnection, dataChannel);
+            server.clients.set(clientId, client);
+            setUpClientHandlers(client); // adds 'message', 'close', 'error'
+            dataChannel.onMessage(msg => {
+                if (msg.startsWith('!pong')) {
+                    const time = Number(msg.split('@')[1]);
+                    client.handleEvent('pong', time);
+                } else client.handleEvent('message', msg); });
+            dataChannel.onError(evt => client.handleEvent('error', evt)); // $$$
+            dataChannel.onClosed(_evt => client.handleEvent('close', 1000, "Client data channel closed"));
+        });
     }
-    global_logger.info({
-        event: "upgrade",
-        method: req.method,
-        url: req.url,
-        headers: req.headers,
-        sessionId,
-        connection
-    }, `upgrading socket for ${req.url}`);
-});
 
-// the WebSocket.Server will intercept the UPGRADE request made by a ws:// websocket connection
-const server = new WebSocket.Server({ server: webServer });
+    function createClient(clientId, peerConnection, dataChannel) {
+        return {
+            id: clientId,
+            pc: peerConnection,
+            dc: dataChannel,
+            isConnected: function() { return this.dc.isOpen() },
+            send: function(data) { this.dc.sendMessage(data) },
+            close: function(_code, _data) { this.pc.close() },
+            handlers: {},
+            on: function(eventName, handler) { this.handlers[eventName] = handler },
+            handleEvent: function(eventName, ...args) { this.handlers[eventName](...args) },
+            ping: function(time) { this.send(`!ping@${time}`) },
+            since: Date.now(),
+            bufferedAmount: 0, // dummy value, used in stats collection
+            meta: {
+                scope: "connection",
+                connection: null,
+                dispatcher: null,
+                userIp: "unknown-ip",
+            }
+        };
+    }
 
-async function startServer() {
+    function sendStats(statType, statResult) {
+        sendToEndpoint({ what: 'STATS', type: statType, result: statResult });
+    }
+}
+
+// =======================================================
+
+async function startServerForWebSockets() {
+    // this webServer is only for http:// requests to the synchronizer url
+    // (e.g. the load-balancer's health check),
+    // not ws:// requests for an actual websocket connection
+    let webServer;
+    // eslint-disable-next-line global-require
+    const webServerModule = USE_HTTPS ? require("https") : require("http");
+    if (USE_HTTPS) {
+        webServer = webServerModule.createServer({
+            key: fs.readFileSync('reflector-key.pem'),
+            cert: fs.readFileSync('reflector-cert.pem'),
+        }, requestListener);
+    } else {
+        webServer = webServerModule.createServer(requestListener);
+    }
+
+    async function requestListener(req, res) {
+        if (req.url === '/metrics') {
+            const body = await gatherMetricsStats();
+            res.writeHead(200, {
+                'Server': SERVER_HEADER,
+                'Content-Length': body.length,
+                'Content-Type': prometheus.register.contentType,
+            });
+            return res.end(body);
+        }
+        if (req.url === '/sessions') {
+            const body = gatherSessionsStats();
+            res.writeHead(200, {
+                'Server': SERVER_HEADER,
+                'Content-Length': body.length,
+                'Content-Type': 'text/plain',
+            });
+            return res.end(body);
+        }
+        if (req.url.includes('/users/')) {
+            const id = req.url.replace(/.*\//, '');
+            const body = gatherUsersStats({ id });
+            res.writeHead(200, {
+                'Server': SERVER_HEADER,
+                'Content-Length': body.length,
+                'Content-Type': 'text/json',
+            });
+            return res.end(body);
+        }
+        // we don't log any of the above or health checks
+        const is_health_check = req.url.endsWith('/healthz');
+        if (!is_health_check) global_logger.info({
+            event: "request",
+            method: req.method,
+            url: req.url,
+            headers: req.headers,
+        }, `GET ${req.url}`);
+        // otherwise, show host and cluster
+        const body = `Croquet synchronizer-${VERSION} ${HOSTIP} ${CLUSTER_LABEL}\n\nAh, ha, ha, ha, stayin' alive!`;
+        res.writeHead(200, {
+            "Server": SERVER_HEADER,
+            "Content-Length": body.length,
+            "Content-Type": "text/plain",
+            "X-Powered-By": "Croquet",
+            "X-Croquet-0": ":             .'\\   /`.             ",
+            "X-Croquet-1": ":           .'.-.`-'.-.`.           ",
+            "X-Croquet-2": ":      ..._:   .-. .-.   :_...      ",
+            "X-Croquet-3": ":    .'    '-.(o ) (o ).-'    `.    ",
+            "X-Croquet-4": ":   :  _    _ _`~(_)~`_ _    _  :   ",
+            "X-Croquet-5": ":  :  /:   ' .-=_   _=-. `   ;\\  :  ",
+            "X-Croquet-6": ":  :   :|-.._  '     `  _..-|:   :  ",
+            "X-Croquet-7": ":   :   `:| |`:-:-.-:-:'| |:'   :   ",
+            "X-Croquet-8": ":    `.   `.| | | | | | |.'   .'    ",
+            "X-Croquet-9": ":      `.   `-:_| | |_:-'   .'      ",
+            "X-Croquet-A": ":   jgs  `-._   ````    _.-'        ",
+            "X-Croquet-B": ":            ``-------''            ",
+            "X-Hiring": "Seems like you enjoy poking around in http headers. You might have even more fun working with us. Let us know via jobs@croquet.io!",
+            "X-Hacker-Girls": "Unite!",
+        });
+        return res.end(body);
+    }
+
+    // the WebSocket.Server will intercept the UPGRADE request made by a ws:// websocket connection
+    server = new WebSocket.Server({ server: webServer });
+
+    function parseUrl(req) {
+        // extract version, session, and token from /foo/bar/v1beta0/session?region=region&token=token
+        // (same func as in dispatcher.js)
+        const url = new URL(req.url, `http://${req.headers.host}`);
+        const sessionId = url.pathname.replace(/.*\//, "");
+        const versionMatch = url.pathname.match(/\/(v[0-9]+[^/]*|dev)\/[^/]*$/);
+        const version = versionMatch ? versionMatch[1] : "";
+        const token = url.searchParams.get("token");
+        return { sessionId, version, token };
+    }
+
+    webServer.on('upgrade', (req, socket, _head) => {
+        const { sessionId } = parseUrl(req);
+        // connection is a unique identifier used to group all log entries for this connection
+        // it is a combination of the dispatcher address, port, and a timestamp in seconds because port numbers are reused
+        const connection = `${socket.remoteAddress.replace(/^::ffff:/, '')}:${socket.remotePort}.${Math.floor(Date.now()/1000).toString(36)}`;
+        socket.connectionId = connection;
+        if (sessionId) {
+            const session = ALL_SESSIONS.get(sessionId);
+            if (session && session.stage === 'closed') {
+                // a request to delete the dispatcher record has already been sent.  reject this connection, forcing the client to ask the dispatchers again.
+                global_logger.debug({
+                    event: "upgrade-rejected",
+                    method: req.method,
+                    url: req.url,
+                    headers: req.headers,
+                    sessionId,
+                    connection
+                }, `rejecting socket on upgrade; session has been unregistered`);
+                socket.end('HTTP/1.1 404 Session Closed\r\n');
+                return;
+            }
+        }
+        global_logger.info({
+            event: "upgrade",
+            method: req.method,
+            url: req.url,
+            headers: req.headers,
+            sessionId,
+            connection
+        }, `upgrading socket for ${req.url}`);
+    });
+
+    server.on('error', err => global_logger.error({ event: "server-socket-error", err }, `Server Socket Error: ${err.message}`));
+
+    server.on('connection', (client, req) => {
+        // client is a WebSocket.  our hope is that the properties added here don't
+        // clash with those of the base socket.
+        const { version, sessionId, token } = parseUrl(req);
+        if (!sessionId) {
+            global_logger.warn({ event: "request-session-missing", ...client.meta, url: req.url }, `Missing session id in request "${req.url}"`);
+            client.close(...REASON.BAD_PROTOCOL); // safeClose doesn't exist yet
+            return;
+        }
+        // set up client meta data (also used for logging)
+        client.since = Date.now();
+        client.meta = {
+            scope: "connection",
+            connection: req.socket.connectionId, // assigned during upgrade
+            dispatcher: req.headers['x-croquet-dispatcher'],
+            userIp: (req.headers['x-forwarded-for'] || req.socket.remoteAddress).split(',')[0].replace(/^::ffff:/, ''),
+        };
+        // location header is added by load balancer, see region-servers/apply-changes
+        if (req.headers['x-location']) try {
+            const [region, city, lat, lng] = req.headers['x-location'].split(",");
+            client.meta.location = { region };
+            if (city) client.meta.location.city = { name: city, lat: +lat, lng: +lng };
+        } catch (ex) { /* ignore */ }
+
+        client.isConnected = () => client.readyState === WebSocket.OPEN;
+
+        setUpClientHandlers(client);
+        registerClientInSession(client, sessionId);
+
+        // connection log sink filters on scope="connection" and event="start|join|end"
+        const forwarded = `via ${req.headers['x-croquet-dispatcher']} (${(req.headers['x-forwarded-for'] || '').split(/\s*,\s*/).map(a => a.replace(/^::ffff:/, '')).join(', ')}) `;
+        client.logger.notice({ event: "start", token, url: req.url }, `opened connection ${version} ${forwarded || ''}${req.headers['x-location'] || ''}`);
+
+        // start validating token now (awaited in JOIN)
+        if (VERIFY_TOKEN && token) {
+            client.tokenPromise = verifyToken(token);
+        }
+    });
+
     if (VERIFY_TOKEN) SECRET = await fetchSecret();
     webServer.listen(PORT);
     global_logger.info({
@@ -366,7 +769,6 @@ const STATS = {
     time: Date.now(),
 };
 for (const key of STATS_KEYS) STATS[key] = 0;
-
 
 function watchStats() {
     setInterval(showStats, 10000);
@@ -392,6 +794,24 @@ function watchStats() {
     }
 }
 
+function gatherMetricsStats(_options) {
+    // $$$ add filtering options
+    return prometheus.register.metrics(); // async
+}
+
+function gatherSessionsStats(_options) {
+    // no options currently supported
+    return [...ALL_ISLANDS.values()].map(({ id, clients, appId, name, url }) => `${id} ${clients.size} ${appId || name} ${url}\n`).join('');
+}
+
+function gatherUsersStats(options) {
+    // options can be { id } - a single session ID whose users are wanted
+    const island = ALL_ISLANDS.get(options.id);
+    const users = (island ? [...island.clients] : []).map(client => client.user);
+    return JSON.stringify(users);
+}
+
+
 // Begin reading from stdin so the process does not exit (see https://nodejs.org/api/process.html)
 process.stdin.resume();
 
@@ -408,7 +828,7 @@ function handleTerm() {
             const now = Date.now();
             const wait = now >= earliestUnregister
                 ? Promise.resolve()
-                : new Promise(resolve => setTimeout(resolve, earliestUnregister - now));
+                : new Promise(resolve => { setTimeout(resolve, earliestUnregister - now) });
             const island = ALL_ISLANDS.get(id);
             const cleanup = wait.then(() => island
                 ? deleteIsland(island)
@@ -422,11 +842,11 @@ function handleTerm() {
                 sessionCount: promises.length,
             }, `EMERGENCY SHUTDOWN OF ${promises.length} ISLAND(S)`);
             Promise.allSettled(promises).then(() => {
-                global_logger.notice({ event: "end" }, "reflector shutdown");
+                global_logger.notice({ event: "end" }, "synchronizer shutdown");
                 process.exit();
             });
         } else {
-            global_logger.notice({ event: "end" }, "reflector shutdown");
+            global_logger.notice({ event: "end" }, "synchronizer shutdown");
             process.exit();
         }
     }
@@ -451,7 +871,11 @@ process.on('unhandledRejection', (err, _promise) => {
 
 function openToClients() {
     // start server
-    startServer();
+    if (DEPIN) {
+        startServerForDePIN();
+    } else {
+        startServerForWebSockets();
+    }
     if (CLUSTER_IS_LOCAL) watchStats();
 }
 
@@ -519,7 +943,7 @@ function advanceTime(island, _reason) {
     return island.time;
 }
 
-/** Get (integer) raw time for island, as ms since it was set up on this reflector
+/** Get (integer) raw time for island, as ms since it was set up on this synchronizer
  * @param {IslandData} island
  */
 function getRawTime(island) {
@@ -553,8 +977,6 @@ function nonSavableProps() {
         yetToCheckLatest: true, // flag used while fetching latest.json during startup
         storedUrl: null,     // url of snapshot in latest.json (null before we've checked latest.json)
         storedSeq: INITIAL_SEQ, // seq of last message in latest.json message addendum
-        startClient: null,   // the client we sent START
-        startTimeout: null,  // pending START request timeout (should send SNAP)
         deletionTimeout: null, // pending deletion after all clients disconnect
         syncClients: [],     // clients waiting to SYNC
         tallies: {},
@@ -565,7 +987,7 @@ function nonSavableProps() {
         url: null,
         resumed: new Date(), // session init/resume time, needed for billing to count number of sessions
         logger: null,        // the logger for this session (shared with ALL_SESSIONS[id])
-        flags: {},           // flags for experimental reflector features.  currently only "rawtime" is checked
+        flags: {},           // flags for experimental synchronizer features.  currently only "rawtime" is checked
         rawStart: 0,         // stabilizedPerformanceNow() for start of this session
         scaledStart: 0,      // synthetic stabilizedPerformanceNow() for session start at current scale
         [Symbol.toPrimitive]: () => "dummy",
@@ -608,22 +1030,22 @@ async function JOIN(client, args) {
         case 'runnable':
         case 'closable':
             session.stage = 'running';
+            // if the session was 'runnable', there will be a timeout (set in scheduleShutdownIfNoJoin, called from registerClientInSession) to delete the local island record and the dispatch record if no-one sends JOIN in time (though this doesn't really make sense in depin, where we don't even know which session we're handling until we get the first JOIN).
+            // if 'closable', the timeout is set in provisionallyDeleteIsland to go ahead with deletion.
             clearTimeout(session.timeout);
             session.timeout = null;
             break;
         default:
     }
 
-    const { name: appIdAndName, version, apiKey, url, sdk, appId, codeHash, user, location, heraldUrl, leaveDelay, dormantDelay, tove } = args;
+    const { name: appIdAndName, version, apiKey, url, sdk, appId, codeHash, persistentId, user, location, heraldUrl, leaveDelay, dormantDelay, tove } = args;
     // split name from `${appId}/${name}`
     let name = appIdAndName;    // for older clients without appId
     if (appId && name[appId.length] === '/' && name.startsWith(appId)) name = name.slice(appId.length + 1);
-    // islandId deprecated since 0.5.1, but old clients will send it rather than persistentId
-    const persistentId = args.persistentId || args.islandId;
     const unverifiedDeveloperId = args.developerId;
 
     const flags = {};
-    // set flags only for the features this reflector can support
+    // set flags only for the features this synchronizer can support
     if (args.flags) ['rawtime', 'microverse'].forEach(flag => { if (args.flags[flag]) flags[flag] = true; });
 
     // BigQuery wants a single data type, but user can be string or object or array
@@ -650,10 +1072,6 @@ async function JOIN(client, args) {
         connectedFor,
     }, `receiving JOIN ${client.meta.user} ${url}`);
 
-    // new clients (>=0.3.3) send ticks in JOIN
-    const syncWithoutSnapshot = 'ticks' in args;
-    // clients >= 0.5.1 send dormantDelay, which we use as a reason not to send pings to inactive clients
-    const noInactivityPings = 'dormantDelay' in args;
     // create island data if this is the first client
     let island = ALL_ISLANDS.get(id);
     if (!island) {
@@ -671,12 +1089,9 @@ async function JOIN(client, args) {
             snapshotSeq: null,   // seq of last snapshot
             snapshotUrl: '',     // url of last snapshot
             appId,
-            islandId: persistentId, // jul 2021: deprecated, but old reflectors will expect it when initialising from latest.json
             persistentId,        // new protocol as of 0.5.1
             persistentUrl: '',   // url of persistent data
-            syncWithoutSnapshot, // new protocol as of 0.3.3
-            noInactivityPings,   // new protocol as of 0.5.1
-            timeline,            // if a stateless reflector resumes the session, this is the only way to tell
+            timeline,            // if a stateless synchronizer resumes the session, this is the only way to tell
             tove,                // an encrypted secret clients use to check if they have the right password
             location,            // send location data?
             messages: [],        // messages since last snapshot
@@ -691,12 +1106,12 @@ async function JOIN(client, args) {
         island.logger = session.logger;
         ALL_ISLANDS.set(id, island);
         prometheusSessionGauge.inc();
-        if (syncWithoutSnapshot) TICKS(client, args.ticks); // client will not request ticks
+        TICKS(client, args.ticks); // client will not request ticks
     }
     // the following are in the nonSavable list, and can be updated on every JOIN
     island.heraldUrl = heraldUrl || '';
     island.leaveDelay = leaveDelay || 0;
-    island.dormantDelay = dormantDelay; // only provided by clients since 0.5.1
+    island.dormantDelay = dormantDelay;
     island.url = url;
     island.flags = flags;
 
@@ -746,7 +1161,7 @@ async function JOIN(client, args) {
     island.syncClients.push(client);
 
     // if we have a current snapshot, reply with that
-    if (island.snapshotUrl || island.persistentUrl) { SYNC(island); return; }
+    if (island.snapshotUrl || island.persistentUrl) { SYNC(island); return }
 
     // if we haven't yet checked latest.json, look there first
     if (island.yetToCheckLatest) {
@@ -774,10 +1189,10 @@ async function JOIN(client, args) {
         }
         // new clients will be based on new session.logger
 
+        // $$$ refactor this to handle how depin will furnish the equivalent session-setup data through the session DO.  also to allow the session DO to send an explicit response/error that means "you were too slow; another syncr is now handling this" - in which case we need to bail out without invoking SYNC, and to clear our local session record (though not seek to clear the session DO's record, which will already have happened).
         const fileName = `${id}/latest.json`;
         try {
             const latestSpec = await fetchJSON(fileName);
-            if (!latestSpec.snapshotUrl && !latestSpec.syncWithoutSnapshot) throw Error("latest.json has no snapshot, ignoring");
             island.logger.notice({
                 event: "start",
                 snapshot: {
@@ -848,57 +1263,35 @@ async function JOIN(client, args) {
             }
         } finally {
             island.storedUrl = ''; // replace the null that means we haven't looked
-            // as of 0.3.3, clients do not want START but SYNC with an empty snapshot
-            if (island.syncWithoutSnapshot) SYNC(island);
-            else START(island);
+            SYNC(island);
         }
 
         return;
     }
 
-    // if we've checked latest.json, and updated storedUrl (but not snapshotUrl,
-    // as checked above), this must be a brand new island.  send a START or SYNC,
-    // as appropriate.
-    if (island.storedUrl !== null && !island.startTimeout) {
-        if (island.syncWithoutSnapshot) SYNC(island);
-        else START(island);
+    // if some earlier run through JOIN() has already processed latest.json, and updated
+    // storedUrl (but not snapshotUrl, as checked above), send a SYNC.
+    if (island.storedUrl !== null) {
+        SYNC(island);
         return;
     }
 
     // otherwise, nothing to do at this point.  log that this client is waiting
-    // for a snapshot either from latest.json or from a STARTed client.
+    // for a snapshot (or empty string) from latest.json.
     client.logger.debug({event: "waiting-for-snapshot"}, "waiting for snapshot");
-}
-
-function START(island) {
-    // find next client
-    do {
-        island.startClient = island.syncClients.shift();
-        if (!island.startClient) return; // no client waiting
-    } while (island.startClient.readyState !== WebSocket.OPEN);
-    const client = island.startClient;
-    const msg = JSON.stringify({ id: island.id, action: 'START' });
-    client.safeSend(msg);
-    client.logger.debug({event: "send-start"}, `sending START ${msg}`);
-    // if the client does not provide a snapshot in time, we need to start over
-    if (DISCONNECT_UNRESPONSIVE_CLIENTS) island.startTimeout = setTimeout(() => {
-        if (island.startClient !== client) return; // success
-        client.safeClose(...REASON.UNRESPONSIVE);
-        // the client's on('close') handler will call START again
-        }, SNAP_TIMEOUT);
 }
 
 function SYNC(island) {
     const { id, seq, timeline, snapshotUrl: url, snapshotTime, snapshotSeq, persistentUrl, messages, tove, flags } = island;
     const time = advanceTime(island, "SYNC");
     const args = { url, messages, time, seq, tove, reflector: CLUSTER, timeline, reflectorSession: timeline, flags };  // TODO: remove reflectorSession after 0.4.1 release
-    if (url) {args.snapshotTime = snapshotTime; args.snapshotSeq = snapshotSeq; }
-    else if (persistentUrl) { args.url = persistentUrl; args.persisted = true; }
+    if (url) {args.snapshotTime = snapshotTime; args.snapshotSeq = snapshotSeq }
+    else if (persistentUrl) { args.url = persistentUrl; args.persisted = true }
     const response = JSON.stringify({ id, action: 'SYNC', args });
     const range = !messages.length ? '' : ` (#${messages[0][1]}...${messages[messages.length - 1][1]})`;
     const what = args.persisted ? "persisted" : "snapshot";
     for (const syncClient of island.syncClients) {
-        if (syncClient.readyState === WebSocket.OPEN) {
+        if (syncClient.isConnected()) {
             syncClient.safeSend(response);
             syncClient.logger.debug({
                 event: "send-sync",
@@ -921,6 +1314,8 @@ function SYNC(island) {
 }
 
 function clientLeft(client) {
+    if (DEPIN) server.removeClient(client.id);
+
     const island = ALL_ISLANDS.get(client.sessionId);
     if (!island) return;
     const wasClient = island.clients.delete(client);
@@ -996,6 +1391,8 @@ function logLatencies() {
 }
 
 function recordLatency(client, ms) {
+    if (DEPIN) return; // $$$ re-enable later
+
     if (ms >= 60000) return; // ignore > 1 min (likely old client sending time stamp not latency)
 
     // global latency
@@ -1063,7 +1460,7 @@ function recordLatency(client, ms) {
 function SNAP(client, args) {
     const id = client.sessionId;
     const island = ALL_ISLANDS.get(id);
-    if (!island) { client.safeClose(...REASON.UNKNOWN_SESSION); return; }
+    if (!island) { client.safeClose(...REASON.UNKNOWN_SESSION); return }
 
     const { time, seq, hash, url, dissident } = args; // details of the snapshot that has been uploaded
     const teatime = `@${time}#${seq}`;
@@ -1099,63 +1496,51 @@ function SNAP(client, args) {
         data: url
     }, "got snapshot");
 
-    if (island.syncWithoutSnapshot || island.snapshotUrl) {
-        // forget older messages, setting aside the ones that need to be stored
-        let messagesToStore = [];
-        const msgs = island.messages;
-        if (msgs.length > 0) {
-            const firstToKeep = msgs.findIndex(msg => after(seq, msg[1]));
-            if (firstToKeep > 0) {
-                island.logger.trace({
-                    event: "purging-messages",
-                    fromSeq: msgs[0][1] >>> 0,
-                    toSeq: msgs[firstToKeep - 1][1] >>> 0,
-                    keepSeq: msgs[firstToKeep][1] >>> 0,
-                    msgCount: msgs.length,
-                }, `forgetting ${firstToKeep} of ${msgs.length} messages`);
-                messagesToStore = msgs.splice(0, firstToKeep); // we'll store all those we're forgetting
-            } else if (firstToKeep === -1) {
-                island.logger.trace({
-                    event: "purging-messages",
-                    fromSeq: msgs[0][1] >>> 0,
-                    toSeq: msgs[msgs.length - 1][1] >>> 0,
-                    msgCount: msgs.length,
-                }, `forgetting all of ${msgs.length} messages`);
-                messagesToStore = msgs.slice();
-                msgs.length = 0;
-            } // else if firstToKeep is 0 there's nothing to do
-        }
+    // forget older messages, setting aside the ones that need to be stored
+    let messagesToStore = [];
+    const msgs = island.messages;
+    if (msgs.length > 0) {
+        const firstToKeep = msgs.findIndex(msg => after(seq, msg[1]));
+        if (firstToKeep > 0) {
+            island.logger.trace({
+                event: "purging-messages",
+                fromSeq: msgs[0][1] >>> 0,
+                toSeq: msgs[firstToKeep - 1][1] >>> 0,
+                keepSeq: msgs[firstToKeep][1] >>> 0,
+                msgCount: msgs.length,
+            }, `forgetting ${firstToKeep} of ${msgs.length} messages`);
+            messagesToStore = msgs.splice(0, firstToKeep); // we'll store all those we're forgetting
+        } else if (firstToKeep === -1) {
+            island.logger.trace({
+                event: "purging-messages",
+                fromSeq: msgs[0][1] >>> 0,
+                toSeq: msgs[msgs.length - 1][1] >>> 0,
+                msgCount: msgs.length,
+            }, `forgetting all of ${msgs.length} messages`);
+            messagesToStore = msgs.slice();
+            msgs.length = 0;
+        } // else if firstToKeep is 0 there's nothing to do
+    }
 
-        if (STORE_MESSAGE_LOGS && messagesToStore.length) {
-            // upload to the message-log bucket a blob with all messages since the previous snapshot
-            const messageLog = {
-                start: island.snapshotUrl,  // previous snapshot, if any
-                end: url,                   // new snapshot
-                time: [island.snapshotTime, time],
-                seq: [island.snapshotSeq, seq], // snapshotSeq will be null first time through
-                messagesToStore,
-            };
-            const pad = n => (""+n).padStart(10, '0');
-            const firstSeq = messagesToStore[0][1] >>> 0;
-            const logName = `${id}/${pad(Math.ceil(time))}_${firstSeq}-${seq}-${hash}.json`;
-            island.logger.debug({
-                event: "upload-messages",
-                fromSeq: firstSeq,
-                toSeq: seq,
-                path: logName,
-            }, `uploading ${messagesToStore.length} messages #${firstSeq} to #${seq} as ${logName}`);
-            uploadJSON(logName, messageLog).catch(err => island.logger.error({event: "upload-messages-failed", err}, `failed to upload messages. ${err.code}: ${err.message}`));
-        }
-    } else if (island.startClient === client) {
-        // the initial snapshot from the user we sent START (only old clients)
-        client.logger.debug({event: "init-time", teatime}, `init ${teatime} from SNAP (old client)`);
-        island.time = time;
-        island.scaledStart = stabilizedPerformanceNow() - island.time / island.scale;
-        island.seq = seq;
-        announceUserDidJoin(client);
-    } else {
-        // this is the initial snapshot, but it's an even older client (<=0.2.5) that already requested TICKS()
-        client.logger.debug({event: "init-time", teatime}, `not initializing time from snapshot (very old client)`);
+    if (STORE_MESSAGE_LOGS && messagesToStore.length) {
+        // upload to the message-log bucket a blob with all messages since the previous snapshot
+        const messageLog = {
+            start: island.snapshotUrl,  // previous snapshot, if any
+            end: url,                   // new snapshot
+            time: [island.snapshotTime, time],
+            seq: [island.snapshotSeq, seq], // snapshotSeq will be null first time through
+            messagesToStore,
+        };
+        const pad = n => (""+n).padStart(10, '0');
+        const firstSeq = messagesToStore[0][1] >>> 0;
+        const logName = `${id}/${pad(Math.ceil(time))}_${firstSeq}-${seq}-${hash}.json`;
+        island.logger.debug({
+            event: "upload-messages",
+            fromSeq: firstSeq,
+            toSeq: seq,
+            path: logName,
+        }, `uploading ${messagesToStore.length} messages #${firstSeq} to #${seq} as ${logName}`);
+        uploadJSON(logName, messageLog).catch(err => island.logger.error({event: "upload-messages-failed", err}, `failed to upload messages. ${err.code}: ${err.message}`));
     }
 
     // keep snapshot
@@ -1163,8 +1548,7 @@ function SNAP(client, args) {
     island.snapshotSeq = seq;
     island.snapshotUrl = url;
 
-    // start waiting clients
-    if (island.startClient) { clearTimeout(island.startTimeout); island.startTimeout = null; island.startClient = null; }
+    // SYNC waiting clients
     if (island.syncClients.length > 0) SYNC(island);
 }
 
@@ -1175,13 +1559,12 @@ function SNAP(client, args) {
 function SAVE(client, args) {
     const id = client.sessionId;
     const island = ALL_ISLANDS.get(id);
-    if (!island) { client.safeClose(...REASON.UNKNOWN_SESSION); return; }
+    if (!island) { client.safeClose(...REASON.UNKNOWN_SESSION); return }
     const { developerId, region, appId, persistentId } = island;
-    if (!appId || !persistentId) { client.safeClose(...REASON.BAD_APPID); return; }
+    if (!appId || !persistentId) { client.safeClose(...REASON.BAD_APPID); return }
 
-    // clients since 0.5.1 will send only persistTime in place of time, seq, tuttiSeq
-    const { persistTime, time, seq, tuttiSeq, url, dissident } = args; // details of the persistent data that has been uploaded
-    const descriptor = persistTime === undefined ? `@${time}#${seq} T${tuttiSeq}` : `@${persistTime}`;
+    const { persistTime, url, dissident } = args; // details of the persistent data that has been uploaded
+    const descriptor = `@${persistTime}`;
 
     if (dissident) {
         client.logger.debug({
@@ -1244,7 +1627,7 @@ function SEND(island, messages) {
             // send warnings if safety buffer is less than 25%
             if (headroom < (MAX_MESSAGES - REQU_SNAPSHOT) / 4) INFO(island, {
                 code: "SNAPSHOT_NEEDED",
-                msg: `Reflector message buffer almost full. Need snapshot ASAP.`,
+                msg: `Synchronizer message buffer almost full. Need snapshot ASAP.`,
                 options: { level: "warning" }
             });
         }
@@ -1253,7 +1636,7 @@ function SEND(island, messages) {
     const time = advanceTime(island, "SEND");
     if (island.delay) {
         const delay = island.lastTick + island.delay + 0.1 - time;    // add 0.1 ms to combat rounding errors
-        if (island.delayed || delay > 0) { DELAY_SEND(island, delay, messages); return; }
+        if (island.delayed || delay > 0) { DELAY_SEND(island, delay, messages); return }
     }
     for (const message of messages) {
         // message = [time, seq, payload, ...] - keep whatever controller.sendMessage sends
@@ -1307,10 +1690,10 @@ function SEND_TAGGED(island, message, tags) {
 function TUTTI(client, args) {
     const id = client.sessionId;
     const island = ALL_ISLANDS.get(id);
-    if (!island) { client.safeClose(...REASON.UNKNOWN_SESSION); return; }
+    if (!island) { client.safeClose(...REASON.UNKNOWN_SESSION); return }
 
-    // clients prior to 0.5.1 send a tutti sequence number in second place; later
-    // clients instead use a seventh argument that is a tutti key made up of a
+    // clients prior to 0.5.1 sent a tutti sequence number in second place.
+    // clients now supply a seventh argument that is a tutti key made up of a
     // message topic or placeholder such as "snapshot" or "persist", suffixed with
     // the sendTime.
     // we keep a list of the sendTime and key/seq of completed tallies for up to
@@ -1318,41 +1701,37 @@ function TUTTI(client, args) {
     // unseen key and more than MAX_TALLY_AGE in the past will always be ignored.
     // see cleanUpCompletedTallies() for how we cope if the list accumulates more
     // than MAX_COMPLETED_TALLIES recent entries.
-    const [ sendTime, tuttiSeq, payload, firstMsg, wantsVote, tallyTarget, tuttiKey ] = args;
+    const [ sendTime, _deprecatedTuttiSeq, payload, firstMsg, wantsVote, tallyTarget, tuttiKey ] = args;
 
-    const keyOrSeq = tuttiKey || tuttiSeq;
     function tallyComplete() {
-        const tally = island.tallies[keyOrSeq];
+        const tally = island.tallies[tuttiKey];
         const { timeout, expecting: missing } = tally;
         clearTimeout(timeout);
         if (missing) island.logger.debug({
             event: "tutti-missing",
-            tutti: keyOrSeq,
+            tutti: tuttiKey,
             missingCount: missing
-        }, `missing ${missing} ${missing === 1 ? "client" : "clients"} from tally ${keyOrSeq}`);
+        }, `missing ${missing} ${missing === 1 ? "client" : "clients"} from tally ${tuttiKey}`);
         if (wantsVote || Object.keys(tally.payloads).length > 1) {
-            const payloads = { what: 'tally', sendTime, tally: tally.payloads, tallyTarget, missingClients: missing };
-            // only include the tuttiSeq if the client didn't provide a tuttiKey
-            if (tuttiKey) payloads.tuttiKey = tuttiKey;
-            else payloads.tuttiSeq = tuttiSeq;
+            const payloads = { what: 'tally', sendTime, tally: tally.payloads, tallyTarget, tuttiKey, missingClients: missing };
             const msg = [0, 0, payloads];
             if (island.flags.rawtime) msg.push(0); // will be overwritten with time value
             SEND(island, [msg]);
         }
-        delete island.tallies[keyOrSeq];
-        island.completedTallies[keyOrSeq] = sendTime;
+        delete island.tallies[tuttiKey];
+        island.completedTallies[tuttiKey] = sendTime;
         cleanUpCompletedTallies(island);
     }
 
-    let tally = island.tallies[keyOrSeq];
+    let tally = island.tallies[tuttiKey];
     if (!tally) { // either first client we've heard from, or one that's missed the party entirely
         const historyLimit = cleanUpCompletedTallies(island); // the limit of how far back we're currently tracking
         if (sendTime < historyLimit) {
-            client.logger.debug({event: "tutti-reject", tutti: keyOrSeq}, `rejecting vote for old tally ${keyOrSeq} (${island.time - sendTime}ms)`);
+            client.logger.debug({event: "tutti-reject", tutti: tuttiKey}, `rejecting vote for old tally ${tuttiKey} (${island.time - sendTime}ms)`);
             return;
         }
-        if (island.completedTallies[keyOrSeq]) {
-            client.logger.debug({event: "tutti-reject", tutti: keyOrSeq},  `rejecting vote for completed tally ${keyOrSeq}`);
+        if (island.completedTallies[tuttiKey]) {
+            client.logger.debug({event: "tutti-reject", tutti: tuttiKey},  `rejecting vote for completed tally ${tuttiKey}`);
             return;
         }
 
@@ -1362,7 +1741,7 @@ function TUTTI(client, args) {
             SEND(island, [sendableMsg]);
         }
 
-        tally = island.tallies[keyOrSeq] = {
+        tally = island.tallies[tuttiKey] = {
             sendTime,
             expecting: island.clients.size, // we could ignore clients that are not active (i.e., still in the process of joining), but with a TALLY_INTERVAL of 1000ms it's painless to give them all a chance
             payloads: {},
@@ -1467,7 +1846,7 @@ args.perfNowAdjust = performanceNowAdjustment; // DEBUG
  */
 function TICK(island) {
     // we will send ticks if a client has joined, and the socket is open, and it is not backlogged
-    const sendingTicksTo = client => client.active && client.readyState === WebSocket.OPEN && !client.bufferedAmount;
+    const sendingTicksTo = client => client.active && client.isConnected() && !client.bufferedAmount;
     // avoid advancing time if nobody hears us
     let anyoneListening = false;
     for (const each of island.clients) if (sendingTicksTo(each)) {
@@ -1511,16 +1890,7 @@ function TICKS(client, args) {
     const id = client.sessionId;
     const { tick, delay, scale } = args; // jan 2022: for all recent clients, scale is undefined
     const island = ALL_ISLANDS.get(id);
-    if (!island) { client.safeClose(...REASON.UNKNOWN_SESSION); return; }
-    if (!island.syncWithoutSnapshot && !island.snapshotUrl) {
-         // this must be an old client (<=0.2.5) that requests TICKS before sending a snapshot
-        const { time, seq } = args;
-        island.logger.debug({event: "init-time", teatime: `@${time}#${seq}`}, "init from TICKS (old client)");
-        island.time = typeof time === "number" ? Math.ceil(time) : 0;
-        island.scaledStart = stabilizedPerformanceNow() - island.time / island.scale; // will be re-calculated below
-        island.seq = typeof seq === "number" ? seq : 0;
-        announceUserDidJoin(client);
-    }
+    if (!island) { client.safeClose(...REASON.UNKNOWN_SESSION); return }
     if (delay > 0) island.delay = delay;
     const currentScaledTime = getScaledTime(island);
     let scaleToApply = 1;
@@ -1623,15 +1993,15 @@ function provisionallyDeleteIsland(island) {
 }
 
 // delete our live record of the island, rewriting latest.json if necessary and
-// removing the dispatcher's record of the island being on this reflector.
+// removing the dispatcher's record of the island being on this synchronizer.
 // in case some clients have been dispatched to here just as the record's deletion
 // is being requested, we maintain the session record for a brief period so we can
 // tell those late-arriving clients that they must connect again (because any clients
 // *after* them will be dispatched afresh).  because the dispatchers could end up
-// assigning the session to this same reflector again, we only turn away clients
+// assigning the session to this same synchronizer again, we only turn away clients
 // for a second or so after the unregistering has gone through.
 async function deleteIsland(island) {
-    const { id, syncWithoutSnapshot, snapshotUrl, time, seq, storedUrl, storedSeq, messages } = island;
+    const { id, snapshotUrl, time, seq, storedUrl, storedSeq, messages } = island;
     if (!ALL_ISLANDS.has(id)) {
         island.logger.debug({event: "delete-ignored", reason: "already-deleted"}, `island already deleted, ignoring deleteIsland();`);
         return;
@@ -1656,7 +2026,7 @@ async function deleteIsland(island) {
     // if we've been told of a snapshot since the one (if any) stored in this
     // island's latest.json, or there are messages since the snapshot referenced
     // there, write a new latest.json.
-    if (STORE_SESSION && (syncWithoutSnapshot || snapshotUrl) && (snapshotUrl !== storedUrl || after(storedSeq, seq))) {
+    if (STORE_SESSION && (snapshotUrl !== storedUrl || after(storedSeq, seq))) {
         const fileName = `${id}/latest.json`;
         island.logger.debug({
             event: "upload-latest",
@@ -1753,44 +2123,152 @@ async function unregisterSession(id, detail) {
     setTimeout(() => ALL_SESSIONS.delete(id), LATE_DISPATCH_DELAY);
 }
 
-function parseUrl(req) {
-    // extract version, session, and token from /foo/bar/v1beta0/session?region=region&token=token
-    // (same func as in dispatcher.js)
-    const url = new URL(req.url, `http://${req.headers.host}`);
-    const sessionId = url.pathname.replace(/.*\//, "");
-    const versionMatch = url.pathname.match(/\/(v[0-9]+[^/]*|dev)\/[^/]*$/);
-    const version = versionMatch ? versionMatch[1] : "";
-    const token = url.searchParams.get("token");
-    return { sessionId, version, token };
+function setUpClientHandlers(client) {
+    client.on('message', incomingMsg => {
+        const handleMessage = () => {
+            if (!client.isConnected()) return; // ignore messages arriving after we disconnected the client
+            client.lastActivity = Date.now();
+            STATS.IN += incomingMsg.length;
+            client.stats.mi += 1;                      // messages in
+            client.stats.bi += incomingMsg.length;     // bytes in
+            let parsedMsg;
+            try {
+                parsedMsg = JSON.parse(incomingMsg);
+                if (typeof parsedMsg !== "object") throw Error("JSON did not contain an object");
+            } catch (err) {
+                client.logger.error({ event: "message-parsing-failed", err, incomingMsg }, `message parsing error: ${err.message}`);
+                client.safeClose(...REASON.MALFORMED_MESSAGE);
+                return;
+            }
+            try {
+                const { action, args, tags } = parsedMsg;
+                if (DEPIN && !client.sessionId) {
+                    if (action === 'JOIN') {
+                        registerClientInSession(client, args.sessionId);
+                        if (!client.sessionId) return; // something went wrong
+                    } else {
+                        client.logger.warn({
+                            event: "expecting-JOIN",
+                            action: typeof action === "string" ? action : JSON.stringify(action),
+                            incomingMsg
+                        }, `expecting JOIN but received ${JSON.stringify(action)}`);
+                        return; // ignore the message, whatever it is
+                    }
+                }
+                switch (action) {
+                    case 'JOIN': {
+                        client.joinedSession = true;
+                        JOIN(client, args);
+                        break;
+                    }
+                    case 'SEND': {
+                        const latency = args[args.length - 1];  // might be modified in-place by rawtime logic
+                        if (tags) SEND_TAGGED(client.island, args, tags);
+                        else SEND(client.island, [args]); // SEND accepts an array of messages
+                        if (latency > 0) recordLatency(client, latency);  // record after broadcasting
+                        break;
+                    }
+                    case 'TUTTI': TUTTI(client, args); break;
+                    case 'TICKS': TICKS(client, args); break;
+                    case 'SNAP': SNAP(client, args); break;
+                    case 'SAVE': SAVE(client, args); break;
+                    case 'PING': PONG(client, args); break;
+                    case 'PULSE':  // sets lastActivity, otherwise no-op
+                        if (args && args.latency > 0) recordLatency(client, args.latency); // not actually sent by clients yet
+                        client.logger.trace({ event: 'pulse' }, `receiving PULSE`);
+                        break;
+                    case 'LOG': {
+                        const clientLog = typeof args === "string" ? args : JSON.stringify(args);
+                        client.logger.info({
+                            event: "client-log",
+                            reason: clientLog.replace(/ .*/, ''),
+                            clientLog,
+                        }, `LOG ${clientLog}`);
+                    }
+                        break;
+                    default: client.logger.warn({
+                        event: "unknown-action",
+                        action: typeof action === "string" ? action : JSON.stringify(action),
+                        incomingMsg
+                    }, `unknown action ${JSON.stringify(action)}`);
+                }
+            } catch (err) {
+                client.logger.error({ event: "message-handling-failed", err }, `message handling failed: ${err.message}`);
+                client.safeClose(...REASON.UNKNOWN_ERROR);
+            }
+        };
+
+        if (ARTIFICIAL_DELAY) {
+            const timeout = ARTIFICIAL_DELAY * (0.5 + Math.random());
+            setTimeout(handleMessage, timeout);
+        } else {
+            handleMessage();
+        }
+    });
+
+    client.on('close', (code, reason) => {
+        // when the 'client' is a WebSocket, this will be triggered naturally by
+        // any form of disconnection.
+        // when working with WebRTC connections, the object representing a client
+        // is only created once the data channel is set up.  we therefore only
+        // trigger this event on closure of that channel.
+        prometheusConnectionGauge.dec();
+        const island = client.island || ALL_ISLANDS.get(client.sessionId) || {};
+
+        // connection duration in seconds
+        client.stats.s = Math.ceil((Date.now() - client.since) / 1000);
+
+        // connection log sink filters on scope="connection" and event="start|join|end"
+        client.logger.notice({
+            event: "end",
+            stats: client.stats,
+            code,
+            reason,
+            resumed: island.resumed, // to identify session starts
+        }, `closed connection [${code},"${reason}"]`);
+
+        if (island && island.clients && island.clients.has(client)) {
+            client.logger.debug({
+                event: "schedule-delete",
+                delay: island.leaveDelay,
+            }, `scheduling client deletion in ${island.leaveDelay} ms`);
+            setTimeout(() => clientLeft(client), island.leaveDelay);
+        }
+    });
+
+    client.on('error', err => client.logger.error({ event: "client-socket-error", err }, `Client Socket Error: ${err.message}`));
+
+    client.stats = { mi: 0, mo: 0, bi: 0, bo: 0 }; // messages / bytes, in / out
+    client.safeSend = data => {
+        if (!client.isConnected()) return;
+        STATS.BUFFER = Math.max(STATS.BUFFER, client.bufferedAmount);
+        client.send(data);
+        STATS.OUT += data.length;
+        client.stats.mo += 1;               // messages out
+        client.stats.bo += data.length;     // bytes out
+    };
+    client.safeClose = (code, data) => {
+        try {
+            client.close(code, data);
+        } catch (err) {
+            client.logger.error({ event: "close-failed", err }, `failed to close client socket. ${err.code}: ${err.message}`);
+            clientLeft(client); // normally invoked by onclose handler
+        }
+    };
+    // @@ client._socket is only used here (and collectRawSocketStats is currently hard-coded to false)
+    if (collectRawSocketStats) {
+        client.stats.ri = 0;
+        client.stats.ro = 0;
+        client._socket.write_orig = client._socket.write_orig || client._socket.write;
+        client._socket.write = (buf, ...args) => {
+            client.stats.ro += buf.length;
+            client._socket.write_orig(buf, ...args);
+        };
+        client._socket.on('data', buf => client.stats.ri += buf.length);
+    }
 }
 
-
-server.on('error', err => global_logger.error({event: "server-socket-error", err}, `Server Socket Error: ${err.message}`));
-
-server.on('connection', (client, req) => {
-    const { version, sessionId, token } = parseUrl(req);
-    // set up client meta data (also used for logging)
-    client.sessionId = sessionId;
-    client.since = Date.now();
-    client.meta = {
-        scope: "connection",
-        connection: req.socket.connectionId, // assigned during upgrade
-        dispatcher: req.headers['x-croquet-dispatcher'],
-        userIp: (req.headers['x-forwarded-for'] || req.socket.remoteAddress).split(',')[0].replace(/^::ffff:/, ''),
-    };
-    // location header is added by load balancer, see region-servers/apply-changes
-    if (req.headers['x-location']) try {
-        const [region, city, lat, lng] = req.headers['x-location'].split(",");
-        client.meta.location = { region };
-        if (city) client.meta.location.city = { name: city, lat: +lat, lng: +lng };
-    } catch (ex) { /* ignore */}
-
-    if (!sessionId) {
-        global_logger.warn({ event: "request-session-missing", ...client.meta, url: req.url }, `Missing session id in request "${req.url}"`);
-        client.close(...REASON.BAD_PROTOCOL); // safeClose doesn't exist yet
-        return;
-    }
-
+function registerClientInSession(client, sessionId) {
     let session = ALL_SESSIONS.get(sessionId);
     if (session) {
         switch (session.stage) {
@@ -1814,13 +2292,14 @@ server.on('connection', (client, req) => {
                 // session must be 'running'.  just continue to set up the client.
         }
     } else {
+        // it's a session that this synchronizer didn't already have running.
         // add a buffer to how long we wait before trying to delete the dispatcher
         // record.  one purpose served by this buffer is to stay available for a
         // client that finds its socket isn't working (SYNC fails to arrive), and
         // after 5 seconds will try to reconnect.
         let unregisterDelay = DISPATCH_RECORD_RETENTION + 2000;
         if (CLUSTER === 'localWithStorage') {
-            // FOR TESTING WITH LOCAL REFLECTOR ONLY
+            // FOR TESTING WITH LOCAL SYNCHRONIZER ONLY
             // no dispatcher was involved in getting here.  create for ourselves a dummy
             // record in the /testing sub-bucket.
             unregisterDelay += 2000; // creating the record probably won't take longer than this
@@ -1842,187 +2321,48 @@ server.on('connection', (client, req) => {
             }),
         };
         ALL_SESSIONS.set(sessionId, session);
+        // $$$ this logic doesn't match the new depin approach, in which the first client isn't even registered until it has sent JOIN (rather than on first connection).  we'll need to ensure that some equivalent handling is provided - i.e., refusal to accept a session (and wiping the assignment record, now to be held in the session DO) if after some seconds no-one has even sent a JOIN.
+        // $$$ see "failure to launch session" in the README
         scheduleShutdownIfNoJoin(sessionId, earliestUnregister, "no JOIN in time");
     }
     prometheusConnectionGauge.inc(); // connection accepted
     client.logger = empty_logger.child({...session.logger.bindings(), ...client.meta});
-    client.stats = { mi: 0, mo: 0, bi: 0, bo: 0 }; // messages / bytes, in / out
-    client.safeSend = data => {
-        if (client.readyState !== WebSocket.OPEN) return;
-        STATS.BUFFER = Math.max(STATS.BUFFER, client.bufferedAmount);
-        client.send(data);
-        STATS.OUT += data.length;
-        client.stats.mo += 1;               // messages out
-        client.stats.bo += data.length;     // bytes out
-    };
-    client.safeClose = (code, data) => {
-        try {
-            client.close(code, data);
-        } catch (err) {
-            client.logger.error({event: "close-failed", err}, `failed to close client socket. ${err.code}: ${err.message}`);
-            clientLeft(client); // normally invoked by onclose handler
-        }
-    };
-    if (collectRawSocketStats) {
-        client.stats.ri = 0;
-        client.stats.ro = 0;
-        client._socket.write_orig = client._socket.write_orig || client._socket.write;
-        client._socket.write = (buf, ...args) => {
-            client.stats.ro += buf.length;
-            client._socket.write_orig(buf, ...args);
-        };
-        client._socket.on('data', buf => client.stats.ri += buf.length);
-    }
-    // connection log sink filters on scope="connection" and event="start|join|end"
-    const forwarded = `via ${req.headers['x-croquet-dispatcher']} (${(req.headers['x-forwarded-for'] || '').split(/\s*,\s*/).map(a => a.replace(/^::ffff:/, '')).join(', ')}) `;
-    client.logger.notice({ event: "start", token, url: req.url }, `opened connection ${version} ${forwarded||''}${req.headers['x-location']||''}`);
+
     STATS.USERS = Math.max(STATS.USERS, server.clients.size);
 
-    let lastActivity = Date.now();
+    client.lastActivity = Date.now();
     client.on('pong', time => {
-        lastActivity = Date.now();
-        const latency = lastActivity - time;
+        client.lastActivity = Date.now();
+        const latency = client.lastActivity - time;
         client.logger.debug({event: "pong", latency}, `receiving pong after ${latency} ms`);
         });
-    setTimeout(() => client.readyState === WebSocket.OPEN && client.ping(Date.now()), 100);
+    setTimeout(() => client.isConnected() && client.ping(Date.now()), 100);
 
-    let joined = false;
+    client.joinedSession = false;
     if (DISCONNECT_UNRESPONSIVE_CLIENTS) {
         function checkForActivity() {
-            if (client.readyState !== WebSocket.OPEN) return;
+            if (!client.isConnected()) return;
             const now = Date.now();
-            const quiescence = now - lastActivity;
+            const quiescence = now - client.lastActivity;
             if (quiescence > DISCONNECT_THRESHOLD) {
                 client.logger.debug({event: "disconnecting", reason: "inactive", quiescence}, `inactive for ${quiescence} ms, disconnecting`);
                 client.safeClose(...REASON.INACTIVE); // NB: close event won't arrive for a while
                 return;
             }
-            let nextCheck = CHECK_INTERVAL;
             if (quiescence > PING_THRESHOLD) {
-                if (!joined) {
+                if (!client.joinedSession) {
                     client.logger.debug({event: "disconnecting", reason: "no-join", quiescence}, `did not join within ${quiescence} ms, disconnecting`);
                     client.safeClose(...REASON.NO_JOIN);
                     return;
                 }
-
-                // joined is true, so client.island must have been set up
-                if (!client.island.noInactivityPings) {
-                    client.logger.debug({event: "ping", quiescence}, `inactive for ${quiescence} ms, sending ping`);
-                    client.ping(now);
-                    nextCheck = PING_INTERVAL;
-                }
             }
-            setTimeout(checkForActivity, nextCheck);
+            setTimeout(checkForActivity, CHECK_INTERVAL);
         }
         setTimeout(checkForActivity, PING_THRESHOLD + 2000); // allow some time for establishing session
     }
 
-    client.on('message', incomingMsg => {
-        const handleMessage = () => {
-            if (client.readyState !== WebSocket.OPEN) return; // ignore messages arriving after we disconnected the client
-            lastActivity = Date.now();
-            STATS.IN += incomingMsg.length;
-            client.stats.mi += 1;                      // messages in
-            client.stats.bi += incomingMsg.length;     // bytes in
-            let parsedMsg;
-            try {
-                parsedMsg = JSON.parse(incomingMsg);
-                if (typeof parsedMsg !== "object") throw Error("JSON did not contain an object");
-            } catch (err) {
-                client.logger.error({event: "message-parsing-failed", err, incomingMsg}, `message parsing error: ${err.message}`);
-                client.safeClose(...REASON.MALFORMED_MESSAGE);
-                return;
-            }
-            try {
-                const { action, args, tags } = parsedMsg;
-                switch (action) {
-                    case 'JOIN': { joined = true; JOIN(client, args); break; }
-                    case 'SEND': {
-                        const latency = args[args.length - 1];  // might be modified in-place by rawtime logic
-                        if (tags) SEND_TAGGED(client.island, args, tags);
-                        else SEND(client.island, [args]); // SEND accepts an array of messages
-                        if (latency > 0) recordLatency(client, latency);  // record after broadcasting
-                        break;
-                    }
-                    case 'TUTTI': TUTTI(client, args); break;
-                    case 'TICKS': TICKS(client, args); break;
-                    case 'SNAP': SNAP(client, args); break;
-                    case 'SAVE': SAVE(client, args); break;
-                    case 'PING': PONG(client, args); break;
-                    case 'PULSE':  // sets lastActivity, otherwise no-op
-                        if (args && args.latency > 0) recordLatency(client, args.latency); // not actually sent by clients yet
-                        client.logger.trace({event: 'pulse'}, `receiving PULSE`);
-                        break;
-                    case 'LOG': {
-                            const clientLog = typeof args === "string" ? args : JSON.stringify(args);
-                            client.logger.info({
-                                event: "client-log",
-                                reason: clientLog.replace(/ .*/,''),
-                                clientLog,
-                            }, `LOG ${clientLog}`);
-                        }
-                        break;
-                    default: client.logger.warn({
-                        event: "unknown-action",
-                        action: typeof action === "string" ? action : JSON.stringify(action),
-                        incomingMsg
-                    }, `unknown action ${JSON.stringify(action)}`);
-                }
-            } catch (err) {
-                client.logger.error({event: "message-handling-failed", err}, `message handling failed: ${err.message}`);
-                client.safeClose(...REASON.UNKNOWN_ERROR);
-            }
-        };
-
-        if (ARTIFICIAL_DELAY) {
-            const timeout = ARTIFICIAL_DELAY * (0.5 + Math.random());
-            setTimeout(handleMessage, timeout);
-        } else {
-            handleMessage();
-        }
-    });
-
-    client.on('close', (code, reason) => {
-        prometheusConnectionGauge.dec();
-        const island = client.island || ALL_ISLANDS.get(client.sessionId) || {};
-
-        // connection duration in seconds
-        client.stats.s = Math.ceil((Date.now() - client.since) / 1000);
-
-        // connection log sink filters on scope="connection" and event="start|join|end"
-        client.logger.notice({
-            event: "end",
-            stats: client.stats,
-            code,
-            reason,
-            resumed: island.resumed, // to identify session starts
-        }, `closed connection [${code},"${reason}"]`);
-
-        if (island && island.clients && island.clients.has(client)) {
-            if (island.startClient === client) {
-                // old client
-                client.logger.debug({event: "start-failed"}, "START client failed to respond");
-                clearTimeout(island.startTimeout);
-                island.startTimeout = null;
-                island.startClient = null;
-                // start next client
-                START(island);
-            }
-            client.logger.debug({
-                event: "schedule-delete",
-                delay: island.leaveDelay,
-            }, `scheduling client deletion in ${island.leaveDelay} ms`);
-            setTimeout(() => clientLeft(client), island.leaveDelay);
-        }
-    });
-
-    client.on('error', err => client.logger.error({event: "client-socket-error", err}, `Client Socket Error: ${err.message}`));
-
-    // start validating token now (awaited in JOIN)
-    if (VERIFY_TOKEN && token) {
-        client.tokenPromise = verifyToken(token);
-    }
-});
+    client.sessionId = sessionId; // successfully registered
+}
 
 async function fetchSecret() {
     let secret;
@@ -2083,12 +2423,14 @@ async function verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client, u
             client.logger.warn({event: "apikey-verify-failed", error}, `API key verification failed: ${error}`);
             const island = ALL_ISLANDS.get(id); // fetch island now, in case it went away during await
             // deal with no-island case
-            INFO(island || {id}, {
-                code: "KEY_VERIFICATION_FAILED",
-                msg: error,
-                options: { level: "error", only: "once" }
+            INFO(island || {id},
+                {
+                    code: "KEY_VERIFICATION_FAILED",
+                    msg: error,
+                    options: { level: "error", only: "once" }
                 },
-                [client]);
+                [client]
+                );
             client.safeClose(...REASON.BAD_APIKEY);
         }
     } catch (err) {
@@ -2111,7 +2453,7 @@ async function fetchJSON(filename, bucket=SESSION_BUCKET) {
             stream.on('data', data => string += data);
             stream.on('end', () => resolve(JSON.parse(string)));
             stream.on('error', reject);
-        } catch (err) { reject(err); }
+        } catch (err) { reject(err) }
     });
 }
 
@@ -2134,16 +2476,16 @@ async function uploadJSON(filename, object, bucket=SESSION_BUCKET) {
             stream.on('error', reject);
             stream.write(JSON.stringify(object));
             stream.end();
-        } catch (err) { reject(err); }
+        } catch (err) { reject(err) }
     });
 }
 
 let performanceNowAdjustment = 0;
-function stabilizedPerformanceNow() { return performance.now() + performanceNowAdjustment; }
+function stabilizedPerformanceNow() { return performance.now() + performanceNowAdjustment }
 
 if (!TIME_STABILIZED) openToClients();
 else {
-    // to provide a close-to-real rate of advance of teatime and raw time on Docker, which has a known clock-drift issue that they work around with periodic NTP-based compensatory jumps of Date.now, we set aside about a minute at startup to watch for telltale jumps of Date.now against performance.now.  once we've seen two jumps (on MacOS they appear to happen 30s apart) we calculate a smoothed rate of drift and use that to start accumulating continuously an offset (performanceNowAdjustment) to be applied to all performance.now queries on this reflector.  at that point we open the reflector to client connections.  we continue to monitor the jumps, in case the rate of drift somehow changes.
+    // to provide a close-to-real rate of advance of teatime and raw time on Docker, which has a known clock-drift issue that they work around with periodic NTP-based compensatory jumps of Date.now, we set aside about a minute at startup to watch for telltale jumps of Date.now against performance.now.  once we've seen two jumps (on MacOS they appear to happen 30s apart) we calculate a smoothed rate of drift and use that to start accumulating continuously an offset (performanceNowAdjustment) to be applied to all performance.now queries on this synchronizer.  at that point we open the synchronizer to client connections.  we continue to monitor the jumps, in case the rate of drift somehow changes.
     // if no jumps have been seen after the first 70s, that suggests that adjustments are not needed... so we go ahead and open to clients anyway.  but we keep checking, in case jumps are happening but on a sparser schedule.
     let serverStarted = false;
     const timeJumpHistory = []; // { date, jump, timeRatio }
@@ -2200,7 +2542,7 @@ else {
     global_logger.notice({
         event: "stabilization-start",
     }, "starting time-stabilization watcher");
-    setInterval(measureDatePerformanceOffset, 1000); // keeps going as long as the reflector is running
+    setInterval(measureDatePerformanceOffset, 1000); // keeps going as long as the synchronizer is running
 }
 
 exports.server = server;
