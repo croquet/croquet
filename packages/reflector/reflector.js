@@ -1097,7 +1097,6 @@ async function JOIN(client, args) {
             messages: [],        // messages since last snapshot
             lastTick: -1000,     // time of last TICK sent (-1000 to avoid initial delay)
             lastMsgTime: 0,      // time of last message reflected
-            lastCompletedTally: null, // jul 2021: deprecated, but old reflectors will expect it when initialising from latest.json
             completedTallies: {}, // TUTTI sendTime keyed by tally key (or tuttiSeq, for old clients) for up to MAX_TALLY_AGE in the past.  capped at MAX_COMPLETED_TALLIES entries.
             ...nonSavableProps(),
             [Symbol.toPrimitive]: () => `${name} ${id}`,
@@ -1210,14 +1209,9 @@ async function JOIN(client, args) {
                 if (value !== undefined) island[key] = value;
                 });
 
-            // migrate from old stored data, if needed
-            if (island.lastCompletedTally) island.lastCompletedTally = null;
-            if (!island.completedTallies) island.completedTallies = {};
-
             island.scaledStart = stabilizedPerformanceNow() - island.time / island.scale;
             island.storedUrl = latestSpec.snapshotUrl;
             island.storedSeq = latestSpec.seq;
-            if (latestSpec.reflectorSession) island.timeline = latestSpec.reflectorSession; // TODO: remove reflectorSession after 0.4.1 release
         } catch (err) {
             if (typeof err !== "object") err = { message: ""+JSON.stringify(err) }; // eslint-disable-line no-ex-assign
             if (!err.message) err.message = "<empty>";
@@ -1284,7 +1278,7 @@ async function JOIN(client, args) {
 function SYNC(island) {
     const { id, seq, timeline, snapshotUrl: url, snapshotTime, snapshotSeq, persistentUrl, messages, tove, flags } = island;
     const time = advanceTime(island, "SYNC");
-    const args = { url, messages, time, seq, tove, reflector: CLUSTER, timeline, reflectorSession: timeline, flags };  // TODO: remove reflectorSession after 0.4.1 release
+    const args = { url, messages, time, seq, tove, reflector: CLUSTER, timeline, flags };
     if (url) {args.snapshotTime = snapshotTime; args.snapshotSeq = snapshotSeq }
     else if (persistentUrl) { args.url = persistentUrl; args.persisted = true }
     const response = JSON.stringify({ id, action: 'SYNC', args });
