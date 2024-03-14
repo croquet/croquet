@@ -51,7 +51,8 @@ class MyView extends Croquet.View {
     constructor(model) { // The view gets a reference to the model when the session starts.
         super(model);
         this.handleUpdate(model.counter); // Get the current count on start up.
-        document.addEventListener("click", event => this.onclick(event), false);
+        this.clickHandler = event => this.onclick(event);
+        document.addEventListener("click", this.clickHandler, false);
         this.subscribe("counter", "update", data => this.handleUpdate(data));
     }
 
@@ -63,6 +64,10 @@ class MyView extends Croquet.View {
         document.getElementById("counter").innerHTML = data;
     }
 
+    detach() {
+        super.detach();
+        document.removeEventListener("click", this.clickHandler);
+    }
 }
 
 //------------------------------------------------------------------------------------------
