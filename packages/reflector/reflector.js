@@ -207,7 +207,7 @@ global_logger.notice({ event: "start" }, `synchronizer started ${CLUSTER_LABEL} 
 const SECRET_NAME = `projects/${GCP_PROJECT}/secrets/signurl-jwt-hs256/versions/latest`;
 let SECRET;
 
-// we use Google Cloud Storage for session state
+// on GCP, we use Google Cloud Storage for session state
 const storage = new Storage();
 
 const SESSION_BUCKET = NO_STORAGE ? null
@@ -251,7 +251,7 @@ let server;
 // ============ DEPIN-specific initialisation ===========
 
 async function startServerForDePIN() {
-    let endpointId = ''; // will be filled in once synchronizer is running
+    let proxyId = ''; // will be filled in once synchronizer is running
 
     // in advance, get the iceServers that we'll be using on all connections
     const iceServers = [];
@@ -305,125 +305,91 @@ async function startServerForDePIN() {
     DEPIN = DEPIN.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
     if (!DEPIN.startsWith('ws')) DEPIN = 'ws://' + DEPIN;
 
-    const PING_DELAY = 1000;
-    const PONG_DELAY_LIMIT = 30000; // $$$ 5000;
+    const STATS_DELAY = 1000;
+    const STATS_ACK_DELAY_LIMIT = 5000;
 
-    let signaling = null;
-    let reconnectDelay = 0;
-    const ENDPOINT_RECONNECT_DELAY_MAX = 30000;
-    const sendToEndpoint = msgObject => {
-        if (!signaling) return;
-        if (signaling.readyState !== WebSocket.OPEN) {
-            console.warn(`attempt to send ${msgObject.what} on unconnected signaling channel`);
+    let proxySocket = null;
+    let proxyReconnectDelay = 0;
+    let proxyKey;
+    const PROXY_RECONNECT_DELAY_MAX = 30000;
+    const sendToProxy = msgObject => {
+        if (!proxySocket) return;
+        if (proxySocket.readyState !== WebSocket.OPEN) {
+            console.warn(`attempt to send ${msgObject.what} on unconnected proxy channel`);
             return;
         }
 
-        signaling.send(JSON.stringify(msgObject));
+        proxySocket.send(JSON.stringify(msgObject));
     };
-    const signalToClient = (clientId, signalObject) => {
-        const msgObject = { id: clientId, what: "MSG", data: JSON.stringify(signalObject) };
-        sendToEndpoint(msgObject);
-    };
-    const connectToEndpoint = () => {
+    const connectToProxy = () => {
+        console.log("connectToProxy");
         let lastMsg = Date.now();
         let keepAliveTimeout;
+        const key = proxyKey = Math.random();
 
-        function keepAlive(ms=PING_DELAY) {
+        function keepAlive(ms=STATS_DELAY) {
             clearTimeout(keepAliveTimeout);
+            if (key !== proxyKey) return; // this connection has been superseded
+
             keepAliveTimeout = setTimeout(() => {
-                if (Date.now() - lastMsg > PONG_DELAY_LIMIT) {
-                    console.log('No pong from Registry in 60 seconds, reconnecting');
-                    signaling.close();
+                if (Date.now() - lastMsg > STATS_ACK_DELAY_LIMIT) {
+                    console.log('Nothing heard from Registry in 5 seconds. Reconnecting.');
+                    proxySocket.close();
                     return;
                 }
-                sendToEndpoint({what: "PING"}); // endpoint looks for exactly the string '{"what":"PING"}'
+                sendToProxy({what: "PING"}); // proxy looks for exactly the string '{"what":"PING"}'
                 keepAlive();
             }, ms);
         }
 
-        signaling = new WebSocket(`${DEPIN}/synchronizers/register?id=${endpointId}`, {
+        proxySocket = new WebSocket(`${DEPIN}/synchronizers/register?id=${proxyId}`, {
             perMessageDeflate: false, // this was in the node-datachannel example; not sure if it's helping
         });
 
-        signaling.on('open', () => {
-            console.log(`signaling WebSocket connected to Registry ${DEPIN}`);
-            reconnectDelay = 0;
+        proxySocket.on('open', () => {
+            console.log(`proxy WebSocket connected to Registry ${DEPIN}`);
+            proxyReconnectDelay = 0;
             lastMsg = Date.now();
             keepAlive();
         });
 
-        signaling.on('error', function onError(err) {
-            console.log('signaling WebSocket error: ', err);
+        proxySocket.on('error', function onError(err) {
+            if (key !== proxyKey) return; // this connection has been superseded
+            console.log('proxySocket WebSocket error: ', err);
         });
 
-        signaling.on('message', function onMessage(depinStr) {
+        proxySocket.on('message', function onMessage(depinStr) {
+            if (key !== proxyKey) return; // this connection has been superseded
             // console.log(`DePIN message: ${depinStr}`);
             lastMsg = Date.now();
-            keepAlive();
+            keepAlive(); // if we haven't received another message after STATS_DELAY milliseconds, send a PING
             const depinMsg = JSON.parse(depinStr);
-            const clientId = depinMsg.id;
             switch (depinMsg.what) {
                 case "REGISTERED": {
-                    const id = depinMsg.endpointId;
-                    if (endpointId && endpointId !== id) throw Error(`re-registered with id ${id} instead of previous ${endpointId}`);
+                    const id = depinMsg.proxyId;
+                    if (proxyId && proxyId !== id) throw Error(`re-registered with id ${id} instead of previous ${proxyId}`);
 
-                    console.log(`${endpointId ? 're-registered' : 'registered'} with id ${id}`);
+                    console.log(`${proxyId ? 're-registered' : 'registered'} with id ${id}`);
 
-                    endpointId = id;
-                    process.parentPort.postMessage(JSON.stringify({ type: 'endpointId', id }));
+                    proxyId = id;
+                    process.parentPort.postMessage(JSON.stringify({ type: 'synchronizerId', id }));
                     break;
                 }
-                case "CONNECT":
-                    console.log(`new signaling connection from client#${clientId}`);
-                    break;
-                case "DISCONNECT":
-                    console.log(`closed signaling connection from client#${clientId}`);
-                    // if the client already has a data channel, this disconnection
-                    // has probably been triggered by the client deciding that the channel
-                    // setup is now complete - so it's not a client disconnection at all.
-                    if (server.clients.get(clientId)) {
-                        // by the same token, this is likely to be a reasonable time
-                        // to report on the channel's selected ICE candidates.
-                        const peerConnection = server.peerConnections.get(clientId);
-                        if (peerConnection) console.log(JSON.stringify(peerConnection.getSelectedCandidatePair(), null, 2));
-                        return; // nothing more to do
-                    }
-
-                    // if there isn't a data channel, this might be the only disconnection
-                    // signal we'll get.  make sure to tidy up.
-                    server.removeClient(clientId);
-                    break;
-                case "MSG": {
-                    let msg;
-                    try {
-                        msg = JSON.parse(depinMsg.data);
-                    } catch (e) {
-                        console.log(`error parsing message from client#${clientId}: ${depinMsg.data}`);
-                        return;
-                    }
-                    console.log(`signaling message from client#${clientId}: ${msg.type} ${JSON.stringify({msg, type: undefined})}`);
-                    switch (msg.type) {
-                    case 'offer':
-                        createPeerConnection(clientId);
-                        server.peerConnections.get(clientId).setRemoteDescription(msg.sdp, msg.type);
-                        break;
-                    case 'candidate':
-                        // the API for PeerConnection doesn't understand empty or null candidate
-                        if (msg.candidate) {
-                            server.peerConnections.get(clientId).addRemoteCandidate(msg.candidate, msg.sdpMid);
-                        }
-                        break;
-                    default:
-                        console.warn(`unhandled signaling message type ${msg.type}`);
-                        break;
-                    }
+                case "SESSION": {
+                    const id = depinMsg.sessionId;
+                    console.log(`new session dispatch for ${id}`);
+                    acceptSession(id);
+                    // $$$
                     break;
                 }
                 case 'PING':
-                    sendToEndpoint({what: 'PONG'});
+                    sendToProxy({what: 'PONG'});
                     break;
                 case 'PONG':
                     // lastMsg already set above
+                    break;
+                case 'AUTO-PONG':
+                    console.log(`auto-pong`);
                     break;
                 case 'STATS': {
                     const { type, options } = depinMsg;
@@ -450,7 +416,7 @@ async function startServerForDePIN() {
             }
         });
 
-        signaling.on('close', function onClose() {
+        proxySocket.on('close', function onClose() {
             // we don't intentionally close the socket connection to the manager,
             // so this must be due to a network glitch.  re-establish the connection,
             // using an increasing backoff delay.
@@ -458,8 +424,147 @@ async function startServerForDePIN() {
             // connections to clients that have completed ICE negotiation.
             // any clients with a peerConnection but no dataChannel should, however,
             // be discarded because their negotiations are now in doubt.
+            if (key !== proxyKey) return; // this connection has been superseded
+
             clearTimeout(keepAliveTimeout);
-            signaling = null;
+            proxySocket = null;
+            console.log(`proxy socket closed.  retrying after ${proxyReconnectDelay}ms`);
+            setTimeout(connectToProxy, proxyReconnectDelay);
+            proxyReconnectDelay = Math.min(PROXY_RECONNECT_DELAY_MAX, Math.round((proxyReconnectDelay + 100) * (1 + Math.random())));
+        });
+    };
+    connectToProxy();
+
+    const SESSION_IDLE_PING = 1000;
+    const SESSION_ACK_DELAY_LIMIT = 300;
+
+    const connectToSession = sessionId => {
+        const session = ALL_SESSIONS.get(sessionId);
+        const key = session.socketKey = Math.random();
+
+        // $$$ need a different kind of keepAlive that sends pings once per second
+        // iff there hasn't been another message between.
+        // and a check that every message sent is acknowledged within 300ms.
+        // let lastMsg = Date.now();
+        // let keepAliveTimeout;
+        // function keepAlive(ms = SESSION_IDLE_PING) {
+        //     clearTimeout(keepAliveTimeout);
+        //     keepAliveTimeout = setTimeout(() => {
+        //         if (Date.now() - lastMsg > SESSION_ACK_DELAY_LIMIT) {
+        //             console.log('No pong from Registry in 60 seconds, reconnecting');
+        //             sessionSocket.close();
+        //             return;
+        //         }
+        //         sendToProxy({ what: "PING" }); // proxy looks for exactly the string '{"what":"PING"}'
+        //         keepAlive();
+        //     }, ms);
+        // }
+
+        const sessionSocket = new WebSocket(`${DEPIN}/synchronizers/connect?session=${sessionId}&synchronizer=${proxyId}`, {
+            perMessageDeflate: false, // this was in the node-datachannel example; not sure if it's helping
+        });
+        session.sessionSocket = sessionSocket;
+        session.sendToSession = msgObject => {
+            // make sure to look up and use the latest socket
+            if (session.sessionSocket.readyState !== WebSocket.OPEN) {
+                console.warn(`attempt to send ${msgObject.what} on unconnected channel for session ${sessionId}`);
+                return;
+            }
+
+            session.sessionSocket.send(JSON.stringify(msgObject));
+        };
+
+        sessionSocket.on('open', () => {
+            console.log(`session WebSocket connected to Registry ${DEPIN}`);
+            session.reconnectDelay = 0;
+            // lastMsg = Date.now();
+            // keepAlive();
+        });
+
+        sessionSocket.on('error', function onError(err) {
+            if (key !== session.socketKey) return;
+
+            console.log('session WebSocket error: ', err);
+        });
+
+        sessionSocket.on('message', function onMessage(depinStr) {
+            // console.log(`DePIN message: ${depinStr}`);
+            // lastMsg = Date.now();
+            // keepAlive();
+            if (key !== session.socketKey) return;
+
+            const depinMsg = JSON.parse(depinStr);
+            const clientId = depinMsg.id;
+            switch (depinMsg.what) {
+                case "CONNECT":
+                    console.log(`new session connection from client#${clientId}`);
+                    break;
+                case "DISCONNECT":
+                    console.log(`closed session connection from client#${clientId}`);
+                    // if the client already has a data channel, this disconnection
+                    // has probably been triggered by the client deciding that the channel
+                    // setup is now complete - so it's not a client disconnection at all.
+                    if (server.clients.get(clientId)) {
+                        // by the same token, this is likely to be a reasonable time
+                        // to report on the channel's selected ICE candidates.
+                        const peerConnection = server.peerConnections.get(clientId);
+                        if (peerConnection) console.log(JSON.stringify(peerConnection.getSelectedCandidatePair(), null, 2));
+                        return; // nothing more to do
+                    }
+
+                    // if there isn't a data channel, this might be the only disconnection
+                    // signal we'll get.  make sure to tidy up.
+                    server.removeClient(clientId);
+                    break;
+                case "MSG": {
+                    let msg;
+                    try {
+                        msg = JSON.parse(depinMsg.data);
+                    } catch (e) {
+                        console.log(`error parsing message from client#${clientId}: ${depinMsg.data}`);
+                        return;
+                    }
+                    console.log(`session message from client#${clientId}: ${msg.type} ${JSON.stringify({ msg, type: undefined })}`);
+                    switch (msg.type) {
+                        case 'offer':
+                            createPeerConnection(clientId, sessionSocket);
+                            server.peerConnections.get(clientId).setRemoteDescription(msg.sdp, msg.type);
+                            break;
+                        case 'candidate':
+                            // the API for PeerConnection doesn't understand empty or null candidate
+                            if (msg.candidate) {
+                                server.peerConnections.get(clientId).addRemoteCandidate(msg.candidate, msg.sdpMid);
+                            }
+                            break;
+                        default:
+                            console.warn(`unhandled session message type ${msg.type}`);
+                            break;
+                    }
+                    break;
+                }
+                case 'PING':
+                    sendToProxy({ what: 'PONG' });
+                    break;
+                case 'PONG':
+                    // lastMsg already set above
+                    break;
+                default:
+                    console.warn(`unhandled message in session ${sessionId}: "${depinStr}"`);
+                    break;
+            }
+        });
+
+        sessionSocket.on('close', function onClose() {
+            // we don't intentionally close the socket connection to the manager,
+            // so this must be due to a network glitch.  re-establish the connection,
+            // using an increasing backoff delay.
+            // $$$ in principle this needn't have any impact on our existing dataChannel
+            // connections to clients that have completed ICE negotiation.
+            // any clients with a peerConnection but no dataChannel should, however,
+            // be discarded because their negotiations are now in doubt.
+            // clearTimeout(keepAliveTimeout);
+            if (key !== session.socketKey) return;
+
             const allConnectedClients = server.peerConnections.keys();
             let disconnected = 0;
             for (const clientId of allConnectedClients) {
@@ -469,12 +574,16 @@ async function startServerForDePIN() {
                 }
             }
             const disconnectMsg = disconnected ? ` and ${disconnected} unconnected clients discarded` : '';
-            console.log(`signaling socket closed${disconnectMsg}.  retrying after ${reconnectDelay}ms`);
-            setTimeout(connectToEndpoint, reconnectDelay);
-            reconnectDelay = Math.min(ENDPOINT_RECONNECT_DELAY_MAX, Math.round((reconnectDelay + 100) * (1 + Math.random())));
+            console.log(`session socket closed${disconnectMsg}.  retrying after ${session.reconnectDelay}ms`);
+            setTimeout(() => connectToSession(sessionId), session.reconnectDelay);
+            session.reconnectDelay = Math.min(PROXY_RECONNECT_DELAY_MAX, Math.round((session.reconnectDelay + 100) * (1 + Math.random())));
         });
     };
-    connectToEndpoint();
+
+    function acceptSession(sessionId) {
+        registerSession(sessionId);
+        connectToSession(sessionId);
+    }
 
     // create a fake server.  the body of the synchronizer code expects it to have
     // a meaningful value for...
@@ -507,8 +616,15 @@ async function startServerForDePIN() {
         }
     };
 
-    function createPeerConnection(clientId) {
+    function createPeerConnection(clientId, sessionSocket) {
         // triggered by receiving an ICE offer from a client
+        const signalToClient = signalObject => {
+            if (sessionSocket.readyState !== WebSocket.OPEN) return;
+
+            const msgObject = { id: clientId, what: "MSG", data: JSON.stringify(signalObject) };
+            sessionSocket.send(JSON.stringify(msgObject));
+        };
+
         const peerConnection = new nodeDataChannel.PeerConnection('synchronizer', {
             iceServers
             // iceServers: ['stun:stun.l.google.com:19302']
@@ -535,15 +651,15 @@ async function startServerForDePIN() {
             // event by closing the signalling channel, it might not receive them.
             // in theory a synchronizer could be behind some obscure form of NAT such
             // that this would cause the connection to fail overall.
-            if (state === 'complete') signalToClient(clientId, { type: 'gathering-complete' });
+            if (state === 'complete') signalToClient({ type: 'gathering-complete' });
         });
         peerConnection.onLocalDescription((sdp, type) => {
-            signalToClient(clientId, { type, sdp });
+            signalToClient({ type, sdp });
         });
         peerConnection.onLocalCandidate((candidate, sdpMid) => {
 console.log(`new candidate: ${JSON.stringify(candidate)}`); // $$$ temporary debug
             if (!candidate) console.log(`empty local candidate: ${candidate}`);
-            signalToClient(clientId, { type: 'candidate', candidate, sdpMid });
+            signalToClient({ type: 'candidate', candidate, sdpMid });
         });
         peerConnection.onDataChannel(dataChannel => {
             console.log(`DataChannel from ${clientId} with label "${dataChannel.getLabel()}" and protocol "${dataChannel.getProtocol()}"`);
@@ -584,7 +700,7 @@ console.log(`new candidate: ${JSON.stringify(candidate)}`); // $$$ temporary deb
     }
 
     function sendStats(statType, statResult) {
-        sendToEndpoint({ what: 'STATS', type: statType, result: statResult });
+        sendToProxy({ what: 'STATS', type: statType, result: statResult });
     }
 }
 
@@ -990,6 +1106,7 @@ function nonSavableProps() {
         flags: {},           // flags for experimental synchronizer features.  currently only "rawtime" is checked
         rawStart: 0,         // stabilizedPerformanceNow() for start of this session
         scaledStart: 0,      // synthetic stabilizedPerformanceNow() for session start at current scale
+        sessionSocket: null, // a socket to a DePIN session coordinator
         [Symbol.toPrimitive]: () => "dummy",
         };
 }
@@ -1113,6 +1230,7 @@ async function JOIN(client, args) {
     island.dormantDelay = dormantDelay;
     island.url = url;
     island.flags = flags;
+    if (session.sendToSession) island.sendToSession = session.sendToSession;
 
     client.island = island; // set island before await
 
@@ -1646,6 +1764,7 @@ function SEND(island, messages) {
         STATS.RECV++;
         STATS.SEND += island.clients.size;
         island.clients.forEach(each => each.active && each.safeSend(msg));
+        if (island.sendToSession) island.sendToSession({ what: 'EVENT', msg });
         island.messages.push(message); // raw message sent again in SYNC
     }
     island.lastMsgTime = time;
@@ -2098,9 +2217,17 @@ async function unregisterSession(id, detail) {
 
     session.logger.debug({event: "unregister", detail}, `unregistering session - ${detail}`);
 
+    const finalDelete = () => {
+        const { sessionSocket } = session;
+        if (sessionSocket && sessionSocket.readyState === WebSocket.OPEN) {
+            sessionSocket.close();
+        }
+        ALL_SESSIONS.delete(id);
+    };
+
     if (!DISPATCHER_BUCKET) {
         // nothing to wait for
-        ALL_SESSIONS.delete(id);
+        finalDelete();
         return;
     }
 
@@ -2114,7 +2241,7 @@ async function unregisterSession(id, detail) {
         else session.logger.warn({event: "unregister-failed", err}, `failed to unregister. ${err.code}: ${err.message}`);
     }
 
-    setTimeout(() => ALL_SESSIONS.delete(id), LATE_DISPATCH_DELAY);
+    setTimeout(() => finalDelete, LATE_DISPATCH_DELAY);
 }
 
 function setUpClientHandlers(client) {
@@ -2262,8 +2389,41 @@ function setUpClientHandlers(client) {
     }
 }
 
+function registerSession(sessionId) {
+    // add a buffer to how long we wait before trying to delete the dispatcher
+    // record.  one purpose served by this buffer is to stay available for a
+    // client that finds its socket isn't working (SYNC fails to arrive), and
+    // after 5 seconds will try to reconnect.
+    let unregisterDelay = DISPATCH_RECORD_RETENTION + 2000;
+    if (CLUSTER === 'localWithStorage') {
+        // FOR TESTING WITH LOCAL SYNCHRONIZER ONLY
+        // no dispatcher was involved in getting here.  create for ourselves a dummy
+        // record in the /testing sub-bucket.
+        unregisterDelay += 2000; // creating the record probably won't take longer than this
+        const filename = `testing/${sessionId}.json`;
+        const dummyContents = { dummy: "imadummy" };
+        const start = Date.now();
+        uploadJSON(filename, dummyContents, DISPATCHER_BUCKET)
+            .then(() => global_logger.info({ event: "dummy-register" }, `dummy dispatcher record created in ${Date.now() - start}ms`))
+            .catch(err => global_logger.error({ event: "dummy-register-failed", err }, `failed to create dummy dispatcher record. ${err.code}: ${err.message}`));
+    }
+    const earliestUnregister = Date.now() + unregisterDelay;
+    const session = {
+        stage: 'runnable',
+        earliestUnregister,
+        reconnectDelay: 0,
+        logger: empty_logger.child({
+            ...global_logger.bindings(),
+            scope: "session",
+            sessionId,
+        }),
+    };
+    ALL_SESSIONS.set(sessionId, session);
+    scheduleShutdownIfNoJoin(sessionId, earliestUnregister, "no JOIN in time");
+}
+
 function registerClientInSession(client, sessionId) {
-    let session = ALL_SESSIONS.get(sessionId);
+    const session = ALL_SESSIONS.get(sessionId);
     if (session) {
         switch (session.stage) {
             case 'closed':
@@ -2287,37 +2447,7 @@ function registerClientInSession(client, sessionId) {
         }
     } else {
         // it's a session that this synchronizer didn't already have running.
-        // add a buffer to how long we wait before trying to delete the dispatcher
-        // record.  one purpose served by this buffer is to stay available for a
-        // client that finds its socket isn't working (SYNC fails to arrive), and
-        // after 5 seconds will try to reconnect.
-        let unregisterDelay = DISPATCH_RECORD_RETENTION + 2000;
-        if (CLUSTER === 'localWithStorage') {
-            // FOR TESTING WITH LOCAL SYNCHRONIZER ONLY
-            // no dispatcher was involved in getting here.  create for ourselves a dummy
-            // record in the /testing sub-bucket.
-            unregisterDelay += 2000; // creating the record probably won't take longer than this
-            const filename = `testing/${sessionId}.json`;
-            const dummyContents = { dummy: "imadummy" };
-            const start = Date.now();
-            uploadJSON(filename, dummyContents, DISPATCHER_BUCKET)
-            .then(() => global_logger.info({event: "dummy-register"}, `dummy dispatcher record created in ${Date.now() - start}ms`))
-            .catch(err => global_logger.error({event: "dummy-register-failed", err}, `failed to create dummy dispatcher record. ${err.code}: ${err.message}`));
-        }
-        const earliestUnregister = Date.now() + unregisterDelay;
-        session = {
-            stage: 'runnable',
-            earliestUnregister,
-            logger: empty_logger.child({
-                ...global_logger.bindings(),
-                scope: "session",
-                sessionId,
-            }),
-        };
-        ALL_SESSIONS.set(sessionId, session);
-        // $$$ this logic doesn't match the new depin approach, in which the first client isn't even registered until it has sent JOIN (rather than on first connection).  we'll need to ensure that some equivalent handling is provided - i.e., refusal to accept a session (and wiping the assignment record, now to be held in the session DO) if after some seconds no-one has even sent a JOIN.
-        // $$$ see "failure to launch session" in the README
-        scheduleShutdownIfNoJoin(sessionId, earliestUnregister, "no JOIN in time");
+        registerSession(sessionId);
     }
     prometheusConnectionGauge.inc(); // connection accepted
     client.logger = empty_logger.child({...session.logger.bindings(), ...client.meta});
