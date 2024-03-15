@@ -1080,7 +1080,7 @@ export default class Controller {
                     reportProgress(-1); // failure
                     return;
                 }
-                const timeline = args.timeline || args.reflectorSession; // renamed "reflectorSession" to "timeline"
+                const timeline = args.timeline;
                 this.flags = flags || {};
                 const persistedOrSnapshot = persisted ? "persistence" : "snapshot"; // used as Stats key too
                 if (DEBUG.session) console.log(this.id, `received SYNC from ${reflector} reflector: time ${time}, ${messages.length} messages, ${persistedOrSnapshot} ${url || "<none>"}`);
@@ -1392,9 +1392,6 @@ export default class Controller {
             tove: this.tove,        // an encrypted message the reflector will send to every client in SYNC
             codeHash,               // for debugging only
         };
-        // on a DEPIN WebRTC connection, the reflector has no prior knowledge
-        // of the session for which the client is connecting.
-        if (DEPIN) args.sessionId = this.id;
         if (heraldUrl) Object.assign(args, {
             heraldUrl,              // url to receive POST for join/leave events
         });
@@ -2283,7 +2280,7 @@ class Connection {
             // to a manager to negotiate a WebRTC data-channel connection
             // to a reflector.
             const sessionId = this.id;
-            socket = new CroquetWebRTCConnection(`${DEPIN_API}/clients/connect/${sessionId}`);
+            socket = new CroquetWebRTCConnection(`${DEPIN_API}/clients/connect?session=${sessionId}`);
             socket.onconnected = connectionIsReady; // see below
         } else {
             let reflectorBase = getBackend(this.controller.sessionSpec.apiKey).reflector;
