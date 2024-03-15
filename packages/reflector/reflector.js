@@ -322,7 +322,6 @@ async function startServerForDePIN() {
         proxySocket.send(JSON.stringify(msgObject));
     };
     const connectToProxy = () => {
-        console.log("connectToProxy");
         let lastMsg = Date.now();
         let keepAliveTimeout;
         const key = proxyKey = Math.random();
@@ -333,7 +332,7 @@ async function startServerForDePIN() {
 
             keepAliveTimeout = setTimeout(() => {
                 if (Date.now() - lastMsg > STATS_ACK_DELAY_LIMIT) {
-                    console.log('Nothing heard from Registry in 5 seconds. Reconnecting.');
+                    console.log('Nothing heard from proxy in 5 seconds. Reconnecting.');
                     proxySocket.close();
                     return;
                 }
@@ -388,9 +387,6 @@ async function startServerForDePIN() {
                 case 'PONG':
                     // lastMsg already set above
                     break;
-                case 'AUTO-PONG':
-                    console.log(`auto-pong`);
-                    break;
                 case 'STATS': {
                     const { type, options } = depinMsg;
                     switch (type) {
@@ -420,10 +416,8 @@ async function startServerForDePIN() {
             // we don't intentionally close the socket connection to the manager,
             // so this must be due to a network glitch.  re-establish the connection,
             // using an increasing backoff delay.
-            // $$$ in principle this needn't have any impact on our existing dataChannel
-            // connections to clients that have completed ICE negotiation.
-            // any clients with a peerConnection but no dataChannel should, however,
-            // be discarded because their negotiations are now in doubt.
+            // $$$ after a certain time with no connection, we need to offload all
+            // sessions and their clients.
             if (key !== proxyKey) return; // this connection has been superseded
 
             clearTimeout(keepAliveTimeout);
@@ -440,16 +434,17 @@ async function startServerForDePIN() {
 
     const connectToSession = sessionId => {
         const session = ALL_SESSIONS.get(sessionId);
+        const shortSessionId = sessionId.slice(0, 8);
         const key = session.socketKey = Math.random();
 
         // $$$ need a different kind of keepAlive that sends pings once per second
         // iff there hasn't been another message between.
         // and a check that every message sent is acknowledged within 300ms.
         // let lastMsg = Date.now();
-        // let keepAliveTimeout;
+        // let sessionKeepAlive;
         // function keepAlive(ms = SESSION_IDLE_PING) {
-        //     clearTimeout(keepAliveTimeout);
-        //     keepAliveTimeout = setTimeout(() => {
+        //     clearTimeout(sessionKeepAlive);
+        //     sessionKeepAlive = setTimeout(() => {
         //         if (Date.now() - lastMsg > SESSION_ACK_DELAY_LIMIT) {
         //             console.log('No pong from Registry in 60 seconds, reconnecting');
         //             sessionSocket.close();
@@ -464,14 +459,15 @@ async function startServerForDePIN() {
             perMessageDeflate: false, // this was in the node-datachannel example; not sure if it's helping
         });
         session.sessionSocket = sessionSocket;
-        session.sendToSession = msgObject => {
-            // make sure to look up and use the latest socket
-            if (session.sessionSocket.readyState !== WebSocket.OPEN) {
+        session.sendToSessionRunner = msgObject => {
+            // since this is copied to the island just once, make sure to look up and use the latest socket
+            const socket = session.sessionSocket;
+            if (socket?.readyState !== WebSocket.OPEN) {
                 console.warn(`attempt to send ${msgObject.what} on unconnected channel for session ${sessionId}`);
                 return;
             }
 
-            session.sessionSocket.send(JSON.stringify(msgObject));
+            socket.send(JSON.stringify(msgObject));
         };
 
         sessionSocket.on('open', () => {
@@ -495,51 +491,63 @@ async function startServerForDePIN() {
 
             const depinMsg = JSON.parse(depinStr);
             const clientId = depinMsg.id;
+            const globalClientId = `${shortSessionId}:${clientId}`;
             switch (depinMsg.what) {
                 case "CONNECT":
-                    console.log(`new session connection from client#${clientId}`);
+                    // @@ a peer connection isn't set up until the client sends an offer.
+                    // therefore, for now, there's nothing to do here.
+                    console.log(`new client connection from client ${globalClientId}`);
                     break;
                 case "DISCONNECT":
-                    console.log(`closed session connection from client#${clientId}`);
+                    console.log(`closed session connection from client ${globalClientId}`);
                     // if the client already has a data channel, this disconnection
                     // has probably been triggered by the client deciding that the channel
                     // setup is now complete - so it's not a client disconnection at all.
-                    if (server.clients.get(clientId)) {
+                    if (server.clients.get(globalClientId)) {
                         // by the same token, this is likely to be a reasonable time
                         // to report on the channel's selected ICE candidates.
-                        const peerConnection = server.peerConnections.get(clientId);
+                        const peerConnection = server.peerConnections.get(globalClientId);
                         if (peerConnection) console.log(JSON.stringify(peerConnection.getSelectedCandidatePair(), null, 2));
                         return; // nothing more to do
                     }
 
                     // if there isn't a data channel, this might be the only disconnection
                     // signal we'll get.  make sure to tidy up.
-                    server.removeClient(clientId);
+                    server.removeClient(globalClientId);
                     break;
                 case "MSG": {
                     let msg;
                     try {
                         msg = JSON.parse(depinMsg.data);
                     } catch (e) {
-                        console.log(`error parsing message from client#${clientId}: ${depinMsg.data}`);
+                        console.log(`error parsing message from client ${globalClientId}: ${depinMsg.data}`);
                         return;
                     }
-                    console.log(`session message from client#${clientId}: ${msg.type} ${JSON.stringify({ msg, type: undefined })}`);
+                    console.log(`session message from client ${globalClientId}: ${msg.type} ${JSON.stringify({ msg, type: undefined })}`);
                     switch (msg.type) {
                         case 'offer':
-                            createPeerConnection(clientId, sessionSocket);
-                            server.peerConnections.get(clientId).setRemoteDescription(msg.sdp, msg.type);
+                            createPeerConnection(clientId, globalClientId, sessionSocket);
+                            server.peerConnections.get(globalClientId).setRemoteDescription(msg.sdp, msg.type);
                             break;
                         case 'candidate':
                             // the API for PeerConnection doesn't understand empty or null candidate
                             if (msg.candidate) {
-                                server.peerConnections.get(clientId).addRemoteCandidate(msg.candidate, msg.sdpMid);
+                                server.peerConnections.get(globalClientId).addRemoteCandidate(msg.candidate, msg.sdpMid);
                             }
                             break;
                         default:
                             console.warn(`unhandled session message type ${msg.type}`);
                             break;
                     }
+                    break;
+                }
+                case 'LATEST_SPEC': {
+                    const json = depinMsg.json;
+                    session.sessionSpecReady(json);
+                    break;
+                }
+                case 'LATEST_SPEC_RECEIVED': {
+                    session.sessionSpecReceived();
                     break;
                 }
                 case 'PING':
@@ -555,24 +563,43 @@ async function startServerForDePIN() {
         });
 
         sessionSocket.on('close', function onClose() {
-            // we don't intentionally close the socket connection to the manager,
-            // so this must be due to a network glitch.  re-establish the connection,
-            // using an increasing backoff delay.
-            // $$$ in principle this needn't have any impact on our existing dataChannel
+            // if session.stage is already 'closed', the socket closure was as a result of
+            // an intentional shutdown (see unregisterSession).
+            // otherwise, it must be due to a network glitch.  try to re-establish the
+            // connection, using an increasing backoff delay.
+            // $$$ initially, a break in the sessionSocket connection needn't have any
+            // impact on our existing dataChannel
             // connections to clients that have completed ICE negotiation.
             // any clients with a peerConnection but no dataChannel should, however,
             // be discarded because their negotiations are now in doubt.
-            // clearTimeout(keepAliveTimeout);
-            if (key !== session.socketKey) return;
 
-            const allConnectedClients = server.peerConnections.keys();
+            // however, after a certain delay, the lack of a sessionSocket connection means
+            // that the island must be offloaded.  all clients that are in the midst
+            // of ICE negotiation, and also all clients that have running webrtc channels,
+            // must be purged.
+            if (key !== session.socketKey) return; // an earlier connection
+            // clearTimeout(keepAliveTimeout);
+
+            const sessionIsClosed = session.stage === "closed";
+
+            const sessionPrefix = shortSessionId + ':';
+            const allConnectedClients = [...server.peerConnections.keys()].filter(id => id.startsWith(sessionPrefix));
             let disconnected = 0;
-            for (const clientId of allConnectedClients) {
-                if (!server.clients.has(clientId)) {
-                    server.removeClient(clientId);
+            for (const compositeClientId of allConnectedClients) {
+                if (sessionIsClosed || !server.clients.has(compositeClientId)) {
+                    server.removeClient(compositeClientId);
                     disconnected++;
                 }
             }
+
+            session.sessionSocket = null;
+            session.socketKey = '';
+
+            if (sessionIsClosed) {
+                console.log(`dropped socket connection for closed session ${shortSessionId}`);
+                return;
+            }
+
             const disconnectMsg = disconnected ? ` and ${disconnected} unconnected clients discarded` : '';
             console.log(`session socket closed${disconnectMsg}.  retrying after ${session.reconnectDelay}ms`);
             setTimeout(() => connectToSession(sessionId), session.reconnectDelay);
@@ -585,38 +612,50 @@ async function startServerForDePIN() {
         connectToSession(sessionId);
     }
 
-    // create a fake server.  the body of the synchronizer code expects it to have
-    // a meaningful value for...
-    //   server.clients.size // number of clients we're actively talking to
-    // ...so we keep maps from client id to RTCPeerConnection and, separately,
-    // client id to RTCDataChannel.
+    // create a fake server.  startServerForWebSockets (below) makes an http/websocket
+    // server that manages the socket connections from all clients, regardless of
+    // which session they are joining.  this depin "server" performs the equivalent
+    // role for all clients connecting via WebRTC.
+    // in general the servers work rather differently - but for backwards compatibility,
+    // this server object provides a meaningful value for
+    //     server.clients.size
+    // - which is the total number of clients connected to the synchronizer.  in
+    // the non-DePIN case this is automatically available as the number of websockets
+    // currently connected.
+    //
+    // we keep maps from client id to RTCPeerConnection and, separately,
+    // client id to RTCDataChannel.  it's the latter that provides the total count,
+    // given that a client isn't really connected until it has the data channel.
+    //
+    // to ensure that different sessions' clients are kept separate, the keys to
+    // these maps are composed from the sessionId (shortened) and clientId.
     server = {
-        peerConnections: new Map(), // client id => peerConnection
-        clients: new Map(),         // client id => dataChannel
-        removeClient: function(clientId) {
-            const dataChannel = this.clients.get(clientId);
+        peerConnections: new Map(), // composite client id => peerConnection
+        clients: new Map(),         // composite client id => dataChannel
+        removeClient: function (compositeId) {
+            const dataChannel = this.clients.get(compositeId);
             if (dataChannel) {
                 try {
                     dataChannel.close();
-                    console.log(`closed data channel for client ${clientId}`);
+                    console.log(`closed data channel for client ${compositeId}`);
                 }
                 catch (e) { /* */ }
-                this.clients.delete(clientId);
+                this.clients.delete(compositeId);
             }
 
-            const peerConnection = this.peerConnections.get(clientId);
+            const peerConnection = this.peerConnections.get(compositeId);
             if (peerConnection) {
                 try {
                     peerConnection.close();
-                    console.log(`closed peer connection for client ${clientId}`);
+                    console.log(`closed peer connection for client ${compositeId}`);
                 }
                 catch (e) { /* */ }
-                this.peerConnections.delete(clientId);
+                this.peerConnections.delete(compositeId);
             }
         }
     };
 
-    function createPeerConnection(clientId, sessionSocket) {
+    function createPeerConnection(clientId, globalClientId, sessionSocket) {
         // triggered by receiving an ICE offer from a client
         const signalToClient = signalObject => {
             if (sessionSocket.readyState !== WebSocket.OPEN) return;
@@ -630,22 +669,22 @@ async function startServerForDePIN() {
             // iceServers: ['stun:stun.l.google.com:19302']
             // ['stun:freeturn.net:3478', 'turn:free:free@freeturn.net:3478']
         });
-        server.peerConnections.set(clientId, peerConnection);
+        server.peerConnections.set(globalClientId, peerConnection);
         peerConnection.onStateChange(state => {
-            console.log(`connection state (${clientId}): "${state}"`);
+            console.log(`connection state (${globalClientId}): "${state}"`);
             if (state === 'closed') {
                 // note: once a client's data channel has been established, any
                 // disconnection must be handled by the 'close' handler that we
                 // install on it (see the call to setUpClientHandlers below).  until that
                 // point - i.e., if the link has dropped early in ICE negotiation - we
                 // just silently clean up this peerConnection.
-                if (server.clients.get(clientId)) return;
+                if (server.clients.get(globalClientId)) return;
 
-                server.removeClient(clientId);
+                server.removeClient(globalClientId);
             }
         });
         peerConnection.onGatheringStateChange(state => {
-            console.log(`gathering state (${clientId}): "${state}"`);
+            console.log(`gathering state (${globalClientId}): "${state}"`);
             // $$$ sometimes we see another couple of candidates *after* this event
             // has fired.  if the client reacts quickly to the 'gathering-complete'
             // event by closing the signalling channel, it might not receive them.
@@ -657,14 +696,14 @@ async function startServerForDePIN() {
             signalToClient({ type, sdp });
         });
         peerConnection.onLocalCandidate((candidate, sdpMid) => {
-console.log(`new candidate: ${JSON.stringify(candidate)}`); // $$$ temporary debug
+// console.log(`new candidate: ${JSON.stringify(candidate)}`); // temporary debug
             if (!candidate) console.log(`empty local candidate: ${candidate}`);
             signalToClient({ type: 'candidate', candidate, sdpMid });
         });
         peerConnection.onDataChannel(dataChannel => {
-            console.log(`DataChannel from ${clientId} with label "${dataChannel.getLabel()}" and protocol "${dataChannel.getProtocol()}"`);
-            const client = createClient(clientId, peerConnection, dataChannel);
-            server.clients.set(clientId, client);
+            console.log(`DataChannel from ${globalClientId} with label "${dataChannel.getLabel()}" and protocol "${dataChannel.getProtocol()}"`);
+            const client = createClient(globalClientId, peerConnection, dataChannel);
+            server.clients.set(globalClientId, client);
             setUpClientHandlers(client); // adds 'message', 'close', 'error'
             dataChannel.onMessage(msg => {
                 if (msg.startsWith('!pong')) {
@@ -676,9 +715,12 @@ console.log(`new candidate: ${JSON.stringify(candidate)}`); // $$$ temporary deb
         });
     }
 
-    function createClient(clientId, peerConnection, dataChannel) {
+    function createClient(globalId, peerConnection, dataChannel) {
+        // a client object that has the needed DePIN-supporting properties, and
+        // can also work with legacy synchronizer code that expects a client to be
+        // a socket.
         return {
-            id: clientId,
+            globalId,
             pc: peerConnection,
             dc: dataChannel,
             isConnected: function() { return this.dc.isOpen() },
@@ -1106,7 +1148,7 @@ function nonSavableProps() {
         flags: {},           // flags for experimental synchronizer features.  currently only "rawtime" is checked
         rawStart: 0,         // stabilizedPerformanceNow() for start of this session
         scaledStart: 0,      // synthetic stabilizedPerformanceNow() for session start at current scale
-        sessionSocket: null, // a socket to a DePIN session coordinator
+        sendToSessionRunner: null, // function for sending on the DePIN socket
         [Symbol.toPrimitive]: () => "dummy",
         };
 }
@@ -1230,7 +1272,7 @@ async function JOIN(client, args) {
     island.dormantDelay = dormantDelay;
     island.url = url;
     island.flags = flags;
-    if (session.sendToSession) island.sendToSession = session.sendToSession;
+    if (session.sendToSessionRunner) island.sendToSessionRunner = session.sendToSessionRunner;
 
     client.island = island; // set island before await
 
@@ -1306,10 +1348,9 @@ async function JOIN(client, args) {
         }
         // new clients will be based on new session.logger
 
-        // $$$ refactor this to handle how depin will furnish the equivalent session-setup data through the session DO.  also to allow the session DO to send an explicit response/error that means "you were too slow; another syncr is now handling this" - in which case we need to bail out without invoking SYNC, and to clear our local session record (though not seek to clear the session DO's record, which will already have happened).
-        const fileName = `${id}/latest.json`;
+        // $$$ allow the session DO to send an explicit response/error that means "you were too slow; another syncr is now handling this" - in which case we need to bail out without invoking SYNC, and to clear our local session record (though not seek to clear the session DO's record, which will already have happened).
         try {
-            const latestSpec = await fetchJSON(fileName);
+            const latestSpec = await fetchLatestSessionSpec(session);
             island.logger.notice({
                 event: "start",
                 snapshot: {
@@ -1336,31 +1377,33 @@ async function JOIN(client, args) {
             if (err.code !== 404) island.logger.error({event: "fetch-latest-failed", err}, `failed to fetch latest.json: ${err.message}`);
             // this is a brand-new session, check if there is persistent data
             let persisted;
-            if (island.developerId) {
-                // new location for persistent data is in regional files buckets
-                const bucket = FILE_BUCKETS[island.region] || FILE_BUCKETS.default;
-                const path = `u/${island.developerId}/${appId}/${persistentId}/saved.json`;
-                persisted = await fetchJSON(path, bucket).catch(ex => {
-                    if (ex.code !== 404) island.logger.error({
-                        event: "fetch-saved-failed",
-                        bucket: bucket.name,
-                        path,
-                        err: ex,
-                    }, `failed to fetch saved.json: ${ex.message}`);
-                });
-            }
-            if (!persisted && appId) {
-                // old location for persistent data in sessions bucket
-                const path = `apps/${appId}/${persistentId}.json`;
-                const bucket = SESSION_BUCKET;
-                persisted = await fetchJSON(path, bucket).catch(ex => {
-                    if (ex.code !== 404) island.logger.error({
-                        event: "fetch-persist-failed",
-                        bucket: bucket.name,
-                        path,
-                        err: ex,
-                    }, `failed to fetch old persistence: ${ex.message}`);
-                });
+            if (!DEPIN) {  // @@ on DePIN we don't yet support persistence
+                if (island.developerId) {
+                    // new location for persistent data is in regional files buckets
+                    const bucket = FILE_BUCKETS[island.region] || FILE_BUCKETS.default;
+                    const path = `u/${island.developerId}/${appId}/${persistentId}/saved.json`;
+                    persisted = await fetchJSON(path, bucket).catch(ex => {
+                        if (ex.code !== 404) island.logger.error({
+                            event: "fetch-saved-failed",
+                            bucket: bucket.name,
+                            path,
+                            err: ex,
+                        }, `failed to fetch saved.json: ${ex.message}`);
+                    });
+                }
+                if (!persisted && appId) {
+                    // old location for persistent data in sessions bucket
+                    const path = `apps/${appId}/${persistentId}.json`;
+                    const bucket = SESSION_BUCKET;
+                    persisted = await fetchJSON(path, bucket).catch(ex => {
+                        if (ex.code !== 404) island.logger.error({
+                            event: "fetch-persist-failed",
+                            bucket: bucket.name,
+                            path,
+                            err: ex,
+                        }, `failed to fetch old persistence: ${ex.message}`);
+                    });
+                }
             }
             if (persisted) {
                 island.persistentUrl = persisted.url;
@@ -1377,8 +1420,6 @@ async function JOIN(client, args) {
             island.storedUrl = ''; // replace the null that means we haven't looked
             SYNC(island);
         }
-
-        return;
     }
 
     // if some earlier run through JOIN() has already processed latest.json, and updated
@@ -1414,7 +1455,7 @@ function SYNC(island) {
                 connectedFor: Date.now() - syncClient.since,
             }, `sending SYNC @${time}#${seq} ${response.length} bytes, ${messages.length} messages${range}, ${what} ${args.url || "<none>"}`);
             island.clients.add(syncClient);
-            announceUserDidJoin(syncClient);
+            announceUserJoined(syncClient);
         } else {
             syncClient.logger.debug({event: "send-sync-skipped"}, `socket closed before SYNC`);
         }
@@ -1426,7 +1467,7 @@ function SYNC(island) {
 }
 
 function clientLeft(client) {
-    if (DEPIN) server.removeClient(client.id);
+    if (DEPIN) server.removeClient(client.globalId);
 
     const island = ALL_ISLANDS.get(client.sessionId);
     if (!island) return;
@@ -1439,10 +1480,10 @@ function clientLeft(client) {
         syncClientCount: island.syncClients.length,
     }, `client deleted, ${remaining} remaining`);
     if (remaining === 0) provisionallyDeleteIsland(island);
-    announceUserDidLeave(client);
+    announceUserLeft(client);
 }
 
-function announceUserDidJoin(client) {
+function announceUserJoined(client) {
     const island = ALL_ISLANDS.get(client.sessionId);
     if (!island || !client.user || client.active === true) return;
     client.active = true;
@@ -1456,7 +1497,7 @@ function announceUserDidJoin(client) {
     }, `user ${JSON.stringify(client.user)} joined`);
 }
 
-function announceUserDidLeave(client) {
+function announceUserLeft(client) {
     const island = ALL_ISLANDS.get(client.sessionId);
     if (!island || !client.user || client.active !== true) return;
     client.active = false;
@@ -1764,7 +1805,7 @@ function SEND(island, messages) {
         STATS.RECV++;
         STATS.SEND += island.clients.size;
         island.clients.forEach(each => each.active && each.safeSend(msg));
-        if (island.sendToSession) island.sendToSession({ what: 'EVENT', msg });
+        if (island.sendToSessionRunner) island.sendToSessionRunner({ what: 'EVENT', msg });
         island.messages.push(message); // raw message sent again in SYNC
     }
     island.lastMsgTime = time;
@@ -1916,7 +1957,7 @@ function DELAYED_SEND(island) {
 function USERS(island) {
     island.usersTimer = null;
     const { clients, usersJoined, usersLeft, heraldUrl } = island;
-    if (usersJoined.length + usersLeft.length === 0) return; // someone joined & left
+    if (usersJoined.length + usersLeft.length === 0) return; // no-one joined or left
     const activeClients = [...clients].filter(each => each.active); // a client in the set but not active is between JOIN and SYNC
     const active = activeClients.length;
     const total = clients.size;
@@ -2134,36 +2175,36 @@ async function deleteIsland(island) {
     // (deleteIsland is only ever invoked after at least long enough to
     // outlast the record's retention limit).
     const teatime = `@${time}#${seq}`;
-    const unregistered = unregisterSession(id, teatime);
-
+    const session = ALL_SESSIONS.get(id);
     // if we've been told of a snapshot since the one (if any) stored in this
     // island's latest.json, or there are messages since the snapshot referenced
     // there, write a new latest.json.
     if (STORE_SESSION && (snapshotUrl !== storedUrl || after(storedSeq, seq))) {
-        const fileName = `${id}/latest.json`;
+        const path = DEPIN ? 'depin' : `${id}/latest.json`;
         island.logger.debug({
             event: "upload-latest",
             teatime,
             msgCount: messages.length,
-            path: fileName,
-        }, `uploading latest.json with ${messages.length} messages`);
+            path,
+        }, `uploading latest session spec with ${messages.length} messages`);
         cleanUpCompletedTallies(island);
         const latestSpec = {};
         savableKeys(island).forEach(key => latestSpec[key] = island[key]);
         try {
-            await uploadJSON(fileName, latestSpec);
+            // in the DePIN case, we're hoping that the sessionSocket is still up and running.  if not, we'll get an error (and abandon the upload).
+            await uploadLatestSessionSpec(session, latestSpec);
         } catch (err) {
             island.logger.error({
                 event: "upload-latest-failed",
                 teatime,
                 msgCount: messages.length,
-                path: fileName,
+                path,
                 err
-            }, `failed to upload latest.json. ${err.code}: ${err.message}`);
+            }, `failed to upload latest session spec. ${err.code}: ${err.message}`);
         }
     }
 
-    await unregistered; // wait because in emergency shutdown we need to clean up before exiting
+    await unregisterSession(id, teatime); // wait because in emergency shutdown we need to clean up before exiting
 }
 
 function scheduleShutdownIfNoJoin(id, targetTime, detail) {
@@ -2217,10 +2258,13 @@ async function unregisterSession(id, detail) {
 
     session.logger.debug({event: "unregister", detail}, `unregistering session - ${detail}`);
 
+    session.stage = 'closed';
+
     const finalDelete = () => {
         const { sessionSocket } = session;
-        if (sessionSocket && sessionSocket.readyState === WebSocket.OPEN) {
+        if (sessionSocket?.readyState === WebSocket.OPEN) {
             sessionSocket.close();
+            sessionSocket.terminate(); // otherwise 'close' event might not be raised for 30 seconds; see https://github.com/websockets/ws/issues/2203
         }
         ALL_SESSIONS.delete(id);
     };
@@ -2231,7 +2275,6 @@ async function unregisterSession(id, detail) {
         return;
     }
 
-    session.stage = 'closed';
     let filename = `${id}.json`;
     if (CLUSTER === "localWithStorage") filename = `testing/${filename}`;
     try {
@@ -2395,7 +2438,7 @@ function registerSession(sessionId) {
     // client that finds its socket isn't working (SYNC fails to arrive), and
     // after 5 seconds will try to reconnect.
     let unregisterDelay = DISPATCH_RECORD_RETENTION + 2000;
-    if (CLUSTER === 'localWithStorage') {
+    if (!DEPIN && CLUSTER === 'localWithStorage') {
         // FOR TESTING WITH LOCAL SYNCHRONIZER ONLY
         // no dispatcher was involved in getting here.  create for ourselves a dummy
         // record in the /testing sub-bucket.
@@ -2563,6 +2606,22 @@ async function verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client, u
     return false;
 }
 
+async function fetchLatestSessionSpec(session) {
+    if (!DEPIN) return fetchJSON(`${session.id}/latest.json`);
+
+    let fetchTimeout;
+    const fetchFromRunner = new Promise((resolve, reject) => {
+        session.sessionSpecReady = resolve;
+        session.sendToSessionRunner({ what: "FETCH_LATEST_SPEC" });
+        fetchTimeout = setTimeout(reject, 2000); // @@ arbitrary
+    }).catch(_err => '') // error or timeout delivers empty spec
+    .finally(() => clearTimeout(fetchTimeout));
+
+    const latestSpec = await fetchFromRunner;
+    // for an empty spec (perhaps from error) we generate a fake 404 error
+    return latestSpec || Promise.reject(Object.assign(new Error("error or empty spec"), { code: 404 })); // hack, copied from fetchJSON;
+}
+
 /** fetch a JSON-encoded object from our storage bucket */
 async function fetchJSON(filename, bucket=SESSION_BUCKET) {
     // somewhat of a hack to not having to guard the fetchJSON calls in JOIN()
@@ -2579,6 +2638,24 @@ async function fetchJSON(filename, bucket=SESSION_BUCKET) {
             stream.on('error', reject);
         } catch (err) { reject(err) }
     });
+}
+
+async function uploadLatestSessionSpec(session, latestSpec) {
+    if (!DEPIN) {
+        uploadJSON(`${session.id}/latest.json`, latestSpec);
+    }
+
+    let uploadTimeout;
+    const uploadToRunner = new Promise((resolve, reject) => {
+        session.sessionSpecReceived = resolve;
+        session.sendToSessionRunner({ what: "UPLOAD_LATEST_SPEC", latestSpec });
+        uploadTimeout = setTimeout(reject, 2000); // @@ arbitrary
+    }).catch(err => {
+        // try to throw something that looks a bit like a server error
+        throw Object.assign(new Error("upload failed"), err || { code: 500 });
+    }).finally(() => clearTimeout(uploadTimeout));
+
+    await uploadToRunner;
 }
 
 /** upload an object as JSON file to our storage bucket */
