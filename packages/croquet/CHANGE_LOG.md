@@ -4,6 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest
 
+* 2.0.0-1  first testable version with DePIN support
 * 1.1.0-41 add TypeScript declaration for persistence
 * 1.1.0-40 typo
 * 1.1.0-39 force snapshot if reflector needs one
