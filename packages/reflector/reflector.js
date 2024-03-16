@@ -429,31 +429,13 @@ async function startServerForDePIN() {
     };
     connectToProxy();
 
-    const SESSION_IDLE_PING = 1000;
-    const SESSION_ACK_DELAY_LIMIT = 300;
+    const SESSION_UPDATE_DELAY = 1000;
+    const SESSION_ACK_DELAY_LIMIT = 2000; // @@ would normally be much shorter - e.g., 300ms
 
     const connectToSession = sessionId => {
         const session = ALL_SESSIONS.get(sessionId);
         const shortSessionId = sessionId.slice(0, 8);
         const key = session.socketKey = Math.random();
-
-        // $$$ need a different kind of keepAlive that sends pings once per second
-        // iff there hasn't been another message between.
-        // and a check that every message sent is acknowledged within 300ms.
-        // let lastMsg = Date.now();
-        // let sessionKeepAlive;
-        // function keepAlive(ms = SESSION_IDLE_PING) {
-        //     clearTimeout(sessionKeepAlive);
-        //     sessionKeepAlive = setTimeout(() => {
-        //         if (Date.now() - lastMsg > SESSION_ACK_DELAY_LIMIT) {
-        //             console.log('No pong from Registry in 60 seconds, reconnecting');
-        //             sessionSocket.close();
-        //             return;
-        //         }
-        //         sendToProxy({ what: "PING" }); // proxy looks for exactly the string '{"what":"PING"}'
-        //         keepAlive();
-        //     }, ms);
-        // }
 
         const sessionSocket = new WebSocket(`${DEPIN}/synchronizers/connect?session=${sessionId}&synchronizer=${proxyId}`, {
             perMessageDeflate: false, // this was in the node-datachannel example; not sure if it's helping
@@ -469,6 +451,62 @@ async function startServerForDePIN() {
 
             socket.send(JSON.stringify(msgObject));
         };
+
+        // $$$ on a timer, and when triggered on demand, send the session runner an incremental update of the running island's state.
+        // for now, check that every update sent is acknowledged within 2000ms, and
+        // abandon the hosting if not.
+        let lastMsg = Date.now();
+        let lastSessionValues = {}; // as received from DO, or sent from here
+        let lastUpdateSent = 0;
+        let updateTimeout;
+        let updateAckTimeout;
+        function updateSessionRunner() {
+            clearTimeout(updateTimeout); // in case this was an on-demand invocation
+            if (key !== session.socketKey) return;
+
+            const island = ALL_ISLANDS.get(sessionId);
+            if (island && session.sessionSocket?.readyState === WebSocket.OPEN) {
+                const { forcedUpdateProps, arrayUpdates } = island;
+                const update = {};
+                // ignore any property in arrayUpdates (an incremental append to an array) if the property is in forcedUpdateProps anyway (meaning the whole value will be sent)
+                if (Object.keys(arrayUpdates).length) {
+                    let foundAny = false;
+                    const filtered = {};
+                    Object.keys(arrayUpdates).forEach(prop => {
+                        if (!forcedUpdateProps.has(prop)) {
+                            filtered[prop] = arrayUpdates[prop];
+                            foundAny = true;
+                        }
+                    });
+                    if (foundAny) update.arrayUpdates = filtered;
+                }
+                const skippableProps = new Set(Object.keys(arrayUpdates)); // start the collection
+                island.arrayUpdates = {};
+                forcedUpdateProps.forEach(prop => {
+                    const value = island[prop];
+                    update[prop] = value;
+                    lastSessionValues[prop] = value;
+                    skippableProps.add(prop);
+                });
+                forcedUpdateProps.clear();
+                savableKeys(island).forEach(prop => {
+                    if (!skippableProps.has(prop)) {
+                        const value = island[prop];
+                        if (lastSessionValues[prop] !== value) {
+                            update[prop] = value;
+                            lastSessionValues[prop] = value;
+                        }
+                    }
+                });
+                if (Object.keys(update).length) {
+                    session.sendToSessionRunner({ what: "UPDATE_SPEC", update });
+                }
+            }
+
+            updateTimeout = setTimeout(updateSessionRunner, SESSION_UPDATE_DELAY);
+        }
+        session.updateSessionRunner = updateSessionRunner;
+        updateTimeout = setTimeout(updateSessionRunner, SESSION_UPDATE_DELAY);
 
         sessionSocket.on('open', () => {
             console.log(`session WebSocket connected to Registry ${DEPIN}`);
@@ -526,7 +564,8 @@ async function startServerForDePIN() {
                     console.log(`session message from client ${globalClientId}: ${msg.type} ${JSON.stringify({ msg, type: undefined })}`);
                     switch (msg.type) {
                         case 'offer':
-                            createPeerConnection(clientId, globalClientId, sessionSocket);
+                            // supposedly always the first message through
+                            createPeerConnection(clientId, globalClientId, sessionId, sessionSocket);
                             server.peerConnections.get(globalClientId).setRemoteDescription(msg.sdp, msg.type);
                             break;
                         case 'candidate':
@@ -542,8 +581,9 @@ async function startServerForDePIN() {
                     break;
                 }
                 case 'LATEST_SPEC': {
-                    const json = depinMsg.json;
-                    session.sessionSpecReady(json);
+                    const spec = depinMsg.spec;
+                    lastSessionValues = spec; // so we don't send the session runner values it already has
+                    session.sessionSpecReady(spec);
                     break;
                 }
                 case 'LATEST_SPEC_RECEIVED': {
@@ -655,7 +695,7 @@ async function startServerForDePIN() {
         }
     };
 
-    function createPeerConnection(clientId, globalClientId, sessionSocket) {
+    function createPeerConnection(clientId, globalClientId, sessionId, sessionSocket) {
         // triggered by receiving an ICE offer from a client
         const signalToClient = signalObject => {
             if (sessionSocket.readyState !== WebSocket.OPEN) return;
@@ -702,9 +742,11 @@ async function startServerForDePIN() {
         });
         peerConnection.onDataChannel(dataChannel => {
             console.log(`DataChannel from ${globalClientId} with label "${dataChannel.getLabel()}" and protocol "${dataChannel.getProtocol()}"`);
-            const client = createClient(globalClientId, peerConnection, dataChannel);
+            const client = createClient(peerConnection, dataChannel);
+            client.globalId = globalClientId;
             server.clients.set(globalClientId, client);
             setUpClientHandlers(client); // adds 'message', 'close', 'error'
+            registerClientInSession(client, sessionId);
             dataChannel.onMessage(msg => {
                 if (msg.startsWith('!pong')) {
                     const time = Number(msg.split('@')[1]);
@@ -715,12 +757,11 @@ async function startServerForDePIN() {
         });
     }
 
-    function createClient(globalId, peerConnection, dataChannel) {
+    function createClient(peerConnection, dataChannel) {
         // a client object that has the needed DePIN-supporting properties, and
         // can also work with legacy synchronizer code that expects a client to be
         // a socket.
         return {
-            globalId,
             pc: peerConnection,
             dc: dataChannel,
             isConnected: function() { return this.dc.isOpen() },
@@ -1149,6 +1190,9 @@ function nonSavableProps() {
         rawStart: 0,         // stabilizedPerformanceNow() for start of this session
         scaledStart: 0,      // synthetic stabilizedPerformanceNow() for session start at current scale
         sendToSessionRunner: null, // function for sending on the DePIN socket
+        updateSessionRunner: null, // function for updating session spec from island
+        forcedUpdateProps: new Set(), // properties to be sent as-is on next update
+        arrayUpdates: {},    // property key => incremental additions
         [Symbol.toPrimitive]: () => "dummy",
         };
 }
@@ -1189,7 +1233,7 @@ async function JOIN(client, args) {
         case 'runnable':
         case 'closable':
             session.stage = 'running';
-            // if the session was 'runnable', there will be a timeout (set in scheduleShutdownIfNoJoin, called from registerClientInSession) to delete the local island record and the dispatch record if no-one sends JOIN in time (though this doesn't really make sense in depin, where we don't even know which session we're handling until we get the first JOIN).
+            // if the session was 'runnable', there will be a timeout (set in scheduleShutdownIfNoJoin, called from registerClientInSession) to delete the local island record and the dispatch record if no-one sends JOIN in time.
             // if 'closable', the timeout is set in provisionallyDeleteIsland to go ahead with deletion.
             clearTimeout(session.timeout);
             session.timeout = null;
@@ -1362,7 +1406,8 @@ async function JOIN(client, args) {
             }, "resuming session from latest.json");
             // as we migrate from one style of island properties to another, a
             // latest.json does not necessarily have all the properties a freshly
-            // minted island has.
+            // minted island has.  fill in whichever of those properties were
+            // supplied (and ignore any properties that we no longer keep).
             savableKeys(island).forEach(key => {
                 const value = latestSpec[key];
                 if (value !== undefined) island[key] = value;
@@ -1700,6 +1745,7 @@ function SNAP(client, args) {
     island.snapshotTime = time;
     island.snapshotSeq = seq;
     island.snapshotUrl = url;
+    island.forcedUpdateProps.add('messages');
 
     // SYNC waiting clients
     if (island.syncClients.length > 0) SYNC(island);
@@ -1805,7 +1851,11 @@ function SEND(island, messages) {
         STATS.RECV++;
         STATS.SEND += island.clients.size;
         island.clients.forEach(each => each.active && each.safeSend(msg));
-        if (island.sendToSessionRunner) island.sendToSessionRunner({ what: 'EVENT', msg });
+        if (DEPIN) {
+            let incrementalMessages = island.arrayUpdates.messages;
+            if (!incrementalMessages) incrementalMessages = island.arrayUpdates.messages = [];
+            incrementalMessages.push(message); // the raw message
+        }
         island.messages.push(message); // raw message sent again in SYNC
     }
     island.lastMsgTime = time;
@@ -1930,6 +1980,8 @@ function cleanUpCompletedTallies(island) {
 
     const sentinel = completed['sentinel']; // new or previous
     if (sentinel) historyLimit = sentinel;
+
+    if (DEPIN) island.forcedUpdateProps.add('completedTallies');
 
     return historyLimit;
 }
@@ -2189,6 +2241,7 @@ async function deleteIsland(island) {
         }, `uploading latest session spec with ${messages.length} messages`);
         cleanUpCompletedTallies(island);
         const latestSpec = {};
+console.log(savableKeys(island).map(k => `${k}:${typeof island[k]}`).join(', '));
         savableKeys(island).forEach(key => latestSpec[key] = island[key]);
         try {
             // in the DePIN case, we're hoping that the sessionSocket is still up and running.  if not, we'll get an error (and abandon the upload).
@@ -2306,19 +2359,6 @@ function setUpClientHandlers(client) {
             }
             try {
                 const { action, args, tags } = parsedMsg;
-                if (DEPIN && !client.sessionId) {
-                    if (action === 'JOIN') {
-                        registerClientInSession(client, args.sessionId);
-                        if (!client.sessionId) return; // something went wrong
-                    } else {
-                        client.logger.warn({
-                            event: "expecting-JOIN",
-                            action: typeof action === "string" ? action : JSON.stringify(action),
-                            incomingMsg
-                        }, `expecting JOIN but received ${JSON.stringify(action)}`);
-                        return; // ignore the message, whatever it is
-                    }
-                }
                 switch (action) {
                     case 'JOIN': {
                         client.joinedSession = true;
@@ -2466,6 +2506,8 @@ function registerSession(sessionId) {
 }
 
 function registerClientInSession(client, sessionId) {
+    // the client has been successfully set up with a connection (which takes more
+    // steps in DePIN than otherwise).  now sign it up with the session it belongs to.
     const session = ALL_SESSIONS.get(sessionId);
     if (session) {
         switch (session.stage) {
@@ -2607,6 +2649,7 @@ async function verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client, u
 }
 
 async function fetchLatestSessionSpec(session) {
+    // fetch a session-spec object
     if (!DEPIN) return fetchJSON(`${session.id}/latest.json`);
 
     let fetchTimeout;
@@ -2614,15 +2657,15 @@ async function fetchLatestSessionSpec(session) {
         session.sessionSpecReady = resolve;
         session.sendToSessionRunner({ what: "FETCH_LATEST_SPEC" });
         fetchTimeout = setTimeout(reject, 2000); // @@ arbitrary
-    }).catch(_err => '') // error or timeout delivers empty spec
+    }).catch(_err => { return {} }) // error or timeout delivers empty spec
     .finally(() => clearTimeout(fetchTimeout));
 
     const latestSpec = await fetchFromRunner;
     // for an empty spec (perhaps from error) we generate a fake 404 error
-    return latestSpec || Promise.reject(Object.assign(new Error("error or empty spec"), { code: 404 })); // hack, copied from fetchJSON;
+    return Object.keys(latestSpec).length ?  latestSpec : Promise.reject(Object.assign(new Error("error or empty spec"), { code: 404 })); // hack, copied from fetchJSON;
 }
 
-/** fetch a JSON-encoded object from our storage bucket */
+/** fetch from our storage bucket an object that was JSON-encoded */
 async function fetchJSON(filename, bucket=SESSION_BUCKET) {
     // somewhat of a hack to not having to guard the fetchJSON calls in JOIN()
     if (NO_STORAGE || (APPS_ONLY && !filename.startsWith('apps/'))) {
@@ -2648,10 +2691,10 @@ async function uploadLatestSessionSpec(session, latestSpec) {
     let uploadTimeout;
     const uploadToRunner = new Promise((resolve, reject) => {
         session.sessionSpecReceived = resolve;
-        session.sendToSessionRunner({ what: "UPLOAD_LATEST_SPEC", latestSpec });
+        session.sendToSessionRunner({ what: "UPLOAD_LATEST_SPEC", spec: latestSpec });
         uploadTimeout = setTimeout(reject, 2000); // @@ arbitrary
     }).catch(err => {
-        // try to throw something that looks a bit like a server error
+        // try to throw something that looks like a server error
         throw Object.assign(new Error("upload failed"), err || { code: 500 });
     }).finally(() => clearTimeout(uploadTimeout));
 
