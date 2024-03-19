@@ -1,10 +1,16 @@
-Croquet allows you to create **collaborative web** experiences without any server-side code, such as **multi-user apps** or **multi-player games**.
+Croquet is a software system for creating multiuser digital experiences on the web. It lets you build real-time multiuser apps without writing a single line of server code, or deploying or managing any servers. Croquet is available as a JavaScript library that synchronizes Croquet apps using Croquet’s globally deployed reflector servers and provides seamless cross-platform real-time interactivity to any user with a network connection and a web browser.
+
+While Croquet itself is independent of any specific UI framework, we provide our own frameworks that build on top of it (see [here](..)).
+
+* A blog post about [How Croquet Works](https://croquetweak.blogspot.com/2021/08/what-is-croquet-anyways.html) by our Chief Architect Vanessa Freudenberg
+* Vanessa gave a [Keynote Speech](https://www.youtube.com/watch?v=ujOVHVAjXj4) at the Dynamic Languages Symposium in 2020
+* Watch a [Video Tutorial](https://www.youtube.com/watch?v=Nu2Siz_rjTg) our engineers gave to the AR/VR Capstone Class 2021 at UW's Reality Lab
 
 Scroll down for an **overview** of Croquet, and the [**Changelog**](#changelog).
 
 Use the Navigation Panel to try our **Tutorials and guides** and **API docs**.
 
-Please review our [**Code of Conduct**](/conduct.html) and
+Please review our [**Code of Conduct**](../../conduct.html) and
 **join** our [**Developer Discord** <img alt="Discord" style="height: 1.5em" src="images/discord.png"/>](https://croquet.io/discord/)
 
 * [Quickstart](#quickstart)
@@ -24,7 +30,7 @@ Please review our [**Code of Conduct**](/conduct.html) and
 
 **_First, get a free API key from [croquet.io/keys](https://croquet.io/keys/)_**
 
-There are 3 main ways to use Croquet:
+There are 3 main ways to getting started with Croquet:
 
 1.  **CodePen:** play with our tutorials, click "Edit on CodePen", and develop your app there. To share it, change the view to full screen, and share the pen's url. Alternatively, click "Export" and choose "Export .zip" to download your app to your local computer for further editing and uploading to your own website.
 
@@ -245,12 +251,12 @@ Croquet guarantees that the same sequence of random numbers is generated in ever
 Calls to `Math.random()` within a view will behave normally. Different instances will receive different random numbers.
 
 # Technical FAQ
-## To use Croquet OS, what changes do I need to make to my firewall configuration?
-Most people do not have to modify their network or firewall settings to use any product released by Croquet, including Croquet OS, Croquet for Unity, Microverse World Builder, or Metaverse Web Showcase.
+## To use Croquet, what changes do I need to make to my firewall configuration?
+Most people do not have to modify their network or firewall settings to use any product released by Croquet, including Croquet, Croquet for Unity, Microverse World Builder, or Metaverse Web Showcase.
 
 However, if you are on a network behind a firewall with a strict set of rules, you may have to make some changes to your firewall configuration.
 
-An app built with Croquet OS will make network connections to the Croquet infrastructure with the following parameters:
+An app built with Croquet will make network connections to the Croquet infrastructure with the following parameters:
 
 | Parameter    | Data                                                                                                        |
 |--------------|-------------------------------------------------------------------------------------------------------------|
