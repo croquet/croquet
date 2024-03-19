@@ -322,7 +322,8 @@ async function startServerForDePIN() {
     const STATS_DELAY = 1000;
     const STATS_ACK_DELAY_LIMIT = 5000;
 
-    let proxyId; // the ID of the worker running the proxy for this sync
+    let proxyId;        // the ID of the worker running the proxy for this sync
+    let registerRegion = ''; // the region registry this sync has been listed in
     let proxySocket = null;
     let proxyReconnectDelay = 0;
     let proxyKey;
@@ -356,12 +357,12 @@ async function startServerForDePIN() {
             }, ms);
         }
 
-        proxySocket = new WebSocket(`${DEPIN}/synchronizers/register?nickname=${SYNCNAME}`, {
+        proxySocket = new WebSocket(`${DEPIN}/synchronizers/register?nickname=${SYNCNAME}&registerRegion=${registerRegion}`, {
             perMessageDeflate: false, // this was in the node-datachannel example; not sure if it's helping
         });
 
         proxySocket.on('open', () => {
-            console.log(`proxy WebSocket connected to Registry ${DEPIN}`);
+            console.log(`proxy WebSocket connected to registry ${DEPIN}`);
             proxyReconnectDelay = 0;
             lastMsg = Date.now();
             keepAlive();
@@ -381,7 +382,13 @@ async function startServerForDePIN() {
             switch (depinMsg.what) {
                 case "REGISTERED": {
                     proxyId = depinMsg.proxyId;
-                    console.log(`registered with proxy id ${proxyId}`);
+                    const newRegisterRegion = depinMsg.registerRegion;
+                    if (registerRegion && registerRegion !== newRegisterRegion) {
+                        console.log(`moved from ${registerRegion} to ${newRegisterRegion}`);
+                    } else {
+                        console.log(`registered in region ${newRegisterRegion} with proxy id ${proxyId.slice(0, 8)}`);
+                    }
+                    registerRegion = newRegisterRegion;
                     break;
                 }
                 case "SESSION": {
@@ -421,17 +428,25 @@ async function startServerForDePIN() {
             }
         });
 
-        proxySocket.on('close', function onClose() {
+        proxySocket.on('close', function onClose(code, reasonBuf) {
             // we don't intentionally close the socket connection to the manager,
             // so this must be due to a network glitch.  re-establish the connection,
             // using an increasing backoff delay.
             // $$$ after a certain time with no connection, we need to offload all
             // sessions and their clients.
-            if (key !== proxyKey) return; // this connection has been superseded
+            const reason = reasonBuf.toString();
+            let closeReason = code.toString();
+            if (reason) closeReason += ` - ${reason}`;
+
+            if (key !== proxyKey) {
+                // this connection has been superseded
+                console.log(`old proxy socket closed (${closeReason})`);
+                return;
+            }
 
             clearTimeout(keepAliveTimeout);
             proxySocket = null;
-            console.log(`proxy socket closed.  retrying after ${proxyReconnectDelay}ms`);
+            console.log(`proxy socket closed (${closeReason}).  retrying after ${proxyReconnectDelay}ms`);
             setTimeout(connectToProxy, proxyReconnectDelay);
             proxyReconnectDelay = Math.min(PROXY_RECONNECT_DELAY_MAX, Math.round((proxyReconnectDelay + 100) * (1 + Math.random())));
         });
