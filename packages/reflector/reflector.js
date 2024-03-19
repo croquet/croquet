@@ -26,14 +26,16 @@ const ARGS = {
     NO_LOGLATENCY: "--no-loglatency",
     TIME_STABILIZED: "--time-stabilized",
     DEPIN: "--depin", // optionally followed by DePIN Registry arg, e.g. --depin localhost:8787
+    SYNCNAME: "--sync-name", // followed by a name, e.g. --sync-name MyBigMac:fedc
 };
 
-for (const arg of process.argv.slice(2)) {
-    if (!Object.values(ARGS).includes(arg)) {
-        console.error(`Error: Unrecognized option ${arg}`);
-        process.exit(1);
-    }
-}
+// $$$ for now, be optimistic that the args are being used properly
+// for (const arg of process.argv.slice(2)) {
+//     if (!Object.values(ARGS).includes(arg)) {
+//         console.error(`Error: Unrecognized option ${arg}`);
+//         process.exit(1);
+//     }
+// }
 
 const GCP_PROJECT = process.env.GCP_PROJECT; // only set if we're running on Google Cloud
 
@@ -55,6 +57,20 @@ if (DEPIN) {
         DEPIN = depinArg;
     }
 }
+
+function getRandomString(length) {
+    return Math.random()
+        .toString(36)
+        .substring(2, 2 + length);
+}
+let SYNCNAME;
+if (process.argv.includes(ARGS.SYNCNAME)) {
+    const nameArg = process.argv[process.argv.indexOf(ARGS.SYNCNAME) + 1];
+    if (nameArg && !nameArg.startsWith('-')) {
+        SYNCNAME = nameArg;
+    }
+}
+if (!SYNCNAME) SYNCNAME = getRandomString(8);
 
 // do not show pre 1.0 warning if these strings appear in session name or url
 const SPECIAL_CUSTOMERS = [
@@ -251,8 +267,6 @@ let server;
 // ============ DEPIN-specific initialisation ===========
 
 async function startServerForDePIN() {
-    let proxyId = ''; // will be filled in once synchronizer is running
-
     // in advance, get the iceServers that we'll be using on all connections
     const iceServers = [];
     const response = await fetch(process.env.ICE_SERVERS_URL);
@@ -292,7 +306,7 @@ async function startServerForDePIN() {
     // note: API described at https://github.com/murat-dogan/node-datachannel/blob/c8197e28b39fd81f55818c0301995414fa877ff9/API.md
     // also see https://github.com/murat-dogan/node-datachannel/blob/c8197e28b39fd81f55818c0301995414fa877ff9/lib/index.d.ts
     const nodeDataChannel = await import('node-datachannel'); // can't (and in fact don't want to) use static require()
-    nodeDataChannel.initLogger('Info'); // $$$ 'Debug');
+    nodeDataChannel.initLogger('Warning'); // 'Verbose' | 'Debug' | 'Info' | 'Warning' | 'Error' | 'Fatal';
     nodeDataChannel.preload();
 
     // Signaling connection
@@ -308,6 +322,7 @@ async function startServerForDePIN() {
     const STATS_DELAY = 1000;
     const STATS_ACK_DELAY_LIMIT = 5000;
 
+    let proxyId; // the ID of the worker running the proxy for this sync
     let proxySocket = null;
     let proxyReconnectDelay = 0;
     let proxyKey;
@@ -341,7 +356,7 @@ async function startServerForDePIN() {
             }, ms);
         }
 
-        proxySocket = new WebSocket(`${DEPIN}/synchronizers/register?id=${proxyId}`, {
+        proxySocket = new WebSocket(`${DEPIN}/synchronizers/register?nickname=${SYNCNAME}`, {
             perMessageDeflate: false, // this was in the node-datachannel example; not sure if it's helping
         });
 
@@ -365,20 +380,14 @@ async function startServerForDePIN() {
             const depinMsg = JSON.parse(depinStr);
             switch (depinMsg.what) {
                 case "REGISTERED": {
-                    const id = depinMsg.proxyId;
-                    if (proxyId && proxyId !== id) throw Error(`re-registered with id ${id} instead of previous ${proxyId}`);
-
-                    console.log(`${proxyId ? 're-registered' : 'registered'} with id ${id}`);
-
-                    proxyId = id;
-                    process.parentPort.postMessage(JSON.stringify({ type: 'synchronizerId', id }));
+                    proxyId = depinMsg.proxyId;
+                    console.log(`registered with proxy id ${proxyId}`);
                     break;
                 }
                 case "SESSION": {
-                    const id = depinMsg.sessionId;
-                    console.log(`new session dispatch for ${id}`);
-                    acceptSession(id);
-                    // $$$
+                    const { sessionId, dispatchSeq } = depinMsg;
+                    console.log(`new session dispatch for ${sessionId.slice(0, 8)}`);
+                    acceptSession(sessionId, dispatchSeq);
                     break;
                 }
                 case 'PING':
@@ -431,13 +440,14 @@ async function startServerForDePIN() {
 
     const SESSION_UPDATE_DELAY = 1000;
     const SESSION_ACK_DELAY_LIMIT = 2000; // @@ would normally be much shorter - e.g., 300ms
+    const SESSION_RECONNECT_DELAY_MAX = 30000;
 
-    const connectToSession = sessionId => {
+    const connectToSession = (sessionId, runnerDispatchSeq) => {
         const session = ALL_SESSIONS.get(sessionId);
         const shortSessionId = sessionId.slice(0, 8);
         const key = session.socketKey = Math.random();
 
-        const sessionSocket = new WebSocket(`${DEPIN}/synchronizers/connect?session=${sessionId}&synchronizer=${proxyId}`, {
+        const sessionSocket = new WebSocket(`${DEPIN}/synchronizers/connect?session=${sessionId}&dispatchSeq=${runnerDispatchSeq}&synchronizer=${proxyId}`, {
             perMessageDeflate: false, // this was in the node-datachannel example; not sure if it's helping
         });
         session.sessionSocket = sessionSocket;
@@ -455,6 +465,7 @@ async function startServerForDePIN() {
         // $$$ on a timer, and when triggered on demand, send the session runner an incremental update of the running island's state.
         // for now, check that every update sent is acknowledged within 2000ms, and
         // abandon the hosting if not.
+        // $$$ things will break if the total size of the status update is a message over 1MB
         let lastMsg = Date.now();
         let lastSessionValues = {}; // as received from DO, or sent from here
         let lastUpdateSent = 0;
@@ -509,7 +520,7 @@ async function startServerForDePIN() {
         updateTimeout = setTimeout(updateSessionRunner, SESSION_UPDATE_DELAY);
 
         sessionSocket.on('open', () => {
-            console.log(`session WebSocket connected to Registry ${DEPIN}`);
+            console.log(`connected to session runner for ${shortSessionId}`);
             session.reconnectDelay = 0;
             // lastMsg = Date.now();
             // keepAlive();
@@ -531,27 +542,33 @@ async function startServerForDePIN() {
             const clientId = depinMsg.id;
             const globalClientId = `${shortSessionId}:${clientId}`;
             switch (depinMsg.what) {
+                case "REJECTED":
+                    // session runner has rejected this synchronizer's attempt to
+                    // take the session (for example, if we took too long to connect)
+                    console.log(`session runner for ${shortSessionId} rejected our connection`);
+                    unregisterSession(sessionId, "rejected by session runner");
+                    return;
                 case "CONNECT":
                     // @@ a peer connection isn't set up until the client sends an offer.
                     // therefore, for now, there's nothing to do here.
                     console.log(`new client connection from client ${globalClientId}`);
                     break;
                 case "DISCONNECT":
-                    console.log(`closed session connection from client ${globalClientId}`);
+                    console.log(`closed client signaling ${globalClientId}`);
                     // if the client already has a data channel, this disconnection
                     // has probably been triggered by the client deciding that the channel
                     // setup is now complete - so it's not a client disconnection at all.
                     if (server.clients.get(globalClientId)) {
                         // by the same token, this is likely to be a reasonable time
                         // to report on the channel's selected ICE candidates.
-                        const peerConnection = server.peerConnections.get(globalClientId);
-                        if (peerConnection) console.log(JSON.stringify(peerConnection.getSelectedCandidatePair(), null, 2));
-                        return; // nothing more to do
+                        // @@ now handled with explicit selectedCandidatePair messages
+                        // const peerConnection = server.peerConnections.get(globalClientId);
+                        // if (peerConnection) console.log(JSON.stringify(peerConnection.getSelectedCandidatePair(), null, 2));
+                    } else {
+                        // if there isn't a data channel, this might be the only disconnection
+                        // signal we'll get.  make sure to tidy up.
+                        server.removeClient(globalClientId);
                     }
-
-                    // if there isn't a data channel, this might be the only disconnection
-                    // signal we'll get.  make sure to tidy up.
-                    server.removeClient(globalClientId);
                     break;
                 case "MSG": {
                     let msg;
@@ -561,7 +578,7 @@ async function startServerForDePIN() {
                         console.log(`error parsing message from client ${globalClientId}: ${depinMsg.data}`);
                         return;
                     }
-                    console.log(`session message from client ${globalClientId}: ${msg.type} ${JSON.stringify({ msg, type: undefined })}`);
+                    // console.log(`session message from client ${globalClientId}: ${msg.type} ${JSON.stringify({ msg, type: undefined })}`);
                     switch (msg.type) {
                         case 'offer':
                             // supposedly always the first message through
@@ -573,6 +590,9 @@ async function startServerForDePIN() {
                             if (msg.candidate) {
                                 server.peerConnections.get(globalClientId).addRemoteCandidate(msg.candidate, msg.sdpMid);
                             }
+                            break;
+                        case 'selectedCandidatePair':
+                            console.log(`client ${globalClientId} connection: client=${msg.clientType}, sync=${msg.syncType}`);
                             break;
                         default:
                             console.warn(`unhandled session message type ${msg.type}`);
@@ -620,6 +640,8 @@ async function startServerForDePIN() {
             if (key !== session.socketKey) return; // an earlier connection
             // clearTimeout(keepAliveTimeout);
 
+            console.log(`session runner for ${shortSessionId} connection closed; session stage is "${session.stage}"`);
+
             const sessionIsClosed = session.stage === "closed";
 
             const sessionPrefix = shortSessionId + ':';
@@ -642,14 +664,14 @@ async function startServerForDePIN() {
 
             const disconnectMsg = disconnected ? ` and ${disconnected} unconnected clients discarded` : '';
             console.log(`session socket closed${disconnectMsg}.  retrying after ${session.reconnectDelay}ms`);
-            setTimeout(() => connectToSession(sessionId), session.reconnectDelay);
-            session.reconnectDelay = Math.min(PROXY_RECONNECT_DELAY_MAX, Math.round((session.reconnectDelay + 100) * (1 + Math.random())));
+            setTimeout(() => connectToSession(sessionId, runnerDispatchSeq), session.reconnectDelay);
+            session.reconnectDelay = 5000; // $$$ Math.min(SESSION_RECONNECT_DELAY_MAX, Math.round((session.reconnectDelay + 100) * (1 + Math.random())));
         });
     };
 
-    function acceptSession(sessionId) {
+    function acceptSession(sessionId, runnerDispatchSeq) {
         registerSession(sessionId);
-        connectToSession(sessionId);
+        connectToSession(sessionId, runnerDispatchSeq);
     }
 
     // create a fake server.  startServerForWebSockets (below) makes an http/websocket
@@ -1189,8 +1211,10 @@ function nonSavableProps() {
         flags: {},           // flags for experimental synchronizer features.  currently only "rawtime" is checked
         rawStart: 0,         // stabilizedPerformanceNow() for start of this session
         scaledStart: 0,      // synthetic stabilizedPerformanceNow() for session start at current scale
+        runnerDispatchSeq: 0, // sequence number that the session runner is expecting us to provide on connection
         sendToSessionRunner: null, // function for sending on the DePIN socket
         updateSessionRunner: null, // function for updating session spec from island
+        reconnectDelay: 0,
         forcedUpdateProps: new Set(), // properties to be sent as-is on next update
         arrayUpdates: {},    // property key => incremental additions
         [Symbol.toPrimitive]: () => "dummy",
@@ -2300,9 +2324,13 @@ function scheduleShutdownIfNoJoin(id, targetTime, detail) {
 }
 
 async function unregisterSession(id, detail) {
-    // invoked on a timeout from scheduleShutdownIfNoJoin, or in handleTerm
-    // for a session that doesn't have an island, or from deleteIsland.
+    // invoked...
+    // - in a timeout from scheduleShutdownIfNoJoin
+    // - in handleTerm for a session that doesn't have an island
+    // - from deleteIsland
+    // - from DePIN handling if session runner rejects synchronizer's connection
     const session = ALL_SESSIONS.get(id);
+    if (session?.timeout) clearTimeout(session.timeout);
     if (!session || session.stage === 'closed') {
         const reason = session ? `stage=${session.stage}` : "no session record";
         global_logger.debug({sessionId: id, event: "unregister-ignored", reason, detail}, `ignoring unregister: ${reason}`);
