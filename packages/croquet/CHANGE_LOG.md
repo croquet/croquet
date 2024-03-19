@@ -2,9 +2,14 @@
 
 This is a private summary of changes. The released changes are in the public [README.md](../../../docs/croquet/README.md#changelog).
 
-# latest
+# latest @dev
 
 * 2.0.0-1  first testable version with DePIN support
+
+# latest @pre
+
+* 1.1.0-43 fix compatibility with old Data API, fix types
+* 1.1.0-42 move Data API to session.data, default to non-shareable data handles, fix view.session after disconnect, update docs
 * 1.1.0-41 add TypeScript declaration for persistence
 * 1.1.0-40 typo
 * 1.1.0-39 force snapshot if reflector needs one

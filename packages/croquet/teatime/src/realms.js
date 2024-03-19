@@ -70,8 +70,13 @@ class ModelRealm {
 class ViewRealm {
     constructor(vm) {
         /** @type import('./vm').default */
-        this.vm = vm;
         this.vd = viewDomain;
+        this.vm = vm;                    // if vm !== controller.vm, this view is invalid
+        this.controller = vm.controller; // controller stays the same even across reconnects
+    }
+
+    valid() {
+        return this.vm === this.controller.vm;
     }
 
     register(view) {
@@ -124,15 +129,15 @@ class ViewRealm {
     }
 
     externalNow() {
-        return this.vm.controller.reflectorTime;
+        return this.controller.reflectorTime;
     }
 
     extrapolatedNow() {
-        return this.vm.controller.extrapolatedTime;
+        return this.controller.extrapolatedTime;
     }
 
     isSynced() {
-        return !!this.vm.controller.synced;
+        return !!this.controller.synced;
     }
 
     equal(otherRealm) {

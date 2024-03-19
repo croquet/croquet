@@ -25,8 +25,8 @@ function initDEBUG() {
     };
 }
 
-const DEBUG_WRITES_TARGET = Symbol("DEBUG_WRITES_TARGET");
-let DEBUG_WRITES_PROXIES = null;
+const DEBUG_WRITE_TARGET = Symbol("DEBUG_WRITE_TARGET");
+let DEBUG_WRITE_PROXIES = null;
 
 export function propertyAccessor(object, property) {
     return Array.isArray(object) || typeof property !== "string" ? `[${property}]` :
@@ -341,7 +341,7 @@ export default class VirtualMachine {
 
     get(modelName) {
         const model = this.modelsByName[modelName];
-        if (CurrentVM !== this && DEBUG.write) return this.debugWriteProxy(this, model);
+        if (CurrentVM !== this && DEBUG.write && model) return this.debugWriteProxy(this, model, model.id);
         return model;
     }
 
@@ -350,59 +350,76 @@ export default class VirtualMachine {
         this.modelsByName[modelName] = model;
     }
 
-    debugWriteProxy(vm, object) {
-        if (typeof object !== "object" || object === null) return object;
+    debugWriteProxy(vm, object, path) {
+        if (typeof object !== "object" || object === null || object[DEBUG_WRITE_TARGET]) return object;
+        if (object instanceof Model) path = object.id;
         if (!this.$debugWriteProxyHandler) {
-            if (!DEBUG_WRITES_PROXIES) DEBUG_WRITES_PROXIES = new WeakMap();
-            function writeError() { throw Error("Attempt to modify Croquet model state from outside!"); }
+            if (!DEBUG_WRITE_PROXIES) DEBUG_WRITE_PROXIES = new WeakMap();
+            function writeError(what, obj, prop) {
+                if (prop) what += ` ${prop} of`;
+                const objPath = DEBUG_WRITE_PROXIES.get(obj).path;
+                console.warn(`write-debug: non-model code is ${what} ${objPath}:`, obj);
+                if (prop && prop[0] !== "$") throw Error("write-debug: Attempt to modify Croquet model state from outside!");
+            }
             this.$debugWriteProxyHandler = {
                 set(target, property, value) {
-                    if (CurrentVM !== vm) writeError();
+                    if (CurrentVM !== vm) writeError("assigning", target, property);
                     else { console.warn("Croquet debug write protection inside model - this should not happen!"); }
                     target[property] = value;
                 },
                 deleteProperty(target, property) {
-                    if (CurrentVM !== vm) writeError();
+                    if (CurrentVM !== vm) writeError("deleting", target, property);
                     else { console.warn("Croquet debug write protection inside model - this should not happen!"); }
                     delete target[property];
                 },
                 get(target, property) {
-                    if (property === DEBUG_WRITES_TARGET) return target;
+                    if (property === DEBUG_WRITE_TARGET) return target;
                     const value = target[property];
-                    if (value && value[DEBUG_WRITES_TARGET]) return value;
+                    if (value && value[DEBUG_WRITE_TARGET]) return value;
                     if (CurrentVM !== vm) {
                         if (typeof value === "object" && value !== null) {
+                            const targetPath = DEBUG_WRITE_PROXIES.get(target).path;
                             if (value instanceof Map) {
-                                const map = new Map([...value.entries()].map(([key, val]) => [vm.debugWriteProxy(vm, key), vm.debugWriteProxy(vm, val)]));
-                                map[DEBUG_WRITES_TARGET] = value;
-                                map.set = writeError;
-                                map.delete = writeError;
-                                map.clear = writeError;
+                                const map = new Map([...value.entries()].map(([key, val], i) => {
+                                    return [
+                                        vm.debugWriteProxy(vm, key, `${targetPath}.key#${i}`),
+                                        vm.debugWriteProxy(vm, val, `${targetPath}.value#${i}`)
+                                    ];
+                                }));
+                                map[DEBUG_WRITE_TARGET] = value;
+                                map.set = () => writeError("setting an item in", value);
+                                map.delete = () => writeError("deleting from", value);
+                                map.clear = () => writeError("clearing", value);
+                                DEBUG_WRITE_PROXIES.set(value, { proxy: map, path: targetPath + propertyAccessor(value, property) });
                                 return map;
                             }
                             if (value instanceof Set) {
-                                const set = new Set([...value.values()].map(val => vm.debugWriteProxy(vm, val)));
-                                set[DEBUG_WRITES_TARGET] = value;
-                                set.add = writeError;
-                                set.delete = writeError;
-                                set.clear = writeError;
+                                const set = new Set([...value.values()].map((val, i) => vm.debugWriteProxy(vm, val, `${targetPath}.item#${i}`)));
+                                set[DEBUG_WRITE_TARGET] = value;
+                                set.add = () => writeError("adding to", value);
+                                set.delete = () => writeError("deleting from", value);
+                                set.clear = () => writeError("clearing", value);
+                                DEBUG_WRITE_PROXIES.set(value, { proxy: set, path: targetPath + propertyAccessor(value, property) });
                                 return set;
                             }
                             // TODO: Proxies for TypedArrays, DataView, ArrayBuffer, etc
                             // (Array appears to work, it internally calls proxy.get() for e.g. slice())
-                            return vm.debugWriteProxy(vm, value);
+                            return vm.debugWriteProxy(vm, value, targetPath + propertyAccessor(value, property));
                         }
                     } else { console.warn("Croquet debug write protection inside model - this should not happen!"); }
                     return value;
                 }
             };
         }
-        let proxy = DEBUG_WRITES_PROXIES.get(object);
+        let proxy = DEBUG_WRITE_PROXIES.get(object);
         if (!proxy) {
-            proxy = new Proxy(object, this.$debugWriteProxyHandler);
-            DEBUG_WRITES_PROXIES.set(object, proxy);
+            proxy = {
+                proxy: new Proxy(object, this.$debugWriteProxyHandler),
+                path
+            };
+            DEBUG_WRITE_PROXIES.set(object, proxy);
         }
-        return proxy;
+        return proxy.proxy;
     }
 
     // used in Controller.convertReflectorMessage()
@@ -452,7 +469,7 @@ export default class VirtualMachine {
                 // ignore exit for multiple connections (see below)
                 if (this.views[id].extraConnections) {
                     this.views[id].extraConnections--;
-                    if (DEBUG.session) console.log(`${this.id} @${this.time}#${this.seq} view ${id} closed extra connection`);
+                    if (DEBUG.session) console.log(this.id, `@${this.time}#${this.seq} view ${id} closed extra connection`);
                     continue;
                 }
                 // otherwise this is a real exit
@@ -472,7 +489,7 @@ export default class VirtualMachine {
             if (this.views[id]) {
                 // this happens if a client rejoins but the reflector is still holding
                 // onto the old connection
-                if (DEBUG.session) console.log(`${this.id} @${this.time}#${this.seq} view ${id} opened another connection`);
+                if (DEBUG.session) console.log(this.id, `@${this.time}#${this.seq} view ${id} opened another connection`);
                 this.views[id].extraConnections = (this.views[id].extraConnections||0) + 1;
             } else {
                 // otherwise this is a real join
@@ -858,7 +875,7 @@ export default class VirtualMachine {
     }
 
     handleModelEventInView(topic, data) {
-        if (DEBUG.write) data = this.debugWriteProxy(this, data);
+        if (DEBUG.write) data = this.debugWriteProxy(this, data, `event ${topic} arg`);
         viewDomain.handleEvent(topic, data, fn => execOutsideVM(() => inViewRealm(this, fn, true)));
     }
 
@@ -943,7 +960,7 @@ export default class VirtualMachine {
         const ms = Stats.end("snapshot") - start;
         const unchanged = this.persisted === persistentHash;
         const persistTime = this.time;
-        if (DEBUG.snapshot) console.log(`${this.id} persistent data @${persistTime} collected, stringified and hashed in ${Math.ceil(ms)}ms${unchanged ? " (unchanged, ignoring)" : ""}`);
+        if (DEBUG.snapshot) console.log(this.id, `persistent data @${persistTime} collected, stringified and hashed in ${Math.ceil(ms)}ms${unchanged ? " (unchanged, ignoring)" : ""}`);
         if (unchanged) return;
 
         // we rely on a local, view-specific cache of persistence data that deserves
@@ -960,11 +977,11 @@ export default class VirtualMachine {
 
         // figure out whether it's ok to go ahead immediately with a poll
         if (this.inPersistenceCoolOff) {
-            if (DEBUG.snapshot) console.log(`${this.id} persistence poll postponed by cooloff`);
+            if (DEBUG.snapshot) console.log(this.id, `persistence poll postponed by cooloff`);
         } else {
             const timeUntilReady = this.lastPersistencePoll ? this.lastPersistencePoll + PERSIST_MIN_POLL_GAP - this.time : 0;
             if (timeUntilReady > 0) {
-                if (DEBUG.snapshot) console.log(`${this.id} postponing persistence poll by ${timeUntilReady}ms`);
+                if (DEBUG.snapshot) console.log(this.id, `postponing persistence poll by ${timeUntilReady}ms`);
                 this.futureSend(timeUntilReady, "_", "triggerPersistencePoll", []);
                 this.inPersistenceCoolOff = true;
             } else {
@@ -989,7 +1006,7 @@ export default class VirtualMachine {
         if (!this.controller) return;
 
         if (this.controller.synced) {
-            if (DEBUG.snapshot) console.log(`${this.id} asking controller to poll for persistence @${persistTime}`);
+            if (DEBUG.snapshot) console.log(this.id, `asking controller to poll for persistence @${persistTime}`);
 
             // run everything else outside of VM
             const vmTime = this.time;

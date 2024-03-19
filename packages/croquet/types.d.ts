@@ -703,6 +703,14 @@ declare module "@croquet/croquet" {
          * ```
          */
         wellKnownModel<M extends Model>(name: string): Model | undefined;
+
+        /** Access the session object.
+         *
+         * Note: The view instance may be taken down and reconstructed during the lifetime of a session. the `view` property of the session may differ from `this`, when you store the view instance in our data structure outside of Croquet and access it sometime later.
+         * @public
+         */
+
+        get session(): CroquetSession<View>;
     }
 
     /** helper that traverses a dummy object and gathers all object classes,
@@ -715,6 +723,12 @@ declare module "@croquet/croquet" {
         view: V,
         step: (time: number) => void,
         leave: () => Promise<void>,
+        data: {
+            fetch: (handle: DataHandle) => Promise<ArrayBuffer>,
+            store: (data: ArrayBuffer, options?: { shareable?: boolean, keep?: boolean }) => Promise<DataHandle>
+            toId: (handle: DataHandle) => string,
+            fromId: (id: string) => DataHandle,
+        }
     }
 
     export type CroquetModelOptions = {
@@ -722,7 +736,8 @@ declare module "@croquet/croquet" {
 
     export type CroquetDebugOptions =
         "session" | "messages" | "sends" | "snapshot" |
-        "data" | "hashing" | "subscribe" | "classes" | "ticks";
+        "data" | "hashing" | "subscribe" | "classes" | "ticks" |
+        "write" | "offline";
 
     type ClassOf<M> = new (...args: any[]) => M;
 
