@@ -34,7 +34,7 @@ export class CroquetWebRTCConnection {
         this.onconnected = null;
         this.twoStageConnection = true;
 
-        this.url = "reflector"; // dummy value for logging
+        this.url = "synchronizer"; // dummy value for logging
         this.bufferedAmount = 0; // keep the PULSE logic happy
 
         this.openConnection(registryURL);
@@ -52,7 +52,7 @@ export class CroquetWebRTCConnection {
         try {
             await this.openSignalingChannel(registryURL); // will never resolve if open fails
             console.log(`${this.clientId} signaling channel opened`);
-            if (this.onopen) this.onopen(); // tell the controller that it has a socket (though not yet a connection to the reflector)
+            if (this.onopen) this.onopen(); // tell the controller that it has a socket (though not yet a connection to the synchronizer)
             await this.createPeerConnection();
             console.log(`${this.clientId} peer channel created`);
 
@@ -72,10 +72,10 @@ export class CroquetWebRTCConnection {
             // the controller to scrap the connection altogether and try again.
             this.negotiationTimeout = setTimeout(() => {
                 delete this.negotiationTimeout;
-                this.reflectorDisconnected(1006, "ICE negotiation timed out");
+                this.synchronizerDisconnected(1006, "ICE negotiation timed out");
             }, NEGOTIATION_FAILED_DELAY);
 
-            this.signalToRegistry({ type: 'offer', sdp: offer.sdp });
+            this.signalToSessionRunner({ type: 'offer', sdp: offer.sdp });
             await this.pc.setLocalDescription(offer);
 
             // for some reason, the sctp property of the connection isn't set immediately
@@ -95,7 +95,7 @@ export class CroquetWebRTCConnection {
                 this.connectionTypes.remote = pair.remote.type;
                 this.logConnectionState();
             };
-        } catch (e) { this.reflectorDisconnected(4000, e.message); }
+        } catch (e) { this.synchronizerDisconnected(4000, e.message); }
     }
 
     openSignalingChannel(registryURL) {
@@ -104,7 +104,7 @@ export class CroquetWebRTCConnection {
             return Promise.resolve();
         }
 
-        this.reflectorGatheringComplete = false;
+        this.synchronizerGatheringComplete = false;
         this.localGatheringComplete = false;
         this.signalingCloseScheduled = false;
         this.signalingKey = Math.random(); // so we don't get confused by multiple openings and closings
@@ -132,7 +132,7 @@ export class CroquetWebRTCConnection {
                         this.handleCandidate(msgData); // async
                         break;
                     case 'gathering-complete':
-                        this.reflectorGatheringComplete = true;
+                        this.synchronizerGatheringComplete = true;
                         break;
                     default:
                         console.log(`unhandled: ${msgData.type}`);
@@ -143,16 +143,16 @@ export class CroquetWebRTCConnection {
                 // if we closed the socket on purpose, this handler will have
                 // been removed - so this represents an unexpected closure,
                 // presumably by the session registry (for example, on finding
-                // that there is no reflector to serve the session).
+                // that there is no synchronizer to serve the session).
                 console.log(`${this.clientId} signaling socket closed unexpectedly (${e.code})`);
-                this.reflectorDisconnected(e.code, e.reason);
+                this.synchronizerDisconnected(e.code, e.reason);
             };
             this.signaling.onerror = e => {
                 // as discussed at https://stackoverflow.com/questions/38181156/websockets-is-an-error-event-always-followed-by-a-close-event,
                 // an error during opening is not *necessarily* followed by a close
-                // event.  so our reflectorError() handling forces closure anyway.
+                // event.  so our synchronizerError() handling forces closure anyway.
                 console.log(`${this.clientId} signaling socket error`, e);
-                this.reflectorError();
+                this.synchronizerError();
             };
         });
     }
@@ -164,20 +164,30 @@ export class CroquetWebRTCConnection {
         }
     }
 
-    signalToRegistry(msg) {
+    signalToSessionRunner(msg) {
         const msgStr = JSON.stringify(msg);
         try {
             this.signaling.send(msgStr);
         } catch (e) {
             console.error(`${this.clientId} WebRTC signaling send error`, e);
             // a socket-send error could just be a malformed message,
-            // so don't invoke reflectorError() which would trash the
+            // so don't invoke synchronizerError() which would trash the
             // connection.
         }
     }
 
     logConnectionState() {
-        console.log(`${this.clientId} RTCDataChannel connection state: "${this.dataChannel.readyState}" (client connection="${this.connectionTypes.local || ''}"; reflector connection="${this.connectionTypes.remote || ''}")`);
+        const clientType = this.connectionTypes.local || '';
+        const syncType = this.connectionTypes.remote || '';
+        console.log(`${this.clientId} RTCDataChannel connection state: "${this.dataChannel.readyState}" (client connection="${clientType}"; synchronizer connection="${syncType}")`);
+        if (this.signaling?.readyState === WebSocket.OPEN) {
+            const message = {
+                type: 'selectedCandidatePair',
+                clientType,
+                syncType
+            };
+            this.signalToSessionRunner(message);
+        }
     }
 
     close(_code, _message) {
@@ -189,18 +199,18 @@ export class CroquetWebRTCConnection {
         this.cleanUpConnection();
     }
 
-    reflectorDisconnected(code = 1006, reason = 'connection to reflector lost') {
+    synchronizerDisconnected(code = 1006, reason = 'connection to synchronizer lost') {
         // triggered by a 'close' event from the signalling channel or data
         // channel, or timeout of the ICE negotiation.
         this.cleanUpConnection();
         if (this.onclose) this.onclose({ code, reason });
     }
 
-    reflectorError(errorDetail) {
+    synchronizerError(errorDetail) {
         // the controller assumes that with any reported error, the connection to
-        // the reflector will be lost.  make sure that's the case.
+        // the synchronizer will be lost.  make sure that's the case.
         if (this.onerror) this.onerror();
-        this.reflectorDisconnected(undefined, errorDetail); // ensures that the controller's onclose is called
+        this.synchronizerDisconnected(undefined, errorDetail); // ensures that the controller's onclose is called
     }
 
     cleanUpConnection() {
@@ -208,6 +218,7 @@ export class CroquetWebRTCConnection {
         if (this.pc) {
             this.pc.close();
             this.pc = null;
+            clearInterval(this.peerConnectionStatsInterval);
         }
         this.dataChannel = null;
     }
@@ -243,7 +254,7 @@ export class CroquetWebRTCConnection {
         this.pc.onconnectionstatechange = _e => {
             const { connectionState, iceConnectionState } = this.pc;
             console.log(`connection state: "${connectionState}" (cf. ICE connection state: "${iceConnectionState}")`);
-            if (connectionState === 'disconnected' || connectionState === 'failed') this.reflectorDisconnected();
+            if (connectionState === 'disconnected' || connectionState === 'failed') this.synchronizerDisconnected();
         };
         this.pc.oniceconnectionstatechange = _e => {
             const state = this.pc.iceConnectionState;
@@ -253,7 +264,7 @@ export class CroquetWebRTCConnection {
                 /* note from https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/iceConnectionState:
                 Checks to ensure that components are still connected failed for at least one component of the RTCPeerConnection. This is a less stringent test than failed and may trigger intermittently and resolve just as spontaneously on less reliable networks, or during temporary disconnections. When the problem resolves, the connection may return to the connected state.
                 */
-                // this.reflectorDisconnected();  by the above reasoning, no.
+                // this.synchronizerDisconnected();  by the above reasoning, no.
             // }
             if (state === 'failed') {
                 // https://developer.mozilla.org/en-US/docs/Web/API/WebRTC_API/Perfect_negotiation
@@ -261,12 +272,12 @@ export class CroquetWebRTCConnection {
             }
         };
         this.pc.onicecandidate = e => {
-            // an ICE candidate (or null) has been generated locally.  our reflector's
+            // an ICE candidate (or null) has been generated locally.  our synchronizer's
             // node-datachannel API can't handle empty or null candidates (even though
             // the protocol says they can be used to indicate the end of the candidates)
             // - so we don't bother forwarding them.  but note that we've finished
             // gathering candidates, and can close the signalling connection if the
-            // reflector has finished too.
+            // synchronizer has finished too.
             if (!e.candidate) {
                 this.localGatheringComplete = true;
                 return;
@@ -280,7 +291,7 @@ export class CroquetWebRTCConnection {
                     sdpMid: e.candidate.sdpMid,
                     sdpMLineIndex: e.candidate.sdpMLineIndex
                 };
-                this.signalToRegistry(message);
+                this.signalToSessionRunner(message);
             }
         };
         this.pc.onicecandidateerror = e => {
@@ -334,13 +345,13 @@ export class CroquetWebRTCConnection {
         // once messages are flowing and candidate gathering is complete at
         // both ends, make sure the signalling channel is closed.
         // we check this here, rather than on some connection-status change,
-        // to guarantee that the reflector has this channel in its server.clients
+        // to guarantee that the synchronizer has this channel in its server.clients
         // and therefore won't kill the entire peer connection when the signalling
         // shuts down.
         // because Chrome, at least, has a habit of choosing a candidate pair
         // early then switching later, we delay this handling by 1 second to
         // increase the probability that ICE has indeed fully settled.
-        if (!this.signalingCloseScheduled && this.reflectorGatheringComplete && this.localGatheringComplete) {
+        if (!this.signalingCloseScheduled && this.synchronizerGatheringComplete && this.localGatheringComplete) {
             this.signalingCloseScheduled = true;
             this.clearNegotiationTimeout(); // negotiation has successfully completed
             console.log(`${this.clientId} signaling channel closure scheduled`);
@@ -366,7 +377,7 @@ export class CroquetWebRTCConnection {
 
     onDataChannelError(event) {
         console.error(`${this.clientId} RTCDataChannel error`, event);
-        this.reflectorError(event.errorDetail); // will also close the connection
+        this.synchronizerError(event.errorDetail); // will also close the connection
     }
 
     onDataChannelClosing(_event) {
@@ -377,7 +388,7 @@ export class CroquetWebRTCConnection {
         if (!this.pc) return; // connection has already gone
 
         console.log(`${this.clientId} data channel closing`);
-        this.reflectorDisconnected();
+        this.synchronizerDisconnected();
     }
 
     onDataChannelClose(_event) {
@@ -385,7 +396,7 @@ export class CroquetWebRTCConnection {
         if (!this.pc) return; // connection has already gone
 
         console.log(`${this.clientId} data channel closed`);
-        this.reflectorDisconnected();
+        this.synchronizerDisconnected();
     }
 
     async defunct_readConnectionType() {
