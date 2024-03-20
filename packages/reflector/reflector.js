@@ -39,7 +39,7 @@ const ARGS = {
 
 const GCP_PROJECT = process.env.GCP_PROJECT; // only set if we're running on Google Cloud
 
-const NO_STORAGE = process.argv.includes(ARGS.NO_STORAGE); // no bucket access
+const NO_STORAGE = process.argv.includes(ARGS.NO_STORAGE); // no bucket access (false on DePIN, because the session DO receives state)
 const NO_DISPATCHER = NO_STORAGE || process.argv.includes(ARGS.STANDALONE); // no session deregistration
 const APPS_ONLY = !NO_STORAGE && process.argv.includes(ARGS.APPS_ONLY); // no session resume
 const USE_HTTPS = process.argv.includes(ARGS.HTTPS); // serve via https
@@ -179,7 +179,7 @@ const CHECK_INTERVAL = 5000;        // how often to checkForActivity
 const PING_THRESHOLD = 35000;       // if a pre-background-aware client is not heard from for this long, start pinging
 const DISCONNECT_THRESHOLD = 60000; // if not responding for this long, disconnect
 const DISPATCH_RECORD_RETENTION = 5000; // how long we must wait to delete a dispatch record (set on the bucket)
-const LATE_DISPATCH_DELAY = 1000;  // how long to allow for clients arriving from the dispatcher even though the session has been unregistered
+const LATE_DISPATCH_DELAY = 1000;  // how long to allow for clients arriving from the dispatcher even though the session has been deregistered
 
 
 // Map pino levels to GCP, https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry#LogSeverity
@@ -263,6 +263,7 @@ REASON.NO_JOIN = [4121, "client never joined"];
 
 
 let server;
+let sendToDepinProxy;
 
 // ============ DEPIN-specific initialisation ===========
 
@@ -337,6 +338,7 @@ async function startServerForDePIN() {
 
         proxySocket.send(JSON.stringify(msgObject));
     };
+    sendToDepinProxy = sendToProxy;
     const connectToProxy = () => {
         let lastMsg = Date.now();
         let keepAliveTimeout;
@@ -362,7 +364,7 @@ async function startServerForDePIN() {
         });
 
         proxySocket.on('open', () => {
-            console.log(`proxy WebSocket connected to registry ${DEPIN}`);
+            console.log(`connected websocket to proxy in registry ${DEPIN}`);
             proxyReconnectDelay = 0;
             lastMsg = Date.now();
             keepAlive();
@@ -486,9 +488,10 @@ async function startServerForDePIN() {
         let lastUpdateSent = 0;
         let updateTimeout;
         let updateAckTimeout;
-        function updateSessionRunner() {
-            clearTimeout(updateTimeout); // in case this was an on-demand invocation
+        function updateSessionRunner(callback = null) {
             if (key !== session.socketKey) return;
+
+            clearTimeout(updateTimeout); // in case this was an on-demand invocation
 
             const island = ALL_ISLANDS.get(sessionId);
             if (island && session.sessionSocket?.readyState === WebSocket.OPEN) {
@@ -525,8 +528,9 @@ async function startServerForDePIN() {
                     }
                 });
                 if (Object.keys(update).length) {
+                    session.specUpdateReceived = callback;
                     session.sendToSessionRunner({ what: "UPDATE_SPEC", update });
-                }
+                } else callback?.();
             }
 
             updateTimeout = setTimeout(updateSessionRunner, SESSION_UPDATE_DELAY);
@@ -561,7 +565,7 @@ async function startServerForDePIN() {
                     // session runner has rejected this synchronizer's attempt to
                     // take the session (for example, if we took too long to connect)
                     console.log(`session runner for ${shortSessionId} rejected our connection`);
-                    unregisterSession(sessionId, "rejected by session runner");
+                    deregisterSession(sessionId, "rejected by session runner");
                     return;
                 case "CONNECT":
                     // @@ a peer connection isn't set up until the client sends an offer.
@@ -621,8 +625,9 @@ async function startServerForDePIN() {
                     session.sessionSpecReady(spec);
                     break;
                 }
-                case 'LATEST_SPEC_RECEIVED': {
-                    session.sessionSpecReceived();
+                case 'SPEC_UPDATE_RECEIVED': {
+                    session.specUpdateReceived?.();
+                    session.specUpdateReceived = null;
                     break;
                 }
                 case 'PING':
@@ -639,7 +644,7 @@ async function startServerForDePIN() {
 
         sessionSocket.on('close', function onClose() {
             // if session.stage is already 'closed', the socket closure was as a result of
-            // an intentional shutdown (see unregisterSession).
+            // an intentional shutdown (see deregisterSession).
             // otherwise, it must be due to a network glitch.  try to re-establish the
             // connection, using an increasing backoff delay.
             // $$$ initially, a break in the sessionSocket connection needn't have any
@@ -822,6 +827,11 @@ async function startServerForDePIN() {
     function sendStats(statType, statResult) {
         sendToProxy({ what: 'STATS', type: statType, result: statResult });
     }
+
+    process.parentPort.on('message', e => {
+        const msg = e.data;
+        if (msg === 'shutdown') handleTerm();
+    });
 }
 
 // =======================================================
@@ -935,7 +945,7 @@ async function startServerForWebSockets() {
                     headers: req.headers,
                     sessionId,
                     connection
-                }, `rejecting socket on upgrade; session has been unregistered`);
+                }, `rejecting socket on upgrade; session has been deregistered`);
                 socket.end('HTTP/1.1 404 Session Closed\r\n');
                 return;
             }
@@ -1055,28 +1065,36 @@ let aborted = false;
 function handleTerm() {
     if (!aborted) {
         aborted = true;
+
+        sendToDepinProxy?.({ what: 'SHUTDOWN' }); // prevent any further session dispatch
+
         const promises = [];
         // if some island is waiting for its dispatcher record to be deletable,
         // we need to wait it out here too.
         for (const [id, session] of ALL_SESSIONS.entries()) {
-            const { timeout, earliestUnregister } = session;
+            const { timeout, earliestDeregister } = session;
             if (timeout) clearTimeout(timeout); // we're in charge now
             const now = Date.now();
-            const wait = now >= earliestUnregister
+            const wait = now >= earliestDeregister
                 ? Promise.resolve()
-                : new Promise(resolve => { setTimeout(resolve, earliestUnregister - now) });
+                : new Promise(resolve => { setTimeout(resolve, earliestDeregister - now) });
             const island = ALL_ISLANDS.get(id);
             const cleanup = wait.then(() => island
                 ? deleteIsland(island)
-                : unregisterSession(id, "emergency shutdown without island")
+                : deregisterSession(id, "emergency shutdown without island")
                 );
             promises.push(cleanup);
         }
+
         if (promises.length) {
+            // not sure this is needed - but set up one promise that takes a couple of
+            // seconds, in the hope of giving the network-sending ones a chance to work.
+            // promises.push(new Promise(resolve => { setTimeout(resolve, 2000) }));
             global_logger.warn({
                 event: "shutdown",
                 sessionCount: promises.length,
             }, `EMERGENCY SHUTDOWN OF ${promises.length} ISLAND(S)`);
+
             Promise.allSettled(promises).then(() => {
                 global_logger.notice({ event: "end" }, "synchronizer shutdown");
                 process.exit();
@@ -1142,7 +1160,7 @@ const ALL_ISLANDS = new Map();
  * @typedef SessionData
  * @type {object}
  * @property {string} stage - "runnable", "running", "closable", "closed"
- * @property {number} earliestUnregister - estimate of Date.now() when dispatcher record can be removed
+ * @property {number} earliestDeregister - estimate of Date.now() when dispatcher record can be removed
  * @property {number} timeout - ID of system timeout in "runnable" or "closable" stages, to go ahead and close if no client joins
  */
 
@@ -1266,7 +1284,7 @@ async function JOIN(client, args) {
             // sent (but we didn't know that in time to prevent the
             // client from connecting at all).  tell client to ask the
             // dispatchers again.
-            client.logger.info({ event: "reject-join", connectedFor}, "rejecting JOIN; session has been unregistered");
+            client.logger.info({ event: "reject-join", connectedFor}, "rejecting JOIN; session has been deregistered");
             client.safeClose(...REASON.RECONNECT);
             return;
         case 'runnable':
@@ -2244,7 +2262,7 @@ function provisionallyDeleteIsland(island) {
 // tell those late-arriving clients that they must connect again (because any clients
 // *after* them will be dispatched afresh).  because the dispatchers could end up
 // assigning the session to this same synchronizer again, we only turn away clients
-// for a second or so after the unregistering has gone through.
+// for a second or so after the deregistering has gone through.
 async function deleteIsland(island) {
     const { id, snapshotUrl, time, seq, storedUrl, storedSeq, messages } = island;
     if (!ALL_ISLANDS.has(id)) {
@@ -2256,9 +2274,10 @@ async function deleteIsland(island) {
         USERS(island); // ping heraldUrl one last time
     }
     prometheusSessionGauge.dec();
-    // stop ticking and delete
+    // stop ticking
     stopTicker(island);
-    ALL_ISLANDS.delete(id);
+    // $$$ we used to delete the island here, but that interferes with the DePIN
+    // way of uploading the final session data.  ok to delete after that?
 
     island.logger.notice({event: "end"}, `island deleted`);
 
@@ -2270,7 +2289,8 @@ async function deleteIsland(island) {
     // if we've been told of a snapshot since the one (if any) stored in this
     // island's latest.json, or there are messages since the snapshot referenced
     // there, write a new latest.json.
-    if (STORE_SESSION && (snapshotUrl !== storedUrl || after(storedSeq, seq))) {
+    // on DEPIN, always update because we also want a record of the latest time.
+    if (STORE_SESSION && (DEPIN || snapshotUrl !== storedUrl || after(storedSeq, seq))) {
         const path = DEPIN ? 'depin' : `${id}/latest.json`;
         island.logger.debug({
             event: "upload-latest",
@@ -2280,10 +2300,9 @@ async function deleteIsland(island) {
         }, `uploading latest session spec with ${messages.length} messages`);
         cleanUpCompletedTallies(island);
         const latestSpec = {};
-console.log(savableKeys(island).map(k => `${k}:${typeof island[k]}`).join(', '));
         savableKeys(island).forEach(key => latestSpec[key] = island[key]);
         try {
-            // in the DePIN case, we're hoping that the sessionSocket is still up and running.  if not, we'll get an error (and abandon the upload).
+            // in the DePIN case, we're hoping that the sessionSocket is still up and running.  if it is, we'll send whatever increment is needed to bring the session runner up to date.  if not, we'll get an error (and abandon the upload).
             await uploadLatestSessionSpec(session, latestSpec);
         } catch (err) {
             island.logger.error({
@@ -2296,7 +2315,13 @@ console.log(savableKeys(island).map(k => `${k}:${typeof island[k]}`).join(', '))
         }
     }
 
-    await unregisterSession(id, teatime); // wait because in emergency shutdown we need to clean up before exiting
+    ALL_ISLANDS.delete(id);
+
+    await deregisterSession(id, teatime); // on DePIN, will close the session socket immediately (which we want to happen before clients start reconnecting).  await because in emergency shutdown we want to be sure to have removed the dispatch record before exiting.
+
+    if (DEPIN && island.clients.size > 0) {
+        island.clients.forEach(client => client.safeSend(JSON.stringify({ id, action: 'RECONNECT' })));
+    }
 }
 
 function scheduleShutdownIfNoJoin(id, targetTime, detail) {
@@ -2325,7 +2350,7 @@ function scheduleShutdownIfNoJoin(id, targetTime, detail) {
             // there is (supposedly) an island, but it has no clients
             const island = ALL_ISLANDS.get(id);
             if (island) {
-                deleteIsland(island); // will invoke unregisterSession
+                deleteIsland(island); // will invoke deregisterSession
                 return;
             }
             session.logger.debug({
@@ -2334,11 +2359,11 @@ function scheduleShutdownIfNoJoin(id, targetTime, detail) {
                 detail,
             }, `stage=closable but no island to delete`);
         }
-        unregisterSession(id, "no island");
+        deregisterSession(id, "no island");
         }, targetTime - now);
 }
 
-async function unregisterSession(id, detail) {
+async function deregisterSession(id, detail) {
     // invoked...
     // - in a timeout from scheduleShutdownIfNoJoin
     // - in handleTerm for a session that doesn't have an island
@@ -2348,11 +2373,11 @@ async function unregisterSession(id, detail) {
     if (session?.timeout) clearTimeout(session.timeout);
     if (!session || session.stage === 'closed') {
         const reason = session ? `stage=${session.stage}` : "no session record";
-        global_logger.debug({sessionId: id, event: "unregister-ignored", reason, detail}, `ignoring unregister: ${reason}`);
+        global_logger.debug({sessionId: id, event: "deregister-ignored", reason, detail}, `ignoring deregister: ${reason}`);
         return;
     }
 
-    session.logger.debug({event: "unregister", detail}, `unregistering session - ${detail}`);
+    session.logger.debug({event: "deregister", detail}, `deregistering session - ${detail}`);
 
     session.stage = 'closed';
 
@@ -2376,8 +2401,8 @@ async function unregisterSession(id, detail) {
     try {
         await DISPATCHER_BUCKET.file(filename).delete();
     } catch (err) {
-        if (err.code === 404) session.logger.info({event: "unregister-failed", err}, `failed to unregister. ${err.code}: ${err.message}`);
-        else session.logger.warn({event: "unregister-failed", err}, `failed to unregister. ${err.code}: ${err.message}`);
+        if (err.code === 404) session.logger.info({event: "deregister-failed", err}, `failed to deregister. ${err.code}: ${err.message}`);
+        else session.logger.warn({event: "deregister-failed", err}, `failed to deregister. ${err.code}: ${err.message}`);
     }
 
     setTimeout(() => finalDelete, LATE_DISPATCH_DELAY);
@@ -2520,12 +2545,12 @@ function registerSession(sessionId) {
     // record.  one purpose served by this buffer is to stay available for a
     // client that finds its socket isn't working (SYNC fails to arrive), and
     // after 5 seconds will try to reconnect.
-    let unregisterDelay = DISPATCH_RECORD_RETENTION + 2000;
+    let deregisterDelay = DISPATCH_RECORD_RETENTION + 2000;
     if (!DEPIN && CLUSTER === 'localWithStorage') {
         // FOR TESTING WITH LOCAL SYNCHRONIZER ONLY
         // no dispatcher was involved in getting here.  create for ourselves a dummy
         // record in the /testing sub-bucket.
-        unregisterDelay += 2000; // creating the record probably won't take longer than this
+        deregisterDelay += 2000; // creating the record probably won't take longer than this
         const filename = `testing/${sessionId}.json`;
         const dummyContents = { dummy: "imadummy" };
         const start = Date.now();
@@ -2533,10 +2558,10 @@ function registerSession(sessionId) {
             .then(() => global_logger.info({ event: "dummy-register" }, `dummy dispatcher record created in ${Date.now() - start}ms`))
             .catch(err => global_logger.error({ event: "dummy-register-failed", err }, `failed to create dummy dispatcher record. ${err.code}: ${err.message}`));
     }
-    const earliestUnregister = Date.now() + unregisterDelay;
+    const earliestDeregister = Date.now() + deregisterDelay;
     const session = {
         stage: 'runnable',
-        earliestUnregister,
+        earliestDeregister,
         reconnectDelay: 0,
         logger: empty_logger.child({
             ...global_logger.bindings(),
@@ -2545,7 +2570,7 @@ function registerSession(sessionId) {
         }),
     };
     ALL_SESSIONS.set(sessionId, session);
-    scheduleShutdownIfNoJoin(sessionId, earliestUnregister, "no JOIN in time");
+    scheduleShutdownIfNoJoin(sessionId, earliestDeregister, "no JOIN in time");
 }
 
 function registerClientInSession(client, sessionId) {
@@ -2557,16 +2582,16 @@ function registerClientInSession(client, sessionId) {
             case 'closed':
                 // a request to delete the dispatcher record has already been
                 // sent.  tell client to ask the dispatchers again.
-                session.logger.info({ event: "session-unregistered", ...client.meta }, "rejecting connection; session has been unregistered");
+                session.logger.info({ event: "session-deregistered", ...client.meta }, "rejecting connection; session has been deregistered");
                 client.close(...REASON.RECONNECT); // safeClose doesn't exist yet
                 return;
             case 'runnable':
             case 'closable': {
-                // make sure the unregister timeout has at least 7s to run - same as
-                // the initial unregisterDelay set up below - to give this client a
+                // make sure the deregister timeout has at least 7s to run - same as
+                // the initial deregisterDelay set up below - to give this client a
                 // chance to join (even if it's in a very busy browser)
                 const now = Date.now();
-                const targetTime = Math.max(session.earliestUnregister, now + 7000);
+                const targetTime = Math.max(session.earliestDeregister, now + 7000);
                 scheduleShutdownIfNoJoin(sessionId, targetTime, "no JOIN after connection");
                 break;
                 }
@@ -2728,19 +2753,19 @@ async function fetchJSON(filename, bucket=SESSION_BUCKET) {
 
 async function uploadLatestSessionSpec(session, latestSpec) {
     if (!DEPIN) {
-        uploadJSON(`${session.id}/latest.json`, latestSpec);
+        await uploadJSON(`${session.id}/latest.json`, latestSpec);
+        return;
     }
 
     let uploadTimeout;
     const uploadToRunner = new Promise((resolve, reject) => {
-        session.sessionSpecReceived = resolve;
-        session.sendToSessionRunner({ what: "UPLOAD_LATEST_SPEC", spec: latestSpec });
+        session.updateSessionRunner(resolve);
         uploadTimeout = setTimeout(reject, 2000); // @@ arbitrary
     }).catch(err => {
         // try to throw something that looks like a server error
+        console.log(err);
         throw Object.assign(new Error("upload failed"), err || { code: 500 });
     }).finally(() => clearTimeout(uploadTimeout));
-
     await uploadToRunner;
 }
 
