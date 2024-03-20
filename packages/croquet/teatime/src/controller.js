@@ -1318,6 +1318,12 @@ export default class Controller {
                 this.reflectorNeedsSnapshot = true;
                 return;
             }
+            case 'RECONNECT': {
+                // currently only sent from a DePIN synchronizer, when it's about
+                // to bail out and wants us to reconnect so we'll find a new one.
+                this.connection.socket?.synchronizerDisconnected(4000, 'told to reconnect');
+                break;
+            }
             default: console.warn("Unknown action:", action, args);
         }
     }
@@ -1941,7 +1947,7 @@ export default class Controller {
                         setTimeout(() => this.scheduleSnapshot(), Math.floor(Math.random()*2000));
                     } else this.scheduleSnapshot();
                 } else if (this.reflectorNeedsSnapshot) {
-                    // the reflector is desparate for a snapshot, so we force scheduling one
+                    // the reflector is desperate for a snapshot, so we force scheduling one
                     this.triggeringCpuTime = this.synced ? this.cpuTime : 12345; // prefer synced clients
                     this.scheduleSnapshot(true);
                     this.reflectorNeedsSnapshot = false;
