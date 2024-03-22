@@ -320,15 +320,20 @@ async function startServerForDePIN() {
     DEPIN = DEPIN.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
     if (!DEPIN.startsWith('ws')) DEPIN = 'ws://' + DEPIN;
 
-    const STATS_DELAY = 1000;
-    const STATS_ACK_DELAY_LIMIT = 5000;
+    const STATUS_DELAY = 10000;
+    const PING_DELAY = 10000; // keep life simple for now
+    const PROXY_ACK_DELAY_LIMIT = 2000; // after this, go into RECONNECTING
+    const PROXY_INTERRUPTION_LIMIT = 30000; // after this, UNAVAILABLE
+    const PROXY_RECONNECT_DELAY_MAX = 30000;
 
     let proxyId;        // the ID of the worker running the proxy for this sync
     let registerRegion = ''; // the region registry this sync has been listed in
     let proxySocket = null;
+    let proxyConnectionState = 'RECONNECTING'; // "CONNECTED", "RECONNECTING", "UNAVAILABLE"
+    let proxyWasToldWeHaveSessions;
     let proxyReconnectDelay = 0;
-    let proxyKey;
-    const PROXY_RECONNECT_DELAY_MAX = 30000;
+    let synchronizerUnavailableTimeout; // deadline for declaring this synchronizer unavailable and offloading any remaining sessions
+    let proxyKey; // a key to tell which proxy connection we're working with now
     const sendToProxy = msgObject => {
         if (!proxySocket) return;
         if (proxySocket.readyState !== WebSocket.OPEN) {
@@ -340,22 +345,49 @@ async function startServerForDePIN() {
     };
     sendToDepinProxy = sendToProxy;
     const connectToProxy = () => {
-        let lastMsg = Date.now();
-        let keepAliveTimeout;
+        if (aborted) return; // probably on an old timeout
+
+        let proxyContactTimeout; // next time we should send a PING or STATS, as appropriate
+        let proxyAckTimeout; // deadline for hearing back from the proxy
+        proxyWasToldWeHaveSessions = false;
         const key = proxyKey = Math.random();
 
-        function keepAlive(ms=STATS_DELAY) {
-            clearTimeout(keepAliveTimeout);
-            if (key !== proxyKey) return; // this connection has been superseded
+        function contactProxyAfterDelay(ms) {
+            clearTimeout(proxyContactTimeout); // might have been triggered from elsewhere
+            if (aborted || key !== proxyKey) return; // connection superseded, or process abandoned
 
-            keepAliveTimeout = setTimeout(() => {
-                if (Date.now() - lastMsg > STATS_ACK_DELAY_LIMIT) {
-                    console.log('Nothing heard from proxy in 5 seconds. Reconnecting.');
-                    proxySocket.close();
-                    return;
+            proxyContactTimeout = setTimeout(() => {
+                if (aborted || key !== proxyKey) return; // connection superseded, or process abandoned
+
+                const isHandlingSessions = ALL_SESSIONS.size > 0; // whether active or not
+                // if we aren't now but were before, send one last update with the zero sessions
+                if (isHandlingSessions || proxyWasToldWeHaveSessions) {
+                    sendToProxy({ what: 'STATUS', status: statusForProxy() });
+                    contactProxyAfterDelay(STATUS_DELAY);
+                } else {
+                    sendToProxy({ what: 'PING' }); // proxy looks for exactly the string '{"what":"PING"}'
+                    contactProxyAfterDelay(PING_DELAY);
                 }
-                sendToProxy({what: "PING"}); // proxy looks for exactly the string '{"what":"PING"}'
-                keepAlive();
+                proxyWasToldWeHaveSessions = isHandlingSessions;
+                proxyAckTimeout = setTimeout(() => {
+                    if (aborted || key !== proxyKey) return; // connection superseded, or process abandoned
+
+                    console.log('acknowledgement from proxy timed out. reconnecting.');
+                    proxyConnectionState = 'RECONNECTING';
+                    clearTimeout(proxyContactTimeout); // don't contact again until we figure out what's going on
+                    console.log("WTF?");
+                    try {
+                    proxySocket.close(1000, "proxy acknowledgement timed out");
+                    proxySocket.terminate(); // otherwise 'close' event might not be raised for 30 seconds; see https://github.com/websockets/ws/issues/2203
+                    } catch (err) { console.log(err)}
+                    synchronizerUnavailableTimeout = setTimeout(() => {
+                        if (aborted || key !== proxyKey) return; // connection superseded, or process abandoned
+
+                        console.log('Reconnection timed out.  Offloading any remaining sessions.');
+                        proxyConnectionState = 'UNAVAILABLE';
+                        offloadAllSessions();
+                    }, PROXY_INTERRUPTION_LIMIT - PROXY_ACK_DELAY_LIMIT);
+                }, PROXY_ACK_DELAY_LIMIT);
             }, ms);
         }
 
@@ -364,10 +396,13 @@ async function startServerForDePIN() {
         });
 
         proxySocket.on('open', () => {
+            if (key !== proxyKey) return; // this connection has (somehow, already) been superseded
             console.log(`connected websocket to proxy in registry ${DEPIN}`);
+            proxyConnectionState = 'CONNECTED';
+            // be sure to cancel any timeout that would take us to UNAVAILABLE
+            clearTimeout(synchronizerUnavailableTimeout);
             proxyReconnectDelay = 0;
-            lastMsg = Date.now();
-            keepAlive();
+            contactProxyAfterDelay();
         });
 
         proxySocket.on('error', function onError(err) {
@@ -378,8 +413,6 @@ async function startServerForDePIN() {
         proxySocket.on('message', function onMessage(depinStr) {
             if (key !== proxyKey) return; // this connection has been superseded
             // console.log(`DePIN message: ${depinStr}`);
-            lastMsg = Date.now();
-            keepAlive(); // if we haven't received another message after STATS_DELAY milliseconds, send a PING
             const depinMsg = JSON.parse(depinStr);
             switch (depinMsg.what) {
                 case "REGISTERED": {
@@ -402,10 +435,13 @@ async function startServerForDePIN() {
                 case 'PING':
                     sendToProxy({what: 'PONG'});
                     break;
+                case 'ACK':
                 case 'PONG':
-                    // lastMsg already set above
+                    clearTimeout(proxyAckTimeout);
                     break;
                 case 'STATS': {
+                    // these are just copies of the stats made available by a
+                    // standard WebSocket reflector
                     const { type, options } = depinMsg;
                     switch (type) {
                         case 'metrics':
@@ -431,13 +467,12 @@ async function startServerForDePIN() {
         });
 
         proxySocket.on('close', function onClose(code, reasonBuf) {
-            // we don't intentionally close the socket connection to the manager,
-            // so this must be due to a network glitch.  re-establish the connection,
+            // this is either due to a network glitch, or intentionally due to
+            // a timed-out response from the proxy.  re-establish the connection,
             // using an increasing backoff delay.
-            // $$$ after a certain time with no connection, we need to offload all
-            // sessions and their clients.
-            const reason = reasonBuf.toString();
+            console.log("BOOYAH!!");
             let closeReason = code.toString();
+            const reason = reasonBuf.toString();
             if (reason) closeReason += ` - ${reason}`;
 
             if (key !== proxyKey) {
@@ -446,9 +481,18 @@ async function startServerForDePIN() {
                 return;
             }
 
-            clearTimeout(keepAliveTimeout);
+            // we might reconnect in due course.  in the meantime, make sure there
+            // aren't any lingering timeouts that relate to the closing socket.
+            clearTimeout(proxyContactTimeout);
+            clearTimeout(proxyAckTimeout);
+            clearTimeout(synchronizerUnavailableTimeout);
             proxySocket = null;
-            console.log(`proxy socket closed (${closeReason}).  retrying after ${proxyReconnectDelay}ms`);
+
+            const reconnectMsg = aborted ? "" : `  retrying after ${proxyReconnectDelay}ms`;
+            console.log(`proxy socket closed (${closeReason}).${reconnectMsg}`);
+
+            if (aborted) return; // closure was part of a shutdown
+
             setTimeout(connectToProxy, proxyReconnectDelay);
             proxyReconnectDelay = Math.min(PROXY_RECONNECT_DELAY_MAX, Math.round((proxyReconnectDelay + 100) * (1 + Math.random())));
         });
@@ -482,9 +526,9 @@ async function startServerForDePIN() {
         // $$$ on a timer, and when triggered on demand, send the session runner an incremental update of the running island's state.
         // for now, check that every update sent is acknowledged within 2000ms, and
         // abandon the hosting if not.
-        // $$$ things will break if the total size of the status update is a message over 1MB
+        // $$$ things will break if the total size of the status update is a message over 1MB (which can happen easily, in a session that sends lots of big messages with infrequent snapshotting).  we need to introduce chunking.
         let lastMsg = Date.now();
-        let lastSessionValues = {}; // as received from DO, or sent from here
+        let lastSessionValues = {}; // as received from DO, or sent from here.  on reconnection, in particular, we need to send a new copy of everything.
         let lastUpdateSent = 0;
         let updateTimeout;
         let updateAckTimeout;
@@ -495,38 +539,40 @@ async function startServerForDePIN() {
 
             const island = ALL_ISLANDS.get(sessionId);
             if (island && session.sessionSocket?.readyState === WebSocket.OPEN) {
+                // the basic idea is to send an incremental update that will ensure
+                // that the session DO has an update-to-date copy of all of the island's
+                // savable properties.
+                // we keep a record in lastSessionValues of what we believe the
+                // session DO has (although that's not guaranteed, as messages can
+                // be dropped due to network glitches).
+                // most of the values are of immutable type, so a simple comparison
+                // with what's in lastSessionValues is enough to decide whether an
+                // update is needed.
+                // for those that are not, we rely on code that updates the property
+                // to add the property name to forcedUpdateProps, meaning that the
+                // value as a whole will be sent.  this currently applies only to
+                // messages (on clearing them after a snapshot), and completedTallies.
+                // in addition, for any array value (currently only messages) we
+                // allow incremental array updates to be gathered under the property's
+                // name in the arrayUpdates object.
+                // therefore, for each property:
+                // - if lastSessionValues has no value for this property, or the value it has is not object-identical to the island's current one, send the complete value
+                // - else if forcedUpdateProps includes the property name, send the complete value
+                // - else if arrayUpdates has a value under the property name, send that value as an arrayUpdate.
                 const { forcedUpdateProps, arrayUpdates } = island;
                 const update = {};
-                // ignore any property in arrayUpdates (an incremental append to an array) if the property is in forcedUpdateProps anyway (meaning the whole value will be sent)
-                if (Object.keys(arrayUpdates).length) {
-                    let foundAny = false;
-                    const filtered = {};
-                    Object.keys(arrayUpdates).forEach(prop => {
-                        if (!forcedUpdateProps.has(prop)) {
-                            filtered[prop] = arrayUpdates[prop];
-                            foundAny = true;
-                        }
-                    });
-                    if (foundAny) update.arrayUpdates = filtered;
-                }
-                const skippableProps = new Set(Object.keys(arrayUpdates)); // start the collection
-                island.arrayUpdates = {};
-                forcedUpdateProps.forEach(prop => {
-                    const value = island[prop];
-                    update[prop] = value;
-                    lastSessionValues[prop] = value;
-                    skippableProps.add(prop);
-                });
-                forcedUpdateProps.clear();
                 savableKeys(island).forEach(prop => {
-                    if (!skippableProps.has(prop)) {
-                        const value = island[prop];
-                        if (lastSessionValues[prop] !== value) {
-                            update[prop] = value;
-                            lastSessionValues[prop] = value;
-                        }
+                    const value = island[prop];
+                    if (lastSessionValues[prop] !== value || forcedUpdateProps.has(prop)) {
+                        update[prop] = value;
+                        lastSessionValues[prop] = value;
+                    } else if (arrayUpdates[prop]) {
+                        if (!update.arrayUpdates) update.arrayUpdates = {};
+                        update.arrayUpdates[prop] = arrayUpdates[prop];
                     }
                 });
+                island.arrayUpdates = {};
+                forcedUpdateProps.clear();
                 if (Object.keys(update).length) {
                     session.specUpdateReceived = callback;
                     session.sendToSessionRunner({ what: "UPDATE_SPEC", update });
@@ -828,6 +874,10 @@ async function startServerForDePIN() {
         sendToProxy({ what: 'STATS', type: statType, result: statResult });
     }
 
+    function statusForProxy() {
+        return { sessions: [...ALL_SESSIONS.keys()] }; // $$$$
+    }
+
     process.parentPort.on('message', e => {
         const msg = e.data;
         if (msg === 'shutdown') handleTerm();
@@ -1061,6 +1111,37 @@ function gatherUsersStats(options) {
 // Begin reading from stdin so the process does not exit (see https://nodejs.org/api/process.html)
 process.stdin.resume();
 
+async function offloadAllSessions() {
+    // offload all sessions, whether currently running (i.e., with an active island)
+    // or not.
+    const promises = [];
+    // if some island is waiting for its dispatcher record to be deletable,
+    // we need to wait it out here too.
+    for (const [id, session] of ALL_SESSIONS.entries()) {
+        const { timeout, earliestDeregister } = session;
+        if (timeout) clearTimeout(timeout); // we're in charge now
+        const now = Date.now();
+        const wait = now >= earliestDeregister
+            ? Promise.resolve()
+            : new Promise(resolve => { setTimeout(resolve, earliestDeregister - now) });
+        const island = ALL_ISLANDS.get(id);
+        const cleanup = wait.then(() => island
+            ? deleteIsland(island)
+            : deregisterSession(id, "emergency shutdown without island")
+        );
+        promises.push(cleanup);
+    }
+
+    if (promises.length) {
+        global_logger.warn({
+            event: "shutdown",
+            sessionCount: promises.length,
+        }, `EMERGENCY SHUTDOWN OF ${promises.length} ISLAND(S)`);
+
+        await Promise.allSettled(promises);
+    }
+}
+
 let aborted = false;
 function handleTerm() {
     if (!aborted) {
@@ -1068,41 +1149,10 @@ function handleTerm() {
 
         sendToDepinProxy?.({ what: 'SHUTDOWN' }); // prevent any further session dispatch
 
-        const promises = [];
-        // if some island is waiting for its dispatcher record to be deletable,
-        // we need to wait it out here too.
-        for (const [id, session] of ALL_SESSIONS.entries()) {
-            const { timeout, earliestDeregister } = session;
-            if (timeout) clearTimeout(timeout); // we're in charge now
-            const now = Date.now();
-            const wait = now >= earliestDeregister
-                ? Promise.resolve()
-                : new Promise(resolve => { setTimeout(resolve, earliestDeregister - now) });
-            const island = ALL_ISLANDS.get(id);
-            const cleanup = wait.then(() => island
-                ? deleteIsland(island)
-                : deregisterSession(id, "emergency shutdown without island")
-                );
-            promises.push(cleanup);
-        }
-
-        if (promises.length) {
-            // not sure this is needed - but set up one promise that takes a couple of
-            // seconds, in the hope of giving the network-sending ones a chance to work.
-            // promises.push(new Promise(resolve => { setTimeout(resolve, 2000) }));
-            global_logger.warn({
-                event: "shutdown",
-                sessionCount: promises.length,
-            }, `EMERGENCY SHUTDOWN OF ${promises.length} ISLAND(S)`);
-
-            Promise.allSettled(promises).then(() => {
-                global_logger.notice({ event: "end" }, "synchronizer shutdown");
-                process.exit();
-            });
-        } else {
+        offloadAllSessions().then(() => {
             global_logger.notice({ event: "end" }, "synchronizer shutdown");
-            process.exit();
-        }
+            process.exit(); // a planned exit, with code 0
+        });
     }
 }
 process.on('SIGINT', handleTerm);
@@ -2513,8 +2563,13 @@ function setUpClientHandlers(client) {
     client.stats = { mi: 0, mo: 0, bi: 0, bo: 0 }; // messages / bytes, in / out
     client.safeSend = data => {
         if (!client.isConnected()) return;
+
         STATS.BUFFER = Math.max(STATS.BUFFER, client.bufferedAmount);
-        client.send(data);
+        try { client.send(data) }
+        catch (err) {
+            client.logger.error({ event: "send-failed", err }, `failed to send to client. ${err.code}: ${err.message}`);
+            client.safeClose(...REASON.RECONNECT);
+        }
         STATS.OUT += data.length;
         client.stats.mo += 1;               // messages out
         client.stats.bo += data.length;     // bytes out
@@ -2523,7 +2578,7 @@ function setUpClientHandlers(client) {
         try {
             client.close(code, data);
         } catch (err) {
-            client.logger.error({ event: "close-failed", err }, `failed to close client socket. ${err.code}: ${err.message}`);
+            client.logger.error({ event: "close-failed", err }, `failed to close client connection. ${err.code}: ${err.message}`);
             clientLeft(client); // normally invoked by onclose handler
         }
     };
