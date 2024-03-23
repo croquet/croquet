@@ -29,7 +29,7 @@ const ARGS = {
     SYNCNAME: "--sync-name", // followed by a name, e.g. --sync-name MyBigMac:fedc
 };
 
-// $$$ for now, be optimistic that the args are being used properly
+// @@ for now, be optimistic that the args are being used properly
 // for (const arg of process.argv.slice(2)) {
 //     if (!Object.values(ARGS).includes(arg)) {
 //         console.error(`Error: Unrecognized option ${arg}`);
@@ -470,7 +470,6 @@ async function startServerForDePIN() {
             // this is either due to a network glitch, or intentionally due to
             // a timed-out response from the proxy.  re-establish the connection,
             // using an increasing backoff delay.
-            console.log("BOOYAH!!");
             let closeReason = code.toString();
             const reason = reasonBuf.toString();
             if (reason) closeReason += ` - ${reason}`;
@@ -523,15 +522,10 @@ async function startServerForDePIN() {
             socket.send(JSON.stringify(msgObject));
         };
 
-        // $$$ on a timer, and when triggered on demand, send the session runner an incremental update of the running island's state.
-        // for now, check that every update sent is acknowledged within 2000ms, and
-        // abandon the hosting if not.
         // $$$ things will break if the total size of the status update is a message over 1MB (which can happen easily, in a session that sends lots of big messages with infrequent snapshotting).  we need to introduce chunking.
-        let lastMsg = Date.now();
         let lastSessionValues = {}; // as received from DO, or sent from here.  on reconnection, in particular, we need to send a new copy of everything.
-        let lastUpdateSent = 0;
         let updateTimeout;
-        let updateAckTimeout;
+        // let updateAckTimeout;
         function updateSessionRunner(callback = null) {
             if (key !== session.socketKey) return;
 
@@ -587,8 +581,6 @@ async function startServerForDePIN() {
         sessionSocket.on('open', () => {
             console.log(`connected to session runner for ${shortSessionId}`);
             session.reconnectDelay = 0;
-            // lastMsg = Date.now();
-            // keepAlive();
         });
 
         sessionSocket.on('error', function onError(err) {
@@ -598,9 +590,6 @@ async function startServerForDePIN() {
         });
 
         sessionSocket.on('message', function onMessage(depinStr) {
-            // console.log(`DePIN message: ${depinStr}`);
-            // lastMsg = Date.now();
-            // keepAlive();
             if (key !== session.socketKey) return;
 
             const depinMsg = JSON.parse(depinStr);
@@ -680,7 +669,7 @@ async function startServerForDePIN() {
                     sendToProxy({ what: 'PONG' });
                     break;
                 case 'PONG':
-                    // lastMsg already set above
+                    // $$$ need to have a timeout checking that this arrives
                     break;
                 default:
                     console.warn(`unhandled message in session ${sessionId}: "${depinStr}"`);
@@ -693,9 +682,9 @@ async function startServerForDePIN() {
             // an intentional shutdown (see deregisterSession).
             // otherwise, it must be due to a network glitch.  try to re-establish the
             // connection, using an increasing backoff delay.
-            // $$$ initially, a break in the sessionSocket connection needn't have any
-            // impact on our existing dataChannel
-            // connections to clients that have completed ICE negotiation.
+            // initially, a break in the sessionSocket connection needn't have any
+            // impact on our existing dataChannel connections to clients that have
+            // completed ICE negotiation.
             // any clients with a peerConnection but no dataChannel should, however,
             // be discarded because their negotiations are now in doubt.
 
@@ -731,7 +720,7 @@ async function startServerForDePIN() {
             const disconnectMsg = disconnected ? ` and ${disconnected} unconnected clients discarded` : '';
             console.log(`session socket closed${disconnectMsg}.  retrying after ${session.reconnectDelay}ms`);
             setTimeout(() => connectToSession(sessionId, runnerDispatchSeq), session.reconnectDelay);
-            session.reconnectDelay = 5000; // $$$ Math.min(SESSION_RECONNECT_DELAY_MAX, Math.round((session.reconnectDelay + 100) * (1 + Math.random())));
+            session.reconnectDelay = Math.min(SESSION_RECONNECT_DELAY_MAX, Math.round((session.reconnectDelay + 100) * (1 + Math.random())));
         });
     };
 
@@ -813,7 +802,7 @@ async function startServerForDePIN() {
         });
         peerConnection.onGatheringStateChange(state => {
             console.log(`gathering state (${globalClientId}): "${state}"`);
-            // $$$ sometimes we see another couple of candidates *after* this event
+            // @@ sometimes we see another couple of candidates *after* this event
             // has fired.  if the client reacts quickly to the 'gathering-complete'
             // event by closing the signalling channel, it might not receive them.
             // in theory a synchronizer could be behind some obscure form of NAT such
@@ -840,7 +829,7 @@ async function startServerForDePIN() {
                     const time = Number(msg.split('@')[1]);
                     client.handleEvent('pong', time);
                 } else client.handleEvent('message', msg); });
-            dataChannel.onError(evt => client.handleEvent('error', evt)); // $$$
+            dataChannel.onError(evt => client.handleEvent('error', evt)); // $$$ need some handling
             dataChannel.onClosed(_evt => client.handleEvent('close', 1000, "Client data channel closed"));
         });
     }
@@ -875,7 +864,7 @@ async function startServerForDePIN() {
     }
 
     function statusForProxy() {
-        return { sessions: [...ALL_SESSIONS.keys()] }; // $$$$
+        return { sessions: [...ALL_SESSIONS.keys()] }; // @@ add useful stuff
     }
 
     process.parentPort.on('message', e => {
@@ -1091,7 +1080,7 @@ function watchStats() {
 }
 
 function gatherMetricsStats(_options) {
-    // $$$ add filtering options
+    // @@ add filtering options
     return prometheus.register.metrics(); // async
 }
 
@@ -1696,7 +1685,7 @@ function logLatencies() {
 }
 
 function recordLatency(client, ms) {
-    if (DEPIN) return; // $$$ re-enable later
+    if (DEPIN) return; // @@ re-enable later
 
     if (ms >= 60000) return; // ignore > 1 min (likely old client sending time stamp not latency)
 
@@ -2326,7 +2315,7 @@ async function deleteIsland(island) {
     prometheusSessionGauge.dec();
     // stop ticking
     stopTicker(island);
-    // $$$ we used to delete the island here, but that interferes with the DePIN
+    // @@ we used to delete the island right here, but that interferes with the DePIN
     // way of uploading the final session data.  ok to delete after that?
 
     island.logger.notice({event: "end"}, `island deleted`);
