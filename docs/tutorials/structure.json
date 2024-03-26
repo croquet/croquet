@@ -40,11 +40,5 @@
     },
     "2_8_random": {
         "title": "💡 Randomness & Determinism"
-    },
-    "2_9_data": {
-        "title": "💡 Data API"
-    },
-    "2_A_persistence": {
-        "title": "💡 Persistence"
     }
 }

@@ -469,6 +469,10 @@ in animation quality.
 ([full source code](https://github.com/croquet/multiblaster-tutorial/blob/main/step8.html))
 ([run it](https://croquet.github.io/multiblaster-tutorial/step8.html))
 
+_**Note:** As of Croquet 1.1 (March 2024), persistence is still an unofficial feature.
+We do not guarantee that the API won't change, or make any assurances as to how long the
+persisted data will be stored._
+
 Now we add a persistent highscore. Croquet automatically snapshots the model data and
 keeps that session state even when everyone leaves the session. When you resume it later by joining the session, everything will continue just as before. That means a highscore table in the model would appear to be "persistent".
 

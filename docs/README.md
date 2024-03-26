@@ -234,11 +234,11 @@ step() {
 
 Note that the ticks-per-second rate of the reflector is independent of the future interval used by your models. Individual models may use different future times.
 
-# Snapshots & Persistence
+# Snapshots
 
 Snapshots are copies of the model that are saved to the cloud. When your Croquet application is running, the reflector will periodically tell it to perform a snapshot.
 
-Snapshots are used to synchronize other users when they join a session that's already in progress. They also provide automatic save functionality. If you quit or reload while your application is running, it will automatically reload the last snapshot when the application restarts. _However_, snapshots are only valid until you upldate the application code. Use [explicit persistence]{@link Model#persistSession} to preserve long-lived user data.
+Snapshots are used to synchronize other users when they join a session that's already in progress. They also provide automatic save functionality. If you quit or reload while your application is running, it will automatically reload the last snapshot when the application restarts. _However_, snapshots are only valid until you update the application code.
 
 Automatic snapshotting is the reason your model state needs to be stored as object properties, as opposed to a more functional style. All the properties of your model objects are serialized automatically (except those whose names start with a dollar sign like `this.$foo`). JavaScript can not serialize functions, and does not provide access to closure variables, so these cannot be used to hold model state (see {@link Model.types} for what types are supported out-of-the-box by the Croquet snapshot mechanism, and how to add support for custom types). The view code has no such restrictions, you can use any style you like, object-oriented or not.
 
@@ -270,7 +270,7 @@ We last updated this information on 2023-05-02.
 
 | date       | item                                                                                                    |
 | ---------- |-------------------------------------------------------------------------------------------------------- |
-| 2024-02-05 | **release 1.1.0** (bug fixes, optimizations, Node.js support, `BigInt` support, added secure [Persistence]{@tutorial 2_A_persistence} and [Bulk Data]{@tutorial 2_9_data} APIs, added [Model.cancelFuture]{@Link Model#cancelFuture}, [Model.evaluate]{@link Model.evaluate}, [View.session]{@link View#session}, `debug=write,offline` and `viewOptions` for [Session.join]{@link Session.join}, also [Model.unsubscribe]{@link Model#unsubscribe} and [View.unsubscribe]{@link View#unsubscribe} can take a handler arg, new tutorial: {@tutorial 1_6_multiblaster}) |
+| 2024-02-05 | **release 1.1.0** (bug fixes, optimizations, Node.js support, `BigInt` support, added [Model.cancelFuture]{@Link Model#cancelFuture}, [Model.evaluate]{@link Model.evaluate}, [View.session]{@link View#session}, `debug=write,offline` and `viewOptions` for [Session.join]{@link Session.join}, also [Model.unsubscribe]{@link Model#unsubscribe} and [View.unsubscribe]{@link View#unsubscribe} can take a handler arg, new tutorial: {@tutorial 1_6_multiblaster}) |
 | 2021-11-25 | **release 1.0.5** (bug fixes, better error reporting, works on insecure origin)                         |
 | 2021-08-24 | **release 1.0.4** (stricter Session parameter checks)                                                   |
 | 2021-08-23 | **release 1.0.3** (bug fixes; require [API key](https://croquet.io/keys/), warn about `Date` usage in model code, event rate limit) |
@@ -285,7 +285,7 @@ We last updated this information on 2023-05-02.
 | 2019-10-18 | **release 0.2.5** (bug fixes; new widget API) version aligned with npm                                  |
 | 2019-10-01 | **release 0.2.2** (bug fixes; updated qr-code support)                                                  |
 | 2019-09-13 | **release 0.2.1** (bug fixes)                                                                           |
-| 2019-09-05 | **release 0.2.0** (scalable reflector fleet, fully persistent sessions)                                 |
+| 2019-09-05 | **release 0.2.0** (scalable reflector fleet, snapshots in bucket)                                 |
 | 2019-08-14 | **release 0.1.9** (bug fixes; automatic reflector selection)                                            |
 | 2019-07-24 | **release 0.1.8** (bug fixes)                                                                           |
 | 2019-07-24 | **release 0.1.7** (bug fixes; reverted to 0.1.6 due to instabilities)                                   |

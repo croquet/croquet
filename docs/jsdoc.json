@@ -5,8 +5,7 @@
       "../../wonderland/croquet/teatime/index.js",
       "../../wonderland/croquet/teatime/src/model.js",
       "../../wonderland/croquet/teatime/src/view.js",
-      "../../wonderland/croquet/teatime/src/session.js",
-      "../../wonderland/croquet/teatime/src/data.js"
+      "../../wonderland/croquet/teatime/src/session.js"
     ]
   },
   "opts": {
