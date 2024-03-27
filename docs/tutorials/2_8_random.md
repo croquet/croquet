@@ -1,4 +1,4 @@
-Copyright © 2020 Croquet Corporation
+Copyright © 2024 Croquet Labs
 
 Croquet guarantees that the same sequence of random numbers is generated within the model on each device.
 If you call `Math.random()` within the model it will return the same number on all machines.

@@ -155,7 +155,7 @@ using its [WorldSaver]{https://github.com/croquet/microverse/blob/644544ed0734fd
 
 # Best Practices
 
-Below are some best practices we learned from our experiences. You can find code examples in various apps provided by Croquet Corporation.
+Below are some best practices we learned from our experiences. You can find code examples in various apps provided by Croquet Labs.
 
 ## When to think about adding the persistence to your app?
 If your application does not need to save long-lasting data (for example, a simple realtime multi-player game), then there is no need to persist any data. But once, for example, you want to add a high score feature to entice users, chances are that you want to keep the score over different versions of code (your next code change may be a simple bug fix). Note that you *cannot* add the call to persistence mechanism as an afterthought to a session that already has model data you wish to save, as adding the call changes the model code and thus Croquet treats it as a new session. So  when you add a new model property for a new feature, it is good to ask yourself if you will have to persist it.
@@ -222,7 +222,7 @@ To log more useful info to the console, you can specify the `debug: "session"` o
 Like everything in Croquet, persistent data is encrypted, and as long as the session password is never transmitted to a server, it is
 [end-to-end secure]{@link https://en.wikipedia.org/wiki/End-to-end_encryption} (this is the reason why by default, the session password is in the URL `#hash`, which is never transmitted over http, and why a good way to join a session is via QR code). Even if someone hacks our file servers, all they get is encrypted data with no way to decrypt it, the data is only ever decrypted on the client running the Croquet app.
 
-Conversely, it means that nobody, including the Croquet Corporation, can decrypt the contents of the data, unless the session password is known.
+Conversely, it means that nobody, including the Croquet Labs, can decrypt the contents of the data, unless the session password is known.
 If a password is lost, the session data is lost too.
 You may opt to store session names and passwords on a server where users log in.
 That will not be end-to-end encrypted anymore, because it will only be as secure as that server (if someone breaks into that server with the passwords, they could decrypt the data).

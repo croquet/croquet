@@ -1,4 +1,4 @@
-Copyright © 2020 Croquet Corporation
+Copyright © 2024 Croquet Labs
 
 This is an example of how a Croquet app can call on the services of a rich, independently developed JavaScript library - in this case, <a href="https://threejs.org/">Three.js</a> for 3D rendering through WebGL. The example extends into the third dimension the kind of simulation shown in the Simple Animation tutorial: in this case, balls bounce off the (invisible) walls of a container, and off a sphere that's embedded in the container's far wall. Dragging the sphere moves it, constrained to the container bounds.  Clicking on the sphere resets the balls' positions to the sphere's center.
 

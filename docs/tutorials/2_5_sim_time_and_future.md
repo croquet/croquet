@@ -1,4 +1,4 @@
-Copyright © 2020 Croquet Corporation
+Copyright © 2024 Croquet Labs
 
 The model has no concept of real-world time. All it knows about is _simulation time_.
 

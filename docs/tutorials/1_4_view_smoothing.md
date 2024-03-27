@@ -1,4 +1,4 @@
-Copyright © 2020 Croquet Corporation
+Copyright © 2024 Croquet Labs
 
 This is an example of how to smooth the view so that objects move continually even if the model only updates intermittently. It's also is a good technique to use if you want your application to cleanly handle hitches in connectivity over a poor internet connection.
 

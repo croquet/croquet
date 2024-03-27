@@ -1,4 +1,4 @@
-Copyright © 2020 Croquet Corporation
+Copyright © 2024 Croquet Labs
 
 This tutorial will teach you how to create multi-user shared animations and interactions. If you click one of the bouncing objects it will stop moving. Click again and it will start bouncing again. This tutorial isn't really that much more complex than the Hello World application. It just has a few more moving parts and really demonstrates how the model is used to compute a simulation and how the view is used to display it and interact with it.
 

@@ -1,4 +1,4 @@
-Copyright © 2020 Croquet Corporation
+Copyright © 2024 Croquet Labs
 
 Croquet makes no assumptions about how you implement the view. It operates like a normal JS application. You can directly access the DOM and instantiate whatever sub-objects or data types that you need, use any libraries etc.
 

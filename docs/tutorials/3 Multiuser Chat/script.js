@@ -1,6 +1,6 @@
 // Croquet Tutorial 3
 // Multiuser Chat
-// Croquet Corporation, 2019
+// Croquet Labs, 2019
 
 class ChatModel extends Croquet.Model {
 

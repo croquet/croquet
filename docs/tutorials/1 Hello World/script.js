@@ -1,6 +1,6 @@
 // Croquet Tutorial 1
 // Hello World
-// Croquet Corporation, 2019
+// Croquet Labs, 2019
 
 class MyModel extends Croquet.Model {
 

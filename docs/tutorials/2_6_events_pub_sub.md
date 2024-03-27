@@ -1,4 +1,4 @@
-Copyright © 2020 Croquet Corporation
+Copyright © 2024 Croquet Labs
 
 Models and Views communicate using events. They use the same syntax for sending and receiving events. These functions are only available to classes that are derived from {@link Model} or {@link View}, so exposing them is one reason to define sub-models and sub-views.
 

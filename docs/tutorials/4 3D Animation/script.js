@@ -1,6 +1,6 @@
 // Croquet Tutorial 4
 // 3D Animation
-// Croquet Corporation, 2019
+// Croquet Labs, 2019
 
 const Q = Croquet.Constants;
 Q.NUM_BALLS = 25;            // number of bouncing balls

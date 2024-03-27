@@ -1,6 +1,6 @@
 // Croquet Tutorial 2
 // Simple Animation
-// Croquet Corporation (C) 2019
+// Croquet Labs (C) 2019
 
 //------------ Models--------------
 // Models must NEVER use global variables.

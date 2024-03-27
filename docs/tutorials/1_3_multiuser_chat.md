@@ -1,4 +1,4 @@
-Copyright © 2020-2021 Croquet Corporation
+Copyright © 2024 Croquet Labs
 
 This is an example of how to keep track of different users within the same session. It's a simple chat application that maintains a list of all currently connected users. New users are assigned a random nickname.
 
