@@ -638,7 +638,7 @@ export default class VirtualMachine {
         }
         entered = entered.map(user => typeof user === "string" ? user : Array.isArray(user) ? user[0] : user.id);
         exited = exited.map(user => typeof user === "string" ? user : Array.isArray(user) ? user[0] : user.id);
-        // if entered = count then the reflector just resumed the session
+        // if entered length == count then the reflector just resumed the session
         // synthesize exit events for old views stored in snapshot
         if (entered.length === count) {
             exited = Object.keys(this.views);
@@ -646,13 +646,22 @@ export default class VirtualMachine {
             for (const id of exited) this.views[id].extraConnections = 0;
         }
         // reflector may send join+exit for same view in one event
-        if (entered.length !== 0 && exited.length !== 0) {
-            const both = entered.filter(id => exited.includes(id));
-            if (both.length !== 0) {
-                entered = entered.filter(id => !both.includes(id));
-                exited = exited.filter(id => !both.includes(id));
-                if (entered.length === 0 && exited.length === 0) return;
+        // in which case we remove it from both lists to avoid
+        // generating an exit immediately followed by a join
+        if (entered.length > 0 && exited.length > 0) {
+            // it's possible that either array contains the same view twice
+            // so we have to do it one by one to avoid removing too many
+            for (let enterIndex = 0; enterIndex < entered.length; enterIndex++) {
+                const id = entered[enterIndex];
+                const exitIndex = exited.indexOf(id);
+                if (exitIndex >= 0) {
+                    entered.splice(enterIndex, 1);
+                    exited.splice(exitIndex, 1);
+                    enterIndex--; // we removed one, check the same index again
+                }
             }
+            // if there are no events left then there's nothing to do
+            if (entered.length + exited.length === 0) return;
         }
         // join/exit event payload is either "viewId" or { viewId, viewData }
         // depending on whether the session was joined with a viewData
