@@ -648,16 +648,16 @@ export default class VirtualMachine {
         // reflector may send join+exit for same view in one event
         // in which case we remove it from both lists to avoid
         // generating an exit immediately followed by a join
-        if (entered.length > 0 && exited.length > 0) {
+        if (entered.length > 0 && exited.length > 0 && entered.some(id => exited.includes(id))) {
             // it's possible that either array contains the same view twice
-            // so we have to do it one by one to avoid removing too many
+            // so we remove them in pairs to keep the count correct
             for (let enterIndex = 0; enterIndex < entered.length; enterIndex++) {
                 const id = entered[enterIndex];
                 const exitIndex = exited.indexOf(id);
                 if (exitIndex >= 0) {
                     entered.splice(enterIndex, 1);
                     exited.splice(exitIndex, 1);
-                    enterIndex--; // we removed one, check the same index again
+                    enterIndex--; // we removed this id, check the same index again
                 }
             }
             // if there are no events left then there's nothing to do
