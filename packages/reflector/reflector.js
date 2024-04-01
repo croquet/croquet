@@ -283,11 +283,13 @@ const DISPATCHER_BUCKET = NO_DISPATCHER ? null
 // pointer to latest persistent data is stored in user buckets
 // direct bucket access (instead of going via load-balancer as clients do)
 // avoids CDN caching
-const US_BUCKET = GCP_PROJECT === 'croquet-proj' ? 'files.us.croquet.io' : `files.us.${GCP_PROJECT}.croquet.dev`;
 const EU_BUCKET = GCP_PROJECT === 'croquet-proj' ? 'files.eu.croquet.io' : `files.eu.${GCP_PROJECT}.croquet.dev`;
+const JP_BUCKET = GCP_PROJECT === 'croquet-proj' ? 'files.jp.croquet.io' : `files.jp.${GCP_PROJECT}.croquet.dev`;
+const US_BUCKET = GCP_PROJECT === 'croquet-proj' ? 'files.us.croquet.io' : `files.us.${GCP_PROJECT}.croquet.dev`;
 const FILE_BUCKETS = {
-    us: STORE_PERSISTENT_DATA ? storage.bucket(US_BUCKET) : null,
     eu: STORE_PERSISTENT_DATA ? storage.bucket(EU_BUCKET) : null,
+    jp: STORE_PERSISTENT_DATA ? storage.bucket(JP_BUCKET) : null,
+    us: STORE_PERSISTENT_DATA ? storage.bucket(US_BUCKET) : null,
 };
 FILE_BUCKETS.default = FILE_BUCKETS.us;
 
