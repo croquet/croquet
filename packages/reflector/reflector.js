@@ -3682,6 +3682,7 @@ function setUpClientHandlers(client) {
         client.stats.s = Math.ceil((Date.now() - client.since) / 1000);
 
         // connection log sink filters on scope="connection" and event="start|join|end"
+        reason = `${reason}`; // reason sometimes is a buffer
         client.logger.notice({
             event: "end",
             stats: client.stats,
