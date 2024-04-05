@@ -313,7 +313,7 @@ async function startServerForDePIN() {
     // Signaling connection
 
     // Precedence: --depin command line arg, DEPIN env var, default
-    if (typeof DEPIN !== 'string') DEPIN = process.env.DEPIN || 'wss://multisynq.network/depin';
+    if (typeof DEPIN !== 'string') DEPIN = process.env.DEPIN || 'wss://api.multisynq.io/depin';
 
     // be nice and accommodate a trailing slash, http(s)://, or missing protocol
     if (DEPIN.endsWith('/')) DEPIN = DEPIN.slice(0, -1);
