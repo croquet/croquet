@@ -16,8 +16,7 @@
     "verbose": true,
     "mainpagetitle": "Croquet @CROQUET_VERSION@",
     "theme_opts": {
-        "theme": "light",
-        "include_css": ["../templates/croquet/static/styles/index.css"]
+        "theme": "light"
     }
   },
   "plugins": ["plugins/markdown"],
