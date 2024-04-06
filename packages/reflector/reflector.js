@@ -313,11 +313,17 @@ async function startServerForDePIN() {
     // Signaling connection
 
     // Precedence: --depin command line arg, DEPIN env var, default
-    if (typeof DEPIN !== 'string') DEPIN = process.env.DEPIN || 'wss://api.multisynq.io/depin';
+    const DEPIN_API_DEFAULT = 'wss://api.multisynq.io/depin';
+    const DEPIN_API_DEV = 'wss://api.multisynq.dev/depin';
+    const DEPIN_API_LOCAL = 'ws://localhost:8787';
+    if (typeof DEPIN !== 'string') DEPIN =
+        process.env.DEPIN === 'dev' ? DEPIN_API_DEV :
+        process.env.DEPIN === 'local' ? DEPIN_API_LOCAL :
+        process.env.DEPIN || DEPIN_API_DEFAULT;
 
     // be nice and accommodate a trailing slash, http(s)://, or missing protocol
     if (DEPIN.endsWith('/')) DEPIN = DEPIN.slice(0, -1);
-    DEPIN = DEPIN.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
+    DEPIN = DEPIN.replace(/^http(s):/, 'ws$1:');
     if (!DEPIN.startsWith('ws')) DEPIN = 'ws://' + DEPIN;
 
     const STATUS_DELAY = 10000;
