@@ -10,16 +10,14 @@
   },
   "opts": {
     "access": ["public"],
-    "template": "../clean-jsdoc-theme",
     "tutorials": "tutorials",
     "encoding": "utf8",
     "recurse": false,
     "verbose": true,
-    "destination": "../dist/croquet",
     "mainpagetitle": "Croquet @CROQUET_VERSION@",
     "theme_opts": {
         "theme": "light",
-        "include_css": ["../clean-jsdoc-theme/static/styles/index.css"]
+        "include_css": ["../templates/croquet/static/styles/index.css"]
     }
   },
   "plugins": ["plugins/markdown"],
