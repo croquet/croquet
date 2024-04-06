@@ -24,30 +24,28 @@ After wallet integration this same API call should verify the user's credentials
 
 There should also be plugins providing the environment – things outside of the teatime core. E.g. the browser or node.js or Unity. Possibly these are not plugins but frameworks using the teatime core.
 
-## Controller
 
-## VM
+## Packages
 
-### Time
+We should have separate packages that together are the equivalent of the "kitchensink" `@croquet/croquet` but allow leaner usage.
 
-### Models
+The following might be overkill, I'm just trying to find a way to be able to have useful minimal systems that do not include anything unnecessary. E.g. a minimal web app could leave out option parsing, qr code, autosession/autopassword etc. It might not need to be able to connect to Google. It might not use the Data API. Etc.
 
-### Future messages
+* `@croquet/client` – the "kitchen-sink", combining everything, as before. TBD: should this be the same for web and node? I'm assuming Unity will not use this one but just the packages it needs.
+* `@croquet/web` – the harness for the web
+* `@croquet/web-app` – option parsing, qr code, autosession/autopassword
+* `@croquet/node` – the harness for node
+* `@croquet/node-app` – option parsing
+* `@croquet/teatime` – basically, just VM and Model class. Only the bare minimum to instantiate a VM, either new or from a decrypted snapshot, ability to advance the computation to a specific teatime given a list of messages (with ability to limit the processing time), a callback function for each `publish()` operation, and to take a snapshot when asked
+* `@croquet/random` – optional – if the model uses no random, we don't need this
+* `@croquet/math` – optional – if you can guarantee that all users will have bit identical results, you don't need this
+* `@croquet/views` – 
+* `@croquet/session` – 
+* `@croquet/controller` – event routing between models, views, and reflector
+* `@croquet/data` – the data api
+* `@croquet/plugin-trans-websocket` – the websocket message transport
+* `@croquet/plugin-trans-webrtc` – the webrtc message transport
+* `@croquet/plugin-auth-gcp` – authorization for GCP
+* `@croquet/plugin-auth-cloudflare` – authorization for cloudflare
+* `@croquet/plugin-encryption-xyz` - default encryption strategy crypto-js
 
-#### Future Queue
-
-### Events
-
-View-to-Model events add messages to the future queue
-
-### Snapshotting
-
-## Views
-
-### Time
-
-### Events
-
-### Bulk Data
-
-## App

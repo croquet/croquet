@@ -163,26 +163,31 @@ function isLocalUrl(hostname) {
 
 /*
     Query string parameters for DePIN:
-        depin=true   (means wss://croquet.network/depin)
+        depin        (means wss://api.multisynq.io/depin)
         or
-        depin=dev    (means wss://dev.croquet.network/depin)
+        depin=dev    (means wss://api.multisynq.dev/depin)
+        or
+        depin=local  (means ws://localhost:8787)
         or
         depin=<websocket url>
         or
         depin=false  (to revert to websocket network)
 */
 
-const DEPIN_API_DEFAULT = 'wss://croquet.network/depin';
-const DEPIN_API_DEV = 'wss://dev.croquet.network/depin';
+const DEPIN_API_DEFAULT = 'wss://api.multisynq.io/depin';
+const DEPIN_API_DEV = 'wss://api.multisynq.dev/depin';
+const DEPIN_API_LOCAL = 'ws://localhost:8787';
+
 const DEPIN = urlOptions.depin;
 let DEPIN_API;
 if (DEPIN) {
     // get DEPIN_API from the url options, or use the default
     DEPIN_API = DEPIN === true ? DEPIN_API_DEFAULT
         : DEPIN === 'dev' ? DEPIN_API_DEV
+        : DEPIN === 'local' ? DEPIN_API_LOCAL
         : DEPIN;
     if (DEPIN_API.endsWith('/')) DEPIN_API = DEPIN_API.slice(0, -1);
-    DEPIN_API = DEPIN_API.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
+    DEPIN_API = DEPIN_API.replace(/^http(s):/, 'ws$1:');
     if (!DEPIN_API.startsWith('ws')) DEPIN_API = 'ws://' + DEPIN_API;
     console.log(`DEPIN_API=${DEPIN_API}`);
 }
