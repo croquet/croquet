@@ -443,7 +443,6 @@ async function startServerForDePIN() {
                     break;
                 case 'ACK':
                 case 'PONG':
-console.log(`received ${depinMsg.what}`);
                     clearTimeout(proxyAckTimeout);
                     break;
                 case 'STATS': {
