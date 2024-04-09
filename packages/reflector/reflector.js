@@ -443,6 +443,7 @@ async function startServerForDePIN() {
                     break;
                 case 'ACK':
                 case 'PONG':
+console.log(`received ${depinMsg.what}`);
                     clearTimeout(proxyAckTimeout);
                     break;
                 case 'STATS': {
@@ -1505,7 +1506,7 @@ async function JOIN(client, args) {
                     messages: latestSpec.messages.length,
                     url: latestSpec.snapshotUrl,
                 },
-            }, "resuming session from latest.json");
+            }, DEPIN ? "resuming from session-runner state" : "resuming from latest.json");
             // as we migrate from one style of island properties to another, a
             // latest.json does not necessarily have all the properties a freshly
             // minted island has.  fill in whichever of those properties were
