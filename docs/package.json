@@ -4,7 +4,8 @@
   "description": "Croquet Client Documentation",
   "scripts": {
     "start": "npm-watch",
-    "build": "jsdoc -c jsdoc.json",
+    "doBuild": "jsdoc -c jsdoc.json",
+    "build": "../build.sh croquet",
     "watch": "npm-watch"
   },
   "watch": {
