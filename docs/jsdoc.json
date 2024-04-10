@@ -14,10 +14,7 @@
     "encoding": "utf8",
     "recurse": false,
     "verbose": true,
-    "mainpagetitle": "Croquet @CROQUET_VERSION@",
-    "theme_opts": {
-        "theme": "light"
-    }
+    "mainpagetitle": "Croquet @CROQUET_VERSION@"
   },
   "plugins": ["plugins/markdown"],
   "markdown": {
