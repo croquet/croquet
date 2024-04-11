@@ -336,6 +336,10 @@ async function startServerForDePIN() {
     let registerRegion = ''; // the region registry this sync has been listed in
     let proxySocket = null;
     let proxyConnectionState = 'RECONNECTING'; // "CONNECTED", "RECONNECTING", "UNAVAILABLE"
+    const setProxyConnectionState = state => {
+        console.log(`proxy connection state: ${state}`);
+        proxyConnectionState = state;
+    };
     let proxyWasToldWeHaveSessions;
     let proxyReconnectDelay = 0;
     let synchronizerUnavailableTimeout; // deadline for declaring this synchronizer unavailable and offloading any remaining sessions
@@ -350,6 +354,23 @@ async function startServerForDePIN() {
         proxySocket.send(JSON.stringify(msgObject));
     };
     sendToDepinProxy = sendToProxy;
+
+    // set up a timeout to mark ourselves as UNAVAILABLE if connection/reconnection attempts remain unsuccessful for a total of PROXY_INTERRUPTION_LIMIT (currently 30s).
+    // timeout is cleared on successful receipt of a REGISTERED message.
+    function declareUnavailableAfterDelay(ms = PROXY_INTERRUPTION_LIMIT) {
+        if (synchronizerUnavailableTimeout) clearTimeout(synchronizerUnavailableTimeout);
+
+        synchronizerUnavailableTimeout = setTimeout(() => {
+            if (aborted) return; // process was abandoned anyway
+
+            // reconnection hasn't happened, so offload any remaining sessions (though attempts to reconnect will continue, at increasing intervals).
+            console.log('Reconnection timed out. Offloading any remaining sessions.');
+            setProxyConnectionState('UNAVAILABLE');
+            offloadAllSessions();
+        }, ms);
+    }
+    declareUnavailableAfterDelay();
+
     const connectToProxy = () => {
         if (aborted) return; // probably on an old timeout
 
@@ -358,42 +379,40 @@ async function startServerForDePIN() {
         proxyWasToldWeHaveSessions = false;
         const key = proxyKey = Math.random();
 
-        function contactProxyAfterDelay(ms) {
-            clearTimeout(proxyContactTimeout); // might have been triggered from elsewhere
-            if (aborted || key !== proxyKey) return; // connection superseded, or process abandoned
+        function contactProxy() {
+            // first sent on successful receipt of REGISTERED from the proxy
 
+            const isHandlingSessions = ALL_SESSIONS.size > 0; // whether active or not
+            // if we aren't now but were before, send one last update with the zero sessions
+            if (isHandlingSessions || proxyWasToldWeHaveSessions) {
+                sendToProxy({ what: 'STATUS', status: statusForProxy() });
+                contactProxyAfterDelay(STATUS_DELAY);
+            } else {
+                sendToProxy({ what: 'PING' }); // proxy looks for exactly the string '{"what":"PING"}'
+                contactProxyAfterDelay(PING_DELAY);
+            }
+            proxyWasToldWeHaveSessions = isHandlingSessions;
+            // set up a timeout within which we expect to receive an acknowledgement from the proxy.
+            // the timeout is cleared by receipt of ACK or PONG.
+            proxyAckTimeout = setTimeout(() => {
+                if (aborted || key !== proxyKey) return; // connection superseded, or process abandoned
+
+                // no ack received in time.  force a socket disconnection, which will trigger reconnection attempts with increasing backoff.
+                console.log('Acknowledgement from proxy timed out. Reconnecting.');
+                clearTimeout(proxyContactTimeout); // don't contact again until we figure out what's going on
+                try {
+                    proxySocket.close(1000, "proxy acknowledgement timed out");
+                    proxySocket.terminate(); // otherwise 'close' event might not be raised for 30 seconds; see https://github.com/websockets/ws/issues/2203
+                } catch (err) { console.log(err) }
+
+            }, PROXY_ACK_DELAY_LIMIT);
+        }
+
+        function contactProxyAfterDelay(ms) {
             proxyContactTimeout = setTimeout(() => {
                 if (aborted || key !== proxyKey) return; // connection superseded, or process abandoned
 
-                const isHandlingSessions = ALL_SESSIONS.size > 0; // whether active or not
-                // if we aren't now but were before, send one last update with the zero sessions
-                if (isHandlingSessions || proxyWasToldWeHaveSessions) {
-                    sendToProxy({ what: 'STATUS', status: statusForProxy() });
-                    contactProxyAfterDelay(STATUS_DELAY);
-                } else {
-                    sendToProxy({ what: 'PING' }); // proxy looks for exactly the string '{"what":"PING"}'
-                    contactProxyAfterDelay(PING_DELAY);
-                }
-                proxyWasToldWeHaveSessions = isHandlingSessions;
-                proxyAckTimeout = setTimeout(() => {
-                    if (aborted || key !== proxyKey) return; // connection superseded, or process abandoned
-
-                    console.log('acknowledgement from proxy timed out. reconnecting.');
-                    proxyConnectionState = 'RECONNECTING';
-                    clearTimeout(proxyContactTimeout); // don't contact again until we figure out what's going on
-                    console.log("WTF?");
-                    try {
-                    proxySocket.close(1000, "proxy acknowledgement timed out");
-                    proxySocket.terminate(); // otherwise 'close' event might not be raised for 30 seconds; see https://github.com/websockets/ws/issues/2203
-                    } catch (err) { console.log(err)}
-                    synchronizerUnavailableTimeout = setTimeout(() => {
-                        if (aborted || key !== proxyKey) return; // connection superseded, or process abandoned
-
-                        console.log('Reconnection timed out.  Offloading any remaining sessions.');
-                        proxyConnectionState = 'UNAVAILABLE';
-                        offloadAllSessions();
-                    }, PROXY_INTERRUPTION_LIMIT - PROXY_ACK_DELAY_LIMIT);
-                }, PROXY_ACK_DELAY_LIMIT);
+                contactProxy();
             }, ms);
         }
 
@@ -404,11 +423,6 @@ async function startServerForDePIN() {
         proxySocket.on('open', () => {
             if (key !== proxyKey) return; // this connection has (somehow, already) been superseded
             console.log(`connected websocket to proxy in registry ${DEPIN}`);
-            proxyConnectionState = 'CONNECTED';
-            // be sure to cancel any timeout that would take us to UNAVAILABLE
-            clearTimeout(synchronizerUnavailableTimeout);
-            proxyReconnectDelay = 0;
-            contactProxyAfterDelay();
         });
 
         proxySocket.on('error', function onError(err) {
@@ -430,6 +444,12 @@ async function startServerForDePIN() {
                         console.log(`registered in region ${newRegisterRegion} with proxy id ${proxyId.slice(0, 8)}`);
                     }
                     registerRegion = newRegisterRegion;
+
+                    proxyReconnectDelay = 0;
+                    setProxyConnectionState('CONNECTED');
+                    // be sure to cancel any timeout that would take us to UNAVAILABLE
+                    clearTimeout(synchronizerUnavailableTimeout);
+                    contactProxy(); // immediately PING
                     break;
                 }
                 case "SESSION": {
@@ -474,7 +494,7 @@ async function startServerForDePIN() {
 
         proxySocket.on('close', function onClose(code, reasonBuf) {
             // this is either due to a network glitch, or intentionally due to
-            // a timed-out response from the proxy.  re-establish the connection,
+            // a timed-out response from the proxy.  try to re-establish the connection,
             // using an increasing backoff delay.
             let closeReason = code.toString();
             const reason = reasonBuf.toString();
@@ -490,13 +510,17 @@ async function startServerForDePIN() {
             // aren't any lingering timeouts that relate to the closing socket.
             clearTimeout(proxyContactTimeout);
             clearTimeout(proxyAckTimeout);
-            clearTimeout(synchronizerUnavailableTimeout);
             proxySocket = null;
 
             const reconnectMsg = aborted ? "" : `  retrying after ${proxyReconnectDelay}ms`;
             console.log(`proxy socket closed (${closeReason}).${reconnectMsg}`);
 
             if (aborted) return; // closure was part of a shutdown
+
+            if (proxyConnectionState === 'CONNECTED') {
+                setProxyConnectionState('RECONNECTING');
+                declareUnavailableAfterDelay(PROXY_INTERRUPTION_LIMIT); // in case the reconnection fails
+            }
 
             setTimeout(connectToProxy, proxyReconnectDelay);
             proxyReconnectDelay = Math.min(PROXY_RECONNECT_DELAY_MAX, Math.round((proxyReconnectDelay + 100) * (1 + Math.random())));
@@ -505,7 +529,7 @@ async function startServerForDePIN() {
     connectToProxy();
 
     const SESSION_UPDATE_DELAY = 1000;
-    const SESSION_ACK_DELAY_LIMIT = 2000; // @@ would normally be much shorter - e.g., 300ms
+    const SESSION_ACK_DELAY_LIMIT = 500;
     const SESSION_RECONNECT_DELAY_MAX = 30000;
 
     const connectToSession = (sessionId, runnerDispatchSeq) => {
@@ -518,10 +542,9 @@ async function startServerForDePIN() {
         });
         session.sessionSocket = sessionSocket;
         session.sendToSessionRunner = msgObject => {
-            // since this is copied to the island just once, make sure to look up and use the latest socket
-            const socket = session.sessionSocket;
+            const socket = session.sessionSocket; // make sure it's still there
             if (socket?.readyState !== WebSocket.OPEN) {
-                console.warn(`attempt to send ${msgObject.what} on unconnected channel for session ${sessionId}`);
+                console.warn(`attempt to send ${msgObject.what} on unconnected channel for session ${shortSessionId}`);
                 return;
             }
 
@@ -529,7 +552,7 @@ async function startServerForDePIN() {
         };
 
         // $$$ things will break if the total size of the status update is a message over 1MB (which can happen easily, in a session that sends lots of big messages with infrequent snapshotting).  we need to introduce chunking.
-        let lastSessionValues = {}; // as received from DO, or sent from here.  on reconnection, in particular, we need to send a new copy of everything.
+        let lastSessionValues = {}; // $$$ as received from DO, or sent from here.  on reconnection, in particular, we need to send a new copy of everything.
         let updateTimeout;
         // let updateAckTimeout;
         function updateSessionRunner(callback = null) {
@@ -581,7 +604,7 @@ async function startServerForDePIN() {
 
             updateTimeout = setTimeout(updateSessionRunner, SESSION_UPDATE_DELAY);
         }
-        session.updateSessionRunner = updateSessionRunner;
+        session.updateSessionRunner = updateSessionRunner; // used by uploadLatestSessionSpec, as part of deleteIsland processing
         updateTimeout = setTimeout(updateSessionRunner, SESSION_UPDATE_DELAY);
 
         sessionSocket.on('open', () => {
@@ -719,7 +742,7 @@ async function startServerForDePIN() {
             session.socketKey = '';
 
             if (sessionIsClosed) {
-                console.log(`dropped socket connection for closed session ${shortSessionId}`);
+                console.log(`dropped socket for closed session ${shortSessionId}`);
                 return;
             }
 
@@ -746,20 +769,22 @@ async function startServerForDePIN() {
     // the non-DePIN case this is automatically available as the number of websockets
     // currently connected.
     //
-    // we keep maps from client id to RTCPeerConnection and, separately,
-    // client id to RTCDataChannel.  it's the latter that provides the total count,
-    // given that a client isn't really connected until it has the data channel.
+    // we keep maps from client id to RTCPeerConnection and, separately, client id
+    // to an object made by createClient() on opening of its data channel.  the latter
+    // map is what we use for the total client count, given that a client isn't really
+    // connected until the data channel is set up.
     //
     // to ensure that different sessions' clients are kept separate, the keys to
     // these maps are composed from the sessionId (shortened) and clientId.
     server = {
         peerConnections: new Map(), // composite client id => peerConnection
-        clients: new Map(),         // composite client id => dataChannel
+        clients: new Map(),         // composite client id => client object
         removeClient: function (compositeId) {
-            const dataChannel = this.clients.get(compositeId);
-            if (dataChannel) {
+            const connectedClient = this.clients.get(compositeId);
+            if (connectedClient) {
                 try {
-                    dataChannel.close();
+                    connectedClient.island = null; // checked in client close handler
+                    connectedClient.close();
                     console.log(`closed data channel for client ${compositeId}`);
                 }
                 catch (e) { /* */ }
@@ -1140,7 +1165,7 @@ async function offloadAllSessions() {
 let aborted = false;
 function handleTerm() {
     if (!aborted) {
-        aborted = true;
+        aborted = true; // checked by all DePIN timeouts related to periodic updates (to proxy or to session DOs)
 
         sendToDepinProxy?.({ what: 'SHUTDOWN' }); // prevent any further session dispatch
 
@@ -1290,7 +1315,6 @@ function nonSavableProps() {
         rawStart: 0,         // stabilizedPerformanceNow() for start of this session
         scaledStart: 0,      // synthetic stabilizedPerformanceNow() for session start at current scale
         runnerDispatchSeq: 0, // sequence number that the session runner is expecting us to provide on connection
-        sendToSessionRunner: null, // function for sending on the DePIN socket
         updateSessionRunner: null, // function for updating session spec from island
         reconnectDelay: 0,
         forcedUpdateProps: new Set(), // properties to be sent as-is on next update
@@ -1418,7 +1442,6 @@ async function JOIN(client, args) {
     island.dormantDelay = dormantDelay;
     island.url = url;
     island.flags = flags;
-    if (session.sendToSessionRunner) island.sendToSessionRunner = session.sendToSessionRunner;
 
     client.island = island; // set island before await
 
@@ -2802,6 +2825,7 @@ async function fetchJSON(filename, bucket=SESSION_BUCKET) {
 }
 
 async function uploadLatestSessionSpec(session, latestSpec) {
+    // invoked only by deleteIsland
     if (!DEPIN) {
         await uploadJSON(`${session.id}/latest.json`, latestSpec);
         return;
