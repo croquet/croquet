@@ -326,8 +326,8 @@ async function startServerForDePIN() {
     DEPIN = DEPIN.replace(/^http(s):/, 'ws$1:');
     if (!DEPIN.startsWith('ws')) DEPIN = 'ws://' + DEPIN;
 
-    const STATUS_DELAY = 10000;
-    const PING_DELAY = 10000; // keep life simple for now
+    const PROXY_STATUS_DELAY = 10000;
+    const PROXY_PING_DELAY = 10000; // keep life simple for now
     const PROXY_ACK_DELAY_LIMIT = 2000; // after this, go into RECONNECTING
     const PROXY_INTERRUPTION_LIMIT = 30000; // after this, UNAVAILABLE
     const PROXY_RECONNECT_DELAY_MAX = 30000;
@@ -386,10 +386,10 @@ async function startServerForDePIN() {
             // if we aren't now but were before, send one last update with the zero sessions
             if (isHandlingSessions || proxyWasToldWeHaveSessions) {
                 sendToProxy({ what: 'STATUS', status: statusForProxy() });
-                contactProxyAfterDelay(STATUS_DELAY);
+                contactProxyAfterDelay(PROXY_STATUS_DELAY);
             } else {
                 sendToProxy({ what: 'PING' }); // proxy looks for exactly the string '{"what":"PING"}'
-                contactProxyAfterDelay(PING_DELAY);
+                contactProxyAfterDelay(PROXY_PING_DELAY);
             }
             proxyWasToldWeHaveSessions = isHandlingSessions;
             // set up a timeout within which we expect to receive an acknowledgement from the proxy.
@@ -453,9 +453,9 @@ async function startServerForDePIN() {
                     break;
                 }
                 case "SESSION": {
-                    const { sessionId, dispatchSeq, updateSeq } = depinMsg;
+                    const { sessionId, dispatchSeq } = depinMsg;
                     console.log(`new session dispatch for ${sessionId.slice(0, 8)}`);
-                    acceptSession(sessionId, dispatchSeq, updateSeq);
+                    acceptSession(sessionId, dispatchSeq);
                     break;
                 }
                 case 'PING':
@@ -528,351 +528,417 @@ async function startServerForDePIN() {
     };
     connectToProxy();
 
-    const SESSION_UPDATE_DELAY = 1000;
-    const SESSION_ACK_DELAY_LIMIT = 500;
-    const SESSION_RECONNECT_DELAY_MAX = 30000;
+    const SESSION_UPDATE_DELAY = 250;
+    const SESSION_PING_DELAY = 1000;
+    const SESSION_ACK_DELAY_LIMIT = 500; // after this, go into BUFFERING
+    const SESSION_INTERRUPTION_LIMIT = 2000; // after this, offload the session
+    // const SESSION_RECONNECT_DELAY_MAX = 30000; // irrelevant; we'll be long gone before reconnect delay gets this high
 
-    function acceptSession(sessionId, runnerDispatchSeq, lastUpdateSeq) {
+    function acceptSession(sessionId, runnerDispatchSeq) {
         // this is invoked only once per session, on first accepting the assignment.
         // by contrast, connectToSessionRunner might be invoked repeatedly
         // if the network is unstable.
         // $$$ what if somehow we already/still have the session?
+        const shortSessionId = sessionId.slice(0, 8);
+
         registerSession(sessionId);
         const session = ALL_SESSIONS.get(sessionId);
         session.updateTracker = {
-            lastUpdateSeq, // will be incremented each time the island updates the sessionRunner.  @@ or maybe when that gets acknowledged.
-            props: {},
+            lastUpdateSeq: 0,   // received from session runner on confirmation of assignment; incremented each time we build an update.
+            updatedProps: {},   // values for island properties that have been sent, or at least buffered
             forcedUpdateProps: new Set(),
-            newMessages: [],
-            updateBuffer: []
+            newMessages: [],    // replicated messages since last update
+            updateBuffer: []    // queue of updates that we want to send.  an update stays in the queue (at the front) until the DO acknowledges receipt.
         };
 
-        fetchJSON(`${session.id}/latest.json`)
-        session.updateBuffer = []; //
-        session.installSessionUpdater = island => {
-            // invoked on first JOIN for the session, once the island is instantiated.
-            // the island takes responsibility for periodically %%%
+        const connectToSessionRunner = () => {
+            // invoked each time we need a new connection to the session DO (including
+            // after any glitch that causes the connection to drop)
+            const key = session.socketKey = Math.random(); // timeouts set up under the auspices of one connection are ignored if that connection has been replaced
 
-            // $$$ things will break if the total size of the status update is a message over 1MB (which can happen easily, in a session that sends lots of big messages with infrequent snapshotting).  we need to introduce chunking.
-            let lastSessionValues = {}; // %%% $$$ as received from DO, or sent from here.  on reconnection, in particular, we need to send a new copy of everything.
-            // let updateAckTimeout;
-            session.updateSessionRunner = (callback = null) => {
-                clearTimeout(session.updateTimeout); // in case this was an on-demand invocation
-
-                // confirm that the island is still registered, and that we still have
-                // a live connection to the session DO
-                if (ALL_ISLANDS.get(sessionId) && session.sessionSocket?.readyState === WebSocket.OPEN) {
-                    // the basic idea is to send an incremental update that will ensure
-                    // that the session DO has an update-to-date copy of all of the island's
-                    // savable properties.
-                    // we keep a record in lastSessionValues of what we believe the
-                    // session DO has (although that's not guaranteed, as messages can
-                    // be dropped due to network glitches).
-                    // most of the values are of immutable type, so a simple comparison
-                    // with what's in lastSessionValues is enough to decide whether an
-                    // update is needed.
-                    // for those that are not, we rely on code that updates the property
-                    // to add the property name to forcedUpdateProps, meaning that the
-                    // value as a whole will be sent.  this currently applies only to
-                    // messages (on clearing them after a snapshot), and completedTallies.
-                    // in addition, for any array value (currently only messages) we
-                    // allow incremental array updates to be gathered under the property's
-                    // name in the arrayUpdates object.
-                    // therefore, for each property:
-                    // - if lastSessionValues has no value for this property, or the value it has is not object-identical to the island's current one, send the complete value
-                    // - else if forcedUpdateProps includes the property name, send the complete value
-                    // - else if arrayUpdates has a value under the property name, send that value as an arrayUpdate.
-                    const { forcedUpdateProps, arrayUpdates } = island;
-                    const update = {};
-                    savableKeys(island).forEach(prop => {
-                        const value = island[prop];
-                        if (lastSessionValues[prop] !== value || forcedUpdateProps.has(prop)) {
-                            update[prop] = value;
-                            lastSessionValues[prop] = value;
-                        } else if (arrayUpdates[prop]) {
-                            if (!update.arrayUpdates) update.arrayUpdates = {};
-                            update.arrayUpdates[prop] = arrayUpdates[prop];
-                        }
-                    });
-                    island.arrayUpdates = {};
-                    forcedUpdateProps.clear();
-                    if (Object.keys(update).length) {
-                        session.specUpdateReceived = callback;
-                        session.sendToSessionRunner({ what: "UPDATE_SPEC", update });
-                    } else callback?.();
+            const sessionSocket = new WebSocket(`${DEPIN}/synchronizers/connect?session=${sessionId}&dispatchSeq=${runnerDispatchSeq}&synchronizer=${proxyId}`, {
+                perMessageDeflate: false, // this was in the node-datachannel example; not sure if it's helping
+            });
+            session.sessionSocket = sessionSocket;
+            session.sendToSessionRunner = msgObject => {
+                const socket = session.sessionSocket; // make sure it's still there
+                if (socket?.readyState !== WebSocket.OPEN) {
+                    console.warn(`attempt to send ${msgObject.what} on unconnected channel for session ${shortSessionId}`);
+                    return;
                 }
 
-                session.updateTimeout = setTimeout(() => session.updateSessionRunner(), SESSION_UPDATE_DELAY);
+                socket.send(JSON.stringify(msgObject));
+
+                scheduleNextSessionUpdate();
             };
-            session.updateTimeout = setTimeout(() => session.updateSessionRunner(), SESSION_UPDATE_DELAY);
-        };
 
-        connectToSessionRunner(sessionId, runnerDispatchSeq);
-    }
+            // the session has responsibility for periodically contacting the session
+            // DO - with an island update if there are changed properties or additional
+            // messages; otherwise with a 1Hz PING.  if the DO doesn't hear anything on
+            // its synq connection for 2 seconds, it will draw the conclusion that this
+            // synq is no longer capable of running the session.
+            let lastUpdateTime = 0;
+            let sessionUpdateTimeout;
+            let updateAckTimeout;
+            const scheduleNextSessionUpdate = () => {
+                if (sessionUpdateTimeout) clearTimeout(sessionUpdateTimeout);
 
-    const connectToSessionRunner = (sessionId, runnerDispatchSeq) => {
-        // invoked each time we need a new connection to the session DO (including
-        // after any glitch that causes the connection to drop)
-        const session = ALL_SESSIONS.get(sessionId);
-        const shortSessionId = sessionId.slice(0, 8);
-        const key = session.socketKey = Math.random();
+                sessionUpdateTimeout = setTimeout(() => {
+                    if (key !== session.socketKey) return; // ignore a timeout if socket has been replaced
 
-        const sessionSocket = new WebSocket(`${DEPIN}/synchronizers/connect?session=${sessionId}&dispatchSeq=${runnerDispatchSeq}&synchronizer=${proxyId}`, {
-            perMessageDeflate: false, // this was in the node-datachannel example; not sure if it's helping
-        });
-        session.sessionSocket = sessionSocket;
-        session.sendToSessionRunner = msgObject => {
-            if (key !== session.socketKey) return; // presumably a timeout set up on an earlier socket
+                    const now = Date.now();
+                    session.gatherUpdateIfNeeded();
+                    const { updateBuffer } = session.forcedUpdateProps;
+                    let sentSomething = false;
+                    if (updateBuffer.length && !updateBuffer[0].awaitingAck) {
+                        const update = updateBuffer[0];
+                        session.sendToSessionRunner({ what: "UPDATE_SPEC", update });
+                        update.awaitingAck = true;
+                        sentSomething = true;
+                    } else if (now - lastUpdateTime >= SESSION_PING_DELAY) {
+                        session.sendToSessionRunner({ what: "PING" });
+                        sentSomething = true;
+                    }
+                    if (sentSomething) {
+                        lastUpdateTime = now;
+                        updateAckTimeout = setTimeout(() => {
+                            if (key !== session.socketKey) return; // ignore a timeout if socket has been replaced
 
-            const socket = session.sessionSocket; // make sure it's still there
-            if (socket?.readyState !== WebSocket.OPEN) {
-                console.warn(`attempt to send ${msgObject.what} on unconnected channel for session ${shortSessionId}`);
-                return;
-            }
+                            // no ack received in time.  force a socket disconnection, which will trigger reconnection attempts with increasing backoff.
+                            console.log('Acknowledgement from session DO timed out. Reconnecting.');
+                            clearTimeout(sessionUpdateTimeout); // don't contact again until we figure out what's going on
+                            try {
+                                sessionSocket.close(1000, "proxy acknowledgement timed out");
+                                sessionSocket.terminate(); // otherwise 'close' event might not be raised for 30 seconds; see https://github.com/websockets/ws/issues/2203
+                            } catch (err) { console.log(err) }
+                        });
+                    }
 
-            socket.send(JSON.stringify(msgObject));
+                    scheduleNextSessionUpdate();
+                }, SESSION_UPDATE_DELAY);
+            };
 
-            restartKeepAlive();
-        };
+            // we send incremental updates that will ensure
+            // that the session DO has an up-to-date copy of all of the island's
+            // savable properties.
+            // updateTracker.updatedProps holds the values that we have either already
+            // sent to the session DO, or at least scheduled for sending (as an entry
+            // in updateBuffer).
+            // most of the properties are of immutable type, so a simple comparison
+            // with what's in updatedProps is enough to decide whether an update
+            // is needed.
+            // for those that are not, we rely on code that updates the property
+            // to add the property name to forcedUpdateProps, meaning that the
+            // value as a whole will be sent.  this currently applies only to
+            // completedTallies.
+            // the message array has its own handling.  every outgoing message is
+            // added to updateTracker.newMessages, which is cleared each time an
+            // update is assembled.
+            // therefore, for each property (other than messages):
+            // - if updatedProps has no value for this property, or the value it has is not object-identical to the island's current one, send the complete value
+            // - else if forcedUpdateProps includes the property name, also send the complete value
+            session.gatherUpdateIfNeeded = () => {
+                // if the session has moved on since the last update that was sent, add
+                // to the update buffer a bundle with all the changes.
+                const island = ALL_ISLANDS.get(sessionId); // if there is one
+                if (!island) return;
 
-        const restartKeepAlive = () => {
-            if (session.keepSessionSocketAliveTimeout) clearTimeout(session.keepSessionSocketAliveTimeout);
+                const { updateTracker } = session;
+                const { updatedProps, forcedUpdateProps, newMessages } = updateTracker;
+                const thisUpdate = {};
+                savableKeys(island).forEach(prop => {
+                    if (prop === 'messages') return;
 
-            session.keepSessionSocketAliveTimeout = setTimeout(() => session.sendToSocketRunner({ what: "PING" }), 1000);
-        };
+                    const value = island[prop];
+                    if (updatedProps[prop] !== value || forcedUpdateProps.has(prop)) {
+                        thisUpdate[prop] = value;
+                        updatedProps[prop] = value;
+                    }
+                });
+                forcedUpdateProps.clear();
+                if (newMessages.length) {
+                    thisUpdate.messages = newMessages;
+                    newMessages.length = 0;
+                }
+                if (Object.keys(thisUpdate).length) {
+                    thisUpdate.updateSeq = ++updateTracker.lastUpdateSeq;
+                    updateTracker.updateBuffer.push(thisUpdate);
+                }
+            };
 
-        sessionSocket.on('open', () => {
-            console.log(`connected to session runner for ${shortSessionId}`);
-            session.reconnectDelay = 0; // $$$ like proxy, maybe not here if the socket will also be opened in the case of sending a rejection
-        });
+            sessionSocket.on('open', () => {
+                console.log(`connected to session runner for ${shortSessionId}`);
+                // nothing else to do.  the opening might even have happened just so
+                // the DO can send us a REJECTED message.
+            });
 
-        sessionSocket.on('error', function onError(err) {
-            if (key !== session.socketKey) return;
+            sessionSocket.on('error', function onError(err) {
+                if (key !== session.socketKey) return;
 
-            console.log('session WebSocket error: ', err);
-        });
+                console.log('session WebSocket error: ', err);
+            });
 
-        sessionSocket.on('message', function onMessage(depinStr) {
-            if (key !== session.socketKey) return;
+            sessionSocket.on('message', function onMessage(depinStr) {
+                if (key !== session.socketKey) return;
 
-            const depinMsg = JSON.parse(depinStr);
-            const clientId = depinMsg.id;
-            const globalClientId = `${shortSessionId}:${clientId}`;
-            switch (depinMsg.what) {
-                case "REJECTED":
-                    // session runner has rejected this synchronizer's attempt to
-                    // take the session (for example, if we took too long to connect)
-                    console.log(`session runner for ${shortSessionId} rejected our connection`);
-                    deregisterSession(sessionId, "rejected by session runner");
+                const depinMsg = JSON.parse(depinStr);
+                const clientId = depinMsg.id;
+                const globalClientId = `${shortSessionId}:${clientId}`;
+                switch (depinMsg.what) {
+                    case "ASSIGNED":
+                        // session runner has accepted our connection (or reconnection)
+                        console.log(`session runner for ${shortSessionId} confirmed our assignment (updateSeq=${depinMsg.lastUpdateSeq})`);
+                        session.reconnectDelay = 0;
+                        session.updateTracker.lastUpdateSeq = depinMsg.lastUpdateSeq;
+                        scheduleNextSessionUpdate();
+                        break;
+                    case "REJECTED":
+                        // session runner has rejected this synchronizer's attempt to
+                        // take the session (for example, if we took too long to connect)
+                        console.log(`session runner for ${shortSessionId} rejected our connection`);
+                        deregisterSession(sessionId, "rejected by session runner");
+                        break;
+                    case "CONNECT":
+                        // @@ a peer connection isn't set up until the client sends an offer.
+                        // therefore, for now, there's nothing to do here.
+                        console.log(`new client connection from client ${globalClientId}`);
+                        break;
+                    case "DISCONNECT":
+                        console.log(`closed client signaling ${globalClientId}`);
+                        // if the client already has a data channel, this disconnection
+                        // has probably been triggered by the client deciding that the channel
+                        // setup is now complete - so it's not a client disconnection at all.
+                        if (server.clients.get(globalClientId)) {
+                            // by the same token, this is likely to be a reasonable time
+                            // to report on the channel's selected ICE candidates.
+                            // @@ now handled with explicit selectedCandidatePair messages
+                            // const peerConnection = server.peerConnections.get(globalClientId);
+                            // if (peerConnection) console.log(JSON.stringify(peerConnection.getSelectedCandidatePair(), null, 2));
+                        } else {
+                            // if there isn't a data channel, this might be the only disconnection
+                            // signal we'll get.  make sure to tidy up.
+                            server.removeClient(globalClientId);
+                        }
+                        break;
+                    case "ICE_MSG": {
+                        let msg;
+                        try {
+                            msg = JSON.parse(depinMsg.data);
+                        } catch (e) {
+                            console.log(`error parsing message from client ${globalClientId}: ${depinMsg.data}`);
+                            return;
+                        }
+                        // console.log(`session message from client ${globalClientId}: ${msg.type} ${JSON.stringify({ msg, type: undefined })}`);
+                        switch (msg.type) {
+                            case 'offer':
+                                // supposedly always the first message through
+                                createPeerConnection(clientId, globalClientId, sessionId, sessionSocket);
+                                server.peerConnections.get(globalClientId).setRemoteDescription(msg.sdp, msg.type);
+                                break;
+                            case 'candidate':
+                                // the API for PeerConnection doesn't understand empty or null candidate
+                                if (msg.candidate) {
+                                    server.peerConnections.get(globalClientId).addRemoteCandidate(msg.candidate, msg.sdpMid);
+                                }
+                                break;
+                            case 'selectedCandidatePair':
+                                console.log(`client ${globalClientId} connection: client=${msg.clientType}, sync=${msg.syncType}`);
+                                break;
+                            default:
+                                console.warn(`unhandled session message type ${msg.type}`);
+                                break;
+                        }
+                        break;
+                    }
+                    case 'LATEST_SPEC': {
+                        const { spec } = depinMsg;
+                        session.sessionSpecReady(spec);
+                        break;
+                    }
+                    case 'SPEC_UPDATE_RECEIVED': {
+                        const { updateSeq } = depinMsg;
+                        const { updateBuffer } = session.updateTracker;
+                        const firstUpdate = updateBuffer.shift();
+                        if (firstUpdate.updateSeq !== updateSeq) throw Error(`Update sequence mismatch: expecting ${firstUpdate.updateSeq}, but received ack for ${updateSeq}`);
+                        scheduleNextSessionUpdate();
+                        break;
+                    }
+                    case 'PING':
+                        sendToProxy({ what: 'PONG' });
+                        break;
+                    case 'PONG':
+                        // $$$ need to have a timeout checking that this arrives
+                        break;
+                    default:
+                        console.warn(`unhandled message in session ${sessionId}: "${depinStr}"`);
+                        break;
+                }
+            });
+
+            sessionSocket.on('close', function onClose() {
+                // if session.stage is already 'closed', the socket closure was as a result of
+                // an intentional shutdown (see deregisterSession).
+                // otherwise, it must be due to a network glitch.  try to re-establish the
+                // connection, using an increasing backoff delay.
+                // initially, a break in the sessionSocket connection needn't have any
+                // impact on our existing dataChannel connections to clients that have
+                // completed ICE negotiation.
+                // any clients with a peerConnection but no dataChannel should, however,
+                // be discarded because their negotiations are now in doubt.
+
+                // however, after a certain delay, the lack of a sessionSocket connection means
+                // that the island must be offloaded.  all clients that are in the midst
+                // of ICE negotiation, and also all clients that have running webrtc channels,
+                // must be purged.
+                if (key !== session.socketKey) return; // an earlier connection
+                // clearTimeout(keepAliveTimeout); $$$
+
+                console.log(`session runner for ${shortSessionId} connection closed; session stage is "${session.stage}"`);
+
+                const sessionIsClosed = session.stage === "closed";
+
+                const sessionPrefix = shortSessionId + ':';
+                const allConnectedClients = [...server.peerConnections.keys()].filter(id => id.startsWith(sessionPrefix));
+                let disconnected = 0;
+                for (const compositeClientId of allConnectedClients) {
+                    if (sessionIsClosed || !server.clients.has(compositeClientId)) {
+                        server.removeClient(compositeClientId);
+                        disconnected++;
+                    }
+                }
+
+                session.sessionSocket = null;
+                session.socketKey = '';
+                clearTimeout(session.updateTimeout);
+
+                if (sessionIsClosed) {
+                    console.log(`dropped socket for closed session ${shortSessionId}`);
                     return;
-                case "CONNECT":
-                    // @@ a peer connection isn't set up until the client sends an offer.
-                    // therefore, for now, there's nothing to do here.
-                    console.log(`new client connection from client ${globalClientId}`);
-                    break;
-                case "DISCONNECT":
-                    console.log(`closed client signaling ${globalClientId}`);
-                    // if the client already has a data channel, this disconnection
-                    // has probably been triggered by the client deciding that the channel
-                    // setup is now complete - so it's not a client disconnection at all.
-                    if (server.clients.get(globalClientId)) {
-                        // by the same token, this is likely to be a reasonable time
-                        // to report on the channel's selected ICE candidates.
-                        // @@ now handled with explicit selectedCandidatePair messages
-                        // const peerConnection = server.peerConnections.get(globalClientId);
-                        // if (peerConnection) console.log(JSON.stringify(peerConnection.getSelectedCandidatePair(), null, 2));
-                    } else {
-                        // if there isn't a data channel, this might be the only disconnection
-                        // signal we'll get.  make sure to tidy up.
+                }
+
+                const disconnectMsg = disconnected ? ` and ${disconnected} unconnected clients discarded` : '';
+                console.log(`session socket closed${disconnectMsg}.  retrying after ${session.reconnectDelay}ms`);
+                setTimeout(connectToSessionRunner, session.reconnectDelay);
+                session.reconnectDelay = Math.round((session.reconnectDelay + 100) * (1 + Math.random()));
+            });
+
+            function createPeerConnection(clientId, globalClientId) {
+                // triggered by receiving an ICE offer from a client
+                const signalToClient = signalObject => {
+                    const msgObject = { id: clientId, what: "ICE_MSG", data: JSON.stringify(signalObject) };
+                    session.sendToSessionRunner(msgObject);
+                };
+
+                const peerConnection = new nodeDataChannel.PeerConnection('synchronizer', {
+                    iceServers
+                    // iceServers: ['stun:stun.l.google.com:19302']
+                    // ['stun:freeturn.net:3478', 'turn:free:free@freeturn.net:3478']
+                });
+                server.peerConnections.set(globalClientId, peerConnection);
+                peerConnection.onStateChange(state => {
+                    console.log(`connection state (${globalClientId}): "${state}"`);
+                    if (state === 'closed') {
+                        // note: once a client's data channel has been established, any
+                        // disconnection must be handled by the 'close' handler that we
+                        // install on it (see the call to setUpClientHandlers below).  until that
+                        // point - i.e., if the link has dropped early in ICE negotiation - we
+                        // just silently clean up this peerConnection.
+                        if (server.clients.get(globalClientId)) return;
+
                         server.removeClient(globalClientId);
                     }
-                    break;
-                case "ICE_MSG": {
-                    let msg;
-                    try {
-                        msg = JSON.parse(depinMsg.data);
-                    } catch (e) {
-                        console.log(`error parsing message from client ${globalClientId}: ${depinMsg.data}`);
-                        return;
-                    }
-                    // console.log(`session message from client ${globalClientId}: ${msg.type} ${JSON.stringify({ msg, type: undefined })}`);
-                    switch (msg.type) {
-                        case 'offer':
-                            // supposedly always the first message through
-                            createPeerConnection(clientId, globalClientId, sessionId, sessionSocket);
-                            server.peerConnections.get(globalClientId).setRemoteDescription(msg.sdp, msg.type);
-                            break;
-                        case 'candidate':
-                            // the API for PeerConnection doesn't understand empty or null candidate
-                            if (msg.candidate) {
-                                server.peerConnections.get(globalClientId).addRemoteCandidate(msg.candidate, msg.sdpMid);
-                            }
-                            break;
-                        case 'selectedCandidatePair':
-                            console.log(`client ${globalClientId} connection: client=${msg.clientType}, sync=${msg.syncType}`);
-                            break;
-                        default:
-                            console.warn(`unhandled session message type ${msg.type}`);
-                            break;
-                    }
-                    break;
-                }
-                case 'LATEST_SPEC': {
-                    const spec = depinMsg.spec;
-                    session.sessionSpecReady(spec);
-                    break;
-                }
-                case 'SPEC_UPDATE_RECEIVED': {
-                    session.specUpdateReceived?.();
-                    session.specUpdateReceived = null;
-                    break;
-                }
-                case 'PING':
-                    sendToProxy({ what: 'PONG' });
-                    break;
-                case 'PONG':
-                    // $$$ need to have a timeout checking that this arrives
-                    break;
-                default:
-                    console.warn(`unhandled message in session ${sessionId}: "${depinStr}"`);
-                    break;
-            }
-        });
-
-        sessionSocket.on('close', function onClose() {
-            // if session.stage is already 'closed', the socket closure was as a result of
-            // an intentional shutdown (see deregisterSession).
-            // otherwise, it must be due to a network glitch.  try to re-establish the
-            // connection, using an increasing backoff delay.
-            // initially, a break in the sessionSocket connection needn't have any
-            // impact on our existing dataChannel connections to clients that have
-            // completed ICE negotiation.
-            // any clients with a peerConnection but no dataChannel should, however,
-            // be discarded because their negotiations are now in doubt.
-
-            // however, after a certain delay, the lack of a sessionSocket connection means
-            // that the island must be offloaded.  all clients that are in the midst
-            // of ICE negotiation, and also all clients that have running webrtc channels,
-            // must be purged.
-            if (key !== session.socketKey) return; // an earlier connection
-            // clearTimeout(keepAliveTimeout); $$$
-
-            console.log(`session runner for ${shortSessionId} connection closed; session stage is "${session.stage}"`);
-
-            const sessionIsClosed = session.stage === "closed";
-
-            const sessionPrefix = shortSessionId + ':';
-            const allConnectedClients = [...server.peerConnections.keys()].filter(id => id.startsWith(sessionPrefix));
-            let disconnected = 0;
-            for (const compositeClientId of allConnectedClients) {
-                if (sessionIsClosed || !server.clients.has(compositeClientId)) {
-                    server.removeClient(compositeClientId);
-                    disconnected++;
-                }
-            }
-
-            session.sessionSocket = null;
-            session.socketKey = '';
-            clearTimeout(session.updateTimeout);
-
-            if (sessionIsClosed) {
-                console.log(`dropped socket for closed session ${shortSessionId}`);
-                return;
-            }
-
-            const disconnectMsg = disconnected ? ` and ${disconnected} unconnected clients discarded` : '';
-            console.log(`session socket closed${disconnectMsg}.  retrying after ${session.reconnectDelay}ms`);
-            setTimeout(() => connectToSessionRunner(sessionId, runnerDispatchSeq), session.reconnectDelay);
-            session.reconnectDelay = Math.min(SESSION_RECONNECT_DELAY_MAX, Math.round((session.reconnectDelay + 100) * (1 + Math.random())));
-        });
-
-        function createPeerConnection(clientId, globalClientId) {
-            // triggered by receiving an ICE offer from a client
-            const signalToClient = signalObject => {
-                const msgObject = { id: clientId, what: "ICE_MSG", data: JSON.stringify(signalObject) };
-                session.sendToSessionRunner(msgObject);
-            };
-
-            const peerConnection = new nodeDataChannel.PeerConnection('synchronizer', {
-                iceServers
-                // iceServers: ['stun:stun.l.google.com:19302']
-                // ['stun:freeturn.net:3478', 'turn:free:free@freeturn.net:3478']
-            });
-            server.peerConnections.set(globalClientId, peerConnection);
-            peerConnection.onStateChange(state => {
-                console.log(`connection state (${globalClientId}): "${state}"`);
-                if (state === 'closed') {
-                    // note: once a client's data channel has been established, any
-                    // disconnection must be handled by the 'close' handler that we
-                    // install on it (see the call to setUpClientHandlers below).  until that
-                    // point - i.e., if the link has dropped early in ICE negotiation - we
-                    // just silently clean up this peerConnection.
-                    if (server.clients.get(globalClientId)) return;
-
-                    server.removeClient(globalClientId);
-                }
-            });
-            peerConnection.onGatheringStateChange(state => {
-                console.log(`gathering state (${globalClientId}): "${state}"`);
-                // @@ sometimes we see another couple of candidates *after* this event
-                // has fired.  if the client reacts quickly to the 'gathering-complete'
-                // event by closing the signalling channel, it might not receive them.
-                // in theory a synchronizer could be behind some obscure form of NAT such
-                // that this would cause the connection to fail overall.
-                if (state === 'complete') signalToClient({ type: 'gathering-complete' });
-            });
-            peerConnection.onLocalDescription((sdp, type) => {
-                signalToClient({ type, sdp });
-            });
-            peerConnection.onLocalCandidate((candidate, sdpMid) => {
-                // console.log(`new candidate: ${JSON.stringify(candidate)}`); // temporary debug
-                if (!candidate) console.log(`empty local candidate: ${candidate}`);
-                signalToClient({ type: 'candidate', candidate, sdpMid });
-            });
-            peerConnection.onDataChannel(dataChannel => {
-                console.log(`DataChannel from ${globalClientId} with label "${dataChannel.getLabel()}" and protocol "${dataChannel.getProtocol()}"`);
-                const client = createClient(peerConnection, dataChannel);
-                client.globalId = globalClientId;
-                server.clients.set(globalClientId, client);
-                setUpClientHandlers(client); // adds 'message', 'close', 'error'
-                registerClientInSession(client, sessionId);
-                dataChannel.onMessage(msg => {
-                    if (msg.startsWith('!pong')) {
-                        const time = Number(msg.split('@')[1]);
-                        client.handleEvent('pong', time);
-                    } else client.handleEvent('message', msg);
                 });
-                dataChannel.onError(evt => client.handleEvent('error', evt)); // $$$ need some handling
-                dataChannel.onClosed(_evt => client.handleEvent('close', 1000, "Client data channel closed"));
-            });
-        }
+                peerConnection.onGatheringStateChange(state => {
+                    console.log(`gathering state (${globalClientId}): "${state}"`);
+                    // @@ sometimes we see another couple of candidates *after* this event
+                    // has fired.  if the client reacts quickly to the 'gathering-complete'
+                    // event by closing the signalling channel, it might not receive them.
+                    // in theory a synchronizer could be behind some obscure form of NAT such
+                    // that this would cause the connection to fail overall.
+                    if (state === 'complete') signalToClient({ type: 'gathering-complete' });
+                });
+                peerConnection.onLocalDescription((sdp, type) => {
+                    signalToClient({ type, sdp });
+                });
+                peerConnection.onLocalCandidate((candidate, sdpMid) => {
+                    // console.log(`new candidate: ${JSON.stringify(candidate)}`); // temporary debug
+                    if (!candidate) console.log(`empty local candidate: ${candidate}`);
+                    signalToClient({ type: 'candidate', candidate, sdpMid });
+                });
+                peerConnection.onDataChannel(dataChannel => {
+                    console.log(`DataChannel from ${globalClientId} with label "${dataChannel.getLabel()}" and protocol "${dataChannel.getProtocol()}"`);
+                    const client = createClient(peerConnection, dataChannel);
+                    client.globalId = globalClientId;
+                    server.clients.set(globalClientId, client);
+                    setUpClientHandlers(client); // adds 'message', 'close', 'error'
+                    registerClientInSession(client, sessionId);
+                    dataChannel.onMessage(msg => {
+                        if (msg.startsWith('!pong')) {
+                            const time = Number(msg.split('@')[1]);
+                            client.handleEvent('pong', time);
+                        } else client.handleEvent('message', msg);
+                    });
+                    dataChannel.onError(evt => client.handleEvent('error', evt)); // $$$ need some handling
+                    dataChannel.onClosed(_evt => client.handleEvent('close', 1000, "Client data channel closed"));
+                });
+            }
 
-        function createClient(peerConnection, dataChannel) {
-            // a client object that has the needed DePIN-supporting properties, and
-            // can also work with legacy synchronizer code that expects a client to be
-            // a socket.
-            return {
-                pc: peerConnection,
-                dc: dataChannel,
-                isConnected: function () { return this.dc.isOpen() },
-                send: function (data) { this.dc.sendMessage(data) },
-                close: function (_code, _data) { this.pc.close() },
-                handlers: {},
-                on: function (eventName, handler) { this.handlers[eventName] = handler },
-                handleEvent: function (eventName, ...args) { this.handlers[eventName](...args) },
-                ping: function (time) { this.send(`!ping@${time}`) },
-                since: Date.now(),
-                bufferedAmount: 0, // dummy value, used in stats collection
-                meta: {
-                    scope: "connection",
-                    connection: null,
-                    dispatcher: null,
-                    userIp: "unknown-ip",
-                }
-            };
-        }
-    };
+            function createClient(peerConnection, dataChannel) {
+                // a client object that has the needed DePIN-supporting properties, and
+                // can also work with legacy synchronizer code that expects a client to be
+                // a socket.
+                return {
+                    pc: peerConnection,
+                    dc: dataChannel,
+                    isConnected: function () { return this.dc.isOpen() },
+                    send: function (data) { this.dc.sendMessage(data) },
+                    close: function (_code, _data) { this.pc.close() },
+                    handlers: {},
+                    on: function (eventName, handler) { this.handlers[eventName] = handler },
+                    handleEvent: function (eventName, ...args) { this.handlers[eventName](...args) },
+                    ping: function (time) { this.send(`!ping@${time}`) },
+                    since: Date.now(),
+                    bufferedAmount: 0, // dummy value, used in stats collection
+                    meta: {
+                        scope: "connection",
+                        connection: null,
+                        dispatcher: null,
+                        userIp: "unknown-ip",
+                    }
+                };
+            }
+        };
 
+        session.fetchLatestSessionSpec = async () => {
+            let fetchTimeout;
+            const fetchFromRunner = new Promise((resolve, reject) => {
+                session.sessionSpecReady = resolve;
+                session.sendToSessionRunner({ what: "FETCH_LATEST_SPEC" });
+                fetchTimeout = setTimeout(reject, 2000); // @@ arbitrary
+            }).catch(_err => { return {} }) // error or timeout delivers empty spec
+                .finally(() => clearTimeout(fetchTimeout));
+
+            const latestSpec = await fetchFromRunner;
+            // for an empty spec (perhaps from error) we generate a fake 404 error
+            return Object.keys(latestSpec).length ? latestSpec : Promise.reject(Object.assign(new Error("error or empty spec"), { code: 404 })); // hack, copied from fetchJSON;
+        };
+
+        session.uploadLatestSessionSpec = async () => {
+            // invoked only by deleteIsland, and only on DePIN
+            let uploadTimeout;
+            const uploadToRunner = new Promise((resolve, reject) => {
+                session.sendUpdateOrPing(resolve);
+                uploadTimeout = setTimeout(reject, 2000); // @@ arbitrary
+            }).catch(err => {
+                // try to throw something that looks like a server error
+                console.log(err);
+                throw Object.assign(new Error("upload failed"), err || { code: 500 });
+            }).finally(() => clearTimeout(uploadTimeout));
+            await uploadToRunner;
+        };
+
+        connectToSessionRunner();
+    }
 
     // create a fake server.  startServerForWebSockets (below) makes an http/websocket
     // server that manages the socket connections from all clients, regardless of
@@ -1545,7 +1611,7 @@ async function JOIN(client, args) {
         // $$$ TODO: handle the session DO sending an explicit response/error that means "you were too slow; another synq is now handling this" - in which case we need to bail out without SYNC getting invoked, and to clear our local session record (though not seek to clear the session DO's record, which will already have happened).  there's currently the REJECTED message, but that seems like the wrong approach.
         try {
             const latestSpec = DEPIN
-                ? await fetchLatestSessionSpec(session)
+                ? await session.fetchLatestSessionSpec()
                 : await fetchJSON(`${id}/latest.json`);
             island.logger.notice({
                 event: "start",
@@ -1620,7 +1686,6 @@ async function JOIN(client, args) {
             }
         } finally {
             island.storedUrl = ''; // replace the null that means we haven't looked
-            if (DEPIN) session.installSessionUpdater(); // set up the regular updating of the session runner from the island
             SYNC(island);
         }
     }
@@ -2407,7 +2472,8 @@ async function deleteIsland(island) {
         try {
             if (DEPIN) {
                 // in the DePIN case, we're hoping that the sessionSocket is still up and running.  if it is, we'll send whatever increment is needed to bring the session runner up to date.  if not, we'll get an error (and abandon the upload).
-                await uploadLatestSessionSpec(island);
+                const session = ALL_SESSIONS.get(id);
+                await session.uploadLatestSessionSpec();
             } else {
                 const latestSpec = {};
                 savableKeys(island).forEach(key => latestSpec[key] = island[key]);
@@ -2832,20 +2898,6 @@ async function verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client, u
     return false;
 }
 
-async function fetchLatestSessionSpec(session) {
-    let fetchTimeout;
-    const fetchFromRunner = new Promise((resolve, reject) => {
-        session.sessionSpecReady = resolve;
-        session.sendToSessionRunner({ what: "FETCH_LATEST_SPEC" });
-        fetchTimeout = setTimeout(reject, 2000); // @@ arbitrary
-    }).catch(_err => { return {} }) // error or timeout delivers empty spec
-    .finally(() => clearTimeout(fetchTimeout));
-
-    const latestSpec = await fetchFromRunner;
-    // for an empty spec (perhaps from error) we generate a fake 404 error
-    return Object.keys(latestSpec).length ?  latestSpec : Promise.reject(Object.assign(new Error("error or empty spec"), { code: 404 })); // hack, copied from fetchJSON;
-}
-
 /** fetch from our storage bucket an object that was JSON-encoded */
 async function fetchJSON(filename, bucket=SESSION_BUCKET) {
     // somewhat of a hack to not having to guard the fetchJSON calls in JOIN()
@@ -2862,20 +2914,6 @@ async function fetchJSON(filename, bucket=SESSION_BUCKET) {
             stream.on('error', reject);
         } catch (err) { reject(err) }
     });
-}
-
-async function uploadLatestSessionSpec(island) {
-    // invoked only by deleteIsland, and only on DePIN
-    let uploadTimeout;
-    const uploadToRunner = new Promise((resolve, reject) => {
-        island.updateSessionRunner(resolve);
-        uploadTimeout = setTimeout(reject, 2000); // @@ arbitrary
-    }).catch(err => {
-        // try to throw something that looks like a server error
-        console.log(err);
-        throw Object.assign(new Error("upload failed"), err || { code: 500 });
-    }).finally(() => clearTimeout(uploadTimeout));
-    await uploadToRunner;
 }
 
 /** upload an object as JSON file to our storage bucket */
