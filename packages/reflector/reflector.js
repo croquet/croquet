@@ -37,6 +37,14 @@ const ARGS = {
 //     }
 // }
 
+let DEPIN = process.argv.includes(ARGS.DEPIN);
+if (DEPIN) {
+    const depinArg = process.argv[process.argv.indexOf(ARGS.DEPIN) + 1];
+    if (depinArg && !depinArg.startsWith('-')) {
+        DEPIN = depinArg;
+    }
+}
+
 const GCP_PROJECT = process.env.GCP_PROJECT; // only set if we're running on Google Cloud
 
 const NO_STORAGE = process.argv.includes(ARGS.NO_STORAGE); // no bucket access (false on DePIN, because the session DO receives state)
@@ -50,13 +58,6 @@ const STORE_PERSISTENT_DATA = !NO_STORAGE;
 const NO_LOGTIME = process.argv.includes(ARGS.NO_LOGTIME); // don't prepend the time to each log even when running locally
 const PER_MESSAGE_LATENCY = !process.argv.includes(ARGS.NO_LOGLATENCY); // log latency of each message
 const TIME_STABILIZED = process.argv.includes(ARGS.TIME_STABILIZED); // watch for jumps in Date.now and use them to rescale performance.now (needed for Docker standalone)
-let DEPIN = process.argv.includes(ARGS.DEPIN);
-if (DEPIN) {
-    const depinArg = process.argv[process.argv.indexOf(ARGS.DEPIN) + 1];
-    if (depinArg && !depinArg.startsWith('-')) {
-        DEPIN = depinArg;
-    }
-}
 
 function getRandomString(length) {
     return Math.random()
@@ -398,7 +399,7 @@ async function startServerForDePIN() {
                 if (aborted || key !== proxyKey) return; // connection superseded, or process abandoned
 
                 // no ack received in time.  force a socket disconnection, which will trigger reconnection attempts with increasing backoff.
-                console.log('Acknowledgement from proxy timed out. Reconnecting.');
+                console.log('acknowledgement from proxy timed out. Reconnecting.');
                 clearTimeout(proxyContactTimeout); // don't contact again until we figure out what's going on
                 try {
                     proxySocket.close(1000, "proxy acknowledgement timed out");
@@ -546,7 +547,7 @@ async function startServerForDePIN() {
         session.updateTracker = {
             lastUpdateSeq: 0,   // received from session runner on confirmation of assignment; incremented each time we build an update.
             updatedProps: {},   // values for island properties that have been sent, or at least buffered
-            forcedUpdateProps: new Set(),
+            forcedUpdateProps: new Map(),
             newMessages: [],    // replicated messages since last update
             updateBuffer: []    // queue of updates that we want to send.  an update stays in the queue (at the front) until the DO acknowledges receipt.
         };
@@ -577,6 +578,8 @@ async function startServerForDePIN() {
             // messages; otherwise with a 1Hz PING.  if the DO doesn't hear anything on
             // its synq connection for 2 seconds, it will draw the conclusion that this
             // synq is no longer capable of running the session.
+            // $$$ we need to gracefully cancel all these timeouts on island deletion,
+            // and avoid making new ack timeouts.
             let lastUpdateTime = 0;
             let sessionUpdateTimeout;
             let updateAckTimeout;
@@ -588,10 +591,16 @@ async function startServerForDePIN() {
 
                     const now = Date.now();
                     session.gatherUpdateIfNeeded();
-                    const { updateBuffer } = session.forcedUpdateProps;
+                    const { updateBuffer } = session.updateTracker;
                     let sentSomething = false;
                     if (updateBuffer.length && !updateBuffer[0].awaitingAck) {
                         const update = updateBuffer[0];
+                        // $$$ here take care of splitting the update into individual
+                        // messages within the 1MB limit?
+                        // NB: each bundle of messages needs to be accompanied by
+                        // the appropriate island-prop updates (seq and lastMsgTime).
+                        // we'll have to derive those from the last message in the bundle.
+                        // what about lastTick?
                         session.sendToSessionRunner({ what: "UPDATE_SPEC", update });
                         update.awaitingAck = true;
                         sentSomething = true;
@@ -605,13 +614,13 @@ async function startServerForDePIN() {
                             if (key !== session.socketKey) return; // ignore a timeout if socket has been replaced
 
                             // no ack received in time.  force a socket disconnection, which will trigger reconnection attempts with increasing backoff.
-                            console.log('Acknowledgement from session DO timed out. Reconnecting.');
+                            console.log('acknowledgement from session runner timed out. Reconnecting.');
                             clearTimeout(sessionUpdateTimeout); // don't contact again until we figure out what's going on
                             try {
                                 sessionSocket.close(1000, "proxy acknowledgement timed out");
                                 sessionSocket.terminate(); // otherwise 'close' event might not be raised for 30 seconds; see https://github.com/websockets/ws/issues/2203
                             } catch (err) { console.log(err) }
-                        });
+                        }, SESSION_ACK_DELAY_LIMIT);
                     }
 
                     scheduleNextSessionUpdate();
@@ -628,42 +637,47 @@ async function startServerForDePIN() {
             // with what's in updatedProps is enough to decide whether an update
             // is needed.
             // for those that are not, we rely on code that updates the property
-            // to add the property name to forcedUpdateProps, meaning that the
+            // to add the updated value to forcedUpdateProps, meaning that the
             // value as a whole will be sent.  this currently applies only to
             // completedTallies.
             // the message array has its own handling.  every outgoing message is
             // added to updateTracker.newMessages, which is cleared each time an
             // update is assembled.
             // therefore, for each property (other than messages):
-            // - if updatedProps has no value for this property, or the value it has is not object-identical to the island's current one, send the complete value
-            // - else if forcedUpdateProps includes the property name, also send the complete value
+            // - if forcedUpdateProps includes the property, send the attached value
+            // - else if updatedProps has no value for this property, or the value it has is not object-identical to the island's current one, send the value
             session.gatherUpdateIfNeeded = () => {
                 // if the session has moved on since the last update that was sent, add
-                // to the update buffer a bundle with all the changes.
+                // to the update buffer a bundle with all the changes (and return true).
                 const island = ALL_ISLANDS.get(sessionId); // if there is one
-                if (!island) return;
+                if (!island) return false;
 
                 const { updateTracker } = session;
                 const { updatedProps, forcedUpdateProps, newMessages } = updateTracker;
                 const thisUpdate = {};
                 savableKeys(island).forEach(prop => {
-                    if (prop === 'messages') return;
+                    if (prop === 'messages') return; // handled separately
 
-                    const value = island[prop];
-                    if (updatedProps[prop] !== value || forcedUpdateProps.has(prop)) {
+                    const forced = forcedUpdateProps.has(prop);
+                    const value = forced ? forcedUpdateProps.get(prop) : island[prop];
+                    if (forced || updatedProps[prop] !== value) {
                         thisUpdate[prop] = value;
                         updatedProps[prop] = value;
                     }
                 });
                 forcedUpdateProps.clear();
                 if (newMessages.length) {
-                    thisUpdate.messages = newMessages;
+                    thisUpdate.messages = [...newMessages];
                     newMessages.length = 0;
                 }
                 if (Object.keys(thisUpdate).length) {
                     thisUpdate.updateSeq = ++updateTracker.lastUpdateSeq;
                     updateTracker.updateBuffer.push(thisUpdate);
+// console.log(`gathered update: ${JSON.stringify(thisUpdate)}`);
+                    return true;
                 }
+
+                return false;
             };
 
             sessionSocket.on('open', () => {
@@ -680,7 +694,7 @@ async function startServerForDePIN() {
 
             sessionSocket.on('message', function onMessage(depinStr) {
                 if (key !== session.socketKey) return;
-
+// console.log(`message for session ${shortSessionId}: ${depinStr}`);
                 const depinMsg = JSON.parse(depinStr);
                 const clientId = depinMsg.id;
                 const globalClientId = `${shortSessionId}:${clientId}`;
@@ -756,10 +770,14 @@ async function startServerForDePIN() {
                         break;
                     }
                     case 'SPEC_UPDATE_RECEIVED': {
+                        clearTimeout(updateAckTimeout);
+
                         const { updateSeq } = depinMsg;
                         const { updateBuffer } = session.updateTracker;
-                        const firstUpdate = updateBuffer.shift();
+                        const firstUpdate = updateBuffer[0];
                         if (firstUpdate.updateSeq !== updateSeq) throw Error(`Update sequence mismatch: expecting ${firstUpdate.updateSeq}, but received ack for ${updateSeq}`);
+
+                        updateBuffer.shift();
                         scheduleNextSessionUpdate();
                         break;
                     }
@@ -767,7 +785,7 @@ async function startServerForDePIN() {
                         sendToProxy({ what: 'PONG' });
                         break;
                     case 'PONG':
-                        // $$$ need to have a timeout checking that this arrives
+                        clearTimeout(updateAckTimeout);
                         break;
                     default:
                         console.warn(`unhandled message in session ${sessionId}: "${depinStr}"`);
@@ -866,7 +884,7 @@ async function startServerForDePIN() {
                     signalToClient({ type: 'candidate', candidate, sdpMid });
                 });
                 peerConnection.onDataChannel(dataChannel => {
-                    console.log(`DataChannel from ${globalClientId} with label "${dataChannel.getLabel()}" and protocol "${dataChannel.getProtocol()}"`);
+                    console.log(`dataChannel from ${globalClientId} with label "${dataChannel.getLabel()}" and protocol "${dataChannel.getProtocol()}"`);
                     const client = createClient(peerConnection, dataChannel);
                     client.globalId = globalClientId;
                     server.clients.set(globalClientId, client);
@@ -925,15 +943,18 @@ async function startServerForDePIN() {
 
         session.uploadLatestSessionSpec = async () => {
             // invoked only by deleteIsland, and only on DePIN
+            // $$$ what's needed here is basically a flushUpdates, which gathers
+            // all changes and - breaking them into chunks as needed for the
+            // network - sends them off, probably _without_ waiting for confirmation at all??
             let uploadTimeout;
             const uploadToRunner = new Promise((resolve, reject) => {
-                session.sendUpdateOrPing(resolve);
+                session.sendUpdateOrPing(resolve); // $$$ %% not any more
                 uploadTimeout = setTimeout(reject, 2000); // @@ arbitrary
             }).catch(err => {
                 // try to throw something that looks like a server error
                 console.log(err);
                 throw Object.assign(new Error("upload failed"), err || { code: 500 });
-            }).finally(() => clearTimeout(uploadTimeout));
+            }).finally(() => clearTimeout(uploadTimeout)); // $$$ nope.  makes no sense.
             await uploadToRunner;
         };
 
@@ -1943,37 +1964,40 @@ function SNAP(client, args) {
         } // else if firstToKeep is 0 there's nothing to do
     }
 
-    if (STORE_MESSAGE_LOGS && messagesToStore.length) {
-        if (DEPIN) {
-            const session = ALL_SESSIONS.get(id);
-            if (DEPIN) island.forcedUpdateProps.add('messages'); // %%
-
-        } else {
-            // upload to the message-log bucket a blob with all messages since the previous snapshot
-            const messageLog = {
-                start: island.snapshotUrl,  // previous snapshot, if any
-                end: url,                   // new snapshot
-                time: [island.snapshotTime, time],
-                seq: [island.snapshotSeq, seq], // snapshotSeq will be null first time through
-                messagesToStore,
-            };
-            const pad = n => (""+n).padStart(10, '0');
-            const firstSeq = messagesToStore[0][1] >>> 0;
-            const logName = `${id}/${pad(Math.ceil(time))}_${firstSeq}-${seq}-${hash}.json`;
-            island.logger.debug({
-                event: "upload-messages",
-                fromSeq: firstSeq,
-                toSeq: seq,
-                path: logName,
-            }, `uploading ${messagesToStore.length} messages #${firstSeq} to #${seq} as ${logName}`);
-            uploadJSON(logName, messageLog).catch(err => island.logger.error({event: "upload-messages-failed", err}, `failed to upload messages. ${err.code}: ${err.message}`));
-        }
+    if (!DEPIN && STORE_MESSAGE_LOGS && messagesToStore.length) {
+        // upload to the message-log bucket (not used under DePIN) a blob with all messages since the previous snapshot
+        const messageLog = {
+            start: island.snapshotUrl,  // previous snapshot, if any
+            end: url,                   // new snapshot
+            time: [island.snapshotTime, time],
+            seq: [island.snapshotSeq, seq], // snapshotSeq will be null first time through
+            messagesToStore,
+        };
+        const pad = n => (""+n).padStart(10, '0');
+        const firstSeq = messagesToStore[0][1] >>> 0;
+        const logName = `${id}/${pad(Math.ceil(time))}_${firstSeq}-${seq}-${hash}.json`;
+        island.logger.debug({
+            event: "upload-messages",
+            fromSeq: firstSeq,
+            toSeq: seq,
+            path: logName,
+        }, `uploading ${messagesToStore.length} messages #${firstSeq} to #${seq} as ${logName}`);
+        uploadJSON(logName, messageLog).catch(err => island.logger.error({event: "upload-messages-failed", err}, `failed to upload messages. ${err.code}: ${err.message}`));
     }
 
     // keep snapshot
     island.snapshotTime = time;
     island.snapshotSeq = seq;
     island.snapshotUrl = url;
+
+    if (DEPIN) {
+        // capture the transition to the new snapshot, along with all messages currently
+        // in the newMessages buffer - some of which might be before the snapshot, some
+        // after - as an update that will be sent to the session runner as soon as
+        // possible.
+        const session = ALL_SESSIONS.get(id);
+        session.gatherUpdateIfNeeded();
+    }
 
     // SYNC waiting clients
     if (island.syncClients.length > 0) SYNC(island);
@@ -2065,6 +2089,7 @@ function SEND(island, messages) {
         const delay = island.lastTick + island.delay + 0.1 - time;    // add 0.1 ms to combat rounding errors
         if (island.delayed || delay > 0) { DELAY_SEND(island, delay, messages); return }
     }
+    const depinMessageList = DEPIN ? ALL_SESSIONS.get(island.id).updateTracker.newMessages : null;
     for (const message of messages) {
         // message = [time, seq, payload, ...] - keep whatever controller.sendMessage sends
         message[0] = time;
@@ -2079,11 +2104,7 @@ function SEND(island, messages) {
         STATS.RECV++;
         STATS.SEND += island.clients.size;
         island.clients.forEach(each => each.active && each.safeSend(msg));
-        if (DEPIN) {
-            let incrementalMessages = island.arrayUpdates.messages;
-            if (!incrementalMessages) incrementalMessages = island.arrayUpdates.messages = [];
-            incrementalMessages.push(message); // the raw message
-        }
+        depinMessageList?.push(message); // for DePIN, prepare to send the raw message
         island.messages.push(message); // raw message sent again in SYNC
     }
     island.lastMsgTime = time;
@@ -2209,7 +2230,7 @@ function cleanUpCompletedTallies(island) {
     const sentinel = completed['sentinel']; // new or previous
     if (sentinel) historyLimit = sentinel;
 
-    if (DEPIN) island.forcedUpdateProps.add('completedTallies');
+    if (DEPIN) ALL_SESSIONS.get(island.id).updateTracker.forcedUpdateProps.set('completedTallies', {...completed});
 
     return historyLimit;
 }
@@ -2459,7 +2480,10 @@ async function deleteIsland(island) {
     // if we've been told of a snapshot since the one (if any) stored in this
     // island's latest.json, or there are messages since the snapshot referenced
     // there, write a new latest.json.
-    // on DEPIN, always update because we also want a record of the latest time.
+    // on DEPIN, always update because we also want a record of the latest time. @@ check this assumption
+    // $$$ we can remove that.  original logic covers the cases we need.
+    // $$$ ...but on DEPIN we can and should keep updating storedUrl and (especially)
+    // storedSeq, as they're successfully uploaded to the session DO.
     if (STORE_SESSION && (DEPIN || snapshotUrl !== storedUrl || after(storedSeq, seq))) {
         const path = DEPIN ? 'depin' : `${id}/latest.json`;
         island.logger.debug({
@@ -2467,7 +2491,7 @@ async function deleteIsland(island) {
             teatime,
             msgCount: messages.length,
             path,
-        }, `uploading latest session spec with ${messages.length} messages`);
+        }, `uploading latest session spec with ${messages.length} messages`); // $$$ different on depin
         cleanUpCompletedTallies(island);
         try {
             if (DEPIN) {
@@ -2492,7 +2516,7 @@ async function deleteIsland(island) {
 
     ALL_ISLANDS.delete(id);
 
-    await deregisterSession(id, teatime); // on DePIN, will close the session socket immediately (which we want to happen before clients start reconnecting).  await because in emergency shutdown we want to be sure to have removed the dispatch record before exiting.
+    await deregisterSession(id, teatime); // on DePIN, will close the session socket immediately (which we want to happen before clients start reconnecting).  await because in emergency shutdown on GCP we want to be sure to have removed the dispatch record before exiting.
 
     if (DEPIN && island.clients.size > 0) {
         island.clients.forEach(client => client.safeSend(JSON.stringify({ id, action: 'RECONNECT' })));
