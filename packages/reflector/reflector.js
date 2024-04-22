@@ -318,6 +318,7 @@ async function startServerForDePIN() {
     const DEPIN_API_DEV = 'wss://api.multisynq.dev/depin';
     const DEPIN_API_LOCAL = 'ws://localhost:8787';
     if (typeof DEPIN !== 'string') DEPIN =
+        process.env.DEPIN === 'prod' ? DEPIN_API_DEFAULT :
         process.env.DEPIN === 'dev' ? DEPIN_API_DEV :
         process.env.DEPIN === 'local' ? DEPIN_API_LOCAL :
         process.env.DEPIN || DEPIN_API_DEFAULT;
