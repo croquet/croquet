@@ -532,15 +532,15 @@ async function startServerForDePIN() {
 
     const SESSION_UPDATE_DELAY = 250;
     const SESSION_PING_DELAY = 1000;
-    const SESSION_ACK_DELAY_LIMIT = 500; // after this, go into BUFFERING
+    const SESSION_ACK_DELAY_LIMIT = 500; // after this, go into BUFFERING $$$ seems too short for regular ISP connections
     const SESSION_INTERRUPTION_LIMIT = 2000; // after this, offload the session
-    const SESSION_UPDATE_TRIGGER_BYTES = 5000; // $$$ for testing.  should be a significant part of 1MB
+    const SESSION_UPDATE_TRIGGER_BYTES = 100000; // @@ artificially low.  as long as we're not interleaving updates, this should be taking advantage of most of the 1MB limit to ensure that we maximise throughput.  on the other hand, that will open us up to having to split large chunks of messages when they arrive at the DO, to fit the 128KB storage-value limit.
 
     function acceptSession(sessionId, runnerDispatchSeq) {
         // this is invoked only once per session, on first accepting the assignment.
         // by contrast, connectToSessionRunner might be invoked repeatedly
         // if the network is unstable.
-        // $$$ what if somehow we already/still have the session?
+        // $$$ what if somehow we already/still have the session?  for example, if at some point the network had a glitch immediately after we tried to open the websocket, so the session DO's REJECTED never arrived?  that's going to be a case for the SESSION_INTERRUPTION_LIMIT handling.
         const shortSessionId = sessionId.slice(0, 8);
 
         registerSession(sessionId);
@@ -557,8 +557,8 @@ async function startServerForDePIN() {
         const connectToSessionRunner = () => {
             // invoked each time we need a new connection to the session DO (including
             // after any glitch that causes the connection to drop)
-            const key = session.socketKey = Math.random(); // timeouts set up under the auspices of one connection are ignored if that connection has been replaced
-
+            const key = session.socketKey = String(Math.random()).slice(2, 10); // timeouts and handler invocations set up under the auspices of one connection are ignored if that connection has been replaced
+// console.log(`SOCKET KEY: ${key}`);
             const sessionSocket = new WebSocket(`${DEPIN}/synchronizers/connect?session=${sessionId}&dispatchSeq=${runnerDispatchSeq}&synchronizer=${proxyId}`, {
                 perMessageDeflate: false, // this was in the node-datachannel example; not sure if it's helping
             });
@@ -628,7 +628,7 @@ async function startServerForDePIN() {
                             if (key !== session.socketKey) return; // ignore a timeout if socket has been replaced
 
                             // no ack received in time.  force a socket disconnection, which will trigger reconnection attempts with increasing backoff.
-                            console.log(`acknowledgement to ${whatWasSent} from session runner timed out. Reconnecting.`);
+                            console.log(`[${key}] acknowledgement to ${whatWasSent} from session runner timed out. Reconnecting.`);
                             clearTimeout(sessionUpdateTimeout); // don't contact again until we figure out what's going on
                             try {
                                 sessionSocket.close(1000, "update acknowledgement timed out");
@@ -644,7 +644,7 @@ async function startServerForDePIN() {
             session.addMessageToUpdate = msg => {
                 const { updateTracker } = session;
                 const { newMessages } = updateTracker;
-                const sizeEstimate = typeof msg[2] === "string" ? msg[2].length * 2 + 50 : 50; // @@ only need an approximate amount, and over-estimating is better than under.
+                const sizeEstimate = typeof msg[2] === "string" ? msg[2].length + 30 : 30; // @@ only need an approximate amount, and over-estimating is better than under.
                 newMessages.push(msg);
                 updateTracker.newMessageTotal += sizeEstimate;
             };
@@ -731,7 +731,6 @@ async function startServerForDePIN() {
                     case "ASSIGNED": {
                         // session runner has accepted our connection (or reconnection)
                         const runnerLastUpdate = depinMsg.lastUpdateSeq;
-                        console.log(`session runner for ${shortSessionId} confirmed our assignment (updateSeq=${depinMsg.lastUpdateSeq}); ${session.updateTracker.updateBuffer.length} updateBuffer entries`);
                         session.reconnectDelay = 0;
                         const { updateTracker } = session;
                         const { updateBuffer } = updateTracker;
@@ -746,14 +745,14 @@ async function startServerForDePIN() {
                             const firstBufferedUpdate = updateBuffer[0].updateSeq;
                             const lastBufferedUpdate = updateBuffer[updateBuffer.length - 1].updateSeq;
                             if (runnerLastUpdate === firstBufferedUpdate) {
-                                // console.log(`session runner already has our first buffered update`);
+                                console.log(`[${key}] session runner already has our first buffered update`);
                                 if (!updateBuffer[0].awaitingAck) console.log(`WARNING: awaitingAck was not set`);
                                 updateBuffer.shift();
                             } else if (runnerLastUpdate === firstBufferedUpdate - 1) {
-                                // console.log(`session runner is ready for our first buffered update`);
+                                console.log(`[${key}] session runner is ready for our first buffered update`);
                                 delete updateBuffer[0].awaitingAck; // if it was set
                             } else {
-                                console.log(`WARNING: session runner has update ${runnerLastUpdate}, but our first is ${firstBufferedUpdate}`);
+                                console.log(`[${key}] WARNING: session runner has update ${runnerLastUpdate}, but our first is ${firstBufferedUpdate}`);
                             }
                             // take a note of the last updateSeq we've already used
                             updateTracker.lastUpdateSeq = lastBufferedUpdate;
@@ -768,7 +767,7 @@ async function startServerForDePIN() {
                         deregisterSession(sessionId, "rejected by session runner");
                         break;
                     case "CONNECT":
-                        // @@ a peer connection isn't set up until the client sends an offer.
+                        // a peer connection isn't set up until the client sends an offer.
                         // therefore, for now, there's nothing to do here.
                         console.log(`new client connection from client ${globalClientId}`);
                         break;
@@ -777,15 +776,9 @@ async function startServerForDePIN() {
                         // if the client already has a data channel, this disconnection
                         // has probably been triggered by the client deciding that the channel
                         // setup is now complete - so it's not a client disconnection at all.
-                        if (server.clients.get(globalClientId)) {
-                            // by the same token, this is likely to be a reasonable time
-                            // to report on the channel's selected ICE candidates.
-                            // @@ now handled with explicit selectedCandidatePair messages
-                            // const peerConnection = server.peerConnections.get(globalClientId);
-                            // if (peerConnection) console.log(JSON.stringify(peerConnection.getSelectedCandidatePair(), null, 2));
-                        } else {
-                            // if there isn't a data channel, this might be the only disconnection
-                            // signal we'll get.  make sure to tidy up.
+                        if (!server.clients.get(globalClientId)) {
+                            // there *isn't* a data channel, so this might be the only
+                            // disconnection signal we'll get.  make sure to tidy up.
                             server.removeClient(globalClientId);
                         }
                         break;
@@ -829,8 +822,22 @@ async function startServerForDePIN() {
 
                         const { updateSeq } = depinMsg;
                         const { updateBuffer } = session.updateTracker;
+                        if (!updateBuffer.length) {
+                            console.log(`[${key}] ack ${updateSeq} received, but not in buffer`);
+                            return;
+                        }
+
                         const firstUpdate = updateBuffer[0];
-                        if (firstUpdate.updateSeq !== updateSeq) throw Error(`Update sequence mismatch: expecting ${firstUpdate.updateSeq}, but received ack for ${updateSeq}`);
+                        const firstUpdateSeq = firstUpdate.updateSeq;
+                        if (updateSeq > firstUpdateSeq) {
+                            throw Error(`[${key}] later ack ${updateSeq} received while waiting for ${firstUpdateSeq}`);
+                        }
+
+                        if (updateSeq < firstUpdateSeq) {
+                            const waitingMsg = firstUpdate.awaitingAck ? ` (waiting for ${firstUpdate.updateSeq})` : "";
+                            console.log(`[${key}] earlier ack ${updateSeq} received${waitingMsg}`);
+                            return;
+                        }
 
                         updateBuffer.shift();
                         scheduleNextSessionUpdate();
@@ -1324,7 +1331,7 @@ async function offloadAllSessions() {
         global_logger.warn({
             event: "shutdown",
             sessionCount: promises.length,
-        }, `EMERGENCY SHUTDOWN OF ${promises.length} ISLAND(S)`);
+        }, `EMERGENCY SHUTDOWN OF ${promises.length} SESSION(S)`);
 
         await Promise.allSettled(promises);
     }
@@ -1681,7 +1688,6 @@ async function JOIN(client, args) {
         }
         // new clients will be based on new session.logger
 
-        // $$$ TODO: handle the session DO sending an explicit response/error that means "you were too slow; another synq is now handling this" - in which case we need to bail out without SYNC getting invoked, and to clear our local session record (though not seek to clear the session DO's record, which will already have happened).  there's currently the REJECTED message, but that seems like the wrong approach.
         try {
             const latestSpec = DEPIN
                 ? await session.fetchLatestSessionSpec()
