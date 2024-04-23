@@ -1063,10 +1063,13 @@ async function startServerForDePIN() {
         return { sessions: [...ALL_SESSIONS.keys()] }; // @@ add useful stuff
     }
 
-    process.parentPort.on('message', e => {
-        const msg = e.data;
-        if (msg === 'shutdown') handleTerm();
-    });
+    // listen for messages from Electron
+    if (process.parentPort) {
+        process.parentPort.on('message', e => {
+            const msg = e.data;
+            if (msg === 'shutdown') handleTerm();
+        });
+    }
 }
 
 // =======================================================
