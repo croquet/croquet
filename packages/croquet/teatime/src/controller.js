@@ -141,12 +141,13 @@ const DEPIN_API_LOCAL = 'ws://localhost:8787';
 
 const DEPIN = urlOptions.depin;
 let DEPIN_API;
-if (DEPIN) {
+if (DEPIN !== false) {
     // get DEPIN_API from the url options, or use the default
     DEPIN_API = DEPIN === true ? DEPIN_API_DEFAULT
+        : DEPIN === 'prod' ? DEPIN_API_DEV
         : DEPIN === 'dev' ? DEPIN_API_DEV
         : DEPIN === 'local' ? DEPIN_API_LOCAL
-        : DEPIN;
+        : DEPIN || DEPIN_API_DEFAULT;
     if (DEPIN_API.endsWith('/')) DEPIN_API = DEPIN_API.slice(0, -1);
     DEPIN_API = DEPIN_API.replace(/^http(s):/, 'ws$1:');
     if (!DEPIN_API.startsWith('ws')) DEPIN_API = 'ws://' + DEPIN_API;
@@ -468,6 +469,12 @@ export default class Controller {
                 reflector: "overridden",
             };
         }
+
+        if (DEPIN) return {
+            apiKey,
+            signServer: `${DEPIN_API.replace(/^ws/, "http")}/clients`,
+            reflector: "depin", // unused
+        };
 
         // go off the hostname for dev and staging
         if (!backend && !NODE) switch (window.location.hostname) {
@@ -2307,7 +2314,7 @@ class Connection {
             socket = new CroquetWebRTCConnection(`${DEPIN_API}/clients/connect?session=${sessionId}`);
             socket.onconnected = connectionIsReady; // see below
         } else {
-            let reflectorBase = this.getBackend(this.controller.sessionSpec.apiKey).reflector;
+            let reflectorBase = this.controller.getBackend(this.controller.sessionSpec.apiKey).reflector;
             const ourUrl = NODE ? undefined : window.location.href;
             const reflectorParams = {};
             const token = this.controller.sessionSpec.token;
