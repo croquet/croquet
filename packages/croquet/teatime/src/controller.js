@@ -83,45 +83,6 @@ function initDEBUG() {
     if (DEBUG.offline) App.showMessage("Croquet: offline mode enabled, no multiuser", { level: "warning"});
 }
 
-function getBackend(apiKeyWithBackend) {
-    const split = apiKeyWithBackend.lastIndexOf(':');
-    const apiKey = split === -1 ? apiKeyWithBackend : apiKeyWithBackend.slice(split + 1);
-    const keyBackend = split === -1 ? "" : apiKeyWithBackend.slice(0, split);
-    let backend = urlOptions.backend || keyBackend;
-    const overridden = urlOptions.reflector?.includes("/");
-    if (backend === "none" || DEBUG.offline) {
-        return {
-            apiKey, // without api key even stand-alone reflectors currently send a warning
-            signServer: "none",
-            reflector: "overridden",
-        };
-    }
-
-    // go off the hostname for dev and staging
-    if (!backend && !NODE) switch (window.location.hostname) {
-        case "croquet.dev": backend = "dev"; break;
-        case "staging.croquet.io": backend = "staging"; break;
-        /* no default */
-    }
-
-    // map backend to api domain
-    let apidomain;
-    switch (backend) {
-        case "":
-        case "prod": apidomain = "croquet.io"; break;
-        case "staging": apidomain = "staging.croquet.io"; break;
-        case "dev": apidomain = "croquet.dev"; break;
-        default: apidomain = `${backend}.croquet.dev`; break;
-    }
-
-    const reflector = overridden ? "overridden" : `wss://api.${apidomain}/reflector/v${VERSION}`;
-    return {
-        apiKey,
-        signServer: `https://api.${apidomain}/sign`,    // sign server generates file upload/download urls
-        reflector
-    };
-}
-
 /*
 function isLocalUrl(hostname) {
     // copied from devauth/signurl/urlMatcher.js
@@ -494,9 +455,48 @@ export default class Controller {
         await joined; // resolved in SYNC after installing the vm and replaying any messages
     }
 
+    getBackend(apiKeyWithBackend) {
+        const split = apiKeyWithBackend.lastIndexOf(':');
+        const apiKey = split === -1 ? apiKeyWithBackend : apiKeyWithBackend.slice(split + 1);
+        const keyBackend = split === -1 ? "" : apiKeyWithBackend.slice(0, split);
+        let backend = urlOptions.backend || keyBackend;
+        const overridden = urlOptions.reflector?.includes("/");
+        if (backend === "none" || DEBUG.offline) {
+            return {
+                apiKey, // without api key even stand-alone reflectors currently send a warning
+                signServer: "none",
+                reflector: "overridden",
+            };
+        }
+
+        // go off the hostname for dev and staging
+        if (!backend && !NODE) switch (window.location.hostname) {
+            case "croquet.dev": backend = "dev"; break;
+            case "staging.croquet.io": backend = "staging"; break;
+            /* no default */
+        }
+
+        // map backend to api domain
+        let apidomain;
+        switch (backend) {
+            case "":
+            case "prod": apidomain = "croquet.io"; break;
+            case "staging": apidomain = "staging.croquet.io"; break;
+            case "dev": apidomain = "croquet.dev"; break;
+            default: apidomain = `${backend}.croquet.dev`; break;
+        }
+
+        const reflector = overridden ? "overridden" : `wss://api.${apidomain}/reflector/v${VERSION}`;
+        return {
+            apiKey,
+            signServer: `https://api.${apidomain}/sign`,    // sign server generates file upload/download urls
+            reflector
+        };
+    }
+
     /** fetch developerId from sign function via meta protocol */
     async verifyApiKey(apiKeyWithBackend, appId, persistentId) {
-        const {signServer, apiKey} = getBackend(apiKeyWithBackend);
+        const {signServer, apiKey} = this.getBackend(apiKeyWithBackend);
         if (signServer === "none") return { developerId: "unknown_dev_id" };
         try {
             const response = await fetch(`${signServer}/join?meta=login`, {
@@ -749,7 +749,7 @@ export default class Controller {
             if (url.endsWith('/')) url = url.slice(0, -1);
             return { url, apiKey: null };
         }
-        const {apiKey, signServer} = getBackend(apiKeyWithBackend);
+        const {apiKey, signServer} = this.getBackend(apiKeyWithBackend);
         if (signServer === "none" && !DEBUG.offline) {
             throw Error("no file server configured");
         }
@@ -1397,7 +1397,7 @@ export default class Controller {
 
         const { tick, delay } = this.getTickAndMultiplier();
         const { name, codeHash, appId, apiKey: apiKeyWithBackend, persistentId, developerId, heraldUrl, rejoinLimit, autoSleep, computedCodeHash, location, flags } = this.sessionSpec;
-        const { apiKey } = getBackend(apiKeyWithBackend);
+        const { apiKey } = this.getBackend(apiKeyWithBackend);
         const user = location ? [this.viewId] : this.viewId;
 
         const args = {
@@ -2307,7 +2307,7 @@ class Connection {
             socket = new CroquetWebRTCConnection(`${DEPIN_API}/clients/connect?session=${sessionId}`);
             socket.onconnected = connectionIsReady; // see below
         } else {
-            let reflectorBase = getBackend(this.controller.sessionSpec.apiKey).reflector;
+            let reflectorBase = this.getBackend(this.controller.sessionSpec.apiKey).reflector;
             const ourUrl = NODE ? undefined : window.location.href;
             const reflectorParams = {};
             const token = this.controller.sessionSpec.token;
