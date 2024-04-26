@@ -116,13 +116,7 @@ function handleMessage(msg) {
             const { ok, status, statusText } = await fetcher(uploadUrl, {
                 method: "PUT",
                 mode: "cors",
-                headers: {
-                    "Content-Type": "application/octet-stream",
-                    "X-Croquet-App": appId,
-                    "X-Croquet-Id": persistentId,
-                    "X-Croquet-Session": id,
-                    "X-Croquet-Version": CROQUET_VERSION,
-                },
+                headers: { "Content-Type": "application/octet-stream" },
                 referrer,
                 body
             });
