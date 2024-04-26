@@ -858,12 +858,6 @@ export default class Controller {
         const response = await (offline ? this.fetchOffline(url, what, debug) : fetch(url, {
             method: "GET",
             mode: "cors",
-            headers: {
-                "X-Croquet-App": this.sessionSpec.appId,
-                "X-Croquet-Id": this.sessionSpec.persistentId,
-                "X-Croquet-Session": this.sessionSpec.id,
-                "X-Croquet-Version": CROQUET_VERSION,
-            },
             referrer: App.referrerURL(),
         }));
         const encrypted = await response.arrayBuffer();
