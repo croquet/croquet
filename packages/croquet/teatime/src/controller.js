@@ -139,15 +139,15 @@ const DEPIN_API_DEFAULT = 'wss://api.multisynq.io/depin';
 const DEPIN_API_DEV = 'wss://api.multisynq.dev/depin';
 const DEPIN_API_LOCAL = 'ws://localhost:8787';
 
-const DEPIN = urlOptions.depin;
+const DEPIN = "depin" in urlOptions ? urlOptions.depin : true;
 let DEPIN_API;
-if (DEPIN !== false) {
+if (DEPIN) {
     // get DEPIN_API from the url options, or use the default
     DEPIN_API = DEPIN === true ? DEPIN_API_DEFAULT
         : DEPIN === 'prod' ? DEPIN_API_DEV
         : DEPIN === 'dev' ? DEPIN_API_DEV
         : DEPIN === 'local' ? DEPIN_API_LOCAL
-        : DEPIN || DEPIN_API_DEFAULT;
+        : DEPIN;
     if (DEPIN_API.endsWith('/')) DEPIN_API = DEPIN_API.slice(0, -1);
     DEPIN_API = DEPIN_API.replace(/^http(s):/, 'ws$1:');
     if (!DEPIN_API.startsWith('ws')) DEPIN_API = 'ws://' + DEPIN_API;
