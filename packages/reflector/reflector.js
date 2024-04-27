@@ -344,8 +344,12 @@ async function startServerForDePIN() {
     };
     let proxyWasToldWeHaveSessions;
     let proxyReconnectDelay = 0;
-    let synchronizerUnavailableTimeout; // deadline for declaring this synchronizer unavailable and offloading any remaining sessions
-    let proxyKey; // a key to tell which proxy connection we're working with now
+    let synchronizerUnavailableTimeout; // on synchronizer startup, and after any disconnection from the proxy, deadline for successful registration to avoid declaring this synchronizer unavailable and offloading any remaining sessions.
+    // use proxyKey to tell which socket connection we're working with now, to filter
+    // out events and timeouts relating to a socket that has since been replaced.
+    // (this might be unnecessary, given that we're fully in charge of socket creation
+    // and closure.)
+    let proxyKey;
     const sendToProxy = msgObject => {
         if (!proxySocket) return;
 // console.log(`send to proxy: ${JSON.stringify(msgObject)}`)
@@ -360,6 +364,7 @@ async function startServerForDePIN() {
 
     // set up a timeout to mark ourselves as UNAVAILABLE if connection/reconnection attempts remain unsuccessful for a total of PROXY_INTERRUPTION_LIMIT (currently 30s).
     // timeout is cleared on successful receipt of a REGISTERED message.
+    // @@ the UNAVAILABLE state must appear prominently in the app dashboard.
     function declareUnavailableAfterDelay(ms = PROXY_INTERRUPTION_LIMIT) {
         if (synchronizerUnavailableTimeout) clearTimeout(synchronizerUnavailableTimeout);
 
@@ -367,7 +372,7 @@ async function startServerForDePIN() {
             if (aborted) return; // process was abandoned anyway
 
             // reconnection hasn't happened, so offload any remaining sessions (though attempts to reconnect will continue, at increasing intervals).
-            console.log('Reconnection timed out. Offloading any remaining sessions.');
+            console.log('Proxy reconnection timed out. Offloading any remaining sessions.');
             setProxyConnectionState('UNAVAILABLE');
             offloadAllSessions();
         }, ms);
@@ -461,9 +466,6 @@ async function startServerForDePIN() {
                     acceptSession(sessionId, dispatchSeq);
                     break;
                 }
-                case 'PING':
-                    sendToProxy({what: 'PONG'});
-                    break;
                 case 'ACK':
                 case 'PONG':
                     clearTimeout(proxyAckTimeout);
@@ -496,9 +498,10 @@ async function startServerForDePIN() {
         });
 
         proxySocket.on('close', function onClose(code, reasonBuf) {
-            // this is either due to a network glitch, or intentionally due to
-            // a timed-out response from the proxy.  try to re-establish the connection,
-            // using an increasing backoff delay.
+            // this is due to one of the following:
+            // - intentionally on shutdown, to which the proxy responds by closing the connection
+            // - intentionally due to expiry of proxyAckTimeout (proxy failed to ack in time); used to trigger indefinite attempts to reconnect, with increasing backoff
+            // - unexpectedly due to network or registry conditions (@@ maybe including DO eviction? - needs more testing).  again used to trigger reconnection.
             let closeReason = code.toString();
             const reason = reasonBuf.toString();
             if (reason) closeReason += ` - ${reason}`;
@@ -509,8 +512,8 @@ async function startServerForDePIN() {
                 return;
             }
 
-            // we might reconnect in due course.  in the meantime, make sure there
-            // aren't any lingering timeouts that relate to the closing socket.
+            // we might successfully reconnect in due course.  in the meantime, make sure
+            // there aren't any lingering timeouts that relate to the closing socket.
             clearTimeout(proxyContactTimeout);
             clearTimeout(proxyAckTimeout);
             proxySocket = null;
@@ -531,17 +534,19 @@ async function startServerForDePIN() {
     };
     connectToProxy();
 
+    const SESSION_CONNECT_LIMIT = 2000; // ms
     const SESSION_UPDATE_DELAY = 250;
     const SESSION_PING_DELAY = 1000;
-    const SESSION_ACK_DELAY_LIMIT = 500; // after this, go into BUFFERING $$$ seems too short for regular ISP connections
-    const SESSION_INTERRUPTION_LIMIT = 2000; // after this, offload the session
+    const SESSION_SILENCE_LIMIT = 2000; // after this time since last hearing from session runner, go into RECONNECTING
+    const SESSION_RECONNECT_LIMIT = 1500; // after this time in RECONNECTING, offload the session
+
     const SESSION_UPDATE_TRIGGER_BYTES = 100000; // @@ artificially low.  as long as we're not interleaving updates, this should be taking advantage of most of the 1MB limit to ensure that we maximise throughput.  on the other hand, that will open us up to having to split large chunks of messages when they arrive at the DO, to fit the 128KB storage-value limit.
 
     function acceptSession(sessionId, runnerDispatchSeq) {
         // this is invoked only once per session, on first accepting the assignment.
         // by contrast, connectToSessionRunner might be invoked repeatedly
         // if the network is unstable.
-        // $$$ what if somehow we already/still have the session?  for example, if at some point the network had a glitch immediately after we tried to open the websocket, so the session DO's REJECTED never arrived?  that's going to be a case for the SESSION_INTERRUPTION_LIMIT handling.
+        // $$$ what if somehow we already/still have the session?  for example, if at some point the network had a glitch immediately after we tried to open the websocket, so the session DO's REJECTED never arrived?  that's going to be a case for the SESSION_CONNECT_LIMIT handling.
         const shortSessionId = sessionId.slice(0, 8);
 
         registerSession(sessionId);
@@ -554,6 +559,27 @@ async function startServerForDePIN() {
             newMessageTotal: 0, // rough estimate of aggregate size of messages
             updateBuffer: []    // queue of updates that we want to send.  an update stays in the queue (at the front) until the DO acknowledges receipt.
         };
+        session.reconnectDelay = 0; // delay for reconnecting to session DO after a drop
+
+        // on first acceptance of the session, and after any disconnection from the session runner, we set a deadline for successful (re)assignment before offloading the session (and telling any connected clients to go elsewhere).  this reflects that a session cannot be run in the absence of a solid session-runner connection for recording session progress.
+        // this is independent from the session.timeout created by scheduleShutdownIfNoJoin - set up as 7 seconds from initial registration of a session, and refreshed on first client connection - that offloads a session if no client manages to join it in a timely manner.  that keeps synchronizers from getting clogged with sessions for non-viable (typically buggy) apps.
+        // the no-session-runner timeout is quicker; currently 2 seconds.  on a failed initial assignment (due to network problems finding the session runner), it will have cleared out the session long before no-JOIN gets a chance.  once the session is running with some client(s), the aim is to bail
+        let noSessionRunnerTimeout;
+
+        // set up a timeout to offload this session if connection/reconnection attempts remain unsuccessful for the designated period.
+        // timeout is cleared on successful receipt of an ASSIGNED message.
+        function declareNoSessionRunnerAfterDelay(ms) {
+            if (noSessionRunnerTimeout) clearTimeout(noSessionRunnerTimeout);
+
+            noSessionRunnerTimeout = setTimeout(() => {
+                if (aborted) return; // process was abandoned anyway
+
+                // reconnection hasn't happened, so offload this session.
+                console.log(`Session ${shortSessionId} reconnection timed out. Offloading.`);
+                offloadSession(sessionId, "no session runner");
+            }, ms);
+        }
+        declareNoSessionRunnerAfterDelay(SESSION_CONNECT_LIMIT);
 
         const connectToSessionRunner = () => {
             // invoked each time we need a new connection to the session DO (including
@@ -594,8 +620,29 @@ async function startServerForDePIN() {
             // $$$ we need to gracefully cancel all these timeouts on island deletion,
             // and avoid making new ack timeouts.
             let lastSendTime = 0; // last time we sent a SESSION_UPDATE or PING
+            const roundTripTimes = []; // history delays in receiving acknowledgement
+            let lastRoundTripReport = Date.now(); // last time we reported round trips
             let sessionUpdateTimeout;
-            let updateAckTimeout;
+            let sessionContactTimeout;
+
+            function watchForBrokenSessionContact() {
+                if (sessionContactTimeout) clearTimeout(sessionContactTimeout);
+
+                sessionContactTimeout = setTimeout(() => {
+                    if (key !== session.socketKey) return; // ignore a timeout if socket has been replaced
+
+                    // no ack received in time.  force a socket disconnection, which will trigger reconnection attempts with increasing backoff.
+                    console.log(`Session ${shortSessionId} acknowledgements from session runner timed out. Reconnecting.`);
+                    clearTimeout(sessionUpdateTimeout); // don't contact again until we figure out what's going on
+                    // @@ according to our design proposals, we should put the session into BUFFERING, not sending any further events to clients until reconnection to the session runner is achieved.  to be implemented later.
+                    try {
+                        sessionSocket.close(1000, "update acknowledgement timed out");
+                        sessionSocket.terminate(); // otherwise 'close' event might not be raised for 30 seconds; see https://github.com/websockets/ws/issues/2203
+                        declareNoSessionRunnerAfterDelay(SESSION_RECONNECT_LIMIT);
+                    } catch (err) { console.log(err) }
+                }, SESSION_SILENCE_LIMIT);
+            }
+
             const scheduleNextSessionUpdate = () => {
                 if (sessionUpdateTimeout) clearTimeout(sessionUpdateTimeout);
 
@@ -623,20 +670,8 @@ async function startServerForDePIN() {
                         session.sendToSessionRunner({ what: "PING" });
                         whatWasSent = "ping";
                     }
-                    if (whatWasSent) {
-                        lastSendTime = now;
-                        updateAckTimeout = setTimeout(() => {
-                            if (key !== session.socketKey) return; // ignore a timeout if socket has been replaced
 
-                            // no ack received in time.  force a socket disconnection, which will trigger reconnection attempts with increasing backoff.
-                            console.log(`[${key}] acknowledgement to ${whatWasSent} from session runner timed out. Reconnecting.`);
-                            clearTimeout(sessionUpdateTimeout); // don't contact again until we figure out what's going on
-                            try {
-                                sessionSocket.close(1000, "update acknowledgement timed out");
-                                sessionSocket.terminate(); // otherwise 'close' event might not be raised for 30 seconds; see https://github.com/websockets/ws/issues/2203
-                            } catch (err) { console.log(err) }
-                        }, SESSION_ACK_DELAY_LIMIT);
-                    }
+                    if (whatWasSent) lastSendTime = now;
 
                     scheduleNextSessionUpdate();
                 }, SESSION_UPDATE_DELAY);
@@ -731,6 +766,8 @@ async function startServerForDePIN() {
                 switch (depinMsg.what) {
                     case "ASSIGNED": {
                         // session runner has accepted our connection (or reconnection)
+                        clearTimeout(noSessionRunnerTimeout);
+
                         const runnerLastUpdate = depinMsg.lastUpdateSeq;
                         session.reconnectDelay = 0;
                         const { updateTracker } = session;
@@ -746,26 +783,28 @@ async function startServerForDePIN() {
                             const firstBufferedUpdate = updateBuffer[0].updateSeq;
                             const lastBufferedUpdate = updateBuffer[updateBuffer.length - 1].updateSeq;
                             if (runnerLastUpdate === firstBufferedUpdate) {
-                                console.log(`[${key}] session runner already has our first buffered update`);
+                                console.log(`session runner already has our first buffered update`);
                                 if (!updateBuffer[0].awaitingAck) console.log(`WARNING: awaitingAck was not set`);
                                 updateBuffer.shift();
                             } else if (runnerLastUpdate === firstBufferedUpdate - 1) {
-                                console.log(`[${key}] session runner is ready for our first buffered update`);
+                                console.log(`session runner is ready for our first buffered update`);
                                 delete updateBuffer[0].awaitingAck; // if it was set
                             } else {
-                                console.log(`[${key}] WARNING: session runner has update ${runnerLastUpdate}, but our first is ${firstBufferedUpdate}`);
+                                console.log(`WARNING: session runner has update ${runnerLastUpdate}, but our first is ${firstBufferedUpdate}`);
                             }
                             // take a note of the last updateSeq we've already used
                             updateTracker.lastUpdateSeq = lastBufferedUpdate;
                         } else updateTracker.lastUpdateSeq = runnerLastUpdate;
-                        scheduleNextSessionUpdate();
+
+                        watchForBrokenSessionContact(); // start checking connection status
+                        scheduleNextSessionUpdate(); // start sending updates/PINGs
                         break;
                     }
                     case "REJECTED":
                         // session runner has rejected this synchronizer's attempt to
                         // take the session (for example, if we took too long to connect)
                         console.log(`session runner for ${shortSessionId} rejected our connection`);
-                        deregisterSession(sessionId, "rejected by session runner");
+                        offloadSession(sessionId, "rejected by session runner");
                         break;
                     case "CONNECT":
                         // a peer connection isn't set up until the client sends an offer.
@@ -819,24 +858,25 @@ async function startServerForDePIN() {
                         break;
                     }
                     case 'SESSION_UPDATE_RECEIVED': {
-                        clearTimeout(updateAckTimeout);
+                        logRoundTrip(Date.now() - lastSendTime);
+                        watchForBrokenSessionContact(); // reset the clock
 
                         const { updateSeq } = depinMsg;
                         const { updateBuffer } = session.updateTracker;
                         if (!updateBuffer.length) {
-                            console.log(`[${key}] ack ${updateSeq} received, but not in buffer`);
+                            console.log(`ack ${updateSeq} received, but not in buffer`);
                             return;
                         }
 
                         const firstUpdate = updateBuffer[0];
                         const firstUpdateSeq = firstUpdate.updateSeq;
                         if (updateSeq > firstUpdateSeq) {
-                            throw Error(`[${key}] later ack ${updateSeq} received while waiting for ${firstUpdateSeq}`);
+                            throw Error(`later ack ${updateSeq} received while waiting for ${firstUpdateSeq}`);
                         }
 
                         if (updateSeq < firstUpdateSeq) {
                             const waitingMsg = firstUpdate.awaitingAck ? ` (waiting for ${firstUpdate.updateSeq})` : "";
-                            console.log(`[${key}] earlier ack ${updateSeq} received${waitingMsg}`);
+                            console.log(`earlier ack ${updateSeq} received${waitingMsg}`);
                             return;
                         }
 
@@ -844,12 +884,11 @@ async function startServerForDePIN() {
                         scheduleNextSessionUpdate();
                         break;
                     }
-                    case 'PING':
-                        sendToProxy({ what: 'PONG' });
+                    case 'PONG': {
+                        logRoundTrip(Date.now() - lastSendTime);
+                        watchForBrokenSessionContact(); // reset the clock
                         break;
-                    case 'PONG':
-                        clearTimeout(updateAckTimeout);
-                        break;
+                    }
                     default:
                         console.warn(`unhandled message in session ${sessionId}: "${depinStr}"`);
                         break;
@@ -857,6 +896,13 @@ async function startServerForDePIN() {
             });
 
             sessionSocket.on('close', function onClose() {
+                if (key !== session.socketKey) return; // an earlier connection
+
+                console.log(`session runner for ${shortSessionId} connection closed; session stage is "${session.stage}"`);
+                session.sessionSocketClosed();
+            });
+
+            session.sessionSocketClosed = () => {
                 // if session.stage is already 'closed', the socket closure was as a result of
                 // an intentional shutdown (see deregisterSession).
                 // otherwise, it must be due to a network glitch.  try to re-establish the
@@ -866,18 +912,6 @@ async function startServerForDePIN() {
                 // completed ICE negotiation.
                 // any clients with a peerConnection but no dataChannel should, however,
                 // be discarded because their negotiations are now in doubt.
-
-                // however, after a certain delay, the lack of a sessionSocket connection means
-                // that the island must be offloaded.  all clients that are in the midst
-                // of ICE negotiation, and also all clients that have running webrtc channels,
-                // must be purged.
-                if (key !== session.socketKey) return; // an earlier connection
-
-                console.log(`session runner for ${shortSessionId} connection closed; session stage is "${session.stage}"`);
-                session.sessionSocketClosed();
-            });
-
-            session.sessionSocketClosed = () => {
                 const sessionIsClosed = session.stage === "closed";
 
                 const sessionPrefix = shortSessionId + ':';
@@ -893,6 +927,7 @@ async function startServerForDePIN() {
                 session.sessionSocket = null;
                 session.socketKey = '';
                 clearTimeout(sessionUpdateTimeout);
+                clearTimeout(sessionContactTimeout);
 
                 if (sessionIsClosed) {
                     console.log(`dropped socket for closed session ${shortSessionId}`);
@@ -990,6 +1025,26 @@ async function startServerForDePIN() {
                     }
                 };
             }
+
+            function logRoundTrip(roundTrip) {
+                roundTripTimes.push(roundTrip);
+                while (roundTripTimes.length > 10) roundTripTimes.shift();
+
+                const now = Date.now();
+                if (roundTripTimes.length && now - lastRoundTripReport > 10000) {
+                    let max = roundTripTimes[0];
+                    let min = max;
+                    let sum = max;
+                    for (let i = 1; i < roundTripTimes.length; i++) {
+                        const val = roundTripTimes[i];
+                        if (val > max) max = val;
+                        if (val < min) min = val;
+                        sum += val;
+                    }
+                    console.log({ max, min, avg: Math.round(sum/roundTripTimes.length)});
+                    lastRoundTripReport = now;
+                }
+            }
         };
 
         session.fetchLatestSessionSpec = async () => {
@@ -1016,6 +1071,12 @@ async function startServerForDePIN() {
         };
 
         connectToSessionRunner();
+    }
+
+    function offloadSession(sessionId, reason) {
+        const island = ALL_ISLANDS.get(sessionId);
+        if (island) deleteIsland(island);
+        else deregisterSession(sessionId, reason);
     }
 
     // create a fake server.  startServerForWebSockets (below) makes an http/websocket
@@ -2632,15 +2693,15 @@ function scheduleShutdownIfNoJoin(id, targetTime, detail) {
             }, `stage=closable but no island to delete`);
         }
         deregisterSession(id, "no island");
-        }, targetTime - now);
+    }, targetTime - now);
 }
 
 async function deregisterSession(id, detail) {
     // invoked...
     // - in a timeout from scheduleShutdownIfNoJoin
-    // - in handleTerm for a session that doesn't have an island
     // - from deleteIsland
-    // - from DePIN handling if session runner rejects synchronizer's connection
+    // - from offloadAllSessions, for a session that doesn't have an island
+    // - from DePIN's offloadSession - e.g., if session runner rejects synchronizer's connection - again, directly only if the session doesn't have an island
     const session = ALL_SESSIONS.get(id);
     if (session?.timeout) clearTimeout(session.timeout);
     if (!session || session.stage === 'closed') {
@@ -2654,9 +2715,10 @@ async function deregisterSession(id, detail) {
     session.stage = 'closed';
 
     const finalDelete = () => {
+        // on DePIN (only) there will be a socket connection to the session DO
         const { sessionSocket } = session;
         if (sessionSocket?.readyState === WebSocket.OPEN) {
-            sessionSocket.send(JSON.stringify({ what: "SESSION_OFFLOADED" }));
+            sessionSocket.send(JSON.stringify({ what: "SESSION_OFFLOADED", detail }));
             session.socketKey = ''; // disable onClose processing (which might be delayed by many seconds anyway)
             sessionSocket.close();
             session.sessionSocketClosed(); // clean up the clients etc
