@@ -457,7 +457,7 @@ export default class Controller {
         // (its dummy status is detected by lack of a modelsById property)
         const { id, persistentId, codeHash } = this.sessionSpec;
         this.sessionSpec.snapshot = { id, time: 0, meta: { id, persistentId, codeHash, created: (new Date()).toISOString() } };
-        const joined = new Promise(resolve => this.sessionSpec.sessionJoined = resolve);
+        const joined = new Promise(resolve => { this.sessionSpec.sessionJoined = resolve; });
         this.checkForConnection(false); // ensure connected unless we're blocked (e.g., in dormant state)
         if (DEBUG.session) console.log(id, "waiting for join and SYNC");
         await joined; // resolved in SYNC after installing the vm and replaying any messages
