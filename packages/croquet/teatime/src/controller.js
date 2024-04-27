@@ -139,19 +139,26 @@ const DEPIN_API_DEFAULT = 'wss://api.multisynq.io/depin';
 const DEPIN_API_DEV = 'wss://api.multisynq.dev/depin';
 const DEPIN_API_LOCAL = 'ws://localhost:8787';
 
-const DEPIN = "depin" in urlOptions ? urlOptions.depin : true;
+let DEPIN;
 let DEPIN_API;
-if (DEPIN) {
-    // get DEPIN_API from the url options, or use the default
-    DEPIN_API = DEPIN === true ? DEPIN_API_DEFAULT
-        : DEPIN === 'prod' ? DEPIN_API_DEV
-        : DEPIN === 'dev' ? DEPIN_API_DEV
-        : DEPIN === 'local' ? DEPIN_API_LOCAL
-        : DEPIN;
-    if (DEPIN_API.endsWith('/')) DEPIN_API = DEPIN_API.slice(0, -1);
-    DEPIN_API = DEPIN_API.replace(/^http(s):/, 'ws$1:');
-    if (!DEPIN_API.startsWith('ws')) DEPIN_API = 'ws://' + DEPIN_API;
-    console.log(`DEPIN_API=${DEPIN_API}`);
+
+function initDEPIN(defaultToDEPIN) {
+    if (DEPIN !== undefined) return; // already initialized
+    DEPIN = "depin" in urlOptions ? urlOptions.depin : defaultToDEPIN;
+    if (DEPIN) {
+        // get DEPIN_API from the url options, or use the default
+        DEPIN_API = DEPIN === true ? DEPIN_API_DEFAULT
+            : DEPIN === 'prod' ? DEPIN_API_DEV
+            : DEPIN === 'dev' ? DEPIN_API_DEV
+            : DEPIN === 'local' ? DEPIN_API_LOCAL
+            : DEPIN;
+        if (DEPIN_API.endsWith('/')) DEPIN_API = DEPIN_API.slice(0, -1);
+        DEPIN_API = DEPIN_API.replace(/^http(s):/, 'ws$1:');
+        if (!DEPIN_API.startsWith('ws')) DEPIN_API = 'ws://' + DEPIN_API;
+        console.log(`DEPIN_API=${DEPIN_API}`);
+    } else {
+        DEPIN = false;
+    }
 }
 
 const NOCHEAT = urlOptions.nocheat;
@@ -456,11 +463,24 @@ export default class Controller {
         await joined; // resolved in SYNC after installing the vm and replaying any messages
     }
 
-    getBackend(apiKeyWithBackend) {
-        const split = apiKeyWithBackend.lastIndexOf(':');
-        const apiKey = split === -1 ? apiKeyWithBackend : apiKeyWithBackend.slice(split + 1);
-        const keyBackend = split === -1 ? "" : apiKeyWithBackend.slice(0, split);
-        let backend = urlOptions.backend || keyBackend;
+    getBackend(apiKeysWithBackend) {
+        const keys = {};
+        for (const key of apiKeysWithBackend.split(",")) {
+            const split = key.lastIndexOf(':');
+            const version = key[split === -1 ? 0 : split]; // 1: croquet.io, 2: multisynq.io
+            if (!version.match(/^[12]$/)) throw Error(`Invalid API key version`);
+            if (version in keys) throw Error(`Duplicate API key versions`);
+            keys[version] = {
+                key: split === -1 ? key : key.slice(split + 1),
+                backend: split === -1 ? "" : key.slice(0, split),
+            };
+        }
+        initDEPIN(!keys[1]); // default to DEPIN if no croquet.io key
+        const key = keys[DEPIN ? 2 : 1];
+        if (!key) throw Error(`No ${DEPIN ? "Multisynq" : "Croquet"} API key provided`);
+
+        const apiKey = key.key;
+        let backend = urlOptions.backend || key.backend;
         const overridden = urlOptions.reflector?.includes("/");
         if (backend === "none" || DEBUG.offline) {
             return {
@@ -502,8 +522,8 @@ export default class Controller {
     }
 
     /** fetch developerId from sign function via meta protocol */
-    async verifyApiKey(apiKeyWithBackend, appId, persistentId) {
-        const {signServer, apiKey} = this.getBackend(apiKeyWithBackend);
+    async verifyApiKey(apiKeysWithBackend, appId, persistentId) {
+        const {signServer, apiKey} = this.getBackend(apiKeysWithBackend);
         if (signServer === "none") return { developerId: "unknown_dev_id" };
         try {
             const response = await fetch(`${signServer}/join?meta=login`, {
@@ -524,7 +544,7 @@ export default class Controller {
             if (DEBUG.session) console.log(`Croquet: verified API key`);
             return { developerId, token };
         } catch (err) {
-            throw Error(`Croquet API key validation failed for "${apiKeyWithBackend}": ${err.message}`);
+            throw Error(`Croquet API key validation failed for "${apiKey}": ${err.message}`);
         }
     }
 
@@ -749,14 +769,14 @@ export default class Controller {
         return snapshot.meta.hashPromise;
     }
 
-    uploadServer(apiKeyWithBackend) {
+    uploadServer(apiKeysWithBackend) {
         // allow overrides (should also allow override via backend?)
         if (typeof urlOptions.files === "string") {
             let url = new URL(urlOptions.files, window.location).href;
             if (url.endsWith('/')) url = url.slice(0, -1);
             return { url, apiKey: null };
         }
-        const {apiKey, signServer} = this.getBackend(apiKeyWithBackend);
+        const {apiKey, signServer} = this.getBackend(apiKeysWithBackend);
         if (signServer === "none" && !DEBUG.offline) {
             throw Error("no file server configured");
         }
@@ -1397,8 +1417,8 @@ export default class Controller {
         if (DEBUG.session) console.log(this.id, "Controller sending JOIN");
 
         const { tick, delay } = this.getTickAndMultiplier();
-        const { name, codeHash, appId, apiKey: apiKeyWithBackend, persistentId, developerId, heraldUrl, rejoinLimit, autoSleep, computedCodeHash, location, flags } = this.sessionSpec;
-        const { apiKey } = this.getBackend(apiKeyWithBackend);
+        const { name, codeHash, appId, apiKey: apiKeysWithBackend, persistentId, developerId, heraldUrl, rejoinLimit, autoSleep, computedCodeHash, location, flags } = this.sessionSpec;
+        const { apiKey } = this.getBackend(apiKeysWithBackend);
         const user = location ? [this.viewId] : this.viewId;
 
         const args = {
