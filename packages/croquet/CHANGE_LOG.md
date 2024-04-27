@@ -4,9 +4,14 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest @dev
 
-* 2.0.0-1  first testable version with DePIN support
+* 2.0.0-2 explicit reconnect when needed, switch to multisynq, API key switches default network, allow multiple keys
+* 2.0.0-1 first testable version with DePIN support
 
 # latest @pre
+
+* ...
+
+# 2024-03-20 1.1.0
 
 * 1.1.0-43 fix compatibility with old Data API, fix types
 * 1.1.0-42 move Data API to session.data, default to non-shareable data handles, fix view.session after disconnect, update docs
