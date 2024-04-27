@@ -36,31 +36,37 @@ cp pub/croquet.min.js.map $LIB/croquet-$VERSION.min.js.map
 # create croquet-latest.txt unless prerelease
 $PRERELEASE || (cd $LIB; echo $VERSION > croquet-latest.txt)
 
-# deploy docs (no commit)
-DOCS=docs
-if $PRERELEASE ; then
-    DOCS="docs-pre"
-else
-    DOCS="docs"
-fi
-(
-    cd ../../../docs
-    npm ci
-    cd croquet
-    npx jsdoc -c jsdoc.json -d ../../../servers/croquet-io-dev/docs-pre/croquet/
-)
+# # deploy docs (no commit)
+# DOCS=docs
+# if $PRERELEASE ; then
+#     DOCS="docs-pre"
+# else
+#     DOCS="docs"
+# fi
+# (
+#     cd ../../../docs
+#     npm ci
+#     cd croquet
+#     npx jsdoc -c jsdoc.json -d ../../../servers/croquet-io-dev/docs-pre/croquet/
+# )
 
 # commit
-git add -A cjs/ pub/ $LIB/ $TARGET/$DOCS/
+git add -A cjs/ pub/ $LIB/
+# $TARGET/$DOCS/
 git commit -m "[teatime] deploy $VERSION" cjs/ pub/ $LIB/ $TARGET/$DOCS/ || exit
 git --no-pager show --stat
 
 echo "Next, publish the npm:"
 if $PRERELEASE ; then
-    echo "    npm publish --tag pre"
+    BRANCH=`git branch --show-current`
+    if [ "$BRANCH" = "main" ] ; then
+        echo "    npm publish --tag pre"
+    else
+        echo "    npm publish --tag dev"
+    fi
 else
     echo "    npm publish"
-    echo "and then deploy the docs"
+    # echo "and then deploy the docs"
     # echo "After pushing to dev, you might want to"
     # echo "    ../../../../docker/scripts/deploy-from-dev-to-test.sh $DOCS/croquet"
     # echo "    ../../../../docker/scripts/release-from-test-to-public.sh $DOCS/croquet"
