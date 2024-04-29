@@ -265,6 +265,8 @@ REASON.NO_JOIN = [4121, "client never joined"];
 
 let server;
 let sendToDepinProxy;
+let registerRegion = ''; // the region registry this sync has been listed in
+
 
 // ============ DEPIN-specific initialisation ===========
 
@@ -334,7 +336,6 @@ async function startServerForDePIN() {
     const PROXY_RECONNECT_DELAY_MAX = 30000;
 
     let proxyId;        // the ID of the worker running the proxy for this sync
-    let registerRegion = ''; // the region registry this sync has been listed in
     let proxySocket = null;
     let proxyConnectionState = 'RECONNECTING'; // "CONNECTED", "RECONNECTING", "UNAVAILABLE"
     const setProxyConnectionState = state => {
@@ -1784,7 +1785,8 @@ async function JOIN(client, args) {
 function SYNC(island) {
     const { id, seq, timeline, snapshotUrl: url, snapshotTime, snapshotSeq, persistentUrl, messages, tove, flags } = island;
     const time = advanceTime(island, "SYNC");
-    const args = { url, messages, time, seq, tove, reflector: CLUSTER, timeline, flags };
+    const reflector = DEPIN ? `${registerRegion}:${SYNCNAME}` : CLUSTER;
+    const args = { url, messages, time, seq, tove, reflector, timeline, flags };
     if (url) {args.snapshotTime = snapshotTime; args.snapshotSeq = snapshotSeq }
     else if (persistentUrl) { args.url = persistentUrl; args.persisted = true }
     const response = JSON.stringify({ id, action: 'SYNC', args });
