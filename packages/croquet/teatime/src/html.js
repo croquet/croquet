@@ -831,22 +831,22 @@ export const App = {
         return `${url.protocol}//${url.host}${url.pathname}${sameOrigin ? url.search : ""}`;
     },
 
-    // session name is typically `${app}-${fragment}` where
-    // "app" is constant and "fragment" comes from this autoSession
-    // when we switch to appId then `${appId}/${fragment}` will be the session name
+    // actual session name is `${appId}/${fragment}` where
+    // "appId" is constant and "fragment" comes from this autoSession
     autoSession(options = { key: 'q' }) {
         if (typeof options === "string") options = { key: options };
         if (!options) options = {};
         const key = options.key || 'q';
         const url = new URL(App.sessionURL);
-        // fragment comes from ?key=fragment or ?fragment or #fragment
+        // fragment comes from ?key=fragment, or ?fragment or #fragment if keyless is enabled
         let fragment = '';
         // Note: cannot use url.searchParams because browsers differ for malformed % sequences
         const params = url.search.slice(1).split("&");
         const keyAndFragment = params.find(param => param.split("=")[0] === key);
         if (keyAndFragment) {
             fragment = keyAndFragment.replace(/[^=]*=/, '');
-        } else { // allow keyless ?fragment
+        } else if (options.keyless) {
+            // allow keyless ?fragment
             fragment = params.find(param => !param.includes("="));
             if (!fragment) { // fall back to #fragment for old URLs
                 fragment = url.hash.slice(1);
