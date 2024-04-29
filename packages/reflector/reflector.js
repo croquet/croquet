@@ -1785,7 +1785,7 @@ async function JOIN(client, args) {
 function SYNC(island) {
     const { id, seq, timeline, snapshotUrl: url, snapshotTime, snapshotSeq, persistentUrl, messages, tove, flags } = island;
     const time = advanceTime(island, "SYNC");
-    const reflector = DEPIN ? `${registerRegion}:${SYNCNAME}` : CLUSTER;
+    const reflector = DEPIN ? registerRegion : CLUSTER;
     const args = { url, messages, time, seq, tove, reflector, timeline, flags };
     if (url) {args.snapshotTime = snapshotTime; args.snapshotSeq = snapshotSeq }
     else if (persistentUrl) { args.url = persistentUrl; args.persisted = true }
