@@ -344,7 +344,8 @@ async function startServerForDePIN() {
     };
     let proxyWasToldWeHaveSessions;
     let proxyReconnectDelay = 0;
-    let synchronizerUnavailableTimeout; // on synchronizer startup, and after any disconnection from the proxy, deadline for successful registration to avoid declaring this synchronizer unavailable and offloading any remaining sessions.
+    let synchronizerUnavailableTimeout; // on synchronizer startup, and after any disconnection from the proxy, deadline for successful registration to avoid declaring this synchronizer unavailable and offloading any remaining sessions.  attempts to reconnect to the proxy will continue.
+
     // use proxyKey to tell which socket connection we're working with now, to filter
     // out events and timeouts relating to a socket that has since been replaced.
     // (this might be unnecessary, given that we're fully in charge of socket creation
@@ -365,7 +366,7 @@ async function startServerForDePIN() {
     // set up a timeout to mark ourselves as UNAVAILABLE if connection/reconnection attempts remain unsuccessful for a total of PROXY_INTERRUPTION_LIMIT (currently 30s).
     // timeout is cleared on successful receipt of a REGISTERED message.
     // @@ the UNAVAILABLE state must appear prominently in the app dashboard.
-    function declareUnavailableAfterDelay(ms = PROXY_INTERRUPTION_LIMIT) {
+    function declareUnavailableAfterDelay(ms) {
         if (synchronizerUnavailableTimeout) clearTimeout(synchronizerUnavailableTimeout);
 
         synchronizerUnavailableTimeout = setTimeout(() => {
@@ -377,7 +378,7 @@ async function startServerForDePIN() {
             offloadAllSessions();
         }, ms);
     }
-    declareUnavailableAfterDelay();
+    declareUnavailableAfterDelay(PROXY_INTERRUPTION_LIMIT);
 
     const connectToProxy = () => {
         if (aborted) return; // probably on an old timeout
@@ -430,12 +431,17 @@ async function startServerForDePIN() {
 
         proxySocket.on('open', () => {
             if (key !== proxyKey) return; // this connection has (somehow, already) been superseded
-            console.log(`connected websocket to proxy in registry ${DEPIN}`);
+            console.log(`proxy socket connected in registry ${DEPIN}`);
         });
 
         proxySocket.on('error', function onError(err) {
             if (key !== proxyKey) return; // this connection has been superseded
-            console.log('proxySocket WebSocket error: ', err);
+
+            if (err.code === 'ECONNREFUSED') {
+                console.log(`proxy socket connection refused`);
+            } else {
+                console.log('proxy socket error: ', err);
+            }
         });
 
         proxySocket.on('message', function onMessage(depinStr) {
@@ -565,6 +571,7 @@ async function startServerForDePIN() {
         // this is independent from the session.timeout created by scheduleShutdownIfNoJoin - set up as 7 seconds from initial registration of a session, and refreshed on first client connection - that offloads a session if no client manages to join it in a timely manner.  that keeps synchronizers from getting clogged with sessions for non-viable (typically buggy) apps.
         // the no-session-runner timeout is quicker; currently 2 seconds.  on a failed initial assignment (due to network problems finding the session runner), it will have cleared out the session long before no-JOIN gets a chance.  once the session is running with some client(s), the aim is to bail
         let noSessionRunnerTimeout;
+        let sessionRunnerConnectionState = 'CONNECTING'; // "CONNECTED", "CONNECTING"
 
         // set up a timeout to offload this session if connection/reconnection attempts remain unsuccessful for the designated period.
         // timeout is cleared on successful receipt of an ASSIGNED message.
@@ -584,6 +591,12 @@ async function startServerForDePIN() {
         const connectToSessionRunner = () => {
             // invoked each time we need a new connection to the session DO (including
             // after any glitch that causes the connection to drop)
+
+            if (session.stage === 'closed') {
+                console.log(`Session ${shortSessionId} is closed; abandoning scheduled reconnection`);
+                return;
+            }
+
             const key = session.socketKey = String(Math.random()).slice(2, 10); // timeouts and handler invocations set up under the auspices of one connection are ignored if that connection has been replaced
 // console.log(`SOCKET KEY: ${key}`);
             const sessionSocket = new WebSocket(`${DEPIN}/synchronizers/connect?session=${sessionId}&dispatchSeq=${runnerDispatchSeq}&synchronizer=${proxyId}`, {
@@ -638,7 +651,6 @@ async function startServerForDePIN() {
                     try {
                         sessionSocket.close(1000, "update acknowledgement timed out");
                         sessionSocket.terminate(); // otherwise 'close' event might not be raised for 30 seconds; see https://github.com/websockets/ws/issues/2203
-                        declareNoSessionRunnerAfterDelay(SESSION_RECONNECT_LIMIT);
                     } catch (err) { console.log(err) }
                 }, SESSION_SILENCE_LIMIT);
             }
@@ -754,7 +766,11 @@ async function startServerForDePIN() {
             sessionSocket.on('error', function onError(err) {
                 if (key !== session.socketKey) return;
 
-                console.log('session WebSocket error: ', err);
+                if (err.code === 'ECONNREFUSED') {
+                    console.log(`session socket connection refused`);
+                } else {
+                    console.log('session socket error: ', err);
+                }
             });
 
             sessionSocket.on('message', function onMessage(depinStr) {
@@ -767,6 +783,7 @@ async function startServerForDePIN() {
                     case "ASSIGNED": {
                         // session runner has accepted our connection (or reconnection)
                         clearTimeout(noSessionRunnerTimeout);
+                        sessionRunnerConnectionState = 'CONNECTED';
 
                         const runnerLastUpdate = depinMsg.lastUpdateSeq;
                         session.reconnectDelay = 0;
@@ -898,7 +915,6 @@ async function startServerForDePIN() {
             sessionSocket.on('close', function onClose() {
                 if (key !== session.socketKey) return; // an earlier connection
 
-                console.log(`session runner for ${shortSessionId} connection closed; session stage is "${session.stage}"`);
                 session.sessionSocketClosed();
             });
 
@@ -934,8 +950,14 @@ async function startServerForDePIN() {
                     return;
                 }
 
+                // if session was connected, start a new reconnection timeout
+                if (sessionRunnerConnectionState === 'CONNECTED') {
+                    sessionRunnerConnectionState = 'CONNECTING';
+                    declareNoSessionRunnerAfterDelay(SESSION_RECONNECT_LIMIT);
+                }
+
                 const disconnectMsg = disconnected ? ` and ${disconnected} unconnected clients discarded` : '';
-                console.log(`session socket closed${disconnectMsg}.  retrying after ${session.reconnectDelay}ms`);
+                console.log(`socket for session ${shortSessionId} closed${disconnectMsg}.  retrying after ${session.reconnectDelay}ms`);
                 setTimeout(connectToSessionRunner, session.reconnectDelay);
                 session.reconnectDelay = Math.round((session.reconnectDelay + 100) * (1 + Math.random()));
             };
@@ -954,7 +976,7 @@ async function startServerForDePIN() {
                 });
                 server.peerConnections.set(globalClientId, peerConnection);
                 peerConnection.onStateChange(state => {
-                    console.log(`connection state (${globalClientId}): "${state}"`);
+                    console.log(`client connection state (${globalClientId}): "${state}"`);
                     if (state === 'closed') {
                         // note: once a client's data channel has been established, any
                         // disconnection must be handled by the 'close' handler that we
@@ -2601,21 +2623,29 @@ async function deleteIsland(island) {
     // outlast the record's retention limit).
     const teatime = `@${time}#${seq}`;
     if (DEPIN) {
-        try {
-            // in the DePIN case, we're hoping that the sessionSocket is still up and running.  if it is, we'll send whatever increment is needed to bring the session runner fully up to date.
+        // in the DePIN case, we're hoping that the sessionSocket is still up and running.  if it is, we'll send whatever increment is needed to bring the session runner fully up to date.
+        const session = ALL_SESSIONS.get(id);
+        if (session.sessionSocket?.readyState === WebSocket.OPEN) {
+            try {
+                island.logger.debug({
+                    event: "flush-updates",
+                    teatime,
+                    msgCount: messages.length,
+                }, `sending final updates to session runner`);
+                session.gatherAndFlushSessionUpdates();
+            } catch (err) {
+                island.logger.error({
+                    event: "flush-updates-failed",
+                    teatime,
+                    err
+                }, `failed to flush session updates. ${err.code}: ${err.message}`);
+            }
+        } else {
             island.logger.debug({
-                event: "flush-updates",
+                event: "flush-updates-skipped",
                 teatime,
                 msgCount: messages.length,
-            }, `sending final updates to session runner`);
-            const session = ALL_SESSIONS.get(id);
-            session.gatherAndFlushSessionUpdates();
-        } catch (err) {
-            island.logger.error({
-                event: "flush-updates-failed",
-                teatime,
-                err
-            }, `failed to flush session updates. ${err.code}: ${err.message}`);
+            }, `no connection for flushing session updates`);
         }
     } else {
         // not DePIN.
@@ -2836,11 +2866,21 @@ function setUpClientHandlers(client) {
         }, `closed connection [${code},"${reason}"]`);
 
         if (island && island.clients && island.clients.has(client)) {
-            client.logger.debug({
-                event: "schedule-delete",
-                delay: island.leaveDelay,
-            }, `scheduling client deletion in ${island.leaveDelay} ms`);
-            setTimeout(() => clientLeft(client), island.leaveDelay);
+            // on DePIN, sessions can be forcibly offloaded and _then_ tell the
+            // clients.  in that case, no point processing a delayed departure.
+            const session = ALL_SESSIONS.get(island.id);
+            if (!session || session.stage === "closed") {
+                client.logger.debug({
+                    event: "immediate-delete",
+                }, `immediate deletion of client`);
+                clientLeft(client);
+            } else {
+                client.logger.debug({
+                    event: "schedule-delete",
+                    delay: island.leaveDelay,
+                }, `scheduling client deletion in ${island.leaveDelay} ms`);
+                setTimeout(() => clientLeft(client), island.leaveDelay);
+            }
         }
     });
 
