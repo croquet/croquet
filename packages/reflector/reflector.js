@@ -343,6 +343,7 @@ async function startServerForDePIN() {
         proxyConnectionState = state;
     };
     let proxyWasToldWeHaveSessions;
+    let lastProxyStatusSent = Date.now();
     let proxyReconnectDelay = 0;
     let synchronizerUnavailableTimeout; // on synchronizer startup, and after any disconnection from the proxy, deadline for successful registration to avoid declaring this synchronizer unavailable and offloading any remaining sessions.  attempts to reconnect to the proxy will continue.
 
@@ -394,7 +395,10 @@ async function startServerForDePIN() {
             const isHandlingSessions = ALL_SESSIONS.size > 0; // whether active or not
             // if we aren't now but were before, send one last update with the zero sessions
             if (isHandlingSessions || proxyWasToldWeHaveSessions) {
-                sendToProxy({ what: 'STATUS', status: statusForProxy() });
+                const now = Date.now();
+                const statsAggregationSeconds = Math.max(1, (now - lastProxyStatusSent) / 1000);
+                sendToProxy({ what: 'STATUS', status: statusForProxy(statsAggregationSeconds) });
+                lastProxyStatusSent = now;
                 contactProxyAfterDelay(PROXY_STATUS_DELAY);
             } else {
                 sendToProxy({ what: 'PING' }); // proxy looks for exactly the string '{"what":"PING"}'
@@ -564,6 +568,9 @@ async function startServerForDePIN() {
             newMessages: [],    // replicated messages since last update
             newMessageTotal: 0, // rough estimate of aggregate size of messages
             updateBuffer: []    // queue of updates that we want to send.  an update stays in the queue (at the front) until the DO acknowledges receipt.
+        };
+        session.depinStats = {
+            bytesSent: 0
         };
         session.reconnectDelay = 0; // delay for reconnecting to session DO after a drop
 
@@ -1150,8 +1157,19 @@ async function startServerForDePIN() {
         sendToProxy({ what: 'STATS', type: statType, result: statResult });
     }
 
-    function statusForProxy() {
-        return { sessions: [...ALL_SESSIONS.keys()] }; // @@ add useful stuff
+    function statusForProxy(statsAggregationSeconds) {
+        const sessionStats = [];
+        for (const [id, session] of ALL_SESSIONS.entries()) {
+            const record = { id, clients: 0, bytesPerSecond: 0 };
+            const island = ALL_ISLANDS.get(id);
+            if (island) record.clients = island.clients.size;
+            const { depinStats } = session;
+            record.bytesPerSecond = Math.round(depinStats.bytesSent / statsAggregationSeconds);
+            depinStats.bytesSent = 0;
+
+            sessionStats.push(record);
+        }
+        return { sessions: sessionStats };
     }
 
     // listen for messages from Electron
@@ -2233,6 +2251,9 @@ function SEND(island, messages) {
         const delay = island.lastTick + island.delay + 0.1 - time;    // add 0.1 ms to combat rounding errors
         if (island.delayed || delay > 0) { DELAY_SEND(island, delay, messages); return }
     }
+    // @@ on cleanup of a session, it is possible for a SEND to be invoked after
+    // the island has already been de-registered (for example, from a USERS sent from
+    // usersTimer).  that's why we protect the DEPIN uses of it below.
     const session = ALL_SESSIONS.get(island.id);
     for (const message of messages) {
         // message = [time, seq, payload, ...] - keep whatever controller.sendMessage sends
@@ -2248,11 +2269,11 @@ function SEND(island, messages) {
         STATS.RECV++;
         STATS.SEND += island.clients.size;
         island.clients.forEach(each => each.active && each.safeSend(msg));
-        if (DEPIN) session.addMessageToUpdate(message); // the raw message
+        if (DEPIN && session) session.addMessageToUpdate(message); // the raw message
         island.messages.push(message); // raw message sent again in SYNC
     }
     island.lastMsgTime = time;
-    if (DEPIN) session.gatherUpdateIfNeeded(false); // false => not a timeout; only gather if message buffer has hit its threshold (due to the messages just added)
+    if (DEPIN && session) session.gatherUpdateIfNeeded(false); // false => not a timeout; only gather if message buffer has hit its threshold (due to the messages just added)
     startTicker(island, island.tick);
 }
 
@@ -2891,14 +2912,32 @@ function setUpClientHandlers(client) {
         if (!client.isConnected()) return;
 
         STATS.BUFFER = Math.max(STATS.BUFFER, client.bufferedAmount);
-        try { client.send(data) }
-        catch (err) {
+        const CHUNK_SIZE = DEPIN ? 64000 : 1000000;
+        try {
+            if (data.length <= CHUNK_SIZE) client.send(data);
+            else {
+                const header = '_CHUNK';
+                let ind = 0;
+                let isFirst = true;
+                let isLast;
+                while (ind < data.length) {
+                    isLast = ind + CHUNK_SIZE >= data.length;
+                    const chunkData = `${header}${isFirst ? '1' : '0'}${isLast ? '1' : '0'}${data.slice(ind, ind + CHUNK_SIZE)}`;
+                    client.send(chunkData);
+                    ind += CHUNK_SIZE;
+                    isFirst = false;
+                }
+            }
+        } catch (err) {
             client.logger.error({ event: "send-failed", err }, `failed to send to client. ${err.code}: ${err.message}`);
             client.safeClose(...REASON.RECONNECT);
         }
         STATS.OUT += data.length;
         client.stats.mo += 1;               // messages out
         client.stats.bo += data.length;     // bytes out
+
+        const session = ALL_SESSIONS.get(client.sessionId);
+        if (session.depinStats) session.depinStats.bytesSent += data.length;
     };
     client.safeClose = (code, data) => {
         try {
