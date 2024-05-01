@@ -4,6 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest @dev
 
+* 2.0.0-3 allow bare ?depin, receive chunked messages
 * 2.0.0-2 explicit reconnect when needed, switch to multisynq, API key switches default network, allow multiple keys
 * 2.0.0-1 first testable version with DePIN support
 
