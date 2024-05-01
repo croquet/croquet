@@ -2369,7 +2369,27 @@ class Connection {
         socket.onmessage = event => {
             Stats.addNetworkTraffic("reflector_in", event.data.length);
             if (socket !== this.socket) return; // in case a socket that we've tried to close can still deliver a message
-            this.receive(event.data);
+            const { data } = event;
+            // for large objects (especially over WebRTC) support sending of chunks.
+            // each chunk starts with a prefix _CHUNK followed by two ASCII digits 0/1
+            // representing whether the chunk is the first and/or last chunk in the
+            // transmission.
+            const header = '_CHUNK';
+            if (data.startsWith(header)) {
+                const isFirst = data.charAt(header.length) === '1';
+                const isLast = data.charAt(header.length + 1) === '1';
+                const buf = data.slice(header.length + 2);
+                if (isFirst) socket.chunkCollector = [];
+                socket.chunkCollector.push(buf);
+                if (isLast) {
+                    // turn the array of chunks into a single buffer
+                    const chunkedData = ''.concat(...socket.chunkCollector);
+                    socket.chunkCollector = [];
+                    this.receive(chunkedData);
+                }
+            } else {
+                this.receive(data);
+            }
         };
         socket.onerror = _event => {
             // an error anywhere between here and the reflector once the socket
