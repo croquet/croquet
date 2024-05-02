@@ -472,8 +472,17 @@ async function startServerForDePIN() {
                 }
                 case "SESSION": {
                     const { sessionId, dispatchSeq } = depinMsg;
-                    console.log(`new session dispatch for ${sessionId.slice(0, 8)}`);
-                    acceptSession(sessionId, dispatchSeq);
+                    const shortSessionId = sessionId.slice(0, 8);
+                    const session = ALL_SESSIONS.get(sessionId);
+                    if (session) {
+                        // if we already (i.e., still) have the session, ignore the
+                        // request.  in a few seconds the session-runner will try
+                        // a different synq.
+                        console.log(`ignoring session dispatch for ${shortSessionId}; already being handled here`);
+                    } else {
+                        console.log(`new session dispatch for ${shortSessionId}`);
+                        acceptSession(sessionId, dispatchSeq);
+                    }
                     break;
                 }
                 case 'ACK':
@@ -556,7 +565,6 @@ async function startServerForDePIN() {
         // this is invoked only once per session, on first accepting the assignment.
         // by contrast, connectToSessionRunner might be invoked repeatedly
         // if the network is unstable.
-        // $$$ what if somehow we already/still have the session?  for example, if at some point the network had a glitch immediately after we tried to open the websocket, so the session DO's REJECTED never arrived?  that's going to be a case for the SESSION_CONNECT_LIMIT handling.
         const shortSessionId = sessionId.slice(0, 8);
 
         registerSession(sessionId);
@@ -765,7 +773,7 @@ async function startServerForDePIN() {
             };
 
             sessionSocket.on('open', () => {
-                console.log(`connected to session runner for ${shortSessionId}`);
+                console.log(`session runner for ${shortSessionId} connected`);
                 // nothing else to do.  the opening might even have happened just so
                 // the DO can send us a REJECTED message.
             });
@@ -774,9 +782,9 @@ async function startServerForDePIN() {
                 if (key !== session.socketKey) return;
 
                 if (err.code === 'ECONNREFUSED') {
-                    console.log(`session socket connection refused`);
+                    console.log(`session runner for ${shortSessionId} refused`);
                 } else {
-                    console.log('session socket error: ', err);
+                    console.log(`session runner for ${shortSessionId} error: `, err);
                 }
             });
 
@@ -953,7 +961,7 @@ async function startServerForDePIN() {
                 clearTimeout(sessionContactTimeout);
 
                 if (sessionIsClosed) {
-                    console.log(`dropped socket for closed session ${shortSessionId}`);
+                    console.log(`session runner for closed session ${shortSessionId} disconnected`);
                     return;
                 }
 
@@ -964,7 +972,7 @@ async function startServerForDePIN() {
                 }
 
                 const disconnectMsg = disconnected ? ` and ${disconnected} unconnected clients discarded` : '';
-                console.log(`socket for session ${shortSessionId} closed${disconnectMsg}.  retrying after ${session.reconnectDelay}ms`);
+                console.log(`session runner for ${shortSessionId} disconnected${disconnectMsg}.  retrying after ${session.reconnectDelay}ms`);
                 setTimeout(connectToSessionRunner, session.reconnectDelay);
                 session.reconnectDelay = Math.round((session.reconnectDelay + 100) * (1 + Math.random()));
             };
@@ -1025,7 +1033,7 @@ async function startServerForDePIN() {
                             client.handleEvent('pong', time);
                         } else client.handleEvent('message', msg);
                     });
-                    dataChannel.onError(evt => client.handleEvent('error', evt)); // $$$ need some handling
+                    dataChannel.onError(evt => client.handleEvent('error', evt));
                     dataChannel.onClosed(_evt => client.handleEvent('close', 1000, "Client data channel closed"));
                 });
             }
@@ -1163,9 +1171,11 @@ async function startServerForDePIN() {
             const record = { id, clients: 0, bytesPerSecond: 0 };
             const island = ALL_ISLANDS.get(id);
             if (island) record.clients = island.clients.size;
-            const { depinStats } = session;
+            const { updateTracker, depinStats } = session;
             record.bytesPerSecond = Math.round(depinStats.bytesSent / statsAggregationSeconds);
             depinStats.bytesSent = 0;
+            record.updateBufferLength = updateTracker.updateBuffer.length;
+            record.lastUpdate = updateTracker.lastUpdateSeq;
 
             sessionStats.push(record);
         }
@@ -1177,6 +1187,7 @@ async function startServerForDePIN() {
         process.parentPort.on('message', e => {
             const msg = e.data;
             if (msg === 'shutdown') handleTerm();
+            else if (msg === 'pingFromMain') process.parentPort.postMessage('pong');
         });
     }
 }
@@ -1421,11 +1432,11 @@ async function offloadAllSessions() {
         const wait = now >= earliestDeregister
             ? Promise.resolve()
             : new Promise(resolve => { setTimeout(resolve, earliestDeregister - now) });
-        const island = ALL_ISLANDS.get(id);
-        const cleanup = wait.then(() => island
-            ? deleteIsland(island)
-            : deregisterSession(id, "emergency shutdown without island")
-        );
+        const cleanup = wait.then(() => {
+            const island = ALL_ISLANDS.get(id);
+            if (island) deleteIsland(island);
+            else deregisterSession(id, "emergency shutdown without island");
+        });
         promises.push(cleanup);
     }
 
@@ -1466,8 +1477,7 @@ process.on('unhandledRejection', (err, _promise) => {
         event: "unhandled-rejection",
         err,
     }, `Unhandled rejection: ${err.message}`);
-    // TODO: call handleTerm();
-    // (not terminating yet, need to see what rejections we do not handle first)
+    handleTerm();
 });
 
 function openToClients() {
@@ -1610,6 +1620,7 @@ async function JOIN(client, args) {
         client.safeClose(...REASON.BAD_PROTOCOL);
         return;
     }
+
     const id = client.sessionId;
     const connectedFor = Date.now() - client.since;
     const session = ALL_SESSIONS.get(id);
@@ -2252,8 +2263,8 @@ function SEND(island, messages) {
         if (island.delayed || delay > 0) { DELAY_SEND(island, delay, messages); return }
     }
     // @@ on cleanup of a session, it is possible for a SEND to be invoked after
-    // the island has already been de-registered (for example, from a USERS sent from
-    // usersTimer).  that's why we protect the DEPIN uses of it below.
+    // the island has already been de-registered (for example, from a USERS() invoked
+    // from usersTimer).  that's why we protect the DEPIN uses of it below.
     const session = ALL_SESSIONS.get(island.id);
     for (const message of messages) {
         // message = [time, seq, payload, ...] - keep whatever controller.sendMessage sends
@@ -2929,15 +2940,20 @@ function setUpClientHandlers(client) {
                 }
             }
         } catch (err) {
+            // NB: if node-datachannel throws an error, it will be logged in full to
+            // the console because of our initLogger settings.  but it is being caught,
+            // as intended.
+            console.log(`error in send to client ${client.globalId}: ${err}`);
             client.logger.error({ event: "send-failed", err }, `failed to send to client. ${err.code}: ${err.message}`);
             client.safeClose(...REASON.RECONNECT);
+            return; // skip the bookkeeping
         }
         STATS.OUT += data.length;
         client.stats.mo += 1;               // messages out
         client.stats.bo += data.length;     // bytes out
 
         const session = ALL_SESSIONS.get(client.sessionId);
-        if (session.depinStats) session.depinStats.bytesSent += data.length;
+        if (session?.depinStats) session.depinStats.bytesSent += data.length;
     };
     client.safeClose = (code, data) => {
         try {
