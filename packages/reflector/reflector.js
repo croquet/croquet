@@ -8,7 +8,6 @@ const os = require('os');
 const fs = require('fs');
 const { performance } = require("perf_hooks");
 const WebSocket = require('ws');
-const fetch = require('node-fetch');
 const prometheus = require('prom-client');
 const jwt = require('jsonwebtoken');
 const pino = require('pino');
