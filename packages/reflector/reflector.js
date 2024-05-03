@@ -626,8 +626,6 @@ async function startServerForDePIN() {
                 }
 // console.log(`send to session ${shortSessionId}: ${JSON.stringify(msgObject)}`);
                 socket.send(JSON.stringify(msgObject));
-
-                scheduleNextSessionUpdate();
             };
 
             // the session has responsibility for periodically contacting the session
@@ -645,8 +643,6 @@ async function startServerForDePIN() {
             //         - if so, gather a props-only update and send that
             //         - else: send PING
             //   - else (not free to send update): if over 1000ms since last send, send PING
-            // $$$ we need to gracefully cancel all these timeouts on island deletion,
-            // and avoid making new ack timeouts.
             let lastSendTime = 0; // last time we sent a SESSION_UPDATE or PING
             const roundTripTimes = []; // history delays in receiving acknowledgement
             let lastRoundTripReport = Date.now(); // last time we reported round trips
@@ -913,11 +909,15 @@ async function startServerForDePIN() {
                         }
 
                         updateBuffer.shift();
-                        scheduleNextSessionUpdate();
                         break;
                     }
                     case 'PONG': {
                         logRoundTrip(Date.now() - lastSendTime);
+                        // only reset the contact clock if we're not awaiting a
+                        // SESSION_UPDATE_RECEIVED
+                        const { updateBuffer } = session.updateTracker;
+                        if (updateBuffer.length && updateBuffer[0].awaitingAck) return;
+
                         watchForBrokenSessionContact(); // reset the clock
                         break;
                     }
@@ -1078,7 +1078,7 @@ async function startServerForDePIN() {
                         if (val < min) min = val;
                         sum += val;
                     }
-                    console.log({ max, min, avg: Math.round(sum/roundTripTimes.length)});
+                    console.log(`session runner latency (${shortSessionId}) min=${min} max=${max} avg=${Math.round(sum/roundTripTimes.length)}`);
                     lastRoundTripReport = now;
                 }
             }
@@ -1102,7 +1102,7 @@ async function startServerForDePIN() {
             // invoked only by deleteIsland.
             session.gatherUpdateIfNeeded(true); // true => any change will do
             session.updateTracker.updateBuffer.forEach(update => {
-                if (!update.awaitingAck) session.sendToSessionRunner({ what: "SESSION_UPDATE", update, noAckNeeded: true });
+                session.sendToSessionRunner({ what: "SESSION_UPDATE", update, noAckNeeded: true });
             });
             session.updateTracker.updateBuffer.length = 0;
         };
