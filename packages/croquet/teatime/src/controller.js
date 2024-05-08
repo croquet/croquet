@@ -135,9 +135,10 @@ function isLocalUrl(hostname) {
         depin=false  (to revert to websocket network)
 */
 
-const DEPIN_API_DEFAULT = 'wss://api.multisynq.io/depin';
+const DEPIN_API_PROD = 'wss://api.multisynq.io/depin';
 const DEPIN_API_DEV = 'wss://api.multisynq.dev/depin';
 const DEPIN_API_LOCAL = 'ws://localhost:8787';
+const DEPIN_API_DEFAULT = DEPIN_API_PROD;
 
 let DEPIN;
 let DEPIN_API;
@@ -148,7 +149,7 @@ function initDEPIN(defaultToDEPIN) {
     if (DEPIN) {
         // get DEPIN_API from the url options, or use the default
         DEPIN_API = DEPIN === true ? DEPIN_API_DEFAULT
-            : DEPIN === 'prod' ? DEPIN_API_DEV
+            : DEPIN === 'prod' ? DEPIN_API_PROD
             : DEPIN === 'dev' ? DEPIN_API_DEV
             : DEPIN === 'local' ? DEPIN_API_LOCAL
             : DEPIN;
