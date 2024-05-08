@@ -542,10 +542,10 @@ export default class Controller {
             });
             const { error, developerId, token } = await response.json();
             if (error) throw Error(error);
-            if (DEBUG.session) console.log(`Croquet: verified API key`);
+            if (DEBUG.session) console.log(`${DEPIN ? "Multisynq" : "Croquet"}: verified API key`);
             return { developerId, token };
         } catch (err) {
-            throw Error(`Croquet API key validation failed for "${apiKey}": ${err.message}`);
+            throw Error(`${DEPIN ? "Multisynq" : "Croquet"} API key validation failed for "${apiKey}": ${err.message}`);
         }
     }
 
@@ -1336,7 +1336,8 @@ export default class Controller {
                 // information the reflector wants us to know
                 // for the moment just show it
                 const { msg, options } = args;
-                App.showMessage("Croquet Reflector: " + msg, options);
+                const prefix = DEPIN ? "Multisynq Synchronizer" : "Croquet Reflector";
+                App.showMessage(`${prefix}: ${msg}`, options);
                 return;
             }
             case 'REQU': {
