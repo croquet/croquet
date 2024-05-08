@@ -293,9 +293,6 @@ export const Stats = {
     backlog(ms) {
         currentFrame.backlog = Math.max(ms, currentFrame.backlog);
     },
-    network(ms) {
-        currentFrame.network = ms;
-    },
     starvation(ms) {
         currentFrame.network = ms;
     },
