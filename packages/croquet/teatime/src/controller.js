@@ -462,6 +462,7 @@ export default class Controller {
         this.checkForConnection(false); // ensure connected unless we're blocked (e.g., in dormant state)
         if (DEBUG.session) console.log(id, "waiting for join and SYNC");
         await joined; // resolved in SYNC after installing the vm and replaying any messages
+        this.syncCompleted = true;
     }
 
     getBackend(apiKeysWithBackend) {
@@ -1410,6 +1411,7 @@ export default class Controller {
 
     sendJoin() {
         this.syncReceived = false; // until SYNC is received, a dropped connection doesn't require controller.leave()
+        this.syncCompleted = false; // until the end of SYNC, send nothing to the reflector other than a JOIN
         delete this.fastForwardHandler; // in case one was left
 
         // cancel rejoin timeout (if any) immediately.  now that we're reconnected, it
@@ -1746,7 +1748,7 @@ export default class Controller {
         const description = DEBUG.sends && (tags ? `tagged SEND ${msg.asState()} with tags ${JSON.stringify(tags)}` : `SEND ${msg.asState()}`);
 
         // view sending events while connection is closing or rejoining
-        if (!this.connected) {
+        if (!this.connected || !this.syncCompleted) {
             if (this.vm) {
                 if (DEBUG.sends) console.log(this.id, `buffering ${description}`);
                 this.sendBuffer.push(() => this.socketSendMessage(msg, tags));
@@ -1814,7 +1816,7 @@ export default class Controller {
         const payload = stableStringify(data); // stable, to rule out platform differences
 
         // view sending events while connection is closing or rejoining
-        if (!this.connected) {
+        if (!this.connected || !this.syncCompleted) {
             if (this.vm) {
                 if (DEBUG.sends) console.log(this.id, `buffering "${topic}" TUTTI ${payload} ${firstMessage && firstMessage.asState()}`);
                 this.sendBuffer.push(() => this.sendTutti({ time, topic, data, localContext, firstMessage, wantsVote, tallyTarget }));
@@ -1826,8 +1828,7 @@ export default class Controller {
         this.lastSent = Date.now();
         // jul 2021: in case we were assigned to an old reflector, we supplied a dummy
         // tuttiSeq in second place in the arg array.  as of late 2021 all deployed
-        // reflectors check for a seventh-place argument instead, but will still
-        // recognise a pre-0.5.1 app's second-place tuttiSeq.
+        // reflectors check for a seventh-place argument instead.
         const dummyTuttiSeq = 0;
         const tuttiKey = `${topic}@${time}`;
         this.connection.send(JSON.stringify({
@@ -1840,7 +1841,7 @@ export default class Controller {
     }
 
     sendLog(...args) {
-        if (!this.connected) {
+        if (!this.connected || !this.syncCompleted) {
             if (this.vm) {
                 if (DEBUG.sends) console.log(this.id, `buffering LOG`);
                 this.sendBuffer.push(() => this.sendLog(...args));
