@@ -605,6 +605,11 @@ async function startServerForDePIN() {
         session.depinStats = {
             bytesSent: 0
         };
+        session.offload = reason => {
+            const island = ALL_ISLANDS.get(sessionId);
+            if (island) deleteIsland(island, reason);
+            else deregisterSession(sessionId, reason);
+        };
         session.reconnectDelay = 0; // delay for reconnecting to session DO after a drop
 
         // on first acceptance of the session, and after any disconnection from the session runner, we set a deadline for successful (re)assignment before offloading the session (and telling any connected clients to go elsewhere).  this reflects that a session cannot be run in the absence of a solid session-runner connection for recording session progress.
@@ -623,7 +628,7 @@ async function startServerForDePIN() {
 
                 // reconnection hasn't happened, so offload this session.
                 console.log(`Session ${shortSessionId} reconnection timed out. Offloading.`);
-                offloadSession(sessionId, "no session runner");
+                session.offload("no session runner");
             }, ms);
         }
         declareNoSessionRunnerAfterDelay(SESSION_CONNECT_LIMIT);
@@ -859,7 +864,7 @@ async function startServerForDePIN() {
                             // session runner has rejected this synchronizer's attempt to
                             // take the session (for example, if we took too long to connect)
                             console.log(`session runner for ${shortSessionId} rejected our connection`);
-                            offloadSession(sessionId, "rejected by session runner");
+                            session.offload("rejected by session runner");
                             break;
                         case "CONNECT":
                             // a peer connection isn't set up until the client sends an offer.
@@ -1121,7 +1126,7 @@ async function startServerForDePIN() {
                 session.sendToSessionRunner({ what: "FETCH_SESSION_STATE" });
                 fetchTimeout = setTimeout(reject, 2000); // @@ arbitrary
             }).catch(_err => { return {} }) // error or timeout delivers empty spec
-                .finally(() => clearTimeout(fetchTimeout));
+            .finally(() => clearTimeout(fetchTimeout));
 
             const latestSpec = await fetchFromRunner;
             // for an empty spec (perhaps from error) we generate a fake 404 error
@@ -1129,21 +1134,18 @@ async function startServerForDePIN() {
         };
 
         session.gatherAndFlushSessionUpdates = () => {
-            // invoked only by deleteIsland.
+            // invoked only by deleteIsland.  returns true if there were any updates to
+            // send.
             session.gatherUpdateIfNeeded(true); // true => any change will do
             session.updateTracker.updateBuffer.forEach(update => {
                 session.sendToSessionRunner({ what: "SESSION_UPDATE", update, noAckNeeded: true });
             });
+            const anySent = session.updateTracker.updateBuffer.length > 0;
             session.updateTracker.updateBuffer.length = 0;
+            return anySent;
         };
 
         connectToSessionRunner();
-    }
-
-    function offloadSession(sessionId, reason) {
-        const island = ALL_ISLANDS.get(sessionId);
-        if (island) deleteIsland(island, reason);
-        else deregisterSession(sessionId, reason);
     }
 
     // create a fake server.  startServerForWebSockets (below) makes an http/websocket
@@ -1469,13 +1471,18 @@ async function offloadAllSessions() {
             : new Promise(resolve => { setTimeout(resolve, earliestDeregister - now) });
         const cleanup = wait.then(() => {
             const island = ALL_ISLANDS.get(id);
-            if (island) deleteIsland(island, "emergency offload");
-            else deregisterSession(id, "emergency offload without island");
+            return island
+                ? deleteIsland(island, "emergency offload")
+                : deregisterSession(id, "emergency offload without island");
         });
         promises.push(cleanup);
     }
 
     if (promises.length) {
+        // add one more promise that will make the synq hang around for at least
+        // 1000ms to give the sessions time to shut down.
+        promises.push(new Promise(r => { setTimeout(r, 1000) }));
+
         global_logger.warn({
             event: "shutdown",
             sessionCount: promises.length,
@@ -1524,14 +1531,6 @@ function openToClients() {
     }
     if (CLUSTER_IS_LOCAL) watchStats();
 }
-
-// $$$ for testing session re-assignment
-// function off() {
-//     console.log(`ALL_SESSIONS ${ALL_SESSIONS.size}`);
-//     if (ALL_SESSIONS.size) handleTerm(true);
-//     else setTimeout(off, 60000);
-// }
-// setTimeout(off, 60000);
 
 /**
  * @typedef ID - A random 128 bit hex ID
@@ -1866,10 +1865,10 @@ async function JOIN(client, args) {
                 const value = latestSpec[key];
                 if (value !== undefined) {
                     island[key] = value;
-                    if (receivedProps) receivedProps[key] = value;
+                    if (DEPIN) receivedProps[key] = value;
                 }
                 });
-            if (receivedProps) session.updateTracker.updatedProps = receivedProps;
+            if (DEPIN) session.updateTracker.updatedProps = receivedProps;
 
             island.scaledStart = stabilizedPerformanceNow() - island.time / island.scale;
             island.storedUrl = latestSpec.snapshotUrl;
@@ -2662,7 +2661,7 @@ function provisionallyDeleteIsland(island) {
         delay: DELETION_DEBOUNCE,
     }, `provisionally scheduling session end`);
     // NB: the deletion delay is currently safely longer than the retention on the dispatcher record
-    session.timeout = setTimeout(() => deleteIsland(island), DELETION_DEBOUNCE);
+    session.timeout = setTimeout(() => deleteIsland(island, "no clients"), DELETION_DEBOUNCE);
 }
 
 // delete our live record of the island, rewriting latest.json if necessary and
@@ -2686,10 +2685,8 @@ async function deleteIsland(island, reason) {
     prometheusSessionGauge.dec();
     // stop ticking
     stopTicker(island);
-    // @@ we used to delete the island right here, but that interferes with the DePIN
-    // way of uploading the final session data.  ok to delete after that?
 
-    island.logger.notice({event: "end"}, `island deleted`);
+    island.logger.notice({event: "end", reason}, `island deleted`);
 
     // remove session, including deleting dispatcher record if there is one
     // (deleteIsland is only ever invoked after at least long enough to
@@ -2705,7 +2702,11 @@ async function deleteIsland(island, reason) {
                     teatime,
                     msgCount: messages.length,
                 }, `sending final updates to session runner`);
-                session.gatherAndFlushSessionUpdates();
+                // if there were any updates to send to the session DO, force a pause
+                // to increase the chance that the session DO has those updates before
+                // transferring the session to a new synq.
+                const anySent = session.gatherAndFlushSessionUpdates();
+                if (anySent) await new Promise(r => { setTimeout(r, 200) });
             } catch (err) {
                 island.logger.error({
                     event: "flush-updates-failed",
@@ -2753,8 +2754,10 @@ async function deleteIsland(island, reason) {
 
     ALL_ISLANDS.delete(id);
 
-    await deregisterSession(id, teatime); // on DePIN, will perform a normal close (not terminate) of the session socket.  await because in emergency shutdown on GCP we want to be sure to have removed the dispatch record before exiting.
+    await deregisterSession(id, teatime); // on DePIN, will return immediately after telling the session runner (if connected) to abandon this synq.  await is used because in emergency shutdown on GCP we want to be sure to have removed the dispatch records before exiting.
 
+    // rather than close the connections to any remaining clients, tell them explicitly
+    // to reconnect (presumably to a different synq).
     if (DEPIN && island.clients.size > 0) {
         island.clients.forEach(client => client.safeSend(JSON.stringify({ id, action: 'RECONNECT' })));
     }
@@ -2804,7 +2807,7 @@ async function deregisterSession(id, detail) {
     // - in a timeout from scheduleShutdownIfNoJoin
     // - from deleteIsland
     // - from offloadAllSessions, for a session that doesn't have an island
-    // - from DePIN's offloadSession - e.g., if session runner rejects synchronizer's connection - again, directly only if the session doesn't have an island
+    // - from DePIN's session.offload - e.g., if session runner rejects synchronizer's connection - again, directly only if the session doesn't have an island
     const session = ALL_SESSIONS.get(id);
     if (session?.timeout) clearTimeout(session.timeout);
     if (!session || session.stage === 'closed') {
@@ -2821,16 +2824,18 @@ async function deregisterSession(id, detail) {
         // on DePIN (only) there will be a socket connection to the session DO
         const { sessionSocket } = session;
         if (sessionSocket?.readyState === WebSocket.OPEN) {
+            // we don't explicitly close the socket from here, but indicate that the
+            // connection is over by sending SESSION_OFFLOADED.  the session runner
+            // will close the socket from its end.
             sessionSocket.send(JSON.stringify({ what: "SESSION_OFFLOADED", detail }));
-            session.socketKey = ''; // disable onClose processing (which might be delayed by many seconds anyway)
-            sessionSocket.close();
-            session.sessionSocketClosed(); // clean up the clients etc
+            session.socketKey = ''; // disable onClose processing (whenever the close comes through)
+            session.sessionSocketClosed(); // includes cleaning up any clients that are still in negotiation (whereas any remaining fully connected clients in DEPIN are told explicitly to reconnect by deleteIsland)
         }
         ALL_SESSIONS.delete(id);
     };
 
     if (!DISPATCHER_BUCKET) {
-        // nothing to wait for
+        // no bucket to wait for
         finalDelete();
         return;
     }
