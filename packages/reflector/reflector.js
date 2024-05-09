@@ -13,6 +13,8 @@ const jwt = require('jsonwebtoken');
 const pino = require('pino');
 const { Storage } = require('@google-cloud/storage');
 const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
+const appVersion = require('./package.json').version; // eslint-disable-line import/extensions
+
 
 // command line args
 
@@ -428,7 +430,7 @@ async function startServerForDePIN() {
             }, ms);
         }
 
-        proxySocket = new WebSocket(`${DEPIN}/synchronizers/register?nickname=${SYNCNAME}&registerRegion=${registerRegion}`, {
+        proxySocket = new WebSocket(`${DEPIN}/synchronizers/register?version=${appVersion}&nickname=${SYNCNAME}&registerRegion=${registerRegion}`, {
             perMessageDeflate: false, // this was in the node-datachannel example; not sure if it's helping
         });
 
@@ -453,6 +455,10 @@ async function startServerForDePIN() {
 
             try {
                 const depinMsg = JSON.parse(depinStr);
+                if (typeof depinMsg !== 'object') {
+                    console.warn(`unhandled DePIN message "${depinStr}"`);
+                    return;
+                }
                 switch (depinMsg.what) {
                     case "REGISTERED": {
                         proxyId = depinMsg.proxyId;
@@ -511,11 +517,28 @@ async function startServerForDePIN() {
                         }
                         break;
                     }
-                    default:
-                        console.warn(`unhandled DePIN message "${depinStr}"`);
+                    case 'ERROR':
+                        switch (depinMsg.reason) {
+                            case 'VERSION-INVALID':
+                                console.warn(`DePIN error: invalid version ${depinMsg.details.version}`);
+                                process.exit(1);
+                                break;
+                            case 'VERSION-UNSUPPORTED':
+                                console.warn(`DePIN error: unsupported version ${depinMsg.details.version} (expected ${depinMsg.details.expected})`);
+                                process.exit(1);
+                                break;
+                            default:
+                                console.warn(`Unhandled DePIN error: ${depinMsg.reason}${depinMsg.details ? " " + JSON.stringify(depinMsg.details) : ''}`);
+                        }
                         break;
+                    default:
+                        if (depinMsg.error) {
+                            console.warn(`DePIN registry error: ${depinMsg.error}`);
+                        } else {
+                            console.warn(`unhandled DePIN message "${depinStr}"`);
+                        }
                 }
-             } catch (err) { console.log(`error processing proxy message "${depinStr}"`, err)}
+             } catch (err) { console.error(`error processing proxy message "${depinStr}"`, err)}
         });
 
         proxySocket.on('close', function onClose(code, reasonBuf) {
