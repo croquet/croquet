@@ -1,5 +1,7 @@
 const NEGOTIATION_FAILED_DELAY = 5000; // maximum ms between sending our offer and the data channel being connected.  analogous to the controller's JOIN_FAILED_DELAY, between sending of JOIN and receipt of SYNC.
 
+const FIREFOX = navigator.userAgent.toLowerCase().includes('firefox');
+
 function getRandomString(length) {
     return Math.random()
         .toString(36)
@@ -89,6 +91,7 @@ export class CroquetWebRTCConnection {
             // made, whatever the current connection state.
             const iceTransport = this.pc.sctp.transport.iceTransport;
             iceTransport.onselectedcandidatepairchange = e => {
+                // not supported on Firefox
                 console.log(`${this.clientId} ICE candidate pair changed`);
                 const pair = iceTransport.getSelectedCandidatePair();
                 this.connectionTypes.local = pair.local.type;
@@ -176,7 +179,35 @@ export class CroquetWebRTCConnection {
         }
     }
 
-    logConnectionState() {
+    async logConnectionState() {
+        if (FIREFOX && this.pc) {
+            try {
+                const stats = await this.pc.getStats();
+                if (stats) {
+                    let selectedPairId = null;
+                    for (const stat of stats.values()) {
+                        if (stat.type === "transport") {
+                            selectedPairId = stat.selectedCandidatePairId;
+                            break;
+                        }
+                    }
+                    let candidatePair = stats.get(selectedPairId);
+                    if (!candidatePair) {
+                        for (const stat of stats.values()) {
+                            if (stat.type === "candidate-pair" && stat.selected) {
+                                candidatePair = stat;
+                                break;
+                            }
+                        }
+                    }
+                    if (candidatePair) {
+                        this.connectionTypes.local = stats.get(candidatePair.localCandidateId).candidateType;
+                        this.connectionTypes.remote = stats.get(candidatePair.remoteCandidateId).candidateType;
+                    }
+                }
+            } catch (e) { /* */ }
+        }
+
         const clientType = this.connectionTypes.local || '';
         const syncType = this.connectionTypes.remote || '';
         console.log(`${this.clientId} RTCDataChannel connection state: "${this.dataChannel.readyState}" (client connection="${clientType}"; synchronizer connection="${syncType}")`);
