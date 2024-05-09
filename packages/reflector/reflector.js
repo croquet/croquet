@@ -483,9 +483,14 @@ async function startServerForDePIN() {
                         const session = ALL_SESSIONS.get(sessionId);
                         if (session) {
                             // if we already (i.e., still) have the session, ignore the
-                            // request.  in a few seconds the session-runner will try
-                            // a different synq.
+                            // request but update our session tracker to curtail any
+                            // reconnection attempts from this end.  in a few seconds the
+                            // session-runner will try a different synq.
+                            // $$$ figure out whether an attempt to offload on expiry of
+                            // a reconnection timeout will cause problems at the session
+                            // runner.
                             console.log(`ignoring session dispatch for ${shortSessionId}; already being handled here`);
+                            session.updateTracker.dispatchSeq = dispatchSeq;
                         } else {
                             console.log(`new session dispatch for ${shortSessionId}`);
                             acceptSession(sessionId, dispatchSeq);
@@ -595,6 +600,7 @@ async function startServerForDePIN() {
         registerSession(sessionId);
         const session = ALL_SESSIONS.get(sessionId);
         session.updateTracker = {
+            dispatchSeq: runnerDispatchSeq,
             lastUpdateSeq: 0,   // received from session runner on confirmation of assignment; incremented each time we build an update.
             updatedProps: {},   // values for island properties that have been sent, or at least buffered
             forcedUpdateProps: new Map(),
@@ -628,7 +634,7 @@ async function startServerForDePIN() {
 
                 // reconnection hasn't happened, so offload this session.
                 console.log(`Session ${shortSessionId} reconnection timed out. Offloading.`);
-                session.offload("no session runner");
+                session.offload("no session runner"); // clear the decks, even though we can't contact the session runner
             }, ms);
         }
         declareNoSessionRunnerAfterDelay(SESSION_CONNECT_LIMIT);
@@ -639,6 +645,11 @@ async function startServerForDePIN() {
 
             if (session.stage === 'closed') {
                 console.log(`Session ${shortSessionId} is closed; abandoning scheduled reconnection`);
+                return;
+            }
+
+            if (session.updateTracker.dispatchSeq !== runnerDispatchSeq) {
+                console.log(`Session ${shortSessionId} has been re-dispatched; abandoning scheduled reconnection`);
                 return;
             }
 
@@ -865,6 +876,14 @@ async function startServerForDePIN() {
                             // take the session (for example, if we took too long to connect)
                             console.log(`session runner for ${shortSessionId} rejected our connection`);
                             session.offload("rejected by session runner");
+                            break;
+                        case "ABANDONED":
+                            // session runner has decided that this synchronizer no longer
+                            // deserves to run this session (for example, because of an
+                            // error on session updates).
+                            clearTimeout(sessionContactTimeout);
+                            console.log(`session runner for ${shortSessionId} abandoned this synchronizer`);
+                            session.offload("abandoned by session runner");
                             break;
                         case "CONNECT":
                             // a peer connection isn't set up until the client sends an offer.
