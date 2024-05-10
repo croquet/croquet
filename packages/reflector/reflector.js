@@ -1257,8 +1257,8 @@ async function startServerForDePIN() {
 
     function appStats() {
         return {
-            sessions: ALL_SESSIONS.size,
-            users: ALL_SESSIONS.values().reduce((acc, session) => acc + (session.clients?.size || 0), 0),
+            sessions: ALL_ISLANDS.size,
+            users: server.peerConnections.size,
             bytesOut: TOTALS.OUT + STATS.OUT,
             bytesIn: TOTALS.IN + STATS.IN,
         };
