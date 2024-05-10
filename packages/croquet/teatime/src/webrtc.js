@@ -233,6 +233,12 @@ export class CroquetWebRTCConnection {
     synchronizerDisconnected(code = 1006, reason = 'connection to synchronizer lost') {
         // triggered by a 'close' event from the signalling channel or data
         // channel, or timeout of the ICE negotiation.
+        // in the particular case of a synchronizer-requested closure, we should
+        // have already received a code and reason.
+        if (this.synchronizerCloseReason) {
+            code = this.synchronizerCloseReason[0];
+            reason = this.synchronizerCloseReason[1];
+        }
         this.cleanUpConnection();
         if (this.onclose) this.onclose({ code, reason });
     }
@@ -396,9 +402,15 @@ export class CroquetWebRTCConnection {
         }
 
         const msg = event.data;
-        // special case: if we receive "ping@<time>", immediately return "pong@<time>"
+        // special case: if we receive "!ping@<time>", immediately return "!pong@<time>"
         if (msg.startsWith('!ping')) {
             this.send(msg.replace('ping', 'pong'));
+            return;
+        }
+        // special case: "!close|code|reason" indicates reason for an imminent closure
+        if (msg.startsWith('!close')) {
+            const parts = msg.split('|');
+            this.synchronizerCloseReason = [Number(parts[1]), parts[2]];
             return;
         }
 
