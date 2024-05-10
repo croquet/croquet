@@ -311,7 +311,7 @@ async function startServerForDePIN() {
     // note: API described at https://github.com/murat-dogan/node-datachannel/blob/c8197e28b39fd81f55818c0301995414fa877ff9/API.md
     // also see https://github.com/murat-dogan/node-datachannel/blob/c8197e28b39fd81f55818c0301995414fa877ff9/lib/index.d.ts
     const nodeDataChannel = await import('node-datachannel'); // can't (and in fact don't want to) use static require()
-    nodeDataChannel.initLogger('Warning'); // 'Verbose' | 'Debug' | 'Info' | 'Warning' | 'Error' | 'Fatal';
+    nodeDataChannel.initLogger('Info'); // $$$ 'Warning'); // 'Verbose' | 'Debug' | 'Info' | 'Warning' | 'Error' | 'Fatal';
     nodeDataChannel.preload();
 
     // Signaling connection
