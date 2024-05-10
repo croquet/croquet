@@ -119,23 +119,23 @@ const LATENCY_BUCKETS = [
 
 // collect metrics in Prometheus format
 const prometheusConnectionGauge = new prometheus.Gauge({
-    name: 'synchronizer_connections',
+    name: 'reflector_connections',
     help: 'The number of client connections to the synchronizer.'
 });
 const prometheusSessionGauge = new prometheus.Gauge({
-    name: 'synchronizer_sessions',
+    name: 'reflector_sessions',
     help: 'The number of concurrent sessions on synchronizer.'
 });
 const prometheusMessagesCounter = new prometheus.Counter({
-    name: 'synchronizer_messages',
+    name: 'reflector_messages',
     help: 'The number of messages received.'
 });
 const prometheusTicksCounter = new prometheus.Counter({
-    name: 'synchronizer_ticks',
+    name: 'reflector_ticks',
     help: 'The number of ticks generated.'
 });
 const prometheusLatencyHistogram = new prometheus.Histogram({
-    name: 'synchronizer_latency',
+    name: 'reflector_latency',
     help: 'Latency measurements in milliseconds.',
     buckets: LATENCY_BUCKETS,
 });
@@ -517,7 +517,7 @@ async function startServerForDePIN() {
                                 break;
                             case 'healthz':
                             default:
-                                sendStats('healthz', `Croquet synchronizer-${VERSION}`);
+                                sendStats('healthz', `Multisynq synchronizer-${VERSION}`);
                                 break;
                         }
                         break;
@@ -1255,12 +1255,34 @@ async function startServerForDePIN() {
         return { sessions: sessionStats };
     }
 
+    function appStats() {
+        return {
+            sessions: ALL_SESSIONS.size,
+            users: ALL_SESSIONS.values().reduce((acc, session) => acc + (session.clients?.size || 0), 0),
+            bytesOut: TOTALS.OUT + STATS.OUT,
+            bytesIn: TOTALS.IN + STATS.IN,
+        };
+    }
+
     // listen for messages from Electron
     if (process.parentPort) {
-        process.parentPort.on('message', e => {
+        // receive app-main's synchProcess.postMessage()
+        const electronMain = process.parentPort;
+        electronMain.on('message', e => {
             const msg = e.data;
-            if (msg === 'shutdown') handleTerm(false); // cannot restart
-            else if (msg === 'pingFromMain') process.parentPort.postMessage('pong');
+            switch (msg.what) {
+                case 'shutdown':
+                    handleTerm(false); // cannot restart
+                    break;
+                case 'pingFromMain':
+                    electronMain.postMessage({ what: 'pong' });
+                    break;
+                case 'stats':
+                    electronMain.postMessage({ what: 'stats', value: appStats() });
+                    break;
+                default:
+                    console.log(`unhandled message from app: ${JSON.stringify(e.data)}`);
+            }
         });
     }
 }
@@ -1321,7 +1343,7 @@ async function startServerForWebSockets() {
             headers: req.headers,
         }, `GET ${req.url}`);
         // otherwise, show host and cluster
-        const body = `Croquet synchronizer-${VERSION} ${HOSTIP} ${CLUSTER_LABEL}\n\nAh, ha, ha, ha, stayin' alive!`;
+        const body = `Croquet reflector-${VERSION} ${HOSTIP} ${CLUSTER_LABEL}\n\nAh, ha, ha, ha, stayin' alive!`;
         res.writeHead(200, {
             "Server": SERVER_HEADER,
             "Content-Length": body.length,
@@ -1445,7 +1467,8 @@ const STATS_KEYS = [...STATS_TO_MAX, ...STATS_TO_AVG];
 const STATS = {
     time: Date.now(),
 };
-for (const key of STATS_KEYS) STATS[key] = 0;
+const TOTALS = {};
+for (const key of STATS_KEYS) { STATS[key] = 0; TOTALS[key] = 0 }
 
 function watchStats() {
     setInterval(showStats, 10000);
@@ -1456,24 +1479,37 @@ function watchStats() {
         STATS.time = time;
         STATS.USERS = Math.max(STATS.USERS, server.clients.size);
         const out = [];
-        let sum = 0;
+        let any = 0;
         for (const key of STATS_TO_MAX) {
             out.push(`${key}: ${STATS[key]}`);
-            sum += STATS[key];
+            any |= STATS[key];
         }
         for (const key of STATS_TO_AVG) {
             out.push(`${key}/s: ${Math.round(STATS[key] * 1000 / delta)}`);
-            sum += STATS[key];
+            any |= STATS[key];
         }
-        if (sum === 0) return;
+        if (any === 0) return;
         global_logger.debug({ event: "stats" }, out.join(', '));
+        for (const key of STATS_TO_AVG) TOTALS[key] += STATS[key];
         for (const key of STATS_KEYS) STATS[key] = 0;
     }
 }
 
-function gatherMetricsStats(_options) {
-    // @@ add filtering options
-    return prometheus.register.metrics(); // async
+async function gatherMetricsStats(options) {
+    if (!options) return prometheus.register.metrics(); // all metrics in Prometheus exposition format
+    if (options.metrics) {
+        const selected = options.metrics.map(m => prometheus.register.getSingleMetricAsString(m));
+        const values = await Promise.all(selected);
+        return values.join('');
+    }
+    if (options.regex) {
+        const all = await prometheus.register.metrics();
+        const lines = all.split('\n');
+        const matches = lines.filter(line => options.regex.test(line));
+        return matches.join('\n');
+    }
+    console.error("unhandled metrics options", options);
+    return '';
 }
 
 function gatherSessionsStats(_options) {
