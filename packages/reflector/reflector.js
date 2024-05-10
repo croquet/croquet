@@ -1280,6 +1280,9 @@ async function startServerForDePIN() {
                 case 'stats':
                     electronMain.postMessage({ what: 'stats', value: appStats() });
                     break;
+                case 'debug':
+                    electronMain.postMessage({ what: 'debug', value: gatherSessionsStats() });
+                    break;
                 default:
                     console.log(`unhandled message from app: ${JSON.stringify(e.data)}`);
             }
