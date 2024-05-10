@@ -919,7 +919,8 @@ async function startServerForDePIN() {
                                 case 'candidate':
                                     // the API for PeerConnection doesn't understand empty or null candidate
                                     if (msg.candidate) {
-                                        server.peerConnections.get(globalClientId).addRemoteCandidate(msg.candidate, msg.sdpMid);
+                                        // client might have already been forced to leave.
+                                        server.peerConnections.get(globalClientId)?.addRemoteCandidate(msg.candidate, msg.sdpMid);
                                     }
                                     break;
                                 case 'selectedCandidatePair':
@@ -1088,7 +1089,12 @@ async function startServerForDePIN() {
                         } else client.handleEvent('message', msg);
                     });
                     dataChannel.onError(evt => client.handleEvent('error', evt));
-                    dataChannel.onClosed(_evt => client.handleEvent('close', 1000, "Client data channel closed"));
+                    dataChannel.onClosed(_evt => {
+                        const { localCloseSpec } = client; // if close was requested by synq
+                        const code = localCloseSpec?.[0] || 1000;
+                        const reason = localCloseSpec?.[1] || "Client closed data channel";
+                        client.handleEvent('close', code, reason);
+                    });
                 });
             }
 
@@ -1101,7 +1107,18 @@ async function startServerForDePIN() {
                     dc: dataChannel,
                     isConnected: function () { return this.dc.isOpen() },
                     send: function (data) { this.dc.sendMessage(data) },
-                    close: function (_code, _data) { this.pc.close() },
+                    // all locally requested closures (typically due to error conditions)
+                    // are expected to trigger the client's 'close' event handler.  on
+                    // DePIN, that is achieved by closing the client's dataChannel.
+                    close: function (code, reason) {
+                        // on WebRTC there is no information sent with a close(), so we
+                        // send it ahead of time.
+                        this.localCloseSpec = [code, reason]; // a copy for local logging
+                        try { this.dc.sendMessage(`!close|${code}|${reason}`) }
+                        catch (e) { /* */ }
+                        try { this.dc.close() }
+                        catch (e) { /* */ }
+                    },
                     handlers: {},
                     on: function (eventName, handler) { this.handlers[eventName] = handler },
                     handleEvent: function (eventName, ...args) { this.handlers[eventName](...args) },
@@ -1192,7 +1209,7 @@ async function startServerForDePIN() {
             // invoked from
             // - clientLeft, or
             // - on processing a DISCONNECT for a client that doesn't yet have a dataChannel, or
-            // - on sessionSocketClosed - again, if the client has no dataChannel
+            // - on sessionSocketClosed - again, for clients that have no dataChannel
             const reasonMsg = reason ? ` (${reason})` : "";
             const connectedClient = this.clients.get(compositeId);
             if (connectedClient) {
@@ -1208,7 +1225,7 @@ async function startServerForDePIN() {
             const peerConnection = this.peerConnections.get(compositeId);
             if (peerConnection) {
                 try {
-                    peerConnection.close();
+                    peerConnection.close(); // API suggests destroy(), but that doesn't exist??
                     console.log(`closed peer connection for client ${compositeId}${reasonMsg}`);
                 }
                 catch (e) { /* */ }
@@ -1498,14 +1515,14 @@ async function offloadAllSessions() {
     }
 
     if (promises.length) {
-        // add one more promise that will make the synq hang around for at least
-        // 1000ms to give the sessions time to shut down.
-        promises.push(new Promise(r => { setTimeout(r, 1000) }));
-
         global_logger.warn({
             event: "shutdown",
             sessionCount: promises.length,
         }, `EMERGENCY OFFLOAD OF ${promises.length} SESSION(S)`);
+
+        // add one more promise that will make the synq hang around for at least
+        // 1000ms to give the sessions time to shut down.
+        promises.push(new Promise(r => { setTimeout(r, 1000) }));
 
         await Promise.allSettled(promises);
     }
@@ -2946,7 +2963,8 @@ function setUpClientHandlers(client) {
         // any form of disconnection.
         // when working with WebRTC connections, the object representing a client
         // is only created once the data channel is set up.  we therefore only
-        // trigger this event on closure of that channel.
+        // trigger this event on closure of that channel - whether as a result of
+        // deliberate local closure, or by the client, or due to a network glitch.
         prometheusConnectionGauge.dec();
         const island = client.island || ALL_ISLANDS.get(client.sessionId) || {};
 
@@ -2978,6 +2996,14 @@ function setUpClientHandlers(client) {
                 }, `scheduling client deletion in ${island.leaveDelay} ms`);
                 setTimeout(() => clientLeft(client, "scheduled deletion"), island.leaveDelay);
             }
+        } else if (DEPIN) {
+            // on GCP, a closed client will automatically drop out of server.clients,
+            // so if it has not yet joined an island there will be no lingering record.
+            // not so on DePIN.
+            client.logger.debug({
+                event: "immediate-delete",
+            }, `immediate deletion of non-joined client`);
+            clientLeft(client, "disconnect without joining session");
         }
     });
 
