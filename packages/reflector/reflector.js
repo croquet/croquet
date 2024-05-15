@@ -1261,6 +1261,7 @@ async function startServerForDePIN() {
             users: server.peerConnections.size,
             bytesOut: TOTALS.OUT + STATS.OUT,
             bytesIn: TOTALS.IN + STATS.IN,
+            proxyConnectionState
         };
     }
 
