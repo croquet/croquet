@@ -48,7 +48,7 @@ if (DEPIN) {
 
 const GCP_PROJECT = process.env.GCP_PROJECT; // only set if we're running on Google Cloud
 
-const NO_STORAGE = process.argv.includes(ARGS.NO_STORAGE); // no bucket access (false on DePIN, because the session DO receives state)
+const NO_STORAGE = !!DEPIN || process.argv.includes(ARGS.NO_STORAGE); // no bucket access (false on DePIN, because the session DO receives state)
 const NO_DISPATCHER = NO_STORAGE || process.argv.includes(ARGS.STANDALONE); // no session deregistration
 const APPS_ONLY = !NO_STORAGE && process.argv.includes(ARGS.APPS_ONLY); // no session resume
 const USE_HTTPS = process.argv.includes(ARGS.HTTPS); // serve via https
@@ -57,7 +57,7 @@ const STORE_SESSION = !NO_STORAGE && !APPS_ONLY;
 const STORE_MESSAGE_LOGS = !NO_STORAGE && !APPS_ONLY;
 const STORE_PERSISTENT_DATA = !NO_STORAGE;
 const NO_LOGTIME = process.argv.includes(ARGS.NO_LOGTIME); // don't prepend the time to each log even when running locally
-const PER_MESSAGE_LATENCY = !process.argv.includes(ARGS.NO_LOGLATENCY); // log latency of each message
+const PER_MESSAGE_LATENCY = !DEPIN && !process.argv.includes(ARGS.NO_LOGLATENCY); // log latency of each message
 const TIME_STABILIZED = process.argv.includes(ARGS.TIME_STABILIZED); // watch for jumps in Date.now and use them to rescale performance.now (needed for Docker standalone)
 
 function getRandomString(length) {
@@ -320,7 +320,7 @@ async function startServerForDePIN() {
     const DEPIN_API_DEFAULT = 'wss://api.multisynq.io/depin';
     const DEPIN_API_DEV = 'wss://api.multisynq.dev/depin';
     const DEPIN_API_LOCAL = 'ws://localhost:8787';
-    if (typeof DEPIN !== 'string') DEPIN = process.env.DEPIN || DEPIN_API_DEFAULT;
+    if (typeof DEPIN !== 'string') DEPIN = DEPIN_API_DEFAULT;
     if (DEPIN === 'prod') DEPIN = DEPIN_API_DEFAULT;
     else if (DEPIN === 'dev') DEPIN = DEPIN_API_DEV;
     else if (DEPIN === 'local') DEPIN = DEPIN_API_LOCAL;
