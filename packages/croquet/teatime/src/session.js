@@ -264,11 +264,18 @@ export class Session {
         // now start
         if ("expectedSimFPS" in parameters) expectedSimFPS = Math.min(parameters.expectedSimFPS, MAX_BALANCE_FPS);
         // parameters to be included in the session spec, if specified by app (or defaulted)
-        const SESSION_PARAMS = ['name', 'password', 'apiKey', 'appId', 'tps', 'autoSleep', 'heraldUrl', 'rejoinLimit', 'eventRateLimit', 'optionsFromUrl', 'viewOptions', 'viewIdDebugSuffix', 'hashOverride', 'location', 'flags', 'progressReporter'];
+        const SESSION_PARAMS = ['name', 'password', 'apiKey', 'appId', 'tps', 'autoSleep', 'heraldUrl', 'rejoinLimit', 'eventRateLimit', 'optionsFromUrl', 'persistentIdOptions', 'viewOptions', 'viewIdDebugSuffix', 'hashOverride', 'location', 'flags', 'progressReporter'];
         freezeAndHashConstants();
         const controller = new Controller();
         // make sure options are JSONable
         const options = JSON.parse(JSON.stringify({...parameters.options}));
+        // make sure persistentIdOptions are keys in options
+        if (parameters.persistentIdOptions) {
+            if (!Array.isArray(parameters.persistentIdOptions)) throw Error("persistentIdOptions must be an array");
+            for (const key of parameters.persistentIdOptions) {
+                if (!(key in options)) throw Error(`persistentIdOptions key "${key}" not found in options`);
+            }
+        }
         /** our return value */
         const session = {
             id: '',

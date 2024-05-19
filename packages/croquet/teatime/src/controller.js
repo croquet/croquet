@@ -402,25 +402,30 @@ export default class Controller {
      */
     async initFromSessionSpec(sessionSpec) {
         // If we add more options here, add them to SESSION_PARAMS in session.js
-        const { name: n, optionsFromUrl, password, appId, apiKey, viewIdDebugSuffix } = sessionSpec;
+        const { name: n, optionsFromUrl, persistentIdOptions, password, appId, apiKey, viewIdDebugSuffix } = sessionSpec;
         const name = appId ? `${appId}/${n}` : n;
+        this.key = PBKDF2(password, "", { keySize: 256/32 });
         if (viewIdDebugSuffix) this.viewId = this.viewId.replace(/_.*$/, "") + '_' + encodeURIComponent(("" + viewIdDebugSuffix).slice(0, 16))
             .replace(/[^a-z0-9]/ig, c => `_${c === '%' ? "" : c.charCodeAt(0).toString(16).toUpperCase()}`); // ensure only a-z0-9_ in suffix
-        // root model options are only those explicitly requested by app
+        // root model options are only those explicitly requested by app, plus url options
         const options = {...sessionSpec.options};
         if (optionsFromUrl) for (const key of optionsFromUrl) {
             if (key in urlOptions) options[key] = urlOptions[key];
         }
-        // gather additional properties that are hashed as part of deriving session ID
-        const params = {};
-        for (const key of [ "hashOverride" ]) {
-            if (key in urlOptions) params[key] = urlOptions[key];
-            else if (key in sessionSpec) params[key] = sessionSpec[key];
+        // persistent params are those options affecting the persistent ID
+        // other options are hashed as part of deriving session ID
+        const persistentParams = {}; // affecting persistent ID
+        const sessionParams = {};    // only affecting session ID
+        for (const [key, option] of Object.entries(options)) {
+            if (persistentIdOptions?.includes(key)) persistentParams[key] = option;
+            else sessionParams[key] = option;
         }
-        this.key = PBKDF2(password, "", { keySize: 256/32 });
-        const persistentId = await hashNameAndOptions(name, options);
+        // allow overriding vershionId (for testing / reviving old sessions)
+        sessionParams.hashOverride = urlOptions.hashOverride || sessionSpec.hashOverride;
+        // now do the hashing, separately for persistent and session IDs`
+        const persistentId = await hashNameAndOptions(name, persistentParams);
         const { developerId, token } = await this.verifyApiKey(apiKey, appId, persistentId);
-        const { id, codeHash, computedCodeHash } = await hashSessionAndCode(persistentId, developerId, params, CROQUET_VERSION);
+        const { id, codeHash, computedCodeHash } = await hashSessionAndCode(persistentId, developerId, sessionParams, CROQUET_VERSION);
         this.tove = await this.encrypt(id);
         if (DEBUG.session) console.log(`Croquet session "${name}":
         sessionId=${id}${appId ? `
