@@ -1288,11 +1288,13 @@ export default class Controller {
                     Promise.resolve().then(() => this.stepSession("fastForward", { budget: MAX_SIMULATION_MS })); // immediate but not in the message handler
                     });
                 delete this.fastForwardHandler;
-                if (success && DEBUG.session) console.log(this.id, `fast-forwarded to ${Math.round(this.vm.time)}`);
-                if (success && this.vm.diverged) App.showMessage("Croquet: session had diverged", { level: "warning", only: "once" });
-                // iff fast-forward was successful, trigger return from establishSession().
-                // otherwise, in due course we'll reconnect and try again.  it can keep waiting.
-                if (success) this.sessionSpec.sessionJoined();
+                if (success) {
+                    if (DEBUG.session) console.log(this.id, `fast-forwarded to ${Math.round(this.vm.time)}`);
+                    if (this.vm.diverged) App.showMessage("Croquet: session had diverged", { level: "warning", only: "once" });
+                    // iff fast-forward was successful, trigger return from establishSession().
+                    // otherwise, in due course we'll reconnect and try again.  it can keep waiting.
+                    this.sessionSpec.sessionJoined();
+                }
                 return;
             }
             case 'RECV': {
@@ -1330,8 +1332,9 @@ export default class Controller {
                 if (!this.vm) return; // ignore ticks before we are simulating (this also catches any ticks received during reboot)
                 const time = (typeof args === "number") ? args : args.time;
                 if (DEBUG.ticks) {
-                    const expected = prevReceived && this.lastReceived - prevReceived - this.msPerTick * this.tickMultiplier | 0;
-                    console.log(this.id, `Controller received TICK ${time} ${Math.abs(expected) < 5 ? "on time" : expected < 0 ? "early" : "late"} (${expected} ms)`);
+                    const jitter = prevReceived && this.lastReceived - prevReceived - this.msPerTick * this.tickMultiplier | 0;
+                    const delta = time - this.vm.time;
+                    console.log(this.id, `received TICK ${time} ${Math.abs(jitter) < 5 ? "on time" : jitter < 0 ? "early" : "late"} (${delta} ms, jitter ${jitter>0?'+':''}${jitter} ms)`);
                 }
                 this.timeFromReflector(time, "reflector");
                 if (this.tickMultiplier > 1) this.multiplyTick(time);
@@ -1908,7 +1911,7 @@ export default class Controller {
         if (!this.vm) return true;     // we are probably still sync-ing
         try {
             let weHaveTime = true;
-            const nothingToDo = this.networkQueue.length + this.vm.messages.size === 0;
+            const nothingToDo = (this.networkQueue.length + this.vm.messages.size) === 0;
             if (nothingToDo) {
                 // only advance time, do not accumulate any cpuTime
                 weHaveTime = this.vm.advanceTo(this.reflectorTime, deadline);

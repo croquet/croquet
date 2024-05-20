@@ -622,6 +622,7 @@ export default class VirtualMachine {
             // if external message, check seq so we don't miss any
             if (seq & 1) {
                 this.seq = (this.seq + 1) >>> 0;  // uint32 rollover
+                // use seq/2 instead of seq >>> 1 because message.seq has 33 bits
                 if ((seq/2) >>> 0 !== this.seq) throw Error(`Sequence error: expected ${this.seq} got ${(seq/2) >>> 0} in ${message}`);
             }
             // drop first message in message queue
@@ -1122,7 +1123,9 @@ export class Message {
     set internalSeq(seq) { this.seq = seq * 2; }
 
     asState() {
-        // controller relies on this being a 3-element array
+        // controller relies on this being a 3-element array,
+        // the first two elements being numbers
+        // and the third being a string which will be encrypted
         return [this.time, this.seq, encode(this.receiver, this.selector, this.args)];
     }
 
@@ -1447,6 +1450,9 @@ class VMWriter {
             this.writeInto(state, key, value, `vm.${key}`);
         }
         this.writeDeferred();
+
+        delete state.controller; // remove undefined
+        delete state.subscribers; // remove undefined
         return state;
     }
 
