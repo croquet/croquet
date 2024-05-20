@@ -6,16 +6,22 @@ module.exports = {
     entry : './rapier-test.js',
     output: {
         path: path.join(__dirname, 'dist'),
-        filename: 'index.js'
+        filename: 'index.js',
+        clean: true,
+    },
+    experiments: {
+        asyncWebAssembly: true,
+    },
+    resolve: {
+        fallback: { "crypto": false }
     },
     devServer: {
-        contentBase: path.join(__dirname, 'dist'),
-        port: 1234
+        port: 3333,
     },
     plugins: [
         new HtmlWebPackPlugin({
             template: 'rapier-test.html',   // input
-            filename: 'index.html'          // output filename in dist/
+            filename: 'index.html',         // output filename in dist/
         }),
     ]
 };

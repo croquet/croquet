@@ -4,19 +4,19 @@
   "description": "Rapier physics test in Croquet",
   "main": "rapier-test.js",
   "scripts": {
-    "start": "webpack-dev-server --mode development --devtool source-map --watch",
-    "build": "webpack --mode production"
+    "start": "webpack serve --mode development --devtool source-map",
+    "build": "webpack build --mode production"
   },
   "author": "Croquet Corp",
-  "license": "ISC",
+  "license": "Apache-2.0",
   "dependencies": {
-    "@croquet/croquet": "file:../libraries/packages/croquet",
-    "@dimforge/rapier3d": "^0.1.5"
+    "@croquet/croquet": "^2.0.0-4",
+    "@dimforge/rapier2d": "^0.13.1"
   },
   "devDependencies": {
-    "html-webpack-plugin": "^4.3.0",
-    "webpack": "^4.44.1",
-    "webpack-cli": "^3.3.12",
-    "webpack-dev-server": "^3.11.0"
+    "html-webpack-plugin": "^5.6.0",
+    "webpack": "^5.91.0",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^5.0.4"
   }
 }
