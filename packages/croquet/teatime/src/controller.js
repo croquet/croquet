@@ -2335,8 +2335,9 @@ class Connection {
             // the "socket" is a home-grown class that connects by WebSocket
             // to a manager to negotiate a WebRTC data-channel connection
             // to a reflector.
+            const synchRequest = 'synchronizer' in urlOptions ? `&synchName=${urlOptions.synchronizer}` : '';
             const sessionId = this.id;
-            socket = new CroquetWebRTCConnection(`${DEPIN_API}/clients/connect?session=${sessionId}`);
+            socket = new CroquetWebRTCConnection(`${DEPIN_API}/clients/connect?session=${sessionId}${synchRequest}`);
             socket.onconnected = connectionIsReady; // see below
         } else {
             let reflectorBase = this.controller.getBackend(this.controller.sessionSpec.apiKey).reflector;
