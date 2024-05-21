@@ -9,6 +9,8 @@ function getRandomString(length) {
 }
 
 export class CroquetWebRTCConnection {
+    static get name() { return 'CroquetWebRTCConnection'; }
+
     constructor(registryURL) {
         this.clientId = getRandomString(4); // used only locally, to tag console messages for debug purposes
         console.log(`${this.clientId} WebRTCConnection created`);
