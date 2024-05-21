@@ -330,8 +330,9 @@ async function startServerForDePIN() {
     DEPIN = DEPIN.replace(/^http(s):/, 'ws$1:');
     if (!DEPIN.startsWith('ws')) DEPIN = 'ws://' + DEPIN;
 
-    const PROXY_STATUS_DELAY = 10000;
-    const PROXY_PING_DELAY = 10000; // keep life simple for now
+    const PROXY_STATUS_DELAY = 10000; // update this often when running sessions
+    const PROXY_PING_DELAY = 10000; // simple PINGs are handled by auto-response
+    const PROXY_KEEP_ALIVE_DELAY = 28000; // chosen so that when not running sessions, every 3rd PING is replaced by ALIVE
     const PROXY_ACK_DELAY_LIMIT = 2000; // after this, go into RECONNECTING
     const PROXY_INTERRUPTION_LIMIT = 30000; // after this, UNAVAILABLE
     const PROXY_RECONNECT_DELAY_MAX = 30000;
@@ -344,7 +345,7 @@ async function startServerForDePIN() {
         proxyConnectionState = state;
     };
     let proxyWasToldWeHaveSessions;
-    let lastProxyStatusSent = Date.now();
+    let lastNonPingSent = Date.now();
     let proxyReconnectDelay = 0;
     let synchronizerUnavailableTimeout; // on synchronizer startup, and after any disconnection from the proxy, deadline for successful registration to avoid declaring this synchronizer unavailable and offloading any remaining sessions.  attempts to reconnect to the proxy will continue.
 
@@ -367,7 +368,7 @@ async function startServerForDePIN() {
 
     // set up a timeout to mark ourselves as UNAVAILABLE if connection/reconnection attempts remain unsuccessful for a total of PROXY_INTERRUPTION_LIMIT (currently 30s).
     // timeout is cleared on successful receipt of a REGISTERED message.
-    // @@ the UNAVAILABLE state must appear prominently in the app dashboard.
+    // the UNAVAILABLE state will appear prominently in the app dashboard.
     function declareUnavailableAfterDelay(ms) {
         if (synchronizerUnavailableTimeout) clearTimeout(synchronizerUnavailableTimeout);
 
@@ -395,14 +396,20 @@ async function startServerForDePIN() {
 
             const isHandlingSessions = ALL_SESSIONS.size > 0; // whether active or not
             // if we aren't now but were before, send one last update with the zero sessions
+            const now = Date.now();
+            const timeSinceLastNonPing = now - lastNonPingSent;
             if (isHandlingSessions || proxyWasToldWeHaveSessions) {
-                const now = Date.now();
-                const statsAggregationSeconds = Math.max(1, (now - lastProxyStatusSent) / 1000);
+                const statsAggregationSeconds = Math.max(1, timeSinceLastNonPing / 1000);
                 sendToProxy({ what: 'STATUS', status: statusForProxy(statsAggregationSeconds) });
-                lastProxyStatusSent = now;
+                lastNonPingSent = now;
                 contactProxyAfterDelay(PROXY_STATUS_DELAY);
             } else {
-                sendToProxy({ what: 'PING' }); // proxy looks for exactly the string '{"what":"PING"}'
+                if (timeSinceLastNonPing > PROXY_KEEP_ALIVE_DELAY) {
+                    sendToProxy({ what: 'ALIVE' }); // wake up the DO and say we're alive
+                    lastNonPingSent = now;
+                } else {
+                    sendToProxy({ what: 'PING' }); // proxy looks for exactly the string '{"what":"PING"}'
+                }
                 contactProxyAfterDelay(PROXY_PING_DELAY);
             }
             proxyWasToldWeHaveSessions = isHandlingSessions;
