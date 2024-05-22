@@ -4,9 +4,9 @@
 // when running in browser, 'ws' is our own './ws.js'
 // (in-browser mode is not supported right now)
 
-const os = require('os');
-const fs = require('fs');
-const { performance } = require("perf_hooks");
+const os = require('node:os');
+const fs = require('node:fs');
+const { performance } = require('node:perf_hooks');
 const WebSocket = require('ws');
 const prometheus = require('prom-client');
 const jwt = require('jsonwebtoken');
