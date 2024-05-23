@@ -1,5 +1,7 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable object-shorthand */
 /* eslint-disable prefer-arrow-callback */
+
 // when running on node, 'ws' is the actual web socket module
 // when running in browser, 'ws' is our own './ws.js'
 // (in-browser mode is not supported right now)
@@ -310,6 +312,8 @@ async function startServerForDePIN() {
 
     // note: API described at https://github.com/murat-dogan/node-datachannel/blob/c8197e28b39fd81f55818c0301995414fa877ff9/API.md
     // also see https://github.com/murat-dogan/node-datachannel/blob/c8197e28b39fd81f55818c0301995414fa877ff9/lib/index.d.ts
+
+    // eslint-disable-next-line import/no-unresolved
     const nodeDataChannel = await import('node-datachannel'); // can't (and in fact don't want to) use static require()
     nodeDataChannel.initLogger('Warning'); // 'Verbose' | 'Debug' | 'Info' | 'Warning' | 'Error' | 'Fatal';
     nodeDataChannel.preload();
