@@ -467,6 +467,7 @@ export default class Controller {
         this.checkForConnection(false); // ensure connected unless we're blocked (e.g., in dormant state)
         if (DEBUG.session) console.log(id, "waiting for join and SYNC");
         await joined; // resolved in SYNC after installing the vm and replaying any messages
+        this.sessionSpec.sessionJoined = () => {};
         this.syncCompleted = true;
     }
 
@@ -1219,7 +1220,7 @@ export default class Controller {
                 // if we were rejoining, then our work is done here: we got all the missing messages (and no need to report join progress)
                 if (rejoining) {
                     if (DEBUG.session) console.log(this.id, "seamless rejoin successful");
-                    this.sessionSpec.sessionJoined();
+                    this.syncCompleted = true;
                     return;
                 }
                 this.timeline = timeline || ""; // stored only on initial connection
