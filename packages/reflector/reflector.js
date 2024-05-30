@@ -1322,6 +1322,12 @@ async function startServerForDePIN() {
                 case 'debug':
                     electronMain.postMessage({ what: 'debug', value: gatherSessionsStats() });
                     break;
+                case 'userObj':
+                    // if it is a string, make it an object
+                    const tmpObj = (typeof msg.userObj === 'string') ? JSON.parse(msg.userObj) : msg.userObj;
+                    tmpObj.hostIp = HOSTIP;
+                    electronMain.postMessage({ what: 'userObj', value: JSON.stringify(tmpObj) });
+                    break;
                 default:
                     console.log(`unhandled message from app: ${JSON.stringify(e.data)}`);
             }
