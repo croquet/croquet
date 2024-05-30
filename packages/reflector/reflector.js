@@ -480,6 +480,10 @@ async function startServerForDePIN() {
                         // be sure to cancel any timeout that would take us to UNAVAILABLE
                         clearTimeout(synchronizerUnavailableTimeout);
                         contactProxy(); // immediately PING
+                        
+                        const electronMain = process.parentPort;
+                        electronMain?.postMessage({ what: 'ipAddress', value: depinMsg.ip });
+
                         break;
                     }
                     case "SESSION": {
@@ -1322,11 +1326,8 @@ async function startServerForDePIN() {
                 case 'debug':
                     electronMain.postMessage({ what: 'debug', value: gatherSessionsStats() });
                     break;
-                case 'userObj':
-                    // if it is a string, make it an object
-                    const tmpObj = (typeof msg.userObj === 'string') ? JSON.parse(msg.userObj) : msg.userObj;
-                    tmpObj.hostIp = HOSTIP;
-                    electronMain.postMessage({ what: 'userObj', value: JSON.stringify(tmpObj) });
+                case 'userDetails':
+                    electronMain.postMessage({ what: 'userDetails', value: msg.userDetails });
                     break;
                 default:
                     console.log(`unhandled message from app: ${JSON.stringify(e.data)}`);
