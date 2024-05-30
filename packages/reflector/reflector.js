@@ -76,12 +76,6 @@ if (process.argv.includes(ARGS.SYNCNAME)) {
 }
 if (!SYNCNAME) SYNCNAME = getRandomString(8);
 
-// do not show pre 1.0 warning if these strings appear in session name or url
-const SPECIAL_CUSTOMERS = [
-    "queue",
-    "mathgenie",
-];
-
 // debugging (should read env vars)
 const collectRawSocketStats = false;
 
@@ -1823,6 +1817,12 @@ async function JOIN(client, args) {
     if (appId && name[appId.length] === '/' && name.startsWith(appId)) name = name.slice(appId.length + 1);
     const unverifiedDeveloperId = args.developerId;
 
+    if (apiKey === undefined) {
+        client.logger.info({ event: "reject-join", connectedFor }, "rejecting JOIN; apiKey is undefined");
+        client.safeClose(...REASON.BAD_APIKEY);
+        return;
+    }
+
     const flags = {};
     // set flags only for the features this synchronizer can support
     if (args.flags) ['rawtime', 'microverse'].forEach(flag => { if (args.flags[flag]) flags[flag] = true; });
@@ -1900,27 +1900,17 @@ async function JOIN(client, args) {
     }
 
     // check API key
-    if (apiKey === undefined) {
-        // old client: accept for now, but let them know. Unless they're special.
-        const specialCustomer = SPECIAL_CUSTOMERS.find(value => url.includes(value) || appIdAndName.includes(value));
-        if (!specialCustomer) INFO(island, {
-            code: "MISSING_KEY",
-            msg: "Croquet versions before 1.0 will stop being supported soon. Please update your app now! croquet.io/docs/croquet",
-            options: { level: "warning", only: "once" }
-        }, [client]);
+    island.apiKey = apiKey;
+    // if there is no valid token, we check the API key ourselves
+    if (validToken) {
+        island.developerId = validToken.developerId;
+        if (validToken.region && island.region === "default") island.region = validToken.region;
     } else {
-        island.apiKey = apiKey;
-        // if there is no valid token, we check the API key ourselves
-        if (validToken) {
-            island.developerId = validToken.developerId;
-            if (validToken.region && island.region === "default") island.region = validToken.region;
-        } else {
-            // will disconnect everyone with error if failed (await could throw an exception)
-            const apiResponse = await verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client, unverifiedDeveloperId);
-            if (!apiResponse) return;
-            island.developerId = apiResponse.developerId;
-            if (apiResponse.region && island.region === "default") island.region = apiResponse.region;
-        }
+        // will disconnect everyone with error if failed (await could throw an exception)
+        const apiResponse = await verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client, unverifiedDeveloperId);
+        if (!apiResponse) return;
+        island.developerId = apiResponse.developerId;
+        if (apiResponse.region && island.region === "default") island.region = apiResponse.region;
     }
 
     if (user) {
