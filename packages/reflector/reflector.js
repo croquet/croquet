@@ -482,6 +482,7 @@ async function startServerForDePIN() {
                         contactProxy(); // immediately PING
                         
                         const electronMain = process.parentPort;
+                        // console.log(`"REGISTERED" message:`, JSON.stringify(depinMsg))
                         electronMain?.postMessage({ what: 'ipAddress', value: depinMsg.ip });
 
                         break;
