@@ -32,13 +32,25 @@ const ARGS = {
     SYNCNAME: "--sync-name", // followed by a name, e.g. --sync-name MyBigMac:fedc
 };
 
-// @@ for now, be optimistic that the args are being used properly
-// for (const arg of process.argv.slice(2)) {
-//     if (!Object.values(ARGS).includes(arg)) {
-//         console.error(`Error: Unrecognized option ${arg}`);
-//         process.exit(1);
-//     }
-// }
+const EXIT = {
+    NORMAL: 0,         // a planned shutdown
+    FATAL: 1,          // something unrecoverable (including syntax error in this file)
+    SHOULD_RESTART: 2, // emergency shutdown; DePIN app can try to restart
+    NEEDS_UPDATE: 3,   // DePIN registry rejected our registration
+};
+
+const knownArgs = Object.values(ARGS);
+for (let i = 2; i < process.argv.length; i++) {
+    const arg = process.argv[i];
+    if (!knownArgs.includes(arg)) {
+        // might be following an arg that can take a value
+        const prevArg = process.argv[i - 1];
+        if (prevArg !== ARGS.DEPIN && prevArg !== ARGS.SYNCNAME) {
+            console.error(`Error: Unrecognized option ${arg}`);
+            process.exit(EXIT.FATAL);
+        }
+    }
+}
 
 let DEPIN = process.argv.includes(ARGS.DEPIN);
 if (DEPIN) {
@@ -47,20 +59,6 @@ if (DEPIN) {
         DEPIN = depinArg;
     }
 }
-
-const GCP_PROJECT = process.env.GCP_PROJECT; // only set if we're running on Google Cloud
-
-const NO_STORAGE = !!DEPIN || process.argv.includes(ARGS.NO_STORAGE); // no bucket access (false on DePIN, because the session DO receives state)
-const NO_DISPATCHER = NO_STORAGE || process.argv.includes(ARGS.STANDALONE); // no session deregistration
-const APPS_ONLY = !NO_STORAGE && process.argv.includes(ARGS.APPS_ONLY); // no session resume
-const USE_HTTPS = process.argv.includes(ARGS.HTTPS); // serve via https
-const VERIFY_TOKEN = GCP_PROJECT && !process.argv.includes(ARGS.STANDALONE);
-const STORE_SESSION = !NO_STORAGE && !APPS_ONLY;
-const STORE_MESSAGE_LOGS = !NO_STORAGE && !APPS_ONLY;
-const STORE_PERSISTENT_DATA = !NO_STORAGE;
-const NO_LOGTIME = process.argv.includes(ARGS.NO_LOGTIME); // don't prepend the time to each log even when running locally
-const PER_MESSAGE_LATENCY = !DEPIN && !process.argv.includes(ARGS.NO_LOGLATENCY); // log latency of each message
-const TIME_STABILIZED = process.argv.includes(ARGS.TIME_STABILIZED); // watch for jumps in Date.now and use them to rescale performance.now (needed for Docker standalone)
 
 function getRandomString(length) {
     return Math.random()
@@ -75,6 +73,20 @@ if (process.argv.includes(ARGS.SYNCNAME)) {
     }
 }
 if (!SYNCNAME) SYNCNAME = getRandomString(8);
+
+const GCP_PROJECT = process.env.GCP_PROJECT; // only set if we're running on Google Cloud
+
+const NO_STORAGE = !!DEPIN || process.argv.includes(ARGS.NO_STORAGE); // no bucket access (false on DePIN, because the session DO receives state)
+const NO_DISPATCHER = NO_STORAGE || process.argv.includes(ARGS.STANDALONE); // no session deregistration
+const APPS_ONLY = !NO_STORAGE && process.argv.includes(ARGS.APPS_ONLY); // no session resume
+const USE_HTTPS = process.argv.includes(ARGS.HTTPS); // serve via https
+const VERIFY_TOKEN = GCP_PROJECT && !process.argv.includes(ARGS.STANDALONE);
+const STORE_SESSION = !NO_STORAGE && !APPS_ONLY;
+const STORE_MESSAGE_LOGS = !NO_STORAGE && !APPS_ONLY;
+const STORE_PERSISTENT_DATA = !NO_STORAGE;
+const NO_LOGTIME = process.argv.includes(ARGS.NO_LOGTIME); // don't prepend the time to each log even when running locally
+const PER_MESSAGE_LATENCY = !DEPIN && !process.argv.includes(ARGS.NO_LOGLATENCY); // log latency of each message
+const TIME_STABILIZED = process.argv.includes(ARGS.TIME_STABILIZED); // watch for jumps in Date.now and use them to rescale performance.now (needed for Docker standalone)
 
 // debugging (should read env vars)
 const collectRawSocketStats = false;
@@ -164,12 +176,11 @@ const CLUSTER_LABEL = process.env.CLUSTER_LABEL || CLUSTER;
 const CLUSTER_IS_LOCAL = CLUSTER.startsWith("local");
 const HOSTNAME = os.hostname();
 const HOSTIP = CLUSTER_IS_LOCAL ? "localhost" : Object.values(os.networkInterfaces()).flat().filter(addr => !addr.internal && addr.family === 'IPv4')[0].address;
-const IS_DEV = CLUSTER_IS_LOCAL || HOSTNAME.includes("-dev-");
+// const IS_DEV = CLUSTER_IS_LOCAL || HOSTNAME.includes("-dev-");
 
 if (!CLUSTER) {
-    // should have been injected to container via config map
     console.error("FATAL: no CLUSTER_NAME env var");
-    process.exit(1);
+    process.exit(EXIT.FATAL);
 }
 
 const DISCONNECT_UNRESPONSIVE_CLIENTS = !CLUSTER_IS_LOCAL;
@@ -258,7 +269,6 @@ REASON.BAD_APIKEY = [4103, "bad apiKey"];
 REASON.UNKNOWN_ERROR = [4109, "unknown error"];
 REASON.DORMANT = [4110, "dormant"]; // sent by client, will not display error
 REASON.NO_JOIN = [4121, "client never joined"];
-
 
 let server;
 let sendToDepinProxy;
@@ -538,11 +548,11 @@ async function startServerForDePIN() {
                         switch (depinMsg.reason) {
                             case 'VERSION-INVALID':
                                 console.warn(`DePIN error: invalid version ${depinMsg.details.version}`);
-                                process.exit(1);
+                                process.exit(EXIT.NEEDS_UPDATE);
                                 break;
                             case 'VERSION-UNSUPPORTED':
                                 console.warn(`DePIN error: unsupported version ${depinMsg.details.version} (expected ${depinMsg.details.expected})`);
-                                process.exit(1);
+                                process.exit(EXIT.NEEDS_UPDATE);
                                 break;
                             default:
                                 console.warn(`Unhandled DePIN error: ${depinMsg.reason}${depinMsg.details ? " " + JSON.stringify(depinMsg.details) : ''}`);
@@ -1625,7 +1635,7 @@ function handleTerm(canRestartOnDepin = true) {
 
         offloadAllSessions().then(() => {
             global_logger.notice({ event: "end" }, "synchronizer shutdown");
-            process.exit((DEPIN && canRestartOnDepin) ? 2 : 0); // 0 represents a planned exit
+            process.exit((DEPIN && canRestartOnDepin) ? EXIT.SHOULD_RESTART : EXIT.NORMAL);
         });
     }
 }
@@ -3281,7 +3291,7 @@ async function fetchSecret() {
         secret = version[0].payload.data;
     } catch (err) {
         global_logger.error({event: "fetch-secret-failed", err}, `failed to fetch secret: ${err.message}`);
-        process.exit(1);
+        process.exit(EXIT.FATAL);
     }
     return secret;
 }
