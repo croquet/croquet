@@ -480,7 +480,9 @@ async function startServerForDePIN() {
                         // be sure to cancel any timeout that would take us to UNAVAILABLE
                         clearTimeout(synchronizerUnavailableTimeout);
                         contactProxy(); // immediately PING
-                        
+
+                        // if there is a connected parent process (assumed to be Electron),
+                        // tell it our ip address
                         const electronMain = process.parentPort;
                         // console.log(`"REGISTERED" message:`, JSON.stringify(depinMsg))
                         electronMain?.postMessage({ what: 'ipAddress', value: depinMsg.ip });
