@@ -1,6 +1,6 @@
 const NEGOTIATION_FAILED_DELAY = 5000; // maximum ms between sending our offer and the data channel being connected.  analogous to the controller's JOIN_FAILED_DELAY, between sending of JOIN and receipt of SYNC.
 
-const FIREFOX = navigator.userAgent.toLowerCase().includes('firefox');
+const FIREFOX = !!globalThis.navigator?.userAgent.toLowerCase().includes('firefox');
 
 function getRandomString(length) {
     return Math.random()
