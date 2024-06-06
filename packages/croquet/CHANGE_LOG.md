@@ -4,6 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest @dev
 
+* 2.0.0-7 protect node from access to global navigator
 * 2.0.0-6 fix recently introduced bug in seamless rejoin
 * 2.0.0-5 "synchronizer" url option
 * 2.0.0-4 more consistent url options; fix to buffering during reconnection; closure codes on webrtc
