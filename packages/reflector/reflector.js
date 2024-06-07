@@ -631,7 +631,17 @@ async function startServerForDePIN() {
             updateBuffer: []    // queue of updates that we want to send.  an update stays in the queue (at the front) until the DO acknowledges receipt.
         };
         session.depinStats = {
-            bytesSent: 0
+            joins: 0,       // in this reporting period
+            totalJoins: 0,  // since this synq picked up the session
+            messagesIn: 0,
+            totalMessagesIn: 0,
+            bytesIn: 0,
+            totalBytesIn: 0,
+            bytesOut: 0,
+            totalBytesOut: 0,
+            runner: {
+                latency: { min: null, max: null, count: 0, sum: 0 }
+            }
         };
         session.offload = reason => {
             session.stage = 'offloading'; // only on DePIN
@@ -708,8 +718,6 @@ async function startServerForDePIN() {
             //         - else: send PING
             //   - else (not free to send update): if over 1000ms since last send, send PING
             let lastSendTime = 0; // last time we sent a SESSION_UPDATE or PING
-            const roundTripTimes = []; // history delays in receiving acknowledgement
-            let lastRoundTripReport = Date.now(); // last time we reported round trips
             let sessionUpdateTimeout;
             let sessionContactTimeout;
 
@@ -949,11 +957,15 @@ async function startServerForDePIN() {
                             }
                             // console.log(`session message from client ${globalClientId}: ${msg.type} ${JSON.stringify({ msg, type: undefined })}`);
                             switch (msg.type) {
-                                case 'offer':
-                                    // supposedly always the first message through
-                                    createPeerConnection(clientId, globalClientId, sessionId, sessionSocket);
-                                    server.peerConnections.get(globalClientId).setRemoteDescription(msg.sdp, msg.type);
+                                case 'offer': {
+                                    // supposedly always the first message through.
+                                    // @@ for now, every ICE negotiation message includes
+                                    // the client's ip address
+                                    const peerConnection = createPeerConnection(clientId, globalClientId, sessionId, sessionSocket);
+                                    peerConnection.mq_clientIp = depinMsg.ip;
+                                    peerConnection.setRemoteDescription(msg.sdp, msg.type);
                                     break;
+                                }
                                 case 'candidate':
                                     // the API for PeerConnection doesn't understand empty or null candidate
                                     if (msg.candidate) {
@@ -961,9 +973,20 @@ async function startServerForDePIN() {
                                         server.peerConnections.get(globalClientId)?.addRemoteCandidate(msg.candidate, msg.sdpMid);
                                     }
                                     break;
-                                case 'selectedCandidatePair':
-                                    console.log(`client ${globalClientId} connection: client=${msg.clientType}, sync=${msg.syncType}`);
+                                case 'selectedCandidatePair': {
+                                    const connectionType = { c: msg.clientType, s: msg.syncType };
+                                    console.log(`client ${globalClientId} connection: client=${connectionType.c}, sync=${connectionType.s}`);
+                                    // if the client already exists, update it.  otherwise
+                                    // update the peerConnection, and the client will copy
+                                    // from there when it is initialised.
+                                    const client = server.clients.get(globalClientId);
+                                    if (client) client.meta.connectionType = connectionType;
+                                    else {
+                                        const peerConnection = server.peerConnections.get(globalClientId);
+                                        if (peerConnection) peerConnection.mq_connectionType = connectionType;
+                                    }
                                     break;
+                                }
                                 default:
                                     console.warn(`unhandled session message type ${msg.type}`);
                                     break;
@@ -1115,9 +1138,8 @@ async function startServerForDePIN() {
                 });
                 peerConnection.onDataChannel(dataChannel => {
                     const label = dataChannel.getLabel();
-                    console.log(`dataChannel from ${globalClientId} with label "${label}" and protocol "${dataChannel.getProtocol()}"`);
-                    const client = createClient(peerConnection, dataChannel);
-                    client.globalId = client.meta.id = globalClientId;
+                    console.log(`dataChannel from ${globalClientId} at ${peerConnection.mq_clientIp} with label "${label}" `);
+                    const client = createClient(globalClientId, peerConnection, dataChannel);
                     client.meta.label = label;
                     server.clients.set(globalClientId, client);
                     setUpClientHandlers(client); // adds 'message', 'close', 'error'
@@ -1136,13 +1158,15 @@ async function startServerForDePIN() {
                         client.handleEvent('close', code, reason);
                     });
                 });
+                return peerConnection;
             }
 
-            function createClient(peerConnection, dataChannel) {
+            function createClient(globalClientId, peerConnection, dataChannel) {
                 // a client object that has the needed DePIN-supporting properties, and
                 // can also work with legacy synchronizer code that expects a client to be
                 // a socket.
                 return {
+                    globalId: globalClientId,
                     pc: peerConnection,
                     dc: dataChannel,
                     isConnected: function () { return this.dc.isOpen() },
@@ -1169,32 +1193,24 @@ async function startServerForDePIN() {
                     since: Date.now(),
                     bufferedAmount: 0, // dummy value, used in stats collection
                     meta: {
+                        shortId: globalClientId.split(':')[1], // messy, but silly not to
+                        // label: added by caller
                         scope: "connection",
                         connection: null,
                         dispatcher: null,
-                        userIp: "unknown-ip",
+                        userIp: peerConnection.mq_clientIp,
+                        connectionType: peerConnection.mq_connectionType || { c: '', s: '' }, // webrtc chosen candidate types, for client and synq
+                        latency: { min: null, max: null, count: 0, sum: 0 }
                     }
                 };
             }
 
-            function logRoundTrip(roundTrip) {
-                roundTripTimes.push(roundTrip);
-                while (roundTripTimes.length > 10) roundTripTimes.shift();
-
-                const now = Date.now();
-                if (roundTripTimes.length && now - lastRoundTripReport > 10000) {
-                    let max = roundTripTimes[0];
-                    let min = max;
-                    let sum = max;
-                    for (let i = 1; i < roundTripTimes.length; i++) {
-                        const val = roundTripTimes[i];
-                        if (val > max) max = val;
-                        if (val < min) min = val;
-                        sum += val;
-                    }
-                    console.log(`session runner latency (${shortSessionId}) min=${min} max=${max} avg=${Math.round(sum/roundTripTimes.length)}`);
-                    lastRoundTripReport = now;
-                }
+            function logRoundTrip(ms) {
+                const { latency } = session.depinStats.runner;
+                latency.count++;
+                latency.sum += ms;
+                if (latency.min === null || ms < latency.min) latency.min = ms;
+                if (latency.max === null || ms > latency.max) latency.max = ms;
             }
         };
 
@@ -1293,27 +1309,95 @@ async function startServerForDePIN() {
         sendToProxy({ what: 'STATS', type: statType, result: statResult });
     }
 
-    function statusForProxy(statsAggregationSeconds) {
-        const sessionStats = [];
-        for (const [id, session] of ALL_SESSIONS.entries()) {
-            const record = { id, clients: 0, bytesPerSecond: 0 };
-            const island = ALL_ISLANDS.get(id);
-            if (island) record.clients = island.clients.size;
-            const { updateTracker, depinStats } = session;
-            record.bytesPerSecond = Math.round(depinStats.bytesSent / statsAggregationSeconds);
-            depinStats.bytesSent = 0;
-            record.updateBufferLength = updateTracker.updateBuffer.length;
-            record.lastUpdate = updateTracker.lastUpdateSeq;
+    function statusForProxy(aggregationSeconds) {
+        /* report:
+            {
+                seconds: aggregationSeconds,
+                sessions: [
+                    {
+                        id: shortSessionId1,
+                        comms: {
+                            joins,
+                            totalJoins,
+                            messagesIn,
+                            totalMessagesIn,
+                            bytesIn,
+                            totalBytesIn,
+                            bytesOut,
+                            totalBytesOut,
+                            totalSnapshots
+                        },
+                        runner: {
+                            latency?: { avg, min, max }, // if any to report
+                            backlog?, // number of unsent update chunks, if non-zero
+                        },
+                        clients?: [
+                            {
+                                id: shortClientId1,
+                                connectionType: { c, s },
+                                latency?: { avg, min, max } // if any to report
+                            },
+                            { id: shortClientId2... }
+                        ]
+                    },
+                    { id: shortSessionId2... }
+                ]
+            }
+        */
+        const report = { seconds: aggregationSeconds };
+        // $$$ we only gather for sessions that are active right now.  the final stats
+        // for any session that was offloaded at some point since the previous report
+        // will therefore be lost.  in due course we'll need to fix this.
+        let sessionRecords = [];
+        for (const [id, session] of ALL_SESSIONS.entries()) { // running or not
+            const sessionRecord = { id: id.slice(0, 8) };
+            const { depinStats } = session;
+            const { joins, totalJoins, messagesIn, totalMessagesIn, bytesIn, totalBytesIn, bytesOut, totalBytesOut, runner } = depinStats;
+            sessionRecord.comms = { j: joins, tj: totalJoins, mi: messagesIn, tmi: totalMessagesIn, bi: bytesIn, tbi: totalBytesIn, bo: bytesOut, tbo: totalBytesOut };
+            depinStats.joins = depinStats.messagesIn = depinStats.bytesIn = depinStats.bytesOut = 0;
 
-            sessionStats.push(record);
+            let runnerRecord;
+            if (runner.latency.count) {
+                const avg = Math.round(runner.latency.sum / runner.latency.count);
+                runnerRecord = { latency: { avg, min: runner.latency.min, max: runner.latency.max } };
+                runner.latency = { min: null, max: null, count: 0, sum: 0 };
+            }
+            const backlog = session.updateTracker.updateBuffer.length;
+            if (backlog) {
+                runnerRecord = runnerRecord || {};
+                runnerRecord.backlog = backlog;
+            }
+            if (runnerRecord) report.runner = runnerRecord;
+
+            const island = ALL_ISLANDS.get(id);
+            if (island) {
+                const clientRecords = [];
+                for (const client of island.clients) {
+                    const { meta } = client;
+                    const { shortId: id, connectionType, latency } = meta;
+                    const clientRecord = { id, conn: connectionType };
+                    if (latency.count) {
+                        const avg = Math.round(latency.sum / latency.count);
+                        clientRecord.latency = { avg, min: latency.min, max: latency.max };
+                        meta.latency = { min: null, max: null, count: 0, sum: 0 };
+                    }
+                    clientRecords.push(clientRecord);
+                }
+                sessionRecord.clients = clientRecords;
+            }
+
+            sessionRecords.push(sessionRecord);
         }
-        return { sessions: sessionStats };
+        if (sessionRecords.length) report.sessions = sessionRecords;
+
+        return report;
     }
 
     function appStats() {
         return {
             sessions: ALL_ISLANDS.size,
-            users: server.peerConnections.size,
+            users: server.peerConnections.size, // active and currently connecting clients
+            // the STATS are periodically merged into TOTALS
             bytesOut: TOTALS.OUT + STATS.OUT,
             bytesIn: TOTALS.IN + STATS.IN,
             proxyConnectionState
@@ -1754,7 +1838,7 @@ function nonSavableProps() {
     // housekeeping values for a running island
     return {
         lag: 0,              // aggregate ms lag in tick requests
-        clients: new Set(),  // connected web sockets
+        clients: new Set(),  // connected web sockets (or client objects, under DePIN)
         usersJoined: [],     // the users who joined since last report
         usersLeft: [],       // the users who left since last report
         usersTimer: null,    // timeout for sending USERS message
@@ -1866,6 +1950,11 @@ async function JOIN(client, args) {
         allArgs: JSON.stringify(args),  //  BigQuery wants a specific schema, so don't simply log all args separately
         connectedFor,
     }, `receiving JOIN ${client.meta.user} ${url}`);
+
+    if (DEPIN) {
+        session.depinStats.joins++;
+        session.depinStats.totalJoins++;
+    }
 
     // create island data if this is the first client
     let island = ALL_ISLANDS.get(id);
@@ -2168,7 +2257,7 @@ function after(seqA, seqB) {
 const Latencies = new Map();
 
 // log latencies every 5 minutes
-setInterval(logLatencies, 1 /* $$$ 5 */ * 60 * 1000);
+setInterval(logLatencies, 5 * 60 * 1000);
 
 function logLatencies() {
     if (!Latencies.size) return;
@@ -2196,7 +2285,7 @@ function recordLatency(client, ms) {
     }
 
     // fine-grained latency by IP address
-    const userIp = client.meta.userIp; // $$$ on DePIN currently always "unknown-ip"
+    const userIp = client.meta.userIp;
     let entry = Latencies.get(userIp);
     if (!entry) {
         // directly used as log entry meta data
@@ -2244,6 +2333,15 @@ function recordLatency(client, ms) {
     latency.sum += ms;
     if (ms < latency.min) latency.min = ms;
     if (ms > latency.max) latency.max = ms;
+
+    if (client.meta.latency) {
+        // a DePIN client
+        const { latency } = client.meta;
+        if (latency.min === null || ms < latency.min) latency.min = ms;
+        if (latency.max === null || ms > latency.max) latency.max = ms;
+        latency.count++;
+        latency.sum += ms;
+    }
 }
 
 /** client uploaded a snapshot
@@ -2459,7 +2557,12 @@ function SEND(island, messages) {
         STATS.RECV++;
         STATS.SEND += island.clients.size;
         island.clients.forEach(each => each.active && each.safeSend(msg));
-        if (DEPIN && session) session.addMessageToUpdate(message); // the raw message
+        if (DEPIN && session) {
+            session.addMessageToUpdate(message); // the raw message
+            const { depinStats } = session;
+            depinStats.messagesIn++;
+            depinStats.totalMessagesIn++;
+        }
         island.messages.push(message); // raw message sent again in SYNC
     }
     island.lastMsgTime = time;
@@ -2999,6 +3102,13 @@ function setUpClientHandlers(client) {
             STATS.IN += incomingMsg.length;
             client.stats.mi += 1;                      // messages in
             client.stats.bi += incomingMsg.length;     // bytes in
+
+            let session;
+            if (DEPIN && (session = ALL_SESSIONS.get(client.sessionId))) {
+                session.depinStats.bytesIn += incomingMsg.length;
+                session.depinStats.totalBytesIn += incomingMsg.length;
+            }
+
             let parsedMsg;
             try {
                 parsedMsg = JSON.parse(incomingMsg);
@@ -3029,7 +3139,7 @@ function setUpClientHandlers(client) {
                     case 'SAVE': SAVE(client, args); break;
                     case 'PING': PONG(client, args); break;
                     case 'PULSE':  // sets lastActivity, otherwise no-op
-                        if (args && args.latency > 0) recordLatency(client, args.latency); // not actually sent by clients yet
+                        // if (args && args.latency > 0) recordLatency(client, args.latency); - not actually sent by clients yet
                         client.logger.trace({ event: 'pulse' }, `receiving PULSE`);
                         break;
                     case 'LOG': {
@@ -3146,8 +3256,11 @@ function setUpClientHandlers(client) {
         client.stats.mo += 1;               // messages out
         client.stats.bo += data.length;     // bytes out
 
-        const session = ALL_SESSIONS.get(client.sessionId);
-        if (session?.depinStats) session.depinStats.bytesSent += data.length;
+        let session;
+        if (DEPIN && (session = ALL_SESSIONS.get(client.sessionId))) {
+            session.depinStats.bytesOut += data.length;
+            session.depinStats.totalBytesOut += data.length;
+        }
     };
     client.safeClose = (code, data) => {
         try {
@@ -3311,6 +3424,7 @@ const DEV_SIGN_SERVER = `https://api.${GCP_PROJECT}.croquet.dev/sign`;
 const API_SERVER_URL = GCP_PROJECT === 'croquet-proj' ? PROD_SIGN_SERVER : DEV_SIGN_SERVER;
 
 async function verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client, unverifiedDeveloperId) {
+    // VERIFY_TOKEN is always false on DePIN
     if (!VERIFY_TOKEN) return { developerId: unverifiedDeveloperId, region: "default" };
     try {
         const urlObj = new URL(url);
