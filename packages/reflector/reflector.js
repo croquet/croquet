@@ -15,7 +15,7 @@ const jwt = require('jsonwebtoken');
 const pino = require('pino');
 const { Storage } = require('@google-cloud/storage');
 const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
-const appVersion = require('./package.json').version; // eslint-disable-line import/extensions
+const APP_VERSION = require('./package.json').version; // eslint-disable-line import/extensions
 
 
 // command line args
@@ -150,8 +150,8 @@ const prometheusLatencyHistogram = new prometheus.Histogram({
 prometheus.collectDefaultMetrics(); // default metrics like process start time, heap usage etc
 
 const PORT = 9090;
-const VERSION = "v1";
-const SERVER_HEADER = `croquet-synchronizer-${VERSION}`;
+const PROTOCOL_VERSION = "v1";
+const SERVER_HEADER = `croquet-synchronizer-${PROTOCOL_VERSION}`;
 const DELETION_DEBOUNCE = 10000; // time in ms to wait before deleting an island
 const TICK_MS = 1000 / 5;     // default tick interval
 const INITIAL_SEQ = 0xFFFFFFF0; // initial sequence number, must match island.js
@@ -226,7 +226,7 @@ const empty_logger = pino({
 // (e.g. {scope: "session", scope: "connection"} arrives as {scope: "connect"})
 const global_logger = empty_logger.child({ scope: "process", hostIp: HOSTIP });
 // Logging out the initial start-up event message
-global_logger.notice({ event: "start" }, `synchronizer started ${CLUSTER_LABEL} ${HOSTIP}`);
+global_logger.notice({ event: "start", appVersion: APP_VERSION }, `synchronizer v${APP_VERSION} started ${CLUSTER_LABEL} ${HOSTIP}`);
 
 // secret shared with sign cloud func
 const SECRET_NAME = `projects/${GCP_PROJECT}/secrets/signurl-jwt-hs256/versions/latest`;
@@ -445,7 +445,7 @@ async function startServerForDePIN() {
             }, ms);
         }
 
-        proxySocket = new WebSocket(`${DEPIN}/synchronizers/register?version=${appVersion}&nickname=${SYNCNAME}&registerRegion=${registerRegion}`, {
+        proxySocket = new WebSocket(`${DEPIN}/synchronizers/register?version=${APP_VERSION}&nickname=${SYNCNAME}&registerRegion=${registerRegion}`, {
             perMessageDeflate: false, // this was in the node-datachannel example; not sure if it's helping
         });
 
@@ -539,7 +539,7 @@ async function startServerForDePIN() {
                                 break;
                             case 'healthz':
                             default:
-                                sendStats('healthz', `Multisynq synchronizer-${VERSION}`);
+                                sendStats('healthz', `Multisynq synchronizer-${PROTOCOL_VERSION}`);
                                 break;
                         }
                         break;
@@ -1489,7 +1489,7 @@ async function startServerForWebSockets() {
             headers: req.headers,
         }, `GET ${req.url}`);
         // otherwise, show host and cluster
-        const body = `Croquet reflector-${VERSION} ${HOSTIP} ${CLUSTER_LABEL}\n\nAh, ha, ha, ha, stayin' alive!`;
+        const body = `Croquet reflector-${PROTOCOL_VERSION} ${HOSTIP} ${CLUSTER_LABEL}\n\nAh, ha, ha, ha, stayin' alive!`;
         res.writeHead(200, {
             "Server": SERVER_HEADER,
             "Content-Length": body.length,
