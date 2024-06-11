@@ -1367,7 +1367,7 @@ async function startServerForDePIN() {
                 runnerRecord = runnerRecord || {};
                 runnerRecord.backlog = backlog;
             }
-            if (runnerRecord) report.runner = runnerRecord;
+            if (runnerRecord) sessionRecord.runner = runnerRecord;
 
             const island = ALL_ISLANDS.get(id);
             if (island) {
