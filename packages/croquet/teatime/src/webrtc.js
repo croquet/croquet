@@ -1,4 +1,4 @@
-const NEGOTIATION_FAILED_DELAY = 5000; // maximum ms between sending our offer and the data channel being connected.  analogous to the controller's JOIN_FAILED_DELAY, between sending of JOIN and receipt of SYNC.
+const ICE_NEGOTIATION_MAX = 5000; // maximum ms between sending our offer and the data channel being operational.  analogous to the controller's JOIN_FAILED_DELAY, between sending of JOIN and receipt of SYNC.
 
 const FIREFOX = !!globalThis.navigator?.userAgent.toLowerCase().includes('firefox');
 
@@ -72,12 +72,26 @@ export class CroquetWebRTCConnection {
             if (this.signaling?.readyState !== WebSocket.OPEN) return; // already lost the connection
 
             // set a deadline by which we expect to have completed ICE negotiation
-            // and started using the data channel.  if the deadline passes, we tell
-            // the controller to scrap the connection altogether and try again.
+            // and started using the data channel.  if the deadline expires, it
+            // could just be because we're waiting for a response from a STUN or
+            // TURN server that is in fact unreachable (as seen on Firefox through
+            // VPN).  if dataChannelFlowing is already true, we proceed on the
+            // assumption that negotiation has succeeded anyway.
             this.negotiationTimeout = setTimeout(() => {
                 delete this.negotiationTimeout;
-                this.synchronizerDisconnected(1006, "ICE negotiation timed out");
-            }, NEGOTIATION_FAILED_DELAY);
+                if (this.dataChannelFlowing) {
+                    // negotiation appears to have succeeded.  schedule signalling
+                    // closure if not already taken care of.
+                    if (!this.signalingCloseScheduled) {
+                        console.log(`${this.clientId} ICE negotiation timed out but appears to have succeeded`);
+                        this.scheduleSignalingClose();
+                    }
+                } else {
+                    // it appears that negotiation hasn't succeeded.  tell the
+                    // controller to scrap the connection altogether and try again.
+                    this.synchronizerDisconnected(1006, "ICE negotiation timed out");
+                }
+            }, ICE_NEGOTIATION_MAX);
 
             this.signalToSessionRunner({ type: 'offer', sdp: offer.sdp });
             await this.pc.setLocalDescription(offer);
@@ -111,6 +125,7 @@ export class CroquetWebRTCConnection {
 
         this.synchronizerGatheringComplete = false;
         this.localGatheringComplete = false;
+        this.dataChannelFlowing = false;
         this.signalingCloseScheduled = false;
         this.signalingKey = Math.random(); // so we don't get confused by multiple openings and closings
 
@@ -317,6 +332,7 @@ export class CroquetWebRTCConnection {
             // - so we don't bother forwarding them.  but note that we've finished
             // gathering candidates, and can close the signalling connection if the
             // synchronizer has finished too.
+            console.log(e);
             if (!e.candidate) {
                 this.localGatheringComplete = true;
                 return;
@@ -390,17 +406,16 @@ export class CroquetWebRTCConnection {
         // because Chrome, at least, has a habit of choosing a candidate pair
         // early then switching later, we delay this handling by 1 second to
         // increase the probability that ICE has indeed fully settled.
+        // jun 2024: first seen in Firefox clients running through a VPN: candidate
+        // generation can be held up around 10 seconds for some connection methods,
+        // so the null candidate that signals end of gathering can be delayed even
+        // though negotiation has succeeded (so localGatheringComplete remains false).
+        // on expiry of ICE_NEGOTIATION_MAXIMUM we now proceed with closure of the
+        // signalling channel if the connection appears to be up and running.
+        this.dataChannelFlowing = true;
         if (!this.signalingCloseScheduled && this.synchronizerGatheringComplete && this.localGatheringComplete) {
-            this.signalingCloseScheduled = true;
             this.clearNegotiationTimeout(); // negotiation has successfully completed
-            console.log(`${this.clientId} signaling channel closure scheduled`);
-            const { signalingKey } = this;
-            setTimeout(() => {
-                if (signalingKey === this.signalingKey) {
-                    console.log(`${this.clientId} closing signaling channel`);
-                    this.closeSignalingChannel();
-                }
-            }, 1000);
+            this.scheduleSignalingClose();
         }
 
         const msg = event.data;
@@ -442,6 +457,19 @@ export class CroquetWebRTCConnection {
 
         console.log(`${this.clientId} data channel closed`);
         this.synchronizerDisconnected();
+    }
+
+    scheduleSignalingClose() {
+        this.signalingCloseScheduled = true;
+        console.log(`${this.clientId} signaling channel closure scheduled`);
+        const { signalingKey } = this;
+        setTimeout(() => {
+            if (signalingKey === this.signalingKey) {
+                console.log(`${this.clientId} closing signaling channel`);
+                this.closeSignalingChannel();
+            }
+        }, 1000);
+
     }
 
     async defunct_readConnectionType() {
