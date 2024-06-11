@@ -4,6 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest @dev
 
+* 2.0.0-9 remove verbose ICE logging
 * 2.0.0-8 cope with unresponsive STUN/TURN during ICE negotiation
 * 2.0.0-7 protect node from access to global navigator
 * 2.0.0-6 fix recently introduced bug in seamless rejoin
