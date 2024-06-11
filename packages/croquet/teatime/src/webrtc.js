@@ -332,7 +332,6 @@ export class CroquetWebRTCConnection {
             // - so we don't bother forwarding them.  but note that we've finished
             // gathering candidates, and can close the signalling connection if the
             // synchronizer has finished too.
-            console.log(e);
             if (!e.candidate) {
                 this.localGatheringComplete = true;
                 return;
