@@ -728,7 +728,7 @@ async function startServerForDePIN() {
                     if (key !== session.socketKey) return; // ignore a timeout if socket has been replaced
 
                     // no ack received in time.  force a socket disconnection, which will trigger reconnection attempts with increasing backoff.
-                    session.logger({ event: "runner-ack-timeout" }, `Session ${shortSessionId} acknowledgements from session runner timed out. Reconnecting.`);
+                    session.logger.info({ event: "runner-ack-timeout" }, `Session ${shortSessionId} acknowledgements from session runner timed out. Reconnecting.`);
                     clearTimeout(sessionUpdateTimeout); // don't contact again until we figure out what's going on
                     // @@ according to our design proposals, we should put the session into BUFFERING, not sending any further events to clients until reconnection to the session runner is achieved.  to be implemented later.
                     try {
@@ -864,9 +864,9 @@ async function startServerForDePIN() {
 
                 // @@ generate appropriate logger output
                 if (err.code === 'ECONNREFUSED') {
-                    session.logger({ event: "runner-connection-refused" }, `session runner for ${shortSessionId} refused`);
+                    session.logger.info({ event: "runner-connection-refused" }, `session runner for ${shortSessionId} refused`);
                 } else {
-                    session.logger({ event: "runner-connection-error" }, `session runner for ${shortSessionId} error: ${err}`);
+                    session.logger.warn({ event: "runner-connection-error" }, `session runner for ${shortSessionId} error: ${err}`);
                 }
             });
 
