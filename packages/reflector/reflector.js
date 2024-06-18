@@ -192,6 +192,12 @@ const LATE_DISPATCH_DELAY = 1000;  // how long to allow for clients arriving fro
 
 
 // Map pino levels to GCP, https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry#LogSeverity
+// the choice of log level currently follows no strict rules.  loosely:
+//   - "error" for something that definitely shouldn't have happened
+//   - "warn" for undesirable situations that can be coped with
+//   - "notice" for salient states that will later be analysed to gather statistics (session length, etc)
+//   - "info" for normal milestones in session and client management
+//   - "debug" for less significant behind-the-scenes steps
 const GCP_SEVERITY = {
     trace:  'DEFAULT',  // 10 default min on local
     meter:  'DEFAULT',  // 15 not a pino level, default min
@@ -312,7 +318,7 @@ async function startServerForDePIN() {
         }
     });
 
-    console.log(JSON.stringify(iceServers));
+    global_logger.info({ event: "ice-servers", iceServers }, `set ICE servers: ${JSON.stringify(iceServers)}`);
 
     // note: API described at https://github.com/murat-dogan/node-datachannel/blob/c8197e28b39fd81f55818c0301995414fa877ff9/API.md
     // also see https://github.com/murat-dogan/node-datachannel/blob/c8197e28b39fd81f55818c0301995414fa877ff9/lib/index.d.ts
@@ -349,7 +355,7 @@ async function startServerForDePIN() {
     let proxySocket = null;
     let proxyConnectionState = 'RECONNECTING'; // "CONNECTED", "RECONNECTING", "UNAVAILABLE"
     const setProxyConnectionState = state => {
-        console.log(`proxy connection state: ${state}`);
+        global_logger.debug({ event: "proxy-connection-state", state }, `proxy connection state: "${state}"`);
         proxyConnectionState = state;
     };
     let proxyWasToldWeHaveSessions;
@@ -364,9 +370,8 @@ async function startServerForDePIN() {
     let proxyKey;
     const sendToProxy = msgObject => {
         if (!proxySocket) return;
-// console.log(`send to proxy: ${JSON.stringify(msgObject)}`)
         if (proxySocket.readyState !== WebSocket.OPEN) {
-            console.warn(`attempt to send ${msgObject.what} on unconnected proxy channel`);
+            global_logger.warn({ event: "proxy-not-ready" }, `attempt to send ${msgObject.what} on unconnected proxy channel`);
             return;
         }
 
@@ -384,7 +389,7 @@ async function startServerForDePIN() {
             if (aborted) return; // process was abandoned anyway
 
             // reconnection hasn't happened, so offload any remaining sessions (though attempts to reconnect will continue, at increasing intervals).
-            console.log('Proxy reconnection timed out. Offloading any remaining sessions.');
+            global_logger.notice({ event: "proxy-connection-lost" }, 'Proxy reconnection timed out. Offloading any remaining sessions.');
             setProxyConnectionState('UNAVAILABLE');
             offloadAllSessions();
         }, ms);
@@ -427,12 +432,12 @@ async function startServerForDePIN() {
                 if (aborted || key !== proxyKey) return; // connection superseded, or process abandoned
 
                 // no ack received in time.  force a socket disconnection, which will trigger reconnection attempts with increasing backoff.
-                console.log('acknowledgement from proxy timed out. Reconnecting.');
+                global_logger.info({ event: "proxy-connection-timeout" }, 'acknowledgement from proxy timed out. Reconnecting.');
                 clearTimeout(proxyContactTimeout); // don't contact again until we figure out what's going on
                 try {
                     proxySocket.close(1000, "proxy acknowledgement timed out");
                     proxySocket.terminate(); // otherwise 'close' event might not be raised for 30 seconds; see https://github.com/websockets/ws/issues/2203
-                } catch (err) { console.log(err) }
+                } catch (err) { /* ignore */ }
 
             }, PROXY_ACK_DELAY_LIMIT);
         }
@@ -451,37 +456,33 @@ async function startServerForDePIN() {
 
         proxySocket.on('open', () => {
             if (key !== proxyKey) return; // this connection has (somehow, already) been superseded
-            console.log(`proxy socket connected in registry ${DEPIN}`);
+            global_logger.info({ event: "proxy-connected", registry: DEPIN },`proxy socket connected in registry ${DEPIN}`);
         });
 
         proxySocket.on('error', function onError(err) {
             if (key !== proxyKey) return; // this connection has been superseded
 
             if (err.code === 'ECONNREFUSED') {
-                console.log(`proxy socket connection refused`);
+                global_logger.error({ event: "proxy-connection-refused" }, `proxy socket connection refused`);
             } else {
-                console.log('proxy socket error: ', err);
+                global_logger.error({ event: "proxy-connection-error", err }, `proxy socket error: ${err}`);
             }
         });
 
         proxySocket.on('message', function onMessage(depinStr) {
             if (key !== proxyKey) return; // this connection has been superseded
-// console.log(`message from proxy: ${depinStr}`);
 
             try {
                 const depinMsg = JSON.parse(depinStr);
-                if (typeof depinMsg !== 'object') {
-                    console.warn(`unhandled DePIN message "${depinStr}"`);
-                    return;
-                }
                 switch (depinMsg.what) {
                     case "REGISTERED": {
                         proxyId = depinMsg.proxyId;
+                        const shortProxyId = proxyId.slice(0, 8);
                         const newRegisterRegion = depinMsg.registerRegion;
                         if (registerRegion && registerRegion !== newRegisterRegion) {
-                            console.log(`moved from ${registerRegion} to ${newRegisterRegion}`);
+                            global_logger.notice({ event: "registered", shortProxyId, oldRegisterRegion: registerRegion, registerRegion: newRegisterRegion }, `proxy id ${shortProxyId} moved from ${registerRegion} to ${newRegisterRegion}`);
                         } else {
-                            console.log(`registered in region ${newRegisterRegion} with proxy id ${proxyId.slice(0, 8)}`);
+                            global_logger.notice({ event: "registered", shortProxyId, registerRegion: newRegisterRegion }, `proxy id ${shortProxyId} registered in ${newRegisterRegion}`);
                         }
                         registerRegion = newRegisterRegion;
 
@@ -494,7 +495,6 @@ async function startServerForDePIN() {
                         // if there is a connected parent process (assumed to be Electron),
                         // tell it our ip address
                         const electronMain = process.parentPort;
-                        // console.log(`"REGISTERED" message:`, JSON.stringify(depinMsg))
                         electronMain?.postMessage({ what: 'ipAddress', value: depinMsg.ip });
 
                         break;
@@ -511,10 +511,10 @@ async function startServerForDePIN() {
                             // $$$ figure out whether an attempt to offload on expiry of
                             // a reconnection timeout will cause problems at the session
                             // runner.
-                            console.log(`ignoring session dispatch for ${shortSessionId}; already being handled here`);
+                            global_logger.debug({ event: "dispatch-ignored", sessionId },`ignoring session dispatch for ${shortSessionId}; already being handled here`);
                             session.updateTracker.dispatchSeq = dispatchSeq;
                         } else {
-                            console.log(`new session dispatch for ${shortSessionId}`);
+                            global_logger.notice({ event: "dispatch", sessionId }, `new session dispatch for ${shortSessionId}`);
                             acceptSession(sessionId, dispatchSeq);
                         }
                         break;
@@ -547,25 +547,27 @@ async function startServerForDePIN() {
                     case 'ERROR':
                         switch (depinMsg.reason) {
                             case 'VERSION-INVALID':
-                                console.warn(`DePIN error: invalid version ${depinMsg.details.version}`);
+                                global_logger.warn({ event: "exit-needs-update", version: depinMsg.details.version }, `invalid synchronizer version ${depinMsg.details.version}`);
                                 process.exit(EXIT.NEEDS_UPDATE);
                                 break;
                             case 'VERSION-UNSUPPORTED':
-                                console.warn(`DePIN error: unsupported version ${depinMsg.details.version} (expected ${depinMsg.details.expected})`);
+                                global_logger.warn({ event: "exit-needs-update", version: depinMsg.details.version, expected: depinMsg.details.expected }, `unsupported synchronizer version ${depinMsg.details.version} (expected ${depinMsg.details.expected})`);
                                 process.exit(EXIT.NEEDS_UPDATE);
                                 break;
                             default:
-                                console.warn(`Unhandled DePIN error: ${depinMsg.reason}${depinMsg.details ? " " + JSON.stringify(depinMsg.details) : ''}`);
+                                global_logger.error({ event: "unknown-registry-error", reason: depinMsg.reason, details: depinMsg.details}, `unhandled registry error: ${depinMsg.reason}${depinMsg.details ? " " + JSON.stringify(depinMsg.details) : ''}`);
                         }
                         break;
                     default:
                         if (depinMsg.error) {
-                            console.warn(`DePIN registry error: ${depinMsg.error}`);
+                            global_logger.warn({ event: "registry-error", err: depinMsg.error }, `registry error: ${depinMsg.error}`);
                         } else {
-                            console.warn(`unhandled DePIN message "${depinStr}"`);
+                            global_logger.warn({ event: "unrecognized-proxy-message", depinStr }, `unrecognized message from proxy: "${depinStr}"`);
                         }
                 }
-             } catch (err) { console.error(`error processing proxy message "${depinStr}"`, err)}
+            } catch (err) {
+                global_logger.error({ event: "proxy-message-error", depinStr }, `error processing proxy message "${depinStr}": ${err}`);
+            }
         });
 
         proxySocket.on('close', function onClose(code, reasonBuf) {
@@ -579,7 +581,7 @@ async function startServerForDePIN() {
 
             if (key !== proxyKey) {
                 // this connection has been superseded
-                console.log(`old proxy socket closed (${closeReason})`);
+                global_logger.debug({ event: "old-proxy-socket-closed", closeReason },`old proxy socket closed (${closeReason})`);
                 return;
             }
 
@@ -590,7 +592,7 @@ async function startServerForDePIN() {
             proxySocket = null;
 
             const reconnectMsg = aborted ? "" : `  retrying after ${proxyReconnectDelay}ms`;
-            console.log(`proxy socket closed (${closeReason}).${reconnectMsg}`);
+            global_logger.debug({ event: "proxy-socket-closed", closeReason, aborted, reconnect: reconnectMsg }, `proxy socket closed (${closeReason}).${reconnectMsg}`);
 
             if (aborted) return; // closure was part of a shutdown
 
@@ -666,7 +668,7 @@ async function startServerForDePIN() {
                 if (aborted) return; // process was abandoned anyway
 
                 // reconnection hasn't happened, so offload this session.
-                console.log(`Session ${shortSessionId} reconnection timed out. Offloading.`);
+                session.logger.info({ event: "connection-timeout" }, `Session ${shortSessionId} reconnection timed out. Offloading.`);
                 session.offload("no session runner"); // clear the decks, even though we can't contact the session runner
             }, ms);
         }
@@ -677,17 +679,16 @@ async function startServerForDePIN() {
             // after any glitch that causes the connection to drop)
 
             if (session.stage === 'offloading' || session.stage === 'closed') {
-                console.log(`Session ${shortSessionId} is defunct; abandoning scheduled reconnection`);
+                session.logger.debug({ event: "defunct", stage: session.stage },`Session ${shortSessionId} is defunct; abandoning scheduled reconnection`);
                 return;
             }
 
             if (session.updateTracker.dispatchSeq !== runnerDispatchSeq) {
-                console.log(`Session ${shortSessionId} has been re-dispatched; abandoning scheduled reconnection`);
+                session.logger.debug({ event: "dispatch-sequence-mismatch", runnerDispatchSeq, previousDispatchSeq: session.updateTracker.dispatchSeq }, `Session ${shortSessionId} has been re-dispatched; abandoning scheduled reconnection`);
                 return;
             }
 
             const key = session.socketKey = String(Math.random()).slice(2, 10); // timeouts and handler invocations set up under the auspices of one connection are ignored if that connection has been replaced
-// console.log(`SOCKET KEY: ${key}`);
             const sessionSocket = new WebSocket(`${DEPIN}/synchronizers/connect?session=${sessionId}&dispatchSeq=${runnerDispatchSeq}&synchronizer=${proxyId}`, {
                 perMessageDeflate: false, // this was in the node-datachannel example; not sure if it's helping
             });
@@ -695,10 +696,9 @@ async function startServerForDePIN() {
             session.sendToSessionRunner = msgObject => {
                 const socket = session.sessionSocket; // make sure it's still there
                 if (socket?.readyState !== WebSocket.OPEN) {
-                    console.warn(`attempt to send ${msgObject.what} on unconnected channel for session ${shortSessionId}`);
+                    session.logger.warn({ event: "runner-not-ready" }, `attempt to send ${msgObject.what} on unconnected channel for session ${shortSessionId}`);
                     return;
                 }
-// console.log(`send to session ${shortSessionId}: ${JSON.stringify(msgObject)}`);
                 socket.send(JSON.stringify(msgObject));
             };
 
@@ -728,13 +728,13 @@ async function startServerForDePIN() {
                     if (key !== session.socketKey) return; // ignore a timeout if socket has been replaced
 
                     // no ack received in time.  force a socket disconnection, which will trigger reconnection attempts with increasing backoff.
-                    console.log(`Session ${shortSessionId} acknowledgements from session runner timed out. Reconnecting.`);
+                    session.logger({ event: "runner-ack-timeout" }, `Session ${shortSessionId} acknowledgements from session runner timed out. Reconnecting.`);
                     clearTimeout(sessionUpdateTimeout); // don't contact again until we figure out what's going on
                     // @@ according to our design proposals, we should put the session into BUFFERING, not sending any further events to clients until reconnection to the session runner is achieved.  to be implemented later.
                     try {
                         sessionSocket.close(1000, "update acknowledgement timed out");
                         sessionSocket.terminate(); // otherwise 'close' event might not be raised for 30 seconds; see https://github.com/websockets/ws/issues/2203
-                    } catch (err) { console.log(err) }
+                    } catch (err) { /* */ }
                 }, SESSION_SILENCE_LIMIT);
             }
 
@@ -833,7 +833,6 @@ async function startServerForDePIN() {
                 if (Object.keys(thisUpdate).length) {
                     thisUpdate.updateSeq = ++updateTracker.lastUpdateSeq;
                     updateTracker.updateBuffer.push(thisUpdate);
-// console.log(`gathered update: ${JSON.stringify(thisUpdate)}`);
                     return true;
                 }
 
@@ -851,11 +850,11 @@ async function startServerForDePIN() {
                         sessionSocket.terminate();
                         session.socketKey = ''; // suppress socket 'close' handling
                         session.sessionSocketClosed(); // and force it through now
-                    } catch (err) { console.log(err) }
+                    } catch (err) { /* */ }
                     return;
                 }
 
-                console.log(`session runner for ${shortSessionId} connected`);
+                session.logger.info({ event: "runner-connected" }, `session runner for ${shortSessionId} connected`);
                 // nothing else to do.  the opening might even have happened just so
                 // the DO can send us a REJECTED message.
             });
@@ -865,15 +864,14 @@ async function startServerForDePIN() {
 
                 // @@ generate appropriate logger output
                 if (err.code === 'ECONNREFUSED') {
-                    console.log(`session runner for ${shortSessionId} refused`);
+                    session.logger({ event: "runner-connection-refused" }, `session runner for ${shortSessionId} refused`);
                 } else {
-                    console.log(`session runner for ${shortSessionId} error: `, err);
+                    session.logger({ event: "runner-connection-error" }, `session runner for ${shortSessionId} error: ${err}`);
                 }
             });
 
             sessionSocket.on('message', function onMessage(depinStr) {
                 if (key !== session.socketKey) return;
-// console.log(`message for session ${shortSessionId}: ${depinStr}`);
 
                 try {
                     const depinMsg = JSON.parse(depinStr);
@@ -900,14 +898,14 @@ async function startServerForDePIN() {
                                 const firstBufferedUpdate = updateBuffer[0].updateSeq;
                                 const lastBufferedUpdate = updateBuffer[updateBuffer.length - 1].updateSeq;
                                 if (runnerLastUpdate === firstBufferedUpdate) {
-                                    console.log(`session runner already has our first buffered update`);
-                                    if (!updateBuffer[0].awaitingAck) console.log(`WARNING: awaitingAck was not set`);
+                                    const ackWarning = updateBuffer[0].awaitingAck ? '' : ".  WARNING: awaitingAck was not set";
+                                    session.logger.debug({ event: "runner-reconnect" }, `session runner already has our first buffered update${ackWarning}`);
                                     updateBuffer.shift();
                                 } else if (runnerLastUpdate === firstBufferedUpdate - 1) {
-                                    console.log(`session runner is ready for our first buffered update`);
+                                    session.logger.debug({ event: "runner-reconnect" }, `session runner is ready for our first buffered update`);
                                     delete updateBuffer[0].awaitingAck; // if it was set
                                 } else {
-                                    console.log(`WARNING: session runner has update ${runnerLastUpdate}, but our first is ${firstBufferedUpdate}`);
+                                    session.logger.warn({ event: "runner-reconnect-mismatch", runnerLastUpdate, firstBufferedUpdate }, `session runner has update ${runnerLastUpdate}, but our first is ${firstBufferedUpdate}`);
                                 }
                                 // take a note of the last updateSeq we've already used
                                 updateTracker.lastUpdateSeq = lastBufferedUpdate;
@@ -920,7 +918,7 @@ async function startServerForDePIN() {
                         case "REJECTED":
                             // session runner has rejected this synchronizer's attempt to
                             // take the session (for example, if we took too long to connect)
-                            console.log(`session runner for ${shortSessionId} rejected our connection`);
+                            session.logger.info({ event: "runner-rejected" },`session runner for ${shortSessionId} rejected our connection`);
                             session.offload("rejected by session runner");
                             break;
                         case "ABANDONED":
@@ -928,16 +926,16 @@ async function startServerForDePIN() {
                             // deserves to run this session (for example, because of an
                             // error on session updates).
                             clearTimeout(sessionContactTimeout);
-                            console.log(`session runner for ${shortSessionId} abandoned this synchronizer`);
+                            session.logger.info({ event: "runner-abandoned" }, `session runner for ${shortSessionId} abandoned this synchronizer`);
                             session.offload("abandoned by session runner");
                             break;
                         case "CONNECT":
                             // a peer connection isn't set up until the client sends an offer.
                             // therefore, for now, there's nothing to do here.
-                            console.log(`new client connection from client ${globalClientId}`);
+                            session.logger.debug({ event: "client-connected", clientId }, `new client connection ${globalClientId}`);
                             break;
                         case "DISCONNECT":
-                            console.log(`closed client signaling ${globalClientId}`);
+                            session.logger.debug({ event: "client-signaling-closed", clientId }, `client ${globalClientId} closed signaling`);
                             // if the client already has a data channel, this disconnection
                             // has probably been triggered by the client deciding that the channel
                             // setup is now complete - so it's not a client disconnection at all.
@@ -952,10 +950,9 @@ async function startServerForDePIN() {
                             try {
                                 msg = JSON.parse(depinMsg.data);
                             } catch (e) {
-                                console.log(`error parsing message from client ${globalClientId}: ${depinMsg.data}`);
+                                session.logger.warn({ event: "malformed-ice-message", clientId, content: depinMsg.data }, `error parsing ICE message from client ${globalClientId}: ${depinMsg.data}`);
                                 return;
                             }
-                            // console.log(`session message from client ${globalClientId}: ${msg.type} ${JSON.stringify({ msg, type: undefined })}`);
                             switch (msg.type) {
                                 case 'offer': {
                                     // supposedly always the first message through.
@@ -975,7 +972,7 @@ async function startServerForDePIN() {
                                     break;
                                 case 'selectedCandidatePair': {
                                     const connectionType = { c: msg.clientType, s: msg.syncType };
-                                    console.log(`client ${globalClientId} connection: client=${connectionType.c}, sync=${connectionType.s}`);
+                                    session.logger.info({ event: "client-connection-type", client: connectionType.c, synch: connectionType.s }, `client ${globalClientId} client=${connectionType.c}, sync=${connectionType.s}`);
                                     // if the client already exists, update it.  otherwise
                                     // update the peerConnection, and the client will copy
                                     // from there when it is initialised.
@@ -988,7 +985,7 @@ async function startServerForDePIN() {
                                     break;
                                 }
                                 default:
-                                    console.warn(`unhandled session message type ${msg.type}`);
+                                    session.logger.warn({ event: "unknown-ice-message", clientId, type: msg.type }, `unknown ICE message type "${msg.type}" from client ${globalClientId}`);
                                     break;
                             }
                             break;
@@ -1005,7 +1002,7 @@ async function startServerForDePIN() {
                             const { updateSeq } = depinMsg;
                             const { updateBuffer } = session.updateTracker;
                             if (!updateBuffer.length) {
-                                console.log(`ack ${updateSeq} received, but not in buffer`);
+                                session.logger.debug({ event: "unexpected-ack" }, `ack ${updateSeq} received, but not in buffer`);
                                 return;
                             }
 
@@ -1017,7 +1014,7 @@ async function startServerForDePIN() {
 
                             if (updateSeq < firstUpdateSeq) {
                                 const waitingMsg = firstUpdate.awaitingAck ? ` (waiting for ${firstUpdate.updateSeq})` : "";
-                                console.log(`earlier ack ${updateSeq} received${waitingMsg}`);
+                                session.logger.debug({ event: "out-of-sequence-ack" }, `earlier ack ${updateSeq} received${waitingMsg}`);
                                 return;
                             }
 
@@ -1035,11 +1032,11 @@ async function startServerForDePIN() {
                             break;
                         }
                         default:
-                            console.warn(`unhandled message in session ${shortSessionId}: "${depinStr}"`);
+                            session.logger.warn({ event: "unknown-message", clientId, what: depinMsg.what }, `unknown message "${depinMsg.what}" from client ${globalClientId}`);
                             break;
                     }
                 } catch (err) {
-                    console.log(`error processing message in session ${shortSessionId}: "${depinStr}"`, err);
+                    session.logger.error({ event: "message-handling-failed", err}, `error processing message "${depinStr}" in session ${shortSessionId}: ${err}`);
                 }
             });
 
@@ -1064,9 +1061,9 @@ async function startServerForDePIN() {
                 const sessionPrefix = shortSessionId + ':';
                 const allConnectedClients = [...server.peerConnections.keys()].filter(id => id.startsWith(sessionPrefix));
                 let disconnected = 0;
-                for (const compositeClientId of allConnectedClients) {
-                    if (!server.clients.has(compositeClientId)) {
-                        server.removeClient(compositeClientId, "session socket closed");
+                for (const globalClientId of allConnectedClients) {
+                    if (!server.clients.has(globalClientId)) {
+                        server.removeClient(globalClientId, "session socket closed");
                         disconnected++;
                     }
                 }
@@ -1077,7 +1074,7 @@ async function startServerForDePIN() {
                 clearTimeout(sessionContactTimeout);
 
                 if (sessionIsClosed) {
-                    console.log(`session runner for closed session ${shortSessionId} disconnected`);
+                    session.logger.info({ event: "runner-closed" }, `runner for closed session ${shortSessionId} disconnected`);
                     return;
                 }
 
@@ -1088,7 +1085,7 @@ async function startServerForDePIN() {
                 }
 
                 const disconnectMsg = disconnected ? ` and ${disconnected} unconnected clients discarded` : '';
-                console.log(`session runner for ${shortSessionId} disconnected${disconnectMsg}.  retrying after ${session.reconnectDelay}ms`);
+                session.logger.info({ event: "runner-disconnected" }, `session runner for ${shortSessionId} disconnected${disconnectMsg}.  retrying after ${session.reconnectDelay}ms`);
                 setTimeout(connectToSessionRunner, session.reconnectDelay);
                 session.reconnectDelay = Math.round((session.reconnectDelay + 100) * (1 + Math.random()));
             };
@@ -1107,7 +1104,7 @@ async function startServerForDePIN() {
                 });
                 server.peerConnections.set(globalClientId, peerConnection);
                 peerConnection.onStateChange(state => {
-                    console.log(`client connection state (${globalClientId}): "${state}"`);
+                    session.logger.debug({ event: "client-connection-state", clientId, state }, `client ${globalClientId} connection state: "${state}"`);
                     if (state === 'closed') {
                         // note: once a client's data channel has been established, any
                         // disconnection must be handled by the 'close' handler that we
@@ -1120,7 +1117,7 @@ async function startServerForDePIN() {
                     }
                 });
                 peerConnection.onGatheringStateChange(state => {
-                    console.log(`gathering state (${globalClientId}): "${state}"`);
+                    session.logger.debug({ event: "client-gathering-state", clientId, state }, `client ${globalClientId} gathering state: "${state}"`);
                     // @@ sometimes we see another couple of candidates *after* this event
                     // has fired.  if the client reacts quickly to the 'gathering-complete'
                     // event by closing the signalling channel, it might not receive them.
@@ -1132,18 +1129,17 @@ async function startServerForDePIN() {
                     signalToClient({ type, sdp });
                 });
                 peerConnection.onLocalCandidate((candidate, sdpMid) => {
-                    // console.log(`new candidate: ${JSON.stringify(candidate)}`); // temporary debug
-                    if (!candidate) console.log(`empty local candidate: ${candidate}`);
+                    if (!candidate) session.logger.debug({ event: "client-empty-candidate", clientId }, `empty local candidate: ${candidate}`);
                     signalToClient({ type: 'candidate', candidate, sdpMid });
                 });
                 peerConnection.onDataChannel(dataChannel => {
                     const label = dataChannel.getLabel();
-                    console.log(`dataChannel from ${globalClientId} at ${peerConnection.mq_clientIp} with label "${label}" `);
                     const client = createClient(globalClientId, peerConnection, dataChannel);
                     client.meta.label = label;
                     server.clients.set(globalClientId, client);
                     setUpClientHandlers(client); // adds 'message', 'close', 'error'
-                    registerClientInSession(client, sessionId);
+                    registerClientInSession(client, sessionId); // includes setting up logger
+                    client.logger.notice({ event: "start" }, `opened connection for client ${globalClientId} at ${peerConnection.mq_clientIp} with label "${label}"`);
                     dataChannel.onMessage(msg => {
                         if (msg.startsWith('!pong')) {
                             const time = Number(msg.split('@')[1]);
@@ -1172,7 +1168,9 @@ async function startServerForDePIN() {
                     isConnected: function () { return this.dc.isOpen() },
                     send: function (data) {
                         try { this.dc.sendMessage(data) }
-                        catch(err) { console.error("ERROR", err) }
+                        catch(err) {
+                            this.logger?.error({ event: "send-failed", err }, `send to client ${this.globalId} failed: ${err}`)
+                        }
                     },
                     // all locally requested closures (typically due to error conditions)
                     // are expected to trigger the client's 'close' event handler.  on
@@ -1270,35 +1268,35 @@ async function startServerForDePIN() {
     // connected until the data channel is set up.
     //
     // to ensure that different sessions' clients are kept separate, the keys to
-    // these maps are composed from the sessionId (shortened) and clientId.
+    // these maps are "global" ids composed from the sessionId (shortened) and clientId.
     server = {
-        peerConnections: new Map(), // composite client id => peerConnection
-        clients: new Map(),         // composite client id => client object
-        removeClient: function (compositeId, reason) {
+        peerConnections: new Map(), // global client id => peerConnection
+        clients: new Map(),         // global client id => client object
+        removeClient: function (globalClientId, reason) {
             // invoked from
             // - clientLeft, or
             // - on processing a DISCONNECT for a client that doesn't yet have a dataChannel, or
             // - on sessionSocketClosed - again, for clients that have no dataChannel
             const reasonMsg = reason ? ` (${reason})` : "";
-            const connectedClient = this.clients.get(compositeId);
+            const connectedClient = this.clients.get(globalClientId);
             if (connectedClient) {
                 try {
                     connectedClient.island = null; // checked in client close handler
                     connectedClient.close();
-                    console.log(`closed data channel for client ${compositeId}${reasonMsg}`);
+                    global_logger.debug({ event: "close-client-data-channel", globalClientId, reason }, `client ${globalClientId} data channel closed${reasonMsg}`);
                 }
                 catch (e) { /* */ }
-                this.clients.delete(compositeId);
+                this.clients.delete(globalClientId);
             }
 
-            const peerConnection = this.peerConnections.get(compositeId);
+            const peerConnection = this.peerConnections.get(globalClientId);
             if (peerConnection) {
                 try {
                     peerConnection.close(); // API suggests destroy(), but that doesn't exist??
-                    console.log(`closed peer connection for client ${compositeId}${reasonMsg}`);
+                    global_logger.debug({ event: "close-client-peer-connection", globalClientId, reason }, `client ${globalClientId} peer connection closed${reasonMsg}`);
                 }
                 catch (e) { /* */ }
-                this.peerConnections.delete(compositeId);
+                this.peerConnections.delete(globalClientId);
             }
         }
     };
@@ -1407,26 +1405,31 @@ async function startServerForDePIN() {
         // receive app-main's synchProcess.postMessage()
         const electronMain = process.parentPort;
         electronMain.on('message', e => {
-            const msg = e.data;
-            switch (msg.what) {
-                case 'shutdown':
-                    handleTerm(false); // cannot restart
-                    break;
-                case 'pingFromMain':
-                    electronMain.postMessage({ what: 'pong' });
-                    break;
-                case 'stats':
-                    electronMain.postMessage({ what: 'stats', value: appStats() });
-                    break;
-                case 'debug':
-                    electronMain.postMessage({ what: 'debug', value: gatherSessionsStats() });
-                    break;
-                case 'userDetails':
-                    electronMain.postMessage({ what: 'userDetails', value: msg.userDetails });
-                    break;
-                default:
-                    console.log(`unhandled message from app: ${JSON.stringify(e.data)}`);
+            try {
+                const msg = e.data;
+                switch (msg.what) {
+                    case 'shutdown':
+                        handleTerm(false); // cannot restart
+                        break;
+                    case 'pingFromMain':
+                        electronMain.postMessage({ what: 'pong' });
+                        break;
+                    case 'stats':
+                        electronMain.postMessage({ what: 'stats', value: appStats() });
+                        break;
+                    case 'debug':
+                        electronMain.postMessage({ what: 'debug', value: gatherSessionsStats() });
+                        break;
+                    case 'userDetails':
+                        electronMain.postMessage({ what: 'userDetails', value: msg.userDetails });
+                        break;
+                    default:
+                        global_logger.warn({ event: "unrecognized-app-message", what: msg.what }, `unrecognized message from app: "${msg.what}`);
+                }
+            } catch(err) {
+                global_logger.error({ event: "app-message-error", data: e.data }, `error processing app message "${JSON.stringify(e.data)}": ${err}`);
             }
+
         });
     }
 }
@@ -1547,7 +1550,7 @@ async function startServerForWebSockets() {
                 return;
             }
         }
-        global_logger.info({
+        global_logger.debug({
             event: "upgrade",
             method: req.method,
             url: req.url,
@@ -1652,7 +1655,7 @@ async function gatherMetricsStats(options) {
         const matches = lines.filter(line => options.regex.test(line));
         return matches.join('\n');
     }
-    console.error("unhandled metrics options", options);
+    global_logger.error({ event: "metrics-error", options }, `unhandled metrics options: ${JSON.stringify(options)}`);
     return '';
 }
 
@@ -1695,8 +1698,8 @@ async function offloadAllSessions() {
     }
 
     if (promises.length) {
-        global_logger.warn({
-            event: "shutdown",
+        global_logger.notice({
+            event: "offload",
             sessionCount: promises.length,
         }, `EMERGENCY OFFLOAD OF ${promises.length} SESSION(S)`);
 
@@ -1731,7 +1734,7 @@ process.on('uncaughtException', err => {
     handleTerm();
 });
 process.on('unhandledRejection', (err, _promise) => {
-    global_logger.warn({
+    global_logger.error({
         event: "unhandled-rejection",
         err,
     }, `Unhandled rejection: ${err.message}`);
@@ -1880,6 +1883,7 @@ async function JOIN(client, args) {
     }
 
     const id = client.sessionId;
+    const shortSessionId = id.slice(0, 8);
     const connectedFor = Date.now() - client.since;
     const session = ALL_SESSIONS.get(id);
     if (!session) {
@@ -1947,7 +1951,7 @@ async function JOIN(client, args) {
         heraldUrl,
         allArgs: JSON.stringify(args),  //  BigQuery wants a specific schema, so don't simply log all args separately
         connectedFor,
-    }, `receiving JOIN ${client.meta.user} ${url}`);
+    }, `JOIN ${shortSessionId} as ${client.meta.user} ${url}`);
 
     if (DEPIN) {
         session.depinStats.joins++;
@@ -2076,7 +2080,7 @@ async function JOIN(client, args) {
                     messages: latestSpec.messages.length,
                     url: latestSpec.snapshotUrl,
                 },
-            }, DEPIN ? "resuming from session-runner state" : "resuming from latest.json");
+            }, `resuming ${shortSessionId} from ${DEPIN ? "session-runner state" : "latest.json"}`);
             // as we migrate from one style of island properties to another, a
             // latest.json does not necessarily have all the properties a freshly
             // minted island has.  fill in whichever of those properties were
@@ -2140,9 +2144,9 @@ async function JOIN(client, args) {
                         persisted: {
                             url: island.persistentUrl,
                         },
-                    }, "resuming session from persisted data");
+                    }, `resuming ${shortSessionId} from persisted data`);
                 } else {
-                    island.logger.notice({event: "start"}, "starting fresh session");
+                    island.logger.notice({event: "start"}, `starting fresh session ${shortSessionId}`);
                 }
             }
         } finally {
@@ -2207,7 +2211,7 @@ function clientLeft(client, reason='') {
         event: "deleted",
         clientCount: island.clients.size,
         syncClientCount: island.syncClients.length,
-    }, `client deleted, ${remaining} remaining`);
+    }, `session ${client.sessionId.slice(0, 8)} client deleted; ${remaining} remaining`);
     if (remaining === 0) provisionallyDeleteIsland(island);
     announceUserLeft(client);
 }
@@ -2223,7 +2227,7 @@ function announceUserJoined(client) {
     client.logger.debug({
         event: "user-joined",
         user: typeof client.user === "string" ? client.user : JSON.stringify(client.user), // BigQuery wants a single data type
-    }, `user ${JSON.stringify(client.user)} joined`);
+    }, `user ${JSON.stringify(client.user)} joined session ${client.sessionId.slice(0, 8)}`);
 }
 
 function announceUserLeft(client) {
@@ -2237,7 +2241,7 @@ function announceUserLeft(client) {
     client.logger.debug({
         event: "user-left",
         user: typeof client.user === "string" ? client.user : JSON.stringify(client.user), // BigQuery wants a single data type
-    }, `user ${JSON.stringify(client.user)} left`);
+    }, `user ${JSON.stringify(client.user)} left session ${client.sessionId.slice(0, 8)}`);
 }
 
 function scheduleUsersMessage(island) {
@@ -2348,6 +2352,7 @@ function recordLatency(client, ms) {
  */
 function SNAP(client, args) {
     const id = client.sessionId;
+    const shortSessionId = id.slice(0, 8);
     const island = ALL_ISLANDS.get(id);
     if (!island) { client.safeClose(...REASON.UNKNOWN_SESSION); return }
 
@@ -2361,7 +2366,7 @@ function SNAP(client, args) {
             hash,
             data: url,
             dissident: JSON.stringify(dissident),
-        }, "dissident snapshot");
+        }, `dissident snapshot for ${shortSessionId}`);
         return;
     }
 
@@ -2374,7 +2379,7 @@ function SNAP(client, args) {
             teatime,
             hash,
             data: url
-        }, "ignoring snapshot");
+        }, `ignoring snapshot for ${shortSessionId}`);
         return;
     }
 
@@ -2383,7 +2388,7 @@ function SNAP(client, args) {
         teatime,
         hash,
         data: url
-    }, "got snapshot");
+    }, `got snapshot for ${shortSessionId}`);
 
     // forget older messages, setting aside the ones that need to be stored
     let messagesToStore = [];
@@ -2899,7 +2904,7 @@ function provisionallyDeleteIsland(island) {
     island.logger.debug({
         event: "schedule-delete",
         delay: DELETION_DEBOUNCE,
-    }, `provisionally scheduling session end`);
+    }, `provisionally scheduling end of session ${id.slice(0, 8)}`);
     // NB: the deletion delay is currently safely longer than the retention on the dispatcher record
     session.timeout = setTimeout(() => deleteIsland(island, "no clients"), DELETION_DEBOUNCE);
 }
@@ -2918,6 +2923,7 @@ async function deleteIsland(island, reason) {
         island.logger.debug({event: "delete-ignored", reason: "already-deleted"}, `island already deleted, ignoring deleteIsland();`);
         return;
     }
+    const shortSessionId = id.slice(0, 8);
     if (island.usersTimer) {
         clearTimeout(island.usersTimer);
         USERS(island); // ping heraldUrl one last time
@@ -2926,7 +2932,7 @@ async function deleteIsland(island, reason) {
     // stop ticking
     stopTicker(island);
 
-    island.logger.notice({event: "end", reason}, `island deleted`);
+    island.logger.notice({event: "end", reason}, `island ${shortSessionId} deleted`);
 
     // remove session, including deleting dispatcher record if there is one
     // (deleteIsland is only ever invoked after at least long enough to
@@ -2937,29 +2943,29 @@ async function deleteIsland(island, reason) {
         const session = ALL_SESSIONS.get(id);
         if (session.sessionSocket?.readyState === WebSocket.OPEN) {
             try {
-                island.logger.debug({
+                island.logger.info({
                     event: "flush-updates",
                     teatime,
                     msgCount: messages.length,
-                }, `sending final updates to session runner`);
+                }, `sending final updates to runner for session ${shortSessionId}`);
                 // if there were any updates to send to the session DO, force a pause
                 // to increase the chance that the session DO has those updates before
                 // transferring the session to a new synq.
                 const anySent = session.gatherAndFlushSessionUpdates();
                 if (anySent) await new Promise(r => { setTimeout(r, 200) });
             } catch (err) {
-                island.logger.error({
+                island.logger.warn({
                     event: "flush-updates-failed",
                     teatime,
                     err
-                }, `failed to flush session updates. ${err.code}: ${err.message}`);
+                }, `failed to flush updates for session ${shortSessionId}. ${err.code}: ${err.message}`);
             }
         } else {
-            island.logger.debug({
+            island.logger.info({
                 event: "flush-updates-skipped",
                 teatime,
                 msgCount: messages.length,
-            }, `no connection for flushing session updates`);
+            }, `no connection for flushing updates for session ${shortSessionId}`);
         }
     } else {
         // not DePIN.
@@ -3056,7 +3062,7 @@ async function deregisterSession(id, detail) {
         return;
     }
 
-    session.logger.debug({event: "deregister", detail}, `deregistering session - ${detail}`);
+    session.logger.info({event: "deregister", detail}, `deregistering session ${id.slice(0, 8)}: ${detail}`);
 
     session.stage = 'closed';
 
@@ -3189,7 +3195,7 @@ function setUpClientHandlers(client) {
             code,
             reason,
             resumed: island.resumed, // to identify session starts
-        }, `closed connection [${code},"${reason}"]`);
+        }, `client closed connection [${code},"${reason}"]`);
 
         if (island && island.clients && island.clients.has(client)) {
             // on DePIN, sessions can be forcibly offloaded and _then_ tell the
@@ -3245,7 +3251,6 @@ function setUpClientHandlers(client) {
             // NB: if node-datachannel throws an error, it will be logged in full to
             // the console because of our initLogger settings.  but it is being caught,
             // as intended.
-            console.log(`error in send to client ${client.globalId}: ${err}`);
             client.logger.error({ event: "send-failed", err }, `failed to send to client. ${err.code}: ${err.message}`);
             client.safeClose(...REASON.RECONNECT);
             return; // skip the bookkeeping
@@ -3264,7 +3269,7 @@ function setUpClientHandlers(client) {
         try {
             client.close(code, data);
         } catch (err) {
-            client.logger.error({ event: "close-failed", err }, `failed to close client connection. ${err.code}: ${err.message}`);
+            client.logger.warn({ event: "close-failed", err }, `failed to close client connection. ${err.code}: ${err.message}`);
             clientLeft(client, "failed safeClose"); // normally invoked by onclose handler
         }
     };
@@ -3298,7 +3303,7 @@ function registerSession(sessionId) {
         const dummyContents = { dummy: "imadummy" };
         const start = Date.now();
         uploadJSON(filename, dummyContents, DISPATCHER_BUCKET)
-            .then(() => global_logger.info({ event: "dummy-register" }, `dummy dispatcher record created in ${Date.now() - start}ms`))
+            .then(() => global_logger.debug({ event: "dummy-register" }, `dummy dispatcher record created in ${Date.now() - start}ms`))
             .catch(err => global_logger.error({ event: "dummy-register-failed", err }, `failed to create dummy dispatcher record. ${err.code}: ${err.message}`));
     }
     const earliestDeregister = Date.now() + deregisterDelay;
@@ -3306,6 +3311,7 @@ function registerSession(sessionId) {
         stage: 'runnable',
         earliestDeregister,
         reconnectDelay: 0,
+        // interim logger, which will be replaced when first user joins
         logger: empty_logger.child({
             ...global_logger.bindings(),
             scope: "session",
@@ -3363,7 +3369,7 @@ function registerClientInSession(client, sessionId) {
     client.on('pong', time => {
         client.lastActivity = Date.now();
         const latency = client.lastActivity - time;
-        client.logger.debug({event: "pong", latency}, `receiving pong after ${latency} ms`);
+        client.logger.debug({event: "pong", latency}, `pong from ${client.meta.userIp} after ${latency} ms`);
         });
     setTimeout(() => client.isConnected() && client.ping(Date.now()), 100);
 
