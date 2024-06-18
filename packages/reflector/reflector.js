@@ -1609,7 +1609,7 @@ async function startServerForWebSockets() {
 }
 
 const STATS_TO_AVG = ["RECV", "SEND", "TICK", "IN", "OUT"];
-const STATS_TO_MAX = ["USERS", "BUFFER"];
+const STATS_TO_MAX = ["USERS"]; // "BUFFER" no longer reported
 const STATS_KEYS = [...STATS_TO_MAX, ...STATS_TO_AVG];
 const STATS = {
     time: Date.now(),
