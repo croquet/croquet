@@ -980,7 +980,7 @@ async function startServerForDePIN() {
                                     // update the peerConnection, and the client will copy
                                     // from there when it is initialised.
                                     const client = server.clients.get(globalClientId);
-                                    if (client) client.meta.connectionType = connectionType;
+                                    if (client) client.connectionType = connectionType;
                                     else {
                                         const peerConnection = server.peerConnections.get(globalClientId);
                                         if (peerConnection) peerConnection.mq_connectionType = connectionType;
@@ -1191,16 +1191,14 @@ async function startServerForDePIN() {
                     handleEvent: function (eventName, ...args) { this.handlers[eventName](...args) },
                     ping: function (time) { this.send(`!ping@${time}`) },
                     since: Date.now(),
+                    connectionType: peerConnection.mq_connectionType || { c: '', s: '' }, // webrtc chosen candidate types, for client and synq
                     bufferedAmount: 0, // dummy value, used in stats collection
+                    latency: { min: null, max: null, count: 0, sum: 0 },
                     meta: {
                         shortId: globalClientId.split(':')[1], // messy, but silly not to
                         // label: added by caller
                         scope: "connection",
-                        connection: null,
-                        dispatcher: null,
-                        userIp: peerConnection.mq_clientIp,
-                        connectionType: peerConnection.mq_connectionType || { c: '', s: '' }, // webrtc chosen candidate types, for client and synq
-                        latency: { min: null, max: null, count: 0, sum: 0 }
+                        userIp: peerConnection.mq_clientIp
                     }
                 };
             }
@@ -1373,13 +1371,13 @@ async function startServerForDePIN() {
             if (island) {
                 const clientRecords = [];
                 for (const client of island.clients) {
-                    const { meta } = client;
-                    const { shortId: id, connectionType, latency } = meta;
+                    const { connectionType, latency, meta } = client;
+                    const { shortId: id } = meta;
                     const clientRecord = { id, conn: connectionType };
                     if (latency.count) {
                         const avg = Math.round(latency.sum / latency.count);
                         clientRecord.latency = { avg, min: latency.min, max: latency.max };
-                        meta.latency = { min: null, max: null, count: 0, sum: 0 };
+                        client.latency = { min: null, max: null, count: 0, sum: 0 };
                     }
                     clientRecords.push(clientRecord);
                 }
@@ -2334,9 +2332,9 @@ function recordLatency(client, ms) {
     if (ms < latency.min) latency.min = ms;
     if (ms > latency.max) latency.max = ms;
 
-    if (client.meta.latency) {
+    if (client.latency) {
         // a DePIN client
-        const { latency } = client.meta;
+        const { latency } = client;
         if (latency.min === null || ms < latency.min) latency.min = ms;
         if (latency.max === null || ms > latency.max) latency.max = ms;
         latency.count++;
