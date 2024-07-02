@@ -143,17 +143,35 @@ const nodeOutputs = [
     },
     ];
 
+const node_webrtc_import = `
+    if (!globalThis.loadingDataChannel) {
+        globalThis.loadingDataChannel = new Promise(resolve => {
+            import('node-datachannel/polyfill')
+            .then(polyfill => {
+                globalThis.RTCPeerConnection = polyfill.RTCPeerConnection;
+                return import('node-datachannel');
+            }).then(ndc => {
+                ndc.initLogger('Warning'); // 'Verbose' | 'Debug' | 'Info' | 'Warning' | 'Error' | 'Fatal';
+                ndc.preload();
+                resolve();
+            });
+        });
+    }
+    await globalThis.loadingDataChannel;
+`;
+
 const config = () => ({
     inlineDynamicImports: true,
     input: 'croquet.js',
     output: is_node ? nodeOutputs : browserOutputs,
-    external: is_node ? ['node:fs', 'node:http', 'node:https', 'node:path', 'node:stream', 'node:url', 'node:util', 'node:worker_threads', 'node:zlib'] : [],
+    external: is_node ? ['node:fs', 'node:http', 'node:https', 'node:path', 'node:stream', 'node:url', 'node:util', 'node:worker_threads', 'node:zlib', 'node-datachannel'] : [],
     plugins: [
         replace({
             preventAssignment: true,
             '_IS_NODE_': is_node.toString(),
             '_ENSURE_WEBSOCKET_': (is_node ? `\nimport * as _WS from 'ws';\nglobalThis.WebSocket = _WS.WebSocket;\n` : ''),
-            '_ENSURE_FETCH_': (is_node ? `\nimport fetch from 'node-fetch'\n` : ''),
+            '_ENSURE_FETCH_': (is_node ? `\nimport fetch from 'node-fetch';\n` : ''),
+            '_ENSURE_RTCPEERCONNECTION_': (is_node ? node_webrtc_import : ''),
             '_HTML_MODULE_': (is_node ? 'node-html' : 'html'),
             '_URLOPTIONS_MODULE_': (is_node ? 'node-urlOptions' : 'urlOptions'),
             '_STATS_MODULE_': (is_node ? 'node-stats' : 'stats'),

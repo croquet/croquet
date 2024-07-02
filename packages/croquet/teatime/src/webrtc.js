@@ -1,6 +1,8 @@
 const ICE_NEGOTIATION_MAX = 5000; // maximum ms between sending our offer and the data channel being operational.  analogous to the controller's JOIN_FAILED_DELAY, between sending of JOIN and receipt of SYNC.
 
-const FIREFOX = !!globalThis.navigator?.userAgent.toLowerCase().includes('firefox');
+/* eslint-disable-next-line */
+const NODE = _IS_NODE_; // replaced by rollup
+const FIREFOX = !NODE && !!globalThis.navigator?.userAgent.toLowerCase().includes('firefox');
 
 function getRandomString(length) {
     return Math.random()
@@ -54,6 +56,9 @@ export class CroquetWebRTCConnection {
 
     async openConnection(registryURL) {
         try {
+            /* eslint-disable-next-line */
+            _ENSURE_RTCPEERCONNECTION_
+
             await this.openSignalingChannel(registryURL); // will never resolve if open fails
             console.log(`${this.clientId} signaling channel opened`);
             if (this.onopen) this.onopen(); // tell the controller that it has a socket (though not yet a connection to the synchronizer)
@@ -197,7 +202,9 @@ export class CroquetWebRTCConnection {
     }
 
     async logConnectionState() {
-        if (FIREFOX && this.pc) {
+        // @@ on at least Firefox and Node we can't rely on the onselectedcandidatepairchange
+        // event to find the connection types
+        if ((FIREFOX || NODE) && this.pc) {
             try {
                 const stats = await this.pc.getStats();
                 if (stats) {
@@ -295,7 +302,7 @@ export class CroquetWebRTCConnection {
         const response = await fetch(process.env.ICE_SERVERS_URL);
         // (previous) const response = await fetch(process.env.ICE_SERVERS_URL); // Croquet's free API key
         const iceServers = await response.json();
-        this.pc = new RTCPeerConnection({
+        this.pc = new globalThis.RTCPeerConnection({
             iceServers
             // iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
         });
