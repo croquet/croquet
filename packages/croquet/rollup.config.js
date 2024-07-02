@@ -164,7 +164,7 @@ const config = () => ({
     inlineDynamicImports: true,
     input: 'croquet.js',
     output: is_node ? nodeOutputs : browserOutputs,
-    external: is_node ? ['node:fs', 'node:http', 'node:https', 'node:path', 'node:stream', 'node:url', 'node:util', 'node:worker_threads', 'node:zlib', 'node-datachannel'] : [],
+    external: is_node ? ['node:fs', 'node:http', 'node:https', 'node:path', 'node:stream', 'node:url', 'node:util', 'node:worker_threads', 'node:zlib', 'node-datachannel', 'node-datachannel/polyfill'] : [],
     plugins: [
         replace({
             preventAssignment: true,
