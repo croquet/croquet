@@ -420,7 +420,7 @@ export default class Controller {
             if (persistentIdOptions?.includes(key)) persistentParams[key] = option;
             else sessionParams[key] = option;
         }
-        // allow overriding vershionId (for testing / reviving old sessions)
+        // allow overriding versionId (for testing / reviving old sessions)
         sessionParams.hashOverride = urlOptions.hashOverride || sessionSpec.hashOverride;
         // now do the hashing, separately for persistent and session IDs`
         const persistentId = await hashNameAndOptions(name, persistentParams);
@@ -1359,7 +1359,7 @@ export default class Controller {
             case 'RECONNECT': {
                 // currently only sent from a DePIN synchronizer, when it's about
                 // to bail out and wants us to reconnect so we'll find a new one.
-                this.connection.socket?.synchronizerDisconnected(4000, 'told to reconnect');
+                this.connection.socket?.synchronizerDisconnected(4003, 'told to reconnect');
                 break;
             }
             default: console.warn("Unknown action:", action, args);
@@ -2336,7 +2336,7 @@ class Connection {
             // the "socket" is a home-grown class that connects by WebSocket
             // to a manager to negotiate a WebRTC data-channel connection
             // to a reflector.
-            const synchRequest = 'synchronizer' in urlOptions ? `&synchName=${urlOptions.synchronizer}` : '';
+            const synchRequest = 'synchronizer' in urlOptions ? `&syncName=${urlOptions.synchronizer}` : '';
             const sessionId = this.id;
             socket = new CroquetWebRTCConnection(`${DEPIN_API}/clients/connect?session=${sessionId}${synchRequest}`);
             socket.onconnected = connectionIsReady; // see below
@@ -2445,6 +2445,7 @@ class Connection {
             }, 500);
         }
         if (DEBUG.session) console.log(this.id, `${this.socket ? this.socket.constructor.name + " closed" : "closed before opening,"} with code: ${code} ${message}`);
+        this.connectHasBeenCalled = false; // ready to try again
         Stats.connected(false);
         if (dormant) this.connectRestricted = true; // only reconnect on session step
         else this.connectBlocked = true; // only reconnect using connectToReflector

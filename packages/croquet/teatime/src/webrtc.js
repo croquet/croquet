@@ -43,7 +43,7 @@ export class CroquetWebRTCConnection {
         this.url = "synchronizer"; // dummy value for logging
         this.bufferedAmount = 0; // keep the PULSE logic happy
 
-        this.openConnection(registryURL);
+        this.openConnection(registryURL); // async, awaiting opening of the signalling socket - which gives the controller time to attach event handlers (onopen, onerror etc)
     }
 
     isConnecting() {
@@ -60,10 +60,10 @@ export class CroquetWebRTCConnection {
             _ENSURE_RTCPEERCONNECTION_
 
             await this.openSignalingChannel(registryURL); // will never resolve if open fails
-            console.log(`${this.clientId} signaling channel opened`);
+            console.log(`${this.clientId} signaling ready`);
             if (this.onopen) this.onopen(); // tell the controller that it has a socket (though not yet a connection to the synchronizer)
-            await this.createPeerConnection();
-            console.log(`${this.clientId} peer channel created`);
+            await this.createPeerConnection(); // slow the first time, while fetching ICE server list
+            console.log(`${this.clientId} peer connection created`);
 
             this.dataChannel = this.pc.createDataChannel(`client-${this.clientId}`);
             console.log(`${this.clientId} data channel created`);
@@ -119,7 +119,7 @@ export class CroquetWebRTCConnection {
                 this.connectionTypes.remote = pair.remote.type;
                 this.logConnectionState();
             };
-        } catch (e) { this.synchronizerDisconnected(4000, e.message); }
+        } catch (e) { this.synchronizerDisconnected(4003, e.message); } // 4003 => RECONNECT
     }
 
     openSignalingChannel(registryURL) {
@@ -137,16 +137,27 @@ export class CroquetWebRTCConnection {
         return new Promise(resolve => {
             this.signaling = new WebSocket(registryURL);
             this.signaling.onopen = () => {
+                // because the registry will open the socket even if only to
+                // report an error, we wait to receive a 'READY' message (below)
+                // before resolving the promise to mark the socket as usable.
                 console.log(`${this.clientId} signaling socket opened`);
-                resolve();
             };
             this.signaling.onmessage = rawMsg => {
                 const msgData = JSON.parse(rawMsg.data);
-                // $$$ temporary handling for errors passed through signalling
-                if (msgData.error) {
-                    console.error("error received through signaling", msgData.error);
+                if (msgData.what === 'READY') {
+                    // sent by the SessionRunner to indicate socket acceptance
+                    resolve();
                     return;
                 }
+                // $$$ temporary handling for errors passed through signalling
+                // (which will be followed immediately by socket closure from
+                // the far end)
+                if (msgData.what === 'ERROR') {
+                    console.error(`From registry: ${msgData.reason}`);
+                    return;
+                }
+
+                // otherwise assume it's an ICE message
                 console.log(`${this.clientId} received signal of type "${msgData.type}"`);
                 // console.log(`${this.clientId} received message`, msgData);
                 switch (msgData.type) {
@@ -276,9 +287,10 @@ export class CroquetWebRTCConnection {
 
     cleanUpConnection() {
         this.closeSignalingChannel();
-        if (this.pc) {
-            this.pc.close();
-            this.pc = null;
+        const { pc } = this;
+        if (pc) {
+            this.pc = null; // prevent recursion
+            pc.close();
             clearInterval(this.peerConnectionStatsInterval);
         }
         this.dataChannel = null;
@@ -298,27 +310,28 @@ export class CroquetWebRTCConnection {
     }
 
     async createPeerConnection() {
-        // fetch STUN and TURN details from Open Relay (https://www.metered.ca/tools/openrelay/)
-        const response = await fetch(process.env.ICE_SERVERS_URL);
-        // (previous) const response = await fetch(process.env.ICE_SERVERS_URL); // Croquet's free API key
-        const iceServers = await response.json();
-        this.pc = new globalThis.RTCPeerConnection({
-            iceServers
-            // iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-        });
-        this.pc.onnegotiationneeded = _e => {
+        if (!globalThis.iceServersP) {
+            globalThis.iceServersP =
+                // fetch STUN and TURN details from Open Relay (https://www.metered.ca/tools/openrelay/)
+                fetch(process.env.ICE_SERVERS_URL)
+                    .then(response => response.json());
+        }
+        const iceServers = await globalThis.iceServersP;
+
+        const pc = this.pc = new globalThis.RTCPeerConnection({ iceServers });
+        pc.onnegotiationneeded = _e => {
             console.log(`negotiationneeded event fired`);
         };
-        this.pc.onsignalingstatechange = _e => {
-            console.log(`signaling state: "${this.pc.signalingState}"`);
+        pc.onsignalingstatechange = _e => {
+            console.log(`signaling state: "${pc.signalingState}"`);
         };
-        this.pc.onconnectionstatechange = _e => {
-            const { connectionState, iceConnectionState } = this.pc;
+        pc.onconnectionstatechange = _e => {
+            const { connectionState, iceConnectionState } = pc;
             console.log(`connection state: "${connectionState}" (cf. ICE connection state: "${iceConnectionState}")`);
             if (connectionState === 'disconnected' || connectionState === 'failed') this.synchronizerDisconnected();
         };
-        this.pc.oniceconnectionstatechange = _e => {
-            const state = this.pc.iceConnectionState;
+        pc.oniceconnectionstatechange = _e => {
+            const state = pc.iceConnectionState;
             const dataChannelState = this.dataChannel.readyState;
             console.log(`${this.clientId} ICE connection state: "${state}"; data channel: "${dataChannelState}"`);
             // if (state === 'disconnected') {
@@ -328,11 +341,15 @@ export class CroquetWebRTCConnection {
                 // this.synchronizerDisconnected();  by the above reasoning, no.
             // }
             if (state === 'failed') {
+                // in principle this would be an opportunity to restart ICE over the
+                // existing signalling connection
                 // https://developer.mozilla.org/en-US/docs/Web/API/WebRTC_API/Perfect_negotiation
-                this.pc.restartIce();
+                // this.pc.restartIce();   - with this, followed by issuing a new offer.
+                // but for us it seems simpler to restart from scratch.
+                this.synchronizerDisconnected(4003, 'ICE negotiation failed'); // 4003 => RECONNECT
             }
         };
-        this.pc.onicecandidate = e => {
+        pc.onicecandidate = e => {
             // an ICE candidate (or null) has been generated locally.  our synchronizer's
             // node-datachannel API can't handle empty or null candidates (even though
             // the protocol says they can be used to indicate the end of the candidates)
@@ -355,7 +372,7 @@ export class CroquetWebRTCConnection {
                 this.signalToSessionRunner(message);
             }
         };
-        this.pc.onicecandidateerror = e => {
+        pc.onicecandidateerror = e => {
             // it appears that these are generally not fatal.  report and
             // carry on.
             console.log(`${this.clientId} ICE error: ${e.errorText}`);
@@ -418,6 +435,8 @@ export class CroquetWebRTCConnection {
         // though negotiation has succeeded (so localGatheringComplete remains false).
         // on expiry of ICE_NEGOTIATION_MAXIMUM we now proceed with closure of the
         // signalling channel if the connection appears to be up and running.
+        // $$$ this is also consistently seen on node.js clients.  maybe there's a
+        // different reason for that (and a possible workaround).
         this.dataChannelFlowing = true;
         if (!this.signalingCloseScheduled && this.synchronizerGatheringComplete && this.localGatheringComplete) {
             this.clearNegotiationTimeout(); // negotiation has successfully completed
