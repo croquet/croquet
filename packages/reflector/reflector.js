@@ -8,6 +8,8 @@
 
 const os = require('node:os');
 const fs = require('node:fs');
+const path = require('node:path');
+const child_process = require('node:child_process');
 const { performance } = require('node:perf_hooks');
 const WebSocket = require('ws');
 const prometheus = require('prom-client');
@@ -344,6 +346,9 @@ async function startServerForDePIN() {
     DEPIN = DEPIN.replace(/^http(s):/, 'ws$1:');
     if (!DEPIN.startsWith('ws')) DEPIN = 'ws://' + DEPIN;
 
+    // a production synchronizer can only use bundled app code
+    const UTILITY_APP_PATH = DEPIN === DEPIN_API_DEFAULT ? 'internal' : 'https://downloads.multisynq.dev';
+
     const PROXY_STATUS_DELAY = 10000; // update this often when running sessions
     const PROXY_PING_DELAY = 10000; // simple PINGs are handled by auto-response
     const PROXY_KEEP_ALIVE_DELAY = 28000; // chosen so that when not running sessions, every 3rd PING is replaced by ALIVE
@@ -542,6 +547,11 @@ async function startServerForDePIN() {
                                 sendStats('healthz', `Multisynq synchronizer-${PROTOCOL_VERSION}`);
                                 break;
                         }
+                        break;
+                    }
+                    case 'RUN-APP': {
+                        const { appName, targetSynch } = depinMsg;
+                        startUtilityApp(UTILITY_APP_PATH, appName, targetSynch );
                         break;
                     }
                     case 'ERROR':
@@ -1398,6 +1408,37 @@ async function startServerForDePIN() {
             bytesIn: TOTALS.IN + STATS.IN,
             proxyConnectionState
         };
+    }
+
+    function startUtilityApp(pathUrl, appName, targetSynch) {
+        const decoder = new TextDecoder()
+
+        const appFile = path.join(__dirname, 'app_wrapper.js');
+        const extraArgs = [];
+        extraArgs.push(`--depin=${DEPIN}`, `--debug=session,snapshot`);
+        if (targetSynch) extraArgs.push(`--synchronizer=${targetSynch}`);
+        const utilityAppProcess = child_process.fork(appFile, [pathUrl, appName, ...extraArgs], {
+            stdio: 'pipe',
+        })
+
+        setTimeout(() => console.info(`started utility process with PID=${utilityAppProcess.pid}`), 200) // for info only
+
+        utilityAppProcess.stdout.on('data', data => {
+            const dat = decoder.decode(data);
+            const lines = dat.split('\n').filter(line => line);
+            for (const l of lines) console.log(`[app] ${l}`);
+            // sendToUIBridge('stdout', dat)
+        });
+        utilityAppProcess.stderr.on('data', data => {
+            const dat = decoder.decode(data)
+            // sendToUIBridge('stderr', dat)
+            const lines = dat.split('\n').filter(line => line);
+            for (const l of lines) console.error(`[app] ${l}`);
+        });
+        utilityAppProcess.on('exit', code => {
+            console.log(`utility process exited with code ${code}`)
+        });
+
     }
 
     // listen for messages from Electron
