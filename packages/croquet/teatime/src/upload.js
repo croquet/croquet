@@ -10,17 +10,15 @@ import HmacSHA256 from "crypto-js/hmac-sha256";
 /* eslint-disable-next-line */
 const NODE = _IS_NODE_; // replaced by rollup
 
-let fetcher, poster, https;
+let poster;
+let fetcher = fetch;
 if (NODE) {
     /* eslint-disable global-require */
-    https = require('https');
     const { parentPort } = require('worker_threads');
     parentPort.on('message', msg => handleMessage({ data: msg }));
-    fetcher = nodeFetch;
     poster = msg => parentPort.postMessage({ data: msg });
 } else {
     onmessage = handleMessage;
-    fetcher = fetch;
     poster = postMessage;
 }
 
@@ -145,42 +143,4 @@ function handleMessage(msg) {
         if (debug) console.log(id, `retrieved ${requestUrl}`);
         poster({ job, ok: true, status: 200, statusText: "Offline file found", body, bytes: NODE ? body.length : body.byteLength });
     }
-}
-
-function nodeFetch(requestUrl, options) {
-    // send a native https request, and respond with an object providing the bare
-    // interface of a fetch() response: { ok, status, statusText, json() }.
-    // json() is only added if ok is true.
-    // options.referrer is currently ignored.
-    // We could send the "Referer" [sic] header but in Node there typically is no referrer URL
-    return new Promise((resolve, reject) => {
-        const urlObj = new URL(requestUrl);
-        const requestOptions = {
-            hostname: urlObj.hostname,
-            port: 443,
-            path: urlObj.pathname + urlObj.search,
-            method: options.method || 'GET',
-            headers: options.headers,
-            };
-
-        const req = https.request(requestOptions, res => {
-            let json = '';
-            res.on('data', chunk => json += chunk);
-
-            res.on('end', () => {
-                const { statusCode, statusMessage } = res;
-                const ok = statusCode >= 200 && statusCode < 300;
-                const report = { ok, status: statusCode, statusText: statusMessage };
-                if (ok) report.json = () => JSON.parse(json); // will give an error if json is empty.  caveat emptor.
-                resolve(report);
-                });
-            });
-
-        req.on('error', error => {
-            reject(error);
-            });
-
-        if (options.body) req.write(options.body);
-        req.end();
-    });
 }

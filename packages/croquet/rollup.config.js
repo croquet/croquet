@@ -170,7 +170,6 @@ const config = () => ({
             preventAssignment: true,
             '_IS_NODE_': is_node.toString(),
             '_ENSURE_WEBSOCKET_': (is_node ? `\nimport * as _WS from 'ws';\nglobalThis.WebSocket = _WS.WebSocket;\n` : ''),
-            '_ENSURE_FETCH_': (is_node ? `\nimport fetch from 'node-fetch';\n` : ''),
             '_ENSURE_RTCPEERCONNECTION_': (is_node ? node_webrtc_import : ''),
             '_HTML_MODULE_': (is_node ? 'node-html' : 'html'),
             '_URLOPTIONS_MODULE_': (is_node ? 'node-urlOptions' : 'urlOptions'),

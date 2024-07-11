@@ -11,9 +11,8 @@ import pako from "pako"; // gzip-aware compressor
 import { OfflineSocket } from "./offline";
 import { CroquetWebRTCConnection } from "./webrtc";
 
-// the rollup config will replace the lines below with imports in the case of a Node.js build
+// the rollup config will replace the line below with an import in the case of a Node.js build
 // _ENSURE_WEBSOCKET_
-// _ENSURE_FETCH_
 
 import { Stats } from "./_STATS_MODULE_"; // eslint-disable-line import/no-unresolved
 import urlOptions from "./_URLOPTIONS_MODULE_"; // eslint-disable-line import/no-unresolved
@@ -424,6 +423,7 @@ export default class Controller {
         sessionParams.hashOverride = urlOptions.hashOverride || sessionSpec.hashOverride;
         // now do the hashing, separately for persistent and session IDs`
         const persistentId = await hashNameAndOptions(name, persistentParams);
+        // on DePIN, token is undefined
         const { developerId, token } = await this.verifyApiKey(apiKey, appId, persistentId);
         const { id, codeHash, computedCodeHash } = await hashSessionAndCode(persistentId, developerId, sessionParams, CROQUET_VERSION);
         this.tove = await this.encrypt(id);
@@ -547,6 +547,7 @@ export default class Controller {
                 referrer: App.referrerURL(),
                 referrerPolicy: 'no-referrer-when-downgrade',
             });
+            // result from multisynq either has developerId or error, with token always undefined
             const { error, developerId, token } = await response.json();
             if (error) throw Error(error);
             if (DEBUG.session) console.log(`${DEPIN ? "Multisynq" : "Croquet"}: verified API key`);
