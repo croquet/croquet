@@ -32,6 +32,7 @@ const ARGS = {
     TIME_STABILIZED: "--time-stabilized",
     DEPIN: "--depin", // optionally followed by DePIN Registry arg, e.g. --depin localhost:8787
     SYNCNAME: "--sync-name", // followed by a name, e.g. --sync-name MyBigMac:fedc
+    WALLET: "--wallet", // followed by full wallet ID
 };
 
 const EXIT = {
@@ -47,18 +48,33 @@ for (let i = 2; i < process.argv.length; i++) {
     if (!knownArgs.includes(arg)) {
         // might be following an arg that can take a value
         const prevArg = process.argv[i - 1];
-        if (prevArg !== ARGS.DEPIN && prevArg !== ARGS.SYNCNAME) {
+        if (![ARGS.DEPIN, ARGS.SYNCNAME, ARGS.WALLET].includes(prevArg)) {
             console.error(`Error: Unrecognized option ${arg}`);
             process.exit(EXIT.FATAL);
         }
     }
 }
 
+function parseArgWithValue(argKey) {
+    if (process.argv.includes(argKey)) {
+        const maybeValueArg = process.argv[process.argv.indexOf(argKey) + 1];
+        return maybeValueArg && !maybeValueArg.startsWith('-') ? maybeValueArg : null;
+    }
+    return null;
+}
+
+let WALLET;
 let DEPIN = process.argv.includes(ARGS.DEPIN);
 if (DEPIN) {
-    const depinArg = process.argv[process.argv.indexOf(ARGS.DEPIN) + 1];
-    if (depinArg && !depinArg.startsWith('-')) {
-        DEPIN = depinArg;
+    // value argument is optional (defaults to prod)
+    const depinValue = parseArgWithValue(ARGS.DEPIN);
+    if (depinValue) DEPIN = depinValue;
+
+    WALLET = parseArgWithValue(ARGS.WALLET);
+    if (!WALLET) {
+        // $$$ figure out what to do here
+        console.warn(`No wallet specified for DePIN; using community default`);
+        WALLET = '5B3aFyxpnGY36fBeocsLfia5vgAUrbD5pTXorCcMeV7t';
     }
 }
 
@@ -67,14 +83,7 @@ function getRandomString(length) {
         .toString(36)
         .substring(2, 2 + length);
 }
-let SYNCNAME;
-if (process.argv.includes(ARGS.SYNCNAME)) {
-    const nameArg = process.argv[process.argv.indexOf(ARGS.SYNCNAME) + 1];
-    if (nameArg && !nameArg.startsWith('-')) {
-        SYNCNAME = nameArg;
-    }
-}
-if (!SYNCNAME) SYNCNAME = getRandomString(8);
+const SYNCNAME = parseArgWithValue(ARGS.SYNCNAME) || getRandomString(8) + getRandomString(8);
 
 const GCP_PROJECT = process.env.GCP_PROJECT; // only set if we're running on Google Cloud
 
@@ -216,7 +225,7 @@ const GCP_SEVERITY = {
 // a connectionId (client address), and "process" if we don't have either.
 const empty_logger = pino({
     base: null,
-    messageKey: CLUSTER_IS_LOCAL ? 'msg' : 'message',
+    messageKey: 'message', // expected by at least GCP logger; may as well standardise
     timestamp: CLUSTER_IS_LOCAL && !NO_LOGTIME,
     level: 'debug',
     customLevels: {
@@ -234,7 +243,8 @@ const empty_logger = pino({
 // (e.g. {scope: "session", scope: "connection"} arrives as {scope: "connect"})
 const global_logger = empty_logger.child({ scope: "process", hostIp: HOSTIP });
 // Logging out the initial start-up event message
-global_logger.notice({ event: "start", appVersion: APP_VERSION }, `synchronizer v${APP_VERSION} started ${CLUSTER_LABEL} ${HOSTIP}`);
+const walletMsg = WALLET ? ` for wallet ${WALLET}` : '';
+global_logger.notice({ event: "start", appVersion: APP_VERSION }, `synchronizer v${APP_VERSION} started ${CLUSTER_LABEL} ${HOSTIP}${walletMsg}`);
 
 // secret shared with sign cloud func
 const SECRET_NAME = `projects/${GCP_PROJECT}/secrets/signurl-jwt-hs256/versions/latest`;
@@ -455,7 +465,7 @@ async function startServerForDePIN() {
             }, ms);
         }
 
-        proxySocket = new WebSocket(`${DEPIN}/synchronizers/register?version=${APP_VERSION}&nickname=${SYNCNAME}&registerRegion=${registerRegion}`, {
+        proxySocket = new WebSocket(`${DEPIN}/synchronizers/register?version=${APP_VERSION}&nickname=${SYNCNAME}&wallet=${WALLET}&registerRegion=${registerRegion}`, {
             perMessageDeflate: false, // this was in the node-datachannel example; not sure if it's helping
         });
 
