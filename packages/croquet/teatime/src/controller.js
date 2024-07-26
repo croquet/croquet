@@ -164,8 +164,10 @@ function initDEPIN(defaultToDEPIN) {
 const NOCHEAT = urlOptions.nocheat;
 
 // schedule a snapshot after this many ms of CPU time have been used for simulation
-const SNAPSHOT_EVERY = 5000;
-// after reflecting one handlePollForSnapshot event, reflector will wait this many ms before allowing another
+const SNAPSHOT_AFTER_CPU = 5000;
+// on DePIN, schedule a snapshot after this many ms of teatime have passed since last one
+const DEPIN_SNAPSHOT_AFTER_TEATIME = 5 * 60 * 1000;
+// after reflecting one handlePollForSnapshot event, reflector will wait this many ms before allowing another.  also used as the debounce gap for our own snapshot requests.
 const SNAPSHOT_POLL_DEBOUNCE = 5000;
 
 // add this many ms for each external message scheduled
@@ -290,6 +292,8 @@ export default class Controller {
         this.cpuTime = 0;
         /** CPU time spent at the point when we realised a snapshot is needed */
         this.triggeringCpuTime = null;
+        /** record of teatime for debouncing our snapshot requests */
+        this.lastSnapshotRequest = 0;
         /** @type {Boolean} backlog was below SYNCED_MIN */
         this.synced = null; // null indicates never synced before
         /** last measured latency in ms */
@@ -614,7 +618,7 @@ export default class Controller {
         if (force) {
             // the reflector really needs a snapshot so SOME clients need to schedule
             // we'll pick three viewIds, and if we're one of them we'll schedule
-            // (if the simulation is behind then this will not be toatally identical but what can we do?)
+            // (if the simulation is behind then this will not be totally identical but what can we do?)
             const viewIds = Object.keys(this.vm.views);
             viewIds.sort();
             if (viewIds[0] === this.viewId || viewIds[1] === this.viewId || viewIds[2] === this.viewId) {
@@ -2000,19 +2004,32 @@ export default class Controller {
             // only snapshot if not offline
             if (!DEBUG.offline) {
                 // important not to schedule (resetting cpuTime) if not synced
-                if (this.synced && weHaveTime && this.cpuTime > SNAPSHOT_EVERY) {
-                    // the triggeringCpuTime will be used whether or not this client
-                    // ends up being the one that triggers the snapshot.
-                    this.triggeringCpuTime = this.cpuTime;
-                    this.cpuTime = 0;
-                    // first level of defence against clients simultaneously deciding
-                    // that it's time to take a snapshot: stagger pollForSnapshot sends,
-                    // so we might have heard from someone else before we send.
-                    // however, if we're backgrounded so that timers might be firing only once
-                    // per minute, it would be wrong to wait.
-                    if (this.isBeingAnimated()) {
-                        setTimeout(() => this.scheduleSnapshot(), Math.floor(Math.random()*2000));
-                    } else this.scheduleSnapshot();
+                if (this.synced && weHaveTime && this.vm.time - this.lastSnapshotRequest > SNAPSHOT_POLL_DEBOUNCE) {
+                    let doSchedule = false;
+                    if (this.cpuTime > SNAPSHOT_AFTER_CPU) {
+                        if (DEBUG.snapshot) console.log(this.id, `due for snapshot: cpuTime is ${Math.round(this.cpuTime)}ms`);
+                        doSchedule = true;
+                    } else if (DEPIN && this.vm.time - this.vm.lastSnapshotPoll > DEPIN_SNAPSHOT_AFTER_TEATIME) {
+                        if (DEBUG.snapshot) console.log(this.id, `due for snapshot: time since last is ${this.vm.time - this.vm.lastSnapshotPoll}ms`);
+                        doSchedule = true;
+                    }
+
+                    if (doSchedule) {
+                        this.lastSnapshotRequest = this.vm.time; // for debounce
+
+                        // the triggeringCpuTime will be used whether or not this client
+                        // ends up being the one that triggers the snapshot.
+                        this.triggeringCpuTime = this.cpuTime;
+                        this.cpuTime = 0;
+                        // first level of defence against clients simultaneously deciding
+                        // that it's time to take a snapshot: stagger pollForSnapshot sends,
+                        // so we might have heard from someone else before we send.
+                        // however, if we're backgrounded so that timers might be firing only once
+                        // per minute, it would be wrong to wait.
+                        if (this.isBeingAnimated()) {
+                            setTimeout(() => this.scheduleSnapshot(), Math.floor(Math.random()*2000));
+                        } else this.scheduleSnapshot();
+                    }
                 } else if (this.reflectorNeedsSnapshot) {
                     // the reflector is desperate for a snapshot, so we force scheduling one
                     this.triggeringCpuTime = this.synced ? this.cpuTime : 12345; // prefer synced clients
