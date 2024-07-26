@@ -841,9 +841,9 @@ export default class VirtualMachine {
                     continue;
                 }
                 if (methodName.indexOf('.') >= 0) {
-                    const i = methodName.indexOf('.');
-                    const head = methodName.slice(0, i);
-                    const tail = methodName.slice(i + 1);
+                    const dot = methodName.indexOf('.');
+                    const head = methodName.slice(0, dot);
+                    const tail = methodName.slice(dot + 1);
                     try {
                         model.call(head, tail, data);
                     } catch (error) {
