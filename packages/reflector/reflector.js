@@ -3579,11 +3579,13 @@ if (TIME_STABILIZED) {
     let lastOffset = null;
     let lastCheck = null;
     let lastReport = Date.now();
-    const REPORT_INTERVAL = 10 * 60 * 1000; // every 10 mins
+    const REPORT_INTERVAL = 15 * 60 * 1000; // every 15 mins
+    const REPORT_THRESHOLD = 6 / 60000; // anything under 6ms per minute isn't worth shouting about
     // eslint-disable-next-line no-inner-declarations
     function measureDatePerformanceOffset() {
+        const boostAsMsPerMin = boost => `${(boost * 60000).toFixed(1)}ms/min`;
         const now = Date.now();
-        const perfNow = performance.now(); // could try to stabilise this too, but since we're checking every 1000ms any 2nd-order effects are negligible
+        const perfNow = performance.now(); // could try to stabilise this too, but since we're checking every 1000ms obviously 2nd-order effects are negligible
         const newOffset = now - perfNow;
         if (lastOffset !== null) {
             const jump = newOffset - lastOffset; // if Date has been jumped forwards, this will be +ve - possibly some tens of ms
@@ -3592,7 +3594,7 @@ if (TIME_STABILIZED) {
             if (Math.abs(jump) > 5) {
                 global_logger.notice({
                     event: "stabilization-jump",
-                }, `estimated jump of ${Math.round(jump)}ms (total since start ${Math.round(totalJumps)}ms); implied boost ratio ${(impliedRatio * 100).toFixed(4)}%`);
+                }, `estimated jump of ${Math.round(jump)}ms (total since start ${Math.round(totalJumps)}ms); implied boost ${boostAsMsPerMin(impliedRatio)}`);
                 lastReport = now;
             }
             const smooth = 0.2;
@@ -3607,9 +3609,11 @@ if (TIME_STABILIZED) {
         lastCheck = perfNow;
 
         if (now - lastReport >= REPORT_INTERVAL) {
-            global_logger.notice({
-                event: "stabilization-report",
-            }, `estimated drift since start ${Math.round(totalJumps)}ms; current boost ${(dateAdjustmentRatio * 100).toFixed(4)}%`);
+            if (Math.abs(dateAdjustmentRatio) >= REPORT_THRESHOLD) {
+                global_logger.notice({
+                    event: "stabilization-report",
+                }, `estimated drift since start ${Math.round(totalJumps)}ms; current boost ${boostAsMsPerMin(dateAdjustmentRatio)}`);
+            }
             lastReport = now;
         }
     }
