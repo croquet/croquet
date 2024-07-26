@@ -1455,7 +1455,7 @@ export default class Controller {
 
         const { tick, delay } = this.getTickAndMultiplier();
         const { name, codeHash, appId, apiKey: apiKeysWithBackend, persistentId, developerId, heraldUrl, rejoinLimit, autoSleep, computedCodeHash, location, flags } = this.sessionSpec;
-        const { apiKey } = this.getBackend(apiKeysWithBackend);
+        const apiKey = DEPIN ? 'hidden' : this.getBackend(apiKeysWithBackend).apiKey;
         const user = location ? [this.viewId] : this.viewId;
 
         const args = {
