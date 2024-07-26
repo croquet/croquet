@@ -796,6 +796,7 @@ async function startServerForDePIN() {
                 const { updateTracker } = session;
                 const { newMessages } = updateTracker;
                 const sizeEstimate = typeof msg[2] === "string" ? msg[2].length + 30 : 30; // @@ only need an approximate amount, and over-estimating is better than under.
+                // %%% need to fix this.  tally messages (e.g. for snapshot) can get pretty big.
                 newMessages.push(msg);
                 updateTracker.newMessageTotal += sizeEstimate;
             };
@@ -2025,6 +2026,7 @@ async function JOIN(client, args) {
             snapshotTime: -1,    // time of last snapshot
             snapshotSeq: null,   // seq of last snapshot
             snapshotUrl: '',     // url of last snapshot
+            snapshotMessageBytes: 0, // (DePIN only) tally of message lengths in last snapshot
             appId,
             persistentId,        // new protocol as of 0.5.1
             persistentUrl: '',   // url of persistent data
@@ -2305,6 +2307,25 @@ function after(seqA, seqB) {
     return seqDelta > 0 && seqDelta < 0x8000000;
 }
 
+/** a size for a single message.  the client's Controller uses the same calculation. */
+function messageSizeForAccounting(message) {
+    // every message needs to be associated with a size, that will be
+    // aggregated into a byte tally for measuring synchronizer use.
+    // for a string-encoded payload, the size is the length of the
+    // string.  no room for interpretation.
+    // for a custom (synchronizer-generated) object payload, we will have added
+    // a _size property to ensure that synchronizer and clients see the same
+    // value.
+    // in both cases, we then add a constant 16 bytes to account for the
+    // time and sequence properties - in that the summation needs to be
+    // consistent and fair, even if not absolutely accurate.
+    let messageSize = typeof message[2] === "string"
+        ? message[2].length
+        : message[2]._size;
+    messageSize += 16; // as explained above
+    return messageSize;
+}
+
 /** keep a histogram of observed latencies */
 
 const Latencies = new Map();
@@ -2498,6 +2519,10 @@ function SNAP(client, args) {
         // in the newMessages buffer - some of which might be before the snapshot, some
         // after - as an update that will be sent to the session runner as soon as
         // possible.
+        // the synchronizer declares its own value for the total byte count of
+        // messages included in the snapshot.
+        const totalMessageBytes = messagesToStore.reduce((total, msg) => total + messageSizeForAccounting(msg), 0);
+        island.snapshotMessageBytes = totalMessageBytes;
         ALL_SESSIONS.get(id).gatherUpdateIfNeeded(true); // true => any change will do
         island.storedSeq = seq;
         island.storedUrl = url;
@@ -2605,6 +2630,13 @@ function SEND(island, messages) {
             const rawTime = getRawTime(island);
             message[message.length - 1] = rawTime; // overwrite the latency information from the controller
         }
+
+        // see comment in messageSizeForAccounting()
+        if (typeof message[2] !== "string") {
+            const messageSize = JSON.stringify(message[2]).length;
+            message[2]._size = messageSize;
+        }
+
         const msg = JSON.stringify({ id: island.id, action: 'RECV', args: message });
         island.logger.trace({event: "broadcast-message", t: time, seq: island.seq}, `broadcasting RECV ${JSON.stringify(message)}`);
         prometheusMessagesCounter.inc();
