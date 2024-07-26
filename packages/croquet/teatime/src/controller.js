@@ -311,6 +311,8 @@ export default class Controller {
         }
         /** @type {Array} recent TUTTI sends and their payloads, for matching up with incoming votes and divergence alerts */
         this.tuttiHistory = [];
+        /** cumulative total size of message payloads received since last snapshot */
+        this.messageBytesSinceSnapshot = 0;
         /** Date.now() at end of last stepSession triggered by animation */
         this.lastAnimationEnd = 0;
         /** array of gaps between animation end and the next start.  replaced with the value true once rapid animation has been detected. */
@@ -590,7 +592,8 @@ export default class Controller {
         } finally {
             ms = Stats.end("snapshot") - start;
         }
-        if (DEBUG.snapshot) console.log(this.id, `snapshot taken in ${Math.ceil(ms)} ms`);
+        if (DEBUG.snapshot) console.log(this.id, `snapshot taken in ${Math.ceil(ms)} ms with messageBytes = ${this.messageBytesSinceSnapshot}`);
+        // %%% need to include messageBytes in snapshot somehow
         return snapshot;
     }
 
@@ -649,6 +652,7 @@ export default class Controller {
                 cpuTime: localCpuTime,
                 hash: this.vm.getSummaryHash(),
                 viewId: this.viewId,
+                messageBytes: this.messageBytesSinceSnapshot,
             };
         } catch (error) {
             displayAppError("snapshot", error);
@@ -687,14 +691,13 @@ export default class Controller {
 
         if (this.synced !== true) {
             if (DEBUG.snapshot) console.log(this.id, "Ignoring snapshot vote during sync");
-            return;
-        }
-
-        if (shouldUpload) {
+        } else if (shouldUpload) {
             const snapshot = this.takeSnapshotHandleErrors();
             // switch out of the simulation loop
             if (snapshot) Promise.resolve().then(() => this.uploadSnapshot(snapshot, dissidentFlag));
         }
+
+        this.messageBytesSinceSnapshot = 0;
     }
 
     analyzeTally(tally, timeProperty) {
@@ -706,6 +709,8 @@ export default class Controller {
         // even if this client is not in the tally (didn't vote, or vote arrived late)
         // we still analyse the votes, because if the hashes fall into multiple groups
         // every client should log a warning.
+
+        // %%% need to check for agreement in messageBytes property too
 
         let shouldUpload = false;
         let dissidentFlag = null;
@@ -1102,6 +1107,14 @@ export default class Controller {
         }
     }
 
+    messageSizeForAccounting(msg) {
+        let messageSize = typeof msg[2] === "string"
+            ? msg[2].length
+            : msg[2]._size;
+        messageSize += 16; // agreed with synchronizer to represent overhead
+        return messageSize;
+    }
+
     // handle messages from reflector
     async receive(action, args) {
         const prevReceived = this.lastReceived;
@@ -1204,6 +1217,7 @@ export default class Controller {
                 const messagesSinceSync = this.networkQueue; // in case we RECVed during the await above
                 this.networkQueue = [];
                 for (const msg of messages) {
+                    const messageSize = this.messageSizeForAccounting(msg); // before any conversion
                     if (typeof msg[2] !== "string") {
                         this.convertReflectorMessage(msg);
                     } else try {
@@ -1214,7 +1228,7 @@ export default class Controller {
                         return;
                     }
                     if (DEBUG.messages) console.log(this.id, "received in SYNC " + JSON.stringify(msg));
-                    this.networkQueue.push(msg);
+                    this.networkQueue.push([msg, messageSize]);
                 }
                 this.networkQueue.push(...messagesSinceSync);
                 if (time > this.reflectorTime) this.timeFromReflector(time, "reflector");
@@ -1303,17 +1317,26 @@ export default class Controller {
                 // We received a message from reflector.
                 // Put it in the queue, and set time.
                 // Actual processing happens in main loop.
+                // The 'args' object on a RECV is an array [time, seq, payload, ...]
                 const msg = args;
                 msg[1] >>>= 0; // make sure it's uint32 (reflector used to send int32)
-                // the reflector might insert messages on its own, indicated by a non-string payload
-                // we need to convert the payload to the message format this client is using
+                // the reflector can insert messages on its own, indicated by a payload
+                // that is not a string but an object with a 'what' property (currently
+                // just 'users' or 'tally').
+                // we convert the payload to the same format as used in stringy messages.
+                const messageSize = this.messageSizeForAccounting(msg); // before any conversion
                 if (typeof msg[2] !== "string") {
                     if (DEBUG.messages) console.log(this.id, "received META " + JSON.stringify(msg));
-                    this.convertReflectorMessage(msg);
+                    this.convertReflectorMessage(msg); // replaces msg[2] with a fabricated encoding of (receiver, selector, args), usable like msgPayload below
                     if (DEBUG.messages) console.log(this.id, "converted to " + JSON.stringify(msg));
                 } else try {
-                    const [payload, viewId, lastSent] = this.decryptPayload(msg[2]);
-                    msg[2] = payload;
+                    // a non-meta message is an array [msgPayload, viewId, sendTime],
+                    // JSONified then encrypted by the sending client.
+                    // msgPayload is a stringy encoding of (receiver, selector, args) -
+                    // with numerical replacements for the common selectors, short refs
+                    // for model args, etc.
+                    const [msgPayload, viewId, lastSent] = this.decryptPayload(msg[2]);
+                    msg[2] = msgPayload;
                     // if we sent this message, add it to latency statistics
                     if (viewId === this.viewId) this.addToStatistics(lastSent, this.lastReceived);
                     if (DEBUG.messages) console.log(this.id, "received " + JSON.stringify(msg));
@@ -1321,7 +1344,7 @@ export default class Controller {
                     this.connection.closeConnectionWithError("RECV", Error(`session password decrypt: ${err.message}`), 4200); // do not retry
                     return;
                 }
-                this.networkQueue.push(msg);
+                this.networkQueue.push([msg, messageSize]);
                 let rawTime;
                 if (this.flags.rawtime) rawTime = msg[msg.length - 1];
                 this.timeFromReflector(msg[0], "reflector", rawTime);
@@ -1922,15 +1945,20 @@ export default class Controller {
                 const simStart = Stats.begin("simulate");
                 // simulate all received external messages
                 while (weHaveTime) {
-                    const msgData = this.networkQueue[0];
-                    if (!msgData) break;
+                    const messageWithSize = this.networkQueue[0]; // [msg, size]
+                    if (!messageWithSize) break;
+
+                    const [msgData, messageSize] = messageWithSize;
                     // finish simulating internal messages up to message time
                     // (otherwise, external messages could end up in the future queue,
-                    // making snapshots non-deterministic)
+                    // making snapshots non-deterministic).
+                    // msgData is a sequenced message [time, seq, stringEncodedMsg].
                     weHaveTime = this.vm.advanceTo(msgData[0], deadline);
                     if (!weHaveTime) break;
                     // Remove message from the network queue
                     this.networkQueue.shift();
+                    // and add its official size to our running tally
+                    this.messageBytesSinceSnapshot += messageSize;
                     // have the vm decode and schedule that message
                     // it will end up first in the future message queue
                     const msg = this.vm.scheduleExternalMessage(msgData);
@@ -2485,6 +2513,8 @@ class Connection {
     }
 
     receive(data) {
+        // data is a JSONified object with an action (TICK, SYNC, RECV etc), with
+        // optional args and - currently, for all actions other than PONG - a session id
         this.lastReceived = Date.now();
         const { id, action, args } = JSON.parse(data);
         if (id) {
