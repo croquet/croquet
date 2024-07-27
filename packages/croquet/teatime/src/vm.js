@@ -281,14 +281,19 @@ export default class VirtualMachine {
                     // read vm from snapshot
                     const reader = VMReader.newOrRecycled(this);
                     const vmData = reader.readVM(snapshot, "vm");
+                    let staticInitializers = [];
                     let messages = [];
                     // only read keys declared above
                     for (const key of Object.keys(vmData)) {
-                        if (!(key in this) && key !== "meta") console.warn(`Ignoring property snapshot.${key}`);
+                        if (key === "meta") continue;
+                        else if (key === "staticInitializers") staticInitializers = vmData[key];
+                        else if (!(key in this)) console.warn(`Ignoring property snapshot.${key}`);
                         else if (key === "_random") this[key] = new SeedRandom(null, { state: vmData[key] });
                         else if (key === "messages") messages = vmData.messages;
                         else this[key] = vmData[key];
                     }
+                    // execute initializers of static class properties
+                    for (const staticInitializer of staticInitializers) staticInitializer();
                     // add messages array to priority queue
                     for (const msg of messages) this.messages.add(msg);
                     // recreate subscribers from subscriptions
@@ -1445,6 +1450,9 @@ class VMWriter {
             subscribers: undefined, // do not write subscribers
             controller: undefined, // do not write controller
         };
+        // write static class properties
+        this.writeAllStaticInto(state);
+        // get properties of the vm
         for (const [key, value] of Object.entries(vm)) {
             if (key in state) continue;
             this.writeInto(state, key, value, `vm.${key}`);
@@ -1454,6 +1462,45 @@ class VMWriter {
         delete state.controller; // remove undefined
         delete state.subscribers; // remove undefined
         return state;
+    }
+
+    writeAllStaticInto(state) {
+        // be lazy about storing static properties
+        const writeProp = (kind, className, key, value) => {
+            if (key[0] === '$') return;
+            const vmProp = `static${kind}Props`;
+            if (!state[vmProp]) state[vmProp] = {};
+            if (!(className in state[vmProp])) state[vmProp][className] = {};
+            this.writeInto(state[vmProp][className], key, value, `vm.static${vmProp}Props.${className}`);
+            warnMultipleSessionsStatic(kind, className);
+        };
+        // get static properties of all model classes
+        for (const Class of Model.allClasses()) {
+            if (Class === Model) continue;
+            for (const [key, value] of Object.entries(Class)) {
+                const name = Model.classToID(Class);
+                writeProp("Model", name, key, value);
+            }
+        }
+        // get static properties of all registered types
+        for (const [name, ClassOrSpec] of Model.allClassTypes()) {
+            if (typeof ClassOrSpec !== "object") {
+                // default to writing all static properties of the class
+                for (const [key, value] of Object.entries(ClassOrSpec)) {
+                    writeProp("Type", name, key, value);
+                }
+            } else {
+                // if we have a spec, use it to write the static properties
+                const { writeStatic } = ClassOrSpec;
+                if (writeStatic) {
+                    const props = writeStatic();
+                    if (props) {
+                        if (!state.staticTypeProps) state.staticTypeProps = {};
+                        state.staticTypeProps[name] = props;
+                    }
+                }
+            }
+        }
     }
 
     writeDeferred() {
@@ -1706,8 +1753,9 @@ class VMReader {
     }
 
     addReader(classId, ClassOrSpec) {
-        const read = (typeof ClassOrSpec === "object") ? ClassOrSpec.read
-            : state => Object.assign(Object.create(ClassOrSpec.prototype), state);
+        // default to assigning all properties to a new instance of the class
+        let read = state => Object.assign(Object.create(ClassOrSpec.prototype), state);
+        if (typeof ClassOrSpec === "object") read = ClassOrSpec.read;
         this.readers.set(classId, read);
     }
 
@@ -1717,6 +1765,7 @@ class VMReader {
         this.readDeferred();  // 1st pass: breadth-first, use UNRESOLVED placeholder for forward refs
         this.resolveRefs();   // 2nd pass: resolve forward refs
         this.doPostprocess(); // 3rd pass: fill Sets and Maps with resolved temp content arrays
+        this.readAllStatic(vmData); // create initializers for static class properties
         return vmData;
     }
 
@@ -1746,6 +1795,37 @@ class VMReader {
             fn();
         }
         this.postprocess.length = 0;
+    }
+
+    readAllStatic(vmState) {
+        const { staticModelProps, staticTypeProps } = vmState;
+        const staticInitializers = [];
+        if (staticModelProps) {
+            for (const [name, props] of Object.entries(staticModelProps)) {
+                const modelClass = Model.classFromID(name);
+                staticInitializers.push(() => Object.assign(modelClass, props));
+                warnMultipleSessionsStatic("Model", name);
+            }
+            delete vmState.staticModelProps;
+        }
+        if (staticTypeProps) {
+            const ClassOrSpecs = Object.fromEntries(Model.allClassTypes());
+            for (const [name, props] of Object.entries(staticTypeProps)) {
+                const ClassOrSpec = ClassOrSpecs[name];
+                if (typeof ClassOrSpec === "object") {
+                    const typeSpec = ClassOrSpec;
+                    staticInitializers.push(() => typeSpec.readStatic(props));
+                } else {
+                    const classFromTypes = ClassOrSpec;
+                    staticInitializers.push(() => Object.assign(classFromTypes, props));
+                }
+                warnMultipleSessionsStatic("Type", name);
+            }
+            delete vmState.staticTypeProps;
+        }
+        if (staticInitializers.length) {
+            vmState.staticInitializers = staticInitializers;
+        }
     }
 
     read(value, path, defer=true) {
@@ -1976,6 +2056,16 @@ function gatherInternalClassTypesRec(dummyObject, prefix="", gatheredClasses={},
     // we did breadth-first
     for (const obj of newObjects) {
         gatherInternalClassTypesRec(obj, prefix, gatheredClasses, seen);
+    }
+}
+
+function warnMultipleSessionsStatic(kind, className) {
+    // warn about static properties if there is more than one session
+    if (viewDomain.controllers.size > 1) {
+        displayWarning(`Static properties in shared ${kind} ${className} ` +
+            `can lead to divergence because ${viewDomain.controllers.size} ` +
+            `Croquet sessions are running simultaneaously`,
+            { only: "once" });
     }
 }
 

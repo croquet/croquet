@@ -202,7 +202,8 @@ class Model {
      * - the name can be any string, it just has to be unique within your app
      * - the class description can either be just the class itself (if the serializer should
      *   snapshot all its fields, see first example below), or an object with `write()` and `read()` methods to
-     *   convert instances from and to their serializable form (see second example below).
+     *   convert instances from and to their serializable form (see second example below),
+     *   and (since v2.0) `writeStatic()` and `readStatic()` to serialize and restore static properties.
      * - the serialized form answered by `write()` should return a simpler representation,
      *   but it can still contain references to other objects, which will be resolved by the serializer.
      *   E.g. if it answers an Array of objects then the serializer will be called for each of those objects.
@@ -219,7 +220,7 @@ class Model {
      * but care needs to be taken to make sure that the cache is reconstructed whenever used.
      *
      * Serialization types supported:
-     * -  all JSON types: `number`, `string`, `boolean`, `null`, `Array`, plain `Object`
+     * - plain `Object`, `Array`, `number`, `string`, `boolean`, `null`: just like JSON
      * - `-0`, `NaN`, `Infinity`, `-Infinity`
      * - `BigInt` (since 1.1.0)
      * - `undefined`
@@ -229,7 +230,9 @@ class Model {
      * Not supported:
      * - `Date`: the built-in Date type is dangerous because it implicitly depends on the current timezone which can lead to divergence.
      * - `RegExp`: this has built-in state that can not be introspected and recreated in JS.
-     * - `Function`: there is no generic way to serialize functions because closures can not be introspected in JS.
+     * - `WeakMap`, `WeakSet`: these are not enumerable and can not be serialized.
+     * - `Symbol`: these are unique and can not be serialized.
+     * - `Function`, `Promise`, `Generator` etc: there is no generic way to serialize functions because closures can not be introspected in JS.
      *    Even just for the source code, browsers differ in how they convert functions to strings.
      *    If you need to store functions in the model (e.g. for live coding),
      *    either wrap the source and function in a custom type (where `read` would compile the source saved by `write`),
@@ -252,6 +255,13 @@ class Model {
      * class MyModel extends Croquet.Model {
      *   static types() {
      *     return {
+     *      "SomeUniqueName": {
+     *          cls: MyNonModelClass,
+     *          write: obj => obj.serialize(),  // answer a serializable type, see above
+     *          read: state => MyNonModelClass.deserialize(state), // answer a new instance
+     *          writeStatic: () => ({foo: MyNonModelClass.foo}),
+     *          readStatic: state => MyNonModelClass.foo = state.foo,
+     *       },
      *       "THREE.Vector3": {
      *         cls: THREE.Vector3,
      *         write: v => [v.x, v.y, v.z],        // serialized as '[...,...,...]' which is shorter than the default above
