@@ -654,7 +654,7 @@ export default class Controller {
             start = Stats.begin("snapshot");
             voteData = {
                 cpuTime: localCpuTime,
-                hash: this.vm.getSummaryHash(),
+                hash: this.vm.getSummaryHash(), // this is the expensive snapshot-related part
                 viewId: this.viewId,
                 messageBytes: this.messageBytesSinceSnapshot,
             };
@@ -1114,7 +1114,7 @@ export default class Controller {
     messageSizeForAccounting(msg) {
         let messageSize = typeof msg[2] === "string"
             ? msg[2].length
-            : msg[2]._size;
+            : msg[2]._size || 0; // older synchronizers/reflectors do not have _size
         messageSize += 16; // agreed with synchronizer to represent overhead
         return messageSize;
     }
