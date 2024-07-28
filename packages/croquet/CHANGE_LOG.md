@@ -4,6 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest @dev
 
+* 2.0.0-11 don't send apiKey to synchronizer, snapshot at least once in 5 min, snapshot and restore static variables
 * 2.0.0-10 extend webrtc support to node clients
 * 2.0.0-9 remove verbose ICE logging
 * 2.0.0-8 cope with unresponsive STUN/TURN during ICE negotiation
