@@ -334,7 +334,7 @@ export default class Controller {
         // controller (only) gets to subscribe to events using the shared viewId as the "subscriber" argument
         viewDomain.removeAllSubscriptionsFor(this.viewId); // in case we're recycling
         viewDomain.addSubscription(this.viewId, "__peers__", this.viewId, data => displayStatus(`users now ${data.count}`), "oncePerFrameWhileSynced");
-        // "leaving" is set in session.js if we are leaving by user's request (rather than going dormant/reconnecting)
+        // "leaving" is set in session.js if we are leaving by user's request (rather than going dormant/reconnecting), or in controller.closeConnectionWithError in the case of an unrecoverable error being thrown.
         if (!this.leaving) App.showSyncWait(true); // enable (i.e., not synced)
     }
 
@@ -2472,13 +2472,16 @@ class Connection {
         // controller.connectionInterrupted() sets an independent timer for invoking
         // leave() iff the connection has not been restored within the rejoinLimit.
 
-        this.controller.clearSyncReceiptTimeout(); // if any
+        // it's possible that we're seeing a closure that would not itself be
+        // fatal to the session, but that an error that _is_ fatal has already
+        // happened.  in that case, block any attempt at scheduling a reconnection.
+        const irreversibleLeave = !!this.controller.leaving;
 
         // event codes 4100 and up mean a disconnection from which the client
         // shouldn't automatically try to reconnect
         // e.g., 4100 is for out-of-date reflector protocol
         // in addition, 1000 means user-triggered Session.leave().  everything stops.
-        const autoReconnect = code !== 1000 && code < 4100;
+        const autoReconnect = !irreversibleLeave && code !== 1000 && code < 4100;
         const dormant = code === 4110;
         // don't display error if going dormant or normal close or reconnecting
         if (!dormant && code !== 1000 && !this.reconnectDelay) {
@@ -2491,8 +2494,11 @@ class Connection {
             }, 500);
         }
         if (DEBUG.session) console.log(this.id, `${this.socket ? this.socket.constructor.name + " closed" : "closed before opening,"} with code: ${code} ${message}`);
+
         this.connectHasBeenCalled = false; // ready to try again
+        this.controller.clearSyncReceiptTimeout(); // if any
         Stats.connected(false);
+
         if (dormant) this.connectRestricted = true; // only reconnect on session step
         else this.connectBlocked = true; // only reconnect using connectToReflector
         this.disconnected();
@@ -2557,25 +2563,28 @@ class Connection {
     }
 
     closeConnectionWithError(caller, error, code=4000) {
-        console.error(error);
-        console.warn("closing socket");
-        if (code >= 4100 && code !== 4110) this.controller.leaving = () => {}; // dummy function to cause session to shut down irreversibly unless just going dormant
+        console.error(code, error);
+        if (code >= 4100 && code !== 4110) {
+            console.warn("resuming this session will require a new Session.join()");
+            this.controller.leaving = () => {}; // dummy value, to mimic the effect of Session.leave() having been invoked
+        }
         this.closeConnection(code, `Error in ${caller}: ${error.message || error}`);
         // closing with error code < 4100 will try to reconnect
     }
 
     closeConnection(code, message) {
         // NB: if this.socket is non-null this method synchronously sends disconnect(), which nulls it out
-        if (!this.socket) return;
-
-        // it turns out that a WebSocket can get into a state in which sending close()
-        // doesn't trigger the onclose handler (even though its readyState is OPEN).
-        // therefore when the controller wants to force closure - and perhaps
-        // reconnection - we null out the handler before sending close(), and call
-        // the onclose handling directly.
-        this.socket.onclose = null;
-        this.socket.close(code, message); // might work, might not
-        this.socketClosed(code, message); // we move on, regardless
+        if (this.socket) {
+            // it turns out that a WebSocket can get into a state in which sending close()
+            // doesn't trigger the onclose handler (even though its readyState is OPEN).
+            // therefore when the controller wants to force closure - and perhaps
+            // reconnection - we null out the handler before sending close(), and call
+            // the onclose handling directly.
+            this.socket.onclose = null;
+            this.socket.close(code, message); // might work, might not
+        }
+        // whether there was a socket or not, reset the connection so we can try again
+        this.socketClosed(code, message);
     }
 
     PULSE(now) {

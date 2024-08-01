@@ -326,8 +326,10 @@ export class Session {
 
             clear(); // remove session.model, detach the view
 
-            // controller.leaving is set only in the static Session.leave(), which
-            // handles an explicit user request to leave the session.  in that case,
+            // controller.leaving is set by the static Session.leave(), which
+            // handles an explicit user request to leave the session, or in
+            // controller.closeConnectionWithError in the case of an unrecoverable
+            // error (code 4100 or above, other than 4110).  when it's set,
             // the only way back in is to invoke Session.join() again - or reload
             // the app.
             if (controller.leaving) { controller.leaving(true); return; }
