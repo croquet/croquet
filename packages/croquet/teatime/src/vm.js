@@ -2061,10 +2061,12 @@ function gatherInternalClassTypesRec(dummyObject, prefix="", gatheredClasses={},
 
 function warnMultipleSessionsStatic(kind, className) {
     // warn about static properties if there is more than one session
-    if (viewDomain.controllers.size > 1) {
+    const sessions = viewDomain.controllers.size;
+    if (sessions > 1) {
         displayWarning(`Static properties in shared ${kind} ${className} ` +
-            `can lead to divergence because ${viewDomain.controllers.size} ` +
-            `Croquet sessions are running simultaneaously`,
+            `can lead to divergence because ${sessions} ` +
+            `Croquet sessions are running simultaneaously. Consider using ` +
+            `wellKnownModel() instead.`,
             { only: "once" });
     }
 }
