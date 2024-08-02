@@ -1,4 +1,32 @@
 declare module "@croquet/croquet" {
+
+    export type ClassId = string;
+
+    export interface Class<T> extends Function {
+        new (...args: any[]): T;
+    }
+
+    export type InstanceSerializer<T, IS> = {
+        cls: Class<T>;
+        write: (value: T) => IS;
+        read: (state: IS) => T;
+    }
+
+    export type StaticSerializer<S> = {
+        writeStatic: () => S;
+        readStatic: (state: S) => void;
+    }
+
+    export type InstAndStaticSerializer<T, IS, S> = {
+        cls: Class<T>;
+        write: (value: T) => IS;
+        read: (state: IS) => T;
+        writeStatic: () => S;
+        readStatic: (state: S) => void;
+    }
+
+    export type Serializer = InstanceSerializer<any, any> | StaticSerializer<any> | InstAndStaticSerializer<any, any, any>;
+
     export abstract class PubSubParticipant<SubOptions> {
         publish<T>(scope: string, event: string, data?: T): void;
         subscribe<T>(scope: string, event: string | {event: string} | {event: string} & SubOptions, methodName: string | ((e: T) => void)): void;
@@ -85,7 +113,7 @@ declare module "@croquet/croquet" {
          * @param classId Id for this model class. Must be unique. If you use the same class name in two files, use e.g. `"file1/MyModel"` and `"file2/MyModel"`.
          * @public
          */
-        static register(classId:string): void;
+        static register(classId:ClassId): void;
 
         /** Static version of [wellKnownModel()]{@link Model#wellKnownModel} for currently executing model.
          *
@@ -165,7 +193,7 @@ declare module "@croquet/croquet" {
          * ```
          * @public
          */
-        static types(): Object;
+        static types(): Record<ClassId, Class<any> | Serializer>;
 
         /**
          * This is called by [create()]{@link Model.create} to initialize a model instance.
@@ -731,8 +759,7 @@ declare module "@croquet/croquet" {
         }
     }
 
-    export type CroquetModelOptions = {
-    }
+    export type CroquetModelOptions = object;
 
     export type CroquetDebugOptions =
         "session" | "messages" | "sends" | "snapshot" |
@@ -773,6 +800,8 @@ declare module "@croquet/croquet" {
             parameters: CroquetSessionParameters<M, V>
         ): Promise<CroquetSession<V>>;
     }
+
+    export var Constants: object;
 
     interface IApp {
 	sessionURL:string;
@@ -822,7 +851,6 @@ declare module "@croquet/croquet" {
      * @public
      */
 
-    export var Data:DataHandle;
+    export var Data: DataHandle;
 
-    export var Constants:Object;
 }
