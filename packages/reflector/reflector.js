@@ -200,7 +200,7 @@ const PING_THRESHOLD = 35000;       // if a pre-background-aware client is not h
 const DISCONNECT_THRESHOLD = 60000; // if not responding for this long, disconnect
 const DISPATCH_RECORD_RETENTION = 5000; // how long we must wait to delete a dispatch record (set on the bucket)
 const LATE_DISPATCH_DELAY = 1000;  // how long to allow for clients arriving from the dispatcher even though the session has been deregistered
-
+const DEPIN_AUDIT_INTERVAL = 10000; // %%% bump to 60s
 
 // Map pino levels to GCP, https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry#LogSeverity
 // the choice of log level currently follows no strict rules.  loosely:
@@ -652,16 +652,37 @@ async function startServerForDePIN() {
             newMessageTotal: 0, // rough estimate of aggregate size of messages
             updateBuffer: []    // queue of updates that we want to send.  an update stays in the queue (at the front) until the DO acknowledges receipt.
         };
+        // for DePIN we are required to track the session stats that will be used to generate synq rewards and developer costs.
+        // the synq also includes some of these stats in its regular status reports (to the proxy DO) for each session it's currently hosting.
         session.depinStats = {
             joins: 0,       // in this reporting period
+            auditJoins: 0,  // in this work unit
             totalJoins: 0,  // since this synq picked up the session
+
+            auditLeaves: 0, // to help estimate validity of using max
+            auditLastUsers: 0, // last reported number of active users
+            auditMaxUsers: 0, // high watermark of active users
+
             messagesIn: 0,
             totalMessagesIn: 0,
+
+            auditPayloadTally: 0, // cumulative sum of message-payload lengths in this work unit
+
+            // all bytes received from clients over webrtc
             bytesIn: 0,
+            auditBytesIn: 0,
             totalBytesIn: 0,
+
+            // all bytes sent out to clients over webrtc (including for ticks)
             bytesOut: 0,
+            auditBytesOut: 0,
             totalBytesOut: 0,
+
+            auditTicks: 0,   // count of ticks sent in this work unit
+
             runner: {
+                auditBytesIn: 0,  // all bytes over socket - including ICE negotiations, session state etc
+                auditBytesOut: 0, // all bytes - including ICE, all island updates etc
                 latency: { min: null, max: null, count: 0, sum: 0 }
             }
         };
@@ -719,7 +740,9 @@ async function startServerForDePIN() {
                     session.logger.warn({ event: "runner-not-ready" }, `attempt to send ${msgObject.what} on unconnected channel for session ${shortSessionId}`);
                     return;
                 }
-                socket.send(JSON.stringify(msgObject));
+                const msg = JSON.stringify(msgObject);
+                socket.send(msg);
+                session.depinStats.runner.auditBytesOut += msg.length;
             };
 
             // the session has responsibility for periodically contacting the session
@@ -795,8 +818,7 @@ async function startServerForDePIN() {
             session.addMessageToUpdate = msg => {
                 const { updateTracker } = session;
                 const { newMessages } = updateTracker;
-                const sizeEstimate = typeof msg[2] === "string" ? msg[2].length + 30 : 30; // @@ only need an approximate amount, and over-estimating is better than under.
-                // %%% need to fix this.  tally messages (e.g. for snapshot) can get pretty big.
+                const sizeEstimate = payloadSizeForAccounting(msg) + 50; // @@ only need an approximate amount, and over-estimating is better than under.
                 newMessages.push(msg);
                 updateTracker.newMessageTotal += sizeEstimate;
             };
@@ -1899,6 +1921,7 @@ function nonSavableProps() {
         dormantDelay: 0,     // delay in s until a hidden client will go dormant
         heraldUrl: '',       // announce join/leave events
         ticker: null,        // interval for serving TICKs
+        auditTimer: null,    // interval for triggering audits (DePIN only)
         yetToCheckLatest: true, // flag used while fetching latest.json during startup
         storedUrl: null,     // url of snapshot in latest.json (null before we've checked latest.json)
         storedSeq: INITIAL_SEQ, // seq of last message in latest.json message addendum
@@ -2026,7 +2049,7 @@ async function JOIN(client, args) {
             snapshotTime: -1,    // time of last snapshot
             snapshotSeq: null,   // seq of last snapshot
             snapshotUrl: '',     // url of last snapshot
-            snapshotMessageBytes: 0, // (DePIN only) tally of message lengths in last snapshot
+            lastAuditTime: 0,    // island time when last AUDIT message was sent
             appId,
             persistentId,        // new protocol as of 0.5.1
             persistentUrl: '',   // url of persistent data
@@ -2226,6 +2249,11 @@ function SYNC(island) {
     const args = { url, messages, time, seq, tove, reflector, timeline, flags };
     if (url) {args.snapshotTime = snapshotTime; args.snapshotSeq = snapshotSeq }
     else if (persistentUrl) { args.url = persistentUrl; args.persisted = true }
+    if (DEPIN) {
+        const { depinStats } = ALL_SESSIONS.get(island.id);
+        const { auditJoins, auditLeaves, auditMaxUsers, auditPayloadTally } = depinStats;
+        args.auditStats = { joins: auditJoins, leaves: auditLeaves, maxUsers: auditMaxUsers, payloadTally: auditPayloadTally };
+    }
     const response = JSON.stringify({ id, action: 'SYNC', args });
     const range = !messages.length ? '' : ` (#${messages[0][1]}...${messages[messages.length - 1][1]})`;
     const what = args.persisted ? "persisted" : "snapshot";
@@ -2250,6 +2278,7 @@ function SYNC(island) {
     island.syncClients.length = 0;
     // delete island if nobody actually joined
     if (island.clients.size === 0) provisionallyDeleteIsland(island);
+    else if (DEPIN && !island.auditTimer) island.auditTimer = setInterval(() => AUDIT(island), DEPIN_AUDIT_INTERVAL);
 }
 
 function clientLeft(client, reason='') {
@@ -2308,7 +2337,7 @@ function after(seqA, seqB) {
 }
 
 /** a size for a single message.  the client's Controller uses the same calculation. */
-function messageSizeForAccounting(message) {
+function payloadSizeForAccounting(message) {
     // every message needs to be associated with a size, that will be
     // aggregated into a byte tally for measuring synchronizer use.
     // for a string-encoded payload, the size is the length of the
@@ -2519,10 +2548,6 @@ function SNAP(client, args) {
         // in the newMessages buffer - some of which might be before the snapshot, some
         // after - as an update that will be sent to the session runner as soon as
         // possible.
-        // the synchronizer declares its own value for the total byte count of
-        // messages included in the snapshot.
-        const totalMessageBytes = messagesToStore.reduce((total, msg) => total + messageSizeForAccounting(msg), 0);
-        island.snapshotMessageBytes = totalMessageBytes;
         ALL_SESSIONS.get(id).gatherUpdateIfNeeded(true); // true => any change will do
         island.storedSeq = seq;
         island.storedUrl = url;
@@ -2631,7 +2656,9 @@ function SEND(island, messages) {
             message[message.length - 1] = rawTime; // overwrite the latency information from the controller
         }
 
-        // see comment in messageSizeForAccounting()
+        // see comment in payloadSizeForAccounting()
+        // $$$ a malicious synchronizer could set an arbitrarily large _size
+        // in the hope of boosting traffic stats.
         if (typeof message[2] !== "string") {
             const messageSize = JSON.stringify(message[2]).length;
             message[2]._size = messageSize;
@@ -2646,8 +2673,10 @@ function SEND(island, messages) {
         if (DEPIN && session) {
             session.addMessageToUpdate(message); // the raw message
             const { depinStats } = session;
+            // update stats, matching what will be in messages array (and therefore sent with any SYNC)
             depinStats.messagesIn++;
             depinStats.totalMessagesIn++;
+            depinStats.auditPayloadTally += payloadSizeForAccounting(message);
         }
         island.messages.push(message); // raw message sent again in SYNC
     }
@@ -2806,6 +2835,16 @@ function USERS(island) {
     if (usersJoined.length + usersLeft.length === 0) return; // no-one joined or left
     const activeClients = [...clients].filter(each => each.active); // a client in the set but not active is between JOIN and SYNC
     const active = activeClients.length;
+    if (DEPIN) {
+        const session = ALL_SESSIONS.get(island.id);
+        if (session) {
+            const { depinStats } = session;
+            depinStats.auditJoins = usersJoined.length;
+            depinStats.auditLeaves = usersLeft.length;
+            depinStats.auditLastUsers = active;
+            depinStats.auditMaxUsers = Math.max(depinStats.auditMaxUsers, active);
+        }
+    }
     const total = clients.size;
     const payload = { what: 'users', active, total };
     if (usersJoined.length > 0) payload.joined = [...usersJoined];
@@ -2828,6 +2867,46 @@ function USERS(island) {
     if (heraldUrl) heraldUsers(island, activeClients.map(each => each.user), payload.joined, payload.left);
     usersJoined.length = 0;
     usersLeft.length = 0;
+}
+
+/** SEND a replicated message when it's time to audit the session
+ * @param {IslandData} island
+*/
+function AUDIT(island) {
+    const session = ALL_SESSIONS.get(island.id);
+    if (!session) return; // no stats to report
+    if (!island.clients.size) return; // no-one to ask
+
+    const payload = { what: 'audit' };
+    const msg = [0, 0, payload];
+    if (island.flags.rawtime) msg.push(0); // will be overwritten with time value
+    SEND(island, [msg]);
+    const { time } = island;
+    island.logger.debug({
+        event: "send-audit",
+        time,
+    }, `Requesting audit at time ${time}`);
+
+    const { depinStats, sessionSocket } = session;
+    const { auditJoins: joins, auditLeaves: leaves, auditMaxUsers: maxUsers, auditPayloadTally: payloadTally, auditBytesIn: bytesIn, auditBytesOut: bytesOut, auditTicks: ticks, runner: runnerStats } = depinStats;
+    const { auditBytesIn: runnerBytesIn, auditBytesOut: runnerBytesOut } = runnerStats;
+
+    if (sessionSocket?.readyState === WebSocket.OPEN) {
+        // to ensure that the synq gets credit for the bytes of the SESSION_AUDIT
+        // message itself, we measure the size of a dummy version of that message
+        // and add it to the stats.
+        const audit = { syncName: SYNCNAME, wallet: WALLET, time, joins, leaves, maxUsers, payloadTally, bytesIn, bytesOut, ticks, runnerBytesIn, runnerBytesOut };
+        const msgSize = JSON.stringify({ what: "SESSION_AUDIT", audit }).length;
+        audit.runnerBytesOut += msgSize;
+console.log(audit);
+        sessionSocket.send(JSON.stringify({ what: "SESSION_AUDIT", audit }));
+    }
+
+    depinStats.auditJoins = depinStats.auditLeaves = depinStats.auditPayloadTally = depinStats.auditBytesIn = depinStats.auditBytesOut = depinStats.auditTicks = 0;
+    depinStats.auditMaxUsers = depinStats.auditLastUsers;
+    runnerStats.auditBytesIn = runnerStats.auditBytesOut = 0;
+
+    island.lastAuditTime = time;
 }
 
 /** send back arguments as received.  iff the "rawtime" feature has been enabled for this client's session, and the client has supplied an object argument, add the time as a rawTime property on that object */
@@ -2862,12 +2941,16 @@ function TICK(island) {
     const msg = JSON.stringify({ id: island.id, action: 'TICK', args: time });
     prometheusTicksCounter.inc();
     island.clients.forEach(client => {
-        // only send ticks if joined and not back-logged
+        // only send ticks if joined and not backlogged
         if (sendingTicksTo(client)) {
             client.safeSend(msg);
             STATS.TICK++;
         }
     });
+    if (DEPIN) {
+        const session = ALL_SESSIONS.get(island.id);
+        if (session) session.depinStats.auditTicks++;
+    }
 }
 
 /** send REQU to all clients */
@@ -3022,6 +3105,8 @@ async function deleteIsland(island, reason) {
     // outlast the record's retention limit).
     const teatime = `@${time}#${seq}`;
     if (DEPIN) {
+        clearInterval(island.auditTimer);
+
         // in the DePIN case, we're hoping that the sessionSocket is still up and running.  if it is, we'll send whatever increment is needed to bring the session runner fully up to date.
         const session = ALL_SESSIONS.get(id);
         if (session.sessionSocket?.readyState === WebSocket.OPEN) {
@@ -3156,7 +3241,7 @@ async function deregisterSession(id, detail) {
             // we don't explicitly close the socket from here, but indicate that the
             // connection is over by sending SESSION_OFFLOADED.  the session runner
             // will close the socket from its end.
-            sessionSocket.send(JSON.stringify({ what: "SESSION_OFFLOADED", detail }));
+            session.sendToSessionRunner(JSON.stringify({ what: "SESSION_OFFLOADED", detail }));
             session.socketKey = ''; // disable onClose processing (whenever the close comes through)
             session.sessionSocketClosed(); // includes cleaning up any clients that are still in negotiation (whereas any remaining fully connected clients in DEPIN are told explicitly to reconnect by deleteIsland)
         }
@@ -3186,14 +3271,16 @@ function setUpClientHandlers(client) {
         const handleMessage = () => {
             if (!client.isConnected()) return; // ignore messages arriving after we disconnected the client
             client.lastActivity = Date.now();
-            STATS.IN += incomingMsg.length;
-            client.stats.mi += 1;                      // messages in
-            client.stats.bi += incomingMsg.length;     // bytes in
+            const msgLength = incomingMsg.length;
+            STATS.IN += msgLength;
+            client.stats.mi += 1;             // messages in
+            client.stats.bi += msgLength;     // bytes in
 
             let session;
             if (DEPIN && (session = ALL_SESSIONS.get(client.sessionId))) {
-                session.depinStats.bytesIn += incomingMsg.length;
-                session.depinStats.totalBytesIn += incomingMsg.length;
+                session.depinStats.bytesIn += msgLength;
+                session.depinStats.auditBytesIn += msgLength;
+                session.depinStats.totalBytesIn += msgLength;
             }
 
             let parsedMsg;
@@ -3313,17 +3400,18 @@ function setUpClientHandlers(client) {
     client.safeSend = data => {
         if (!client.isConnected()) return;
 
+        const dataLength = data.length;
         STATS.BUFFER = Math.max(STATS.BUFFER, client.bufferedAmount);
         const CHUNK_SIZE = DEPIN ? 64000 : 1000000;
         try {
-            if (data.length <= CHUNK_SIZE) client.send(data);
+            if (dataLength <= CHUNK_SIZE) client.send(data);
             else {
                 const header = '_CHUNK';
                 let ind = 0;
                 let isFirst = true;
                 let isLast;
-                while (ind < data.length) {
-                    isLast = ind + CHUNK_SIZE >= data.length;
+                while (ind < dataLength) {
+                    isLast = ind + CHUNK_SIZE >= dataLength;
                     const chunkData = `${header}${isFirst ? '1' : '0'}${isLast ? '1' : '0'}${data.slice(ind, ind + CHUNK_SIZE)}`;
                     client.send(chunkData);
                     ind += CHUNK_SIZE;
@@ -3338,14 +3426,15 @@ function setUpClientHandlers(client) {
             client.safeClose(...REASON.RECONNECT);
             return; // skip the bookkeeping
         }
-        STATS.OUT += data.length;
+        STATS.OUT += dataLength;
         client.stats.mo += 1;               // messages out
-        client.stats.bo += data.length;     // bytes out
+        client.stats.bo += dataLength;     // bytes out
 
         let session;
         if (DEPIN && (session = ALL_SESSIONS.get(client.sessionId))) {
-            session.depinStats.bytesOut += data.length;
-            session.depinStats.totalBytesOut += data.length;
+            session.depinStats.bytesOut += dataLength;
+            session.depinStats.auditBytesOut += dataLength;
+            session.depinStats.totalBytesOut += dataLength;
         }
     };
     client.safeClose = (code, data) => {
