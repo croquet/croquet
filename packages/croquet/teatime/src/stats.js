@@ -315,8 +315,14 @@ export const Stats = {
 
     // accumulate network traffic
     networkTraffic,
-    addNetworkTraffic(key, bytes) {
+    addNetworkTraffic(key, bytes, storeForAudit=false) {
         networkTraffic[key] = (networkTraffic[key] || 0) + bytes;
+        if (storeForAudit) networkTraffic[`audit_${key}`] = (networkTraffic[`audit_${key}`] || 0) + bytes;
+    },
+    resetAuditStats() {
+        for (const key in networkTraffic) {
+            if (key.startsWith('audit_')) networkTraffic[key] = 0;
+        }
     },
 
     // the stats gathered here (iff window.logMessageStats is truthy) are reported by

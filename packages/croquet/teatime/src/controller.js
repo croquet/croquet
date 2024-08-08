@@ -315,8 +315,18 @@ export default class Controller {
         }
         /** @type {Array} recent TUTTI sends and their payloads, for matching up with incoming votes and divergence alerts */
         this.tuttiHistory = [];
-        /** cumulative total size of message payloads received since last snapshot */
-        this.messageBytesSinceSnapshot = 0;
+
+        // stats relevant to DePIN
+        /** cumulative total size of message payloads received in this work unit */
+        this.auditPayloadTally = 0;
+        /** cumulative joins, leaves in this work unit */
+        this.auditJoins = 0;
+        this.auditLeaves = 0;
+        /** high-water mark of reported active users in this work unit */
+        this.auditMaxUsers = 0;
+        /** most recent count of active users */
+        this.auditLastUsers = 0;
+
         /** Date.now() at end of last stepSession triggered by animation */
         this.lastAnimationEnd = 0;
         /** array of gaps between animation end and the next start.  replaced with the value true once rapid animation has been detected. */
@@ -329,7 +339,6 @@ export default class Controller {
         this.rateLimitBufferWarned = false;
         this.rateLimitLastLogged = 0;
         this.payloadSizeWarned = false;
-// this.stats = {};
 
         // controller (only) gets to subscribe to events using the shared viewId as the "subscriber" argument
         viewDomain.removeAllSubscriptionsFor(this.viewId); // in case we're recycling
@@ -596,8 +605,7 @@ export default class Controller {
         } finally {
             ms = Stats.end("snapshot") - start;
         }
-        if (DEBUG.snapshot) console.log(this.id, `snapshot taken in ${Math.ceil(ms)} ms with messageBytes = ${this.messageBytesSinceSnapshot}`);
-        // %%% need to include messageBytes in snapshot somehow
+        if (DEBUG.snapshot) console.log(this.id, `snapshot taken in ${Math.ceil(ms)}`);
         return snapshot;
     }
 
@@ -656,7 +664,6 @@ export default class Controller {
                 cpuTime: localCpuTime,
                 hash: this.vm.getSummaryHash(), // this is the expensive snapshot-related part
                 viewId: this.viewId,
-                messageBytes: this.messageBytesSinceSnapshot,
             };
         } catch (error) {
             displayAppError("snapshot", error);
@@ -701,7 +708,7 @@ export default class Controller {
             if (snapshot) Promise.resolve().then(() => this.uploadSnapshot(snapshot, dissidentFlag));
         }
 
-        this.messageBytesSinceSnapshot = 0;
+        this.auditPayloadTally = 0;
     }
 
     analyzeTally(tally, timeProperty) {
@@ -713,8 +720,6 @@ export default class Controller {
         // even if this client is not in the tally (didn't vote, or vote arrived late)
         // we still analyse the votes, because if the hashes fall into multiple groups
         // every client should log a warning.
-
-        // %%% need to check for agreement in messageBytes property too
 
         let shouldUpload = false;
         let dissidentFlag = null;
@@ -1056,6 +1061,12 @@ export default class Controller {
                 const {joined, left, active, total} = msg[2];
                 this.users = active;
                 this.usersTotal = total;
+                if (DEPIN) {
+                    this.auditJoins += (joined || []).length;
+                    this.auditLeaves += (left || []).length;
+                    this.auditMaxUsers = Math.max(this.auditMaxUsers, active);
+                    this.auditLastUsers = active;
+                }
                 // create event
                 const scope = "__VM__";
                 const event = "__peers__";
@@ -1063,7 +1074,6 @@ export default class Controller {
                 // create event message
                 selector = "publishFromModelOnly";
                 args = [scope, event, data];
-
                 // also immediately publish as view event, which this controller will
                 // have subscribed to (in its constructor).
                 viewDomain.handleEvent(this.viewId + ':' + event, data);
@@ -1079,6 +1089,13 @@ export default class Controller {
                 if ((DEBUG.messages || DEBUG.snapshot) && missingClients) console.log(`${missingClients} ${missingClients === 1 ? "client" : "clients"} failed to participate in tally ${tuttiKey || tuttiSeq}`); // purely for information
                 selector = "handleTuttiResult";
                 args = [ { tuttiSeq, tuttiKey, tally, tallyTarget } ];
+                break;
+            }
+            case "audit": {
+                const time = msg[0];
+                if (DEBUG.messages) console.log(`audit request at time ${time}`);
+                selector = "handleAuditRequest";
+                args = [ { time } ];
                 break;
             }
             // no default
@@ -1111,6 +1128,26 @@ export default class Controller {
         }
     }
 
+    handleAuditRequest(data) {
+        // !!! THIS IS BEING EXECUTED INSIDE THE SIMULATION LOOP!!!
+        const { time } = data;
+        if (this.vm.time !== time) console.error(`time ${this.vm.time} cf audit time ${time}`);
+        const { auditPayloadTally: payloadTally, auditJoins: joins, auditLeaves: leaves, auditMaxUsers: maxUsers } = this;
+        this.auditPayloadTally = this.auditJoins = this.auditLeaves = 0;
+        this.auditMaxUsers = this.auditLastUsers;
+        const bytesIn = Stats.networkTraffic.audit_reflector_in || 0;
+        const bytesOut = Stats.networkTraffic.audit_reflector_out || 0;
+        Stats.resetAuditStats();
+        const { clientId } = this.connection.socket; // random id assigned by CroquetWebRTCConnection
+        // having gathered the stats we need, schedule the actual reporting outside
+        // the simulation
+        Promise.resolve().then(() => {
+            const encodedStats = encodeURIComponent(JSON.stringify({ time, clientId, payloadTally, joins, leaves, maxUsers, bytesIn, bytesOut }));
+            const url = `${DEPIN_API}/clients/report?session=${this.id}&stats=${encodedStats}`.replace('ws', 'http');
+            fetch(url, { mode: "no-cors" }); // not interested in a response
+        });
+    }
+
     messageSizeForAccounting(msg) {
         let messageSize = typeof msg[2] === "string"
             ? msg[2].length
@@ -1135,7 +1172,7 @@ export default class Controller {
                 const { progressReporter } = this.sessionSpec;
                 const reportProgress = progressReporter || (() => {});
 
-                const {messages, url, persisted, time, seq, /* snapshotTime, */ snapshotSeq, tove, reflector, flags} = args;
+                const {messages, url, persisted, time, seq, /* snapshotTime, */ snapshotSeq, tove, reflector, flags, auditStats: auditStatsAtSnapshot} = args;
                 // check that we are able to decode a shared secret (unless it's our own)
                 if (tove && tove !== this.tove) try {
                     // decrypt will throw if it can't decrypt, which is the expected result if joining with a wrong password
@@ -1265,6 +1302,9 @@ export default class Controller {
                 } else {
                     if (data) this.sessionSpec.snapshot = data;  // set snapshot for building the vm
                     this.install();  // will run initFn() if no snapshot
+                    if (auditStatsAtSnapshot) {
+// %%%
+                    }
                 }
                 // after install() sets this.vm, the main loop may also trigger simulation
                 if (DEBUG.session) console.log(this.id, `fast-forwarding from ${Math.round(this.vm.time)} to at least ${time}`);
@@ -1952,7 +1992,7 @@ export default class Controller {
                     const messageWithSize = this.networkQueue[0]; // [msg, size]
                     if (!messageWithSize) break;
 
-                    const [msgData, messageSize] = messageWithSize;
+                    const [msgData, payloadSize] = messageWithSize;
                     // finish simulating internal messages up to message time
                     // (otherwise, external messages could end up in the future queue,
                     // making snapshots non-deterministic).
@@ -1961,8 +2001,10 @@ export default class Controller {
                     if (!weHaveTime) break;
                     // Remove message from the network queue
                     this.networkQueue.shift();
-                    // and add its official size to our running tally
-                    this.messageBytesSinceSnapshot += messageSize;
+                    // and add its official size to our running tally (note that an
+                    // 'audit' message will have been added to the tally _before_ it
+                    // is handled)
+                    if (DEPIN) this.auditPayloadTally += payloadSize;
                     // have the vm decode and schedule that message
                     // it will end up first in the future message queue
                     const msg = this.vm.scheduleExternalMessage(msgData);
@@ -2426,7 +2468,7 @@ class Connection {
             if (!socket.twoStageConnection) connectionIsReady();
         };
         socket.onmessage = event => {
-            Stats.addNetworkTraffic("reflector_in", event.data.length);
+            Stats.addNetworkTraffic("reflector_in", event.data.length, !!DEPIN); // store for audit if on DePIN
             if (socket !== this.socket) return; // in case a socket that we've tried to close can still deliver a message
             const { data } = event;
             // for large objects (especially over WebRTC) support sending of chunks.
@@ -2532,7 +2574,7 @@ class Connection {
     send(data) {
         this.socketLastSent = Date.now();
         this.socket.send(data);
-        Stats.addNetworkTraffic("reflector_out", data.length);
+        Stats.addNetworkTraffic("reflector_out", data.length, !!DEPIN); // store for audit if on DePIN
     }
 
     receive(data) {

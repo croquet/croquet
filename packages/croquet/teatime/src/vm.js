@@ -176,7 +176,7 @@ const ENCODED_MESSAGES = [
     "handlePersistVote",         // 7: persist voting
     "handleModelEventInView",    // 8: view subscription for TUTTI votes (unofficial API)
     "noop",                      // 9: unused (was used in convertReflectorMessage)
-    // we're counting in Base36  // A: ...
+    "handleAuditRequest",        // A: (we're counting in Base36) respond to a DePIN audit
     //                           // B: ...
     // must not have more than 36 to keep it single-digit (or update encode/decode)
 ];
@@ -944,6 +944,10 @@ export default class VirtualMachine {
 
     handlePersistVote(data) {
         this.controller.handlePersistVote(data);
+    }
+
+    handleAuditRequest(data) {
+        this.controller.handleAuditRequest(data);
     }
 
     snapshot() {
