@@ -317,15 +317,14 @@ export default class Controller {
         this.tuttiHistory = [];
 
         // stats relevant to DePIN
-        /** cumulative total size of message payloads received in this work unit */
-        this.auditPayloadTally = 0;
-        /** cumulative joins, leaves in this work unit */
-        this.auditJoins = 0;
-        this.auditLeaves = 0;
-        /** high-water mark of reported active users in this work unit */
-        this.auditMaxUsers = 0;
-        /** most recent count of active users */
-        this.auditLastUsers = 0;
+        this.auditStats = {
+            /** track total reported users in this work unit */
+            lastUsers: -1, // will be initialised by first 'users' message
+            minUsers: -1,  // ditto
+            maxUsers: -1,  // ditto
+            /** cumulative total size of message payloads received in this work unit */
+            payloadTally: 0,
+        };
 
         /** Date.now() at end of last stepSession triggered by animation */
         this.lastAnimationEnd = 0;
@@ -703,12 +702,11 @@ export default class Controller {
         if (this.synced !== true) {
             if (DEBUG.snapshot) console.log(this.id, "Ignoring snapshot vote during sync");
         } else if (shouldUpload) {
+            const auditStats = {...this.auditStats};
             const snapshot = this.takeSnapshotHandleErrors();
             // switch out of the simulation loop
-            if (snapshot) Promise.resolve().then(() => this.uploadSnapshot(snapshot, dissidentFlag));
+            if (snapshot) Promise.resolve().then(() => this.uploadSnapshot(snapshot, auditStats, dissidentFlag));
         }
-
-        this.auditPayloadTally = 0;
     }
 
     analyzeTally(tally, timeProperty) {
@@ -807,7 +805,7 @@ export default class Controller {
     }
 
     /* upload a snapshot to the file server, optionally with a dissident argument that the reflector can interpret as meaning that this is not the snapshot to serve to new clients */
-    async uploadSnapshot(snapshot, dissidentFlag=null) {
+    async uploadSnapshot(snapshot, auditStats, dissidentFlag=null) {
         await this.hashSnapshot(snapshot);
         const start = Stats.begin("snapshot");
         const content = JSON.stringify(snapshot);
@@ -826,13 +824,13 @@ export default class Controller {
                 what: "snapshot",
             });
             if (this.connection.socket !== socket) { console.warn(this.id, "Controller was reset while trying to upload snapshot"); return false; }
-            this.announceSnapshotUrl(time, seq, hash, url, dissidentFlag);
+            this.announceSnapshotUrl(time, seq, hash, url, auditStats, dissidentFlag);
             return true;
         } catch (e) { console.error(this.id, "Failed to upload snapshot"); return false; }
     }
 
     // was sendSnapshotToReflector
-    announceSnapshotUrl(time, seq, hash, url, dissidentFlag) {
+    announceSnapshotUrl(time, seq, hash, url, auditStats, dissidentFlag) {
         if (DEBUG.snapshot) {
             let logProps = `time: ${time}, seq: ${seq}, hash: ${hash}`;
             if (dissidentFlag) logProps += ", as dissident; " + JSON.stringify(dissidentFlag);
@@ -842,7 +840,7 @@ export default class Controller {
             this.connection.send(JSON.stringify({
                 id: this.id,
                 action: 'SNAP',
-                args: {time, seq, hash, url, dissident: dissidentFlag},
+                args: {time, seq, hash, url, auditStats, dissident: dissidentFlag},
             }));
         } catch (e) {
             console.error("ERROR while sending", e);
@@ -1061,16 +1059,10 @@ export default class Controller {
                 const {joined, left, active, total} = msg[2];
                 this.users = active;
                 this.usersTotal = total;
-                if (DEPIN) {
-                    this.auditJoins += (joined || []).length;
-                    this.auditLeaves += (left || []).length;
-                    this.auditMaxUsers = Math.max(this.auditMaxUsers, active);
-                    this.auditLastUsers = active;
-                }
                 // create event
                 const scope = "__VM__";
                 const event = "__peers__";
-                const data = {entered: joined||[], exited: left||[], count: active};
+                const data = {entered: joined||[], exited: left||[], count: active, total};
                 // create event message
                 selector = "publishFromModelOnly";
                 args = [scope, event, data];
@@ -1130,22 +1122,40 @@ export default class Controller {
 
     handleAuditRequest(data) {
         // !!! THIS IS BEING EXECUTED INSIDE THE SIMULATION LOOP!!!
+
+        // if this is during fast-forward, we do need to reset the progress-verification
+        // stats (payloadTally, etc), but not the network stats - and don't share our values.
         const { time } = data;
         if (this.vm.time !== time) console.error(`time ${this.vm.time} cf audit time ${time}`);
-        const { auditPayloadTally: payloadTally, auditJoins: joins, auditLeaves: leaves, auditMaxUsers: maxUsers } = this;
-        this.auditPayloadTally = this.auditJoins = this.auditLeaves = 0;
-        this.auditMaxUsers = this.auditLastUsers;
-        const bytesIn = Stats.networkTraffic.audit_reflector_in || 0;
-        const bytesOut = Stats.networkTraffic.audit_reflector_out || 0;
-        Stats.resetAuditStats();
-        const { clientId } = this.connection.socket; // random id assigned by CroquetWebRTCConnection
-        // having gathered the stats we need, schedule the actual reporting outside
-        // the simulation
-        Promise.resolve().then(() => {
-            const encodedStats = encodeURIComponent(JSON.stringify({ time, clientId, payloadTally, joins, leaves, maxUsers, bytesIn, bytesOut }));
-            const url = `${DEPIN_API}/clients/report?session=${this.id}&stats=${encodedStats}`.replace('ws', 'http');
-            fetch(url, { mode: "no-cors" }); // not interested in a response
-        });
+
+        const { auditStats } = this;
+        const { lastUsers, minUsers, maxUsers, payloadTally } = auditStats;
+        auditStats.payloadTally = 0;
+        auditStats.minUsers = auditStats.maxUsers = lastUsers;
+
+        if (this.synced) { // skipped during fast-forward
+            const bytesIn = Stats.networkTraffic.audit_reflector_in || 0;
+            const bytesOut = Stats.networkTraffic.audit_reflector_out || 0;
+            Stats.resetAuditStats();
+            const { clientId } = this.connection.socket; // random id assigned by CroquetWebRTCConnection
+            // having gathered the stats we need, schedule the actual reporting outside
+            // the simulation
+            Promise.resolve().then(() => {
+                if (DEBUG.session) console.log(this.id, `handling audit request at ${time} after ${bytesIn} bytes in, ${bytesOut} out`);
+                const encodedStats = encodeURIComponent(JSON.stringify({ time, clientId, lastUsers, minUsers, maxUsers, payloadTally, bytesIn, bytesOut }));
+                const url = `${DEPIN_API}/clients/report?session=${this.id}&stats=${encodedStats}`.replace('ws', 'http');
+                fetch(url, { mode: "no-cors" }); // not interested in a response
+            });
+        }
+    }
+
+    handleUserTotalForAccounting(total) {
+        if (DEPIN) {
+            const { auditStats } = this;
+            auditStats.lastUsers = total;
+            if (auditStats.minUsers === -1 || total < auditStats.minUsers) auditStats.minUsers = total;
+            if (total > auditStats.maxUsers) auditStats.maxUsers = total;
+        }
     }
 
     messageSizeForAccounting(msg) {
@@ -1172,7 +1182,7 @@ export default class Controller {
                 const { progressReporter } = this.sessionSpec;
                 const reportProgress = progressReporter || (() => {});
 
-                const {messages, url, persisted, time, seq, /* snapshotTime, */ snapshotSeq, tove, reflector, flags, auditStats: auditStatsAtSnapshot} = args;
+                const {messages, url, persisted, time, seq, /* snapshotTime, */ snapshotSeq, tove, reflector, flags, auditStatsAtLastSnapshot} = args;
                 // check that we are able to decode a shared secret (unless it's our own)
                 if (tove && tove !== this.tove) try {
                     // decrypt will throw if it can't decrypt, which is the expected result if joining with a wrong password
@@ -1302,9 +1312,9 @@ export default class Controller {
                 } else {
                     if (data) this.sessionSpec.snapshot = data;  // set snapshot for building the vm
                     this.install();  // will run initFn() if no snapshot
-                    if (auditStatsAtSnapshot) {
-// %%%
-                    }
+                }
+                if (auditStatsAtLastSnapshot) {
+                    this.auditStats = auditStatsAtLastSnapshot;
                 }
                 // after install() sets this.vm, the main loop may also trigger simulation
                 if (DEBUG.session) console.log(this.id, `fast-forwarding from ${Math.round(this.vm.time)} to at least ${time}`);
@@ -2004,7 +2014,7 @@ export default class Controller {
                     // and add its official size to our running tally (note that an
                     // 'audit' message will have been added to the tally _before_ it
                     // is handled)
-                    if (DEPIN) this.auditPayloadTally += payloadSize;
+                    if (DEPIN) this.auditStats.payloadTally += payloadSize;
                     // have the vm decode and schedule that message
                     // it will end up first in the future message queue
                     const msg = this.vm.scheduleExternalMessage(msgData);
@@ -2468,7 +2478,6 @@ class Connection {
             if (!socket.twoStageConnection) connectionIsReady();
         };
         socket.onmessage = event => {
-            Stats.addNetworkTraffic("reflector_in", event.data.length, !!DEPIN); // store for audit if on DePIN
             if (socket !== this.socket) return; // in case a socket that we've tried to close can still deliver a message
             const { data } = event;
             // for large objects (especially over WebRTC) support sending of chunks.
@@ -2486,9 +2495,11 @@ class Connection {
                     // turn the array of chunks into a single buffer
                     const chunkedData = ''.concat(...socket.chunkCollector);
                     socket.chunkCollector = [];
+                    Stats.addNetworkTraffic("reflector_in", chunkedData.length, !!DEPIN); // store for audit if on DePIN
                     this.receive(chunkedData);
                 }
             } else {
+                Stats.addNetworkTraffic("reflector_in", data.length, !!DEPIN); // store for audit if on DePIN
                 this.receive(data);
             }
         };

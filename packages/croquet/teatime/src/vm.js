@@ -435,7 +435,11 @@ export default class VirtualMachine {
     // e.g. nobody is there to receive an exit event for the last view
     // leaving a session so we generate those when the first view resumes a session
     // keeping track of views in the currently not exposed this.views property
-    generateJoinExit({entered, exited, count}) {
+    generateJoinExit({entered, exited, count, total}) {
+        // for DePIN accounting, we want to track the moments when the synchronizer's
+        // 'user' messages convey a change in the number of users.
+        this.controller.handleUserTotalForAccounting(total);
+
         // if location was enabled in session options then controller.join() sent
         // an array as user instead of a plain viewId string, so the reflector
         // may have added the location as {region, city: {name, lat, lng}},
