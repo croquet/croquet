@@ -200,7 +200,7 @@ const PING_THRESHOLD = 35000;       // if a pre-background-aware client is not h
 const DISCONNECT_THRESHOLD = 60000; // if not responding for this long, disconnect
 const DISPATCH_RECORD_RETENTION = 5000; // how long we must wait to delete a dispatch record (set on the bucket)
 const LATE_DISPATCH_DELAY = 1000;  // how long to allow for clients arriving from the dispatcher even though the session has been deregistered
-const DEPIN_AUDIT_INTERVAL = 10000; // %%% bump to 60s
+const DEPIN_AUDIT_INTERVAL = 60000;
 
 // Map pino levels to GCP, https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry#LogSeverity
 // the choice of log level currently follows no strict rules.  loosely:
@@ -656,12 +656,12 @@ async function startServerForDePIN() {
         // the synq also includes some of these stats in its regular status reports (to the proxy DO) for each session it's currently hosting.
         session.depinStats = {
             joins: 0,       // in this reporting period
-            auditJoins: 0,  // in this work unit
             totalJoins: 0,  // since this synq picked up the session
 
-            auditLeaves: 0, // to help estimate validity of using max
-            auditLastUsers: 0, // last reported number of active users
-            auditMaxUsers: 0, // high watermark of active users
+            // track the total number of users announced in 'users' messages
+            auditLastUsers: -1,
+            auditMinUsers: -1,
+            auditMaxUsers: -1,
 
             messagesIn: 0,
             totalMessagesIn: 0,
@@ -679,6 +679,15 @@ async function startServerForDePIN() {
             totalBytesOut: 0,
 
             auditTicks: 0,   // count of ticks sent in this work unit
+
+            // work unit stats at the time of the last snapshot (if any) this work unit,
+            // as supplied by the client taking the snapshot
+            auditAtLastSnapshot: {
+                lastUsers: -1,
+                minUsers: -1,
+                maxUsers: -1,
+                payloadTally: 0
+            },
 
             runner: {
                 auditBytesIn: 0,  // all bytes over socket - including ICE negotiations, session state etc
@@ -915,6 +924,8 @@ async function startServerForDePIN() {
 
             sessionSocket.on('message', function onMessage(depinStr) {
                 if (key !== session.socketKey) return;
+
+                session.depinStats.runner.auditBytesIn += depinStr.length;
 
                 try {
                     const depinMsg = JSON.parse(depinStr);
@@ -2031,6 +2042,7 @@ async function JOIN(client, args) {
     if (DEPIN) {
         session.depinStats.joins++;
         session.depinStats.totalJoins++;
+        // note: audit stats are updated within USERS()
     }
 
     // create island data if this is the first client
@@ -2169,7 +2181,16 @@ async function JOIN(client, args) {
                     if (DEPIN) receivedProps[key] = value;
                 }
                 });
-            if (DEPIN) session.updateTracker.updatedProps = receivedProps;
+            if (DEPIN) {
+                session.updateTracker.updatedProps = receivedProps;
+                // calculate the payload tally so far, resetting on each audit
+                let payloadTally = 0;
+                for (const msg of latestSpec.messages) {
+                    if (typeof msg[2] !== 'string' && msg[2].what === 'audit') payloadTally = 0;
+                    else payloadTally += payloadSizeForAccounting(msg);
+                }
+                session.depinStats.auditPayloadTally = payloadTally;
+            }
 
             island.scaledStart = stabilizedPerformanceNow() - island.time / island.scale;
             island.storedUrl = latestSpec.snapshotUrl;
@@ -2250,9 +2271,13 @@ function SYNC(island) {
     if (url) {args.snapshotTime = snapshotTime; args.snapshotSeq = snapshotSeq }
     else if (persistentUrl) { args.url = persistentUrl; args.persisted = true }
     if (DEPIN) {
+        // a client will typically be joining in the middle of a work unit, and perhaps
+        // after a snapshot - in which case the client won't see some of the messages
+        // that contribute to this work unit's tallies.  to bring the client up to date,
+        // we therefore send the tallies as they were at the time of the last snapshot
+        // (if any) in this work unit, to set up before it starts fast-forwarding.
         const { depinStats } = ALL_SESSIONS.get(island.id);
-        const { auditJoins, auditLeaves, auditMaxUsers, auditPayloadTally } = depinStats;
-        args.auditStats = { joins: auditJoins, leaves: auditLeaves, maxUsers: auditMaxUsers, payloadTally: auditPayloadTally };
+        args.auditStatsAtLastSnapshot = {...depinStats.auditAtLastSnapshot};
     }
     const response = JSON.stringify({ id, action: 'SYNC', args });
     const range = !messages.length ? '' : ` (#${messages[0][1]}...${messages[messages.length - 1][1]})`;
@@ -2457,7 +2482,7 @@ function SNAP(client, args) {
     const island = ALL_ISLANDS.get(id);
     if (!island) { client.safeClose(...REASON.UNKNOWN_SESSION); return }
 
-    const { time, seq, hash, url, dissident } = args; // details of the snapshot that has been uploaded
+    const { time, seq, hash, url, dissident, auditStats } = args; // details of the snapshot that has been uploaded
     const teatime = `@${time}#${seq}`;
 
     if (dissident) {
@@ -2548,9 +2573,14 @@ function SNAP(client, args) {
         // in the newMessages buffer - some of which might be before the snapshot, some
         // after - as an update that will be sent to the session runner as soon as
         // possible.
-        ALL_SESSIONS.get(id).gatherUpdateIfNeeded(true); // true => any change will do
+        const session = ALL_SESSIONS.get(id);
+        session.gatherUpdateIfNeeded(true); // true => any change will do
         island.storedSeq = seq;
         island.storedUrl = url;
+        if (auditStats) {
+console.log({ auditStats });
+            session.depinStats.auditAtLastSnapshot = auditStats;
+        } else console.error("snapshot uploaded without audit stats");
     }
 
     // SYNC waiting clients
@@ -2835,17 +2865,16 @@ function USERS(island) {
     if (usersJoined.length + usersLeft.length === 0) return; // no-one joined or left
     const activeClients = [...clients].filter(each => each.active); // a client in the set but not active is between JOIN and SYNC
     const active = activeClients.length;
+    const total = clients.size;
     if (DEPIN) {
         const session = ALL_SESSIONS.get(island.id);
         if (session) {
             const { depinStats } = session;
-            depinStats.auditJoins = usersJoined.length;
-            depinStats.auditLeaves = usersLeft.length;
-            depinStats.auditLastUsers = active;
-            depinStats.auditMaxUsers = Math.max(depinStats.auditMaxUsers, active);
+            depinStats.auditLastUsers = total;
+            if (depinStats.auditMinUsers === -1 || total < depinStats.auditMinUsers) depinStats.auditMinUsers = total;
+            if (total > depinStats.auditMaxUsers) depinStats.auditMaxUsers = total;
         }
     }
-    const total = clients.size;
     const payload = { what: 'users', active, total };
     if (usersJoined.length > 0) payload.joined = [...usersJoined];
     if (usersLeft.length > 0) payload.left = [...usersLeft];
@@ -2888,22 +2917,22 @@ function AUDIT(island) {
     }, `Requesting audit at time ${time}`);
 
     const { depinStats, sessionSocket } = session;
-    const { auditJoins: joins, auditLeaves: leaves, auditMaxUsers: maxUsers, auditPayloadTally: payloadTally, auditBytesIn: bytesIn, auditBytesOut: bytesOut, auditTicks: ticks, runner: runnerStats } = depinStats;
+    const { auditLastUsers: lastUsers, auditMinUsers: minUsers, auditMaxUsers: maxUsers, auditPayloadTally: payloadTally, auditBytesIn: bytesIn, auditBytesOut: bytesOut, auditTicks: ticks, runner: runnerStats } = depinStats;
     const { auditBytesIn: runnerBytesIn, auditBytesOut: runnerBytesOut } = runnerStats;
 
     if (sessionSocket?.readyState === WebSocket.OPEN) {
         // to ensure that the synq gets credit for the bytes of the SESSION_AUDIT
         // message itself, we measure the size of a dummy version of that message
         // and add it to the stats.
-        const audit = { syncName: SYNCNAME, wallet: WALLET, time, joins, leaves, maxUsers, payloadTally, bytesIn, bytesOut, ticks, runnerBytesIn, runnerBytesOut };
+        const audit = { syncName: SYNCNAME, wallet: WALLET, time, lastUsers, minUsers, maxUsers, payloadTally, bytesIn, bytesOut, ticks, runnerBytesIn, runnerBytesOut };
         const msgSize = JSON.stringify({ what: "SESSION_AUDIT", audit }).length;
         audit.runnerBytesOut += msgSize;
 console.log(audit);
         sessionSocket.send(JSON.stringify({ what: "SESSION_AUDIT", audit }));
     }
 
-    depinStats.auditJoins = depinStats.auditLeaves = depinStats.auditPayloadTally = depinStats.auditBytesIn = depinStats.auditBytesOut = depinStats.auditTicks = 0;
-    depinStats.auditMaxUsers = depinStats.auditLastUsers;
+    depinStats.auditMinUsers = depinStats.auditMaxUsers = lastUsers;
+    depinStats.auditPayloadTally = depinStats.auditBytesIn = depinStats.auditBytesOut = depinStats.auditTicks = 0;
     runnerStats.auditBytesIn = runnerStats.auditBytesOut = 0;
 
     island.lastAuditTime = time;
@@ -2915,7 +2944,6 @@ function PONG(client, args) {
     if (island && island.flags.rawtime && typeof args === 'object') {
         const rawTime = getRawTime(island);
         args.rawTime = rawTime;
-args.perfNowAdjust = performanceNowAdjustment; // DEBUG
     }
     client.safeSend(JSON.stringify({ action: 'PONG', args }));
 }
@@ -3241,7 +3269,7 @@ async function deregisterSession(id, detail) {
             // we don't explicitly close the socket from here, but indicate that the
             // connection is over by sending SESSION_OFFLOADED.  the session runner
             // will close the socket from its end.
-            session.sendToSessionRunner(JSON.stringify({ what: "SESSION_OFFLOADED", detail }));
+            session.sendToSessionRunner({ what: "SESSION_OFFLOADED", detail });
             session.socketKey = ''; // disable onClose processing (whenever the close comes through)
             session.sessionSocketClosed(); // includes cleaning up any clients that are still in negotiation (whereas any remaining fully connected clients in DEPIN are told explicitly to reconnect by deleteIsland)
         }
