@@ -191,6 +191,16 @@ class Model {
     }
 
     /**
+     * **Check if currently executing code is inside a model.**
+     * @returns {Boolean} true if currently executing code is inside a model
+     * @since 2.0
+     * @public
+     */
+    static isExecuting() {
+        return VirtualMachine.hasCurrent();
+    }
+
+    /**
      * __Static declaration of how to serialize non-model classes.__
      *
      * The Croquet snapshot mechanism knows about {@link Model} subclasses, as well as many JS built-in types (see below),
