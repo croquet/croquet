@@ -51,16 +51,19 @@ class MyView extends Croquet.View {
 
         document.onclick = () => this.publish(model.id, "click");
 
+        // we will store the effects in a set so we can remove them later
+        this.effects = new Set();
+
         // we will read the signal value in effects
         const counter = model.counter;
 
         // by invoking the signal's value getter in an effect, we automatically
         // create a dependency between the signal and the effect,
         // causing the effect to be re-run whenever the signal value changes
-        Signal.effect(() => {
+        this.effects.add(Signal.effect(() => {
             console.log("Counter changed to", counter.value);
             document.getElementById("counter").innerHTML = counter.value;
-        });
+        }))
 
         // we can also derive a signal from other signals
         // this one's value will only change when the counter is a multiple of 5
@@ -69,10 +72,24 @@ class MyView extends Croquet.View {
         // and use that derived signal in an effect
         // Note thst this effect will only run when isFifth changes,
         // not whenever counter changes (as confirmed by the console.log)
-        Signal.effect(() => {
+        this.effects.add(Signal.effect(() => {
             console.log("Multiple of 5 changed to", isFifth.value);
             document.getElementById("counter").style.color = isFifth.value ? "red" : "black";
+        }));
+
+        // we can also remove effects by calling the function returned by Signal.effect
+        // this one will only run once, then stop
+        const unwatch = Signal.effect(() => {
+            console.log("This will only run once");
         });
+        unwatch();
+    }
+
+    detach() {
+        // remove all effects when the view is detached
+        this.effects.forEach(unwatch => unwatch());
+        console.log("All effects removed");
+        super.detach();
     }
 }
 

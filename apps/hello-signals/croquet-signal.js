@@ -22,25 +22,48 @@
 //     Signal.effect(() => { document.getElementById("counter").style.color = isFifth.value ? "red" : "black"; });
 // The effect will only run when the derived value isFifth changes, not whenever counter changes.
 //
-// Signals can only be modified in model code, and Effects/Computed can only be used in view code.
+// If you need to remove an effect, call the function returned by Signal.effect:
+//     const unwatch = Signal.effect(() => { ... });
+// and later:
+//     unwatch();
+// Computed signals will automatically unwatch their dependencies when they have no watchers left.
 //
-// CAVEATS
-//
-// At the moment there is no way to remove an effect from a signal's dependents list.
-// This means it's unsuitable for dynamic UIs where components are added and removed.
+// NOTE: Signals can only be modified in model code, and Effects/Computed can only be used in view code.
 
 // silence eslint – we've loaded Croquet as script in the HTML
 /* global Croquet */
 
-let currentEffect = null;
+// these globals are used to automatically detect dependencies between signals and effects
+let currentWatcher = null;  // the effect currently being executed
+let currentWatched = null;  // the signals the current effect reads
+
+class Watchable {
+    constructor() {
+        this.watchers = new Set();
+    }
+
+    addWatcher() {
+        this.watchers.add(currentWatcher);
+        currentWatched.add(this);
+    }
+
+    removeWatcher(fn) {
+        this.watchers.delete(fn);
+    }
+
+    executeWatchers(value) {
+        this.watchers.forEach(fn => fn(value));
+    }
+}
 
 // use a class for the Signal so we can have a custom serializer for it
 // only used in model code
-class SignalState {
+class SignalState extends Watchable {
 
     constructor(value) {
+        super();
         this._value = value;          // the signal value, serialized
-        this.dependents = new Set(); // only used in view code, not serialized
+        // the watchers are only used by view code and are not serialized
     }
 
     set value(value) {
@@ -50,54 +73,75 @@ class SignalState {
         if (Object.is(value, this._value)) return;
         this._value = value;
         // execute effects outside of the model
-        queueMicrotask(() => this.dependents.forEach(fn => fn(value)));
+        queueMicrotask(() => this.executeWatchers(value));
     }
 
     get value() {
         // used in both model and view code
         // if called from within an effect, add the effect to the list of effects to be executed
-        if (currentEffect) this.dependents.add(currentEffect);
+        if (currentWatcher) this.addWatcher();
         return this._value;
+    }
+
+    removeWatcher(fn) {
+        this.watchers.delete(fn);
     }
 }
 
 // hash all source code that might be executed in the model into session ID
 Croquet.Constants.__Signal = SignalState;
 
-// wrapper for view code that depends on signals
-// it will register the effect with all signals it reads
+// An effect is a wrapper for view code that depends on signals.
+// It will register the effect as a watcher of all signals being read by the effect.
+// Returns a function that can be called to remove the effect
+// from the watch list of all signals it depends on.
 function effect(fn) {
     if (Croquet.Model.isExecuting()) throw new Error("Effects cannot be used in model code");
-    if (currentEffect) throw new Error("Cannot nest effects");
+    if (currentWatcher) throw new Error("Cannot nest effects");
     // all signals this effect depends on (by reading a signal's value)
     // will add this effect to their list of dependents
-    currentEffect = fn;
+    // and themselves to the list of signals this effect depends on
+    const watched = new Set();
+    currentWatched = watched;
+    currentWatcher = fn;
     fn();
-    currentEffect = null;
+    currentWatcher = null;
+    currentWatched = null;
+    // return a function that can be called to unwatch this effect
+    return () => watched.forEach(signal => signal.removeWatcher(fn));
 }
 
-// separate class for derived signals, only used in view code
-class SignalComputed {
+// A computed signal uses an effect to watch its own dependencies.
+// Only used in view code
+class SignalComputed extends Watchable {
 
     constructor(fn) {
+        super();
         this._value = undefined;     // last computed result
-        this.dependents = new Set();
 
         // use an effect to add this derived signal as a
         // dependent of all signals fn() reads
-        effect(() => this.value = fn());
+        this.unwatch = effect(() => this.value = fn());
     }
 
     set value(value) {
+        // this should only ever be called from our own effect above
         if (Object.is(value, this._value)) return;
         this._value = value;
         // we're in view code, execute effects immediately
-        this.dependents.forEach(fn => fn(value));
+        this.executeWatchers(value);
     }
 
     get value() {
-        if (currentEffect) this.dependents.add(currentEffect);
+        if (currentWatcher) this.addWatcher();
         return this._value;
+    }
+
+    removeWatcher(fn) {
+        super.removeWatcher(fn);
+        if (this.watchers.size === 0) {
+            this.unwatch();
+        }
     }
 }
 
@@ -108,7 +152,7 @@ const Signal = {
     effect,
 };
 
-// This class only exists to provide a serializer for Signals
+// Register a serializer for Signals
 class CroquetSignals extends Croquet.Model {
     static types() {
         return {
