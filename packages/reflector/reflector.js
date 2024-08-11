@@ -654,7 +654,7 @@ async function startServerForDePIN() {
         };
         // for DePIN we are required to track the session stats that will be used to generate synq rewards and developer costs.
         // the synq also includes some of these stats in its regular status reports (to the proxy DO) for each session it's currently hosting.
-        session.depinStats = {
+        const depinStats = session.depinStats = {
             joins: 0,       // in this reporting period
             totalJoins: 0,  // since this synq picked up the session
 
@@ -680,6 +680,12 @@ async function startServerForDePIN() {
 
             auditTicks: 0,   // count of ticks sent in this work unit
 
+            runner: {
+                auditBytesIn: 0,  // all bytes over socket - including ICE negotiations, session state etc
+                auditBytesOut: 0, // all bytes - including ICE, all island updates etc
+                latency: { min: null, max: null, count: 0, sum: 0 }
+            },
+
             // work unit stats at the time of the last snapshot (if any) this work unit,
             // as supplied by the client taking the snapshot
             auditAtLastSnapshot: {
@@ -689,11 +695,9 @@ async function startServerForDePIN() {
                 payloadTally: 0
             },
 
-            runner: {
-                auditBytesIn: 0,  // all bytes over socket - including ICE negotiations, session state etc
-                auditBytesOut: 0, // all bytes - including ICE, all island updates etc
-                latency: { min: null, max: null, count: 0, sum: 0 }
-            }
+            sessionTimeAtDispatch: 0, // teatime after which this synq has been responsible for the session
+
+            auditForSessionRunner: null, // during an audit, this holds the session-related values until the update is actually sent to the session DO, at which point we stir in the comms-related values
         };
         session.offload = reason => {
             session.stage = 'offloading'; // only on DePIN
@@ -751,7 +755,7 @@ async function startServerForDePIN() {
                 }
                 const msg = JSON.stringify(msgObject);
                 socket.send(msg);
-                session.depinStats.runner.auditBytesOut += msg.length;
+                depinStats.runner.auditBytesOut += msg.length;
             };
 
             // the session has responsibility for periodically contacting the session
@@ -808,8 +812,27 @@ async function startServerForDePIN() {
                         }
                         if (updateBuffer.length) { // maybe after the processing above
                             const update = updateBuffer[0];
+                            const updateIncludesAudit = !!update.lastAuditTime;
+                            if (updateIncludesAudit) {
+                                const { auditForSessionRunner } = depinStats;
+                                if (auditForSessionRunner) {
+                                    const { auditBytesIn: runnerBytesIn, auditBytesOut: runnerBytesOut } = depinStats.runner;
+                                    auditForSessionRunner.runnerBytesIn = runnerBytesIn;
+                                    auditForSessionRunner.runnerBytesOut = runnerBytesOut;
+                                    update.auditFromSync = auditForSessionRunner;
+                                    depinStats.auditForSessionRunner = null;
+                                    // to ensure that the synq gets credit from the session DO for sending the bytes in this last update of the work unit, we measure the expected size of the update message and add it to the stats.
+                                    const msgSize = JSON.stringify({ what: "SESSION_UPDATE", update }).length;
+                                    update.auditFromSync.runnerBytesOut += msgSize;
+                                } else console.error("failed to find auditForSessionRunner to accompany lastAuditTime");
+
+                            }
                             session.sendToSessionRunner({ what: "SESSION_UPDATE", update });
                             update.awaitingAck = true;
+                            if (updateIncludesAudit) {
+                                // reset comms stats _after_ sending the update
+                                depinStats.runner.auditBytesIn = depinStats.runner.auditBytesOut = 0;
+                            }
                             whatWasSent = `update ${update.updateSeq}`;
                         }
                     }
@@ -925,7 +948,7 @@ async function startServerForDePIN() {
             sessionSocket.on('message', function onMessage(depinStr) {
                 if (key !== session.socketKey) return;
 
-                session.depinStats.runner.auditBytesIn += depinStr.length;
+                depinStats.runner.auditBytesIn += depinStr.length;
 
                 try {
                     const depinMsg = JSON.parse(depinStr);
@@ -1256,7 +1279,7 @@ async function startServerForDePIN() {
             }
 
             function logRoundTrip(ms) {
-                const { latency } = session.depinStats.runner;
+                const { latency } = depinStats.runner;
                 latency.count++;
                 latency.sum += ms;
                 if (latency.min === null || ms < latency.min) latency.min = ms;
@@ -2189,7 +2212,11 @@ async function JOIN(client, args) {
                     if (typeof msg[2] !== 'string' && msg[2].what === 'audit') payloadTally = 0;
                     else payloadTally += payloadSizeForAccounting(msg);
                 }
-                session.depinStats.auditPayloadTally = payloadTally;
+                // make sure that all work-unit stats are suitably initialised
+                const { depinStats } = session;
+                depinStats.lastUsers = depinStats.minUsers = depinStats.maxUsers = -1;
+                depinStats.auditPayloadTally = payloadTally;
+                depinStats.sessionTimeAtDispatch = latestSpec.time;
             }
 
             island.scaledStart = stabilizedPerformanceNow() - island.time / island.scale;
@@ -2277,7 +2304,7 @@ function SYNC(island) {
         // we therefore send the tallies as they were at the time of the last snapshot
         // (if any) in this work unit, to set up before it starts fast-forwarding.
         const { depinStats } = ALL_SESSIONS.get(island.id);
-        args.auditStatsAtLastSnapshot = {...depinStats.auditAtLastSnapshot};
+        args.auditStatsInitializer = { ...depinStats.auditAtLastSnapshot, sessionTimeAtDispatch: depinStats.sessionTimeAtDispatch };
     }
     const response = JSON.stringify({ id, action: 'SYNC', args });
     const range = !messages.length ? '' : ` (#${messages[0][1]}...${messages[messages.length - 1][1]})`;
@@ -2577,10 +2604,8 @@ function SNAP(client, args) {
         session.gatherUpdateIfNeeded(true); // true => any change will do
         island.storedSeq = seq;
         island.storedUrl = url;
-        if (auditStats) {
-console.log({ auditStats });
-            session.depinStats.auditAtLastSnapshot = auditStats;
-        } else console.error("snapshot uploaded without audit stats");
+        if (auditStats) session.depinStats.auditAtLastSnapshot = auditStats;
+        else console.error("snapshot uploaded without audit stats");
     }
 
     // SYNC waiting clients
@@ -2866,20 +2891,11 @@ function USERS(island) {
     const activeClients = [...clients].filter(each => each.active); // a client in the set but not active is between JOIN and SYNC
     const active = activeClients.length;
     const total = clients.size;
-    if (DEPIN) {
-        const session = ALL_SESSIONS.get(island.id);
-        if (session) {
-            const { depinStats } = session;
-            depinStats.auditLastUsers = total;
-            if (depinStats.auditMinUsers === -1 || total < depinStats.auditMinUsers) depinStats.auditMinUsers = total;
-            if (total > depinStats.auditMaxUsers) depinStats.auditMaxUsers = total;
-        }
-    }
     const payload = { what: 'users', active, total };
     if (usersJoined.length > 0) payload.joined = [...usersJoined];
     if (usersLeft.length > 0) payload.left = [...usersLeft];
     if (active) {
-        // do not trigger a SEND before someone successfully joined
+        // do not trigger a SEND unless we expect someone to hear
         const msg = [0, 0, payload];
         if (island.flags.rawtime) msg.push(0); // will be overwritten with time value
         SEND(island, [msg]);
@@ -2892,6 +2908,16 @@ function USERS(island) {
             allSessionCount: ALL_ISLANDS.size,
             allClientCount: server.clients.size,
         }, `Users: +${usersJoined.length}-${usersLeft.length}=${active}/${total} (total ${ALL_ISLANDS.size} islands, ${server.clients.size} users)`);
+
+        if (DEPIN) {
+            const session = ALL_SESSIONS.get(island.id);
+            if (session) {
+                const { depinStats } = session;
+                depinStats.auditLastUsers = total;
+                if (depinStats.auditMinUsers === -1 || total < depinStats.auditMinUsers) depinStats.auditMinUsers = total;
+                if (total > depinStats.auditMaxUsers) depinStats.auditMaxUsers = total;
+            }
+        }
     }
     if (heraldUrl) heraldUsers(island, activeClients.map(each => each.user), payload.joined, payload.left);
     usersJoined.length = 0;
@@ -2914,26 +2940,22 @@ function AUDIT(island) {
     island.logger.debug({
         event: "send-audit",
         time,
-    }, `Requesting audit at time ${time}`);
+    }, `requesting audit at time ${time}`);
 
-    const { depinStats, sessionSocket } = session;
-    const { auditLastUsers: lastUsers, auditMinUsers: minUsers, auditMaxUsers: maxUsers, auditPayloadTally: payloadTally, auditBytesIn: bytesIn, auditBytesOut: bytesOut, auditTicks: ticks, runner: runnerStats } = depinStats;
-    const { auditBytesIn: runnerBytesIn, auditBytesOut: runnerBytesOut } = runnerStats;
+    // the 'audit' message will have been sent immediately to clients, but only added to
+    // the updateBuffer for sending to the session DO - where it might not get sent
+    // for some time (and we can't necessarily flush that buffer immediately, because
+    // we could be awaiting acknowledgement of a previous update blob).  so we build
+    // it now, but store it in the depinStats and wait until the update blob that
+    // includes the new audit time is about to be sent.  then we add the audit to that blob.
 
-    if (sessionSocket?.readyState === WebSocket.OPEN) {
-        // to ensure that the synq gets credit for the bytes of the SESSION_AUDIT
-        // message itself, we measure the size of a dummy version of that message
-        // and add it to the stats.
-        const audit = { syncName: SYNCNAME, wallet: WALLET, time, lastUsers, minUsers, maxUsers, payloadTally, bytesIn, bytesOut, ticks, runnerBytesIn, runnerBytesOut };
-        const msgSize = JSON.stringify({ what: "SESSION_AUDIT", audit }).length;
-        audit.runnerBytesOut += msgSize;
-console.log(audit);
-        sessionSocket.send(JSON.stringify({ what: "SESSION_AUDIT", audit }));
-    }
+    const { depinStats } = session;
+    const { auditLastUsers: lastUsers, auditMinUsers: minUsers, auditMaxUsers: maxUsers, auditPayloadTally: payloadTally, auditBytesIn: bytesIn, auditBytesOut: bytesOut, auditTicks: ticks } = depinStats;
+    const audit = { syncName: SYNCNAME, wallet: WALLET, time, lastUsers, minUsers, maxUsers, payloadTally, bytesIn, bytesOut, ticks };
+    depinStats.auditForSessionRunner = audit;
 
     depinStats.auditMinUsers = depinStats.auditMaxUsers = lastUsers;
     depinStats.auditPayloadTally = depinStats.auditBytesIn = depinStats.auditBytesOut = depinStats.auditTicks = 0;
-    runnerStats.auditBytesIn = runnerStats.auditBytesOut = 0;
 
     island.lastAuditTime = time;
 }
@@ -3295,81 +3317,80 @@ async function deregisterSession(id, detail) {
 }
 
 function setUpClientHandlers(client) {
-    client.on('message', incomingMsg => {
-        const handleMessage = () => {
-            if (!client.isConnected()) return; // ignore messages arriving after we disconnected the client
-            client.lastActivity = Date.now();
-            const msgLength = incomingMsg.length;
-            STATS.IN += msgLength;
-            client.stats.mi += 1;             // messages in
-            client.stats.bi += msgLength;     // bytes in
+    const handleMessage = incomingMsg => {
+        if (!client.isConnected()) return; // ignore messages arriving after we disconnected the client
+        client.lastActivity = Date.now();
+        const msgLength = incomingMsg.length;
+        STATS.IN += msgLength;
+        client.stats.mi += 1;             // messages in
+        client.stats.bi += msgLength;     // bytes in
 
-            let session;
-            if (DEPIN && (session = ALL_SESSIONS.get(client.sessionId))) {
-                session.depinStats.bytesIn += msgLength;
-                session.depinStats.auditBytesIn += msgLength;
-                session.depinStats.totalBytesIn += msgLength;
-            }
+        let session;
+        if (DEPIN && (session = ALL_SESSIONS.get(client.sessionId))) {
+            session.depinStats.bytesIn += msgLength;
+            session.depinStats.auditBytesIn += msgLength;
+            session.depinStats.totalBytesIn += msgLength;
+        }
 
-            let parsedMsg;
-            try {
-                parsedMsg = JSON.parse(incomingMsg);
-                if (typeof parsedMsg !== "object") throw Error("JSON did not contain an object");
-            } catch (err) {
-                client.logger.error({ event: "message-parsing-failed", err, incomingMsg }, `message parsing error: ${err.message}`);
-                client.safeClose(...REASON.MALFORMED_MESSAGE);
-                return;
-            }
-            try {
-                const { action, args, tags } = parsedMsg;
-                switch (action) {
-                    case 'JOIN': {
-                        client.joinedSession = true;
-                        JOIN(client, args);
-                        break;
-                    }
-                    case 'SEND': {
-                        const latency = args[args.length - 1];  // might be modified in-place by rawtime logic
-                        if (tags) SEND_TAGGED(client.island, args, tags);
-                        else SEND(client.island, [args]); // SEND accepts an array of messages
-                        if (latency > 0) recordLatency(client, latency);  // record after broadcasting
-                        break;
-                    }
-                    case 'TUTTI': TUTTI(client, args); break;
-                    case 'TICKS': TICKS(client, args); break;
-                    case 'SNAP': SNAP(client, args); break;
-                    case 'SAVE': SAVE(client, args); break;
-                    case 'PING': PONG(client, args); break;
-                    case 'PULSE':  // sets lastActivity, otherwise no-op
-                        // if (args && args.latency > 0) recordLatency(client, args.latency); - not actually sent by clients yet
-                        client.logger.trace({ event: 'pulse' }, `receiving PULSE`);
-                        break;
-                    case 'LOG': {
-                        const clientLog = typeof args === "string" ? args : JSON.stringify(args);
-                        client.logger.info({
-                            event: "client-log",
-                            reason: clientLog.replace(/ .*/, ''),
-                            clientLog,
-                        }, `LOG ${clientLog}`);
-                    }
-                        break;
-                    default: client.logger.warn({
-                        event: "unknown-action",
-                        action: typeof action === "string" ? action : JSON.stringify(action),
-                        incomingMsg
-                    }, `unknown action ${JSON.stringify(action)}`);
+        let parsedMsg;
+        try {
+            parsedMsg = JSON.parse(incomingMsg);
+            if (typeof parsedMsg !== "object") throw Error("JSON did not contain an object");
+        } catch (err) {
+            client.logger.error({ event: "message-parsing-failed", err, incomingMsg }, `message parsing error: ${err.message}`);
+            client.safeClose(...REASON.MALFORMED_MESSAGE);
+            return;
+        }
+        try {
+            const { action, args, tags } = parsedMsg;
+            switch (action) {
+                case 'JOIN': {
+                    client.joinedSession = true;
+                    JOIN(client, args);
+                    break;
                 }
-            } catch (err) {
-                client.logger.error({ event: "message-handling-failed", err }, `message handling failed: ${err.message}`);
-                client.safeClose(...REASON.UNKNOWN_ERROR);
+                case 'SEND': {
+                    const latency = args[args.length - 1];  // might be modified in-place by rawtime logic
+                    if (tags) SEND_TAGGED(client.island, args, tags);
+                    else SEND(client.island, [args]); // SEND accepts an array of messages
+                    if (latency > 0) recordLatency(client, latency);  // record after broadcasting
+                    break;
+                }
+                case 'TUTTI': TUTTI(client, args); break;
+                case 'TICKS': TICKS(client, args); break;
+                case 'SNAP': SNAP(client, args); break;
+                case 'SAVE': SAVE(client, args); break;
+                case 'PING': PONG(client, args); break;
+                case 'PULSE':  // sets lastActivity, otherwise no-op
+                    // if (args && args.latency > 0) recordLatency(client, args.latency); - not actually sent by clients yet
+                    client.logger.trace({ event: 'pulse' }, `receiving PULSE`);
+                    break;
+                case 'LOG': {
+                    const clientLog = typeof args === "string" ? args : JSON.stringify(args);
+                    client.logger.info({
+                        event: "client-log",
+                        reason: clientLog.replace(/ .*/, ''),
+                        clientLog,
+                    }, `LOG ${clientLog}`);
+                }
+                    break;
+                default: client.logger.warn({
+                    event: "unknown-action",
+                    action: typeof action === "string" ? action : JSON.stringify(action),
+                    incomingMsg
+                }, `unknown action ${JSON.stringify(action)}`);
             }
-        };
-
+        } catch (err) {
+            client.logger.error({ event: "message-handling-failed", err }, `message handling failed: ${err.message}`);
+            client.safeClose(...REASON.UNKNOWN_ERROR);
+        }
+    };
+    client.on('message', incomingMsg => {
         if (ARTIFICIAL_DELAY) {
             const timeout = ARTIFICIAL_DELAY * (0.5 + Math.random());
-            setTimeout(handleMessage, timeout);
+            setTimeout(() => handleMessage(incomingMsg), timeout);
         } else {
-            handleMessage();
+            handleMessage(incomingMsg);
         }
     });
 
@@ -3454,15 +3475,19 @@ function setUpClientHandlers(client) {
             client.safeClose(...REASON.RECONNECT);
             return; // skip the bookkeeping
         }
+
+        // NB: for better or for worse, we don't count any overhead introduced by
+        // chunking (and neither does the client).  just the effective bytes transferred.
         STATS.OUT += dataLength;
         client.stats.mo += 1;               // messages out
         client.stats.bo += dataLength;     // bytes out
 
         let session;
         if (DEPIN && (session = ALL_SESSIONS.get(client.sessionId))) {
-            session.depinStats.bytesOut += dataLength;
-            session.depinStats.auditBytesOut += dataLength;
-            session.depinStats.totalBytesOut += dataLength;
+            const { depinStats } = session;
+            depinStats.bytesOut += dataLength;
+            depinStats.auditBytesOut += dataLength;
+            depinStats.totalBytesOut += dataLength;
         }
     };
     client.safeClose = (code, data) => {
