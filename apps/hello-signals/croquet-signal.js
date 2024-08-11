@@ -58,8 +58,8 @@ class Watchable {
         this.watchers.delete(fn);
     }
 
-    executeWatchers(value) {
-        this.watchers.forEach(fn => fn(value));
+    executeWatchers() {
+        this.watchers.forEach(fn => fn());
     }
 }
 
@@ -80,7 +80,7 @@ class Signal extends Watchable {
         if (Object.is(value, this._value)) return;
         this._value = value;
         // execute effects outside of the model
-        queueMicrotask(() => this.executeWatchers(value));
+        queueMicrotask(() => this.executeWatchers());
     }
 
     get value() {
@@ -90,9 +90,6 @@ class Signal extends Watchable {
         return this._value;
     }
 
-    removeWatcher(fn) {
-        this.watchers.delete(fn);
-    }
 }
 
 // hash all source code that might be executed in the model into session ID
@@ -136,7 +133,7 @@ class Computed extends Watchable {
         if (Object.is(value, this._value)) return;
         this._value = value;
         // we're in view code, execute effects immediately
-        this.executeWatchers(value);
+        this.executeWatchers();
     }
 
     get value() {
