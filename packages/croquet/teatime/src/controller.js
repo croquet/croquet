@@ -1129,9 +1129,11 @@ export default class Controller {
         if (this.vm.time !== time) console.error(`time ${this.vm.time} cf audit time ${time}`);
 
         const { auditStats } = this;
-        const { lastUsers, minUsers, maxUsers, payloadTally } = auditStats;
+        const { lastUsers, minUsers, maxUsers, payloadTally, sessionTimeAtDispatch } = auditStats;
         auditStats.payloadTally = 0;
-        auditStats.minUsers = auditStats.maxUsers = lastUsers;
+        if (this.vm.time > sessionTimeAtDispatch) {
+            auditStats.minUsers = auditStats.maxUsers = lastUsers; // number starting the new work unit
+        }
 
         if (this.synced) { // skipped during fast-forward
             const bytesIn = Stats.networkTraffic.audit_reflector_in || 0;
@@ -1150,9 +1152,12 @@ export default class Controller {
     }
 
     handleUserTotalForAccounting(total) {
+        // this is invoked by the VM when handling a 'users' message
         if (DEPIN) {
             const { auditStats } = this;
             auditStats.lastUsers = total;
+            if (this.vm.time <= auditStats.sessionTimeAtDispatch) return;
+
             if (auditStats.minUsers === -1 || total < auditStats.minUsers) auditStats.minUsers = total;
             if (total > auditStats.maxUsers) auditStats.maxUsers = total;
         }
@@ -1182,7 +1187,7 @@ export default class Controller {
                 const { progressReporter } = this.sessionSpec;
                 const reportProgress = progressReporter || (() => {});
 
-                const {messages, url, persisted, time, seq, /* snapshotTime, */ snapshotSeq, tove, reflector, flags, auditStatsAtLastSnapshot} = args;
+                const {messages, url, persisted, time, seq, /* snapshotTime, */ snapshotSeq, tove, reflector, flags, auditStatsInitializer} = args;
                 // check that we are able to decode a shared secret (unless it's our own)
                 if (tove && tove !== this.tove) try {
                     // decrypt will throw if it can't decrypt, which is the expected result if joining with a wrong password
@@ -1313,8 +1318,9 @@ export default class Controller {
                     if (data) this.sessionSpec.snapshot = data;  // set snapshot for building the vm
                     this.install();  // will run initFn() if no snapshot
                 }
-                if (auditStatsAtLastSnapshot) {
-                    this.auditStats = auditStatsAtLastSnapshot;
+                if (auditStatsInitializer) {
+                    if (DEBUG.session) console.log(this.id, `installing audit stats: ${JSON.stringify(auditStatsInitializer)}`);
+                    this.auditStats = auditStatsInitializer;
                 }
                 // after install() sets this.vm, the main loop may also trigger simulation
                 if (DEBUG.session) console.log(this.id, `fast-forwarding from ${Math.round(this.vm.time)} to at least ${time}`);
@@ -2551,6 +2557,7 @@ class Connection {
         this.connectHasBeenCalled = false; // ready to try again
         this.controller.clearSyncReceiptTimeout(); // if any
         Stats.connected(false);
+        Stats.resetAuditStats();
 
         if (dormant) this.connectRestricted = true; // only reconnect on session step
         else this.connectBlocked = true; // only reconnect using connectToReflector
