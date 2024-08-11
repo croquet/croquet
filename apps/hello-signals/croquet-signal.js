@@ -3,24 +3,31 @@
 // Author: Vanessa Freudenberg
 //
 // USAGE
-//     import { Signal, Effect, Derive }  from "./croquet-signal.js";
+//
+// import Signal from "./croquet-signal.js";
 //
 // In your model code, create a signal like this:
-//     this.counter = new Signal(0);
+//     this.counter = new Signal.State(0);
 // and use it like this:
 //     this.doSomething(this.counter.value); // read
 //     this.counter.value = 42;              // write
 //     this.counter.value++;                 // read+write
 //
 // In your view code, use the signal in an effect like this:
-//     Effect(() => { document.getElementById("counter").innerHTML = this.counter.value; });
+//     Signal.effect(() => { document.getElementById("counter").innerHTML = this.counter.value; });
 // which will automatically re-run the effect whenever the signal value changes.
-// You can also derive a signal from other signals like this:
-//     const isFifth = Derive(() => this.counter.value % 5 === 0);
+// You can also derive a computed signal from other signals like this:
+//     const isFifth = new Signal.Computed(() => this.counter.value % 5 === 0);
 // and use that in an effect like this:
-//     Effect(() => { document.getElementById("counter").style.color = isFifth.value ? "red" : "black"; });
+//     Signal.effect(() => { document.getElementById("counter").style.color = isFifth.value ? "red" : "black"; });
+// The effect will only run when the derived value isFifth changes, not whenever counter changes.
 //
-// Signals can only be modified in model code, and Effects/Derive can only be used in view code.
+// Signals can only be modified in model code, and Effects/Computed can only be used in view code.
+//
+// CAVEATS
+//
+// At the moment there is no way to remove an effect from a signal's dependents list.
+// This means it's unsuitable for dynamic UIs where components are added and removed.
 
 // silence eslint – we've loaded Croquet as script in the HTML
 /* global Croquet */
@@ -28,7 +35,8 @@
 let currentEffect = null;
 
 // use a class for the Signal so we can have a custom serializer for it
-class Signal {
+// only used in model code
+class SignalState {
 
     constructor(value) {
         this._value = value;          // the signal value, serialized
@@ -54,27 +62,11 @@ class Signal {
 }
 
 // hash all source code that might be executed in the model into session ID
-Croquet.Constants.__Signal = Signal;
+Croquet.Constants.__Signal = SignalState;
 
-// separate class for for setting value from outside the model
-class DerivedSignal extends Signal {
-
-    set value(value) {
-        if (Croquet.Model.isExecuting()) throw new Error("Cannot set derived signal value from within the model");
-        if (Object.is(value, this._value)) return;
-        this._value = value;
-        // we're in view code, so execute effects immediately
-        this.dependents.forEach(fn => fn(value));
-    }
-
-    get value() {
-        // same as super.get but need to implement because we override set
-        if (currentEffect) this.dependents.add(currentEffect);
-        return this._value;
-    }
-}
-
-function Effect(fn) {
+// wrapper for view code that depends on signals
+// it will register the effect with all signals it reads
+function effect(fn) {
     if (Croquet.Model.isExecuting()) throw new Error("Effects cannot be used in model code");
     if (currentEffect) throw new Error("Cannot nest effects");
     // all signals this effect depends on (by reading a signal's value)
@@ -84,26 +76,50 @@ function Effect(fn) {
     currentEffect = null;
 }
 
-function Derive(fn) {
-    // use view-side signal because we know we are in view code
-    const derived = new DerivedSignal();
-    // add this derived signal to the list of dependents of all signals it reads
-    Effect(() => derived.value = fn());
-    return derived;
+// separate class for derived signals, only used in view code
+class SignalComputed {
+
+    constructor(fn) {
+        this._value = undefined;     // last computed result
+        this.dependents = new Set();
+
+        // use an effect to add this derived signal as a
+        // dependent of all signals fn() reads
+        effect(() => this.value = fn());
+    }
+
+    set value(value) {
+        if (Object.is(value, this._value)) return;
+        this._value = value;
+        // we're in view code, execute effects immediately
+        this.dependents.forEach(fn => fn(value));
+    }
+
+    get value() {
+        if (currentEffect) this.dependents.add(currentEffect);
+        return this._value;
+    }
 }
 
+// Public API
+const Signal = {
+    State: SignalState,
+    Computed: SignalComputed,
+    effect,
+};
+
 // This class only exists to provide a serializer for Signals
-class SignalModel extends Croquet.Model {
+class CroquetSignals extends Croquet.Model {
     static types() {
         return {
-            "Croquet.Signal": {
-                cls: Signal,
+            "Croquet:Signal": {
+                cls: Signal.State,
                 write: signal => signal._value,
-                read: value => new Signal(value),
+                read: value => new Signal.State(value),
             }
         };
     }
 }
-SignalModel.register("Croquet:SignalModel");
+CroquetSignals.register("Croquet:Signals");
 
-export { Signal, Effect, Derive };
+export default Signal;

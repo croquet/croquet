@@ -13,7 +13,7 @@
 // silence eslint – we've loaded Croquet as script in the HTML
 /* global Croquet */
 
-import { Signal, Effect, Derive } from "./croquet-signal.js";
+import Signal from "./croquet-signal.js";
 
 
 class MyModel extends Croquet.Model {
@@ -21,7 +21,7 @@ class MyModel extends Croquet.Model {
     init() {
         super.init();
         // use a signal to store the counter value
-        this.counter = new Signal(0);
+        this.counter = new Signal.State(0);
         this.subscribe(this.id, "click", this.onClick);
         this.tick();
     }
@@ -57,19 +57,19 @@ class MyView extends Croquet.View {
         // by invoking the signal's value getter in an effect, we automatically
         // create a dependency between the signal and the effect,
         // causing the effect to be re-run whenever the signal value changes
-        Effect(() => {
+        Signal.effect(() => {
             console.log("Counter changed to", counter.value);
             document.getElementById("counter").innerHTML = counter.value;
         });
 
         // we can also derive a signal from other signals
         // this one's value will only change when the counter is a multiple of 5
-        const isFifth = Derive(() => counter.value % 5 === 0);
+        const isFifth = new Signal.Computed(() => counter.value % 5 === 0);
 
         // and use that derived signal in an effect
         // Note thst this effect will only run when isFifth changes,
         // not whenever counter changes (as confirmed by the console.log)
-        Effect(() => {
+        Signal.effect(() => {
             console.log("Multiple of 5 changed to", isFifth.value);
             document.getElementById("counter").style.color = isFifth.value ? "red" : "black";
         });
