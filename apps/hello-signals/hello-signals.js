@@ -13,15 +13,15 @@
 // silence eslint – we've loaded Croquet as script in the HTML
 /* global Croquet */
 
-import Signal from "./croquet-signal.js";
+import { SignalModel, SignalView } from "./croquet-signal.js";
 
 
-class MyModel extends Croquet.Model {
+class MyModel extends SignalModel {
 
     init() {
         super.init();
         // use a signal to store the counter value
-        this.counter = new Signal.State(0);
+        this.counter = this.createSignal(0);
         this.subscribe(this.id, "click", this.onClick);
         this.tick();
     }
@@ -44,53 +44,47 @@ class MyModel extends Croquet.Model {
 MyModel.register("MyModel");
 
 
-class MyView extends Croquet.View {
+class MyView extends SignalView {
 
     constructor(model) {
         super(model);
 
         document.onclick = () => this.publish(model.id, "click");
 
-        // we will store the effects in a set so we can remove them later
-        this.effects = new Set();
-
-        // we will read the signal value in effects
+        // we will read the signal value in the effects below
         const counter = model.counter;
 
         // by invoking the signal's value getter in an effect, we automatically
         // create a dependency between the signal and the effect,
-        // causing the effect to be re-run whenever the signal value changes
-        this.effects.add(Signal.effect(() => {
+        // causing the effect to be re-executed whenever the signal value changes
+        this.signalEffect(() => {
             console.log("Counter changed to", counter.value);
             document.getElementById("counter").innerHTML = counter.value;
-        }))
+        });
 
         // we can also derive a signal from other signals
-        // this one's value will only change when the counter is a multiple of 5
-        const isFifth = new Signal.Computed(() => counter.value % 5 === 0);
+        // this one's value will only be true when the counter is a multiple of 5
+        const isFifth = this.computeSignal(() => counter.value % 5 === 0);
 
-        // and use that derived signal in an effect
-        // Note thst this effect will only run when isFifth changes,
+        // Note that this effect will only run when isFifth changes,
         // not whenever counter changes (as confirmed by the console.log)
-        this.effects.add(Signal.effect(() => {
+        this.signalEffect(() => {
             console.log("Multiple of 5 changed to", isFifth.value);
             document.getElementById("counter").style.color = isFifth.value ? "red" : "black";
-        }));
-
-        // we can also remove effects by calling the function returned by Signal.effect
-        // this one will only run once, then stop
-        const unwatch = Signal.effect(() => {
-            console.log("This will only run once");
         });
-        unwatch();
+
+        // we can also remove effects by calling the function returned by signalEffect()
+        // this one will output 5 counter values and then stop
+        let output = 0;
+        const unwatch = this.signalEffect(() => {
+            console.log(`Output #${++output}`, counter.value);
+            if (output >= 5) {
+                unwatch();
+                console.log("Output stopped");
+            }
+        });
     }
 
-    detach() {
-        // remove all effects when the view is detached
-        this.effects.forEach(unwatch => unwatch());
-        console.log("All effects removed");
-        super.detach();
-    }
 }
 
 

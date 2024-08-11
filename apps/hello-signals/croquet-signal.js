@@ -1,32 +1,39 @@
 // Signals for Croquet
+// ====================
 //
-// Author: Vanessa Freudenberg
+// This module provides a simple way to communicate between models and views in a Croquet application.
+// It uses signals to store state in the model and effects to update UI elements when the state changes,
+// instead of having to publish changes from the model and subscribe to them in a view.
+//
+// Author: Vanessa Freudenberg, Croquet Labs, 2024
 //
 // USAGE
 //
-// import Signal from "./croquet-signal.js";
+// import { SignalModel, SignalView } from "./croquet-signal.js";
 //
-// In your model code, create a signal like this:
-//     this.counter = new Signal.State(0);
+// Subclass SignalModel and create a signal like this:
+//     this.counter = this.createSignal(0);
 // and use it like this:
 //     this.doSomething(this.counter.value); // read
 //     this.counter.value = 42;              // write
 //     this.counter.value++;                 // read+write
 //
-// In your view code, use the signal in an effect like this:
-//     Signal.effect(() => { document.getElementById("counter").innerHTML = this.counter.value; });
+// Subclass SignalView and use the signal in an effect like this:
+//     this.signalEffect(() => { document.getElementById("counter").innerHTML = this.counter.value; });
 // which will automatically re-run the effect whenever the signal value changes.
 // You can also derive a computed signal from other signals like this:
-//     const isFifth = new Signal.Computed(() => this.counter.value % 5 === 0);
+//     const isFifth = this.computeSignal(() => this.counter.value % 5 === 0);
 // and use that in an effect like this:
-//     Signal.effect(() => { document.getElementById("counter").style.color = isFifth.value ? "red" : "black"; });
+//     this.signalEffect(() => { document.getElementById("counter").style.color = isFifth.value ? "red" : "black"; });
 // The effect will only run when the derived value isFifth changes, not whenever counter changes.
 //
-// If you need to remove an effect, call the function returned by Signal.effect:
-//     const unwatch = Signal.effect(() => { ... });
+// If you need to remove an effect, call the function returned by signalEffect():
+//     const unwatch = this.signalEffect(() => { ... });
 // and later:
 //     unwatch();
 // Computed signals will automatically unwatch their dependencies when they have no watchers left.
+// When the view is detached, all its effects are automatically removed, which in turn
+// removes all their computed signals.
 //
 // NOTE: Signals can only be modified in model code, and Effects/Computed can only be used in view code.
 
@@ -58,7 +65,7 @@ class Watchable {
 
 // use a class for the Signal so we can have a custom serializer for it
 // only used in model code
-class SignalState extends Watchable {
+class Signal extends Watchable {
 
     constructor(value) {
         super();
@@ -89,7 +96,7 @@ class SignalState extends Watchable {
 }
 
 // hash all source code that might be executed in the model into session ID
-Croquet.Constants.__Signal = SignalState;
+Croquet.Constants.__Signal = Signal;
 
 // An effect is a wrapper for view code that depends on signals.
 // It will register the effect as a watcher of all signals being read by the effect.
@@ -113,7 +120,7 @@ function effect(fn) {
 
 // A computed signal uses an effect to watch its own dependencies.
 // Only used in view code
-class SignalComputed extends Watchable {
+class Computed extends Watchable {
 
     constructor(fn) {
         super();
@@ -145,25 +152,47 @@ class SignalComputed extends Watchable {
     }
 }
 
-// Public API
-const Signal = {
-    State: SignalState,
-    Computed: SignalComputed,
-    effect,
-};
+// Register a serializer for Signals, and a method for creating them
+export class SignalModel extends Croquet.Model {
 
-// Register a serializer for Signals
-class CroquetSignals extends Croquet.Model {
+    createSignal(value) {
+        return new Signal(value);
+    }
+
     static types() {
         return {
             "Croquet:Signal": {
-                cls: Signal.State,
+                cls: Signal,
                 write: signal => signal._value,
-                read: value => new Signal.State(value),
+                read: value => new Signal(value),
             }
         };
     }
 }
-CroquetSignals.register("Croquet:Signals");
+SignalModel.register("Croquet:Signals");
 
-export default Signal;
+// The SignalView class provides a method for creating effects and computed signals
+// It will automatically remove all effects when the view is detached
+export class SignalView extends Croquet.View {
+
+    constructor(model) {
+        super(model);
+
+        this._unwatches = new Set();
+    }
+
+    signalEffect(fn) {
+        const unwatch = effect(fn);
+        this._unwatches.add(unwatch);
+        return unwatch;
+    }
+
+    computeSignal(fn) {
+        return new Computed(fn);
+    }
+
+    detach() {
+        this._unwatches.forEach(unwatch => unwatch());
+        super.detach();
+    }
+}
