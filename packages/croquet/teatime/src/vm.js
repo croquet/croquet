@@ -104,33 +104,98 @@ function patchBrowser() {
     }
 }
 
-/** function cache */
-const QFuncs = {};
-
-/** QFuncs are a hack to allow functions (that is, non-methods) in Model code
- * to be used as callback, e.g. QFunc({foo}, bar => this.baz(foo, bar))
- * @param {Object} vars - the captured variables
- * @param {Function} fn - the callback function
+/*
+ * asFuncString and compileFuncString are used to serialize simple functions
+ * without env. They can be used directly as handlers in model code, e.g.
+ * in subcriptions or future messages.
+ * TODO: make full QFuncs usable in these places
  */
-export function QFunc(vars, fn) {
-    if (typeof vars === "function") { fn = vars; vars = {}; }
-    const qPara = Object.keys(vars).concat(["return " + fn]);
-    const qArgs = Object.values(vars);
-    const qFunc = {qPara, qArgs};
-    const fnIndex = qArgs.indexOf(fn);
-    if (fnIndex >= 0) { qArgs[fnIndex] = qPara[fnIndex]; qFunc.qFn = fnIndex; }
-    return `{${btoa(JSON.stringify(qFunc))}}`;
+
+function asFuncString(fn) {
+    const source = fn.toString();
+    return `{${btoa(JSON.stringify(source))}}`;
 }
 
-function bindQFunc(qfunc, thisArg) {
-    const { qPara, qArgs, qFn } = JSON.parse(atob(qfunc.slice(1, -1)));
-    const cacheKey = JSON.stringify(qPara);
+const compiledFuncStrings = {};
+
+function compileFuncString(str, thisRef) {
+    let cacheKey = thisRef.id + ':' + str;
+    let fn = compiledFuncStrings[cacheKey];
+    if (!fn) {
+        const source = JSON.parse(atob(str.slice(1, -1)));
+        fn = compileQFunc(source, thisRef);
+        compiledFuncStrings[str] = fn;
+    }
+    return fn;
+}
+
+/*
+ * QFuncs are a hack to allow functions (that is, non-methods) in Model code
+ * to be used as callback, e.g. QFunc({foo}, bar => this.baz(foo, bar))
+ */
+
+function compileQFunc(source, thisRef, env, selfRefs) {
+    let compilerSrc;
+    if (selfRefs) {
+        const assignSelf = selfRefs.map(key => `${key}=_$`).join('\n');
+        compilerSrc = `const _$ = ${source}\n${assignSelf}\nreturn _$`;
+    } else {
+        compilerSrc = `return ${source}`;
+    }
     // eslint-disable-next-line no-new-func
-    const compiled = QFuncs[cacheKey] || (QFuncs[cacheKey] = new Function(...qPara));
-    if (typeof qFn === "number") qArgs[qFn] = compiled;
-    return compiled.call(thisArg, ...qArgs).bind(thisArg);
+    const envKeys = env ? [...Object.keys(env)] : [];
+    const envValues = env ? [...Object.values(env)] : [];
+    const compiler = new Function(...envKeys, compilerSrc);
+    const fn = compiler.call(thisRef, ...envValues);
+    return fn;
 }
 
+const COMPILED = Symbol("COMPILED");
+
+export class QFunc {
+    // public API is new QFunc(this, env, fn)
+    // snapshot API is new QFunc(this, env, source, selfRefs)
+    constructor(thisRef, env, fnOrSrc, fnSelfRefs = []) {
+        this.thisRef = thisRef;         // the this reference for the function
+        this.env = env;                 // the environment for the function
+        this.selfRefs = fnSelfRefs;     // list of self-references to this function (for recursive calls)
+        if (typeof fnOrSrc === "string") {
+            // from serialization
+            this.source = fnOrSrc;
+        } else {
+            // from createQFunc
+            this.source = fnOrSrc.toString();
+            // if fn itself is in env, remove it and add it to selfRefs
+            const keys = Object.keys(env);
+            for (const key of keys) {
+                if (fnOrSrc === env[key]) this.selfRefs.push(key);
+            }
+            if (this.selfRefs.length) {
+                for (const key of this.selfRefs) delete env[key];
+            }
+        }
+    }
+
+    get func() {
+        if (!this[COMPILED]) this.compile();
+        return this[COMPILED];
+    }
+
+    compile() {
+        let fn = compileQFunc(this.source, this.thisRef, this.env, this.selfRefs);
+        this[COMPILED] = fn;
+    }
+
+    call(thisArg, ...args) {
+        return this.func.call(thisArg, ...args);
+    }
+}
+
+const QFuncSpec = {
+    cls: QFunc,
+    write: ({thisRef, env, source, selfRefs}) => [thisRef, env, source, selfRefs],
+    read: ([thisRef, env, source, selfRefs]) => new QFunc(thisRef, env, source, selfRefs),
+};
 
 // this is the only place allowed to set CurrentVM
 function execInVM(vm, fn) {
@@ -586,7 +651,7 @@ export default class VirtualMachine {
                 displayAppError(`future message ${model}.${selector}`, error);
             }
         } else {
-            const fn = bindQFunc(selector, model);
+            const fn = compileFuncString(selector, model);
             try {
                 fn(...args);
             } catch (error) {
@@ -650,13 +715,15 @@ export default class VirtualMachine {
 
     // Pub-sub
 
-    asQFunc(model, func, handler = "subscription handler") {
+    asQFunc(model, func, handler = "subscription handler", env=null) {
         // if a string was passed in, assume it's a method name
         if (typeof func === "string") return func;
         // if a function was passed in, hope it was a method
         if (typeof func === "function") {
             // if passing this.method
             if (model[func.name] === func) return func.name;
+            // if explicitly creating a QFunc
+            if (env) return new QFunc(model, env, func);
             // if passing this.foo = this.method
             let obj = model;
             while (obj !== null) {
@@ -674,8 +741,8 @@ export default class VirtualMachine {
             const source = func.toString();
             const match = source.match(HANDLER_REGEX);
             if (match && (!match[3] || match[3] === match[1])) return match[2];
-            // otherwise, wrap the function in a QFunc
-            return QFunc(func);
+            // otherwise, convert the function to a QFunc string
+            return asFuncString(func);
         }
         return null;
     }
@@ -841,7 +908,7 @@ export default class VirtualMachine {
                     continue;
                 }
                 if (methodName[0] === '{') {
-                    const fn = bindQFunc(methodName, model);
+                    const fn = compileFuncString(methodName, model);
                     try {
                         fn(data);
                     } catch (error) {
@@ -1156,7 +1223,7 @@ export class Message {
         const object = vm.lookUpModel(receiver);
         if (!object) displayWarning(`${this.shortString()} ${selector}(): receiver not found`);
         else if (selector[0] === '{') {
-            const fn = bindQFunc(selector, object);
+            const fn = compileFuncString(selector, object);
             executor(() => {
                 try {
                     fn(...args);
@@ -1219,6 +1286,7 @@ class VMHasher {
         this.hashers = new Map();
         this.addHasher("Teatime:Message", Message);
         this.addHasher("Teatime:Data", DataHandleSpec);
+        this.addHasher("Teatime:QFunc", QFuncSpec);
         for (const [classId, ClassOrSpec] of Model.allClassTypes()) {
             this.addHasher(classId, ClassOrSpec);
         }
@@ -1428,6 +1496,7 @@ class VMWriter {
         this.writers = new Map();
         this.addWriter("Teatime:Message", Message);
         this.addWriter("Teatime:Data", DataHandleSpec);
+        this.addWriter("Teatime:QFunc", QFuncSpec);
         for (const [classId, ClassOrSpec] of Model.allClassTypes()) {
             this.addWriter(classId, ClassOrSpec);
         }
@@ -1739,6 +1808,7 @@ class VMReader {
         this.readers = new Map();
         this.addReader("Teatime:Message", Message);
         this.addReader("Teatime:Data", DataHandleSpec);
+        this.addReader("Teatime:QFunc", QFuncSpec);
         this.readers.set("Undefined", () => undefined);
         this.readers.set("NaN", () => NaN);
         this.readers.set("Infinity", sign => sign * Infinity);

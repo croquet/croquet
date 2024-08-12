@@ -698,6 +698,36 @@ class Model {
     }
 
     /**
+     * ** Create a serializable function that can be stored in the model.**
+     *
+     * Plain functions can not be serialized because they may contain closures that can
+     * not be introspected by the snapshot mechanism. This method creates a serializable
+     * function that can be stored in the model and restored later.
+     *
+     * Note that all values the function references must be passed in the `env`
+     * object. They are only captured at the time the function is created. If a captured
+     * variable is reassigned later, the function will still use the original value.
+     * Similarly, the function cannot assign to outer variables. Assignments do work
+     * in the code but the actual variable will not be changed.
+     *
+     * @example
+     * const greeting = "Hi there,";
+     * this.greet = this.createQFunc({greeting}, (name) => console.log(greeting, name));
+     * ...
+     * this.greet.call("friend");
+     *
+     * @param {Object} env - an object with references used by the function
+     * @param {Function} func - the function to be captured
+     * @returns {Function} a serializable function
+     * @public
+     * @since 2.0
+     */
+    createQFunc(env, func) {
+        if (typeof env === "function") { func = env; env = {}; }
+        return this.__realm.vm.asQFunc(this, func, "createQFunc", env);
+    }
+
+    /**
      * Store an application-defined JSON representation of this session to be loaded into future
      * sessions. This will be passed into the root model's [init]{@link Model#init} method
      * if resuming a session that is not currently ongoing (e.g. due to changes in the model code).
