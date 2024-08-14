@@ -136,9 +136,10 @@ function compileFuncString(str, thisRef) {
 
 function compileQFunc(source, thisRef, env, selfRefs) {
     let compilerSrc;
-    if (selfRefs) {
-        const assignSelf = selfRefs.map(key => `${key}=_$`).join('\n');
-        compilerSrc = `const _$ = ${source}\n${assignSelf}\nreturn _$`;
+    if (selfRefs?.length) {
+        const declareSelf = "let " + selfRefs.join(', ');
+        const assignSelf = selfRefs.map(key => `${key} = _$`).join('\n');
+        compilerSrc = `${declareSelf}\nconst _$ = ${source}\n${assignSelf}\nreturn _$`;
     } else {
         compilerSrc = `return ${source}`;
     }
@@ -146,7 +147,8 @@ function compileQFunc(source, thisRef, env, selfRefs) {
     const envKeys = env ? [...Object.keys(env)] : [];
     const envValues = env ? [...Object.values(env)] : [];
     const compiler = new Function(...envKeys, compilerSrc);
-    const fn = compiler.call(thisRef, ...envValues);
+    let fn = compiler.call(thisRef, ...envValues);
+    fn = fn.bind(thisRef);
     return fn;
 }
 
@@ -156,7 +158,7 @@ export class QFunc {
     // public API is new QFunc(this, env, fn)
     // snapshot API is new QFunc(this, env, source, selfRefs)
     constructor(thisRef, env, fnOrSrc, fnSelfRefs = []) {
-        this.thisRef = thisRef;         // the this reference for the function
+        this.thisRef = thisRef;         // the this reference for the function (usually the model)
         this.env = env;                 // the environment for the function
         this.selfRefs = fnSelfRefs;     // list of self-references to this function (for recursive calls)
         if (typeof fnOrSrc === "string") {
@@ -165,13 +167,20 @@ export class QFunc {
         } else {
             // from createQFunc
             this.source = fnOrSrc.toString();
+            // allow this to be passed in env
+            if ("this" in env) {
+                this.thisRef = env.this;
+                this.env = { ...env };
+                delete this.env.this;
+            }
             // if fn itself is in env, remove it and add it to selfRefs
             const keys = Object.keys(env);
             for (const key of keys) {
                 if (fnOrSrc === env[key]) this.selfRefs.push(key);
             }
             if (this.selfRefs.length) {
-                for (const key of this.selfRefs) delete env[key];
+                if (this.env === env) this.env = { ...env };
+                for (const key of this.selfRefs) delete this.env[key];
             }
         }
     }
