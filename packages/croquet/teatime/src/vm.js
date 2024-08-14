@@ -184,24 +184,22 @@ function compileQFunc(source, thisVal, env, selfRef) {
 const COMPILED = Symbol("COMPILED");
 
 export class QFunc {
-    // public API is new QFunc(this, env, fn)
+    // public API is new QFunc(this, env, fnOrSource, undefined)
     // snapshot API is new QFunc(this, env, source, selfRef)
     constructor(thisVal, env, fnOrSrc, fnSelfRef) {
         this.thisVal = thisVal;         // the this reference for the function (usually the model)
         this.env = env;                 // the environment for the function
         this.selfRef = fnSelfRef;       // env name referencing the function itself (for recursive calls)
-        if (typeof fnOrSrc === "string") {
-            // from serialization
-            this.source = fnOrSrc;
-        } else {
-            // from createQFunc
-            this.source = fnOrSrc.toString();
+        this.source = fnOrSrc;
+        // new QFunc, not from snapshot
+        if (fnSelfRef === undefined) {
+            this.selfRef = "";
+            if (typeof fnOrSrc === "function") this.source = fnOrSrc.toString();
             // if fn itself is in env, remove it and use it as selfRef instead
             const keys = Object.keys(env);
             for (const key of keys) {
                 if (fnOrSrc === env[key]) {
-                    if (this.selfRef)
-                        throw Error(`createQFunc: env.${this.selfRef} and env.${key} cannot both reference the function`);
+                    if (this.selfRef) throw Error(`createQFunc: env.${this.selfRef} and env.${key} cannot both reference the function`);
                     this.selfRef = key;
                 }
             }
@@ -683,7 +681,7 @@ export default class VirtualMachine {
             removed = messages.removeMany(msg => msg.receiver === model.id);
             return removed.length > 0;
         } else {
-            const methodName = this.asQFunc(model, methodOrMessage, "cancelFuture message");
+            const methodName = this.asMethodName(model, methodOrMessage, "cancelFuture message");
             const receiverID = model.id;
             removed = messages.removeOne(msg => msg.receiver === receiverID && msg.selector === methodName
                 || msg.receiver === "_" && msg.selector === "futureExecAndRepeat" && msg.args[1] === receiverID && msg.args[2] === methodName);
@@ -728,7 +726,7 @@ export default class VirtualMachine {
                 get(_target, property) { return (...args) => vm.future(model, tOffset, property, args); }
             });
         }
-        const methodName = this.asQFunc(model, methodNameOrCallback, "future message");
+        const methodName = this.asMethodName(model, methodNameOrCallback, "future message");
         if (typeof methodName !== "string") throw Error(`future message to ${model} ${methodName} is not a string`);
         if (typeof model[methodName] !== "function" && methodName.indexOf('.') < 0 && methodName[0] !== '{') throw Error(`future send to ${model} with unknown method ${methodName}()`);
         return this.futureSend(tOffset, model.id, methodName, methodArgs);
@@ -770,15 +768,13 @@ export default class VirtualMachine {
 
     // Pub-sub
 
-    asQFunc(model, func, handler = "subscription handler", env=null) {
+    asMethodName(model, func, handler = "subscription handler") {
         // if a string was passed in, assume it's a method name
         if (typeof func === "string") return func;
         // if a function was passed in, hope it was a method
         if (typeof func === "function") {
             // if passing this.method
             if (model[func.name] === func) return func.name;
-            // if explicitly creating a QFunc
-            if (env) return new QFunc(model, env, func);
             // if passing this.foo = this.method
             let obj = model;
             while (obj !== null) {
@@ -795,8 +791,9 @@ export default class VirtualMachine {
             // captures:               [      1       ]                [       2      ]      [      3       ]
             const source = func.toString();
             const match = source.match(HANDLER_REGEX);
+            // it matches, and the parameter name is the same as the argument name
             if (match && (!match[3] || match[3] === match[1])) return match[2];
-            // otherwise, convert the function to a QFunc string
+            // otherwise, convert the function to a func string
             return asFuncString(func);
         }
         return null;
@@ -804,7 +801,7 @@ export default class VirtualMachine {
 
     addSubscription(model, scope, event, methodNameOrCallback) {
         if (CurrentVM !== this) throw Error("Cannot add a model subscription from outside model code");
-        const methodName = this.asQFunc(model, methodNameOrCallback);
+        const methodName = this.asMethodName(model, methodNameOrCallback);
         if (typeof methodName !== "string") {
             throw Error(`Subscription handler for "${event}" must be a method name`);
         }
@@ -841,7 +838,7 @@ export default class VirtualMachine {
                 }
                 if (handlers.length === 0) delete this.subscriptions[topic];
             } else {
-                const nameString = this.asQFunc(model, methodName);
+                const nameString = this.asMethodName(model, methodName);
                 if (typeof nameString !== "string") {
                     throw Error(`Invalid unsubscribe args for "${event}" in ${model}: ${methodName}`);
                 }

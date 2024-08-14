@@ -2,7 +2,7 @@ import urlOptions from "./_URLOPTIONS_MODULE_"; // eslint-disable-line import/no
 import { displayAppError } from "./_HTML_MODULE_"; // eslint-disable-line import/no-unresolved
 import { addClassHash } from "./hashing";
 import { currentRealm } from "./realms";
-import VirtualMachine, { resetReadersAndWriters } from "./vm";
+import VirtualMachine, { QFunc, resetReadersAndWriters } from "./vm";
 
 const DEBUG = {
     classes: urlOptions.has("debug", "classes", false),
@@ -714,7 +714,8 @@ class Model {
      * but the env will still use the unminified names. You need to disable
      * minification for source code that creates QFuncs with env. The only
      * exception is `this` (which you can pass in the env, otherwise it will
-     * refer to the model instance that created the QFunc).
+     * refer to the model instance that created the QFunc). Alternatively, you can
+     * pass the function's source code as a string, which will not be minified.
      *
      * Behind the scenes, the function is stored as a string and compiled when needed.
      * The env needs to be constant because the serializer would not able to capture
@@ -727,14 +728,14 @@ class Model {
      * this.greet.call("friend");
      *
      * @param {Object} env - an object with references used by the function
-     * @param {Function} func - the function to be captured
+     * @param {Function|String} func - the function to be wrapped, or a string with the function's source code
      * @returns {{ func: Function, call(), apply() }} a serializable function that you can call() to execute
      * @public
      * @since 2.0
      */
     createQFunc(env, func) {
-        if (typeof env === "function") { func = env; env = {}; }
-        return this.__realm.vm.asQFunc(this, func, "createQFunc", env);
+        if (func === undefined) { func = env; env = {}; }
+        return new QFunc(this, env, func);
     }
 
     /**
