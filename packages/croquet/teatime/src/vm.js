@@ -134,7 +134,7 @@ function compileFuncString(str, thisVal) {
  * to be used as callback, e.g. QFunc({foo}, bar => this.baz(foo, bar))
  */
 
-function compileQFunc(source, thisVal, env, selfRefs) {
+function compileQFunc(source, thisVal, env, selfRef) {
     // pass env into compiler func as envVar
     let thisVar, envVar, envKeys, envValues;
     if (env) {
@@ -154,11 +154,11 @@ function compileQFunc(source, thisVal, env, selfRefs) {
         // set envVar to an unused variant of "env"
         if (envKeys.length) {
             envVar = "env";
-            while (envKeys.includes(envVar) || selfRefs?.includes(envVar)) envVar = '_' + envVar;
+            while (envVar in env || envVar === selfRef) envVar = '_' + envVar;
         }
     }
-    // use first selfRef (or an unused variant of "fn") as fnVar
-    let fnVar = selfRefs?.length ? selfRefs[0] : "fn";
+    // use selfRef or an unused variant of "fn" as fnVar
+    let fnVar = selfRef || "fn";
     while (envKeys?.includes(fnVar)) fnVar = '_' + fnVar;
     // now build source for compiler function
     let compilerSrc = "";
@@ -168,11 +168,6 @@ function compileQFunc(source, thisVal, env, selfRefs) {
     }
     // compile source and store in fnVar
     compilerSrc += `const ${fnVar} = ${source}`;
-    // if there are more selfRefs, bind them to fnVar
-    if (selfRefs?.length > 1) {
-        // can't use const here, but having more than one selfRef is rare
-        compilerSrc += selfRefs.slice(1).map(key => `\nvar ${key} = ${fnVar}`).join();
-    }
     // return compiled function
     compilerSrc += `\nreturn ${fnVar}`;
     // ... possibly bound to env.this (does not work on fat-arrow functions)
@@ -190,37 +185,38 @@ const COMPILED = Symbol("COMPILED");
 
 export class QFunc {
     // public API is new QFunc(this, env, fn)
-    // snapshot API is new QFunc(this, env, source, selfRefs)
-    constructor(thisVal, env, fnOrSrc, fnSelfRefs = []) {
+    // snapshot API is new QFunc(this, env, source, selfRef)
+    constructor(thisVal, env, fnOrSrc, fnSelfRef) {
         this.thisVal = thisVal;         // the this reference for the function (usually the model)
         this.env = env;                 // the environment for the function
-        this.selfRefs = fnSelfRefs;     // list of self-references to this function (for recursive calls)
+        this.selfRef = fnSelfRef;       // env name referencing the function itself (for recursive calls)
         if (typeof fnOrSrc === "string") {
             // from serialization
             this.source = fnOrSrc;
         } else {
             // from createQFunc
             this.source = fnOrSrc.toString();
-            // if fn itself is in env, remove it and add it to selfRefs instead
+            // if fn itself is in env, remove it and use it as selfRef instead
             const keys = Object.keys(env);
             for (const key of keys) {
-                if (fnOrSrc === env[key]) this.selfRefs.push(key);
+                if (fnOrSrc === env[key]) {
+                    if (this.selfRef)
+                        throw Error(`createQFunc: env.${this.selfRef} and env.${key} cannot both reference the function`);
+                    this.selfRef = key;
+                }
             }
-            if (this.selfRefs.length) {
+            if (this.selfRef) {
                 this.env = { ...env };
-                for (const key of this.selfRefs) delete this.env[key];
+                delete this.env[this.selfRef];
             }
         }
+        // freeze env to prevent modifications which would not be reflected in the closure
+        Object.freeze(this.env);
     }
 
     get func() {
-        if (!this[COMPILED]) this.compile();
+        if (!this[COMPILED]) this[COMPILED] = compileQFunc(this.source, this.thisVal, this.env, this.selfRef);
         return this[COMPILED];
-    }
-
-    compile() {
-        let fn = compileQFunc(this.source, this.thisVal, this.env, this.selfRefs);
-        this[COMPILED] = fn;
     }
 
     call(thisArg, ...args) {
@@ -230,12 +226,30 @@ export class QFunc {
     apply(thisArg, args) {
         return this.func.apply(thisArg, args);
     }
+
+    // // works, but inefficient and not very useful
+    // updateEnv(newEnv) {
+    //     for (const key of Object.keys(newEnv)) {
+    //         if (!(key in this.env)) throw Error(`QFunc.updateEnv error: env.${key} does not exist`);
+    //     }
+    //     this.env = { ...this.env, ...newEnv };
+    //     Object.freeze(this.env);
+    //     this[COMPILED] = null;
+    // }
 }
 
 const QFuncSpec = {
     cls: QFunc,
-    write: ({thisVal, env, source, selfRefs}) => [thisVal, env, source, selfRefs],
-    read: ([thisVal, env, source, selfRefs]) => new QFunc(thisVal, env, source, selfRefs),
+    write: ({thisVal, env, source, selfRef}) => [thisVal, source, selfRef, ...Object.entries(env).flat()],
+    read: ([thisVal, source, selfRef, ...flattenedEntries]) => {
+        const env = {};
+        for (let i = 0; i < flattenedEntries.length; i += 2) {
+            env[flattenedEntries[i]] = flattenedEntries[i + 1];
+        }
+        return new QFunc(thisVal, env, source, selfRef);
+    }
+    // we flatten the env object because the constructor freezes it so the deserializer can't add to it
+    // that's a deserializer bug
 };
 
 // this is the only place allowed to set CurrentVM
