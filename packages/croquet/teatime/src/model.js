@@ -702,13 +702,18 @@ class Model {
      *
      * Plain functions can not be serialized because they may contain closures that can
      * not be introspected by the snapshot mechanism. This method creates a serializable
-     * function that can be stored in the model and restored later.
+     * "QFunc" that can be stored in the model and restored later.
      *
      * Note that all values the function references must be passed in the `env`
-     * object. They are only captured at the time the function is created. If a captured
-     * variable is reassigned later, the function will still use the original value.
-     * Similarly, the function cannot assign to outer variables. Assignments do work
-     * in the code but the actual variable will not be changed.
+     * object. They are captured as constants at the time the QFunc is created.
+     * If a captured variable is reassigned later, the function will still use
+     * the original value. Since they are constants, assignments will throw an error.
+     *
+     * **Warning:** Minification can change the names of variables and functions,
+     * but the env will still use the unminified names. You need to disable
+     * minification for source code that creates QFuncs with env. The only
+     * exception is `this` (which you can pass in the env, otherwise it will
+     * refer to the model instance that created the QFunc).
      *
      * @example
      * const greeting = "Hi there,";
@@ -718,7 +723,7 @@ class Model {
      *
      * @param {Object} env - an object with references used by the function
      * @param {Function} func - the function to be captured
-     * @returns {Function} a serializable function
+     * @returns {{ func: Function, call(), apply() }} a serializable function that you can call() to execute
      * @public
      * @since 2.0
      */

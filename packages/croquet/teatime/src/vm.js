@@ -135,20 +135,37 @@ function compileFuncString(str, thisRef) {
  */
 
 function compileQFunc(source, thisRef, env, selfRefs) {
-    let compilerSrc;
-    if (selfRefs?.length) {
-        const declareSelf = "let " + selfRefs.join(', ');
-        const assignSelf = selfRefs.map(key => `${key} = _$`).join('\n');
-        compilerSrc = `${declareSelf}\nconst _$ = ${source}\n${assignSelf}\nreturn _$`;
-    } else {
-        compilerSrc = `return ${source}`;
+    // pass env into compiler func as envVar (making sure it's unused)
+    const envKeys = env && [...Object.keys(env).sort()];
+    const envValues = env && [...envKeys.map(key => env[key])];
+    let envVar;
+    if (envKeys?.length) {
+        envVar = "env";
+        while (envKeys.includes(envVar) || selfRefs?.includes(envVar)) envVar = '_' + envVar;
     }
+    // use first selfRef as fnVar (or an unused variant of "fn")
+    let fnVar = selfRefs?.length ? selfRefs[0] : "fn";
+    while (envKeys?.includes(fnVar)) fnVar = '_' + fnVar;
+    // now build source for compiler function
+    let compilerSrc = "";
+    // destructure env as constants to prevent accidental writes
+    if (envKeys?.length) {
+        compilerSrc += `const [${envKeys.join(', ')}] = ${envVar}\n`;
+    }
+    // compile source and store in fnVar
+    compilerSrc += `const ${fnVar} = ${source}`;
+    // if there are more selfRefs, bind them to fnVar
+    if (selfRefs?.length > 1) {
+        // can't use const here, but having more than one selfRef is rare
+        compilerSrc += selfRefs.slice(1).map(key => `\nvar ${key} = ${fnVar}`).join();
+    }
+    // bind compiled function to thisRef
+    compilerSrc += `\nreturn ${fnVar}.bind(this)`;
     // eslint-disable-next-line no-new-func
-    const envKeys = env ? [...Object.keys(env)] : [];
-    const envValues = env ? [...Object.values(env)] : [];
-    const compiler = new Function(...envKeys, compilerSrc);
-    let fn = compiler.call(thisRef, ...envValues);
-    fn = fn.bind(thisRef);
+    const compiler = envVar ? new Function(envVar, compilerSrc) : new Function(compilerSrc);
+    // we just compiled the compiler, now run it to get our function
+    const fn = compiler.call(thisRef, envValues);
+    // done
     return fn;
 }
 
@@ -197,6 +214,10 @@ export class QFunc {
 
     call(thisArg, ...args) {
         return this.func.call(thisArg, ...args);
+    }
+
+    apply(thisArg, args) {
+        return this.func.apply(thisArg, args);
     }
 }
 
