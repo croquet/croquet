@@ -118,12 +118,12 @@ function asFuncString(fn) {
 
 const compiledFuncStrings = {};
 
-function compileFuncString(str, thisRef) {
-    let cacheKey = thisRef.id + ':' + str;
+function compileFuncString(str, thisVal) {
+    let cacheKey = thisVal.id + ':' + str;
     let fn = compiledFuncStrings[cacheKey];
     if (!fn) {
         const source = JSON.parse(atob(str.slice(1, -1)));
-        fn = compileQFunc(source, thisRef);
+        fn = compileQFunc(source, thisVal);
         compiledFuncStrings[str] = fn;
     }
     return fn;
@@ -134,16 +134,30 @@ function compileFuncString(str, thisRef) {
  * to be used as callback, e.g. QFunc({foo}, bar => this.baz(foo, bar))
  */
 
-function compileQFunc(source, thisRef, env, selfRefs) {
-    // pass env into compiler func as envVar (making sure it's unused)
-    const envKeys = env && [...Object.keys(env).sort()];
-    const envValues = env && [...envKeys.map(key => env[key])];
-    let envVar;
-    if (envKeys?.length) {
-        envVar = "env";
-        while (envKeys.includes(envVar) || selfRefs?.includes(envVar)) envVar = '_' + envVar;
+function compileQFunc(source, thisVal, env, selfRefs) {
+    // pass env into compiler func as envVar
+    let thisVar, envVar, envKeys, envValues;
+    if (env) {
+        // normally thisVal is the model, but env.this overrides that
+        if ("this" in env) {
+            thisVal = env.this;
+            // rename env.this to an unused variant of "this"
+            // because "this" is a reserved word
+            thisVar = "_this";
+            while (thisVar in env) thisVar = '_' + thisVar;
+            env = { ...env, [thisVar]: thisVal };
+            delete env.this;
+        }
+        // sort env keys to ensure consistent order
+        envKeys = [...Object.keys(env).sort()];
+        envValues = [...envKeys.map(key => env[key])];
+        // set envVar to an unused variant of "env"
+        if (envKeys.length) {
+            envVar = "env";
+            while (envKeys.includes(envVar) || selfRefs?.includes(envVar)) envVar = '_' + envVar;
+        }
     }
-    // use first selfRef as fnVar (or an unused variant of "fn")
+    // use first selfRef (or an unused variant of "fn") as fnVar
     let fnVar = selfRefs?.length ? selfRefs[0] : "fn";
     while (envKeys?.includes(fnVar)) fnVar = '_' + fnVar;
     // now build source for compiler function
@@ -159,12 +173,15 @@ function compileQFunc(source, thisRef, env, selfRefs) {
         // can't use const here, but having more than one selfRef is rare
         compilerSrc += selfRefs.slice(1).map(key => `\nvar ${key} = ${fnVar}`).join();
     }
-    // bind compiled function to thisRef
-    compilerSrc += `\nreturn ${fnVar}.bind(this)`;
+    // return compiled function
+    compilerSrc += `\nreturn ${fnVar}`;
+    // ... possibly bound to env.this (does not work on fat-arrow functions)
+    if (thisVar) compilerSrc += `.bind(${thisVar})`;
+    // NOTE: the compiler call below establishes thisVal for fat-arrow functions
     // eslint-disable-next-line no-new-func
     const compiler = envVar ? new Function(envVar, compilerSrc) : new Function(compilerSrc);
     // we just compiled the compiler, now run it to get our function
-    const fn = compiler.call(thisRef, envValues);
+    const fn = compiler.call(thisVal, envValues);
     // done
     return fn;
 }
@@ -174,8 +191,8 @@ const COMPILED = Symbol("COMPILED");
 export class QFunc {
     // public API is new QFunc(this, env, fn)
     // snapshot API is new QFunc(this, env, source, selfRefs)
-    constructor(thisRef, env, fnOrSrc, fnSelfRefs = []) {
-        this.thisRef = thisRef;         // the this reference for the function (usually the model)
+    constructor(thisVal, env, fnOrSrc, fnSelfRefs = []) {
+        this.thisVal = thisVal;         // the this reference for the function (usually the model)
         this.env = env;                 // the environment for the function
         this.selfRefs = fnSelfRefs;     // list of self-references to this function (for recursive calls)
         if (typeof fnOrSrc === "string") {
@@ -184,19 +201,13 @@ export class QFunc {
         } else {
             // from createQFunc
             this.source = fnOrSrc.toString();
-            // allow this to be passed in env
-            if ("this" in env) {
-                this.thisRef = env.this;
-                this.env = { ...env };
-                delete this.env.this;
-            }
-            // if fn itself is in env, remove it and add it to selfRefs
+            // if fn itself is in env, remove it and add it to selfRefs instead
             const keys = Object.keys(env);
             for (const key of keys) {
                 if (fnOrSrc === env[key]) this.selfRefs.push(key);
             }
             if (this.selfRefs.length) {
-                if (this.env === env) this.env = { ...env };
+                this.env = { ...env };
                 for (const key of this.selfRefs) delete this.env[key];
             }
         }
@@ -208,7 +219,7 @@ export class QFunc {
     }
 
     compile() {
-        let fn = compileQFunc(this.source, this.thisRef, this.env, this.selfRefs);
+        let fn = compileQFunc(this.source, this.thisVal, this.env, this.selfRefs);
         this[COMPILED] = fn;
     }
 
@@ -223,8 +234,8 @@ export class QFunc {
 
 const QFuncSpec = {
     cls: QFunc,
-    write: ({thisRef, env, source, selfRefs}) => [thisRef, env, source, selfRefs],
-    read: ([thisRef, env, source, selfRefs]) => new QFunc(thisRef, env, source, selfRefs),
+    write: ({thisVal, env, source, selfRefs}) => [thisVal, env, source, selfRefs],
+    read: ([thisVal, env, source, selfRefs]) => new QFunc(thisVal, env, source, selfRefs),
 };
 
 // this is the only place allowed to set CurrentVM
