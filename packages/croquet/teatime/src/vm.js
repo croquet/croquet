@@ -398,7 +398,7 @@ export default class VirtualMachine {
                 if (snapshot.modelsById) {
                     // read vm from snapshot
                     const reader = VMReader.newOrRecycled(this);
-                    const vmData = reader.readVM(snapshot, "vm");
+                    const vmData = reader.readVM(snapshot, "VM");
                     let staticInitializers = [];
                     let messages = [];
                     // only read keys declared above
@@ -1075,7 +1075,7 @@ export default class VirtualMachine {
 
     snapshot() {
         const writer = VMWriter.newOrRecycled(this);
-        return writer.snapshot(this, "_");
+        return writer.snapshot(this, "VM");
     }
 
     // return the stringification of an object describing the vm - currently { oC, mC, nanC, infC, zC, nC, nH, sC, sL, fC } - for checking agreement between instances
@@ -1566,25 +1566,25 @@ class VMWriter {
     }
 
     addWriter(classId, ClassOrSpec) {
-        const {cls, write} = (Object.getPrototypeOf(ClassOrSpec) === Object.prototype) ? ClassOrSpec
-            : {cls: ClassOrSpec, write: obj => ({ ...obj })};
-        this.writers.set(cls, (obj, path) => this.writeAs(classId, obj, write(obj), path));
+        const isSpec = Object.getPrototypeOf(ClassOrSpec) === Object.prototype;
+        const {cls, write} = isSpec ? ClassOrSpec : {cls: ClassOrSpec, write: obj => ({ ...obj })};
+        this.writers.set(cls, (obj, path) => this.writeAs(classId, obj, write(obj), isSpec ? `${path}.write(${cls.name})` : path));
     }
 
     /** @param {VirtualMachine} vm */
-    snapshot(vm) {
+    snapshot(vm, path) {
         const state = {
             _random: vm._random.state(), // _random is a function
-            messages: this.write(vm.messages.asArray(), "vm.messages"),
+            messages: this.write(vm.messages.asArray(), "FutureMessages"),
             subscribers: undefined, // do not write subscribers
             controller: undefined, // do not write controller
         };
         // write static class properties
         this.writeAllStaticInto(state);
-        // get properties of the vm
+        // write remaining properties of the vm
         for (const [key, value] of Object.entries(vm)) {
             if (key in state) continue;
-            this.writeInto(state, key, value, `vm.${key}`);
+            this.writeInto(state, key, value, path);
         }
         this.writeDeferred();
 
@@ -1602,7 +1602,7 @@ class VMWriter {
                 const name = Model.classToID(Class);
                 if (!state.staticModelProps) state.staticModelProps = {};
                 if (!(name in state.staticModelProps)) state.staticModelProps[name] = {};
-                this.writeInto(state.staticModelProps[name], key, value, `vm.staticModelProps.${name}`);
+                this.writeInto(state.staticModelProps[name], key, value, `Model(${name}).static`);
                 warnMultipleSessionsStatic("Model", name);
             }
         }
@@ -1614,7 +1614,7 @@ class VMWriter {
                     const props = writeStatic();
                     if (props) {
                         if (!state.staticTypeProps) state.staticTypeProps = {};
-                        state.staticTypeProps[name] = props;
+                        state.staticTypeProps[name] = this.write(props, `Type(${name}).writeStatic()`);
                         warnMultipleSessionsStatic("Type", name);
                     }
                 }
@@ -1681,8 +1681,8 @@ class VMWriter {
                         throw Error(`Croquet: class not registered in Model.types(): ${value.constructor.name}`);
                     }
                     case "Function":
-                        console.warn(`Croquet: plain function at ${path}:`, value);
-                        throw Error(`Croquet: cannot serialize function, consider using createQFunc()`);
+                        console.warn(`Croquet: found function at ${path}:`, value);
+                        throw Error(`Croquet: cannot serialize functions except for QFuncs`);
                     default: {
                         // no writer has been registered for this type
                         console.warn(`Croquet: unsupported property at ${path}:`, value);
@@ -1721,7 +1721,8 @@ class VMWriter {
             if (((typeof value === "number" && Number.isFinite(value) && !Object.is(value, -0)) || typeof value === "string" || typeof value === "boolean") && key[0] !== '$') {
                 state[key] = value;
             } else {
-                this.writeInto(state, key, value, path);
+                // for display purposes, we use the model name as the root path
+                this.writeInto(state, key, value, `${model}`, true);
             }
         }
 
@@ -1883,7 +1884,7 @@ class VMReader {
     }
 
     readVM(snapshot, root) {
-        if (root !== "vm") throw Error("VirtualMachine must be root object");
+        if (root !== "VM") throw Error("VirtualMachine must be root object");
         const vmData = this.read(snapshot, root, false); // shallow read root props
         this.readDeferred();  // 1st pass: breadth-first, use UNRESOLVED placeholder for forward refs
         this.resolveRefs();   // 2nd pass: resolve forward refs
