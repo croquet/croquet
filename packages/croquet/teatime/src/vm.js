@@ -1594,38 +1594,28 @@ class VMWriter {
     }
 
     writeAllStaticInto(state) {
-        // be lazy about storing static properties
-        const writeProp = (kind, className, key, value) => {
-            if (key[0] === '$') return;
-            const vmProp = `static${kind}Props`;
-            if (!state[vmProp]) state[vmProp] = {};
-            if (!(className in state[vmProp])) state[vmProp][className] = {};
-            this.writeInto(state[vmProp][className], key, value, `vm.static${vmProp}Props.${className}`);
-            warnMultipleSessionsStatic(kind, className);
-        };
         // get static properties of all model classes
         for (const Class of Model.allClasses()) {
             if (Class === Model) continue;
             for (const [key, value] of Object.entries(Class)) {
+                if (key[0] === '$') continue;
                 const name = Model.classToID(Class);
-                writeProp("Model", name, key, value);
+                if (!state.staticModelProps) state.staticModelProps = {};
+                if (!(name in state.staticModelProps)) state.staticModelProps[name] = {};
+                this.writeInto(state.staticModelProps[name], key, value, `vm.staticModelProps.${name}`);
+                warnMultipleSessionsStatic("Model", name);
             }
         }
-        // get static properties of all registered types
+        // write static properties of registered types with a writeStatic method
         for (const [name, ClassOrSpec] of Model.allClassTypes()) {
-            if (typeof ClassOrSpec !== "object") {
-                // default to writing all static properties of the class
-                for (const [key, value] of Object.entries(ClassOrSpec)) {
-                    writeProp("Type", name, key, value);
-                }
-            } else {
-                // if we have a spec, use it to write the static properties
+            if (typeof ClassOrSpec === "object") {
                 const { writeStatic } = ClassOrSpec;
                 if (writeStatic) {
                     const props = writeStatic();
                     if (props) {
                         if (!state.staticTypeProps) state.staticTypeProps = {};
                         state.staticTypeProps[name] = props;
+                        warnMultipleSessionsStatic("Type", name);
                     }
                 }
             }
@@ -1687,12 +1677,15 @@ class VMWriter {
                         if (value instanceof Model) return this.writeModel(value, path);
                         if (value.constructor === Object || typeof value.constructor !== "function") return this.writeObject(value, path, defer);
                         // no writer has been registered for this class
-                        console.error(`Croquet: unknown class at ${path}:`, value);
+                        console.warn(`Croquet: unknown class at ${path}:`, value);
                         throw Error(`Croquet: class not registered in Model.types(): ${value.constructor.name}`);
                     }
+                    case "Function":
+                        console.warn(`Croquet: plain function at ${path}:`, value);
+                        throw Error(`Croquet: cannot serialize function, consider using createQFunc()`);
                     default: {
                         // no writer has been registered for this type
-                        console.error(`Croquet: unsupported property at ${path}:`, value);
+                        console.warn(`Croquet: unsupported property at ${path}:`, value);
                         throw Error(`Croquet: serialization of ${type}s is not supported`);
                     }
                 }
