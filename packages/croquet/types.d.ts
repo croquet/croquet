@@ -27,10 +27,12 @@ declare module "@croquet/croquet" {
 
     export type Serializer = InstanceSerializer<any, any> | StaticSerializer<any> | InstAndStaticSerializer<any, any, any>;
 
+    export type SubscriptionHandler<T> = ((e: T) => void) | string;
+
     export abstract class PubSubParticipant<SubOptions> {
         publish<T>(scope: string, event: string, data?: T): void;
-        subscribe<T>(scope: string, event: string | {event: string} | {event: string} & SubOptions, methodName: string | ((e: T) => void)): void;
-        unsubscribe(scope: string, event: string): void;
+        subscribe<T>(scope: string, event: string | {event: string} | {event: string} & SubOptions, handler: SubscriptionHandler<T>): void;
+        unsubscribe<T>(scope: string, event: string, handler?: SubscriptionHandler<T>): void;
         unsubscribeAll(): void;
     }
 
@@ -306,19 +308,20 @@ declare module "@croquet/croquet" {
          * ```
          * @param {String} scope - the event scope (to distinguish between events of the same name used by different objects)
          * @param {String} event - the event name (user-defined or system-defined)
-         * @param {Function} handler - the event handler (must be a method of `this`)
+         * @param {Function|String} handler - the event handler (must be a method of `this`, or the method name as string)
          * @return {this}
          * @public
          */
-        subscribe<T>(scope: string, event: string, methodName: string | ((e: T) => void)): void;
+        subscribe<T>(scope: string, event: string, handler: SubscriptionHandler<T>): void;
 
         /**
          * Unsubscribes this model's handler for the given event in the given scope.
          * @param {String} scope see [subscribe]{@link Model#subscribe}
          * @param {String} event see [subscribe]{@link Model#subscribe}
+         * @param {Function=} handler - the event handler (if not given, all handlers for the event are removed)
          * @public
          */
-        unsubscribe(scope: string, event: string): void;
+        unsubscribe<T>(scope: string, event: string, handler?: SubscriptionHandler<T>): void;
 
         /**
          * Unsubscribes all of this model's handlers for any event in any scope.
