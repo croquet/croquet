@@ -348,7 +348,7 @@ export default class VirtualMachine {
         }
     }
 
-    constructor(snapshot, initFn) {
+    constructor(snapshot, initFn, compat) {
         patchBrowser(); // trivial if already installed
         initDEBUG();
         clearPersistenceCache(this);
@@ -398,7 +398,7 @@ export default class VirtualMachine {
                 if (snapshot.modelsById) {
                     // read vm from snapshot
                     const reader = VMReader.newOrRecycled(this);
-                    const vmData = reader.readVM(snapshot, "VM");
+                    const vmData = reader.readVM(snapshot, "VM", compat);
                     let staticInitializers = [];
                     let messages = [];
                     // only read keys declared above
@@ -1883,8 +1883,22 @@ class VMReader {
         this.readers.set(classId, read);
     }
 
-    readVM(snapshot, root) {
+    enableBackwardCompatibility(snapshot) {
+        // the Croquet version that created the snapshot
+        const version = snapshot?.meta?.sdk;
+        if (!version) return;
+        const [major, minor, patch, pre] = version.split(/[-.+]/).map(n => +n);
+        let parsed = `${major}.${minor}`;
+        if (patch) parsed += `.${patch}`;
+        if (pre) parsed += `-${pre}`;
+        console.warn(`Croquet: reading snapshot version ${parsed}`);
+        // before 1.1.0-7, Maps were written as an arry of [key, value] pairs
+        this.compatMaps = major < 1 || (major === 1 && (minor < 1 || (minor === 1 && patch < 7)));
+    }
+
+    readVM(snapshot, root, compat) {
         if (root !== "VM") throw Error("VirtualMachine must be root object");
+        if (compat) this.enableBackwardCompatibility(snapshot);
         const vmData = this.read(snapshot, root, false); // shallow read root props
         this.readDeferred();  // 1st pass: breadth-first, use UNRESOLVED placeholder for forward refs
         this.resolveRefs();   // 2nd pass: resolve forward refs
@@ -2039,9 +2053,22 @@ class VMReader {
         if (state.$id) this.refs.set(state.$id, map);
         const before = this.unresolved.length;
         const contents = this.read(state.$value, path, false);
-        const fillContents = () => {
-            for (let i = 0; i < contents.length; i += 2) map.set(contents[i], contents[i + 1]);
-        };
+        const fillContents = this.compatMaps
+            ? // before 1.1.0-7, Maps were written as an arry of [key, value] pairs
+                () => {
+                    // see if all entries have been resolved
+                    if (contents.some(keyValue => keyValue.length !== 2)) {
+                        // not yet resolved, defer
+                        console.warn("Deferring map resolution at", path);
+                        this.postprocess.push(fillContents);
+                    } else {
+                        for (const [key, value] of contents) map.set(key, value);
+                    }
+                }
+            : // since 1.1.0-7, Maps are written as a flat array [key, value, key, value, ...]
+                () => {
+                    for (let i = 0; i < contents.length; i += 2) map.set(contents[i], contents[i + 1]);
+                };
         if (this.unresolved.length === before) {
             fillContents();
         } else {

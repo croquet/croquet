@@ -1453,16 +1453,18 @@ export default class Controller {
     // create the VirtualMachine for this Controller, based on the sessionSpec
     install(persistentData) {
         const start = Date.now();
-        const {snapshot, initFn, options} = this.sessionSpec;
+        const {snapshot, initFn, options, codeHash, computedCodeHash} = this.sessionSpec;
         const [verb, noun] = snapshot.modelsById ? ["deserializ", "snapshot"] : ["initializ", "root model"];
         if (DEBUG.session) console.log(this.id, `${verb}ing ${noun}`);
+        // if session was started with hashOverride enable compatibility mode
+        const compat = codeHash !== computedCodeHash;
         let newVM = new VirtualMachine(snapshot, () => {
             try { return initFn(options, persistentData); }
             catch (error) {
                 displayAppError("init", error, "fatal");
                 throw error; // unrecoverable.  bring the whole tab to a halt.
             }
-        });
+        }, compat);
         if (DEBUG.session || (DEBUG.snapshot && snapshot.modelsById)) {
             console.log(this.id, `${noun} ${verb}ed in ${Date.now() - start}ms`);
         }
