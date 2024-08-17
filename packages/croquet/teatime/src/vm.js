@@ -1094,6 +1094,9 @@ export default class VirtualMachine {
         const unchanged = this.persisted === persistentHash;
         const persistTime = this.time;
         if (DEBUG.snapshot) console.log(this.id, `persistent data @${persistTime} collected, stringified and hashed in ${Math.ceil(ms)}ms${unchanged ? " (unchanged, ignoring)" : ""}`);
+        if (urlOptions.forcePersist) {
+            queueMicrotask(() => this.controller.forcePersist(persistTime, persistentString, persistentHash));
+        }
         if (unchanged) return;
 
         // we rely on a local, view-specific cache of persistence data that deserves
