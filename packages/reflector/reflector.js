@@ -1098,6 +1098,13 @@ async function startServerForDePIN() {
                             updateBuffer.shift();
                             break;
                         }
+                        case 'AUDIT_REPORT': {
+                            const { report } = depinMsg;
+                            // remove any trailing line break
+                            const reportStripped = report.replace(/\n$/, "");
+                            console.log(`received audit report: ${reportStripped}`);
+                            break;
+                        }
                         case 'PONG': {
                             logRoundTrip(Date.now() - lastSendTime);
                             // only reset the contact clock if we're not awaiting a
