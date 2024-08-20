@@ -1099,10 +1099,14 @@ async function startServerForDePIN() {
                             break;
                         }
                         case 'AUDIT_REPORT': {
-                            const { report } = depinMsg;
+                            const { time, report } = depinMsg;
                             // remove any trailing line break
                             const reportStripped = report.replace(/\n$/, "");
-                            console.log(`received audit report: ${reportStripped}`);
+                            session.logger.debug({
+                                event: "audit-report",
+                                time,
+                                report: reportStripped
+                            }, reportStripped);
                             break;
                         }
                         case 'PONG': {
