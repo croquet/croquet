@@ -145,7 +145,7 @@ let DEPIN_API;
 function initDEPIN(defaultToDEPIN) {
     if (DEPIN !== undefined) return; // already initialized
     DEPIN = "depin" in urlOptions ? urlOptions.depin : defaultToDEPIN;
-    if (DEPIN) {
+    if (DEPIN && !DEBUG.offline) {
         // get DEPIN_API from the url options, or use the default
         DEPIN_API = DEPIN === true ? DEPIN_API_DEFAULT
             : DEPIN === 'prod' ? DEPIN_API_PROD
@@ -2478,6 +2478,7 @@ class Connection {
 
         if (DEBUG.offline) {
             socket = new OfflineSocket();
+            socket.isConnected = () => socket.readyState === WebSocket.OPEN;
         } else if (DEPIN) {
             // the "socket" is a home-grown class that connects by WebSocket
             // to a manager to negotiate a WebRTC data-channel connection
@@ -2485,6 +2486,7 @@ class Connection {
             const synchRequest = 'synchronizer' in urlOptions ? `&syncName=${urlOptions.synchronizer}` : '';
             const sessionId = this.id;
             socket = new CroquetWebRTCConnection(`${DEPIN_API}/clients/connect?session=${sessionId}${synchRequest}`);
+            socket.isConnected = () => socket.dataChannel?.readyState === 'open';
             socket.onconnected = connectionIsReady; // see below
         } else {
             let reflectorBase = this.controller.getBackend(this.controller.sessionSpec.apiKey).reflector;

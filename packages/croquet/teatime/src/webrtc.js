@@ -50,10 +50,6 @@ export class CroquetWebRTCConnection {
         return this.signaling?.readyState === WebSocket.OPEN;
     }
 
-    isConnected() {
-        return this.dataChannel?.readyState === 'open';
-    }
-
     async openConnection(registryURL) {
         try {
             /* eslint-disable-next-line */
