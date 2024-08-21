@@ -387,6 +387,16 @@ export default class Controller {
     /** @type {Boolean} does the reflector support seamless rejoin? */
     get canRejoinSeamlessly() { return !!this.timeline; }
 
+    /** @type {Boolean} did we load a snapshot that we did not write? */
+    get migratingOldSnapshot() {
+        // if session was started with hashOverride
+        // we will load old snapshots but refuse to save them
+        if (!this.sessionSpec) return false;
+        const { codeHash, computedCodeHash} = this.sessionSpec;
+        return codeHash !== computedCodeHash;
+    }
+
+
     checkForConnection(force) { this.connection.checkForConnection(force); }
 
     dormantDisconnect() {
@@ -619,6 +629,12 @@ export default class Controller {
         const sinceLast = now - this.vm.lastSnapshotPoll;
         if (sinceLast < 5000 && !force) {
             if (DEBUG.snapshot) console.log(`not requesting snapshot poll (${sinceLast}ms since poll scheduled)`);
+            return;
+        }
+
+        if (this.migratingOldSnapshot) {
+            // eslint-disable-next-line no-alert, no-restricted-globals
+            alert("Snapshot is due but hashOverride is set. Ignoring.");
             return;
         }
 
@@ -1338,6 +1354,7 @@ export default class Controller {
                 }
                 if (persisted) {
                     // run initFn() with persisted data, if any
+                    if (this.migratingOldSnapshot) throw Error("hashOverride is enabled but got persisted data instead of snapshot");
                     this.install(data);
                 } else {
                     if (data) this.sessionSpec.snapshot = data;  // set snapshot for building the vm
@@ -1481,15 +1498,13 @@ export default class Controller {
         const {snapshot, initFn, options, codeHash, computedCodeHash} = this.sessionSpec;
         const [verb, noun] = snapshot.modelsById ? ["deserializ", "snapshot"] : ["initializ", "root model"];
         if (DEBUG.session) console.log(this.id, `${verb}ing ${noun}`);
-        // if session was started with hashOverride enable compatibility mode
-        const compat = codeHash !== computedCodeHash;
         let newVM = new VirtualMachine(snapshot, () => {
             try { return initFn(options, persistentData); }
             catch (error) {
                 displayAppError("init", error, "fatal");
                 throw error; // unrecoverable.  bring the whole tab to a halt.
             }
-        }, compat);
+        }, this.migratingOldSnapshot);
         if (DEBUG.session || (DEBUG.snapshot && snapshot.modelsById)) {
             console.log(this.id, `${noun} ${verb}ed in ${Date.now() - start}ms`);
         }
