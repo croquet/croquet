@@ -638,7 +638,7 @@ declare module "@croquet/croquet" {
          * @param {Function=} handler - the event handler (if not given, all handlers for the event are removed)
          * @public
          */
-        unsubscribe(scope: string, event: string, handler: SubscriptionHandler): void;
+        unsubscribe<T>(scope: string, event: string, handler?: SubscriptionHandler<T>): void;
 
         /**
          * Unsubscribes all of this views's handlers for any event in any scope.
