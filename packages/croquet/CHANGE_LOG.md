@@ -4,6 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest @dev
 
+* 2.0.0-17 actually fix type declaration for view.unsubscribe
 * 2.0.0-16 fix type declaration for view.unsubscribe
 * 2.0.0-15 fix loading Maps from old snapshots via hashOverride, add forcePersist
 * 2.0.0-14 fix static prop serialization
