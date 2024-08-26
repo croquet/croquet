@@ -119,12 +119,13 @@ function asFuncString(fn) {
 const compiledFuncStrings = {};
 
 function compileFuncString(str, thisVal) {
-    let cacheKey = thisVal.id + ':' + str;
+    const cacheKey = thisVal.id + ':' + str;
     let fn = compiledFuncStrings[cacheKey];
     if (!fn) {
         const source = JSON.parse(atob(str.slice(1, -1)));
         fn = compileQFunc(source, thisVal);
-        compiledFuncStrings[str] = fn;
+        if (source.startsWith("function")) fn = fn.bind(thisVal);
+        compiledFuncStrings[cacheKey] = fn;
     }
     return fn;
 }
