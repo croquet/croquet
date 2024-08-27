@@ -115,7 +115,7 @@ export class CroquetWebRTCConnection {
                 this.connectionTypes.remote = pair.remote.type;
                 this.logConnectionState();
             };
-        } catch (e) { this.synchronizerDisconnected(4003, e.message); } // 4003 => RECONNECT
+        } catch (e) { this.synchronizerDisconnected(e.code || 4003, e.message); } // 4003 => RECONNECT
     }
 
     openSignalingChannel(registryURL) {
@@ -307,12 +307,33 @@ export class CroquetWebRTCConnection {
 
     async createPeerConnection() {
         if (!globalThis.iceServersP) {
-            globalThis.iceServersP =
+            globalThis.iceServersP = new Promise((resolve, reject) => {
                 // fetch STUN and TURN details from Open Relay (https://www.metered.ca/tools/openrelay/)
-                fetch(process.env.ICE_SERVERS_URL)
-                    .then(response => response.json());
+                let tries = 3;
+                const fetchServers = () => {
+                    fetch(process.env.ICE_SERVERS_URL)
+                    .then(response => {
+                        if (response.status === 200) resolve(response.json());
+                        else throw Error(`status=${response.status}`);
+                    })
+                    .catch(err => {
+                        console.warn("error in fetching ICE servers", err);
+                        if (--tries > 0) setTimeout(fetchServers, 250);
+                        else reject(); // caught below, throwing a 4200 (fatal) error
+                    });
+                };
+                fetchServers();
+            });
         }
-        const iceServers = await globalThis.iceServersP;
+
+        let iceServers;
+        try {
+            iceServers = await globalThis.iceServersP;
+        } catch (err) {
+            const error = new Error("failed to fetch ICE servers");
+            error.code = 4200; // do not retry
+            throw error;
+        }
 
         const pc = this.pc = new globalThis.RTCPeerConnection({ iceServers });
         pc.onnegotiationneeded = _e => {
