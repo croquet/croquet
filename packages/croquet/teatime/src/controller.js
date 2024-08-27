@@ -2685,7 +2685,9 @@ class Connection {
             // reconnection - we null out the handler before sending close(), and call
             // the onclose handling directly.
             this.socket.onclose = null;
-            this.socket.close(code, message); // might work, might not
+            try {
+                this.socket.close(code, message); // might work, might not
+            } catch (e) { console.error(`Error in socket.close(${code}, ${JSON.stringify(message)}):`, e); }
         }
         // whether there was a socket or not, reset the connection so we can try again
         this.socketClosed(code, message);
