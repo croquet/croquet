@@ -87,7 +87,7 @@ const SYNCNAME = parseArgWithValue(ARGS.SYNCNAME) || getRandomString(8) + getRan
 
 const GCP_PROJECT = process.env.GCP_PROJECT; // only set if we're running on Google Cloud
 
-const NO_STORAGE = !!DEPIN || process.argv.includes(ARGS.NO_STORAGE); // no bucket access (false on DePIN, because the session DO receives state)
+const NO_STORAGE = !!DEPIN || process.argv.includes(ARGS.NO_STORAGE); // no GCP bucket access (true on DePIN, because the session DO receives state)
 const NO_DISPATCHER = NO_STORAGE || process.argv.includes(ARGS.STANDALONE); // no session deregistration
 const APPS_ONLY = !NO_STORAGE && process.argv.includes(ARGS.APPS_ONLY); // no session resume
 const USE_HTTPS = process.argv.includes(ARGS.HTTPS); // serve via https
@@ -184,17 +184,17 @@ const USERS_INTERVAL = 200;   // time to gather user entries/exits before sendin
 const LOCAL_CONFIG = NO_STORAGE ? "local" : "localWithStorage"; // todo: remove localWithStorage and use NO_STORAGE instead
 const CLUSTER = fs.existsSync("/var/run/secrets/kubernetes.io") ? process.env.CLUSTER_NAME : LOCAL_CONFIG;
 const CLUSTER_LABEL = process.env.CLUSTER_LABEL || CLUSTER;
-const CLUSTER_IS_LOCAL = CLUSTER.startsWith("local");
+const RUNNING_ON_LOCALHOST = CLUSTER.startsWith("local");
 const HOSTNAME = os.hostname();
-const HOSTIP = CLUSTER_IS_LOCAL ? "localhost" : Object.values(os.networkInterfaces()).flat().filter(addr => !addr.internal && addr.family === 'IPv4')[0].address;
-// const IS_DEV = CLUSTER_IS_LOCAL || HOSTNAME.includes("-dev-");
+const HOSTIP = RUNNING_ON_LOCALHOST ? "localhost" : Object.values(os.networkInterfaces()).flat().filter(addr => !addr.internal && addr.family === 'IPv4')[0].address;
+// const IS_DEV = RUNNING_ON_LOCALHOST || HOSTNAME.includes("-dev-");
 
 if (!CLUSTER) {
     console.error("FATAL: no CLUSTER_NAME env var");
     process.exit(EXIT.FATAL);
 }
 
-const DISCONNECT_UNRESPONSIVE_CLIENTS = !CLUSTER_IS_LOCAL;
+const DISCONNECT_UNRESPONSIVE_CLIENTS = !RUNNING_ON_LOCALHOST;
 const CHECK_INTERVAL = 5000;        // how often to checkForActivity
 const PING_THRESHOLD = 35000;       // if a pre-background-aware client is not heard from for this long, start pinging
 const DISCONNECT_THRESHOLD = 60000; // if not responding for this long, disconnect
@@ -226,14 +226,14 @@ const GCP_SEVERITY = {
 const empty_logger = pino({
     base: null,
     messageKey: 'message', // expected by at least GCP logger; may as well standardise
-    timestamp: CLUSTER_IS_LOCAL && !NO_LOGTIME,
+    timestamp: RUNNING_ON_LOCALHOST && !NO_LOGTIME,
     level: 'debug',
     customLevels: {
         meter: 15,
         notice: 35,
     },
     formatters: {
-        level: label => (CLUSTER_IS_LOCAL ? {level: label} : { severity: GCP_SEVERITY[label] || 'DEFAULT'}),
+        level: label => (RUNNING_ON_LOCALHOST ? {level: label} : { severity: GCP_SEVERITY[label] || 'DEFAULT'}),
     },
 });
 
@@ -1724,7 +1724,7 @@ async function startServerForWebSockets() {
     webServer.listen(PORT);
     global_logger.info({
         event: "listen",
-    }, `starting ${server.constructor.name} ${USE_HTTPS ? "wss" : "ws"}://${CLUSTER_IS_LOCAL ? "localhost" : HOSTNAME}:${PORT}/`);
+    }, `starting ${server.constructor.name} ${USE_HTTPS ? "wss" : "ws"}://${RUNNING_ON_LOCALHOST ? "localhost" : HOSTNAME}:${PORT}/`);
 }
 
 const STATS_TO_AVG = ["RECV", "SEND", "TICK", "IN", "OUT"];
@@ -1867,7 +1867,7 @@ function openToClients() {
     } else {
         startServerForWebSockets();
     }
-    if (CLUSTER_IS_LOCAL) watchStats();
+    if (RUNNING_ON_LOCALHOST) watchStats();
 }
 
 /**
