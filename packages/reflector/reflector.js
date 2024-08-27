@@ -73,7 +73,7 @@ if (DEPIN) {
     WALLET = parseArgWithValue(ARGS.WALLET);
     if (!WALLET) {
         // $$$ figure out what to do here
-        console.warn(`No wallet specified for DePIN; using community default`);
+        console.warn("No wallet specified for DePIN; using community default"); // no loggers yet
         WALLET = '5B3aFyxpnGY36fBeocsLfia5vgAUrbD5pTXorCcMeV7t';
     }
 }
@@ -1104,7 +1104,7 @@ async function startServerForDePIN() {
                             const reportStripped = report.replace(/\n$/, "");
                             session.logger.debug({
                                 event: "audit-report",
-                                time,
+                                teatime: time,
                                 report: reportStripped
                             }, reportStripped);
                             break;
@@ -2950,7 +2950,7 @@ function AUDIT(island) {
     const { time } = island;
     island.logger.debug({
         event: "send-audit",
-        time,
+        teatime: time,
     }, `requesting audit at time ${time}`);
 
     // the 'audit' message will have been sent immediately to clients, but only added to
