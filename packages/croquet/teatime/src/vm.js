@@ -105,32 +105,6 @@ function patchBrowser() {
 }
 
 /*
- * asFuncString and compileFuncString are used to serialize simple functions
- * without env. They can be used directly as handlers in model code, e.g.
- * in subcriptions or future messages.
- * TODO: make full QFuncs usable in these places
- */
-
-function asFuncString(fn) {
-    const source = fn.toString();
-    return `{${btoa(JSON.stringify(source))}}`;
-}
-
-const compiledFuncStrings = {};
-
-function compileFuncString(str, thisVal) {
-    const cacheKey = thisVal.id + ':' + str;
-    let fn = compiledFuncStrings[cacheKey];
-    if (!fn) {
-        const source = JSON.parse(atob(str.slice(1, -1)));
-        fn = compileQFunc(source, thisVal);
-        if (source.startsWith("function")) fn = fn.bind(thisVal);
-        compiledFuncStrings[cacheKey] = fn;
-    }
-    return fn;
-}
-
-/*
  * QFuncs are a hack to allow functions (that is, non-methods) in Model code
  * to be used as callback, e.g. QFunc({foo}, bar => this.baz(foo, bar))
  */
@@ -705,7 +679,7 @@ export default class VirtualMachine {
                 displayAppError(`future message ${model}.${selector}`, error);
             }
         } else {
-            const fn = compileFuncString(selector, model);
+            const fn = this.compileFuncString(selector, model);
             try {
                 fn(...args);
             } catch (error) {
@@ -795,10 +769,39 @@ export default class VirtualMachine {
             // it matches, and the parameter name is the same as the argument name
             if (match && (!match[3] || match[3] === match[1])) return match[2];
             // otherwise, convert the function to a func string
-            return asFuncString(func);
+            return this.asFuncString(func);
         }
         return null;
     }
+
+    /*
+    * asFuncString and compileFuncString are used to serialize simple inline
+    * event handler functions. They can be used directly as handlers in model
+    * code (subcriptions and future messages) but are not fully supported.
+    * A warning is displayed if they are used.
+    * TODO: make full QFuncs usable in these places
+    */
+
+    asFuncString(fn) {
+        const source = fn.toString();
+        return `{${btoa(JSON.stringify(source))}}`;
+        // methodName[0] === "{" is used to identify this as a funcString
+    }
+
+    compileFuncString(str, model) {
+        // funcs are bound to model instances, only cache them per VM
+        if (!this.$compiledFuncs) this.$compiledFuncs = {};
+        const cacheKey = model.id + ':' + str;
+        let fn = this.$compiledFuncs[cacheKey];
+        if (!fn) {
+            const source = JSON.parse(atob(str.slice(1, -1)));
+            fn = compileQFunc(source, model);
+            if (source.startsWith("function")) fn = fn.bind(model);
+            this.$compiledFuncs[cacheKey] = fn;
+        }
+        return fn;
+    }
+
 
     addSubscription(model, scope, event, methodNameOrCallback) {
         if (CurrentVM !== this) throw Error("Cannot add a model subscription from outside model code");
@@ -961,7 +964,7 @@ export default class VirtualMachine {
                     continue;
                 }
                 if (methodName[0] === '{') {
-                    const fn = compileFuncString(methodName, model);
+                    const fn = this.compileFuncString(methodName, model);
                     try {
                         fn(data);
                     } catch (error) {
@@ -1279,7 +1282,7 @@ export class Message {
         const object = vm.lookUpModel(receiver);
         if (!object) displayWarning(`${this.shortString()} ${selector}(): receiver not found`);
         else if (selector[0] === '{') {
-            const fn = compileFuncString(selector, object);
+            const fn = vm.compileFuncString(selector, object);
             executor(() => {
                 try {
                     fn(...args);
@@ -1582,6 +1585,7 @@ class VMWriter {
             messages: this.write(vm.messages.asArray(), "FutureMessages"),
             subscribers: undefined, // do not write subscribers
             controller: undefined, // do not write controller
+            $compiledFuncs: undefined, // do not write compiledFuncStrings
         };
         // write static class properties
         this.writeAllStaticInto(state);
@@ -1594,6 +1598,7 @@ class VMWriter {
 
         delete state.controller; // remove undefined
         delete state.subscribers; // remove undefined
+        delete state.$compiledFuncs; // remove undefined
         return state;
     }
 
