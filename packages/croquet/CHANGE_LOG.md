@@ -4,6 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest @dev
 
+* 2.0.0-20 retry downloads and finding ICE servers
 * 2.0.0-19 fix caching of old-style QFuncs
 * 2.0.0-18 fix offline mode, fix "this" binding in old-style QFuncs
 * 2.0.0-17 actually fix type declaration for view.unsubscribe
