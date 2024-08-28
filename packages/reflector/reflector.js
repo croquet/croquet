@@ -465,7 +465,13 @@ async function startServerForDePIN() {
             }, ms);
         }
 
-        proxySocket = new WebSocket(`${DEPIN}/synchronizers/register?version=${APP_VERSION}&nickname=${SYNCNAME}&wallet=${WALLET}&registerRegion=${registerRegion}`, {
+        const proxyUrl = new URL(`${DEPIN}/synchronizers/register`);
+        const { searchParams } = proxyUrl;
+        searchParams.set('version', APP_VERSION);
+        searchParams.set('nickname', SYNCNAME);
+        searchParams.set('wallet', WALLET);
+        searchParams.set('registerRegion', registerRegion);
+        proxySocket = new WebSocket(proxyUrl.toString(), {
             perMessageDeflate: false, // this was in the node-datachannel example; not sure if it's helping
         });
 
