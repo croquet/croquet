@@ -911,12 +911,29 @@ export default class Controller {
         // TODO: move to worker
         if (url.startsWith(OLD_UPLOAD_SERVER)) url = url.replace(OLD_UPLOAD_SERVER, OLD_DOWNLOAD_SERVER);
         const offline = url.startsWith("offline:");
+        const maxTries = offline ? 1 : 3;
+        let tried = 0;
         let timer = Date.now();
-        const response = await (offline ? this.fetchOffline(url, what, debug) : fetch(url, {
-            method: "GET",
-            mode: "cors",
-            referrer: App.referrerURL(),
-        }));
+        let response;
+        while (tried <= maxTries) {
+            // eslint-disable-next-line no-await-in-loop
+            response = await (offline ? this.fetchOffline(url, what, debug) : fetch(url, {
+                method: "GET",
+                mode: "cors",
+                referrer: App.referrerURL(),
+            }));
+            if (response.ok) break;
+            if (tried === maxTries) {
+                console.warn(`status ${response.status} ${response.statusText} while fetching ${what}, giving up`);
+                throw Error(`received ${response.status} ${response.statusText}`);
+            }
+            // first retry is 100ms, then 1s, then 5s
+            const delay = tried === 0 ? 100 : tried === 1 ? 1000 : 5000;
+            console.warn(`status ${response.status} ${response.statusText} while fetching ${what}, retrying in ${delay}ms`);
+            // eslint-disable-next-line no-await-in-loop
+            await new Promise(resolve => { setTimeout(resolve, delay); });
+            tried++;
+        }
         const encrypted = await response.arrayBuffer();
         if (debug) console.log(this.id, `${what} fetched (${encrypted.byteLength} bytes) in ${-timer + (timer = Date.now())}ms`);
         Stats.addNetworkTraffic(`${what}_in`, encrypted.byteLength);
@@ -2669,7 +2686,7 @@ class Connection {
     closeConnectionWithError(caller, error, code=4000) {
         console.error(code, error);
         if (code >= 4100 && code !== 4110) {
-            console.warn("resuming this session will require a new Session.join()");
+            if (DEBUG.session) console.warn("resuming this session will require a new Session.join()");
             this.controller.leaving = () => {}; // dummy value, to mimic the effect of Session.leave() having been invoked
         }
         this.closeConnection(code, `Error in ${caller}: ${error.message || error}`);
