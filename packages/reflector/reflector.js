@@ -2945,7 +2945,8 @@ function USERS(island) {
  * @param {IslandData} island
 */
 function AUDIT(island) {
-    const session = ALL_SESSIONS.get(island.id);
+    const sessionId = island.id;
+    const session = ALL_SESSIONS.get(sessionId);
     if (!session) return; // no stats to report
     if (!island.clients.size) return; // no-one to ask
 
@@ -2957,7 +2958,7 @@ function AUDIT(island) {
     island.logger.debug({
         event: "send-audit",
         teatime: time,
-    }, `requesting audit at time ${time}`);
+    }, `requesting audit for ${sessionId.slice(0, 8)} at time ${time}`);
 
     // the 'audit' message will have been sent immediately to clients, but only added to
     // the updateBuffer for sending to the session DO - where it might not get sent
