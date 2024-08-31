@@ -136,7 +136,7 @@ function compileQFunc(source, thisVal, env, selfRef) {
     let fnVar = selfRef || "fn";
     while (envKeys?.includes(fnVar)) fnVar = '_' + fnVar;
     // now build source for compiler function
-    let compilerSrc = "";
+    let compilerSrc = '"use strict"\ntry {\n'; // error on undeclared variables
     // destructure env as constants to prevent accidental writes
     if (envKeys?.length) {
         compilerSrc += `const [${envKeys.join(', ')}] = ${envVar}\n`;
@@ -147,13 +147,23 @@ function compileQFunc(source, thisVal, env, selfRef) {
     compilerSrc += `\nreturn ${fnVar}`;
     // ... possibly bound to env.this (does not work on fat-arrow functions)
     if (thisVar) compilerSrc += `.bind(${thisVar})`;
-    // NOTE: the compiler call below establishes thisVal for fat-arrow functions
-    // eslint-disable-next-line no-new-func
-    const compiler = envVar ? new Function(envVar, compilerSrc) : new Function(compilerSrc);
-    // we just compiled the compiler, now run it to get our function
-    const fn = compiler.call(thisVal, envValues);
-    // done
-    return fn;
+    compilerSrc += '\n} catch (error) { return error; }';
+    try {
+        // NOTE: the compiler call below establishes thisVal for fat-arrow functions
+        // eslint-disable-next-line no-new-func
+        const compiler = envVar ? new Function(envVar, compilerSrc) : new Function(compilerSrc);
+        // we just compiled the compiler, now run it to get our function
+        const fn = compiler.call(thisVal, envValues);
+        if (fn instanceof Error) {
+            console.warn("rethrowing error", fn);
+            throw fn;
+        }
+        // done
+        return fn;
+    } catch (error) {
+        console.warn(`createQFunc compiling:\n\n${source}`);
+        throw Error(`createQFunc(): ${error.message}`);
+    }
 }
 
 const COMPILED = Symbol("COMPILED");
@@ -185,6 +195,8 @@ export class QFunc {
         }
         // freeze env to prevent modifications which would not be reflected in the closure
         Object.freeze(this.env);
+        // compile the function now to catch compilation errors early
+        const _ = this.func;
     }
 
     get func() {
