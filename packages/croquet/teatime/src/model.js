@@ -698,23 +698,26 @@ class Model {
     }
 
     /**
-     * ** Create a serializable function that can be stored in the model.**
+     * **Create a serializable function that can be stored in the model.**
      *
      * Plain functions can not be serialized because they may contain closures that can
      * not be introspected by the snapshot mechanism. This method creates a serializable
      * "QFunc" from a regular function. It can be stored in the model and called like
      * the original function.
      *
-     * Note that the function can only access global references (like classes), all local
-     * references except for `this` must be passed in the `env` object. They are captured
+     * The function can only access global references (like classes), *all local
+     * references must be passed in the `env` object*. They are captured
      * as constants at the time the QFunc is created. Since they are constants,
      * re-assignments will throw an error.
      *
+     * In a fat-arrow function, `this` is bound to the model that called `createQFunc`,
+     * even in a different lexical scope. It is okay to call a model's `createQFunc` from
+     * anywhere, e.g. from a view. QFuncs can be passed from view to model as arguments
+     * in `publish()` (provided their environment is serializable).
+     *
      * **Warning:** Minification can change the names of local variables and functions,
      * but the env will still use the unminified names. You need to disable
-     * minification for source code that creates QFuncs with env. The only
-     * exception is `this` (which you can pass in the env, otherwise it will
-     * refer to the model instance that created the QFunc). Alternatively, you can
+     * minification for source code that creates QFuncs with env. Alternatively, you can
      * pass the function's source code as a string, which will not be minified.
      *
      * Behind the scenes, the function is stored as a string and compiled when needed.
@@ -722,10 +725,11 @@ class Model {
      * the values if they were allowed to change.
      *
      * @example
-     * const greeting = "Hi there,";
-     * this.greet = this.createQFunc({greeting}, (name) => console.log(greeting, name));
-     * ...
-     * this.greet.call("friend");
+     * const template = { greeting: "Hi there," };
+     * this.greet = this.createQFunc({template}, (name) => console.log(template.greeting, name));
+     * this.greet.call(this, "friend"); // logs "Hi there, friend"
+     * template.greeting = "Bye now,";
+     * this.greet.call(this, "friend"); // logs "Bye now, friend"
      *
      * @param {Object} env - an object with references used by the function
      * @param {Function|String} func - the function to be wrapped, or a string with the function's source code

@@ -466,6 +466,49 @@ declare module "@croquet/croquet" {
          * ```*/
         modelOnly(errorMessage?: string): boolean;
 
+        /**
+         * **Create a serializable function that can be stored in the model.**
+         *
+         * Plain functions can not be serialized because they may contain closures that can
+         * not be introspected by the snapshot mechanism. This method creates a serializable
+         * "QFunc" from a regular function. It can be stored in the model and called like
+         * the original function.
+         *
+         * The function can only access global references (like classes), *all local
+         * references must be passed in the `env` object*. They are captured
+         * as constants at the time the QFunc is created. Since they are constants,
+         * re-assignments will throw an error.
+         *
+         * In a fat-arrow function, `this` is bound to the model that called `createQFunc`,
+         * even in a different lexical scope. It is okay to call a model's `createQFunc` from
+         * anywhere, e.g. from a view. QFuncs can be passed from view to model as arguments
+         * in `publish()` (provided their environment is serializable).
+         *
+         * **Warning:** Minification can change the names of local variables and functions,
+         * but the env will still use the unminified names. You need to disable
+         * minification for source code that creates QFuncs with env. Alternatively, you can
+         * pass the function's source code as a string, which will not be minified.
+         *
+         * Behind the scenes, the function is stored as a string and compiled when needed.
+         * The env needs to be constant because the serializer would not able to capture
+         * the values if they were allowed to change.
+         *
+         * @example
+         * const template = { greeting: "Hi there," };
+         * this.greet = this.createQFunc({template}, (name) => console.log(template.greeting, name));
+         * this.greet.call(this, "friend"); // logs "Hi there, friend"
+         * template.greeting = "Bye now,";
+         * this.greet.call(this, "friend"); // logs "Bye now, friend"
+         *
+         * @param env - an object with references used by the function
+         * @param func - the function to be wrapped, or a string with the function's source code
+         * @returns a serializable function that you can call() to execute
+         * @public
+         * @since 2.0
+         */
+        createQFunc<T extends Function>(env: Record<string, any>, func: T|string): T;
+        createQFunc<T extends Function>(func: T|string): T;
+
         persistSession(func: () => any): void;
 
         /** **Identifies the shared session of all users**
