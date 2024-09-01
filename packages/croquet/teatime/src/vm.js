@@ -150,18 +150,25 @@ function compileQFunc(source, thisVal, env, selfRef) {
     let fnVar = selfRef || "qFunc";
     while (envKeys?.includes(fnVar)) fnVar = '_' + fnVar;
     // now build source for compiler function
-    let compilerSrc = '"use strict"\ntry {\n'; // error on undeclared variables
+    let compilerSrc = '"use strict"\n\n';
+    compilerSrc += '// Croquet QFunc Compiler by Codefrau\n\n';
+    compilerSrc += '//////////////// Start Compiler /////////////////\n';
+    compilerSrc += 'try { const '; // error on undeclared variables
     // destructure env as constants to prevent accidental writes
     if (envKeys?.length) {
-        compilerSrc += `const [${envKeys.join(', ')}] = ${envVar}\n`;
+        compilerSrc += `[${envKeys.join(', ')}] = ${envVar}, `;
     }
     // compile source and store in fnVar
-    compilerSrc += `const ${fnVar} = ${source}`;
+    compilerSrc += `${fnVar} =\n`;
+    compilerSrc += '//////////////// Start User Code ////////////////\n\n';
+    compilerSrc += source;
+    compilerSrc += '\n\n///////////////// End User Code /////////////////\n';
     // return compiled function
-    compilerSrc += `\nreturn ${fnVar}`;
+    compilerSrc += `return ${fnVar}`;
     // ... possibly bound to env.this (does not work on fat-arrow functions, see below)
     if (thisVar) compilerSrc += `.bind(${thisVar})`;
-    compilerSrc += '\n} catch (error) { return error; }';
+    compilerSrc += ' } catch (compileError) { return compileError; }\n';
+    compilerSrc += '///////////////// End Compiler //////////////////';
     try {
         // NOTE: the compiler call below establishes thisVal for fat-arrow functions
         // eslint-disable-next-line no-new-func
@@ -175,6 +182,7 @@ function compileQFunc(source, thisVal, env, selfRef) {
         // done
         return fn;
     } catch (error) {
+        console.log(compilerSrc);
         console.warn(`createQFunc compiling:\n\n${source}`);
         throw Error(`createQFunc(): ${error.message}`);
     }
@@ -227,6 +235,28 @@ const QFuncSpec = {
     // we flatten the env object because the constructor freezes it so the deserializer can't add to it
     // that's a deserializer bug
 };
+
+const FUTURE_MESSAGE_HANDLER = "future message";
+const SUBSCRIPTION_HANDLER = "subscription handler";
+
+function asQFuncMethodPrefix(handler) {
+    return `qFunc~${handler.split(" ")[0]}~`;
+}
+
+const QFUNC_FUTURE_PREFIX = asQFuncMethodPrefix(FUTURE_MESSAGE_HANDLER);
+const QFUNC_SUBSCRIPTION_PREFIX = asQFuncMethodPrefix(SUBSCRIPTION_HANDLER);
+
+function shouldRegisterQFuncMethod(handler) {
+    return handler === FUTURE_MESSAGE_HANDLER || handler === SUBSCRIPTION_HANDLER;
+}
+
+function isRegisteredQFuncFuture(methodName) {
+    return methodName.startsWith(QFUNC_FUTURE_PREFIX);
+}
+
+function isRegisteredQFuncSubscription(methodName) {
+    return methodName.startsWith(QFUNC_SUBSCRIPTION_PREFIX);
+}
 
 // this is the only place allowed to set CurrentVM
 function execInVM(vm, fn) {
@@ -663,6 +693,9 @@ export default class VirtualMachine {
             const receiverID = model.id;
             removed = messages.removeOne(msg => msg.receiver === receiverID && msg.selector === methodName
                 || msg.receiver === "_" && msg.selector === "futureExecAndRepeat" && msg.args[1] === receiverID && msg.args[2] === methodName);
+            if (isRegisteredQFuncFuture(methodName)) {
+                delete model[methodName];
+            }
         }
         return removed !== undefined;
     }
@@ -704,7 +737,7 @@ export default class VirtualMachine {
                 get(_target, property) { return (...args) => vm.future(model, tOffset, property, args); }
             });
         }
-        const methodName = this.asMethodName(model, methodNameOrCallback, "future message");
+        const methodName = this.asMethodName(model, methodNameOrCallback, FUTURE_MESSAGE_HANDLER);
         if (typeof methodName !== "string") throw Error(`future message to ${model} ${methodName} is not a string`);
         if (typeof model[methodName] !== "function" && methodName.indexOf('.') < 0 && methodName[0] !== '{') throw Error(`future send to ${model} with unknown method ${methodName}()`);
         return this.futureSend(tOffset, model.id, methodName, methodArgs);
@@ -746,7 +779,7 @@ export default class VirtualMachine {
 
     // Pub-sub
 
-    asMethodName(model, func, handler = "subscription handler") {
+    asMethodName(model, func, handler = SUBSCRIPTION_HANDLER) {
         // if a string was passed in, assume it's a method name
         if (typeof func === "string") return func;
         // if a function was passed in, hope it was a method
@@ -756,13 +789,30 @@ export default class VirtualMachine {
             // if passing this.foo = this.method
             let obj = model;
             while (obj !== null) {
+                // if it's a method or registered QFunc, return the name
                 for (const [name, desc] of Object.entries(Object.getOwnPropertyDescriptors(obj))) {
                     if (desc.value === func) return name;
                 }
+                // if it's a QFunc handler, register it in the model
+                // (if it was registered before, it would have been found above)
+                if (obj === model && func[QFUNC]) {
+                    if (!shouldRegisterQFuncMethod(handler)) {
+                        displayWarning(`${handler} is not a registered QFunc: ${func}`, { only: "once" });
+                        return null;
+                    }
+                    const prefix = asQFuncMethodPrefix(handler);
+                    let name, i = 0;
+                    do { name = `${prefix}${i++}`; } while (model[name]);
+                    model[name] = func;
+                    return name;
+                    // this registration is cleaned up after executing a future QFunc
+                    // or when unsubscribing the QFunc
+                }
+                // no QFunc, check the prototype chain
                 obj = Object.getPrototypeOf(obj);
             }
             // otherwise, assume it's an inline function
-            displayWarning(`${handler} is not a method of ${model}: ${func}\n`, { only: "once" });
+            displayWarning(`${handler} is not a method of ${model} and not a QFunc: ${func}\n`, { only: "once" });
             // if passing (foo) => this.bar(baz)
             // match:                (   foo             )   =>  this .  bar              (    baz               )
             const HANDLER_REGEX = /^\(?([a-z][a-z0-9]*)?\)? *=> *this\.([a-z][a-z0-9]*) *\( *([a-z][a-z0-9]*)? *\) *$/i;
@@ -840,6 +890,8 @@ export default class VirtualMachine {
                 // will not execute removed handlers
                 for (let i = handlers.length - 1; i >= 0; i--) {
                     if (handlers[i].startsWith(handlerPrefix)) {
+                        const nameString = handlers[i].slice(handlerPrefix.length);
+                        if (isRegisteredQFuncSubscription(nameString)) delete model[nameString];
                         handlers.splice(i, 1);
                     }
                 }
@@ -854,6 +906,7 @@ export default class VirtualMachine {
                 if (indexToRemove !== -1) {
                     handlers.splice(indexToRemove, 1);
                     if (handlers.length === 0) delete this.subscriptions[topic];
+                    if (isRegisteredQFuncSubscription(nameString)) delete model[nameString];
                 }
                 // if there are remaining handlers, do not remove the topic for this model
                 if (handlers.find(h => h.startsWith(handlerPrefix))) {
@@ -877,6 +930,8 @@ export default class VirtualMachine {
                 // will not execute removed handlers
                 for (let i = handlers.length - 1; i >= 0; i--) {
                     if (handlers[i].startsWith(handlerPrefix)) {
+                        const nameString = handlers[i].slice(handlerPrefix.length);
+                        if (isRegisteredQFuncSubscription(nameString)) delete model[nameString];
                         handlers.splice(i, 1);
                     }
                 }
@@ -1282,10 +1337,10 @@ export class Message {
             ? fn => fn()
             : fn => execInVM(vm, () => inModelRealm(vm, fn));
         const { receiver, selector, args } = this;
-        const object = vm.lookUpModel(receiver);
-        if (!object) displayWarning(`${this.shortString()} ${selector}(): receiver not found`);
+        const model = vm.lookUpModel(receiver); // could be VM itself, if receiver === "_"
+        if (!model) displayWarning(`${this.shortString()} ${selector}(): receiver not found`);
         else if (selector[0] === '{') {
-            const fn = vm.compileFuncString(selector, object);
+            const fn = vm.compileFuncString(selector, model);
             executor(() => {
                 try {
                     fn(...args);
@@ -1299,18 +1354,24 @@ export class Message {
                 const head = selector.slice(0, i);
                 const tail = selector.slice(i + 1);
                 try {
-                    object.call(head, tail, ...args);
+                    model.call(head, tail, ...args);
                 } catch (error) {
-                    displayAppError(`${this.shortString()} ${object}.call(${JSON.stringify(head)}, ${JSON.stringify(tail)})`, error);
+                    displayAppError(`${this.shortString()} ${model}.call(${JSON.stringify(head)}, ${JSON.stringify(tail)})`, error);
                 }
                 });
-        } else if (typeof object[selector] !== "function") {
-            displayWarning(`${this.shortString()} ${object}.${selector}(): method not found`);
+        } else if (typeof model[selector] !== "function") {
+            displayWarning(`${this.shortString()} ${model}.${selector}(): method not found`);
         } else executor(() => {
             try {
-                object[selector](...args);
+                if (isRegisteredQFuncFuture(selector)) {
+                    const qFunc = model[selector];
+                    delete model[selector]; // delete before calling, might be redefined in call
+                    qFunc(...args);
+                } else {
+                    model[selector](...args);
+                }
             } catch (error) {
-                displayAppError(`${this.shortString()} ${object}.${selector}()`, error);
+                displayAppError(`${this.shortString()} ${model}.${selector}()`, error);
             }
             });
     }

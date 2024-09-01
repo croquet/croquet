@@ -36,6 +36,8 @@ declare module "@croquet/croquet" {
         unsubscribeAll(): void;
     }
 
+    export type FutureHandler<T> = ((...args: T) => void) | string;
+
     /**
      * Models are synchronized objects in Croquet.
      *
@@ -335,10 +337,10 @@ declare module "@croquet/croquet" {
          * Use a future message to automatically advance time in a model,
          * for example for animations.
          * The execution will be scheduled `tOffset` milliseconds into the future.
-         * It will run at precisely `[this.now()]{@link Model#now} + tOffset`.
+         * It will run at precisely `this.now() + tOffset`.
          *
          * Use the form `this.future(100).methodName(args)` to schedule the execution
-         * of `this.methodName(args)` at time `this.[now]{@link Model#now}() + tOffset`.
+         * of `this.methodName(args)` at time `this.now() + tOffset`.
          *
          * **Hint**: This would be an unusual use of `future()`, but the `tOffset` given may be `0`,
          * in which case the execution will happen asynchronously before advancing time.
@@ -370,7 +372,7 @@ declare module "@croquet/croquet" {
          * @returns {this}
          * @public
          */
-        future(tOffset?:number, methodName?: string, ...args: any[]): this;
+        future<T>(tOffset?:number, method?: FutureHandler<T>, ...args: T): this;
 
         /**
          * **Cancel a previously scheduled future message**
@@ -390,7 +392,7 @@ declare module "@croquet/croquet" {
          * @since 1.1.0-16
          * @public
         */
-        cancelFuture(method: ((...args: any[]) => void) | string): boolean;
+        cancelFuture<T>(method: FutureHandler<T>): boolean;
 
         /** **Generate a synchronized pseudo-random number**
          *

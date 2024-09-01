@@ -493,10 +493,10 @@ class Model {
      * Use a future message to automatically advance time in a model,
      * for example for animations.
      * The execution will be scheduled `tOffset` milliseconds into the future.
-     * It will run at precisely `[this.now()]{@link Model#now} + tOffset`.
+     * It will run at precisely `this.now() + tOffset`.
      *
      * Use the form `this.future(100).methodName(args)` to schedule the execution
-     * of `this.methodName(args)` at time `this.[now]{@link Model#now}() + tOffset`.
+     * of `this.methodName(args)` at time `this.now() + tOffset`.
      *
      * **Hint**: This would be an unusual use of `future()`, but the `tOffset` given may be `0`,
      * in which case the execution will happen asynchronously before advancing time.
@@ -523,7 +523,7 @@ class Model {
      * @returns {this}
      * @public
      */
-    future(tOffset=0, methodName, ...args) {
+    future(tOffset=0, methodName=undefined, ...args) {
         if (!this.__realm) this.__realmError();
         return this.__realm.future(this, tOffset, methodName, args);
     }
