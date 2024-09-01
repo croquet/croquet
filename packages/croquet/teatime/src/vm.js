@@ -105,9 +105,23 @@ function patchBrowser() {
 }
 
 /*
- * QFuncs are a hack to allow functions (that is, non-methods) in Model code
- * to be used as callback, e.g. QFunc({foo}, bar => this.baz(foo, bar))
+ * QFuncs are serializable functions.
+ * They have an explicit "this" value and an environment that gets serialized
+ * along with the source. The environment is a map of variable names to values.
+ * If one of the variables references the function itself, its name is recorded in selfRef.
+ * When resuming a snapshot, the function is compiled from source in its environment.
+ * The environment is frozen to prevent modifications that would not be reflected in the closure.
+ * All environment variables are made available as constants in the compiled function.
  */
+
+const QFUNC = Symbol("QFUNC");
+
+export function createQFunc(thisVal, env, fnOrSource, selfRef) {
+    const qFunc = new QFunc(thisVal, env, fnOrSource, selfRef);
+    const fn = qFunc.compile();
+    fn[QFUNC] = qFunc;
+    return fn;
+}
 
 function compileQFunc(source, thisVal, env, selfRef) {
     // pass env into compiler func as envVar
@@ -132,8 +146,8 @@ function compileQFunc(source, thisVal, env, selfRef) {
             while (envVar in env || envVar === selfRef) envVar = '_' + envVar;
         }
     }
-    // use selfRef or an unused variant of "fn" as fnVar
-    let fnVar = selfRef || "fn";
+    // use selfRef or an unused variant of "qFunc" as fnVar
+    let fnVar = selfRef || "qFunc";
     while (envKeys?.includes(fnVar)) fnVar = '_' + fnVar;
     // now build source for compiler function
     let compilerSrc = '"use strict"\ntry {\n'; // error on undeclared variables
@@ -145,7 +159,7 @@ function compileQFunc(source, thisVal, env, selfRef) {
     compilerSrc += `const ${fnVar} = ${source}`;
     // return compiled function
     compilerSrc += `\nreturn ${fnVar}`;
-    // ... possibly bound to env.this (does not work on fat-arrow functions)
+    // ... possibly bound to env.this (does not work on fat-arrow functions, see below)
     if (thisVar) compilerSrc += `.bind(${thisVar})`;
     compilerSrc += '\n} catch (error) { return error; }';
     try {
@@ -166,9 +180,7 @@ function compileQFunc(source, thisVal, env, selfRef) {
     }
 }
 
-const COMPILED = Symbol("COMPILED");
-
-export class QFunc {
+class QFunc {
     // public API is new QFunc(this, env, fnOrSource, undefined)
     // snapshot API is new QFunc(this, env, source, selfRef)
     constructor(thisVal, env, fnOrSrc, fnSelfRef) {
@@ -195,43 +207,22 @@ export class QFunc {
         }
         // freeze env to prevent modifications which would not be reflected in the closure
         Object.freeze(this.env);
-        // compile the function now to catch compilation errors early
-        const _ = this.func;
     }
 
-    get func() {
-        if (!this[COMPILED]) this[COMPILED] = compileQFunc(this.source, this.thisVal, this.env, this.selfRef);
-        return this[COMPILED];
+    compile() {
+        return compileQFunc(this.source, this.thisVal, this.env, this.selfRef);
     }
-
-    call(thisArg, ...args) {
-        return this.func.call(thisArg, ...args);
-    }
-
-    apply(thisArg, args) {
-        return this.func.apply(thisArg, args);
-    }
-
-    // // works, but inefficient and not very useful
-    // updateEnv(newEnv) {
-    //     for (const key of Object.keys(newEnv)) {
-    //         if (!(key in this.env)) throw Error(`QFunc.updateEnv error: env.${key} does not exist`);
-    //     }
-    //     this.env = { ...this.env, ...newEnv };
-    //     Object.freeze(this.env);
-    //     this[COMPILED] = null;
-    // }
 }
 
 const QFuncSpec = {
-    cls: QFunc,
-    write: ({thisVal, env, source, selfRef}) => [thisVal, source, selfRef, ...Object.entries(env).flat()],
+    cls: QFUNC, // not a class, special-cased when writing a Function
+    write: ({[QFUNC]: {thisVal, env, source, selfRef}}) => [thisVal, source, selfRef, ...Object.entries(env).flat()],
     read: ([thisVal, source, selfRef, ...flattenedEntries]) => {
         const env = {};
         for (let i = 0; i < flattenedEntries.length; i += 2) {
             env[flattenedEntries[i]] = flattenedEntries[i + 1];
         }
-        return new QFunc(thisVal, env, source, selfRef);
+        return createQFunc(thisVal, env, source, selfRef);
     }
     // we flatten the env object because the constructor freezes it so the deserializer can't add to it
     // that's a deserializer bug
@@ -1702,6 +1693,7 @@ class VMWriter {
                         throw Error(`Croquet: class not registered in Model.types(): ${value.constructor.name}`);
                     }
                     case "Function":
+                        if (value[QFUNC]) return this.writers.get(QFUNC)(value, path); // uses QFuncSpec
                         console.warn(`Croquet: found function at ${path}:`, value);
                         throw Error(`Croquet: cannot serialize functions except for QFuncs`);
                     default: {

@@ -496,13 +496,13 @@ declare module "@croquet/croquet" {
          * @example
          * const template = { greeting: "Hi there," };
          * this.greet = this.createQFunc({template}, (name) => console.log(template.greeting, name));
-         * this.greet.call(this, "friend"); // logs "Hi there, friend"
+         * this.greet(this, "friend"); // logs "Hi there, friend"
          * template.greeting = "Bye now,";
-         * this.greet.call(this, "friend"); // logs "Bye now, friend"
+         * this.greet(this, "friend"); // logs "Bye now, friend"
          *
          * @param env - an object with references used by the function
          * @param func - the function to be wrapped, or a string with the function's source code
-         * @returns a serializable function that you can call() to execute
+         * @returns a serializable function bound to the given environment
          * @public
          * @since 2.0
          */

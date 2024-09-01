@@ -2,7 +2,7 @@ import urlOptions from "./_URLOPTIONS_MODULE_"; // eslint-disable-line import/no
 import { displayAppError } from "./_HTML_MODULE_"; // eslint-disable-line import/no-unresolved
 import { addClassHash } from "./hashing";
 import { currentRealm } from "./realms";
-import VirtualMachine, { QFunc, resetReadersAndWriters } from "./vm";
+import VirtualMachine, { createQFunc, resetReadersAndWriters } from "./vm";
 
 const DEBUG = {
     classes: urlOptions.has("debug", "classes", false),
@@ -727,19 +727,19 @@ class Model {
      * @example
      * const template = { greeting: "Hi there," };
      * this.greet = this.createQFunc({template}, (name) => console.log(template.greeting, name));
-     * this.greet.call(this, "friend"); // logs "Hi there, friend"
+     * this.greet(this, "friend"); // logs "Hi there, friend"
      * template.greeting = "Bye now,";
-     * this.greet.call(this, "friend"); // logs "Bye now, friend"
+     * this.greet(this, "friend"); // logs "Bye now, friend"
      *
      * @param {Object} env - an object with references used by the function
      * @param {Function|String} func - the function to be wrapped, or a string with the function's source code
-     * @returns {{ func: Function, call(), apply() }} a serializable function that you can call() to execute
+     * @returns {Function} a serializable function bound to the given environment
      * @public
      * @since 2.0
      */
     createQFunc(env, func) {
         if (func === undefined) { func = env; env = {}; }
-        return new QFunc(this, env, func);
+        return createQFunc(this, env, func);
     }
 
     /**

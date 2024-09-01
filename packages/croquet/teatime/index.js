@@ -8,7 +8,7 @@ export { App } from "./src/_HTML_MODULE_"; // eslint-disable-line import/no-unre
 // unofficial exports
 export { default as Controller } from "./src/controller";
 export { currentRealm } from "./src/realms";
-export { QFunc, gatherInternalClassTypes } from "./src/vm";
+export { gatherInternalClassTypes } from "./src/vm";
 export { Messenger } from "./src/_MESSENGER_MODULE_"; // eslint-disable-line import/no-unresolved
 
 // putting event documentation here because JSDoc errors when parsing controller.js at the moment
