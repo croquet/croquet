@@ -36,7 +36,7 @@ declare module "@croquet/croquet" {
         unsubscribeAll(): void;
     }
 
-    export type FutureHandler<T> = ((...args: T) => void) | string;
+    export type FutureHandler<T extends any[]> = ((...args: T) => void) | string;
 
     /**
      * Models are synchronized objects in Croquet.
@@ -372,7 +372,7 @@ declare module "@croquet/croquet" {
          * @returns {this}
          * @public
          */
-        future<T>(tOffset?:number, method?: FutureHandler<T>, ...args: T): this;
+        future<T extends any[]>(tOffset?:number, method?: FutureHandler<T>, ...args: T): this;
 
         /**
          * **Cancel a previously scheduled future message**
@@ -392,7 +392,7 @@ declare module "@croquet/croquet" {
          * @since 1.1.0-16
          * @public
         */
-        cancelFuture<T>(method: FutureHandler<T>): boolean;
+        cancelFuture<T extends any[]>(method: FutureHandler<T>): boolean;
 
         /** **Generate a synchronized pseudo-random number**
          *
