@@ -158,6 +158,23 @@ function compileQFunc(source, thisVal, env, selfRef) {
     if (envKeys?.length) {
         compilerSrc += `[${envKeys.join(', ')}] = ${envVar}, `;
     }
+    // remove indent from all lines
+    // unless there is an odd number of backticks in any line
+    // this helps when debugging and also makes the source smaller
+    let lines = source.split('\n');
+    const allButFirstLine = lines.slice(1);
+    const minIndent = Math.min(...allButFirstLine.map(line => line.match(/^\s*/)[0].length));
+    if (minIndent > 0) {
+        const hasOddBackticks = lines.some(line => (line.match(/`/g) || []).length % 2 === 1);
+        if (!hasOddBackticks) {
+            lines = [lines[0], ...allButFirstLine.map(line => line.slice(minIndent))];
+            source = lines.join('\n');
+        }
+    }
+    // if last line is still indented, indent the first line to match
+    const lastLine = lines[lines.length - 1];
+    const lastIndent = lastLine.match(/^\s*/)[0];
+    if (lastIndent) source = lastIndent + source;
     // compile source and store in fnVar
     compilerSrc += `${fnVar} =\n`;
     compilerSrc += '//////////////// Start User Code ////////////////\n\n';
@@ -182,7 +199,6 @@ function compileQFunc(source, thisVal, env, selfRef) {
         // done
         return fn;
     } catch (error) {
-        console.log(compilerSrc);
         console.warn(`createQFunc compiling:\n\n${source}`);
         throw Error(`createQFunc(): ${error.message}`);
     }
