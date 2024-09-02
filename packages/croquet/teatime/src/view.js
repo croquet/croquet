@@ -1,5 +1,6 @@
 import { displayStatus, displayWarning, displayError } from "./_HTML_MODULE_"; // eslint-disable-line import/no-unresolved
 import { currentRealm, inViewRealm } from "./realms";
+import { viewDomain } from "./domain";
 
 /**
  * Views are the local, non-synchronized part of a Croquet Application.
@@ -22,6 +23,14 @@ class View {
     static displayStatus(msg, options) { return displayStatus(msg, options); }
     static displayWarning(msg, options) { return displayWarning(msg, options); }
     static displayError(msg, options) { return displayError(msg, options); }
+
+    static get currentTopic() {
+        const { currentTopics } = viewDomain;
+        if (!currentTopics) return null;
+        const currentTopic = currentTopics[currentTopics.length - 1];
+        const [scope, event] = currentTopic.split(":");
+        return { scope, event };
+    }
 
     /**
      * A View instance is created in {@link Session.join}, and the root model is passed into its constructor.

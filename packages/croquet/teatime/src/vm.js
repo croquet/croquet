@@ -389,6 +389,8 @@ export default class VirtualMachine {
                 this.subscriptions = {};
                 /** @type {Map<String, Set<String>>} maps models to subscribed topics. Excluded from snapshot */
                 this.subscribers = new Map();
+                /** @type {Array<{scope,event}>} stack of topics for currently executing subscription handlers */
+                this.currentTopics = [];
                 /** @type {{[id:string]: {extraConnections?: Number}}} viewIds of active reflector connections */
                 this.views = {};
                 /** @type {SeedRandom} our synced pseudo random stream */
@@ -1016,7 +1018,8 @@ export default class VirtualMachine {
                 wantsVote,
                 tallyTarget
                 })); // break out of model code
-        } else if (this.subscriptions[topic]) {
+        } else if (this.subscriptions[topic]) try {
+            this.currentTopics.push(topic);
             // live handlers may be added or removed during the loop
             // we skip both removed and added handlers for this event cycle
             const liveHandlers = this.subscriptions[topic];
@@ -1068,6 +1071,8 @@ export default class VirtualMachine {
                     }
                 }
             }
+        } finally {
+            this.currentTopics.pop();
         }
     }
 

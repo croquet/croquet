@@ -38,6 +38,11 @@ declare module "@croquet/croquet" {
 
     export type FutureHandler<T extends any[]> = ((...args: T) => void) | string;
 
+    export type EventTopic = {
+        scope: string;
+        event: string;
+    }
+
     /**
      * Models are synchronized objects in Croquet.
      *
@@ -142,6 +147,9 @@ declare module "@croquet/croquet" {
          * ```
          */
         static wellKnownModel<M extends Model>(name: string): Model | undefined;
+
+
+        static get currentTopic(): EventTopic;
 
         /**
          * __Static declaration of how to serialize non-model classes.__
@@ -788,6 +796,8 @@ declare module "@croquet/croquet" {
          */
 
         get session(): CroquetSession<View>;
+
+        static get currentTopic(): EventTopic;
     }
 
     /** helper that traverses a dummy object and gathers all object classes,

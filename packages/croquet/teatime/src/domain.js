@@ -20,6 +20,8 @@ export class Domain {
         this.perSyncedFrameEvents = new Map();
         /** counter for subscriberIds */
         this.subscriberIds = 0;
+        /** stack of topics being handled */
+        this.currentTopics = [];
     }
 
     register(_subscriber) {
@@ -117,6 +119,7 @@ export class Domain {
             if (handlers.oncePerFrame.size > 0) this.perFrameEvents.set(topic, data);
             if (handlers.oncePerFrameWhileSynced.size > 0) this.perSyncedFrameEvents.set(topic, data);
             if (handlers.immediate.size > 0) immediateWrapper(() => {
+                this.currentTopics.push(topic);
                 for (const handler of handlers.immediate) {
                     try { handler(data); }
                     catch (err) {
@@ -124,6 +127,7 @@ export class Domain {
                         console.warn(`Croquet: error "${err.message}" in "immediate" subscription ${topic}`);
                     }
                 }
+                this.currentTopics.pop();
             });
         }
     }
@@ -137,6 +141,7 @@ export class Domain {
         const invokeHandlers = (handling, topic, data) => {
             const handlers = this.subscriptions[topic];
             if (handlers) {
+                this.currentTopics.push(topic);
                 for (const handler of handlers[handling]) {
                     try { handler(data); }
                     catch (err) {
@@ -145,6 +150,7 @@ export class Domain {
                     }
                     n++;
                 }
+                this.currentTopics.pop();
             }
         };
 

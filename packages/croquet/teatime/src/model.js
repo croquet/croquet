@@ -179,6 +179,15 @@ class Model {
         return VirtualMachine.current().get(name);
     }
 
+    static get currentTopic() {
+        if (!VirtualMachine.hasCurrent()) throw Error("static Model.currentTopic called from outside model");
+        const { currentTopics } = VirtualMachine.current();
+        const currentTopic = currentTopics[currentTopics.length - 1];
+        if (!currentTopic) return null;
+        const [scope, event] = currentTopic.split(":");
+        return { scope, event };
+    }
+
     /**
      * Evaluates func inside of a temporary VM to get bit-identical results, e.g. to init [Constants]{@link Constants}.
      * @param {Function} func - function to evaluate
