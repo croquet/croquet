@@ -38,6 +38,8 @@ declare module "@croquet/croquet" {
 
     export type FutureHandler<T extends any[]> = ((...args: T) => void) | string;
 
+    export type QFuncEnv = Record<string, any>;
+
     export type EventTopic = {
         scope: string;
         event: string;
@@ -244,11 +246,17 @@ declare module "@croquet/croquet" {
          * Both models and views can publish events, and subscribe to each other's events.
          * Model-to-model and view-to-view subscriptions are possible, too.
          *
-         * See [subscribe]{@link Model#subscribe}() for a discussion of **scopes** and **event names**.
+         * See [Model.subscribe]{@link Model#subscribe}() for a discussion of **scopes** and **event names**.
+         * Refer to [View.subscribe]{@link View#subscribe}() for invoking event handlers *asynchronously* or *immediately*.
          *
          * Optionally, you can pass some **data** along with the event.
          * For events published by a model, this can be any arbitrary value or object.
          * See View's [publish]{@link View#publish} method for restrictions in passing data from a view to a model.
+         *
+         * If you subscribe inside the model to an event that is published by the model,
+         * the handler will be called immediately, before the publish method returns.
+         * If you want to have it handled asynchronously, you can use a future message:
+         * `this.future(0).publish("scope", "event", data)`.
          *
          * Note that there is no way of testing whether subscriptions exist or not (because models can exist independent of views).
          * Publishing an event that has no subscriptions is about as cheap as that test would be, so feel free to always publish,
@@ -516,7 +524,7 @@ declare module "@croquet/croquet" {
          * @public
          * @since 2.0
          */
-        createQFunc<T extends Function>(env: Record<string, any>, func: T|string): T;
+        createQFunc<T extends Function>(env: QFuncEnv, func: T|string): T;
         createQFunc<T extends Function>(func: T|string): T;
 
         persistSession(func: () => any): void;

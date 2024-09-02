@@ -390,6 +390,12 @@ class Model {
      * For events published by a model, this can be any arbitrary value or object.
      * See View's [publish]{@link View#publish} method for restrictions in passing data from a view to a model.
      *
+     * If you subscribe inside the model to an event that is published by the model,
+     * the handler will be called immediately, before the publish method returns.
+     * If you want to have it handled asynchronously, you can use a future message:
+     *
+     *     this.future(0).publish("scope", "event", data);
+     *
      * Note that there is no way of testing whether subscriptions exist or not (because models can exist independent of views).
      * Publishing an event that has no subscriptions is about as cheap as that test would be, so feel free to always publish,
      * there is very little overhead.
