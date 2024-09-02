@@ -291,6 +291,38 @@ class Model {
         return {};
     }
 
+    /** Find classes inside an external library
+     *
+     * This recursivley traverses a dummy object and gathers all object classes found.
+     * Returns a mapping that can be returned from a Model's static `types()` method.
+     *
+     * This can be used to gather all internal class types of a third party library
+     * that otherwise would not be accessible to the serializer
+     *
+     * @example<caption>
+     *   If `Foo` is a class from a third party library
+     *   that internally create a `Bar` instance,
+     *   this would find both classes
+     * </caption>
+     * class Bar {} // internal class
+     * class Foo { constructor() { this.bar = new Bar(); } }
+     * static types() {
+     *    const sample = new Foo();
+     *    return this.gatherClassTypes(sample, "MyLib");
+     *    // returns { "MyLib.Foo": Foo, "MyLib.Bar": Bar }
+     * }
+     * @param {Object} dummyObject - an instance of a class from the library
+     * @param {String} prefix - a prefix to add to the class names
+     * @since 2.0
+     */
+    static gatherClassTypes(dummyObject, prefix) {
+        const result = {};
+        gatherClassTypesRec({root: dummyObject}, prefix, result, new Set());
+        return result;
+    }
+
+
+
     // for use by serializer (see vm.js)
     static okayToIgnore() { return []; }
     static classToID(cls) {  return classToID(cls); }
@@ -876,6 +908,29 @@ function registerClass(cls, classId) {
     }
     ModelClasses[classId] = cls;
     return cls;
+}
+
+function gatherClassTypesRec(dummyObject, prefix, gatheredClasses, seen) {
+    const newObjects = Object.values(dummyObject)
+        .filter(prop => {
+            const type = Object.prototype.toString.call(prop).slice(8, -1);
+            return (type === "Object" || type === "Array") && !seen.has(prop);
+        });
+    for (const obj of newObjects) {
+        seen.add(obj);
+        const className = prefix + '.' + obj.constructor.name;
+        if (gatheredClasses[className]) {
+            if (gatheredClasses[className] !== obj.constructor) {
+                throw new Error("Class with name " + className + " already gathered, but new one has different identity");
+            }
+        } else {
+            gatheredClasses[className] = obj.constructor;
+        }
+    }
+    // we did breadth-first
+    for (const obj of newObjects) {
+        gatherClassTypesRec(obj, prefix, gatheredClasses, seen);
+    }
 }
 
 // register without logging or hashing

@@ -207,6 +207,33 @@ declare module "@croquet/croquet" {
          */
         static types(): Record<ClassId, Class<any> | Serializer>;
 
+
+        /** Find classes inside an external library
+         *
+         * This recursivley traverses a dummy object and gathers all object classes found.
+         * Returns a mapping that can be returned from a Model's static `types()` method.
+         *
+         * This can be used to gather all internal class types of a third party library
+         * that otherwise would not be accessible to the serializer
+         *
+         * Example: If `Foo` is a class from a third party library
+         *   that internally create a `Bar` instance,
+         *   this would find both classes
+         * ```
+         * class Bar {}
+         * class Foo { bar = new Bar(); }
+         * static types() {
+         *    const sample = new Foo();
+         *    return this.gatherClassTypes(sample, "MyLib");
+         *    // returns { "MyLib.Foo": Foo, "MyLib.Bar": Bar }
+         * }
+         * ```
+         * @param {Object} dummyObject - an instance of a class from the library
+         * @param {String} prefix - a prefix to add to the class names
+         * @since 2.0
+         */
+        static gatherClassTypes<T extends Object>(dummyObject: T, prefix: string): Record<ClassId, Class<any>>;
+
         /**
          * This is called by [create()]{@link Model.create} to initialize a model instance.
          *
@@ -836,10 +863,6 @@ declare module "@croquet/croquet" {
         get session(): CroquetSession<View>;
     }
 
-    /** helper that traverses a dummy object and gathers all object classes,
-     * including otherwise inaccessible ones. Returns a mapping that can be returned in
-     * a Model's static types() method */
-    export function gatherInternalClassTypes(dummyObject: any, prefix: string): any;
 
     export type CroquetSession<V extends View> = {
         id: string,
