@@ -134,13 +134,14 @@ export class Domain {
     /** An event was published. Invoke its immediate handlers now, and/or queue it
      * for later execution in processFrameEvents()
      */
-    handleEvent(topic, data, immediateWrapper=fn=>fn()) {
+    handleEvent(topic, data, immediateWrapper=null) {
         // model=>view events are typically queued for later execution from the main loop
         // The subscriber is encouraged to request batch handling, which only invokes the handler
         // for the latest event per render frame (e.g. to batch multiple position updates into one)
         // The subscriber may request immediate handling, but it must not modify model state!
         const subscriptions = this.subscriptionsFor(topic);
         if (!subscriptions) return; // quick exit if no subscribers
+        const fromModel = !!immediateWrapper;
         let queued = 0;
         let oncePerFrame = 0;
         let oncePerFrameWhileSynced = 0;
@@ -148,22 +149,28 @@ export class Domain {
             queued += handlers.queued.size;
             oncePerFrame += handlers.oncePerFrame.size;
             oncePerFrameWhileSynced += handlers.oncePerFrameWhileSynced.size;
-            if (handlers.immediate.size > 0) immediateWrapper(() => {
-                const prevEvent = this.currentEvent;
-                this.currentEvent = currentEvent;
-                for (const handler of handlers.immediate) {
-                    try { handler(data); }
-                    catch (err) {
-                        console.error(err);
-                        console.warn(`Croquet: error "${err.message}" in "immediate" subscription ${currentEvent}`);
+            if (handlers.immediate.size > 0) {
+                if (!immediateWrapper) immediateWrapper = fn => fn();
+                immediateWrapper(() => {
+                    for (const handler of handlers.immediate) {
+                        const prevEvent = this.currentEvent;
+                        const prevEventFromModel = this.currentEventFromModel;
+                        this.currentEvent = topic;
+                        this.currentEventFromModel = fromModel;
+                        try { handler(data); }
+                        catch (err) {
+                            console.error(err);
+                            console.warn(`Croquet: error "${err.message}" in "immediate" subscription ${currentEvent}`);
+                        }
+                        this.currentEvent = prevEvent;
+                        this.currentEventFromModel = prevEventFromModel;
                     }
-                }
-                this.currentEvent = prevEvent;
-            });
+               });
+            }
         }
-        if (queued > 0) this.queuedEvents.push({topic, data});
-        if (oncePerFrame > 0) this.perFrameEvents.set(topic, data);
-        if (oncePerFrameWhileSynced > 0) this.perSyncedFrameEvents.set(topic, data);
+        if (queued > 0) this.queuedEvents.push({topic, data, fromModel});
+        if (oncePerFrame > 0) this.perFrameEvents.set(topic, {data, fromModel});
+        if (oncePerFrameWhileSynced > 0) this.perSyncedFrameEvents.set(topic, {data, fromModel});
     }
 
     /** Process all queued and oncePerFrame events that were generated since the last invocation
@@ -172,11 +179,13 @@ export class Domain {
     processFrameEvents(controllerIsInAnimationStep, controllerIsSynced) {
         let n = 0;
 
-        const invokeHandlers = (handling, topic, data) => {
+        const invokeHandlers = (handling, topic, data, fromModel) => {
+            const prevEvent = this.currentEvent;
+            const prevEventFromModel = this.currentEventFromModel;
+            this.currentEvent = topic;
+            this.currentEventFromModel = fromModel;
             const subscriptions = this.subscriptionsFor(topic);
             for (const [handlers] of subscriptions) {
-                const prevEvent = this.currentEvent;
-                this.currentEvent = topic;
                 for (const handler of handlers[handling]) {
                     try { handler(data); }
                     catch (err) {
@@ -185,28 +194,29 @@ export class Domain {
                     }
                     n++;
                 }
-                this.currentEvent = prevEvent;
             }
-        };
+            this.currentEvent = prevEvent;
+            this.currentEventFromModel = prevEventFromModel;
+    };
 
         // process queued events in order (for...of will include any added during the iteration)
-        for (const {topic, data} of this.queuedEvents) invokeHandlers('queued', topic, data);
+        for (const {topic, data, fromModel} of this.queuedEvents) invokeHandlers('queued', topic, data, fromModel);
         this.queuedEvents.length = 0;
 
         // only process per-frame events if this has been triggered by an animation step
         if (controllerIsInAnimationStep) {
             // process oncePerFrame events in any order
-            for (const [topic, data] of this.perFrameEvents) invokeHandlers('oncePerFrame', topic, data);
+            for (const [topic, {data, fromModel}] of this.perFrameEvents) invokeHandlers('oncePerFrame', topic, data, fromModel);
             this.perFrameEvents.clear();
 
             // process oncePerFrameWhileSynced events in any order
             if (controllerIsSynced) {
-                for (const [topic, data] of this.perSyncedFrameEvents) invokeHandlers('oncePerFrameWhileSynced', topic, data);
+                for (const [topic, {data, fromModel}] of this.perSyncedFrameEvents) invokeHandlers('oncePerFrameWhileSynced', topic, data, fromModel);
                 this.perSyncedFrameEvents.clear();
             }
 
             // finally, process any newly queued events
-            for (const {topic, data} of this.queuedEvents) invokeHandlers('queued', topic, data);
+            for (const {topic, data, fromModel} of this.queuedEvents) invokeHandlers('queued', topic, data, fromModel);
             this.queuedEvents.length = 0;
         }
 

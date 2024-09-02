@@ -520,25 +520,27 @@ class Model {
     }
 
     /**
-     * Scope and event of the currently executing subscription handler.
+     * Scope, event, and source of the currently executing subscription handler.
+     *
+     * The `source' is either `"model"` or `"view"`.
      *
      * @example
      * // this.subscribe("*", "*", this.logEvents)
      * logEvents(data: any) {
-     *     const {scope, event} = Model.activeSubscription!;
-     *     console.log(`🔮 @${this.now()} Model ${scope}:${event}`, data);
+     *     const {scope, event, source} = this.activeSubscription;
+     *     console.log(`🔮 Model from ${source} ${scope}:${event} with`, data);
      * }
-     * @returns {Object} `{scope, event}` or `undefined` if not in a subscription handler.
+     * @returns {Object} `{scope, event, source}` or `undefined` if not in a subscription handler.
      * @since 2.0
      * @public
      */
     get activeSubscription() {
-        if (!VirtualMachine.hasCurrent()) throw Error("static Model.activeSubscription called from outside model");
+        if (!VirtualMachine.hasCurrent()) return undefined;
         const { currentEvent, currentEventFromModel } = VirtualMachine.current();
         if (!currentEvent) return undefined;
         const [scope, event] = currentEvent.split(":");
-        const local = currentEventFromModel;
-        return { scope, event, local };
+        const source = currentEventFromModel ? "model" : "view";
+        return { scope, event, source };
     }
 
     __realmError() {

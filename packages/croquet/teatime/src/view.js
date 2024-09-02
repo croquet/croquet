@@ -224,23 +224,24 @@ class View {
     }
 
     /**
-     * Scope and event of the currently executing subscription handler.
+     * Scope, event, and source of the currently executing subscription handler.
      *
      * @example
      * // this.subscribe("*", "*", this.logEvents)
      * logEvents(data) {
-     *     const {scope, event} = this.activeSubscription;
-     *     console.log(`👁️ View ${scope}:${event} with`, data);
+     *     const {scope, event, source} = this.activeSubscription;
+     *     console.log(`👁️ View from ${source} ${scope}:${event} with`, data);
      * }
-     * @returns {Object} `{scope, event}` or `undefined` if not in a subscription handler.
+     * @returns {Object} `{scope, event, source}` or `undefined` if not in a subscription handler.
      * @since 2.0
      * @public
      */
     get activeSubscription() {
-        const { currentEvent } = viewDomain;
+        const { currentEvent, currentEventFromModel } = viewDomain;
         if (!currentEvent) return undefined;
         const [scope, event] = currentEvent.split(":");
-        return { scope, event };
+        const source = currentEventFromModel ? "model" : "view";
+        return { scope, event, source };
     }
 
     // Misc
