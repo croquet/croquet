@@ -405,7 +405,9 @@ export default class VirtualMachine {
                 this.subscriptions = {};
                 /** @type {Map<String, Set<String>>} maps models to subscribed topics. Excluded from snapshot */
                 this.subscribers = new Map();
-                /** @type {Array<{scope,event}>} stack of topics for currently executing subscription handlers */
+                /** @type {Array<{topic,handler}>} generic subscriptions */
+                this.genericSubscriptions = [];
+                /** @type {Array<{string}>} stack of topics for currently executing subscription handlers */
                 this.currentTopics = [];
                 /** @type {{[id:string]: {extraConnections?: Number}}} viewIds of active reflector connections */
                 this.views = {};
@@ -914,6 +916,7 @@ export default class VirtualMachine {
 
     addSubscription(model, scope, event, methodNameOrCallback) {
         if (CurrentVM !== this) throw Error("Cannot add a model subscription from outside model code");
+        if (scope.includes(':')) throw Error(`Invalid subscription scope "${scope}" (must not contain ':')`);
         const topic = scope + ':' + event;
         const methodName = this.asMethodName(model, methodNameOrCallback, SUBSCRIPTION_HANDLER, topic);
         if (typeof methodName !== "string") {
@@ -924,6 +927,11 @@ export default class VirtualMachine {
         }
         const id = model === this ? "_" : model.id;
         const handler = id + '.' + methodName;
+        // check for generic subscriptions first
+        if (scope === "*" || event === "*") {
+            this.addGenericSubscription(topic, handler);
+            return;
+        }
         // model subscriptions need to be ordered, so we're using an array
         if (!this.subscriptions[topic]) this.subscriptions[topic] = [];
         else if (this.subscriptions[topic].indexOf(handler) !== -1) {
@@ -937,6 +945,10 @@ export default class VirtualMachine {
 
     removeSubscription(model, scope, event, methodName="*") {
         if (CurrentVM !== this) throw Error("Cannot remove a model subscription from outside model code");
+        if (scope === "*" || event === "*") {
+            this.removeGenericSubscription(model, scope, event, methodName);
+            return;
+        }
         const topic = scope + ':' + event;
         const handlers = this.subscriptions[topic];
         if (handlers) {
@@ -973,6 +985,24 @@ export default class VirtualMachine {
             const topics = this.subscribers.get(model.id);
             topics.delete(topic);
             if (topics.size === 0) this.subscribers.delete(model.id);
+        }
+    }
+
+    addGenericSubscription(topic, handler) {
+        this.genericSubscriptions.push({ topic, handler });
+    }
+
+    removeGenericSubscription(model, scope, event, methodName = "*") {
+        const topic = scope + ':' + event;
+        const handlerPrefix = model.id + '.';
+        for (let i = this.genericSubscriptions.length - 1; i >= 0; i--) {
+            const subscription = this.genericSubscriptions[i];
+            if (subscription.topic === topic && subscription.handler.startsWith(handlerPrefix)) {
+                if (methodName === "*" || subscription.handler === handlerPrefix + methodName) {
+                    this.genericSubscriptions.splice(i, 1);
+                    if (isRegisteredQFuncSubscription(methodName, topic)) delete model[methodName];
+                }
+            }
         }
     }
 
@@ -1056,61 +1086,90 @@ export default class VirtualMachine {
                 wantsVote,
                 tallyTarget
                 })); // break out of model code
-        } else if (this.subscriptions[topic]) try {
-            this.currentTopics.push(topic);
-            // live handlers may be added or removed during the loop
-            // we skip both removed and added handlers for this event cycle
-            const liveHandlers = this.subscriptions[topic];
-            const handlers = liveHandlers.slice(); // O(n)
-            for (let i = 0; i < handlers.length; i++) {
-                const handler = handlers[i];
-                // the includes() in this loop makes it O(n^2), but we only do it
-                // when a handler is removed while iterating, which is rare.
-                // Devs can avoid this by using future(0) to unsubscribe/destroy
-                if (handler !== liveHandlers[i] && !liveHandlers.includes(handler)) {
-                    continue; // handler was removed
-                }
-                const [id, ...rest] = handler.split('.');
-                const methodName = rest.join('.');
-                const model = this.lookUpModel(id);
-
-                if (!model) {
-                    displayWarning(`event ${topic} .${methodName}(): subscriber not found`);
-                    continue;
-                }
-                if (methodName[0] === '{') {
-                    const fn = this.compileFuncString(methodName, model);
-                    try {
-                        fn(data);
-                    } catch (error) {
-                        displayAppError(`event ${topic} ${model} ${fn}`, error);
-                    }
-                    continue;
-                }
-                if (methodName.indexOf('.') >= 0) {
-                    const dot = methodName.indexOf('.');
-                    const head = methodName.slice(0, dot);
-                    const tail = methodName.slice(dot + 1);
-                    try {
-                        model.call(head, tail, data);
-                    } catch (error) {
-                        displayAppError(`event ${topic} ${model}.call(${JSON.stringify(head)}, ${JSON.stringify(tail)})`, error);
-                    }
-                    continue;
-                }
-                if (typeof model[methodName] !== "function") {
-                    displayAppError(`event ${topic} ${model}.${methodName}(): method not found`);
-                    continue;
-                } else {
-                    try {
-                        model[methodName](data);
-                    } catch (error) {
-                        displayAppError(`event ${topic} ${model}.${methodName}()`, error);
-                    }
-                }
+        } else {
+            // regular handlers
+            if (this.subscriptions[topic]) {
+                this.currentTopics.push(topic);
+                this.invokeHandlers(this.subscriptions[topic], topic, data);
+                this.currentTopics.pop();
             }
-        } finally {
-            this.currentTopics.pop();
+            // generic handlers (typically none)
+            if (this.genericSubscriptions.length > 0) {
+                this.currentTopics.push(topic);
+                this.invokeGenericHandlers(topic, data);
+                this.currentTopics.pop();
+            }
+        }
+    }
+
+    invokeHandlers(liveHandlers, topic, data) {
+        // live handlers may be added or removed during the loop
+        // we skip both removed and added handlers for this event cycle
+        const handlers = liveHandlers.slice(); // O(n)
+        for (let i = 0; i < handlers.length; i++) {
+            const handler = handlers[i];
+            // the includes() in this loop makes it O(n^2), but we only do it
+            // when a handler is removed while iterating, which is rare.
+            // Devs can avoid this by using future(0) to unsubscribe/destroy
+            if (handler !== liveHandlers[i] && !liveHandlers.includes(handler)) {
+                continue; // handler was removed
+            }
+            this.invokeHandler(handler, topic, data);
+        }
+    }
+
+    invokeGenericHandlers(topic, data) {
+        const [scope, event] = topic.split(':');
+        if ((scope.startsWith("__") && scope.endsWith("__"))
+            || (event.startsWith("__") && event.endsWith("__"))) return; // ignore internal events
+        for (const subscription of this.genericSubscriptions) {
+            const [subScope, subEvent] = subscription.topic.split(':');
+            if (subScope === "*" && subEvent === event
+                || subScope === scope && subEvent === "*"
+                || subScope === "*" && subEvent === "*")
+            {
+                this.invokeHandler(subscription.handler, subscription.topic, data);
+            }
+        }
+    }
+
+    invokeHandler(handler, topic, data) {
+        const [id, ...rest] = handler.split('.');
+        const methodName = rest.join('.');
+        const model = this.lookUpModel(id);
+
+        if (!model) {
+            displayWarning(`event ${topic} .${methodName}(): subscriber not found`);
+            return;
+        }
+        if (methodName[0] === '{') {
+            const fn = this.compileFuncString(methodName, model);
+            try {
+                fn(data);
+            } catch (error) {
+                displayAppError(`event ${topic} ${model} ${fn}`, error);
+            }
+            return;
+        }
+        if (methodName.indexOf('.') >= 0) {
+            const dot = methodName.indexOf('.');
+            const head = methodName.slice(0, dot);
+            const tail = methodName.slice(dot + 1);
+            try {
+                model.call(head, tail, data);
+            } catch (error) {
+                displayAppError(`event ${topic} ${model}.call(${JSON.stringify(head)}, ${JSON.stringify(tail)})`, error);
+            }
+            return;
+        }
+        if (typeof model[methodName] !== "function") {
+            displayAppError(`event ${topic} ${model}.${methodName}(): method not found`);
+            return;
+        }
+        try {
+            model[methodName](data);
+        } catch (error) {
+            displayAppError(`event ${topic} ${model}.${methodName}()`, error);
         }
     }
 
