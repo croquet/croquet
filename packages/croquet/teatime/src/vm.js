@@ -125,6 +125,8 @@ export function createQFunc(thisVal, env, fnOrSource, selfRef) {
 
 function compileQFunc(source, thisVal, env, selfRef) {
     // pass env into compiler func as envVar
+    const compilerParams = [];
+    const compilerArgs = [];
     let thisVar, envVar, envKeys, envValues;
     if (env) {
         // normally thisVal is the model, but env.this overrides that
@@ -144,7 +146,14 @@ function compileQFunc(source, thisVal, env, selfRef) {
         if (envKeys.length) {
             envVar = "env";
             while (envVar in env || envVar === selfRef) envVar = '_' + envVar;
+            compilerParams.push(envVar);
+            compilerArgs.push(envValues);
         }
+    }
+    // Make Croquet available if the word "Croquet" is found in the source
+    if (source.match(/\bCroquet\b/) && !envKeys?.includes("Croquet")) {
+        compilerParams.push("Croquet");
+        compilerArgs.push(Model.Croquet);
     }
     // use selfRef or an unused variant of "qFunc" as fnVar
     let fnVar = selfRef || "qFunc";
@@ -189,9 +198,9 @@ function compileQFunc(source, thisVal, env, selfRef) {
     try {
         // NOTE: the compiler call below establishes thisVal for fat-arrow functions
         // eslint-disable-next-line no-new-func
-        const compiler = envVar ? new Function(envVar, compilerSrc) : new Function(compilerSrc);
+        const compiler = new Function(...compilerParams, compilerSrc);
         // we just compiled the compiler, now run it to get our function
-        const fn = compiler.call(thisVal, envValues);
+        const fn = compiler.call(thisVal, ...compilerArgs);
         if (fn instanceof Error) {
             console.warn("rethrowing error", fn);
             throw fn;
