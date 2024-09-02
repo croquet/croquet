@@ -40,9 +40,10 @@ declare module "@croquet/croquet" {
 
     export type QFuncEnv = Record<string, any>;
 
-    export type EventTopic = {
+    export type EventType = {
         scope: string;
         event: string;
+        local: boolean; // true if the event was published from model code
     }
 
     /**
@@ -149,9 +150,6 @@ declare module "@croquet/croquet" {
          * ```
          */
         static wellKnownModel<M extends Model>(name: string): Model | undefined;
-
-
-        static get currentTopic(): EventTopic;
 
         /**
          * __Static declaration of how to serialize non-model classes.__
@@ -346,6 +344,22 @@ declare module "@croquet/croquet" {
          * @public
          */
         unsubscribeAll(): void;
+
+        /**
+         * Scope and event of the currently executing subscription handler.
+         *
+         * ```
+         * // this.subscribe("*", "*", this.logEvents)
+         * logEvents(data: any) {
+         *     const {scope, event} = this.activeSubscription!;
+         *     console.log(`🔮 @${this.now()} Model ${scope}:${event}`, data);
+         * }
+         * ```
+         * @returns {Object} `{scope, event}` or `undefined` if not in a subscription handler.
+         * @since 2.0
+         * @public
+         */
+        get activeSubscription(): EventType | undefined;
 
         /**
          * **Schedule a message for future execution**
@@ -708,6 +722,22 @@ declare module "@croquet/croquet" {
         unsubscribeAll(): void;
 
         /**
+         * Scope and event of the currently executing subscription handler.
+         *`
+         * ```
+         * // this.subscribe("*", "*", this.logEvents)
+         * logEvents(data: any) {
+         *     const {scope, event} = this.activeSubscription!;
+         *     console.log(`👁️ View ${scope}:${event} with`, data);
+         * }
+         * ```
+         * @returns {Object} `{scope, event}` or `undefined` if not in a subscription handler.
+         * @since 2.0
+         * @public
+         */
+        get activeSubscription(): EventType | undefined;
+
+        /**
          * The ID of the view.
          * @public
          */
@@ -804,8 +834,6 @@ declare module "@croquet/croquet" {
          */
 
         get session(): CroquetSession<View>;
-
-        static get currentTopic(): EventTopic;
     }
 
     /** helper that traverses a dummy object and gathers all object classes,
@@ -852,7 +880,7 @@ declare module "@croquet/croquet" {
     }
 
     /**
-     * The Session API is under construction.
+     * The Session is the entry point for a Croquet App.
      *
      * @hideconstructor
      * @public

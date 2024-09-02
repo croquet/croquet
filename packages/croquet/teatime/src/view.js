@@ -24,14 +24,6 @@ class View {
     static displayWarning(msg, options) { return displayWarning(msg, options); }
     static displayError(msg, options) { return displayError(msg, options); }
 
-    static get currentTopic() {
-        const { currentTopics } = viewDomain;
-        if (!currentTopics) return null;
-        const currentTopic = currentTopics[currentTopics.length - 1];
-        const [scope, event] = currentTopic.split(":");
-        return { scope, event };
-    }
-
     /**
      * A View instance is created in {@link Session.join}, and the root model is passed into its constructor.
      *
@@ -229,6 +221,26 @@ class View {
      */
     unsubscribeAll() {
         this.realm.unsubscribeAll(this.id);
+    }
+
+    /**
+     * Scope and event of the currently executing subscription handler.
+     *
+     * @example
+     * // this.subscribe("*", "*", this.logEvents)
+     * logEvents(data) {
+     *     const {scope, event} = this.activeSubscription;
+     *     console.log(`👁️ View ${scope}:${event} with`, data);
+     * }
+     * @returns {Object} `{scope, event}` or `undefined` if not in a subscription handler.
+     * @since 2.0
+     * @public
+     */
+    get activeSubscription() {
+        const { currentEvent } = viewDomain;
+        if (!currentEvent) return undefined;
+        const [scope, event] = currentEvent.split(":");
+        return { scope, event };
     }
 
     // Misc

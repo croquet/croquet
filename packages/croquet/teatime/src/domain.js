@@ -22,8 +22,8 @@ export class Domain {
         this.perSyncedFrameEvents = new Map();
         /** counter for subscriberIds */
         this.subscriberIds = 0;
-        /** stack of topics being handled */
-        this.currentTopics = [];
+        /** meta data for event currently being handled */
+        this.currentEvent = undefined;
     }
 
     register(_subscriber) {
@@ -115,17 +115,19 @@ export class Domain {
         const subscription = this.subscriptions[topic];
         if (!subscription && !this.genericSubscriptions) return null; // quick exit if no subscribers
         const subscriptions = [];
-        if (subscription) subscriptions.push([subscription, topic]);
+        // if we have generic subscriptions, add them before the specific one
         if (this.genericSubscriptions) {
             const [ scope, event ] = topic.split(':');
             if (!((scope.startsWith("__") && scope.endsWith("__"))
                 || (event.startsWith("__") && event.endsWith("__")))) {
-                for (const generic of [scope + ":*", "*:" + event, "*:*"]) {
+                // order from most generic to most specific
+                for (const generic of ["*:*", scope + ":*", "*:" + event]) {
                     const genericSubscription = this.subscriptions[generic];
                     if (genericSubscription) subscriptions.push([genericSubscription, generic]);
                 }
             }
         }
+        if (subscription) subscriptions.push([subscription, topic]);
         return subscriptions;
     }
 
@@ -142,20 +144,21 @@ export class Domain {
         let queued = 0;
         let oncePerFrame = 0;
         let oncePerFrameWhileSynced = 0;
-        for (const [handlers, currentTopic] of subscriptions) {
+        for (const [handlers, currentEvent] of subscriptions) {
             queued += handlers.queued.size;
             oncePerFrame += handlers.oncePerFrame.size;
             oncePerFrameWhileSynced += handlers.oncePerFrameWhileSynced.size;
             if (handlers.immediate.size > 0) immediateWrapper(() => {
-                this.currentTopics.push(currentTopic);
+                const prevEvent = this.currentEvent;
+                this.currentEvent = currentEvent;
                 for (const handler of handlers.immediate) {
                     try { handler(data); }
                     catch (err) {
                         console.error(err);
-                        console.warn(`Croquet: error "${err.message}" in "immediate" subscription ${currentTopic}`);
+                        console.warn(`Croquet: error "${err.message}" in "immediate" subscription ${currentEvent}`);
                     }
                 }
-                this.currentTopics.pop();
+                this.currentEvent = prevEvent;
             });
         }
         if (queued > 0) this.queuedEvents.push({topic, data});
@@ -172,7 +175,8 @@ export class Domain {
         const invokeHandlers = (handling, topic, data) => {
             const subscriptions = this.subscriptionsFor(topic);
             for (const [handlers] of subscriptions) {
-                this.currentTopics.push(topic);
+                const prevEvent = this.currentEvent;
+                this.currentEvent = topic;
                 for (const handler of handlers[handling]) {
                     try { handler(data); }
                     catch (err) {
@@ -181,7 +185,7 @@ export class Domain {
                     }
                     n++;
                 }
-                this.currentTopics.pop();
+                this.currentEvent = prevEvent;
             }
         };
 

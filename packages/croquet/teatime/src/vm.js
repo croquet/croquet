@@ -407,8 +407,10 @@ export default class VirtualMachine {
                 this.subscribers = new Map();
                 /** @type {Array<{topic,handler}>} generic subscriptions */
                 this.genericSubscriptions = [];
-                /** @type {Array<{string}>} stack of topics for currently executing subscription handlers */
-                this.currentTopics = [];
+                /** @type {string} meta data for currently executing subscription handler */
+                this.currentEvent = "";
+                /** @type {boolean} true if the current event came from the reflector */
+                this.currentEventFromModel = true;
                 /** @type {{[id:string]: {extraConnections?: Number}}} viewIds of active reflector connections */
                 this.views = {};
                 /** @type {SeedRandom} our synced pseudo random stream */
@@ -1029,23 +1031,32 @@ export default class VirtualMachine {
 
     publishFromModel(scope, event, data) {
         if (CurrentVM !== this) throw Error("Cannot publish a model event from outside model code");
+        if (scope.includes(':')) throw Error(`Invalid publish scope "${scope}" (must not contain ':')`);
         // @@ hack for forcing reflection of model-to-model messages
         const reflected = event.endsWith(REFLECTED_SUFFIX);
         if (reflected) event = event.slice(0, event.length - REFLECTED_SUFFIX.length);
 
+        const fromModel = this.currentEventFromModel;
+        this.currentEventFromModel = true;
+
         const topic = scope + ':' + event;
         this.handleModelEventInModel(topic, data, reflected);
         this.handleModelEventInView(topic, data);
+
+        this.currentEventFromModel = fromModel;
     }
 
     publishFromModelOnly(scope, event, data) {
         if (CurrentVM !== this) throw Error("Cannot publish a model event from outside model code");
+        // we don't set currentEventFromModel because this method
+        // is only used to translate reflector messages into model events
         const topic = scope + ':' + event;
         this.handleModelEventInModel(topic, data);
     }
 
     publishFromView(scope, event, data) {
         if (CurrentVM) throw Error("Cannot publish a view event from model code");
+        if (scope.includes(':')) throw Error(`Invalid publish scope "${scope}" (must not contain ':')`);
         const topic = scope + ':' + event;
         this.handleViewEventInModel(topic, data);
         this.handleViewEventInView(topic, data);
@@ -1087,17 +1098,18 @@ export default class VirtualMachine {
                 tallyTarget
                 })); // break out of model code
         } else {
+            // try to keep this as quick as possible if there is no subscription
+
+            // generic handlers (typically none)
+            // these are first so e.g. a logger logs before other handlers
+            // that were triggered by an external event
+            if (this.genericSubscriptions.length > 0) {
+                this.invokeGenericHandlers(topic, data);
+            }
+
             // regular handlers
             if (this.subscriptions[topic]) {
-                this.currentTopics.push(topic);
                 this.invokeHandlers(this.subscriptions[topic], topic, data);
-                this.currentTopics.pop();
-            }
-            // generic handlers (typically none)
-            if (this.genericSubscriptions.length > 0) {
-                this.currentTopics.push(topic);
-                this.invokeGenericHandlers(topic, data);
-                this.currentTopics.pop();
             }
         }
     }
@@ -1128,48 +1140,54 @@ export default class VirtualMachine {
                 || subScope === scope && subEvent === "*"
                 || subScope === "*" && subEvent === "*")
             {
-                this.invokeHandler(subscription.handler, subscription.topic, data);
+                this.invokeHandler(subscription.handler, topic, data);
             }
         }
     }
 
     invokeHandler(handler, topic, data) {
-        const [id, ...rest] = handler.split('.');
-        const methodName = rest.join('.');
-        const model = this.lookUpModel(id);
-
-        if (!model) {
-            displayWarning(`event ${topic} .${methodName}(): subscriber not found`);
-            return;
-        }
-        if (methodName[0] === '{') {
-            const fn = this.compileFuncString(methodName, model);
-            try {
-                fn(data);
-            } catch (error) {
-                displayAppError(`event ${topic} ${model} ${fn}`, error);
-            }
-            return;
-        }
-        if (methodName.indexOf('.') >= 0) {
-            const dot = methodName.indexOf('.');
-            const head = methodName.slice(0, dot);
-            const tail = methodName.slice(dot + 1);
-            try {
-                model.call(head, tail, data);
-            } catch (error) {
-                displayAppError(`event ${topic} ${model}.call(${JSON.stringify(head)}, ${JSON.stringify(tail)})`, error);
-            }
-            return;
-        }
-        if (typeof model[methodName] !== "function") {
-            displayAppError(`event ${topic} ${model}.${methodName}(): method not found`);
-            return;
-        }
+        const prevEvent = this.currentEvent;
+        this.currentEvent = topic;
         try {
-            model[methodName](data);
-        } catch (error) {
-            displayAppError(`event ${topic} ${model}.${methodName}()`, error);
+            const [id, ...rest] = handler.split('.');
+            const methodName = rest.join('.');
+            const model = this.lookUpModel(id);
+
+            if (!model) {
+                displayWarning(`event ${topic} .${methodName}(): subscriber not found`);
+                return;
+            }
+            if (methodName[0] === '{') {
+                const fn = this.compileFuncString(methodName, model);
+                try {
+                    fn(data);
+                } catch (error) {
+                    displayAppError(`event ${topic} ${model} ${fn}`, error);
+                }
+                return;
+            }
+            if (methodName.indexOf('.') >= 0) {
+                const dot = methodName.indexOf('.');
+                const head = methodName.slice(0, dot);
+                const tail = methodName.slice(dot + 1);
+                try {
+                    model.call(head, tail, data);
+                } catch (error) {
+                    displayAppError(`event ${topic} ${model}.call(${JSON.stringify(head)}, ${JSON.stringify(tail)})`, error);
+                }
+                return;
+            }
+            if (typeof model[methodName] !== "function") {
+                displayAppError(`event ${topic} ${model}.${methodName}(): method not found`);
+                return;
+            }
+            try {
+                model[methodName](data);
+            } catch (error) {
+                displayAppError(`event ${topic} ${model}.${methodName}()`, error);
+            }
+        } finally {
+            this.currentEvent = prevEvent;
         }
     }
 
@@ -1451,6 +1469,7 @@ export class Message {
     }
 
     executeOn(vm, nested=false) {
+        vm.currentEventFromModel = !this.isExternal();
         const executor = nested
             ? fn => fn()
             : fn => execInVM(vm, () => inModelRealm(vm, fn));

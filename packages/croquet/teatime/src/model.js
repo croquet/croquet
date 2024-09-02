@@ -179,15 +179,6 @@ class Model {
         return VirtualMachine.current().get(name);
     }
 
-    static get currentTopic() {
-        if (!VirtualMachine.hasCurrent()) throw Error("static Model.currentTopic called from outside model");
-        const { currentTopics } = VirtualMachine.current();
-        const currentTopic = currentTopics[currentTopics.length - 1];
-        if (!currentTopic) return null;
-        const [scope, event] = currentTopic.split(":");
-        return { scope, event };
-    }
-
     /**
      * Evaluates func inside of a temporary VM to get bit-identical results, e.g. to init [Constants]{@link Constants}.
      * @param {Function} func - function to evaluate
@@ -494,6 +485,28 @@ class Model {
     unsubscribeAll() {
         if (!this.__realm) this.__realmError();
         this.__realm.unsubscribeAll(this);
+    }
+
+    /**
+     * Scope and event of the currently executing subscription handler.
+     *
+     * @example
+     * // this.subscribe("*", "*", this.logEvents)
+     * logEvents(data: any) {
+     *     const {scope, event} = Model.activeSubscription!;
+     *     console.log(`🔮 @${this.now()} Model ${scope}:${event}`, data);
+     * }
+     * @returns {Object} `{scope, event}` or `undefined` if not in a subscription handler.
+     * @since 2.0
+     * @public
+     */
+    get activeSubscription() {
+        if (!VirtualMachine.hasCurrent()) throw Error("static Model.activeSubscription called from outside model");
+        const { currentEvent, currentEventFromModel } = VirtualMachine.current();
+        if (!currentEvent) return undefined;
+        const [scope, event] = currentEvent.split(":");
+        const local = currentEventFromModel;
+        return { scope, event, local };
     }
 
     __realmError() {
