@@ -600,6 +600,9 @@ declare module "@croquet/croquet" {
          * showUsers() { this.publish(this.sessionId, "view-count", this.viewCount); }
          * ```*/
         viewCount: number;
+
+        /** make module exports accessible via any subclass */
+        static Croquet: Croquet;
     }
 
     export type ViewSubOptions = {
@@ -861,8 +864,10 @@ declare module "@croquet/croquet" {
          */
 
         get session(): CroquetSession<View>;
-    }
 
+        /** make module exports accessible via any subclass */
+        static Croquet: Croquet;
+    }
 
     export type CroquetSession<V extends View> = {
         id: string,
@@ -970,5 +975,16 @@ declare module "@croquet/croquet" {
      */
 
     export var Data: DataHandle;
+
+
+    type Croquet = {
+        Model: typeof Model,
+        View: typeof View,
+        Session: typeof Session,
+        Data: DataHandle,
+        Constants: typeof Constants,
+        App: IApp,
+        // Messenger
+    }
 
 }
