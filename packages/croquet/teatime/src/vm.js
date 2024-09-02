@@ -252,8 +252,11 @@ const QFuncSpec = {
     // that's a deserializer bug
 };
 
+// used to construct method prefix and for error messages ("${X} is not a method of ..."")
 const FUTURE_MESSAGE_HANDLER = "future message";
+const CANCEL_FUTURE = "message in cancelFuture";
 const SUBSCRIPTION_HANDLER = "subscription handler";
+const UNSUBSCRIBE_ARGUMENT = "unsubscribe argument";
 
 function asQFuncMethodPrefix(handler) {
     return `qFunc~${handler.split(" ")[0]}~`;
@@ -266,12 +269,25 @@ function shouldRegisterQFuncMethod(handler) {
     return handler === FUTURE_MESSAGE_HANDLER || handler === SUBSCRIPTION_HANDLER;
 }
 
-function isRegisteredQFuncFuture(methodName) {
+function isQFuncFuture(methodName) {
     return methodName.startsWith(QFUNC_FUTURE_PREFIX);
 }
 
-function isRegisteredQFuncSubscription(methodName) {
+function handlesFuture(handler) {
+    return handler === FUTURE_MESSAGE_HANDLER || handler === CANCEL_FUTURE;
+}
+
+function asQFuncSubscription(topic) {
+    return `${QFUNC_SUBSCRIPTION_PREFIX}${topic}`;
+}
+
+function isQFuncSubscription(methodName) {
     return methodName.startsWith(QFUNC_SUBSCRIPTION_PREFIX);
+}
+
+function isRegisteredQFuncSubscription(methodName, topic) {
+    if (!methodName.startsWith(QFUNC_SUBSCRIPTION_PREFIX)) return false;
+    return methodName.slice(QFUNC_SUBSCRIPTION_PREFIX.length) === topic;
 }
 
 // this is the only place allowed to set CurrentVM
@@ -707,11 +723,11 @@ export default class VirtualMachine {
             removed = messages.removeMany(msg => msg.receiver === model.id);
             return removed.length > 0;
         } else {
-            const methodName = this.asMethodName(model, methodOrMessage, "cancelFuture message");
+            const methodName = this.asMethodName(model, methodOrMessage, CANCEL_FUTURE);
             const receiverID = model.id;
             removed = messages.removeOne(msg => msg.receiver === receiverID && msg.selector === methodName
                 || msg.receiver === "_" && msg.selector === "futureExecAndRepeat" && msg.args[1] === receiverID && msg.args[2] === methodName);
-            if (isRegisteredQFuncFuture(methodName)) {
+            if (isQFuncFuture(methodName)) {
                 delete model[methodName];
             }
         }
@@ -797,30 +813,52 @@ export default class VirtualMachine {
 
     // Pub-sub
 
-    asMethodName(model, func, handler = SUBSCRIPTION_HANDLER) {
+    // Subscriptions and future messages are stored as strings
+    // and interpreted as method names.
+    // Typically we recommend passing "this.method" as the handler
+    // which stores the method name in the model and returns it.
+    // It's also acceptable to pass the method name as a string.
+    // If a QFunc is passed, it is registered as a method in the model
+    // temporarily under a special name, and that special name is returned.
+    // The QFunc method is removed automatically:
+    // - if it's a future message, right before executing the message
+    // - if it's a subscription handler, when unsubscribing
+    asMethodName(model, func, what, topic=null) {
         // if a string was passed in, assume it's a method name
         if (typeof func === "string") return func;
-        // if a function was passed in, hope it was a method
+        // if a function was passed in, it should be a method or QFunc
         if (typeof func === "function") {
-            // if passing this.method
+            // if passing this.method we can just return the name
             if (model[func.name] === func) return func.name;
+            // if passing a QFunc, we can check if it's a subscription handler for the topic
+            if (func[QFUNC] && topic) {
+                const subscription = asQFuncSubscription(topic);
+                if (model[subscription] === func) return subscription;
+            }
             // if passing this.foo = this.method
             let obj = model;
             while (obj !== null) {
-                // if it's a method or registered QFunc, return the name
+                // if it's a method or future-message QFunc, return the name
                 for (const [name, desc] of Object.entries(Object.getOwnPropertyDescriptors(obj))) {
-                    if (desc.value === func) return name;
+                    if (desc.value === func) {
+                        if (func[QFUNC] && !(handlesFuture(what) && isQFuncFuture(name))) continue;
+                        return name;
+                    }
                 }
                 // if it's a QFunc handler, register it in the model
                 // (if it was registered before, it would have been found above)
                 if (obj === model && func[QFUNC]) {
-                    if (!shouldRegisterQFuncMethod(handler)) {
-                        displayWarning(`${handler} is not a registered QFunc: ${func}`, { only: "once" });
+                    if (!shouldRegisterQFuncMethod(what)) {
+                        displayWarning(`${what} is not a registered QFunc: ${func}`, { only: "once" });
                         return null;
                     }
-                    const prefix = asQFuncMethodPrefix(handler);
-                    let name, i = 0;
-                    do { name = `${prefix}${i++}`; } while (model[name]);
+                    let name;
+                    if (topic) name = asQFuncSubscription(topic); // implies a subscription
+                    else {
+                        const prefix = QFUNC_FUTURE_PREFIX;
+                        let i = 0;
+                        do { name = `${prefix}${i++}`; } while (model[name]);
+                    }
                     model[name] = func;
                     return name;
                     // this registration is cleaned up after executing a future QFunc
@@ -830,7 +868,7 @@ export default class VirtualMachine {
                 obj = Object.getPrototypeOf(obj);
             }
             // otherwise, assume it's an inline function
-            displayWarning(`${handler} is not a method of ${model} and not a QFunc: ${func}\n`, { only: "once" });
+            displayWarning(`${what} is not a method of ${model} and not a QFunc: ${func}\n`, { only: "once" });
             // if passing (foo) => this.bar(baz)
             // match:                (   foo             )   =>  this .  bar              (    baz               )
             const HANDLER_REGEX = /^\(?([a-z][a-z0-9]*)?\)? *=> *this\.([a-z][a-z0-9]*) *\( *([a-z][a-z0-9]*)? *\) *$/i;
@@ -876,14 +914,14 @@ export default class VirtualMachine {
 
     addSubscription(model, scope, event, methodNameOrCallback) {
         if (CurrentVM !== this) throw Error("Cannot add a model subscription from outside model code");
-        const methodName = this.asMethodName(model, methodNameOrCallback);
+        const topic = scope + ':' + event;
+        const methodName = this.asMethodName(model, methodNameOrCallback, SUBSCRIPTION_HANDLER, topic);
         if (typeof methodName !== "string") {
             throw Error(`Subscription handler for "${event}" must be a method name`);
         }
         if (methodName.indexOf('.') < 0 && typeof model[methodName] !== "function") {
             if (methodName[0] !== '{') throw Error(`Subscriber method for "${event}" not found: ${model}.${methodName}()`);
         }
-        const topic = scope + ':' + event;
         const id = model === this ? "_" : model.id;
         const handler = id + '.' + methodName;
         // model subscriptions need to be ordered, so we're using an array
@@ -909,13 +947,13 @@ export default class VirtualMachine {
                 for (let i = handlers.length - 1; i >= 0; i--) {
                     if (handlers[i].startsWith(handlerPrefix)) {
                         const nameString = handlers[i].slice(handlerPrefix.length);
-                        if (isRegisteredQFuncSubscription(nameString)) delete model[nameString];
+                        if (isRegisteredQFuncSubscription(nameString, topic)) delete model[nameString];
                         handlers.splice(i, 1);
                     }
                 }
                 if (handlers.length === 0) delete this.subscriptions[topic];
             } else {
-                const nameString = this.asMethodName(model, methodName);
+                const nameString = this.asMethodName(model, methodName, UNSUBSCRIBE_ARGUMENT, topic);
                 if (typeof nameString !== "string") {
                     throw Error(`Invalid unsubscribe args for "${event}" in ${model}: ${methodName}`);
                 }
@@ -924,7 +962,7 @@ export default class VirtualMachine {
                 if (indexToRemove !== -1) {
                     handlers.splice(indexToRemove, 1);
                     if (handlers.length === 0) delete this.subscriptions[topic];
-                    if (isRegisteredQFuncSubscription(nameString)) delete model[nameString];
+                    if (isRegisteredQFuncSubscription(nameString, topic)) delete model[nameString];
                 }
                 // if there are remaining handlers, do not remove the topic for this model
                 if (handlers.find(h => h.startsWith(handlerPrefix))) {
@@ -949,7 +987,7 @@ export default class VirtualMachine {
                 for (let i = handlers.length - 1; i >= 0; i--) {
                     if (handlers[i].startsWith(handlerPrefix)) {
                         const nameString = handlers[i].slice(handlerPrefix.length);
-                        if (isRegisteredQFuncSubscription(nameString)) delete model[nameString];
+                        if (isRegisteredQFuncSubscription(nameString, topic)) delete model[nameString];
                         handlers.splice(i, 1);
                     }
                 }
@@ -1384,7 +1422,7 @@ export class Message {
             displayWarning(`${this.shortString()} ${model}.${selector}(): method not found`);
         } else executor(() => {
             try {
-                if (isRegisteredQFuncFuture(selector)) {
+                if (isQFuncFuture(selector)) {
                     const qFunc = model[selector];
                     delete model[selector]; // delete before calling, might be redefined in call
                     qFunc(...args);
