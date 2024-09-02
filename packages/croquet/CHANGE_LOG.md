@@ -4,7 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest @dev
 
-
+* 2.0.0-23 support generic subscriptions, expose activeSubscription, add debug=events, expose gatherClassTypes
 * 2.0.0-22 fix types.d.ts
 * 2.0.0-21 support QFuncs as future messages and subscription handlers
 * 2.0.0-20 retry downloads and finding ICE servers
