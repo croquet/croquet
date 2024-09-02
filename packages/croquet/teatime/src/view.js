@@ -1,6 +1,7 @@
 import { displayStatus, displayWarning, displayError } from "./_HTML_MODULE_"; // eslint-disable-line import/no-unresolved
 import { currentRealm, inViewRealm } from "./realms";
 import { viewDomain } from "./domain";
+import urlOptions from "./urlOptions";
 
 /**
  * Views are the local, non-synchronized part of a Croquet Application.
@@ -54,6 +55,20 @@ class View {
         // hack to get root view into session object before constructor finishes
         const session = realm.controller.session;
         if (!session.view) session.view = this;
+        // if event debugging is enabled, log events in root view
+        if (session.view === this && urlOptions.has("debug", "events", false)) {
+            const logEvent = data => {
+                if (!realm.vm.debugEvents) return; // disabled by model
+                const { scope, event, source } = this.activeSubscription;
+                const action = source === "view" ? "publish" : "receive";
+                const emoji = source === "view" ? "📮" : "👁️";
+                console.log(`${emoji} View ${action} ${scope}:${event}`, data);
+            };
+            const logPublishedEvent = data => this.activeSubscription.source === "view" && logEvent(data);
+            const logReceivedEvent = data => this.activeSubscription.source === "model" && logEvent(data);
+            this.subscribe("*", {event: "*", handling: "queued"}, logReceivedEvent);
+            this.subscribe("*", {event: "*", handling: "immediate"}, logPublishedEvent);
+        }
         // eslint-disable-next-line no-constant-condition
         if (false) {
             /** Each view has an id which can be used to scope [events]{@link View#publish} between views.

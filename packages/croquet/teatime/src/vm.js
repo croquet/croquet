@@ -388,7 +388,7 @@ export default class VirtualMachine {
         }
     }
 
-    constructor(snapshot, initFn, compat) {
+    constructor(snapshot, debugEvents, initFn, compat) {
         patchBrowser(); // trivial if already installed
         initDEBUG();
         clearPersistenceCache(this);
@@ -409,8 +409,10 @@ export default class VirtualMachine {
                 this.genericSubscriptions = [];
                 /** @type {string} meta data for currently executing subscription handler */
                 this.currentEvent = "";
-                /** @type {boolean} true if the current event came from the reflector */
-                this.currentEventFromModel = true;
+                /** @type {boolean} true if the currentEvent was published by a model */
+                this.currentEventFromModel = false;
+                /** @type {boolean} true if event logging is enabled */
+                this.debugEvents = debugEvents;
                 /** @type {{[id:string]: {extraConnections?: Number}}} viewIds of active reflector connections */
                 this.views = {};
                 /** @type {SeedRandom} our synced pseudo random stream */

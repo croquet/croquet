@@ -71,6 +71,8 @@ function initDEBUG() {
     DEBUG = {
         messages: urlOptions.has("debug", "messages", false),               // received messages
         sends: urlOptions.has("debug", "sends", false),                     // sent messages
+        events: urlOptions.has("debug", "events", false)                    // published events
+            || urlOptions.has("debug", "publish", "all"),
         ticks: urlOptions.has("debug", "ticks", false),                     // received ticks
         pong: urlOptions.has("debug", "pong", false),                       // received PONGs
         snapshot: urlOptions.has("debug", "snapshot", false),               // snapshotting, uploading etc
@@ -445,6 +447,8 @@ export default class Controller {
         }
         // allow overriding versionId (for testing / reviving old sessions)
         sessionParams.hashOverride = urlOptions.hashOverride || sessionSpec.hashOverride;
+        const debugEvents = DEBUG.events;
+        if (debugEvents) sessionParams.debugEvents = true;
         // now do the hashing, separately for persistent and session IDs`
         const persistentId = await hashNameAndOptions(name, persistentParams);
         // on DePIN, token is undefined
@@ -463,7 +467,7 @@ export default class Controller {
         this.eventHistoryLimit = this.eventRateLimit; // warn user if this many sends recorded in under a second
         this.eventMaxBundles = this.eventRateLimit; // disconnect app if more than this many message bundles are waiting
 
-        this.sessionSpec = { ...sessionSpec, options, name, id, persistentId, developerId, token, codeHash, computedCodeHash };
+        this.sessionSpec = { ...sessionSpec, options, name, id, persistentId, developerId, token, codeHash, computedCodeHash, debugEvents };
 
         const { msPerTick, multiplier } = this.getTickAndMultiplier();
         this.msPerTick = msPerTick;
@@ -1512,10 +1516,10 @@ export default class Controller {
     // create the VirtualMachine for this Controller, based on the sessionSpec
     install(persistentData) {
         const start = Date.now();
-        const {snapshot, initFn, options, codeHash, computedCodeHash} = this.sessionSpec;
+        const {snapshot, initFn, options, debugEvents } = this.sessionSpec;
         const [verb, noun] = snapshot.modelsById ? ["deserializ", "snapshot"] : ["initializ", "root model"];
         if (DEBUG.session) console.log(this.id, `${verb}ing ${noun}`);
-        let newVM = new VirtualMachine(snapshot, () => {
+        let newVM = new VirtualMachine(snapshot, debugEvents, () => {
             try { return initFn(options, persistentData); }
             catch (error) {
                 displayAppError("init", error, "fatal");
@@ -1535,7 +1539,7 @@ export default class Controller {
                 throw error; // unrecoverable.  bring the whole tab to a halt
             }
             try {
-                newVM = new VirtualMachine(JSON.parse(initialSnapshot), () => initFn(options));
+                newVM = new VirtualMachine(JSON.parse(initialSnapshot), debugEvents, () => initFn(options));
             } catch (error) {
                 displayAppError("initial snapshot resume", error, "fatal");
                 throw error; // unrecoverable.  bring the whole tab to a halt

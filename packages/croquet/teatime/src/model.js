@@ -73,7 +73,6 @@ class Model {
         if (!hasID(this)) throw Error(`Model class "${this.name}" not registered`);
         const ModelClass = this;
         const model = this.createNoInit();
-        SuperInitNotCalled.add(model);
         if (typeof persistentData === "string") {
             console.warn(`Croquet: Model.create(..., "${persistentData}") with a well-known name argument is deprecated!`);
             model.beWellKnownAs(persistentData);
@@ -84,6 +83,12 @@ class Model {
         if (modelRootName) {
             model.beWellKnownAs(modelRootName);
         }
+        // set up event log subscriptions before user subscriptions
+        if (modelRootName === "modelRoot" && model.__realm.vm.debugEvents) {
+            this.eventDebugInit(model);
+        }
+        // now call user init
+        SuperInitNotCalled.add(model);
         model.init(options, persistentData);
         if (SuperInitNotCalled.has(model)) {
             SuperInitNotCalled.delete(model);
@@ -321,6 +326,23 @@ class Model {
         return result;
     }
 
+    /** register event logger subscription */
+    static eventDebugInit(model) {
+        // hack to access urlOptions outside the QFunc's scope
+        const debug = {
+            get events() { return urlOptions.has("debug", "events", false); },
+        };
+        function logEvents(data) {
+            // do this here to have no side effects below
+            const { scope, event, source } = this.activeSubscription;
+            if (!debug.events) return;
+            // debug.events is view-dependent. Must not have any side effects!
+            const action = source === "model" ? "publish" : "receive";
+            const emoji = source === "model" ? "🔮" : "📬";
+            console.log(`${emoji} @${this.now()} Model ${action} ${scope}:${event}`, data);
+        }
+        model.subscribe("*", "*", model.createQFunc({debug}, logEvents));
+    }
 
 
     // for use by serializer (see vm.js)

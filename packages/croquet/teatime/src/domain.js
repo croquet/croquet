@@ -24,6 +24,8 @@ export class Domain {
         this.subscriberIds = 0;
         /** meta data for event currently being handled */
         this.currentEvent = undefined;
+        /** @type {boolean} true if the currentEvent was published by a model */
+        this.currentEventFromModel = false;
     }
 
     register(_subscriber) {

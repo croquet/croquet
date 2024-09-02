@@ -888,9 +888,9 @@ declare module "@croquet/croquet" {
 
     export type CroquetModelOptions = object;
 
-    export type CroquetDebugOptions =
+    export type CroquetDebugOption =
         "session" | "messages" | "sends" | "snapshot" |
-        "data" | "hashing" | "subscribe" | "classes" | "ticks" |
+        "data" | "hashing" | "subscribe" | "events" | "classes" | "ticks" |
         "write" | "offline";
 
     type ClassOf<M> = new (...args: any[]) => M;
@@ -908,7 +908,7 @@ declare module "@croquet/croquet" {
         autoSleep?: number|boolean,
         rejoinLimit?: number,
         eventRateLimit?: number,
-        debug?: CroquetDebugOptions | Array<CroquetDebugOptions>
+        debug?: CroquetDebugOption | Array<CroquetDebugOption>
     }
 
     /**
