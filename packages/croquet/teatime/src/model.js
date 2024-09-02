@@ -332,6 +332,8 @@ class Model {
         const debug = {
             get events() { return urlOptions.has("debug", "events", false); },
         };
+        // use string to survive minification
+        const logEvents = `
         function logEvents(data) {
             // do this here to have no side effects below
             const { scope, event, source } = this.activeSubscription;
@@ -339,8 +341,9 @@ class Model {
             // debug.events is view-dependent. Must not have any side effects!
             const action = source === "model" ? "publish" : "receive";
             const emoji = source === "model" ? "🔮" : "📬";
-            console.log(`${emoji} @${this.now()} Model ${action} ${scope}:${event}`, data);
+            console.log(\`\${emoji} @\${this.now()} Model \${action} \${scope}:\${event}\`, data);
         }
+        `;
         model.subscribe("*", "*", model.createQFunc({debug}, logEvents));
     }
 
