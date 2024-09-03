@@ -4,6 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest @dev
 
+* 2.0.0-24 more logging
 * 2.0.0-24 fix event logging, make Croquet available in QFuncs
 * 2.0.0-23 support generic subscriptions, expose activeSubscription, add debug=events, expose gatherClassTypes
 * 2.0.0-22 fix types.d.ts
