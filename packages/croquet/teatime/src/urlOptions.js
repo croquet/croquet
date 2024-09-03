@@ -19,8 +19,8 @@ class UrlOptions {
      * @param {String} item - value to look for in list of items
      * @param {Boolean|String} defaultValue - if string, true on that hostname, false otherwise
      */
-    has(key, item, defaultValue) {
-        if (typeof defaultValue !== "boolean") defaultValue = this.isHost(defaultValue);
+    has(key, item, defaultValue = false) {
+        if (typeof defaultValue === "string") defaultValue = this.isHost(defaultValue);
         const urlString = this[key];
         if (typeof urlString !== "string") return defaultValue;
         const urlItems = urlString.split(',');

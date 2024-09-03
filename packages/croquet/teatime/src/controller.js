@@ -71,8 +71,8 @@ function initDEBUG() {
     DEBUG = {
         messages: urlOptions.has("debug", "messages", false),               // received messages
         sends: urlOptions.has("debug", "sends", false),                     // sent messages
-        events: urlOptions.has("debug", "events", false)                    // published events
-            || urlOptions.has("debug", "publish", "all"),
+        publish: urlOptions.has("debug", "publish", false),                 // published events
+        events: urlOptions.has("debug", "events", false),                   // subscribed events
         ticks: urlOptions.has("debug", "ticks", false),                     // received ticks
         pong: urlOptions.has("debug", "pong", false),                       // received PONGs
         snapshot: urlOptions.has("debug", "snapshot", false),               // snapshotting, uploading etc
@@ -447,7 +447,7 @@ export default class Controller {
         }
         // allow overriding versionId (for testing / reviving old sessions)
         sessionParams.hashOverride = urlOptions.hashOverride || sessionSpec.hashOverride;
-        const debugEvents = DEBUG.events;
+        const debugEvents = DEBUG.events || DEBUG.publish;
         if (debugEvents) sessionParams.debugEvents = true;
         // now do the hashing, separately for persistent and session IDs`
         const persistentId = await hashNameAndOptions(name, persistentParams);

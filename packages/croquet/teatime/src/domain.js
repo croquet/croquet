@@ -117,6 +117,7 @@ export class Domain {
         const subscription = this.subscriptions[topic];
         if (!subscription && !this.genericSubscriptions) return null; // quick exit if no subscribers
         const subscriptions = [];
+        let hasUserSubcription = !!subscription;
         // if we have generic subscriptions, add them before the specific one
         if (this.genericSubscriptions) {
             const [ scope, event ] = topic.split(':');
@@ -125,12 +126,33 @@ export class Domain {
                 // order from most generic to most specific
                 for (const generic of ["*:*", scope + ":*", "*:" + event]) {
                     const genericSubscription = this.subscriptions[generic];
-                    if (genericSubscription) subscriptions.push([genericSubscription, generic]);
+                    if (genericSubscription) {
+                        subscriptions.push([genericSubscription, generic]);
+                        if (!hasUserSubcription && this.hasUserSubcription(genericSubscription)) {
+                            hasUserSubcription = true;
+                        }
+                    }
                 }
+            }
+            const onlyGeneric = !hasUserSubcription;
+            if (onlyGeneric) for (const genericSubscription of subscriptions) {
+                genericSubscription.push(onlyGeneric);
             }
         }
         if (subscription) subscriptions.push([subscription, topic]);
+        if (subscriptions.length === 0) return null;
         return subscriptions;
+    }
+
+    hasUserSubcription(subscription) {
+        for (const handling of ['immediate', 'queued', 'oncePerFrame', 'oncePerFrameWhileSynced']) {
+            for (const handler of subscription[handling]) {
+                if (!handler.unbound.__CROQUET__) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /** An event was published. Invoke its immediate handlers now, and/or queue it
@@ -147,7 +169,7 @@ export class Domain {
         let queued = 0;
         let oncePerFrame = 0;
         let oncePerFrameWhileSynced = 0;
-        for (const [handlers, currentEvent] of subscriptions) {
+        for (const [handlers, currentEvent, onlyGeneric] of subscriptions) {
             queued += handlers.queued.size;
             oncePerFrame += handlers.oncePerFrame.size;
             oncePerFrameWhileSynced += handlers.oncePerFrameWhileSynced.size;
@@ -157,8 +179,10 @@ export class Domain {
                     for (const handler of handlers.immediate) {
                         const prevEvent = this.currentEvent;
                         const prevEventFromModel = this.currentEventFromModel;
+                        const prevEventOnlyGeneric = this.currentEventOnlyGeneric;
                         this.currentEvent = topic;
                         this.currentEventFromModel = fromModel;
+                        this.currentEventOnlyGeneric = onlyGeneric;
                         try { handler(data); }
                         catch (err) {
                             console.error(err);
@@ -166,6 +190,7 @@ export class Domain {
                         }
                         this.currentEvent = prevEvent;
                         this.currentEventFromModel = prevEventFromModel;
+                        this.currentEventOnlyGeneric = prevEventOnlyGeneric;
                     }
                });
             }
@@ -182,12 +207,15 @@ export class Domain {
         let n = 0;
 
         const invokeHandlers = (handling, topic, data, fromModel) => {
+            const subscriptions = this.subscriptionsFor(topic);
+            if (!subscriptions) return; // quick exit if no subscribers
             const prevEvent = this.currentEvent;
             const prevEventFromModel = this.currentEventFromModel;
             this.currentEvent = topic;
             this.currentEventFromModel = fromModel;
-            const subscriptions = this.subscriptionsFor(topic);
-            for (const [handlers] of subscriptions) {
+            for (const [handlers, _genericTopic, onlyGeneric] of subscriptions) {
+                const prevEventOnlyGeneric = this.currentEventOnlyGeneric;
+                this.currentEventOnlyGeneric = onlyGeneric;
                 for (const handler of handlers[handling]) {
                     try { handler(data); }
                     catch (err) {
@@ -196,6 +224,7 @@ export class Domain {
                     }
                     n++;
                 }
+                this.currentEventOnlyGeneric = prevEventOnlyGeneric;
             }
             this.currentEvent = prevEvent;
             this.currentEventFromModel = prevEventFromModel;

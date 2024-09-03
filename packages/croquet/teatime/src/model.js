@@ -5,10 +5,14 @@ import { currentRealm } from "./realms";
 import VirtualMachine, { createQFunc, resetReadersAndWriters } from "./vm";
 
 const DEBUG = {
-    classes: urlOptions.has("debug", "classes", false),
-    write: undefined, // set in Model.create
+    classes: urlOptions.has("debug", "classes"),
 };
 
+function initDEBUG() {
+    DEBUG.write = urlOptions.has("debug", "write");
+    DEBUG.publish = urlOptions.has("debug", "publish");
+    DEBUG.events = urlOptions.has("debug", "events");
+}
 
 /** passed to Model constructor to check if it was called via create */
 let SECRET = Symbol("SECRET");
@@ -112,7 +116,7 @@ class Model {
         const model = new ModelClass(SECRET);
         if (!id) id = realm.register(model);
         // debug proxying does not work for non-writable object props
-        if (DEBUG.write === undefined) DEBUG.write = urlOptions.has("debug", "write", false);
+        if (DEBUG.write === undefined) initDEBUG();
         Object.defineProperty(model, "__realm", { value: realm, writable: DEBUG.write });
         Object.defineProperty(model, "id", { value: id, enumerable: true });
         return model;
@@ -326,25 +330,24 @@ class Model {
         return result;
     }
 
+    static eventDebugOptions() { return DEBUG; }
+
     /** register event logger subscription */
     static eventDebugInit(model) {
-        // hack to access urlOptions outside the QFunc's scope
-        const debug = {
-            get events() { return urlOptions.has("debug", "events", false); },
-        };
         // use string to survive minification
         const logEvents = `
         function logEvents(data) {
-            // do this here to have no side effects below
+            // do this now to have no side effects below
             const { scope, event, source } = this.activeSubscription;
-            if (!debug.events) return;
-            // debug.events is view-dependent. Must not have any side effects!
+            // below stuff is outside the model. Must not have any side effects!
+            const debug = this.constructor.eventDebugOptions();
+            if (!debug.events && !debug.publish) return;
             const action = source === "model" ? "publish" : "receive";
             const emoji = source === "model" ? "🔮" : "📬";
             console.log(\`\${emoji} @\${this.now()} Model \${action} \${scope}:\${event}\`, data);
         }
         `;
-        model.subscribe("*", "*", model.createQFunc({debug}, logEvents));
+        model.subscribe("*", "*", model.createQFunc(logEvents));
     }
 
 

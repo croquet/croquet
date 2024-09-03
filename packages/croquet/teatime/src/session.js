@@ -109,8 +109,8 @@ export class Session {
      * | `"data"`       | data API stats
      * | `"hashing"`    | code hashing to derive session ID/persistentId
      * | `"subscribe"`  | subscription additions/removals
+     * | `"publish"`    | events published
      * | `"classes"`    | class registrations
-     * | `"events"`     | event publication
      * | `"ticks"`      | each tick received
      * | `"write"`      | detect accidental writes from view code to model properties
      * | `"offline"`    | disable multiuser

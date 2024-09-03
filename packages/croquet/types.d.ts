@@ -890,7 +890,7 @@ declare module "@croquet/croquet" {
 
     export type CroquetDebugOption =
         "session" | "messages" | "sends" | "snapshot" |
-        "data" | "hashing" | "subscribe" | "events" | "classes" | "ticks" |
+        "data" | "hashing" | "subscribe" | "publish" | "events" | "classes" | "ticks" |
         "write" | "offline";
 
     type ClassOf<M> = new (...args: any[]) => M;

@@ -3,6 +3,15 @@ import { currentRealm, inViewRealm } from "./realms";
 import { viewDomain } from "./domain";
 import urlOptions from "./urlOptions";
 
+let DEBUG;
+
+function initDEBUG() {
+    DEBUG = {
+        events: urlOptions.has("debug", "events"),
+        publish: urlOptions.has("debug", "publish"),
+    };
+}
+
 /**
  * Views are the local, non-synchronized part of a Croquet Application.
  * Each device and browser window creates its own independent local view.
@@ -56,16 +65,21 @@ class View {
         const session = realm.controller.session;
         if (!session.view) session.view = this;
         // if event debugging is enabled, log events in root view
-        if (session.view === this && urlOptions.has("debug", "events", false)) {
+        if (!DEBUG) initDEBUG();
+        if (session.view === this && (DEBUG.events || DEBUG.publish)) {
             const logEvent = data => {
                 if (!realm.vm.debugEvents) return; // disabled by model
-                const { scope, event, source } = this.activeSubscription;
+                const { scope, event, source, subscribed } = this.activeSubscription;
+                if (!subscribed && !DEBUG.publish) return;
                 const action = source === "view" ? "publish" : "receive";
                 const emoji = source === "view" ? "📮" : "👁️";
-                console.log(`${emoji} View ${action} ${scope}:${event}`, data);
+                const noSubscribers = subscribed || action === "publish" ? "" : " (no subscribers)";
+                console.log(`${emoji} View ${action} ${scope}:${event}${noSubscribers}`, data);
             };
             const logPublishedEvent = data => this.activeSubscription.source === "view" && logEvent(data);
             const logReceivedEvent = data => this.activeSubscription.source === "model" && logEvent(data);
+            logPublishedEvent.__CROQUET__ = true;
+            logReceivedEvent.__CROQUET__ = true;
             this.subscribe("*", {event: "*", handling: "queued"}, logReceivedEvent);
             this.subscribe("*", {event: "*", handling: "immediate"}, logPublishedEvent);
         }
@@ -252,11 +266,12 @@ class View {
      * @public
      */
     get activeSubscription() {
-        const { currentEvent, currentEventFromModel } = viewDomain;
+        const { currentEvent, currentEventFromModel, currentEventOnlyGeneric } = viewDomain;
         if (!currentEvent) return undefined;
         const [scope, event] = currentEvent.split(":");
         const source = currentEventFromModel ? "model" : "view";
-        return { scope, event, source };
+        const subscribed = !currentEventOnlyGeneric;
+        return { scope, event, source, subscribed };
     }
 
     // Misc
