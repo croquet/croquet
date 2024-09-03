@@ -556,7 +556,7 @@ class Model {
      * // this.subscribe("*", "*", this.logEvents)
      * logEvents(data: any) {
      *     const {scope, event, source} = this.activeSubscription;
-     *     console.log(`🔮 Model from ${source} ${scope}:${event} with`, data);
+     *     console.log(`${this.now()} Event in model from ${source} ${scope}:${event} with`, data);
      * }
      * @returns {Object} `{scope, event, source}` or `undefined` if not in a subscription handler.
      * @since 2.0

@@ -259,7 +259,7 @@ class View {
      * // this.subscribe("*", "*", this.logEvents)
      * logEvents(data) {
      *     const {scope, event, source} = this.activeSubscription;
-     *     console.log(`👁️ View from ${source} ${scope}:${event} with`, data);
+     *     console.log(`Event in view from ${source} ${scope}:${event} with`, data);
      * }
      * @returns {Object} `{scope, event, source}` or `undefined` if not in a subscription handler.
      * @since 2.0

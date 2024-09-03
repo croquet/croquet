@@ -381,7 +381,7 @@ declare module "@croquet/croquet" {
          * // this.subscribe("*", "*", this.logEvents)
          * logEvents(data: any) {
          *     const {scope, event, source} = this.activeSubscription!;
-         *     console.log(`🔮 Model from ${source} ${scope}:${event} with`, data);
+         *     console.log(`${this.now()} Event in model from ${source} ${scope}:${event} with`, data);
          * }
          * ```
          * @returns {Object} `{scope, event, source}` or `undefined` if not in a subscription handler.
@@ -761,8 +761,8 @@ declare module "@croquet/croquet" {
          * ```
          * // this.subscribe("*", "*", this.logEvents)
          * logEvents(data: any) {
-        *     const {scope, event, source} = this.activeSubscription;
-        *     console.log(`👁️ View from ${source} ${scope}:${event} with`, data);
+         *     const {scope, event, source} = this.activeSubscription;
+         *     console.log(`Event in view from ${source} ${scope}:${event} with`, data);
          * }
          * ```
          * @returns {Object} `{scope, event, source}` or `undefined` if not in a subscription handler.
