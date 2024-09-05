@@ -1,7 +1,7 @@
 import { displayStatus, displayWarning, displayError } from "./_HTML_MODULE_"; // eslint-disable-line import/no-unresolved
 import { currentRealm, inViewRealm } from "./realms";
 import { viewDomain } from "./domain";
-import urlOptions from "./urlOptions";
+import urlOptions from "./_URLOPTIONS_MODULE_"; // eslint-disable-line import/no-unresolved
 
 let DEBUG;
 
