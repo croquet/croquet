@@ -2257,6 +2257,8 @@ export default class Controller {
         this.processModelViewEvents(stepType === "animation");
         Stats.end("update");
 
+        if (!this.vm) return; // the latest simulation might have shut down the session
+
         // the buffer for rate-limited SENDS is serviced by timeouts when
         // the session is being animated, and will ignore additional
         // invocations that don't fit its schedule.
@@ -2267,7 +2269,7 @@ export default class Controller {
 
         if (stepType !== "animation") return;
 
-        if (parameters.view && this.vm) { // make sure the latest simulation hasn't shut down the session
+        if (parameters.view) {
             Stats.begin("render");
             this.inViewRealm(() => parameters.view.update(parameters.frameTime));
             Stats.end("render");
