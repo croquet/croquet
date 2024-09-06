@@ -2267,7 +2267,7 @@ export default class Controller {
 
         if (stepType !== "animation") return;
 
-        if (parameters.view) {
+        if (parameters.view && this.vm) { // make sure the latest simulation hasn't shut down the session
             Stats.begin("render");
             this.inViewRealm(() => parameters.view.update(parameters.frameTime));
             Stats.end("render");
