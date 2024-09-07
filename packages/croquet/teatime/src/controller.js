@@ -578,7 +578,7 @@ export default class Controller {
             // result from multisynq either has developerId or error, with token always undefined
             const { error, developerId, token } = await response.json();
             if (error) throw Error(error);
-            if (DEBUG.session) console.log(`${DEPIN ? "Multisynq" : "Croquet"}: verified API key`);
+            if (DEBUG.session) console.log(`${DEPIN ? "Multisynq" : "Croquet"}: verified API key for developer ${developerId}`);
             return { developerId, token };
         } catch (err) {
             throw Error(`${DEPIN ? "Multisynq" : "Croquet"} API key validation failed for "${apiKey}": ${err.message}`);
@@ -1565,7 +1565,9 @@ export default class Controller {
 
     // network queue
 
-    sendJoin() {
+    connectionEstablished() {
+        // there is a connection, but on DePIN it won't generally be ready for
+        // JOIN until ICE negotiation has happened.
         this.syncReceived = false; // until SYNC is received, a dropped connection doesn't require controller.leave()
         this.syncCompleted = false; // until the end of SYNC, send nothing to the reflector other than a JOIN
         delete this.fastForwardHandler; // in case one was left
@@ -1573,7 +1575,9 @@ export default class Controller {
         // cancel rejoin timeout (if any) immediately.  now that we're reconnected, it
         // would be messy to have a reboot triggered between now and the SYNC.
         if (this.rejoinTimeout) { clearTimeout(this.rejoinTimeout); this.rejoinTimeout = 0; }
+    }
 
+    sendJoin() {
         if (DEBUG.session) console.log(this.id, "Controller sending JOIN");
 
         const { tick, delay } = this.getTickAndMultiplier();
@@ -1641,6 +1645,13 @@ export default class Controller {
             // set up a timeout to leave unless the connection gets restored
             // within rejoinLimit
             this.rejoinTimeout = setTimeout(() => {
+                // if we've already left (e.g., due to a fatal error on attempting
+                // to reconnect), there's nothing to do here.
+                if (this.leaving) {
+                    if (DEBUG.session) console.log(this.id, `abandoning rejoin; session is defunct`);
+                    return;
+                }
+
                 if (DEBUG.session) console.log(this.id, `rejoin timed out`);
                 this.rejoinTimeout = 0;
                 this.leave();
@@ -2492,10 +2503,8 @@ class Connection {
 
         let socket;
 
-        const connectionIsReady = () => {
-            if (DEBUG.session) console.log(this.id, this.socket.constructor.name, "connected to", this.socket.url);
-            this.reconnectDelay = 0;
-            Stats.connected(true);
+        const readyForJoin = () => {
+            // this is called with different timing on DePIN and otherwise
             this.controller.sendJoin();
         };
 
@@ -2506,11 +2515,19 @@ class Connection {
             // the "socket" is a home-grown class that connects by WebSocket
             // to a manager to negotiate a WebRTC data-channel connection
             // to a reflector.
-            const synchRequest = 'synchronizer' in urlOptions ? `&syncName=${urlOptions.synchronizer}` : '';
+            const { synchSpec, developSpec } = urlOptions;
+            if (synchSpec && developSpec) throw Error("Cannot handle both synchSpec and developSpec options");
+
+            let synchRequest = '';
+            // either option causes a token to be passed on the WS request; only developSpec
+            // also causes inclusion of developerId
+            const synchToken = synchSpec || developSpec;
+            if (synchToken) synchRequest += `&synch=${encodeURIComponent(synchToken)}`;
+            if (developSpec) synchRequest += `&developer=${this.controller.sessionSpec.developerId}`;
             const sessionId = this.id;
             socket = new CroquetWebRTCConnection(`${DEPIN_API}/clients/connect?session=${sessionId}${synchRequest}`);
             socket.isConnected = () => socket.dataChannel?.readyState === 'open';
-            socket.onconnected = connectionIsReady; // see below
+            socket.onconnected = readyForJoin; // see below
         } else {
             let reflectorBase = this.controller.getBackend(this.controller.sessionSpec.apiKey).reflector;
             const ourUrl = NODE ? undefined : window.location.href;
@@ -2537,7 +2554,7 @@ class Connection {
         socket.onopen = _event => {
             // this is triggered when the WebSocket first opens.  in the case
             // of standard WebSocket reflectors, this also implies that the
-            // connection is ready for use.  but in the case of WebRTC, the
+            // connection is ready for JOIN.  but in the case of WebRTC, the
             // connection isn't ready until the RTCDataChannel has opened.
 
             // under some conditions (e.g., switching a device between networks) a new
@@ -2547,8 +2564,15 @@ class Connection {
                 oldSocket.onopen = oldSocket.onmessage = oldSocket.onerror = oldSocket.onclose = null;
             }
             this.socket = socket;
+
+            if (DEBUG.session) console.log(this.id, this.socket.constructor.name, "connected to", this.socket.url);
+
             this.connectHasBeenCalled = false; // now that we have the socket
-            if (!socket.twoStageConnection) connectionIsReady();
+            this.reconnectDelay = 0;
+            Stats.connected(true);
+            this.controller.connectionEstablished();
+
+            if (!socket.twoStageConnection) readyForJoin();
         };
         socket.onmessage = event => {
             if (socket !== this.socket) return; // in case a socket that we've tried to close can still deliver a message
@@ -2588,6 +2612,8 @@ class Connection {
         socket.onclose = event => {
             // triggered when socket is closed from the far end.  when we close
             // it from here, this handler is first nulled out.
+            if (this.socket && socket !== this.socket) return; // delayed close for a superseded socket
+
             this.socketClosed(event.code, event.reason);
         };
     }
@@ -2598,15 +2624,23 @@ class Connection {
         // controller.connectionInterrupted() sets an independent timer for invoking
         // leave() iff the connection has not been restored within the rejoinLimit.
 
-        // it's possible that we're seeing a closure that would not itself be
-        // fatal to the session, but that an error that _is_ fatal has already
-        // happened.  in that case, block any attempt at scheduling a reconnection.
-        const irreversibleLeave = !!this.controller.leaving;
+        if (DEBUG.session) console.log(this.id, `socketClosed with code=${code} message="${message}"`);
 
         // event codes 4100 and up mean a disconnection from which the client
         // shouldn't automatically try to reconnect
         // e.g., 4100 is for out-of-date reflector protocol
         // in addition, 1000 means user-triggered Session.leave().  everything stops.
+        if (code >= 4100 && code !== 4110) {
+            if (DEBUG.session) console.warn("resuming this session will require a new Session.join()");
+            this.controller.leaving = () => { }; // dummy value, to mimic the effect of Session.leave() having been invoked
+            this.reconnectDelay = 0;
+        }
+
+        // it's possible that we're seeing a closure that would not itself be
+        // fatal to the session, but that an error that _is_ fatal has already
+        // happened.  in that case, controller.leaving would already have been set.
+        const irreversibleLeave = !!this.controller.leaving;
+
         const autoReconnect = !irreversibleLeave && code !== 1000 && code < 4100;
         const dormant = code === 4110;
         // don't display error if going dormant or normal close or reconnecting
@@ -2691,10 +2725,6 @@ class Connection {
 
     closeConnectionWithError(caller, error, code=4000) {
         console.error(code, error);
-        if (code >= 4100 && code !== 4110) {
-            if (DEBUG.session) console.warn("resuming this session will require a new Session.join()");
-            this.controller.leaving = () => {}; // dummy value, to mimic the effect of Session.leave() having been invoked
-        }
         this.closeConnection(code, `Error in ${caller}: ${error.message || error}`);
         // closing with error code < 4100 will try to reconnect
     }
