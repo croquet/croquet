@@ -33,6 +33,7 @@ const ARGS = {
     DEPIN: "--depin", // optionally followed by DePIN Registry arg, e.g. --depin localhost:8787
     SYNCNAME: "--sync-name", // followed by a name, e.g. --sync-name MyBigMac:fedc
     WALLET: "--wallet", // followed by full wallet ID
+    DEVELOPER: "--developer", // followed by some kind of developer ID
 };
 
 const EXIT = {
@@ -48,7 +49,7 @@ for (let i = 2; i < process.argv.length; i++) {
     if (!knownArgs.includes(arg)) {
         // might be following an arg that can take a value
         const prevArg = process.argv[i - 1];
-        if (![ARGS.DEPIN, ARGS.SYNCNAME, ARGS.WALLET].includes(prevArg)) {
+        if (![ARGS.DEPIN, ARGS.SYNCNAME, ARGS.WALLET, ARGS.DEVELOPER].includes(prevArg)) {
             console.error(`Error: Unrecognized option ${arg}`);
             process.exit(EXIT.FATAL);
         }
@@ -63,7 +64,7 @@ function parseArgWithValue(argKey) {
     return null;
 }
 
-let WALLET;
+let WALLET, DEVELOPER;
 let DEPIN = process.argv.includes(ARGS.DEPIN);
 if (DEPIN) {
     // value argument is optional (defaults to prod)
@@ -71,11 +72,21 @@ if (DEPIN) {
     if (depinValue) DEPIN = depinValue;
 
     WALLET = parseArgWithValue(ARGS.WALLET);
-    if (!WALLET) {
-        // $$$ figure out what to do here
+    DEVELOPER = parseArgWithValue(ARGS.DEVELOPER);
+
+    if (WALLET && DEVELOPER) {
+        console.error(`Error: Cannot specify both wallet and developer`);
+        process.exit(EXIT.FATAL)
+    }
+
+    if (!WALLET && !DEVELOPER) {
+        // $$$ figure out what to do here.  for now, this will be the case for
+        // all GCP-deployed synchronizers.  supply a default wallet.
         console.warn("No wallet specified for DePIN; using community default"); // no loggers yet
         WALLET = '5B3aFyxpnGY36fBeocsLfia5vgAUrbD5pTXorCcMeV7t';
     }
+
+    console.log(`DePIN with ${WALLET ? "wallet=" + WALLET : "developer=" + DEVELOPER}`);
 }
 
 function getRandomString(length) {
@@ -469,8 +480,9 @@ async function startServerForDePIN() {
         const { searchParams } = proxyUrl;
         searchParams.set('version', APP_VERSION);
         searchParams.set('nickname', SYNCNAME);
-        searchParams.set('wallet', WALLET);
-        searchParams.set('registerRegion', registerRegion);
+        if (registerRegion) searchParams.set('registerRegion', registerRegion);
+        if (WALLET) searchParams.set('wallet', WALLET);
+        if (DEVELOPER) searchParams.set('developer', DEVELOPER);
         proxySocket = new WebSocket(proxyUrl.toString(), {
             perMessageDeflate: false, // this was in the node-datachannel example; not sure if it's helping
         });
@@ -544,6 +556,18 @@ async function startServerForDePIN() {
                     case 'PONG':
                         clearTimeout(proxyAckTimeout);
                         break;
+                    case 'DEMO_TOKEN': {
+                        const { token } = depinMsg;
+                        const electronMain = process.parentPort;
+                        electronMain?.postMessage({ what: 'demoToken', token });
+                        break;
+                    }
+                    case 'DEVELOPER_TOKEN': {
+                        const { token } = depinMsg;
+                        const electronMain = process.parentPort;
+                        electronMain?.postMessage({ what: 'developerToken', token });
+                        break;
+                    }
                     case 'STATS': {
                         // these are just copies of the stats made available by a
                         // standard WebSocket reflector
@@ -566,8 +590,8 @@ async function startServerForDePIN() {
                         break;
                     }
                     case 'RUN-APP': {
-                        const { appName, targetSynch } = depinMsg;
-                        startUtilityApp(UTILITY_APP_PATH, appName, targetSynch );
+                        const { appName, synchSpec, testKey } = depinMsg;
+                        startUtilityApp(UTILITY_APP_PATH, appName, synchSpec, testKey );
                         break;
                     }
                     case 'ERROR':
@@ -1494,14 +1518,15 @@ async function startServerForDePIN() {
         };
     }
 
-    function startUtilityApp(pathUrl, appName, targetSynch) {
+    function startUtilityApp(pathUrl, appName, synchSpec, testKey) {
         const decoder = new TextDecoder()
 
         const appFile = path.join(__dirname, 'app_wrapper.js');
-        const extraArgs = [];
-        extraArgs.push(`--depin=${DEPIN}`, `--debug=session,snapshot`);
-        if (targetSynch) extraArgs.push(`--synchronizer=${targetSynch}`);
-        const utilityAppProcess = child_process.fork(appFile, [pathUrl, appName, ...extraArgs], {
+        const args = [pathUrl, appName, testKey]; // app_wrapper puts the third arg into Constants, to make a dedicated session
+        if (synchSpec) args.push(`--synchSpec=${synchSpec}`);
+        args.push(`--depin=${DEPIN}`, `--debug=session,snapshot`);
+        // console.log(`child process: ${appFile} ${args.join(' ')}`);
+        const utilityAppProcess = child_process.fork(appFile, args, {
             stdio: 'pipe',
         })
 
@@ -1519,8 +1544,24 @@ async function startServerForDePIN() {
             const lines = dat.split('\n').filter(line => line);
             for (const l of lines) console.error(`[app] ${l}`);
         });
+        utilityAppProcess.on('message', msg => {
+            if (msg.what === 'sendSynchDetails') {
+                const details = { region: registerRegion }; // @@ maybe later add our QoS?
+                utilityAppProcess.send({ what: 'synchDetails', details });
+            } else if (msg.what === 'stressReport') {
+                sendToDepinProxy?.({ what: 'STRESS_REPORT', report: msg.report });
+            } else {
+                global_logger.debug({
+                    event: 'unknown-app-message',
+                    message: msg
+                    }, `unknown message from app: ${JSON.stringify(msg)}`);
+            }
+        })
         utilityAppProcess.on('exit', code => {
-            console.log(`utility process exited with code ${code}`)
+            global_logger.info({
+                event: "utility-exit",
+                code
+            }, `utility process exited with code ${code}`);
         });
 
     }
@@ -1547,6 +1588,9 @@ async function startServerForDePIN() {
                         break;
                     case 'userDetails':
                         electronMain.postMessage({ what: 'userDetails', value: msg.userDetails });
+                        break;
+                    case 'getDemoToken':
+                        sendToDepinProxy?.({ what: 'GET_DEMO_TOKEN'});
                         break;
                     default:
                         global_logger.warn({ event: "unrecognized-app-message", what: msg.what }, `unrecognized message from app: "${msg.what}`);
@@ -2146,6 +2190,7 @@ async function JOIN(client, args) {
         if (validToken.region && island.region === "default") island.region = validToken.region;
     } else {
         // will disconnect everyone with error if failed (await could throw an exception)
+        // $$$ NB: on DePIN, always unquestioningly approves the developerId.
         const apiResponse = await verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client, unverifiedDeveloperId);
         if (!apiResponse) return;
         island.developerId = apiResponse.developerId;
