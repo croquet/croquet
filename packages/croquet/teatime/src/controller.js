@@ -1565,9 +1565,7 @@ export default class Controller {
 
     // network queue
 
-    connectionEstablished() {
-        // there is a connection, but on DePIN it won't generally be ready for
-        // JOIN until ICE negotiation has happened.
+    sendJoin() {
         this.syncReceived = false; // until SYNC is received, a dropped connection doesn't require controller.leave()
         this.syncCompleted = false; // until the end of SYNC, send nothing to the reflector other than a JOIN
         delete this.fastForwardHandler; // in case one was left
@@ -1575,9 +1573,7 @@ export default class Controller {
         // cancel rejoin timeout (if any) immediately.  now that we're reconnected, it
         // would be messy to have a reboot triggered between now and the SYNC.
         if (this.rejoinTimeout) { clearTimeout(this.rejoinTimeout); this.rejoinTimeout = 0; }
-    }
 
-    sendJoin() {
         if (DEBUG.session) console.log(this.id, "Controller sending JOIN");
 
         const { tick, delay } = this.getTickAndMultiplier();
@@ -2505,6 +2501,10 @@ class Connection {
 
         const readyForJoin = () => {
             // this is called with different timing on DePIN and otherwise
+            if (DEBUG.session) console.log(this.id, this.socket.constructor.name, "connected to", this.socket.url);
+
+            this.reconnectDelay = 0;
+            Stats.connected(true);
             this.controller.sendJoin();
         };
 
@@ -2564,14 +2564,7 @@ class Connection {
                 oldSocket.onopen = oldSocket.onmessage = oldSocket.onerror = oldSocket.onclose = null;
             }
             this.socket = socket;
-
-            if (DEBUG.session) console.log(this.id, this.socket.constructor.name, "connected to", this.socket.url);
-
             this.connectHasBeenCalled = false; // now that we have the socket
-            this.reconnectDelay = 0;
-            Stats.connected(true);
-            this.controller.connectionEstablished();
-
             if (!socket.twoStageConnection) readyForJoin();
         };
         socket.onmessage = event => {
@@ -2632,7 +2625,9 @@ class Connection {
         // in addition, 1000 means user-triggered Session.leave().  everything stops.
         if (code >= 4100 && code !== 4110) {
             if (DEBUG.session) console.warn("resuming this session will require a new Session.join()");
-            this.controller.leaving = () => { }; // dummy value, to mimic the effect of Session.leave() having been invoked
+            if (!this.controller.leaving) {
+                this.controller.leaving = () => { }; // dummy value, to mimic the effect of Session.leave() having been invoked
+            }
             this.reconnectDelay = 0;
         }
 
