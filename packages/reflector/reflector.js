@@ -302,7 +302,8 @@ REASON.NO_JOIN = [4121, "client never joined"];
 let server;
 let sendToDepinProxy;
 let registerRegion = ''; // the region registry this sync has been listed in
-
+let depinTraffic = 0;    // lifetime bytes handled by this synq
+let depinPoints = 0;     // lifetime points earned
 
 // ============ DEPIN-specific initialisation ===========
 
@@ -525,6 +526,11 @@ async function startServerForDePIN() {
                         clearTimeout(synchronizerUnavailableTimeout);
                         contactProxy(); // immediately PING
 
+                        // set up latest tallies announced by the proxy,
+                        // in time for the electron app pulling stats
+                        depinTraffic = depinMsg.traffic || 0;
+                        depinPoints = depinMsg.points || 0;
+
                         // if there is a connected parent process (assumed to be Electron),
                         // tell it our ip address
                         const electronMain = process.parentPort;
@@ -568,6 +574,10 @@ async function startServerForDePIN() {
                         electronMain?.postMessage({ what: 'developerToken', token });
                         break;
                     }
+                    case 'UPDATE_TALLIES':
+                        depinTraffic = depinMsg.traffic;
+                        depinPoints = depinMsg.points;
+                        break;
                     case 'STATS': {
                         // these are just copies of the stats made available by a
                         // standard WebSocket reflector
@@ -1509,12 +1519,15 @@ async function startServerForDePIN() {
 
     function appStats() {
         return {
+            now: Date.now(),
             sessions: ALL_ISLANDS.size,
             users: server.peerConnections.size, // active and currently connecting clients
             // the STATS are periodically merged into TOTALS
             bytesOut: TOTALS.OUT + STATS.OUT,
             bytesIn: TOTALS.IN + STATS.IN,
-            proxyConnectionState
+            proxyConnectionState,
+            traffic: depinTraffic,
+            points: depinPoints,
         };
     }
 
@@ -3014,7 +3027,7 @@ function AUDIT(island) {
 
     const { depinStats } = session;
     const { auditLastUsers: lastUsers, auditMinUsers: minUsers, auditMaxUsers: maxUsers, auditPayloadTally: payloadTally, auditBytesIn: bytesIn, auditBytesOut: bytesOut, auditTicks: ticks } = depinStats;
-    const audit = { syncName: SYNCNAME, wallet: WALLET, time, lastUsers, minUsers, maxUsers, payloadTally, bytesIn, bytesOut, ticks };
+    const audit = { syncName: SYNCNAME, time, lastUsers, minUsers, maxUsers, payloadTally, bytesIn, bytesOut, ticks };
     depinStats.auditForSessionRunner = audit;
 
     depinStats.auditMinUsers = depinStats.auditMaxUsers = lastUsers;
