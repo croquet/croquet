@@ -2519,13 +2519,13 @@ class Connection {
             if (synchSpec && developSpec) throw Error("Cannot handle both synchSpec and developSpec options");
 
             let synchRequest = '';
-            // either option causes a token to be passed on the WS request; only developSpec
-            // also causes inclusion of developerId
+            // either option causes a token to be passed on the WS request
             const synchToken = synchSpec || developSpec;
             if (synchToken) synchRequest += `&synch=${encodeURIComponent(synchToken)}`;
-            if (developSpec) synchRequest += `&developer=${this.controller.sessionSpec.developerId}`;
             const sessionId = this.id;
-            socket = new CroquetWebRTCConnection(`${DEPIN_API}/clients/connect?session=${sessionId}${synchRequest}`);
+            const { developerId } = this.controller.sessionSpec;
+            // sept 2024: now always include developerId on connection
+            socket = new CroquetWebRTCConnection(`${DEPIN_API}/clients/connect?session=${sessionId}&developer=${developerId}${synchRequest}`);
             socket.isConnected = () => socket.dataChannel?.readyState === 'open';
             socket.onconnected = readyForJoin; // see below
         } else {
