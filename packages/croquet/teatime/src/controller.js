@@ -2606,7 +2606,7 @@ class Connection {
         socket.onclose = event => {
             // triggered when socket is closed from the far end.  when we close
             // it from here, this handler is first nulled out.
-            if (socket !== this.socket) return; // delayed close for a disconnected or superseded socket
+            if (this.socket && socket !== this.socket) return; // ignore delayed close for a superseded socket (whereas if this.socket is null, this could be a closure before opening and needs to be let through)
 
             this.socketClosed(event.code, event.reason);
         };
