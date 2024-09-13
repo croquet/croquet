@@ -539,7 +539,7 @@ async function startServerForDePIN() {
                         break;
                     }
                     case "SESSION": {
-                        const { sessionId, dispatchSeq } = depinMsg;
+                        const { sessionId, dispatchSeq, canEarnCredit } = depinMsg;
                         const shortSessionId = sessionId.slice(0, 8);
                         const session = ALL_SESSIONS.get(sessionId);
                         if (session) {
@@ -554,7 +554,7 @@ async function startServerForDePIN() {
                             session.updateTracker.dispatchSeq = dispatchSeq;
                         } else {
                             global_logger.notice({ event: "dispatch", sessionId }, `new session dispatch for ${shortSessionId}`);
-                            acceptSession(sessionId, dispatchSeq);
+                            acceptSession(sessionId, dispatchSeq, canEarnCredit);
                         }
                         break;
                     }
@@ -675,7 +675,7 @@ async function startServerForDePIN() {
 
     const SESSION_UPDATE_TRIGGER_BYTES = 100000; // @@ artificially low.  as long as we're not interleaving updates, this should be taking advantage of most of the 1MB limit to ensure that we maximise throughput.  on the other hand, that will open us up to having to split large chunks of messages when they arrive at the DO, to fit the 128KB storage-value limit.
 
-    function acceptSession(sessionId, runnerDispatchSeq) {
+    function acceptSession(sessionId, runnerDispatchSeq, canEarnCredit) {
         // this is invoked only once per session, on first accepting the assignment.
         // by contrast, connectToSessionRunner might be invoked repeatedly
         // if the network is unstable.
@@ -695,6 +695,8 @@ async function startServerForDePIN() {
         // for DePIN we are required to track the session stats that will be used to generate synq rewards and developer costs.
         // the synq also includes some of these stats in its regular status reports (to the proxy DO) for each session it's currently hosting.
         const depinStats = session.depinStats = {
+            canEarnCredit,  // currently only used when reporting stats to synch app
+
             joins: 0,       // in this reporting period
             totalJoins: 0,  // since this synq picked up the session
 
@@ -1518,9 +1520,15 @@ async function startServerForDePIN() {
     }
 
     function appStats() {
+        const allSessions = ALL_ISLANDS.size;
+        let demoSessions = 0;
+        for (const id of ALL_ISLANDS.keys()) {
+            if (ALL_SESSIONS.get(id)?.depinStats.canEarnCredit !== true) demoSessions++;
+        }
         return {
             now: Date.now(),
-            sessions: ALL_ISLANDS.size,
+            sessions: allSessions,
+            demoSessions, // of the total reported above
             users: server.peerConnections.size, // active and currently connecting clients
             // the STATS are periodically merged into TOTALS
             bytesOut: TOTALS.OUT + STATS.OUT,
