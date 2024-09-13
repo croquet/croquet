@@ -2523,9 +2523,10 @@ class Connection {
             const synchToken = synchSpec || developSpec;
             if (synchToken) synchRequest += `&synch=${encodeURIComponent(synchToken)}`;
             const sessionId = this.id;
-            const { developerId } = this.controller.sessionSpec;
-            // sept 2024: now always include developerId on connection
-            socket = new CroquetWebRTCConnection(`${DEPIN_API}/clients/connect?session=${sessionId}&developer=${developerId}${synchRequest}`);
+            const { appId, developerId } = this.controller.sessionSpec;
+            // sept 2024: now always include appId and developerId on connection.
+            // @@ should we sanity-check the appId?
+            socket = new CroquetWebRTCConnection(`${DEPIN_API}/clients/connect?session=${sessionId}&app=${encodeURIComponent(appId)}&developer=${developerId}${synchRequest}`);
             socket.isConnected = () => socket.dataChannel?.readyState === 'open';
             socket.onconnected = readyForJoin; // see below
         } else {
