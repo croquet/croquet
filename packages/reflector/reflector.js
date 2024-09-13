@@ -514,7 +514,8 @@ async function startServerForDePIN() {
                 const depinMsg = JSON.parse(depinStr);
                 switch (depinMsg.what) {
                     case "REGISTERED": {
-                        const { proxyId, registerRegion: newRegisterRegion, ip, lifeTraffic, lifePoints } = depinMsg;
+                        proxyId = depinMsg.proxyId;
+                        const { registerRegion: newRegisterRegion, ip, lifeTraffic, lifePoints } = depinMsg;
                         const shortProxyId = proxyId.slice(0, 8);
                         if (registerRegion && registerRegion !== newRegisterRegion) {
                             global_logger.notice({ event: "registered", shortProxyId, oldRegisterRegion: registerRegion, registerRegion: newRegisterRegion }, `proxy id ${shortProxyId} moved from ${registerRegion} to ${newRegisterRegion}`);
