@@ -300,12 +300,16 @@ REASON.DORMANT = [4110, "dormant"]; // sent by client, will not display error
 REASON.NO_JOIN = [4121, "client never joined"];
 
 let server;
-let sendToDepinProxy;
-let registerRegion = ''; // the region registry this sync has been listed in
-let depinTraffic = 0;    // lifetime bytes handled by this synq
-let depinPoints = 0;     // lifetime points earned
 
 // ============ DEPIN-specific initialisation ===========
+
+let sendToDepinProxy;
+let registerRegion = ''; // the region registry this sync has been listed in
+const depinCreditTallies = {
+    syncLifeTraffic: 0,  // lifetime bytes handled by this synq
+    syncLifePoints: 0,   // lifetime points earned
+    walletLifePoints: 0  // lifetime points added to wallet via any synq
+}
 
 async function startServerForDePIN() {
     // in advance, get the iceServers that we'll be using on all connections
@@ -510,9 +514,8 @@ async function startServerForDePIN() {
                 const depinMsg = JSON.parse(depinStr);
                 switch (depinMsg.what) {
                     case "REGISTERED": {
-                        proxyId = depinMsg.proxyId;
+                        const { proxyId, registerRegion: newRegisterRegion, ip, lifeTraffic, lifePoints } = depinMsg;
                         const shortProxyId = proxyId.slice(0, 8);
-                        const newRegisterRegion = depinMsg.registerRegion;
                         if (registerRegion && registerRegion !== newRegisterRegion) {
                             global_logger.notice({ event: "registered", shortProxyId, oldRegisterRegion: registerRegion, registerRegion: newRegisterRegion }, `proxy id ${shortProxyId} moved from ${registerRegion} to ${newRegisterRegion}`);
                         } else {
@@ -527,14 +530,15 @@ async function startServerForDePIN() {
                         contactProxy(); // immediately PING
 
                         // set up latest tallies announced by the proxy,
-                        // in time for the electron app pulling stats
-                        depinTraffic = depinMsg.traffic || 0;
-                        depinPoints = depinMsg.points || 0;
+                        // in time for the electron app pulling stats.
+                        // wallet life points will come later.
+                        depinCreditTallies.syncLifeTraffic = lifeTraffic;
+                        depinCreditTallies.syncLifePoints = lifePoints;
 
                         // if there is a connected parent process (assumed to be Electron),
                         // tell it our ip address
                         const electronMain = process.parentPort;
-                        electronMain?.postMessage({ what: 'ipAddress', value: depinMsg.ip });
+                        electronMain?.postMessage({ what: 'ipAddress', value: ip });
 
                         break;
                     }
@@ -574,10 +578,13 @@ async function startServerForDePIN() {
                         electronMain?.postMessage({ what: 'developerToken', token });
                         break;
                     }
-                    case 'UPDATE_TALLIES':
-                        depinTraffic = depinMsg.traffic;
-                        depinPoints = depinMsg.points;
+                    case 'UPDATE_TALLIES': {
+                        const { lifeTraffic, lifePoints, walletPoints } = depinMsg;
+                        depinCreditTallies.syncLifeTraffic = lifeTraffic;
+                        depinCreditTallies.syncLifePoints = lifePoints;
+                        depinCreditTallies.walletLifePoints = walletPoints;
                         break;
+                    }
                     case 'STATS': {
                         // these are just copies of the stats made available by a
                         // standard WebSocket reflector
@@ -1525,6 +1532,7 @@ async function startServerForDePIN() {
         for (const id of ALL_ISLANDS.keys()) {
             if (ALL_SESSIONS.get(id)?.depinStats.canEarnCredit !== true) demoSessions++;
         }
+        const { syncLifeTraffic, syncLifePoints, walletLifePoints } = depinCreditTallies;
         return {
             now: Date.now(),
             sessions: allSessions,
@@ -1534,8 +1542,9 @@ async function startServerForDePIN() {
             bytesOut: TOTALS.OUT + STATS.OUT,
             bytesIn: TOTALS.IN + STATS.IN,
             proxyConnectionState,
-            traffic: depinTraffic,
-            points: depinPoints,
+            syncLifeTraffic,
+            syncLifePoints,
+            walletLifePoints,
         };
     }
 
