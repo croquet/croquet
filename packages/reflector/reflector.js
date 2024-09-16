@@ -306,9 +306,10 @@ let server;
 let sendToDepinProxy;
 let registerRegion = ''; // the region registry this sync has been listed in
 const depinCreditTallies = {
-    syncLifeTraffic: 0,  // lifetime bytes handled by this synq
-    syncLifePoints: 0,   // lifetime points earned
-    walletLifePoints: 0  // lifetime points added to wallet via any synq
+    // report as -1 until initialised from the proxy
+    syncLifeTraffic: -1,  // lifetime bytes handled by this synq
+    syncLifePoints: -1,   // lifetime points earned
+    walletLifePoints: -1  // lifetime points added to wallet via any synq
 }
 
 async function startServerForDePIN() {
