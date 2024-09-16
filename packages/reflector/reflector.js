@@ -378,8 +378,9 @@ async function startServerForDePIN() {
     const PROXY_STATUS_DELAY = 10000; // update this often when running sessions
     const PROXY_PING_DELAY = 10000; // simple PINGs are handled by auto-response
     const PROXY_KEEP_ALIVE_DELAY = 28000; // chosen so that when not running sessions, every 3rd PING is replaced by ALIVE
-    const PROXY_ACK_DELAY_LIMIT = 2000; // after this, go into RECONNECTING
+    const PROXY_ACK_DELAY_LIMIT = 2000;     // after this, go into RECONNECTING
     const PROXY_INTERRUPTION_LIMIT = 30000; // after this, UNAVAILABLE
+    const PROXY_CONNECTION_LIMIT = 60000;   // if no response at all on connection, try again
     const PROXY_RECONNECT_DELAY_MAX = 30000;
 
     let proxyId;        // the ID of the worker running the proxy for this sync
@@ -399,6 +400,7 @@ async function startServerForDePIN() {
     // (this might be unnecessary, given that we're fully in charge of socket creation
     // and closure.)
     let proxyKey;
+    let proxyConnectResponseTimeout; // in case a connection attempt never comes back
     const sendToProxy = msgObject => {
         if (!proxySocket) return;
         if (proxySocket.readyState !== WebSocket.OPEN) {
@@ -433,7 +435,7 @@ async function startServerForDePIN() {
         let proxyContactTimeout; // next time we should send a PING or STATS, as appropriate
         let proxyAckTimeout; // deadline for hearing back from the proxy
         proxyWasToldWeHaveSessions = false;
-        const key = proxyKey = Math.random();
+        const key = proxyKey = Date.now();
 
         function contactProxy() {
             // first sent on successful receipt of REGISTERED from the proxy
@@ -485,6 +487,7 @@ async function startServerForDePIN() {
         const { searchParams } = proxyUrl;
         searchParams.set('version', APP_VERSION);
         searchParams.set('nickname', SYNCNAME);
+        searchParams.set('connectTime', proxyKey);
         if (registerRegion) searchParams.set('registerRegion', registerRegion);
         if (WALLET) searchParams.set('wallet', WALLET);
         if (DEVELOPER) searchParams.set('developer', DEVELOPER);
@@ -492,8 +495,18 @@ async function startServerForDePIN() {
             perMessageDeflate: false, // this was in the node-datachannel example; not sure if it's helping
         });
 
+        // under the websocket protocol, the far end can swallow a connection attempt without us ever hearing anything about it.  after waiting a while (default is 60s), try again.
+        proxyConnectResponseTimeout = setTimeout(() => {
+            global_logger.warn({ event: "proxy-connection-timeout" }, `proxy connection was silently ignored; retrying.`);
+            connectToProxy();
+        }, PROXY_CONNECTION_LIMIT);
+
         proxySocket.on('open', () => {
             if (key !== proxyKey) return; // this connection has (somehow, already) been superseded
+
+            clearTimeout(proxyConnectResponseTimeout);
+            proxyConnectResponseTimeout = null;
+
             global_logger.info({ event: "proxy-connected", registry: DEPIN },`proxy socket connected in registry ${DEPIN}`);
         });
 
@@ -666,7 +679,7 @@ async function startServerForDePIN() {
 
             if (proxyConnectionState === 'CONNECTED') {
                 setProxyConnectionState('RECONNECTING');
-                declareUnavailableAfterDelay(PROXY_INTERRUPTION_LIMIT); // in case the reconnection fails
+                declareUnavailableAfterDelay(proxyReconnectDelay + PROXY_INTERRUPTION_LIMIT); // standard timeout period after the reconnection we're about to schedule
             }
 
             setTimeout(connectToProxy, proxyReconnectDelay);
