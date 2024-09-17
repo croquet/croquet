@@ -110,9 +110,6 @@ const NO_LOGTIME = process.argv.includes(ARGS.NO_LOGTIME); // don't prepend the 
 const PER_MESSAGE_LATENCY = !DEPIN && !process.argv.includes(ARGS.NO_LOGLATENCY); // log latency of each message
 const TIME_STABILIZED = process.argv.includes(ARGS.TIME_STABILIZED); // watch for jumps in Date.now and use them to rescale performance.now (needed for Docker standalone)
 
-// debugging (should read env vars)
-const collectRawSocketStats = false;
-
 const LATENCY_BUCKET_0 = 8;
 const LATENCY_BUCKET_1 = 10;
 const LATENCY_BUCKET_2 = 13;
@@ -1098,7 +1095,8 @@ async function startServerForDePIN() {
                                 case 'offer': {
                                     // supposedly always the first message through.
                                     // @@ for now, every ICE negotiation message includes
-                                    // the client's ip address
+                                    // the client's ip address as reported in Cloudflare's
+                                    // CF-Connecting-IP header.
                                     const peerConnection = createPeerConnection(clientId, globalClientId, sessionId, sessionSocket);
                                     peerConnection.mq_clientIp = depinMsg.ip;
 console.log("CLIENT IP", depinMsg.ip);
@@ -1636,7 +1634,10 @@ console.log("CLIENT IP", depinMsg.ip);
                         electronMain.postMessage({ what: 'userDetails', value: msg.userDetails });
                         break;
                     case 'getDemoToken':
-                        sendToDepinProxy?.({ what: 'GET_DEMO_TOKEN'});
+                        sendToDepinProxy?.({ what: 'GET_DEMO_TOKEN' });
+                        break;
+                    case 'queryWalletStats':
+                        sendToDepinProxy?.({ what: 'QUERY_WALLET_STATS' });
                         break;
                     default:
                         global_logger.warn({ event: "unrecognized-app-message", what: msg.what }, `unrecognized message from app: "${msg.what}`);
@@ -3607,17 +3608,6 @@ function setUpClientHandlers(client) {
             clientLeft(client, "failed safeClose"); // normally invoked by onclose handler
         }
     };
-    // @@ client._socket is only used here (and collectRawSocketStats is currently hard-coded to false)
-    if (collectRawSocketStats) {
-        client.stats.ri = 0;
-        client.stats.ro = 0;
-        client._socket.write_orig = client._socket.write_orig || client._socket.write;
-        client._socket.write = (buf, ...args) => {
-            client.stats.ro += buf.length;
-            client._socket.write_orig(buf, ...args);
-        };
-        client._socket.on('data', buf => client.stats.ri += buf.length);
-    }
 }
 
 function registerSession(sessionId) {
