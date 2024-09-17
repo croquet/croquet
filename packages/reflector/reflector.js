@@ -1101,6 +1101,7 @@ async function startServerForDePIN() {
                                     // the client's ip address
                                     const peerConnection = createPeerConnection(clientId, globalClientId, sessionId, sessionSocket);
                                     peerConnection.mq_clientIp = depinMsg.ip;
+console.log("CLIENT IP", depinMsg.ip);
                                     peerConnection.setRemoteDescription(msg.sdp, msg.type);
                                     break;
                                 }
