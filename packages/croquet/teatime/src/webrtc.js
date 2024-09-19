@@ -1,8 +1,19 @@
+import urlOptions from "./_URLOPTIONS_MODULE_"; // eslint-disable-line import/no-unresolved
+
 const ICE_NEGOTIATION_MAX = 5000; // maximum ms between sending our offer and the data channel being operational.  analogous to the controller's JOIN_FAILED_DELAY, between sending of JOIN and receipt of SYNC.
 
 /* eslint-disable-next-line */
 const NODE = _IS_NODE_; // replaced by rollup
 const FIREFOX = !NODE && !!globalThis.navigator?.userAgent.toLowerCase().includes('firefox');
+
+let DEBUG = {
+    get connection() {
+        // replace with static value on first call
+        // $$$ default to true during our initial roll-out
+        DEBUG = { connection: urlOptions.has("debug", "connection", true) };
+        return DEBUG.connection;
+    }
+};
 
 function getRandomString(length) {
     return Math.random()
@@ -14,8 +25,8 @@ export class CroquetWebRTCConnection {
     static get name() { return 'CroquetWebRTCConnection'; }
 
     constructor(registryURL) {
-        this.clientId = getRandomString(4); // used only locally, to tag console messages for debug purposes
-        console.log(`${this.clientId} WebRTCConnection created`);
+        this.clientId = getRandomString(4); // used locally to tag console messages for debug purposes; gets appended with a numeric id from SessionRunner on connection
+        if (DEBUG.connection) console.log(`${this.clientId} WebRTCConnection created`);
 
         this.pc = null;
         this.dataChannel = null;
@@ -56,13 +67,13 @@ export class CroquetWebRTCConnection {
             _ENSURE_RTCPEERCONNECTION_
 
             await this.openSignalingChannel(registryURL); // will never resolve if open fails
-            console.log(`${this.clientId} signaling ready`);
+            if (DEBUG.connection) console.log(`${this.clientId} signaling ready`);
             if (this.onopen) this.onopen(); // tell the controller that it has a socket (though not yet a connection to the synchronizer)
             await this.createPeerConnection(); // slow the first time, while fetching ICE server list
-            console.log(`${this.clientId} peer connection created`);
+            if (DEBUG.connection) console.log(`${this.clientId} peer connection created`);
 
             this.dataChannel = this.pc.createDataChannel(`client-${this.clientId}`);
-            console.log(`${this.clientId} data channel created`);
+            if (DEBUG.connection) console.log(`${this.clientId} data channel created`);
             this.dataChannel.onopen = evt => this.onDataChannelOpen(evt);
             this.dataChannel.onmessage = evt => this.onDataChannelMessage(evt);
             this.dataChannel.onclosing = evt => this.onDataChannelClosing(evt);
@@ -84,7 +95,7 @@ export class CroquetWebRTCConnection {
                     // negotiation appears to have succeeded.  schedule signalling
                     // closure if not already taken care of.
                     if (!this.signalingCloseScheduled) {
-                        console.log(`${this.clientId} ICE negotiation timed out but appears to have succeeded`);
+                        if (DEBUG.connection) console.log(`${this.clientId} ICE negotiation timed out but appears to have succeeded`);
                         this.scheduleSignalingClose();
                     }
                 } else {
@@ -109,7 +120,7 @@ export class CroquetWebRTCConnection {
             const iceTransport = this.pc.sctp.transport.iceTransport;
             iceTransport.onselectedcandidatepairchange = e => {
                 // not supported on Firefox
-                console.log(`${this.clientId} ICE candidate pair changed`);
+                if (DEBUG.connection) console.log(`${this.clientId} ICE candidate pair changed`);
                 const pair = iceTransport.getSelectedCandidatePair();
                 this.connectionTypes.local = pair.local.type;
                 this.connectionTypes.remote = pair.remote.type;
@@ -136,12 +147,14 @@ export class CroquetWebRTCConnection {
                 // because the registry will open the socket even if only to
                 // report an error, we wait to receive a 'READY' message (below)
                 // before resolving the promise to mark the socket as usable.
-                console.log(`${this.clientId} signaling socket opened`);
+                if (DEBUG.connection) console.log(`${this.clientId} signaling socket opened`);
             };
             this.signaling.onmessage = rawMsg => {
                 const msgData = JSON.parse(rawMsg.data);
                 if (msgData.what === 'READY') {
-                    // sent by the SessionRunner to indicate socket acceptance
+                    // sent by the SessionRunner to indicate socket acceptance.
+                    // now includes the SessionRunner-assigned client id.
+                    this.clientId += `_${msgData.id}`;
                     resolve();
                     return;
                 }
@@ -154,8 +167,7 @@ export class CroquetWebRTCConnection {
                 }
 
                 // otherwise assume it's an ICE message
-                console.log(`${this.clientId} received signal of type "${msgData.type}"`);
-                // console.log(`${this.clientId} received message`, msgData);
+                if (DEBUG.connection) console.log(`${this.clientId} received signal of type "${msgData.type}"`);
                 switch (msgData.type) {
                     case 'answer':
                         this.handleAnswer(msgData); // async
@@ -167,7 +179,7 @@ export class CroquetWebRTCConnection {
                         this.synchronizerGatheringComplete = true;
                         break;
                     default:
-                        console.log(`unhandled: ${msgData.type}`);
+                        if (DEBUG.connection) console.log(`${this.clientId} unhandled: ${msgData.type}`);
                         break;
                 }
             };
@@ -176,14 +188,14 @@ export class CroquetWebRTCConnection {
                 // been removed - so this represents an unexpected closure,
                 // presumably by the session registry (for example, on finding
                 // that there is no synchronizer to serve the session).
-                console.log(`${this.clientId} signaling socket closed unexpectedly (${e.code})`);
+                if (DEBUG.connection) console.log(`${this.clientId} signaling socket closed unexpectedly (${e.code})`);
                 this.synchronizerDisconnected(e.code, e.reason);
             };
             this.signaling.onerror = e => {
                 // as discussed at https://stackoverflow.com/questions/38181156/websockets-is-an-error-event-always-followed-by-a-close-event,
                 // an error during opening is not *necessarily* followed by a close
                 // event.  so our synchronizerError() handling forces closure anyway.
-                console.log(`${this.clientId} signaling socket error`, e);
+                if (DEBUG.connection) console.log(`${this.clientId} signaling socket error`, e);
                 this.synchronizerError();
             };
         });
@@ -241,7 +253,7 @@ export class CroquetWebRTCConnection {
 
         const clientType = this.connectionTypes.local || '';
         const syncType = this.connectionTypes.remote || '';
-        console.log(`${this.clientId} RTCDataChannel connection state: "${this.dataChannel.readyState}" (client connection="${clientType}"; synchronizer connection="${syncType}")`);
+        if (DEBUG.connection) console.log(`${this.clientId} RTCDataChannel connection state: "${this.dataChannel.readyState}" (client connection="${clientType}"; synchronizer connection="${syncType}")`);
         if (this.signaling?.readyState === WebSocket.OPEN) {
             const message = {
                 type: 'selectedCandidatePair',
@@ -337,20 +349,20 @@ export class CroquetWebRTCConnection {
 
         const pc = this.pc = new globalThis.RTCPeerConnection({ iceServers });
         pc.onnegotiationneeded = _e => {
-            console.log(`negotiationneeded event fired`);
+            if (DEBUG.connection) console.log(`${this.clientId} negotiationneeded event fired`);
         };
         pc.onsignalingstatechange = _e => {
-            console.log(`signaling state: "${pc.signalingState}"`);
+            if (DEBUG.connection) console.log(`${this.clientId} signaling state: "${pc.signalingState}"`);
         };
         pc.onconnectionstatechange = _e => {
             const { connectionState, iceConnectionState } = pc;
-            console.log(`connection state: "${connectionState}" (cf. ICE connection state: "${iceConnectionState}")`);
+            if (DEBUG.connection) console.log(`${this.clientId} connection state: "${connectionState}" (cf. ICE connection state: "${iceConnectionState}")`);
             if (connectionState === 'disconnected' || connectionState === 'failed') this.synchronizerDisconnected();
         };
         pc.oniceconnectionstatechange = _e => {
             const state = pc.iceConnectionState;
             const dataChannelState = this.dataChannel.readyState;
-            console.log(`${this.clientId} ICE connection state: "${state}"; data channel: "${dataChannelState}"`);
+            if (DEBUG.connection) console.log(`${this.clientId} ICE connection state: "${state}"; data channel: "${dataChannelState}"`);
             // if (state === 'disconnected') {
                 /* note from https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/iceConnectionState:
                 Checks to ensure that components are still connected failed for at least one component of the RTCPeerConnection. This is a less stringent test than failed and may trigger intermittently and resolve just as spontaneously on less reliable networks, or during temporary disconnections. When the problem resolves, the connection may return to the connected state.
@@ -365,6 +377,13 @@ export class CroquetWebRTCConnection {
                 // but for us it seems simpler to restart from scratch.
                 this.synchronizerDisconnected(4003, 'ICE negotiation failed'); // 4003 => RECONNECT
             }
+        };
+        pc.onicegatheringstatechange = e => {
+            // on Node (node-datachannel), this event is how we hear about completion
+            // of local-candidate gathering (rather than generation of a null candidate).
+            const state = pc.iceGatheringState;
+            if (DEBUG.connection) console.log(`${this.clientId} ICE gathering state: "${state}"`);
+            if (state === 'complete') this.localGatheringComplete = true;
         };
         pc.onicecandidate = e => {
             // an ICE candidate (or null) has been generated locally.  our synchronizer's
@@ -392,7 +411,7 @@ export class CroquetWebRTCConnection {
         pc.onicecandidateerror = e => {
             // it appears that these are generally not fatal.  report and
             // carry on.
-            console.log(`${this.clientId} ICE error: ${e.errorText}`);
+            if (DEBUG.connection) console.log(`${this.clientId} ICE error: ${e.errorText}`);
         };
     }
 
@@ -420,7 +439,7 @@ export class CroquetWebRTCConnection {
     }
 
     send(data) {
-        // console.log("attempt to send", data, !!this.dataChannel);
+        // if (DEBUG.connection) console.log("attempt to send", data, !!this.dataChannel);
         if (this.dataChannel) {
             this.dataChannel.send(data);
         } else {
@@ -429,7 +448,7 @@ export class CroquetWebRTCConnection {
     }
 
     onDataChannelOpen(event) {
-        console.log(`${this.clientId} RTCDataChannel open`);
+        if (DEBUG.connection) console.log(`${this.clientId} RTCDataChannel open`);
         if (this.onconnected) this.onconnected();
         this.logConnectionState();
     }
@@ -448,12 +467,10 @@ export class CroquetWebRTCConnection {
         // increase the probability that ICE has indeed fully settled.
         // jun 2024: first seen in Firefox clients running through a VPN: candidate
         // generation can be held up around 10 seconds for some connection methods,
-        // so the null candidate that signals end of gathering can be delayed even
-        // though negotiation has succeeded (so localGatheringComplete remains false).
+        // so the signal for end of gathering (an event, or a null candidate) can be
+        // delayed even though negotiation has succeeded.
         // on expiry of ICE_NEGOTIATION_MAXIMUM we now proceed with closure of the
         // signalling channel if the connection appears to be up and running.
-        // $$$ this is also consistently seen on node.js clients.  maybe there's a
-        // different reason for that (and a possible workaround).
         this.dataChannelFlowing = true;
         if (!this.signalingCloseScheduled && this.synchronizerGatheringComplete && this.localGatheringComplete) {
             this.clearNegotiationTimeout(); // negotiation has successfully completed
@@ -473,7 +490,7 @@ export class CroquetWebRTCConnection {
             return;
         }
 
-        // console.log(`Received message: ${msg}`);
+        // if (DEBUG.connection) console.log(`Received message: ${msg}`);
         this.onmessage(event);
     }
 
@@ -489,7 +506,7 @@ export class CroquetWebRTCConnection {
         // isn't triggered for another 5 or 6 seconds.
         if (!this.pc) return; // connection has already gone
 
-        console.log(`${this.clientId} data channel closing`);
+        if (DEBUG.connection) console.log(`${this.clientId} data channel closing`);
         this.synchronizerDisconnected();
     }
 
@@ -497,17 +514,17 @@ export class CroquetWebRTCConnection {
         // unexpected drop in the data channel
         if (!this.pc) return; // connection has already gone
 
-        console.log(`${this.clientId} data channel closed`);
+        if (DEBUG.connection) console.log(`${this.clientId} data channel closed`);
         this.synchronizerDisconnected();
     }
 
     scheduleSignalingClose() {
         this.signalingCloseScheduled = true;
-        console.log(`${this.clientId} signaling channel closure scheduled`);
+        if (DEBUG.connection) console.log(`${this.clientId} signaling channel closure scheduled`);
         const { signalingKey } = this;
         setTimeout(() => {
             if (signalingKey === this.signalingKey) {
-                console.log(`${this.clientId} closing signaling channel`);
+                if (DEBUG.connection) console.log(`${this.clientId} closing signaling channel`);
                 this.closeSignalingChannel();
             }
         }, 1000);

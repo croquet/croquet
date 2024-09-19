@@ -124,7 +124,7 @@ function isLocalUrl(hostname) {
 */
 
 /*
-    Query string parameters for DePIN:
+    Query string parameters for DePIN (on Node, specify in the form --depin=foo):
         depin        (means wss://api.multisynq.io/depin)
         or
         depin=dev    (means wss://api.multisynq.dev/depin)
