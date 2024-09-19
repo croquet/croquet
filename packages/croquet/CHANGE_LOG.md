@@ -4,6 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest @dev
 
+* 2.0.0-28 tweaks to webrtc ICE negotiation and reporting
 * 2.0.0-27 include appId on DePIN connections
 * 2.0.0-26 fix urlOptions import; explicit synchronizer requests; provide details for session charging
 * 2.0.0-25 more logging

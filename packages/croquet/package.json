@@ -1,6 +1,6 @@
 {
   "name": "@croquet/croquet",
-  "version": "2.0.0-27",
+  "version": "2.0.0-28",
   "description": "Multiuser for Static Web Apps by Running Server Code in Synced Client VMs",
   "keywords": [
     "croquet",
