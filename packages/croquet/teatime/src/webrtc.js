@@ -354,6 +354,7 @@ export class CroquetWebRTCConnection {
             throw error;
         }
 
+        const iceReportedErrors = new Set(); // do our own filtering
         const pc = this.pc = new globalThis.RTCPeerConnection({ iceServers });
         pc.onnegotiationneeded = _e => {
             if (pc !== this.pc) return;
@@ -425,9 +426,15 @@ export class CroquetWebRTCConnection {
             if (pc !== this.pc) return;
             // it appears that these are generally not fatal (see https://www.webrtc-developers.com/oups-i-got-an-ice-error-701/).
             // report and carry on.
+            // NB: although ICE is meant to not report an error twice for a given URL,
+            // on Chrome it appears to ignore that.  so filter things ourselves.
             if (DEBUG.connection) {
-                if (e.errorCode === 701) console.log(`${this.clientId} ICE 701 warning on ${e.url}`);
-                else console.log(`${this.clientId} ICE error from ${e.url}: ${e.errorCode} ${e.errorText}`);
+                const errorKey = `${e.errorCode}|${e.url}`;
+                if (!iceReportedErrors.has(errorKey)) {
+                    if (e.errorCode === 701) console.log(`${this.clientId} ICE 701 warning on ${e.url}`);
+                    else console.log(`${this.clientId} ICE error from ${e.url}: ${e.errorCode} ${e.errorText}`);
+                    iceReportedErrors.add(errorKey);
+                }
             }
         };
     }
