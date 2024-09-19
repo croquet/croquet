@@ -325,10 +325,17 @@ export class CroquetWebRTCConnection {
                 const fetchServers = () => {
                     fetch(process.env.ICE_SERVERS_URL)
                     .then(response => {
-                        if (response.status === 200) resolve(response.json());
-                        else throw Error(`status=${response.status}`);
-                    })
-                    .catch(err => {
+                        if (response.status !== 200) throw Error(`status=${response.status}`);
+                        return response.json();
+                    }).then(serversObj => {
+                        // an opportunity to edit the supplied servers - for example, if we want to add an alternative TURN service.
+                        // [
+                        //   { urls: "stun:stun.l.google.com:19302" },
+                        //   { urls: "stun:stun.l.google.com:5349" },
+                        // ].forEach(stun => serversObj.unshift(stun));
+                        // console.log(serversObj);
+                        resolve(serversObj);
+                    }).catch(err => {
                         console.warn("error in fetching ICE servers", err);
                         if (--tries > 0) setTimeout(fetchServers, 250);
                         else reject(); // caught below, throwing a 4200 (fatal) error
@@ -349,17 +356,21 @@ export class CroquetWebRTCConnection {
 
         const pc = this.pc = new globalThis.RTCPeerConnection({ iceServers });
         pc.onnegotiationneeded = _e => {
+            if (pc !== this.pc) return;
             if (DEBUG.connection) console.log(`${this.clientId} negotiationneeded event fired`);
         };
         pc.onsignalingstatechange = _e => {
+            if (pc !== this.pc) return;
             if (DEBUG.connection) console.log(`${this.clientId} signaling state: "${pc.signalingState}"`);
         };
         pc.onconnectionstatechange = _e => {
+            if (pc !== this.pc) return;
             const { connectionState, iceConnectionState } = pc;
             if (DEBUG.connection) console.log(`${this.clientId} connection state: "${connectionState}" (cf. ICE connection state: "${iceConnectionState}")`);
             if (connectionState === 'disconnected' || connectionState === 'failed') this.synchronizerDisconnected();
         };
         pc.oniceconnectionstatechange = _e => {
+            if (pc !== this.pc) return;
             const state = pc.iceConnectionState;
             const dataChannelState = this.dataChannel.readyState;
             if (DEBUG.connection) console.log(`${this.clientId} ICE connection state: "${state}"; data channel: "${dataChannelState}"`);
@@ -379,6 +390,7 @@ export class CroquetWebRTCConnection {
             }
         };
         pc.onicegatheringstatechange = e => {
+            if (pc !== this.pc) return;
             // on Node (node-datachannel), this event is how we hear about completion
             // of local-candidate gathering (rather than generation of a null candidate).
             const state = pc.iceGatheringState;
@@ -386,6 +398,7 @@ export class CroquetWebRTCConnection {
             if (state === 'complete') this.localGatheringComplete = true;
         };
         pc.onicecandidate = e => {
+            if (pc !== this.pc) return;
             // an ICE candidate (or null) has been generated locally.  our synchronizer's
             // node-datachannel API can't handle empty or null candidates (even though
             // the protocol says they can be used to indicate the end of the candidates)
@@ -409,9 +422,13 @@ export class CroquetWebRTCConnection {
             }
         };
         pc.onicecandidateerror = e => {
-            // it appears that these are generally not fatal.  report and
-            // carry on.
-            if (DEBUG.connection) console.log(`${this.clientId} ICE error: ${e.errorText}`);
+            if (pc !== this.pc) return;
+            // it appears that these are generally not fatal (see https://www.webrtc-developers.com/oups-i-got-an-ice-error-701/).
+            // report and carry on.
+            if (DEBUG.connection) {
+                if (e.errorCode === 701) console.log(`${this.clientId} ICE 701 warning on ${e.url}`);
+                else console.log(`${this.clientId} ICE error from ${e.url}: ${e.errorCode} ${e.errorText}`);
+            }
         };
     }
 
