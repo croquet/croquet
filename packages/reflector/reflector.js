@@ -2400,6 +2400,9 @@ async function JOIN(client, args) {
 }
 
 function SYNC(island) {
+    // invoked from:
+    //    JOIN(), on successful join of a client or after fetchLatestSessionSpec
+    //    SNAP(), to take advantage of the new snapshot
     const { id, seq, timeline, snapshotUrl: url, snapshotTime, snapshotSeq, persistentUrl, messages, tove, flags } = island;
     const time = advanceTime(island, "SYNC");
     const reflector = DEPIN ? registerRegion : CLUSTER;
@@ -2437,9 +2440,11 @@ function SYNC(island) {
     }
     // synced all that were waiting
     island.syncClients.length = 0;
-    // delete island if nobody actually joined
+    // prepare to delete island if no-one has actually joined.
     if (island.clients.size === 0) provisionallyDeleteIsland(island);
-    else if (DEPIN && !island.auditTimer) island.auditTimer = setInterval(() => AUDIT(island), DEPIN_AUDIT_INTERVAL);
+    // on DePIN, ensure there is an audit timer (though the audits can be suppressed
+    // under control of depinStats.canEarnCredit)
+    if (DEPIN && !island.auditTimer) island.auditTimer = setInterval(() => AUDIT(island), DEPIN_AUDIT_INTERVAL);
 }
 
 function clientLeft(client, reason='') {
@@ -3042,6 +3047,9 @@ function AUDIT(island) {
     if (!session) return; // no stats to report
     if (!island.clients.size) return; // no-one to ask
 
+    const { depinStats } = session;
+    if (!depinStats.canEarnCredit) return; // demo and developer sessions cannot earn
+
     const payload = { what: 'audit' };
     const msg = [0, 0, payload];
     if (island.flags.rawtime) msg.push(0); // will be overwritten with time value
@@ -3059,7 +3067,6 @@ function AUDIT(island) {
     // it now, but store it in the depinStats and wait until the update blob that
     // includes the new audit time is about to be sent.  then we add the audit to that blob.
 
-    const { depinStats } = session;
     const { auditLastUsers: lastUsers, auditMinUsers: minUsers, auditMaxUsers: maxUsers, auditPayloadTally: payloadTally, auditBytesIn: bytesIn, auditBytesOut: bytesOut, auditTicks: ticks } = depinStats;
     const audit = { syncName: SYNCNAME, time, lastUsers, minUsers, maxUsers, payloadTally, bytesIn, bytesOut, ticks };
     depinStats.auditForSessionRunner = audit;
@@ -3216,6 +3223,9 @@ async function heraldUsers(island, all, joined, left) {
 
 // impose a delay on island deletion, in case clients are only going away briefly
 function provisionallyDeleteIsland(island) {
+    // invoked from
+    //   clientLeft(), when remaining clients has dropped to zero
+    //   SYNC(), if it turns out we have no clients
     const { id } = island;
     const session = ALL_SESSIONS.get(id);
     if (!session) {
