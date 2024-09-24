@@ -2,9 +2,7 @@
 /* eslint-disable object-shorthand */
 /* eslint-disable prefer-arrow-callback */
 
-// when running on node, 'ws' is the actual web socket module
-// when running in browser, 'ws' is our own './ws.js'
-// (in-browser mode is not supported right now)
+const SYNCH_VERSION = "2.0.0"
 
 const os = require('node:os');
 const fs = require('node:fs');
@@ -17,7 +15,6 @@ const jwt = require('jsonwebtoken');
 const pino = require('pino');
 const { Storage } = require('@google-cloud/storage');
 const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
-const APP_VERSION = require('./package.json').version; // eslint-disable-line import/extensions
 
 
 // command line args
@@ -252,7 +249,7 @@ const empty_logger = pino({
 const global_logger = empty_logger.child({ scope: "process", hostIp: HOSTIP });
 // Logging out the initial start-up event message
 const walletMsg = WALLET ? ` for wallet ${WALLET}` : '';
-global_logger.notice({ event: "start", appVersion: APP_VERSION }, `synchronizer v${APP_VERSION} started ${CLUSTER_LABEL} ${HOSTIP}${walletMsg}`);
+global_logger.notice({ event: "start", synchVersion: SYNCH_VERSION }, `synchronizer v${SYNCH_VERSION} started ${CLUSTER_LABEL} ${HOSTIP}${walletMsg}`);
 
 // secret shared with sign cloud func
 const SECRET_NAME = `projects/${GCP_PROJECT}/secrets/signurl-jwt-hs256/versions/latest`;
@@ -483,7 +480,7 @@ async function startServerForDePIN() {
 
         const proxyUrl = new URL(`${DEPIN}/synchronizers/register`);
         const { searchParams } = proxyUrl;
-        searchParams.set('version', APP_VERSION);
+        searchParams.set('version', SYNCH_VERSION);
         searchParams.set('nickname', SYNCNAME);
         searchParams.set('connectTime', proxyKey);
         if (registerRegion) searchParams.set('registerRegion', registerRegion);
