@@ -1,10 +1,15 @@
-import { Model, View, Data, Session, App, Messenger } from "@croquet/croquet";
+/* global CROQUET_SESSION, imageinput, image, prevButton, nextButton, addButton, delButton */
+
+import { Model, View, Data, Session, App, Messenger, Constants } from "@croquet/croquet";
 import Hammer from "hammerjs";
 import prettyBytes from "pretty-bytes";
 import Swal from 'sweetalert2';
 
 import "./pix.css";
-import "sweetalert2/dist/sweetalert2.min.css"
+import "sweetalert2/dist/sweetalert2.min.css";
+
+Constants.version = 3;
+
 
 class PixModel extends Model {
 
@@ -325,7 +330,7 @@ class PixView extends View {
                 const data = await Data.fetch(this.sessionId, asset.handle).then(DEBUG_DELAY);
                 blob = new Blob([data], { type: asset.type });
                 contentCache.set(asset.handle, blob);
-            } catch(ex) {
+            } catch (ex) {
                 console.error(ex);
                 await Swal.fire({
                     title: `Failed to fetch "${asset.name}"`,
@@ -355,7 +360,7 @@ class PixView extends View {
         const original = new Image();
         original.src = URL.createObjectURL(blob);
         let success = true;
-        try { await original.decode(); } catch(ex) { success = false; }
+        try { await original.decode(); } catch (ex) { success = false; }
         URL.revokeObjectURL(original.src);
         if (!success) return {};
 
@@ -435,8 +440,7 @@ window.document.addEventListener("wheel", evt => evt.preventDefault(), { passive
 App.messages = true;
 App.makeWidgetDock();
 const joinArgs = {
-    apiKey: '2DT9VCoCKtvXMKkBGZXNLrUEoZMn48ojXPC8XFAuuO',
-    appId: 'io.croquet.pix',
+    ...CROQUET_SESSION,
     name: App.autoSession(),
     password: 'dummy-pass',
     model: PixModel,
