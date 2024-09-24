@@ -1131,8 +1131,8 @@ console.log("CLIENT IP", depinMsg.ip);
                             break;
                         }
                         case 'SESSION_STATE': {
-                            const { spec } = depinMsg;
-                            session.sessionSpecReady(spec);
+                            const { spec, persisted } = depinMsg;
+                            session.sessionSpecReady({spec, persisted});
                             break;
                         }
                         case 'SESSION_UPDATE_RECEIVED': {
@@ -1374,17 +1374,22 @@ console.log("CLIENT IP", depinMsg.ip);
             }).catch(_err => null) // error or timeout delivers null
             .finally(() => clearTimeout(fetchTimeout));
 
-            const latestSpec = await fetchFromRunner;
+            const specOrPersisted = await fetchFromRunner;
             let errorDetails;
-            if (latestSpec) {
-                if (Object.keys(latestSpec).length) return latestSpec;
+            if (specOrPersisted) {
+                const { spec, persisted } = specOrPersisted;
+                if (Object.keys(spec).length) return spec;
 
-                errorDetails = ["empty spec", 404];
+                errorDetails = ["empty spec", 404, persisted];
             } else errorDetails = timedOut
                 ? ["fetch timed out", 504]
                 : ["fetch failed", 500];
 
-            return Promise.reject(Object.assign(new Error(errorDetails[0]), { code: errorDetails[1] }));
+            throw {
+                message: errorDetails[0],
+                code: errorDetails[1],
+                persisted: errorDetails[2]
+            };
         };
 
         session.gatherAndFlushSessionUpdates = () => {
@@ -2356,7 +2361,9 @@ async function JOIN(client, args) {
 
                 // no session state was found.  check if there is persistent data.
                 let persisted;
-                if (!DEPIN) {  // @@ on DePIN we don't yet support persistence
+                if (DEPIN) {
+                    if (err.persisted) persisted = { url: err.persisted };
+                } else { // GCP
                     if (island.developerId) {
                         const bucket = FILE_BUCKETS[island.region] || FILE_BUCKETS.default;
                         const path = `u/${island.developerId}/${appId}/${persistentId}/saved.json`;
@@ -2765,6 +2772,10 @@ function SAVE(client, args) {
         uploadJSON(path, saved, bucket)
         .then(() => client.logger.debug({event: "persist-uploaded", persistTime: descriptor, data: url, region, bucket: bucket.name, path}, "uploaded persistent data"))
         .catch(err => client.logger.error({event: "persist-failed", persistTime: descriptor, data: url, region, bucket: bucket.name, path, err}, `failed to record persistent-data upload. ${err.code}: ${err.message}`));
+    } else if (DEPIN) {
+        const session = ALL_SESSIONS.get(id);
+        session.sendToSessionRunner({ what: "PERSIST", url});
+        client.logger.debug({event: "persist-sent", persistTime: descriptor, data: url}, "sent persistent data to session runner");
     }
 }
 
