@@ -1,14 +1,12 @@
 /* global CROQUET_SESSION, imageinput, image, prevButton, nextButton, addButton, delButton */
 
-import { Model, View, Data, Session, App, Messenger, Constants } from "@croquet/croquet";
+import { Model, View, Data, Session, App, Messenger } from "@croquet/croquet";
 import Hammer from "hammerjs";
 import prettyBytes from "pretty-bytes";
 import Swal from 'sweetalert2';
 
 import "./pix.css";
 import "sweetalert2/dist/sweetalert2.min.css";
-
-Constants.version = 3;
 
 
 class PixModel extends Model {
@@ -437,21 +435,30 @@ class PixView extends View {
 
 window.document.addEventListener("wheel", evt => evt.preventDefault(), { passive: false, capture: false });
 
-App.messages = true;
-App.makeWidgetDock();
-const joinArgs = {
+const session = {
     ...CROQUET_SESSION,
-    name: App.autoSession(),
-    password: 'dummy-pass',
     model: PixModel,
     view: PixView,
     tps: 0
-    };
-Session.join(joinArgs);
+};
 
+const url = new URL(window.location);
+const urlHadName = url.searchParams.has("q");
+const urlHadPassword = !!url.hash;
 
-// TODO: use per-session passwords
-//    password: App.autoPassword(),
-// without breaking existing sessions!
-// probably need to pass 'dummy-pass' as 'oldPassword:'
-// to be used when decryption fails
+// if no name in CROQUET_SESSION, use autoSession
+if (!session.name) session.name = App.autoSession();
+
+// if no password in CROQUET_SESSION, use autoPassword,
+// but migrate old sessions without passwords
+if (!session.password) {
+    if (urlHadName && !urlHadPassword) {
+        session.password = "dummy-pass";
+    } else {
+        session.password = App.autoPassword();
+    }
+}
+
+App.messages = true;
+App.makeWidgetDock();
+Session.join(session);
