@@ -918,22 +918,27 @@ export default class Controller {
         const maxTries = offline ? 1 : 3;
         let tried = 0;
         let timer = Date.now();
-        let response;
+        let response, error;
         while (tried <= maxTries) {
-            // eslint-disable-next-line no-await-in-loop
-            response = await (offline ? this.fetchOffline(url, what, debug) : fetch(url, {
-                method: "GET",
-                mode: "cors",
-                referrer: App.referrerURL(),
-            }));
-            if (response.ok) break;
+            try {
+                // eslint-disable-next-line no-await-in-loop
+                response = await (offline ? this.fetchOffline(url, what, debug) : fetch(url, {
+                    method: "GET",
+                    mode: "cors",
+                    referrer: App.referrerURL(),
+                }));
+                if (response.ok) break;
+            } catch (err) { error = err; }
+
+            const failureReport = response ? `status ${response.status} ${response.statusText}` : `error "${error?.message}"`;
             if (tried === maxTries) {
-                console.warn(`status ${response.status} ${response.statusText} while fetching ${what}, giving up`);
-                throw Error(`received ${response.status} ${response.statusText}`);
+                console.warn(`final ${failureReport} while fetching ${what}; giving up`);
+                throw Error(failureReport);
             }
+
             // first retry is 100ms, then 1s, then 5s
             const delay = tried === 0 ? 100 : tried === 1 ? 1000 : 5000;
-            console.warn(`status ${response.status} ${response.statusText} while fetching ${what}, retrying in ${delay}ms`);
+            console.warn(`${failureReport} while fetching ${what}; retrying in ${delay}ms`);
             // eslint-disable-next-line no-await-in-loop
             await new Promise(resolve => { setTimeout(resolve, delay); });
             tried++;
@@ -2762,7 +2767,7 @@ class Connection {
         if (now - this.socketLastSent > PULSE_TIMEOUT) this.PULSE(now);
         // if we haven't heard anything from the reflector in 50s, assume that somehow the
         // connection dropped (even though our end of the socket hasn't registered the break)
-        else if (now - this.lastReceived > REFLECTOR_ALIVE_TIMEOUT) this.closeConnectionWithError("connection", Error("Reflector has gone away"));
+        else if (now - this.lastReceived > REFLECTOR_ALIVE_TIMEOUT) this.closeConnectionWithError("connection", Error(`${DEPIN ? 'Synchronizer' : 'Reflector'} has gone away`));
         // also, if we are expecting steady ticks, PULSE if ticks are missing.  goal is to
         // prevent the connection from going idle, because otherwise some router/computer
         // combinations will start to buffer packets instead of delivering them immediately
