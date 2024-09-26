@@ -303,7 +303,8 @@ const depinCreditTallies = {
     // report as -1 until initialised from the proxy
     syncLifeTraffic: -1,  // lifetime bytes handled by this synq
     syncLifePoints: -1,   // lifetime points earned
-    walletLifePoints: -1  // lifetime points added to wallet via any synq
+    walletLifePoints: -1, // lifetime points added to wallet via any synq
+    walletBalance: -1     // balance of that wallet, in SOL
 }
 
 async function startServerForDePIN() {
@@ -588,10 +589,11 @@ async function startServerForDePIN() {
                         break;
                     }
                     case 'UPDATE_TALLIES': {
-                        const { lifeTraffic, lifePoints, walletPoints } = depinMsg;
+                        const { lifeTraffic, lifePoints, walletPoints, walletBalance } = depinMsg;
                         depinCreditTallies.syncLifeTraffic = lifeTraffic;
                         depinCreditTallies.syncLifePoints = lifePoints;
                         depinCreditTallies.walletLifePoints = walletPoints;
+                        depinCreditTallies.walletBalance = walletBalance
                         break;
                     }
                     case 'STATS': {
@@ -1548,7 +1550,7 @@ console.log("CLIENT IP", depinMsg.ip);
         for (const id of ALL_ISLANDS.keys()) {
             if (ALL_SESSIONS.get(id)?.depinStats.canEarnCredit !== true) demoSessions++;
         }
-        const { syncLifeTraffic, syncLifePoints, walletLifePoints } = depinCreditTallies;
+        const { syncLifeTraffic, syncLifePoints, walletLifePoints, walletBalance } = depinCreditTallies;
         return {
             now: Date.now(),
             sessions: allSessions,
@@ -1561,6 +1563,7 @@ console.log("CLIENT IP", depinMsg.ip);
             syncLifeTraffic,
             syncLifePoints,
             walletLifePoints,
+            walletBalance,
         };
     }
 
