@@ -528,9 +528,9 @@ async function startServerForDePIN() {
                         const { registerRegion: newRegisterRegion, ip, lifeTraffic, lifePoints } = depinMsg;
                         const shortProxyId = proxyId.slice(0, 8);
                         if (registerRegion && registerRegion !== newRegisterRegion) {
-                            global_logger.notice({ event: "registered", shortProxyId, oldRegisterRegion: registerRegion, registerRegion: newRegisterRegion }, `proxy id ${shortProxyId} moved from ${registerRegion} to ${newRegisterRegion}`);
+                            global_logger.notice({ event: "registered", shortProxyId, oldRegisterRegion: registerRegion, registerRegion: newRegisterRegion, ip }, `proxy id ${shortProxyId} moved from ${registerRegion} to ${newRegisterRegion}`);
                         } else {
-                            global_logger.notice({ event: "registered", shortProxyId, registerRegion: newRegisterRegion }, `proxy id ${shortProxyId} registered in ${newRegisterRegion}`);
+                            global_logger.notice({ event: "registered", shortProxyId, registerRegion: newRegisterRegion, ip }, `proxy id ${shortProxyId} registered in ${newRegisterRegion}`);
                         }
                         registerRegion = newRegisterRegion;
 
@@ -547,10 +547,9 @@ async function startServerForDePIN() {
                         depinCreditTallies.syncLifePoints = lifePoints;
 
                         // if there is a connected parent process (assumed to be Electron),
-                        // tell it our ip address
+                        // give it some details now.
                         const electronMain = process.parentPort;
-                        electronMain?.postMessage({ what: 'ipAddress', value: ip });
-
+                        electronMain?.postMessage({ what: 'syncDetails', ip, version: SYNCH_VERSION, region: registerRegion });
                         break;
                     }
                     case "SESSION": {
@@ -669,6 +668,7 @@ async function startServerForDePIN() {
             clearTimeout(proxyContactTimeout);
             clearTimeout(proxyAckTimeout);
             proxySocket = null;
+            sendToDepinProxy = null;
 
             const reconnectMsg = aborted ? "" : `  retrying after ${proxyReconnectDelay}ms`;
             global_logger.debug({ event: "proxy-socket-closed", closeReason, aborted, reconnect: reconnectMsg }, `proxy socket closed (${closeReason}).${reconnectMsg}`);
@@ -1099,7 +1099,6 @@ async function startServerForDePIN() {
                                     // CF-Connecting-IP header.
                                     const peerConnection = createPeerConnection(clientId, globalClientId, sessionId, sessionSocket);
                                     peerConnection.mq_clientIp = depinMsg.ip;
-console.log("CLIENT IP", depinMsg.ip);
                                     peerConnection.setRemoteDescription(msg.sdp, msg.type);
                                     break;
                                 }
@@ -1635,9 +1634,6 @@ console.log("CLIENT IP", depinMsg.ip);
                         break;
                     case 'debug':
                         electronMain.postMessage({ what: 'debug', value: gatherSessionsStats() });
-                        break;
-                    case 'userDetails':
-                        electronMain.postMessage({ what: 'userDetails', value: msg.userDetails });
                         break;
                     case 'getDemoToken':
                         sendToDepinProxy?.({ what: 'GET_DEMO_TOKEN' });
