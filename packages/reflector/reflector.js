@@ -428,6 +428,7 @@ async function startServerForDePIN() {
     const connectToProxy = () => {
         if (aborted) return; // probably on an old timeout
 
+        if (proxyConnectResponseTimeout) clearTimeout(proxyConnectResponseTimeout); // remove any old one
         let proxyContactTimeout; // next time we should send a PING or STATS, as appropriate
         let proxyAckTimeout; // deadline for hearing back from the proxy
         proxyWasToldWeHaveSessions = false;
