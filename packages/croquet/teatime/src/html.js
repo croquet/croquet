@@ -831,29 +831,33 @@ export const App = {
         return `${url.protocol}//${url.host}${url.pathname}${sameOrigin ? url.search : ""}`;
     },
 
-    // actual session name is `${appId}/${fragment}` where
-    // "appId" is constant and "fragment" comes from this autoSession
-    autoSession(options = { key: 'q' }) {
+    // get session name from url search under the key given, or create random name
+    // If force=true, always create a new name (even if one is already there)
+    // If default is given, use that instead of random
+    // If keyless=true, allow ?name and #name without key (backwards compatibility)
+    autoSession(options = { key: 'q', default: '', keyless: false, force: false }) {
         if (typeof options === "string") options = { key: options };
         if (!options) options = {};
         const key = options.key || 'q';
         const url = new URL(App.sessionURL);
         // fragment comes from ?key=fragment, or ?fragment or #fragment if keyless is enabled
         let fragment = '';
-        // Note: cannot use url.searchParams because browsers differ for malformed % sequences
-        const params = url.search.slice(1).split("&");
-        const keyAndFragment = params.find(param => param.split("=")[0] === key);
-        if (keyAndFragment) {
-            fragment = keyAndFragment.replace(/[^=]*=/, '');
-        } else if (options.keyless) {
-            // allow keyless ?fragment
-            fragment = params.find(param => !param.includes("="));
-            if (!fragment) { // fall back to #fragment for old URLs
-                fragment = url.hash.slice(1);
-                if (fragment) { // ... but redirect to new url
-                    url.hash = '';
-                    if (url.search) url.searchParams.set(key, fragment);
-                    else url.search = fragment;
+        if (!options.force) {
+            // Note: cannot use url.searchParams because browsers differ for malformed % sequences
+            const params = url.search.slice(1).split("&");
+            const keyAndFragment = params.find(param => param.split("=")[0] === key);
+            if (keyAndFragment) {
+                fragment = keyAndFragment.replace(/[^=]*=/, '');
+            } else if (options.keyless) {
+                // allow keyless ?fragment
+                fragment = params.find(param => !param.includes("="));
+                if (!fragment) { // fall back to #fragment for old URLs
+                    fragment = url.hash.slice(1);
+                    if (fragment) { // ... but redirect to new url
+                        url.hash = '';
+                        if (url.search) url.searchParams.set(key, fragment);
+                        else url.search = fragment;
+                    }
                 }
             }
         }
@@ -861,7 +865,12 @@ export const App = {
         if (fragment) try { fragment = decodeURIComponent(fragment); } catch (ex) { /* ignore */ }
         // if not found, create random fragment
         else {
-            fragment = Math.floor(Math.random() * 36**10).toString(36);
+            if (options.default) fragment = options.default;
+            else {
+                const random = new Uint8Array(10);
+                window.crypto.getRandomValues(random);      // okay to use on insecure origin
+                fragment = toBase64url(random.buffer);
+            }
             url.searchParams.set(key, fragment);
         }
         // change page url if needed
@@ -881,17 +890,22 @@ export const App = {
         return retVal;
     },
 
-    // get password from url hash.
-    // If found, remove it but keep in sessionURL for QR code
-    // Note: independent of this, hard-coded in controller
-    autoPassword(options = { key: 'pw', scrub: false, keyless: false }) {
+    // get password from url hash under the key given, or create random password
+    // If scrub=true, remove it but keep in sessionURL for QR code (this makes
+    //    debugging hard, set debug=password to keep anyways)
+    // If keyless=true, allow #password without key (backwards compatibility)
+    // If force=true, always create a new password (even if one is already there)
+    // If default is given, use that instead of random
+    autoPassword(options = { key: 'pw', default: '', scrub: false, keyless: false, force: false }) {
+        if (typeof options === "string") options = { key: options };
         const key = options.key || 'pw';
         const scrub = options.scrub && !urlOptions.has("debug", "password");
         const keyless = options.keyless;
+        const force = options.force;
         const url = new URL(App.sessionURL);
         let password = '';
         const hash = url.hash.slice(1);
-        if (hash) {
+        if (hash && !force) {
             const params = hash.split("&");
             const keyAndPassword = params.find(param => param.split("=")[0] === key);
             if (keyAndPassword) {
@@ -904,11 +918,14 @@ export const App = {
                 if (password && scrub) url.hash = params.filter(param => param !== password).join('&');
             }
         }
-        // create random password if none provided
+        // create random password if none provided (or forced)
         if (!password) {
-            const random = new Uint8Array(16);
-            window.crypto.getRandomValues(random);      // okay to use on insecure origin
-            password = toBase64url(random.buffer);
+            if (options.default) password = options.default;
+            else {
+                const random = new Uint8Array(16);
+                window.crypto.getRandomValues(random);      // okay to use on insecure origin
+                password = toBase64url(random.buffer);
+            }
             // add password to session URL for QR code
             if (hash) url.hash = `${hash}&${key}=${password}`;
             else if (keyless) url.hash = password;
