@@ -835,7 +835,7 @@ export const App = {
     // If force=true, always create a new name (even if one is already there)
     // If default is given, use that instead of random
     // If keyless=true, allow ?name and #name without key (backwards compatibility)
-    autoSession(options = { key: 'q', default: '', keyless: false, force: false }) {
+    autoSession(options = { key: 'q', force: false, default: '', keyless: false }) {
         if (typeof options === "string") options = { key: options };
         if (!options) options = {};
         const key = options.key || 'q';
@@ -896,16 +896,15 @@ export const App = {
     // If keyless=true, allow #password without key (backwards compatibility)
     // If force=true, always create a new password (even if one is already there)
     // If default is given, use that instead of random
-    autoPassword(options = { key: 'pw', default: '', scrub: false, keyless: false, force: false }) {
+    autoPassword(options = { key: 'pw', default: '', force: false, scrub: false, keyless: false}) {
         if (typeof options === "string") options = { key: options };
         const key = options.key || 'pw';
         const scrub = options.scrub && !urlOptions.has("debug", "password");
         const keyless = options.keyless;
-        const force = options.force;
         const url = new URL(App.sessionURL);
         let password = '';
-        const hash = url.hash.slice(1);
-        if (hash && !force) {
+        const hash = options.force ? '' : url.hash.slice(1);
+        if (hash) {
             const params = hash.split("&");
             const keyAndPassword = params.find(param => param.split("=")[0] === key);
             if (keyAndPassword) {
@@ -932,7 +931,7 @@ export const App = {
             else url.hash = `${key}=${password}`;
             App.sessionURL = url.href;
             // but scrub it from address bar
-            if (scrub) url.hash = hash;
+            if (scrub) url.hash = keyless ? '' : hash;
         }
         if (urlOptions.has("debug", "session")) console.log(`Croquet.App.sessionUrl: ${App.sessionURL}`);
         // change url bar if needed
