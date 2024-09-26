@@ -158,15 +158,20 @@ export class CroquetWebRTCConnection {
                     resolve();
                     return;
                 }
-                // $$$ temporary handling for errors passed through signalling
+                // handling for errors passed through signalling
                 // (which will be followed immediately by socket closure from
                 // the far end)
                 if (msgData.what === 'ERROR') {
-                    console.error(`From registry: ${msgData.reason}`);
+                    console.error(`${this.clientId} registry error: ${msgData.reason}`);
                     return;
                 }
 
-                // otherwise assume it's an ICE message
+                // otherwise it's either an ICE message or an unexpected registry error
+                if (!msgData.type) {
+                    console.error(`${this.clientId} unexpected message: ${rawMsg.data}`);
+                    return;
+                }
+
                 if (DEBUG.connection) console.log(`${this.clientId} received signal of type "${msgData.type}"`);
                 switch (msgData.type) {
                     case 'answer':
