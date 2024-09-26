@@ -4,6 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest @dev
 
+* 2.0.0-30 autoSession / autoPassword force and default options
 * 2.0.0-29 send persistent data to synchronizer
 * 2.0.0-28 tweaks to webrtc ICE negotiation and reporting
 * 2.0.0-27 include appId on DePIN connections
