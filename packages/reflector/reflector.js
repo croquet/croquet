@@ -28,8 +28,9 @@ const ARGS = {
     NO_LOGLATENCY: "--no-loglatency",
     TIME_STABILIZED: "--time-stabilized",
     DEPIN: "--depin", // optionally followed by DePIN Registry arg, e.g. --depin localhost:8787
-    SYNCNAME: "--sync-name", // followed by a name, e.g. --sync-name MyBigMac:fedc
-    WALLET: "--wallet", // followed by full wallet ID
+    SYNCNAME: "--sync-name",  // followed by a name, e.g. --sync-name abcd1234
+    LAUNCHER: "--launcher",   // followed by a launch vehicle, e.g. --launcher app-1.2.1
+    WALLET: "--wallet",       // followed by full wallet ID
     DEVELOPER: "--developer", // followed by some kind of developer ID
 };
 
@@ -46,7 +47,7 @@ for (let i = 2; i < process.argv.length; i++) {
     if (!knownArgs.includes(arg)) {
         // might be following an arg that can take a value
         const prevArg = process.argv[i - 1];
-        if (![ARGS.DEPIN, ARGS.SYNCNAME, ARGS.WALLET, ARGS.DEVELOPER].includes(prevArg)) {
+        if (![ARGS.DEPIN, ARGS.SYNCNAME, ARGS.WALLET, ARGS.DEVELOPER, ARGS.LAUNCHER].includes(prevArg)) {
             console.error(`Error: Unrecognized option ${arg}`);
             process.exit(EXIT.FATAL);
         }
@@ -61,7 +62,7 @@ function parseArgWithValue(argKey) {
     return null;
 }
 
-let WALLET, DEVELOPER;
+let WALLET, DEVELOPER, LAUNCHER;
 let DEPIN = process.argv.includes(ARGS.DEPIN);
 if (DEPIN) {
     // value argument is optional (defaults to prod)
@@ -83,7 +84,10 @@ if (DEPIN) {
         WALLET = '5B3aFyxpnGY36fBeocsLfia5vgAUrbD5pTXorCcMeV7t';
     }
 
-    console.log(`DePIN with ${WALLET ? "wallet=" + WALLET : "developer=" + DEVELOPER}`);
+    LAUNCHER = parseArgWithValue(ARGS.LAUNCHER);
+    if (!LAUNCHER) LAUNCHER = 'unknown';
+
+    console.log(`DePIN with ${WALLET ? "wallet=" + WALLET : "developer=" + DEVELOPER} launched from ${LAUNCHER}`);
 }
 
 function getRandomString(length) {
@@ -482,6 +486,7 @@ async function startServerForDePIN() {
 
         const proxyUrl = new URL(`${DEPIN}/synchronizers/register`);
         const { searchParams } = proxyUrl;
+        searchParams.set('launcher', LAUNCHER);
         searchParams.set('version', SYNCH_VERSION);
         searchParams.set('nickname', SYNCNAME);
         searchParams.set('connectTime', proxyKey);
