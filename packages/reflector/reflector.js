@@ -1640,9 +1640,6 @@ async function startServerForDePIN() {
                     case 'debug':
                         electronMain.postMessage({ what: 'debug', value: gatherSessionsStats() });
                         break;
-                    case 'getDemoToken':
-                        sendToDepinProxy?.({ what: 'GET_DEMO_TOKEN' });
-                        break;
                     case 'queryWalletStats':
                         sendToDepinProxy?.({ what: 'QUERY_WALLET_STATS' });
                         break;
