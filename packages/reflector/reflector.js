@@ -995,7 +995,7 @@ async function startServerForDePIN() {
                     return;
                 }
 
-                session.logger.info({ event: "runner-connected" }, `session runner for ${shortSessionId} connected`);
+                session.logger.info({ event: "runner-connection-opened" }, `session runner for ${shortSessionId} opened our socket`);
                 // nothing else to do.  the opening might even have happened just so
                 // the DO can send us a REJECTED message.
             });
@@ -1061,6 +1061,7 @@ async function startServerForDePIN() {
                         case "REJECTED":
                             // session runner has rejected this synchronizer's attempt to
                             // take the session (for example, if we took too long to connect)
+                            clearTimeout(noSessionRunnerTimeout); // no point waiting any more
                             session.logger.info({ event: "runner-rejected" },`session runner for ${shortSessionId} rejected our connection`);
                             session.offload("rejected by session runner");
                             break;
