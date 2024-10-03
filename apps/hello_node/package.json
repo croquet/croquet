@@ -9,6 +9,6 @@
   "author": "Croquet Corporation",
   "license": "ISC",
   "dependencies": {
-    "@croquet/croquet": "^1.1.0-13"
+    "@croquet/croquet": "^1.1.0"
   }
 }
