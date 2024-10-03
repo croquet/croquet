@@ -561,19 +561,23 @@ export default class Controller {
     async verifyApiKey(apiKeysWithBackend, appId, persistentId) {
         const {signServer, apiKey} = this.getBackend(apiKeysWithBackend);
         if (signServer === "none") return { developerId: "unknown_dev_id" };
+
         try {
-            const response = await fetch(`${signServer}/join?meta=login`, {
-                method: "GET",
-                mode: "cors",
-                headers: {
-                    "X-Croquet-Auth": apiKey,
-                    "X-Croquet-App": appId,
-                    "X-Croquet-Id": persistentId,
-                    "X-Croquet-Version": CROQUET_VERSION,
-                    "X-Croquet-Path": (new URL(App.referrerURL())).pathname,
-                },
-                referrer: App.referrerURL(),
-                referrerPolicy: 'no-referrer-when-downgrade',
+            const maxRetries = 2; // plus initial try
+            const response = await this.fetchWithRetries("verifying API key", maxRetries, () => {
+                return fetch(`${signServer}/join?meta=login`, {
+                    method: "GET",
+                    mode: "cors",
+                    headers: {
+                        "X-Croquet-Auth": apiKey,
+                        "X-Croquet-App": appId,
+                        "X-Croquet-Id": persistentId,
+                        "X-Croquet-Version": CROQUET_VERSION,
+                        "X-Croquet-Path": (new URL(App.referrerURL())).pathname,
+                    },
+                    referrer: App.referrerURL(),
+                    referrerPolicy: 'no-referrer-when-downgrade',
+                });
             });
             // result from multisynq either has developerId or error, with token always undefined
             const { error, developerId, token } = await response.json();
@@ -583,6 +587,33 @@ export default class Controller {
         } catch (err) {
             throw Error(`${DEPIN ? "Multisynq" : "Croquet"} API key validation failed for "${apiKey}": ${err.message}`);
         }
+    }
+
+    async fetchWithRetries(goal, allowedRetries, fetchFn) {
+        const maxTries = 1 + allowedRetries;
+        let tried = 0;
+        let failureReport;
+        do {
+            let response, error;
+            try {
+                // eslint-disable-next-line no-await-in-loop
+                response = await fetchFn();
+                if (response.ok) return response;
+            } catch (err) { error = err; }
+
+            tried++;
+            failureReport = response ? `status ${response.status} ${response.statusText}` : `error "${error?.message}"`;
+            if (tried === maxTries) break;
+
+            // first retry is 100ms, then 1s, then 5s
+            const delay = tried === 1 ? 100 : tried === 2 ? 1000 : 5000;
+            console.warn(`${failureReport} while ${goal}; retrying in ${delay}ms`);
+            // eslint-disable-next-line no-await-in-loop
+            await new Promise(resolve => { setTimeout(resolve, delay); });
+        } while (true);
+
+        console.warn(`final ${failureReport} while ${goal}; giving up`);
+        throw Error(failureReport);
     }
 
     lastKnownTime(vmOrSnapshot) { return Math.max(vmOrSnapshot.time, vmOrSnapshot.externalTime); }
@@ -915,34 +946,17 @@ export default class Controller {
         // TODO: move to worker
         if (url.startsWith(OLD_UPLOAD_SERVER)) url = url.replace(OLD_UPLOAD_SERVER, OLD_DOWNLOAD_SERVER);
         const offline = url.startsWith("offline:");
-        const maxTries = offline ? 1 : 3;
-        let tried = 0;
+        const maxRetries = offline ? 1 : 3; // plus initial try
         let timer = Date.now();
-        let response, error;
-        while (tried <= maxTries) {
-            try {
-                // eslint-disable-next-line no-await-in-loop
-                response = await (offline ? this.fetchOffline(url, what, debug) : fetch(url, {
+        const response = await this.fetchWithRetries(`fetching ${what}`, maxRetries, () => {
+            return offline
+                ? this.fetchOffline(url, what, debug)
+                : fetch(url, {
                     method: "GET",
                     mode: "cors",
                     referrer: App.referrerURL(),
-                }));
-                if (response.ok) break;
-            } catch (err) { error = err; }
-
-            const failureReport = response ? `status ${response.status} ${response.statusText}` : `error "${error?.message}"`;
-            if (tried === maxTries) {
-                console.warn(`final ${failureReport} while fetching ${what}; giving up`);
-                throw Error(failureReport);
-            }
-
-            // first retry is 100ms, then 1s, then 5s
-            const delay = tried === 0 ? 100 : tried === 1 ? 1000 : 5000;
-            console.warn(`${failureReport} while fetching ${what}; retrying in ${delay}ms`);
-            // eslint-disable-next-line no-await-in-loop
-            await new Promise(resolve => { setTimeout(resolve, delay); });
-            tried++;
-        }
+                    });
+        });
         const encrypted = await response.arrayBuffer();
         if (debug) console.log(this.id, `${what} fetched (${encrypted.byteLength} bytes) in ${-timer + (timer = Date.now())}ms`);
         Stats.addNetworkTraffic(`${what}_in`, encrypted.byteLength);
