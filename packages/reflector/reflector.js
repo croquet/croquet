@@ -2,7 +2,7 @@
 /* eslint-disable object-shorthand */
 /* eslint-disable prefer-arrow-callback */
 
-const SYNCH_VERSION = "2.0.3"
+const SYNCH_VERSION = "2.0.4";
 
 const os = require('node:os');
 const fs = require('node:fs');
@@ -1164,17 +1164,6 @@ async function startServerForDePIN() {
                             }
 
                             updateBuffer.shift();
-                            break;
-                        }
-                        case 'AUDIT_REPORT': {
-                            const { time, report } = depinMsg;
-                            // remove any trailing line break
-                            const reportStripped = report.replace(/\n$/, "");
-                            session.logger.debug({
-                                event: "audit-report",
-                                teatime: time,
-                                report: reportStripped
-                            }, reportStripped);
                             break;
                         }
                         case 'PONG': {
