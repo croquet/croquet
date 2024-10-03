@@ -1202,7 +1202,7 @@ export default class Controller {
             auditStats.minUsers = auditStats.maxUsers = lastUsers; // number starting the new work unit
         }
 
-        if (this.synced) { // skipped during fast-forward
+        if (!this.fastForwardHandler) { // skipped during fast-forward
             const bytesIn = Stats.networkTraffic.audit_reflector_in || 0;
             const bytesOut = Stats.networkTraffic.audit_reflector_out || 0;
             Stats.resetAuditStats();
