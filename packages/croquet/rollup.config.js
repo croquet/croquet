@@ -164,7 +164,7 @@ const config = () => ({
     // otherwise, we only bundle our own code
     external: target === 'pub' ? [] // no external
         : target === 'cjs' ? [...Object.keys(pkg.dependencies), "crypto"]
-        : Object.keys(pkg.dependencies),
+        : [Object.keys(pkg.dependencies), "node-datachannel/polyfill"], // force polyfill to external
     plugins: [
         replace({
             preventAssignment: true,
@@ -178,7 +178,6 @@ const config = () => ({
         }),
         resolve({
             browser: !is_node,
-            exportConditions: is_node ? ['node'] : [],
             preferBuiltins: is_node
         }),
         commonjs(),
