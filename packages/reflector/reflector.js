@@ -1576,17 +1576,21 @@ async function startServerForDePIN() {
 
         setTimeout(() => console.info(`started utility process with PID=${utilityAppProcess.pid}`), 200) // for info only
 
+        const pruneLine = line => line.length <= 500 ? line : line.slice(0, 250) + "...(snip)..." + line.slice(-250);
+
         utilityAppProcess.stdout.on('data', data => {
             const dat = decoder.decode(data);
             const lines = dat.split('\n').filter(line => line);
-            for (const l of lines) console.log(`[app] ${l}`);
-            // sendToUIBridge('stdout', dat)
+            for (const l of lines) {
+                console.log(`[app] ${pruneLine(l)}`);
+            }
         });
         utilityAppProcess.stderr.on('data', data => {
             const dat = decoder.decode(data)
-            // sendToUIBridge('stderr', dat)
             const lines = dat.split('\n').filter(line => line);
-            for (const l of lines) console.error(`[app] ${l}`);
+            for (const l of lines) {
+                console.error(`[app] ${pruneLine(l)}`);
+            }
         });
         utilityAppProcess.on('message', msg => {
             if (msg.what === 'sendSynchDetails') {
