@@ -4,6 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest @dev
 
+* 2.0.0-33 fix node build, only bundle necessary dependencies
 * 2.0.0-32 refine condition for skipping an audit
 * 2.0.0-31 strengthen handling of fetch and registry errors
 * 2.0.0-30 autoSession / autoPassword force and default options
