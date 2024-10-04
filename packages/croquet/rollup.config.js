@@ -2,17 +2,14 @@ import babel from '@rollup/plugin-babel';
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import replace from '@rollup/plugin-replace';
+import terser from '@rollup/plugin-terser';
 import license from 'rollup-plugin-license';
-import { terser } from 'rollup-plugin-terser';
 import worker_loader from 'rollup-plugin-web-worker-loader';
 import MagicString from 'magic-string';
 import moment from 'moment';
 import os from 'os';
 import { execSync } from 'child_process';
 const pkg = require("./package.json");
-require('dotenv-flow').config({
-    default_node_env: 'development'
-});
 
 const is_dev_build = process.env.NODE_ENV !== "production";
 const is_node = process.env.CROQUET_PLATFORM === "node";

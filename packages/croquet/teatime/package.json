@@ -5,11 +5,13 @@
   "main": "index.js",
   "author": "Croquet Corp",
   "license": "UNLICENSED",
+  "comment": "=== the dependencies here are bundled into the npm package, mostly for the upload worker ===",
   "dependencies": {
     "@croquet/math": "file:../math",
     "crypto-js": "^4.2.0",
     "pako": "^2.1.0"
   },
+  "comment2": "=== the peerDependencies here are the dependencies of the croquet package ===",
   "peerDependencies": {
     "fast-json-stable-stringify": "^2.1.0",
     "fastpriorityqueue": "^0.7.5",
