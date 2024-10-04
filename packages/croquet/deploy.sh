@@ -5,7 +5,6 @@ rm -rf cjs/ pub/
 (cd ../../../teatime ; npm ci --production)
 npm ci
 npm run build-prod || exit
-npm run build-prod-node || exit
 
 HEAD=`sed '/\*\// q' pub/croquet.min.js`
 VERSION=`echo "$HEAD" | grep Version: | sed 's/.*Version: //'`

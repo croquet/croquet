@@ -7,14 +7,16 @@
   "license": "UNLICENSED",
   "dependencies": {
     "@croquet/math": "file:../math",
-    "crypto-js": "^4.1.1",
+    "crypto-js": "^4.2.0",
+    "pako": "^2.1.0"
+  },
+  "peerDependencies": {
     "fast-json-stable-stringify": "^2.1.0",
-    "fastpriorityqueue": "^0.7.1",
-    "minimist": "^1.2.5",
-    "pako": "^2.0.4",
+    "fastpriorityqueue": "^0.7.5",
+    "minimist": "^1.2.8",
     "node-datachannel": "^0.12.0",
     "seedrandom": "^3.0.5",
-    "toastify-js": "^1.11.2",
-    "ws": "^8.4.0"
+    "toastify-js": "^1.12.0",
+    "ws": "^8.18.0"
   }
 }

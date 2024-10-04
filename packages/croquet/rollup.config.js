@@ -16,6 +16,7 @@ require('dotenv-flow').config({
 
 const is_dev_build = process.env.NODE_ENV !== "production";
 const is_node = process.env.CROQUET_PLATFORM === "node";
+const target = is_node ? "node" : process.env.BUILD_TARGET === "pub" ? "pub" : "cjs";
 
 // custom rollup plugin to resolve "process.env" references
 // it fakes a "process" module that exports "env" and imports that module everywhere
@@ -119,29 +120,27 @@ process.env.CROQUET_VERSION = public_build || prerelease ? pkg.version
 console.log(`Building Croquet ${process.env.CROQUET_VERSION}`);
 console.log(`  prod: ${!is_dev_build}, pushed: ${git_pushed}, bumped: ${git_bumped}, clean: ${git_clean}`);
 
-const browserOutputs = [
-    // commonjs build for bundlers
-    {
-        file: 'cjs/croquet-croquet.js',
-        format: 'cjs',
-        sourcemap: true,    // not included in npm bundle by explicit "files" section in package.json
-    },
-    // bundled build for direct inclusion in script tag, e.g. via jsdelivr
-    {
+const outputs = {
+    // bundled build with all dependencies for direct inclusion in script tag, e.g. via jsdelivr
+    pub: {
         file: 'pub/croquet.min.js',
         format: 'iife',
         name: 'Croquet',
         sourcemap: true,    // not included in npm bundle by explicit "files" section in package.json
-    }
-    ];
-
-const nodeOutputs = [
-    {
+    },
+    // commonjs build for bundlers (does not include dependencies)
+    cjs: {
+        file: 'cjs/croquet-croquet.js',
+        format: 'cjs',
+        sourcemap: true,    // not included in npm bundle by explicit "files" section in package.json
+    },
+    // node build (does not include dependencies)
+    node: {
         file: 'cjs/croquet-croquet-node.js',
         format: 'cjs',
         sourcemap: true,    // not included in npm bundle by explicit "files" section in package.json
     },
-    ];
+};
 
 const node_webrtc_import = `
     if (!globalThis.loadingDataChannel) {
@@ -163,8 +162,12 @@ const node_webrtc_import = `
 const config = () => ({
     inlineDynamicImports: true,
     input: 'croquet.js',
-    output: is_node ? nodeOutputs : browserOutputs,
-    external: is_node ? ['node:fs', 'node:http', 'node:https', 'node:path', 'node:stream', 'node:url', 'node:util', 'node:worker_threads', 'node:zlib', 'node-datachannel', 'node-datachannel/polyfill'] : [],
+    output: outputs[target],
+    // in script tag, we want to bundle all dependencies
+    // otherwise, we only bundle our own code
+    external: target === 'pub' ? [] // no external
+        : target === 'cjs' ? [...Object.keys(pkg.dependencies), "crypto"]
+        : Object.keys(pkg.dependencies),
     plugins: [
         replace({
             preventAssignment: true,
@@ -185,6 +188,7 @@ const config = () => ({
         worker_loader({
             targetPlatform: (is_node ? "node" : "browser"),
             sourcemap: is_dev_build,
+            preserveSource: is_dev_build,
         }),
         inject_process(is_node), // must be after commonjs and worker_loader
         !is_node && !is_dev_build && babel({

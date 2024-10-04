@@ -7,6 +7,9 @@ import SHA256 from "crypto-js/sha256";
 import WordArray from "crypto-js/lib-typedarrays";
 import HmacSHA256 from "crypto-js/hmac-sha256";
 
+// NOTE: if you add a new import, you must also add it to "dependencies" in package.json
+//       so thet it gets bundled. The "peerDependencies" are not bundled.
+
 /* eslint-disable-next-line */
 const NODE = _IS_NODE_; // replaced by rollup
 

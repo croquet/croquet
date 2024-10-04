@@ -30,17 +30,49 @@
   "scripts": {
     "start": "npm run watch",
     "watch": "npm-watch build-dev",
+    "start-pub": "npm-watch build-dev-pub",
+    "start-cjs": "npm-watch build-dev-cjs",
     "start-node": "npm-watch build-dev-node",
-    "build-dev": "rollup -c --environment NODE_ENV:development",
-    "build-dev-node": "rollup -c --environment NODE_ENV:development --environment CROQUET_PLATFORM:node",
-    "build-prod": "rollup -c --environment NODE_ENV:production",
-    "build-prod-node": "rollup -c --environment NODE_ENV:production --environment CROQUET_PLATFORM:node",
+    "build-dev": "npm run build-dev-pub && npm run build-dev-cjs && npm run build-dev-node",
+    "build-dev-pub": "time rollup -c --environment NODE_ENV:development,BUILD_TARGET:pub",
+    "build-dev-cjs": "time rollup -c --environment NODE_ENV:development,BUILD_TARGET:cjs",
+    "build-dev-node": "time rollup -c --environment NODE_ENV:development,CROQUET_PLATFORM:node",
+    "build-prod": "npm run build-prod-pub && npm run build-prod-cjs && npm run build-prod-node",
+    "build-prod-pub": "rollup -c --environment NODE_ENV:production,BUILD_TARGET:pub",
+    "build-prod-cjs": "rollup -c --environment NODE_ENV:production,BUILD_TARGET:cjs",
+    "build-prod-node": "rollup -c --environment NODE_ENV:production,CROQUET_PLATFORM:node",
     "prepublishOnly": "npm run clean ; sed -i '' 's,//# sourceMappingURL.*,,' cjs/*.js pub/*.js",
-    "postpack": "npm run clean",
+    "postpublish": "npm run clean",
     "clean": "rm -f cjs/* pub/* ; git checkout cjs/ pub/ package-lock.json ; npm ci"
   },
   "watch": {
     "build-dev": {
+      "patterns": [
+        ".",
+        "../../../teatime",
+        "../../../math"
+      ],
+      "ignore": [
+        "./cjs",
+        "./pub"
+      ],
+      "extensions": "js,json",
+      "quiet": false
+    },
+    "build-dev-pub": {
+      "patterns": [
+        ".",
+        "../../../teatime",
+        "../../../math"
+      ],
+      "ignore": [
+        "./cjs",
+        "./pub"
+      ],
+      "extensions": "js,json",
+      "quiet": false
+    },
+    "build-dev-cjs": {
       "patterns": [
         ".",
         "../../../teatime",
@@ -71,20 +103,29 @@
   "license": "SEE LICENSE.md",
   "unpkg": "pub/croquet.min.js",
   "jsdelivr": "pub/croquet.min.js",
+  "dependencies": {
+    "fast-json-stable-stringify": "^2.1.0",
+    "fastpriorityqueue": "^0.7.5",
+    "minimist": "^1.2.8",
+    "node-datachannel": "^0.12.0",
+    "seedrandom": "^3.0.5",
+    "toastify-js": "^1.12.0",
+    "ws": "^8.18.0"
+  },
   "devDependencies": {
-    "@babel/core": "^7.17.8",
-    "@babel/preset-env": "^7.16.11",
+    "@babel/core": "^7.25.7",
+    "@babel/preset-env": "^7.25.7",
     "@rollup/plugin-babel": "^5.3.1",
-    "@rollup/plugin-commonjs": "^21.0.3",
-    "@rollup/plugin-node-resolve": "^13.1.3",
+    "@rollup/plugin-commonjs": "^21.1.0",
+    "@rollup/plugin-node-resolve": "^13.3.0",
     "@rollup/plugin-replace": "^4.0.0",
-    "dotenv-flow": "^3.2.0",
-    "magic-string": "^0.26.1",
-    "moment": "^2.29.2",
+    "dotenv-flow": "^3.3.0",
+    "magic-string": "^0.26.7",
+    "moment": "^2.30.1",
     "npm-watch": "^0.11.0",
-    "regenerator-runtime": "^0.13.9",
-    "rollup": "^2.70.1",
-    "rollup-plugin-license": "^2.6.1",
+    "regenerator-runtime": "^0.13.11",
+    "rollup": "^2.79.2",
+    "rollup-plugin-license": "^2.9.1",
     "rollup-plugin-terser": "^7.0.2",
     "rollup-plugin-web-worker-loader": "^1.6.1"
   },
