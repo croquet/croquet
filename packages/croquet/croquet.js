@@ -1,5 +1,3 @@
-import "./polyfills/textencoder";
-
 import {
     Model, View, Session, Data, Constants, App, Messenger
 } from "../../../teatime";
