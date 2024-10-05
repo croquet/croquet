@@ -79,7 +79,7 @@ function initDEBUG() {
         session: urlOptions.has("debug", "session", false),                 // session logging
         initsnapshot: urlOptions.has("debug", "initsnapshot", devOrLocal),  // check snapshotting after initFn
         reflector: urlOptions.has("debug", "reflector", devOrCroquetIoDev), // use dev reflector
-        offline: urlOptions.has("debug", "offline", urlOptions.offline),    // short-circuit all requests
+        offline: urlOptions.has("debug", "offline", false),                 // short-circuit all requests
     };
     if (DEBUG.offline) App.showMessage("Croquet: offline mode enabled, no multiuser", { level: "warning"});
 }
