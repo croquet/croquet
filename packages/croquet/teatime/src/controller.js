@@ -564,7 +564,7 @@ export default class Controller {
 
         try {
             const maxRetries = 2; // plus initial try
-            const response = await this.fetchWithRetries("verifying API key", maxRetries, () => {
+            const response = await this.fetchWithRetries("verifying API key", [403], maxRetries, () => {
                 return fetch(`${signServer}/join?meta=login`, {
                     method: "GET",
                     mode: "cors",
@@ -589,7 +589,7 @@ export default class Controller {
         }
     }
 
-    async fetchWithRetries(goal, allowedRetries, fetchFn) {
+    async fetchWithRetries(goal, instantFailureCodes, allowedRetries, fetchFn) {
         const maxTries = 1 + allowedRetries;
         let tried = 0;
         let failureReport;
@@ -602,8 +602,17 @@ export default class Controller {
             } catch (err) { error = err; }
 
             tried++;
-            failureReport = response ? `status ${response.status} ${response.statusText}` : `error "${error?.message}"`;
-            if (tried === maxTries) break;
+
+            let prefix = "";
+            const instantFailure = response && instantFailureCodes.includes(response.status);
+            if (instantFailure) prefix = "fatal ";
+            else if (tried === maxTries) prefix = "final ";
+            failureReport = response
+                // eslint-disable-next-line no-await-in-loop
+                ? `${prefix}status ${response.status} ${response.statusText} - "${await response.text()}"`
+                : `${prefix}error "${error?.message}"`;
+
+            if (tried === maxTries || instantFailure) break;
 
             // first retry is 100ms, then 1s, then 5s
             const delay = tried === 1 ? 100 : tried === 2 ? 1000 : 5000;
@@ -612,7 +621,7 @@ export default class Controller {
             await new Promise(resolve => { setTimeout(resolve, delay); });
         } while (true);
 
-        console.warn(`final ${failureReport} while ${goal}; giving up`);
+        console.warn(`${failureReport} while ${goal}; giving up`);
         throw Error(failureReport);
     }
 
@@ -948,7 +957,7 @@ export default class Controller {
         const offline = url.startsWith("offline:");
         const maxRetries = offline ? 1 : 3; // plus initial try
         let timer = Date.now();
-        const response = await this.fetchWithRetries(`fetching ${what}`, maxRetries, () => {
+        const response = await this.fetchWithRetries(`fetching ${what}`, [], maxRetries, () => {
             return offline
                 ? this.fetchOffline(url, what, debug)
                 : fetch(url, {
