@@ -4,6 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest @dev
 
+* 2.0.0-36 add randomSession and randomPassword to App, as well as seedrandom()
 * 2.0.0-35 make node build work for Unity
 * 2.0.0-34 make API-key check retries optional
 * 2.0.0-33 fix node build, only bundle necessary dependencies; retries on API key check
