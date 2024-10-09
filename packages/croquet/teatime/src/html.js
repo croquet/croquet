@@ -741,6 +741,17 @@ function defaultSessionURL() {
     return canonicalUrl;
 }
 
+function inModelCode() {
+    // Hacky but I don't want to import vm.js here
+    return window.CROQUETVM?.constructor.hasCurrent();
+}
+
+function secureRandomString(length=16) {
+    const bytes = new Uint8Array(length);
+    window.crypto.getRandomValues(bytes); // okay to use on insecure origin
+    return toBase64url(bytes.buffer);
+}
+
 const seenMessages = new Set();
 
 let _sessionURL = defaultSessionURL();
@@ -866,11 +877,7 @@ export const App = {
         // if not found, create random fragment
         else {
             if (options.default) fragment = options.default;
-            else {
-                const random = new Uint8Array(10);
-                window.crypto.getRandomValues(random);      // okay to use on insecure origin
-                fragment = toBase64url(random.buffer);
-            }
+            else fragment = this.randomSession();
             url.searchParams.set(key, fragment);
         }
         // change page url if needed
@@ -920,11 +927,7 @@ export const App = {
         // create random password if none provided (or forced)
         if (!password) {
             if (options.default) password = options.default;
-            else {
-                const random = new Uint8Array(16);
-                window.crypto.getRandomValues(random);      // okay to use on insecure origin
-                password = toBase64url(random.buffer);
-            }
+            else password = this.randomPassword();
             // add password to session URL for QR code
             if (hash) url.hash = `${hash}&${key}=${password}`;
             else if (keyless) url.hash = password;
@@ -948,4 +951,15 @@ export const App = {
         };
         return retVal;
     },
+
+    seedrandom(seed) {
+        if (!seed && inModelCode()) {
+            // if we're in model code, use a deterministic seed
+            seed = Math.random().toString();
+        }
+        return new SeedRandom(seed);
+    },
+
+    randomSession(length=10) { return secureRandomString(length); },
+    randomPassword(length=16) { return secureRandomString(length); },
 };
