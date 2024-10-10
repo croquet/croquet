@@ -741,11 +741,6 @@ function defaultSessionURL() {
     return canonicalUrl;
 }
 
-function inModelCode() {
-    // Hacky but I don't want to import vm.js here
-    return window.CROQUETVM?.constructor.hasCurrent();
-}
-
 function secureRandomString(length=16) {
     const bytes = new Uint8Array(length);
     window.crypto.getRandomValues(bytes); // okay to use on insecure origin
@@ -950,14 +945,6 @@ export const App = {
             return password;
         };
         return retVal;
-    },
-
-    seedrandom(seed) {
-        if (!seed && inModelCode()) {
-            // if we're in model code, use a deterministic seed
-            seed = Math.random().toString();
-        }
-        return new SeedRandom(seed);
     },
 
     randomSession(length=10) { return secureRandomString(length); },

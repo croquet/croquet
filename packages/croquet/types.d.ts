@@ -955,6 +955,8 @@ declare module "@croquet/croquet" {
 	referrerURL():string;
         autoSession:(name:string) => Promise<string>;
         autoPassword:(options?:{key?:string, scrub:boolean, keyless:boolean}) => Promise<string>;
+        randomSession:(len?:number) => string;
+        randomPassword:(len?:number) => string;
     }
 
     /**
