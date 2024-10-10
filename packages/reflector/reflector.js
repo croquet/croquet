@@ -1934,7 +1934,8 @@ function handleTerm(canRestartOnDepin = true) {
 
         offloadAllSessions().then(() => {
             global_logger.notice({ event: "end" }, "synchronizer shutdown");
-            process.exit((DEPIN && canRestartOnDepin) ? EXIT.SHOULD_RESTART : EXIT.NORMAL);
+            // take a breath to let the SHUTDOWN message fly
+            setTimeout(() => process.exit((DEPIN && canRestartOnDepin) ? EXIT.SHOULD_RESTART : EXIT.NORMAL), 100);
         });
     }
 }
