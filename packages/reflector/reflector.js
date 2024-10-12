@@ -673,7 +673,6 @@ async function startServerForDePIN() {
             clearTimeout(proxyContactTimeout);
             clearTimeout(proxyAckTimeout);
             proxySocket = null;
-            sendToDepinProxy = null;
 
             const reconnectMsg = aborted ? "" : `  retrying after ${proxyReconnectDelay}ms`;
             global_logger.debug({ event: "proxy-socket-closed", closeReason, aborted, reconnect: reconnectMsg }, `proxy socket closed (${closeReason}).${reconnectMsg}`);
