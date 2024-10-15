@@ -156,7 +156,7 @@ function initDEPIN(defaultToDEPIN) {
             : DEPIN;
         if (DEPIN_API.endsWith('/')) DEPIN_API = DEPIN_API.slice(0, -1);
         DEPIN_API = DEPIN_API.replace(/^http(s):/, 'ws$1:');
-        if (!DEPIN_API.startsWith('ws')) DEPIN_API = 'ws://' + DEPIN_API;
+        if (!DEPIN_API.startsWith('ws')) DEPIN_API = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + DEPIN_API;
         console.log(`DEPIN_API=${DEPIN_API}`);
     } else {
         DEPIN = false;
