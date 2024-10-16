@@ -173,12 +173,16 @@ export class Session {
         }
         if (!parameters.model) parameters.model = Model.lastRegistered;
         if (!parameters.view) parameters.view = View;
-        // resolve promises
+        // resolve promises, if any
+        const promises = [];
         for (const [k,v] of Object.entries(parameters)) {
-            // rewriting this using Promise.all does not seem worth the trouble so ...
-            // eslint-disable-next-line no-await-in-loop
-            if (v instanceof Promise) parameters[k] = await v;
+            if (v instanceof Promise) {
+                promises.push(v.then(val => parameters[k] = val));
+            }
         }
+        // await even if no promises so code after Session.join() can proceed now
+        // (in particular, PBKDF2 is synchronous, and expensive in our case because of crypto.js)
+        await Promise.all(promises);
         function inherits(A, B) { return A === B || A.prototype instanceof B; }
         // check apiKey
         if (typeof parameters.apiKey !== "string") throw Error("Croquet: no apiKey provided in Session.join()!");
