@@ -690,7 +690,7 @@ async function startServerForDePIN() {
     };
     connectToProxy();
 
-    const SESSION_CONNECT_LIMIT = 2000; // ms
+    const SESSION_CONNECT_LIMIT = 4000; // $$$ experimental raise from 2000; // ms
     const SESSION_UPDATE_DELAY = 250;
     const SESSION_PING_DELAY = 1000;
     const SESSION_SILENCE_LIMIT = 2000; // after this time since last hearing from session runner, go into RECONNECTING
