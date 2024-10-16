@@ -4,6 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest @dev
 
+* 2.0.0-38 don't do any synchronous work in Session.join() to not block the main thread
 * 2.0.0-37 types for randomSession and randomPassword
 * 2.0.0-36 add randomSession and randomPassword to App
 * 2.0.0-35 make node build work for Unity
