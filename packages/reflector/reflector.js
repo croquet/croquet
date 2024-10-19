@@ -2,7 +2,7 @@
 /* eslint-disable object-shorthand */
 /* eslint-disable prefer-arrow-callback */
 
-const SYNCH_VERSION = "2.0.7";
+const SYNCH_VERSION = "2.0.8";
 
 const os = require('node:os');
 const fs = require('node:fs');
@@ -169,6 +169,8 @@ const prometheusLatencyHistogram = new prometheus.Histogram({
 });
 prometheus.collectDefaultMetrics(); // default metrics like process start time, heap usage etc
 
+// the timeouts here are tuned to the expectations of the Croquet library.
+// on DePIN they are not overridable by the registry.
 const PORT = 9090;
 const PROTOCOL_VERSION = "v1";
 const SERVER_HEADER = `croquet-synchronizer-${PROTOCOL_VERSION}`;
@@ -184,6 +186,11 @@ const TALLY_INTERVAL = 1000;  // maximum time to wait to tally TUTTI contributio
 const MAX_TALLY_AGE = 60000;  // don't start a new tally if vote is more than this far behind
 const MAX_COMPLETED_TALLIES = 20; // maximum number of past tallies to remember
 const USERS_INTERVAL = 200;   // time to gather user entries/exits before sending a "users" message (a.k.a. view-join)
+const CHECK_INTERVAL = 5000;        // how often to checkForActivity
+const PING_THRESHOLD = 35000;       // if a pre-background-aware client is not heard from for this long, start pinging
+const DISCONNECT_THRESHOLD = 60000; // if not responding for this long, disconnect
+const DISPATCH_RECORD_RETENTION = 5000; // how long we must wait to delete a dispatch record (set on the bucket)
+const LATE_DISPATCH_DELAY = 1000;  // how long to allow for clients arriving from the dispatcher even though the session has been deregistered
 
 // if running locally, there is the option to run with or without using the session-
 // related storage (for snapshots, dispatcher records etc).
@@ -204,12 +211,6 @@ if (!CLUSTER) {
 }
 
 const DISCONNECT_UNRESPONSIVE_CLIENTS = !RUNNING_ON_LOCALHOST;
-const CHECK_INTERVAL = 5000;        // how often to checkForActivity
-const PING_THRESHOLD = 35000;       // if a pre-background-aware client is not heard from for this long, start pinging
-const DISCONNECT_THRESHOLD = 60000; // if not responding for this long, disconnect
-const DISPATCH_RECORD_RETENTION = 5000; // how long we must wait to delete a dispatch record (set on the bucket)
-const LATE_DISPATCH_DELAY = 1000;  // how long to allow for clients arriving from the dispatcher even though the session has been deregistered
-const DEPIN_AUDIT_INTERVAL = 60000;
 
 // Map pino levels to GCP, https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry#LogSeverity
 // the choice of log level currently follows no strict rules.  loosely:
@@ -301,6 +302,25 @@ let server;
 
 // ============ DEPIN-specific initialisation ===========
 
+const depinTimeouts = {
+    // these can all be overridden by the registry, on successful registration
+    PROXY_STATUS_DELAY: 10_000,       // update this often when running sessions
+    PROXY_PING_DELAY: 10_000,         // simple PINGs are handled by auto-response
+    PROXY_KEEP_ALIVE_DELAY: 28_000,   // chosen so that when not running sessions, every 3rd PING is replaced by ALIVE
+    PROXY_ACK_DELAY_LIMIT: 2000,      // after this, go into RECONNECTING
+    PROXY_INTERRUPTION_LIMIT: 30_000, // after this, UNAVAILABLE
+    PROXY_CONNECTION_LIMIT: 60_000,   // if no response at all on connection, try again
+    PROXY_RECONNECT_DELAY_MAX: 30_000,
+
+    SESSION_CONNECT_LIMIT: 4000,
+    SESSION_UPDATE_DELAY: 250,
+    SESSION_PING_DELAY: 1000,
+    SESSION_SILENCE_LIMIT: 2000,   // after this time since last hearing from session runner, go into RECONNECTING
+    SESSION_RECONNECT_LIMIT: 3000, // after this time in RECONNECTING, offload the session
+
+    AUDIT_INTERVAL: 60_000,
+};
+
 let sendToDepinProxy;
 let registerRegion = ''; // the region registry this sync has been listed in
 const depinCreditTallies = {
@@ -375,14 +395,6 @@ async function startServerForDePIN() {
     // a production synchronizer can only use bundled app code
     const UTILITY_APP_PATH = DEPIN === DEPIN_API_DEFAULT ? 'internal' : 'https://downloads.multisynq.dev';
 
-    const PROXY_STATUS_DELAY = 10000; // update this often when running sessions
-    const PROXY_PING_DELAY = 10000; // simple PINGs are handled by auto-response
-    const PROXY_KEEP_ALIVE_DELAY = 28000; // chosen so that when not running sessions, every 3rd PING is replaced by ALIVE
-    const PROXY_ACK_DELAY_LIMIT = 2000;     // after this, go into RECONNECTING
-    const PROXY_INTERRUPTION_LIMIT = 30000; // after this, UNAVAILABLE
-    const PROXY_CONNECTION_LIMIT = 60000;   // if no response at all on connection, try again
-    const PROXY_RECONNECT_DELAY_MAX = 30000;
-
     let proxyId;        // the ID of the worker running the proxy for this sync
     let proxySocket = null;
     let proxyConnectionState = 'RECONNECTING'; // "CONNECTED", "RECONNECTING", "UNAVAILABLE"
@@ -427,7 +439,7 @@ async function startServerForDePIN() {
             offloadAllSessions();
         }, ms);
     }
-    declareUnavailableAfterDelay(PROXY_INTERRUPTION_LIMIT);
+    declareUnavailableAfterDelay(depinTimeouts.PROXY_INTERRUPTION_LIMIT);
 
     const connectToProxy = () => {
         if (aborted) return; // probably on an old timeout
@@ -449,15 +461,15 @@ async function startServerForDePIN() {
                 const statsAggregationSeconds = Math.max(1, timeSinceLastNonPing / 1000);
                 sendToProxy({ what: 'STATUS', status: statusForProxy(statsAggregationSeconds) });
                 lastNonPingSent = now;
-                contactProxyAfterDelay(PROXY_STATUS_DELAY);
+                contactProxyAfterDelay(depinTimeouts.PROXY_STATUS_DELAY);
             } else {
-                if (timeSinceLastNonPing > PROXY_KEEP_ALIVE_DELAY) {
+                if (timeSinceLastNonPing > depinTimeouts.PROXY_KEEP_ALIVE_DELAY) {
                     sendToProxy({ what: 'ALIVE' }); // wake up the DO and say we're alive
                     lastNonPingSent = now;
                 } else {
                     sendToProxy({ what: 'PING' }); // proxy looks for exactly the string '{"what":"PING"}'
                 }
-                contactProxyAfterDelay(PROXY_PING_DELAY);
+                contactProxyAfterDelay(depinTimeouts.PROXY_PING_DELAY);
             }
             proxyWasToldWeHaveSessions = isHandlingSessions;
             // set up a timeout within which we expect to receive an acknowledgement from the proxy.
@@ -473,7 +485,7 @@ async function startServerForDePIN() {
                     proxySocket.terminate(); // otherwise 'close' event might not be raised for 30 seconds; see https://github.com/websockets/ws/issues/2203
                 } catch (err) { /* ignore */ }
 
-            }, PROXY_ACK_DELAY_LIMIT);
+            }, depinTimeouts.PROXY_ACK_DELAY_LIMIT);
         }
 
         function contactProxyAfterDelay(ms) {
@@ -501,7 +513,7 @@ async function startServerForDePIN() {
         proxyConnectResponseTimeout = setTimeout(() => {
             global_logger.warn({ event: "proxy-connection-timeout" }, `proxy connection was silently ignored; retrying.`);
             connectToProxy();
-        }, PROXY_CONNECTION_LIMIT);
+        }, depinTimeouts.PROXY_CONNECTION_LIMIT);
 
         proxySocket.on('open', () => {
             if (key !== proxyKey) return; // this connection has (somehow, already) been superseded
@@ -530,7 +542,7 @@ async function startServerForDePIN() {
                 switch (depinMsg.what) {
                     case "REGISTERED": {
                         proxyId = depinMsg.proxyId;
-                        const { registerRegion: newRegisterRegion, ip, lifeTraffic, lifePoints } = depinMsg;
+                        const { registerRegion: newRegisterRegion, ip, lifeTraffic, lifePoints, timeoutSettings } = depinMsg;
                         const shortProxyId = proxyId.slice(0, 8);
                         if (registerRegion && registerRegion !== newRegisterRegion) {
                             global_logger.notice({ event: "registered", shortProxyId, oldRegisterRegion: registerRegion, registerRegion: newRegisterRegion, ip }, `proxy id ${shortProxyId} moved from ${registerRegion} to ${newRegisterRegion}`);
@@ -538,6 +550,11 @@ async function startServerForDePIN() {
                             global_logger.notice({ event: "registered", shortProxyId, registerRegion: newRegisterRegion, ip }, `proxy id ${shortProxyId} registered in ${newRegisterRegion}`);
                         }
                         registerRegion = newRegisterRegion;
+
+                        if (timeoutSettings) {
+                            Object.assign(depinTimeouts, timeoutSettings);
+                            global_logger.notice({ event: "timeout-settings", timeoutSettings }, `updated timeouts: ${Object.entries(timeoutSettings).map(([key, val]) => `${key}=${val}`).join(', ')}`);
+                        }
 
                         proxyReconnectDelay = 0;
                         setProxyConnectionState('CONNECTED');
@@ -681,20 +698,14 @@ async function startServerForDePIN() {
 
             if (proxyConnectionState === 'CONNECTED') {
                 setProxyConnectionState('RECONNECTING');
-                declareUnavailableAfterDelay(proxyReconnectDelay + PROXY_INTERRUPTION_LIMIT); // standard timeout period after the reconnection we're about to schedule
+                declareUnavailableAfterDelay(proxyReconnectDelay + depinTimeouts.PROXY_INTERRUPTION_LIMIT); // standard timeout period after the reconnection we're about to schedule
             }
 
             setTimeout(connectToProxy, proxyReconnectDelay);
-            proxyReconnectDelay = Math.min(PROXY_RECONNECT_DELAY_MAX, Math.round((proxyReconnectDelay + 100) * (1 + Math.random())));
+            proxyReconnectDelay = Math.min(depinTimeouts.PROXY_RECONNECT_DELAY_MAX, Math.round((proxyReconnectDelay + 100) * (1 + Math.random())));
         });
     };
     connectToProxy();
-
-    const SESSION_CONNECT_LIMIT = 4000; // $$$ experimental raise from 2000; // ms
-    const SESSION_UPDATE_DELAY = 250;
-    const SESSION_PING_DELAY = 1000;
-    const SESSION_SILENCE_LIMIT = 2000; // after this time since last hearing from session runner, go into RECONNECTING
-    const SESSION_RECONNECT_LIMIT = 1500; // after this time in RECONNECTING, offload the session
 
     const SESSION_UPDATE_TRIGGER_BYTES = 100000; // @@ artificially low.  as long as we're not interleaving updates, this should be taking advantage of most of the 1MB limit to ensure that we maximise throughput.  on the other hand, that will open us up to having to split large chunks of messages when they arrive at the DO, to fit the 128KB storage-value limit.
 
@@ -791,7 +802,7 @@ async function startServerForDePIN() {
                 session.offload("no session runner"); // clear the decks, even though we can't contact the session runner
             }, ms);
         }
-        declareNoSessionRunnerAfterDelay(SESSION_CONNECT_LIMIT);
+        declareNoSessionRunnerAfterDelay(depinTimeouts.SESSION_CONNECT_LIMIT);
 
         const connectToSessionRunner = () => {
             // invoked each time we need a new connection to the session DO (including
@@ -856,7 +867,7 @@ async function startServerForDePIN() {
                         sessionSocket.close(1000, "update acknowledgement timed out");
                         sessionSocket.terminate(); // otherwise 'close' event might not be raised for 30 seconds; see https://github.com/websockets/ws/issues/2203
                     } catch (err) { /* */ }
-                }, SESSION_SILENCE_LIMIT);
+                }, depinTimeouts.SESSION_SILENCE_LIMIT);
             }
 
             const scheduleNextSessionUpdate = () => {
@@ -866,7 +877,7 @@ async function startServerForDePIN() {
                     if (key !== session.socketKey) return; // ignore a timeout if socket has been replaced
 
                     const now = Date.now();
-                    const mustSendSomething = now - lastSendTime >= SESSION_PING_DELAY;
+                    const mustSendSomething = now - lastSendTime >= depinTimeouts.SESSION_PING_DELAY;
                     const { updateBuffer, newMessages } = session.updateTracker;
                     let whatWasSent = null;
                     const awaitingAck = updateBuffer.length && updateBuffer[0].awaitingAck;
@@ -909,7 +920,7 @@ async function startServerForDePIN() {
                     if (whatWasSent) lastSendTime = now;
 
                     scheduleNextSessionUpdate();
-                }, SESSION_UPDATE_DELAY);
+                }, depinTimeouts.SESSION_UPDATE_DELAY);
             };
 
             session.addMessageToUpdate = msg => {
@@ -1225,7 +1236,7 @@ async function startServerForDePIN() {
                 // if session was connected, start a new reconnection timeout
                 if (sessionRunnerConnectionState === 'CONNECTED') {
                     sessionRunnerConnectionState = 'CONNECTING';
-                    declareNoSessionRunnerAfterDelay(SESSION_RECONNECT_LIMIT);
+                    declareNoSessionRunnerAfterDelay(depinTimeouts.SESSION_RECONNECT_LIMIT);
                 }
 
                 const disconnectMsg = disconnected ? ` and ${disconnected} unconnected clients discarded` : '';
@@ -1363,7 +1374,7 @@ async function startServerForDePIN() {
                 fetchTimeout = setTimeout(() => {
                     timedOut = true;
                     reject();
-                }, SESSION_SILENCE_LIMIT);
+                }, depinTimeouts.SESSION_SILENCE_LIMIT);
             }).catch(_err => null) // error or timeout delivers null
             .finally(() => clearTimeout(fetchTimeout));
 
@@ -2444,7 +2455,7 @@ function SYNC(island) {
     if (island.clients.size === 0) provisionallyDeleteIsland(island);
     // on DePIN, ensure there is an audit timer (though the audits can be suppressed
     // under control of depinStats.canEarnCredit)
-    if (DEPIN && !island.auditTimer) island.auditTimer = setInterval(() => AUDIT(island), DEPIN_AUDIT_INTERVAL);
+    if (DEPIN && !island.auditTimer) island.auditTimer = setInterval(() => AUDIT(island), depinTimeouts.AUDIT_INTERVAL);
 }
 
 function clientLeft(client, reason='') {
