@@ -556,7 +556,14 @@ async function startServerForDePIN() {
                             global_logger.notice({ event: "timeout-settings", timeoutSettings }, `updated timeouts: ${Object.entries(timeoutSettings).map(([key, val]) => `${key}=${val}`).join(', ')}`);
                         }
 
-                        proxyReconnectDelay = 0;
+                        // don't be too hasty to reset the reconnection delay, because
+                        // even when registration goes through we may be seconds away
+                        // from another glitch.  so wait 1 minute, and only reset if the
+                        // same proxy connection has remained in play up to that point.
+                        setTimeout(() => {
+                            if (key === proxyKey) proxyReconnectDelay = 0;
+                        }, 60_000);
+
                         setProxyConnectionState('CONNECTED');
                         // be sure to cancel any timeout that would take us to UNAVAILABLE
                         clearTimeout(synchronizerUnavailableTimeout);
@@ -679,9 +686,10 @@ async function startServerForDePIN() {
             const reason = reasonBuf.toString();
             if (reason) closeReason += ` - ${reason}`;
 
-            if (key !== proxyKey) {
+            const noRetry = code >= 4100;
+            if (key !== proxyKey || noRetry) {
                 // this connection has been superseded
-                global_logger.debug({ event: "old-proxy-socket-closed", closeReason },`old proxy socket closed (${closeReason})`);
+                global_logger.debug({ event: "old-proxy-socket-closed", closeReason },`proxy socket closed with no retry (${closeReason})`);
                 return;
             }
 
