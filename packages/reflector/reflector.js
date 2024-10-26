@@ -87,7 +87,7 @@ if (DEPIN) {
     LAUNCHER = parseArgWithValue(ARGS.LAUNCHER);
     if (!LAUNCHER) LAUNCHER = 'unknown';
 
-    console.log(`DePIN with ${WALLET ? "wallet=" + WALLET : "developer=" + DEVELOPER} launched from ${LAUNCHER}`);
+    console.log(`DePIN with ${WALLET ? "wallet=" + WALLET : "developer=" + DEVELOPER} launched from ${LAUNCHER} on ${os.platform()} ${os.arch()}`);
 }
 
 function getRandomString(length) {
@@ -321,6 +321,10 @@ const depinTimeouts = {
     AUDIT_INTERVAL: 60_000,
 };
 
+// generate a key that will be passed to the proxy so it can detect and reject
+// multiple independent connecting processes.
+const NODE_PROCESS_KEY = getRandomString(6);
+
 let sendToDepinProxy;
 let registerRegion = ''; // the region registry this sync has been listed in
 const depinCreditTallies = {
@@ -407,11 +411,9 @@ async function startServerForDePIN() {
     let proxyReconnectDelay = 0;
     let synchronizerUnavailableTimeout; // on synchronizer startup, and after any disconnection from the proxy, deadline for successful registration to avoid declaring this synchronizer unavailable and offloading any remaining sessions.  attempts to reconnect to the proxy will continue.
 
-    // use proxyKey to tell which socket connection we're working with now, to filter
-    // out events and timeouts relating to a socket that has since been replaced.
-    // (this might be unnecessary, given that we're fully in charge of socket creation
-    // and closure.)
-    let proxyKey;
+    // use proxyLatestConnectTime to tell which socket connection we're working with now, to
+    // filter out events and timeouts relating to a socket that has since been replaced.
+    let proxyLatestConnectTime;
     let proxyConnectResponseTimeout; // in case a connection attempt never comes back
     const sendToProxy = msgObject => {
         if (!proxySocket) return;
@@ -448,7 +450,7 @@ async function startServerForDePIN() {
         let proxyContactTimeout; // next time we should send a PING or STATS, as appropriate
         let proxyAckTimeout; // deadline for hearing back from the proxy
         proxyWasToldWeHaveSessions = false;
-        const key = proxyKey = Date.now();
+        const thisConnectTime = proxyLatestConnectTime = Date.now();
 
         function contactProxy() {
             // first sent on successful receipt of REGISTERED from the proxy
@@ -475,7 +477,7 @@ async function startServerForDePIN() {
             // set up a timeout within which we expect to receive an acknowledgement from the proxy.
             // the timeout is cleared by receipt of ACK or PONG.
             proxyAckTimeout = setTimeout(() => {
-                if (aborted || key !== proxyKey) return; // connection superseded, or process abandoned
+                if (aborted || thisConnectTime !== proxyLatestConnectTime) return; // connection superseded, or process abandoned
 
                 // no ack received in time.  force a socket disconnection, which will trigger reconnection attempts with increasing backoff.
                 global_logger.info({ event: "proxy-connection-timeout" }, 'acknowledgement from proxy timed out. Reconnecting.');
@@ -490,7 +492,7 @@ async function startServerForDePIN() {
 
         function contactProxyAfterDelay(ms) {
             proxyContactTimeout = setTimeout(() => {
-                if (aborted || key !== proxyKey) return; // connection superseded, or process abandoned
+                if (aborted || thisConnectTime !== proxyLatestConnectTime) return; // connection superseded, or process abandoned
 
                 contactProxy();
             }, ms);
@@ -501,7 +503,8 @@ async function startServerForDePIN() {
         searchParams.set('launcher', LAUNCHER);
         searchParams.set('version', SYNCH_VERSION);
         searchParams.set('nickname', SYNCNAME);
-        searchParams.set('connectTime', proxyKey);
+        searchParams.set('processKey', NODE_PROCESS_KEY);
+        searchParams.set('connectTime', proxyLatestConnectTime);
         if (registerRegion) searchParams.set('registerRegion', registerRegion);
         if (WALLET) searchParams.set('wallet', WALLET);
         if (DEVELOPER) searchParams.set('developer', DEVELOPER);
@@ -516,7 +519,7 @@ async function startServerForDePIN() {
         }, depinTimeouts.PROXY_CONNECTION_LIMIT);
 
         proxySocket.on('open', () => {
-            if (key !== proxyKey) return; // this connection has (somehow, already) been superseded
+            if (thisConnectTime !== proxyLatestConnectTime) return; // this connection has (somehow, already) been superseded
 
             clearTimeout(proxyConnectResponseTimeout);
             proxyConnectResponseTimeout = null;
@@ -525,7 +528,7 @@ async function startServerForDePIN() {
         });
 
         proxySocket.on('error', function onError(err) {
-            if (key !== proxyKey) return; // this connection has been superseded
+            if (thisConnectTime !== proxyLatestConnectTime) return; // this connection has been superseded
 
             if (err.code === 'ECONNREFUSED') {
                 global_logger.error({ event: "proxy-connection-refused" }, `proxy socket connection refused`);
@@ -535,7 +538,7 @@ async function startServerForDePIN() {
         });
 
         proxySocket.on('message', function onMessage(depinStr) {
-            if (key !== proxyKey) return; // this connection has been superseded
+            if (thisConnectTime !== proxyLatestConnectTime) return; // this connection has been superseded
 
             try {
                 const depinMsg = JSON.parse(depinStr);
@@ -552,8 +555,16 @@ async function startServerForDePIN() {
                         registerRegion = newRegisterRegion;
 
                         if (timeoutSettings) {
-                            Object.assign(depinTimeouts, timeoutSettings);
-                            global_logger.notice({ event: "timeout-settings", timeoutSettings }, `updated timeouts: ${Object.entries(timeoutSettings).map(([key, val]) => `${key}=${val}`).join(', ')}`);
+                            let overrides = [];
+                            for (const [k, v] of Object.entries(timeoutSettings)) {
+                                if (depinTimeouts[k] !== v) {
+                                    depinTimeouts[k] = v;
+                                    overrides.push([k, v]);
+                                }
+                            }
+                            if (overrides.length) {
+                                global_logger.notice({ event: "timeout-overrides", overrides }, `${overrides.map(([key, val]) => `${key}=${val}`).join(', ')}`);
+                            }
                         }
 
                         // don't be too hasty to reset the reconnection delay, because
@@ -561,7 +572,7 @@ async function startServerForDePIN() {
                         // from another glitch.  so wait 1 minute, and only reset if the
                         // same proxy connection has remained in play up to that point.
                         setTimeout(() => {
-                            if (key === proxyKey) proxyReconnectDelay = 0;
+                            if (thisConnectTime === proxyLatestConnectTime) proxyReconnectDelay = 0;
                         }, 60_000);
 
                         setProxyConnectionState('CONNECTED');
@@ -687,9 +698,10 @@ async function startServerForDePIN() {
             if (reason) closeReason += ` - ${reason}`;
 
             const noRetry = code >= 4100;
-            if (key !== proxyKey || noRetry) {
+            if (thisConnectTime !== proxyLatestConnectTime || noRetry) {
                 // this connection has been superseded
                 global_logger.debug({ event: "old-proxy-socket-closed", closeReason },`proxy socket closed with no retry (${closeReason})`);
+                if (reason === 'PROCESS-SUPERSEDED') process.exit(EXIT.NORMAL);
                 return;
             }
 
