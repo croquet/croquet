@@ -336,6 +336,60 @@ const depinCreditTallies = {
 }
 
 async function startServerForDePIN() {
+    // create a fake server.  startServerForWebSockets (below) makes an http/websocket
+    // server that manages the socket connections from all clients, regardless of
+    // which session they are joining.  this depin "server" performs the equivalent
+    // role for all clients connecting via WebRTC.
+    // in general the servers work rather differently - but for backwards compatibility,
+    // this server object provides a meaningful value for
+    //     server.clients.size
+    // - which is the total number of clients connected to the synchronizer.  in
+    // the non-DePIN case this is automatically available as the number of websockets
+    // currently connected.
+    //
+    // we keep maps from client id to RTCPeerConnection and, separately, client id
+    // to an object made by createClient() on opening of its data channel.  the latter
+    // map is what we use for the total client count, given that a client isn't really
+    // connected until the data channel is set up.
+    //
+    // to ensure that different sessions' clients are kept separate, the keys to
+    // these maps are "global" ids composed from the sessionId (shortened) and clientId.
+    //
+    // oct 2024: creation of the server object used to be the last action of this function,
+    // but was moved up front because we had seen cases where ICE-server initialisation was
+    // slow, and (for example) the watchStats function crashed out for lack of a server.
+    server = {
+        peerConnections: new Map(), // global client id => peerConnection
+        clients: new Map(),         // global client id => client object
+        removeClient: function (globalClientId, reason) {
+            // invoked from
+            // - clientLeft, or
+            // - on processing a DISCONNECT for a client that doesn't yet have a dataChannel, or
+            // - on sessionSocketClosed - again, for clients that have no dataChannel
+            const reasonMsg = reason ? ` (${reason})` : "";
+            const connectedClient = this.clients.get(globalClientId);
+            if (connectedClient) {
+                try {
+                    connectedClient.island = null; // checked in client close handler
+                    connectedClient.close();
+                    global_logger.debug({ event: "close-client-data-channel", globalClientId, reason }, `client ${globalClientId} data channel closed${reasonMsg}`);
+                }
+                catch (e) { /* */ }
+                this.clients.delete(globalClientId);
+            }
+
+            const peerConnection = this.peerConnections.get(globalClientId);
+            if (peerConnection) {
+                try {
+                    peerConnection.close(); // API suggests destroy(), but that doesn't exist??
+                    global_logger.debug({ event: "close-client-peer-connection", globalClientId, reason }, `client ${globalClientId} peer connection closed${reasonMsg}`);
+                }
+                catch (e) { /* */ }
+                this.peerConnections.delete(globalClientId);
+            }
+        }
+    };
+
     // in advance, get the iceServers that we'll be using on all connections
     const iceServers = [];
     const response = await fetch(process.env.ICE_SERVERS_URL);
@@ -1430,56 +1484,6 @@ async function startServerForDePIN() {
 
         connectToSessionRunner();
     }
-
-    // create a fake server.  startServerForWebSockets (below) makes an http/websocket
-    // server that manages the socket connections from all clients, regardless of
-    // which session they are joining.  this depin "server" performs the equivalent
-    // role for all clients connecting via WebRTC.
-    // in general the servers work rather differently - but for backwards compatibility,
-    // this server object provides a meaningful value for
-    //     server.clients.size
-    // - which is the total number of clients connected to the synchronizer.  in
-    // the non-DePIN case this is automatically available as the number of websockets
-    // currently connected.
-    //
-    // we keep maps from client id to RTCPeerConnection and, separately, client id
-    // to an object made by createClient() on opening of its data channel.  the latter
-    // map is what we use for the total client count, given that a client isn't really
-    // connected until the data channel is set up.
-    //
-    // to ensure that different sessions' clients are kept separate, the keys to
-    // these maps are "global" ids composed from the sessionId (shortened) and clientId.
-    server = {
-        peerConnections: new Map(), // global client id => peerConnection
-        clients: new Map(),         // global client id => client object
-        removeClient: function (globalClientId, reason) {
-            // invoked from
-            // - clientLeft, or
-            // - on processing a DISCONNECT for a client that doesn't yet have a dataChannel, or
-            // - on sessionSocketClosed - again, for clients that have no dataChannel
-            const reasonMsg = reason ? ` (${reason})` : "";
-            const connectedClient = this.clients.get(globalClientId);
-            if (connectedClient) {
-                try {
-                    connectedClient.island = null; // checked in client close handler
-                    connectedClient.close();
-                    global_logger.debug({ event: "close-client-data-channel", globalClientId, reason }, `client ${globalClientId} data channel closed${reasonMsg}`);
-                }
-                catch (e) { /* */ }
-                this.clients.delete(globalClientId);
-            }
-
-            const peerConnection = this.peerConnections.get(globalClientId);
-            if (peerConnection) {
-                try {
-                    peerConnection.close(); // API suggests destroy(), but that doesn't exist??
-                    global_logger.debug({ event: "close-client-peer-connection", globalClientId, reason }, `client ${globalClientId} peer connection closed${reasonMsg}`);
-                }
-                catch (e) { /* */ }
-                this.peerConnections.delete(globalClientId);
-            }
-        }
-    };
 
     function sendStats(statType, statResult) {
         sendToProxy({ what: 'STATS', type: statType, result: statResult });
