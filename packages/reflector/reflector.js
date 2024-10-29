@@ -62,7 +62,7 @@ function parseArgWithValue(argKey) {
     return null;
 }
 
-let WALLET, DEVELOPER, LAUNCHER;
+let WALLET, DEVELOPER, DEV_MODE, LAUNCHER;
 let DEPIN = process.argv.includes(ARGS.DEPIN);
 if (DEPIN) {
     // value argument is optional (defaults to prod)
@@ -71,13 +71,12 @@ if (DEPIN) {
 
     WALLET = parseArgWithValue(ARGS.WALLET);
     DEVELOPER = parseArgWithValue(ARGS.DEVELOPER);
+    // since 2.1.0, a developer ID can be supplied even with a wallet (e.g., for tracking our
+    // beta synqers).  but supplying a developer ID _without_ a wallet implies developer mode,
+    // as it always has.
+    DEV_MODE = !!(DEVELOPER && !WALLET)
 
-    if (WALLET && DEVELOPER) {
-        console.error(`Error: Cannot specify both wallet and developer`);
-        process.exit(EXIT.FATAL)
-    }
-
-    if (!WALLET && !DEVELOPER) {
+    if (!WALLET && !DEV_MODE) {
         // $$$ figure out what to do here.  for now, this will be the case for
         // all GCP-deployed synchronizers.  supply a default wallet.
         console.warn("No wallet specified for DePIN; using community default"); // no loggers yet
@@ -87,7 +86,10 @@ if (DEPIN) {
     LAUNCHER = parseArgWithValue(ARGS.LAUNCHER);
     if (!LAUNCHER) LAUNCHER = 'unknown';
 
-    console.log(`DePIN with ${WALLET ? "wallet=" + WALLET : "developer=" + DEVELOPER} launched from ${LAUNCHER} on ${os.platform()} ${os.arch()}`);
+    const walletStr = WALLET ? `wallet=${WALLET} ` : "";
+    const developerStr = DEVELOPER ? `developer=${DEVELOPER} ` : "";
+    const devModeStr = DEV_MODE ? "developer mode " : "";
+    console.log(`DePIN ${devModeStr}with ${walletStr}${developerStr}launched from ${LAUNCHER} on ${os.platform()} ${os.arch()}`);
 }
 
 function getRandomString(length) {
