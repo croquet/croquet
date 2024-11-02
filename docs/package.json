@@ -1,6 +1,6 @@
 {
   "name": "croquet-client-docs",
-  "version": "1.1.0",
+  "version": "2.0.0-39",
   "description": "Croquet Client Documentation",
   "scripts": {
     "start": "npm-watch",
