@@ -290,10 +290,6 @@ function asQFuncSubscription(topic) {
     return `${QFUNC_SUBSCRIPTION_PREFIX}${topic}`;
 }
 
-function isQFuncSubscription(methodName) {
-    return methodName.startsWith(QFUNC_SUBSCRIPTION_PREFIX);
-}
-
 function isRegisteredQFuncSubscription(methodName, topic) {
     if (!methodName.startsWith(QFUNC_SUBSCRIPTION_PREFIX)) return false;
     return methodName.slice(QFUNC_SUBSCRIPTION_PREFIX.length) === topic;

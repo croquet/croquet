@@ -887,6 +887,7 @@ declare module "@croquet/croquet" {
     }
 
     export type CroquetModelOptions = object;
+    export type CroquetViewOptions = object;
 
     export type CroquetDebugOption =
         "session" | "messages" | "sends" | "snapshot" |
@@ -898,11 +899,12 @@ declare module "@croquet/croquet" {
     export type CroquetSessionParameters<M extends Model, V extends View> = {
         apiKey: string,
         appId: string,
-        name: string|Promise<string>,
+        name?: string|Promise<string>,
         password?: string|Promise<string>,
         model: ClassOf<M>,
-        view: ClassOf<V>,
+        view?: ClassOf<V>,
         options?: CroquetModelOptions,
+        viewOptions?: CroquetViewOptions,
         step?: "auto" | "manual",
         tps?: number|string,
         autoSleep?: number|boolean,

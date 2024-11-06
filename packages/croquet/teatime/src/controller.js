@@ -593,7 +593,7 @@ export default class Controller {
         const maxTries = 1 + allowedRetries;
         let tried = 0;
         let failureReport;
-        do {
+        for (;;) {
             let response, error;
             try {
                 // eslint-disable-next-line no-await-in-loop
@@ -619,7 +619,7 @@ export default class Controller {
             console.warn(`${failureReport} while ${goal}; retrying in ${delay}ms`);
             // eslint-disable-next-line no-await-in-loop
             await new Promise(resolve => { setTimeout(resolve, delay); });
-        } while (true);
+        }
 
         console.warn(`${failureReport} while ${goal}; giving up`);
         throw Error(failureReport);
