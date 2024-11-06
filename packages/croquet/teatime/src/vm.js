@@ -611,22 +611,33 @@ export default class VirtualMachine {
         // 'user' messages convey a change in the number of users.
         this.controller.handleUserTotalForAccounting(total);
 
-        // if location was enabled in session options then controller.join() sent
-        // an array as user instead of a plain viewId string, so the reflector
-        // may have added the location as {region, city: {name, lat, lng}},
+        // if the app passed a viewInfo to Session.join() then the controller
+        // sent { id, info } as user instead of a plain viewId string. If location was
+        // also requested then the reflector may have added the location as
+        // { id, info, location: {region, city: {name, lat, lng}} }
+        // if location was enabled (but no viewInfo) then controller.join() sent
+        // a [viewId] array as user instead of a plain viewId string, so the reflector
+        // may have added the location as [viewId, {region, city: {name, lat, lng}}],
         // see JOIN() in reflector.js
+
         const viewdata = {};
         for (const user of entered) {
-            if (!Array.isArray(user)) continue;
-            const loc = user[1] || {};
-            if (loc.region) {
-                loc.country = loc.region.slice(0, 2);
-                loc.region = loc.region.slice(2);
+            if (typeof user === "string") continue; // only viewId
+            let viewId, loc, info;
+            if (Array.isArray(user)) [ viewId, loc ] = user;
+            else { viewId = user.id; info = user.info; loc = user.location; }
+            viewdata[viewId] = {};
+            if (info) viewdata[viewId].info = info;
+            if (loc) {
+                if (loc.region) {
+                    loc.country = loc.region.slice(0, 2);
+                    loc.region = loc.region.slice(2);
+                }
+                viewdata[viewId].loc = loc;
             }
-            viewdata[user[0]] = { loc };
         }
-        entered = entered.map(user => Array.isArray(user) ? user[0] : user);
-        exited = exited.map(user => Array.isArray(user) ? user[0] : user);
+        entered = entered.map(user => typeof user === "string" ? user : Array.isArray(user) ? user[0] : user.id);
+        exited = exited.map(user => typeof user === "string" ? user : Array.isArray(user) ? user[0] : user.id);
         // if entered = count then the reflector just resumed the session
         // synthesize exit events for old views stored in snapshot
         if (entered.length === count) {
@@ -643,6 +654,15 @@ export default class VirtualMachine {
                 if (entered.length === 0 && exited.length === 0) return;
             }
         }
+        // join/exit event payload is either "viewId" or { viewId, info }
+        // depending on whether the session was joined with a viewInfo
+        const eventData = id => {
+            const { info, loc } = this.views[id];
+            if (!info) return id;
+            const data = { viewId: id, info };
+            if (loc) data.location = loc; // location only if requested
+            return data;
+        };
         // process exits first
         for (const id of exited) {
             if (this.views[id]) {
@@ -653,8 +673,9 @@ export default class VirtualMachine {
                     continue;
                 }
                 // otherwise this is a real exit
+                const payload = eventData(id);
                 delete this.views[id];
-                this.publishFromModelOnly(this.id, "view-exit", id);
+                this.publishFromModelOnly(this.id, "view-exit", payload);
             } else {
                 // there is no way this could ever happen. If it does, something is seriously broken.
                 const { time, seq } = this;
@@ -674,7 +695,8 @@ export default class VirtualMachine {
             } else {
                 // otherwise this is a real join
                 this.views[id] = viewdata[id] || {};
-                this.publishFromModelOnly(this.id, "view-join", id);
+                const payload = eventData(id);
+                this.publishFromModelOnly(this.id, "view-join", payload);
             }
         }
         // sanity check: the active number of connections on the reflector should match our count

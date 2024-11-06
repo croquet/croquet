@@ -17,6 +17,10 @@ export { Messenger } from "./src/_MESSENGER_MODULE_"; // eslint-disable-line imp
  *
  * This is a model-only event, meaning views can not handle it directly.
  *
+ * The event's payload will be the joining view's `viewId`. However, if
+ * `viewInfo` was passed to [`Session.join`]{@link Session.join}, the event payload will
+ * be an object `{viewId, info}`, where `info` is that `viewInfo`.
+ *
  * **Note:** Each `"view-join"` event is guaranteed to be followed by a [`"view-exit"`]{@link event:view-exit}
  * event when that user leaves the session, or when the session is cold-started from a persistent snapshot.
  *
@@ -58,7 +62,7 @@ export { Messenger } from "./src/_MESSENGER_MODULE_"; // eslint-disable-line imp
  * @event view-join
  * @property {String} scope - [`this.sessionId`]{@link Model#sessionId}
  * @property {String} event - `"view-join"`
- * @property {String} viewId - the joining user's local viewId
+ * @property {String|Object} viewId - the joining user's local viewId, or an object `{viewId, info}`
  * @public
  */
 
@@ -75,6 +79,9 @@ export { Messenger } from "./src/_MESSENGER_MODULE_"; // eslint-disable-line imp
  * a [`"view-join"`]{@link event:view-join} event to be published.  The `viewId`
  * will be the same as before.
  *
+ * If `viewInfo` was passed to [`Session.join`]{@link Session.join}, the event payload will
+ * be an object `{viewId, info}`, where `info` is that `viewInfo`.
+ *
  * **Note:** when starting a new session from a snapshot, `"view-exit"` events will be
  * generated for all of the previous users before the first [`"view-join"`]{@link event:view-join}
  * event of the new session.
@@ -84,7 +91,7 @@ export { Messenger } from "./src/_MESSENGER_MODULE_"; // eslint-disable-line imp
  * @event view-exit
  * @property {String} scope - [`this.sessionId`]{@link Model#sessionId}
  * @property {String} event - `"view-exit"`
- * @property {String} viewId - the user's id
+ * @property {String|Object} viewId - the user's id, or an object `{viewId, info}`
  * @public
  */
 

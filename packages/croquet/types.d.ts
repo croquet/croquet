@@ -905,6 +905,7 @@ declare module "@croquet/croquet" {
         view?: ClassOf<V>,
         options?: CroquetModelOptions,
         viewOptions?: CroquetViewOptions,
+        viewInfo?: object,
         step?: "auto" | "manual",
         tps?: number|string,
         autoSleep?: number|boolean,
