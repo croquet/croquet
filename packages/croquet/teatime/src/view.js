@@ -335,9 +335,10 @@ class View {
      *
      * We call the difference "backlog". If the backlog is too large, Croquet will put an overlay on the scene,
      * and remove it once the model simulation has caught up.
-     * The [`"synced"`]{@link event:synced} event is sent when that happens.
+     * The [`"synced"` event]{@link event:synced} is sent when that happens.
      *
-     * The `externalNow` value is rarely used by apps but may be useful if you need to synchronize views to real-time.
+     * The `externalNow` value is rarely used by apps but may be useful if you need to synchronize views to real-time
+     * (but note that [extrapolatedNow()]{@link View#extrapolatedNow} is usually more useful for that).
      * @example
      * const backlog = this.externalNow() - this.now();
      * @returns {number} the latest timestamp in milliseconds received from the reflector
@@ -403,7 +404,7 @@ class View {
      * **Identifies the shared session.**
      *
      * The session id is used as "global" scope for events like the model-only
-     * [`"view-join"`]{@link event:view-join} and [`"view-exit"`]{@link event:view-exit} events.
+     * [`"view-join"` event]{@link event:view-join} and [`"view-exit"` event]{@link event:view-exit}.
      *
      * See {@link Session.join} for how the session id is generated.
      *
@@ -438,14 +439,13 @@ class View {
      * All users in a session share the same Model (meaning all model objects) but each user has a different View
      * (meaning all the non-model state). The `viewId` identifies each user's view, or more specifically,
      * their connection to the server.
-     * It is sent as argument in the model-only [`"view-join"`]{@link event:view-join} and [`"view-exit"`]{@link event:view-exit}
-     * events.
+     * It is sent as argument in the model-only [`"view-join"` event]{@link event:view-join} and [`"view-exit"` event]{@link event:view-exit}.
      *
-     * The `viewId` is also used as a scope for local events, for example [`"synced"`]{@link event:synced}.
+     * The `viewId` is also used as a scope for local events, for example the [`"synced"` event]{@link event:synced}.
      *
      * **Note:** `this.viewId` is different from [`this.id`]{@link View#id} which identifies each individual view object
      * (if you create multiple views in your code). `this.viewId` identifies the local user, so it will be the same
-     * in each individual view object. See [`"view-join"`]{@link event:view-join} event.
+     * in each individual view object. See [`"view-join"` event]{@link event:view-join}.
      * @example
      * this.subscribe(this.viewId, "synced", this.handleSynced);
      * @type {String}

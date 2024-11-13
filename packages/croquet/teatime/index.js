@@ -18,13 +18,13 @@ export { Messenger } from "./src/_MESSENGER_MODULE_"; // eslint-disable-line imp
  * This is a model-only event, meaning views can not handle it directly.
  *
  * The event's payload will be the joining view's `viewId`. However, if
- * `viewInfo` was passed to [`Session.join`]{@link Session.join}, the event payload will
+ * `viewInfo` was passed to [Session.join]{@link Session.join}, the event payload will
  * be an object `{viewId, info}`, where `info` is that `viewInfo`.
  *
- * **Note:** Each `"view-join"` event is guaranteed to be followed by a [`"view-exit"`]{@link event:view-exit}
- * event when that user leaves the session, or when the session is cold-started from a persistent snapshot.
+ * **Note:** Each `"view-join"` event is guaranteed to be followed by a [`"view-exit"` event]{@link event:view-exit}
+ * when that user leaves the session, or when the session is cold-started from a persistent snapshot.
  *
- * Hint: In the view, you can access the local viewId as [`this.viewId`]{@link View#viewId}, and compare
+ * Hint: In the view, you can access the local viewId as [this.viewId]{@link View#viewId}, and compare
  * it to the argument in this event, e.g. to associate the view side with an avatar on the model side.
  *
  * @example
@@ -60,9 +60,9 @@ export { Messenger } from "./src/_MESSENGER_MODULE_"; // eslint-disable-line imp
  *     }
  * }
  * @event view-join
- * @property {String} scope - [`this.sessionId`]{@link Model#sessionId}
+ * @property {String} scope - [this.sessionId]{@link Model#sessionId}
  * @property {String} event - `"view-join"`
- * @property {String|Object} viewId - the joining user's local viewId, or an object `{viewId, info}`
+ * @property {String|Object} viewId - the joining user's local `viewId`, or an object `{viewId, info}`
  * @public
  */
 
@@ -76,22 +76,22 @@ export { Messenger } from "./src/_MESSENGER_MODULE_"; // eslint-disable-line imp
  * 10 seconds pass without an execution of the Croquet [main loop]{@link Session.join};
  * this will happen if, for example, the browser tab is hidden.  As soon as the tab becomes
  * active again the main loop resumes, and the session will reconnect, causing
- * a [`"view-join"`]{@link event:view-join} event to be published.  The `viewId`
+ * a [`"view-join"` event]{@link event:view-join} to be published.  The `viewId`
  * will be the same as before.
  *
- * If `viewInfo` was passed to [`Session.join`]{@link Session.join}, the event payload will
+ * If `viewInfo` was passed to [Session.join]{@link Session.join}, the event payload will
  * be an object `{viewId, info}`, where `info` is that `viewInfo`.
  *
  * **Note:** when starting a new session from a snapshot, `"view-exit"` events will be
- * generated for all of the previous users before the first [`"view-join"`]{@link event:view-join}
- * event of the new session.
+ * generated for all of the previous users before the first [`"view-join"` event]{@link event:view-join}
+ * of the new session.
  *
  * #### Example
- * See [`"view-join"`]{@link event:view-join} event
+ * See [`"view-join"` event]{@link event:view-join}
  * @event view-exit
- * @property {String} scope - [`this.sessionId`]{@link Model#sessionId}
+ * @property {String} scope - [this.sessionId]{@link Model#sessionId}
  * @property {String} event - `"view-exit"`
- * @property {String|Object} viewId - the user's id, or an object `{viewId, info}`
+ * @property {String|Object} viewId - the user's `viewId`, or an object `{viewId, info}`
  * @public
  */
 
@@ -139,7 +139,7 @@ export { Messenger } from "./src/_MESSENGER_MODULE_"; // eslint-disable-line imp
  * To show your own overlay, handle the `"synced"` event.
  *
  * @event synced
- * @property {String} scope - [`this.viewId`]{@link View#viewId}
+ * @property {String} scope - [this.viewId]{@link View#viewId}
  * @property {String} event - `"synced"`
  * @property {Boolean} data - `true` if in sync, `false` if backlogged
  * @public

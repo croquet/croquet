@@ -476,7 +476,7 @@ class Model {
      *
      * You can use any literal string as a global scope, or use [`this.sessionId`]{@link Model#sessionId} for a
      * session-global scope (if your application supports multipe sessions at the same time).
-     * The predefined events [`"view-join"`]{@link event:view-join} and [`"view-exit"`]{@link event:view-exit}
+     * The predefined [`"view-join"` event]{@link event:view-join} and [`"view-exit"` event]{@link event:view-exit}
      * use this session scope.
      *
      * The handler must be a method of `this`, e.g. `subscribe("scope", "event", this.methodName)` will schedule the
@@ -550,7 +550,7 @@ class Model {
     /**
      * Scope, event, and source of the currently executing subscription handler.
      *
-     * The `source' is either `"model"` or `"view"`.
+     * The `source` is either `"model"` or `"view"`.
      *
      * @example
      * // this.subscribe("*", "*", this.logEvents)
@@ -754,7 +754,7 @@ class Model {
      * **Identifies the shared session of all users**<br>
      * (as opposed to the [viewId]{@link View#viewId} which identifies the non-shared views of each user).
      *
-     * The session id is used as "global" scope for events like [`"view-join"`]{@link event:view-join}.
+     * The session id is used as "global" scope for events like the [`"view-join"` event]{@link event:view-join}.
      *
      * See {@link Session.join} for how the session id is generated.
      *
@@ -773,8 +773,9 @@ class Model {
      *
      * All users in a session share the same Model (meaning all model objects) but each user has a different View
      * (meaning all the non-model state). This is the number of views currently sharing this model.
-     * It increases by 1 for every [`"view-join"`]{@link event:view-join}
-     * and decreases by 1 for every [`"view-exit"`]{@link event:view-exit} event.
+     * It is increased by 1 before every [`"view-join"` event]{@link event:view-join}
+     * and decreased by 1 before every [`"view-exit"` event]{@link event:view-exit}
+     * handler is executed.
      *
      * @example
      * this.subscribe(this.sessionId, "view-join", this.showUsers);
