@@ -2,7 +2,7 @@
 /* eslint-disable object-shorthand */
 /* eslint-disable prefer-arrow-callback */
 
-const SYNCH_VERSION = "2.1.0";
+const SYNCH_VERSION = "2.1.1";
 
 const os = require('node:os');
 const fs = require('node:fs');
@@ -31,7 +31,7 @@ const ARGS = {
     SYNCNAME: "--sync-name",  // followed by a name, e.g. --sync-name abcd1234
     LAUNCHER: "--launcher",   // followed by a launch vehicle, e.g. --launcher app-1.2.1
     WALLET: "--wallet",       // followed by full wallet ID
-    DEVELOPER: "--developer", // followed by some kind of developer ID
+    ACCOUNT: "--account",     // followed by a Multisynq account ID
 };
 
 const EXIT = {
@@ -47,7 +47,7 @@ for (let i = 2; i < process.argv.length; i++) {
     if (!knownArgs.includes(arg)) {
         // might be following an arg that can take a value
         const prevArg = process.argv[i - 1];
-        if (![ARGS.DEPIN, ARGS.SYNCNAME, ARGS.WALLET, ARGS.DEVELOPER, ARGS.LAUNCHER].includes(prevArg)) {
+        if (![ARGS.DEPIN, ARGS.SYNCNAME, ARGS.WALLET, ARGS.ACCOUNT, ARGS.LAUNCHER].includes(prevArg)) {
             console.error(`Error: Unrecognized option ${arg}`);
             process.exit(EXIT.FATAL);
         }
@@ -62,7 +62,7 @@ function parseArgWithValue(argKey) {
     return null;
 }
 
-let WALLET, DEVELOPER, DEV_MODE, LAUNCHER;
+let WALLET, ACCOUNT, DEV_MODE, LAUNCHER;
 let DEPIN = process.argv.includes(ARGS.DEPIN);
 if (DEPIN) {
     // value argument is optional (defaults to prod)
@@ -70,11 +70,11 @@ if (DEPIN) {
     if (depinValue) DEPIN = depinValue;
 
     WALLET = parseArgWithValue(ARGS.WALLET);
-    DEVELOPER = parseArgWithValue(ARGS.DEVELOPER);
-    // since 2.1.0, a developer ID can be supplied even with a wallet (e.g., for tracking our
-    // beta synqers).  but supplying a developer ID _without_ a wallet implies developer mode,
+    ACCOUNT = parseArgWithValue(ARGS.ACCOUNT);
+    // since 2.1.0, an account ID can be supplied even with a wallet (e.g., for tracking our
+    // beta synqers).  but supplying an account ID _without_ a wallet implies developer mode,
     // as it always has.
-    DEV_MODE = !!(DEVELOPER && !WALLET)
+    DEV_MODE = !!(ACCOUNT && !WALLET)
 
     if (!WALLET && !DEV_MODE) {
         // $$$ figure out what to do here.  for now, this will be the case for
@@ -87,9 +87,9 @@ if (DEPIN) {
     if (!LAUNCHER) LAUNCHER = 'unknown';
 
     const walletStr = WALLET ? `wallet=${WALLET} ` : "";
-    const developerStr = DEVELOPER ? `developer=${DEVELOPER} ` : "";
+    const accountStr = ACCOUNT ? `account=${ACCOUNT} ` : "";
     const devModeStr = DEV_MODE ? "developer mode " : "";
-    console.log(`DePIN ${devModeStr}with ${walletStr}${developerStr}launched from ${LAUNCHER} on ${os.platform()} ${os.arch()}`);
+    console.log(`DePIN ${devModeStr}with ${walletStr}${accountStr}launched from ${LAUNCHER} on ${os.platform()} ${os.arch()}`);
 }
 
 function getRandomString(length) {
@@ -563,7 +563,7 @@ async function startServerForDePIN() {
         searchParams.set('connectTime', proxyLatestConnectTime);
         if (registerRegion) searchParams.set('registerRegion', registerRegion);
         if (WALLET) searchParams.set('wallet', WALLET);
-        if (DEVELOPER) searchParams.set('developer', DEVELOPER);
+        if (ACCOUNT) searchParams.set('account', ACCOUNT);
         proxySocket = new WebSocket(proxyUrl.toString(), {
             perMessageDeflate: false, // this was in the node-datachannel example; not sure if it's helping
         });
@@ -1516,7 +1516,7 @@ async function startServerForDePIN() {
                         clients?: [
                             {
                                 id: shortClientId1,
-                                connectionType: { c, s },
+                                conn: { c, s },
                                 latency?: { avg, min, max } // if any to report
                             },
                             { id: shortClientId2... }
@@ -2106,7 +2106,7 @@ function nonSavableProps() {
         syncClients: [],     // clients waiting to SYNC
         tallies: {},
         tagRecords: {},
-        developerId: null,
+        developerId: null,   // app developer
         apiKey: null,
         region: "default",   // the apiKey region for persisted data
         url: null,
