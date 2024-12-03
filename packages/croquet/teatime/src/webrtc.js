@@ -9,8 +9,7 @@ const FIREFOX = !NODE && !!globalThis.navigator?.userAgent.toLowerCase().include
 let DEBUG = {
     get connection() {
         // replace with static value on first call
-        // $$$ default to true during our initial roll-out
-        DEBUG = { connection: urlOptions.has("debug", "connection", true) };
+        DEBUG = { connection: urlOptions.has("debug", "connection", false) };
         return DEBUG.connection;
     }
 };
