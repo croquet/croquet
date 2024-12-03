@@ -336,6 +336,7 @@ const depinCreditTallies = {
     walletLifePoints: -1, // lifetime points added to wallet via any synq
     walletBalance: -1     // balance of that wallet, in SOL
 }
+let depinNumApps = 0;
 
 async function startServerForDePIN() {
     // create a fake server.  startServerForWebSockets (below) makes an http/websocket
@@ -463,6 +464,7 @@ async function startServerForDePIN() {
         proxyConnectionState = state;
     };
     let proxyWasToldWeHaveSessions;
+    let proxyWasToldWeHaveApps;
     let lastNonPingSent = Date.now();
     let proxyReconnectDelay = 0;
     let synchronizerUnavailableTimeout; // on synchronizer startup, and after any disconnection from the proxy, deadline for successful registration to avoid declaring this synchronizer unavailable and offloading any remaining sessions.  attempts to reconnect to the proxy will continue.
@@ -506,6 +508,7 @@ async function startServerForDePIN() {
         let proxyContactTimeout; // next time we should send a PING or STATS, as appropriate
         let proxyAckTimeout; // deadline for hearing back from the proxy
         proxyWasToldWeHaveSessions = false;
+        proxyWasToldWeHaveApps = false;
         const thisConnectTime = proxyLatestConnectTime = Date.now();
 
         function contactProxy() {
@@ -513,9 +516,10 @@ async function startServerForDePIN() {
 
             const isHandlingSessions = ALL_SESSIONS.size > 0; // whether active or not
             // if we aren't now but were before, send one last update with the zero sessions
+            const isRunningApps = !!depinNumApps;
             const now = Date.now();
             const timeSinceLastNonPing = now - lastNonPingSent;
-            if (isHandlingSessions || proxyWasToldWeHaveSessions) {
+            if (isHandlingSessions || proxyWasToldWeHaveSessions || isRunningApps || proxyWasToldWeHaveApps) {
                 const statsAggregationSeconds = Math.max(1, timeSinceLastNonPing / 1000);
                 sendToProxy({ what: 'STATUS', status: statusForProxy(statsAggregationSeconds) });
                 lastNonPingSent = now;
@@ -530,6 +534,8 @@ async function startServerForDePIN() {
                 contactProxyAfterDelay(depinTimeouts.PROXY_PING_DELAY);
             }
             proxyWasToldWeHaveSessions = isHandlingSessions;
+            proxyWasToldWeHaveApps = isRunningApps;
+
             // set up a timeout within which we expect to receive an acknowledgement from the proxy.
             // the timeout is cleared by receipt of ACK or PONG.
             proxyAckTimeout = setTimeout(() => {
@@ -1523,10 +1529,12 @@ async function startServerForDePIN() {
                         ]
                     },
                     { id: shortSessionId2... }
-                ]
+                ],
+                numApps
             }
         */
         const report = { seconds: aggregationSeconds };
+        if (depinNumApps) report.numApps = depinNumApps;
         // $$$ we only gather for sessions that are active right now.  the final stats
         // for any session that was offloaded at some point since the previous report
         // will therefore be lost.  in due course we'll need to fix this.
@@ -1611,6 +1619,10 @@ async function startServerForDePIN() {
         })
 
         setTimeout(() => console.info(`started utility process with PID=${utilityAppProcess.pid}`), 200) // for info only
+        depinNumApps++;
+        global_logger.info({
+            event: "utility-start",
+        }, `utility process started; number of running apps now ${depinNumApps}`);
 
         const pruneLine = line => line.length <= 500 ? line : line.slice(0, 250) + "...(snip)..." + line.slice(-250);
 
@@ -1642,10 +1654,11 @@ async function startServerForDePIN() {
             }
         })
         utilityAppProcess.on('exit', code => {
+            depinNumApps--;
             global_logger.info({
                 event: "utility-exit",
                 code
-            }, `utility process exited with code ${code}`);
+            }, `utility process exited with code ${code}; number of running apps now ${depinNumApps}`);
         });
 
     }
