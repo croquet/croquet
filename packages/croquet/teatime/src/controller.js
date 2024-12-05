@@ -664,7 +664,7 @@ export default class Controller {
         } finally {
             ms = Stats.end("snapshot") - start;
         }
-        if (DEBUG.snapshot) console.log(this.id, `snapshot taken in ${Math.ceil(ms)}`);
+        if (DEBUG.snapshot) console.log(this.id, `snapshot taken in ${Math.ceil(ms)}ms`);
         return snapshot;
     }
 
