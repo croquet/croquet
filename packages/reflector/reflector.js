@@ -314,6 +314,7 @@ const depinTimeouts = {
     PROXY_CONNECTION_LIMIT: 60_000,   // if no response at all on connection, try again
     PROXY_RECONNECT_DELAY_MAX: 30_000,
 
+    SESSION_FIRST_JOIN_LIMIT: 12_000,
     SESSION_CONNECT_LIMIT: 4000,
     SESSION_UPDATE_DELAY: 250,
     SESSION_PING_DELAY: 1000,
@@ -1197,6 +1198,7 @@ async function startServerForDePIN() {
                                     // CF-Connecting-IP header.
                                     const peerConnection = createPeerConnection(clientId, globalClientId, sessionId, sessionSocket);
                                     peerConnection.mq_clientIp = depinMsg.ip;
+                                    peerConnection.mq_iceStart = Date.now();
                                     peerConnection.setRemoteDescription(msg.sdp, msg.type);
                                     break;
                                 }
@@ -1376,7 +1378,7 @@ async function startServerForDePIN() {
                     server.clients.set(globalClientId, client);
                     setUpClientHandlers(client); // adds 'message', 'close', 'error'
                     registerClientInSession(client, sessionId); // includes setting up logger
-                    client.logger.notice({ event: "start" }, `opened connection for client ${globalClientId} at ${peerConnection.mq_clientIp} with label "${label}"`);
+                    client.logger.notice({ event: "start" }, `opened connection for client ${globalClientId} at ${peerConnection.mq_clientIp} after ${client.iceMS}ms with label "${label}"`);
                     dataChannel.onMessage(msg => {
                         if (msg.startsWith('!pong')) {
                             const time = Number(msg.split('@')[1]);
@@ -1425,7 +1427,8 @@ async function startServerForDePIN() {
                     on: function (eventName, handler) { this.handlers[eventName] = handler },
                     handleEvent: function (eventName, ...args) { this.handlers[eventName](...args) },
                     ping: function (time) { this.send(`!ping@${time}`) },
-                    since: Date.now(),
+                    since: Date.now(), // when the client registered with the session
+                    iceMS: Date.now() - peerConnection.mq_iceStart,
                     connectionType: peerConnection.mq_connectionType || { c: '', s: '' }, // webrtc chosen candidate types, for client and synq
                     bufferedAmount: 0, // dummy value, used in stats collection
                     latency: { min: null, max: null, count: 0, sum: 0 },
@@ -1563,9 +1566,9 @@ async function startServerForDePIN() {
             if (island) {
                 const clientRecords = [];
                 for (const client of island.clients) {
-                    const { connectionType, latency, meta } = client;
+                    const { iceMS, connectionType: conn, latency, meta } = client;
                     const { shortId: id } = meta;
-                    const clientRecord = { id, conn: connectionType };
+                    const clientRecord = { id, ice_s: (iceMS / 1000).toFixed(1), conn };
                     if (latency.count) {
                         const avg = Math.round(latency.sum / latency.count);
                         clientRecord.latency = { avg, min: latency.min, max: latency.max };
@@ -3689,8 +3692,9 @@ function registerSession(sessionId) {
     // add a buffer to how long we wait before trying to delete the dispatcher
     // record.  one purpose served by this buffer is to stay available for a
     // client that finds its connection isn't working (SYNC fails to arrive), and
-    // after 5 seconds will try to reconnect.  so we respect it even on DePIN.
-    let deregisterDelay = DISPATCH_RECORD_RETENTION + 2000;
+    // after 5 seconds will try to reconnect.  on DePIN we allow even longer,
+    // because we've seen that ICE negotiation can drag on.
+    let deregisterDelay = DEPIN ? depinTimeouts.SESSION_FIRST_JOIN_LIMIT : DISPATCH_RECORD_RETENTION + 2000;
     if (!DEPIN && CLUSTER === 'localWithStorage') {
         // FOR TESTING WITH LOCAL SYNCHRONIZER ONLY
         // no dispatcher was involved in getting here.  create for ourselves a dummy
@@ -3734,9 +3738,8 @@ function registerClientInSession(client, sessionId) {
                 return;
             case 'runnable':
             case 'closable': {
-                // make sure the deregister timeout has at least 7s to run - same as
-                // the initial deregisterDelay set up below - to give this client a
-                // chance to join (even if it's in a very busy browser)
+                // make sure the deregister timeout has at least 7s to run, to give
+                // this client a chance to join (even if it's in a very busy browser)
                 const now = Date.now();
                 const targetTime = Math.max(session.earliestDeregister, now + 7000);
                 scheduleShutdownIfNoJoin(sessionId, targetTime, "no JOIN after connection");
