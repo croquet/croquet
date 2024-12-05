@@ -144,6 +144,7 @@ const DEPIN_API_DEFAULT = DEPIN_API_PROD;
 
 let DEPIN;
 let DEPIN_API;
+let REFL_OR_SYNCH = "reflector"; // just for logging
 
 function initDEPIN(defaultToDEPIN) {
     if (DEPIN !== undefined) return; // already initialized
@@ -158,6 +159,7 @@ function initDEPIN(defaultToDEPIN) {
         if (DEPIN_API.endsWith('/')) DEPIN_API = DEPIN_API.slice(0, -1);
         DEPIN_API = DEPIN_API.replace(/^http(s):/, 'ws$1:');
         if (!DEPIN_API.startsWith('ws')) DEPIN_API = (!NODE && window.location.protocol === 'https:' ? 'wss://' : 'ws://') + DEPIN_API;
+        REFL_OR_SYNCH = "synchronizer";
         console.log(`DEPIN_API=${DEPIN_API}`);
     } else {
         DEPIN = false;
@@ -705,7 +707,7 @@ export default class Controller {
         const message = new Message(now, 0, "_", "handlePollForSnapshot", []);
         // tell reflector only to reflect this message if no message with same ID has been sent in past 5000ms (wall-clock time)
         this.sendTagged(message, { debounce: SNAPSHOT_POLL_DEBOUNCE, msgID: "pollForSnapshot" });
-        if (DEBUG.snapshot) console.log(this.id, "requesting snapshot poll via reflector");
+        if (DEBUG.snapshot) console.log(this.id, `requesting snapshot poll via ${REFL_OR_SYNCH}`);
     }
 
     handlePollForSnapshot(time) {
@@ -900,7 +902,7 @@ export default class Controller {
         if (DEBUG.snapshot) {
             let logProps = `time: ${time}, seq: ${seq}, hash: ${hash}`;
             if (dissidentFlag) logProps += ", as dissident; " + JSON.stringify(dissidentFlag);
-            console.log(this.id, `sending snapshot url to reflector (${logProps}): ${url}`);
+            console.log(this.id, `sending snapshot url to ${REFL_OR_SYNCH} (${logProps}): ${url}`);
         }
         try {
             this.connection.send(JSON.stringify({
@@ -1109,7 +1111,7 @@ export default class Controller {
         });
         if (DEBUG.snapshot) {
             const logProps = dissidentFlag ? ` (as dissident; ${JSON.stringify(dissidentFlag)})` : "";
-            console.log(this.id, `sending persistent data url to reflector${logProps}: ${url}`);
+            console.log(this.id, `sending persistent data url to ${REFL_OR_SYNCH}${logProps}: ${url}`);
         }
         try {
             this.connection.send(JSON.stringify({
@@ -1300,7 +1302,7 @@ export default class Controller {
                 const timeline = args.timeline;
                 this.flags = flags || {};
                 const persistedOrSnapshot = persisted ? "persistence" : "snapshot"; // used as Stats key too
-                if (DEBUG.session) console.log(this.id, `received SYNC from ${reflector} reflector: time ${time}, ${messages.length} messages, ${persistedOrSnapshot} ${url || "<none>"}`);
+                if (DEBUG.session) console.log(this.id, `received SYNC from ${reflector} ${REFL_OR_SYNCH}: time ${time}, ${messages.length} messages, ${persistedOrSnapshot} ${url || "<none>"}`);
                 // if we are rejoining, check if we can do that seamlessly without taking down the view
                 // meaning we have all the messages we missed while disconnected
                 let rejoining = !!this.vm;
@@ -1338,7 +1340,7 @@ export default class Controller {
                         for (let i = toDiscard; seamlessRejoin && i < messages.length; i++) {
                             const payload = messages[i][2];
                             if (typeof payload !== "string" && payload.what === "users" && payload.left && payload.left.includes(this.viewId)) {
-                                if (DEBUG.session) console.log(this.id, "reflector reports that this view has left");
+                                if (DEBUG.session) console.log(this.id, `${REFL_OR_SYNCH} reports that this view has left`);
                                 seamlessRejoin = false;
                             }
                         }
@@ -1537,7 +1539,7 @@ export default class Controller {
             }
             case 'REQU': {
                 // reflector requests a snapshot
-                if (DEBUG.snapshot) console.log("received REQU (snapshot request) from reflector");
+                if (DEBUG.snapshot) console.log(`received REQU (snapshot request) from ${REFL_OR_SYNCH}`);
                 this.reflectorNeedsSnapshot = true;
                 return;
             }
@@ -1802,11 +1804,11 @@ export default class Controller {
 
         const payloadLength = msg.asState()[2].length;
         if (payloadLength > PAYLOAD_LIMIT_MAX) {
-            console.warn(this.id, `Message with payload of ${payloadLength} bytes exceeds maximum ${PAYLOAD_LIMIT_MAX} and will not be sent to reflector.`);
+            console.warn(this.id, `Message with payload of ${payloadLength} bytes exceeds maximum ${PAYLOAD_LIMIT_MAX} and will not be sent to ${REFL_OR_SYNCH}.`);
             return;
         }
         if (!this.payloadSizeWarned && payloadLength > PAYLOAD_LIMIT_RECOMMENDED) {
-            console.log(this.id, `Message with payload of ${payloadLength} bytes being sent to reflector. Maximum recommended is ${PAYLOAD_LIMIT_RECOMMENDED}.`);
+            console.log(this.id, `Message with payload of ${payloadLength} bytes being sent to ${REFL_OR_SYNCH}. Maximum recommended is ${PAYLOAD_LIMIT_RECOMMENDED}.`);
             this.payloadSizeWarned = true;
         }
 
@@ -1854,7 +1856,7 @@ export default class Controller {
         // warning, but any sustained sending at the peak rate (whether or not we're
         // using the buffer).
         if (!this.rateLimitSoftWarned && times.length === this.eventHistoryLimit && time - times[0] < 1010) { // close enough
-            console.warn(this.id, `Sends to reflector are at or above recommended limit of ${this.eventHistoryLimit} within one second. Events will be bundled as necessary to keep to the limit.`);
+            console.warn(this.id, `Sends to ${REFL_OR_SYNCH} are at or above recommended limit of ${this.eventHistoryLimit} within one second. Events will be bundled as necessary to keep to the limit.`);
             this.rateLimitSoftWarned = true;
         }
     }
@@ -2754,7 +2756,7 @@ class Connection {
 
     dormantDisconnect() {
         if (!this.connected) return; // not connected anyway
-        if (DEBUG.session) console.log(this.id, "dormant; disconnecting from reflector");
+        if (DEBUG.session) console.log(this.id, `dormant; disconnecting from ${REFL_OR_SYNCH}`);
         this.closeConnection(4110, "Going dormant");
     }
 
