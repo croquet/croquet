@@ -4,6 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest @dev
 
+* 2.0.0-41 increase ICE timeout, fix PBKDF2 parameters (regression introduced in -33)
 * 2.0.0-40 add viewInfo arg for view-join
 * 2.0.0-39 fix node build
 * 2.0.0-38 don't do any synchronous work in Session.join() to not block the main thread
