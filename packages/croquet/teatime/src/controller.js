@@ -1,6 +1,7 @@
 /* global croquet_build_process */
 
 import stableStringify from "fast-json-stable-stringify";
+import { algo } from "crypto-js/core";
 import Base64 from "crypto-js/enc-base64";
 import Utf8 from "crypto-js/enc-utf8";
 import PBKDF2 from "crypto-js/pbkdf2";
@@ -432,7 +433,8 @@ export default class Controller {
         // If we add more options here, add them to SESSION_PARAMS in session.js
         const { name: n, optionsFromUrl, persistentIdOptions, password, appId, apiKey, viewInfo, viewIdDebugSuffix } = sessionSpec;
         const name = appId ? `${appId}/${n}` : n;
-        this.key = PBKDF2(password, "", { keySize: 256/32 });
+        // we don't care about the strength of the key derivation
+        this.key = PBKDF2(password, "", { keySize: 256/32, hasher: algo.SHA1, iterations: 1 });
         if (viewIdDebugSuffix) this.viewId = this.viewId.replace(/_.*$/, "") + '_' + encodeURIComponent(("" + viewIdDebugSuffix).slice(0, 16))
             .replace(/[^a-z0-9]/ig, c => `_${c === '%' ? "" : c.charCodeAt(0).toString(16).toUpperCase()}`); // ensure only a-z0-9_ in suffix
         // root model options are only those explicitly requested by app, plus url options
