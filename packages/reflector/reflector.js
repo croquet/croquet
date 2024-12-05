@@ -1618,11 +1618,14 @@ async function startServerForDePIN() {
             stdio: 'pipe',
         })
 
+        const shortKey = testKey.split(':').slice(-1)[0] || '<key>';
+
         setTimeout(() => console.info(`started utility process with PID=${utilityAppProcess.pid}`), 200) // for info only
         depinNumApps++;
         global_logger.info({
             event: "utility-start",
-        }, `utility process started; number of running apps now ${depinNumApps}`);
+            testKey,
+        }, `utility process for ${shortKey} started; number of running apps now ${depinNumApps}`);
 
         const pruneLine = line => line.length <= 500 ? line : line.slice(0, 250) + "...(snip)..." + line.slice(-250);
 
@@ -1630,14 +1633,14 @@ async function startServerForDePIN() {
             const dat = decoder.decode(data);
             const lines = dat.split('\n').filter(line => line);
             for (const l of lines) {
-                console.log(`[app] ${pruneLine(l)}`);
+                console.log(`[app-${shortKey}] ${pruneLine(l)}`);
             }
         });
         utilityAppProcess.stderr.on('data', data => {
             const dat = decoder.decode(data)
             const lines = dat.split('\n').filter(line => line);
             for (const l of lines) {
-                console.error(`[app] ${pruneLine(l)}`);
+                console.error(`[app-${shortKey}] ${pruneLine(l)}`);
             }
         });
         utilityAppProcess.on('message', msg => {
@@ -1649,16 +1652,18 @@ async function startServerForDePIN() {
             } else {
                 global_logger.debug({
                     event: 'unknown-app-message',
-                    message: msg
-                    }, `unknown message from app: ${JSON.stringify(msg)}`);
+                    message: msg,
+                    testKey
+                    }, `unknown message from app-${shortKey}: ${JSON.stringify(msg)}`);
             }
         })
         utilityAppProcess.on('exit', code => {
             depinNumApps--;
             global_logger.info({
                 event: "utility-exit",
+                testKey,
                 code
-            }, `utility process exited with code ${code}; number of running apps now ${depinNumApps}`);
+            }, `utility process for ${shortKey} exited with code ${code}; number of running apps now ${depinNumApps}`);
         });
 
     }
@@ -1695,6 +1700,10 @@ async function startServerForDePIN() {
 
         });
     }
+
+    // =========================== to test utility apps locally =====================
+    // setTimeout(() => startUtilityApp(UTILITY_APP_PATH, 'stress_test_core.js', '', 'uvwxyz'), 10_000)
+
 }
 
 // =======================================================
