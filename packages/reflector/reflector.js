@@ -2,7 +2,7 @@
 /* eslint-disable object-shorthand */
 /* eslint-disable prefer-arrow-callback */
 
-const SYNCH_VERSION = "2.1.2";
+const SYNCH_VERSION = "2.1.3";
 
 const os = require('node:os');
 const fs = require('node:fs');
