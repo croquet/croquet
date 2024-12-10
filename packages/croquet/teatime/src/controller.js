@@ -511,7 +511,7 @@ export default class Controller {
         const keys = {};
         for (const key of apiKeysWithBackend.split(",")) {
             const split = key.lastIndexOf(':');
-            const version = key[split === -1 ? 0 : split]; // 1: croquet.io, 2: multisynq.io
+            const version = key[split === -1 ? 0 : split+1]; // 1: croquet.io, 2: multisynq.io
             if (!version.match(/^[12]$/)) throw Error(`Invalid API key version`);
             if (version in keys) throw Error(`Duplicate API key versions`);
             keys[version] = {
@@ -519,7 +519,9 @@ export default class Controller {
                 backend: split === -1 ? "" : key.slice(0, split),
             };
         }
-        initDEPIN(!keys[1]); // default to DEPIN if no croquet.io key
+        let defaultToDEPIN = !keys[1]; // default to DEPIN if no croquet.io key
+        if (defaultToDEPIN && keys[2].backend) defaultToDEPIN = keys[2].backend;
+        initDEPIN(defaultToDEPIN);
         const key = keys[DEPIN ? 2 : 1];
         if (!key) throw Error(`No ${DEPIN ? "Multisynq" : "Croquet"} API key provided`);
 
