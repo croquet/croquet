@@ -365,6 +365,7 @@ async function startServerForDePIN() {
     server = {
         peerConnections: new Map(), // global client id => peerConnection
         clients: new Map(),         // global client id => client object
+        clientLocations: new Map(), // global client id => location string
         removeClient: function (globalClientId, reason) {
             // invoked from
             // - clientLeft, or
@@ -1168,8 +1169,10 @@ async function startServerForDePIN() {
                             break;
                         case "CONNECT":
                             // a peer connection isn't set up until the client sends an offer.
-                            // therefore, for now, there's nothing to do here.
-                            session.logger.debug({ event: "client-connected", clientId }, `new client connection ${globalClientId}`);
+                            // therefore, for now, there's nothing to do here except remembering the
+                            // client's location
+                            server.clientLocations.set(globalClientId, depinMsg.xLocation);
+                            session.logger.debug({ event: "client-connected", clientId }, `new client connection ${globalClientId} from ${depinMsg.xLocation.split(',')[0]}`);
                             break;
                         case "DISCONNECT":
                             session.logger.debug({ event: "client-signaling-closed", clientId }, `client ${globalClientId} closed signaling`);
@@ -1400,6 +1403,18 @@ async function startServerForDePIN() {
                 // a client object that has the needed DePIN-supporting properties, and
                 // can also work with legacy synchronizer code that expects a client to be
                 // a socket.
+
+                let location;
+                if (server.clientLocations.has(globalClientId)) {
+                    // same logic as on GCP
+                    const xLocation = server.clientLocations.get(globalClientId);
+                    const [region, city, lat, lng] = xLocation.split(",");
+                    location = { region };
+                    if (city) location.city = { name: city, lat: +lat, lng: +lng };
+                    // it's just a cache
+                    server.clientLocations.delete(globalClientId);
+                }
+
                 return {
                     globalId: globalClientId,
                     pc: peerConnection,
@@ -1436,7 +1451,8 @@ async function startServerForDePIN() {
                         shortId: globalClientId.split(':')[1], // messy, but silly not to
                         // label: added by caller
                         scope: "connection",
-                        userIp: peerConnection.mq_clientIp
+                        userIp: peerConnection.mq_clientIp,
+                        location,
                     }
                 };
             }
