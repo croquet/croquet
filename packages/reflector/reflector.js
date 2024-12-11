@@ -13,9 +13,11 @@ const WebSocket = require('ws');
 const prometheus = require('prom-client');
 const jwt = require('jsonwebtoken');
 const pino = require('pino');
+const { wrapErrorSerializer } = require('pino-std-serializers');
+let cleanStack;
+import('clean-stack').then(cs => { cleanStack = cs.default }); // require() disallowed because of ESM
 const { Storage } = require('@google-cloud/storage');
 const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
-
 
 // command line args
 
@@ -247,6 +249,9 @@ const empty_logger = pino({
     formatters: {
         level: label => (RUNNING_ON_LOCALHOST ? {level: label} : { severity: GCP_SEVERITY[label] || 'DEFAULT'}),
     },
+    serializers: {
+        err: wrapErrorSerializer(errObj => Object.assign(errObj, { stack: cleanStack(errObj.stack, { basePath: __dirname }) }))
+    }
 });
 
 // the global logger. we have per-session and per-connection loggers, too,
@@ -748,7 +753,7 @@ async function startServerForDePIN() {
                         }
                 }
             } catch (err) {
-                global_logger.error({ event: "proxy-message-error", depinStr }, `error processing proxy message "${depinStr}": ${err}`);
+                global_logger.error({ event: "proxy-message-error", depinStr, err }, `error processing proxy message "${depinStr}": ${err}`);
             }
         });
 
@@ -1278,7 +1283,7 @@ async function startServerForDePIN() {
                             break;
                     }
                 } catch (err) {
-                    session.logger.error({ event: "message-handling-failed", err}, `error processing message "${depinStr}" in session ${shortSessionId}: ${err}`);
+                    session.logger.error({ event: "message-handling-failed", err }, `error processing message "${depinStr}" in session ${shortSessionId}: ${err}`);
                 }
             });
 
@@ -1420,12 +1425,8 @@ async function startServerForDePIN() {
                     pc: peerConnection,
                     dc: dataChannel,
                     isConnected: function () { return this.dc.isOpen() },
-                    send: function (data) {
-                        try { this.dc.sendMessage(data) }
-                        catch(err) {
-                            this.logger?.error({ event: "send-failed", err }, `send to client ${this.globalId} failed: ${err}`)
-                        }
-                    },
+                    // anyone invoking client.send must prepare to catch errors
+                    send: function (data) { this.dc.sendMessage(data) },
                     // all locally requested closures (typically due to error conditions)
                     // are expected to trigger the client's 'close' event handler.  on
                     // DePIN, that is achieved by closing the client's dataChannel.
@@ -1441,13 +1442,18 @@ async function startServerForDePIN() {
                     handlers: {},
                     on: function (eventName, handler) { this.handlers[eventName] = handler },
                     handleEvent: function (eventName, ...args) { this.handlers[eventName](...args) },
-                    ping: function (time) { this.send(`!ping@${time}`) },
+                    ping: function (time) {
+                        try { this.dc.sendMessage(`!ping@${time}`) }
+                        catch (e) { /* */ }
+                    },
                     since: Date.now(), // when the client registered with the session
                     iceMS: Date.now() - peerConnection.mq_iceStart,
                     connectionType: peerConnection.mq_connectionType || { c: '', s: '' }, // webrtc chosen candidate types, for client and synq
                     bufferedAmount: 0, // dummy value, used in stats collection
                     latency: { min: null, max: null, count: 0, sum: 0 },
                     meta: {
+                        // properties used in logger output
+                        globalId: globalClientId,
                         shortId: globalClientId.split(':')[1], // messy, but silly not to
                         // label: added by caller
                         scope: "connection",
@@ -1714,7 +1720,7 @@ async function startServerForDePIN() {
                         global_logger.warn({ event: "unrecognized-app-message", what: msg.what }, `unrecognized message from app: "${msg.what}`);
                 }
             } catch(err) {
-                global_logger.error({ event: "app-message-error", data: e.data }, `error processing app message "${JSON.stringify(e.data)}": ${err}`);
+                global_logger.error({ event: "app-message-error", data: e.data, err }, `error processing app message "${JSON.stringify(e.data)}": ${err}`);
             }
 
         });
