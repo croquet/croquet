@@ -14,7 +14,7 @@ const prometheus = require('prom-client');
 const jwt = require('jsonwebtoken');
 const pino = require('pino');
 const { wrapErrorSerializer } = require('pino-std-serializers');
-let cleanStack;
+let cleanStack = _stack => undefined; // until imported
 import('clean-stack').then(cs => { cleanStack = cs.default }); // require() disallowed because of ESM
 const { Storage } = require('@google-cloud/storage');
 const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
