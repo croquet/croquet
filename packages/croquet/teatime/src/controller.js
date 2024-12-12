@@ -1619,17 +1619,22 @@ export default class Controller {
         if (DEBUG.session) console.log(this.id, "Controller sending JOIN");
 
         const { tick, delay } = this.getTickAndMultiplier();
-        const { name, codeHash, appId, apiKey: apiKeysWithBackend, persistentId, developerId, heraldUrl, rejoinLimit, autoSleep, computedCodeHash, location, flags } = this.sessionSpec;
-        const apiKey = DEPIN ? 'hidden' : this.getBackend(apiKeysWithBackend).apiKey;
-        const user = this.viewDataEncrypted ? { id: this.viewId, data: this.viewDataEncrypted } :
+        const { name: specName, codeHash, appId: specAppId, apiKey: specApiKey, persistentId, developerId, heraldUrl, rejoinLimit, autoSleep, computedCodeHash, location, flags } = this.sessionSpec;
+        const name = DEPIN ? 'hiddenName' : specName;
+        const apiKey = DEPIN ? 'hiddenApiKey' : this.getBackend(specApiKey).apiKey;
+        const appId = DEPIN ? 'hiddenAppId' : specAppId;
+        const url = DEPIN ? 'hiddenUrl' : App.referrerURL();
+        const user = this.viewDataEncrypted ? { id: this.viewId, info: this.viewDataEncrypted } :
             location ? [this.viewId] : this.viewId;
 
         const args = {
+            // hidden on DePIN...
             name,                   // for debugging only
             apiKey,                 // undefined in old clients
             appId,                  // for sign func
+            url,                    // for sign func
+            // ...to here
             persistentId,           // for sign func
-            url: App.referrerURL(), // for sign func
             sdk: CROQUET_VERSION,   // for sign func
             developerId,            // for logging
             version: VERSION,       // protocol version
