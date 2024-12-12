@@ -607,6 +607,23 @@ declare module "@croquet/croquet" {
         static Croquet: Croquet;
     }
 
+    export type ViewLocation = {
+        country: string;
+        region: string;
+        city?: {
+            name: string;
+            lat: number;
+            lng: number;
+        }
+    }
+
+    /** payload of view-join and view-exit if viewData was passed in Session.join */
+    export type ViewInfo<T> = {
+        viewId: string              // set by reflector
+        viewData: T                 // passed in Session.join
+        location?: ViewLocation     // set by reflector if enabled in Session.join
+    }
+
     export type ViewSubOptions = {
         handling?: "queued" | "oncePerFrame" | "immediate"
     }
@@ -896,7 +913,7 @@ declare module "@croquet/croquet" {
 
     type ClassOf<M> = new (...args: any[]) => M;
 
-    export type CroquetSessionParameters<M extends Model, V extends View> = {
+    export type CroquetSessionParameters<M extends Model, V extends View, T> = {
         apiKey: string,
         appId: string,
         name?: string|Promise<string>,
@@ -905,7 +922,8 @@ declare module "@croquet/croquet" {
         view?: ClassOf<V>,
         options?: CroquetModelOptions,
         viewOptions?: CroquetViewOptions,
-        viewInfo?: object,
+        viewData?: T,
+        location?: boolean,
         step?: "auto" | "manual",
         tps?: number|string,
         autoSleep?: number|boolean,
@@ -926,8 +944,8 @@ declare module "@croquet/croquet" {
          * **Join a Croquet session.**
          *
          */
-        static join<M extends Model, V extends View> (
-            parameters: CroquetSessionParameters<M, V>
+        static join<M extends Model, V extends View, T>(
+            parameters: CroquetSessionParameters<M, V, T>
         ): Promise<CroquetSession<V>>;
     }
 

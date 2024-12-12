@@ -611,29 +611,29 @@ export default class VirtualMachine {
         // 'user' messages convey a change in the number of users.
         this.controller.handleUserTotalForAccounting(total);
 
-        // if the app passed a viewInfo to Session.join() then the controller
-        // sent { id, info } as user instead of a plain viewId string. If location was
+        // if the app passed viewData to Session.join() then the controller
+        // sent { id, data } as user instead of a plain viewId string. If location was
         // also requested then the reflector may have added the location as
-        // { id, info, location: {region, city: {name, lat, lng}} }
-        // if location was enabled (but no viewInfo) then controller.join() sent
+        // { id, data, location: {region, city: {name, lat, lng}} }
+        // if location was enabled (but no viewData) then controller.join() sent
         // a [viewId] array as user instead of a plain viewId string, so the reflector
         // may have added the location as [viewId, {region, city: {name, lat, lng}}],
         // see JOIN() in reflector.js
 
-        const viewdata = {};
+        const newViews = {};
         for (const user of entered) {
             if (typeof user === "string") continue; // only viewId
-            let viewId, loc, info;
+            let viewId, loc, data;
             if (Array.isArray(user)) [ viewId, loc ] = user;
-            else { viewId = user.id; info = user.info; loc = user.location; }
-            viewdata[viewId] = {};
-            if (info) viewdata[viewId].info = info;
+            else { viewId = user.id; data = user.data; loc = user.location; }
+            newViews[viewId] = {};
+            if (data) newViews[viewId].data = data;
             if (loc) {
                 if (loc.region) {
                     loc.country = loc.region.slice(0, 2);
                     loc.region = loc.region.slice(2);
                 }
-                viewdata[viewId].loc = loc;
+                newViews[viewId].loc = loc;
             }
         }
         entered = entered.map(user => typeof user === "string" ? user : Array.isArray(user) ? user[0] : user.id);
@@ -654,14 +654,14 @@ export default class VirtualMachine {
                 if (entered.length === 0 && exited.length === 0) return;
             }
         }
-        // join/exit event payload is either "viewId" or { viewId, info }
-        // depending on whether the session was joined with a viewInfo
-        const eventData = id => {
-            const { info, loc } = this.views[id];
-            if (!info) return id;
-            const data = { viewId: id, info };
-            if (loc) data.location = loc; // location only if requested
-            return data;
+        // join/exit event payload is either "viewId" or { viewId, viewData }
+        // depending on whether the session was joined with a viewData
+        const viewInfo = id => {
+            const { data, loc } = this.views[id];
+            if (!data) return id;
+            const info = { viewId: id, viewData: data };
+            if (loc) info.location = loc; // location only if requested
+            return info;
         };
         // process exits first
         for (const id of exited) {
@@ -673,7 +673,7 @@ export default class VirtualMachine {
                     continue;
                 }
                 // otherwise this is a real exit
-                const payload = eventData(id);
+                const payload = viewInfo(id);
                 delete this.views[id];
                 this.publishFromModelOnly(this.id, "view-exit", payload);
             } else {
@@ -694,8 +694,8 @@ export default class VirtualMachine {
                 this.views[id].extraConnections = (this.views[id].extraConnections||0) + 1;
             } else {
                 // otherwise this is a real join
-                this.views[id] = viewdata[id] || {};
-                const payload = eventData(id);
+                this.views[id] = newViews[id] || {};
+                const payload = viewInfo(id);
                 this.publishFromModelOnly(this.id, "view-join", payload);
             }
         }

@@ -18,8 +18,8 @@ export { Messenger } from "./src/_MESSENGER_MODULE_"; // eslint-disable-line imp
  * This is a model-only event, meaning views can not handle it directly.
  *
  * The event's payload will be the joining view's `viewId`. However, if
- * `viewInfo` was passed to [Session.join]{@link Session.join}, the event payload will
- * be an object `{viewId, info}`, where `info` is that `viewInfo`.
+ * `viewData` was passed to [Session.join]{@link Session.join}, the event payload will
+ * be an object `{viewId, viewData}`.
  *
  * **Note:** Each `"view-join"` event is guaranteed to be followed by a [`"view-exit"` event]{@link event:view-exit}
  * when that user leaves the session, or when the session is cold-started from a persistent snapshot.
@@ -62,7 +62,7 @@ export { Messenger } from "./src/_MESSENGER_MODULE_"; // eslint-disable-line imp
  * @event view-join
  * @property {String} scope - [this.sessionId]{@link Model#sessionId}
  * @property {String} event - `"view-join"`
- * @property {String|Object} viewId - the joining user's local `viewId`, or an object `{viewId, info}`
+ * @property {String|Object} viewId - the joining user's local `viewId`, or an object `{viewId, viewData}`
  * @public
  */
 
@@ -79,8 +79,8 @@ export { Messenger } from "./src/_MESSENGER_MODULE_"; // eslint-disable-line imp
  * a [`"view-join"` event]{@link event:view-join} to be published.  The `viewId`
  * will be the same as before.
  *
- * If `viewInfo` was passed to [Session.join]{@link Session.join}, the event payload will
- * be an object `{viewId, info}`, where `info` is that `viewInfo`.
+ * If `viewData` was passed to [Session.join]{@link Session.join}, the event payload will
+ * be an object `{viewId, viewData}`.
  *
  * **Note:** when starting a new session from a snapshot, `"view-exit"` events will be
  * generated for all of the previous users before the first [`"view-join"` event]{@link event:view-join}
@@ -91,7 +91,7 @@ export { Messenger } from "./src/_MESSENGER_MODULE_"; // eslint-disable-line imp
  * @event view-exit
  * @property {String} scope - [this.sessionId]{@link Model#sessionId}
  * @property {String} event - `"view-exit"`
- * @property {String|Object} viewId - the user's `viewId`, or an object `{viewId, info}`
+ * @property {String|Object} viewId - the user's `viewId`, or an object `{viewId, viewData}`
  * @public
  */
 

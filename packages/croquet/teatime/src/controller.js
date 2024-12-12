@@ -282,7 +282,7 @@ export default class Controller {
         /** @type {String} the client id (different in each replica, but stays the same on reconnect) */
         this.viewId = this.viewId || randomString(); // todo: have reflector assign unique ids
         /** @type {String} payload for view-join  */
-        this.viewInfoEncrypted = this.viewInfoEncrypted || null;
+        this.viewDataEncrypted = this.viewDataEncrypted || null;
         /** @type {String} stateless reflectors always start new session, this is the only way to notice that */
         this.timeline = "";
         // just to be safe ...
@@ -425,7 +425,7 @@ export default class Controller {
      * @param {String} sessionSpec.apiKey - an API key of the form `backend:secret` (or just `secret` if backend is `prod`)
      * @param {String} sessionSpec.appId - a unique identifier for an app
      * @param {String} sessionSpec.password - password for end-to-end encryption
-     * @param {String} sessionSpec.viewInfo - payload for view-join event
+     * @param {String} sessionSpec.viewData - payload for view-join event
      * @param {String} sessionSpec.viewIdDebugSuffix - suffix for viewIds to help debugging
      * @param {Number|String} sessionSpec.tps - ticks per second (can be overridden by `options.tps` or `urlOptions.tps`)
      * @param {Number} sessionSpec.autoSleep - number of seconds of being hidden to trigger dormancy (or 0 to disable)
@@ -433,7 +433,7 @@ export default class Controller {
      */
     async initFromSessionSpec(sessionSpec) {
         // If we add more options here, add them to SESSION_PARAMS in session.js
-        const { name: n, optionsFromUrl, persistentIdOptions, password, appId, apiKey, viewInfo, viewIdDebugSuffix } = sessionSpec;
+        const { name: n, optionsFromUrl, persistentIdOptions, password, appId, apiKey, viewData, viewIdDebugSuffix } = sessionSpec;
         const name = appId ? `${appId}/${n}` : n;
         // we don't care about the strength of the key derivation
         this.key = PBKDF2(password, "", { keySize: 256/32, hasher: algo.SHA1, iterations: 1 });
@@ -462,7 +462,7 @@ export default class Controller {
         const { developerId, token } = await this.verifyApiKey(apiKey, appId, persistentId);
         const { id, codeHash, computedCodeHash } = await hashSessionAndCode(persistentId, developerId, sessionParams, CROQUET_VERSION);
         if (!this.tove) this.tove = await this.encrypt(id);
-        if (viewInfo && !this.viewInfoEncrypted) this.viewInfoEncrypted = await this.encryptPayload(viewInfo);
+        if (viewData && !this.viewDataEncrypted) this.viewDataEncrypted = await this.encryptPayload(viewData);
         if (DEBUG.session) console.log(`Croquet session "${name}":
         sessionId=${id}${appId ? `
         persistentId=${persistentId}` : ""}
@@ -1162,17 +1162,17 @@ export default class Controller {
                 // create event
                 const scope = "__VM__";
                 const event = "__peers__";
-                const data = {entered: joined||[], exited: left||[], count: active, total};
-                for (const payload of data.entered.concat(data.exited)) {
-                    if (!payload.info) continue;
-                    payload.info = this.decryptPayload(payload.info);
+                const payload = {entered: joined||[], exited: left||[], count: active, total};
+                for (const user of payload.entered.concat(payload.exited)) {
+                    if (!user.data) continue;
+                    user.data = this.decryptPayload(user.data);
                 }
                 // create event message
                 selector = "publishFromModelOnly";
-                args = [scope, event, data];
+                args = [scope, event, payload];
                 // also immediately publish as view event, which this controller will
                 // have subscribed to (in its constructor).
-                viewDomain.handleEvent(this.viewId + ':__views__', data.count);
+                viewDomain.handleEvent(this.viewId + ':__views__', payload.count);
                 break;
             }
             case "tally": {
@@ -1621,7 +1621,7 @@ export default class Controller {
         const { tick, delay } = this.getTickAndMultiplier();
         const { name, codeHash, appId, apiKey: apiKeysWithBackend, persistentId, developerId, heraldUrl, rejoinLimit, autoSleep, computedCodeHash, location, flags } = this.sessionSpec;
         const apiKey = DEPIN ? 'hidden' : this.getBackend(apiKeysWithBackend).apiKey;
-        const user = this.viewInfoEncrypted ? { id: this.viewId, info: this.viewInfoEncrypted } :
+        const user = this.viewDataEncrypted ? { id: this.viewId, data: this.viewDataEncrypted } :
             location ? [this.viewId] : this.viewId;
 
         const args = {
@@ -1633,7 +1633,7 @@ export default class Controller {
             sdk: CROQUET_VERSION,   // for sign func
             developerId,            // for logging
             version: VERSION,       // protocol version
-            user,                   // viewId or [viewId] or { id, info }
+            user,                   // viewId or [viewId] or { id, data }
             location,               // enable location data in reflector
             ticks: { tick, delay },
             dormantDelay: autoSleep, // not used yet, but tells reflector this client is >= 0.5.1
