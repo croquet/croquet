@@ -1731,7 +1731,7 @@ export default class Controller {
 
     get deprecatedDefaultKey() {
         if (!DEPRECATED_DEFAULT_KEY) {
-            DEPRECATED_DEFAULT_KEY = PBKDF2("THIS SHOULDN'T BE IN LOGS", "", { keySize: 256/32 });
+            DEPRECATED_DEFAULT_KEY = PBKDF2("THIS SHOULDN'T BE IN LOGS", "", { keySize: 256/32, hasher: algo.SHA1, iterations: 1 });
         }
         return DEPRECATED_DEFAULT_KEY;
     }
