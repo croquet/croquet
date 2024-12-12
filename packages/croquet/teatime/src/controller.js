@@ -433,7 +433,7 @@ export default class Controller {
      */
     async initFromSessionSpec(sessionSpec) {
         // If we add more options here, add them to SESSION_PARAMS in session.js
-        const { name: n, optionsFromUrl, persistentIdOptions, password, appId, apiKey, viewData, viewIdDebugSuffix } = sessionSpec;
+        const { name: n, optionsFromUrl, persistentIdOptions, password, appId, apiKey, viewData, viewIdDebugSuffix, location } = sessionSpec;
         const name = appId ? `${appId}/${n}` : n;
         // we don't care about the strength of the key derivation
         this.key = PBKDF2(password, "", { keySize: 256/32, hasher: algo.SHA1, iterations: 1 });
@@ -452,10 +452,12 @@ export default class Controller {
             if (persistentIdOptions?.includes(key)) persistentParams[key] = option;
             else sessionParams[key] = option;
         }
-        // allow overriding versionId (for testing / reviving old sessions)
-        sessionParams.hashOverride = urlOptions.hashOverride || sessionSpec.hashOverride;
+        // if debugEvents or location are enabled, we want a different session
         const debugEvents = DEBUG.events || DEBUG.publish;
-        if (debugEvents) sessionParams.debugEvents = true;
+        if (debugEvents) sessionParams.__debugEvents = true;
+        if (location) sessionParams.__location = true;
+        // allow overriding versionId (for testing / reviving old sessions)
+        const hashOverride = urlOptions.hashOverride || sessionSpec.hashOverride;
         // now do the hashing, separately for persistent and session IDs`
         const persistentId = await hashNameAndOptions(name, persistentParams);
         // on DePIN, token is undefined
