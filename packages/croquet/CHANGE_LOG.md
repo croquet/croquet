@@ -4,6 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest @dev
 
+* 2.0.0-42 rename viewInfo to viewData, add types; hide some info from synch
 * 2.0.0-41 increase ICE timeout, fix PBKDF2 parameters (regression introduced in -33)
 * 2.0.0-40 add viewInfo arg for view-join
 * 2.0.0-39 fix node build
