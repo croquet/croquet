@@ -258,7 +258,9 @@ const empty_logger = pino({
 // but they are all children of the empty_logger to avoid duplication of
 // properties in the JSON which causes problems in StackDriver
 // (e.g. {scope: "session", scope: "connection"} arrives as {scope: "connect"})
-const global_logger = empty_logger.child({ scope: "process", hostIp: HOSTIP });
+const globalLogProps = {};
+if (!DEPIN) globalLogProps.hostIp = HOSTIP;
+const global_logger = empty_logger.child({ scope: "process", ...globalLogProps });
 // Logging out the initial start-up event message
 const walletMsg = WALLET ? ` for wallet ${WALLET}` : '';
 global_logger.notice({ event: "start", synchVersion: SYNCH_VERSION }, `synchronizer v${SYNCH_VERSION} started ${CLUSTER_LABEL} ${HOSTIP}${walletMsg}`);
@@ -434,7 +436,7 @@ async function startServerForDePIN() {
         }
     });
 
-    global_logger.info({ event: "ice-servers", iceServers }, `set ICE servers: ${JSON.stringify(iceServers)}`);
+    // global_logger.info({ event: "ice-servers", iceServers }, `set ICE servers: ${JSON.stringify(iceServers)}`);
 
     // note: API described at https://github.com/murat-dogan/node-datachannel/blob/c8197e28b39fd81f55818c0301995414fa877ff9/API.md
     // also see https://github.com/murat-dogan/node-datachannel/blob/c8197e28b39fd81f55818c0301995414fa877ff9/lib/index.d.ts
@@ -614,12 +616,12 @@ async function startServerForDePIN() {
                 switch (depinMsg.what) {
                     case "REGISTERED": {
                         proxyId = depinMsg.proxyId;
-                        const { registerRegion: newRegisterRegion, ip, lifeTraffic, lifePoints, timeoutSettings } = depinMsg;
+                        const { registerRegion: newRegisterRegion, ipHash, lifeTraffic, lifePoints, timeoutSettings } = depinMsg;
                         const shortProxyId = proxyId.slice(0, 8);
                         if (registerRegion && registerRegion !== newRegisterRegion) {
-                            global_logger.notice({ event: "registered", shortProxyId, oldRegisterRegion: registerRegion, registerRegion: newRegisterRegion, ip }, `proxy id ${shortProxyId} moved from ${registerRegion} to ${newRegisterRegion}`);
+                            global_logger.notice({ event: "registered", shortProxyId, oldRegisterRegion: registerRegion, registerRegion: newRegisterRegion, ipHash }, `proxy id ${shortProxyId} moved from ${registerRegion} to ${newRegisterRegion}`);
                         } else {
-                            global_logger.notice({ event: "registered", shortProxyId, registerRegion: newRegisterRegion, ip }, `proxy id ${shortProxyId} registered in ${newRegisterRegion}`);
+                            global_logger.notice({ event: "registered", shortProxyId, registerRegion: newRegisterRegion, ipHash }, `proxy id ${shortProxyId} registered in ${newRegisterRegion}`);
                         }
                         registerRegion = newRegisterRegion;
 
@@ -658,7 +660,7 @@ async function startServerForDePIN() {
                         // if there is a connected parent process (assumed to be Electron),
                         // give it some details now.
                         const electronMain = process.parentPort;
-                        electronMain?.postMessage({ what: 'syncDetails', ip, version: SYNCH_VERSION, region: registerRegion });
+                        electronMain?.postMessage({ what: 'syncDetails', ipHash, version: SYNCH_VERSION, region: registerRegion });
                         break;
                     }
                     case "SESSION": {
@@ -1205,7 +1207,7 @@ async function startServerForDePIN() {
                                     // the client's ip address as reported in Cloudflare's
                                     // CF-Connecting-IP header.
                                     const peerConnection = createPeerConnection(clientId, globalClientId, sessionId, sessionSocket);
-                                    peerConnection.mq_clientIp = depinMsg.ip;
+                                    peerConnection.mq_clientIpHash = depinMsg.ipHash;
                                     peerConnection.mq_iceStart = Date.now();
                                     peerConnection.setRemoteDescription(msg.sdp, msg.type);
                                     break;
@@ -1386,7 +1388,7 @@ async function startServerForDePIN() {
                     server.clients.set(globalClientId, client);
                     setUpClientHandlers(client); // adds 'message', 'close', 'error'
                     registerClientInSession(client, sessionId); // includes setting up logger
-                    client.logger.notice({ event: "start" }, `opened connection for client ${globalClientId} at ${peerConnection.mq_clientIp} after ${client.iceMS}ms with label "${label}"`);
+                    client.logger.notice({ event: "start" }, `opened connection for client ${globalClientId} at ${peerConnection.mq_clientIpHash} after ${client.iceMS}ms with label "${label}"`);
                     dataChannel.onMessage(msg => {
                         if (msg.startsWith('!pong')) {
                             const time = Number(msg.split('@')[1]);
@@ -1457,7 +1459,7 @@ async function startServerForDePIN() {
                         shortId: globalClientId.split(':')[1], // messy, but silly not to
                         // label: added by caller
                         scope: "connection",
-                        userIp: peerConnection.mq_clientIp,
+                        userIp: peerConnection.mq_clientIpHash, // on DePIN, always hashed
                         location,
                     }
                 };
@@ -2248,7 +2250,7 @@ async function JOIN(client, args) {
         url,
         sdk,
         heraldUrl,
-        allArgs: JSON.stringify(args),  //  BigQuery wants a specific schema, so don't simply log all args separately
+        allArgs: DEPIN ? '' : JSON.stringify(args),  //  BigQuery wants a specific schema, so don't simply log all args separately
         connectedFor,
     }, `JOIN ${shortSessionId} as ${client.meta.user} ${url}`);
 
@@ -2638,7 +2640,7 @@ function recordLatency(client, ms) {
     }
 
     // fine-grained latency by IP address
-    const userIp = client.meta.userIp;
+    const userIp = client.meta.userIp; // on DePIN, a hash
     let entry = Latencies.get(userIp);
     if (!entry) {
         // directly used as log entry meta data
