@@ -1626,7 +1626,7 @@ export default class Controller {
         const apiKey = DEPIN ? 'hiddenApiKey' : this.getBackend(specApiKey).apiKey;
         const appId = DEPIN ? 'hiddenAppId' : specAppId;
         const url = DEPIN ? 'hiddenUrl' : App.referrerURL();
-        const user = this.viewDataEncrypted ? { id: this.viewId, info: this.viewDataEncrypted } :
+        const user = this.viewDataEncrypted ? { id: this.viewId, data: this.viewDataEncrypted } :
             location ? [this.viewId] : this.viewId;
 
         const args = {
