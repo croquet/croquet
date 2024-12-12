@@ -134,7 +134,7 @@ export async function hashNameAndOptions(appIdAndName, options) {
 
 const logged = new Set();
 
-export async function hashSessionAndCode(persistentId, developerId, params, sdk_version) {
+export async function hashSessionAndCode(persistentId, developerId, params, hashOverride, sdk_version) {
     // codeHashes are from registered user models and constants (in hashPromises).
     // jul 2021: note that if multiple sessions are loaded in the same tab, *all*
     // sessions' models and constants registered up to this point will be taken into
@@ -157,10 +157,9 @@ export async function hashSessionAndCode(persistentId, developerId, params, sdk_
         codeHashCache[persistentId] = { codeHashes, computedCodeHash };
     }
     // let developer override hashing (at their own peril)
-    const { hashOverride, ...effectiveParams } = params;
     const effectiveCodeHash = hashOverride || computedCodeHash;
     /** identifies the session */
-    const id = await hashString(persistentId + '|' + developerId + stableStringify(effectiveParams) + effectiveCodeHash);
+    const id = await hashString(persistentId + '|' + developerId + stableStringify(params) + effectiveCodeHash);
     // log all hashes if debug=hashing
     if (debugHashing() && !logged.has(id)) {
         const charset = NODE ? 'utf-8' : [...document.getElementsByTagName('meta')].find(el => el.getAttribute('charset'));

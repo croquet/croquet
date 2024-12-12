@@ -460,7 +460,7 @@ export default class Controller {
         const persistentId = await hashNameAndOptions(name, persistentParams);
         // on DePIN, token is undefined
         const { developerId, token } = await this.verifyApiKey(apiKey, appId, persistentId);
-        const { id, codeHash, computedCodeHash } = await hashSessionAndCode(persistentId, developerId, sessionParams, CROQUET_VERSION);
+        const { id, codeHash, computedCodeHash } = await hashSessionAndCode(persistentId, developerId, sessionParams, hashOverride, CROQUET_VERSION);
         if (!this.tove) this.tove = await this.encrypt(id);
         if (viewData && !this.viewDataEncrypted) this.viewDataEncrypted = await this.encryptPayload(viewData);
         if (DEBUG.session) console.log(`Croquet session "${name}":
