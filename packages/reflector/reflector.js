@@ -3681,8 +3681,8 @@ function setUpClientHandlers(client) {
             // NB: if node-datachannel throws an error, it will be logged in full to
             // the console because of our initLogger settings.  but it is being caught,
             // as intended.
-            client.logger.error({ event: "send-failed", err }, `failed to send to client. ${err.code}: ${err.message}`);
-            client.safeClose(...REASON.RECONNECT);
+            client.logger.error({ event: "send-failed", err }, `send to client ${client.globalId} failed: ${err.message}`);
+            // client.safeClose(...REASON.RECONNECT); // no - let the connection drop, to be sure of triggering onClose
             return; // skip the bookkeeping
         }
 
