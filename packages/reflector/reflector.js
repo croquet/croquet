@@ -443,7 +443,7 @@ async function startServerForDePIN() {
 
     // eslint-disable-next-line import/no-unresolved
     const nodeDataChannel = await import('node-datachannel'); // can't (and in fact don't want to) use static require()
-    nodeDataChannel.initLogger('Warning'); // 'Verbose' | 'Debug' | 'Info' | 'Warning' | 'Error' | 'Fatal';
+    nodeDataChannel.initLogger('Error'); // 'Verbose' | 'Debug' | 'Info' | 'Warning' | 'Error' | 'Fatal';
     nodeDataChannel.preload();
 
     // Signaling connection
