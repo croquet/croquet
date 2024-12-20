@@ -1374,6 +1374,9 @@ async function startServerForDePIN() {
             function createPeerConnection(clientId, globalClientId) {
                 // triggered by receiving an ICE offer from a client
                 const signalToClient = signalObject => {
+                    // no point in signalling after the data channel is already set up
+                    if (server.clients.get(globalClientId)) return;
+
                     const msgObject = { id: clientId, what: "ICE_MSG", data: JSON.stringify(signalObject) };
                     session.sendToSessionRunner(msgObject);
                 };
