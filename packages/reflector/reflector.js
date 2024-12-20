@@ -2,7 +2,7 @@
 /* eslint-disable object-shorthand */
 /* eslint-disable prefer-arrow-callback */
 
-const SYNCH_VERSION = "2.1.4";
+const SYNCH_VERSION = "2.1.5";
 
 const os = require('node:os');
 const fs = require('node:fs');
@@ -331,6 +331,9 @@ const depinTimeouts = {
     AUDIT_INTERVAL: 60_000,
 };
 
+// this is used before we even talk to the registry
+const ICE_SERVER_FETCH_LIMIT = 10_000; // how long to wait before going ahead without TURN servers
+
 // generate a key that will be passed to the proxy so it can detect and reject
 // multiple independent connecting processes.
 const NODE_PROCESS_KEY = getRandomString(6);
@@ -402,41 +405,70 @@ async function startServerForDePIN() {
         }
     };
 
-    // in advance, get the iceServers that we'll be using on all connections
-    const iceServers = [];
-    const response = await fetch(process.env.ICE_SERVERS_URL);
-    // (previous) const response = await fetch(process.env.ICE_SERVERS_URL);
-    const iceServersRaw = await response.json();
+    // on 14 dec 2024 metered.ca had an outage that caused its server-fetching API to
+    // stop responding for most of a 7-hour period.  even if we never encounter
+    // precisely that situation again, it makes sense to guard against ephemeral
+    // problems.
+    let iceServers;
+    async function fetchOpenRelayServers() {
+        // in case of error, indefinitely retry with a 1-minute pause.
+        let foundServers = false;
+        const tryOnce = async () => {
+            try {
+                const response = await fetch(process.env.ICE_SERVERS_URL);
+                const iceServersRaw = await response.json();
 
-    /*
-    Examples of what the node-datachannel setup is expecting
-    STUN Server Example          : stun:stun.l.google.com:19302
-    TURN Server Example          : turn:USERNAME:PASSWORD@TURN_IP_OR_ADDRESS:PORT
-    TURN Server Example (TCP)    : turn:USERNAME:PASSWORD@TURN_IP_OR_ADDRESS:PORT?transport=tcp
-    TURN Server Example (TLS)    : turns:USERNAME:PASSWORD@TURN_IP_OR_ADDRESS:PORT
+                /*
+                Examples of what the node-datachannel setup is expecting
+                STUN Server Example          : stun:stun.l.google.com:19302
+                TURN Server Example          : turn:USERNAME:PASSWORD@TURN_IP_OR_ADDRESS:PORT
+                TURN Server Example (TCP)    : turn:USERNAME:PASSWORD@TURN_IP_OR_ADDRESS:PORT?transport=tcp
+                TURN Server Example (TLS)    : turns:USERNAME:PASSWORD@TURN_IP_OR_ADDRESS:PORT
 
-    ...so we need to do some transforming on this kind of response:
-    [   {"urls":"stun:stun.relay.metered.ca:80"},
-        {"urls":"turn:standard.relay.metered.ca:80","username":"d05d...f84e","credential":"b3Da...G6sI"},
-        {"urls":"turn:standard.relay.metered.ca:80?transport=tcp","username":"d05d...f84e","credential":"b3Da...G6sI"},
-        {"urls":"turn:standard.relay.metered.ca:443","username":"d05d...f84e","credential":"b3Da...G6sI"},
-        {"urls":"turns:standard.relay.metered.ca:443?transport=tcp","username":"d05d...f84e","credential":"b3Da...G6sI"}]
-    */
-    iceServersRaw.forEach(spec => {
-        if (typeof spec === "string") iceServers.push(spec);
-        else {
-            const { urls, username, credential } = spec;
-            if (!username) iceServers.push(urls);
-            else {
-                const splitUrl = urls.split(':');
-                const type = splitUrl.shift();
-                const newSpec = `${type}:${username}:${credential}@${splitUrl.join(':')}`;
-                iceServers.push(newSpec);
+                ...so we need to do some transforming on this kind of response:
+                [   {"urls":"stun:stun.relay.metered.ca:80"},
+                    {"urls":"turn:standard.relay.metered.ca:80","username":"d05d...f84e","credential":"b3Da...G6sI"},
+                    {"urls":"turn:standard.relay.metered.ca:80?transport=tcp","username":"d05d...f84e","credential":"b3Da...G6sI"},
+                    {"urls":"turn:standard.relay.metered.ca:443","username":"d05d...f84e","credential":"b3Da...G6sI"},
+                    {"urls":"turns:standard.relay.metered.ca:443?transport=tcp","username":"d05d...f84e","credential":"b3Da...G6sI"}]
+                */
+                const servers = [];
+                for (const spec of iceServersRaw) {
+                    if (typeof spec === "string") servers.push(spec);
+                    else {
+                        const { urls, username, credential } = spec;
+                        if (!username) servers.push(urls);
+                        else {
+                            const splitUrl = urls.split(':');
+                            const type = splitUrl.shift();
+                            const newSpec = `${type}:${username}:${credential}@${splitUrl.join(':')}`;
+                            servers.push(newSpec);
+                        }
+                    }
+                }
+                if (servers.length) {
+                    global_logger.info({ event: "ice-servers", iceServers }, `found ${servers.length} ICE servers`);
+                    foundServers = true;
+                    iceServers = servers; // set or replace the global
+                } else throw Error("no valid servers in list");
+            } catch (err) {
+                global_logger.error({ event: "no-ice-servers" }, `ICE server fetch failed: ${err.message || err}`);
             }
-        }
-    });
+        };
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+            await tryOnce();
+            if (foundServers) return;
 
-    // global_logger.info({ event: "ice-servers", iceServers }, `set ICE servers: ${JSON.stringify(iceServers)}`);
+            await new Promise(resolve => setTimeout(resolve, 60_000)); // and loop
+        }
+    }
+    const fetchLimiter = new Promise(resolve => setTimeout(resolve, ICE_SERVER_FETCH_LIMIT));
+    await Promise.race([fetchOpenRelayServers(), fetchLimiter]);
+    if (!iceServers) {
+        global_logger.warn({ event: "ice-servers-fallback" }, `ICE server list delayed; proceeding with fallback STUN server`);
+        iceServers = ['stun:stun.l.google.com:19302'];
+    }
 
     // note: API described at https://github.com/murat-dogan/node-datachannel/blob/c8197e28b39fd81f55818c0301995414fa877ff9/API.md
     // also see https://github.com/murat-dogan/node-datachannel/blob/c8197e28b39fd81f55818c0301995414fa877ff9/lib/index.d.ts
