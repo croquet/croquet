@@ -2,7 +2,7 @@
 /* eslint-disable object-shorthand */
 /* eslint-disable prefer-arrow-callback */
 
-const SYNCH_VERSION = "2.1.5";
+const SYNCH_VERSION = "2.1.6";
 
 const os = require('node:os');
 const fs = require('node:fs');
@@ -1686,7 +1686,7 @@ async function startServerForDePIN() {
             syncLifePoints,
             walletLifePoints,
             walletBalance,
-            ratingTimepoint: tallyPeriodStart,
+            ratingsTimepoint: tallyPeriodStart,
             availability,
             reliability,
             efficiency
