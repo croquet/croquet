@@ -311,6 +311,11 @@ let server;
 
 // ============ DEPIN-specific initialisation ===========
 
+const RATING_LEVEL = {
+    GOOD: 0,
+    OK: 1,
+    POOR: 2
+};
 const depinTimeouts = {
     // these can all be overridden by the registry, on successful registration
     PROXY_STATUS_DELAY: 10_000,       // update this often when running sessions
@@ -346,7 +351,14 @@ const depinCreditTallies = {
     syncLifePoints: -1,   // lifetime points earned
     walletLifePoints: -1, // lifetime points added to wallet via any synq
     walletBalance: -1     // balance of that wallet, in SOL
-}
+};
+const depinRatings = {
+    // report dummy values until initialised from the proxy
+    tallyPeriodStart: 0,
+    availability: RATING_LEVEL.OK,
+    reliability: RATING_LEVEL.OK,
+    efficiency: RATING_LEVEL.OK
+};
 let depinNumApps = 0;
 
 async function startServerForDePIN() {
@@ -737,6 +749,14 @@ async function startServerForDePIN() {
                         depinCreditTallies.syncLifePoints = lifePoints;
                         depinCreditTallies.walletLifePoints = walletPoints;
                         depinCreditTallies.walletBalance = walletBalance
+                        break;
+                    }
+                    case 'UPDATE_RATINGS': {
+                        const { tallyPeriodStart, availabilityRating, reliabilityRating, efficiencyRating } = depinMsg;
+                        depinRatings.tallyPeriodStart = tallyPeriodStart;
+                        depinRatings.availability = availabilityRating;
+                        depinRatings.reliability = reliabilityRating;
+                        depinRatings.efficiency = efficiencyRating;
                         break;
                     }
                     case 'STATS': {
@@ -1652,6 +1672,7 @@ async function startServerForDePIN() {
             if (ALL_SESSIONS.get(id)?.depinStats.canEarnCredit !== true) demoSessions++;
         }
         const { syncLifeTraffic, syncLifePoints, walletLifePoints, walletBalance } = depinCreditTallies;
+        const { tallyPeriodStart, availability, reliability, efficiency } = depinRatings;
         return {
             now: Date.now(),
             sessions: allSessions,
@@ -1665,6 +1686,10 @@ async function startServerForDePIN() {
             syncLifePoints,
             walletLifePoints,
             walletBalance,
+            ratingTimepoint: tallyPeriodStart,
+            availability,
+            reliability,
+            efficiency
         };
     }
 
