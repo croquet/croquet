@@ -752,11 +752,12 @@ async function startServerForDePIN() {
                         break;
                     }
                     case 'UPDATE_RATINGS': {
-                        const { tallyPeriodStart, availabilityRating, reliabilityRating, efficiencyRating } = depinMsg;
+                        const { tallyPeriodStart, availabilityRating, reliabilityRating, efficiencyRating, ratingBlurbs } = depinMsg;
                         depinRatings.tallyPeriodStart = tallyPeriodStart;
                         depinRatings.availability = availabilityRating;
                         depinRatings.reliability = reliabilityRating;
                         depinRatings.efficiency = efficiencyRating;
+                        depinRatings.blurbs = ratingBlurbs;
                         break;
                     }
                     case 'STATS': {
@@ -1672,7 +1673,7 @@ async function startServerForDePIN() {
             if (ALL_SESSIONS.get(id)?.depinStats.canEarnCredit !== true) demoSessions++;
         }
         const { syncLifeTraffic, syncLifePoints, walletLifePoints, walletBalance } = depinCreditTallies;
-        const { tallyPeriodStart, availability, reliability, efficiency } = depinRatings;
+        const { tallyPeriodStart, availability, reliability, efficiency, blurbs } = depinRatings;
         return {
             now: Date.now(),
             sessions: allSessions,
@@ -1687,6 +1688,7 @@ async function startServerForDePIN() {
             walletLifePoints,
             walletBalance,
             ratingsTimepoint: tallyPeriodStart,
+            ratingsBlurbs: blurbs,
             availability,
             reliability,
             efficiency
