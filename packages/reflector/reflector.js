@@ -1256,7 +1256,7 @@ async function startServerForDePIN() {
                             switch (msg.type) {
                                 case 'offer': {
                                     // supposedly always the first message through.
-                                    // @@ for now, every ICE negotiation message includes
+                                    // every ICE negotiation message includes a hash of
                                     // the client's ip address as reported in Cloudflare's
                                     // CF-Connecting-IP header.
                                     const peerConnection = createPeerConnection(clientId, globalClientId, sessionId, sessionSocket);
