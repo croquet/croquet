@@ -14,8 +14,6 @@ const prometheus = require('prom-client');
 const jwt = require('jsonwebtoken');
 const pino = require('pino');
 const { wrapErrorSerializer } = require('pino-std-serializers');
-let cleanStack = _stack => undefined; // until imported
-import('clean-stack').then(cs => { cleanStack = cs.default }); // require() disallowed because of ESM
 const { Storage } = require('@google-cloud/storage');
 const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
 
@@ -4066,3 +4064,68 @@ openToClients();
 
 exports.server = server;
 exports.Socket = WebSocket.Socket;
+
+
+// ======================= package imports that no longer work ==========================
+
+// from https://www.npmjs.com/package/clean-stack
+const getHomeDirectory = () => os.homedir().replace(/\\/g, '/');
+const escapeStringRegexp = string => {
+    // embedded by clean-stack, from https://www.npmjs.com/package/escape-string-regexp
+
+    // Escape characters with special meaning either inside or outside character sets.
+	// Use a simple backslash escape when it’s always valid, and a `\xnn` escape when the simpler form would be disallowed by Unicode patterns’ stricter grammar.
+	return string
+		.replace(/[|\\{}()[\]^$+*?.]/g, '\\$&')
+		.replace(/-/g, '\\x2d');
+};
+
+const extractPathRegex = /\s+at.*[(\s](.*)\)?/;
+const pathRegex = /^(?:(?:(?:node|node:[\w/]+|(?:(?:node:)?internal\/[\w/]*|.*node_modules\/(?:babel-polyfill|pirates)\/.*)?\w+)(?:\.js)?:\d+:\d+)|native)/;
+
+function cleanStack(stack, {pretty = false, basePath, pathFilter} = {}) {
+	const basePathRegex = basePath && new RegExp(`(file://)?${escapeStringRegexp(basePath.replace(/\\/g, '/'))}/?`, 'g');
+	const homeDirectory = pretty ? getHomeDirectory() : '';
+
+	if (typeof stack !== 'string') {
+		return undefined;
+	}
+
+	return stack.replace(/\\/g, '/')
+		.split('\n')
+		.filter(line => {
+			const pathMatches = line.match(extractPathRegex);
+			if (pathMatches === null || !pathMatches[1]) {
+				return true;
+			}
+
+			const match = pathMatches[1];
+
+			// Electron
+			if (
+				match.includes('.app/Contents/Resources/electron.asar')
+				|| match.includes('.app/Contents/Resources/default_app.asar')
+				|| match.includes('node_modules/electron/dist/resources/electron.asar')
+				|| match.includes('node_modules/electron/dist/resources/default_app.asar')
+			) {
+				return false;
+			}
+
+			return pathFilter
+				? !pathRegex.test(match) && pathFilter(match)
+				: !pathRegex.test(match);
+		})
+		.filter(line => line.trim() !== '')
+		.map(line => {
+			if (basePathRegex) {
+				line = line.replace(basePathRegex, '');
+			}
+
+			if (pretty) {
+				line = line.replace(extractPathRegex, (m, p1) => m.replace(p1, p1.replace(homeDirectory, '~')));
+			}
+
+			return line;
+		})
+		.join('\n');
+}
