@@ -1,0 +1,6 @@
+**/thirdparty/*
+**/thirdparty-patched/*
+**/*.shadama
+**/bundled/*
+croquet/libraries/packages/croquet/pub/*
+croquet/libraries/packages/croquet/cjs/*
