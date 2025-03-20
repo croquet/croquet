@@ -1,22 +1,32 @@
 {
   "name": "@croquet/reflector",
-  "version": "0.0.1",
-  "description": "A single Croquet reflector, handling websocket conections from Croquet clients",
+  "version": "2.0.0-0",
+  "description": "A Croquet reflector, keeping Croquet clients in synq",
   "main": "reflector.js",
-  "author": "Croquet Corporation",
-  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/croquet/croquet.git"
+  },
+  "author": "Croquet Labs",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/croquet/croquet/issues"
+  },
+  "homepage": "https://github.com/croquet/croquet#readme",
   "scripts": {
-    "start": "node reflector.js --standalone --storage=none --no-loglatency | node node_modules/pino-pretty/bin.js -Sctlm message",
+    "start": "node reflector.js --standalone --storage=none --no-loglatency | pino-pretty -Sctlm message",
     "test": "tape test.js | tap-nirvana"
   },
   "dependencies": {
     "@google-cloud/secret-manager": "^4.1.2",
     "@google-cloud/storage": "^6.5.0",
+    "bufferutil": "^4.0.6",
     "fast-crc32c": "^2.0.0",
     "jsonwebtoken": "^8.5.1",
     "node-fetch": "^2.6.7",
     "pino": "^8.5.0",
     "prom-client": "^14.1.0",
+    "utf-8-validate": "^5.0.9",
     "ws": "^8.8.1"
   },
   "devDependencies": {
@@ -25,9 +35,5 @@
     "tap-nirvana": "^1.1.0",
     "tape": "^5.6.0",
     "tape-catch": "^1.0.6"
-  },
-  "optionalDependencies": {
-    "bufferutil": "^4.0.6",
-    "utf-8-validate": "^5.0.9"
   }
 }

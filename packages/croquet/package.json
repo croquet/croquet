@@ -16,6 +16,16 @@
     "multi-user",
     "real-time"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/croquet/croquet.git"
+  },
+  "author": "Croquet Labs",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/croquet/croquet/issues"
+  },
+  "homepage": "https://github.com/croquet/croquet#readme",
   "browser": "cjs/croquet-croquet.js",
   "main": "cjs/croquet-croquet-node.js",
   "types": "types.d.ts",
@@ -99,8 +109,6 @@
       "quiet": false
     }
   },
-  "author": "Croquet Corporation",
-  "license": "SEE LICENSE.md",
   "unpkg": "pub/croquet.min.js",
   "jsdelivr": "pub/croquet.min.js",
   "dependencies": {
