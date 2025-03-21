@@ -3,9 +3,8 @@ version: '3'
 services:
   reflector:
     build:
-      context: ./dist
+      context: ./build
       dockerfile: Dockerfile
-    # image: reflector-standalone:20230524
     container_name: reflector
     environment:
       - CLUSTER_LABEL=$REFLECTOR_LABEL
@@ -13,6 +12,14 @@ services:
     networks:
       - croquet-network
 
+  fileserver:
+    image: nginx:mainline-alpine
+    container_name: fileserver
+    restart: unless-stopped
+    volumes:
+      - ./nginx-fileserver.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - croquet-network
   webserver:
     image: nginx:mainline-alpine
     container_name: webserver
@@ -20,10 +27,11 @@ services:
     ports:
       - $HOST_PORT:80
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx-webserver.conf:/etc/nginx/nginx.conf:ro
       - $WEB_ROOT_PATH:/var/croquet-in-a-box/web:ro
     depends_on:
       - reflector
+      - fileserver
     networks:
       - croquet-network
 

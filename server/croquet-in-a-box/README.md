@@ -2,7 +2,7 @@
 
 All-in-one package of reflector, file server, and web server.
 
-Implemented via Docker to be easily installed on various machines.
+Implemented via Docker Compose to be easily installed on various machines.
 
 ## Prerequisites
 
@@ -12,36 +12,15 @@ Git, Node, Docker (https://www.docker.com), Bash
 
     ./croquet-in-a-box.sh
 
-then go to http://localhost:8000/guardians/?reflector=ws://localhost:8000/reflector&files=http://localhost:8000/files/
+then go to http://localhost:8888/multiblaster/?box=/
 
-In general, append `?reflector=ws://localhost:8000/reflector&files=http://localhost:8000/files/` to the Croquet app url.
+The `box=/` argument is equivalent to `box=http://localhost:8888/` which in turn is equivalent to  `reflector=ws://localhost:8888/reflector&files=http://localhost:8888/files/` (Croquet clients before 2.0.0-43 needed the latter, since then the `box` shortcut works).
 
-Substitute your IP address for `localhost` to be able to join from other devices.
+Substitute your external IP address for `localhost` to be able to join from other devices.
 
 ## What it does
 
 As defined in the `docker-compose.yml` file it runs two docker images – one for the reflector, and one for the webserver/fileserver.
 
-On [localhost:8000](http://localhost:8000/) is the web server (serving the same files as croquet.io/dev),
-[localhost:8000/files](http://localhost:8000/files/) is the file server (upload and download), and [localhost:8000/reflector](http://localhost:8000/reflector) is the reflector.
-
-
-## WIP: running on GCP via Cloud Run
-
-prep:
-
-    gcloud config set project PROJECTNAME
-    gcloud config set run/region REGION
-
-reflector only:
-
-*   edit reflector to run on port 8080
-
-
-    cd dist/
-    gcloud run deploy reflector --source .
-
-fileserver
-
-    cd fileserver/
-    gcloud run deploy fileserver --source .
+On [localhost:8888](http://localhost:8888/) is the web server (serving the files in `../../website`),
+[localhost:8888/files](http://localhost:8888/files/) is the file server (upload and download), and [localhost:8888/reflector](http://localhost:8888/reflector) is the reflector.
