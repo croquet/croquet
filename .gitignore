@@ -1,6 +1,17 @@
+# Mac
 .DS_Store
+# JS
 build
 dist
 node_modules
+# VSCode
 .vscode
 *.code-workspace
+# Jekyll
+_site
+.sass-cache
+.jekyll-cache
+.jekyll-metadata
+vendor
+Gemfile.lock
+# new additions
